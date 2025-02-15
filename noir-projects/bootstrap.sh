@@ -20,7 +20,7 @@ function build {
 
   denoise prep
 
-  parallel --tag --line-buffered --joblog joblog.txt --halt now,fail=1 denoise "./{}/bootstrap.sh $cmd" ::: \
+  parallel --tag --line-buffered --joblog joblog.txt --halt now,fail=1 denoise "'./{}/bootstrap.sh $cmd'" ::: \
     mock-protocol-circuits \
     noir-protocol-circuits \
     noir-contracts
