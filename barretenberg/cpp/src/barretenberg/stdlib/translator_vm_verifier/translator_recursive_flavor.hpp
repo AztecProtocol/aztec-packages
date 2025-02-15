@@ -41,29 +41,9 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
 
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<NativeFlavor::Curve>;
 
-    // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
-    static constexpr bool USE_SHORT_MONOMIALS = TranslatorFlavor::USE_SHORT_MONOMIALS;
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = true;
     // None of this parameters can be changed
-
-    // How many mini_circuit_size polynomials are concatenated in one concatenated_*
-    static constexpr size_t CONCATENATION_GROUP_SIZE = NativeFlavor::CONCATENATION_GROUP_SIZE;
-
-    // The number of concatenated_* wires
-    static constexpr size_t NUM_CONCATENATED_WIRES = NativeFlavor::NUM_CONCATENATED_WIRES;
-
-    // Number of wires
-    static constexpr size_t NUM_WIRES = NativeFlavor::NUM_WIRES;
-
-    // The step in the DeltaRangeConstraint relation
-    static constexpr size_t SORT_STEP = NativeFlavor::SORT_STEP;
-
-    // The bitness of the range constraint
-    static constexpr size_t MICRO_LIMB_BITS = NativeFlavor::MICRO_LIMB_BITS;
-
-    // The limbs of the modulus we are emulating in the goblin translator. 4 binary 68-bit limbs and the prime one
-    static constexpr auto NEGATIVE_MODULUS_LIMBS = NativeFlavor::NEGATIVE_MODULUS_LIMBS;
 
     // Number of bits in a binary limb
     // This is not a configurable value. Relations are sepcifically designed for it to be 68
