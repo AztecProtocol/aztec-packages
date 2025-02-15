@@ -88,7 +88,7 @@ function check_toolchains {
     if ! command -v $util > /dev/null; then
       encourage_dev_container
       echo "$util not found."
-      echo "Installation: npm install --global $util"
+      echo "Installation: npm install --global $util -y"
       exit 1
     fi
   done
@@ -151,6 +151,9 @@ function build {
   denoise "git submodule update --init --recursive"
 
   check_toolchains
+
+  # Enable yarn with auto-confirmation
+  corepack enable yarn -y
 
   projects=(
     noir
