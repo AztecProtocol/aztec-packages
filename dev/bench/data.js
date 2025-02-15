@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739653503367,
+  "lastUpdate": 1739655262259,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "be382bc5ecf9bdea11ff26af104c8860472260d9",
-          "message": "feat(avm): restrict bytecode bytes (#11798)\n\nAdded \"range check\".",
-          "timestamp": "2025-02-07T10:53:05Z",
-          "tree_id": "f020449c2326567e1d33bdd8f49d84ae5bc99f88",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/be382bc5ecf9bdea11ff26af104c8860472260d9"
-        },
-        "date": 1738926598571,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19150.442951,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16302.132906 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 20766.060745999996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18438.789222 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4060.2140510000027,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3781.2978590000002 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 72747.636521,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 72747637000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14368.568916,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14368570000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2607070623,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2607070623 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 132828840,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 132828840 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3280,6 +3214,72 @@ window.BENCHMARK_DATA = {
             "value": 131687619,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 131687619 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mara@aztecprotocol.com",
+            "name": "maramihali",
+            "username": "maramihali"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6f771b9f55fdc568944e78b5ae05eeff25033b1e",
+          "message": "chore: structured polys in Translator (#12003)\n\nIn this PR:\r\n* renamed the `MINIMUM_MINI_CIRCUIT_SIZE`. Initially, the variable was\r\n2048 existed to determine the lower bound of the translator vm. In the\r\nfixed size VM work it became the upper_bound of the translator. Renamed\r\nthe variable to `FIXED_TRANSLATOR_VM_SIZE` and enforced statically that\r\nthis never gets set under 2048.\r\n* make the prover polynomials structured, so now the majority of\r\npolynomials in translator only have space allocated up to the mini\r\ncircuit size",
+          "timestamp": "2025-02-15T21:58:04+01:00",
+          "tree_id": "6df4557a6531f72aa2b31a51d7784bec8b804e0f",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/6f771b9f55fdc568944e78b5ae05eeff25033b1e"
+        },
+        "date": 1739655254316,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18189.39530600005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15915.337828 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18706.344808000038,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16251.708061000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3939.2020780001076,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3162.6268669999995 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55094.560113,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55094560000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10357.982311,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10357984000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1824159654,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1824159654 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 129649571,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 129649571 ns\nthreads: 1"
           }
         ]
       }
