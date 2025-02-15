@@ -4,7 +4,7 @@ source $ci3/source_redis
 
 # Ensure a command is passed
 if [ "$#" != 1 ]; then
-  echo "Usage: $0 <command>"
+  echo "Usage: $0 <command> (received: $0 $@)"
   exit 1
 fi
 
