@@ -53,9 +53,8 @@ TEST_F(TranslatorProvingKeyTests, InterleaveFull)
     params.gamma = gamma;
 
     // Create storage for polynomials
-    auto proving_key = std::make_shared<TranslatorFlavor::ProvingKey>(full_circuit_size);
-    TranslatorProvingKey key{ proving_key, mini_circuit_size };
-    TranslatorFlavor::ProverPolynomials& prover_polynomials = proving_key->polynomials;
+    TranslatorProvingKey key{ mini_circuit_size };
+    TranslatorFlavor::ProverPolynomials& prover_polynomials = key.proving_key->polynomials;
 
     // Fill in lagrange polynomials used in the permutation relation
     prover_polynomials.lagrange_first.at(0) = 1;
@@ -63,7 +62,7 @@ TEST_F(TranslatorProvingKeyTests, InterleaveFull)
 
     // Put random values in all the non-concatenated constraint polynomials used to range constrain the values
     auto fill_polynomial_with_random_14_bit_values = [&](auto& polynomial) {
-        for (size_t i = polynomial.start_index(); i < mini_circuit_size; i++) {
+        for (size_t i = polynomial.start_index(); i < polynomial.size(); i++) {
             polynomial.at(i) = engine.get_random_uint16() & ((1 << TranslatorFlavor::MICRO_LIMB_BITS) - 1);
         }
     };
