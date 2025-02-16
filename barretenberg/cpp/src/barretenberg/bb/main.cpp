@@ -1384,7 +1384,6 @@ int main(int argc, char* argv[])
         const std::string witness_path = get_option(args, "-w", "./target/witness.gz");
         const std::string proof_path = get_option(args, "-p", "./proofs/proof");
         const std::string vk_path = get_option(args, "-k", "./target/vk");
-        const std::string pk_path = get_option(args, "-r", "./target/pk");
 
         const uint32_t honk_recursion = static_cast<uint32_t>(stoi(get_option(args, "-h", "0")));
         debug("honk recursion is: ", honk_recursion);
