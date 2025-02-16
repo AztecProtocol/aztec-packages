@@ -36,7 +36,7 @@ jobs:
       - name: Validate External Changes
         if: github.event.pull_request.head.repo.full_name != github.repository
         run: |
-          set -opipefail
+          set -o pipefail
           if [ ${{contains(github.event.pull_request.labels.*.name, 'ci-external') || contains(github.event.pull_request.labels.*.name, 'ci-external-once')}} == 'false' ]; then
             echo "Error: External PRs need the 'ci-external' or 'ci-external-once' labels to run." && exit 1
           fi
@@ -123,7 +123,7 @@ jobs:
       - name: Validate External Changes
         if: github.event.pull_request.head.repo.full_name != github.repository
         run: |
-          set -opipefail
+          set -o pipefail
           if [ ${{contains(github.event.pull_request.labels.*.name, 'ci-external') || contains(github.event.pull_request.labels.*.name, 'ci-external-once')}} == 'false' ]; then
             echo "Error: External PRs need the 'ci-external' or 'ci-external-once' labels to run." && exit 1
           fi
