@@ -307,6 +307,11 @@ data:
     export FEE_JUICE_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.feeJuiceAddress }}
     export STAKING_ASSET_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.stakingAssetAddress }}
     export FEE_JUICE_PORTAL_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.feeJuicePortalAddress }}
+    export COIN_ISSUER_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.coinIssuerAddress }}
+    export REWARD_DISTRIBUTOR_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.rewardDistributorAddress }}
+    export GOVERNANCE_PROPOSER_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.governanceProposerAddress }}
+    export GOVERNANCE_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.governanceAddress }}
+    export SLASH_FACTORY_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.slashFactoryAddress }}
 {{- end }}
 ---
 # Headless service for StatefulSet DNS entries
