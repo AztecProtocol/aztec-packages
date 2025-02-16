@@ -11,11 +11,11 @@ case ${SYS:-} in
     ;;
   "client_ivc")
     cmd=prove_and_verify
-    flags+=" --scheme client_ivc ${INPUT_TYPE:+--input_type $INPUT_TYPE}"
+    flags+=" --scheme client_ivc ${INPUT_TYPE:---input_type compiletime_stack}"
     ;;
   "ultra_honk")
     cmd=prove_and_verify
-    flags+=" --scheme ultra_honk ${INPUT_TYPE:+--input_type $INPUT_TYPE}"
+    flags+=" --scheme ultra_honk ${INPUT_TYPE:---input_type compiletime_stack}"
     ;;
   *)
     cmd=prove_and_verify_$SYS
