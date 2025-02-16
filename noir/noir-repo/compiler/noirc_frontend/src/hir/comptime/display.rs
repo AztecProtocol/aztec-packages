@@ -6,7 +6,7 @@ use noirc_errors::Span;
 use crate::{
     ast::{
         ArrayLiteral, AsTraitPath, AssignStatement, BlockExpression, CallExpression,
-        CastExpression, ConstrainStatement, ConstructorExpression, Expression, ExpressionKind,
+        CastExpression, ConstrainExpression, ConstructorExpression, Expression, ExpressionKind,
         ForBounds, ForLoopStatement, ForRange, GenericTypeArgs, IfExpression, IndexExpression,
         InfixExpression, LValue, Lambda, LetStatement, Literal, MatchExpression,
         MemberAccessExpression, MethodCallExpression, Pattern, PrefixExpression, Statement,
@@ -445,19 +445,25 @@ impl<'value, 'interner> Display for ValuePrinter<'value, 'interner> {
             }
             Value::Zeroed(typ) => write!(f, "(zeroed {typ})"),
             Value::Type(typ) => write!(f, "{}", typ),
-            Value::Expr(ExprValue::Expression(expr)) => {
-                let expr = remove_interned_in_expression_kind(self.interner, expr.clone());
-                write!(f, "{}", expr)
-            }
-            Value::Expr(ExprValue::Statement(statement)) => {
-                write!(f, "{}", remove_interned_in_statement_kind(self.interner, statement.clone()))
-            }
-            Value::Expr(ExprValue::LValue(lvalue)) => {
-                write!(f, "{}", remove_interned_in_lvalue(self.interner, lvalue.clone()))
-            }
-            Value::Expr(ExprValue::Pattern(pattern)) => {
-                write!(f, "{}", remove_interned_in_pattern(self.interner, pattern.clone()))
-            }
+            Value::Expr(expr) => match expr.as_ref() {
+                ExprValue::Expression(expr) => {
+                    let expr = remove_interned_in_expression_kind(self.interner, expr.clone());
+                    write!(f, "{}", expr)
+                }
+                ExprValue::Statement(statement) => {
+                    write!(
+                        f,
+                        "{}",
+                        remove_interned_in_statement_kind(self.interner, statement.clone())
+                    )
+                }
+                ExprValue::LValue(lvalue) => {
+                    write!(f, "{}", remove_interned_in_lvalue(self.interner, lvalue.clone()))
+                }
+                ExprValue::Pattern(pattern) => {
+                    write!(f, "{}", remove_interned_in_pattern(self.interner, pattern.clone()))
+                }
+            },
             Value::TypedExpr(TypedExpr::ExprId(id)) => {
                 let hir_expr = self.interner.expression(id);
                 let expr = hir_expr.to_display_ast(self.interner, Span::default());
@@ -573,6 +579,12 @@ fn remove_interned_in_expression_kind(
                 ..*call
             }))
         }
+        ExpressionKind::Constrain(constrain) => ExpressionKind::Constrain(ConstrainExpression {
+            arguments: vecmap(constrain.arguments, |expr| {
+                remove_interned_in_expression(interner, expr)
+            }),
+            ..constrain
+        }),
         ExpressionKind::Constructor(constructor) => {
             ExpressionKind::Constructor(Box::new(ConstructorExpression {
                 fields: vecmap(constructor.fields, |(name, expr)| {
@@ -727,12 +739,6 @@ fn remove_interned_in_statement_kind(
             expression: remove_interned_in_expression(interner, let_statement.expression),
             r#type: remove_interned_in_unresolved_type(interner, let_statement.r#type),
             ..let_statement
-        }),
-        StatementKind::Constrain(constrain) => StatementKind::Constrain(ConstrainStatement {
-            arguments: vecmap(constrain.arguments, |expr| {
-                remove_interned_in_expression(interner, expr)
-            }),
-            ..constrain
         }),
         StatementKind::Expression(expr) => {
             StatementKind::Expression(remove_interned_in_expression(interner, expr))
