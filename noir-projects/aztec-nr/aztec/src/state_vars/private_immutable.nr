@@ -54,7 +54,7 @@ impl<Note, Context> PrivateImmutable<Note, Context> {
 
 impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     // docs:start:initialize
-    pub fn initialize<let N: u32>(self, note: &mut Note) -> NoteEmission<Note>
+    pub fn initialize<let N: u32>(self, note: Note) -> NoteEmission<Note>
     where
         Note: NoteInterface<N> + NullifiableNote,
     {
@@ -72,7 +72,12 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
         Note: NoteInterface<N> + NullifiableNote,
     {
         let storage_slot = self.storage_slot;
-        get_note(self.context, storage_slot).0
+        let retrieved_note = get_note(self.context, storage_slot).0;
+
+        // Because the notes obtained from PrivateImmutable are not meant to be nullified and get_note(...) function
+        // has already constrained the note (by pushing a read request to the context), we can return just the note
+        // and skip the additional data in RetrievedNote.
+        retrieved_note.note
     }
     // docs:end:get_note
 }

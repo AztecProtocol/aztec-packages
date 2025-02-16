@@ -1,7 +1,7 @@
 use crate::{
     context::PrivateContext,
     note::{
-        note_header::NoteHeader, note_interface::NoteInterface,
+        note_interface::NoteInterface, retrieved_note::RetrievedNote,
         utils::compute_note_hash_for_nullify,
     },
 };
@@ -17,7 +17,6 @@ use dep::protocol_types::{
 global MOCK_NOTE_LENGTH: u32 = 1;
 
 pub(crate) struct MockNote {
-    pub(crate) header: NoteHeader,
     pub(crate) value: Field,
 }
 
@@ -35,10 +34,19 @@ impl NullifiableNote for MockNote {
         )
     }
 
-    unconstrained fn compute_nullifier_without_context(self, storage_slot: Field) -> Field {
+    unconstrained fn compute_nullifier_without_context(
+        self,
+        storage_slot: Field,
+        contract_address: AztecAddress,
+        note_nonce: Field,
+    ) -> Field {
+        // We set the note_hash_counter to 0 as the note is not transient and the concept of transient note does
+        // not make sense in an unconstrained context.
+        let retrieved_note =
+            RetrievedNote { note: self, contract_address, nonce: note_nonce, note_hash_counter: 0 };
         // We don't use any kind of secret here since this is only a mock note and having it here would make tests
         // more cumbersome
-        let note_hash_for_nullify = compute_note_hash_for_nullify(self, storage_slot);
+        let note_hash_for_nullify = compute_note_hash_for_nullify(retrieved_note, storage_slot);
         poseidon2_hash_with_separator(
             [note_hash_for_nullify],
             GENERATOR_INDEX__NOTE_NULLIFIER as Field,
@@ -52,15 +60,7 @@ impl NoteInterface<MOCK_NOTE_LENGTH> for MockNote {
     }
 
     fn unpack_content(fields: [Field; MOCK_NOTE_LENGTH]) -> Self {
-        Self { value: fields[0], header: NoteHeader::empty() }
-    }
-
-    fn get_header(self) -> NoteHeader {
-        self.header
-    }
-
-    fn set_header(&mut self, header: NoteHeader) -> () {
-        self.header = header;
+        Self { value: fields[0] }
     }
 
     fn get_note_type_id() -> Field {
@@ -79,7 +79,7 @@ impl NoteInterface<MOCK_NOTE_LENGTH> for MockNote {
 
 impl Eq for MockNote {
     fn eq(self, other: Self) -> bool {
-        (self.header == other.header) & (self.value == other.value)
+        self.value == other.value
     }
 }
 
@@ -98,14 +98,17 @@ impl MockNoteBuilder {
         self
     }
 
-    pub(crate) fn build(self) -> MockNote {
-        let mut header = NoteHeader::empty();
+    pub(crate) fn build_note(self) -> MockNote {
+        MockNote { value: self.value }
+    }
 
-        if self.contract_address.is_some() {
-            header.contract_address = self.contract_address.unwrap();
+    pub(crate) fn build_retrieved_note(self) -> RetrievedNote<MockNote> {
+        RetrievedNote {
+            note: MockNote { value: self.value },
+            contract_address: self.contract_address.unwrap_or(AztecAddress::zero()),
+            nonce: 0,
+            note_hash_counter: 0,
         }
-
-        MockNote { value: self.value, header }
     }
 }
 

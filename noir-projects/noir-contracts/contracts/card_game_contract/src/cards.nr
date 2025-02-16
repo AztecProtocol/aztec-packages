@@ -1,4 +1,4 @@
-use dep::aztec::prelude::{NoteGetterOptions, NoteViewerOptions, PrivateContext};
+use dep::aztec::prelude::{NoteGetterOptions, NoteViewerOptions, PrivateContext, RetrievedNote};
 
 use dep::aztec::{
     context::UnconstrainedContext,
@@ -71,22 +71,22 @@ pub struct Deck<Context> {
 }
 
 pub fn filter_cards<let N: u32>(
-    notes: [Option<ValueNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    retrieved_notes: [Option<RetrievedNote<ValueNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     desired_cards: [Card; N],
-) -> [Option<ValueNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
+) -> [Option<RetrievedNote<ValueNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
     let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
 
     let mut found = [false; N];
 
-    for i in 0..notes.len() {
-        let note = notes[i];
-        if note.is_some() {
-            let card_note = CardNote::from_note(note.unwrap_unchecked());
+    for i in 0..retrieved_notes.len() {
+        let retrieved_note = retrieved_notes[i];
+        if retrieved_note.is_some() {
+            let card_note = CardNote::from_note(retrieved_note.unwrap_unchecked().note);
             for j in 0..N {
                 if !found[j]
                     & (card_note.card.strength == desired_cards[j].strength)
                     & (card_note.card.points == desired_cards[j].points) {
-                    selected[i] = note;
+                    selected[i] = retrieved_note;
                     found[j] = true;
                 }
             }
@@ -108,7 +108,7 @@ impl Deck<&mut PrivateContext> {
         let mut inserted_cards = &[];
         for card in cards {
             let mut card_note = CardNote::from_card(card, owner);
-            self.set.insert(&mut card_note.note).emit(encode_and_encrypt_note(
+            self.set.insert(card_note.note).emit(encode_and_encrypt_note(
                 self.set.context,
                 owner,
                 self.set.context.msg_sender(),

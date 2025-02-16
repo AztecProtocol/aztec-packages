@@ -28,9 +28,9 @@ pub contract EcdsaKAccount {
     #[initializer]
     fn constructor(signing_pub_key_x: [u8; 32], signing_pub_key_y: [u8; 32]) {
         let this = context.this_address();
-        let mut pub_key_note = EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
+        let pub_key_note = EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
 
-        storage.public_key.initialize(&mut pub_key_note).emit(encode_and_encrypt_note(
+        storage.public_key.initialize(pub_key_note).emit(encode_and_encrypt_note(
             &mut context,
             this,
             this,

@@ -1,7 +1,7 @@
 use dep::aztec::{
     context::PrivateContext,
     macros::notes::note,
-    note::{note_header::NoteHeader, note_interface::NullifiableNote},
+    note::note_interface::NullifiableNote,
     protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}},
 };
 
@@ -26,7 +26,12 @@ impl NullifiableNote for TestNote {
         0
     }
 
-    unconstrained fn compute_nullifier_without_context(_self: Self, _storage_slot: Field) -> Field {
+    unconstrained fn compute_nullifier_without_context(
+        _self: Self,
+        _storage_slot: Field,
+        _contract_address: AztecAddress,
+        _note_nonce: Field,
+    ) -> Field {
         // This note is expected to be shared between users and for this reason can't be nullified using a secret.
         0
     }
@@ -34,7 +39,7 @@ impl NullifiableNote for TestNote {
 
 impl TestNote {
     pub fn new(value: Field) -> Self {
-        TestNote { value, header: NoteHeader::empty() }
+        TestNote { value }
     }
 }
 
@@ -55,6 +60,6 @@ impl Packable<1> for TestNote {
     }
 
     fn unpack(fields: [Field; 1]) -> Self {
-        TestNote { value: fields[0], header: NoteHeader::empty() }
+        TestNote { value: fields[0] }
     }
 }

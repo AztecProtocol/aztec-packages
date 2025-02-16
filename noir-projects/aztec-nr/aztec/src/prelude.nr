@@ -3,9 +3,9 @@ pub use crate::{
     context::{PrivateContext, PublicContext, ReturnsHash},
     note::{
         note_getter_options::NoteGetterOptions,
-        note_header::NoteHeader,
         note_interface::{NoteInterface, NullifiableNote},
         note_viewer_options::NoteViewerOptions,
+        retrieved_note::RetrievedNote,
         utils::compute_note_hash_and_optionally_a_nullifier as utils_compute_note_hash_and_optionally_a_nullifier,
     },
     state_vars::{

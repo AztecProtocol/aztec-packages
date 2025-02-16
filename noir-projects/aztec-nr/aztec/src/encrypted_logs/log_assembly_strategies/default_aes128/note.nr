@@ -5,7 +5,9 @@ use crate::{
         ecdh_shared_secret::derive_ecdh_shared_secret_using_aztec_address,
         ephemeral::generate_ephemeral_key_pair,
     },
-    note::{note_emission::NoteEmission, note_interface::NoteInterface},
+    note::{
+        note_emission::NoteEmission, note_interface::NoteInterface, retrieved_note::RetrievedNote,
+    },
     oracle::{
         notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
         random::random,
@@ -201,12 +203,7 @@ pub(crate) fn get_arr_of_size__log_bytes__from_PT<let PT: u32>() -> [u8; (((PT +
 /********************************************************/
 
 // TODO: it feels like this existence check is in the wrong place. In fact, why is it needed at all? Under what circumstances have we found a non-existent note being emitted accidentally?
-fn assert_note_exists<Note, let N: u32>(context: PrivateContext, note: Note)
-where
-    Note: NoteInterface<N>,
-{
-    let note_header = note.get_header();
-    let note_hash_counter = note_header.note_hash_counter;
+fn assert_note_exists<let N: u32>(context: PrivateContext, note_hash_counter: u32) {
     // TODO(#8589): use typesystem to skip this check when not needed
     let note_exists =
         context.note_hashes.storage().any(|n: NoteHash| n.counter == note_hash_counter);
@@ -226,7 +223,6 @@ where
 {
     let packed_note = note.pack_content();
 
-    let note_header = note.get_header();
     let storage_slot_bytes: [u8; 32] = storage_slot.to_be_bytes();
 
     // TODO(#10952): The following can be reduced to 7 bits
@@ -441,9 +437,8 @@ where
     |e: NoteEmission<Note>| {
         let note = e.note;
         let storage_slot = e.storage_slot;
-        assert_note_exists(*context, note);
-
-        let note_hash_counter = note.get_header().note_hash_counter;
+        let note_hash_counter = e.note_hash_counter;
+        assert_note_exists(*context, note_hash_counter);
 
         let encrypted_log = compute_log(*context, note, storage_slot, recipient, sender);
         context.emit_raw_note_log(encrypted_log, note_hash_counter);
@@ -465,10 +460,11 @@ where
     |e: NoteEmission<Note>| {
         let note = e.note;
         let storage_slot = e.storage_slot;
-        assert_note_exists(*context, note);
+        let note_hash_counter = e.note_hash_counter;
 
-        let note_hash_counter = note.get_header().note_hash_counter;
+        assert_note_exists(*context, note_hash_counter);
 
+        //   Unconstrained logs have both their content and encryption unconstrained - it could occur that the
         //   Unconstrained logs have both their content and encryption unconstrained - it could occur that the
         // recipient is unable to decrypt the payload.
         //   Regarding the note hash counter, this is used for squashing. The kernel assumes that a given note can have
@@ -503,7 +499,7 @@ mod test {
         ); // This is an address copied to match the typescript one.
 
         let storage_slot = 42;
-        let note = MockNote::new(1234).contract_address(context.this_address()).build();
+        let note = MockNote::new(1234).build_note();
         let contract_address = context.this_address();
 
         // All the values in this test were copied over from `encrypted_log_payload.test.ts`

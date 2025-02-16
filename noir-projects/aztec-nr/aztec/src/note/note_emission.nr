@@ -5,11 +5,12 @@
 pub struct NoteEmission<Note> {
     pub note: Note,
     pub storage_slot: Field,
+    pub note_hash_counter: u32, // a note_hash_counter of 0 means non-transient
 }
 
 impl<Note> NoteEmission<Note> {
-    pub fn new(note: Note, storage_slot: Field) -> Self {
-        Self { note, storage_slot }
+    pub fn new(note: Note, storage_slot: Field, note_hash_counter: u32) -> Self {
+        Self { note, storage_slot, note_hash_counter }
     }
 
     pub fn emit<Env>(self, _emit: fn[Env](Self) -> ()) {

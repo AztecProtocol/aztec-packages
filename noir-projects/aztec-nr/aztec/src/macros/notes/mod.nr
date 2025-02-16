@@ -1,12 +1,10 @@
-use crate::{note::{note_getter_options::PropertySelector, note_header::NoteHeader}, prelude::Point};
+use crate::{note::note_getter_options::PropertySelector, prelude::Point};
 use protocol_types::meta::{generate_deserialize_from_fields, generate_serialize_to_fields};
 use std::{
     collections::umap::UHashMap,
     hash::{BuildHasherDefault, derive_generators, poseidon2::Poseidon2Hasher},
     meta::{typ::fresh_type_variable, type_of, unquote},
 };
-
-comptime global NOTE_HEADER_TYPE: Type = type_of(NoteHeader::empty());
 
 /// A map from note type to (note_struct_definition, note_packed_len, note_type_id, fields).
 /// `fields` is an array of tuples where each tuple contains the name of the field/struct member (e.g. `amount`
@@ -46,14 +44,6 @@ comptime fn get_next_note_type_id() -> Field {
 ///         ...
 ///     }
 ///
-///     fn set_header(&mut self, header: NoteHeader) {
-///         ...
-///     }
-///
-///     fn get_header(self) -> NoteHeader {
-///         ...
-///     }
-///
 ///     fn compute_note_hash(self, storage_slot: Field) -> Field {
 ///         ...
 ///     }
@@ -84,9 +74,9 @@ comptime fn generate_note_interface(
     let packing_enabled = true;
 
     // First we compute note content serialization. We do that by passing the whole note struct
-    // to the `generate_serialize_to_fields(...)` and omitting the header.
+    // to the `generate_serialize_to_fields(...)`.
     let (content_fields_list, content_aux_vars_list) =
-        generate_serialize_to_fields(quote { self }, typ, &[quote {self.header}], packing_enabled);
+        generate_serialize_to_fields(quote { self }, typ, &[], packing_enabled);
 
     // If there are `aux_vars` we need to join them with `;` and add a trailing `;` to the joined string.
     let content_aux_vars = if content_aux_vars_list.len() > 0 {
@@ -103,8 +93,6 @@ comptime fn generate_note_interface(
         typ,
         quote { packed_content }, // "packed_content" is argument of NoteInterface::unpack_content
         0,
-        quote {header},
-        quote { aztec::note::note_header::NoteHeader::empty() },
         packing_enabled,
     );
 
@@ -141,14 +129,6 @@ comptime fn generate_note_interface(
 
             fn get_note_type_id() -> Field {
                 $note_type_id
-            }
-
-            fn set_header(&mut self, header: $NOTE_HEADER_TYPE) {
-                self.header = header;
-            }
-
-            fn get_header(self) -> $NOTE_HEADER_TYPE {
-                self.header
             }
 
             fn compute_note_hash(self, storage_slot: Field) -> Field {
@@ -191,19 +171,17 @@ comptime fn generate_note_properties(s: StructDefinition) -> Quoted {
     let struct_name = f"{name}Properties".quoted_contents();
 
     let property_selector_type = type_of(PropertySelector { index: 0, offset: 0, length: 0 });
-    let note_header_type: Type = type_of(NoteHeader::empty());
 
-    let non_header_fields =
-        s.fields_as_written().filter(|(_, typ): (Quoted, Type)| typ != note_header_type);
+    let note_fields = s.fields_as_written();
 
-    let properties_types = non_header_fields
+    let properties_types = note_fields
         .map(|(name, _): (Quoted, Type)| quote { pub $name: $property_selector_type })
         .join(quote {,});
 
     // TODO #8694: Properly handle non-field types https://github.com/AztecProtocol/aztec-packages/issues/8694
     let mut properties_list = &[];
-    for i in 0..non_header_fields.len() {
-        let (name, _) = non_header_fields[i];
+    for i in 0..note_fields.len() {
+        let (name, _) = note_fields[i];
         properties_list = properties_list.push_back(
             quote { $name: aztec::note::note_getter_options::PropertySelector { index: $i, offset: 0, length: 32 } },
         );
@@ -548,7 +526,7 @@ comptime fn generate_setup_payload(
 /// Generates setup log plaintext for a given note struct `s`. The setup log plaintext is computed by serializing
 /// storage slot from target function arguments, note type id from the note struct `s` and the fixed fields. The fixed
 /// fields are obtained by passing the whole note struct to the `generate_serialize_to_fields(...)` function but omitting the
-/// `NoteHeader` and the nullable fields.
+/// nullable fields.
 comptime fn get_setup_log_plaintext_body(
     s: StructDefinition,
     log_plaintext_length: u32,
@@ -557,10 +535,8 @@ comptime fn get_setup_log_plaintext_body(
     let name = s.name();
 
     // Now we compute serialization of the fixed fields. We do that by passing the whole note struct
-    // to the generate_serialize_to_fields function but we omit the NoteHeader and the nullable fields.
-    let to_omit = indexed_nullable_fields.map(|(name, _, _): (Quoted, Type, u32)| name).push_back(
-        quote { header },
-    );
+    // to the generate_serialize_to_fields function but we omit the nullable fields.
+    let to_omit = indexed_nullable_fields.map(|(name, _, _): (Quoted, Type, u32)| name);
     let (fields_list, aux_vars) =
         generate_serialize_to_fields(quote { }, s.as_type(), to_omit, true);
 
@@ -678,11 +654,8 @@ comptime fn generate_finalization_payload(
     let finalization_payload_name = f"{name}FinalizationPayload".quoted_contents();
 
     // We compute serialization of the nullable fields which are to be emitted as a public log. We do that by
-    // passing the whole note struct to the `generate_serialize_to_fields(...)` function but we omit the `NoteHeader` and
-    // the fixed fields.
-    let to_omit = indexed_fixed_fields.map(|(name, _, _): (Quoted, Type, u32)| name).push_back(
-        quote { header },
-    );
+    // passing the whole note struct to the `generate_serialize_to_fields(...)` function but we omit the fixed fields.
+    let to_omit = indexed_fixed_fields.map(|(name, _, _): (Quoted, Type, u32)| name);
     let (nullable_fields_list, aux_vars) =
         generate_serialize_to_fields(quote { }, s.as_type(), to_omit, true);
 
@@ -904,12 +877,10 @@ comptime fn index_note_fields(
     let mut counter: u32 = 0;
     for field in s.fields_as_written() {
         let (name, typ) = field;
-        if (typ != NOTE_HEADER_TYPE) {
-            if nullable_fields.all(|field| field != name) {
-                indexed_fixed_fields = indexed_fixed_fields.push_back((name, typ, counter));
-            } else {
-                indexed_nullable_fields = indexed_nullable_fields.push_back((name, typ, counter));
-            }
+        if nullable_fields.all(|field| field != name) {
+            indexed_fixed_fields = indexed_fixed_fields.push_back((name, typ, counter));
+        } else {
+            indexed_nullable_fields = indexed_nullable_fields.push_back((name, typ, counter));
         }
         let (serialization_fields, _) = generate_serialize_to_fields(name, typ, &[], true);
         // Each struct member can occupy multiple fields so we need to increment the counter accordingly
@@ -918,17 +889,7 @@ comptime fn index_note_fields(
     (indexed_fixed_fields, indexed_nullable_fields)
 }
 
-/// Injects `NoteHeader` to the note struct if not present.
-comptime fn inject_note_header(s: StructDefinition) {
-    let filtered_header =
-        s.fields_as_written().filter(|(_, typ): (Quoted, Type)| typ == NOTE_HEADER_TYPE);
-    if (filtered_header.len() == 0) {
-        let new_fields = s.fields_as_written().push_back((quote { header }, NOTE_HEADER_TYPE));
-        s.set_fields(new_fields);
-    }
-}
-
-/// Injects `NoteHeader` to the note struct `s` if not present and generates the following:
+/// Generates the following:
 /// - NoteTypeProperties
 /// - SetupPayload
 /// - FinalizationPayload
@@ -946,9 +907,6 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
     // We separate struct members into fixed ones and nullable ones and we store info about the start index of each
     // member in the packed note array.
     let (indexed_fixed_fields, indexed_nullable_fields) = index_note_fields(s, nullable_fields);
-
-    // We inject NoteHeader if it's not present in the note struct.
-    inject_note_header(s);
 
     let note_properties = generate_note_properties(s);
     let note_type_id = get_next_note_type_id();
@@ -981,7 +939,7 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
     }
 }
 
-/// Injects `NoteHeader` to the note struct if not present and generates the following:
+/// Generates the following:
 /// - NoteTypeProperties
 /// - NoteInterface trait implementation
 /// - Registers the note in the global `NOTES` map.
@@ -989,9 +947,6 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
 /// For more details on the generated code, see the individual functions.
 pub comptime fn note(s: StructDefinition) -> Quoted {
     let (indexed_fixed_fields, indexed_nullable_fields) = index_note_fields(s, &[]);
-
-    // We inject NoteHeader if it's not present in the note struct.
-    inject_note_header(s);
 
     let note_properties = generate_note_properties(s);
     let note_type_id = get_next_note_type_id();
@@ -1015,14 +970,11 @@ pub comptime fn note(s: StructDefinition) -> Quoted {
     }
 }
 
-/// Injects `NoteHeader` to the note struct if not present and generates the following:
+/// Generates the following:
 /// - NoteTypeProperties
 ///
 /// For more details on the generated code, see the individual functions.
 pub comptime fn note_custom_interface(s: StructDefinition) -> Quoted {
-    // We inject NoteHeader if it's not present in the note struct.
-    inject_note_header(s);
-
     let note_properties = generate_note_properties(s);
     let note_type_id = get_next_note_type_id();
     let serialized_len_type = fresh_type_variable();
