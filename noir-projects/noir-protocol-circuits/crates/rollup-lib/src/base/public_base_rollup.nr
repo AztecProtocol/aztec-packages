@@ -175,8 +175,7 @@ mod tests {
             MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
             MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTES_PREFIX, NULLIFIERS_PREFIX,
             PRIVATE_LOG_SIZE_IN_FIELDS, PRIVATE_LOGS_PREFIX, PUBLIC_DATA_UPDATE_REQUESTS_PREFIX,
-            PUBLIC_LOG_SIZE_IN_FIELDS, PUBLIC_LOGS_PREFIX, REVERT_CODE_PREFIX, TUBE_VK_INDEX,
-            TX_FEE_PREFIX, TX_START_PREFIX,
+            PUBLIC_LOGS_PREFIX, REVERT_CODE_PREFIX, TUBE_VK_INDEX, TX_FEE_PREFIX, TX_START_PREFIX,
         },
         data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::silo_l2_to_l1_message,
@@ -188,8 +187,9 @@ mod tests {
             merkle_tree_utils::NonEmptyMerkleTree,
         },
         traits::{Empty, Hash, Serialize},
-        utils::{arrays::array_concat, field::field_from_bytes},
+        utils::{arrays::{array_concat, find_index_hint_from_end}, field::field_from_bytes},
     };
+    use types::constants::PUBLIC_LOG_DATA_SIZE_IN_FIELDS;
 
     struct NullifierInsertion {
         existing_index: u32,
@@ -411,21 +411,6 @@ mod tests {
         let NUM_CC_LOGS = 1;
         let PUB_DATA_SLOT = 25;
         let PUB_DATA_VALUE = 60;
-        let TOTAL_BLOB_FIELDS = 3 // revert code, tx hash and tx fee
-            + NUM_NOTES
-            + 1 // notes and prefix
-            + NUM_NULLIFIERS
-            + 1 // nullifiers and prefix
-            + NUM_MSGS
-            + 1 // L2 to L1 msgs and prefix
-            + NUM_PUB_LOGS * PUBLIC_LOG_SIZE_IN_FIELDS
-            + 1 // public logs and prefix
-            + NUM_CC_LOGS
-            + 1 // contract class logs and prefix
-            + 2
-            + 1 // single public data update (2 fields) and prefix
-            + NUM_PRIV_EVENT_LOGS * PRIVATE_LOG_SIZE_IN_FIELDS
-            + 1; // private logs and prefix
         let tx_fee = 100_000;
         let mut builder = PublicBaseRollupInputsBuilder::new();
         builder.transaction_fee = tx_fee;
@@ -448,31 +433,20 @@ mod tests {
             0, PublicDataTreeLeaf { slot: PUB_DATA_SLOT, value: PUB_DATA_VALUE },
         ));
         builder.tube_data.append_private_logs(NUM_PRIV_EVENT_LOGS);
-        builder.avm_data.append_public_logs(NUM_PUB_LOGS);
+        for i in 0..NUM_PUB_LOGS {
+            // manually adding to test appending logs with trailing zeros
+            let fields = [(2 * i) as Field, (2 * i + 1) as Field, (2 * i + 2) as Field];
+            builder.avm_data.add_public_log(array_concat(
+                fields,
+                [0; PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 3 /* = fields.len() */],
+            ));
+        }
         // Below will only work with NUM_CC_LOGS=1
         builder.tube_data.add_contract_class_log_hash(1, 2);
         let inputs = builder.build_inputs();
         let outputs = inputs.execute();
 
         let mut reconstructed_tx_effects = [0; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS];
-        // Initial field = TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
-        // revert code = 0
-        let total_blob_fields_bytes = (TOTAL_BLOB_FIELDS as Field).to_be_bytes::<2>();
-        reconstructed_tx_effects[0] = field_from_bytes(
-            array_concat(
-                TX_START_PREFIX.to_be_bytes::<8>(),
-                [
-                    0,
-                    total_blob_fields_bytes[0],
-                    total_blob_fields_bytes[1],
-                    0,
-                    REVERT_CODE_PREFIX,
-                    0,
-                    0,
-                ],
-            ),
-            true,
-        );
         // tx hash
         reconstructed_tx_effects[1] = inputs.tube_data.public_inputs.hash();
         // tx fee
@@ -531,17 +505,27 @@ mod tests {
         }
         offset += total_private_logs_len;
         // public logs
-        let public_logs_prefix =
-            encode_blob_prefix(PUBLIC_LOGS_PREFIX, NUM_PUB_LOGS * PUBLIC_LOG_SIZE_IN_FIELDS);
+        let total_public_logs_len = builder
+            .avm_data
+            .public_logs
+            .storage()
+            .map(|l| find_index_hint_from_end(l.serialize(), |f| f != 0))
+            .fold(0, |acc, len| acc + len + if len == 0 { 0 } else { 1 });
+        let public_logs_prefix = encode_blob_prefix(PUBLIC_LOGS_PREFIX, total_public_logs_len);
         reconstructed_tx_effects[offset] = public_logs_prefix;
         offset += 1;
         for i in 0..NUM_PUB_LOGS {
             let log = builder.avm_data.public_logs.storage()[i].serialize();
-            for j in 0..PUBLIC_LOG_SIZE_IN_FIELDS {
-                reconstructed_tx_effects[offset + i * PUBLIC_LOG_SIZE_IN_FIELDS + j] = log[j];
+            let log_len = find_index_hint_from_end(log, |f| f != 0);
+            if log_len != 0 {
+                reconstructed_tx_effects[offset] = log_len as Field;
+                offset += 1;
+            }
+            for j in 0..log_len {
+                reconstructed_tx_effects[offset] = log[j];
+                offset += 1;
             }
         }
-        offset += NUM_PUB_LOGS * PUBLIC_LOG_SIZE_IN_FIELDS;
         // cc logs
         let contract_class_logs_prefix =
             encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, NUM_CC_LOGS);
@@ -554,8 +538,16 @@ mod tests {
         }
         offset += NUM_CC_LOGS;
 
-        // Sanity check
-        assert(offset == TOTAL_BLOB_FIELDS);
+        // Initial field = TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
+        // revert code = 0
+        let length_bytes = (offset as Field).to_be_bytes::<2>();
+        reconstructed_tx_effects[0] = field_from_bytes(
+            array_concat(
+                TX_START_PREFIX.to_be_bytes::<8>(),
+                [0, length_bytes[0], length_bytes[1], 0, REVERT_CODE_PREFIX, 0, 0],
+            ),
+            true,
+        );
 
         let mut expected_sponge = outputs.start_sponge_blob;
         expected_sponge.absorb(reconstructed_tx_effects, offset);

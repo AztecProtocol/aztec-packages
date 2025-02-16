@@ -376,8 +376,12 @@ export class TxEffect {
       flattened.push(...this.privateLogs.map(l => l.fields).flat());
     }
     if (this.publicLogs.length) {
-      flattened.push(this.toPrefix(PUBLIC_LOGS_PREFIX, this.publicLogs.length * PUBLIC_LOG_SIZE_IN_FIELDS));
-      flattened.push(...this.publicLogs.map(l => l.toFields()).flat());
+      const totalLogLen = this.publicLogs.reduce(
+        (total, log) => total + (log.getEmittedLength() == 0 ? 0 : log.getEmittedLength() + 1),
+        0,
+      );
+      flattened.push(this.toPrefix(PUBLIC_LOGS_PREFIX, totalLogLen));
+      flattened.push(...this.publicLogs.flatMap(l => [new Fr(l.getEmittedLength()), ...l.getEmittedFields()]));
     }
     // TODO(#8954): When logs are refactored into fields, we will append the values here
     // Currently appending the single log hash as an interim solution
@@ -446,7 +450,6 @@ export class TxEffect {
           break;
         }
         case PRIVATE_LOGS_PREFIX: {
-          // TODO(Miranda): squash log 0s in a nested loop and add len prefix?
           ensureEmpty(effect.privateLogs);
           const flatPrivateLogs = reader.readFieldArray(length);
           for (let i = 0; i < length; i += PRIVATE_LOG_SIZE_IN_FIELDS) {
@@ -457,8 +460,13 @@ export class TxEffect {
         case PUBLIC_LOGS_PREFIX: {
           ensureEmpty(effect.publicLogs);
           const flatPublicLogs = reader.readFieldArray(length);
-          for (let i = 0; i < length; i += PUBLIC_LOG_SIZE_IN_FIELDS) {
-            effect.publicLogs.push(PublicLog.fromFields(flatPublicLogs.slice(i, i + PUBLIC_LOG_SIZE_IN_FIELDS)));
+          let i = 0;
+          while (i < length) {
+            const logLen = flatPublicLogs[i++].toNumber();
+            const logFields = flatPublicLogs.slice(i, (i += logLen));
+            effect.publicLogs.push(
+              PublicLog.fromFields(logFields.concat(new Array(PUBLIC_LOG_SIZE_IN_FIELDS - logLen).fill(Fr.ZERO))),
+            );
           }
           break;
         }
