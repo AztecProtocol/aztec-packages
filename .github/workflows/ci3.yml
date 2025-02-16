@@ -23,16 +23,10 @@ concurrency:
 jobs:
   ci-amd64:
     runs-on: ubuntu-latest
-    # condition:
-    #   - Always allow 'push' and 'workflow_dispatch' jobs.
-    #   - Otherwise, only run pull_request events on internal PRs and pull_request_target on external PRs.
+    # - Only trigger on pull_request_target for forks and never trigger from pull_request_target if not a fork.
     if: >
-      github.event_name == 'push' ||
-      github.event_name == 'workflow_dispatch' ||
-      (
-        (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
-        (github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository)
-      )
+      (github.event.repository.fork == false && github.event_name != 'pull_request_target') ||
+      (github.event.repository.fork && github.event_name == 'pull_request_target')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,9 +34,10 @@ jobs:
           # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Validate External Changes
-        if: github.event_name == 'pull_request_target'
+        if: github.event.repository.fork
         run: |
-          git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1
+          [ ${{contains(github.event.pull_request.labels.*.name, 'external-ci')}} == 'false' ] && echo "Error: External PRs need the 'external-ci' label to run." && exit 1
+          git fetch https://github.com/aztecprotocol/aztec-packages ${{ github.event.pull_request.base.ref }} --depth=1
           git diff --name-only ${{ github.event.pull_request.base.ref }} HEAD ci3 ci.sh | grep -q . && { echo "Error: External PRs can't contain CI changes."; exit 1; }
       - name: Fail If Draft
         if: github.event.pull_request.draft && (github.event.action != 'labeled' || github.event.label.name != 'trigger-workflow')
@@ -107,20 +102,12 @@ jobs:
 
   ci-arm64:
     runs-on: ubuntu-latest
-    # condition:
-    #   - Always allow 'push' and 'workflow_dispatch' jobs.
-    #   - Otherwise, only run pull_request events on internal PRs and pull_request_target on external PRs.
-    #     Then, **unlike ci-amd64**, if we aren't labeled 'arm64-ci', do nothing.
+    # - Only trigger on pull_request_target for forks and never trigger from pull_request_target if not a fork.
+    # - Also requires the 'arm64-ci' label.
     if: >
-      github.event_name == 'push' ||
-      github.event_name == 'workflow_dispatch' ||
-      (
-        (
-          (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
-          (github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository)
-        ) &&
-        contains(github.event.pull_request.labels.*.name, 'arm64-ci')
-      )
+      ( (github.event.repository.fork == false && github.event_name != 'pull_request_target') ||
+        (github.event.repository.fork && github.event_name == 'pull_request_target')
+      ) && contains(github.event.pull_request.labels.*.name, 'arm64-ci')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -128,9 +115,10 @@ jobs:
           # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Validate External Changes
-        if: github.event_name == 'pull_request_target'
+        if: github.event.repository.fork
         run: |
-          git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1
+          [ ${{contains(github.event.pull_request.labels.*.name, 'external-ci')}} == 'false' ] && echo "Error: External PRs need the 'external-ci' label to run." && exit 1
+          git fetch https://github.com/aztecprotocol/aztec-packages ${{ github.event.pull_request.base.ref }} --depth=1
           git diff --name-only ${{ github.event.pull_request.base.ref }} HEAD ci3 ci.sh | grep -q . && { echo "Error: External PRs can't contain CI changes."; exit 1; }
       - name: Fail If Draft
         if: github.event.pull_request.draft && (github.event.action != 'labeled' || github.event.label.name != 'trigger-workflow')
@@ -159,7 +147,7 @@ jobs:
   ci-grind:
     runs-on: ubuntu-latest
     needs: ci-amd64
-    if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')
+    if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/') && github.event.repository.fork == false
     strategy:
       fail-fast: false
       matrix:
@@ -189,7 +177,7 @@ jobs:
 
   notify:
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && failure()
+    if: github.event_name == 'push' && failure() && github.event.repository.fork == false
     needs:
       - ci-grind
       - ci-arm64
