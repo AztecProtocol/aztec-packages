@@ -134,6 +134,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       asset,
       bytes32(0),
       bytes32(0),
+      bytes32(Constants.GENESIS_ARCHIVE_ROOT),
+      bytes32(Constants.GENESIS_BLOCK_HASH),
       address(this),
       Config({
         aztecSlotDuration: SLOT_DURATION,

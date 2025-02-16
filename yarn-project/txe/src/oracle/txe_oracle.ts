@@ -164,6 +164,7 @@ export class TXE implements TypedOracle {
     this.viewDataOracle = new ViewDataOracle(
       this.contractAddress,
       [] /* authWitnesses */,
+      [] /* capsules */,
       this.simulatorOracle, // note: SimulatorOracle implements DBOracle
       this.node,
       /* log, */

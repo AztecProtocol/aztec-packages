@@ -27,6 +27,7 @@ bot:
     requests:
       memory: "2Gi"
       cpu: "200m"
+  enabled: false
 
 ethereum:
   execution:

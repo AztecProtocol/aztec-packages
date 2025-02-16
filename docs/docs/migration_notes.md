@@ -8,6 +8,61 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### Fee is mandatory
+
+All transactions must now pay fees. Previously, the default payment method was `NoFeePaymentMethod`; It has been changed to `FeeJuicePaymentMethod`, with the wallet owner as the fee payer.
+
+For example, the following code will still work:
+
+```
+await TokenContract.at(address, wallet).methods.transfer(recipient, 100n).send().wait();
+```
+
+However, the wallet owner must have enough fee juice to cover the transaction fee. Otherwise, the transaction will be rejected.
+
+The 3 test accounts deployed in the sandbox are pre-funded with 10 ^ 22 fee juice, allowing them to send transactions right away.
+
+In addition to the native fee juice, users can pay the transaction fees using tokens that have a corresponding FPC contract. The sandbox now includes `BananaCoin` and `BananaFPC`. Users can use a funded test account to mint banana coin for a new account. The new account can then start sending transactions and pay fees with banana coin.
+
+```typescript
+import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
+import { getDeployedBananaCoinAddress, getDeployedBananaFPCAddress } from '@aztec/aztec';
+
+// Fetch the funded test accounts.
+const [fundedWallet] = await getDeployedTestAccountsWallets(pxe);
+
+// Create a new account.
+const secret = Fr.random();
+const signingKey = GrumpkinScalar.random();
+const alice = await getSchnorrAccount(pxe, secret, signingKey);
+const aliceWallet = await alice.getWallet();
+const aliceAddress = alice.getAddress();
+
+// Deploy the new account using the pre-funded test account.
+await alice.deploy({ deployWallet: fundedWallet }).wait();
+
+// Mint banana coin for the new account.
+const bananaCoinAddress = await getDeployedBananaCoinAddress(pxe);
+const bananaCoin = await TokenContract.at(bananaCoinAddress, fundedWallet);
+const mintAmount = 10n ** 20n;
+await bananaCoin.methods.mint_to_private(fundedWallet.getAddress(), aliceAddress, mintAmount).send().wait();
+
+// Use the new account to send a tx and pay with banana coin.
+const transferAmount = 100n;
+const bananaFPCAddress = await getDeployedBananaFPCAddress(pxe);
+const paymentMethod = new PrivateFeePaymentMethod(bananaFPCAddress, aliceWallet);
+const receipt = await bananaCoin
+    .withWallet(aliceWallet)
+    .methods.transfer(recipient, transferAmount)
+    .send({ fee: { paymentMethod } })
+    .wait();
+const transactionFee = receipt.transactionFee!;
+
+// Check the new account's balance.
+const aliceBalance = await bananaCoin.methods.balance_of_private(aliceAddress).simulate();
+expect(aliceBalance).toEqual(mintAmount - transferAmount - transactionFee);
+```
+
 ### The tree of protocol contract addresses is now an indexed tree
 
 This is to allow for non-membership proofs for non-protocol contract addresses. As before, the canonical protocol contract addresses point to the index of the leaf of the 'real' computed protocol address.
@@ -37,6 +92,7 @@ The new check an indexed tree allows is non-membership of addresses of non proto
 ```
 
 ### [Aztec.nr] Changes to `NoteInterface`
+
 We are in a process of discontinuing `NoteHeader` from notes.
 This led us to do the following changes to `NoteInterface`:
 
@@ -364,6 +420,7 @@ For this reason we've decided to rename it:
 To reduce loading times, the package `@aztec/noir-contracts.js` no longer exposes all artifacts as its default export. Instead, it exposes a `ContractNames` variable with the list of all contract names available. To import a given artifact, use the corresponding export, such as `@aztec/noir-contracts.js/FPC`.
 
 ### Blobs
+
 We now publish the majority of DA in L1 blobs rather than calldata, with only contract class logs remaining as calldata. This replaces all code that touched the `txsEffectsHash`.
 In the rollup circuits, instead of hashing each child circuit's `txsEffectsHash` to form a tree, we track tx effects by absorbing them into a sponge for blob data (hence the name: `spongeBlob`). This sponge is treated like the state trees in that we check each rollup circuit 'follows' the next:
 
@@ -373,6 +430,7 @@ In the rollup circuits, instead of hashing each child circuit's `txsEffectsHash`
 + let start_sponge_blob = left.start_sponge_blob;
 + let end_sponge_blob = right.end_sponge_blob;
 ```
+
 This sponge is used in the block root circuit to confirm that an injected array of all `txEffects` does match those rolled up so far in the `spongeBlob`. Then, the `txEffects` array is used to construct and prove opening of the polynomial representing the blob commitment on L1 (this is done efficiently thanks to the Barycentric formula).
 On L1, we publish the array as a blob and verify the above proof of opening. This confirms that the tx effects in the rollup circuit match the data in the blob:
 
@@ -380,6 +438,7 @@ On L1, we publish the array as a blob and verify the above proof of opening. Thi
 - bytes32 txsEffectsHash = TxsDecoder.decode(_body);
 + bytes32 blobHash = _validateBlob(blobInput);
 ```
+
 Where `blobInput` contains the proof of opening and evaluation calculated in the block root rollup circuit. It is then stored and used as a public input to verifying the epoch proof.
 
 ## 0.67.0

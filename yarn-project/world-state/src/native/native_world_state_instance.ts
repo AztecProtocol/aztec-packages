@@ -8,6 +8,7 @@ import {
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
+  type PublicDataTreeLeaf,
 } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
 import { NativeWorldState as BaseNativeWorldState, MsgpackChannel } from '@aztec/native';
@@ -51,6 +52,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
   constructor(
     dataDir: string,
     dbMapSizeKb: number,
+    prefilledPublicData: PublicDataTreeLeaf[] = [],
     private instrumentation: WorldStateInstrumentation,
     private log = createLogger('world-state:database'),
   ) {
@@ -58,6 +60,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
     log.info(
       `Creating world state data store at directory ${dataDir} with map size ${dbMapSizeKb} KB and ${threads} threads.`,
     );
+    const prefilledPublicDataBufferArray = prefilledPublicData.map(d => [d.slot.toBuffer(), d.value.toBuffer()]);
     const ws = new BaseNativeWorldState(
       dataDir,
       {
@@ -71,6 +74,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
         [MerkleTreeId.NULLIFIER_TREE]: 2 * MAX_NULLIFIERS_PER_TX,
         [MerkleTreeId.PUBLIC_DATA_TREE]: 2 * MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       },
+      prefilledPublicDataBufferArray,
       GeneratorIndex.BLOCK_HASH,
       dbMapSizeKb,
       threads,

@@ -10,6 +10,7 @@ import {
   getFinalMinRevertibleSideEffectCounter,
 } from '@aztec/circuit-types';
 import {
+  AztecAddress,
   CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   ClientIvcProof,
   Fr,
@@ -87,6 +88,7 @@ const NULL_PROVE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicI
 
 export type ProvingConfig = {
   simulate: boolean;
+  skipFeeEnforcement: boolean;
   profile: boolean;
   dryRun: boolean;
 };
@@ -122,7 +124,12 @@ export class KernelProver {
   async prove(
     txRequest: TxRequest,
     executionResult: PrivateExecutionResult,
-    { simulate, profile, dryRun }: ProvingConfig = { simulate: false, profile: false, dryRun: false },
+    { simulate, skipFeeEnforcement, profile, dryRun }: ProvingConfig = {
+      simulate: false,
+      skipFeeEnforcement: false,
+      profile: false,
+      dryRun: false,
+    },
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
     if (simulate && profile) {
       throw new Error('Cannot simulate and profile at the same time');
@@ -281,6 +288,12 @@ export class KernelProver {
       );
     }
 
+    if (output.publicInputs.feePayer.isZero() && skipFeeEnforcement) {
+      if (!dryRun && !simulate) {
+        throw new Error('Fee payment must be enforced when creating real proof.');
+      }
+      output.publicInputs.feePayer = new AztecAddress(Fr.MAX_FIELD_VALUE);
+    }
     // Private tail.
     const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
     const previousKernelData = new PrivateKernelData(

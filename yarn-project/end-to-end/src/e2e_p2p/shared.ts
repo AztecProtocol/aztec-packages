@@ -1,6 +1,7 @@
+import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { type InitialAccountData } from '@aztec/accounts/testing';
 import { type AztecNodeService } from '@aztec/aztec-node';
-import { CompleteAddress, type Logger, type SentTx, TxStatus } from '@aztec/aztec.js';
-import { Fr } from '@aztec/foundation/fields';
+import { type Logger, type SentTx, TxStatus } from '@aztec/aztec.js';
 import { type SpamContract } from '@aztec/noir-contracts.js/Spam';
 import { createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
 
@@ -43,18 +44,23 @@ export const createPXEServiceAndSubmitTransactions = async (
   logger: Logger,
   node: AztecNodeService,
   numTxs: number,
+  fundedAccount: InitialAccountData,
 ): Promise<NodeContext> => {
   const rpcConfig = getRpcConfig();
   const pxeService = await createPXEService(node, rpcConfig, true);
 
-  const secretKey = Fr.random();
-  const completeAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(secretKey, Fr.random());
-  await pxeService.registerAccount(secretKey, completeAddress.partialAddress);
+  const account = await getSchnorrAccount(
+    pxeService,
+    fundedAccount.secret,
+    fundedAccount.signingKey,
+    fundedAccount.salt,
+  );
+  await account.register();
+  const wallet = await account.getWallet();
 
-  const txs = await submitTxsTo(pxeService, numTxs, logger);
+  const txs = await submitTxsTo(pxeService, numTxs, wallet, logger);
   return {
     txs,
-    account: completeAddress.address,
     pxeService,
     node,
   };

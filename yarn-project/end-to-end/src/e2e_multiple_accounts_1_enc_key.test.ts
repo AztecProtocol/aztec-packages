@@ -1,22 +1,13 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import {
-  type CompleteAddress,
-  Fr,
-  GrumpkinScalar,
-  type Logger,
-  type PXE,
-  type Wallet,
-  deriveKeys,
-} from '@aztec/aztec.js';
+import { getSchnorrAccountContractAddress } from '@aztec/accounts/schnorr';
+import { type CompleteAddress, Fr, GrumpkinScalar, type Logger, type Wallet, deriveKeys } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { deployToken, expectTokenBalance } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_multiple_accounts_1_enc_key', () => {
-  let pxe: PXE;
-  const wallets: Wallet[] = [];
-  const accounts: CompleteAddress[] = [];
+  let wallets: Wallet[] = [];
+  let accounts: CompleteAddress[] = [];
   let logger: Logger;
   let teardown: () => Promise<void>;
 
@@ -26,24 +17,31 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
   const numAccounts = 3;
 
   beforeEach(async () => {
-    ({ teardown, pxe, logger } = await setup(0));
+    // A shared secret for all accounts.
+    const secret = Fr.random();
 
-    const encryptionPrivateKey = Fr.random();
+    const initialFundedAccounts = await Promise.all(
+      Array.from({ length: numAccounts }).map(async () => {
+        // A different signing key for each account.
+        const signingKey = GrumpkinScalar.random();
+        const salt = Fr.random();
+        const address = await getSchnorrAccountContractAddress(secret, salt, signingKey);
+        return {
+          secret,
+          signingKey,
+          salt,
+          address,
+        };
+      }),
+    );
 
-    for (let i = 0; i < numAccounts; i++) {
-      logger.info(`Deploying account contract ${i}/3...`);
-      const signingPrivateKey = GrumpkinScalar.random();
-      const account = await getSchnorrAccount(pxe, encryptionPrivateKey, signingPrivateKey);
-      const wallet = await account.waitSetup({ interval: 0.1 });
-      const completeAddress = await account.getCompleteAddress();
-      wallets.push(wallet);
-      accounts.push(completeAddress);
-    }
+    ({ teardown, logger, wallets } = await setup(numAccounts, { initialFundedAccounts }));
     logger.info('Account contracts deployed');
 
-    // Verify that all accounts use the same encryption key
-    const encryptionPublicKey = (await deriveKeys(encryptionPrivateKey)).publicKeys.masterIncomingViewingPublicKey;
+    accounts = wallets.map(w => w.getCompleteAddress());
 
+    // Verify that all accounts use the same encryption key
+    const encryptionPublicKey = (await deriveKeys(secret)).publicKeys.masterIncomingViewingPublicKey;
     for (const account of accounts) {
       expect(account.publicKeys.masterIncomingViewingPublicKey).toEqual(encryptionPublicKey);
     }

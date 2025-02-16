@@ -28,7 +28,7 @@ export { createCompatibleClient, createPXEClient } from './rpc_clients/index.js'
 
 export { type AuthWitnessProvider } from './account/index.js';
 
-export { type AccountContract } from './account/index.js';
+export { type AccountContract, getAccountContractAddress } from './account/index.js';
 export { AccountManager, type DeployAccountOptions } from './account_manager/index.js';
 
 export { AccountWallet, AccountWalletWithSecretKey, SignerlessWallet, type Wallet } from './wallet/index.js';
@@ -65,6 +65,7 @@ export { Grumpkin, Schnorr } from '@aztec/circuits.js/barretenberg';
 export {
   AuthWitness,
   Body,
+  Capsule,
   Comparator,
   ContractClass2BlockL2Logs,
   EncryptedLogPayload,

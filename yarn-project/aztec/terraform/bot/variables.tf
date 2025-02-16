@@ -14,6 +14,16 @@ variable "BOT_API_KEY" {
   type = string
 }
 
+variable "BOT_L1_PRIVATE_KEY" {
+  type    = string
+  default = ""
+}
+
+variable "BOT_L1_MNEMONIC" {
+  type    = string
+  default = "test test test test test test test test test test test junk"
+}
+
 variable "BOT_PRIVATE_KEY" {
   type = string
 }

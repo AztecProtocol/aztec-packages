@@ -137,6 +137,7 @@ describe('e2e_p2p_governance_proposer', () => {
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
+      t.prefilledPublicData,
       DATA_DIR,
       shouldCollectMetrics(),
     );

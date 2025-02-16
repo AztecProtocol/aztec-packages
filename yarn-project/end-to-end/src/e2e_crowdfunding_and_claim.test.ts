@@ -348,6 +348,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       new TxContext(donorWallets[1].getChainId(), donorWallets[1].getVersion(), GasSettings.default({ maxFeesPerGas })),
       [entrypointHashedValues],
       [],
+      [],
     );
     // NB: Removing the msg_sender assertion from private_init will still result in a throw, as we are using
     // a non-entrypoint function (withdraw never calls context.end_setup()), meaning the min revertible counter will remain 0.

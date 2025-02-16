@@ -73,6 +73,7 @@ describe('e2e_p2p_reex', () => {
       t.bootstrapNodeEnr,
       NUM_NODES,
       bootNodeUdpPort,
+      t.prefilledPublicData,
       dataDir,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       shouldCollectMetrics(),

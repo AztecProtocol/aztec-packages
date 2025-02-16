@@ -26,6 +26,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { type DateProvider, Timer, elapsed, executeTimeout } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
+import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import {
   Attributes,
   type TelemetryClient,
@@ -35,7 +36,6 @@ import {
   trackSpan,
 } from '@aztec/telemetry-client';
 
-import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from './fee_payment.js';
 import { WorldStateDB } from './public_db_sources.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
 import { PublicTxSimulator } from './public_tx_simulator.js';
@@ -54,13 +54,13 @@ export class PublicProcessorFactory {
    * Creates a new instance of a PublicProcessor.
    * @param historicalHeader - The header of a block previous to the one in which the tx is included.
    * @param globalVariables - The global variables for the block being processed.
-   * @param enforceFeePayment - Allows disabling balance checks for fee estimations.
+   * @param skipFeeEnforcement - Allows disabling balance checks for fee estimations.
    * @returns A new instance of a PublicProcessor.
    */
   public create(
     merkleTree: MerkleTreeWriteOperations,
     globalVariables: GlobalVariables,
-    enforceFeePayment: boolean,
+    skipFeeEnforcement: boolean,
   ): PublicProcessor {
     const worldStateDB = new WorldStateDB(merkleTree, this.contractDataSource);
     const publicTxSimulator = this.createPublicTxSimulator(
@@ -68,7 +68,7 @@ export class PublicProcessorFactory {
       worldStateDB,
       globalVariables,
       /*doMerkleOperations=*/ true,
-      enforceFeePayment,
+      skipFeeEnforcement,
       this.telemetryClient,
     );
 
@@ -87,7 +87,7 @@ export class PublicProcessorFactory {
     worldStateDB: WorldStateDB,
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean,
-    enforceFeePayment: boolean,
+    skipFeeEnforcement: boolean,
     telemetryClient: TelemetryClient,
   ) {
     return new PublicTxSimulator(
@@ -95,7 +95,7 @@ export class PublicProcessorFactory {
       worldStateDB,
       globalVariables,
       doMerkleOperations,
-      enforceFeePayment,
+      skipFeeEnforcement,
       telemetryClient,
     );
   }
@@ -397,12 +397,7 @@ export class PublicProcessor implements Traceable {
    * This is used in private only txs, since for txs with public calls
    * the avm handles the fee payment itself.
    */
-  private async getFeePaymentPublicDataWrite(txFee: Fr, feePayer: AztecAddress): Promise<PublicDataWrite | undefined> {
-    if (feePayer.isZero()) {
-      this.log.debug(`No one is paying the fee of ${txFee.toBigInt()}`);
-      return;
-    }
-
+  private async getFeePaymentPublicDataWrite(txFee: Fr, feePayer: AztecAddress): Promise<PublicDataWrite> {
     const feeJuiceAddress = ProtocolContractAddress.FeeJuice;
     const balanceSlot = await computeFeePayerBalanceStorageSlot(feePayer);
     const leafSlot = await computeFeePayerBalanceLeafSlot(feePayer);

@@ -35,6 +35,9 @@
     },
     {
       "path": "../protocol-contracts"
+    },
+    {
+      "path": "../world-state"
     }
   ],
   "include": ["src"],

@@ -195,7 +195,7 @@ export interface PXE {
     simulatePublic: boolean,
     msgSender?: AztecAddress,
     skipTxValidation?: boolean,
-    enforceFeePayment?: boolean,
+    skipFeeEnforcement?: boolean,
     profile?: boolean,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult>;

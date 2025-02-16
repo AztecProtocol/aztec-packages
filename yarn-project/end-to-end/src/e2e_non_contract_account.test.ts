@@ -1,12 +1,9 @@
-import { ExtendedNote, Fr, type Logger, Note, type PXE, SignerlessWallet, type Wallet } from '@aztec/aztec.js';
-import { siloNullifier } from '@aztec/circuits.js/hash';
+import { ExtendedNote, Fr, type Logger, Note, type Wallet } from '@aztec/aztec.js';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_non_contract_account', () => {
-  let pxe: PXE;
-  let nonContractAccountWallet: Wallet;
   let teardown: () => Promise<void>;
 
   let logger: Logger;
@@ -15,8 +12,7 @@ describe('e2e_non_contract_account', () => {
   let wallet: Wallet;
 
   beforeEach(async () => {
-    ({ teardown, pxe, wallet, logger } = await setup(1));
-    nonContractAccountWallet = new SignerlessWallet(pxe);
+    ({ teardown, wallet, logger } = await setup(1));
 
     logger.debug(`Deploying L2 contract...`);
     contract = await TestContract.deploy(wallet).send().deployed();
@@ -24,20 +20,6 @@ describe('e2e_non_contract_account', () => {
   });
 
   afterEach(() => teardown());
-
-  it('Arbitrary non-contract account can call a private function on a contract', async () => {
-    const contractWithNoContractWallet = await TestContract.at(contract.address, nonContractAccountWallet);
-
-    // Send transaction as arbitrary non-contract account
-    const nullifier = new Fr(940);
-    const { debugInfo } = await contractWithNoContractWallet.methods
-      .emit_nullifier(nullifier)
-      .send()
-      .wait({ interval: 0.1, debug: true });
-
-    const expectedSiloedNullifier = await siloNullifier(contract.address, nullifier);
-    expect(debugInfo?.nullifiers).toContainEqual(expectedSiloedNullifier);
-  });
 
   // Note: This test doesn't really belong here as it doesn't have anything to do with non-contract accounts. I needed
   // to test the TestNote functionality and it doesn't really fit anywhere else. Creating a separate e2e test for this
