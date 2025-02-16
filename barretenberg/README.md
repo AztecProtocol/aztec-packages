@@ -72,8 +72,8 @@ bb prove_ultra_honk -b ./target/hello_world.json -w ./target/witness-name.gz -o 
 You can then compute the verification key for your Noir program and verify the proof:
 
 ```bash
-bb write_vk_ultra_honk -b ./target/hello_world.json -o ./target/vk
-bb verify_ultra_honk -k ./target/vk -p ./target/proof
+bb write_vk --scheme ultra_honk -b ./target/hello_world.json -o ./target/vk
+bb verify --scheme ultra_honk -k ./target/vk -p ./target/proof
 
 ```
 
@@ -94,7 +94,7 @@ First, prove the valid execution of your Noir program and export the verificatio
 
 ```bash
 bb prove_ultra_keccak_honk -b ./target/hello_world.json -w ./target/witness-name.gz -o ./target/proof
-bb write_vk_ultra_honk -b ./target/hello_world.json -o ./target/vk
+bb write_vk --scheme ultra_honk -b ./target/hello_world.json -o ./target/vk
 ```
 
 > [!IMPORTANT]

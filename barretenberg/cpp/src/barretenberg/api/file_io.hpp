@@ -1,9 +1,10 @@
 #pragma once
-#include <barretenberg/common/log.hpp>
+#include "barretenberg/common/log.hpp"
 #include <cstdint>
 #include <fcntl.h>
 #include <fstream>
 #include <ios>
+#include <iostream>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <vector>

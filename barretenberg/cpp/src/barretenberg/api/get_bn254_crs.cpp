@@ -1,5 +1,5 @@
 #include "get_bn254_crs.hpp"
-#include "barretenberg/bb/file_io.hpp"
+#include "barretenberg/api/file_io.hpp"
 
 namespace {
 std::vector<uint8_t> download_bn254_g1_data(size_t num_points)

@@ -1,14 +1,16 @@
+#include "init_srs.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 #include "get_bn254_crs.hpp"
 #include "get_grumpkin_crs.hpp"
 
 namespace bb {
+std::string CRS_PATH = getHomeDir() + "/.bb-crs";
+
 std::string getHomeDir()
 {
     char* home = std::getenv("HOME");
     return home != nullptr ? std::string(home) : "./";
 }
-
-std::string CRS_PATH = getHomeDir() + "/.bb-crs";
 
 /**
  * @brief Initialize the global crs_factory for bn254 based on a known dyadic circuit size

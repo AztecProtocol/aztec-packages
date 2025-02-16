@@ -10,27 +10,47 @@ void UltraVanillaClientIVC::accumulate(Circuit& circuit, const Proof& proof, con
     accumulator = verifier.verify_proof(proof, agg_obj).agg_obj;
 }
 
-HonkProof UltraVanillaClientIVC::prove(CircuitSource<Flavor>& source, const bool cache_vks)
+void UltraVanillaClientIVC::handle_accumulator(Circuit& circuit, const size_t step, const bool init_kzg_accumulator)
+{
+    if (step == 0) {
+        info("internal ivc step 0");
+        accumulator_indices = stdlib::recursion::init_default_agg_obj_indices(circuit);
+    } else {
+        info("internal ivc step ", step);
+        accumulate(circuit, previous_proof, previous_vk);
+        accumulator_indices = accumulator.get_witness_indices();
+    }
+    if (init_kzg_accumulator) {
+        info("calling add_pairing_point_accumulator");
+        circuit.add_pairing_point_accumulator(accumulator_indices);
+    }
+    vinfo("set accumulator indices");
+}
+
+HonkProof UltraVanillaClientIVC::prove(CircuitSource<Flavor>& source,
+                                       const bool cache_vks,
+                                       const bool init_kzg_accumulator)
 {
     for (size_t step = 0; step < source.num_circuits(); step++) {
+        vinfo("about to call next...");
         auto [circuit, vk] = source.next();
-        if (step == 0) {
-            accumulator_indices = stdlib::recursion::init_default_agg_obj_indices(circuit);
-        } else {
-            accumulate(circuit, previous_proof, previous_vk);
-            accumulator_indices = accumulator.get_witness_indices();
-        }
+        vinfo("got next pair from source");
 
-        circuit.add_pairing_point_accumulator(accumulator_indices);
+        handle_accumulator(circuit, step, init_kzg_accumulator);
+
         accumulator_value = { accumulator.P0.get_value(), accumulator.P1.get_value() };
+        vinfo("set accumulator data");
 
         auto proving_key = std::make_shared<PK>(circuit);
+        vinfo("built proving key");
 
         if (step < source.num_circuits() - 1) {
             UltraProver prover{ proving_key, commitment_key };
+            vinfo("built prover");
             previous_proof = prover.construct_proof();
+            vinfo("constructed proof");
         } else {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1176) Use UltraZKProver when it exists
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1176) Use UltraKeccakZKProver when it exists
             UltraProver prover{ proving_key, commitment_key };
             previous_proof = prover.construct_proof();
         }
@@ -45,15 +65,9 @@ HonkProof UltraVanillaClientIVC::prove(CircuitSource<Flavor>& source, const bool
 
 bool UltraVanillaClientIVC::verify(const Proof& proof, const std::shared_ptr<VK>& vk)
 {
-
     UltraVerifier verifer{ vk };
     bool verified = verifer.verify_proof(proof);
     vinfo("proof verified: ", verified);
-
-    using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
-    auto pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
-    verified &= pcs_verification_key->pairing_check(accumulator_value[0], accumulator_value[1]);
-    vinfo("pairing verified: ", verified);
     return verified;
 }
 
@@ -63,10 +77,12 @@ bool UltraVanillaClientIVC::verify(const Proof& proof, const std::shared_ptr<VK>
  * development/testing.
  *
  */
-bool UltraVanillaClientIVC::prove_and_verify(CircuitSource<Flavor>& source, const bool cache_vks)
+bool UltraVanillaClientIVC::prove_and_verify(CircuitSource<Flavor>& source,
+                                             const bool cache_vks,
+                                             const bool init_kzg_accumulator)
 {
     auto start = std::chrono::steady_clock::now();
-    prove(source, cache_vks);
+    prove(source, cache_vks, init_kzg_accumulator);
     auto end = std::chrono::steady_clock::now();
     auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     vinfo("time to call UltraVanillaClientIVC::prove: ", diff.count(), " ms.");

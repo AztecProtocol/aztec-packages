@@ -139,6 +139,8 @@ export async function executeBbClientIvcProof(
       'client_ivc',
       '--input_type',
       'runtime_stack',
+      '--output_content',
+      'proof_and_vk',
     ];
 
     const timer = new Timer();
@@ -217,17 +219,15 @@ export async function computeVerificationKey(
     const logFunction = (message: string) => {
       log(`computeVerificationKey(${circuitName}) BB out - ${message}`);
     };
-    const args = ['-o', outputPath, '-b', bytecodePath, '-v', recursive ? '--recursive' : ''];
-    let result = await executeBB(pathToBB, `write_vk_${flavor}`, args, logFunction);
+    const args = ['-o', outputPath, '-b', bytecodePath, '-v'];
+    if (recursive) {
+      args.push('--init_kzg_accumulator');
+    }
+    const result = await executeBB(pathToBB, `write_vk`, args, logFunction);
     if (result.status == BB_RESULT.FAILURE) {
       return { status: BB_RESULT.FAILURE, reason: 'Failed writing VK.' };
     }
-    result = await executeBB(
-      pathToBB,
-      `vk_as_fields_${flavor}`,
-      ['-o', outputPath + '_fields.json', '-k', outputPath, '-v'],
-      logFunction,
-    );
+
     const duration = timer.ms();
 
     if (result.status == BB_RESULT.SUCCESS) {
@@ -246,6 +246,20 @@ export async function computeVerificationKey(
     };
   } catch (error) {
     return { status: BB_RESULT.FAILURE, reason: `${error}` };
+  }
+}
+
+function getArgs(flavor: UltraHonkFlavor) {
+  switch (flavor) {
+    case 'ultra_honk': {
+      return ['--scheme', 'ultra_honk', '--oracle_hash', 'poseidon2'];
+    }
+    case 'ultra_keccak_honk': {
+      return ['--scheme', 'ultra_honk', '--oracle_hash', 'keccak'];
+    }
+    case 'ultra_rollup_honk': {
+      return ['--scheme', 'ultra_honk', '--oracle_hash', 'poseidon2', '--ipa_accumulation'];
+    }
   }
 }
 
@@ -294,12 +308,27 @@ export async function generateProof(
   try {
     // Write the bytecode to the working directory
     await fs.writeFile(bytecodePath, bytecode);
-    const args = ['-o', outputPath, '-b', bytecodePath, '-w', inputWitnessFile, '-v', recursive ? '--recursive' : ''];
+    const args = getArgs(flavor).concat([
+      '--output_data',
+      'bytes_and_fields',
+      '--output_content',
+      'proof_and_vk',
+      '-o',
+      outputPath,
+      '-b',
+      bytecodePath,
+      '-w',
+      inputWitnessFile,
+      '-v',
+    ]);
+    if (recursive) {
+      args.push('--init_kzg_accumulator');
+    }
     const timer = new Timer();
     const logFunction = (message: string) => {
       log(`${circuitName} BB out - ${message}`);
     };
-    const result = await executeBB(pathToBB, `prove_${flavor}_output_all`, args, logFunction);
+    const result = await executeBB(pathToBB, `prove`, args, logFunction);
     const duration = timer.ms();
 
     if (result.status == BB_RESULT.SUCCESS) {
@@ -441,13 +470,12 @@ export async function generateAvmProofV2(
       return { status: BB_RESULT.FAILURE, reason: `Could not write avm inputs to ${avmInputsPath}` };
     }
 
-    const args = [
-      '--avm-inputs',
-      avmInputsPath,
-      '-o',
-      outputPath,
-      logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '',
-    ];
+    const args = ['--avm-inputs', avmInputsPath, '-o', outputPath];
+    const loggingArg =
+      logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '';
+    if (loggingArg !== '') {
+      args.push(loggingArg);
+    }
     const timer = new Timer();
     const logFunction = (message: string) => {
       logger.verbose(`AvmCircuit (prove) BB out - ${message}`);
@@ -529,16 +557,13 @@ export async function generateAvmProof(
       return { status: BB_RESULT.FAILURE, reason: `Could not write avmHints at ${avmHintsPath}` };
     }
 
-    const args = [
-      '--avm-public-inputs',
-      publicInputsPath,
-      '--avm-hints',
-      avmHintsPath,
-      '-o',
-      outputPath,
-      logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '',
-      checkCircuitOnly ? '--check-circuit-only' : '',
-    ];
+    const args = ['--avm-public-inputs', publicInputsPath, '--avm-hints', avmHintsPath, '-o', outputPath];
+    const loggingArg =
+      logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '';
+    if (loggingArg !== '') {
+      args.push(loggingArg);
+    }
+
     const timer = new Timer();
     const cmd = checkCircuitOnly ? 'check_circuit' : 'prove';
     const logFunction = (message: string) => {
@@ -582,7 +607,14 @@ export async function verifyProof(
   ultraHonkFlavor: UltraHonkFlavor,
   log: Logger,
 ): Promise<BBFailure | BBSuccess> {
-  return await verifyProofInternal(pathToBB, proofFullPath, verificationKeyPath, `verify_${ultraHonkFlavor}`, log);
+  return await verifyProofInternal(
+    pathToBB,
+    proofFullPath,
+    verificationKeyPath,
+    `verify`,
+    log,
+    getArgs(ultraHonkFlavor),
+  );
 }
 
 /**
@@ -640,7 +672,8 @@ export async function verifyAvmProofV2(
  */
 export async function verifyClientIvcProof(
   pathToBB: string,
-  targetPath: string,
+  proofPath: string,
+  keyPath: string,
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
   const binaryPresent = await fs
@@ -652,7 +685,7 @@ export async function verifyClientIvcProof(
   }
 
   try {
-    const args = ['-o', targetPath, '--scheme', 'client_ivc'];
+    const args = ['--scheme', 'client_ivc', '-p', proofPath, '-k', keyPath];
     const timer = new Timer();
     const command = 'verify';
     const result = await executeBB(pathToBB, command, args, log);
@@ -684,7 +717,7 @@ async function verifyProofInternal(
   pathToBB: string,
   proofFullPath: string,
   verificationKeyPath: string,
-  command: 'verify_ultra_honk' | 'verify_ultra_rollup_honk' | 'verify_ultra_keccak_honk' | 'avm_verify' | 'avm2_verify',
+  command: 'verify' | 'avm_verify' | 'avm2_verify',
   logger: Logger,
   extraArgs: string[] = [],
 ): Promise<BBFailure | BBSuccess> {
@@ -697,18 +730,16 @@ async function verifyProofInternal(
   }
 
   const logFunction = (message: string) => {
-    logger.verbose(`AvmCircuit (verify) BB out - ${message}`);
+    logger.verbose(`bb-prover (verify) BB out - ${message}`);
   };
 
   try {
-    const args = [
-      '-p',
-      proofFullPath,
-      '-k',
-      verificationKeyPath,
-      logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '',
-      ...extraArgs,
-    ];
+    const args = ['-p', proofFullPath, '-k', verificationKeyPath, ...extraArgs];
+    const loggingArg =
+      logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '';
+    if (loggingArg !== '') {
+      args.push(loggingArg);
+    }
     const timer = new Timer();
     const result = await executeBB(pathToBB, command, args, logFunction);
     const duration = timer.ms();
@@ -719,90 +750,6 @@ async function verifyProofInternal(
     return {
       status: BB_RESULT.FAILURE,
       reason: `Failed to verify proof. Exit code ${result.exitCode}. Signal ${result.signal}.`,
-      retry: !!result.signal,
-    };
-  } catch (error) {
-    return { status: BB_RESULT.FAILURE, reason: `${error}` };
-  }
-}
-
-/**
- * Used for verifying proofs of noir circuits
- * @param pathToBB - The full path to the bb binary
- * @param verificationKeyPath - The directory containing the binary verification key
- * @param verificationKeyFilename - The filename of the verification key
- * @param log - A logging function
- * @returns An object containing a result indication and duration taken
- */
-export async function writeVkAsFields(
-  pathToBB: string,
-  verificationKeyPath: string,
-  verificationKeyFilename: string,
-  log: LogFn,
-): Promise<BBFailure | BBSuccess> {
-  const binaryPresent = await fs
-    .access(pathToBB, fs.constants.R_OK)
-    .then(_ => true)
-    .catch(_ => false);
-  if (!binaryPresent) {
-    return { status: BB_RESULT.FAILURE, reason: `Failed to find bb binary at ${pathToBB}` };
-  }
-
-  try {
-    const args = ['-k', `${verificationKeyPath}/${verificationKeyFilename}`, '-v'];
-    const timer = new Timer();
-    const result = await executeBB(pathToBB, 'vk_as_fields_ultra_honk', args, log);
-    const duration = timer.ms();
-    if (result.status == BB_RESULT.SUCCESS) {
-      return { status: BB_RESULT.SUCCESS, durationMs: duration, vkPath: verificationKeyPath };
-    }
-    // Not a great error message here but it is difficult to decipher what comes from bb
-    return {
-      status: BB_RESULT.FAILURE,
-      reason: `Failed to create vk as fields. Exit code ${result.exitCode}. Signal ${result.signal}.`,
-      retry: !!result.signal,
-    };
-  } catch (error) {
-    return { status: BB_RESULT.FAILURE, reason: `${error}` };
-  }
-}
-
-/**
- * Used for verifying proofs of noir circuits
- * @param pathToBB - The full path to the bb binary
- * @param proofPath - The directory containing the binary proof
- * @param proofFileName - The filename of the proof
- * @param vkFileName - The filename of the verification key
- * @param log - A logging function
- * @returns An object containing a result indication and duration taken
- */
-export async function writeProofAsFields(
-  pathToBB: string,
-  proofPath: string,
-  proofFileName: string,
-  vkFilePath: string,
-  log: LogFn,
-): Promise<BBFailure | BBSuccess> {
-  const binaryPresent = await fs
-    .access(pathToBB, fs.constants.R_OK)
-    .then(_ => true)
-    .catch(_ => false);
-  if (!binaryPresent) {
-    return { status: BB_RESULT.FAILURE, reason: `Failed to find bb binary at ${pathToBB}` };
-  }
-
-  try {
-    const args = ['-p', `${proofPath}/${proofFileName}`, '-k', vkFilePath, '-v'];
-    const timer = new Timer();
-    const result = await executeBB(pathToBB, 'proof_as_fields_honk', args, log);
-    const duration = timer.ms();
-    if (result.status == BB_RESULT.SUCCESS) {
-      return { status: BB_RESULT.SUCCESS, durationMs: duration, proofPath: proofPath };
-    }
-    // Not a great error message here but it is difficult to decipher what comes from bb
-    return {
-      status: BB_RESULT.FAILURE,
-      reason: `Failed to create proof as fields. Exit code ${result.exitCode}. Signal ${result.signal}.`,
       retry: !!result.signal,
     };
   } catch (error) {
@@ -834,9 +781,9 @@ export async function generateContractForVerificationKey(
 
   const res = await fsCache<BBSuccess | BBFailure>(outputDir, cacheKey, log, false, async () => {
     try {
-      const args = ['-k', vkFilePath, '-o', contractPath, '-v'];
+      const args = ['--scheme', 'ultra_honk', '-k', vkFilePath, '-o', contractPath, '-v'];
       const timer = new Timer();
-      const result = await executeBB(pathToBB, 'contract_ultra_honk', args, log);
+      const result = await executeBB(pathToBB, 'contract', args, log);
       const duration = timer.ms();
       if (result.status == BB_RESULT.SUCCESS) {
         return { status: BB_RESULT.SUCCESS, durationMs: duration, contractPath };
