@@ -14,7 +14,8 @@
     "build": "FORCE_COLOR=true yarn workspaces foreach -A --parallel --topological-dev --verbose --exclude @aztec/aztec3-packages --exclude @aztec/docs run build",
     "build:dev": "./watch.sh",
     "generate": "FORCE_COLOR=true yarn workspaces foreach -A --parallel --topological-dev --verbose run generate",
-    "clean": "yarn workspaces foreach -A -p -v run clean"
+    "clean": "yarn workspaces foreach -A -p -v run clean",
+    "graph": "node ./graph.js"
   },
   "workspaces": [
     "accounts",
