@@ -2,8 +2,8 @@ use crate::{context::PrivateContext, note::note_interface::{NoteInterface, Nulli
 
 use dep::protocol_types::block_header::BlockHeader;
 
-trait ProveNoteValidity {
-    fn prove_note_validity<Note, let N: u32>(
+trait ProveNoteExistsAndNotNullified {
+    fn prove_note_exists_and_not_nullified<Note, let N: u32>(
         header: BlockHeader,
         note: Note,
         storage_slot: Field,
@@ -13,8 +13,8 @@ trait ProveNoteValidity {
         Note: NoteInterface<N> + NullifiableNote;
 }
 
-impl ProveNoteValidity for BlockHeader {
-    fn prove_note_validity<Note, let N: u32>(
+impl ProveNoteExistsAndNotNullified for BlockHeader {
+    fn prove_note_exists_and_not_nullified<Note, let N: u32>(
         self,
         note: Note,
         storage_slot: Field,
