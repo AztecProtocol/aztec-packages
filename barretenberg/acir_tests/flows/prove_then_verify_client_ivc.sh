@@ -12,5 +12,5 @@ trap "rm -rf $outdir" EXIT
 
 flags="--scheme client_ivc -c $CRS_PATH ${VERBOSE:+-v}"
 
-$BIN prove $flags -b ./target/program.json --input_type ${INPUT_TYPE:-compiletime_stack} -o $outdir
+$BIN prove $flags -b ./target/program.json ${INPUT_TYPE:+--input_type $INPUT_TYPE} -o $outdir
 $BIN verify $flags -p $outdir/proof -k $outdir/vk
