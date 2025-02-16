@@ -401,12 +401,6 @@ pub contract AvmTest {
     }
 
     #[public]
-    fn assert_timestamp(expected_timestamp: u64) {
-        let timestamp = context.timestamp();
-        assert(timestamp == expected_timestamp, "timestamp does not match");
-    }
-
-    #[public]
     fn get_args_hash(_a: u8, _fields: [Field; 3]) -> Field {
         context.get_args_hash()
     }

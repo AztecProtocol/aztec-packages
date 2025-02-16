@@ -45,7 +45,7 @@ import {
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
-import { type Logger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type Tuple, assertLength, serializeToBuffer, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
@@ -84,6 +84,23 @@ export const buildBaseRollupHints = runInSpan(
       await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE, db),
       await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE, db),
     );
+    const logger = createLogger('prover-client:buildBaseRollupHints');
+    logger.error(
+      `BUILDING start note hash tree root ${new Fr(start.noteHashTree.root)}, ${
+        start.noteHashTree.nextAvailableLeafIndex
+      }`,
+    );
+    logger.error(
+      `BUILDING start nullifier tree root ${new Fr(start.nullifierTree.root)}, ${
+        start.nullifierTree.nextAvailableLeafIndex
+      }`,
+    );
+    logger.error(
+      `BUILDING start public data tree root ${new Fr(start.publicDataTree.root)}, ${
+        start.publicDataTree.nextAvailableLeafIndex
+      }`,
+    );
+
     // Get the subtree sibling paths for the circuit
     const noteHashSubtreeSiblingPathArray = await getSubtreeSiblingPath(
       MerkleTreeId.NOTE_HASH_TREE,
@@ -105,38 +122,21 @@ export const buildBaseRollupHints = runInSpan(
     const txPublicDataUpdateRequestInfo = await processPublicDataUpdateRequests(tx, db);
 
     // Update the nullifier tree, capturing the low nullifier info for each individual operation
-    const {
-      lowLeavesWitnessData: nullifierWitnessLeaves,
-      newSubtreeSiblingPath: nullifiersSubtreeSiblingPath,
-      sortedNewLeaves: sortednullifiers,
-      sortedNewLeavesIndexes,
-    } = await db.batchInsert(
-      MerkleTreeId.NULLIFIER_TREE,
-      padArrayEnd(tx.txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(n => n.toBuffer()),
-      NULLIFIER_SUBTREE_HEIGHT,
-    );
-
-    if (nullifierWitnessLeaves === undefined) {
-      throw new Error(`Could not craft nullifier batch insertion proofs`);
-    }
-
-    // Extract witness objects from returned data
-    const nullifierPredecessorMembershipWitnessesWithoutPadding: MembershipWitness<typeof NULLIFIER_TREE_HEIGHT>[] =
-      nullifierWitnessLeaves.map(l =>
-        MembershipWitness.fromBufferArray(l.index, assertLength(l.siblingPath.toBufferArray(), NULLIFIER_TREE_HEIGHT)),
-      );
-
-    const nullifierSubtreeSiblingPathArray = nullifiersSubtreeSiblingPath.toFields();
-
-    const nullifierSubtreeSiblingPath = makeTuple(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, i =>
-      i < nullifierSubtreeSiblingPathArray.length ? nullifierSubtreeSiblingPathArray[i] : Fr.ZERO,
-    );
-
+    logger.error(`BUILDING nullifiers.length ${tx.txEffect.nullifiers.length}`);
+    logger.error(`BUILDING nullifier[0] ${tx.txEffect.nullifiers[0]}`);
     // Append new data to startSpongeBlob
     const inputSpongeBlob = startSpongeBlob.clone();
     await startSpongeBlob.absorb(tx.txEffect.toBlobFields());
 
     if (tx.avmProvingRequest) {
+      //const nullifiers = padArrayEnd(tx.txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX);
+      //for (let i = 0; i < nullifiers.length; i++) {
+      const nullifiers = tx.txEffect.nullifiers;
+      for (let i = 0; i < tx.txEffect.nullifiers.length; i++) {
+        logger.error(`BUILDING nullifier ${nullifiers[i]}`);
+        await db.sequentialInsert(MerkleTreeId.NULLIFIER_TREE, [nullifiers[i].toBuffer()]);
+      }
+
       const blockHash = await tx.constants.historicalHeader.hash();
       const archiveRootMembershipWitness = await getMembershipWitnessFor(
         blockHash,
@@ -145,12 +145,62 @@ export const buildBaseRollupHints = runInSpan(
         db,
       );
 
+      const end = new PartialStateReference(
+        await getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE, db),
+        await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE, db),
+        await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE, db),
+      );
+      logger.error(
+        `BUILDING [skipped?] end note hash tree root ${new Fr(end.noteHashTree.root)}, ${
+          end.noteHashTree.nextAvailableLeafIndex
+        }`,
+      );
+      logger.error(
+        `BUILDING [skipped?] end nullifier tree root ${new Fr(end.nullifierTree.root)}, ${
+          end.nullifierTree.nextAvailableLeafIndex
+        }`,
+      );
+      logger.error(
+        `BUILDING [skipped?] end public data tree root ${new Fr(end.publicDataTree.root)} ${
+          end.publicDataTree.nextAvailableLeafIndex
+        }`,
+      );
       return PublicBaseRollupHints.from({
         startSpongeBlob: inputSpongeBlob,
         archiveRootMembershipWitness,
         constants,
       });
     } else {
+      const {
+        lowLeavesWitnessData: nullifierWitnessLeaves,
+        newSubtreeSiblingPath: nullifiersSubtreeSiblingPath,
+        sortedNewLeaves: sortednullifiers,
+        sortedNewLeavesIndexes,
+      } = await db.batchInsert(
+        MerkleTreeId.NULLIFIER_TREE,
+        padArrayEnd(tx.txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(n => n.toBuffer()),
+        tx.avmProvingRequest ? 0 : NULLIFIER_SUBTREE_HEIGHT,
+      );
+
+      if (nullifierWitnessLeaves === undefined) {
+        throw new Error(`Could not craft nullifier batch insertion proofs`);
+      }
+
+      // Extract witness objects from returned data
+      const nullifierPredecessorMembershipWitnessesWithoutPadding: MembershipWitness<typeof NULLIFIER_TREE_HEIGHT>[] =
+        nullifierWitnessLeaves.map(l =>
+          MembershipWitness.fromBufferArray(
+            l.index,
+            assertLength(l.siblingPath.toBufferArray(), NULLIFIER_TREE_HEIGHT),
+          ),
+        );
+
+      const nullifierSubtreeSiblingPathArray = nullifiersSubtreeSiblingPath.toFields();
+
+      const nullifierSubtreeSiblingPath = makeTuple(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, i =>
+        i < nullifierSubtreeSiblingPathArray.length ? nullifierSubtreeSiblingPathArray[i] : Fr.ZERO,
+      );
+
       if (
         txPublicDataUpdateRequestInfo.lowPublicDataWritesMembershipWitnesses.length > 1 ||
         txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages.length > 1 ||
@@ -203,6 +253,14 @@ export const buildBaseRollupHints = runInSpan(
         db,
       );
 
+      const end = new PartialStateReference(
+        await getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE, db),
+        await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE, db),
+        await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE, db),
+      );
+      logger.error(`BUILDING [did insertions] end note hash tree root ${new Fr(end.noteHashTree.root)}`);
+      logger.error(`BUILDING [did insertions] end nullifier tree root ${new Fr(end.nullifierTree.root)}`);
+      logger.error(`BUILDING [did insertions] end public data tree root ${new Fr(end.publicDataTree.root)}`);
       return PrivateBaseRollupHints.from({
         start,
         startSpongeBlob: inputSpongeBlob,

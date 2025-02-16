@@ -6,3 +6,4 @@ export * from './public_db_sources.js';
 export { PublicProcessor, PublicProcessorFactory } from './public_processor.js';
 export { SideEffectTrace } from './side_effect_trace.js';
 export { getExecutionRequestsByPhase } from './utils.js';
+export { PublicTxSimulationTester } from './fixtures/index.js';

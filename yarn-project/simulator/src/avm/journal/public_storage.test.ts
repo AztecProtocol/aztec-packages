@@ -3,15 +3,15 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type PublicStateDB } from '../../server.js';
+import { type WorldStateDB } from '../../server.js';
 import { PublicStorage } from './public_storage.js';
 
 describe('avm public storage', () => {
-  let publicDb: MockProxy<PublicStateDB>;
+  let publicDb: MockProxy<WorldStateDB>;
   let publicStorage: PublicStorage;
 
   beforeEach(() => {
-    publicDb = mock<PublicStateDB>();
+    publicDb = mock<WorldStateDB>();
     publicStorage = new PublicStorage(publicDb);
   });
 
