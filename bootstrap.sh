@@ -152,6 +152,9 @@ function build {
 
   check_toolchains
 
+  # Ensure we have yarn set up.
+  corepack enable yarn
+
   projects=(
     noir
     barretenberg
