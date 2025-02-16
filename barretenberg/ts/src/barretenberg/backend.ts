@@ -9,6 +9,9 @@ import {
   reconstructHonkProof,
   reconstructUltraPlonkProof,
 } from '../proof/index.js';
+import createDebug from 'debug';
+
+const debug = createDebug('backend-ts');
 
 export class UltraPlonkBackend {
   // These type assertions are used so that we don't
@@ -387,6 +390,13 @@ export class AztecClientBackend {
   async proveAndVerify(witnessMsgpack: Uint8Array[]): Promise<boolean> {
     await this.instantiate();
     return this.api.acirProveAndVerifyAztecClient(this.acirMsgpack, witnessMsgpack);
+  }
+
+  // STARTER
+  async gates(): Promise<number[]> {
+    // call function on API
+    await this.instantiate();
+    return this.api.acirGatesAztecClient( this.acirMsgpack);
   }
 
   async destroy(): Promise<void> {
