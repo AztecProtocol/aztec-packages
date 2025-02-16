@@ -79,6 +79,9 @@ library Errors {
   error Rollup__StartAndEndNotSameEpoch(Epoch start, Epoch end);
   error Rollup__StartIsNotFirstBlockOfEpoch();
   error Rollup__StartIsNotBuildingOnProven();
+  error Rollup__AlreadyClaimed(address prover, Epoch epoch);
+  error Rollup__NotPastDeadline(Slot deadline, Slot currentSlot);
+  error Rollup__PastDeadline(Slot deadline, Slot currentSlot);
 
   // HeaderLib
   error HeaderLib__InvalidHeaderSize(uint256 expected, uint256 actual); // 0xf3ccb247
