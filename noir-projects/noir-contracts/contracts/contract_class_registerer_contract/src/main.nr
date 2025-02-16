@@ -5,20 +5,17 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract ContractClassRegisterer {
     use dep::aztec::protocol_types::{
-        abis::log_hash::LogHash,
         constants::{
-            ARTIFACT_FUNCTION_TREE_MAX_HEIGHT, FUNCTION_TREE_HEIGHT,
-            MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
+            ARTIFACT_FUNCTION_TREE_MAX_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
+            FUNCTION_TREE_HEIGHT, MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
             MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS,
             MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
         },
         contract_class_id::ContractClassId,
+        utils::arrays::array_concat,
     };
 
-    use dep::aztec::{
-        context::PrivateContext, macros::functions::private,
-        oracle::logs::emit_contract_class_unencrypted_log_private,
-    };
+    use dep::aztec::{context::PrivateContext, macros::functions::private};
 
     use crate::events::{
         class_registered::ContractClassRegistered,
@@ -204,8 +201,8 @@ pub contract ContractClassRegisterer {
 
     #[contract_library_method]
     fn emit_contract_class_log<let N: u32>(context: &mut PrivateContext, log: [Field; N]) {
-        let contract_address = context.this_address();
-        let counter = context.next_counter();
+        // let contract_address = context.this_address();
+        // let counter = context.next_counter();
 
         // The log preimage is too large for the hash to compile (16,200 fields, 518,400 bytes), so we do this via a
         // specialized oracle.
@@ -217,13 +214,13 @@ pub contract ContractClassRegisterer {
         // cannot prove non-registration. Therefore, it is possible that a malicious oracle might prevent sequencers
         // from including transactions with calls to certain badly-broadcasted contracts.
         // TODO(#8978): review correctness
-        let log_hash =
-            unsafe { emit_contract_class_unencrypted_log_private(contract_address, log, counter) };
+        // let log_hash =
+        //     unsafe { emit_contract_class_unencrypted_log_private(contract_address, log, counter) };
 
-        // 40 = addr (32) + raw log len (4) + processed log len (4)
-        context.contract_class_logs_hashes.push(
-            LogHash { value: log_hash, counter, length: 40 + (N as Field) * 32 },
-        );
+        // TODO(MW): this is inefficient and just while the log types aren't unified in len
+        let log_to_emit: [Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS] =
+            array_concat(log, [0; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - N]);
+        context.emit_contract_class_log(log_to_emit);
     }
 
     #[private]

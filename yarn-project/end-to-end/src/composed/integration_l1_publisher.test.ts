@@ -498,8 +498,6 @@ describe('L1Publisher integration', () => {
               txHashes: [],
             },
             [],
-            // TODO(#9101): Extract blobs from beacon chain => calldata will only contain what's needed to verify blob:
-            `0x${block.body.toBuffer().toString('hex')}`,
             Blob.getEthBlobEvaluationInputs(blobs),
           ],
         });

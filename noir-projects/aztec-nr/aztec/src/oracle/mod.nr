@@ -16,7 +16,6 @@ pub mod get_public_data_witness;
 pub mod get_membership_witness;
 pub mod keys;
 pub mod key_validation_request;
-pub mod logs;
 pub mod note_discovery;
 pub mod notes;
 pub mod random;

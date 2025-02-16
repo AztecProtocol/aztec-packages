@@ -364,25 +364,38 @@ fn validate_propagated_from_private_call_private_logs_with_previous_output_excee
 }
 
 /**
- * contract_class_log_hashes
+ * contract_class_logs
  */
 #[test]
-fn validate_propagated_from_private_call_contract_class_log_hashes_succeeds() {
+fn validate_propagated_from_private_call_contract_class_logs_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.add_contract_class_log_hash(2, 1);
-    builder.output.add_contract_class_log_hash(2, 1);
+    builder.previous_kernel.add_contract_class_log([2]);
+    builder.output.add_contract_class_log([2]);
 
     builder.validate_as_inner_call();
 }
 
 #[test(should_fail_with = "output should be appended with empty items")]
-fn validate_propagated_from_private_call_contract_class_log_hashes_output_one_more_fails() {
+fn validate_propagated_from_private_call_contract_class_logs_output_one_more_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     // Propagate 1 more item to the output.
-    builder.output.add_contract_class_log_hash(2, 1);
+    builder.output.add_contract_class_log([2]);
 
+    builder.validate_as_inner_call();
+}
+
+#[test(should_fail_with = "source item does not append to dest")]
+fn validate_propagated_from_private_call_contract_class_logs_incorrect_size() {
+    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
+
+    builder.private_call.add_contract_class_log([1, 2, 3]);
+    builder.output.add_contract_class_log([1, 2, 3]);
+    // edit the output log_size (the private_call log_size is mutated when added to public_inputs)
+    let mut log = builder.output.contract_class_logs.get_unchecked(0);
+    log.inner.log_size = 12;
+    builder.output.contract_class_logs.set_unchecked(0, log);
     builder.validate_as_inner_call();
 }
 

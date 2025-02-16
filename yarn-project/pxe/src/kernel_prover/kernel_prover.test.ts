@@ -79,7 +79,6 @@ describe('Kernel Prover', () => {
       (dependencies[fnName] || []).map(name => createCallExecutionResult(name)),
       [],
       PublicExecutionRequest.empty(),
-      [],
     );
   };
 

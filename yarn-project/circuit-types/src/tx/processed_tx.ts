@@ -1,14 +1,14 @@
 import {
   type ClientIvcProof,
   CombinedConstantData,
-  Fr,
+  type Fr,
   Gas,
   type GlobalVariables,
   type PrivateKernelTailCircuitPublicInputs,
   type PublicDataWrite,
   RevertCode,
 } from '@aztec/circuits.js';
-import { siloL2ToL1Message } from '@aztec/circuits.js/hash';
+import { siloContractClassLog, siloL2ToL1Message } from '@aztec/circuits.js/hash';
 
 import { type AvmProvingRequest } from '../interfaces/proving-job.js';
 import { type SimulationError } from '../simulation_error.js';
@@ -99,8 +99,7 @@ export async function makeProcessedTxFromPrivateOnlyTx(
     publicDataWrites,
     data.end.privateLogs.filter(l => !l.isEmpty()),
     [],
-    data.end.contractClassLogPreimagesLength,
-    tx.contractClassLogs,
+    await Promise.all(data.end.contractClassLogs.filter(l => !l.isEmpty()).map(l => siloContractClassLog(l))),
   );
 
   const gasUsed = {
@@ -145,7 +144,10 @@ export async function makeProcessedTxFromTxWithPublicCalls(
     ...(revertCode.isOK() ? tx.data.forPublic!.revertibleAccumulatedData.privateLogs : []),
   ].filter(l => !l.isEmpty());
 
-  const contractClassLogPreimagesLength = tx.contractClassLogs.getKernelLength();
+  const contractClassLogs = [
+    ...tx.data.forPublic!.nonRevertibleAccumulatedData.contractClassLogs,
+    ...(revertCode.isOK() ? tx.data.forPublic!.revertibleAccumulatedData.contractClassLogs : []),
+  ].filter(l => !l.isEmpty());
 
   const txEffect = new TxEffect(
     revertCode,
@@ -159,8 +161,7 @@ export async function makeProcessedTxFromTxWithPublicCalls(
     publicDataWrites,
     privateLogs,
     avmPublicInputs.accumulatedData.publicLogs.filter(l => !l.isEmpty()),
-    new Fr(contractClassLogPreimagesLength),
-    tx.contractClassLogs,
+    await Promise.all(contractClassLogs.map(l => siloContractClassLog(l))),
   );
 
   return {

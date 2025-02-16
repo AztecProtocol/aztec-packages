@@ -3,14 +3,16 @@ mod tail_to_public_output_hints;
 use crate::components::tail_to_public_output_composer::meter_gas_used;
 use dep::types::{
     abis::{
+        contract_class_log::{
+            assert_split_sorted_transformed_contract_class_logs, ContractClassLogData,
+        },
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PrivateToPublicKernelCircuitPublicInputs,
         },
-        log_hash::ScopedLogHash,
         note_hash::ScopedNoteHash,
         nullifier::ScopedNullifier,
         public_call_request::PublicCallRequest,
-        side_effect::Counted,
+        side_effect::{Counted, scoped::Scoped},
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     utils::arrays::{
@@ -112,14 +114,19 @@ impl TailToPublicOutputValidator {
             hints.sorted_l2_to_l1_msg_hints,
         );
 
-        // contract_class_logs_hashes
-        assert_split_sorted_transformed_value_arrays_asc(
-            prev_data.contract_class_logs_hashes,
-            prev_data.contract_class_logs_hashes.map(|log: ScopedLogHash| log.expose_to_public()),
+        // contract_class_logs
+        assert_split_sorted_transformed_contract_class_logs(
+            prev_data.contract_class_logs,
+            prev_data.contract_class_logs.map(|log: Scoped<ContractClassLogData>| {
+                log.expose_to_public()
+            }),
             split_counter,
-            output_non_revertible.contract_class_logs_hashes,
-            output_revertible.contract_class_logs_hashes,
-            hints.sorted_contract_class_log_hash_hints,
+            output_non_revertible.contract_class_logs,
+            output_revertible.contract_class_logs,
+            hints.sorted_contract_class_log_hints.sorted_counters_lt,
+            hints.sorted_contract_class_log_hints.sorted_counters_gte,
+            hints.sorted_contract_class_log_hints.sorted_indexes,
+            true,
         );
 
         // public_call_requests

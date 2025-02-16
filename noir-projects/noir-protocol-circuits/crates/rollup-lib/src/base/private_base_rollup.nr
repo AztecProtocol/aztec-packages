@@ -19,7 +19,8 @@ use super::components::constants::validate_tx_constant_data;
 use dep::types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, constant_rollup_data::ConstantRollupData,
-        public_data_write::PublicDataWrite, public_log::PublicLog, sponge_blob::SpongeBlob,
+        contract_class_log::ContractClassLogData, public_data_write::PublicDataWrite,
+        public_log::PublicLog, side_effect::scoped::Scoped, sponge_blob::SpongeBlob,
         tube::PrivateTubeData,
     },
     constants::{
@@ -27,7 +28,7 @@ use dep::types::{
         NOTE_HASH_SUBTREE_HEIGHT, TUBE_VK_INDEX,
     },
     data::{hash::compute_public_data_tree_value, public_data_hint::PublicDataHint},
-    hash::silo_l2_to_l1_message,
+    hash::{silo_contract_class_log, silo_l2_to_l1_message},
     merkle_tree::{
         append_only_tree, calculate_empty_tree_root, calculate_subtree_root, MembershipWitness,
     },
@@ -110,6 +111,13 @@ impl PrivateBaseRollupInputs {
             ),
         );
 
+        let siloed_contract_class_logs = self.tube_data.public_inputs.end.contract_class_logs.map(
+            |log: Scoped<ContractClassLogData>| silo_contract_class_log(log),
+        );
+        // These lengths have been constrained in the kernels to be correct.
+        let contract_class_logs_lengths =
+            self.tube_data.public_inputs.end.contract_class_logs.map(|l| l.inner.log_size);
+
         let out_hash = compute_kernel_out_hash(siloed_l2_to_l1_msgs);
         let tx_effect = TxEffect {
             tx_hash: self.tube_data.public_inputs.hash(),
@@ -121,14 +129,13 @@ impl PrivateBaseRollupInputs {
             public_data_writes: all_public_data_update_requests,
             private_logs: self.tube_data.public_inputs.end.private_logs,
             public_logs: [PublicLog::empty(); MAX_PUBLIC_LOGS_PER_TX],
-            contract_class_log_preimages_length: self
-                .tube_data
-                .public_inputs
-                .end
-                .contract_class_log_preimages_length,
-            contract_class_logs_hashes: self.tube_data.public_inputs.end.contract_class_logs_hashes,
+            contract_class_logs: siloed_contract_class_logs,
         };
-        let end_sponge_blob = append_tx_effects_for_blob(tx_effect, self.start_sponge_blob);
+        let end_sponge_blob = append_tx_effects_for_blob(
+            tx_effect,
+            self.start_sponge_blob,
+            contract_class_logs_lengths,
+        );
 
         // Perform membership checks that the notes provided exist within the historical trees data
         perform_archive_membership_check(
@@ -231,7 +238,8 @@ mod tests {
         },
         address::{AztecAddress, EthAddress},
         constants::{
-            ARCHIVE_HEIGHT, CONTRACT_CLASS_LOGS_PREFIX, L2_L1_MSGS_PREFIX, MAX_L2_TO_L1_MSGS_PER_TX,
+            ARCHIVE_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, CONTRACT_CLASS_LOGS_PREFIX,
+            L2_L1_MSGS_PREFIX, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
             MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
             MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT,
             NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT, NOTES_PREFIX,
@@ -241,7 +249,7 @@ mod tests {
             TX_START_PREFIX,
         },
         data::{public_data_hint::PublicDataHint, PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
-        hash::silo_l2_to_l1_message,
+        hash::{silo_contract_class_log, silo_l2_to_l1_message},
         merkle_tree::MembershipWitness,
         messaging::l2_to_l1_message::ScopedL2ToL1Message,
         partial_state_reference::PartialStateReference,
@@ -574,6 +582,7 @@ mod tests {
             let start_sponge_blob = append_tx_effects_for_blob(
                 pre_existing_tx_effects,
                 SpongeBlob::new(TX_EFFECTS_BLOB_HASH_INPUT_FIELDS),
+                [0; MAX_CONTRACT_CLASS_LOGS_PER_TX],
             );
 
             let state_diff_hints = PrivateBaseStateDiffHints {
@@ -820,8 +829,6 @@ mod tests {
         let inputs = builder.build_inputs();
         let outputs = inputs.execute();
         let mut tx_effects = [0; 54];
-        // TODO(#8954): This test uses 50 notes and 4 extra absorbed fields
-        // This may change when logs are deconstructed
         // Initial field = TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
         // The first 4 are: i=0 init field, i=1: tx hash, i=2: tx fee, i=3: note prefix
         tx_effects[0] = field_from_bytes(
@@ -877,7 +884,8 @@ mod tests {
         builder.tube_data.append_l2_to_l1_msgs(NUM_MSGS);
         builder.tube_data.append_private_logs(NUM_PRIV_EVENT_LOGS);
         // Below will only work with NUM_CC_LOGS=1
-        builder.tube_data.add_contract_class_log_hash(1, 2);
+        let cc_log = [1, 2, 3];
+        builder.tube_data.add_contract_class_log(cc_log);
         let inputs = builder.build_inputs();
         let outputs = inputs.execute();
 
@@ -932,16 +940,26 @@ mod tests {
         }
         offset += total_private_logs_len;
         // cc logs
+        let total_contract_class_logs_len = NUM_CC_LOGS * (cc_log.len() + 1);
         let contract_class_logs_prefix =
-            encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, NUM_CC_LOGS);
+            encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, total_contract_class_logs_len);
         reconstructed_tx_effects[offset] = contract_class_logs_prefix;
         offset += 1;
         for i in 0..NUM_CC_LOGS {
-            reconstructed_tx_effects[offset + i] = types::hash::silo_contract_class_log_hash(
-                builder.tube_data.contract_class_logs_hashes.storage()[i],
-            );
+            let siloed_log =
+                silo_contract_class_log(builder.tube_data.contract_class_logs.storage()[i]);
+            let log_len = builder.tube_data.contract_class_logs.storage()[i].inner.log_size;
+            if log_len != 0 {
+                reconstructed_tx_effects[offset] = log_len as Field;
+                offset += 1;
+            }
+            for j in 0..CONTRACT_CLASS_LOG_SIZE_IN_FIELDS {
+                if j < log_len {
+                    reconstructed_tx_effects[offset] = siloed_log.fields[j];
+                    offset += 1;
+                }
+            }
         }
-        offset += NUM_CC_LOGS;
 
         // Initial field = TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
         // revert code = 0

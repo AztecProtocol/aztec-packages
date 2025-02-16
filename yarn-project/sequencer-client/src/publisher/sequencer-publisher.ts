@@ -47,8 +47,6 @@ type L1ProcessArgs = {
   archive: Buffer;
   /** The L2 block's leaf in the archive tree. */
   blockHash: Buffer;
-  /** L2 block body. TODO(#9101): Remove block body once we can extract blobs. */
-  body: Buffer;
   /** L2 block blobs containing all tx effects. */
   blobs: Blob[];
   /** L2 block tx hashes */
@@ -487,8 +485,6 @@ export class SequencerPublisher {
         txHashes,
       },
       attestations,
-      // TODO(#9101): Extract blobs from beacon chain => calldata will only contain what's needed to verify blob and body input can be removed
-      `0x${encodedData.body.toString('hex')}`,
       blobInput,
     ] as const;
 

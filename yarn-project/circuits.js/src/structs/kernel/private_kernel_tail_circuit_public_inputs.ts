@@ -243,6 +243,20 @@ export class PrivateKernelTailCircuitPublicInputs {
     return privateLogs.filter(n => !n.isEmpty());
   }
 
+  getNonEmptyContractClassLogs() {
+    const contractClassLogs = this.forPublic
+      ? mergeAccumulatedData(
+          this.forPublic.nonRevertibleAccumulatedData.contractClassLogs,
+          this.forPublic.revertibleAccumulatedData.contractClassLogs,
+        )
+      : this.forRollup!.end.contractClassLogs;
+    return contractClassLogs.filter(n => !n.isEmpty());
+  }
+
+  getNonEmptyContractClassLogsLength() {
+    return this.getNonEmptyContractClassLogs().reduce((total, log) => total + log.getEmittedLength(), 0);
+  }
+
   static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelTailCircuitPublicInputs {
     const reader = BufferReader.asReader(buffer);
     const isForPublic = reader.readBoolean();
