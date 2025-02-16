@@ -42,7 +42,7 @@ Most of the logic is in the `bin.js` file, where `commander` commands stuff. The
 
 ## Templates
 
-As noted above, every box is tested at every merge to master. Any breaking changes need to happen in every box, so we try to keep the number of templates strategically low. For that reason, we ask contributors to reach directly to the [devrel team](https://github.com/orgs/AztecProtocol/teams/devrel) before adding another template.
+As noted above, every box is tested at every merge to master. Any breaking changes need to happen in every box, so we try to keep the number of templates strategically low. For that reason, we ask contributors to reach directly to the [devrel team](https://github.com/AztecProtocol/dev-rel) before adding another template.
 
 Currently there are two "app" boxes and one "contract-only" box:
 
