@@ -153,7 +153,7 @@ function build {
   check_toolchains
 
   # Ensure we have yarn set up.
-  corepack enable yarn
+  corepack enable
 
   projects=(
     noir
