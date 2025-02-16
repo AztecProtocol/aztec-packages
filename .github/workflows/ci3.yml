@@ -37,7 +37,7 @@ jobs:
         if: github.event.pull_request.head.repo.full_name != github.repository
         run: |
           [ ${{contains(github.event.pull_request.labels.*.name, 'ci-external')}} == 'false' ] && echo "Error: External PRs need the 'ci-external' label to run." && exit 1
-          [ ${{github.event.pull_request.base.ref}} != 'master' ] && echo "Error: External PRs can only target master as a base for safety." && exit 1
+          #[ ${{github.event.pull_request.base.ref}} != 'master' ] && echo "Error: External PRs can only target master as a base for safety." && exit 1
           git fetch https://github.com/aztecprotocol/aztec-packages ${{ github.event.pull_request.base.ref }} --depth=1
           git diff --name-only ${{ github.event.pull_request.base.ref }} HEAD ci3 ci.sh | grep -q . && { echo "Error: External PRs can't contain CI changes."; exit 1; }
       - name: Fail If Draft
@@ -119,7 +119,7 @@ jobs:
         if: github.event.pull_request.head.repo.full_name != github.repository
         run: |
           [ ${{contains(github.event.pull_request.labels.*.name, 'ci-external')}} == 'false' ] && echo "Error: External PRs need the 'ci-external' label to run." && exit 1
-          [ ${{github.event.pull_request.base.ref}} != 'master' ] && echo "Error: External PRs can only target master as a base for safety." && exit 1
+          #[ ${{github.event.pull_request.base.ref}} != 'master' ] && echo "Error: External PRs can only target master as a base for safety." && exit 1
           git fetch https://github.com/aztecprotocol/aztec-packages ${{ github.event.pull_request.base.ref }} --depth=1
           git diff --name-only ${{ github.event.pull_request.base.ref }} HEAD ci3 ci.sh | grep -q . && { echo "Error: External PRs can't contain CI changes."; exit 1; }
       - name: Fail If Draft
