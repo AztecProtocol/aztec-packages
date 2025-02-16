@@ -55,6 +55,32 @@ std::vector<uint8_t> decompress(const void* bytes, size_t size)
     return content;
 }
 
+template <typename T> std::shared_ptr<T> read_to_shared_ptr(const std::filesystem::path& path)
+{
+    return std::make_shared<T>(from_buffer<T>(read_file(path)));
+};
+
+template <typename T> T unpack_from_file(const std::filesystem::path& filename)
+{
+    std::ifstream fin;
+    fin.open(filename, std::ios::ate | std::ios::binary);
+    if (!fin.is_open()) {
+        throw std::invalid_argument("file not found");
+    }
+    if (fin.tellg() == -1) {
+        throw std::invalid_argument("something went wrong");
+    }
+
+    uint64_t fsize = static_cast<uint64_t>(fin.tellg());
+    fin.seekg(0, std::ios_base::beg);
+
+    T result;
+    char* encoded_data = new char[fsize];
+    fin.read(encoded_data, static_cast<std::streamsize>(fsize));
+    msgpack::unpack(encoded_data, fsize).get().convert(result);
+    return result;
+}
+
 /**
  * @brief Compute and write to file a MegaHonk VK for a circuit to be accumulated in the IVC
  * @note This method differes from write_vk_honk<MegaFlavor> in that it handles kernel circuits which require special
@@ -208,7 +234,7 @@ void ClientIVCAPI::prove(const Flags& flags,
     write_file(output_dir / "vk", to_buffer(ClientIVC::VerificationKey{ ivc->honk_vk, eccvm_vk, translator_vk }));
 }
 
-bool ClientIVCAPI::verify(const Flags& flags,
+bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
                           const std::filesystem::path& proof_path,
                           const std::filesystem::path& vk_path)
 {
@@ -247,14 +273,15 @@ bool ClientIVCAPI::prove_and_verify(const Flags& flags,
     return verified;
 }
 
-void ClientIVCAPI::gates(const Flags& flags, const std::filesystem::path& bytecode_path)
+void ClientIVCAPI::gates([[maybe_unused]] const Flags& flags,
+                         [[maybe_unused]] const std::filesystem::path& bytecode_path)
 {
     throw_or_abort("API function gates not implemented");
 }
 
-void ClientIVCAPI::contract(const Flags& flags,
-                            const std::filesystem::path& output_path,
-                            const std::filesystem::path& vk_path)
+void ClientIVCAPI::contract([[maybe_unused]] const Flags& flags,
+                            [[maybe_unused]] const std::filesystem::path& output_path,
+                            [[maybe_unused]] const std::filesystem::path& vk_path)
 {
     throw_or_abort("API function contract not implemented");
 }
@@ -266,9 +293,9 @@ void ClientIVCAPI::write_vk(const Flags& flags,
     write_vk_for_ivc(flags.output_data_type == "fields", bytecode_path.string(), output_path.string());
 }
 
-bool ClientIVCAPI::check(const Flags& flags,
-                         const std::filesystem::path& bytecode_path,
-                         const std::filesystem::path& witness_path)
+bool ClientIVCAPI::check([[maybe_unused]] const Flags& flags,
+                         [[maybe_unused]] const std::filesystem::path& bytecode_path,
+                         [[maybe_unused]] const std::filesystem::path& witness_path)
 {
     throw_or_abort("API function check_witness not implemented");
     return false;
@@ -359,29 +386,4 @@ void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem
     write_file(output_dir / "vk", to_buffer(ClientIVC::VerificationKey{ ivc.honk_vk, eccvm_vk, translator_vk }));
 }
 
-template <typename T> std::shared_ptr<T> read_to_shared_ptr(const std::filesystem::path& path)
-{
-    return std::make_shared<T>(from_buffer<T>(read_file(path)));
-};
-
-template <typename T> T unpack_from_file(const std::filesystem::path& filename)
-{
-    std::ifstream fin;
-    fin.open(filename, std::ios::ate | std::ios::binary);
-    if (!fin.is_open()) {
-        throw std::invalid_argument("file not found");
-    }
-    if (fin.tellg() == -1) {
-        throw std::invalid_argument("something went wrong");
-    }
-
-    uint64_t fsize = static_cast<uint64_t>(fin.tellg());
-    fin.seekg(0, std::ios_base::beg);
-
-    T result;
-    char* encoded_data = new char[fsize];
-    fin.read(encoded_data, static_cast<std::streamsize>(fsize));
-    msgpack::unpack(encoded_data, fsize).get().convert(result);
-    return result;
-}
 } // namespace bb
