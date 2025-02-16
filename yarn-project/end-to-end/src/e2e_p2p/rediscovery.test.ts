@@ -2,6 +2,8 @@ import { type AztecNodeService } from '@aztec/aztec-node';
 import { sleep } from '@aztec/aztec.js';
 
 import fs from 'fs';
+import os from 'os';
+import path from 'path';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { type NodeContext, createNode, createNodes } from '../fixtures/setup_p2p_test.js';
@@ -13,7 +15,7 @@ const NUM_NODES = 4;
 const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = 40400;
 
-const DATA_DIR = './data/rediscovery';
+const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'rediscovery-'));
 
 describe('e2e_p2p_rediscovery', () => {
   let t: P2PNetworkTest;

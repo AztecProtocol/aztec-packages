@@ -3,6 +3,8 @@ import { sleep } from '@aztec/aztec.js';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
+import os from 'os';
+import path from 'path';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { type NodeContext, createNodes } from '../fixtures/setup_p2p_test.js';
@@ -17,7 +19,7 @@ const NUM_NODES = 4;
 const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = 40600;
 
-const DATA_DIR = './data/gossip';
+const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'gossip-'));
 
 jest.setTimeout(1000 * 60 * 10);
 

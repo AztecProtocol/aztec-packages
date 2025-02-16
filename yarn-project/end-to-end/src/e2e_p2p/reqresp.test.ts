@@ -4,6 +4,8 @@ import { RollupAbi } from '@aztec/l1-artifacts';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { getContract } from 'viem';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
@@ -16,7 +18,7 @@ const NUM_NODES = 6;
 const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = 40800;
 
-const DATA_DIR = './data/data-reqresp';
+const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'reqresp-'));
 
 describe('e2e_p2p_reqresp_tx', () => {
   let t: P2PNetworkTest;
