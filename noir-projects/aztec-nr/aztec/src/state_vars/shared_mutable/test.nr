@@ -54,7 +54,7 @@ unconstrained fn test_get_scheduled_value_in_public() {
 
     let (scheduled, block_of_change) = state_var.get_scheduled_value();
     assert_eq(scheduled, new_value);
-    assert_eq(block_of_change, env.block_number() + TEST_INITIAL_DELAY);
+    assert_eq(block_of_change, env.block_number() + 1 + TEST_INITIAL_DELAY);
 }
 
 #[test]
@@ -120,7 +120,7 @@ unconstrained fn test_get_scheduled_delay_in_public() {
     let (scheduled, block_of_change) = state_var.get_scheduled_delay();
     assert_eq(scheduled, new_delay);
     // The new delay is smaller, therefore we need to wait for the difference between current and new
-    assert_eq(block_of_change, env.block_number() + TEST_INITIAL_DELAY - new_delay);
+    assert_eq(block_of_change, env.block_number() + 1 + TEST_INITIAL_DELAY - new_delay);
 }
 
 #[test]

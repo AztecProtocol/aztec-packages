@@ -22,7 +22,7 @@ impl TestEnvironment {
     }
 
     pub unconstrained fn block_number(_self: Self) -> u32 {
-        get_block_number()
+        get_block_number() - 1
     }
 
     pub unconstrained fn contract_address(_self: Self) -> AztecAddress {
