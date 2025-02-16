@@ -50,7 +50,7 @@ jobs:
           git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1
           git diff --name-only origin/${{ github.event.pull_request.base.ref }} HEAD -- ci3 .github ci.sh | grep -q . && { echo "Error: External PRs can't contain CI changes."; exit 1; }
           # Remove any ci-external once labels.
-          gh pr edit ${{ github.event.pull_request.number }} --remove-label "ci-external-once" &>/dev/null || true
+          gh pr edit ${{ github.event.pull_request.number }} --remove-label "ci-external-once"
       - name: Fail If Draft
         if: github.event.pull_request.draft && (github.event.action != 'labeled' || github.event.label.name != 'trigger-workflow')
         run: echo "CI is not run on drafts." && exit 1
