@@ -1,4 +1,7 @@
 #pragma once
+#include "barretenberg/api/acir_format_getters.hpp"
+#include "barretenberg/api/init_srs.hpp"
+#include "barretenberg/constants.hpp"
 
 namespace bb {
 /**

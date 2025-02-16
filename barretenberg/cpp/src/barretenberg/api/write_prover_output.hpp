@@ -2,14 +2,11 @@
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/map.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include <filesystem>
 
-std::string to_json(const std::vector<bb::fr>& data)
-{
-    return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
-}
-
 namespace bb {
+
 template <typename ProverOutput>
 void write(const ProverOutput& prover_output,
            const std::string& output_data_type,
@@ -18,6 +15,10 @@ void write(const ProverOutput& prover_output,
 {
     enum class ObjectToWrite : size_t { PROOF, VK };
     const bool output_to_stdout = output_dir == "-";
+
+    const auto to_json = [](const std::vector<bb::fr>& data) {
+        return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
+    };
 
     const auto write_bytes = [&](const ObjectToWrite& obj) {
         switch (obj) {
