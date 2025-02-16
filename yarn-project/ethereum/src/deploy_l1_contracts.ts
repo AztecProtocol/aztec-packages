@@ -421,6 +421,12 @@ export const deployL1Contracts = async (
     txHashes.push(txHash);
   }
 
+  {
+    const txHash = await feeAsset.write.transferOwnership([coinIssuerAddress.toString()], { account });
+    logger.verbose(`Fee asset transferred ownership to coin issuer in ${txHash}`);
+    txHashes.push(txHash);
+  }
+
   if (args.initialValidators && args.initialValidators.length > 0) {
     // Check if some of the initial validators are already registered, so we support idempotent deployments
     const validatorsInfo = await Promise.all(
@@ -511,6 +517,12 @@ export const deployL1Contracts = async (
   if (args.assumeProvenThrough && args.assumeProvenThrough > 0) {
     await rollup.write.setAssumeProvenThroughBlockNumber([BigInt(args.assumeProvenThrough)], { account });
     logger.warn(`Rollup set to assumedProvenUntil to ${args.assumeProvenThrough}`);
+  }
+
+  {
+    const txHash = await rollup.write.setSlashFactory([slashFactoryAddress.toString()], { account });
+    logger.verbose(`Rollup set slash factory in ${txHash}`);
+    txHashes.push(txHash);
   }
 
   // Inbox and Outbox are immutable and are deployed from Rollup's constructor so we just fetch them from the contract.

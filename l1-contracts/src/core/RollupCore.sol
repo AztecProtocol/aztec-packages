@@ -197,6 +197,10 @@ contract RollupCore is
     rollupStore.provingCostPerMana = _provingCostPerMana;
   }
 
+  function setSlashFactory(address _slashFactory) external override(IRollupCore) onlyOwner {
+    rollupStore.slashFactory = _slashFactory;
+  }
+
   function deposit(address _attester, address _proposer, address _withdrawer, uint256 _amount)
     external
     override(IStakingCore)
