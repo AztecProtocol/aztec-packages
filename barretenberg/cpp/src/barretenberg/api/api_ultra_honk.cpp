@@ -55,11 +55,6 @@ UltraProver_<Flavor> _compute_prover(const std::string& bytecode_path,
     return prover;
 }
 
-template <typename VK> struct ProofAndKey {
-    HonkProof proof;
-    std::shared_ptr<VK> key;
-};
-
 template <typename Flavor, typename VK = typename Flavor::VerificationKey>
 ProofAndKey<VK> _compute_vk(const bool init_kzg_accumulator,
                             const std::filesystem::path& bytecode_path,

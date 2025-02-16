@@ -2,6 +2,7 @@
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/api/init_srs.hpp"
 #include "barretenberg/api/log.hpp"
+#include "barretenberg/api/write_prover_output.hpp"
 #include "barretenberg/client_ivc/mock_circuit_producer.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -89,7 +90,9 @@ template <typename T> T unpack_from_file(const std::filesystem::path& filename)
  * @param bytecode_path
  * @param witness_path
  */
-void write_vk_for_ivc(const bool output_fields, const std::string& bytecode_path, const std::string& output_path)
+void write_vk_for_ivc(const std::string& output_data_type,
+                      const std::string& bytecode_path,
+                      const std::string& output_path)
 {
     using Builder = ClientIVC::ClientCircuit;
     using Prover = ClientIVC::MegaProver;
@@ -119,32 +122,9 @@ void write_vk_for_ivc(const bool output_fields, const std::string& bytecode_path
     auto proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);
     Prover prover{ proving_key };
     init_bn254_crs(prover.proving_key->proving_key.circuit_size);
-    VerificationKey vk(prover.proving_key->proving_key);
+    ProofAndKey<VerificationKey> to_write{ {}, std::make_shared<VerificationKey>(prover.proving_key->proving_key) };
 
-    if (output_fields) {
-        std::vector<bb::fr> data = vk.to_field_elements();
-
-        const auto to_json = [](const std::vector<bb::fr>& data) {
-            return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
-        };
-        auto json = to_json(data);
-        if (output_path == "-") {
-            std::cout << json;
-        } else {
-            write_file(output_path, { json.begin(), json.end() });
-            vinfo("vk as fields written to: ", output_path);
-        }
-    } else {
-        // Write the VK to file as a buffer
-        auto serialized_vk = to_buffer(vk);
-        if (output_path == "-") {
-            write_bytes_to_stdout(serialized_vk);
-            vinfo("vk written to stdout");
-        } else {
-            write_file(output_path, serialized_vk);
-            vinfo("vk written to: ", output_path);
-        }
-    }
+    write(to_write, output_data_type, "vk", output_path);
 }
 
 std::vector<acir_format::AcirProgram> _build_folding_stack(const std::string& input_type,
@@ -290,7 +270,7 @@ void ClientIVCAPI::write_vk(const Flags& flags,
                             const std::filesystem::path& bytecode_path,
                             const std::filesystem::path& output_path)
 {
-    write_vk_for_ivc(flags.output_data_type == "fields", bytecode_path.string(), output_path.string());
+    write_vk_for_ivc(flags.output_data_type, bytecode_path, output_path);
 }
 
 bool ClientIVCAPI::check([[maybe_unused]] const Flags& flags,

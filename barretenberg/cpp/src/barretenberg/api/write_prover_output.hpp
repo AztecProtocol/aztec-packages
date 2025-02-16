@@ -3,9 +3,15 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/honk/proof_system/types/proof.hpp"
 #include <filesystem>
 
 namespace bb {
+
+template <typename VK> struct ProofAndKey {
+    HonkProof proof;
+    std::shared_ptr<VK> key;
+};
 
 template <typename ProverOutput>
 void write(const ProverOutput& prover_output,
@@ -72,7 +78,6 @@ void write(const ProverOutput& prover_output,
         }
     };
 
-    // [changed] Replaced switch on output_content/output_data_type with if/else chains.
     if (output_content == "proof") {
         if (output_data_type == "bytes") {
             info("case bytes: ");
@@ -117,10 +122,10 @@ void write(const ProverOutput& prover_output,
             write_bytes(ObjectToWrite::VK);
             write_fields(ObjectToWrite::VK);
         } else {
-            ASSERT("Invalid std::string for PROOF_AND_VK");
+            throw_or_abort("Invalid std::string for PROOF_AND_VK");
         }
     } else {
-        ASSERT("Invalid std::string");
+        throw_or_abort("Invalid std::string");
     }
 }
 } // namespace bb

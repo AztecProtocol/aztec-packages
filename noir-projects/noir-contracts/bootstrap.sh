@@ -72,10 +72,13 @@ function process_function() {
     # Build hash, check if in cache.
     # If it's in the cache it's extracted to $tmp_dir/$hash
     hash=$((echo "$BB_HASH"; echo "$bytecode_b64") | sha256sum | tr -d ' -')
-    if ! cache_download vk-$hash.tar.gz; then
+    if ! cache_download vk-$hash.tar.gz &> /dev/null; then
       # It's not in the cache. Generate the vk file and upload it to the cache.
       echo_stderr "Generating vk for function: $name..."
-      echo "$bytecode_b64" | base64 -d | gunzip | VERBOSE=1 $BB write_vk --scheme client_ivc --output_data fields -b - -o $tmp_dir/$hash 2>/dev/null
+      # Bb outputs to output_dir/vk by default
+      mkdir -p $tmp_dir/$hash-dir
+      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk --scheme client_ivc -b - -o $tmp_dir/$hash-dir -v
+      mv $tmp_dir/$hash-dir/vk $tmp_dir/$hash
       cache_upload vk-$hash.tar.gz $tmp_dir/$hash
     fi
 
