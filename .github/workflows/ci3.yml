@@ -33,6 +33,9 @@ jobs:
         with:
           # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Debug
+        run: |
+          echo ${{toJSON(github.event.repository)}}
       - name: Validate External Changes
         if: github.event.repository.fork
         run: |
