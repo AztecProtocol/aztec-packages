@@ -134,7 +134,7 @@ void write_vk_for_ivc(const bool output_fields, const std::string& bytecode_path
         };
         auto json = to_json(data);
         if (output_path == "-") {
-            write_string_to_stdout(json);
+            std::cout << json;
         } else {
             write_file(output_path, { json.begin(), json.end() });
             vinfo("vk as fields written to: ", output_path);
@@ -387,12 +387,7 @@ void gate_count_for_ivc(const std::string& bytecode_path)
 
         i++;
     }
-    functions_string = format(functions_string, "\n]}");
-
-    const char* jsonData = functions_string.c_str();
-    size_t length = strlen(jsonData);
-    std::vector<uint8_t> data(jsonData, jsonData + length);
-    write_bytes_to_stdout(data);
+    std::cout << format(functions_string, "\n]}");
 }
 
 /**

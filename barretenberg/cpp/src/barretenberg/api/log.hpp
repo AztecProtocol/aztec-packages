@@ -45,15 +45,3 @@ inline void writeUint64AsRawBytesToStdout(uint64_t value)
 
     write_bytes_to_stdout(bytes);
 }
-
-/**
- * @brief Writes a sting to stdout
- *
- * @param str The raw string to write to stdout
- */
-inline void write_string_to_stdout(const std::string& str)
-{
-    for (char ch : str) {
-        std::cout.put(ch);
-    }
-}

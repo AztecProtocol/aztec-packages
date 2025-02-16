@@ -58,12 +58,7 @@ void gate_count(const std::string& bytecode_path, bool recursive, uint32_t honk_
 
         i++;
     }
-    functions_string = format(functions_string, "\n]}");
-
-    const char* jsonData = functions_string.c_str();
-    size_t length = strlen(jsonData);
-    std::vector<uint8_t> data(jsonData, jsonData + length);
-    write_bytes_to_stdout(data);
+    std::cout << format(functions_string, "\n]}");
 }
 
 } // namespace bb

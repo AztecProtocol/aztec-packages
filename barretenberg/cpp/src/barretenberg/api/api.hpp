@@ -6,20 +6,21 @@ namespace bb {
 
 class API {
   public:
+    // see the setting of these flags in bb/main.cpp for more information
     struct Flags {
-        bool verbose{ false };
-        bool debug{ false };
-        bool zk{ false };
-        std::filesystem::path crs_path{ "" };
-        bool recursive{ false };
-        bool init_kzg_accumulator{ false };
-        uint32_t honk_recursion{ 0 };
-        bool ipa_accumulation{ false };
-        std::string scheme;
-        std::string input_type;
-        std::string oracle_hash_type;
-        std::string output_data_type;
-        std::string output_content_type;
+        bool verbose{ false };                // more logging
+        bool debug{ false };                  // even more logging
+        bool zk{ false };                     // use a zk version of the protocol
+        std::filesystem::path crs_path{ "" }; // the location of reference strings for commitment schemes
+        bool recursive{ false };              // deprecated flag indicating that a circuit is to be recursively verified
+        bool init_kzg_accumulator{ false };   // stripped down version fo `recursive` in the UltraHonk; also deprecated?
+        uint32_t honk_recursion{ 0 };         // flag that differentiates between different recursion modes; deprecated?
+        bool ipa_accumulation{ false };       // indicate whether the command is doing IPA proof aggregation
+        std::string scheme;                   // the proving system or IVC scheme
+        std::string input_type;               // is the input bytecode a single circuit or a stack of circuits?
+        std::string oracle_hash_type;         // which hash function does the prover use as a random oracle?
+        std::string output_data_type;         // output bytes, fields, both, or a msgpack buffer of fields
+        std::string output_content_type;      // output a proof, a verification key, or both
 
         friend std::ostream& operator<<(std::ostream& os, const Flags& flags)
         {

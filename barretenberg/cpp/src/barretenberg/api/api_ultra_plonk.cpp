@@ -223,7 +223,7 @@ void contract_ultra_plonk(const std::string& output_path, const std::string& vk_
     auto contract = acir_composer.get_solidity_verifier();
 
     if (output_path == "-") {
-        write_string_to_stdout(contract);
+        std::cout << contract;
         vinfo("contract written to stdout");
     } else {
         write_file(output_path, { contract.begin(), contract.end() });
@@ -313,7 +313,7 @@ void proof_as_fields(const std::string& proof_path, std::string const& vk_path, 
     auto json = to_json(data);
 
     if (output_path == "-") {
-        write_string_to_stdout(json);
+        std::cout << json;
         vinfo("proof as fields written to stdout");
     } else {
         write_file(output_path, { json.begin(), json.end() });
@@ -343,7 +343,7 @@ void vk_as_fields(const std::string& vk_path, const std::string& output_path)
 
     auto json = vk_to_json(data);
     if (output_path == "-") {
-        write_string_to_stdout(json);
+        std::cout << json;
         vinfo("vk as fields written to stdout");
     } else {
         write_file(output_path, { json.begin(), json.end() });

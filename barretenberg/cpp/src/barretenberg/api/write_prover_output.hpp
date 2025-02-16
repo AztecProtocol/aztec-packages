@@ -48,7 +48,7 @@ void write(const ProverOutput& prover_output,
             info("case ObjectToWrite::PROOF: ");
             const std::string proof_json = to_json(prover_output.proof);
             if (output_to_stdout) {
-                write_string_to_stdout(proof_json);
+                std::cout << proof_json;
             } else {
                 info("writing proof as fields to ", output_dir / "proof_fields.json");
                 write_file(output_dir / "proof_fields.json", { proof_json.begin(), proof_json.end() });
@@ -59,7 +59,7 @@ void write(const ProverOutput& prover_output,
             info("case ObjectToWrite::VK: ");
             const std::string vk_json = to_json(prover_output.key->to_field_elements());
             if (output_to_stdout) {
-                write_string_to_stdout(vk_json);
+                std::cout << vk_json;
             } else {
                 info("writing vk as fields to ", output_dir / "vk_fields.json");
                 write_file(output_dir / "vk_fields.json", { vk_json.begin(), vk_json.end() });

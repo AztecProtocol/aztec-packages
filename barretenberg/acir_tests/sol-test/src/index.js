@@ -261,7 +261,7 @@ try {
     switch (errorType) {
       case WRONG_PROOF_LENGTH:
         throw new Error(
-          "Proof length wrong. Possibile culprits: the NUMBER_OF_FIELDS_IN_FOO constants; number of public inputs; proof surgery; zk/non-zk discrepancy."
+          "Proof length wrong. Possibile culprits: the NUMBER_OF_FIELDS_IN_* constants; number of public inputs; proof surgery; zk/non-zk discrepancy."
         );
       case WRONG_PUBLIC_INPUTS_LENGTH:
         throw new Error("Number of inputs in the proof is wrong");

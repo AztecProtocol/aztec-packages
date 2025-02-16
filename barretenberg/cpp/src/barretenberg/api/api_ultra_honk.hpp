@@ -51,19 +51,16 @@ class UltraHonkAPI : public API {
                                                 const std::string& witness_path,
                                                 const bool init_kzg_accumulator)
     {
-        // Lambda function to ensure the builder gets freed before generating the vk. Vk generation requires initialing
-        // the pippenger runtime state which leads to it being the peak, when its functionality is purely for debugging
-        // purposes here.
-        auto prover = [](auto&& circuit) {
-            return UltraProver_<Flavor>{ circuit };
-        }(_compute_circuit<Flavor>(bytecode_path, witness_path, init_kzg_accumulator));
+        // NOTE: During construction of UltraProver_ we generate the VK (for debugging purposes). Peak memory is hit
+        // here due to pippenger runtime state construction. We therefore don't want to assign the circuit to a variable
+        // as the builder would be kept alive (increasing peak memory).
+        auto prover =
+            UltraProver_<Flavor>{ _compute_circuit<Flavor>(bytecode_path, witness_path, init_kzg_accumulator) };
 
         size_t required_crs_size = prover.proving_key->proving_key.circuit_size;
         if constexpr (Flavor::HasZK) {
             // Ensure there are enough points to commit to the libra polynomials required for zero-knowledge sumcheck
-            if (required_crs_size < curve::BN254::SUBGROUP_SIZE * 2) {
-                required_crs_size = curve::BN254::SUBGROUP_SIZE * 2;
-            }
+            required_crs_size = std::max(required_crs_size, curve::BN254::SUBGROUP_SIZE * 2);
         }
         init_bn254_crs(required_crs_size);
 
@@ -261,7 +258,7 @@ class UltraHonkAPI : public API {
         std::string contract = flags.zk ? get_honk_zk_solidity_verifier(vk) : get_honk_solidity_verifier(vk);
 
         if (output_path == "-") {
-            write_string_to_stdout(contract);
+            std::cout << contract;
         } else {
             write_file(output_path, { contract.begin(), contract.end() });
         }
