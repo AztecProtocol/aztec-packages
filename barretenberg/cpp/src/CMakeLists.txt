@@ -64,6 +64,7 @@ if (ENABLE_PIC AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 add_subdirectory(barretenberg/bb)
+add_subdirectory(barretenberg/bb11)
 add_subdirectory(barretenberg/boomerang_value_detection)
 add_subdirectory(barretenberg/circuit_checker)
 add_subdirectory(barretenberg/client_ivc)

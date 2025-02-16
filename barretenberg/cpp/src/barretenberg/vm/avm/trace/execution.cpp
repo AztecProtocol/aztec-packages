@@ -1,4 +1,3 @@
-#include "barretenberg/vm/avm/trace/execution.hpp"
 #include "barretenberg/bb/log.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/serialize.hpp"

@@ -1,7 +1,7 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/plonk/composer/ultra_composer.hpp"
 #ifndef __wasm__
-#include "barretenberg/bb/exec_pipe.hpp"
+#include "barretenberg/bb/exec_pipe.hpp" // WORKTODO: NB NB NB
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
