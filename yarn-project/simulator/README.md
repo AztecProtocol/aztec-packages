@@ -22,7 +22,7 @@ Private functions can call another private function, and can request to call a p
 
 Public functions are simulated and proved on the sequencer side, and verified by the public kernel circuit.
 
-The public inputs of public functions is defined [here](../circuits.js/src/structs/avm_circuit_public_inputs.ts).
+The public inputs of public functions is defined [here](../circuits.js/src/structs/avm/avm_circuit_public_inputs.ts).
 
 They are run with the assistance of an oracle that provides any value read from the public state tree.
 
@@ -35,7 +35,7 @@ They are not proved, and are simulated client-side.
 
 They are run with the assistance of a DB oracle that provides any private data requested by the function.
 
-At the moment, unconstrained functions cannot call any other function. 
+At the moment, unconstrained functions cannot call any other function.
 It would be possible to allow them to call other unconstrained functions.
 
 ## Usage
