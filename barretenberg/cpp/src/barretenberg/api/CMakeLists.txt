@@ -1,1 +1,1 @@
-barretenberg_module(api client_ivc ultra_vanilla_client_ivc dsl)
+barretenberg_module(api client_ivc ultra_vanilla_client_ivc dsl libdeflate::libdeflate_static)

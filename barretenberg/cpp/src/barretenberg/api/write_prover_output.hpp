@@ -1,5 +1,7 @@
 #pragma once
+#include "barretenberg/common/container.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/common/map.hpp"
 #include <filesystem>
 
 std::string to_json(const std::vector<bb::fr>& data)
