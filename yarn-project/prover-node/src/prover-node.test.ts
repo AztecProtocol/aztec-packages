@@ -5,6 +5,7 @@ import {
   type L1ToL2MessageSource,
   L2Block,
   type L2BlockSource,
+  type L2Tips,
   type MerkleTreeWriteOperations,
   type ProverCoordination,
   type Tx,
@@ -177,9 +178,18 @@ describe('prover-node', () => {
     });
 
     it('starts a proof during initial sync', async () => {
+      const blocks = await Promise.all([L2Block.random(10)]);
       l2BlockSource.getL2EpochNumber.mockResolvedValue(11n);
+      l2BlockSource.getBlocksForEpoch.mockResolvedValue(blocks);
+      const tips: L2Tips = {
+        latest: { number: 10, hash: '' },
+        proven: { number: 9, hash: '' },
+        finalized: { number: 8, hash: '' },
+      };
 
-      proverNode.start();
+      l2BlockSource.getL2Tips.mockResolvedValue(tips);
+
+      await proverNode.start();
       await sleep(100);
 
       expect(jobs[0].epochNumber).toEqual(10n);
@@ -191,17 +201,38 @@ describe('prover-node', () => {
 
       mockCoordination.getTxsByHash.mockResolvedValue([]);
 
-      proverNode.start();
+      await proverNode.start();
       await sleep(2000);
       expect(jobs).toHaveLength(0);
     });
 
-    it('starts a proof when a new epoch is completed', async () => {
+    it('starts a proof when a new epoch is ready', async () => {
+      const blocks = await Promise.all([L2Block.random(10), L2Block.random(11), L2Block.random(12)]);
       lastEpochComplete = 10n;
       l2BlockSource.getL2EpochNumber.mockResolvedValue(11n);
+      l2BlockSource.getBlocksForEpoch.mockResolvedValueOnce([blocks[0]]);
+      l2BlockSource.getBlockHeader.mockResolvedValue(blocks[1].header);
+      l2BlockSource.getBlocks.mockResolvedValue(blocks);
+      const tips1: L2Tips = {
+        latest: { number: 11, hash: (await blocks[1].header.hash()).toString() },
+        proven: { number: 9, hash: '' },
+        finalized: { number: 8, hash: '' },
+      };
 
-      proverNode.start();
+      l2BlockSource.getL2Tips.mockResolvedValue(tips1);
+
+      await proverNode.start();
       await sleep(100);
+
+      // Now progress the chain by an epoch
+      l2BlockSource.getBlocksForEpoch.mockResolvedValueOnce([blocks[1]]);
+      const tips2: L2Tips = {
+        latest: { number: 12, hash: (await blocks[2].header.hash()).toString() },
+        proven: { number: 10, hash: '' },
+        finalized: { number: 8, hash: '' },
+      };
+
+      l2BlockSource.getL2Tips.mockResolvedValue(tips2);
 
       lastEpochComplete = 11n;
       await sleep(100);
