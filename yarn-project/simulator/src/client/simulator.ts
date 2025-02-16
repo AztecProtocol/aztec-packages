@@ -159,7 +159,6 @@ export class AcirSimulator {
     nonce: Fr,
     storageSlot: Fr,
     noteTypeId: NoteSelector,
-    computeNullifier: boolean,
     note: Note,
   ) {
     const artifact: FunctionArtifact | undefined = await this.db.getFunctionArtifactByName(
@@ -195,14 +194,7 @@ export class AcirSimulator {
       selector: await FunctionSelector.fromNameAndParameters(artifact),
       type: FunctionType.UNCONSTRAINED,
       isStatic: artifact.isStatic,
-      args: encodeArguments(artifact, [
-        contractAddress,
-        nonce,
-        storageSlot,
-        noteTypeId,
-        computeNullifier,
-        extendedNoteItems,
-      ]),
+      args: encodeArguments(artifact, [contractAddress, nonce, storageSlot, noteTypeId, true, extendedNoteItems]),
       returnTypes: artifact.returnTypes,
     };
 
@@ -235,7 +227,6 @@ export class AcirSimulator {
       Fr.ZERO,
       storageSlot,
       noteTypeId,
-      false,
       note,
     );
     return noteHash;
