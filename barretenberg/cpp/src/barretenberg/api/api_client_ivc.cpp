@@ -263,8 +263,6 @@ void ClientIVCAPI::write_vk(const Flags& flags,
                             const std::filesystem::path& bytecode_path,
                             const std::filesystem::path& output_path)
 {
-    ASSERT(flags.output_data_type == "bytes" || flags.output_data_type == "fields");
-
     write_vk_for_ivc(flags.output_data_type == "fields", bytecode_path.string(), output_path.string());
 }
 
