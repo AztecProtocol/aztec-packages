@@ -156,8 +156,11 @@ void PrecomputedTraceBuilder::process_sha256_round_constants(TraceContainer& tra
     };
     constexpr auto num_rows = round_constants.size();
     trace.reserve_column(C::precomputed_sha256_compression_round_constant, num_rows);
+    trace.reserve_column(C::precomputed_sel_sha256_compression, num_rows);
     for (uint32_t i = 0; i < num_rows; i++) {
-        trace.set(C::precomputed_sha256_compression_round_constant, i, round_constants[i]);
+        trace.set(i,
+                  { { { C::precomputed_sel_sha256_compression, 1 },
+                      { C::precomputed_sha256_compression_round_constant, round_constants[i] } } });
     }
 }
 
