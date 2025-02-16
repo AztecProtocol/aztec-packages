@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739657804105,
+  "lastUpdate": 1739724897687,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47281315+guipublic@users.noreply.github.com",
-            "name": "guipublic",
-            "username": "guipublic"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ee5fc45d1347fd12d924efd4e9a2305ba5efe5b7",
-          "message": "chore: do not differentiate variable vs fixed length for Poseidon2 (#11740)\n\nRemove the terminator for poseidon2 that was used to distinguish between\r\nfixed and variable size hashes.",
-          "timestamp": "2025-02-07T13:01:24+01:00",
-          "tree_id": "068effa569dc0859b9555229a5ad30262f7070b0",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ee5fc45d1347fd12d924efd4e9a2305ba5efe5b7"
-        },
-        "date": 1738933492063,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19133.344061000003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16294.236034999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 20800.562824999986,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18450.334303000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4068.7724550000157,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3788.0796119999995 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 73423.034237,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 73423034000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14375.265541000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14375267000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2803749417,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2803749417 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 141306638,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 141306638 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3280,6 +3214,72 @@ window.BENCHMARK_DATA = {
             "value": 131095380,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 131095380 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49558828+AztecBot@users.noreply.github.com",
+            "name": "Aztec Bot",
+            "username": "AztecBot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2f4f7a6126230e010f9a22fca76e74c344982f2e",
+          "message": "chore: redo typo PR by maximevtush (#12033)\n\nThanks maximevtush for\nhttps://github.com/AztecProtocol/aztec-packages/pull/12030. Our policy\nis to redo typo changes to dissuade metric farming. This is an automated\nscript.",
+          "timestamp": "2025-02-16T11:34:54-05:00",
+          "tree_id": "6477794dbcc2c50a094872338468eadc5106cc8c",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2f4f7a6126230e010f9a22fca76e74c344982f2e"
+        },
+        "date": 1739724890572,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18161.758910999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16012.543032 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18594.301562000055,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16105.156753 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3943.8402950000864,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3113.5112190000004 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55094.110021,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55094109000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10172.353963,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10172362000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1815084719,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1815084719 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 128740696,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 128740696 ns\nthreads: 1"
           }
         ]
       }
