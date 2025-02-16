@@ -13,7 +13,6 @@ import { type PublicSideEffectTraceInterface } from '../public/side_effect_trace
 
 export async function mockGetBytecode(worldStateDB: WorldStateDB, bytecode: Buffer) {
   const commitment = await computePublicBytecodeCommitment(bytecode);
-  (worldStateDB as jest.Mocked<WorldStateDB>).getBytecode.mockResolvedValue(bytecode);
   (worldStateDB as jest.Mocked<WorldStateDB>).getBytecodeCommitment.mockResolvedValue(commitment);
 }
 

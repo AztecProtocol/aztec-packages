@@ -31,13 +31,12 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
   constructor(
     contractDataSource: SimpleContractDataSource,
     merkleTrees: MerkleTreeWriteOperations,
-    skipContractDeployments = false,
     private stateManager: AvmPersistableStateManager,
   ) {
-    super(contractDataSource, merkleTrees, skipContractDeployments);
+    super(contractDataSource, merkleTrees);
   }
 
-  static async create(skipContractDeployments = false): Promise<AvmSimulationTester> {
+  static async create(): Promise<AvmSimulationTester> {
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
     const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
@@ -51,7 +50,7 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
       /*doMerkleOperations=*/ false,
       firstNullifier,
     );
-    return new AvmSimulationTester(contractDataSource, merkleTrees, skipContractDeployments, stateManager);
+    return new AvmSimulationTester(contractDataSource, merkleTrees, stateManager);
   }
 
   /**
@@ -84,7 +83,7 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
       sender,
       isStaticCall,
     });
-    const persistableState = this.stateManager.fork();
+    const persistableState = await this.stateManager.fork();
     const context = initContext({ env: environment, persistableState });
 
     // First we simulate (though it's not needed in this simple case).
@@ -97,7 +96,7 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
       );
     } else {
       this.logger.info(`Simulation of function ${fnName} succeeded!`);
-      this.stateManager.merge(persistableState);
+      await this.stateManager.merge(persistableState);
     }
     return result;
   }
