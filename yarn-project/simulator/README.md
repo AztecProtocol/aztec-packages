@@ -22,7 +22,7 @@ Private functions can call another private function, and can request to call a p
 
 Public functions are simulated and proved on the sequencer side, and verified by the public kernel circuit.
 
-The public inputs of public functions is defined [here](../circuits.js/src/structs/avm_circuit_public_inputs.ts).
+The public inputs of public functions is defined [here](../circuits.js/src/structs/avm/avm_circuit_public_inputs.ts).
 
 They are run with the assistance of an oracle that provides any value read from the public state tree.
 
