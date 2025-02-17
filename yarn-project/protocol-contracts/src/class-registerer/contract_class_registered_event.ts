@@ -1,4 +1,5 @@
 import {
+  type ContractClassLog,
   type ContractClassPublic,
   PUBLIC_DISPATCH_SELECTOR,
   type PublicFunction,
@@ -7,9 +8,7 @@ import {
 } from '@aztec/circuits.js';
 import { FunctionSelector, bufferFromFields } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader } from '@aztec/foundation/serialize';
-
-import chunk from 'lodash.chunk';
+import { FieldReader } from '@aztec/foundation/serialize';
 
 import { REGISTERER_CONTRACT_CLASS_REGISTERED_TAG } from '../protocol_contract_data.js';
 
@@ -23,19 +22,17 @@ export class ContractClassRegisteredEvent {
     public readonly packedPublicBytecode: Buffer,
   ) {}
 
-  static isContractClassRegisteredEvent(log: Buffer) {
-    return log.subarray(0, 32).equals(REGISTERER_CONTRACT_CLASS_REGISTERED_TAG.toBuffer());
+  static isContractClassRegisteredEvent(log: ContractClassLog) {
+    return log.fields[0].equals(REGISTERER_CONTRACT_CLASS_REGISTERED_TAG);
   }
 
-  static fromLog(log: Buffer) {
-    const reader = new BufferReader(log.subarray(32));
-    const contractClassId = reader.readObject(Fr);
-    const version = reader.readObject(Fr).toNumber();
-    const artifactHash = reader.readObject(Fr);
-    const privateFunctionsRoot = reader.readObject(Fr);
-    const packedPublicBytecode = bufferFromFields(
-      chunk(reader.readToEnd(), Fr.SIZE_IN_BYTES).map(Buffer.from).map(Fr.fromBuffer),
-    );
+  static fromLog(log: ContractClassLog) {
+    const reader = new FieldReader(log.fields.slice(1));
+    const contractClassId = reader.readField();
+    const version = reader.readField().toNumber();
+    const artifactHash = reader.readField();
+    const privateFunctionsRoot = reader.readField();
+    const packedPublicBytecode = bufferFromFields(reader.readFieldArray(log.fields.slice(1).length - reader.cursor));
 
     return new ContractClassRegisteredEvent(
       contractClassId,

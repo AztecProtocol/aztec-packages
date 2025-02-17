@@ -4,14 +4,14 @@ import {
   SimulationError,
   type Tx,
   TxExecutionPhase,
-  UnencryptedFunctionL2Logs,
-  UnencryptedL2Log,
   mockTx,
 } from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
   AztecAddress,
   BlockHeader,
+  CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
+  ContractClassLog,
   type ContractDataSource,
   Fr,
   Gas,
@@ -24,6 +24,7 @@ import {
   PublicDataTreeLeaf,
   PublicDataWrite,
   REGISTERER_CONTRACT_ADDRESS,
+  REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
   RevertCode,
   ScopedLogHash,
   StateReference,
@@ -35,7 +36,7 @@ import { bufferAsFields } from '@aztec/foundation/abi';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
-import { ProtocolContractAddress, REGISTERER_CONTRACT_CLASS_REGISTERED_TAG } from '@aztec/protocol-contracts';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import { NativeWorldStateService } from '@aztec/world-state';
 
@@ -171,7 +172,7 @@ describe('public_tx_simulator', () => {
   const mockContractClassForTx = async (tx: Tx, revertible = true) => {
     const publicContractClass = await makeContractClassPublic(42);
     const contractClassLogFields = [
-      REGISTERER_CONTRACT_CLASS_REGISTERED_TAG,
+      new Fr(REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE),
       publicContractClass.id,
       new Fr(publicContractClass.version),
       publicContractClass.artifactHash,
@@ -181,19 +182,16 @@ describe('public_tx_simulator', () => {
         Math.ceil(publicContractClass.packedBytecode.length / 32) + 1,
       ),
     ];
-    const contractClassLogBuffer = Buffer.concat([
-      ...contractClassLogFields.map(f => f.toBuffer()),
-      publicContractClass.packedBytecode,
-      Buffer.alloc(32 - (publicContractClass.packedBytecode.length % 32)),
-    ]);
-    const contractClassLog = new UnencryptedFunctionL2Logs([
-      new UnencryptedL2Log(AztecAddress.fromNumber(REGISTERER_CONTRACT_ADDRESS), contractClassLogBuffer),
-    ]);
-    tx.contractClassLogs.addFunctionLogs([contractClassLog]);
+    const contractClassLog = new ContractClassLog(
+      contractClassLogFields.concat(
+        new Array(CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - contractClassLogFields.length).fill(Fr.ZERO),
+      ),
+    );
+    tx.contractClassLogs.push(contractClassLog);
     const contractClassLogHash = ScopedLogHash.fromFields([
-      Fr.fromBuffer(contractClassLog.logs[0].hash()),
+      await contractClassLog.hash(),
       new Fr(7),
-      new Fr(contractClassLog.getKernelLength()),
+      new Fr(contractClassLog.getEmittedLength()),
       new Fr(REGISTERER_CONTRACT_ADDRESS),
     ]);
     if (revertible) {
@@ -874,10 +872,10 @@ describe('public_tx_simulator', () => {
 
     const contractClass = await worldStateDB.getContractClass(contractClassId);
     if (kind == 'revertible') {
-      expect(tx.contractClassLogs.unrollLogs().length).toEqual(0);
+      expect(tx.contractClassLogs.length).toEqual(0);
       expect(contractClass).toBeUndefined();
     } else {
-      expect(tx.contractClassLogs.unrollLogs().length).toEqual(1);
+      expect(tx.contractClassLogs.length).toEqual(1);
       expect(contractClass).toBeDefined();
     }
   });

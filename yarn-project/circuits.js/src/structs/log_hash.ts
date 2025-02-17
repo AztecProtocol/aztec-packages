@@ -1,5 +1,4 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { sha256Trunc } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -8,23 +7,23 @@ import { inspect } from 'util';
 import { type Ordered } from '../interfaces/index.js';
 
 export class LogHash implements Ordered {
-  constructor(public value: Fr, public counter: number, public length: Fr) {}
+  constructor(public value: Fr, public counter: number, public length: number) {}
 
   toFields(): Fr[] {
-    return [this.value, new Fr(this.counter), this.length];
+    return [this.value, new Fr(this.counter), new Fr(this.length)];
   }
 
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
-    return new LogHash(reader.readField(), reader.readU32(), reader.readField());
+    return new LogHash(reader.readField(), reader.readU32(), reader.readU32());
   }
 
   isEmpty() {
-    return this.value.isZero() && this.length.isZero() && !this.counter;
+    return this.value.isZero() && !this.length && !this.counter;
   }
 
   static empty() {
-    return new LogHash(Fr.zero(), 0, Fr.zero());
+    return new LogHash(Fr.zero(), 0, 0);
   }
 
   toBuffer(): Buffer {
@@ -33,7 +32,7 @@ export class LogHash implements Ordered {
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new LogHash(Fr.fromBuffer(reader), reader.readNumber(), Fr.fromBuffer(reader));
+    return new LogHash(Fr.fromBuffer(reader), reader.readNumber(), reader.readNumber());
   }
 
   toString(): string {
@@ -88,9 +87,5 @@ export class ScopedLogHash implements Ordered {
 
   toString(): string {
     return `logHash=${this.logHash} contractAddress=${this.contractAddress}`;
-  }
-
-  getSiloedHash(): Buffer {
-    return sha256Trunc(Buffer.concat([this.contractAddress.toBuffer(), this.value.toBuffer()]));
   }
 }

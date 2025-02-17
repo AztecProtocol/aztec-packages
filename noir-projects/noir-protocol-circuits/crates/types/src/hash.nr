@@ -1,8 +1,8 @@
 use crate::{
     abis::{
         contract_class_function_leaf_preimage::ContractClassFunctionLeafPreimage,
+        contract_class_log::ContractClassLog,
         function_selector::FunctionSelector,
-        log_hash::{LogHash, ScopedLogHash},
         note_hash::ScopedNoteHash,
         nullifier::ScopedNullifier,
         private_log::{PrivateLog, PrivateLogData},
@@ -16,7 +16,7 @@ use crate::{
     merkle_tree::root::root_from_sibling_path,
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
     poseidon2::Poseidon2Sponge,
-    traits::{FromField, Hash, is_empty, ToField},
+    traits::{FromField, Hash, ToField},
     utils::field::field_from_bytes_32_trunc,
 };
 use super::{constants::TWO_POW_64, utils::{arrays::array_concat, field::field_from_bytes}};
@@ -117,15 +117,23 @@ pub fn silo_private_log(private_log: Scoped<PrivateLogData>) -> PrivateLog {
     }
 }
 
-fn compute_siloed_contract_class_log_hash(address: AztecAddress, log_hash: Field) -> Field {
-    accumulate_sha256([address.to_field(), log_hash])
+fn compute_siloed_contract_class_log_field(
+    contract_address: AztecAddress,
+    first_field: Field,
+) -> Field {
+    poseidon2_hash([contract_address.to_field(), first_field])
 }
 
-pub fn silo_contract_class_log_hash(log_hash: ScopedLogHash) -> Field {
-    if log_hash.contract_address.is_zero() {
-        0
+pub fn silo_contract_class_log(
+    contract_class_log: ContractClassLog,
+    contract_address: AztecAddress,
+) -> ContractClassLog {
+    if contract_address.is_zero() {
+        contract_class_log
     } else {
-        compute_siloed_contract_class_log_hash(log_hash.contract_address, log_hash.value())
+        let mut log = contract_class_log;
+        log.fields[0] = compute_siloed_contract_class_log_field(contract_address, log.fields[0]);
+        log
     }
 }
 
@@ -201,29 +209,6 @@ pub fn accumulate_sha256(input: [Field; 2]) -> Field {
     }
 
     sha256_to_field(hash_input_flattened)
-}
-
-// Computes the final logs hash for a tx.
-pub fn compute_tx_logs_hash<let N: u32>(logs: [LogHash; N]) -> Field {
-    // Convert each field element into a byte array and append the bytes to `hash_input_flattened`
-    let mut hash_input_flattened = [0; N * 32];
-    for offset in 0..N {
-        // TODO: This is not checking that the decomposition is smaller than P
-        let input_as_bytes: [u8; 32] = logs[offset].value.to_be_radix(256);
-        for byte_index in 0..32 {
-            hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
-        }
-    }
-    // Ideally we would push to a slice then hash, but there is no sha_slice
-    // Hardcode to 256 bytes for now
-    let mut hash = sha256_to_field(hash_input_flattened);
-    // Not having a 0 value hash for empty logs causes issues with empty txs
-    // used for padding. Returning early is currently unsupported.
-    // We always provide sorted logs here, so 0 being empty means all are empty.
-    if is_empty(logs[0]) {
-        hash = 0;
-    }
-    hash
 }
 
 pub fn verification_key_hash<let N: u32>(key: [Field; N]) -> Field {

@@ -9,11 +9,11 @@ import {
   type NoteStatus,
   type PrivateCallExecutionResult,
   PublicExecutionRequest,
-  type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
   type BlockHeader,
   CallContext,
+  ContractClassLog,
   FunctionSelector,
   PRIVATE_CONTEXT_INPUTS_LENGTH,
   PUBLIC_DISPATCH_SELECTOR,
@@ -323,20 +323,19 @@ export class ClientExecutionContext extends ViewDataOracle {
   }
 
   /**
-   * Emit a contract class unencrypted log.
-   * This fn exists because sha hashing the preimage
-   * is too large to compile (16,200 fields, 518,400 bytes) => the oracle hashes it.
-   * See private_context.nr
-   * TODO(#8945): Contract class logs are currently sha hashes. When these are fields, delete this.
-   * @param log - The unencrypted log to be emitted.
+   * Emit a contract class log.
+   * This fn exists because we only carry a poseidon hash through the kernels, and need to
+   * keep the preimage in ts for later.
+   * We could also return the hash here if we must save extra gates.
+   * @param log - The contract class log to be emitted.
+   * @param counter - The contract class log's counter.
    */
-  public override emitContractClassLog(log: UnencryptedL2Log, counter: number) {
+  public override emitContractClassLog(log: ContractClassLog, counter: number) {
     this.contractClassLogs.push(new CountedContractClassLog(log, counter));
-    const text = log.toHumanReadable();
+    const text = log.toBuffer();
     this.log.verbose(
       `Emitted log from ContractClassRegisterer: "${text.length > 100 ? text.slice(0, 100) + '...' : text}"`,
     );
-    return Fr.fromBuffer(log.hash());
   }
 
   #checkValidStaticCall(childExecutionResult: PrivateCallExecutionResult) {

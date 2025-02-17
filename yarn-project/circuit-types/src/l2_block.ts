@@ -184,11 +184,12 @@ export class L2Block {
       privateLogCount: this.body.txEffects.reduce((logCount, txEffect) => logCount + txEffect.privateLogs.length, 0),
       publicLogCount: this.body.txEffects.reduce((logCount, txEffect) => logCount + txEffect.publicLogs.length, 0),
       contractClassLogCount: this.body.txEffects.reduce(
-        (logCount, txEffect) => logCount + txEffect.contractClassLogs.getTotalLogCount(),
+        (logCount, txEffect) => logCount + txEffect.contractClassLogs.length,
         0,
       ),
       contractClassLogSize: this.body.txEffects.reduce(
-        (logCount, txEffect) => logCount + txEffect.contractClassLogs.getSerializedLength(),
+        (totalLogSize, txEffect) =>
+          totalLogSize + txEffect.contractClassLogs.reduce((logSize, log) => logSize + log.getEmittedLength(), 0),
         0,
       ),
     };

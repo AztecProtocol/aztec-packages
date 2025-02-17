@@ -1,4 +1,5 @@
-import { MerkleTreeId, UnencryptedL2Log } from '@aztec/circuit-types';
+import { MerkleTreeId } from '@aztec/circuit-types';
+import { ContractClassLog } from '@aztec/circuits.js';
 import { FunctionSelector, NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -280,12 +281,11 @@ export class Oracle {
     return newValues.map(toACVMField);
   }
 
-  emitContractClassLog([contractAddress]: ACVMField[], message: ACVMField[], [counter]: ACVMField[]): ACVMField {
-    const logPayload = Buffer.concat(message.map(fromACVMField).map(f => f.toBuffer()));
-    const log = new UnencryptedL2Log(AztecAddress.fromString(contractAddress), logPayload);
+  emitContractClassLog([_contractAddress]: ACVMField[], message: ACVMField[], [counter]: ACVMField[]): void {
+    const logPayload = message.map(fromACVMField);
+    const log = new ContractClassLog(logPayload);
 
-    const logHash = this.typedOracle.emitContractClassLog(log, +counter);
-    return toACVMField(logHash);
+    this.typedOracle.emitContractClassLog(log, +counter);
   }
 
   debugLog(message: ACVMField[], _ignoredFieldsSize: ACVMField[], fields: ACVMField[]): void {

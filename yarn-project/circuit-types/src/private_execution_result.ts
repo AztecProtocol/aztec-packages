@@ -1,4 +1,4 @@
-import { type IsEmpty, PrivateCircuitPublicInputs, sortByCounter } from '@aztec/circuits.js';
+import { ContractClassLog, type IsEmpty, PrivateCircuitPublicInputs, sortByCounter } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
 import { timesParallel } from '@aztec/foundation/collection';
 import { randomBytes, randomInt } from '@aztec/foundation/crypto';
@@ -8,7 +8,7 @@ import { type FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
-import { Note, UnencryptedFunctionL2Logs, UnencryptedL2Log } from './logs/index.js';
+import { Note } from './logs/index.js';
 import { PublicExecutionRequest } from './public_execution_request.js';
 
 /**
@@ -44,23 +44,23 @@ export class NoteAndSlot {
 }
 
 export class CountedContractClassLog implements IsEmpty {
-  constructor(public log: UnencryptedL2Log, public counter: number) {}
+  constructor(public log: ContractClassLog, public counter: number) {}
 
   static get schema() {
     return z
       .object({
-        log: UnencryptedL2Log.schema,
+        log: ContractClassLog.schema,
         counter: schemas.Integer,
       })
       .transform(CountedContractClassLog.from);
   }
 
-  static from(fields: { log: UnencryptedL2Log; counter: number }) {
+  static from(fields: { log: ContractClassLog; counter: number }) {
     return new CountedContractClassLog(fields.log, fields.counter);
   }
 
   isEmpty(): boolean {
-    return !this.log.data.length && !this.counter;
+    return this.log.isEmpty() && !this.counter;
   }
 }
 
@@ -199,7 +199,7 @@ export class PrivateCallExecutionResult {
       await timesParallel(nested, () => PrivateCallExecutionResult.random(0)),
       [await CountedPublicExecutionRequest.random()],
       await PublicExecutionRequest.random(),
-      [new CountedContractClassLog(await UnencryptedL2Log.random(), randomInt(10))],
+      [new CountedContractClassLog(ContractClassLog.random(), randomInt(10))],
     );
   }
 }
@@ -241,10 +241,10 @@ function collectContractClassLogs(execResult: PrivateCallExecutionResult): Count
  * @param execResult - The topmost execution result.
  * @returns All contract class logs.
  */
-export function collectSortedContractClassLogs(execResult: PrivateExecutionResult): UnencryptedFunctionL2Logs {
+export function collectSortedContractClassLogs(execResult: PrivateExecutionResult): ContractClassLog[] {
   const allLogs = collectContractClassLogs(execResult.entrypoint);
   const sortedLogs = sortByCounter(allLogs);
-  return new UnencryptedFunctionL2Logs(sortedLogs.map(l => l.log));
+  return sortedLogs.map(l => l.log);
 }
 
 function collectEnqueuedCountedPublicExecutionRequests(

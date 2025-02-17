@@ -13,13 +13,13 @@ import {
   SimulationError,
   TxEffect,
   TxHash,
-  type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
   AppendOnlyTreeSnapshot,
   BlockHeader,
   CallContext,
+  type ContractClassLog,
   type ContractInstance,
   type ContractInstanceWithAddress,
   Gas,
@@ -768,7 +768,7 @@ export class TXE implements TypedOracle {
     return new Fr(this.blockNumber + 6969);
   }
 
-  emitContractClassLog(_log: UnencryptedL2Log, _counter: number): Fr {
+  emitContractClassLog(_log: ContractClassLog, _counter: number): Fr {
     throw new Error('Method not implemented.');
   }
 

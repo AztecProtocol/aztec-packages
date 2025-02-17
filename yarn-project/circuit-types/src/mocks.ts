@@ -22,7 +22,7 @@ import { times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
-import { ContractClassTxL2Logs, Note } from './logs/index.js';
+import { Note } from './logs/index.js';
 import { ExtendedNote, UniqueNote } from './notes/index.js';
 import {
   CountedPublicExecutionRequest,
@@ -150,13 +150,7 @@ export const mockTx = async (
       .build();
   }
 
-  const tx = new Tx(
-    data,
-    ClientIvcProof.empty(),
-    ContractClassTxL2Logs.empty(),
-    enqueuedPublicFunctionCalls,
-    publicTeardownFunctionCall,
-  );
+  const tx = new Tx(data, ClientIvcProof.empty(), [], enqueuedPublicFunctionCalls, publicTeardownFunctionCall);
 
   return tx;
 };

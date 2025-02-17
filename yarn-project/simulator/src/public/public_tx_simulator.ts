@@ -129,7 +129,7 @@ export class PublicTxSimulator {
       // FIXME: we shouldn't need to directly modify worldStateDb here!
       await this.worldStateDB.removeNewContracts(tx, true);
       // FIXME(dbanks12): should not be changing immutable tx
-      tx.filterRevertedLogs(tx.data.forPublic!.nonRevertibleAccumulatedData);
+      await tx.filterRevertedLogs();
     }
 
     return {

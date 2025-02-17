@@ -114,6 +114,7 @@ import {
   mapHeaderFromNoir,
   mapHeaderToNoir,
   mapL2ToL1MessageToNoir,
+  mapLogHashToNoir,
   mapMaxBlockNumberFromNoir,
   mapMaxBlockNumberToNoir,
   mapMembershipWitnessToNoir,
@@ -133,6 +134,8 @@ import {
   mapPublicDataTreePreimageToNoir,
   mapScopedL2ToL1MessageFromNoir,
   mapScopedL2ToL1MessageToNoir,
+  mapScopedLogHashFromNoir,
+  mapScopedLogHashToNoir,
   mapTupleFromNoir,
   mapTxContextFromNoir,
   mapTxContextToNoir,
@@ -250,56 +253,6 @@ function mapScopedPrivateLogDataFromNoir(data: ScopedPrivateLogDataNoir) {
   return new ScopedPrivateLogData(
     mapPrivateLogDataFromNoir(data.inner),
     mapAztecAddressFromNoir(data.contract_address),
-  );
-}
-
-/**
- * Maps a LogHash to a noir LogHash.
- * @param logHash - The LogHash.
- * @returns The noir log hash.
- */
-function mapLogHashToNoir(logHash: LogHash): LogHashNoir {
-  return {
-    value: mapFieldToNoir(logHash.value),
-    counter: mapNumberToNoir(logHash.counter),
-    length: mapFieldToNoir(logHash.length),
-  };
-}
-
-/**
- * Maps a noir LogHash to a LogHash.
- * @param logHash - The noir LogHash.
- * @returns The TS log hash.
- */
-function mapLogHashFromNoir(logHash: LogHashNoir): LogHash {
-  return new LogHash(
-    mapFieldFromNoir(logHash.value),
-    mapNumberFromNoir(logHash.counter),
-    mapFieldFromNoir(logHash.length),
-  );
-}
-
-/**
- * Maps a ts ScopedLogHash to a noir ScopedLogHash.
- * @param logHash - The ts LogHash.
- * @returns The noir log hash.
- */
-function mapScopedLogHashToNoir(scopedLogHash: ScopedLogHash): ScopedLogHashNoir {
-  return {
-    log_hash: mapLogHashToNoir(scopedLogHash.logHash),
-    contract_address: mapAztecAddressToNoir(scopedLogHash.contractAddress),
-  };
-}
-
-/**
- * Maps a noir ScopedLogHash to a ts ScopedLogHash.
- * @param logHash - The noir LogHash.
- * @returns The TS log hash.
- */
-function mapScopedLogHashFromNoir(scopedLogHash: ScopedLogHashNoir): ScopedLogHash {
-  return new ScopedLogHash(
-    mapLogHashFromNoir(scopedLogHash.log_hash),
-    mapAztecAddressFromNoir(scopedLogHash.contract_address),
   );
 }
 

@@ -7,6 +7,7 @@ export * from './client_ivc_proof.js';
 export * from './complete_address.js';
 export * from './content_commitment.js';
 export * from './context/private_context_inputs.js';
+export * from './contract_class_log.js';
 export * from './contract_storage_read.js';
 export * from './contract_storage_update_request.js';
 export * from './function_data.js';

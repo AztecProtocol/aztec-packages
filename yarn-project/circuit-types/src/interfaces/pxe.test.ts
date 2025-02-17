@@ -33,8 +33,8 @@ import { AuthWitness } from '../auth_witness.js';
 import { type InBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import {
+  ExtendedContractClassLog,
   ExtendedPublicLog,
-  ExtendedUnencryptedL2Log,
   type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
   type LogFilter,
@@ -262,7 +262,7 @@ describe('PXESchema', () => {
 
   it('getContractClassLogs', async () => {
     const result = await context.client.getContractClassLogs({ contractAddress: address });
-    expect(result).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
+    expect(result).toEqual({ logs: [expect.any(ExtendedContractClassLog)], maxLogsHit: true });
   });
 
   it('getBlockNumber', async () => {
@@ -489,9 +489,9 @@ class MockPXE implements PXE {
     expect(filter.contractAddress).toEqual(this.address);
     return { logs: [await ExtendedPublicLog.random()], maxLogsHit: true };
   }
-  async getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
+  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     expect(filter.contractAddress).toEqual(this.address);
-    return { logs: [await ExtendedUnencryptedL2Log.random()], maxLogsHit: true };
+    return Promise.resolve({ logs: [ExtendedContractClassLog.random()], maxLogsHit: true });
   }
   getBlockNumber(): Promise<number> {
     return Promise.resolve(1);

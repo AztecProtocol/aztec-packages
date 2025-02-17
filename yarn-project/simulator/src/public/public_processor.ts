@@ -21,6 +21,7 @@ import {
   NULLIFIER_SUBTREE_HEIGHT,
   PublicDataWrite,
 } from '@aztec/circuits.js';
+import { siloContractClassLog } from '@aztec/circuits.js/hash';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import { type DateProvider, Timer, elapsed, executeTimeout } from '@aztec/foundation/timer';
@@ -309,7 +310,7 @@ export class PublicProcessor implements Traceable {
         publicDataWriteCount: processedTx.txEffect.publicDataWrites.length,
         nullifierCount: processedTx.txEffect.nullifiers.length,
         noteHashCount: processedTx.txEffect.noteHashes.length,
-        contractClassLogCount: processedTx.txEffect.contractClassLogs.getTotalLogCount(),
+        contractClassLogCount: processedTx.txEffect.contractClassLogs.length,
         publicLogCount: processedTx.txEffect.publicLogs.length,
         privateLogCount: processedTx.txEffect.privateLogs.length,
         l2ToL1MessageCount: processedTx.txEffect.l2ToL1Msgs.length,
@@ -434,11 +435,15 @@ export class PublicProcessor implements Traceable {
       this.globalVariables,
     );
 
+    const siloedContractClassLogs = await tx.filterContractClassLogs(
+      tx.data.getNonEmptyContractClassLogsHashes(),
+      true,
+    );
+
     this.metrics.recordClassRegistration(
-      ...tx.contractClassLogs
-        .unrollLogs()
-        .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log.data))
-        .map(log => ContractClassRegisteredEvent.fromLog(log.data)),
+      ...siloedContractClassLogs
+        .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log))
+        .map(log => ContractClassRegisteredEvent.fromLog(log)),
     );
     return [processedTx, undefined];
   }
@@ -465,11 +470,15 @@ export class PublicProcessor implements Traceable {
       }
     });
 
+    const siloedContractClassLogs = await tx.filterContractClassLogs(
+      tx.data.getNonEmptyContractClassLogsHashes(),
+      true,
+    );
+
     this.metrics.recordClassRegistration(
-      ...tx.contractClassLogs
-        .unrollLogs()
-        .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log.data))
-        .map(log => ContractClassRegisteredEvent.fromLog(log.data)),
+      ...siloedContractClassLogs
+        .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log))
+        .map(log => ContractClassRegisteredEvent.fromLog(log)),
     );
 
     const phaseCount = processedPhases.length;

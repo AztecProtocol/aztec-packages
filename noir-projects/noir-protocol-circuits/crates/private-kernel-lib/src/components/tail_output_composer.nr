@@ -56,10 +56,6 @@ impl TailOutputComposer {
         data.contract_class_logs_hashes = source.contract_class_logs_hashes.storage().map(
             |l: ScopedLogHash| l.expose_to_public(),
         );
-        data.contract_class_log_preimages_length = source.contract_class_logs_hashes.storage().fold(
-            0,
-            |len, l: ScopedLogHash| len + l.log_hash.length,
-        );
         data
     }
 }

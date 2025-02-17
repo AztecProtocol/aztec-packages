@@ -175,7 +175,7 @@ import { AppendOnlyTreeSnapshot } from '../structs/trees/append_only_tree_snapsh
  * @returns A side effect object.
  */
 function makeLogHash(seed: number) {
-  return new LogHash(fr(seed), seed + 1, fr(seed + 2));
+  return new LogHash(fr(seed), seed + 1, seed + 2);
 }
 
 function makeScopedLogHash(seed: number) {
@@ -321,7 +321,6 @@ export function makePrivateToRollupAccumulatedData(seed = 1, full = false): Priv
     tupleGenerator(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x600, ScopedL2ToL1Message.empty),
     tupleGenerator(MAX_PRIVATE_LOGS_PER_TX, makePrivateLog, seed + 0x700, PrivateLog.empty),
     tupleGenerator(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeScopedLogHash, seed + 0xa00, ScopedLogHash.empty), // contract class logs
-    fr(seed + 0xe00), // contract_class_log_preimages_length
   );
 }
 

@@ -9,7 +9,7 @@ use crate::{
 pub struct LogHash {
     pub value: Field,
     pub counter: u32,
-    pub length: Field,
+    pub length: u32, // TODO(MW): is this still required?
 }
 
 impl Ordered for LogHash {
@@ -40,13 +40,13 @@ impl Empty for LogHash {
 
 impl Serialize<LOG_HASH_LENGTH> for LogHash {
     fn serialize(self) -> [Field; LOG_HASH_LENGTH] {
-        [self.value, self.counter as Field, self.length]
+        [self.value, self.counter as Field, self.length as Field]
     }
 }
 
 impl Deserialize<LOG_HASH_LENGTH> for LogHash {
     fn deserialize(values: [Field; LOG_HASH_LENGTH]) -> Self {
-        Self { value: values[0], counter: values[1] as u32, length: values[2] }
+        Self { value: values[0], counter: values[1] as u32, length: values[2] as u32 }
     }
 }
 
