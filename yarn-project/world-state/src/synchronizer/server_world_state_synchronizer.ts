@@ -12,6 +12,7 @@ import {
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
   WorldStateRunningState,
+  type WorldStateSyncStatus,
   type WorldStateSynchronizer,
   type WorldStateSynchronizerStatus,
 } from '@aztec/circuit-types';
@@ -128,8 +129,16 @@ export class ServerWorldStateSynchronizer
   }
 
   public async status(): Promise<WorldStateSynchronizerStatus> {
+    const summary = await this.merkleTreeDb.getStatusSummary();
+    const status: WorldStateSyncStatus = {
+      latestBlockNumber: Number(summary.unfinalisedBlockNumber),
+      latestBlockHash: (await this.getL2BlockHash(Number(summary.unfinalisedBlockNumber))) ?? '',
+      finalisedBlockNumber: Number(summary.finalisedBlockNumber),
+      oldestHistoricBlockNumber: Number(summary.oldestHistoricalBlock),
+      treesAreSynched: summary.treesAreSynched,
+    };
     return {
-      syncedToL2Block: (await this.getL2Tips()).latest,
+      syncSummary: status,
       state: this.currentState,
     };
   }
@@ -281,7 +290,8 @@ export class ServerWorldStateSynchronizer
       return;
     }
     this.log.verbose(`Pruning historic blocks to ${newHistoricBlock}`);
-    await this.merkleTreeDb.removeHistoricalBlocks(newHistoricBlock);
+    const status = await this.merkleTreeDb.removeHistoricalBlocks(newHistoricBlock);
+    this.log.debug(`World state summary `, status.summary);
   }
 
   private handleChainProven(blockNumber: number) {

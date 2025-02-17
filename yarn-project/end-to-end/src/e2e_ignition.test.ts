@@ -1,13 +1,9 @@
-import { type Logger, getTimestampRangeForEpoch, retryUntil } from '@aztec/aztec.js';
+import { type Logger, getTimestampRangeForEpoch, retryUntil, sleep } from '@aztec/aztec.js';
 import { ChainMonitor } from '@aztec/aztec.js/ethereum';
 // eslint-disable-next-line no-restricted-imports
-import { type L1RollupConstants } from '@aztec/circuit-types';
+import { type L1RollupConstants, type L2BlockNumber, MerkleTreeId } from '@aztec/circuit-types';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { type DelayedTxUtils, type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
-import { type ProverNodePublisher } from '@aztec/prover-node';
-import { type TestProverNode } from '@aztec/prover-node/test';
-import { type SequencerPublisher } from '@aztec/sequencer-client';
-import { type TestSequencerClient } from '@aztec/sequencer-client/test';
+import { waitUntilL1Timestamp } from '@aztec/ethereum/test';
 
 import { jest } from '@jest/globals';
 import { type PublicClient } from 'viem';
@@ -25,13 +21,14 @@ describe('e2e_ignition', () => {
   let rollup: RollupContract;
   let constants: L1RollupConstants;
   let logger: Logger;
-  let proverDelayer: Delayer;
-  let sequencerDelayer: Delayer;
   let monitor: ChainMonitor;
 
   const EPOCH_DURATION_IN_L2_SLOTS = 4;
   const L2_SLOT_DURATION_IN_L1_SLOTS = 2;
   const L1_BLOCK_TIME_IN_S = process.env.L1_BLOCK_TIME ? parseInt(process.env.L1_BLOCK_TIME) : 2;
+  const WORLD_STATE_BLOCK_HISTORY = 2;
+  const WORLD_STATE_BLOCK_CHECK_INTERVAL = 50;
+  const ARCHIVER_POLL_INTERVAL = 50;
 
   beforeEach(async () => {
     // Set up system without any account nor protocol contracts
@@ -39,7 +36,8 @@ describe('e2e_ignition', () => {
     context = await setup(0, {
       assumeProvenThrough: undefined,
       checkIntervalMs: 50,
-      archiverPollingIntervalMS: 50,
+      archiverPollingIntervalMS: ARCHIVER_POLL_INTERVAL,
+      worldStateBlockCheckIntervalMS: WORLD_STATE_BLOCK_CHECK_INTERVAL,
       skipProtocolContracts: true,
       salt: 1,
       aztecEpochDuration: EPOCH_DURATION_IN_L2_SLOTS,
@@ -52,6 +50,7 @@ describe('e2e_ignition', () => {
       // This must be enough so that the tx from the prover is delayed properly,
       // but not so much to hang the sequencer and timeout the teardown
       txPropagationMaxQueryAttempts: 12,
+      worldStateBlockHistory: WORLD_STATE_BLOCK_HISTORY,
     });
 
     logger = context.logger;
@@ -61,17 +60,6 @@ describe('e2e_ignition', () => {
     // Loop that tracks L1 and L2 block numbers and logs whenever there's a new one.
     monitor = new ChainMonitor(rollup, logger);
     monitor.start();
-
-    // This is hideous.
-    // We ought to have a definite reference to the l1TxUtils that we're using in both places, provided by the test context.
-    proverDelayer = (
-      ((context.proverNode as TestProverNode).publisher as ProverNodePublisher).l1TxUtils as DelayedTxUtils
-    ).delayer!;
-    sequencerDelayer = (
-      ((context.sequencer as TestSequencerClient).sequencer.publisher as SequencerPublisher).l1TxUtils as DelayedTxUtils
-    ).delayer!;
-    expect(proverDelayer).toBeDefined();
-    expect(sequencerDelayer).toBeDefined();
 
     // Constants used for time calculation
     constants = {
@@ -122,8 +110,30 @@ describe('e2e_ignition', () => {
     );
   };
 
-  it('successfully proves 8 epochs', async () => {
-    const targetProvenEpochs = 4;
+  const waitForNodeToSync = async (blockNumber: number, type: 'finalised' | 'historic') => {
+    const waitTime = ARCHIVER_POLL_INTERVAL + WORLD_STATE_BLOCK_CHECK_INTERVAL;
+    let synched = false;
+    while (!synched) {
+      await sleep(waitTime);
+      const syncState = await context.aztecNode.getWorldStateSyncStatus();
+      if (type === 'finalised') {
+        synched = syncState.finalisedBlockNumber >= blockNumber;
+      } else {
+        synched = syncState.oldestHistoricBlockNumber >= blockNumber;
+      }
+    }
+  };
+
+  const verifyHistoricBlock = async (blockNumber: L2BlockNumber, expectedSuccess: boolean) => {
+    const result = await context.aztecNode
+      .findBlockNumbersForIndexes(blockNumber, MerkleTreeId.NULLIFIER_TREE, [0n])
+      .then(_ => true)
+      .catch(_ => false);
+    expect(result).toBe(expectedSuccess);
+  };
+
+  it('successfully proves all epochs', async () => {
+    const targetProvenEpochs = 8;
     const targetProvenBlockNumber = targetProvenEpochs * EPOCH_DURATION_IN_L2_SLOTS;
 
     let provenBlockNumber = 0;
@@ -142,6 +152,17 @@ describe('e2e_ignition', () => {
       expect(Number(await rollup.getProvenBlockNumber())).toBe(provenBlockNumber);
       logger.info(`Reached PROVEN block number ${provenBlockNumber}, epoch ${epochNumber} is now proven`);
       epochNumber++;
+
+      // Verify the state syncs
+      await waitForNodeToSync(provenBlockNumber, 'finalised');
+      await verifyHistoricBlock(provenBlockNumber, true);
+      const expectedOldestHistoricBlock = provenBlockNumber - WORLD_STATE_BLOCK_HISTORY + 1;
+      const expectedBlockRemoved = expectedOldestHistoricBlock - 1;
+      await waitForNodeToSync(expectedOldestHistoricBlock, 'historic');
+      await verifyHistoricBlock(Math.max(expectedOldestHistoricBlock, 1), true);
+      if (expectedBlockRemoved > 0) {
+        await verifyHistoricBlock(expectedBlockRemoved, false);
+      }
     }
     logger.info('Test Succeeded');
   });

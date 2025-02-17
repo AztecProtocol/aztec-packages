@@ -54,6 +54,7 @@ import { type L2BlockNumber, L2BlockNumberSchema } from './l2_block_number.js';
 import { NullifierMembershipWitness } from './nullifier_membership_witness.js';
 import { type ProverConfig, ProverConfigSchema } from './prover-client.js';
 import { type ProverCoordination } from './prover-coordination.js';
+import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_state.js';
 
 /**
  * The aztec node.
@@ -66,6 +67,11 @@ export interface AztecNode
    * Returns the tips of the L2 chain.
    */
   getL2Tips(): Promise<L2Tips>;
+
+  /**
+   * Returns the sync status of the node's world state
+   */
+  getWorldStateSyncStatus(): Promise<WorldStateSyncStatus>;
 
   /**
    * Find the indexes of the given leaves in the given tree.
@@ -449,6 +455,8 @@ export interface AztecNode
 
 export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getL2Tips: z.function().args().returns(L2TipsSchema),
+
+  getWorldStateSyncStatus: z.function().args().returns(WorldStateSyncStatusSchema),
 
   findLeavesIndexes: z
     .function()
