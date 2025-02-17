@@ -43,16 +43,15 @@ impl PrivateKernelInitCircuitPrivateInputs {
     }
 
     unconstrained fn generate_output(self) -> PrivateKernelCircuitPublicInputs {
-        let private_call_public_inputs = self.private_call.public_inputs;
         PrivateKernelCircuitPublicInputsComposer::new_from_tx_request(
             self.tx_request,
-            private_call_public_inputs,
+            self.private_call.public_inputs,
             self.vk_tree_root,
             self.protocol_contract_tree_root,
             self.is_private_only,
             self.first_nullifier_hint,
         )
-            .with_private_call(private_call_public_inputs)
+            .with_private_call(self.private_call)
             .finish()
     }
 
@@ -78,7 +77,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
         if dep::types::validate::should_validate_output() {
             PrivateKernelCircuitOutputValidator::new(output).validate_as_first_call(
                 self.tx_request,
-                self.private_call.public_inputs,
+                self.private_call,
                 private_call_data_validator.array_lengths,
                 self.vk_tree_root,
                 self.protocol_contract_tree_root,
@@ -107,11 +106,14 @@ mod tests {
         pub fn new() -> Self {
             let private_call = FixtureBuilder::new().is_first_call();
             let tx_request = private_call.build_tx_request();
+
             PrivateKernelInitInputsBuilder { tx_request, private_call }
         }
 
-        pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
+        pub fn execute(mut self) -> PrivateKernelCircuitPublicInputs {
+            self.private_call.compute_update_tree_and_hints();
             let private_call = self.private_call.to_private_call_data();
+
             PrivateKernelInitCircuitPrivateInputs {
                 tx_request: self.tx_request,
                 private_call,

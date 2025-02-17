@@ -184,7 +184,7 @@ async function getKnownArtifacts(pxe: PXE): Promise<ArtifactMap> {
   const knownContracts = (
     await Promise.all(knownContractAddresses.map(contractAddress => pxe.getContractMetadata(contractAddress)))
   ).map(contractMetadata => contractMetadata.contractInstance);
-  const classIds = [...new Set(knownContracts.map(contract => contract?.contractClassId))];
+  const classIds = [...new Set(knownContracts.map(contract => contract?.currentContractClassId))];
   const knownArtifacts = (
     await Promise.all(classIds.map(classId => (classId ? pxe.getContractClassMetadata(classId) : undefined)))
   ).map(contractClassMetadata =>
@@ -196,7 +196,7 @@ async function getKnownArtifacts(pxe: PXE): Promise<ArtifactMap> {
   for (const instance of knownContracts) {
     if (instance) {
       const artifact = knownArtifacts.find(a =>
-        a?.classId?.equals(instance.contractClassId),
+        a?.classId?.equals(instance.currentContractClassId),
       ) as ContractArtifactWithClassId;
       if (artifact) {
         map[instance.address.toString()] = artifact;

@@ -86,16 +86,23 @@ export class AvmEnqueuedCallHint {
 }
 
 export class AvmContractInstanceHint {
+  public readonly updatePreimage: Vector<Fr>;
+
   constructor(
     public readonly address: AztecAddress,
     public readonly exists: boolean,
     public readonly salt: Fr,
     public readonly deployer: AztecAddress,
-    public readonly contractClassId: Fr,
+    public readonly currentContractClassId: Fr,
+    public readonly originalContractClassId: Fr,
     public readonly initializationHash: Fr,
     public readonly publicKeys: PublicKeys,
-    public readonly membershipHint: AvmNullifierReadTreeHint = AvmNullifierReadTreeHint.empty(),
-  ) {}
+    public readonly initializationMembershipHint: AvmNullifierReadTreeHint = AvmNullifierReadTreeHint.empty(),
+    public readonly updateMembershipHint: AvmPublicDataReadTreeHint = AvmPublicDataReadTreeHint.empty(),
+    updatePreimage: Fr[],
+  ) {
+    this.updatePreimage = new Vector(updatePreimage);
+  }
   /**
    * Serializes the inputs to a buffer.
    * @returns - The inputs serialized to a buffer.
@@ -122,20 +129,14 @@ export class AvmContractInstanceHint {
       !this.exists &&
       this.salt.isZero() &&
       this.deployer.isZero() &&
-      this.contractClassId.isZero() &&
+      this.currentContractClassId.isZero() &&
+      this.originalContractClassId.isZero() &&
       this.initializationHash.isZero() &&
       this.publicKeys.isEmpty() &&
-      this.membershipHint.isEmpty()
+      this.initializationMembershipHint.isEmpty() &&
+      this.updateMembershipHint.isEmpty() &&
+      this.updatePreimage.items.length == 0
     );
-  }
-
-  /**
-   * Creates a new instance from fields.
-   * @param fields - Fields to create the instance from.
-   * @returns A new AvmHint instance.
-   */
-  static from(fields: FieldsOf<AvmContractInstanceHint>): AvmContractInstanceHint {
-    return new AvmContractInstanceHint(...AvmContractInstanceHint.getFields(fields));
   }
 
   /**
@@ -149,10 +150,13 @@ export class AvmContractInstanceHint {
       fields.exists,
       fields.salt,
       fields.deployer,
-      fields.contractClassId,
+      fields.currentContractClassId,
+      fields.originalContractClassId,
       fields.initializationHash,
       fields.publicKeys,
-      fields.membershipHint,
+      fields.initializationMembershipHint,
+      fields.updateMembershipHint,
+      fields.updatePreimage,
     ] as const;
   }
 
@@ -170,8 +174,11 @@ export class AvmContractInstanceHint {
       AztecAddress.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
       PublicKeys.fromBuffer(reader),
       AvmNullifierReadTreeHint.fromBuffer(reader),
+      AvmPublicDataReadTreeHint.fromBuffer(reader),
+      reader.readVector(Fr),
     );
   }
 
@@ -537,6 +544,10 @@ export class AvmPublicDataReadTreeHint {
    */
   toString() {
     return this.toBuffer().toString('hex');
+  }
+
+  static empty(): AvmPublicDataReadTreeHint {
+    return new AvmPublicDataReadTreeHint(PublicDataTreeLeafPreimage.empty(), Fr.ZERO, []);
   }
 
   /**
