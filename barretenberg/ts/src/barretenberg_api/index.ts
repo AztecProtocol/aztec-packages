@@ -12,29 +12,28 @@ import {
   OutputType,
 } from '../serialize/index.js';
 import { Fr, Fq, Point, Buffer32, Buffer128, Ptr } from '../types/index.js';
+function parseBigEndianU32Array(buffer: Uint8Array, hasSizePrefix = false): number[] {
+  const dv = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+
+  let offset = 0;
+  let count = buffer.byteLength >>> 2; // default is entire buffer length / 4
+
+  if (hasSizePrefix) {
+    // Read the first 4 bytes as the size (big-endian).
+    count = dv.getUint32(0, /* littleEndian= */ false);
+    offset = 4;
+  }
+
+  const out: number[] = new Array(count);
+  for (let i = 0; i < count; i++) {
+    out[i] = dv.getUint32(offset, false);
+    offset += 4;
+  }
+
+  return out;
+}
 import createDebug from 'debug';
 const log = createDebug('index-ts');
-
-function parseBigEndianU32Array(buffer: Uint8Array, hasSizePrefix = false): number[] {
-    const dv = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-
-    let offset = 0;
-    let count = buffer.byteLength >>> 2; // default is entire buffer length / 4
-
-    if (hasSizePrefix) {
-      // Read the first 4 bytes as the size (big-endian).
-      count = dv.getUint32(0, /* littleEndian= */ false);
-      offset = 4;
-    }
-
-    const out: number[] = new Array(count);
-    for (let i = 0; i < count; i++) {
-      out[i] = dv.getUint32(offset, false);
-      offset += 4;
-    }
-
-    return out;
-}
 
 export class BarretenbergApi {
   constructor(protected wasm: BarretenbergWasmWorker | BarretenbergWasmMain) {}
@@ -380,9 +379,9 @@ export class BarretenbergApi {
     return out as [number, number];
   }
 
-  // STARTER
-  async acirGatesAztecClient( // cf acirProveAztecClient
-    acirVec: Uint8Array[]
+  async acirGatesAztecClient(
+    // cf acirProveAztecClient
+    acirVec: Uint8Array[],
   ): Promise<number[]> {
     const inArgs = [acirVec].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
