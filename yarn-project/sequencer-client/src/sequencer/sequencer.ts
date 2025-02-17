@@ -18,9 +18,9 @@ import {
   type ContractDataSource,
   Gas,
   type GlobalVariables,
-  INITIAL_L2_BLOCK_NUM,
   StateReference,
 } from '@aztec/circuits.js';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { omit } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';

@@ -4,16 +4,11 @@ import {
   type PublicInputsAndRecursiveProof,
 } from '@aztec/circuit-types';
 import {
-  type ARCHIVE_HEIGHT,
   type AppendOnlyTreeSnapshot,
   type BlockHeader,
   type Fr,
   type GlobalVariables,
-  type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MembershipWitness,
-  type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-  type TUBE_PROOF_LENGTH,
-  VK_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import {
   BlockMergeRollupInputs,
@@ -22,6 +17,13 @@ import {
   RootRollupInputs,
   type RootRollupPublicInputs,
 } from '@aztec/circuits.js/rollup';
+import {
+  type ARCHIVE_HEIGHT,
+  type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+  type TUBE_PROOF_LENGTH,
+  VK_TREE_HEIGHT,
+} from '@aztec/constants';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vks';

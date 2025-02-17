@@ -26,10 +26,10 @@ import {
   type Gas,
   GasFees,
   GlobalVariables,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PublicDataWrite,
 } from '@aztec/circuits.js';
 import { makeAppendOnlyTreeSnapshot } from '@aztec/circuits.js/testing';
+import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times, timesParallel } from '@aztec/foundation/collection';

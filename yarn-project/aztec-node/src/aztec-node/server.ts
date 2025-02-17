@@ -34,7 +34,6 @@ import {
   tryStop,
 } from '@aztec/circuit-types';
 import {
-  type ARCHIVE_HEIGHT,
   type BlockHeader,
   type ContractClassPublic,
   type ContractDataSource,
@@ -42,20 +41,23 @@ import {
   EthAddress,
   Fr,
   type GasFees,
-  INITIAL_L2_BLOCK_NUM,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-  type NOTE_HASH_TREE_HEIGHT,
-  type NULLIFIER_TREE_HEIGHT,
   type NodeInfo,
   type NullifierLeafPreimage,
-  type PUBLIC_DATA_TREE_HEIGHT,
   type PrivateLog,
   type ProtocolContractAddresses,
   type PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
-  REGISTERER_CONTRACT_ADDRESS,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
+import {
+  type ARCHIVE_HEIGHT,
+  INITIAL_L2_BLOCK_NUM,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
+  type NOTE_HASH_TREE_HEIGHT,
+  type NULLIFIER_TREE_HEIGHT,
+  type PUBLIC_DATA_TREE_HEIGHT,
+  REGISTERER_CONTRACT_ADDRESS,
+} from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';

@@ -10,8 +10,8 @@ import {
   type PublicDataTreeLeaf,
   getContractInstanceFromDeployParams,
 } from '@aztec/circuits.js';
-import { GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH } from '@aztec/circuits.js/constants';
 import { setupCanonicalL2FeeJuice } from '@aztec/cli/setup-contracts';
+import { GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH } from '@aztec/constants';
 import {
   NULL_KEY,
   createEthereumChain,

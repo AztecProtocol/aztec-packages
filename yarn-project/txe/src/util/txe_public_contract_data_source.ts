@@ -5,10 +5,10 @@ import {
   type ContractInstanceWithAddress,
   Fr,
   FunctionSelector,
-  PUBLIC_DISPATCH_SELECTOR,
   type PublicFunction,
   computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
+import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { PrivateFunctionsTree } from '@aztec/pxe';
 

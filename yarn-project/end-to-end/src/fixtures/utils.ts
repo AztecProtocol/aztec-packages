@@ -33,15 +33,8 @@ import { deployInstance, registerContractClass } from '@aztec/aztec.js/deploymen
 import { type BBNativePrivateKernelProver } from '@aztec/bb-prover';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
-import {
-  FEE_JUICE_INITIAL_MINT,
-  Fr,
-  GENESIS_ARCHIVE_ROOT,
-  GENESIS_BLOCK_HASH,
-  Gas,
-  type PublicDataTreeLeaf,
-  getContractClassFromArtifact,
-} from '@aztec/circuits.js';
+import { Fr, Gas, type PublicDataTreeLeaf, getContractClassFromArtifact } from '@aztec/circuits.js';
+import { FEE_JUICE_INITIAL_MINT, GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH } from '@aztec/constants';
 import {
   type DeployL1ContractsArgs,
   ForwarderContract,
