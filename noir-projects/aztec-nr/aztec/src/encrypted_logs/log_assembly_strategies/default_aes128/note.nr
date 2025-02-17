@@ -344,8 +344,8 @@ where
 
     let mut log_bytes_padding_to_mult_31 =
         get_arr_of_size__log_bytes_padding__from_PT::<(N * 32) + 64>();
-    /// Safety: this randomness won't be constrained to be random. It's in the
-    /// interest of the executor of this fn to encrypt with random bytes.
+    // Safety: this randomness won't be constrained to be random. It's in the
+    // interest of the executor of this fn to encrypt with random bytes.
     log_bytes_padding_to_mult_31 = unsafe { get_random_bytes() };
 
     let mut log_bytes = get_arr_of_size__log_bytes__from_PT::<(N * 32) + 64>();
@@ -406,7 +406,7 @@ where
     offset += log_bytes_as_fields.len();
 
     for i in offset..PRIVATE_LOG_SIZE_IN_FIELDS {
-        /// Safety: randomness cannot be constrained.
+        // Safety: randomness cannot be constrained.
         final_log[i] = unsafe { random() };
     }
 

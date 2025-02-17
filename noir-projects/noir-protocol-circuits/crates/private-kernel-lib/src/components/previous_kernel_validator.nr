@@ -17,7 +17,7 @@ pub struct PreviousKernelValidator {
 
 impl PreviousKernelValidator {
     pub fn new(previous_kernel: PrivateKernelData) -> Self {
-        /// Safety: the below hints are constrained by the following methods. See private_kernel_inner for use.
+        // Safety: the below hints are constrained by the following methods. See private_kernel_inner for use.
         let hints =
             unsafe { generate_previous_kernel_validator_hints(previous_kernel.public_inputs) };
         PreviousKernelValidator { previous_kernel, hints }
