@@ -1,10 +1,10 @@
 import {
   type ContractClassPublic,
-  PUBLIC_DISPATCH_SELECTOR,
   type PublicFunction,
   computeContractClassId,
   computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
+import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { FunctionSelector, bufferFromFields } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';

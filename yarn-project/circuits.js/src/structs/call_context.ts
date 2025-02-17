@@ -1,3 +1,4 @@
+import { CALL_CONTEXT_LENGTH } from '@aztec/constants';
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
@@ -7,8 +8,6 @@ import { type FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
 import { z } from 'zod';
-
-import { CALL_CONTEXT_LENGTH } from '../constants.gen.js';
 
 /**
  * Call context.

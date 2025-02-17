@@ -1,15 +1,13 @@
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
-
-import { MAX_PROTOCOL_CONTRACTS, PROTOCOL_CONTRACT_TREE_HEIGHT } from '../constants.js';
-import { type MembershipWitness } from '../index.js';
-import { ProtocolContractLeafPreimage } from '../structs/trees/index.js';
+import { AztecAddress } from '../aztec-address/index.js';
+import { toBigIntBE } from '../bigint-buffer/index.js';
+import { poseidon2Hash } from '../crypto/poseidon/index.js';
+import { Fr } from '../fields/fields.js';
+import { BufferReader } from '../serialize/buffer_reader.js';
+import type { IndexedTreeLeaf, IndexedTreeLeafPreimage } from './index.js';
 import { type IndexedMerkleTree } from './indexed_merkle_tree.js';
 import { IndexedMerkleTreeCalculator } from './indexed_merkle_tree_calculator.js';
+import type { MembershipWitness } from './membership_witness.js';
 
-// Note: this is currently only used for the static protocol contract tree, so I'm using ProtocolContractLeafPreimage
-// rather than a test preimage.
 class TestHasher {
   public async hash(lhs: Buffer, rhs: Buffer): Promise<Buffer> {
     return (await poseidon2Hash([lhs, rhs])).toBuffer();
@@ -20,9 +18,92 @@ class TestHasher {
   }
 }
 
+/**
+ * An address to be inserted or checked in the protocol contract tree.
+ */
+export class TestLeaf implements IndexedTreeLeaf {
+  constructor(
+    /**
+     * Address value.
+     */
+    public address: Fr,
+  ) {}
+
+  getKey(): bigint {
+    return this.address.toBigInt();
+  }
+
+  toBuffer(): Buffer {
+    return this.address.toBuffer();
+  }
+
+  isEmpty(): boolean {
+    return this.address.isZero();
+  }
+
+  updateTo(_another: TestLeaf): TestLeaf {
+    throw new Error('Test leaf tree is insert only');
+  }
+
+  static buildDummy(key: bigint): TestLeaf {
+    return new TestLeaf(new Fr(key));
+  }
+
+  static fromBuffer(buf: Buffer): TestLeaf {
+    return new TestLeaf(Fr.fromBuffer(buf));
+  }
+}
+
+class TestLeafPreimage implements IndexedTreeLeafPreimage {
+  constructor(
+    /**
+     * Leaf value inside the indexed tree's linked list.
+     */
+    public address: Fr,
+    /**
+     * Next value inside the indexed tree's linked list.
+     */
+    public nextAddress: Fr,
+    /**
+     * Index of the next leaf in the indexed tree's linked list.
+     */
+    public nextIndex: bigint,
+  ) {}
+
+  getKey(): bigint {
+    return this.address.toBigInt();
+  }
+
+  getNextKey(): bigint {
+    return this.nextAddress.toBigInt();
+  }
+
+  getNextIndex(): bigint {
+    return this.nextIndex;
+  }
+
+  asLeaf(): TestLeaf {
+    return new TestLeaf(this.address);
+  }
+
+  toBuffer(): Buffer {
+    return Buffer.concat(this.toHashInputs());
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader): TestLeafPreimage {
+    const reader = BufferReader.asReader(buffer);
+    return new TestLeafPreimage(reader.readObject(Fr), reader.readObject(Fr), toBigIntBE(reader.readBytes(32)));
+  }
+
+  toHashInputs(): Buffer[] {
+    // Note: the protocol contract leaves only hash the value and next value.
+    return [Buffer.from(this.address.toBuffer()), Buffer.from(this.nextAddress.toBuffer())];
+  }
+}
+
 async function checkSiblingPath<N extends number>(
   witness: MembershipWitness<N>,
-  tree: IndexedMerkleTree<ProtocolContractLeafPreimage, N>,
+  tree: IndexedMerkleTree<TestLeafPreimage, N>,
 ) {
   let index = Number(witness.leafIndex);
   let currentValue = tree.leaves[index];
@@ -40,24 +121,20 @@ async function checkSiblingPath<N extends number>(
 describe('indexed merkle tree root calculator', () => {
   it('should correctly handle no leaves', async () => {
     // Height of 3 is 8 leaves.
-    const calculator = await IndexedMerkleTreeCalculator.create(4, new TestHasher(), ProtocolContractLeafPreimage);
+    const calculator = await IndexedMerkleTreeCalculator.create(4, new TestHasher(), TestLeafPreimage);
     const expected = await calculator.computeTreeRoot(new Array(8).fill(new Fr(0)).map(fr => fr.toBuffer()));
     await expect(calculator.computeTreeRoot()).resolves.toEqual(expected);
   });
 
   it('should compute entire tree', async () => {
     const hasher = new TestHasher();
-    const calculator = await IndexedMerkleTreeCalculator.create(4, hasher, ProtocolContractLeafPreimage);
+    const calculator = await IndexedMerkleTreeCalculator.create(4, hasher, TestLeafPreimage);
     const values = Array.from({ length: 5 }).map((_, i) => new Fr(i).toBuffer());
     const result = await calculator.computeTree(values);
 
     const expectedLeafPreimages = values.map(
       (l, i) =>
-        new ProtocolContractLeafPreimage(
-          new Fr(l),
-          i == 4 ? Fr.ZERO : new Fr(l).add(Fr.ONE),
-          i == 4 ? BigInt(0) : BigInt(i),
-        ),
+        new TestLeafPreimage(new Fr(l), i == 4 ? Fr.ZERO : new Fr(l).add(Fr.ONE), i == 4 ? BigInt(0) : BigInt(i)),
     );
     const leaves = await Promise.all(expectedLeafPreimages.map(l => hasher.hashInputs(l.toHashInputs())));
     const expectedRoot = await calculator.computeTreeRoot(leaves);
@@ -67,17 +144,17 @@ describe('indexed merkle tree root calculator', () => {
 
   it('should correctly get a membership witness', async () => {
     const hasher = new TestHasher();
-    const calculator = await IndexedMerkleTreeCalculator.create(3, hasher, ProtocolContractLeafPreimage);
+    const calculator = await IndexedMerkleTreeCalculator.create(3, hasher, TestLeafPreimage);
     const values = Array.from({ length: 5 }).map((_, i) => new Fr(i + 1).toBuffer());
     const tree = await calculator.computeTree(values);
 
     // We will have the below leaf at index 2.
-    const testLeaf = new ProtocolContractLeafPreimage(new Fr(2), new Fr(3), 3n);
+    const testLeaf = new TestLeafPreimage(new Fr(2), new Fr(3), 3n);
     const testLeafHash = await hasher.hashInputs(testLeaf.toHashInputs());
     const index = tree.getIndex(testLeafHash);
     expect(index).toEqual(2);
     // We will have the below leaf at index 3 => is the right sibling of testLeaf.
-    const rightSibling = new ProtocolContractLeafPreimage(new Fr(3), new Fr(4), 4n);
+    const rightSibling = new TestLeafPreimage(new Fr(3), new Fr(4), 4n);
     const rightSiblingHash = await hasher.hashInputs(rightSibling.toHashInputs());
 
     const witness = tree.getMembershipWitness(index);
@@ -88,14 +165,14 @@ describe('indexed merkle tree root calculator', () => {
 
   it('should correctly get a non membership witness', async () => {
     const hasher = new TestHasher();
-    const calculator = await IndexedMerkleTreeCalculator.create(3, hasher, ProtocolContractLeafPreimage);
+    const calculator = await IndexedMerkleTreeCalculator.create(3, hasher, TestLeafPreimage);
     const values = Array.from({ length: 5 }).map((_, i) => new Fr(i * 2).toBuffer());
     const tree = await calculator.computeTree(values);
 
     // Choose an odd value which will not be in the tree.
     const testValue = 5n;
     // Its low leaf will exist at index 2 in the tree.f
-    const expectedLowLeaf = new ProtocolContractLeafPreimage(new Fr(4), new Fr(6), 3n);
+    const expectedLowLeaf = new TestLeafPreimage(new Fr(4), new Fr(6), 3n);
 
     const lowLeaf = tree.getLowLeaf(testValue);
     expect(lowLeaf).toEqual(expectedLowLeaf);
@@ -114,14 +191,8 @@ describe('indexed merkle tree root calculator', () => {
 
   it('should correctly get a membership witness for addresses', async () => {
     const hasher = new TestHasher();
-    const calculator = await IndexedMerkleTreeCalculator.create(
-      PROTOCOL_CONTRACT_TREE_HEIGHT,
-      hasher,
-      ProtocolContractLeafPreimage,
-    );
-    let values: AztecAddress[] = await Promise.all(
-      Array.from({ length: MAX_PROTOCOL_CONTRACTS }).map(() => AztecAddress.random()),
-    );
+    const calculator = await IndexedMerkleTreeCalculator.create(3, hasher, TestLeafPreimage);
+    let values: AztecAddress[] = await Promise.all(Array.from({ length: 7 }).map(() => AztecAddress.random()));
     // Manually add the zero leaf here, so the below recalcs are easier.
     values = [AztecAddress.ZERO, ...values];
     const tree = await calculator.computeTree(values.map(a => a.toBuffer()));
@@ -134,7 +205,7 @@ describe('indexed merkle tree root calculator', () => {
     const nextValue = sortedValues[sortedValues.indexOf(testValue) + 1] || AztecAddress.ZERO;
 
     // Reconstruct its leaf preimage.
-    const testLeafPreimage = new ProtocolContractLeafPreimage(
+    const testLeafPreimage = new TestLeafPreimage(
       testValue.toField(),
       nextValue.toField(),
       BigInt(values.indexOf(nextValue) || 0),
@@ -151,14 +222,8 @@ describe('indexed merkle tree root calculator', () => {
 
   it('should correctly get a non membership witness for addresses', async () => {
     const hasher = new TestHasher();
-    const calculator = await IndexedMerkleTreeCalculator.create(
-      PROTOCOL_CONTRACT_TREE_HEIGHT,
-      hasher,
-      ProtocolContractLeafPreimage,
-    );
-    let values: AztecAddress[] = await Promise.all(
-      Array.from({ length: MAX_PROTOCOL_CONTRACTS }).map(() => AztecAddress.random()),
-    );
+    const calculator = await IndexedMerkleTreeCalculator.create(3, hasher, TestLeafPreimage);
+    let values: AztecAddress[] = await Promise.all(Array.from({ length: 7 }).map(() => AztecAddress.random()));
     // Manually add the zero leaf here, so the below recalcs are easier.
     values = [AztecAddress.ZERO, ...values];
     const tree = await calculator.computeTree(values.map(a => a.toBuffer()));
@@ -178,7 +243,7 @@ describe('indexed merkle tree root calculator', () => {
     ];
 
     // Reconstruct the low leaf preimage.
-    const expectedLowLeaf = new ProtocolContractLeafPreimage(
+    const expectedLowLeaf = new TestLeafPreimage(
       previousValue.toField(),
       nextValue.toField(),
       BigInt(values.indexOf(nextValue)),

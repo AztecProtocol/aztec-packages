@@ -1,3 +1,7 @@
+import {
+  HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+} from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
 import { Fq, Fr } from '@aztec/foundation/fields';
@@ -5,10 +9,6 @@ import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
-import {
-  HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-} from '../constants.gen.js';
 import { CircuitType } from './shared.js';
 
 /**

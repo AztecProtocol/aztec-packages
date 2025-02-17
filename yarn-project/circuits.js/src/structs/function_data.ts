@@ -1,3 +1,4 @@
+import { FUNCTION_DATA_LENGTH } from '@aztec/constants';
 import { type FunctionAbi, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
@@ -5,7 +6,6 @@ import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/
 
 import { z } from 'zod';
 
-import { FUNCTION_DATA_LENGTH } from '../constants.gen.js';
 import { type ContractFunctionDao } from '../types/contract_function_dao.js';
 
 /** Function description for circuit. */

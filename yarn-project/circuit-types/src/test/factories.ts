@@ -3,15 +3,11 @@ import {
   AvmCircuitPublicInputs,
   AvmExecutionHints,
   type BlockHeader,
-  FIXED_DA_GAS,
-  FIXED_L2_GAS,
   Fr,
   Gas,
   GasFees,
   GasSettings,
   GlobalVariables,
-  MAX_NULLIFIERS_PER_TX,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PublicDataWrite,
   PublicLog,
   RevertCode,
@@ -20,6 +16,12 @@ import {
   mergeAccumulatedData,
 } from '@aztec/circuits.js';
 import { makePrivateToPublicAccumulatedData, makePrivateToRollupAccumulatedData } from '@aztec/circuits.js/testing';
+import {
+  FIXED_DA_GAS,
+  FIXED_L2_GAS,
+  MAX_NULLIFIERS_PER_TX,
+  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+} from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 
 import { type MerkleTreeReadOperations } from '../interfaces/merkle_tree_operations.js';

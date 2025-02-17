@@ -1,5 +1,4 @@
 import {
-  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   CallContext,
   CountedPublicCallRequest,
   Fr,
@@ -8,18 +7,6 @@ import {
   KeyValidationRequest,
   KeyValidationRequestAndGenerator,
   LogHash,
-  MAX_CONTRACT_CLASS_LOGS_PER_TX,
-  MAX_ENQUEUED_CALLS_PER_TX,
-  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-  MAX_L2_TO_L1_MSGS_PER_TX,
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-  MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
-  MAX_PRIVATE_LOGS_PER_TX,
-  type NOTE_HASH_TREE_HEIGHT,
-  type NULLIFIER_TREE_HEIGHT,
   NoteHash,
   type NoteHashReadRequestHints,
   Nullifier,
@@ -54,6 +41,21 @@ import {
   TxConstantData,
   type TxRequest,
 } from '@aztec/circuits.js';
+import {
+  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  MAX_CONTRACT_CLASS_LOGS_PER_TX,
+  MAX_ENQUEUED_CALLS_PER_TX,
+  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+  MAX_L2_TO_L1_MSGS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+  MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
+  MAX_PRIVATE_LOGS_PER_TX,
+  type NOTE_HASH_TREE_HEIGHT,
+  type NULLIFIER_TREE_HEIGHT,
+} from '@aztec/constants';
 import { mapTuple } from '@aztec/foundation/serialize';
 
 import type {

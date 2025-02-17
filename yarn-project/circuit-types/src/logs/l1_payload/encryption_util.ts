@@ -1,4 +1,5 @@
-import { GeneratorIndex, type Point } from '@aztec/circuits.js';
+import { type Point } from '@aztec/circuits.js';
+import { GeneratorIndex } from '@aztec/constants';
 import { Aes128, sha256 } from '@aztec/foundation/crypto';
 import { numToUInt8 } from '@aztec/foundation/serialize';
 

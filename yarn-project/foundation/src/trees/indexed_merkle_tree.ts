@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { assertLength } from '@aztec/foundation/serialize';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
-import { MembershipWitness } from '../structs/membership_witness.js';
+import { MembershipWitness } from './membership_witness.js';
 import { MerkleTree } from './merkle_tree.js';
 
 /** A simple immutable indexed merkle tree container. Use a IndexedMerkleTreeCalculator to create a new instance from a set of leaves. */

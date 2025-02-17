@@ -10,6 +10,9 @@
       "path": "../blob-lib"
     },
     {
+      "path": "../constants"
+    },
+    {
       "path": "../ethereum"
     },
     {
@@ -19,6 +22,5 @@
       "path": "../types"
     }
   ],
-  "include": ["src"],
-  "exclude": ["src/scripts"]
+  "include": ["src"]
 }

@@ -5,7 +5,6 @@ import {
   type ContractInstanceWithAddress,
   GasFees,
   GasSettings,
-  MAX_ENQUEUED_CALLS_PER_TX,
   Nullifier,
   PartialPrivateTailPublicInputsForPublic,
   PrivateCircuitPublicInputs,
@@ -17,6 +16,7 @@ import {
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { makeCombinedConstantData, makeGas, makePublicCallRequest } from '@aztec/circuits.js/testing';
+import { MAX_ENQUEUED_CALLS_PER_TX } from '@aztec/constants';
 import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
 import { times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';

@@ -6,7 +6,6 @@ import {
   EthAddress,
   Fr,
   GasFees,
-  L1_TO_L2_MSG_TREE_HEIGHT,
   type NodeInfo,
   Point,
   PrivateKernelTailCircuitPublicInputs,
@@ -15,6 +14,7 @@ import {
   PublicKeys,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
+import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
 import { type AbiDecoded, type ContractArtifact, EventSelector } from '@aztec/foundation/abi';
 import { memoize } from '@aztec/foundation/decorators';

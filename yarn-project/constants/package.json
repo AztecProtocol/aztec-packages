@@ -1,38 +1,15 @@
 {
-  "name": "@aztec/circuits.js",
+  "name": "@aztec/constants",
   "version": "0.1.0",
   "type": "module",
   "inherits": [
-    "../package.common.json",
-    "./package.local.json"
+    "../package.common.json"
   ],
   "exports": {
-    ".": "./dest/index.js",
-    "./hash": "./dest/hash/index.js",
-    "./keys": "./dest/keys/index.js",
-    "./barretenberg": "./dest/barretenberg/index.js",
-    "./testing": "./dest/tests/index.js",
-    "./testing/fixtures": "./dest/tests/fixtures.js",
-    "./interfaces": "./dest/interfaces/index.js",
-    "./utils": "./dest/utils/index.js",
-    "./types": "./dest/types/index.js",
-    "./constants": "./dest/constants.js",
-    "./contract": "./dest/contract/index.js",
-    "./merkle": "./dest/merkle/index.js",
-    "./simulation": "./dest/simulator/index.js",
-    "./blobs": "./dest/structs/blobs/index.js",
-    "./rollup": "./dest/structs/rollup/index.js"
-  },
-  "typedocOptions": {
-    "entryPoints": [
-      "./src/index.ts"
-    ],
-    "name": "Circuits.js",
-    "tsconfig": "./tsconfig.json"
+    ".": "./dest/constants.js"
   },
   "scripts": {
-    "build": "yarn clean && yarn generate && tsc -b",
-    "generate": "./scripts/copy-contracts.sh",
+    "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
@@ -41,15 +18,7 @@
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "dependencies": {
-    "@aztec/bb.js": "portal:../../barretenberg/ts",
-    "@aztec/blob-lib": "workspace:^",
-    "@aztec/constants": "workspace:^",
-    "@aztec/ethereum": "workspace:^",
-    "@aztec/foundation": "workspace:^",
-    "@aztec/types": "workspace:^",
-    "msgpackr": "^1.11.2",
-    "tslib": "^2.4.0",
-    "zod": "^3.23.8"
+    "tslib": "^2.4.0"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",

@@ -1,9 +1,5 @@
-import {
-  type AztecAddress,
-  type IndexedMerkleTree,
-  type PROTOCOL_CONTRACT_TREE_HEIGHT,
-  type ProtocolContractLeafPreimage,
-} from '@aztec/circuits.js';
+import { type AztecAddress, type IndexedMerkleTree, type ProtocolContractLeafPreimage } from '@aztec/circuits.js';
+import { type PROTOCOL_CONTRACT_TREE_HEIGHT } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 
 import { buildProtocolContractTree } from './build_protocol_contract_tree.js';

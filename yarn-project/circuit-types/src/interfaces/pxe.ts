@@ -7,7 +7,6 @@ import {
   ContractInstanceWithAddressSchema,
   type Fr,
   GasFees,
-  L1_TO_L2_MSG_TREE_HEIGHT,
   type NodeInfo,
   NodeInfoSchema,
   type PartialAddress,
@@ -15,6 +14,7 @@ import {
   type ProtocolContractAddresses,
   ProtocolContractAddressesSchema,
 } from '@aztec/circuits.js';
+import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import {
   type AbiDecoded,
   type AbiType,

@@ -2,8 +2,8 @@ import { type ContractArtifact, FunctionSelector, FunctionType } from '@aztec/fo
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
+import { computeRootFromSiblingPath } from '@aztec/foundation/trees';
 
-import { computeRootFromSiblingPath } from '../merkle/index.js';
 import {
   computeArtifactFunctionTree,
   computeArtifactHash,

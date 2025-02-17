@@ -1,7 +1,7 @@
+import { SPONGE_BLOB_LENGTH } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
-import { SPONGE_BLOB_LENGTH } from '../../constants.gen.js';
 import { makeSpongeBlob } from '../../tests/factories.js';
 import { SpongeBlob } from './sponge_blob.js';
 

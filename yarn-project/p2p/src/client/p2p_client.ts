@@ -13,7 +13,7 @@ import {
   type Tx,
   type TxHash,
 } from '@aztec/circuit-types';
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { type AztecAsyncKVStore, type AztecAsyncMap, type AztecAsyncSingleton } from '@aztec/kv-store';
 import {

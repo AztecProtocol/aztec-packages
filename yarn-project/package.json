@@ -29,6 +29,7 @@
     "blob-lib",
     "bot",
     "builder",
+    "constants",
     "pxe",
     "aztec",
     "aztec.js",

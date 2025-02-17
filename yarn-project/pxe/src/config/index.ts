@@ -1,5 +1,5 @@
 import { type ChainConfig, chainConfigMappings } from '@aztec/circuit-types/config';
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,

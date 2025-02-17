@@ -3,10 +3,9 @@ import {
   type Fr,
   type IndexedMerkleTree,
   IndexedMerkleTreeCalculator,
-  MAX_PROTOCOL_CONTRACTS,
-  PROTOCOL_CONTRACT_TREE_HEIGHT,
   ProtocolContractLeafPreimage,
 } from '@aztec/circuits.js';
+import { MAX_PROTOCOL_CONTRACTS, PROTOCOL_CONTRACT_TREE_HEIGHT } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 
 export async function buildProtocolContractTree(

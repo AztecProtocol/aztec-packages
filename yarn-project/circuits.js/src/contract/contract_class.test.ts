@@ -1,7 +1,7 @@
+import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 
-import { PUBLIC_DISPATCH_SELECTOR } from '../constants.gen.js';
 import { getBenchmarkContractArtifact } from '../tests/fixtures.js';
 import { getContractClassFromArtifact } from './contract_class.js';
 

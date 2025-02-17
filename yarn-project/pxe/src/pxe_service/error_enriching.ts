@@ -1,5 +1,5 @@
 import { type SimulationError, isNoirCallStackUnresolved } from '@aztec/circuit-types';
-import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/circuits.js/constants';
+import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';

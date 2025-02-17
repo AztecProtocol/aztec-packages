@@ -1,3 +1,4 @@
+import { COUNTED_PUBLIC_CALL_REQUEST_LENGTH, PUBLIC_CALL_REQUEST_LENGTH } from '@aztec/constants';
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -6,7 +7,6 @@ import { type FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
 
-import { COUNTED_PUBLIC_CALL_REQUEST_LENGTH, PUBLIC_CALL_REQUEST_LENGTH } from '../constants.gen.js';
 import { type UInt32 } from './shared.js';
 
 /**

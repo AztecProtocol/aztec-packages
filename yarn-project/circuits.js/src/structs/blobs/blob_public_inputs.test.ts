@@ -1,8 +1,8 @@
 import { Blob } from '@aztec/blob-lib';
+import { BLOBS_PER_BLOCK, BLOB_PUBLIC_INPUTS } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 
-import { BLOBS_PER_BLOCK, BLOB_PUBLIC_INPUTS } from '../../constants.gen.js';
 import { makeBlobPublicInputs, makeBlockBlobPublicInputs } from '../../tests/factories.js';
 import { Fr } from '../index.js';
 import { BlobPublicInputs, BlockBlobPublicInputs } from './blob_public_inputs.js';

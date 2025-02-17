@@ -1,10 +1,10 @@
+import { GeneratorIndex, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS } from '@aztec/constants';
 import { bufferAsFields } from '@aztec/foundation/abi';
 import { poseidon2HashAccumulate, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
 import { strict as assert } from 'assert';
 
-import { GeneratorIndex, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS } from '../constants.gen.js';
 import { type ContractClass } from './interfaces/contract_class.js';
 import { computePrivateFunctionsRoot } from './private_function.js';
 

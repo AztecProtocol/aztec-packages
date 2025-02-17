@@ -1,10 +1,10 @@
-import { type Tuple } from '@aztec/foundation/serialize';
-
 import {
   type MAX_NOTE_HASHES_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   type NOTE_HASH_TREE_HEIGHT,
-} from '../constants.gen.js';
+} from '@aztec/constants';
+import { type Tuple } from '@aztec/foundation/serialize';
+
 import {
   type MembershipWitness,
   NoteHashReadRequestHintsBuilder,

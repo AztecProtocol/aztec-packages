@@ -1,8 +1,8 @@
+import { CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, VK_TREE_HEIGHT } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, VK_TREE_HEIGHT } from '../../constants.gen.js';
 import { type UInt32 } from '../shared.js';
 import { VerificationKeyAsFields } from '../verification_key.js';
 import { PrivateKernelCircuitPublicInputs } from './private_kernel_circuit_public_inputs.js';

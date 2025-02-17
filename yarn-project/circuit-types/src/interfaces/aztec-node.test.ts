@@ -1,5 +1,4 @@
 import {
-  ARCHIVE_HEIGHT,
   AztecAddress,
   BlockHeader,
   type ContractClassPublic,
@@ -7,17 +6,20 @@ import {
   EthAddress,
   Fr,
   GasFees,
-  L1_TO_L2_MSG_TREE_HEIGHT,
-  NOTE_HASH_TREE_HEIGHT,
-  NULLIFIER_TREE_HEIGHT,
   type NodeInfo,
-  PUBLIC_DATA_TREE_HEIGHT,
   PrivateLog,
   type ProtocolContractAddresses,
   ProtocolContractsNames,
   PublicKeys,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
+import {
+  ARCHIVE_HEIGHT,
+  L1_TO_L2_MSG_TREE_HEIGHT,
+  NOTE_HASH_TREE_HEIGHT,
+  NULLIFIER_TREE_HEIGHT,
+  PUBLIC_DATA_TREE_HEIGHT,
+} from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { memoize } from '@aztec/foundation/decorators';

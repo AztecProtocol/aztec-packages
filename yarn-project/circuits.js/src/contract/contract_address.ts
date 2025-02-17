@@ -1,9 +1,9 @@
+import { GeneratorIndex } from '@aztec/constants';
 import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
-import { GeneratorIndex } from '../constants.gen.js';
 import { computeVarArgsHash } from '../hash/hash.js';
 import { computeAddress } from '../keys/index.js';
 import { type ContractInstance } from './interfaces/contract_instance.js';

@@ -40,7 +40,7 @@ export * from './key_validation_request_and_generator.js';
 export * from './l2_to_l1_message.js';
 export * from './log_hash.js';
 export * from './max_block_number.js';
-export * from './membership_witness.js';
+export * from '@aztec/foundation/trees';
 export * from './note_hash.js';
 export * from './nullifier.js';
 export * from './optional_number.js';

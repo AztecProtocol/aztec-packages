@@ -7,7 +7,7 @@ import {
   WorldStateRunningState,
 } from '@aztec/circuit-types';
 import { Fr, MerkleTreeCalculator } from '@aztec/circuits.js';
-import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js/constants';
+import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/constants';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { type Logger, createLogger } from '@aztec/foundation/log';

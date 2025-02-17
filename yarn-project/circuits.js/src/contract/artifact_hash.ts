@@ -3,9 +3,7 @@ import { sha256 } from '@aztec/foundation/crypto';
 import { Fr, reduceFn } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { numToUInt8 } from '@aztec/foundation/serialize';
-
-import { type MerkleTree } from '../merkle/merkle_tree.js';
-import { MerkleTreeCalculator } from '../merkle/merkle_tree_calculator.js';
+import { MerkleTree, MerkleTreeCalculator } from '@aztec/foundation/trees';
 
 const VERSION = 1;
 
