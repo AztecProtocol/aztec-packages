@@ -464,7 +464,7 @@ export class Sequencer {
         maxBlockGas: this.maxBlockGas,
       };
       const limits = opts.validateOnly ? { deadline } : { deadline, ...proposerLimits };
-      const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
+      const [publicProcessorDuration, [processedTxs, failedTxs, usedTxs]] = await elapsed(() =>
         processor.process(pendingTxs, limits, validators),
       );
 
@@ -504,6 +504,7 @@ export class Sequencer {
         block,
         publicGas,
         publicProcessorDuration,
+        txs: usedTxs,
         numMsgs: l1ToL2Messages.length,
         numTxs: processedTxs.length,
         numFailedTxs: failedTxs.length,
@@ -586,7 +587,7 @@ export class Sequencer {
 
       this.log.debug('Collecting attestations');
       const stopCollectingAttestationsTimer = this.metrics.startCollectingAttestationsTimer();
-      const attestations = await this.collectAttestations(block, txHashes);
+      const attestations = await this.collectAttestations(block, buildBlockRes.txs);
       if (attestations !== undefined) {
         this.log.verbose(`Collected ${attestations.length} attestations`, { blockHash, blockNumber });
       }
@@ -604,7 +605,7 @@ export class Sequencer {
     [Attributes.BLOCK_ARCHIVE]: block.archive.toString(),
     [Attributes.BLOCK_TXS_COUNT]: txHashes.length,
   }))
-  protected async collectAttestations(block: L2Block, txHashes: TxHash[]): Promise<Signature[] | undefined> {
+  protected async collectAttestations(block: L2Block, txs: Tx[]): Promise<Signature[] | undefined> {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962): inefficient to have a round trip in here - this should be cached
     const committee = await this.publisher.getCurrentEpochCommittee();
 
@@ -626,7 +627,7 @@ export class Sequencer {
     this.setState(SequencerState.COLLECTING_ATTESTATIONS, slotNumber);
 
     this.log.debug('Creating block proposal for validators');
-    const proposal = await this.validatorClient.createBlockProposal(block.header, block.archive.root, txHashes);
+    const proposal = await this.validatorClient.createBlockProposal(block.header, block.archive.root, txs);
     if (!proposal) {
       const msg = `Failed to create block proposal`;
       throw new Error(msg);

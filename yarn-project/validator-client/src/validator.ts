@@ -7,7 +7,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, type Timer } from '@aztec/foundation/timer';
-import { type P2P } from '@aztec/p2p';
+import { type P2P, type TxPool } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import { type TelemetryClient, WithTracer, getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -49,7 +49,7 @@ export interface Validator {
   registerBlockBuilder(blockBuilder: BlockBuilderCallback): void;
 
   // Block validation responsiblities
-  createBlockProposal(header: BlockHeader, archive: Fr, txs: TxHash[]): Promise<BlockProposal | undefined>;
+  createBlockProposal(header: BlockHeader, archive: Fr, txs: Tx[]): Promise<BlockProposal | undefined>;
   attestToProposal(proposal: BlockProposal): void;
 
   broadcastBlockProposal(proposal: BlockProposal): void;
@@ -174,8 +174,8 @@ export class ValidatorClient extends WithTracer implements Validator {
       slotNumber,
       blockNumber: proposal.payload.header.globalVariables.blockNumber.toNumber(),
       archive: proposal.payload.archive.toString(),
-      txCount: proposal.payload.txHashes.length,
-      txHashes: proposal.payload.txHashes.map(txHash => txHash.toString()),
+      txCount: proposal.payload.txs.length,
+      txHashes: (await Promise.all(proposal.payload.txs.map(tx => tx.getTxHash()))).map(txHash => txHash.toString()),
     };
     this.log.verbose(`Received request to attest for slot ${slotNumber}`);
 
@@ -195,12 +195,17 @@ export class ValidatorClient extends WithTracer implements Validator {
     // Check that all of the tranasctions in the proposal are available in the tx pool before attesting
     this.log.verbose(`Processing attestation for slot ${slotNumber}`, proposalInfo);
     try {
-      await this.ensureTransactionsAreAvailable(proposal);
+      // exp(#12055): No need to make sure they are available if they exist within the block proposal
+      // await this.ensureTransactionsAreAvailable(proposal);
 
       if (this.config.validatorReexecute) {
         this.log.verbose(`Re-executing transactions in the proposal before attesting`);
         await this.reExecuteTransactions(proposal);
       }
+
+      // exp(#12055): Temp method to add txs to pool and make them available
+      // TODO: handle duplication logic
+      ((this.p2pClient as any).txPool as TxPool).addTxs(proposal.payload.txs);
     } catch (error: any) {
       // If the transactions are not available, then we should not attempt to attest
       if (error instanceof TransactionsNotAvailableError) {
@@ -225,16 +230,16 @@ export class ValidatorClient extends WithTracer implements Validator {
    * @param proposal - The proposal to re-execute
    */
   async reExecuteTransactions(proposal: BlockProposal) {
-    const { header, txHashes } = proposal.payload;
+    const { header, txs } = proposal.payload;
 
-    const txs = (await Promise.all(txHashes.map(tx => this.p2pClient.getTxByHash(tx)))).filter(
-      tx => tx !== undefined,
-    ) as Tx[];
+    // const txs = (await Promise.all(txHashes.map(tx => this.p2pClient.getTxByHash(tx)))).filter(
+    // tx => tx !== undefined,
+    // ) as Tx[];
 
     // If we cannot request all of the transactions, then we should fail
-    if (txs.length !== txHashes.length) {
-      throw new TransactionsNotAvailableError(txHashes);
-    }
+    // if (txs.length !== txHashes.length) {
+    // throw new TransactionsNotAvailableError(txHashes);
+    // }
 
     // Assertion: This check will fail if re-execution is not enabled
     if (this.blockBuilder === undefined) {
@@ -255,7 +260,7 @@ export class ValidatorClient extends WithTracer implements Validator {
       throw new ReExFailedTxsError(numFailedTxs);
     }
 
-    if (block.body.txEffects.length !== txHashes.length) {
+    if (block.body.txEffects.length !== txs.length) {
       await this.metrics.recordFailedReexecution(proposal);
       throw new ReExTimeoutError();
     }
@@ -275,25 +280,25 @@ export class ValidatorClient extends WithTracer implements Validator {
    * 3. If we cannot retrieve them from the network, throw an error
    * @param proposal - The proposal to attest to
    */
-  async ensureTransactionsAreAvailable(proposal: BlockProposal) {
-    const txHashes: TxHash[] = proposal.payload.txHashes;
-    const transactionStatuses = await Promise.all(txHashes.map(txHash => this.p2pClient.getTxStatus(txHash)));
+  // async ensureTransactionsAreAvailable(proposal: BlockProposal) {
+  //   const txHashes: TxHash[] = proposal.payload.txHashes;
+  //   const transactionStatuses = await Promise.all(txHashes.map(txHash => this.p2pClient.getTxStatus(txHash)));
 
-    const missingTxs = txHashes.filter((_, index) => !['pending', 'mined'].includes(transactionStatuses[index] ?? ''));
+  //   const missingTxs = txHashes.filter((_, index) => !['pending', 'mined'].includes(transactionStatuses[index] ?? ''));
 
-    if (missingTxs.length === 0) {
-      return; // All transactions are available
-    }
+  //   if (missingTxs.length === 0) {
+  //     return; // All transactions are available
+  //   }
 
-    this.log.verbose(`Missing ${missingTxs.length} transactions in the tx pool, requesting from the network`);
+  //   this.log.verbose(`Missing ${missingTxs.length} transactions in the tx pool, requesting from the network`);
 
-    const requestedTxs = await this.p2pClient.requestTxs(missingTxs);
-    if (requestedTxs.some(tx => tx === undefined)) {
-      throw new TransactionsNotAvailableError(missingTxs);
-    }
-  }
+  //   const requestedTxs = await this.p2pClient.requestTxs(missingTxs);
+  //   if (requestedTxs.some(tx => tx === undefined)) {
+  //     throw new TransactionsNotAvailableError(missingTxs);
+  //   }
+  // }
 
-  async createBlockProposal(header: BlockHeader, archive: Fr, txs: TxHash[]): Promise<BlockProposal | undefined> {
+  async createBlockProposal(header: BlockHeader, archive: Fr, txs: Tx[]): Promise<BlockProposal | undefined> {
     if (this.previousProposal?.slotNumber.equals(header.globalVariables.slotNumber)) {
       this.log.verbose(`Already made a proposal for the same slot, skipping proposal`);
       return Promise.resolve(undefined);

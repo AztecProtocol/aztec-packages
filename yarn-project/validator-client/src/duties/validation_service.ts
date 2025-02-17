@@ -1,9 +1,10 @@
 import {
   BlockAttestation,
   BlockProposal,
-  ConsensusPayload,
+  BlockProposalPayload,
+  type ConsensusPayload,
   SignatureDomainSeparator,
-  type TxHash,
+  Tx,
 } from '@aztec/circuit-types';
 import { type BlockHeader } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -24,10 +25,10 @@ export class ValidationService {
    *
    * @returns A block proposal signing the above information (not the current implementation!!!)
    */
-  createBlockProposal(header: BlockHeader, archive: Fr, txs: TxHash[]): Promise<BlockProposal> {
+  createBlockProposal(header: BlockHeader, archive: Fr, txs: Tx[]): Promise<BlockProposal> {
     const payloadSigner = (payload: Buffer32) => this.keyStore.signMessage(payload);
 
-    return BlockProposal.createProposalFromSigner(new ConsensusPayload(header, archive, txs), payloadSigner);
+    return BlockProposal.createProposalFromSigner(new BlockProposalPayload(header, archive, txs), payloadSigner);
   }
 
   /**
@@ -40,12 +41,13 @@ export class ValidationService {
    * @returns attestation
    */
   async attestToProposal(proposal: BlockProposal): Promise<BlockAttestation> {
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7961): check that the current validator is correct
+    // Remove the txs from the attestation payload, we only include all of the txs in the initial proposal, not the attestation
+    const consensusPayload: ConsensusPayload = await proposal.payload.toConsensusPayload();
 
     const buf = Buffer32.fromBuffer(
-      keccak256(await proposal.payload.getPayloadToSign(SignatureDomainSeparator.blockAttestation)),
+      keccak256(await consensusPayload.getPayloadToSign(SignatureDomainSeparator.blockAttestation)),
     );
     const sig = await this.keyStore.signMessage(buf);
-    return new BlockAttestation(proposal.payload, sig);
+    return new BlockAttestation(consensusPayload, sig);
   }
 }

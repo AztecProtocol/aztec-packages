@@ -2,6 +2,7 @@ import {
   BlockAttestation,
   type BlockBuilder,
   BlockProposal,
+  BlockProposalPayload,
   Body,
   ConsensusPayload,
   type L1ToL2MessageSource,
@@ -10,7 +11,7 @@ import {
   type MerkleTreeId,
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
-  type Tx,
+  Tx,
   TxHash,
   WorldStateRunningState,
   type WorldStateSynchronizer,
@@ -98,8 +99,9 @@ describe('sequencer', () => {
     return [attestation];
   };
 
-  const createBlockProposal = () => {
-    return new BlockProposal(new ConsensusPayload(block.header, archive, [TxHash.random()]), mockedSig);
+  const createBlockProposal = async () => {
+    const tx = await mockTxForRollup();
+    return new BlockProposal(new BlockProposalPayload(block.header, archive, [tx]), mockedSig);
   };
 
   const processTxs = async (txs: Tx[]) => {
@@ -213,7 +215,7 @@ describe('sequencer', () => {
       const txs = await toArray(txsIter);
       const processed = await processTxs(txs);
       logger.verbose(`Processed ${txs.length} txs`, { txHashes: txs.map(tx => tx.getTxHash()) });
-      return [processed, [], []];
+      return [processed, [], [], []];
     });
 
     publicProcessorFactory = mock<PublicProcessorFactory>({
@@ -376,6 +378,7 @@ describe('sequencer', () => {
     publicProcessor.process.mockResolvedValue([
       await processTxs(validTxs),
       [{ tx: invalidTx, error: new Error() }],
+      [],
       [],
     ]);
 
@@ -595,6 +598,7 @@ class TestSubject extends Sequencer {
     numTxs: number;
     numFailedTxs: number;
     blockBuildingTimer: Timer;
+    txs: Tx[];
   }> {
     return super.buildBlock(pendingTxs, newGlobalVariables, opts);
   }

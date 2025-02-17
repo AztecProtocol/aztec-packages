@@ -5,7 +5,7 @@ import { Signature } from '@aztec/foundation/eth-signature';
 import { type Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { ConsensusPayload } from './consensus_payload.js';
+import { BlockProposalPayload } from './consensus_payload.js';
 import { Gossipable } from './gossipable.js';
 import {
   SignatureDomainSeparator,
@@ -33,7 +33,7 @@ export class BlockProposal extends Gossipable {
 
   constructor(
     /** The payload of the message, and what the signature is over */
-    public readonly payload: ConsensusPayload,
+    public readonly payload: BlockProposalPayload,
 
     /** The signer of the BlockProposal over the header of the new block*/
     public readonly signature: Signature,
@@ -58,7 +58,7 @@ export class BlockProposal extends Gossipable {
   }
 
   static async createProposalFromSigner(
-    payload: ConsensusPayload,
+    payload: BlockProposalPayload,
     payloadSigner: (payload: Buffer32) => Promise<Signature>,
   ) {
     const hashed = await getHashedSignaturePayload(payload, SignatureDomainSeparator.blockProposal);
@@ -93,7 +93,7 @@ export class BlockProposal extends Gossipable {
 
   static fromBuffer(buf: Buffer | BufferReader): BlockProposal {
     const reader = BufferReader.asReader(buf);
-    return new BlockProposal(reader.readObject(ConsensusPayload), reader.readObject(Signature));
+    return new BlockProposal(reader.readObject(BlockProposalPayload), reader.readObject(Signature));
   }
 
   getSize(): number {
