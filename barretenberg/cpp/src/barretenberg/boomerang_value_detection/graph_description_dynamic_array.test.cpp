@@ -18,6 +18,15 @@ using field_ct = stdlib::field_t<Builder>;
 using witness_ct = stdlib::witness_t<Builder>;
 using DynamicArray_ct = stdlib::DynamicArray<Builder>;
 
+/**
+ * @brief this test checks graph description for dynamic array resize operation
+ * The result is one connected component with one variable in one gate,
+ * testing array initialization, pushing elements, and resizing operations
+ * @details Test includes:
+ *          - Array initialization with max size
+ *          - Sequential push of witness elements
+ *          - Resize operation with witness size
+ */
 TEST(boomerang_stdlib_dynamic_array, graph_description_dynamic_array_method_resize_test)
 {
 
@@ -39,6 +48,17 @@ TEST(boomerang_stdlib_dynamic_array, graph_description_dynamic_array_method_resi
     EXPECT_EQ(variables_in_one_gate.size(), 1);
 }
 
+/**
+ * @brief this test checks graph description for dynamic array consistency methods
+ * The result is one connected component with no variables in one gate,
+ * testing all array manipulation operations
+ * @details Test includes sequence of operations:
+ *          - Sequential push of witness elements
+ *          - Sequential pop of all elements
+ *          - Array resize
+ *          - Conditional push operations (true and false cases)
+ *          - Conditional pop operations (true and false cases)
+ */
 TEST(boomerang_stdlib_dynamic_array, graph_description_dynamic_array_consistency_methods) 
 {
     Builder builder;

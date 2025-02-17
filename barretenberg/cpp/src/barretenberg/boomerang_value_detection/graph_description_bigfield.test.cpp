@@ -37,7 +37,16 @@ void fix_bigfield_element(const fq_ct& element) {
     element.prime_basis_limb.fix_witness();
 }
 
-
+/**
+ * @brief this test checks graph description for bigfield constructors
+ * The result is one connected component with one variable in one gate,
+ * testing different types of bigfield construction
+ * @details Tests construction of:
+ *          - Constant value
+ *          - Witness from u512
+ *          - Small field witness
+ *          - Mixed construction with lower limb addition
+ */
 TEST(boomerang_bigfield, test_graph_description_bigfield_constructors) { 
     Builder builder;
     [[maybe_unused]]fq_ct constant = fq_ct(1);
@@ -53,6 +62,11 @@ TEST(boomerang_bigfield, test_graph_description_bigfield_constructors) {
     EXPECT_EQ(variables_in_one_gate.size(), 1);
 }
 
+/**
+ * @brief this test checks graph description for bigfield addition operations
+ * The result is one connected component with no variables in one gate,
+ * testing various addition combinations with fix_bigfield_element
+ */
 TEST(boomerang_bigfield, test_graph_description_bigfield_addition) {
     Builder builder;
     [[maybe_unused]]fq_ct var = fq_ct::create_from_u512_as_witness(&builder, 1);
@@ -76,6 +90,11 @@ TEST(boomerang_bigfield, test_graph_description_bigfield_addition) {
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
+/**
+ * @brief this test checks graph description for bigfield subtraction operations
+ * The result is one connected component with no variables in one gate,
+ * testing all possible subtraction combinations between mixed, constant, and variable values
+ */
 TEST(boomerang_bigfield, test_graph_description_bigfield_substraction) {
     Builder builder;
     [[maybe_unused]]fq_ct constant = fq_ct(1);
@@ -103,6 +122,11 @@ TEST(boomerang_bigfield, test_graph_description_bigfield_substraction) {
     }
 }
 
+/**
+ * @brief this test checks graph description for bigfield multiplication operations
+ * The result is one connected component with no variables in one gate,
+ * testing all possible multiplication combinations
+ */
 TEST(boomerang_bigfield, test_graph_description_bigfield_multiplication) {
     Builder builder;
     [[maybe_unused]]fq_ct constant = fq_ct(1);
@@ -123,6 +147,12 @@ TEST(boomerang_bigfield, test_graph_description_bigfield_multiplication) {
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
+/**
+ * @brief this test checks graph description for bigfield division operations
+ * The result is one connected component with three variables in one gate,
+ * testing division operations with circuit checking
+ * @details Each division operator creates one inverse variable for polynomial gate check (a * a_inv - 1 = 0)
+ */
 TEST(boomerang_bigfield, test_graph_description_bigfield_division) {
     Builder builder;
     [[maybe_unused]]fq_ct constant = fq_ct(1);
@@ -155,6 +185,11 @@ TEST(boomerang_bigfield, test_graph_description_bigfield_division) {
     }
 }
 
+/**
+ * @brief this test checks graph description for mixed bigfield operations
+ * The result is one connected component with two variables in one gate,
+ * testing combinations of addition, subtraction, multiplication and division
+ */
 TEST(boomerang_bigfield, test_graph_description_bigfield_mix_operations) {
     auto builder = Builder();
     fq_ct constant = fq_ct(1);
@@ -200,6 +235,11 @@ TEST(boomerang_bigfield, test_graph_description_bigfield_mix_operations) {
     EXPECT_EQ(variables_in_one_gate.size(), 2);
 }
 
+/**
+ * @brief this test checks graph description for high/low bits constructor and operations
+ * The result is one connected component with no variables in one gate,
+ * testing bit-sliced construction and repeated additions
+ */
 TEST(boomerang_bigfield, test_graph_description_constructor_high_low_bits_and_operations) {
     auto builder = Builder();
     size_t num_repetitions = 3;
@@ -223,6 +263,11 @@ TEST(boomerang_bigfield, test_graph_description_constructor_high_low_bits_and_op
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
+/**
+ * @brief this test checks graph description for multiple multiplication operations
+ * The result is num_repetitions connected components with no variables in one gate,
+ * testing independent multiplication operations
+ */
 TEST(boomerang_bigfield, test_graph_description_mul_function) {
     auto builder = Builder();
     size_t num_repetitions = 4;
@@ -243,6 +288,11 @@ TEST(boomerang_bigfield, test_graph_description_mul_function) {
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
+/**
+ * @brief this test checks graph description for square operations
+ * The result is num_repetitions connected components with no variables in one gate,
+ * testing repeated squaring operations on random inputs
+ */
 TEST(boomerang_bigfield, test_graph_description_sqr_function) {
     auto builder = Builder();
     size_t num_repetitions = 10;
@@ -265,6 +315,11 @@ TEST(boomerang_bigfield, test_graph_description_sqr_function) {
     }
 }
 
+/**
+ * @brief this test checks graph description for multiply-add operations
+ * The result is num_repetitions connected components with no variables in one gate,
+ * testing multiply-add operations with three inputs
+ */
 TEST(boomerang_bigfield, test_graph_description_madd_function) {
     auto builder = Builder();
     size_t num_repetitions = 5;
@@ -286,6 +341,12 @@ TEST(boomerang_bigfield, test_graph_description_madd_function) {
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
+/**
+ * @brief this test checks graph description for multiple multiply-add operations
+ * The result is connected components with no variables in one gate,
+ * testing batch multiply-add operations with multiple inputs
+ * @details Uses arrays of size number_of_madds=16 for left multiply, right multiply and add values
+ */
 TEST(boomerang_bigfield, test_graph_description_mult_madd_function) {
 
     auto builder = Builder();
@@ -332,6 +393,11 @@ TEST(boomerang_bigfield, test_graph_description_mult_madd_function) {
     }
 }
 
+/**
+ * @brief this test checks graph description for high/low bits constructor
+ * The result is connected components with no variables in one gate,
+ * testing basic multiplication with bit-sliced construction
+ */
 TEST(boomerang_bigfield, test_graph_description_constructor_high_low_bits)
 {
     auto builder = Builder();
