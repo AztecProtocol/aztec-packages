@@ -26,12 +26,12 @@ export class SharedMutableValues {
     const sdcPost = firstField & 0xffffffffn;
     const sdcPre = (firstField >> 32n) & 0xffffffffn;
     const sdcBlockOfChange = (firstField >> 64n) & 0xffffffffn;
-    const isPostSome = (firstField >> 96n) & 1n;
-    const isPreSome = (firstField >> 97n) & 1n;
+    const sdcIsPostSome = (firstField >> 96n) & 1n;
+    const sdcIsPreSome = (firstField >> 97n) & 1n;
     const sdc = new ScheduledDelayChange(
-      isPreSome ? Number(sdcPre) : undefined,
+      sdcIsPreSome ? Number(sdcPre) : undefined,
       Number(sdcBlockOfChange),
-      isPostSome ? Number(sdcPost) : undefined,
+      sdcIsPostSome ? Number(sdcPost) : undefined,
     );
 
     return new this(svc, sdc);
