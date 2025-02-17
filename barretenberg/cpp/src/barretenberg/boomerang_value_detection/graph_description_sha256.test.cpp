@@ -92,7 +92,6 @@ HEAVY_TEST(boomerang_stdlib_sha256, test_graph_for_sha256_NIST_vector_five)
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
     EXPECT_EQ(variables_in_one_gate.size(), 0);
     EXPECT_EQ(connected_components.size(), 1);
-    info("huy");
 }
 
 TEST(boomerang_stdlib_sha256, test_graph_for_sha256_NIST_vector_one)
