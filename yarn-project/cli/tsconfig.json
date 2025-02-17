@@ -16,6 +16,9 @@
       "path": "../circuit-types"
     },
     {
+      "path": "../constants"
+    },
+    {
       "path": "../foundation"
     },
     {

@@ -1,5 +1,5 @@
 import { TestCircuitProver } from '@aztec/bb-prover';
-import { Blob } from '@aztec/blob-lib';
+import { Blob, SpongeBlob } from '@aztec/blob-lib';
 import {
   MerkleTreeId,
   type MerkleTreeWriteOperations,
@@ -11,18 +11,10 @@ import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import {
   type AppendOnlyTreeSnapshot,
   AztecAddress,
-  BLOBS_PER_BLOCK,
   BaseParityInputs,
-  FIELDS_PER_BLOB,
   Fr,
   type GlobalVariables,
-  L1_TO_L2_MSG_SUBTREE_HEIGHT,
-  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MembershipWitness,
-  NESTED_RECURSIVE_PROOF_LENGTH,
-  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  NUM_BASE_PARITY_PER_ROOT_PARITY,
   type ParityPublicInputs,
   PartialStateReference,
   PublicDataTreeLeaf,
@@ -31,13 +23,10 @@ import {
   RootParityInput,
   RootParityInputs,
   StateReference,
-  TUBE_VK_INDEX,
-  VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
   VkWitnessData,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
-import { SpongeBlob } from '@aztec/circuits.js/blobs';
 import {
   type BaseOrMergeRollupPublicInputs,
   BlockRootRollupBlobData,
@@ -53,6 +42,18 @@ import {
   SingleTxBlockRootRollupInputs,
 } from '@aztec/circuits.js/rollup';
 import { makeGlobalVariables } from '@aztec/circuits.js/testing';
+import {
+  BLOBS_PER_BLOCK,
+  FIELDS_PER_BLOB,
+  L1_TO_L2_MSG_SUBTREE_HEIGHT,
+  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  NESTED_RECURSIVE_PROOF_LENGTH,
+  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  NUM_BASE_PARITY_PER_ROOT_PARITY,
+  TUBE_VK_INDEX,
+  VK_TREE_HEIGHT,
+} from '@aztec/constants';
 import { padArrayEnd, times, timesParallel } from '@aztec/foundation/collection';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { type Logger, createLogger } from '@aztec/foundation/log';

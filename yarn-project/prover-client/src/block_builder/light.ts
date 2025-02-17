@@ -1,3 +1,4 @@
+import { SpongeBlob } from '@aztec/blob-lib';
 import {
   type BlockBuilder,
   L2Block,
@@ -6,8 +7,8 @@ import {
   type ProcessedTx,
   toNumBlobFields,
 } from '@aztec/circuit-types';
-import { Fr, type GlobalVariables, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
-import { SpongeBlob } from '@aztec/circuits.js/blobs';
+import { Fr, type GlobalVariables } from '@aztec/circuits.js';
+import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';

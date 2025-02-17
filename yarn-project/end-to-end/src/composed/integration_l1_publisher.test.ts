@@ -1,7 +1,7 @@
 import { type ArchiveSource } from '@aztec/archiver';
 import { getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, Fr, GlobalVariables, type L2Block, createLogger } from '@aztec/aztec.js';
-import { Blob } from '@aztec/blob-lib';
+import { Blo, BlockBlobPublicInputs } from '@aztec/blob-lib';
 // eslint-disable-next-line no-restricted-imports
 import { type L2Tips, type ProcessedTx } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
@@ -14,7 +14,6 @@ import {
   MAX_NULLIFIERS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/circuits.js';
-import { BlockBlobPublicInputs } from '@aztec/circuits.js/blobs';
 import { fr } from '@aztec/circuits.js/testing';
 import { EpochCache } from '@aztec/epoch-cache';
 import {

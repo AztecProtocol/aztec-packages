@@ -70,6 +70,7 @@
     "@aztec/archiver": "workspace:^",
     "@aztec/aztec.js": "workspace:^",
     "@aztec/circuit-types": "workspace:^",
+    "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/types": "workspace:^",

@@ -11,10 +11,11 @@ import {
 } from '@aztec/circuit-types';
 import {
   type ParityPublicInputs,
-  RECURSIVE_PROOF_LENGTH,
+  ,
   VerificationKeyData,
   makeRecursiveProof,
 } from '@aztec/circuits.js';
+import { RECURSIVE_PROOF_LENGTH} from '@aztec/constants';
 import { makeBaseParityInputs, makeParityPublicInputs } from '@aztec/circuits.js/testing';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { AbortError } from '@aztec/foundation/error';

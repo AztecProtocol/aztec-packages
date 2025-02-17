@@ -14,18 +14,11 @@ import {
 } from '@aztec/circuit-types/interfaces';
 import { type CircuitName } from '@aztec/circuit-types/stats';
 import {
-  AVM_PROOF_LENGTH_IN_FIELDS,
-  AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type AppendOnlyTreeSnapshot,
   BaseParityInputs,
   type BlockHeader,
   Fr,
   type GlobalVariables,
-  L1_TO_L2_MSG_SUBTREE_HEIGHT,
-  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  NUM_BASE_PARITY_PER_ROOT_PARITY,
-  type TUBE_PROOF_LENGTH,
   VerificationKeyData,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
@@ -36,6 +29,15 @@ import {
   SingleTxBlockRootRollupInputs,
   TubeInputs,
 } from '@aztec/circuits.js/rollup';
+import {
+  AVM_PROOF_LENGTH_IN_FIELDS,
+  AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  L1_TO_L2_MSG_SUBTREE_HEIGHT,
+  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  NUM_BASE_PARITY_PER_ROOT_PARITY,
+  type TUBE_PROOF_LENGTH,
+} from '@aztec/constants';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { AbortError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';

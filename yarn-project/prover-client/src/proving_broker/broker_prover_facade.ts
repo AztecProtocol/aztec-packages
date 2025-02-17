@@ -12,15 +12,10 @@ import {
   makeProvingJobId,
 } from '@aztec/circuit-types';
 import {
-  type AVM_PROOF_LENGTH_IN_FIELDS,
   type AvmCircuitInputs,
   type BaseParityInputs,
-  type NESTED_RECURSIVE_PROOF_LENGTH,
-  type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   type ParityPublicInputs,
-  type RECURSIVE_PROOF_LENGTH,
   type RootParityInputs,
-  type TUBE_PROOF_LENGTH,
 } from '@aztec/circuits.js';
 import {
   type BaseOrMergeRollupPublicInputs,
@@ -36,9 +31,16 @@ import {
   type SingleTxBlockRootRollupInputs,
   type TubeInputs,
 } from '@aztec/circuits.js/rollup';
+import {
+  type AVM_PROOF_LENGTH_IN_FIELDS,
+  type NESTED_RECURSIVE_PROOF_LENGTH,
+  type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+  type RECURSIVE_PROOF_LENGTH,
+  type TUBE_PROOF_LENGTH,
+} from '@aztec/constants';
 import { sha256 } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
-import { RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
+import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { truncate } from '@aztec/foundation/string';
 
 import { InlineProofStore, type ProofStore } from './proof_store/index.js';

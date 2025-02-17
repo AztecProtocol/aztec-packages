@@ -1,3 +1,4 @@
+import { BlobPublicInputs, BlockBlobPublicInputs, Poseidon2Sponge, SpongeBlob } from '@aztec/blob-lib';
 import {
   type AvmAccumulatedData,
   type AvmCircuitPublicInputs,
@@ -19,7 +20,6 @@ import {
   TxConstantData,
   type VkWitnessData,
 } from '@aztec/circuits.js';
-import { BlobPublicInputs, BlockBlobPublicInputs, Poseidon2Sponge, SpongeBlob } from '@aztec/circuits.js/blobs';
 import {
   type AvmProofData,
   BaseOrMergeRollupPublicInputs,

@@ -1,4 +1,4 @@
-import { Blob } from '@aztec/blob-lib';
+import { Blob, type SpongeBlob } from '@aztec/blob-lib';
 import {
   Body,
   MerkleTreeId,
@@ -8,24 +8,14 @@ import {
   getTreeHeight,
 } from '@aztec/circuit-types';
 import {
-  ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
   BlockHeader,
   ContentCommitment,
   Fr,
   type GlobalVariables,
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
   MembershipWitness,
   MerkleTreeCalculator,
-  NOTE_HASH_SUBTREE_HEIGHT,
-  NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
-  NULLIFIER_SUBTREE_HEIGHT,
-  NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
-  NULLIFIER_TREE_HEIGHT,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NullifierLeafPreimage,
-  PUBLIC_DATA_TREE_HEIGHT,
   type ParityPublicInputs,
   PartialStateReference,
   PublicDataHint,
@@ -33,7 +23,6 @@ import {
   PublicDataTreeLeafPreimage,
   StateReference,
 } from '@aztec/circuits.js';
-import { type SpongeBlob } from '@aztec/circuits.js/blobs';
 import {
   type BaseOrMergeRollupPublicInputs,
   type BlockRootOrBlockMergePublicInputs,
@@ -42,6 +31,18 @@ import {
   PrivateBaseStateDiffHints,
   PublicBaseRollupHints,
 } from '@aztec/circuits.js/rollup';
+import {
+  ARCHIVE_HEIGHT,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+  NOTE_HASH_SUBTREE_HEIGHT,
+  NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
+  NULLIFIER_SUBTREE_HEIGHT,
+  NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
+  NULLIFIER_TREE_HEIGHT,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  PUBLIC_DATA_TREE_HEIGHT,
+} from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';

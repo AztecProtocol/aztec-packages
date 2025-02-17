@@ -1,6 +1,7 @@
 import { makePublicInputsAndRecursiveProof } from '@aztec/circuit-types';
-import { RECURSIVE_PROOF_LENGTH, VerificationKeyData, makeRecursiveProof } from '@aztec/circuits.js';
+import { VerificationKeyData, makeRecursiveProof } from '@aztec/circuits.js';
 import { makeBaseParityInputs, makeParityPublicInputs } from '@aztec/circuits.js/testing';
+import { RECURSIVE_PROOF_LENGTH } from '@aztec/constants';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 
