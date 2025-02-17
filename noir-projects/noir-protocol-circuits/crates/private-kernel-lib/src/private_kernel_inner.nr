@@ -43,7 +43,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
             self.previous_kernel.public_inputs,
         )
             .pop_top_call_request()
-            .with_private_call(self.private_call.public_inputs)
+            .with_private_call(self.private_call)
             .finish()
     }
 
@@ -81,7 +81,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
             PrivateKernelCircuitOutputValidator::new(output).validate_as_inner_call(
                 self.previous_kernel.public_inputs,
                 previous_kernel_array_lengths,
-                self.private_call.public_inputs,
+                self.private_call,
                 private_call_data_validator.array_lengths,
             );
         }
@@ -118,8 +118,10 @@ mod tests {
         }
 
         pub fn execute(&mut self) -> PrivateKernelCircuitPublicInputs {
+            self.private_call.compute_update_tree_and_hints();
             let private_call = self.private_call.to_private_call_data();
             self.previous_kernel.add_private_call_request_for_private_call(private_call);
+            self.previous_kernel.set_historical_header_from_call_data(private_call);
             let previous_kernel = self.previous_kernel.to_private_kernel_data();
 
             let kernel = PrivateKernelInnerCircuitPrivateInputs { previous_kernel, private_call };

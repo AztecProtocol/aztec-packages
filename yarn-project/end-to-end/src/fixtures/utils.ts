@@ -307,6 +307,8 @@ export type SetupOptions = {
   fundRewardDistributor?: boolean;
   /** Manual config for the telemetry client */
   telemetryConfig?: Partial<TelemetryClientConfig> & { benchmark?: boolean };
+  /** Public data that will be inserted in the tree in genesis */
+  genesisPublicData?: PublicDataTreeLeaf[];
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -440,6 +442,7 @@ export async function setup(
   const { genesisBlockHash, genesisArchiveRoot, prefilledPublicData } = await getGenesisValues(
     initialFundedAccounts.map(a => a.address),
     opts.initialAccountFeeJuice,
+    opts.genesisPublicData,
   );
 
   const deployL1ContractsValues =

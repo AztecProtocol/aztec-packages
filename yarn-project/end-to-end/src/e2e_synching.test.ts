@@ -573,7 +573,7 @@ describe('e2e_synching', () => {
 
           const contractClassIds = await archiver.getContractClassIds();
           for (const c of contracts) {
-            expect(contractClassIds.includes(c.instance.contractClassId)).toBeTrue;
+            expect(contractClassIds.includes(c.instance.currentContractClassId)).toBeTrue;
             expect(await archiver.getContract(c.address)).not.toBeUndefined;
           }
 
@@ -591,15 +591,15 @@ describe('e2e_synching', () => {
 
           const contractClassIdsAfter = await archiver.getContractClassIds();
 
-          expect(contractClassIdsAfter.includes(contracts[0].instance.contractClassId)).toBeTrue;
-          expect(contractClassIdsAfter.includes(contracts[1].instance.contractClassId)).toBeFalse;
+          expect(contractClassIdsAfter.includes(contracts[0].instance.currentContractClassId)).toBeTrue;
+          expect(contractClassIdsAfter.includes(contracts[1].instance.currentContractClassId)).toBeFalse;
           expect(await archiver.getContract(contracts[0].address)).not.toBeUndefined;
           expect(await archiver.getContract(contracts[1].address)).toBeUndefined;
           expect(await archiver.getContract(contracts[2].address)).toBeUndefined;
 
           // Only the hardcoded schnorr is pruned since the contract class also existed before prune.
           expect(contractClassIdsAfter).toEqual(
-            contractClassIds.filter(c => !c.equals(contracts[1].instance.contractClassId)),
+            contractClassIds.filter(c => !c.equals(contracts[1].instance.currentContractClassId)),
           );
 
           expect(await archiver.getTxEffect(txHash)).toBeUndefined;

@@ -22,10 +22,12 @@ import {
   PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
   type PrivateLog,
+  PrivateVerificationKeyHints,
   type ScopedPrivateLogData,
   type TxRequest,
   VK_TREE_HEIGHT,
   VerificationKeyAsFields,
+  computeContractAddressFromInstance,
 } from '@aztec/circuits.js';
 import { hashVK } from '@aztec/circuits.js/hash';
 import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
@@ -349,34 +351,46 @@ export class KernelProver {
     const vkAsFields = await vkAsFieldsMegaHonk(vkAsBuffer);
     const vk = new VerificationKeyAsFields(vkAsFields, await hashVK(vkAsFields));
 
+    const { currentContractClassId, publicKeys, saltedInitializationHash } =
+      await this.oracle.getContractAddressPreimage(contractAddress);
     const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(
-      contractAddress,
+      currentContractClassId,
       functionSelector,
     );
-    const { contractClassId, publicKeys, saltedInitializationHash } = await this.oracle.getContractAddressPreimage(
-      contractAddress,
-    );
+
     const { artifactHash: contractClassArtifactHash, publicBytecodeCommitment: contractClassPublicBytecodeCommitment } =
-      await this.oracle.getContractClassIdPreimage(contractClassId);
+      await this.oracle.getContractClassIdPreimage(currentContractClassId);
 
     // TODO(#262): Use real acir hash
     // const acirHash = keccak256(Buffer.from(bytecode, 'hex'));
     const acirHash = Fr.fromBuffer(Buffer.alloc(32, 0));
 
-    const { lowLeaf: protocolContractLeaf, witness: protocolContractMembershipWitness } =
-      await getProtocolContractLeafAndMembershipWitness(contractAddress);
+    // This will be the address computed in the kernel by the executed class. We need to provide non membership of it in the protocol contract tree.
+    // This would only be equal to contractAddress if the currentClassId is equal to the original class id (no update happened).
+    const computedAddress = await computeContractAddressFromInstance({
+      originalContractClassId: currentContractClassId,
+      saltedInitializationHash,
+      publicKeys,
+    });
 
+    const { lowLeaf: protocolContractLeaf, witness: protocolContractMembershipWitness } =
+      await getProtocolContractLeafAndMembershipWitness(contractAddress, computedAddress);
+
+    const updatedClassIdHints = await this.oracle.getUpdatedClassIdHints(contractAddress);
     return PrivateCallData.from({
       publicInputs,
       vk,
-      publicKeys,
-      contractClassArtifactHash,
-      contractClassPublicBytecodeCommitment,
-      saltedInitializationHash,
-      functionLeafMembershipWitness,
-      protocolContractMembershipWitness,
-      protocolContractLeaf,
-      acirHash,
+      verificationKeyHints: PrivateVerificationKeyHints.from({
+        publicKeys,
+        contractClassArtifactHash,
+        contractClassPublicBytecodeCommitment,
+        saltedInitializationHash,
+        functionLeafMembershipWitness,
+        protocolContractMembershipWitness,
+        protocolContractLeaf,
+        acirHash,
+        updatedClassIdHints,
+      }),
     });
   }
 

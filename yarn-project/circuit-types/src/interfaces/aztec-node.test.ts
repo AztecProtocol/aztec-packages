@@ -328,7 +328,8 @@ describe('AztecNodeApiSchema', () => {
     const response = await context.client.getContract(await AztecAddress.random());
     expect(response).toEqual({
       address: expect.any(AztecAddress),
-      contractClassId: expect.any(Fr),
+      currentContractClassId: expect.any(Fr),
+      originalContractClassId: expect.any(Fr),
       deployer: expect.any(AztecAddress),
       initializationHash: expect.any(Fr),
       publicKeys: expect.any(PublicKeys),
@@ -587,7 +588,8 @@ class MockAztecNode implements AztecNode {
     expect(address).toBeInstanceOf(AztecAddress);
     const instance = {
       version: 1 as const,
-      contractClassId: Fr.random(),
+      currentContractClassId: Fr.random(),
+      originalContractClassId: Fr.random(),
       deployer: await AztecAddress.random(),
       initializationHash: Fr.random(),
       publicKeys: await PublicKeys.random(),

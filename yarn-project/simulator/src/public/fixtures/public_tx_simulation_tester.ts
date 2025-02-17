@@ -25,8 +25,9 @@ import { WorldStateDB } from '../public_db_sources.js';
 import { type PublicTxResult, PublicTxSimulator } from '../public_tx_simulator.js';
 import { createTxForPublicCalls } from './index.js';
 
-const TIMESTAMP = new Fr(99833);
-const DEFAULT_GAS_FEES = new GasFees(2, 3);
+export const TIMESTAMP = new Fr(99833);
+export const DEFAULT_GAS_FEES = new GasFees(2, 3);
+export const DEFAULT_BLOCK_NUMBER = 42;
 
 export type TestEnqueuedCall = {
   address: AztecAddress;
@@ -69,6 +70,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     const globals = GlobalVariables.empty();
     globals.timestamp = TIMESTAMP;
     globals.gasFees = DEFAULT_GAS_FEES;
+    globals.blockNumber = new Fr(DEFAULT_BLOCK_NUMBER);
 
     const simulator = new PublicTxSimulator(this.merkleTrees, this.worldStateDB, globals, /*doMerkleOperations=*/ true);
 
