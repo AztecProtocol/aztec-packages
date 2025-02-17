@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739822776125,
+  "lastUpdate": 1739829927546,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "105737703+iakovenkos@users.noreply.github.com",
-            "name": "sergei iakovenko",
-            "username": "iakovenkos"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1afddbd0712ad268bcc82931cf91bbb067766cbe",
-          "message": "chore: fixing the sizes of VMs in CIVC (#11793)\n\nThe sizes of Translator and ECCVM circuits leak the amount of circuits\r\nthat have been folded, so we need to fix them.\r\n\r\n`benchmark_client_ivc` after fixing the sizes (note that regression is\r\nexpected, as the IPA prover is opening a dense polynomial of size 2^16\r\ninstead of 2^15 + there is not much skipping in Sumcheck except for\r\n`SetRelation`)\r\n\r\n\r\nECCVMProver(CircuitBuilder&)(t)          190     0.87%\r\nECCVMProver::construct_proof(t)         2405    10.95%\r\nTranslatorProver::construct_proof(t)    1316     5.99%\r\nGoblin::merge(t)                         132     0.60%\r\n\r\nTotal time accounted for: 21963ms/23040ms = 95.32%\r\n\r\nBenchmark on master: \r\n\r\nECCVMProver(CircuitBuilder&)(t)          182     0.85%\r\nECCVMProver::construct_proof(t)         1612     7.51%\r\nTranslatorProver::construct_proof(t)    1650     7.69%\r\nGoblin::merge(t)                         132     0.62%\r\n\r\nTotal time accounted for: 21468ms/22538ms = 95.25%",
-          "timestamp": "2025-02-11T17:26:02+01:00",
-          "tree_id": "e4843487e245056ccf8cff6b72f4d6e72c7f58d0",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1afddbd0712ad268bcc82931cf91bbb067766cbe"
-        },
-        "date": 1739292201814,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19856.797536999977,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16879.032606000004 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21577.03428499997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19280.203897 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4114.1195190000135,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3826.327591 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 76174.251606,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 76174252000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14534.181616,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14534181000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2451532625,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2451532625 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 145144702,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 145144702 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3288,6 +3222,72 @@ window.BENCHMARK_DATA = {
             "value": 131032834,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 131032834 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47148561+Maddiaa0@users.noreply.github.com",
+            "name": "Maddiaa",
+            "username": "Maddiaa0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7b7d960d51027b549ec9627ba2822fb87100a022",
+          "message": "fix: p2p testbench (#12053)",
+          "timestamp": "2025-02-17T21:42:03Z",
+          "tree_id": "3ec98973a4daa593a39ab9736fa44e307223f5a5",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7b7d960d51027b549ec9627ba2822fb87100a022"
+        },
+        "date": 1739829919979,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18417.763296999965,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16255.595890999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18555.668458000127,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16140.138437000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3880.8178629999475,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3092.2522830000007 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54794.041199,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54794042000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11290.980502,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11290991000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1816350590,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1816350590 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 133232867,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 133232867 ns\nthreads: 1"
           }
         ]
       }
