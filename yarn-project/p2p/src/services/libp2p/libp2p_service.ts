@@ -269,7 +269,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
         }),
       },
       // Fix the peer id in libp2p logs so we can see the source of the log
-      logger: createLibp2pComponentLogger(logger.module, { sourcePeerId: peerId }),
+      logger: createLibp2pComponentLogger(logger.module),
     });
 
     return new LibP2PService(

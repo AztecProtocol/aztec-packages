@@ -6,9 +6,9 @@ import { type ComponentLogger, type Logger } from '@libp2p/interface';
  * Creates a libp2p compatible logger that wraps our pino logger.
  * This adapter implements the ComponentLogger interface required by libp2p.
  */
-export function createLibp2pComponentLogger(namespace: string, fixedTerms = {}): ComponentLogger {
+export function createLibp2pComponentLogger(namespace: string): ComponentLogger {
   return {
-    forComponent: (component: string) => createLibp2pLogger(`${namespace}:${component}`, fixedTerms),
+    forComponent: (component: string) => createLibp2pLogger(`${namespace}:${component}`),
   };
 }
 
