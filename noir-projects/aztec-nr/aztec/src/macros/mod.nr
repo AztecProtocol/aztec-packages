@@ -13,6 +13,11 @@ use dispatch::generate_public_dispatch;
 use functions::transform_unconstrained;
 use utils::module_has_storage;
 
+global NOTE_INTERFACE: TraitConstraint =
+    quote { crate::note::note_interface::NoteInterface }.as_trait_constraint();
+global PACKABLE: TraitConstraint =
+    quote { crate::protocol_types::traits::Packable<_> }.as_trait_constraint();
+
 /// Marks a contract as an Aztec contract, generating the interfaces for its functions and notes, as well as injecting
 /// the `compute_note_hash_and_optionally_a_nullifier` function PXE requires in order to validate notes.
 ///
@@ -128,10 +133,6 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
 
         let mut if_statements_list = &[];
 
-        let note_interface =
-            quote { crate::note::note_interface::NoteInterface }.as_trait_constraint();
-        let packable = quote { crate::protocol_types::traits::Packable<_> }.as_trait_constraint();
-
         for i in 0..notes.len() {
             let (typ, (_, _, _, _)) = notes[i];
 
@@ -139,12 +140,12 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
             // in the quote with `$typ::get_note_type_id()` and `$typ::unpack()`. Direct inlining would result
             // in missing import warnings in the generated code (specifically, warnings that NoteInterface and
             // Packable<N> are implemented but not in scope).
-            let get_note_type_id = typ.get_trait_impl(note_interface).unwrap().methods().filter(
+            let get_note_type_id = typ.get_trait_impl(NOTE_INTERFACE).unwrap().methods().filter(
                 |m| m.name() == quote { get_note_type_id },
             )[0]
                 .as_typed_expr();
 
-            let unpack = typ.get_trait_impl(packable).unwrap().methods().filter(|m| {
+            let unpack = typ.get_trait_impl(PACKABLE).unwrap().methods().filter(|m| {
                 m.name() == quote { unpack }
             })[0]
                 .as_typed_expr();
@@ -231,9 +232,6 @@ comptime fn generate_process_log() -> Quoted {
 
     let notes = NOTES.entries();
 
-    let note_interface = quote { crate::note::note_interface::NoteInterface }.as_trait_constraint();
-    let packable = quote { crate::protocol_types::traits::Packable<_> }.as_trait_constraint();
-
     let mut if_note_type_id_match_statements_list = &[];
     for i in 0..notes.len() {
         let (typ, (_, packed_note_length, _, _)) = notes[i];
@@ -242,12 +240,12 @@ comptime fn generate_process_log() -> Quoted {
         // in the quote with `$typ::get_note_type_id()` and `$typ::unpack()`. Direct inlining would result
         // in missing import warnings in the generated code (specifically, warnings that NoteInterface and
         // Packable<N> are implemented but not in scope).
-        let get_note_type_id = typ.get_trait_impl(note_interface).unwrap().methods().filter(|m| {
+        let get_note_type_id = typ.get_trait_impl(NOTE_INTERFACE).unwrap().methods().filter(|m| {
             m.name() == quote { get_note_type_id }
         })[0]
             .as_typed_expr();
 
-        let unpack = typ.get_trait_impl(packable).unwrap().methods().filter(|m| {
+        let unpack = typ.get_trait_impl(PACKABLE).unwrap().methods().filter(|m| {
             m.name() == quote { unpack }
         })[0]
             .as_typed_expr();
