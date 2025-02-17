@@ -24,7 +24,7 @@ import { type SimulationProvider } from '../common/simulation_provider.js';
 import { ClientExecutionContext } from './client_execution_context.js';
 import { type DBOracle } from './db_oracle.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
-import { executePrivateFunction } from './private_execution.js';
+import { executePrivateFunction, verifyCurrentClassId } from './private_execution.js';
 import { executeUnconstrainedFunction } from './unconstrained_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';
 
@@ -49,11 +49,21 @@ export class AcirSimulator {
    */
   public async run(
     request: TxExecutionRequest,
-    entryPointArtifact: FunctionArtifact,
     contractAddress: AztecAddress,
+    selector: FunctionSelector,
     msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE),
     scopes?: AztecAddress[],
   ): Promise<PrivateExecutionResult> {
+    const header = await this.db.getBlockHeader();
+
+    await verifyCurrentClassId(
+      contractAddress,
+      await this.db.getContractInstance(contractAddress),
+      this.node,
+      header.globalVariables.blockNumber.toNumber(),
+    );
+    const entryPointArtifact = await this.db.getFunctionArtifact(contractAddress, selector);
+
     if (entryPointArtifact.functionType !== FunctionType.PRIVATE) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as private`);
     }
@@ -63,8 +73,6 @@ export class AcirSimulator {
         `Request origin does not match contract address in simulation. Request origin: ${request.origin}, contract address: ${contractAddress}`,
       );
     }
-
-    const header = await this.db.getBlockHeader();
 
     // reserve the first side effect for the tx hash (inserted by the private kernel)
     const startSideEffectCounter = 1;
@@ -85,6 +93,7 @@ export class AcirSimulator {
       callContext,
       header,
       request.authWitnesses,
+      request.capsules,
       HashedValuesCache.create(request.argsOfCalls),
       noteCache,
       this.db,
@@ -120,15 +129,23 @@ export class AcirSimulator {
    */
   public async runUnconstrained(
     request: FunctionCall,
-    entryPointArtifact: FunctionArtifact,
     contractAddress: AztecAddress,
+    selector: FunctionSelector,
     scopes?: AztecAddress[],
   ) {
+    await verifyCurrentClassId(
+      contractAddress,
+      await this.db.getContractInstance(contractAddress),
+      this.node,
+      await this.node.getBlockNumber(),
+    );
+    const entryPointArtifact = await this.db.getFunctionArtifact(contractAddress, selector);
+
     if (entryPointArtifact.functionType !== FunctionType.UNCONSTRAINED) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as unconstrained`);
     }
 
-    const context = new ViewDataOracle(contractAddress, [], this.db, this.node, undefined, scopes);
+    const context = new ViewDataOracle(contractAddress, [], [], this.db, this.node, undefined, scopes);
 
     try {
       return await executeUnconstrainedFunction(
@@ -188,11 +205,11 @@ export class AcirSimulator {
     }
 
     const extendedNoteItems = note.items.concat(Array(maxNoteFields - note.items.length).fill(Fr.ZERO));
-
+    const selector = await FunctionSelector.fromNameAndParameters(artifact);
     const execRequest: FunctionCall = {
       name: artifact.name,
       to: contractAddress,
-      selector: await FunctionSelector.fromNameAndParameters(artifact),
+      selector,
       type: FunctionType.UNCONSTRAINED,
       isStatic: artifact.isStatic,
       args: encodeArguments(artifact, [
@@ -208,8 +225,8 @@ export class AcirSimulator {
 
     const [noteHash, uniqueNoteHash, siloedNoteHash, innerNullifier] = (await this.runUnconstrained(
       execRequest,
-      artifact,
       contractAddress,
+      selector,
       // We can omit scopes here, because "compute_note_hash_and_optionally_a_nullifier" does not need access to any notes.
     )) as bigint[];
 

@@ -39,6 +39,7 @@ import {
   PrivateLogData,
   PrivateToPublicAccumulatedData,
   PrivateValidationRequests,
+  type PrivateVerificationKeyHints,
   type PublicKeys,
   ReadRequest,
   type ReadRequestStatus,
@@ -53,8 +54,9 @@ import {
   type TransientDataIndexHint,
   TxConstantData,
   type TxRequest,
+  UPDATES_SCHEDULED_VALUE_CHANGE_LEN,
 } from '@aztec/circuits.js';
-import { mapTuple } from '@aztec/foundation/serialize';
+import { assertLength, mapTuple } from '@aztec/foundation/serialize';
 
 import type {
   CallContext as CallContextNoir,
@@ -85,6 +87,7 @@ import type {
   PrivateToPublicKernelCircuitPublicInputs as PrivateToPublicKernelCircuitPublicInputsNoir,
   PrivateToRollupKernelCircuitPublicInputs as PrivateToRollupKernelCircuitPublicInputsNoir,
   PrivateValidationRequests as PrivateValidationRequestsNoir,
+  PrivateVerificationKeyHints as PrivateVerificationKeyHintsNoir,
   PublicKeys as PublicKeysNoir,
   ReadRequest as ReadRequestNoir,
   ReadRequestStatus as ReadRequestStatusNoir,
@@ -127,6 +130,7 @@ import {
   mapProtocolContractLeafPreimageToNoir,
   mapPublicCallRequestFromNoir,
   mapPublicCallRequestToNoir,
+  mapPublicDataTreePreimageToNoir,
   mapScopedL2ToL1MessageFromNoir,
   mapScopedL2ToL1MessageToNoir,
   mapTupleFromNoir,
@@ -604,6 +608,42 @@ export function mapFunctionDataFromNoir(functionData: FunctionDataNoir): Functio
   return new FunctionData(mapFunctionSelectorFromNoir(functionData.selector), functionData.is_private);
 }
 
+export function mapPrivateVerificationKeyHintsToNoir(
+  privateVerificationKeyHints: PrivateVerificationKeyHints,
+): PrivateVerificationKeyHintsNoir {
+  const updatedClassIdValueChangeAsFields = assertLength(
+    privateVerificationKeyHints.updatedClassIdHints.updatedClassIdValueChange.toFields(),
+    UPDATES_SCHEDULED_VALUE_CHANGE_LEN,
+  );
+
+  return {
+    function_leaf_membership_witness: mapMembershipWitnessToNoir(
+      privateVerificationKeyHints.functionLeafMembershipWitness,
+    ),
+    contract_class_artifact_hash: mapFieldToNoir(privateVerificationKeyHints.contractClassArtifactHash),
+    contract_class_public_bytecode_commitment: mapFieldToNoir(
+      privateVerificationKeyHints.contractClassPublicBytecodeCommitment,
+    ),
+    public_keys: mapPublicKeysToNoir(privateVerificationKeyHints.publicKeys),
+    salted_initialization_hash: mapWrappedFieldToNoir(privateVerificationKeyHints.saltedInitializationHash),
+    protocol_contract_membership_witness: mapMembershipWitnessToNoir(
+      privateVerificationKeyHints.protocolContractMembershipWitness,
+    ),
+    protocol_contract_leaf: mapProtocolContractLeafPreimageToNoir(privateVerificationKeyHints.protocolContractLeaf),
+    acir_hash: mapFieldToNoir(privateVerificationKeyHints.acirHash),
+    updated_class_id_witness: mapMembershipWitnessToNoir(
+      privateVerificationKeyHints.updatedClassIdHints.updatedClassIdWitness,
+    ),
+    updated_class_id_leaf: mapPublicDataTreePreimageToNoir(
+      privateVerificationKeyHints.updatedClassIdHints.updatedClassIdLeaf,
+    ),
+    updated_class_id_value_change: mapTuple(updatedClassIdValueChangeAsFields, mapFieldToNoir),
+    updated_class_id_delay_change: [
+      mapFieldToNoir(privateVerificationKeyHints.updatedClassIdHints.updatedClassIdDelayChange.toField()),
+    ],
+  };
+}
+
 /**
  * Maps a private call data to a noir private call data.
  * @param privateCallData - The private call data.
@@ -612,14 +652,7 @@ export function mapFunctionDataFromNoir(functionData: FunctionDataNoir): Functio
 export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): PrivateCallDataWithoutPublicInputsNoir {
   return {
     vk: mapVerificationKeyToNoir(privateCallData.vk, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
-    function_leaf_membership_witness: mapMembershipWitnessToNoir(privateCallData.functionLeafMembershipWitness),
-    contract_class_artifact_hash: mapFieldToNoir(privateCallData.contractClassArtifactHash),
-    contract_class_public_bytecode_commitment: mapFieldToNoir(privateCallData.contractClassPublicBytecodeCommitment),
-    public_keys: mapPublicKeysToNoir(privateCallData.publicKeys),
-    salted_initialization_hash: mapWrappedFieldToNoir(privateCallData.saltedInitializationHash),
-    protocol_contract_membership_witness: mapMembershipWitnessToNoir(privateCallData.protocolContractMembershipWitness),
-    protocol_contract_leaf: mapProtocolContractLeafPreimageToNoir(privateCallData.protocolContractLeaf),
-    acir_hash: mapFieldToNoir(privateCallData.acirHash),
+    verification_key_hints: mapPrivateVerificationKeyHintsToNoir(privateCallData.verificationKeyHints),
   };
 }
 
