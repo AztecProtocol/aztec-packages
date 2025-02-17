@@ -3,7 +3,9 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
-scripts/install_deps.sh
+hash=$(hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootstrap.sh hash))
+
+flock scripts/logs/install_deps.lock scripts/install_deps.sh >&2
 
 function network_shaping {
   namespace="$1"
@@ -46,20 +48,40 @@ function gke {
   fi
 }
 
+function test_cmds {
+  echo "$hash ./spartan/bootstrap.sh test-local"
+  if [ "$(arch)" == "arm64" ]; then
+    # Currently maddiaa/eth2-testnet-genesis is not published for arm64. Skip KIND tests.
+    return
+  fi
+  # Note: commands that start with 'timeout ...' override the default timeout.
+  # TODO figure out why these take long sometimes.
+  echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-smoke"
+  if [ "$CI_FULL" -eq 1 ]; then
+    echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-transfer"
+    echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-4epochs"
+    echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-transfer-blob-with-sink"
+  fi
+}
+
+function test {
+  echo_header "spartan test"
+  test_cmds | filter_test_cmds | parallelise
+}
+
 case "$cmd" in
   "")
     # do nothing but the install_deps.sh above
     ;;
   "kind")
-    if kubectl config get-clusters | grep -q "^kind-kind$"; then
-      echo "Cluster 'kind' already exists. Skipping creation."
-    else
+    if ! kubectl config get-clusters | grep -q "^kind-kind$" || ! docker ps | grep -q "kind-control-plane"; then
       # Sometimes, kubectl does not have our kind context yet kind registers it as existing
       # Ensure our context exists in kubectl
-      kind delete cluster || true
-      kind create cluster
+      # As well if kind-control-plane has been killed, just recreate the cluster
+      flock scripts/logs/kind-boot.lock bash -c "kind delete cluster; kind create cluster"
     fi
-    kubectl config use-context kind-kind || true
+    kubectl config use-context kind-kind >/dev/null || true
+    docker update --restart=no kind-control-plane >/dev/null || true
     ;;
   "chaos-mesh")
     chaos-mesh/install.sh
@@ -83,14 +105,26 @@ case "$cmd" in
     network_shaping "$namespace" "$chaos_values"
     ;;
   "hash")
-    hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootstrap.sh hash)
+    echo $hash
     ;;
-  "test-kind")
-    shift
-    scripts/test_kind.sh $@
+  test|test_cmds|gke)
+    $cmd
     ;;
-  "gke")
-    gke
+  "test-kind-smoke")
+    NAMESPACE=smoke FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false ./scripts/test_kind.sh src/spartan/smoke.test.ts ci-smoke.yaml
+    ;;
+  "test-kind-4epochs")
+    NAMESPACE=4epochs FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false ./scripts/test_kind.sh src/spartan/4epochs.test.ts ci.yaml
+    ;;
+  "test-kind-transfer")
+    NAMESPACE=transfer FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false ./scripts/test_kind.sh src/spartan/transfer.test.ts ci.yaml
+    ;;
+  "test-kind-transfer-blob-with-sink")
+    OVERRIDES="blobSink.enabled=true" ./bootstrap.sh test-kind-transfer
+    ;;
+  "test-local")
+    # Isolate network stack in docker.
+    docker_isolate ../scripts/run_native_testnet.sh -i -val 3
     ;;
   *)
     echo "Unknown command: $cmd"

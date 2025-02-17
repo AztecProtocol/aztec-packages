@@ -1,2 +1,13 @@
 // Bytecode hashing.
 include "bc_decomposition.pil";
+
+// ###########
+// Design idea
+// ###########
+//
+// We have to fetch bytecode as packed field elements from bc_decomposition.pil
+// For this, we need to introduce a selector in bc_decomposition.pil activated at
+// pc == 0, 32, 64, .... for every bytecode.
+// In bc_decomposition subtrace, we reconstruct the corresponding field element.
+// Finally, we copy through a lookup/permutation based on the selector these field elements
+// to here (bc_hashing.pil) and then proceed to hashing.

@@ -10,6 +10,7 @@ use dep::types::{
     },
     constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX},
     PrivateKernelCircuitPublicInputs,
+    proof::traits::Verifiable,
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
@@ -38,6 +39,7 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
             self.previous_kernel.verify();
         }
         // Generate output.
+        // Safety: The output is validated below by TailToPublicOutputValidator.
         let output = unsafe { self.generate_output() };
 
         // Validate inputs.
@@ -67,6 +69,7 @@ mod tests {
         address::{AztecAddress, EthAddress},
         point::Point,
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq},
+        traits::{Empty, FromField},
     };
     use dep::types::constants::{
         DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, GENERATOR_INDEX__TSK_M,
@@ -85,6 +88,7 @@ mod tests {
             let mut previous_kernel = FixtureBuilder::new().in_vk_tree(PRIVATE_KERNEL_INNER_INDEX);
             previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1_000_000, 1_000_000);
             previous_kernel.set_protocol_nullifier();
+            previous_kernel.set_fee_payer(AztecAddress::from_field(234234));
             previous_kernel.end_setup();
             previous_kernel.append_public_call_requests(1);
 
@@ -401,21 +405,6 @@ mod tests {
         builder.previous_kernel.tx_context.gas_settings.teardown_gas_limits = Gas::new(300, 300);
         builder.previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1, 1);
         builder.failed();
-    }
-
-    #[test]
-    fn propagate_fee_payer() {
-        // Check that we carry forward if the fee payer is already set
-        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        let fee_payer = AztecAddress::from_field(123);
-        builder.previous_kernel.fee_payer = fee_payer;
-        let public_inputs = builder.execute();
-        assert_eq(public_inputs.fee_payer, fee_payer);
-
-        // Check that the fee payer remains empty if unset
-        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        let public_inputs = builder.execute();
-        assert_eq(public_inputs.fee_payer, AztecAddress::empty());
     }
 
     #[test]

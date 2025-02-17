@@ -3,6 +3,7 @@ import {
   CANONICAL_AUTH_REGISTRY_ADDRESS,
   DEPLOYER_CONTRACT_ADDRESS,
   DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
+  DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE,
   FEE_JUICE_ADDRESS,
   Fr,
   MULTI_CALL_ENTRYPOINT_ADDRESS,
@@ -116,7 +117,7 @@ function generateContractAddresses(names: string[]) {
 
 function generateContractLeaves(names: string[], leaves: Fr[]) {
   return `
-    export const ProtocolContractLeaf = {
+    export const ProtocolContractLeaves = {
       ${leaves.map((leaf, i) => `${names[i]}: Fr.fromHexString('${leaf.toString()}')`).join(',\n')}
     };
   `;
@@ -138,6 +139,7 @@ async function generateLogTags() {
     DEPLOYER_CONTRACT_ADDRESS,
     DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
   ])}');
+   export const DEPLOYER_CONTRACT_INSTANCE_UPDATED_TAG = new Fr(${DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE}n);
   `;
 }
 

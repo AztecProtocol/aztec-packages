@@ -21,7 +21,8 @@ describe('Avm circuit inputs', () => {
           exists: true,
           salt: new Fr(0xdeadbeefn),
           deployer: AztecAddress.fromBigInt(0x000010n),
-          contractClassId: new Fr(0x41181337n),
+          currentContractClassId: new Fr(0x41181337n),
+          originalContractClassId: new Fr(0x41181337n),
           initializationHash: new Fr(0x111111n),
           publicKeys: new PublicKeys(
             new Point(
@@ -52,7 +53,8 @@ describe('Avm circuit inputs', () => {
           exists: false,
           salt: new Fr(0xdead0000n),
           deployer: AztecAddress.fromBigInt(0x000020n),
-          contractClassId: new Fr(0x51181337n),
+          currentContractClassId: new Fr(0x51181337n),
+          originalContractClassId: new Fr(0x51181337n),
           initializationHash: new Fr(0x222222n),
           publicKeys: new PublicKeys(
             new Point(

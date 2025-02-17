@@ -10,10 +10,10 @@ import {
   getFinalMinRevertibleSideEffectCounter,
 } from '@aztec/circuit-types';
 import {
+  AztecAddress,
   CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   ClientIvcProof,
   Fr,
-  PROTOCOL_CONTRACT_TREE_HEIGHT,
   PrivateCallData,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelData,
@@ -22,24 +22,21 @@ import {
   PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
   type PrivateLog,
+  PrivateVerificationKeyHints,
   type ScopedPrivateLogData,
   type TxRequest,
   VK_TREE_HEIGHT,
   VerificationKeyAsFields,
+  computeContractAddressFromInstance,
 } from '@aztec/circuits.js';
 import { hashVK } from '@aztec/circuits.js/hash';
-import { makeTuple } from '@aztec/foundation/array';
 import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { Timer } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
-import {
-  getProtocolContractSiblingPath,
-  isProtocolContract,
-  protocolContractTreeRoot,
-} from '@aztec/protocol-contracts';
+import { getProtocolContractLeafAndMembershipWitness, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
 import { type WitnessMap } from '@noir-lang/types';
 import { strict as assert } from 'assert';
@@ -93,6 +90,7 @@ const NULL_PROVE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicI
 
 export type ProvingConfig = {
   simulate: boolean;
+  skipFeeEnforcement: boolean;
   profile: boolean;
   dryRun: boolean;
 };
@@ -128,7 +126,12 @@ export class KernelProver {
   async prove(
     txRequest: TxRequest,
     executionResult: PrivateExecutionResult,
-    { simulate, profile, dryRun }: ProvingConfig = { simulate: false, profile: false, dryRun: false },
+    { simulate, skipFeeEnforcement, profile, dryRun }: ProvingConfig = {
+      simulate: false,
+      skipFeeEnforcement: false,
+      profile: false,
+      dryRun: false,
+    },
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
     if (simulate && profile) {
       throw new Error('Cannot simulate and profile at the same time');
@@ -214,7 +217,7 @@ export class KernelProver {
       if (firstIteration) {
         const proofInput = new PrivateKernelInitCircuitPrivateInputs(
           txRequest,
-          await getVKTreeRoot(),
+          getVKTreeRoot(),
           protocolContractTreeRoot,
           privateCallData,
           isPrivateOnlyTx,
@@ -287,6 +290,12 @@ export class KernelProver {
       );
     }
 
+    if (output.publicInputs.feePayer.isZero() && skipFeeEnforcement) {
+      if (!dryRun && !simulate) {
+        throw new Error('Fee payment must be enforced when creating real proof.');
+      }
+      output.publicInputs.feePayer = new AztecAddress(Fr.MAX_FIELD_VALUE);
+    }
     // Private tail.
     const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
     const previousKernelData = new PrivateKernelData(
@@ -330,7 +339,7 @@ export class KernelProver {
       const ivcProof = await this.proofCreator.createClientIvcProof(acirs, witnessStack);
       tailOutput.clientIvcProof = ivcProof;
     } else {
-      tailOutput.clientIvcProof = ClientIvcProof.empty();
+      tailOutput.clientIvcProof = ClientIvcProof.random();
     }
 
     return tailOutput;
@@ -342,34 +351,46 @@ export class KernelProver {
     const vkAsFields = await vkAsFieldsMegaHonk(vkAsBuffer);
     const vk = new VerificationKeyAsFields(vkAsFields, await hashVK(vkAsFields));
 
+    const { currentContractClassId, publicKeys, saltedInitializationHash } =
+      await this.oracle.getContractAddressPreimage(contractAddress);
     const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(
-      contractAddress,
+      currentContractClassId,
       functionSelector,
     );
-    const { contractClassId, publicKeys, saltedInitializationHash } = await this.oracle.getContractAddressPreimage(
-      contractAddress,
-    );
+
     const { artifactHash: contractClassArtifactHash, publicBytecodeCommitment: contractClassPublicBytecodeCommitment } =
-      await this.oracle.getContractClassIdPreimage(contractClassId);
+      await this.oracle.getContractClassIdPreimage(currentContractClassId);
 
     // TODO(#262): Use real acir hash
     // const acirHash = keccak256(Buffer.from(bytecode, 'hex'));
     const acirHash = Fr.fromBuffer(Buffer.alloc(32, 0));
 
-    const protocolContractSiblingPath = isProtocolContract(contractAddress)
-      ? await getProtocolContractSiblingPath(contractAddress)
-      : makeTuple(PROTOCOL_CONTRACT_TREE_HEIGHT, Fr.zero);
+    // This will be the address computed in the kernel by the executed class. We need to provide non membership of it in the protocol contract tree.
+    // This would only be equal to contractAddress if the currentClassId is equal to the original class id (no update happened).
+    const computedAddress = await computeContractAddressFromInstance({
+      originalContractClassId: currentContractClassId,
+      saltedInitializationHash,
+      publicKeys,
+    });
 
+    const { lowLeaf: protocolContractLeaf, witness: protocolContractMembershipWitness } =
+      await getProtocolContractLeafAndMembershipWitness(contractAddress, computedAddress);
+
+    const updatedClassIdHints = await this.oracle.getUpdatedClassIdHints(contractAddress);
     return PrivateCallData.from({
       publicInputs,
       vk,
-      publicKeys,
-      contractClassArtifactHash,
-      contractClassPublicBytecodeCommitment,
-      saltedInitializationHash,
-      functionLeafMembershipWitness,
-      protocolContractSiblingPath,
-      acirHash,
+      verificationKeyHints: PrivateVerificationKeyHints.from({
+        publicKeys,
+        contractClassArtifactHash,
+        contractClassPublicBytecodeCommitment,
+        saltedInitializationHash,
+        functionLeafMembershipWitness,
+        protocolContractMembershipWitness,
+        protocolContractLeaf,
+        acirHash,
+        updatedClassIdHints,
+      }),
     });
   }
 

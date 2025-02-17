@@ -42,11 +42,7 @@ import type {
   PartialAddress,
   PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/circuits.js';
-import {
-  computeContractAddressFromInstance,
-  computeContractClassId,
-  getContractClassFromArtifact,
-} from '@aztec/circuits.js/contract';
+import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/circuits.js/contract';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import { computeAddressSecret } from '@aztec/circuits.js/keys';
 import {
@@ -66,7 +62,7 @@ import { type KeyStore } from '@aztec/key-store';
 import { type L2TipsStore } from '@aztec/kv-store/stores';
 import { ProtocolContractAddress, protocolContractNames } from '@aztec/protocol-contracts';
 import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
-import { type AcirSimulator, type SimulationProvider } from '@aztec/simulator/client';
+import { type AcirSimulator, type SimulationProvider, readCurrentClassId } from '@aztec/simulator/client';
 
 import { inspect } from 'util';
 
@@ -141,8 +137,8 @@ export class PXEService implements PXE {
     return this.db.getAuthWitness(messageHash);
   }
 
-  public addCapsule(capsule: Fr[]) {
-    return this.db.addCapsule(capsule);
+  public storeCapsule(contract: AztecAddress, storageSlot: Fr, capsule: Fr[]) {
+    return this.db.storeCapsule(contract, storageSlot, capsule);
   }
 
   public getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
@@ -240,7 +236,7 @@ export class PXEService implements PXE {
   }
 
   public async registerContractClass(artifact: ContractArtifact): Promise<void> {
-    const contractClassId = await computeContractClassId(await getContractClassFromArtifact(artifact));
+    const { id: contractClassId } = await getContractClassFromArtifact(artifact);
     await this.db.addContractArtifact(contractClassId, artifact);
     this.log.info(`Added contract class ${artifact.name} with id ${contractClassId}`);
   }
@@ -252,10 +248,10 @@ export class PXEService implements PXE {
     if (artifact) {
       // If the user provides an artifact, validate it against the expected class id and register it
       const contractClass = await getContractClassFromArtifact(artifact);
-      const contractClassId = await computeContractClassId(contractClass);
-      if (!contractClassId.equals(instance.contractClassId)) {
+      const contractClassId = contractClass.id;
+      if (!contractClassId.equals(instance.currentContractClassId)) {
         throw new Error(
-          `Artifact does not match expected class id (computed ${contractClassId} but instance refers to ${instance.contractClassId})`,
+          `Artifact does not match expected class id (computed ${contractClassId} but instance refers to ${instance.currentContractClassId})`,
         );
       }
       const computedAddress = await computeContractAddressFromInstance(instance);
@@ -263,7 +259,7 @@ export class PXEService implements PXE {
         throw new Error('Added a contract in which the address does not match the contract instance.');
       }
 
-      await this.db.addContractArtifact(contractClassId, artifact);
+      await this.db.addContractArtifact(contractClass.id, artifact);
 
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
@@ -274,16 +270,52 @@ export class PXEService implements PXE {
       await this.node.addContractClass({ ...contractClass, privateFunctions: [], unconstrainedFunctions: [] });
     } else {
       // Otherwise, make sure there is an artifact already registered for that class id
-      artifact = await this.db.getContractArtifact(instance.contractClassId);
+      artifact = await this.db.getContractArtifact(instance.currentContractClassId);
       if (!artifact) {
         throw new Error(
-          `Missing contract artifact for class id ${instance.contractClassId} for contract ${instance.address}`,
+          `Missing contract artifact for class id ${instance.currentContractClassId} for contract ${instance.address}`,
         );
       }
     }
 
-    this.log.info(`Added contract ${artifact.name} at ${instance.address.toString()}`);
     await this.db.addContractInstance(instance);
+    this.log.info(
+      `Added contract ${artifact.name} at ${instance.address.toString()} with class ${instance.currentContractClassId}`,
+    );
+  }
+
+  public async updateContract(contractAddress: AztecAddress, artifact: ContractArtifact): Promise<void> {
+    const currentInstance = await this.db.getContractInstance(contractAddress);
+    if (!currentInstance) {
+      throw new Error(`Contract ${contractAddress.toString()} is not registered.`);
+    }
+    const contractClass = await getContractClassFromArtifact(artifact);
+    await this.synchronizer.sync();
+
+    const header = await this.db.getBlockHeader();
+
+    const currentClassId = await readCurrentClassId(
+      contractAddress,
+      currentInstance,
+      this.node,
+      header.globalVariables.blockNumber.toNumber(),
+    );
+    if (!contractClass.id.equals(currentClassId)) {
+      throw new Error('Could not update contract to a class different from the current one.');
+    }
+
+    await this.db.addContractArtifact(contractClass.id, artifact);
+
+    const publicFunctionSignatures = artifact.functions
+      .filter(fn => fn.functionType === FunctionType.PUBLIC)
+      .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
+    await this.node.registerContractFunctionSignatures(contractAddress, publicFunctionSignatures);
+
+    // TODO(#10007): Node should get public contract class from the registration event, not from PXE registration
+    await this.node.addContractClass({ ...contractClass, privateFunctions: [], unconstrainedFunctions: [] });
+    currentInstance.currentContractClassId = contractClass.id;
+    await this.db.addContractInstance(currentInstance);
+    this.log.info(`Updated contract ${artifact.name} at ${contractAddress.toString()} to class ${contractClass.id}`);
   }
 
   public getContracts(): Promise<AztecAddress[]> {
@@ -493,6 +525,7 @@ export class PXEService implements PXE {
     try {
       const { publicInputs, clientIvcProof } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
         simulate: false,
+        skipFeeEnforcement: false,
         profile: false,
         dryRun: false,
       });
@@ -508,7 +541,7 @@ export class PXEService implements PXE {
     simulatePublic: boolean,
     msgSender: AztecAddress | undefined = undefined,
     skipTxValidation: boolean = false,
-    enforceFeePayment: boolean = true,
+    skipFeeEnforcement: boolean = false,
     profile: boolean = false,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
@@ -532,6 +565,7 @@ export class PXEService implements PXE {
 
       const { publicInputs, profileResult } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
         simulate: !profile,
+        skipFeeEnforcement,
         profile,
         dryRun: true,
       });
@@ -539,12 +573,13 @@ export class PXEService implements PXE {
       const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
       const simulatedTx = privateSimulationResult.toSimulatedTx();
       let publicOutput: PublicSimulationOutput | undefined;
-      if (simulatePublic) {
-        publicOutput = await this.#simulatePublicCalls(simulatedTx, enforceFeePayment);
+      if (simulatePublic && publicInputs.forPublic) {
+        publicOutput = await this.#simulatePublicCalls(simulatedTx, skipFeeEnforcement);
       }
 
       if (!skipTxValidation) {
-        if (!(await this.node.isValidTx(simulatedTx, true))) {
+        const validationResult = await this.node.isValidTx(simulatedTx, { isSimulation: true, skipFeeEnforcement });
+        if (validationResult.result === 'invalid') {
           throw new Error('The simulated transaction is unable to be added to state and is invalid.');
         }
       }
@@ -657,7 +692,7 @@ export class PXEService implements PXE {
     const contract = await this.db.getContract(to);
     if (!contract) {
       throw new Error(
-        `Unknown contract ${to}: add it to PXE Service by calling server.addContracts(...).\nSee docs for context: https://docs.aztec.network/reference/common_errors/aztecnr-errors#unknown-contract-0x0-add-it-to-pxe-by-calling-serveraddcontracts`,
+        `Unknown contract ${to}: add it to PXE Service by calling server.addContracts(...).\nSee docs for context: https://docs.aztec.network/developers/reference/debugging/aztecnr-errors#unknown-contract-0x0-add-it-to-pxe-by-calling-serveraddcontracts`,
       );
     }
 
@@ -730,19 +765,14 @@ export class PXEService implements PXE {
    * @param execRequest - The transaction request object containing details of the contract call.
    * @returns An object containing the contract address, function artifact, and historical tree roots.
    */
-  async #getSimulationParameters(execRequest: FunctionCall | TxExecutionRequest) {
+  #getSimulationParameters(execRequest: FunctionCall | TxExecutionRequest) {
     const contractAddress = (execRequest as FunctionCall).to ?? (execRequest as TxExecutionRequest).origin;
     const functionSelector =
       (execRequest as FunctionCall).selector ?? (execRequest as TxExecutionRequest).functionSelector;
-    const functionArtifact = await this.contractDataOracle.getFunctionArtifact(contractAddress, functionSelector);
-    const debug = await this.contractDataOracle.getFunctionDebugMetadata(contractAddress, functionSelector);
 
     return {
       contractAddress,
-      functionArtifact: {
-        ...functionArtifact,
-        debug,
-      },
+      functionSelector,
     };
   }
 
@@ -752,11 +782,11 @@ export class PXEService implements PXE {
     scopes?: AztecAddress[],
   ): Promise<PrivateExecutionResult> {
     // TODO - Pause syncing while simulating.
-    const { contractAddress, functionArtifact } = await this.#getSimulationParameters(txRequest);
+    const { contractAddress, functionSelector } = this.#getSimulationParameters(txRequest);
 
     try {
-      const result = await this.simulator.run(txRequest, functionArtifact, contractAddress, msgSender, scopes);
-      this.log.debug(`Private simulation completed for ${contractAddress.toString()}:${functionArtifact.name}`);
+      const result = await this.simulator.run(txRequest, contractAddress, functionSelector, msgSender, scopes);
+      this.log.debug(`Private simulation completed for ${contractAddress.toString()}:${functionSelector}`);
       return result;
     } catch (err) {
       if (err instanceof SimulationError) {
@@ -776,12 +806,12 @@ export class PXEService implements PXE {
    * @returns The simulation result containing the outputs of the unconstrained function.
    */
   async #simulateUnconstrained(execRequest: FunctionCall, scopes?: AztecAddress[]) {
-    const { contractAddress, functionArtifact } = await this.#getSimulationParameters(execRequest);
+    const { contractAddress, functionSelector } = this.#getSimulationParameters(execRequest);
 
     this.log.debug('Executing unconstrained simulator...');
     try {
-      const result = await this.simulator.runUnconstrained(execRequest, functionArtifact, contractAddress, scopes);
-      this.log.verbose(`Unconstrained simulation for ${contractAddress}.${functionArtifact.name} completed`);
+      const result = await this.simulator.runUnconstrained(execRequest, contractAddress, functionSelector, scopes);
+      this.log.verbose(`Unconstrained simulation for ${contractAddress}.${functionSelector} completed`);
 
       return result;
     } catch (err) {
@@ -798,11 +828,11 @@ export class PXEService implements PXE {
    * It can also be used for estimating gas in the future.
    * @param tx - The transaction to be simulated.
    */
-  async #simulatePublicCalls(tx: Tx, enforceFeePayment: boolean) {
+  async #simulatePublicCalls(tx: Tx, skipFeeEnforcement: boolean) {
     // Simulating public calls can throw if the TX fails in a phase that doesn't allow reverts (setup)
     // Or return as reverted if it fails in a phase that allows reverts (app logic, teardown)
     try {
-      const result = await this.node.simulatePublicCalls(tx, enforceFeePayment);
+      const result = await this.node.simulatePublicCalls(tx, skipFeeEnforcement);
       if (result.revertReason) {
         throw result.revertReason;
       }
@@ -833,7 +863,7 @@ export class PXEService implements PXE {
     txExecutionRequest: TxExecutionRequest,
     proofCreator: PrivateKernelProver,
     privateExecutionResult: PrivateExecutionResult,
-    { simulate, profile, dryRun }: ProvingConfig,
+    { simulate, skipFeeEnforcement, profile, dryRun }: ProvingConfig,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
     // use the block the tx was simulated against
     const block =
@@ -843,6 +873,7 @@ export class PXEService implements PXE {
     this.log.debug(`Executing kernel prover (simulate: ${simulate}, profile: ${profile}, dryRun: ${dryRun})...`);
     return await kernelProver.prove(txExecutionRequest.toTxRequest(), privateExecutionResult, {
       simulate,
+      skipFeeEnforcement,
       profile,
       dryRun,
     });

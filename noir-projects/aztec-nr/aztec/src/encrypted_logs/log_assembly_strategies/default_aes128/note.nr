@@ -217,14 +217,16 @@ where
 /// note_id and the storage_slot) to be converted into bytes, because the aes function
 /// operates on bytes; not fields.
 /// NB: The extra `+ 64` bytes is for the note_id and the storage_slot of the note:
-fn compute_note_plaintext_for_this_strategy<Note, let N: u32>(note: Note) -> [u8; N * 32 + 64]
+fn compute_note_plaintext_for_this_strategy<Note, let N: u32>(
+    note: Note,
+    storage_slot: Field,
+) -> [u8; N * 32 + 64]
 where
     Note: NoteInterface<N>,
 {
     let packed_note = note.pack_content();
 
     let note_header = note.get_header();
-    let storage_slot = note_header.storage_slot;
     let storage_slot_bytes: [u8; 32] = storage_slot.to_be_bytes();
 
     // TODO(#10952): The following can be reduced to 7 bits
@@ -250,6 +252,7 @@ where
 fn compute_log<Note, let N: u32>(
     context: PrivateContext,
     note: Note,
+    storage_slot: Field,
     recipient: AztecAddress,
     sender: AztecAddress,
 ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
@@ -272,7 +275,7 @@ where
     // Compute the plaintext
     // *****************************************************************************
 
-    let final_plaintext_bytes = compute_note_plaintext_for_this_strategy(note);
+    let final_plaintext_bytes = compute_note_plaintext_for_this_strategy(note, storage_slot);
 
     // *****************************************************************************
     // Convert the plaintext into whatever format the encryption function expects
@@ -341,8 +344,8 @@ where
 
     let mut log_bytes_padding_to_mult_31 =
         get_arr_of_size__log_bytes_padding__from_PT::<(N * 32) + 64>();
-    /// Safety: this randomness won't be constrained to be random. It's in the
-    /// interest of the executor of this fn to encrypt with random bytes.
+    // Safety: this randomness won't be constrained to be random. It's in the
+    // interest of the executor of this fn to encrypt with random bytes.
     log_bytes_padding_to_mult_31 = unsafe { get_random_bytes() };
 
     let mut log_bytes = get_arr_of_size__log_bytes__from_PT::<(N * 32) + 64>();
@@ -403,7 +406,7 @@ where
     offset += log_bytes_as_fields.len();
 
     for i in offset..PRIVATE_LOG_SIZE_IN_FIELDS {
-        /// Safety: randomness cannot be constrained.
+        // Safety: randomness cannot be constrained.
         final_log[i] = unsafe { random() };
     }
 
@@ -413,13 +416,14 @@ where
 unconstrained fn compute_log_unconstrained<Note, let N: u32>(
     context: PrivateContext,
     note: Note,
+    storage_slot: Field,
     recipient: AztecAddress,
     sender: AztecAddress,
 ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
 where
     Note: NoteInterface<N>,
 {
-    compute_log(context, note, recipient, sender)
+    compute_log(context, note, storage_slot, recipient, sender)
 }
 
 // This function seems to be affected by the following Noir bug:
@@ -436,11 +440,12 @@ where
 {
     |e: NoteEmission<Note>| {
         let note = e.note;
+        let storage_slot = e.storage_slot;
         assert_note_exists(*context, note);
 
         let note_hash_counter = note.get_header().note_hash_counter;
 
-        let encrypted_log = compute_log(*context, note, recipient, sender);
+        let encrypted_log = compute_log(*context, note, storage_slot, recipient, sender);
         context.emit_raw_note_log(encrypted_log, note_hash_counter);
     }
 }
@@ -459,6 +464,7 @@ where
 {
     |e: NoteEmission<Note>| {
         let note = e.note;
+        let storage_slot = e.storage_slot;
         assert_note_exists(*context, note);
 
         let note_hash_counter = note.get_header().note_hash_counter;
@@ -473,7 +479,8 @@ where
         //   It's important here that we do not
         // return the log from this function to the app, otherwise it could try to do stuff with it and then that might
         // be wrong.
-        let encrypted_log = unsafe { compute_log_unconstrained(*context, note, recipient, sender) };
+        let encrypted_log =
+            unsafe { compute_log_unconstrained(*context, note, storage_slot, recipient, sender) };
         context.emit_raw_note_log(encrypted_log, note_hash_counter);
     }
 }
@@ -496,10 +503,7 @@ mod test {
         ); // This is an address copied to match the typescript one.
 
         let storage_slot = 42;
-        let note = MockNote::new(1234)
-            .contract_address(context.this_address())
-            .storage_slot(storage_slot)
-            .build();
+        let note = MockNote::new(1234).contract_address(context.this_address()).build();
         let contract_address = context.this_address();
 
         // All the values in this test were copied over from `encrypted_log_payload.test.ts`
@@ -507,7 +511,7 @@ mod test {
             0x10f48cd9eff7ae5b209c557c70de2e657ee79166868676b787e9417e19260e04,
         );
 
-        let plaintext = super::compute_note_plaintext_for_this_strategy(note);
+        let plaintext = super::compute_note_plaintext_for_this_strategy(note, storage_slot);
 
         let eph_sk = 0x1358d15019d4639393d62b97e1588c095957ce74a1c32d6ec7d62fe6705d9538;
         let _ = OracleMock::mock("getRandomField").returns(eph_sk).times(1);
@@ -527,19 +531,19 @@ mod test {
 
         let _ = OracleMock::mock("incrementAppTaggingSecretIndexAsSender").returns(());
 
-        let payload = super::compute_log(context, note, recipient, sender);
+        let payload = super::compute_log(context, note, storage_slot, recipient, sender);
 
         // The following value was generated by `encrypted_log_payload.test.ts`
         // --> Run the test with AZTEC_GENERATE_TEST_DATA=1 flag to update test data.
         let private_log_payload_from_typescript = [
             0x0e9cffc3ddd746affb02410d8f0a823e89939785bcc8e88ee4f3cae05e737c36,
             0x0d460c0e434d846ec1ea286e4090eb56376ff27bddc1aacae1d856549f701fa7,
-            0x00010577790aeabcc2d81ec8d0c99e7f5d2bf2f1452025dc777a178404f851d9,
-            0x003de81cde78411f27a921e16ebbfba71a5570d3f62f1134c90daced33663ba0,
-            0x00856cb19c7d563da183a40a6f8bd4988d1696ad6bf0c717c8fb8f6294bd0366,
-            0x001ed04e4f77a111c7090fcd34c61cfae744e8589a42defba4d0d927dd4679fe,
-            0x00ec09b49d8d4cf548ea62d44c8839b2fd14664e9d1439b199a8d5166e362348,
-            0x004a69de2d410e01010101010101010101010101010101010101010101010101,
+            0x000194e6d7872db8f61e8e59f23580f4db45d13677f873ec473a409cf61fd04d,
+            0x00334e5fb6083721f3eb4eef500876af3c9acfab0a1cb1804b930606fdb0b283,
+            0x00af91db798fa320746831a59b74362dfd0cf9e7c239f6aad11a4b47d0d870ee,
+            0x00d25a054613a83be7be8512f2c09664bc4f7ab60a127b06584f476918581b8a,
+            0x003840d100d8c1d78d4b68b787ed353ebfb8cd2987503d3b472f614f25799a18,
+            0x003f38322629d401010101010101010101010101010101010101010101010101,
             0x0101010101010101010101010101010101010101010101010101010101010101,
             0x0101010101010101010101010101010101010101010101010101010101010101,
             0x0101010101010101010101010101010101010101010101010101010101010101,

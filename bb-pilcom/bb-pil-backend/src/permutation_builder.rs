@@ -19,6 +19,8 @@ use crate::utils::sanitize_name;
 pub struct Permutation {
     /// The name of the lookup
     pub name: String,
+    /// The relation in which the permutation was declared
+    pub owning_relation: String,
     /// The file name of the lookup
     pub file_name: String,
     /// The inverse column name
@@ -66,18 +68,18 @@ impl PermutationBuilder for BBFiles {
                     .clone()
                     .expect("Permutation name must be provided using attribute syntax")
                     .to_lowercase();
-                let file_name = format!(
-                    "perms_{}.hpp",
-                    perm.source
-                        .file_name
-                        .as_ref()
-                        .and_then(|file_name| Path::new(file_name.as_ref()).file_stem())
-                        .map(|stem| stem.to_string_lossy().into_owned())
-                        .unwrap_or_default()
-                        .replace(".pil", "")
-                );
+                let relation = perm
+                    .source
+                    .file_name
+                    .as_ref()
+                    .and_then(|file_name| Path::new(file_name.as_ref()).file_stem())
+                    .map(|stem| stem.to_string_lossy().into_owned())
+                    .unwrap_or_default()
+                    .replace(".pil", "");
+                let file_name = format!("perms_{}.hpp", relation);
                 Permutation {
                     name: name.clone(),
+                    owning_relation: relation,
                     file_name: file_name,
                     inverse: format!("{}_inv", &name),
                     left: get_perm_side(&perm.left),
@@ -161,6 +163,7 @@ fn create_permutation_settings_data(permutation: &Permutation) -> Json {
 
     json!({
         "perm_name": permutation.name,
+        "relation_name": permutation.owning_relation,
         "columns_per_set": columns_per_set,
         "lhs_selector": lhs_selector,
         "rhs_selector": rhs_selector,

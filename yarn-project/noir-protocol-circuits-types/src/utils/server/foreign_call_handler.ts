@@ -1,6 +1,6 @@
+import { Blob } from '@aztec/blob-lib';
 import { Fr } from '@aztec/circuits.js';
 import { BlockBlobPublicInputs, SpongeBlob } from '@aztec/circuits.js/blobs';
-import { Blob } from '@aztec/foundation/blob';
 import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
 
 import { type ForeignCallInput, type ForeignCallOutput } from '@noir-lang/acvm_js';
@@ -59,6 +59,8 @@ export async function foreignCallHandler(name: string, args: ForeignCallInput[])
       }
     });
     return Promise.resolve([blobPublicInputs.toFields().map(toACVMField)]);
+  } else if (name === 'noOp') {
+    // Workaround for compiler issues where data is deleted because it's "unused"
   } else {
     throw Error(`unexpected oracle during execution: ${name}`);
   }

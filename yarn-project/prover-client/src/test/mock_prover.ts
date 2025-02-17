@@ -50,7 +50,7 @@ import { ProvingBroker } from '../proving_broker/proving_broker.js';
 import { InMemoryBrokerDatabase } from '../proving_broker/proving_broker_database/memory.js';
 
 export class TestBroker implements ProvingJobProducer {
-  private broker = new ProvingBroker(new InMemoryBrokerDatabase());
+  private broker: ProvingBroker;
   private agents: ProvingAgent[];
 
   constructor(
@@ -59,6 +59,7 @@ export class TestBroker implements ProvingJobProducer {
     private proofStore: ProofStore = new InlineProofStore(),
     agentPollInterval = 100,
   ) {
+    this.broker = new ProvingBroker(new InMemoryBrokerDatabase());
     this.agents = times(
       agentCount,
       () => new ProvingAgent(this.broker, proofStore, prover, undefined, agentPollInterval),
