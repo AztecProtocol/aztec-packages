@@ -749,13 +749,4 @@ contract RollupCore is
       })
     });
   }
-
-  function _fakeBlockNumberAsProven(uint256 _blockNumber) private {
-    if (
-      _blockNumber > rollupStore.tips.provenBlockNumber
-        && _blockNumber <= rollupStore.tips.pendingBlockNumber
-    ) {
-      rollupStore.tips.provenBlockNumber = _blockNumber;
-    }
-  }
 }
