@@ -95,7 +95,7 @@ Barretenberg UltraHonk comes with the capability to verify proofs in Solidity, i
    **WARNING:** Contract incomplete, do not use in production!
 
    ```bash
-   bb contract --scheme ultra_honk -k ./target/vk -c $CRS_PATH -b ./target/hello_world.json -o ./target/Verifier.sol
+   bb write_contract --scheme ultra_honk -k ./target/vk -c $CRS_PATH -b ./target/hello_world.json -o ./target/Verifier.sol
    ```
 
 #### Usage with MegaHonk

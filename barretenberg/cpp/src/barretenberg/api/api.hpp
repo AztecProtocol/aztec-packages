@@ -68,8 +68,8 @@ class API {
 
     virtual void gates(const Flags& flags, const std::filesystem::path& bytecode_path) = 0;
 
-    virtual void contract(const Flags& flags,
-                          const std::filesystem::path& output_path,
-                          const std::filesystem::path& vk_path) = 0;
+    virtual void write_contract(const Flags& flags,
+                                const std::filesystem::path& output_path,
+                                const std::filesystem::path& vk_path) = 0;
 };
 } // namespace bb

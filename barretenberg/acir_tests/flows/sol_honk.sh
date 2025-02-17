@@ -20,7 +20,7 @@ export VERIFIER_CONTRACT="$outdir/Verifier.sol"
 # Create a proof, write the solidity contract, write the proof as fields in order to extract the public inputs
 $BIN prove $PROVE_FLAGS -o $outdir
 $BIN verify $VERIFY_FLAGS -k $VK -p $PROOF
-$BIN contract $FLAGS -k $VK -o $VERIFIER_CONTRACT
+$BIN write_contract $FLAGS -k $VK -o $VERIFIER_CONTRACT
 
 # Export the paths to the environment variables for the js test runner
 export VERIFIER_PATH="$outdir/Verifier.sol"

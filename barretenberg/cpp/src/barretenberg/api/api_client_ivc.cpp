@@ -259,9 +259,9 @@ void ClientIVCAPI::gates([[maybe_unused]] const Flags& flags,
     throw_or_abort("API function gates not implemented");
 }
 
-void ClientIVCAPI::contract([[maybe_unused]] const Flags& flags,
-                            [[maybe_unused]] const std::filesystem::path& output_path,
-                            [[maybe_unused]] const std::filesystem::path& vk_path)
+void ClientIVCAPI::write_contract([[maybe_unused]] const Flags& flags,
+                                  [[maybe_unused]] const std::filesystem::path& output_path,
+                                  [[maybe_unused]] const std::filesystem::path& vk_path)
 {
     throw_or_abort("API function contract not implemented");
 }

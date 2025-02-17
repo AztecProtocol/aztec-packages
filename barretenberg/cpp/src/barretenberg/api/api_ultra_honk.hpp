@@ -33,9 +33,9 @@ class UltraHonkAPI : public API {
 
     void gates(const Flags& flags, const std::filesystem::path& bytecode_path) override;
 
-    void contract(const Flags& flags,
-                  const std::filesystem::path& output_path,
-                  const std::filesystem::path& vk_path) override;
+    void write_contract(const Flags& flags,
+                        const std::filesystem::path& output_path,
+                        const std::filesystem::path& vk_path) override;
 };
 
 template <typename Flavor>
