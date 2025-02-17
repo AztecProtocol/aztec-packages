@@ -1,5 +1,4 @@
-use crate::constants::SCHEDULED_DELAY_CHANGE_PCKD_LEN;
-use crate::traits::{Empty, Packable};
+use crate::traits::Empty;
 use std::cmp::min;
 
 mod test;
@@ -122,51 +121,6 @@ impl<let INITIAL_DELAY: u32> ScheduledDelayChange<INITIAL_DELAY> {
                 self.pre.unwrap_or(INITIAL_DELAY),
                 blocks_until_change + self.post.unwrap_or(INITIAL_DELAY),
             )
-        }
-    }
-}
-
-impl<let INITIAL_DELAY: u32> Packable<SCHEDULED_DELAY_CHANGE_PCKD_LEN> for ScheduledDelayChange<INITIAL_DELAY> {
-    fn pack(self) -> [Field; SCHEDULED_DELAY_CHANGE_PCKD_LEN] {
-        // We pack all three u32 values into a single U128, which is made up of two u64 limbs.
-        // Low limb: [ pre_inner: u32 | post_inner: u32 ]
-        // High limb: [ empty | pre_is_some: u1 |  post_is_some: u1 | block_of_change: u32 ]
-        let lo = ((self.pre.unwrap_unchecked() as u64) * (1 << 32))
-            + (self.post.unwrap_unchecked() as u64);
-
-        let hi = (self.pre.is_some() as u64) * (1 << 33)
-            + (self.post.is_some() as u64 * (1 << 32))
-            + self.block_of_change as u64;
-
-        let packed = U128::from_u64s_le(lo, hi);
-
-        [packed.to_integer()]
-    }
-
-    fn unpack(input: [Field; SCHEDULED_DELAY_CHANGE_PCKD_LEN]) -> Self {
-        let packed = U128::from_integer(input[0]);
-
-        // We use division and modulo to clear the bits that correspond to other values when unpacking.
-        let pre_is_some = ((packed.hi as u64) / (1 << 33)) as bool;
-        let pre_inner = ((packed.lo as u64) / (1 << 32)) as u32;
-
-        let post_is_some = (((packed.hi as u64) / (1 << 32)) % (1 << 1)) as bool;
-        let post_inner = ((packed.lo as u64) % (1 << 32)) as u32;
-
-        let block_of_change = ((packed.hi as u64) % (1 << 32)) as u32;
-
-        Self {
-            pre: if pre_is_some {
-                Option::some(pre_inner)
-            } else {
-                Option::none()
-            },
-            post: if post_is_some {
-                Option::some(post_inner)
-            } else {
-                Option::none()
-            },
-            block_of_change,
         }
     }
 }
