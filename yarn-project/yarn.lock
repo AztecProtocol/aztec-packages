@@ -376,6 +376,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/blob-lib@workspace:blob-lib"
   dependencies:
+    "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"

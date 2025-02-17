@@ -25,6 +25,9 @@
       "path": "../types"
     },
     {
+      "path": "../world-state"
+    },
+    {
       "path": "../accounts"
     },
     {
@@ -35,9 +38,6 @@
     },
     {
       "path": "../protocol-contracts"
-    },
-    {
-      "path": "../world-state"
     }
   ],
   "include": ["src"],

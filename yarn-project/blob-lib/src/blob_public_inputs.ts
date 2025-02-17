@@ -1,4 +1,3 @@
-import { type Blob } from '@aztec/blob-lib';
 import { BLOBS_PER_BLOCK } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { toBigIntBE, toBufferBE, toHex } from '@aztec/foundation/bigint-buffer';
@@ -7,9 +6,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-// The prefix to the EVM blobHash, defined here: https://eips.ethereum.org/EIPS/eip-4844#specification
-// Also defined in yarn-project/foundation/src/blob/index.ts, which can't take in our circuits.js constants
-export const VERSIONED_HASH_VERSION_KZG = 0x01;
+import { type Blob, VERSIONED_HASH_VERSION_KZG } from './blob.js';
 
 /**
  * Public inputs required to be passed from our rollup circuits to verify a blob.

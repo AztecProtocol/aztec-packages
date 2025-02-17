@@ -1,3 +1,4 @@
+import { BlockBlobPublicInputs } from '@aztec/blob-lib';
 import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -6,7 +7,6 @@ import { BufferReader, type Tuple, serializeToBuffer, serializeToFields } from '
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import { BlockBlobPublicInputs } from '../blobs/blob_public_inputs.js';
 import { GlobalVariables } from '../global_variables.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 

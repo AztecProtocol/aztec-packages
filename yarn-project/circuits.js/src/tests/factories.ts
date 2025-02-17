@@ -1,3 +1,4 @@
+import { makeBlockBlobPublicInputs, makeSpongeBlob } from '@aztec/blob-lib/testing';
 import {
   ARCHIVE_HEIGHT,
   AVM_PROOF_LENGTH_IN_FIELDS,
@@ -109,8 +110,6 @@ import {
   computePublicBytecodeCommitment,
   makeRecursiveProof,
 } from '../index.js';
-import { BlobPublicInputs, BlockBlobPublicInputs } from '../structs/blobs/blob_public_inputs.js';
-import { Poseidon2Sponge, SpongeBlob } from '../structs/blobs/sponge_blob.js';
 import { BlockHeader } from '../structs/block_header.js';
 import { ContentCommitment, NUM_BYTES_PER_SHA256 } from '../structs/content_commitment.js';
 import { Gas } from '../structs/gas.js';
@@ -634,36 +633,6 @@ export function makeScopedL2ToL1Message(seed = 1): ScopedL2ToL1Message {
  */
 export function makeAppendOnlyTreeSnapshot(seed = 1): AppendOnlyTreeSnapshot {
   return new AppendOnlyTreeSnapshot(fr(seed), seed);
-}
-
-/**
- * Makes arbitrary poseidon sponge for blob inputs.
- * Note: will not verify inside the circuit.
- * @param seed - The seed to use for generating the sponge.
- * @returns A sponge blob instance.
- */
-export function makeSpongeBlob(seed = 1): SpongeBlob {
-  return new SpongeBlob(new Poseidon2Sponge(makeTuple(3, fr), makeTuple(4, fr), 1, false), seed, seed + 1);
-}
-
-/**
- * Makes arbitrary blob public inputs.
- * Note: will not verify inside the circuit.
- * @param seed - The seed to use for generating the blob inputs.
- * @returns A blob public inputs instance.
- */
-export function makeBlobPublicInputs(seed = 1): BlobPublicInputs {
-  return new BlobPublicInputs(fr(seed), BigInt(seed + 1), makeTuple(2, fr));
-}
-
-/**
- * Makes arbitrary block blob public inputs.
- * Note: will not verify inside the circuit.
- * @param seed - The seed to use for generating the blob inputs.
- * @returns A block blob public inputs instance.
- */
-export function makeBlockBlobPublicInputs(seed = 1): BlockBlobPublicInputs {
-  return new BlockBlobPublicInputs(makeTuple(BLOBS_PER_BLOCK, () => makeBlobPublicInputs(seed)));
 }
 
 /**
