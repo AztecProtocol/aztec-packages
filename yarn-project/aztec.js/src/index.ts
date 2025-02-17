@@ -1,5 +1,3 @@
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
-
 /**
  * This is our public api.
  * Do NOT "export * from ..." here.
@@ -51,6 +49,8 @@ export {
   Point,
   PublicKeys,
 } from '@aztec/circuits.js';
+
+export { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 
 export { computeSecretHash } from '@aztec/circuits.js/hash';
 

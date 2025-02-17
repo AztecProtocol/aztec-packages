@@ -17,8 +17,15 @@ import {
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Grumpkin } from '@aztec/foundation/crypto';
-import { keccak256, keccakf1600, pedersenCommit, pedersenHash, poseidon2Hash, sha256 } from '@aztec/foundation/crypto';
+import {
+  Grumpkin,
+  keccak256,
+  keccakf1600,
+  pedersenCommit,
+  pedersenHash,
+  poseidon2Hash,
+  sha256,
+} from '@aztec/foundation/crypto';
 import { Fq, Fr, Point } from '@aztec/foundation/fields';
 import { type Fieldable } from '@aztec/foundation/serialize';
 import { NativeWorldStateService } from '@aztec/world-state';
