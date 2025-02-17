@@ -539,14 +539,7 @@ describe('e2e_block_building', () => {
     let teardown: () => Promise<void>;
 
     beforeEach(async () => {
-      ({
-        teardown,
-        aztecNode,
-        pxe,
-        logger,
-        wallet: owner,
-        cheatCodes,
-      } = await setup(1, { assumeProvenThrough: undefined }));
+      ({ teardown, aztecNode, pxe, logger, wallet: owner, cheatCodes } = await setup(1));
 
       ownerAddress = owner.getCompleteAddress().address;
       contract = await StatefulTestContract.deploy(owner, ownerAddress, ownerAddress, 1).send().deployed();

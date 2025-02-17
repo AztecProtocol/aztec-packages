@@ -111,12 +111,23 @@ export class RollupCheatCodes {
    * @param maybeBlockNumber - The block number to mark as proven (defaults to latest pending)
    */
   public async markAsProven(maybeBlockNumber?: number | bigint) {
-    const blockNumber = maybeBlockNumber
-      ? BigInt(maybeBlockNumber)
-      : await this.rollup.read.getTips().then(({ pendingBlockNumber }) => pendingBlockNumber);
+    const { pending, proven } = await this.getTips();
 
-    // @todo @note @LHerskind this is heavily dependent on the storage layout and size of vaues
-    const storageSlot = RollupStorage.find(storage => storage.label === 'rollupStore')?.slot;
+    let blockNumber = maybeBlockNumber;
+    if (blockNumber === undefined || blockNumber > pending) {
+      blockNumber = pending;
+    }
+    if (blockNumber <= proven) {
+      this.logger.warn(`Block ${blockNumber} is already proven`);
+      return;
+    }
+
+    // @note @LHerskind this is heavily dependent on the storage layout and size of vaues
+    // The rollupStore is a struct and if the size of elements or the struct changes, this will break
+    const storageSlot = RollupStorage.find(
+      // eslint-disable-next-line jsdoc/require-jsdoc
+      (storage: { label: string; slot: string }) => storage.label === 'rollupStore',
+    )?.slot;
     if (storageSlot === undefined) {
       throw new Error('rollupStoreStorageSlot not found');
     }

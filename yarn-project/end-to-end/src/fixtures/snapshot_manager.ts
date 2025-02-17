@@ -76,7 +76,6 @@ export function createSnapshotManager(
   dataPath?: string,
   config: Partial<SetupOptions> = {},
   deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {
-    assumeProvenThrough: Number.MAX_SAFE_INTEGER,
     initialValidators: [],
   },
 ) {
@@ -105,7 +104,7 @@ class MockSnapshotManager implements ISnapshotManager {
   constructor(
     testName: string,
     private config: Partial<AztecNodeConfig> = {},
-    private deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = { assumeProvenThrough: Number.MAX_SAFE_INTEGER },
+    private deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {},
   ) {
     this.logger = createLogger(`e2e:snapshot_manager:${testName}`);
     this.logger.warn(`No data path given, will not persist any snapshots.`);
@@ -153,7 +152,7 @@ class SnapshotManager implements ISnapshotManager {
     testName: string,
     private dataPath: string,
     private config: Partial<SetupOptions> = {},
-    private deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = { assumeProvenThrough: Number.MAX_SAFE_INTEGER },
+    private deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {},
   ) {
     this.livePath = join(this.dataPath, 'live', testName);
     this.logger = createLogger(`e2e:snapshot_manager:${testName}`);
@@ -281,7 +280,6 @@ async function setupFromFresh(
   logger: Logger,
   { numberOfInitialFundedAccounts = 10, ...opts }: SetupOptions = {},
   deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {
-    assumeProvenThrough: Number.MAX_SAFE_INTEGER,
     initialValidators: [],
   },
 ): Promise<SubsystemsContext> {

@@ -324,11 +324,10 @@ describe('e2e_synching', () => {
       // The setup is in here and not at the `before` since we are doing different setups depending on what mode we are running in.
       // We require that at least 200 eth blocks have passed from the START_TIME before we see the first L2 block
       // This is to keep the setup more stable, so as long as the setup is less than 100 L1 txs, changing the setup should not break the setup
-      const { teardown, pxe, sequencer, aztecNode, wallet, initialFundedAccounts } = await setup(1, {
+      const { teardown, pxe, sequencer, aztecNode, wallet, initialFundedAccounts, cheatCodes } = await setup(1, {
         salt: SALT,
         l1StartTime: START_TIME,
         l2StartTime: START_TIME + 200 * ETHEREUM_SLOT_DURATION,
-        assumeProvenThrough: 10 + variant.blockCount,
         numberOfInitialFundedAccounts: variant.txCount + 1,
       });
       variant.setPXE(pxe as PXEService);
@@ -353,6 +352,7 @@ describe('e2e_synching', () => {
         if (txs) {
           await Promise.all(txs.map(tx => tx.wait({ timeout: 1200 })));
         }
+        await cheatCodes.rollup.markAsProven();
       }
 
       const blocks = await aztecNode.getBlocks(1, await aztecNode.getBlockNumber());
@@ -366,7 +366,7 @@ describe('e2e_synching', () => {
   const testTheVariant = async (
     variant: TestVariant,
     alternativeSync: (opts: Partial<EndToEndContext>, variant: TestVariant) => Promise<void>,
-    assumeProvenThrough: number = Number.MAX_SAFE_INTEGER,
+    provenThrough: number = Number.MAX_SAFE_INTEGER,
   ) => {
     if (AZTEC_GENERATE_TEST_DATA) {
       return;
@@ -388,7 +388,6 @@ describe('e2e_synching', () => {
       salt: SALT,
       l1StartTime: START_TIME,
       skipProtocolContracts: true,
-      assumeProvenThrough,
       numberOfInitialFundedAccounts: 10,
     });
 
@@ -459,6 +458,8 @@ describe('e2e_synching', () => {
       }
       // If it breaks here, first place you should look is the pruning.
       await publisher.enqueueProposeL2Block(block);
+
+      await cheatCodes.rollup.markAsProven(provenThrough);
     }
 
     await alternativeSync({ deployL1ContractsValues, cheatCodes, config, logger, pxe, initialFundedAccounts }, variant);

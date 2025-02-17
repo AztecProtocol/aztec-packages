@@ -2,7 +2,7 @@ import {
   type AccountWallet,
   AztecAddress,
   type AztecNode,
-  CheatCodes,
+  type CheatCodes,
   EthAddress,
   Fr,
   type Logger,

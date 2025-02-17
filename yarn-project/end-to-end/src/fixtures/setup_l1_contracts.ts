@@ -12,10 +12,7 @@ export const setupL1Contracts = async (
   l1RpcUrl: string,
   account: HDAccount | PrivateKeyAccount,
   logger: Logger,
-  args: Pick<
-    DeployL1ContractsArgs,
-    'genesisArchiveRoot' | 'genesisBlockHash' | 'assumeProvenThrough' | 'initialValidators'
-  > &
+  args: Pick<DeployL1ContractsArgs, 'genesisArchiveRoot' | 'genesisBlockHash' | 'initialValidators'> &
     L1ContractsConfig,
 ) => {
   const l1Data = await deployL1Contracts(l1RpcUrl, account, foundry, logger, {
