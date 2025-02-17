@@ -3,23 +3,9 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/eccvm/eccvm_builder_types.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
+#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_ops_table.hpp"
 #include "barretenberg/stdlib_circuit_builders/op_queue/eccvm_row_tracker.hpp"
 namespace bb {
-
-enum EccOpCode { NULL_OP, ADD_ACCUM, MUL_ACCUM, EQUALITY };
-
-struct UltraOp {
-    using Fr = curve::BN254::ScalarField;
-    EccOpCode op_code = NULL_OP;
-    Fr op;
-    Fr x_lo;
-    Fr x_hi;
-    Fr y_lo;
-    Fr y_hi;
-    Fr z_1;
-    Fr z_2;
-    bool return_is_infinity;
-};
 
 /**
  * @brief Used to construct execution trace representations of elliptic curve operations.
@@ -44,6 +30,9 @@ class ECCOpQueue {
     std::vector<bb::eccvm::VMOperation<Curve::Group>> raw_ops;
     std::array<std::vector<Fr>, 4> ultra_ops; // ops encoded in the width-4 Ultra format
 
+    RawEccOpsTable raw_ops_table;
+    UltraEccOpsTable ultra_ops_table;
+
     size_t current_ultra_ops_size = 0;  // M_i
     size_t previous_ultra_ops_size = 0; // M_{i-1}
 
@@ -54,6 +43,14 @@ class ECCOpQueue {
 
   public:
     using ECCVMOperation = bb::eccvm::VMOperation<Curve::Group>;
+
+    ECCOpQueue() { initialize_new_subtable(); }
+
+    void initialize_new_subtable()
+    {
+        raw_ops_table.create_new_subtable();
+        ultra_ops_table.create_new_subtable();
+    }
 
     const std::vector<ECCVMOperation>& get_raw_ops() { return raw_ops; }
 
@@ -106,12 +103,7 @@ class ECCOpQueue {
      * @warning This is for testing purposes only. Currently no valid use case.
      *
      */
-    void empty_row_for_testing()
-    {
-        raw_ops.emplace_back(ECCVMOperation{ .base_point = point_at_infinity });
-
-        eccvm_row_tracker.update_cached_msms(raw_ops.back());
-    }
+    void empty_row_for_testing() { append_raw_op(ECCVMOperation{ .base_point = point_at_infinity }); }
 
     Point get_accumulator() { return accumulator; }
 
@@ -175,8 +167,7 @@ class ECCOpQueue {
         accumulator = accumulator + to_add;
 
         // Store the raw operation
-        raw_ops.emplace_back(ECCVMOperation{ .add = true, .base_point = to_add });
-        eccvm_row_tracker.update_cached_msms(raw_ops.back());
+        append_raw_op(ECCVMOperation{ .add = true, .base_point = to_add });
 
         // Construct and store the operation in the ultra op format
         return construct_and_populate_ultra_ops(ADD_ACCUM, to_add);
@@ -196,14 +187,13 @@ class ECCOpQueue {
         UltraOp ultra_op = construct_and_populate_ultra_ops(MUL_ACCUM, to_mul, scalar);
 
         // Store the raw operation
-        raw_ops.emplace_back(ECCVMOperation{
+        append_raw_op(ECCVMOperation{
             .mul = true,
             .base_point = to_mul,
             .z1 = ultra_op.z_1,
             .z2 = ultra_op.z_2,
             .mul_scalar_full = scalar,
         });
-        eccvm_row_tracker.update_cached_msms(raw_ops.back());
 
         return ultra_op;
     }
@@ -215,8 +205,7 @@ class ECCOpQueue {
     UltraOp no_op()
     {
         // Store raw operation
-        raw_ops.emplace_back(ECCVMOperation{});
-        eccvm_row_tracker.update_cached_msms(raw_ops.back());
+        append_raw_op(ECCVMOperation{});
 
         // Construct and store the operation in the ultra op format
         return construct_and_populate_ultra_ops(NULL_OP, accumulator);
@@ -233,14 +222,19 @@ class ECCOpQueue {
         accumulator.self_set_infinity();
 
         // Store raw operation
-        raw_ops.emplace_back(ECCVMOperation{ .eq = true, .reset = true, .base_point = expected });
-        eccvm_row_tracker.update_cached_msms(raw_ops.back());
+        append_raw_op(ECCVMOperation{ .eq = true, .reset = true, .base_point = expected });
 
         // Construct and store the operation in the ultra op format
         return construct_and_populate_ultra_ops(EQUALITY, expected);
     }
 
   private:
+    void append_raw_op(const ECCVMOperation& op)
+    {
+        raw_ops.emplace_back(op);
+        eccvm_row_tracker.update_cached_msms(raw_ops.back());
+        raw_ops_table.push(op);
+    }
     /**
      * @brief Given an ecc operation and its inputs, decompose into ultra format and populate ultra_ops
      *
@@ -287,6 +281,8 @@ class ECCOpQueue {
         }
 
         append_to_ultra_ops(ultra_op);
+
+        ultra_ops_table.push(ultra_op);
 
         return ultra_op;
     }

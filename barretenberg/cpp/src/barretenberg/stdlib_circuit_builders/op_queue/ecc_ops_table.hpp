@@ -2,9 +2,23 @@
 
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/eccvm/eccvm_builder_types.hpp"
-#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 #include <deque>
 namespace bb {
+
+enum EccOpCode { NULL_OP, ADD_ACCUM, MUL_ACCUM, EQUALITY };
+
+struct UltraOp {
+    using Fr = curve::BN254::ScalarField;
+    EccOpCode op_code = NULL_OP;
+    Fr op;
+    Fr x_lo;
+    Fr x_hi;
+    Fr y_lo;
+    Fr y_hi;
+    Fr z_1;
+    Fr z_2;
+    bool return_is_infinity;
+};
 
 /**
  * @brief A table of ECC operations
