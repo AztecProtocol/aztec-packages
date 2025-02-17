@@ -27,6 +27,7 @@ export class EthCheatCodes {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     };
+    this.logger.info(`Calling ${method} with params: ${paramsString} on ${this.rpcUrl}`);
     return await (await fetch(this.rpcUrl, content)).json();
   }
 

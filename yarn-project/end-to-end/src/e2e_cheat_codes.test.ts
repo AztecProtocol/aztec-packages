@@ -45,10 +45,6 @@ describe('e2e_cheat_codes', () => {
     token = await TokenContract.deploy(wallet, admin, 'TokenName', 'TokenSymbol', 18).send().deployed();
   });
 
-  beforeEach(async () => {
-    await rollup.write.setAssumeProvenThroughBlockNumber([(await rollup.read.getPendingBlockNumber()) + 1n]);
-  });
-
   afterAll(() => teardown());
 
   describe('L1 cheatcodes', () => {

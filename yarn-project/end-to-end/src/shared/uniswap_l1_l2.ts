@@ -2,6 +2,7 @@ import {
   type AccountWallet,
   AztecAddress,
   type AztecNode,
+  CheatCodes,
   EthAddress,
   Fr,
   type Logger,
@@ -59,6 +60,8 @@ export type UniswapSetupContext = {
   sponsorWallet: AccountWallet;
   /**  */
   deployL1ContractsValues: DeployL1Contracts;
+  /** Cheat codes instance. */
+  cheatCodes: CheatCodes;
 };
 // docs:end:uniswap_l1_l2_test_setup_const
 
@@ -101,9 +104,20 @@ export const uniswapL1L2TestSuite = (
     const uniswapFeeTier = 3000n;
     const minimumOutputAmount = 0n;
 
+    let cheatCodes: CheatCodes;
+
     beforeAll(async () => {
-      ({ aztecNode, pxe, logger, publicClient, walletClient, ownerWallet, sponsorWallet, deployL1ContractsValues } =
-        await setup());
+      ({
+        aztecNode,
+        pxe,
+        logger,
+        publicClient,
+        walletClient,
+        ownerWallet,
+        sponsorWallet,
+        deployL1ContractsValues,
+        cheatCodes,
+      } = await setup());
 
       if (Number(await publicClient.getBlockNumber()) < expectedForkBlockNumber) {
         throw new Error('This test must be run on a fork of mainnet with the expected fork block');
@@ -279,7 +293,7 @@ export const uniswapL1L2TestSuite = (
       await wethCrossChainHarness.expectPublicBalanceOnL2(uniswapL2Contract.address, 0n);
 
       // Since the outbox is only consumable when the block is proven, we need to set the block to be proven
-      await rollup.write.setAssumeProvenThroughBlockNumber([await rollup.read.getPendingBlockNumber()]);
+      await cheatCodes.rollup.markAsProven(await rollup.read.getPendingBlockNumber());
 
       // 5. Consume L2 to L1 message by calling uniswapPortal.swap_private()
       logger.info('Execute withdraw and swap on the uniswapPortal!');
@@ -890,7 +904,7 @@ export const uniswapL1L2TestSuite = (
       await wethCrossChainHarness.expectPrivateBalanceOnL2(ownerAddress, wethL2BalanceBeforeSwap - wethAmountToBridge);
 
       // Since the outbox is only consumable when the block is proven, we need to set the block to be proven
-      await rollup.write.setAssumeProvenThroughBlockNumber([await rollup.read.getPendingBlockNumber()]);
+      await cheatCodes.rollup.markAsProven(await rollup.read.getPendingBlockNumber());
 
       // On L1 call swap_public!
       logger.info('call swap_public on L1');
@@ -1020,7 +1034,7 @@ export const uniswapL1L2TestSuite = (
       await wethCrossChainHarness.expectPublicBalanceOnL2(ownerAddress, 0n);
 
       // Since the outbox is only consumable when the block is proven, we need to set the block to be proven
-      await rollup.write.setAssumeProvenThroughBlockNumber([await rollup.read.getPendingBlockNumber()]);
+      await cheatCodes.rollup.markAsProven(await rollup.read.getPendingBlockNumber());
 
       // Call swap_private on L1
       logger.info('Execute withdraw and swap on the uniswapPortal!');

@@ -1,7 +1,8 @@
 import { EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
 import { type L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
-import { RollupAbi } from '@aztec/l1-artifacts';
+import { RollupAbi, RollupStorage } from '@aztec/l1-artifacts';
 
 import {
   type GetContractReturnType,
@@ -114,10 +115,25 @@ export class RollupCheatCodes {
       ? BigInt(maybeBlockNumber)
       : await this.rollup.read.getTips().then(({ pendingBlockNumber }) => pendingBlockNumber);
 
-    await this.asOwner(async account => {
-      await this.rollup.write.setAssumeProvenThroughBlockNumber([blockNumber], { account, chain: this.client.chain });
-      this.logger.warn(`Marked ${blockNumber} as proven`);
-    });
+    // @todo @note @LHerskind this is heavily dependent on the storage layout and size of vaues
+    const storageSlot = RollupStorage.find(storage => storage.label === 'rollupStore')?.slot;
+    if (storageSlot === undefined) {
+      throw new Error('rollupStoreStorageSlot not found');
+    }
+    const provenBlockNumberSlot = BigInt(storageSlot) + 1n;
+
+    const tipsBefore = await this.getTips();
+
+    await this.ethCheatCodes.store(
+      EthAddress.fromString(this.rollup.address),
+      provenBlockNumberSlot,
+      BigInt(blockNumber),
+    );
+
+    const tipsAfter = await this.getTips();
+    this.logger.info(
+      `Proven tip moved: ${tipsBefore.proven} -> ${tipsAfter.proven}. Pending tip moved: ${tipsBefore.pending} -> ${tipsAfter.pending}`,
+    );
   }
 
   /**

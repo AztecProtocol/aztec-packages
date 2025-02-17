@@ -561,7 +561,7 @@ describe('e2e_synching', () => {
 
           // We prune the last token and schnorr contract
           const assumeProvenThrough = pendingBlockNumber - 2n;
-          await rollup.write.setAssumeProvenThroughBlockNumber([assumeProvenThrough]);
+          await opts.cheatCodes!.rollup.markAsProven(assumeProvenThrough);
 
           const timeliness = (await rollup.read.getEpochDuration()) * 2n;
           const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
@@ -642,7 +642,7 @@ describe('e2e_synching', () => {
           });
 
           const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
-          await rollup.write.setAssumeProvenThroughBlockNumber([pendingBlockNumber - BigInt(variant.blockCount) / 2n]);
+          await opts.cheatCodes!.rollup.markAsProven(pendingBlockNumber - BigInt(variant.blockCount) / 2n);
 
           const aztecNode = await AztecNodeService.createAndSync(opts.config!);
           const sequencer = aztecNode.getSequencer();
@@ -707,7 +707,7 @@ describe('e2e_synching', () => {
           });
 
           const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
-          await rollup.write.setAssumeProvenThroughBlockNumber([pendingBlockNumber - BigInt(variant.blockCount) / 2n]);
+          await opts.cheatCodes!.rollup.markAsProven(pendingBlockNumber - BigInt(variant.blockCount) / 2n);
 
           const timeliness = (await rollup.read.getEpochDuration()) * 2n;
           const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
