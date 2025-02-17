@@ -55,27 +55,27 @@ template <typename FF> class Graph_ {
     {
         return ultra_circuit_constructor.real_variable_index[variable_index];
     };
-    bool is_equal_blocks(const UltraBlock& blk1, const UltraBlock& blk2);
     size_t find_block_index(bb::UltraCircuitBuilder& ultra_builder, const UltraBlock& block);
     void process_gate_variables(bb::UltraCircuitBuilder& ultra_circuit_constructor,
                                 std::vector<uint32_t>& gate_variables,
-                                const UltraBlock& block,
-                                size_t gate_index);
+                                size_t gate_index,
+                                size_t blk_idx);
     std::unordered_map<uint32_t, size_t> get_variables_gate_counts() { return this->variables_gate_counts; };
 
     std::vector<std::vector<uint32_t>> get_arithmetic_gate_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                                                  size_t index);
+                                                                  size_t index, size_t block_idx, UltraBlock& blk);
     std::vector<uint32_t> get_elliptic_gate_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                                                size_t index);
+                                                                size_t index, size_t block_idx, UltraBlock& blk);
     std::vector<uint32_t> get_plookup_gate_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                                               size_t index);
+                                                               size_t index, size_t block_idx, UltraBlock& blk);
     std::vector<uint32_t> get_sort_constraint_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                                                  size_t index);
+                                                                  size_t index, size_t block_idx, UltraBlock& blk);
     std::vector<uint32_t> get_poseido2s_gate_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
                                                                  size_t index,
-                                                                 bool is_internal_block = true);
+                                                                 size_t block_idx,
+                                                                 UltraBlock& blk);
     std::vector<uint32_t> get_auxiliary_gate_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                                                 size_t index);
+                                                                 size_t index, size_t block_idx, UltraBlock& blk);
     std::vector<uint32_t> get_rom_table_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
                                                             const bb::UltraCircuitBuilder::RomTranscript& rom_array);
     std::vector<uint32_t> get_ram_table_connected_component(bb::UltraCircuitBuilder& ultra_builder,
