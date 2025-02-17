@@ -14,12 +14,11 @@ import {
   type BlockHeader,
   CallContext,
   FunctionSelector,
-  PRIVATE_CONTEXT_INPUTS_LENGTH,
-  PUBLIC_DISPATCH_SELECTOR,
   PrivateContextInputs,
   type TxContext,
 } from '@aztec/circuits.js';
 import { computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
+import { PRIVATE_CONTEXT_INPUTS_LENGTH, PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { type FunctionAbi, type FunctionArtifact, type NoteSelector, countArgumentsSize } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';

@@ -1,11 +1,7 @@
 import { PrivateCallExecutionResult } from '@aztec/circuit-types';
 import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
-import {
-  Fr,
-  PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-  PRIVATE_CONTEXT_INPUTS_LENGTH,
-  PrivateCircuitPublicInputs,
-} from '@aztec/circuits.js';
+import { Fr, PrivateCircuitPublicInputs } from '@aztec/circuits.js';
+import { PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH, PRIVATE_CONTEXT_INPUTS_LENGTH } from '@aztec/constants';
 import { type FunctionArtifact, type FunctionSelector, countArgumentsSize } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { createLogger } from '@aztec/foundation/log';
