@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739781437633,
+  "lastUpdate": 1739783820029,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "codygunton@gmail.com",
-            "name": "Cody Gunton",
-            "username": "codygunton"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8c1d4770d60d6d06014c0cd66aae63bd1560a8ff",
-          "message": "fix: Add missing return in main (#11786)\n\nhttps://github.com/AztecProtocol/aztec-packages/pull/10217 introduced a\nbug where the verifier result would not be sent from bb main as a\nsignal. This triggers a mysterious error in the ivc-integration tests\nsuite, native only, but does not break any e2e tests. More investigation\nis necessary, and ultimately this should be resolved in the ACIR tests,\nbut it feels prudent now to fix the bug and reinstate the tests later.",
-          "timestamp": "2025-02-07T18:52:42Z",
-          "tree_id": "777abc0fc0a9b6a6a735b0a25dcb8ecf86214b9a",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8c1d4770d60d6d06014c0cd66aae63bd1560a8ff"
-        },
-        "date": 1738955945167,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19056.493096999988,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16413.644007000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 20754.794586999993,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18324.37999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4062.22329000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3794.907889 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 72476.85666300001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 72476857000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14365.453820999997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14365454000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2617905823,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2617905823 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 132649934,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 132649934 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3280,6 +3214,72 @@ window.BENCHMARK_DATA = {
             "value": 135923700,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 135923700 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sirasistant@gmail.com",
+            "name": "Álvaro Rodríguez",
+            "username": "sirasistant"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "be273e536d27ed101201f108f3f1971bb99cfab4",
+          "message": "feat: Contract updates (#11514)\n\nImplements\r\nhttps://hackmd.io/McJEZq0DRlSU0xZjg41QqQ?view#Contract-upgradeability\r\nCloses https://github.com/AztecProtocol/aztec-packages/issues/8979\r\n\r\n---------\r\n\r\nCo-authored-by: Leila Wang <leizciw@gmail.com>\r\nCo-authored-by: Alex Gherghisan <alexghr@users.noreply.github.com>",
+          "timestamp": "2025-02-17T10:06:27+01:00",
+          "tree_id": "fe3fb014fb1173741bc534dbd5e219a751b0ca32",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/be273e536d27ed101201f108f3f1971bb99cfab4"
+        },
+        "date": 1739783812593,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18155.77185000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16089.490837 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18552.418585,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16249.258402000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3845.72835299997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3052.679883999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55031.879607999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55031880000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10577.461694,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10577464000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1793077066,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1793077066 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 128968515,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 128968515 ns\nthreads: 1"
           }
         ]
       }
