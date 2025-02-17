@@ -271,6 +271,24 @@ TYPED_TEST(MegaHonkTests, MultipleCircuitsMergeOnly)
     }
 }
 
+TYPED_TEST(MegaHonkTests, NewMultipleCircuitsMergeOnly)
+{
+    using Flavor = TypeParam;
+    // Instantiate EccOpQueue. This will be shared across all circuits in the series
+    auto op_queue = std::make_shared<bb::ECCOpQueue>();
+
+    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
+
+    // Construct multiple test circuits that share an ECC op queue. Generate and verify a proof for each.
+    auto builder = typename Flavor::CircuitBuilder{ op_queue };
+
+    GoblinMockCircuits::construct_simple_circuit(builder);
+
+    // Construct and verify Goblin ECC op queue Merge proof
+    auto merge_verified = this->construct_and_verify_merge_proof_new(op_queue);
+    EXPECT_TRUE(merge_verified);
+}
+
 TYPED_TEST(MegaHonkTests, NewMergePolyconstruction)
 {
     using Flavor = TypeParam;

@@ -25,57 +25,74 @@ template <typename Flavor> bool MergeVerifierNew_<Flavor>::verify_proof(const Ho
 {
     transcript = std::make_shared<Transcript>(proof);
 
+    uint32_t subtable_size = transcript->template receive_from_prover<uint32_t>("subtable_size");
+    info("subtable_size: ", subtable_size);
+
     // Receive commitments [t_i^{shift}], [T_{i-1}], and [T_i]
-    std::array<Commitment, Flavor::NUM_WIRES> C_T_prev;
-    std::array<Commitment, Flavor::NUM_WIRES> C_t_shift;
-    std::array<Commitment, Flavor::NUM_WIRES> C_T_current;
+    std::array<Commitment, Flavor::NUM_WIRES> t_commitments;
+    std::array<Commitment, Flavor::NUM_WIRES> T_prev_commitments;
+    std::array<Commitment, Flavor::NUM_WIRES> T_commitments;
     for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
-        C_T_prev[idx] = transcript->template receive_from_prover<Commitment>("T_PREV_" + std::to_string(idx + 1));
-        C_t_shift[idx] = transcript->template receive_from_prover<Commitment>("t_SHIFT_" + std::to_string(idx + 1));
-        C_T_current[idx] = transcript->template receive_from_prover<Commitment>("T_CURRENT_" + std::to_string(idx + 1));
+        std::string suffix = std::to_string(idx);
+        t_commitments[idx] = transcript->template receive_from_prover<Commitment>("t_CURRENT_" + suffix);
+        T_prev_commitments[idx] = transcript->template receive_from_prover<Commitment>("T_PREV_" + suffix);
+        T_commitments[idx] = transcript->template receive_from_prover<Commitment>("T_CURRENT_" + suffix);
     }
 
     FF kappa = transcript->template get_challenge<FF>("kappa");
+    info("kappa: ", kappa);
 
     // Receive transcript poly evaluations and add corresponding univariate opening claims {(\kappa, p(\kappa), [p(X)]}
-    std::array<FF, Flavor::NUM_WIRES> T_prev_evals;
-    std::array<FF, Flavor::NUM_WIRES> t_shift_evals;
-    std::array<FF, Flavor::NUM_WIRES> T_current_evals;
-    std::vector<OpeningClaim> opening_claims;
+    std::array<FF, Flavor::NUM_WIRES> t_evals;
+    std::array<FF, Flavor::NUM_WIRES> T_prev_shift_evals;
+    std::array<FF, Flavor::NUM_WIRES> T_evals;
     for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
-        T_prev_evals[idx] = transcript->template receive_from_prover<FF>("T_prev_eval_" + std::to_string(idx + 1));
-        opening_claims.emplace_back(OpeningClaim{ { kappa, T_prev_evals[idx] }, C_T_prev[idx] });
+        t_evals[idx] = transcript->template receive_from_prover<FF>("t_eval_" + std::to_string(idx));
     }
     for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
-        t_shift_evals[idx] = transcript->template receive_from_prover<FF>("t_shift_eval_" + std::to_string(idx + 1));
-        opening_claims.emplace_back(OpeningClaim{ { kappa, t_shift_evals[idx] }, C_t_shift[idx] });
+        T_prev_shift_evals[idx] =
+            transcript->template receive_from_prover<FF>("T_prev_shift_eval_" + std::to_string(idx));
     }
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        T_current_evals[idx] =
-            transcript->template receive_from_prover<FF>("T_current_eval_" + std::to_string(idx + 1));
-        opening_claims.emplace_back(OpeningClaim{ { kappa, T_current_evals[idx] }, C_T_current[idx] });
+        T_evals[idx] = transcript->template receive_from_prover<FF>("T_eval_" + std::to_string(idx));
     }
 
-    // Check the identity T_i(\kappa) = T_{i-1}(\kappa) + t_i^{shift}(\kappa). If it fails, return false
+    // Check the identity T(\kappa) = t(\kappa) + T_prev_shift(\kappa). If it fails, return false
     bool identity_checked = true;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        identity_checked = identity_checked && (T_current_evals[idx] == T_prev_evals[idx] + t_shift_evals[idx]);
+        bool current_check = T_evals[idx] == t_evals[idx] + T_prev_shift_evals[idx];
+        info("current_check: ", current_check);
+        identity_checked = identity_checked && current_check;
     }
 
     FF alpha = transcript->template get_challenge<FF>("alpha");
+    info("alpha: ", alpha);
 
     // Construct batched commitment and evaluation from constituents
-    auto batched_commitment = opening_claims[0].commitment;
-    auto batched_eval = opening_claims[0].opening_pair.evaluation;
+    Commitment batched_commitment = t_commitments[0];
+    FF batched_eval = t_evals[0];
     auto alpha_pow = alpha;
-    for (size_t idx = 1; idx < opening_claims.size(); ++idx) {
-        auto& claim = opening_claims[idx];
-        batched_commitment = batched_commitment + (claim.commitment * alpha_pow);
-        batched_eval += alpha_pow * claim.opening_pair.evaluation;
+    for (size_t idx = 1; idx < NUM_WIRES; ++idx) {
+        batched_commitment = batched_commitment + (t_commitments[idx] * alpha_pow);
+        batched_eval += alpha_pow * t_evals[idx];
+        alpha_pow *= alpha;
+    }
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        FF commitment_scalar = alpha_pow * kappa.pow(subtable_size);
+        batched_commitment = batched_commitment + (T_prev_commitments[idx] * commitment_scalar);
+        batched_eval += alpha_pow * T_prev_shift_evals[idx];
+        alpha_pow *= alpha;
+    }
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        batched_commitment = batched_commitment + (T_commitments[idx] * alpha_pow);
+        batched_eval += alpha_pow * T_evals[idx];
         alpha_pow *= alpha;
     }
 
     OpeningClaim batched_claim = { { kappa, batched_eval }, batched_commitment };
+
+    info("Verifier: batched_eval: ", batched_eval);
+    info("batched_commitment: ", batched_commitment);
 
     auto pairing_points = PCS::reduce_verify(batched_claim, transcript);
     auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);

@@ -162,7 +162,7 @@ class ECCOpQueue {
     {
         previous_ultra_ops_size = current_ultra_ops_size;
         current_ultra_ops_size = ultra_ops[0].size();
-        initialize_new_subtable();
+        // initialize_new_subtable();
     }
 
     [[nodiscard]] size_t get_previous_size() const { return previous_ultra_ops_size; }

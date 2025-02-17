@@ -6,7 +6,7 @@ namespace bb {
 /**
  * @brief Create MergeProver
  * @details We require an SRS at least as large as the current op queue size in order to commit to the shifted
- * per-circuit contribution t_i^{shift}
+ * per-circuit contribution t^{shift}
  *
  */
 template <class Flavor>
@@ -21,15 +21,15 @@ MergeProverNew_<Flavor>::MergeProverNew_(const std::shared_ptr<ECCOpQueue>& op_q
 }
 
 /**
- * @brief Prove proper construction of the aggregate Goblin ECC op queue polynomials T_i^(j), j = 1,2,3,4.
- * @details Let T_i^(j) be the jth column of the aggregate op queue after incorporating the contribution from the
- * present circuit. T_{i-1}^(j) corresponds to the aggregate op queue at the previous stage and $t_i^(j)$ represents
- * the contribution from the present circuit only. For each j, we have the relationship T_i = T_{i-1} + right_shift(t_i,
- * M_{i-1}), where the shift magnitude M_{i-1} is the honest length of T_{i-1}. This protocol demonstrates, assuming the
- * length of T_{i-1} is at most M_{i-1}, that the aggregate op queue has been constructed correctly via a simple
+ * @brief Prove proper construction of the aggregate Goblin ECC op queue polynomials T^(j), j = 1,2,3,4.
+ * @details Let T^(j) be the jth column of the aggregate op queue after incorporating the contribution from the
+ * present circuit. T_prev^(j) corresponds to the aggregate op queue at the previous stage and $t^(j)$ represents
+ * the contribution from the present circuit only. For each j, we have the relationship T = T_prev + right_shift(t,
+ * M_{i-1}), where the shift magnitude M_{i-1} is the honest length of T_prev. This protocol demonstrates, assuming the
+ * length of T_prev is at most M_{i-1}, that the aggregate op queue has been constructed correctly via a simple
  * Schwartz-Zippel check. Evaluations are proven via batched KZG.
  *
- * TODO(#746): Prove connection between t_i^{shift}, committed to herein, and t_i, used in the main protocol. See issue
+ * TODO(#746): Prove connection between t^{shift}, committed to herein, and t, used in the main protocol. See issue
  * for details (https://github.com/AztecProtocol/barretenberg/issues/746).
  *
  * @return honk::proof
@@ -38,79 +38,78 @@ template <typename Flavor> HonkProof MergeProverNew_<Flavor>::construct_proof()
 {
     transcript = std::make_shared<Transcript>();
 
-    size_t N = op_queue->get_current_size();
+    // Extract T, T_prev, t
+    std::array<Polynomial, 4> T_current = op_queue->get_ultra_ops_table_columns();
+    std::array<Polynomial, 4> T_prev = op_queue->get_previous_ultra_ops_table_columns();
+    std::array<Polynomial, 4> t_current = op_queue->get_current_subtable_columns();
 
-    // Extract T_i, T_{i-1}
-    auto T_current = op_queue->get_aggregate_transcript();
-    auto T_prev = op_queue->get_previous_aggregate_transcript();
-    // TODO(#723): Cannot currently support an empty T_{i-1}. Need to be able to properly handle zero commitment.
+    // TODO(#723): Cannot currently support an empty T_prev. Need to be able to properly handle zero commitment.
     ASSERT(T_prev[0].size() > 0);
     ASSERT(T_current[0].size() > T_prev[0].size()); // Must have some new ops to accumulate otherwise C_t_shift = 0
 
-    // Construct t_i^{shift} as T_i - T_{i-1}
-    std::array<Polynomial, NUM_WIRES> t_shift;
-    for (size_t i = 0; i < NUM_WIRES; ++i) {
-        t_shift[i] = Polynomial(T_current[i]);
-        t_shift[i] -= { 0, T_prev[i] };
-    }
+    const size_t current_table_size = T_current[0].size();
+    const size_t current_subtable_size = t_current[0].size();
 
-    // Compute/get commitments [t_i^{shift}], [T_{i-1}], and [T_i] and add to transcript
-    std::array<Commitment, NUM_WIRES> C_T_current;
-    for (size_t idx = 0; idx < t_shift.size(); ++idx) {
-        // Get previous transcript commitment [T_{i-1}] from op queue
-        const auto& C_T_prev = op_queue->get_ultra_ops_commitments()[idx];
-        // Compute commitment [t_i^{shift}] directly
-        auto C_t_shift = pcs_commitment_key->commit(t_shift[idx]);
-        // Compute updated aggregate transcript commitment as [T_i] = [T_{i-1}] + [t_i^{shift}]
-        C_T_current[idx] = C_T_prev + C_t_shift;
+    transcript->send_to_verifier("subtable_size", current_subtable_size);
+    info("subtable_size: ", current_subtable_size);
 
-        std::string suffix = std::to_string(idx + 1);
+    // Compute/get commitments [t^{shift}], [T_prev], and [T] and add to transcript
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        // Compute commitments
+        Commitment C_t_current = pcs_commitment_key->commit(t_current[idx]);
+        Commitment C_T_prev = pcs_commitment_key->commit(T_prev[idx]);
+        Commitment C_T_current = pcs_commitment_key->commit(T_current[idx]);
+
+        std::string suffix = std::to_string(idx);
+        transcript->send_to_verifier("t_CURRENT_" + suffix, C_t_current);
         transcript->send_to_verifier("T_PREV_" + suffix, C_T_prev);
-        transcript->send_to_verifier("t_SHIFT_" + suffix, C_t_shift);
-        transcript->send_to_verifier("T_CURRENT_" + suffix, C_T_current[idx]);
+        transcript->send_to_verifier("T_CURRENT_" + suffix, C_T_current);
     }
 
-    // Store the commitments [T_{i}] (to be used later in subsequent iterations as [T_{i-1}]).
-    op_queue->set_commitment_data(C_T_current);
-
-    // Compute evaluations T_i(\kappa), T_{i-1}(\kappa), t_i^{shift}(\kappa), add to transcript. For each polynomial
-    // we add a univariate opening claim {p(X), (\kappa, p(\kappa))} to the set of claims to be checked via batched KZG.
+    // Compute evaluations T(\kappa), T_prev_shift(\kappa), t(\kappa), add to transcript. For each polynomial we add a
+    // univariate opening claim {p(X), (\kappa, p(\kappa))} to the set of claims to be checked via batched KZG.
     FF kappa = transcript->template get_challenge<FF>("kappa");
+    info("kappa: ", kappa);
 
     // Add univariate opening claims for each polynomial.
     std::vector<OpeningClaim> opening_claims;
-    // Compute evaluation T_{i-1}(\kappa)
+    // Compute evaluation t(\kappa)
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        auto polynomial = Polynomial(T_prev[idx]);
-        auto evaluation = polynomial.evaluate(kappa);
-        transcript->send_to_verifier("T_prev_eval_" + std::to_string(idx + 1), evaluation);
-        opening_claims.emplace_back(OpeningClaim{ polynomial, { kappa, evaluation } });
+        FF evaluation = t_current[idx].evaluate(kappa);
+        transcript->send_to_verifier("t_eval_" + std::to_string(idx), evaluation);
+        opening_claims.emplace_back(OpeningClaim{ std::move(t_current[idx]), { kappa, evaluation } });
     }
-    // Compute evaluation t_i^{shift}(\kappa)
+    // Compute evaluation T_prev(\kappa)
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        auto evaluation = t_shift[idx].evaluate(kappa);
-        transcript->send_to_verifier("t_shift_eval_" + std::to_string(idx + 1), evaluation);
-        opening_claims.emplace_back(OpeningClaim{ t_shift[idx], { kappa, evaluation } });
+        FF evaluation = T_prev[idx].evaluate(kappa);
+        evaluation *= kappa.pow(current_subtable_size); // \kappa^{m_i}*T_prev(\kappa)
+        transcript->send_to_verifier("T_prev_shift_eval_" + std::to_string(idx), evaluation);
+        opening_claims.emplace_back(
+            OpeningClaim{ T_prev[idx].right_shifted(current_subtable_size), { kappa, evaluation } });
     }
-    // Compute evaluation T_i(\kappa)
+    // Compute evaluation T(\kappa)
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        auto polynomial = Polynomial(T_current[idx]);
-        auto evaluation = polynomial.evaluate(kappa);
-        transcript->send_to_verifier("T_current_eval_" + std::to_string(idx + 1), evaluation);
-        opening_claims.emplace_back(OpeningClaim{ polynomial, { kappa, evaluation } });
+        FF evaluation = T_current[idx].evaluate(kappa);
+        transcript->send_to_verifier("T_eval_" + std::to_string(idx), evaluation);
+        opening_claims.emplace_back(OpeningClaim{ std::move(T_current[idx]), { kappa, evaluation } });
     }
 
     FF alpha = transcript->template get_challenge<FF>("alpha");
+    info("alpha: ", alpha);
 
     // Construct batched polynomial to opened via KZG
-    auto batched_polynomial = Polynomial(N);
-    auto batched_eval = FF(0);
-    auto alpha_pow = FF(1);
+    Polynomial batched_polynomial(current_table_size);
+    FF batched_eval(0);
+    FF alpha_pow(1);
     for (auto& claim : opening_claims) {
         batched_polynomial.add_scaled(claim.polynomial, alpha_pow);
         batched_eval += alpha_pow * claim.opening_pair.evaluation;
         alpha_pow *= alpha;
     }
+
+    info("Prover: batched_eval: ", batched_eval);
+    info("reconstructed batched_eval: ", batched_polynomial.evaluate(kappa));
+    info("batched_commitment: ", pcs_commitment_key->commit(batched_polynomial));
 
     // Construct and commit to KZG quotient polynomial q = (f - v) / (X - kappa)
     auto quotient = batched_polynomial;
