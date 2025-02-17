@@ -12,67 +12,35 @@ export function createLibp2pComponentLogger(namespace: string, fixedTerms = {}):
   };
 }
 
-function createLibp2pLogger(component: string, fixedTerms = {}): Logger {
-  const logger = createLogger(component, fixedTerms);
+function createLibp2pLogger(component: string): Logger {
+  const logger = createLogger(component);
 
   // Default log level is trace as this is super super noisy
-  const logFn = (formatter: any, ...args: any[]) => {
-    // Handle %p format specifier by manually replacing with args
-    if (typeof formatter === 'string' && args.length > 0) {
-      // Handle %p, %a, %s and %d format specifiers
-      const parts = formatter.split(/(%p|%a|%s|%d)/);
-      let result = parts[0];
-      let argIndex = 0;
-
-      for (let i = 1; i < parts.length; i += 2) {
-        if (argIndex < args.length) {
-          result += String(args[argIndex]) + (parts[i + 1] || '');
-          argIndex++;
-        }
-      }
-
-      formatter = result;
-      // Only keep non-format args as data
-      args = args.slice(argIndex);
-    }
-
-    // Handle object args by spreading them, but only if they weren't used in formatting
-    if (args.length === 1 && typeof args[0] === 'object') {
-      logger.trace(formatter, args[0]);
-    } else if (args.length > 0) {
-      // If we have remaining args after formatting, pass them as data
-      logger.trace(formatter, { _args: args });
-    } else {
-      logger.trace(formatter);
-    }
+  const logFn = (message: string, ...args: unknown[]) => {
+    logger.trace(message, ...args);
   };
 
   return Object.assign(logFn, {
     enabled: logger.isLevelEnabled('debug'),
 
-    error(...args: any[]) {
-      const [msg, ...rest] = args;
-      logger.error(msg as string, ...rest);
+    error(message: string, ...args: unknown[]) {
+      logger.error(message, ...args);
     },
 
-    debug(...args: any[]) {
-      const [msg, ...rest] = args;
-      logger.debug(msg as string, ...rest);
+    debug(message: string, ...args: unknown[]) {
+      logger.debug(message, ...args);
     },
 
-    info(...args: any[]) {
-      const [msg, ...rest] = args;
-      logger.info(msg as string, ...rest);
+    info(message: string, ...args: unknown[]) {
+      logger.info(message, ...args);
     },
 
-    warn(...args: any[]) {
-      const [msg, ...rest] = args;
-      logger.warn(msg as string, ...rest);
+    warn(message: string, ...args: unknown[]) {
+      logger.warn(message, ...args);
     },
 
-    trace(...args: any[]) {
-      const [msg, ...rest] = args;
-      logger.trace(msg as string, ...rest);
+    trace(message: string, ...args: unknown[]) {
+      logger.trace(message, ...args);
     },
   });
 }
