@@ -1,8 +1,7 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { poseidon2HashWithSeparator, sha512ToGrumpkinScalar } from '@aztec/foundation/crypto';
+import { Grumpkin, poseidon2HashWithSeparator, sha512ToGrumpkinScalar } from '@aztec/foundation/crypto';
 import { Fq, Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 
-import { Grumpkin } from '../barretenberg/crypto/grumpkin/index.js';
 import { GeneratorIndex } from '../constants.gen.js';
 import { type CompleteAddress } from '../index.js';
 import { PublicKeys } from '../types/public_keys.js';

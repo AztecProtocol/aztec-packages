@@ -2,8 +2,7 @@ import { BarretenbergSync } from '@aztec/bb.js';
 import { type GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import { numToInt32BE } from '@aztec/foundation/serialize';
 
-import { type PublicKey } from '../../../types/public_key.js';
-import { concatenateUint8Arrays } from '../../serialize.js';
+import { concatenateUint8Arrays } from '../serialize.js';
 import { SchnorrSignature } from './signature.js';
 
 export * from './signature.js';
@@ -17,7 +16,7 @@ export class Schnorr {
    * @param privateKey - The private key.
    * @returns A grumpkin public key.
    */
-  public async computePublicKey(privateKey: GrumpkinScalar): Promise<PublicKey> {
+  public async computePublicKey(privateKey: GrumpkinScalar): Promise<Point> {
     const api = await BarretenbergSync.initSingleton();
     const [result] = api.getWasm().callWasmExport('schnorr_compute_public_key', [privateKey.toBuffer()], [64]);
     return Point.fromBuffer(Buffer.from(result));
@@ -45,7 +44,7 @@ export class Schnorr {
    * @param sig - The Schnorr signature.
    * @returns True or false.
    */
-  public async verifySignature(msg: Uint8Array, pubKey: PublicKey, sig: SchnorrSignature) {
+  public async verifySignature(msg: Uint8Array, pubKey: Point, sig: SchnorrSignature) {
     const api = await BarretenbergSync.initSingleton();
     const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
     const [result] = api

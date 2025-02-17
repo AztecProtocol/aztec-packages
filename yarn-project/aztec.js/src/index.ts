@@ -60,8 +60,6 @@ export {
   deriveMasterNullifierSecretKey,
 } from '@aztec/circuits.js/keys';
 
-export { Grumpkin, Schnorr } from '@aztec/circuits.js/barretenberg';
-
 export {
   AuthWitness,
   Body,
@@ -104,7 +102,7 @@ export {
 // If we want to use them in our own "aztec.js consuming code", import them from foundation as needed.
 export { decodeFromAbi, encodeArguments, type AbiType } from '@aztec/foundation/abi';
 export { toBigIntBE } from '@aztec/foundation/bigint-buffer';
-export { sha256 } from '@aztec/foundation/crypto';
+export { sha256, Grumpkin, Schnorr } from '@aztec/foundation/crypto';
 export { makeFetch } from '@aztec/foundation/json-rpc/client';
 export { retry, retryUntil } from '@aztec/foundation/retry';
 export { to2Fields, toBigInt } from '@aztec/foundation/serialize';
