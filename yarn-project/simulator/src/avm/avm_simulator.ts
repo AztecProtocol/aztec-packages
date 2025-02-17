@@ -1,4 +1,5 @@
-import { type AztecAddress, Fr, type GlobalVariables, MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/circuits.js';
+import { type AztecAddress, Fr, type GlobalVariables } from '@aztec/circuits.js';
+import { MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/constants';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { strict as assert } from 'assert';

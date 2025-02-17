@@ -16,24 +16,10 @@ import {
   type Gas,
   type GasSettings,
   type GlobalVariables,
-  L1_TO_L2_MSG_TREE_HEIGHT,
   L2ToL1Message,
-  MAX_ENQUEUED_CALLS_PER_TX,
-  MAX_L2_TO_L1_MSGS_PER_TX,
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_PUBLIC_LOGS_PER_TX,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  NOTE_HASH_TREE_HEIGHT,
-  NULLIFIER_TREE_HEIGHT,
   NoteHash,
   Nullifier,
   NullifierLeafPreimage,
-  PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  PUBLIC_DATA_TREE_HEIGHT,
-  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
   PrivateToAvmAccumulatedData,
   PrivateToAvmAccumulatedDataArrayLengths,
   PublicCallRequest,
@@ -46,6 +32,22 @@ import {
   type TreeSnapshots,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import {
+  L1_TO_L2_MSG_TREE_HEIGHT,
+  MAX_ENQUEUED_CALLS_PER_TX,
+  MAX_L2_TO_L1_MSGS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+  MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_PUBLIC_LOGS_PER_TX,
+  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  NOTE_HASH_TREE_HEIGHT,
+  NULLIFIER_TREE_HEIGHT,
+  PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  PUBLIC_DATA_TREE_HEIGHT,
+  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
+} from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';

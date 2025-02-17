@@ -10,7 +10,6 @@ import {
   getFinalMinRevertibleSideEffectCounter,
 } from '@aztec/circuit-types';
 import {
-  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   ClientIvcProof,
   Fr,
   PrivateCallData,
@@ -23,10 +22,10 @@ import {
   type PrivateLog,
   type ScopedPrivateLogData,
   type TxRequest,
-  VK_TREE_HEIGHT,
   VerificationKeyAsFields,
 } from '@aztec/circuits.js';
 import { hashVK } from '@aztec/circuits.js/hash';
+import { CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, VK_TREE_HEIGHT } from '@aztec/constants';
 import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';

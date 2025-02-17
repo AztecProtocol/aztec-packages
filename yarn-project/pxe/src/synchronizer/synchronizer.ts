@@ -4,7 +4,7 @@ import {
   type L2BlockStreamEvent,
   type L2BlockStreamEventHandler,
 } from '@aztec/circuit-types';
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type L2TipsStore } from '@aztec/kv-store/stores';
 

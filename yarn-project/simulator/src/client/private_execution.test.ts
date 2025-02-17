@@ -15,14 +15,9 @@ import {
   CompleteAddress,
   GasFees,
   GasSettings,
-  GeneratorIndex,
   type GrumpkinScalar,
   IndexedTaggingSecret,
   KeyValidationRequest,
-  L1_TO_L2_MSG_TREE_HEIGHT,
-  NOTE_HASH_TREE_HEIGHT,
-  PUBLIC_DATA_TREE_HEIGHT,
-  PUBLIC_DISPATCH_SELECTOR,
   PartialStateReference,
   StateReference,
   TxContext,
@@ -39,6 +34,13 @@ import {
   siloNullifier,
 } from '@aztec/circuits.js/hash';
 import { makeHeader } from '@aztec/circuits.js/testing';
+import {
+  GeneratorIndex,
+  L1_TO_L2_MSG_TREE_HEIGHT,
+  NOTE_HASH_TREE_HEIGHT,
+  PUBLIC_DATA_TREE_HEIGHT,
+  PUBLIC_DISPATCH_SELECTOR,
+} from '@aztec/constants';
 import {
   type FunctionArtifact,
   FunctionSelector,

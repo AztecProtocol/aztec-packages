@@ -37,7 +37,6 @@ import type {
   ContractClassWithId,
   ContractInstanceWithAddress,
   GasFees,
-  L1_TO_L2_MSG_TREE_HEIGHT,
   NodeInfo,
   PartialAddress,
   PrivateKernelTailCircuitPublicInputs,
@@ -45,6 +44,7 @@ import type {
 import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/circuits.js/contract';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import { computeAddressSecret } from '@aztec/circuits.js/keys';
+import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import {
   type AbiDecoded,
   type ContractArtifact,

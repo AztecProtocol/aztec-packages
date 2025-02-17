@@ -1,5 +1,6 @@
 import { isNoirCallStackUnresolved } from '@aztec/circuit-types';
-import { GasFees, GlobalVariables, MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/circuits.js';
+import { GasFees, GlobalVariables } from '@aztec/circuits.js';
+import { MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/constants';
 import { type ContractArtifact, type FunctionArtifact, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';

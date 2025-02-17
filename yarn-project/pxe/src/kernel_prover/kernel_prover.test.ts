@@ -7,10 +7,7 @@ import {
   PublicExecutionRequest,
 } from '@aztec/circuit-types';
 import {
-  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   FunctionSelector,
-  MAX_NOTE_HASHES_PER_CALL,
-  MAX_NOTE_HASHES_PER_TX,
   MembershipWitness,
   NoteHash,
   PrivateCircuitPublicInputs,
@@ -19,11 +16,16 @@ import {
   PublicKeys,
   ScopedNoteHash,
   type TxRequest,
-  VK_TREE_HEIGHT,
   VerificationKey,
   VerificationKeyAsFields,
 } from '@aztec/circuits.js';
 import { makeTxRequest } from '@aztec/circuits.js/testing';
+import {
+  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  MAX_NOTE_HASHES_PER_CALL,
+  MAX_NOTE_HASHES_PER_TX,
+  VK_TREE_HEIGHT,
+} from '@aztec/constants';
 import { NoteSelector } from '@aztec/foundation/abi';
 import { makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';

@@ -5,12 +5,14 @@ import {
   FunctionSelector,
   GasFees,
   GlobalVariables,
+} from '@aztec/circuits.js';
+import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
   PUBLIC_DISPATCH_SELECTOR,
-} from '@aztec/circuits.js';
+} from '@aztec/constants';
 import { type ContractArtifact, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';

@@ -18,12 +18,9 @@ import {
   GasFees,
   GasSettings,
   GlobalVariables,
-  NULLIFIER_SUBTREE_HEIGHT,
-  PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
   PublicDataTreeLeaf,
   PublicDataWrite,
-  REGISTERER_CONTRACT_ADDRESS,
   RevertCode,
   ScopedLogHash,
   StateReference,
@@ -31,6 +28,7 @@ import {
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { fr, makeContractClassPublic } from '@aztec/circuits.js/testing';
+import { NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, REGISTERER_CONTRACT_ADDRESS } from '@aztec/constants';
 import { bufferAsFields } from '@aztec/foundation/abi';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';

@@ -9,15 +9,13 @@ import {
   BlockHeader,
   EthAddress,
   Fr,
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NullifierLeaf,
   type NullifierLeafPreimage,
   PartialStateReference,
   PublicDataTreeLeaf,
   StateReference,
 } from '@aztec/circuits.js';
+import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import { getTelemetryClient } from '@aztec/telemetry-client';

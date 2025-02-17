@@ -2,13 +2,7 @@ import { type PrivateCallExecutionResult, type PrivateKernelSimulateOutput, coll
 import {
   type Fr,
   KeyValidationHint,
-  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MembershipWitness,
-  NULLIFIER_TREE_HEIGHT,
   type PrivateCircuitPublicInputs,
   type PrivateKernelCircuitPublicInputs,
   PrivateKernelData,
@@ -23,7 +17,6 @@ import {
   ScopedNullifier,
   ScopedReadRequest,
   TransientDataIndexHint,
-  VK_TREE_HEIGHT,
   buildNoteHashReadRequestHintsFromResetStates,
   buildNullifierReadRequestHintsFromResetStates,
   buildTransientDataHints,
@@ -34,6 +27,15 @@ import {
   getNullifierReadRequestResetStates,
   privateKernelResetDimensionNames,
 } from '@aztec/circuits.js';
+import {
+  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+  NULLIFIER_TREE_HEIGHT,
+  VK_TREE_HEIGHT,
+} from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Tuple, assertLength } from '@aztec/foundation/serialize';

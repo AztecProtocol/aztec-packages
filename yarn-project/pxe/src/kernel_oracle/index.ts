@@ -5,13 +5,12 @@ import {
   type FunctionSelector,
   type GrumpkinScalar,
   MembershipWitness,
-  type NOTE_HASH_TREE_HEIGHT,
   type Point,
-  VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
   computeContractClassIdPreimage,
   computeSaltedInitializationHash,
 } from '@aztec/circuits.js';
+import { type NOTE_HASH_TREE_HEIGHT, VK_TREE_HEIGHT } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { type KeyStore } from '@aztec/key-store';

@@ -1,12 +1,7 @@
 import { NoteStatus, type NotesFilter, randomTxHash } from '@aztec/circuit-types';
-import {
-  AztecAddress,
-  CompleteAddress,
-  INITIAL_L2_BLOCK_NUM,
-  PublicKeys,
-  SerializableContractInstance,
-} from '@aztec/circuits.js';
+import { AztecAddress, CompleteAddress, PublicKeys, SerializableContractInstance } from '@aztec/circuits.js';
 import { makeHeader } from '@aztec/circuits.js/testing';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { FunctionType } from '@aztec/foundation/abi';
 import { timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';

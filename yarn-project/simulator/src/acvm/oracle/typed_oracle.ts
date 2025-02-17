@@ -12,8 +12,8 @@ import {
   type ContractInstance,
   type IndexedTaggingSecret,
   type KeyValidationRequest,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
 } from '@aztec/circuits.js';
+import { type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { type FunctionSelector, type NoteSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';

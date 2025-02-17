@@ -1,15 +1,9 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
 import {
   AztecAddress,
-  CANONICAL_AUTH_REGISTRY_ADDRESS,
-  DEPLOYER_CONTRACT_ADDRESS,
-  FEE_JUICE_ADDRESS,
-  MULTI_CALL_ENTRYPOINT_ADDRESS,
   NullifierLeafPreimage,
   type PublicCallRequest,
   type PublicDataTreeLeafPreimage,
-  REGISTERER_CONTRACT_ADDRESS,
-  ROUTER_ADDRESS,
   SerializableContractInstance,
 } from '@aztec/circuits.js';
 import {
@@ -19,6 +13,14 @@ import {
   siloNoteHash,
   siloNullifier,
 } from '@aztec/circuits.js/hash';
+import {
+  CANONICAL_AUTH_REGISTRY_ADDRESS,
+  DEPLOYER_CONTRACT_ADDRESS,
+  FEE_JUICE_ADDRESS,
+  MULTI_CALL_ENTRYPOINT_ADDRESS,
+  REGISTERER_CONTRACT_ADDRESS,
+  ROUTER_ADDRESS,
+} from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
