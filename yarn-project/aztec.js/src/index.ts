@@ -1,3 +1,5 @@
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+
 /**
  * This is our public api.
  * Do NOT "export * from ..." here.
@@ -45,7 +47,6 @@ export {
   getContractInstanceFromDeployParams,
   GlobalVariables,
   GrumpkinScalar,
-  INITIAL_L2_BLOCK_NUM,
   type NodeInfo,
   Point,
   PublicKeys,

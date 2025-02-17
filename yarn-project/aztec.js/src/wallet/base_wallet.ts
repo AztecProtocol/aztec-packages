@@ -27,11 +27,11 @@ import {
   type ContractInstanceWithAddress,
   type Fr,
   type GasFees,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
   type NodeInfo,
   type PartialAddress,
   type Point,
 } from '@aztec/circuits.js';
+import { type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import type { AbiDecoded, ContractArtifact } from '@aztec/foundation/abi';
 
 import { type Wallet } from '../account/wallet.js';

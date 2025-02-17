@@ -46,7 +46,6 @@ import {
   computeTaggingSecretPoint,
   deriveKeys,
 } from '@aztec/circuits.js';
-import { Schnorr } from '@aztec/circuits.js/barretenberg';
 import {
   computeNoteHashNonce,
   computePublicDataTreeLeafSlot,
@@ -69,6 +68,7 @@ import {
 } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { Schnorr } from '@aztec/foundation/crypto';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type LogFn, type Logger, applyStringFormatting, createDebugOnlyLogger } from '@aztec/foundation/log';
