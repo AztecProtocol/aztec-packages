@@ -69,7 +69,7 @@ mod tests {
         address::{AztecAddress, EthAddress},
         point::Point,
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq},
-        traits::{Empty, FromField},
+        traits::FromField,
     };
     use dep::types::constants::{
         DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, GENERATOR_INDEX__TSK_M,
