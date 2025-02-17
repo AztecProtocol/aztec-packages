@@ -167,6 +167,7 @@ contract MultiProofTest is RollupBase {
 
     {
       uint256 sequencerRewards = rollup.getSequencerRewards(sequencer);
+      assertGt(sequencerRewards, 0, "Sequencer rewards is zero");
       vm.prank(sequencer);
       uint256 sequencerRewardsClaimed = rollup.claimSequencerRewards(sequencer);
       assertEq(sequencerRewardsClaimed, sequencerRewards, "Sequencer rewards not claimed");
@@ -186,12 +187,18 @@ contract MultiProofTest is RollupBase {
       assertGt(bobRewards, 0, "Bob rewards is zero");
 
       vm.expectRevert(
-        abi.encodeWithSelector(Errors.Rollup__NotPastDeadline.selector, EPOCH_DURATION * 2, 2)
+        abi.encodeWithSelector(
+          Errors.Rollup__NotPastDeadline.selector, TestConstants.AZTEC_PROOF_SUBMISSION_WINDOW, 2
+        )
       );
       vm.prank(bob);
       rollup.claimProverRewards(bob, epochs);
 
-      vm.warp(Timestamp.unwrap(rollup.getTimestampForSlot(Slot.wrap(EPOCH_DURATION * 2 + 1))));
+      vm.warp(
+        Timestamp.unwrap(
+          rollup.getTimestampForSlot(Slot.wrap(TestConstants.AZTEC_PROOF_SUBMISSION_WINDOW + 1))
+        )
+      );
       vm.prank(bob);
       uint256 bobRewardsClaimed = rollup.claimProverRewards(bob, epochs);
 
