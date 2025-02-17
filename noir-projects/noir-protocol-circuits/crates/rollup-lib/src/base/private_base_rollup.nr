@@ -445,7 +445,7 @@ mod tests {
             let mut low_nullifier_membership_witness =
                 [MembershipWitness::empty(); MAX_NULLIFIERS_PER_TX];
 
-            /// Safety: This is a mock for testing only
+            // Safety: This is a mock for testing only
             let sorted_new_nullifier_tuples = unsafe {
                 get_sorted_tuple(
                     self.nullifiers.storage().map(|insertion: NullifierInsertion| insertion.value),
@@ -634,7 +634,7 @@ mod tests {
         }
 
         fn execute(self) -> BaseOrMergeRollupPublicInputs {
-            /// Safety: This is a mock for testing only
+            // Safety: This is a mock for testing only
             let inputs = unsafe { self.build_inputs() };
             inputs.execute()
         }

@@ -9,7 +9,7 @@ unconstrained fn no_op_oracle_wrapper<T>(value: T) {
 }
 
 pub fn no_op<T>(value: T) {
-    /// Safety: This is a no op
+    // Safety: This is a no op
     unsafe {
         no_op_oracle_wrapper(value);
     }
