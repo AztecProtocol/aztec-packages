@@ -144,7 +144,8 @@ describe('Kernel Prover', () => {
     oracle.getVkMembershipWitness.mockResolvedValue(MembershipWitness.random(VK_TREE_HEIGHT));
 
     oracle.getContractAddressPreimage.mockResolvedValue({
-      contractClassId: Fr.random(),
+      currentContractClassId: Fr.random(),
+      originalContractClassId: Fr.random(),
       publicKeys: await PublicKeys.random(),
       saltedInitializationHash: Fr.random(),
     });

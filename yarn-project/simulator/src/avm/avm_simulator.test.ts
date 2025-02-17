@@ -866,7 +866,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           version: 1 as const,
           salt: new Fr(0x123),
           deployer: AztecAddress.fromBigInt(0x456n),
-          contractClassId: new Fr(0x789),
+          currentContractClassId: new Fr(0x789),
+          originalContractClassId: new Fr(0x789),
           initializationHash: new Fr(0x101112),
           publicKeys: new PublicKeys(
             new Point(new Fr(0x131415), new Fr(0x161718), false),

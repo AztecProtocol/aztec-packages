@@ -6,7 +6,9 @@ import { type FieldsOf } from '@aztec/foundation/types';
 
 import { PublicKeys } from '../../types/public_keys.js';
 import { PrivateCircuitPublicInputs } from '../private_circuit_public_inputs.js';
-import { ProtocolContractLeafPreimage } from '../trees/index.js';
+import { ScheduledDelayChange } from '../shared_mutable/scheduled_delay_change.js';
+import { ScheduledValueChange } from '../shared_mutable/scheduled_value_change.js';
+import { ProtocolContractLeafPreimage, PublicDataTreeLeafPreimage } from '../trees/index.js';
 import { VerificationKeyAsFields } from '../verification_key.js';
 
 /**
@@ -18,10 +20,56 @@ export class PrivateCallData {
      * Public inputs of the private function circuit.
      */
     public publicInputs: PrivateCircuitPublicInputs,
+
     /**
      * The verification key for the function being invoked.
      */
     public vk: VerificationKeyAsFields,
+
+    /**
+     * Hints for the validation of the vk
+     */
+    public verificationKeyHints: PrivateVerificationKeyHints,
+  ) {}
+
+  /**
+   * Serialize into a field array. Low-level utility.
+   * @param fields - Object with fields.
+   * @returns The array.
+   */
+  static getFields(fields: FieldsOf<PrivateCallData>) {
+    return [fields.publicInputs, fields.vk, fields.verificationKeyHints] as const;
+  }
+
+  static from(fields: FieldsOf<PrivateCallData>): PrivateCallData {
+    return new PrivateCallData(...PrivateCallData.getFields(fields));
+  }
+
+  /**
+   * Serialize this as a buffer.
+   * @returns The buffer.
+   */
+  toBuffer(): Buffer {
+    return serializeToBuffer(...PrivateCallData.getFields(this));
+  }
+
+  /**
+   * Deserializes from a buffer or reader.
+   * @param buffer - Buffer or reader to read from.
+   * @returns The deserialized instance.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): PrivateCallData {
+    const reader = BufferReader.asReader(buffer);
+    return new PrivateCallData(
+      reader.readObject(PrivateCircuitPublicInputs),
+      reader.readObject(VerificationKeyAsFields),
+      reader.readObject(PrivateVerificationKeyHints),
+    );
+  }
+}
+
+export class PrivateVerificationKeyHints {
+  constructor(
     /**
      * Artifact hash of the contract class for this private call.
      */
@@ -56,6 +104,8 @@ export class PrivateCallData {
      * The hash of the ACIR of the function being invoked.
      */
     public acirHash: Fr,
+
+    public updatedClassIdHints: UpdatedClassIdHints,
   ) {}
 
   /**
@@ -63,10 +113,8 @@ export class PrivateCallData {
    * @param fields - Object with fields.
    * @returns The array.
    */
-  static getFields(fields: FieldsOf<PrivateCallData>) {
+  static getFields(fields: FieldsOf<PrivateVerificationKeyHints>) {
     return [
-      fields.publicInputs,
-      fields.vk,
       fields.contractClassArtifactHash,
       fields.contractClassPublicBytecodeCommitment,
       fields.publicKeys,
@@ -75,11 +123,12 @@ export class PrivateCallData {
       fields.protocolContractMembershipWitness,
       fields.protocolContractLeaf,
       fields.acirHash,
+      fields.updatedClassIdHints,
     ] as const;
   }
 
-  static from(fields: FieldsOf<PrivateCallData>): PrivateCallData {
-    return new PrivateCallData(...PrivateCallData.getFields(fields));
+  static from(fields: FieldsOf<PrivateVerificationKeyHints>): PrivateVerificationKeyHints {
+    return new PrivateVerificationKeyHints(...PrivateVerificationKeyHints.getFields(fields));
   }
 
   /**
@@ -87,7 +136,7 @@ export class PrivateCallData {
    * @returns The buffer.
    */
   toBuffer(): Buffer {
-    return serializeToBuffer(...PrivateCallData.getFields(this));
+    return serializeToBuffer(...PrivateVerificationKeyHints.getFields(this));
   }
 
   /**
@@ -95,11 +144,9 @@ export class PrivateCallData {
    * @param buffer - Buffer or reader to read from.
    * @returns The deserialized instance.
    */
-  static fromBuffer(buffer: Buffer | BufferReader): PrivateCallData {
+  static fromBuffer(buffer: Buffer | BufferReader): PrivateVerificationKeyHints {
     const reader = BufferReader.asReader(buffer);
-    return new PrivateCallData(
-      reader.readObject(PrivateCircuitPublicInputs),
-      reader.readObject(VerificationKeyAsFields),
+    return new PrivateVerificationKeyHints(
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(PublicKeys),
@@ -108,6 +155,56 @@ export class PrivateCallData {
       reader.readObject(MembershipWitness.deserializer(PROTOCOL_CONTRACT_TREE_HEIGHT)),
       reader.readObject(ProtocolContractLeafPreimage),
       reader.readObject(Fr),
+      reader.readObject(UpdatedClassIdHints),
+    );
+  }
+}
+
+export class UpdatedClassIdHints {
+  constructor(
+    public updatedClassIdWitness: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>,
+    public updatedClassIdLeaf: PublicDataTreeLeafPreimage,
+    public updatedClassIdValueChange: ScheduledValueChange,
+    public updatedClassIdDelayChange: ScheduledDelayChange,
+  ) {}
+
+  static getFields(fields: FieldsOf<UpdatedClassIdHints>) {
+    return [
+      fields.updatedClassIdWitness,
+      fields.updatedClassIdLeaf,
+      fields.updatedClassIdValueChange,
+      fields.updatedClassIdDelayChange,
+    ] as const;
+  }
+
+  static from(fields: FieldsOf<UpdatedClassIdHints>): UpdatedClassIdHints {
+    return new UpdatedClassIdHints(...UpdatedClassIdHints.getFields(fields));
+  }
+
+  /**
+   * Serialize this as a buffer.
+   * @returns The buffer.
+   */
+  toBuffer(): Buffer {
+    return serializeToBuffer(...UpdatedClassIdHints.getFields(this));
+  }
+
+  /**
+   * Deserializes from a buffer or reader.
+   * @param buffer - Buffer or reader to read from.
+   * @returns The deserialized instance.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): UpdatedClassIdHints {
+    const reader = BufferReader.asReader(buffer);
+    return new UpdatedClassIdHints(
+      reader.readObject(MembershipWitness.deserializer(PUBLIC_DATA_TREE_HEIGHT)),
+      reader.readObject(PublicDataTreeLeafPreimage),
+      reader.readObject({
+        fromBuffer(reader) {
+          return ScheduledValueChange.fromBuffer(reader, UPDATES_VALUE_SIZE);
+        },
+      }),
+      reader.readObject(ScheduledDelayChange),
     );
   }
 }

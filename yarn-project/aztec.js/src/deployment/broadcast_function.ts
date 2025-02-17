@@ -1,3 +1,4 @@
+import { Capsule } from '@aztec/circuit-types';
 import {
   AztecAddress,
   computeVerificationKeyHash,
@@ -14,6 +15,7 @@ import {
 import { type ContractArtifact, FunctionSelector, FunctionType, bufferAsFields } from '@aztec/foundation/abi';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import { type ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { type Wallet } from '../wallet/index.js';
@@ -57,31 +59,33 @@ export async function broadcastPrivateFunction(
   } = await createPrivateFunctionMembershipProof(selector, artifact);
 
   const vkHash = await computeVerificationKeyHash(privateFunctionArtifact);
+
+  const registerer = await getRegistererContract(wallet);
+  const fn = registerer.methods.broadcast_private_function(
+    contractClass.id,
+    artifactMetadataHash,
+    unconstrainedFunctionsArtifactTreeRoot,
+    privateFunctionTreeSiblingPath,
+    privateFunctionTreeLeafIndex,
+    padArrayEnd(artifactTreeSiblingPath, Fr.ZERO, ARTIFACT_FUNCTION_TREE_MAX_HEIGHT),
+    artifactTreeLeafIndex,
+    // eslint-disable-next-line camelcase
+    { selector, metadata_hash: functionMetadataHash, vk_hash: vkHash },
+  );
+
   const bytecode = bufferAsFields(
     privateFunctionArtifact.bytecode,
     MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
   );
-
-  await wallet.storeCapsule(
-    AztecAddress.fromNumber(REGISTERER_CONTRACT_ADDRESS),
-    new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
-    bytecode,
-  );
-
-  const registerer = await getRegistererContract(wallet);
-  return Promise.resolve(
-    registerer.methods.broadcast_private_function(
-      contractClass.id,
-      artifactMetadataHash,
-      unconstrainedFunctionsArtifactTreeRoot,
-      privateFunctionTreeSiblingPath,
-      privateFunctionTreeLeafIndex,
-      padArrayEnd(artifactTreeSiblingPath, Fr.ZERO, ARTIFACT_FUNCTION_TREE_MAX_HEIGHT),
-      artifactTreeLeafIndex,
-      // eslint-disable-next-line camelcase
-      { selector, metadata_hash: functionMetadataHash, vk_hash: vkHash },
+  fn.addCapsule(
+    new Capsule(
+      ProtocolContractAddress.ContractClassRegisterer,
+      new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
+      bytecode,
     ),
   );
+
+  return fn;
 }
 
 /**
@@ -119,19 +123,8 @@ export async function broadcastUnconstrainedFunction(
     privateFunctionsArtifactTreeRoot,
   } = await createUnconstrainedFunctionMembershipProof(selector, artifact);
 
-  const bytecode = bufferAsFields(
-    unconstrainedFunctionArtifact.bytecode,
-    MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
-  );
-
-  await wallet.storeCapsule(
-    AztecAddress.fromNumber(REGISTERER_CONTRACT_ADDRESS),
-    new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
-    bytecode,
-  );
-
   const registerer = await getRegistererContract(wallet);
-  return registerer.methods.broadcast_unconstrained_function(
+  const fn = registerer.methods.broadcast_unconstrained_function(
     contractClass.id,
     artifactMetadataHash,
     privateFunctionsArtifactTreeRoot,
@@ -140,4 +133,18 @@ export async function broadcastUnconstrainedFunction(
     // eslint-disable-next-line camelcase
     { selector, metadata_hash: functionMetadataHash },
   );
+
+  const bytecode = bufferAsFields(
+    unconstrainedFunctionArtifact.bytecode,
+    MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
+  );
+  fn.addCapsule(
+    new Capsule(
+      ProtocolContractAddress.ContractClassRegisterer,
+      new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
+      bytecode,
+    ),
+  );
+
+  return fn;
 }

@@ -1,10 +1,7 @@
 import { AztecAddress, Fr, getContractClassFromArtifact } from '@aztec/circuits.js';
-import {
-  MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
-  REGISTERER_CONTRACT_ADDRESS,
-  REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
-} from '@aztec/constants';
+import { MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT } from '@aztec/constants';
 import { type ContractArtifact, bufferAsFields } from '@aztec/foundation/abi';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import { type ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { type Wallet } from '../wallet/index.js';
@@ -24,12 +21,22 @@ export async function registerContractClass(
 ): Promise<ContractFunctionInteraction> {
   const { artifactHash, privateFunctionsRoot, publicBytecodeCommitment, packedBytecode } =
     await getContractClassFromArtifact(artifact);
-  const encodedBytecode = bufferAsFields(packedBytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
   const registerer = await getRegistererContract(wallet);
-  await wallet.storeCapsule(
-    AztecAddress.fromNumber(REGISTERER_CONTRACT_ADDRESS),
-    new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
-    encodedBytecode,
+  const fn = registerer.methods.register(
+    artifactHash,
+    privateFunctionsRoot,
+    publicBytecodeCommitment,
+    emitPublicBytecode,
   );
-  return registerer.methods.register(artifactHash, privateFunctionsRoot, publicBytecodeCommitment, emitPublicBytecode);
+
+  const encodedBytecode = bufferAsFields(packedBytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
+  fn.addCapsule(
+    new Capsule(
+      ProtocolContractAddress.ContractClassRegisterer,
+      new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
+      encodedBytecode,
+    ),
+  );
+
+  return fn;
 }

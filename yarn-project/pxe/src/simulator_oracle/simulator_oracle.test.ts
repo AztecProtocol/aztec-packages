@@ -552,7 +552,7 @@ describe('Simulator oracle', () => {
       const contractArtifact = randomContractArtifact();
       contractArtifact.functions = [processLogFuncArtifact];
       await database.addContractInstance(contractInstance);
-      await database.addContractArtifact(contractInstance.contractClassId, contractArtifact);
+      await database.addContractArtifact(contractInstance.currentContractClassId, contractArtifact);
       contractAddress = contractInstance.address;
 
       addNotesSpy = jest.spyOn(database, 'addNotes');
@@ -653,7 +653,12 @@ describe('Simulator oracle', () => {
 
       // We test that a call to `processLog` is made with the correct function artifact and contract address
       expect(runUnconstrainedSpy).toHaveBeenCalledTimes(3);
-      expect(runUnconstrainedSpy).toHaveBeenCalledWith(expect.anything(), processLogFuncArtifact, contractAddress, []);
+      expect(runUnconstrainedSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        contractAddress,
+        await FunctionSelector.fromNameAndParameters(processLogFuncArtifact.name, processLogFuncArtifact.parameters),
+        [],
+      );
     }, 30_000);
 
     it('should not store notes that do not belong to us', async () => {

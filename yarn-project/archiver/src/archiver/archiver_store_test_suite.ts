@@ -281,7 +281,11 @@ export function describeArchiverDataStore(
       const blockNum = 10;
 
       beforeEach(async () => {
-        const randomInstance = await SerializableContractInstance.random();
+        const classId = Fr.random();
+        const randomInstance = await SerializableContractInstance.random({
+          currentContractClassId: classId,
+          originalContractClassId: classId,
+        });
         contractInstance = { ...randomInstance, address: await AztecAddress.random() };
         await store.addContractInstances([contractInstance], blockNum);
       });

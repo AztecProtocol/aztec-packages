@@ -1,5 +1,4 @@
-use crate::utils::array;
-use dep::protocol_types::traits::Packable;
+use crate::{traits::{Empty, Packable}, utils::arrays};
 use std::cmp::min;
 
 mod test;
@@ -9,7 +8,7 @@ mod test;
 // of change after some minimum delay measured in blocks has elapsed. This means that at any given block number we know
 // both the current value and the smallest block number at which the value might change - this is called the
 // 'block horizon'.
-pub(crate) struct ScheduledValueChange<T> {
+pub struct ScheduledValueChange<T> {
     pre: T,
     post: T,
     // Block at which `post` value is used instead of `pre`
@@ -17,7 +16,7 @@ pub(crate) struct ScheduledValueChange<T> {
 }
 
 impl<T> ScheduledValueChange<T> {
-    pub(crate) fn new(pre: T, post: T, block_of_change: u32) -> Self {
+    pub fn new(pre: T, post: T, block_of_change: u32) -> Self {
         Self { pre, post, block_of_change }
     }
 
@@ -27,7 +26,7 @@ impl<T> ScheduledValueChange<T> {
     /// to construct the proof).
     /// Reading in private is only safe if the transaction's `max_block_number` property is set to a value lower or
     /// equal to the block horizon (see `get_block_horizon()`).
-    pub(crate) fn get_current_at(self, block_number: u32) -> T {
+    pub fn get_current_at(self, block_number: u32) -> T {
         // The post value becomes the current one at the block of change. This means different things in each realm:
         // - in public, any transaction that is included in the block of change will use the post value
         // - in private, any transaction that includes the block of change as part of the historical state will use the
@@ -42,8 +41,14 @@ impl<T> ScheduledValueChange<T> {
     /// Returns the scheduled change, i.e. the post-change value and the block at which it will become the current
     /// value. Note that this block may be in the past if the change has already taken place.
     /// Additionally, further changes might be later scheduled, potentially canceling the one returned by this function.
-    pub(crate) fn get_scheduled(self) -> (T, u32) {
+    pub fn get_scheduled(self) -> (T, u32) {
         (self.post, self.block_of_change)
+    }
+
+    // Returns the previous value. This is the value that is current up until the block of change. Note that this value
+    // might not be the current anymore since block of change might have already passed.
+    pub fn get_previous(self) -> (T, u32) {
+        (self.pre, self.block_of_change)
     }
 
     /// Returns the largest block number at which the value returned by `get_current_at` is known to remain the current
@@ -57,7 +62,7 @@ impl<T> ScheduledValueChange<T> {
     /// The value returned by `get_current_at` in private when called with a historical block number is only safe to use
     /// if the transaction's `max_block_number` property is set to a value lower or equal to the block horizon computed
     /// using the same historical block number.
-    pub(crate) fn get_block_horizon(self, historical_block_number: u32, minimum_delay: u32) -> u32 {
+    pub fn get_block_horizon(self, historical_block_number: u32, minimum_delay: u32) -> u32 {
         // The block horizon is the very last block in which the current value is known. Any block past the horizon
         // (i.e. with a block number larger than the block horizon) may have a different current value. Reading the
         // current value in private typically requires constraining the maximum valid block number to be equal to the
@@ -119,7 +124,7 @@ impl<T> ScheduledValueChange<T> {
 
     /// Mutates the value by scheduling a change at the current block number. This function is only meaningful when
     /// called in public with the current block number.
-    pub(crate) fn schedule_change(
+    pub fn schedule_change(
         &mut self,
         new_value: T,
         current_block_number: u32,
@@ -154,8 +159,8 @@ where
 
     fn unpack(input: [Field; 2 * N + 1]) -> Self {
         Self {
-            pre: T::unpack(array::subarray(input, 0)),
-            post: T::unpack(array::subarray(input, N)),
+            pre: T::unpack(arrays::subarray(input, 0)),
+            post: T::unpack(arrays::subarray(input, N)),
             block_of_change: input[2 * N] as u32,
         }
     }
@@ -169,5 +174,14 @@ where
         (self.pre == other.pre)
             & (self.post == other.post)
             & (self.block_of_change == other.block_of_change)
+    }
+}
+
+impl<T> Empty for ScheduledValueChange<T>
+where
+    T: Empty,
+{
+    fn empty() -> Self {
+        Self { pre: T::empty(), post: T::empty(), block_of_change: 0 }
     }
 }

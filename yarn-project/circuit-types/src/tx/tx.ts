@@ -200,17 +200,13 @@ export class Tx extends Gossipable {
       size: this.toBuffer().length,
 
       feePaymentMethod:
-        // needsTeardown? then we pay a fee
-        this.data.forPublic?.needsTeardown
-          ? // needsSetup? then we pay through a fee payment contract
-            this.data.forPublic?.needsSetup
-            ? // if the first call is to `approve_public_authwit`, then it's a public payment
-              this.data.getNonRevertiblePublicCallRequests().at(-1)!.functionSelector.toField().toBigInt() ===
-              0x43417bb1n
-              ? 'fpc_public'
-              : 'fpc_private'
-            : 'fee_juice'
-          : 'none',
+        // needsSetup? then we pay through a fee payment contract
+        this.data.forPublic?.needsSetup
+          ? // if the first call is to `approve_public_authwit`, then it's a public payment
+            this.data.getNonRevertiblePublicCallRequests().at(-1)!.functionSelector.toField().toBigInt() === 0x43417bb1n
+            ? 'fpc_public'
+            : 'fpc_private'
+          : 'fee_juice',
       classRegisteredCount: this.contractClassLogs.unrollLogs().length,
       contractClassLogSize: this.contractClassLogs.getSerializedLength(),
     };

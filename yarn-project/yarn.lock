@@ -238,7 +238,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/aztec@workspace:aztec":
+"@aztec/aztec@workspace:^, @aztec/aztec@workspace:aztec":
   version: 0.0.0-use.local
   resolution: "@aztec/aztec@workspace:aztec"
   dependencies:
@@ -271,6 +271,7 @@ __metadata:
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/txe": "workspace:^"
     "@aztec/types": "workspace:^"
+    "@aztec/world-state": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@types/chalk": "npm:^2.2.0"
     "@types/jest": "npm:^29.5.0"
@@ -425,6 +426,7 @@ __metadata:
     "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/entrypoints": "workspace:^"
+    "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
@@ -566,6 +568,7 @@ __metadata:
     "@aztec/l1-artifacts": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/types": "workspace:^"
+    "@aztec/world-state": "workspace:^"
     "@iarna/toml": "npm:^2.2.5"
     "@jest/globals": "npm:^29.5.0"
     "@libp2p/peer-id-factory": "npm:^3.0.4"
@@ -631,6 +634,7 @@ __metadata:
     0x: "npm:^5.7.0"
     "@aztec/accounts": "workspace:^"
     "@aztec/archiver": "workspace:^"
+    "@aztec/aztec": "workspace:^"
     "@aztec/aztec-node": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
@@ -1514,6 +1518,7 @@ __metadata:
     "@aztec/kv-store": "workspace:^"
     "@aztec/merkle-tree": "workspace:^"
     "@aztec/native": "workspace:^"
+    "@aztec/protocol-contracts": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": "npm:^29.5.0"

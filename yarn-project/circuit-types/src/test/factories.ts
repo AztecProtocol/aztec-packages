@@ -2,6 +2,7 @@ import {
   AvmCircuitInputs,
   AvmCircuitPublicInputs,
   AvmExecutionHints,
+  AztecAddress,
   type BlockHeader,
   Fr,
   Gas,
@@ -42,6 +43,8 @@ export async function makeBloatedProcessedTx({
   vkTreeRoot = Fr.ZERO,
   protocolContractTreeRoot = Fr.ZERO,
   globalVariables = GlobalVariables.empty(),
+  feePayer,
+  feePaymentPublicDataWrite,
   privateOnly = false,
 }: {
   seed?: number;
@@ -53,10 +56,13 @@ export async function makeBloatedProcessedTx({
   vkTreeRoot?: Fr;
   globalVariables?: GlobalVariables;
   protocolContractTreeRoot?: Fr;
+  feePayer?: AztecAddress;
+  feePaymentPublicDataWrite?: PublicDataWrite;
   privateOnly?: boolean;
 } = {}) {
   seed *= 0x1000; // Avoid clashing with the previous mock values if seed only increases by 1.
   header ??= db?.getInitialHeader() ?? makeHeader(seed);
+  feePayer ??= await AztecAddress.random();
 
   const txConstantData = TxConstantData.empty();
   txConstantData.historicalHeader = header;
@@ -67,8 +73,12 @@ export async function makeBloatedProcessedTx({
   txConstantData.protocolContractTreeRoot = protocolContractTreeRoot;
 
   const tx = !privateOnly
-    ? await mockTx(seed)
-    : await mockTx(seed, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 });
+    ? await mockTx(seed, { feePayer })
+    : await mockTx(seed, {
+        numberOfNonRevertiblePublicCallRequests: 0,
+        numberOfRevertiblePublicCallRequests: 0,
+        feePayer,
+      });
   tx.data.constants = txConstantData;
 
   // No side effects were created in mockTx. The default gasUsed is the tx overhead.
@@ -78,17 +88,13 @@ export async function makeBloatedProcessedTx({
     const data = makePrivateToRollupAccumulatedData(seed + 0x1000);
 
     const transactionFee = tx.data.gasUsed.computeFee(globalVariables.gasFees);
+    feePaymentPublicDataWrite ??= new PublicDataWrite(Fr.random(), Fr.random());
 
     clearLogs(data);
 
     tx.data.forRollup!.end = data;
 
-    return makeProcessedTxFromPrivateOnlyTx(
-      tx,
-      transactionFee,
-      undefined /* feePaymentPublicDataWrite */,
-      globalVariables,
-    );
+    return makeProcessedTxFromPrivateOnlyTx(tx, transactionFee, feePaymentPublicDataWrite, globalVariables);
   } else {
     const nonRevertibleData = tx.data.forPublic!.nonRevertibleAccumulatedData;
     const revertibleData = makePrivateToPublicAccumulatedData(seed + 0x1000);

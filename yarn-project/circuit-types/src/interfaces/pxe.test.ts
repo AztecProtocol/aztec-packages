@@ -76,7 +76,8 @@ describe('PXESchema', () => {
     address = await AztecAddress.random();
     instance = {
       version: 1,
-      contractClassId: Fr.random(),
+      currentContractClassId: Fr.random(),
+      originalContractClassId: Fr.random(),
       deployer: await AztecAddress.random(),
       initializationHash: Fr.random(),
       publicKeys: await PublicKeys.random(),
@@ -144,6 +145,10 @@ describe('PXESchema', () => {
 
   it('registerContract', async () => {
     await context.client.registerContract({ instance, artifact });
+  });
+
+  it('updateContract', async () => {
+    await context.client.updateContract(instance.address, artifact);
   });
 
   it('getContracts', async () => {
@@ -382,6 +387,10 @@ class MockPXE implements PXE {
   }): Promise<void> {
     expect(contract.instance).toEqual(this.instance);
     deepStrictEqual(contract.artifact, this.artifact);
+    return Promise.resolve();
+  }
+  updateContract(contractAddress: AztecAddress, _artifact: ContractArtifact): Promise<void> {
+    expect(contractAddress).toEqual(this.address);
     return Promise.resolve();
   }
   getContracts(): Promise<AztecAddress[]> {

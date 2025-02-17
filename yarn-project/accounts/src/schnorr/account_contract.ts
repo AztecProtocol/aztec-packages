@@ -1,5 +1,7 @@
+import { getAccountContractAddress } from '@aztec/aztec.js';
 import { type AuthWitnessProvider } from '@aztec/aztec.js/account';
 import { AuthWitness, type CompleteAddress, type GrumpkinScalar } from '@aztec/circuit-types';
+import { deriveSigningKey } from '@aztec/circuits.js/keys';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { Schnorr } from '@aztec/foundation/crypto';
 import { type Fr } from '@aztec/foundation/fields';
@@ -35,4 +37,16 @@ class SchnorrAuthWitnessProvider implements AuthWitnessProvider {
     const signature = await schnorr.constructSignature(messageHash.toBuffer(), this.signingPrivateKey);
     return new AuthWitness(messageHash, [...signature.toBuffer()]);
   }
+}
+
+/**
+ * Compute the address of a schnorr account contract.
+ * @param secret - A seed for deriving the signing key and public keys.
+ * @param salt - The contract address salt.
+ * @param signingPrivateKey - A specific signing private key that's not derived from the secret.
+ */
+export async function getSchnorrAccountContractAddress(secret: Fr, salt: Fr, signingPrivateKey?: GrumpkinScalar) {
+  const signingKey = signingPrivateKey ?? deriveSigningKey(secret);
+  const accountContract = new SchnorrAccountContract(signingKey);
+  return await getAccountContractAddress(accountContract, secret, salt);
 }

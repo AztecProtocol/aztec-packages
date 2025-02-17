@@ -1,9 +1,8 @@
-use crate::state_vars::shared_mutable::{
+use crate::{hash::poseidon2_hash, traits::{Hash, Packable}, utils::arrays::{self, array_concat}};
+use super::{
     scheduled_delay_change::{SCHEDULED_DELAY_CHANGE_PCKD_LEN, ScheduledDelayChange},
     scheduled_value_change::ScheduledValueChange,
 };
-use crate::utils::array;
-use dep::protocol_types::{traits::Packable, utils::arrays::array_concat};
 use std::meta::derive;
 
 /// SharedMutableValues is just a wrapper around ScheduledValueChange and ScheduledDelayChange that then allows us
@@ -14,16 +13,13 @@ use std::meta::derive;
 /// reason we expose `get_delay_change_storage_slot` and `get_value_change_storage_slot` which point to the correct
 /// location in the storage. This is "hacky" as we pack and store the values together but there is no way around it.
 #[derive(Eq)]
-pub(crate) struct SharedMutableValues<T, let INITIAL_DELAY: u32> {
-    svc: ScheduledValueChange<T>,
-    sdc: ScheduledDelayChange<INITIAL_DELAY>,
+pub struct SharedMutableValues<T, let INITIAL_DELAY: u32> {
+    pub svc: ScheduledValueChange<T>,
+    pub sdc: ScheduledDelayChange<INITIAL_DELAY>,
 }
 
 impl<T, let INITIAL_DELAY: u32> SharedMutableValues<T, INITIAL_DELAY> {
-    pub(crate) fn new(
-        svc: ScheduledValueChange<T>,
-        sdc: ScheduledDelayChange<INITIAL_DELAY>,
-    ) -> Self {
+    pub fn new(svc: ScheduledValueChange<T>, sdc: ScheduledDelayChange<INITIAL_DELAY>) -> Self {
         SharedMutableValues { svc, sdc }
     }
 
@@ -48,8 +44,17 @@ where
 
     fn unpack(fields: [Field; 2 * N + 1 + SCHEDULED_DELAY_CHANGE_PCKD_LEN]) -> Self {
         SharedMutableValues {
-            sdc: Packable::unpack(array::subarray(fields, 0)),
-            svc: Packable::unpack(array::subarray(fields, SCHEDULED_DELAY_CHANGE_PCKD_LEN)),
+            sdc: Packable::unpack(arrays::subarray(fields, 0)),
+            svc: Packable::unpack(arrays::subarray(fields, SCHEDULED_DELAY_CHANGE_PCKD_LEN)),
         }
+    }
+}
+
+impl<T, let INITIAL_DELAY: u32, let N: u32> Hash for SharedMutableValues<T, INITIAL_DELAY>
+where
+    T: Packable<N>,
+{
+    fn hash(self) -> Field {
+        poseidon2_hash(self.pack())
     }
 }
