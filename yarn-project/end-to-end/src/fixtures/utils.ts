@@ -27,7 +27,6 @@ import {
   createPXEClient,
   deployL1Contracts,
   makeFetch,
-  sleep,
   waitForPXE,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
@@ -550,8 +549,6 @@ export async function setup(
   if (!config.skipProtocolContracts) {
     logger.verbose('Setting up Fee Juice...');
     await setupCanonicalFeeJuice(pxe);
-    // TODO: https://github.com/AztecProtocol/aztec-packages/issues/12045
-    await sleep(1000);
   }
 
   const accountManagers = await deployFundedSchnorrAccounts(pxe, initialFundedAccounts.slice(0, numberOfAccounts));
