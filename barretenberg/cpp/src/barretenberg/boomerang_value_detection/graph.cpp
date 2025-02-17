@@ -9,11 +9,40 @@ using namespace bb;
 namespace cdg {
 
 /**
- * @brief this method removes duplicate variables from a gate,
- * converts variables from a gate to real variables, and then
- * updates variable gates count for real variable indexes
+ * @brief this method finds index of the block in circuit builder by comparing pointers to blocks
+ * @tparam FF field type
+ * @param ultra_builder circuit builder containing the blocks
+ * @param block block to find
+ * @return size_t index of the found block
  */
+template <typename FF>
+size_t Graph_<FF>::find_block_index(UltraCircuitBuilder& ultra_builder, const UltraBlock& block) {
+    auto gate_blocks = ultra_circuit_constructor.blocks.get_gate_blocks(); 
+    size_t index = 0;
+    for (size_t i = 0; i < gate_blocks.size(); i++) {
+        if ((void*)(&gate_blocks[i]) == (void*)(&block)) {
+            index = i;
+            break;
+        }
+    }
+    return index;
+}
 
+
+/**
+ * @brief this method processes variables from a gate by removing duplicates and updating tracking structures
+ * @tparam FF field type
+ * @param ultra_circuit_builder circuit builder containing the variables
+ * @param gate_variables vector of variables to process
+ * @param gate_index index of the current gate
+ * @param block_idx index of the current block
+ * @details The method performs several operations:
+ *          1) Removes duplicate variables from the input vector
+ *          2) Converts each variable to its real index using to_real
+ *          3) Creates key-value pairs of (variable_index, block_index) for tracking
+ *          4) Updates variable_gates map with gate indices for each variable
+ *          5) Increments the gate count for each processed variable
+ */
 template <typename FF>
 inline void Graph_<FF>::process_gate_variables(UltraCircuitBuilder& ultra_circuit_builder,
                                                std::vector<uint32_t>& gate_variables,
@@ -37,13 +66,16 @@ inline void Graph_<FF>::process_gate_variables(UltraCircuitBuilder& ultra_circui
 }
 
 /**
- * @brief this method implements connected components from arithmetic gates
- * @tparam FF
- * @param ultra_circuit_builder
- * @param index
- * @return std::vector<uint32_t>
+ * @brief this method creates connected components from arithmetic gates
+ * @tparam FF field type
+ * @param ultra_circuit_builder circuit builder containing the gates
+ * @param index index of the current gate
+ * @param block_idx index of the current block
+ * @param blk block containing the gates
+ * @return std::vector<std::vector<uint32_t>> vector of connected components from the gate and minigate
+ * @details Processes both regular arithmetic gates and minigates, handling fixed witness gates
+ *          and different arithmetic operations based on selector values
  */
-
 template <typename FF>
 inline std::vector<std::vector<uint32_t>> Graph_<FF>::get_arithmetic_gate_connected_component(
     bb::UltraCircuitBuilder& ultra_circuit_builder, size_t index, size_t block_idx, UltraBlock& blk)
@@ -116,12 +148,15 @@ inline std::vector<std::vector<uint32_t>> Graph_<FF>::get_arithmetic_gate_connec
 
 /**
  * @brief this method creates connected components from elliptic gates
- * @tparam FF
- * @param ultra_circuit_builder
- * @param index
- * @return std::vector<uint32_t>
+ * @tparam FF field type
+ * @param ultra_circuit_builder circuit builder containing the gates
+ * @param index index of the current gate
+ * @param block_idx index of the current block
+ * @param blk block containing the gates
+ * @return std::vector<uint32_t> vector of connected variables from the gate
+ * @details Handles both elliptic curve addition and doubling operations,
+ *          collecting variables from current and next gates as needed
  */
-
 template <typename FF>
 inline std::vector<uint32_t> Graph_<FF>::get_elliptic_gate_connected_component(
     bb::UltraCircuitBuilder& ultra_circuit_builder, size_t index, size_t block_idx, UltraBlock& blk)
@@ -155,13 +190,15 @@ inline std::vector<uint32_t> Graph_<FF>::get_elliptic_gate_connected_component(
 
 /**
  * @brief this method creates connected components from sorted constraints
- *
- * @tparam FF
- * @param ultra_circuit_builder
- * @param index
- * @return std::vector<uint32_t>
+ * @tparam FF field type
+ * @param ultra_circuit_builder circuit builder containing the gates
+ * @param index index of the current gate
+ * @param block_idx index of the current block
+ * @param block block containing the gates
+ * @return std::vector<uint32_t> vector of connected variables from the gate
+ * @details Processes delta range constraints by collecting all wire indices
+ *          from the current gate
  */
-
 template <typename FF>
 inline std::vector<uint32_t> Graph_<FF>::get_sort_constraint_connected_component(
     bb::UltraCircuitBuilder& ultra_circuit_builder, size_t index, size_t blk_idx, UltraBlock& block)
@@ -180,13 +217,15 @@ inline std::vector<uint32_t> Graph_<FF>::get_sort_constraint_connected_component
 
 /**
  * @brief this method creates connected components from plookup gates
- *
- * @tparam FF
- * @param ultra_circuit_builder
- * @param index
- * @return std::vector<uint32_t>
+ * @tparam FF field type
+ * @param ultra_circuit_builder circuit builder containing the gates
+ * @param index index of the current gate
+ * @param block_idx index of the current block
+ * @param block block containing the gates
+ * @return std::vector<uint32_t> vector of connected variables from the gate
+ * @details Processes plookup gates by collecting variables based on selector values,
+ *          including variables from the next gate when necessary
  */
-
 template <typename FF>
 inline std::vector<uint32_t> Graph_<FF>::get_plookup_gate_connected_component(
     bb::UltraCircuitBuilder& ultra_circuit_builder, size_t index, size_t blk_idx, UltraBlock& block)
@@ -221,6 +260,15 @@ inline std::vector<uint32_t> Graph_<FF>::get_plookup_gate_connected_component(
     return gate_variables;
 }
 
+/**
+ * @brief this method creates connected components from poseidon2 gates
+ * @tparam FF field type
+ * @param ultra_circuit_builder circuit builder containing the gates
+ * @param index index of the current gate
+ * @param blk_idx index of the current block
+ * @param block block containing the gates
+ * @return std::vector<uint32_t> vector of connected variables from the gate
+ */
 template <typename FF>
 inline std::vector<uint32_t> Graph_<FF>::get_poseido2s_gate_connected_component(
     bb::UltraCircuitBuilder& ultra_circuit_builder, size_t index, size_t blk_idx, UltraBlock& block)
@@ -241,6 +289,16 @@ inline std::vector<uint32_t> Graph_<FF>::get_poseido2s_gate_connected_component(
     return gate_variables;
 }
 
+/**
+ * @brief this method creates connected components from auxiliary gates, including bigfield operations,
+ *        RAM and ROM consistency checks
+ * @tparam FF field type
+ * @param ultra_builder circuit builder containing the gates
+ * @param index index of the current gate
+ * @param blk_idx index of the current block
+ * @param block block containing the gates
+ * @return std::vector<uint32_t> vector of connected variables from the gate
+ */
 template <typename FF>
 inline std::vector<uint32_t> Graph_<FF>::get_auxiliary_gate_connected_component(bb::UltraCircuitBuilder& ultra_builder,
                                                                                 size_t index, size_t blk_idx, UltraBlock& block)
@@ -362,13 +420,20 @@ inline std::vector<uint32_t> Graph_<FF>::get_auxiliary_gate_connected_component(
     return gate_variables;
 }
 
-
-
+/**
+ * @brief this method gets the ROM table connected component by processing ROM transcript records
+ * @tparam FF field type
+ * @param ultra_builder circuit builder containing the gates
+ * @param rom_array ROM transcript containing records with witness indices and gate information
+ * @return std::vector<uint32_t> vector of connected variables from ROM table gates
+ */
 template <typename FF>
 inline std::vector<uint32_t> Graph_<FF>::get_rom_table_connected_component(
     bb::UltraCircuitBuilder& ultra_builder, const UltraCircuitBuilder::RomTranscript& rom_array)
 {
-    size_t block_index = 3;
+    size_t block_index = find_block_index(ultra_builder, ultra_builder.blocks.aux);
+    ASSERT(block_index == 3);
+
     // Every RomTranscript data structure has 2 main components that are interested for static analyzer:
     // 1) records contains values that were put in the gate, we can use them to create connections between variables
     // 2) states contains values witness indexes that we can find in the ROM record in the RomTrascript, so we can ignore
@@ -393,7 +458,7 @@ inline std::vector<uint32_t> Graph_<FF>::get_rom_table_connected_component(
         auto record_witness = record.record_witness;
 
         if (q_1 == 1 && q_m == 1 && q_2 == 0 && q_3 == 0 && q_4 == 0 && q_c == 0 && q_arith == 0) {
-            //By default RAM/ROM read gate uses variables (w_1, w_2, w_3, w_4) = (index_witness, vc1_witness, vc2_witness, record_witness)
+            //By default ROM read gate uses variables (w_1, w_2, w_3, w_4) = (index_witness, vc1_witness, vc2_witness, record_witness)
             //So we can update all of them 
             gate_variables.emplace_back(index_witness);
             if (vc1_witness != ultra_builder.zero_idx) {
@@ -414,11 +479,19 @@ inline std::vector<uint32_t> Graph_<FF>::get_rom_table_connected_component(
     return rom_table_variables;
 }
 
+/**
+ * @brief this method gets the RAM table connected component by processing RAM transcript records
+ * @tparam FF field type
+ * @param ultra_builder circuit builder containing the gates
+ * @param ram_array RAM transcript containing records with witness indices and gate information
+ * @return std::vector<uint32_t> vector of connected variables from RAM table gates
+ */
 template <typename FF>
 inline std::vector<uint32_t> Graph_<FF>::get_ram_table_connected_component(
     bb::UltraCircuitBuilder& ultra_builder, const UltraCircuitBuilder::RamTranscript& ram_array)
 {
-    size_t block_index = 3;
+    size_t block_index = find_block_index(ultra_builder, ultra_builder.blocks.aux);
+    ASSERT(block_index == 3);
     std::vector<uint32_t> ram_table_variables;
     for (const auto& record : ram_array.records) {
         std::vector<uint32_t> gate_variables;
@@ -438,7 +511,7 @@ inline std::vector<uint32_t> Graph_<FF>::get_ram_table_connected_component(
         auto record_witness = record.record_witness;
 
         if (q_1 == 1 && q_m == 1 && q_2 == 0 && q_3 == 0 && q_4 == 0 && q_arith == 0 && (q_c == 0 || q_c == 1)) {
-            //By default RAM/ROM read gate uses variables (w_1, w_2, w_3, w_4) = (index_witness, timestamp_witness, value_witness, record_witness)
+            //By default RAM read/write gate uses variables (w_1, w_2, w_3, w_4) = (index_witness, timestamp_witness, value_witness, record_witness)
             //So we can update all of them 
             gate_variables.emplace_back(index_witness);
             if (timestamp_witness != ultra_builder.zero_idx) {
@@ -459,11 +532,25 @@ inline std::vector<uint32_t> Graph_<FF>::get_ram_table_connected_component(
 
 /**
  * @brief Construct a new Graph from Ultra Circuit Builder
- * @tparam FF
- * @param ultra_circuit_constructor
+ * @tparam FF field type used in the circuit
+ * @param ultra_circuit_constructor circuit builder containing all gates and variables
+ * @details This constructor initializes the graph structure by:
+ *          1) Creating data structures for tracking:
+ *             - Number of gates each variable appears in (variables_gate_counts)
+ *             - Adjacency lists for each variable (variable_adjacency_lists)
+ *             - Degree of each variable (variables_degree)
+ *          2) Processing different types of gates:
+ *             - Arithmetic gates
+ *             - Elliptic curve gates
+ *             - Plookup gates
+ *             - Poseidon2 gates
+ *             - Auxiliary gates
+ *             - Delta range gates
+ *          3) Creating connections between variables that appear in the same gate
+ *          4) Special handling for sorted constraints in delta range blocks
  */
-
-template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit_constructor)
+template <typename FF> 
+Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit_constructor)
 {
     this->variables_gate_counts =
         std::unordered_map<uint32_t, size_t>(ultra_circuit_constructor.real_variable_index.size());
@@ -661,7 +748,7 @@ void Graph_<FF>::depth_first_search(const uint32_t& variable_index,
 /**
  * @brief this methond finds all connected components in the graph described by adjacency lists
  * @tparam FF
- * @return std::vector<std::vector<uint32_t>>
+ * @return std::vector<std::vector<uint32_t>> list of connected components where each component is a vector of variable indices
  */
 
 template <typename FF> std::vector<std::vector<uint32_t>> Graph_<FF>::find_connected_components()
@@ -745,8 +832,7 @@ inline size_t Graph_<FF>::process_current_decompose_chain(bb::UltraCircuitBuilde
 }
 
 /**
- * @brief this method gets the endpoints of the decompose chains. For that it has to clean variable_index
- from unnecessary variables for example, left, right, output wires and go through all decompose chain
+ * @brief this method removes unnecessary variables from decompose chains
  * @tparam FF
  * @param ultra_circuit_builder
  * @param variables_in_one_gate
@@ -796,7 +882,14 @@ inline void Graph_<FF>::remove_unnecessary_decompose_variables(bb::UltraCircuitB
     }
 }
 
-
+/**
+ * @brief this method removes variables from range constraints that are not security critical
+ * @tparam FF field type
+ * @param ultra_builder circuit builder containing the range lists
+ * @details Right now static analyzer removes two types of variables:
+ *          1) Variables from delta_range_constraints created by finalize_circuit()
+ *          2) Variables from range_constraints created by range_constraint_into_two_limbs
+ */
 template <typename FF>
 void Graph_<FF>::remove_unnecessary_range_constrains_variables(bb::UltraCircuitBuilder& ultra_builder) {    
     std::map<uint64_t, UltraCircuitBuilder::RangeList> range_lists = ultra_builder.range_lists;
@@ -999,12 +1092,11 @@ inline void Graph_<FF>::remove_unnecessary_plookup_variables(bb::UltraCircuitBui
     }
 }
 
-
 /**
  * @brief this method returns a final set of variables that were in one gate
  * @tparam FF
- * @param ultra_circuit_builder
- * @return std::unordered_set<uint32_t>
+ * @param ultra_circuit_builder circuit builder containing the variables
+ * @return std::unordered_set<uint32_t> set of variable indices
  */
 
 template <typename FF>
@@ -1038,12 +1130,10 @@ std::unordered_set<uint32_t> Graph_<FF>::show_variables_in_one_gate(bb::UltraCir
 }
 
 /**
- * @brief this method returns connected component with a given index and size of this component
- * sometimes for debugging we want to check the size one of the connected component, so it would be
- * useful to know its size
- * @param connected_components
- * @param index
- * @return std::pair<std::vector<uint32_t>, size_t>
+ * @brief this method returns connected component with a given index and its size
+ * @param connected_components vector of all connected components
+ * @param index index of required component
+ * @return std::pair<std::vector<uint32_t>, size_t> pair of component and its size
  */
 
 std::pair<std::vector<uint32_t>, size_t> get_connected_component_with_index(
@@ -1096,9 +1186,7 @@ template <typename FF> void Graph_<FF>::print_connected_components()
 }
 
 /**
- * @brief this method prints a number of gates for each variable.
- * while processing the arithmetic circuit, we count for each variable the number of gates it has participated in.
- * sometimes for debugging purposes it is useful to see how many gates each variable has participated in.
+ * @brief this method prints a number of gates for each variable
  * @tparam FF
  */
 
@@ -1110,10 +1198,7 @@ template <typename FF> void Graph_<FF>::print_variables_gate_counts()
 }
 
 /**
- * @brief this method prints a number of edges for each variable.
- * while processing the arithmetic circuit, we conut for each variable the number of edges, i.e. connections with other
- * variables though the gates. perhaps in the future counting the number of edges for each vertex can be useful for
- * analysis, and this function will be used for debugging.
+ * @brief this method prints a number of edges for each variable
  * @tparam FF
  */
 
