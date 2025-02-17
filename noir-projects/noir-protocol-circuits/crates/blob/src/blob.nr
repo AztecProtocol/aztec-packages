@@ -68,7 +68,7 @@ unconstrained fn __field_to_bignum_limbs(x: Field) -> [Field; 3] {
 // Only works for bignums with modulus larger than the BN Fr size (which is true
 // for the bls12-381 Fr field).
 fn field_to_bignum(x: Field) -> F {
-    /// Safety: we constrain the limbs below
+    // Safety: we constrain the limbs below
     let __x_limbs = unsafe { __field_to_bignum_limbs(x) };
 
     let mut check = __x_limbs[3 - 1];
@@ -219,7 +219,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
         //                    i=0
 
         let NUM_PARTIAL_SUMS = FIELDS_PER_BLOB / 8;
-        /// Safety: This sum is checked by the following `BigNum::evaluate_quadratic_expression` calls.
+        // Safety: This sum is checked by the following `BigNum::evaluate_quadratic_expression` calls.
         let partial_sums: [F; FIELDS_PER_BLOB / 8] =
             unsafe { __compute_partial_sums(fracs, ROOTS) };
 
@@ -303,7 +303,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
         // There's no need to jump through hoops to check partial sums if we don't need to constrain the result.
         // We can just calculate the final sum.
 
-        /// Safety: We're running under the condition that `std::runtime::is_unconstrained()` is true.
+        // Safety: We're running under the condition that `std::runtime::is_unconstrained()` is true.
         unsafe {
             __compute_sum(fracs, ROOTS)
         }
@@ -328,8 +328,8 @@ fn compute_factor(z: F) -> F {
 
     let z_pow_d = t;
 
-    /// Safety: We immediately check that this result is correct in the following
-    /// `BigNum::evaluate_quadratic_expression` call.
+    // Safety: We immediately check that this result is correct in the following
+    // `BigNum::evaluate_quadratic_expression` call.
     let factor = unsafe { __compute_factor_helper(z_pow_d) };
 
     // (z_pow_d - one) * (D_INV) - factor = 0
@@ -381,8 +381,8 @@ unconstrained fn __compute_fracs(
 }
 
 fn compute_fracs(z: F, ys: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB] {
-    /// Safety: We immediately constrain these `fracs` to be correct in the following call
-    /// to `BigNum::evaluate_quadratic_expression`.
+    // Safety: We immediately constrain these `fracs` to be correct in the following call
+    // to `BigNum::evaluate_quadratic_expression`.
     let mut fracs: [F; FIELDS_PER_BLOB] = unsafe { __compute_fracs(z, ys, ROOTS) };
 
     if !std::runtime::is_unconstrained() {
@@ -726,7 +726,7 @@ mod tests {
         for i in 0..FIELDS_PER_BLOB {
             fields[i] = field_to_bignum(i as Field);
         }
-        /// Safety: this is a test
+        // Safety: this is a test
         unsafe {
             let partial_sums = __compute_partial_sums(fields, ROOTS);
             let sum = __compute_sum(fields, ROOTS);
