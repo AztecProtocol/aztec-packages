@@ -25,6 +25,7 @@
 #include "barretenberg/vm2/simulation/execution.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/raw_data_db.hpp"
+#include "barretenberg/vm2/simulation/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/sha256.hpp"
 #include "barretenberg/vm2/simulation/siloing.hpp"
 #include "barretenberg/vm2/simulation/tx_execution.hpp"
@@ -63,6 +64,8 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<SiloingEvent> siloing_emitter;
     typename S::template DefaultEventEmitter<Sha256CompressionEvent> sha256_compression_emitter;
     typename S::template DefaultEventEmitter<EccAddEvent> ecc_add_emitter;
+    typename S::template DefaultEventEmitter<Poseidon2HashEvent> poseidon2_hash_emitter;
+    typename S::template DefaultEventEmitter<Poseidon2PermutationEvent> poseidon2_perm_emitter;
 
     HintedRawDataDB db(inputs.hints);
     AddressDerivation address_derivation(address_derivation_emitter);
@@ -87,6 +90,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     TxExecution tx_execution(execution);
     Sha256 sha256(sha256_compression_emitter);
     Ecc ecc_add(ecc_add_emitter);
+    Poseidon2 poseidon2(poseidon2_hash_emitter, poseidon2_perm_emitter);
 
     tx_execution.simulate({ .enqueued_calls = inputs.enqueuedCalls });
 
@@ -103,7 +107,9 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
              class_id_derivation_emitter.dump_events(),
              siloing_emitter.dump_events(),
              sha256_compression_emitter.dump_events(),
-             ecc_add_emitter.dump_events() };
+             ecc_add_emitter.dump_events(),
+             poseidon2_hash_emitter.dump_events(),
+             poseidon2_perm_emitter.dump_events() };
 }
 
 EventsContainer AvmSimulationHelper::simulate()
