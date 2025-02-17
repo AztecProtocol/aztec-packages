@@ -20,6 +20,14 @@
 
 namespace cdg {
 
+/*
+ * we add a new feature for static analyzer, now it contains gates where it found every variable. This may be helpful, if we want to do functions that
+ * remove false-positive variables from the analyzer using selectors in the gate + some additional knowledge about this variable, for example, tau or range tags.
+ * this info contains in unordered map with key as std::pair<uint32_t, size_t>, where uint32_t -- real variable index and size_t -- index of UltraTraceBlock in 
+ * Reference Array with all TraceBlocks, that Ultra Circuit Builder contains inside. But there was a problem with unordered map -- it doesn't have default hash function and 
+ * function for checking equivalence for std::pair as a key, so we had to implement it ourselves. We decided to choose approach based on function hash_combine from boost library
+ * for C++, and it's not so difficult to hash 2 elements in pair and check their equivalence. 
+*/   
 using UltraBlock = bb::UltraCircuitBuilder::Arithmetization::UltraTraceBlock;
 using KeyPair = std::pair<uint32_t, size_t>;
 
@@ -153,7 +161,7 @@ template <typename FF> class Graph_ {
         variables_gate_counts; // we use this data structure to count, how many gates use every variable
     std::unordered_map<uint32_t, size_t>
         variables_degree; // we use this data structure to count, how many every variable have edges
-    std::unordered_map<KeyPair, std::vector<size_t>, KeyHasher, KeyEquals> variable_gates; //we use this data structure to store a pair of UltraTraceBlock and gate number in this block, where every variable was found in the circuit
+    std::unordered_map<KeyPair, std::vector<size_t>, KeyHasher, KeyEquals> variable_gates; //we use this data structure to store gates and TraceBlocks for every variables, where static analyzer found them in the circuit.
     std::unordered_set<uint32_t> variables_in_one_gate;
     std::unordered_set<uint32_t> fixed_variables;
 };
