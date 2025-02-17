@@ -45,9 +45,9 @@ images:
     pullPolicy: IfNotPresent
 
 aztec:
-  slotDuration: 24 # in seconds, aka L2 slot duration. Must be a multiple of {{ ethereum.blockTime }}
-  epochDuration: 16 # how many L2 slots in an epoch
-  epochProofClaimWindow: 13 # in L2 slots
+  slotDuration: 36 # in seconds, aka L2 slot duration. Must be a multiple of {{ ethereum.blockTime }}
+  epochDuration: 32 # how many L2 slots in an epoch
+  proofSubmissionWindow: 64 # in L2 slots, from the start of the epoch to be proven
   realProofs: false
   l1DeploymentMnemonic: "test test test test test test test test test test test junk" # the mnemonic used when deploying contracts
   # The derivation path of the calcualted private keys
@@ -80,7 +80,6 @@ bootNode:
   resources:
     requests:
       memory: "5Gi"
-      cpu: "1.5"
   maxOldSpaceSize: "4608"
   deployContracts: true # Set to false to use manual contract addresses
   startupProbe:
@@ -118,7 +117,6 @@ validator:
     minTxsPerBlock: 1
     maxTxsPerBlock: 4
     enforceTimeTable: true
-    enforceFees: false
   validator:
     disabled: false
     reexecute: true
@@ -132,7 +130,6 @@ validator:
   resources:
     requests:
       memory: "5Gi"
-      cpu: "1.5"
   maxOldSpaceSize: "4608"
   archiverPollingInterval: 1000
   archiverViemPollingInterval: 1000
@@ -165,7 +162,6 @@ proverNode:
   resources:
     requests:
       memory: "5Gi"
-      cpu: "1.5"
   maxOldSpaceSize: "4608"
   archiverPollingInterval: 1000
   archiverViemPollingInterval: 1000
@@ -197,7 +193,6 @@ pxe:
   resources:
     requests:
       memory: "4Gi"
-      cpu: "1.5"
 
 bot:
   enabled: true
@@ -205,13 +200,14 @@ bot:
   logLevel: "debug; info: aztec:simulator, json-rpc"
   replicas: 1
   botPrivateKey: "0xcafe"
+  l1Mnemonic: "test test test test test test test test test test test junk"
   txIntervalSeconds: 24
   privateTransfersPerTx: 0
   publicTransfersPerTx: 1
   # Do not wait for transactions
   followChain: "NONE"
   botNoStart: false
-  feePaymentMethod: "none"
+  feePaymentMethod: "fee_juice"
   maxErrors: 3
   stopIfUnhealthy: true
   service:
@@ -228,7 +224,6 @@ bot:
   resources:
     requests:
       memory: "5Gi"
-      cpu: "1.5"
   maxOldSpaceSize: "4608"
 
 ethereum:
@@ -246,10 +241,11 @@ ethereum:
     service:
       port: 8545
       targetPort: 8545
+      wsPort: 8546
+      wsTargetPort: 8546
     resources:
       requests:
         memory: "4Gi"
-        cpu: "1.5"
     storageSize: "80Gi"
   beacon:
     externalHost: ""
@@ -261,16 +257,13 @@ ethereum:
     resources:
       requests:
         memory: "4Gi"
-        cpu: "1.5"
       limits:
         memory: "4Gi"
-        cpu: "1.5"
     storageSize: "80Gi"
   validator:
     resources:
       requests:
         memory: "4Gi"
-        cpu: "1"
     storageSize: "80Gi"
   readinessProbe:
     initialDelaySeconds: 5
@@ -295,7 +288,6 @@ proverAgent:
   resources:
     requests:
       memory: "5Gi"
-      cpu: "1.5"
   maxOldSpaceSize: "4608"
   pollInterval: 200
 
@@ -313,7 +305,6 @@ proverBroker:
   resources:
     requests:
       memory: "5Gi"
-      cpu: "1.5"
   maxOldSpaceSize: "4608"
 
 jobs:
@@ -322,6 +313,7 @@ jobs:
 
 blobSink:
   enabled: false
+  logLevel: "debug; info: aztec:simulator, json-rpc"
   replicas: 1
   service:
     nodePort: 5052
@@ -332,6 +324,7 @@ blobSink:
     dataDir: "/data"
     storageSize: "8Gi"
     dataStoreMapSize: "134217728" # 128 GB
+  resources:
 
 faucet:
   enabled: true

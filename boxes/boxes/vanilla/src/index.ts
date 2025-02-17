@@ -1,7 +1,12 @@
-import { createPXEClient, AccountManager, Fr, Wallet, deriveMasterIncomingViewingSecretKey } from '@aztec/aztec.js';
+import { Fr, Wallet, createPXEClient } from '@aztec/aztec.js';
 
-import { SingleKeyAccountContract } from '@aztec/accounts/single_key';
+import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import { VanillaContract } from '../artifacts/Vanilla';
+
+const pxe = createPXEClient(process.env.PXE_URL || 'http://localhost:8080');
+
+let contract: any = null;
+let wallet: Wallet | null = null;
 
 const setWait = (state: boolean): void =>
   document.querySelectorAll('*').forEach((e: HTMLElement & HTMLButtonElement) => {
@@ -9,13 +14,14 @@ const setWait = (state: boolean): void =>
     e.disabled = state;
   });
 
-let contract: any = null;
-let wallet: Wallet | null = null;
-let account: AccountManager = null;
-
 document.querySelector('#deploy').addEventListener('click', async ({ target }: any) => {
   setWait(true);
-  wallet = await account.register();
+
+  wallet = (await getDeployedTestAccountsWallets(pxe))[0];
+  if (!wallet) {
+    alert('Wallet not found. Please connect the app to a testing environment with deployed and funded test accounts.');
+  }
+
   contract = await VanillaContract.deploy(wallet, Fr.random(), wallet.getCompleteAddress().address)
     .send({ contractAddressSalt: Fr.random() })
     .deployed();
@@ -43,9 +49,4 @@ document.querySelector('#get').addEventListener('click', async () => {
   alert(`Number is: ${viewTxReceipt.value}`);
 });
 
-const secretKey = Fr.random();
-const pxe = createPXEClient(process.env.PXE_URL || 'http://localhost:8080');
-
-const encryptionPrivateKey = deriveMasterIncomingViewingSecretKey(secretKey);
-account = await AccountManager.create(pxe, secretKey, new SingleKeyAccountContract(encryptionPrivateKey));
 (document.querySelector('#deploy') as HTMLButtonElement).hidden = false;

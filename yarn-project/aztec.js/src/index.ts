@@ -28,7 +28,7 @@ export { createCompatibleClient, createPXEClient } from './rpc_clients/index.js'
 
 export { type AuthWitnessProvider } from './account/index.js';
 
-export { type AccountContract } from './account/index.js';
+export { type AccountContract, getAccountContractAddress } from './account/index.js';
 export { AccountManager, type DeployAccountOptions } from './account_manager/index.js';
 
 export { AccountWallet, AccountWalletWithSecretKey, SignerlessWallet, type Wallet } from './wallet/index.js';
@@ -36,8 +36,8 @@ export { AccountWallet, AccountWalletWithSecretKey, SignerlessWallet, type Walle
 // // TODO https://github.com/AztecProtocol/aztec-packages/issues/2632 --> FunctionSelector might not need to be exposed
 // // here once the issue is resolved.
 export {
-  ContractClassWithId,
-  ContractInstanceWithAddress,
+  type ContractClassWithId,
+  type ContractInstanceWithAddress,
   EthAddress,
   Fq,
   Fr,
@@ -46,7 +46,7 @@ export {
   GlobalVariables,
   GrumpkinScalar,
   INITIAL_L2_BLOCK_NUM,
-  NodeInfo,
+  type NodeInfo,
   Point,
   PublicKeys,
 } from '@aztec/circuits.js';
@@ -65,6 +65,7 @@ export { Grumpkin, Schnorr } from '@aztec/circuits.js/barretenberg';
 export {
   AuthWitness,
   Body,
+  Capsule,
   Comparator,
   ContractClass2BlockL2Logs,
   EncryptedLogPayload,

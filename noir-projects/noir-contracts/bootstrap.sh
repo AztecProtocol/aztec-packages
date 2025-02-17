@@ -2,15 +2,16 @@
 # Some notes if you have to work on this script.
 # - First of all, I'm sorry. It's a beautiful script but it's no fun to debug. I got carried away.
 # - You can enable BUILD_SYSTEM_DEBUG=1 but the output is quite verbose that it's not much use by default.
-# - You can call ./bootstrap.sh build <package name> to compile and process a single contract.
-# - You can disable further parallelism by setting PARALLELISM=1.
+# - This flag however, isn't carried into exported functions. You need to do "set -x" in those functions manually.
+# - You can call ./bootstrap.sh compile <package name> to compile and process a single contract.
+# - You can disable further parallelism by setting passing 1 as arg to 'parallelise' and with PARALLELISM=1.
 # - The exported functions called by parallel must enable their own flags at the start e.g. set -euo pipefail
 # - The exported functions are using stdin/stdout, so be very careful about what's printed where.
 # - The exported functions need to have external variables they require, to have been exported first.
+# - You can't export bash arrays or maps to be used by external functions, only strings.
 # - If you want to echo something, send it to stderr e.g. echo_stderr "My debug"
 # - If you call another script, be sure it also doesn't output something you don't want.
-# - Note calls to cache scripts swallow everything with &> /dev/null.
-# - Local assignments with subshells don't propagate errors e.g. local capture=$(false). Declare locals separately.
+# - Local assignments with sub-shells don't propagate errors e.g. local capture=$(false). Declare locals separately.
 # - Just ask me (charlie) for guidance if you're suffering.
 # - I remain convinced we don't need node for these kinds of things, and we can be more performant/expressive with bash.
 # - We could perhaps make it less tricky to work with by leveraging more tempfiles and less stdin/stdout.
@@ -37,12 +38,8 @@ function on_exit() {
 trap on_exit EXIT
 mkdir -p $tmp_dir
 
-# Set flags for parallel
-export PARALLELISM=${PARALLELISM:-16}
-export PARALLEL_FLAGS="-j$PARALLELISM --halt now,fail=1"
-if [[ -n "${MEMSUSPEND-}" ]]; then
-  export PARALLEL_FLAGS="$PARALLEL_FLAGS --memsuspend $MEMSUSPEND"
-fi
+# Set common flags for parallel.
+export PARALLEL_FLAGS="-j${PARALLELISM:-16} --halt now,fail=1 --memsuspend ${MEMSUSPEND:-64G}"
 
 # This computes a vk and adds it to the input function json if it's private, else returns same input.
 # stdin has the function json.
@@ -75,11 +72,11 @@ function process_function() {
     # Build hash, check if in cache.
     # If it's in the cache it's extracted to $tmp_dir/$hash
     hash=$((echo "$BB_HASH"; echo "$bytecode_b64") | sha256sum | tr -d ' -')
-    if ! cache_download vk-$hash.tar.gz &> /dev/null; then
+    if ! cache_download vk-$hash.tar.gz; then
       # It's not in the cache. Generate the vk file and upload it to the cache.
       echo_stderr "Generating vk for function: $name..."
       echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk_for_ivc -b - -o $tmp_dir/$hash 2>/dev/null
-      cache_upload vk-$hash.tar.gz $tmp_dir/$hash &> /dev/null
+      cache_upload vk-$hash.tar.gz $tmp_dir/$hash
     fi
 
     # Return (echo) json containing the base64 encoded verification key.
@@ -91,6 +88,17 @@ function process_function() {
   fi
 }
 export -f process_function
+
+# Compute hash for a given contract.
+function get_contract_hash {
+  cache_content_hash \
+    ../../noir/.rebuild_patterns \
+    ../../avm-transpiler/.rebuild_patterns \
+    "^noir-projects/noir-contracts/contracts/$1/" \
+    "^noir-projects/aztec-nr/" \
+    "^noir-projects/noir-protocol-circuits/crates/types/"
+}
+export -f get_contract_hash
 
 # This compiles a noir contract, transpile's public functions, and generates vk's for private functions.
 # $1 is the input package name, and on exit it's fully processed json artifact is in the target dir.
@@ -104,17 +112,14 @@ function compile {
   contract_name=$(cat contracts/$1/src/main.nr | awk '/^contract / { print $2 } /^pub contract / { print $3 }')
   local filename="$contract-$contract_name.json"
   local json_path="./target/$filename"
-  contract_hash="$(cache_content_hash \
-    ../../noir/.rebuild_patterns \
-    ../../avm-transpiler/.rebuild_patterns \
-    "^noir-projects/noir-contracts/contracts/$contract/" \
-    "^noir-projects/noir-protocol-circuits/crates/types" \
-    "^noir-projects/aztec-nr/" \
-  )"
-  if ! cache_download contract-$contract_hash.tar.gz &> /dev/null; then
-    $NARGO compile --package $contract --inliner-aggressiveness 0
+  contract_hash=$(get_contract_hash $contract)
+  if ! cache_download contract-$contract_hash.tar.gz; then
+    if [ "${VERBOSE:-0}" -eq 0 ]; then
+      local args="--silence-warnings"
+    fi
+    $NARGO compile ${args:-} --package $contract --inliner-aggressiveness 0
     $TRANSPILER $json_path $json_path
-    cache_upload contract-$contract_hash.tar.gz $json_path &> /dev/null
+    cache_upload contract-$contract_hash.tar.gz $json_path
   fi
 
   # Pipe each contract function, one per line (jq -c), into parallel calls of process_function.
@@ -133,45 +138,44 @@ export -f compile
 # If given an argument, it's the contract to compile.
 # Otherwise parse out all relevant contracts from the root Nargo.toml and process them in parallel.
 function build {
-  if [ -n "${1:-}" ]; then
-    compile $1
-  else
-    set +e
-    echo_stderr "Compiling contracts (bb-hash: $BB_HASH)..."
-    grep -oP '(?<=contracts/)[^"]+' Nargo.toml | \
-      parallel $PARALLEL_FLAGS --joblog joblog.txt -v --line-buffer --tag compile {}
-    code=$?
-    cat joblog.txt
-    return $code
-  fi
+  set +e
+  rm -rf target
+  mkdir -p $tmp_dir
+  echo_stderr "Compiling contracts (bb-hash: $BB_HASH)..."
+  grep -oP '(?<=contracts/)[^"]+' Nargo.toml | \
+    parallel $PARALLEL_FLAGS --joblog joblog.txt -v --line-buffer --tag compile {}
+  code=$?
+  cat joblog.txt
+  return $code
 
   # For testing. Small parallel case.
   # echo -e "uniswap_contract\ncontract_class_registerer_contract" | parallel --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
 }
 
 function test_cmds {
+  local -A cache
   i=0
-  $NARGO test --list-tests | while read -r package test; do
-    # We assume there are 8 txe's running.
+  $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
     port=$((45730 + (i++ % ${NUM_TXES:-1})))
-    echo "noir-projects/scripts/run_test.sh noir-contracts $package $test $port"
+    [ -z "${cache[$package]:-}" ] && cache[$package]=$(get_contract_hash $package)
+    echo "${cache[$package]} noir-projects/scripts/run_test.sh noir-contracts $package $test $port"
   done
 }
 
 function test {
   # Starting txe servers with incrementing port numbers.
-  NUM_TXES=8
-  trap 'kill $(jobs -p)' EXIT
+  export NUM_TXES=8
+  trap 'kill $(jobs -p) &>/dev/null || true' EXIT
   for i in $(seq 0 $((NUM_TXES-1))); do
-    (cd $root/yarn-project/txe && LOG_LEVEL=silent TXE_PORT=$((45730 + i)) yarn start) &
+    (cd $root/yarn-project/txe && LOG_LEVEL=silent TXE_PORT=$((45730 + i)) yarn start) >/dev/null &
   done
   echo "Waiting for TXE's to start..."
   for i in $(seq 0 $((NUM_TXES-1))); do
       while ! nc -z 127.0.0.1 $((45730 + i)) &>/dev/null; do sleep 1; done
   done
 
-  echo "Starting test run..."
-  test_cmds | (cd $root; NARGO_FOREIGN_CALL_TIMEOUT=300000 parallel --bar $PARALLEL_FLAGS 'dump_fail {} >/dev/null')
+  export NARGO_FOREIGN_CALL_TIMEOUT=300000
+  test_cmds | filter_test_cmds | parallelise
 }
 
 case "$cmd" in
@@ -190,16 +194,14 @@ case "$cmd" in
     ;;
   "ci")
     build
+    test
     ;;
   "compile")
     shift
-    build $1
+    VERBOSE=1 compile $1
     ;;
-  "test")
-    test
-    ;;
-  "test-cmds")
-    test_cmds
+  test|test_cmds)
+    $cmd
     ;;
   *)
     echo_stderr "Unknown command: $cmd"

@@ -5,8 +5,6 @@ storage:
   localSsd: true
 
 aztec:
-  slotDuration: 36
-  epochDuration: 32
   realProofs: false
 
 telemetry:

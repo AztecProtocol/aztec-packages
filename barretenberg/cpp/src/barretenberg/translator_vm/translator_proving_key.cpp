@@ -40,13 +40,13 @@ void TranslatorProvingKey::compute_concatenated_polynomials()
         size_t i = index / concatenation_groups[0].size();
         // Get the index of the original polynomial
         size_t j = index % concatenation_groups[0].size();
-        auto& my_group = concatenation_groups[i];
+        auto& group = concatenation_groups[i];
         auto& current_target = targets[i];
 
         // Copy into appropriate position in the concatenated polynomial
         // We offset by start_index() as the first 0 is not physically represented for shiftable values
         for (size_t k = current_target.start_index(); k < MINI_CIRCUIT_SIZE; k++) {
-            current_target.at(j * MINI_CIRCUIT_SIZE + k) = my_group[j][k];
+            current_target.at(j * MINI_CIRCUIT_SIZE + k) = group[j][k];
         }
     };
     parallel_for(concatenation_groups.size() * concatenation_groups[0].size(), ordering_function);
@@ -61,12 +61,6 @@ void TranslatorProvingKey::compute_concatenated_polynomials_by_interleaving()
 {
     auto groups = proving_key->polynomials.get_groups_to_be_concatenated();
     auto concatenated_polynomials = proving_key->polynomials.get_concatenated();
-
-    // Targets have to be full-sized proving_key->polynomials. We can compute the mini circuit size from them by
-    // dividing by concatenation index
-    const size_t MINI_CIRCUIT_SIZE = concatenated_polynomials[0].size() / Flavor::CONCATENATION_GROUP_SIZE;
-    ASSERT(MINI_CIRCUIT_SIZE * Flavor::CONCATENATION_GROUP_SIZE == concatenated_polynomials[0].size());
-
     for (auto [concatenated, group] : zip_view(concatenated_polynomials, groups)) {
         interleave(group, concatenated);
     }
@@ -78,14 +72,12 @@ void TranslatorProvingKey::compute_concatenated_polynomials_by_interleaving()
 void TranslatorProvingKey::interleave(const RefVector<Polynomial>& group, Polynomial& result)
 {
 
-    const size_t group_size = group.size();
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1250): Initialise the group polynomials on their
-    // correct sizes so we could call group[0].size() here
-    const size_t group_polynomial_size = result.size() / group_size;
-    ASSERT(group_polynomial_size * group_size == result.size());
-    for (size_t j = group[0].start_index(); j < group_polynomial_size; j++) {
-        for (size_t k = 0; k < group_size; k++) {
-            result.at(j * group_size + k) = group[k][j];
+    const size_t num_polys_in_group = group.size();
+    // Ensure the result polynomial fits all the elements from the polynomials in the group
+    ASSERT(group[0].size() * num_polys_in_group <= result.size());
+    for (size_t j = group[0].start_index(); j < group[0].size(); j++) {
+        for (size_t k = 0; k < num_polys_in_group; k++) {
+            result.at(j * num_polys_in_group + k) = group[k][j];
         }
     }
 }
@@ -151,7 +143,7 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
     // ordered polynomials
     auto ordering_function = [&](size_t i) {
         // Get the group and the main target vector
-        auto my_group = concatenation_groups[i];
+        auto group = concatenation_groups[i];
         auto& current_vector = ordered_vectors_uint[i];
         current_vector.resize(full_circuit_size);
 
@@ -167,16 +159,16 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
             // Calculate the offset in the target vector
             auto current_offset = j * mini_circuit_dyadic_size;
             // For each element in the polynomial
-            for (size_t k = 0; k < mini_circuit_dyadic_size; k++) {
+            for (size_t k = group[j].start_index(); k < group[j].size(); k++) {
 
                 // Put it it the target polynomial
                 if ((current_offset + k) < free_space_before_runway) {
-                    current_vector[current_offset + k] = static_cast<uint32_t>(uint256_t(my_group[j][k]).data[0]);
+                    current_vector[current_offset + k] = static_cast<uint32_t>(uint256_t(group[j][k]).data[0]);
 
                     // Or in the extra one if there is no space left
                 } else {
                     extra_denominator_uint[extra_denominator_offset] =
-                        static_cast<uint32_t>(uint256_t(my_group[j][k]).data[0]);
+                        static_cast<uint32_t>(uint256_t(group[j][k]).data[0]);
                     extra_denominator_offset++;
                 }
             }

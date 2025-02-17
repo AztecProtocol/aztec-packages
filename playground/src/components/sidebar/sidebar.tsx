@@ -2,7 +2,7 @@ import { css } from "@emotion/react";
 import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import FormControl from "@mui/material/FormControl";
-import Select, { SelectChangeEvent } from "@mui/material/Select";
+import Select, { type SelectChangeEvent } from "@mui/material/Select";
 import { AztecEnv, AztecContext, WebLogger } from "../../aztecEnv";
 import { createStore } from "@aztec/kv-store/indexeddb";
 import { AccountWalletWithSecretKey, Fr, AztecAddress } from "@aztec/aztec.js";
