@@ -40,6 +40,10 @@ bool check_in_input_vector(const std::vector<field_t>& input_vector, const uint3
     return false;
 }
 
+/**
+ * @brief this test checks graph description for poseidon2 hash with random inputs
+ * The result is one connected component, and all output variables must be in one gate
+ */
 void test_poseidon2s_circuit(size_t num_inputs = 5)
 {
     auto builder = Builder();
@@ -64,6 +68,10 @@ void test_poseidon2s_circuit(size_t num_inputs = 5)
     }
 }
 
+/**
+ * @brief this test checks graph description for poseidon2 hash with byte array input
+ * The result is one connected component, and all output variables must be in one gate
+ */
 void test_poseidon2s_hash_byte_array(size_t num_inputs = 5) 
 {
     Builder builder;
@@ -86,6 +94,11 @@ void test_poseidon2s_hash_byte_array(size_t num_inputs = 5)
     }
 }
 
+/**
+ * @brief this test checks graph description for repeated poseidon2 hash operations
+ * The result is one connected component with repeated hashing of pairs,
+ * all output variables from each hash operation must be in one gate
+ */
 void test_poseidon2s_hash_repeated_pairs(size_t num_inputs = 5) 
 {
     Builder builder;
@@ -115,6 +128,11 @@ void test_poseidon2s_hash_repeated_pairs(size_t num_inputs = 5)
     }
 }
 
+/**
+ * @brief this test checks graph description for a single poseidon2 permutation
+ * The result is one connected component with no variables in one gate,
+ * as permutation connects all variables through its internal structure
+ */
 TEST(boomerang_poseidon2s, test_graph_for_poseidon2s_one_permutation)
 {
     std::array<field_t, Params::t> inputs;
@@ -135,6 +153,11 @@ TEST(boomerang_poseidon2s, test_graph_for_poseidon2s_one_permutation)
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
+/**
+ * @brief this test checks graph description for two separate poseidon2 permutations
+ * The result is two connected components (one for each permutation) with no variables in one gate,
+ * verifying that different input sets create separate components
+ */
 TEST(boomerang_poseidon2s, test_graph_for_poseidon2s_two_permutations)
 {
     // we want to check that 2 permutations for different inputs give different connected components
