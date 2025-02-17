@@ -126,10 +126,24 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
         quote {}
     };
 
+    // We get the typed expression of `from_field` here rather than directly inlining it in the quote
+    // with `FunctionSelector::from_field()`. Direct inlining would result in missing import warnings
+    // in the generated code (specifically, warnings that FromField trait is implemented but not in scope).
+    let from_field_trait = quote { protocol_types::traits::FromField }.as_trait_constraint();
+    let function_selector_typ =
+        quote { protocol_types::abis::function_selector::FunctionSelector }.as_type();
+
+    let from_field = function_selector_typ
+        .get_trait_impl(from_field_trait)
+        .unwrap()
+        .methods()
+        .filter(|m| m.name() == quote { from_field })[0]
+        .as_typed_expr();
+
     quote {
         pub fn $fn_name(self, $fn_parameters_list) -> $call_interface_name<$call_interface_generics> {
             $args
-            let selector = dep::aztec::protocol_types::abis::function_selector::FunctionSelector::from_field($fn_selector);
+            let selector = $from_field($fn_selector);
             $call_interface_name {
                 target_contract: self.target_contract,
                 selector,
