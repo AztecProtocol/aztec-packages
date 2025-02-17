@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739821139689,
+  "lastUpdate": 1739822776125,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "84741533+jewelofchaos9@users.noreply.github.com",
-            "name": "defkit",
-            "username": "jewelofchaos9"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "41464968895be2ae0bfc9a0a554a3b6824252fd4",
-          "message": "fix: smt_verification: negative bitvecs, changed gates indicies. acir_formal_proofs: noir-style signed division (#11649)\n\nThis pr fixes two issues in smt_verification and adds one feautre to\r\nacir_formal_proofs\r\n1) Previously negative values bitvectors were not parsed properly. \r\n2) Indices of selectors changed in ultra\r\n\r\nfor acir_formal_proofs added noir-style signed division, where first bit\r\nof number is sign of the number",
-          "timestamp": "2025-02-11T12:35:00Z",
-          "tree_id": "f622573a912af7b1cd93a2c200086a5df5b2ab3c",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/41464968895be2ae0bfc9a0a554a3b6824252fd4"
-        },
-        "date": 1739278298601,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19307.43151300004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16548.249767999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21099.177618999987,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18681.175658 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4203.424982999991,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3892.061372 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 85223.40698300001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 85223407000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14614.901879000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14614903000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3288873337,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3288873337 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 193111592,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 193111592 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3288,6 +3222,72 @@ window.BENCHMARK_DATA = {
             "value": 129281354,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 129281354 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jose@aztecprotocol.com",
+            "name": "José Pedro Sousa",
+            "username": "signorecello"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3c72eadf88e3e7c43b7d3f6506ca4969f77c0e13",
+          "message": "chore(bb): quick fix (#12054)\n\nQuickly adding an option so we can export the UltraKeccakHonk VK\r\n\r\nCo-authored-by: signorecello <outgoing@zkpedro.dev>\r\nCo-authored-by: Maddiaa <47148561+Maddiaa0@users.noreply.github.com>",
+          "timestamp": "2025-02-17T19:45:16Z",
+          "tree_id": "bdded036c0cfa8eec7355628e30ffb9f003c3841",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3c72eadf88e3e7c43b7d3f6506ca4969f77c0e13"
+        },
+        "date": 1739822768011,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18109.299859999963,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15951.714059 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18466.065640000124,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16090.914033999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3818.7827289998495,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3113.189872 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54638.387069,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54638386000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9698.016322,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9698020000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1819817622,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1819817622 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 131032834,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 131032834 ns\nthreads: 1"
           }
         ]
       }
