@@ -16,75 +16,10 @@ use types::{
 global LIMB_MAX: Field = 0x1000000000000000000000000000000; // 2^120
 global TWO_POW_56: u64 = 0x100000000000000; // u64 to aid integer only modulo in __field_to_bignum_limbs
 
-unconstrained fn __batch_invert_impl<let N: u32>(mut x: [F; N]) -> [F; N] {
-    let mut accumulator: F = BigNum::one();
-
-    let mut temporaries: [F; N] = std::mem::zeroed();
-    for i in 0..N {
-        temporaries[i] = accumulator;
-        if (x[i].__is_zero() == false) {
-            accumulator = accumulator.__mul(x[i]);
-        }
-    }
-
-    accumulator = accumulator.__invmod();
-    let mut T0: F = BigNum::zero();
-    for i in 0..N {
-        let idx = N - 1 - i;
-        if (x[idx].__is_zero() == false) {
-            T0 = accumulator.__mul(temporaries[idx]);
-            accumulator = accumulator.__mul(x[idx]);
-            x[idx] = T0;
-        }
-    }
-    x
-}
-
-// Taken from https://github.com/iAmMichaelConnor/blob-lib/blob/main/noir-circuits/blob/src/main.nr
-unconstrained fn __field_to_bignum_limbs(x: Field) -> [Field; 3] {
-    // Here we're taking advantage of truncating 64 bit limbs from the input field
-    // and then subtracting them from the input such that the field division is equivalent to integer division.
-    let low_120_lower_64 = (x as u64) as Field;
-    let x_shifted_64 = (x - low_120_lower_64) / TWO_POW_64;
-    let low_120_upper_56 = ((x_shifted_64 as u64) % TWO_POW_56) as Field;
-    let low_120 = low_120_lower_64 + TWO_POW_64 * low_120_upper_56;
-
-    let x_shifted_120 = (x_shifted_64 - low_120_upper_56) / (TWO_POW_56 as Field);
-
-    let mid_120_lower_64 = (x_shifted_120 as u64) as Field;
-    let x_shifted_184 = (x_shifted_120 - mid_120_lower_64) / TWO_POW_64;
-    let mid_120_upper_56 = ((x_shifted_184 as u64) % TWO_POW_56) as Field;
-    let mid_120 = mid_120_lower_64 + TWO_POW_64 * mid_120_upper_56;
-
-    let x_shifted_240 = (x_shifted_184 - mid_120_upper_56) / (TWO_POW_56 as Field);
-
-    let hi_120_lower_64 = (x_shifted_240 as u64) as Field;
-    // We don't need to go further, as we've reached 304 bits, and a Field is 254 bits.
-    let hi_120 = hi_120_lower_64;
-
-    [low_120, mid_120, hi_120]
-}
-
-// Only works for bignums with modulus larger than the BN Fr size (which is true
-// for the bls12-381 Fr field).
-fn field_to_bignum(x: Field) -> F {
-    /// Safety: we constrain the limbs below
-    let __x_limbs = unsafe { __field_to_bignum_limbs(x) };
-
-    let mut check = __x_limbs[3 - 1];
-    for i in 1..3 {
-        check *= LIMB_MAX;
-        check += __x_limbs[3 - i - 1];
-    }
-    assert(check == x);
-
-    BigNum { limbs: __x_limbs }
-}
-
 fn convert_blob_fields(blob_as_fields: [Field; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB] {
     let mut blob: [F; FIELDS_PER_BLOB] = [BigNum::zero(); FIELDS_PER_BLOB];
     for i in 0..FIELDS_PER_BLOB {
-        blob[i] = field_to_bignum(blob_as_fields[i]);
+        blob[i] = F::from(blob_as_fields[i]);
     }
     blob
 }
@@ -126,7 +61,7 @@ fn evaluate_blob(
     hashed_blobs_fields: Field,
 ) -> BlobPublicInputs {
     let challenge_z: Field = compute_challenge(hashed_blobs_fields, kzg_commitment);
-    let challenge_z_as_bignum: F = field_to_bignum(challenge_z);
+    let challenge_z_as_bignum = F::from(challenge_z);
     let blob = convert_blob_fields(blob_as_fields);
 
     let y: F = barycentric_evaluate_blob_at_z(challenge_z_as_bignum, blob);
@@ -367,7 +302,7 @@ unconstrained fn __compute_fracs(
     for i in 0..FIELDS_PER_BLOB {
         denoms[i] = z.__sub(unconstrained_roots[i]); // (z - omega^i)
     }
-    let inv_denoms = __batch_invert_impl(denoms); // 1 / (z - omega^i), for all i
+    let inv_denoms = F::__batch_invert(denoms); // 1 / (z - omega^i), for all i
 
     // We're now done with `denoms` so we can reuse the allocated array to build `fracs`.
     let mut fracs: [F; FIELDS_PER_BLOB] = denoms; // y_i / (z - omega^i), for all i
@@ -477,7 +412,6 @@ mod tests {
     use crate::{
         blob::{
             barycentric_evaluate_blob_at_z, check_block_blob_sponge, evaluate_blob, evaluate_blobs,
-            field_to_bignum,
         },
         blob_public_inputs::BlobCommitment,
         config::{D, D_INV, F, ROOTS},
@@ -510,7 +444,7 @@ mod tests {
         let padded_blob_fields = pad_end(blob, 0);
         let hashed_blob = check_block_blob_sponge(padded_blob_fields, sponge_blob);
         let output = evaluate_blob(blob, kzg_commitment_in, hashed_blob);
-        let challenge_z = field_to_bignum(output.z);
+        let challenge_z = F::from(output.z);
         let y = output.y;
         // Our blob is all 0s, apart from one commitment of value 1 at position 0
         // It's in eval form => our barycentric formula to find p(z) becomes:
@@ -724,7 +658,7 @@ mod tests {
     fn compute_sum_and_compute_partial_sums_agree() {
         let mut fields = [BigNum::zero(); FIELDS_PER_BLOB];
         for i in 0..FIELDS_PER_BLOB {
-            fields[i] = field_to_bignum(i as Field);
+            fields[i] = F::from(i as Field);
         }
         /// Safety: this is a test
         unsafe {
