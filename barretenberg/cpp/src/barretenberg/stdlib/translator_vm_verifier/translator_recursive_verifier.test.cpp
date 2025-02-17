@@ -67,7 +67,7 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
         // normally this would be the eccvm proof
         auto fake_inital_proof = prover_transcript->export_proof();
         InnerBF translation_batching_challenge =
-            prover_transcript->template get_challenge<InnerBF>("Translation:batching_challenge");
+            prover_transcript->template receive_from_prover<InnerBF>("Translation:batching_challenge");
         InnerBF translation_evaluation_challenge = InnerBF::random_element();
 
         auto circuit_builder = InnerBuilder(translation_batching_challenge, translation_evaluation_challenge, op_queue);

@@ -55,8 +55,6 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
 
-    batching_challenge_v = transcript->template get_challenge<BF>("Translation:batching_challenge");
-
     // Load the proof produced by the translator prover
     transcript->load_proof(proof);
 
@@ -64,6 +62,8 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
     Flavor::CommitmentLabels commitment_labels;
 
     const auto circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
+
+    batching_challenge_v = transcript->template receive_from_prover<BF>("Translation:batching_challenge");
     evaluation_input_x = transcript->template receive_from_prover<BF>("evaluation_input_x");
 
     const BF accumulated_result = transcript->template receive_from_prover<BF>("accumulated_result");

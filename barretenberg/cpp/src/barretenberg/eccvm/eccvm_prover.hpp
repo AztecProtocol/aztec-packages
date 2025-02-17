@@ -28,6 +28,7 @@ class ECCVMProver {
     using CircuitBuilder = typename Flavor::CircuitBuilder;
     using ZKData = ZKSumcheckData<Flavor>;
     using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
+    using OpeningClaim = ProverOpeningClaim<typename Flavor::Curve>;
 
     explicit ECCVMProver(CircuitBuilder& builder,
                          const bool fixed_size = false,
@@ -44,6 +45,7 @@ class ECCVMProver {
 
     ECCVMProof export_proof();
     ECCVMProof construct_proof();
+    OpeningClaim reduce_translation_evaluations();
 
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Transcript> ipa_transcript;
@@ -51,6 +53,10 @@ class ECCVMProver {
     bool fixed_size;
 
     TranslationEvaluations translation_evaluations;
+
+    static constexpr std::array<std::string, 5> translation_labels = {
+        "Translation:op", "Translation:Px", "Translation:Py", "Translation:z1", "Translation:z2"
+    };
 
     std::vector<FF> public_inputs;
 

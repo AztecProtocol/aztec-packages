@@ -157,50 +157,8 @@ void ECCVMProver::execute_pcs_rounds()
                          sumcheck_output.round_univariates,
                          sumcheck_output.round_univariate_evaluations);
 
-    // Get the challenge at which we evaluate all transcript polynomials as univariates
-    evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
+    const OpeningClaim translation_opening_claim = ECCVMProver::reduce_translation_evaluations();
 
-    // Evaluate the transcript polynomials at the challenge
-    translation_evaluations.op = key->polynomials.transcript_op.evaluate(evaluation_challenge_x);
-    translation_evaluations.Px = key->polynomials.transcript_Px.evaluate(evaluation_challenge_x);
-    translation_evaluations.Py = key->polynomials.transcript_Py.evaluate(evaluation_challenge_x);
-    translation_evaluations.z1 = key->polynomials.transcript_z1.evaluate(evaluation_challenge_x);
-    translation_evaluations.z2 = key->polynomials.transcript_z2.evaluate(evaluation_challenge_x);
-
-    // Add the univariate evaluations to the transcript so the verifier can reconstruct the batched evaluation
-    transcript->send_to_verifier("Translation:op", translation_evaluations.op);
-    transcript->send_to_verifier("Translation:Px", translation_evaluations.Px);
-    transcript->send_to_verifier("Translation:Py", translation_evaluations.Py);
-    transcript->send_to_verifier("Translation:z1", translation_evaluations.z1);
-    transcript->send_to_verifier("Translation:z2", translation_evaluations.z2);
-
-    // Get another challenge for batching the univariates and evaluations
-    FF ipa_batching_challenge = transcript->template get_challenge<FF>("Translation:ipa_batching_challenge");
-
-    // Collect the polynomials and evaluations to be batched
-    RefArray univariate_polynomials{ key->polynomials.transcript_op,
-                                     key->polynomials.transcript_Px,
-                                     key->polynomials.transcript_Py,
-                                     key->polynomials.transcript_z1,
-                                     key->polynomials.transcript_z2 };
-    std::array<FF, univariate_polynomials.size()> univariate_evaluations{ translation_evaluations.op,
-                                                                          translation_evaluations.Px,
-                                                                          translation_evaluations.Py,
-                                                                          translation_evaluations.z1,
-                                                                          translation_evaluations.z2 };
-
-    // Construct the batched polynomial and batched evaluation to produce the batched opening claim
-    Polynomial batched_univariate{ key->circuit_size };
-    FF batched_evaluation{ 0 };
-    FF batching_scalar = FF(1);
-    for (auto [polynomial, eval] : zip_view(univariate_polynomials, univariate_evaluations)) {
-        batched_univariate.add_scaled(polynomial, batching_scalar);
-        batched_evaluation += eval * batching_scalar;
-        batching_scalar *= ipa_batching_challenge;
-    }
-
-    const OpeningClaim translation_opening_claim = { .polynomial = batched_univariate,
-                                                     .opening_pair = { evaluation_challenge_x, batched_evaluation } };
     const std::array<OpeningClaim, 2> opening_claims = { multivariate_to_univariate_opening_claim,
                                                          translation_opening_claim };
 
@@ -209,9 +167,6 @@ void ECCVMProver::execute_pcs_rounds()
 
     // Compute the opening proof for the batched opening claim with the univariate PCS
     PCS::compute_opening_proof(key->commitment_key, batch_opening_claim, ipa_transcript);
-
-    // Produce another challenge passed as input to the translator verifier
-    translation_batching_challenge_v = transcript->template get_challenge<FF>("Translation:batching_challenge");
 }
 
 ECCVMProof ECCVMProver::export_proof()
@@ -236,5 +191,43 @@ ECCVMProof ECCVMProver::construct_proof()
     execute_pcs_rounds();
 
     return export_proof();
+}
+
+ProverOpeningClaim<typename ECCVMFlavor::Curve> ECCVMProver::reduce_translation_evaluations()
+{
+    // Collect the polynomials and evaluations to be batched
+    RefArray univariate_polynomials{ key->polynomials.transcript_op,
+                                     key->polynomials.transcript_Px,
+                                     key->polynomials.transcript_Py,
+                                     key->polynomials.transcript_z1,
+                                     key->polynomials.transcript_z2 };
+
+    // Get the challenge at which we evaluate all transcript polynomials as univariates
+    evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
+
+    // Evaluate the transcript polynomials as univariates and add their evaluations at x to the transcript
+    for (auto [eval, poly, label] :
+         zip_view(translation_evaluations.get_all(), univariate_polynomials, translation_labels)) {
+        *eval = poly.evaluate(evaluation_challenge_x);
+        transcript->template send_to_verifier(label, *eval);
+    }
+
+    // Get another challenge to batch the evaluations of the transcript polynomials
+    translation_batching_challenge_v = transcript->template get_challenge<FF>("Translation:ipa_batching_challenge");
+
+    // Construct the batched polynomial and batched evaluation to produce the batched opening claim
+    Polynomial batched_univariate{ key->circuit_size };
+    FF batched_evaluation{ 0 };
+    FF batching_scalar = FF(1);
+    for (auto [polynomial, eval] : zip_view(univariate_polynomials, translation_evaluations.get_all())) {
+        batched_univariate.add_scaled(polynomial, batching_scalar);
+        batched_evaluation += *eval * batching_scalar;
+        batching_scalar *= translation_batching_challenge_v;
+    }
+
+    OpeningClaim translation_opening_claim = { .polynomial = batched_univariate,
+                                               .opening_pair = { evaluation_challenge_x, batched_evaluation } };
+
+    return translation_opening_claim;
 }
 } // namespace bb

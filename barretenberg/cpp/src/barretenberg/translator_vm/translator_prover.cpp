@@ -35,6 +35,7 @@ void TranslatorProver::execute_preamble_round()
            uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_2[1]) * SHIFTx2 +
            uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_3[1]) * SHIFTx3);
     transcript->send_to_verifier("circuit_size", circuit_size);
+    transcript->send_to_verifier("Translation:batching_challenge", key->batching_challenge_v);
     transcript->send_to_verifier("evaluation_input_x", key->evaluation_input_x);
     transcript->send_to_verifier("accumulated_result", accumulated_result);
 }

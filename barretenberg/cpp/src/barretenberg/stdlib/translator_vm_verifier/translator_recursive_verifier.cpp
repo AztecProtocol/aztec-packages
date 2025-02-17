@@ -71,8 +71,6 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
     StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof);
     transcript->load_proof(stdlib_proof);
 
-    batching_challenge_v = transcript->template get_challenge<BF>("Translation:batching_challenge");
-
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
@@ -81,6 +79,9 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
         throw_or_abort(
             "TranslatorRecursiveVerifier::verify_proof: proof circuit size does not match verification key!");
     }
+    // Seems odd. Should just re-use ipa_batching challenge.
+    batching_challenge_v = transcript->template receive_from_prover<BF>("Translation:batching_challenge");
+    // Is this sound?
     evaluation_input_x = transcript->template receive_from_prover<BF>("evaluation_input_x");
 
     const BF accumulated_result = transcript->template receive_from_prover<BF>("accumulated_result");
