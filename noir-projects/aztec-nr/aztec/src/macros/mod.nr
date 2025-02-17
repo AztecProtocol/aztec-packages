@@ -9,6 +9,7 @@ use functions::interfaces::STUBS;
 use notes::{generate_note_export, NOTES};
 use storage::STORAGE_LAYOUT_NAME;
 
+use crate::note::note_interface::NoteInterface;
 use dispatch::generate_public_dispatch;
 use functions::transform_unconstrained;
 use utils::module_has_storage;
@@ -212,9 +213,18 @@ comptime fn generate_process_log() -> Quoted {
 
     let notes = NOTES.entries();
 
+    let note_interface = quote { NoteInterface }.as_trait_constraint();
+
     let mut if_note_type_id_match_statements_list = &[];
     for i in 0..notes.len() {
         let (typ, (_, packed_note_length, _, _)) = notes[i];
+
+        // We get the function definition of `get_note_type_id` here rather than directly inlining it in the quote
+        // with `$typ::get_note_type_id()`. Direct inlining would result in missing import warnings in the generated
+        // code (specifically, a warning that NoteInterface is implemented but not in scope).
+        let get_note_type_id = typ.get_trait_impl(note_interface).unwrap().methods().filter(|m| {
+            m.name() == quote { get_note_type_id }
+        })[0];
 
         let if_or_else_if = if i == 0 {
             quote { if }
@@ -224,7 +234,7 @@ comptime fn generate_process_log() -> Quoted {
 
         if_note_type_id_match_statements_list = if_note_type_id_match_statements_list.push_back(
             quote {
-                $if_or_else_if note_type_id == $typ::get_note_type_id() {
+                $if_or_else_if note_type_id == $get_note_type_id() {
                     // As an extra safety check we make sure that the packed_note bounded vec has the
                     // expected length, to avoid scenarios in which compute_note_hash_and_optionally_a_nullifier
                     // silently trims the end if the log were to be longer.
