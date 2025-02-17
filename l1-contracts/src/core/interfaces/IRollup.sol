@@ -15,6 +15,9 @@ import {
 } from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 import {ProposeArgs} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
+import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
+import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 struct SubmitEpochRootProofArgs {
   uint256 start; // inclusive
@@ -55,22 +58,32 @@ struct EpochRewards {
   mapping(uint256 length => SubEpochRewards) subEpoch;
 }
 
+// @todo Ideally we should pull these from the code for immutable values
+// to save gas. Consider using constants or more fancy deployments.
+struct RollupConfig {
+  uint256 proofSubmissionWindow;
+  IERC20 feeAsset;
+  IFeeJuicePortal feeAssetPortal;
+  IRewardDistributor rewardDistributor;
+  bytes32 vkTreeRoot;
+  bytes32 protocolContractTreeRoot;
+  IVerifier epochProofVerifier;
+}
+
 // The below blobPublicInputsHashes are filled when proposing a block, then used to verify an epoch proof.
 // TODO(#8955): When implementing batched kzg proofs, store one instance per epoch rather than block
 struct RollupStore {
   ChainTips tips; // put first such that the struct slot structure is easy to follow for cheatcodes
   mapping(uint256 blockNumber => BlockLog log) blocks;
   mapping(uint256 blockNumber => bytes32) blobPublicInputsHashes;
-  bytes32 vkTreeRoot;
-  bytes32 protocolContractTreeRoot;
   L1GasOracleValues l1GasOracleValues;
-  IVerifier epochProofVerifier;
+  EthValue provingCostPerMana;
   mapping(address => uint256) sequencerRewards;
   mapping(Epoch => EpochRewards) epochRewards;
   // @todo Below can be optimised with a bitmap as we can benefit from provers likely proving for epochs close
   // to one another.
   mapping(address prover => mapping(Epoch epoch => bool claimed)) proverClaimed;
-  EthValue provingCostPerMana;
+  RollupConfig config;
 }
 
 struct CheatDepositArgs {
@@ -200,4 +213,9 @@ interface IRollup is IRollupCore {
   function getProvingCostPerManaInEth() external view returns (EthValue);
 
   function getProvingCostPerManaInFeeAsset() external view returns (FeeAssetValue);
+
+  function getFeeAsset() external view returns (IERC20);
+  function getFeeAssetPortal() external view returns (IFeeJuicePortal);
+  function getRewardDistributor() external view returns (IRewardDistributor);
+  function getCuauhxicalli() external view returns (address);
 }

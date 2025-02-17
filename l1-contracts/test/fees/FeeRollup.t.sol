@@ -157,7 +157,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     vm.label(address(rollup), "ROLLUP");
     vm.label(address(fakeCanonical), "FAKE CANONICAL");
     vm.label(address(asset), "ASSET");
-    vm.label(rollup.CUAUHXICALLI(), "CUAUHXICALLI");
+    vm.label(rollup.getCuauhxicalli(), "CUAUHXICALLI");
   }
 
   function _loadL1Metadata(uint256 index) internal {
@@ -457,7 +457,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
           fees[feeIndex * 2 + 1] = bytes32(fee);
         }
 
-        uint256 cuauhxicalliBalanceBefore = asset.balanceOf(rollup.CUAUHXICALLI());
+        uint256 cuauhxicalliBalanceBefore = asset.balanceOf(rollup.getCuauhxicalli());
         uint256 sequencerRewardsBefore = rollup.getSequencerRewards(coinbase);
 
         bytes32[7] memory args = [
@@ -492,7 +492,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
           );
         }
 
-        uint256 burned = asset.balanceOf(rollup.CUAUHXICALLI()) - cuauhxicalliBalanceBefore;
+        uint256 burned = asset.balanceOf(rollup.getCuauhxicalli()) - cuauhxicalliBalanceBefore;
         assertEq(burnSum, burned, "Sum of burned does not match");
 
         // The reward is not yet distributed, but only accumulated.

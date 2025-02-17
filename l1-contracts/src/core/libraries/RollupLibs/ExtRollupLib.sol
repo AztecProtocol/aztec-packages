@@ -17,22 +17,19 @@ import {
 } from "./FeeMath.sol";
 import {HeaderLib, Header} from "./HeaderLib.sol";
 import {ValidationLib, ValidateHeaderArgs} from "./ValidationLib.sol";
+
 // We are using this library such that we can more easily "link" just a larger external library
 // instead of a few smaller ones.
-
 library ExtRollupLib {
+  function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external {
+    EpochProofLib.submitEpochRootProof(_args);
+  }
+
   function validateHeaderForSubmissionBase(
     ValidateHeaderArgs memory _args,
     mapping(uint256 blockNumber => BlockLog log) storage _blocks
   ) external view {
     ValidationLib.validateHeaderForSubmissionBase(_args, _blocks);
-  }
-
-  function verifyEpochRootProof(
-    RollupStore storage _rollupStore,
-    SubmitEpochRootProofArgs calldata _args
-  ) external view returns (bool) {
-    return EpochProofLib.verifyEpochRootProof(_rollupStore, _args);
   }
 
   function getManaBaseFeeComponentsAt(
@@ -48,7 +45,6 @@ library ExtRollupLib {
   }
 
   function getEpochProofPublicInputs(
-    RollupStore storage _rollupStore,
     uint256 _start,
     uint256 _end,
     bytes32[7] calldata _args,
@@ -57,7 +53,7 @@ library ExtRollupLib {
     bytes calldata _aggregationObject
   ) external view returns (bytes32[] memory) {
     return EpochProofLib.getEpochProofPublicInputs(
-      _rollupStore, _start, _end, _args, _fees, _blobPublicInputs, _aggregationObject
+      _start, _end, _args, _fees, _blobPublicInputs, _aggregationObject
     );
   }
 

@@ -188,9 +188,9 @@ export class RollupContract {
       await Promise.all([
         this.rollup.read.INBOX(),
         this.rollup.read.OUTBOX(),
-        this.rollup.read.FEE_JUICE_PORTAL(),
-        this.rollup.read.REWARD_DISTRIBUTOR(),
-        this.rollup.read.ASSET(),
+        this.rollup.read.getFeeAssetPortal(),
+        this.rollup.read.getRewardDistributor(),
+        this.rollup.read.getFeeAsset(),
         this.rollup.read.getStakingAsset(),
       ] as const)
     ).map(EthAddress.fromString);

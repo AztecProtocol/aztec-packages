@@ -2,69 +2,65 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
+import {
+  SubmitEpochRootProofArgs,
+  IRollupCore,
+  EpochRewards,
+  SubEpochRewards
+} from "@aztec/core/interfaces/IRollup.sol";
+
+import {STFLib, RollupStore} from "@aztec/core/libraries/RollupLibs/core/STFLib.sol";
+import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {FeeHeader} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
+
+import {Math} from "@oz/utils/math/Math.sol";
+
 import {RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
-import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
-
-struct SubmitEpochRootProofAddresses {
-  IFeeJuicePortal feeJuicePortal;
-  IRewardDistributor rewardDistributor;
-  IERC20 asset;
-  address cuauhxicalli;
-}
-
-struct SubmitEpochRootProofInterimValues {
-  uint256 previousBlockNumber;
-  uint256 endBlockNumber;
-  Epoch epochToProve;
-  Epoch startEpoch;
-  bool isFeeCanonical;
-  bool isRewardDistributorCanonical;
-  uint256 totalProverReward;
-  uint256 totalBurn;
-}
 
 library EpochProofLib {
   using SafeERC20 for IERC20;
 
-  function verifyEpochRootProof(
-    RollupStore storage _rollupStore,
-    SubmitEpochRootProofArgs calldata _args
-  ) internal view returns (bool) {
-    uint256 size = _args.end - _args.start + 1;
+  using TimeLib for Slot;
+  using TimeLib for Epoch;
+  using TimeLib for Timestamp;
 
-    for (uint256 i = 0; i < size; i++) {
-      uint256 blobOffset = i * Constants.BLOB_PUBLIC_INPUTS_BYTES + i;
-      uint8 blobsInBlock = uint8(_args.blobPublicInputs[blobOffset++]);
-      checkBlobPublicInputsHashes(
-        _args.blobPublicInputs,
-        _rollupStore.blobPublicInputsHashes[_args.start + i],
-        blobOffset,
-        blobsInBlock
-      );
+  struct Values {
+    address sequencer;
+    uint256 proverFee;
+    uint256 sequencerFee;
+    uint256 sequencerBlockReward;
+  }
+
+  struct Totals {
+    uint256 feesToClaim;
+    uint256 totalBurn;
+  }
+
+  // A Cuauhxicalli [kʷaːʍʃiˈkalːi] ("eagle gourd bowl") is a ceremonial Aztec vessel or altar used to hold offerings,
+  // such as sacrificial hearts, during rituals performed within temples.
+  address public constant CUAUHXICALLI = address(bytes20("CUAUHXICALLI"));
+
+  function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) internal {
+    if (STFLib.canPruneAtTime(Timestamp.wrap(block.timestamp))) {
+      STFLib.prune();
     }
 
-    bytes32[] memory publicInputs = getEpochProofPublicInputs(
-      _rollupStore,
-      _args.start,
-      _args.end,
-      _args.args,
-      _args.fees,
-      _args.blobPublicInputs,
-      _args.aggregationObject
-    );
+    Epoch endEpoch = assertAcceptable(_args.start, _args.end);
 
-    require(
-      _rollupStore.epochProofVerifier.verify(_args.proof, publicInputs),
-      Errors.Rollup__InvalidProof()
-    );
+    require(verifyEpochRootProof(_args), "proof is invalid");
 
-    return true;
+    RollupStore storage rollupStore = STFLib.getStorage();
+    rollupStore.tips.provenBlockNumber = Math.max(rollupStore.tips.provenBlockNumber, _args.end);
+
+    handleRewardsAndFees(_args, endEpoch);
+
+    emit IRollupCore.L2ProofVerified(_args.end, _args.args[6]);
   }
 
   /**
@@ -82,7 +78,6 @@ library EpochProofLib {
    * @param  _aggregationObject - The aggregation object for the proof
    */
   function getEpochProofPublicInputs(
-    RollupStore storage _rollupStore,
     uint256 _start,
     uint256 _end,
     bytes32[7] calldata _args,
@@ -90,6 +85,7 @@ library EpochProofLib {
     bytes calldata _blobPublicInputs,
     bytes calldata _aggregationObject
   ) internal view returns (bytes32[] memory) {
+    RollupStore storage rollupStore = STFLib.getStorage();
     // Args are defined as an array because Solidity complains with "stack too deep" otherwise
     // 0 bytes32 _previousArchive,
     // 1 bytes32 _endArchive,
@@ -103,28 +99,37 @@ library EpochProofLib {
 
     {
       // We do it this way to provide better error messages than passing along the storage values
-      bytes32 expectedPreviousArchive = _rollupStore.blocks[_start - 1].archive;
-      require(
-        expectedPreviousArchive == _args[0],
-        Errors.Rollup__InvalidPreviousArchive(expectedPreviousArchive, _args[0])
-      );
+      {
+        bytes32 expectedPreviousArchive = rollupStore.blocks[_start - 1].archive;
+        require(
+          expectedPreviousArchive == _args[0],
+          Errors.Rollup__InvalidPreviousArchive(expectedPreviousArchive, _args[0])
+        );
+      }
 
-      bytes32 expectedEndArchive = _rollupStore.blocks[_end].archive;
-      require(
-        expectedEndArchive == _args[1], Errors.Rollup__InvalidArchive(expectedEndArchive, _args[1])
-      );
+      {
+        bytes32 expectedEndArchive = rollupStore.blocks[_end].archive;
+        require(
+          expectedEndArchive == _args[1],
+          Errors.Rollup__InvalidArchive(expectedEndArchive, _args[1])
+        );
+      }
 
-      bytes32 expectedPreviousBlockHash = _rollupStore.blocks[_start - 1].blockHash;
-      require(
-        expectedPreviousBlockHash == _args[2],
-        Errors.Rollup__InvalidPreviousBlockHash(expectedPreviousBlockHash, _args[2])
-      );
+      {
+        bytes32 expectedPreviousBlockHash = rollupStore.blocks[_start - 1].blockHash;
+        require(
+          expectedPreviousBlockHash == _args[2],
+          Errors.Rollup__InvalidPreviousBlockHash(expectedPreviousBlockHash, _args[2])
+        );
+      }
 
-      bytes32 expectedEndBlockHash = _rollupStore.blocks[_end].blockHash;
-      require(
-        expectedEndBlockHash == _args[3],
-        Errors.Rollup__InvalidBlockHash(expectedEndBlockHash, _args[3])
-      );
+      {
+        bytes32 expectedEndBlockHash = rollupStore.blocks[_end].blockHash;
+        require(
+          expectedEndBlockHash == _args[3],
+          Errors.Rollup__InvalidBlockHash(expectedEndBlockHash, _args[3])
+        );
+      }
     }
 
     bytes32[] memory publicInputs = new bytes32[](
@@ -186,11 +191,11 @@ library EpochProofLib {
     uint256 offset = 9 + feesLength;
 
     // vk_tree_root
-    publicInputs[offset] = _rollupStore.vkTreeRoot;
+    publicInputs[offset] = rollupStore.config.vkTreeRoot;
     offset += 1;
 
     // protocol_contract_tree_root
-    publicInputs[offset] = _rollupStore.protocolContractTreeRoot;
+    publicInputs[offset] = rollupStore.config.protocolContractTreeRoot;
     offset += 1;
 
     // prover_id: id of current epoch's prover
@@ -242,6 +247,144 @@ library EpochProofLib {
     return publicInputs;
   }
 
+  function handleRewardsAndFees(SubmitEpochRootProofArgs memory _args, Epoch _endEpoch) private {
+    RollupStore storage rollupStore = STFLib.getStorage();
+
+    bool isFeeCanonical = address(this) == rollupStore.config.feeAssetPortal.canonicalRollup();
+    bool isRewardDistributorCanonical =
+      address(this) == rollupStore.config.rewardDistributor.canonicalRollup();
+
+    if (isFeeCanonical || isRewardDistributorCanonical) {
+      uint256 length = _args.end - _args.start + 1;
+      EpochRewards storage $er = rollupStore.epochRewards[_endEpoch];
+      SubEpochRewards storage $sr = $er.subEpoch[length];
+
+      {
+        // The address is left padded within the bytes32
+        address prover = address(bytes20(_args.args[6] << 96));
+        require(!$sr.hasSubmitted[prover], "go away");
+        $sr.hasSubmitted[prover] = true;
+      }
+      $sr.summedCount += 1;
+
+      if (length > $er.longestProvenLength) {
+        Values memory v;
+        Totals memory t;
+
+        {
+          uint256 added = length - $er.longestProvenLength;
+          uint256 blockRewardsAvailable = isRewardDistributorCanonical
+            ? rollupStore.config.rewardDistributor.claimBlockRewards(address(this), added)
+            : 0;
+          uint256 sequencerShare = blockRewardsAvailable / 2;
+          v.sequencerBlockReward = sequencerShare / added;
+
+          $er.rewards += (blockRewardsAvailable - sequencerShare);
+        }
+
+        for (uint256 i = $er.longestProvenLength; i < length; i++) {
+          FeeHeader storage feeHeader = rollupStore.blocks[_args.start + i].feeHeader;
+
+          (uint256 fee, uint256 burn) = isFeeCanonical
+            ? (uint256(_args.fees[1 + i * 2]), feeHeader.congestionCost * feeHeader.manaUsed)
+            : (0, 0);
+
+          t.feesToClaim += fee;
+          t.totalBurn += burn;
+
+          // Compute the proving fee in the fee asset
+          v.proverFee = Math.min(feeHeader.manaUsed * feeHeader.provingCost, fee - burn);
+          $er.rewards += v.proverFee;
+
+          v.sequencerFee = fee - burn - v.proverFee;
+
+          {
+            // The address is left padded within the bytes32
+            v.sequencer = address(bytes20(_args.fees[i * 2] << 96));
+            rollupStore.sequencerRewards[v.sequencer] += (v.sequencerBlockReward + v.sequencerFee);
+          }
+        }
+
+        $er.longestProvenLength = length;
+
+        if (t.feesToClaim > 0) {
+          rollupStore.config.feeAssetPortal.distributeFees(address(this), t.feesToClaim);
+        }
+
+        if (t.totalBurn > 0) {
+          rollupStore.config.feeAsset.transfer(CUAUHXICALLI, t.totalBurn);
+        }
+      }
+    }
+  }
+
+  function assertAcceptable(uint256 _start, uint256 _end) private view returns (Epoch) {
+    RollupStore storage rollupStore = STFLib.getStorage();
+
+    Epoch startEpoch = STFLib.getEpochForBlock(_start);
+    // This also checks for existence of the block.
+    Epoch endEpoch = STFLib.getEpochForBlock(_end);
+
+    require(startEpoch == endEpoch, Errors.Rollup__StartAndEndNotSameEpoch(startEpoch, endEpoch));
+
+    Slot deadline = startEpoch.toSlots() + Slot.wrap(rollupStore.config.proofSubmissionWindow);
+    require(
+      deadline >= Timestamp.wrap(block.timestamp).slotFromTimestamp(),
+      Errors.Rollup__PastDeadline(deadline, Timestamp.wrap(block.timestamp).slotFromTimestamp())
+    );
+
+    // By making sure that the previous block is in another epoch, we know that we were
+    // at the start.
+    Epoch parentEpoch = STFLib.getEpochForBlock(_start - 1);
+
+    require(startEpoch > Epoch.wrap(0) || _start == 1, "invalid first epoch proof");
+
+    bool isStartOfEpoch = _start == 1 || parentEpoch <= startEpoch - Epoch.wrap(1);
+    require(isStartOfEpoch, Errors.Rollup__StartIsNotFirstBlockOfEpoch());
+
+    bool isStartBuildingOnProven = _start - 1 <= rollupStore.tips.provenBlockNumber;
+    require(isStartBuildingOnProven, Errors.Rollup__StartIsNotBuildingOnProven());
+
+    return endEpoch;
+  }
+
+  function verifyEpochRootProof(SubmitEpochRootProofArgs calldata _args)
+    private
+    view
+    returns (bool)
+  {
+    RollupStore storage rollupStore = STFLib.getStorage();
+
+    uint256 size = _args.end - _args.start + 1;
+
+    for (uint256 i = 0; i < size; i++) {
+      uint256 blobOffset = i * Constants.BLOB_PUBLIC_INPUTS_BYTES + i;
+      uint8 blobsInBlock = uint8(_args.blobPublicInputs[blobOffset++]);
+      checkBlobPublicInputsHashes(
+        _args.blobPublicInputs,
+        rollupStore.blobPublicInputsHashes[_args.start + i],
+        blobOffset,
+        blobsInBlock
+      );
+    }
+
+    bytes32[] memory publicInputs = getEpochProofPublicInputs(
+      _args.start,
+      _args.end,
+      _args.args,
+      _args.fees,
+      _args.blobPublicInputs,
+      _args.aggregationObject
+    );
+
+    require(
+      rollupStore.config.epochProofVerifier.verify(_args.proof, publicInputs),
+      Errors.Rollup__InvalidProof()
+    );
+
+    return true;
+  }
+
   /**
    * Helper fn to prevent stack too deep. Checks blob public input hashes match for a block:
    * @param _blobPublicInputs - The provided blob public inputs bytes array
@@ -254,7 +397,7 @@ library EpochProofLib {
     bytes32 _blobPublicInputsHash,
     uint256 _index,
     uint8 _blobsInBlock
-  ) internal pure {
+  ) private pure {
     bytes32 calcBlobPublicInputsHash = sha256(
       abi.encodePacked(
         _blobPublicInputs[_index:_index + Constants.BLOB_PUBLIC_INPUTS_BYTES * _blobsInBlock]
@@ -276,7 +419,7 @@ library EpochProofLib {
    * @param _input - The field in bytes32
    */
   function bytes32ToBigNum(bytes32 _input)
-    internal
+    private
     pure
     returns (bytes32 firstLimb, bytes32 secondLimb, bytes32 thirdLimb)
   {

@@ -44,6 +44,7 @@ import {
   STFLib,
   RollupStore
 } from "./RollupCore.sol";
+import {EpochProofLib} from "./libraries/RollupLibs/EpochProofLib.sol";
 // solhint-enable no-unused-import
 
 /**
@@ -172,7 +173,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     bytes calldata _aggregationObject
   ) external view override(IRollup) returns (bytes32[] memory) {
     return ExtRollupLib.getEpochProofPublicInputs(
-      STFLib.getStorage(), _start, _end, _args, _fees, _blobPublicInputs, _aggregationObject
+      _start, _end, _args, _fees, _blobPublicInputs, _aggregationObject
     );
   }
 
@@ -445,7 +446,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   function getProofSubmissionWindow() external view override(IRollup) returns (uint256) {
-    return PROOF_SUBMISSION_WINDOW;
+    return STFLib.getStorage().config.proofSubmissionWindow;
   }
 
   function getSequencerRewards(address _sequencer)
@@ -517,6 +518,22 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     returns (FeeAssetValue)
   {
     return STFLib.getStorage().provingCostPerMana.toFeeAsset(getFeeAssetPerEth());
+  }
+
+  function getCuauhxicalli() external view override(IRollup) returns (address) {
+    return EpochProofLib.CUAUHXICALLI;
+  }
+
+  function getFeeAsset() external view override(IRollup) returns (IERC20) {
+    return STFLib.getStorage().config.feeAsset;
+  }
+
+  function getFeeAssetPortal() external view override(IRollup) returns (IFeeJuicePortal) {
+    return STFLib.getStorage().config.feeAssetPortal;
+  }
+
+  function getRewardDistributor() external view override(IRollup) returns (IRewardDistributor) {
+    return STFLib.getStorage().config.rewardDistributor;
   }
 
   /**

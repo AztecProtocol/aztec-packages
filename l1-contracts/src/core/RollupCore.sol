@@ -48,7 +48,7 @@ import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
 import {Math} from "@oz/utils/math/Math.sol";
-import {STFLib} from "@aztec/core/libraries/RollupLibs/STFLib.sol";
+import {STFLib} from "@aztec/core/libraries/RollupLibs/core/STFLib.sol";
 
 struct Config {
   uint256 aztecSlotDuration;
@@ -108,22 +108,12 @@ contract RollupCore is
   Slot public constant LIFETIME = Slot.wrap(5);
   Slot public constant LAG = Slot.wrap(2);
 
-  // A Cuauhxicalli [kʷaːʍʃiˈkalːi] ("eagle gourd bowl") is a ceremonial Aztec vessel or altar used to hold offerings,
-  // such as sacrificial hearts, during rituals performed within temples.
-  address public constant CUAUHXICALLI = address(bytes20("CUAUHXICALLI"));
-
-  // The number of slots, measured from the beginning on an epoch, that a proof will be accepted within.
-  uint256 internal immutable PROOF_SUBMISSION_WINDOW;
-
   uint256 public immutable L1_BLOCK_AT_GENESIS;
   IInbox public immutable INBOX;
   IOutbox public immutable OUTBOX;
   uint256 public immutable VERSION;
-  IFeeJuicePortal public immutable FEE_JUICE_PORTAL;
-  IRewardDistributor public immutable REWARD_DISTRIBUTOR;
-  IERC20 public immutable ASSET;
 
-  // To push checkblock into its own slot so we don't have the trouble of being in the middle of a slot
+  // To push checkBlob into its own slot so we don't have the trouble of being in the middle of a slot
   uint256 private gap = 0;
 
   // @note  Always true, exists to override to false for testing only
@@ -142,16 +132,11 @@ contract RollupCore is
   ) Ownable(_ares) {
     TimeLib.initialize(block.timestamp, _config.aztecSlotDuration, _config.aztecEpochDuration);
 
-    PROOF_SUBMISSION_WINDOW = _config.aztecProofSubmissionWindow;
-
     Timestamp exitDelay = Timestamp.wrap(60 * 60 * 24);
     Slasher slasher = new Slasher(_config.slashingQuorum, _config.slashingRoundSize);
     StakingLib.initialize(_stakingAsset, _config.minimumStake, exitDelay, address(slasher));
     ValidatorSelectionLib.initialize(_config.targetCommitteeSize);
 
-    FEE_JUICE_PORTAL = _fpcJuicePortal;
-    REWARD_DISTRIBUTOR = _rewardDistributor;
-    ASSET = _fpcJuicePortal.UNDERLYING();
     INBOX = IInbox(address(new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));
     OUTBOX = IOutbox(address(new Outbox(address(this))));
     VERSION = 1;
@@ -159,9 +144,15 @@ contract RollupCore is
 
     RollupStore storage rollupStore = STFLib.getStorage();
 
-    rollupStore.epochProofVerifier = new MockVerifier();
-    rollupStore.vkTreeRoot = _vkTreeRoot;
-    rollupStore.protocolContractTreeRoot = _protocolContractTreeRoot;
+    rollupStore.config.proofSubmissionWindow = _config.aztecProofSubmissionWindow;
+    rollupStore.config.feeAsset = _fpcJuicePortal.UNDERLYING();
+    rollupStore.config.feeAssetPortal = _fpcJuicePortal;
+    rollupStore.config.rewardDistributor = _rewardDistributor;
+
+    rollupStore.config.epochProofVerifier = new MockVerifier();
+    rollupStore.config.vkTreeRoot = _vkTreeRoot;
+    rollupStore.config.protocolContractTreeRoot = _protocolContractTreeRoot;
+
     rollupStore.provingCostPerMana = EthValue.wrap(100);
 
     // Genesis block
@@ -200,7 +191,7 @@ contract RollupCore is
     RollupStore storage rollupStore = STFLib.getStorage();
     uint256 amount = rollupStore.sequencerRewards[msg.sender];
     rollupStore.sequencerRewards[msg.sender] = 0;
-    ASSET.transfer(_recipient, amount);
+    rollupStore.config.feeAsset.transfer(_recipient, amount);
 
     return amount;
   }
@@ -211,12 +202,13 @@ contract RollupCore is
     returns (uint256)
   {
     Slot currentSlot = Timestamp.wrap(block.timestamp).slotFromTimestamp();
+    RollupStore storage rollupStore = STFLib.getStorage();
+    uint256 proofSubmissionWindow = rollupStore.config.proofSubmissionWindow;
+
     uint256 accumulatedRewards = 0;
     for (uint256 i = 0; i < _epochs.length; i++) {
-      Slot deadline = _epochs[i].toSlots() + Slot.wrap(PROOF_SUBMISSION_WINDOW);
+      Slot deadline = _epochs[i].toSlots() + Slot.wrap(proofSubmissionWindow);
       require(deadline < currentSlot, Errors.Rollup__NotPastDeadline(deadline, currentSlot));
-
-      RollupStore storage rollupStore = STFLib.getStorage();
 
       // We can use fancier bitmaps for performance
       require(
@@ -231,7 +223,7 @@ contract RollupCore is
       }
     }
 
-    ASSET.transfer(_recipient, accumulatedRewards);
+    rollupStore.config.feeAsset.transfer(_recipient, accumulatedRewards);
 
     return accumulatedRewards;
   }
@@ -281,7 +273,7 @@ contract RollupCore is
    */
   function prune() external override(IRollupCore) {
     require(canPrune(), Errors.Rollup__NothingToPrune());
-    _prune();
+    STFLib.prune();
   }
 
   /**
@@ -292,7 +284,7 @@ contract RollupCore is
    * @param _verifier - The new verifier contract
    */
   function setEpochVerifier(address _verifier) external override(ITestRollup) onlyOwner {
-    STFLib.getStorage().epochProofVerifier = IVerifier(_verifier);
+    STFLib.getStorage().config.epochProofVerifier = IVerifier(_verifier);
   }
 
   /**
@@ -303,7 +295,7 @@ contract RollupCore is
    * @param _vkTreeRoot - The new vkTreeRoot to be used by proofs
    */
   function setVkTreeRoot(bytes32 _vkTreeRoot) external override(ITestRollup) onlyOwner {
-    STFLib.getStorage().vkTreeRoot = _vkTreeRoot;
+    STFLib.getStorage().config.vkTreeRoot = _vkTreeRoot;
   }
 
   /**
@@ -318,7 +310,7 @@ contract RollupCore is
     override(ITestRollup)
     onlyOwner
   {
-    STFLib.getStorage().protocolContractTreeRoot = _protocolContractTreeRoot;
+    STFLib.getStorage().config.protocolContractTreeRoot = _protocolContractTreeRoot;
   }
 
   /**
@@ -347,110 +339,7 @@ contract RollupCore is
     external
     override(IRollupCore)
   {
-    if (canPrune()) {
-      _prune();
-    }
-
-    SubmitProofInterim memory interim;
-
-    // Start of `isAcceptable`
-    Epoch startEpoch = getEpochForBlock(_args.start);
-    // This also checks for existence of the block.
-    Epoch endEpoch = getEpochForBlock(_args.end);
-
-    require(startEpoch == endEpoch, Errors.Rollup__StartAndEndNotSameEpoch(startEpoch, endEpoch));
-
-    interim.deadline = startEpoch.toSlots() + Slot.wrap(PROOF_SUBMISSION_WINDOW);
-    require(
-      interim.deadline >= Timestamp.wrap(block.timestamp).slotFromTimestamp(),
-      Errors.Rollup__PastDeadline(
-        interim.deadline, Timestamp.wrap(block.timestamp).slotFromTimestamp()
-      )
-    );
-
-    // By making sure that the previous block is in another epoch, we know that we were
-    // at the start.
-    Epoch parentEpoch = getEpochForBlock(_args.start - 1);
-
-    require(startEpoch > Epoch.wrap(0) || _args.start == 1, "invalid first epoch proof");
-
-    bool isStartOfEpoch = _args.start == 1 || parentEpoch <= startEpoch - Epoch.wrap(1);
-    require(isStartOfEpoch, Errors.Rollup__StartIsNotFirstBlockOfEpoch());
-
-    RollupStore storage rollupStore = STFLib.getStorage();
-
-    bool isStartBuildingOnProven = _args.start - 1 <= rollupStore.tips.provenBlockNumber;
-    require(isStartBuildingOnProven, Errors.Rollup__StartIsNotBuildingOnProven());
-
-    // End of `isAcceptable`
-
-    // Start of verifying the proof
-    require(ExtRollupLib.verifyEpochRootProof(rollupStore, _args), "proof is invalid");
-    // End of verifying the proof
-
-    interim.isFeeCanonical = address(this) == FEE_JUICE_PORTAL.canonicalRollup();
-    interim.isRewardDistributorCanonical = address(this) == REWARD_DISTRIBUTOR.canonicalRollup();
-
-    // Mark that the prover has submitted a proof
-    // Only do this if we are canonical for both fees and block rewards.
-    if (interim.isFeeCanonical && interim.isRewardDistributorCanonical) {
-      interim.prover = address(bytes20(_args.args[6] << 96)); // The address is left padded within the bytes32
-
-      interim.length = _args.end - _args.start + 1;
-      EpochRewards storage er = rollupStore.epochRewards[endEpoch];
-      SubEpochRewards storage sr = er.subEpoch[interim.length];
-      sr.summedCount += 1;
-
-      // Using the prover id to ensure proof only gets added once
-      require(!sr.hasSubmitted[interim.prover], "go away");
-      sr.hasSubmitted[interim.prover] = true;
-
-      if (interim.length > er.longestProvenLength) {
-        interim.added = interim.length - er.longestProvenLength;
-        interim.blockRewardsAvailable = interim.isRewardDistributorCanonical
-          ? REWARD_DISTRIBUTOR.claimBlockRewards(address(this), interim.added)
-          : 0;
-        interim.sequencerShare = interim.blockRewardsAvailable / 2;
-        interim.blockRewardSequencer = interim.sequencerShare / interim.added;
-        interim.blockRewardProver = interim.blockRewardsAvailable - interim.sequencerShare;
-
-        for (uint256 i = er.longestProvenLength; i < interim.length; i++) {
-          FeeHeader storage feeHeader = rollupStore.blocks[_args.start + i].feeHeader;
-
-          (interim.fee, interim.burn) = interim.isFeeCanonical
-            ? (uint256(_args.fees[1 + i * 2]), feeHeader.congestionCost * feeHeader.manaUsed)
-            : (0, 0);
-
-          interim.feesToClaim += interim.fee;
-          interim.fee -= interim.burn;
-          interim.totalBurn += interim.burn;
-
-          // Compute the proving fee in the fee asset
-          interim.proverFee = Math.min(feeHeader.manaUsed * feeHeader.provingCost, interim.fee);
-          interim.fee -= interim.proverFee;
-
-          er.rewards += interim.proverFee;
-          // The address is left padded within the bytes32
-          rollupStore.sequencerRewards[address(bytes20(_args.fees[i * 2] << 96))] +=
-            (interim.blockRewardSequencer + interim.fee);
-        }
-
-        er.rewards += interim.blockRewardProver;
-
-        er.longestProvenLength = interim.length;
-
-        FEE_JUICE_PORTAL.distributeFees(address(this), interim.feesToClaim);
-      }
-
-      if (interim.totalBurn > 0 && interim.isFeeCanonical) {
-        ASSET.transfer(CUAUHXICALLI, interim.totalBurn);
-      }
-    }
-
-    // Update the proven block number
-    rollupStore.tips.provenBlockNumber = Math.max(rollupStore.tips.provenBlockNumber, _args.end);
-
-    emit L2ProofVerified(_args.end, _args.args[6]);
+    ExtRollupLib.submitEpochRootProof(_args);
   }
 
   function setupEpoch() public override(IValidatorSelectionCore) {
@@ -475,7 +364,7 @@ contract RollupCore is
     bytes calldata _blobInput
   ) public override(IRollupCore) {
     if (canPrune()) {
-      _prune();
+      STFLib.prune();
     }
     updateL1GasFeeOracle();
 
@@ -620,28 +509,7 @@ contract RollupCore is
   }
 
   function canPruneAtTime(Timestamp _ts) public view override(IRollupCore) returns (bool) {
-    RollupStore storage rollupStore = STFLib.getStorage();
-    if (rollupStore.tips.pendingBlockNumber == rollupStore.tips.provenBlockNumber) {
-      return false;
-    }
-
-    Epoch oldestPendingEpoch = getEpochForBlock(rollupStore.tips.provenBlockNumber + 1);
-    Slot deadline = oldestPendingEpoch.toSlots() + Slot.wrap(PROOF_SUBMISSION_WINDOW);
-
-    return deadline < _ts.slotFromTimestamp();
-  }
-
-  function _prune() internal {
-    RollupStore storage rollupStore = STFLib.getStorage();
-    uint256 pending = rollupStore.tips.pendingBlockNumber;
-
-    // @note  We are not deleting the blocks, but we are "winding back" the pendingTip to the last block that was proven.
-    //        We can do because any new block proposed will overwrite a previous block in the block log,
-    //        so no values should "survive".
-    //        People must therefore read the chain using the pendingTip as a boundary.
-    rollupStore.tips.pendingBlockNumber = rollupStore.tips.provenBlockNumber;
-
-    emit PrunedPending(rollupStore.tips.provenBlockNumber, pending);
+    return STFLib.canPruneAtTime(_ts);
   }
 
   /**
@@ -678,7 +546,7 @@ contract RollupCore is
         pendingBlockNumber: pendingBlockNumber,
         flags: _flags,
         version: VERSION,
-        feeJuicePortal: FEE_JUICE_PORTAL
+        feeJuicePortal: rollupStore.config.feeAssetPortal
       }),
       rollupStore.blocks
     );
