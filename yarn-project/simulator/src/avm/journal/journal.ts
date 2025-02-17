@@ -750,7 +750,7 @@ export class AvmPersistableStateManager {
   async getContractUpdateHints(contractAddress: AztecAddress) {
     const sharedMutableSlot = await deriveStorageSlotInMap(new Fr(UPDATED_CLASS_IDS_SLOT), contractAddress);
 
-    const hashSlot = computeSharedMutableHashSlot(sharedMutableSlot, UPDATES_SCHEDULED_VALUE_CHANGE_LEN);
+    const hashSlot = sharedMutableSlot.add(new Fr(SHARED_MUTABLE_VALUES_LEN));
 
     const {
       value: hash,
@@ -763,11 +763,9 @@ export class AvmPersistableStateManager {
     const readStorage = async (storageSlot: Fr) =>
       (await this.publicStorage.read(ProtocolContractAddress.ContractInstanceDeployer, storageSlot)).value;
 
-    const valueChange = await ScheduledValueChange.readFromTree(sharedMutableSlot, UPDATES_VALUE_SIZE, readStorage);
+    const sharedMutableValues = await SharedMutableValues.readFromTree(sharedMutableSlot, readStorage);
 
-    const delayChange = await ScheduledDelayChange.readFromTree(sharedMutableSlot, readStorage);
-
-    const updatePreimage = [delayChange.toField(), ...valueChange.toFields()];
+    const updatePreimage = sharedMutableValues.toFields();
 
     if (!hash.isZero()) {
       const hashed = await poseidon2Hash(updatePreimage);

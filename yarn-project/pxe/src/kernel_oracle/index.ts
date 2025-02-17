@@ -99,7 +99,7 @@ export class KernelOracle implements ProvingDataOracle {
   public async getUpdatedClassIdHints(contractAddress: AztecAddress): Promise<UpdatedClassIdHints> {
     const sharedMutableSlot = await deriveStorageSlotInMap(new Fr(UPDATED_CLASS_IDS_SLOT), contractAddress);
 
-    const hashSlot = computeSharedMutableHashSlot(sharedMutableSlot, UPDATES_SCHEDULED_VALUE_CHANGE_LEN);
+    const hashSlot = sharedMutableSlot.add(new Fr(SHARED_MUTABLE_VALUES_LEN));
 
     const hashLeafSlot = await computePublicDataTreeLeafSlot(
       ProtocolContractAddress.ContractInstanceDeployer,
@@ -113,9 +113,7 @@ export class KernelOracle implements ProvingDataOracle {
 
     const readStorage = (storageSlot: Fr) =>
       this.node.getPublicStorageAt(ProtocolContractAddress.ContractInstanceDeployer, storageSlot, this.blockNumber);
-
-    const valueChange = await ScheduledValueChange.readFromTree(sharedMutableSlot, UPDATES_VALUE_SIZE, readStorage);
-    const delayChange = await ScheduledDelayChange.readFromTree(sharedMutableSlot, readStorage);
+    const sharedMutableValues = await SharedMutableValues.readFromTree(sharedMutableSlot, readStorage);
 
     return new UpdatedClassIdHints(
       new MembershipWitness(
@@ -124,8 +122,7 @@ export class KernelOracle implements ProvingDataOracle {
         updatedClassIdWitness.siblingPath.toTuple(),
       ),
       updatedClassIdWitness.leafPreimage,
-      valueChange,
-      delayChange,
+      sharedMutableValues,
     );
   }
 }

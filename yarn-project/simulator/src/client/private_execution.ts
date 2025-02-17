@@ -127,10 +127,10 @@ export async function readCurrentClassId(
   blockNumber: number,
 ) {
   const sharedMutableSlot = await deriveStorageSlotInMap(new Fr(UPDATED_CLASS_IDS_SLOT), contractAddress);
-  const valueChange = await ScheduledValueChange.readFromTree(sharedMutableSlot, UPDATES_VALUE_SIZE, slot =>
+  const sharedMutableValues = await SharedMutableValues.readFromTree(sharedMutableSlot, slot =>
     node.getPublicStorageAt(ProtocolContractAddress.ContractInstanceDeployer, slot, blockNumber),
   );
-  let currentClassId = valueChange.getCurrentAt(blockNumber)[0];
+  let currentClassId = sharedMutableValues.svc.getCurrentAt(blockNumber)[0];
   if (currentClassId.isZero()) {
     currentClassId = instance.originalContractClassId;
   }

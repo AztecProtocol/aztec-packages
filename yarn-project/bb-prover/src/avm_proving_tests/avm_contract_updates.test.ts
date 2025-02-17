@@ -36,17 +36,17 @@ describe('AVM WitGen & Circuit - contract updates', () => {
 
     const valueChange = new ScheduledValueChange([previousClassId], [nextClassId], blockOfChange);
     const delayChange = ScheduledDelayChange.empty();
+    const sharedMutableValues = new SharedMutableValues(valueChange, delayChange);
+
     const writeToTree = async (storageSlot: Fr, value: Fr) => {
       await tester.setPublicStorage(ProtocolContractAddress.ContractInstanceDeployer, storageSlot, value);
     };
-    await valueChange.writeToTree(sharedMutableSlot, writeToTree);
-    await delayChange.writeToTree(sharedMutableSlot, writeToTree);
 
-    const updatePreimage = [delayChange.toField(), ...valueChange.toFields()];
-    const updateHash = await poseidon2Hash(updatePreimage);
+    await sharedMutableValues.writeToTree(sharedMutableSlot, writeToTree);
 
-    const hashSlot = computeSharedMutableHashSlot(sharedMutableSlot, UPDATES_SCHEDULED_VALUE_CHANGE_LEN);
+    const updateHash = await sharedMutableValues.hash();
 
+    const hashSlot = sharedMutableSlot.add(new Fr(SHARED_MUTABLE_VALUES_LEN));
     await writeToTree(hashSlot, updateHash);
   };
 
