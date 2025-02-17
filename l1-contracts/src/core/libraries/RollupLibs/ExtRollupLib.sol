@@ -73,8 +73,8 @@ library ExtRollupLib {
     return BlobLib.validateBlobs(_blobsInput, _checkBlob);
   }
 
-  function getBlobBaseFee(address _vmAddress) external view returns (uint256) {
-    return BlobLib.getBlobBaseFee(_vmAddress);
+  function getBlobBaseFee() external view returns (uint256) {
+    return BlobLib.getBlobBaseFee();
   }
 
   function decodeHeader(bytes calldata _header) external pure returns (Header memory) {

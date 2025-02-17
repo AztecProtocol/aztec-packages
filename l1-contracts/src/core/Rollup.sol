@@ -40,7 +40,9 @@ import {
   EpochRewards,
   FeeAssetPerEthE9,
   EthValue,
-  PriceLib
+  PriceLib,
+  STFLib,
+  RollupStore
 } from "./RollupCore.sol";
 // solhint-enable no-unused-import
 
@@ -121,7 +123,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   function getTips() external view override(IRollup) returns (ChainTips memory) {
-    return rollupStore.tips;
+    return STFLib.getStorage().tips;
   }
 
   function status(uint256 _myHeaderBlockNumber)
@@ -137,6 +139,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
       Epoch provenEpochNumber
     )
   {
+    RollupStore storage rollupStore = STFLib.getStorage();
     return (
       rollupStore.tips.provenBlockNumber,
       rollupStore.blocks[rollupStore.tips.provenBlockNumber].archive,
@@ -169,7 +172,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     bytes calldata _aggregationObject
   ) external view override(IRollup) returns (bytes32[] memory) {
     return ExtRollupLib.getEpochProofPublicInputs(
-      rollupStore, _start, _end, _args, _fees, _blobPublicInputs, _aggregationObject
+      STFLib.getStorage(), _start, _end, _args, _fees, _blobPublicInputs, _aggregationObject
     );
   }
 
@@ -224,18 +227,20 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @return bytes32 - The current archive root
    */
   function archive() external view override(IRollup) returns (bytes32) {
+    RollupStore storage rollupStore = STFLib.getStorage();
     return rollupStore.blocks[rollupStore.tips.pendingBlockNumber].archive;
   }
 
   function getProvenBlockNumber() external view override(IRollup) returns (uint256) {
-    return rollupStore.tips.provenBlockNumber;
+    return STFLib.getStorage().tips.provenBlockNumber;
   }
 
   function getPendingBlockNumber() external view override(IRollup) returns (uint256) {
-    return rollupStore.tips.pendingBlockNumber;
+    return STFLib.getStorage().tips.pendingBlockNumber;
   }
 
   function getBlock(uint256 _blockNumber) external view override(IRollup) returns (BlockLog memory) {
+    RollupStore storage rollupStore = STFLib.getStorage();
     require(
       _blockNumber <= rollupStore.tips.pendingBlockNumber,
       Errors.Rollup__InvalidBlockNumber(rollupStore.tips.pendingBlockNumber, _blockNumber)
@@ -249,7 +254,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (bytes32)
   {
-    return rollupStore.blobPublicInputsHashes[_blockNumber];
+    return STFLib.getStorage().blobPublicInputsHashes[_blockNumber];
   }
 
   function getProposerForAttester(address _attester)
@@ -449,7 +454,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (uint256)
   {
-    return rollupStore.sequencerRewards[_sequencer];
+    return STFLib.getStorage().sequencerRewards[_sequencer];
   }
 
   function getCollectiveProverRewardsForEpoch(Epoch _epoch)
@@ -458,7 +463,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (uint256)
   {
-    return rollupStore.epochRewards[_epoch].rewards;
+    return STFLib.getStorage().epochRewards[_epoch].rewards;
   }
 
   /**
@@ -477,6 +482,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (uint256)
   {
+    RollupStore storage rollupStore = STFLib.getStorage();
     if (rollupStore.proverClaimed[_prover][_epoch]) {
       return 0;
     }
@@ -497,11 +503,11 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (bool)
   {
-    return rollupStore.epochRewards[_epoch].subEpoch[_length].hasSubmitted[_prover];
+    return STFLib.getStorage().epochRewards[_epoch].subEpoch[_length].hasSubmitted[_prover];
   }
 
   function getProvingCostPerManaInEth() external view override(IRollup) returns (EthValue) {
-    return rollupStore.provingCostPerMana;
+    return STFLib.getStorage().provingCostPerMana;
   }
 
   function getProvingCostPerManaInFeeAsset()
@@ -510,7 +516,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (FeeAssetValue)
   {
-    return rollupStore.provingCostPerMana.toFeeAsset(getFeeAssetPerEth());
+    return STFLib.getStorage().provingCostPerMana.toFeeAsset(getFeeAssetPerEth());
   }
 
   /**
@@ -529,18 +535,21 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     returns (Slot, uint256)
   {
     Slot slot = _ts.slotFromTimestamp();
+    RollupStore storage rollupStore = STFLib.getStorage();
 
     // Consider if a prune will hit in this slot
     uint256 pendingBlockNumber =
       canPruneAtTime(_ts) ? rollupStore.tips.provenBlockNumber : rollupStore.tips.pendingBlockNumber;
 
-    Slot lastSlot = rollupStore.blocks[pendingBlockNumber].slotNumber;
+    {
+      Slot lastSlot = rollupStore.blocks[pendingBlockNumber].slotNumber;
 
-    require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
+      require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
 
-    // Make sure that the proposer is up to date and on the right chain (ie no reorgs)
-    bytes32 tipArchive = rollupStore.blocks[pendingBlockNumber].archive;
-    require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
+      // Make sure that the proposer is up to date and on the right chain (ie no reorgs)
+      bytes32 tipArchive = rollupStore.blocks[pendingBlockNumber].archive;
+      require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
+    }
 
     Signature[] memory sigs = new Signature[](0);
     DataStructures.ExecutionFlags memory flags =
@@ -578,6 +587,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @return bytes32 - The archive root of the block
    */
   function archiveAt(uint256 _blockNumber) public view override(IRollup) returns (bytes32) {
+    RollupStore storage rollupStore = STFLib.getStorage();
     return _blockNumber <= rollupStore.tips.pendingBlockNumber
       ? rollupStore.blocks[_blockNumber].archive
       : bytes32(0);

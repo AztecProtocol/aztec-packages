@@ -48,6 +48,7 @@ import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
 import {Math} from "@oz/utils/math/Math.sol";
+import {STFLib} from "@aztec/core/libraries/RollupLibs/STFLib.sol";
 
 struct Config {
   uint256 aztecSlotDuration;
@@ -111,9 +112,6 @@ contract RollupCore is
   // such as sacrificial hearts, during rituals performed within temples.
   address public constant CUAUHXICALLI = address(bytes20("CUAUHXICALLI"));
 
-  address public constant VM_ADDRESS = address(uint160(uint256(keccak256("hevm cheat code"))));
-  bool public immutable IS_FOUNDRY_TEST;
-
   // The number of slots, measured from the beginning on an epoch, that a proof will be accepted within.
   uint256 internal immutable PROOF_SUBMISSION_WINDOW;
 
@@ -130,8 +128,6 @@ contract RollupCore is
 
   // @note  Always true, exists to override to false for testing only
   bool public checkBlob = true;
-
-  RollupStore internal rollupStore;
 
   constructor(
     IFeeJuicePortal _fpcJuicePortal,
@@ -161,7 +157,7 @@ contract RollupCore is
     VERSION = 1;
     L1_BLOCK_AT_GENESIS = block.number;
 
-    IS_FOUNDRY_TEST = VM_ADDRESS.code.length > 0;
+    RollupStore storage rollupStore = STFLib.getStorage();
 
     rollupStore.epochProofVerifier = new MockVerifier();
     rollupStore.vkTreeRoot = _vkTreeRoot;
@@ -183,7 +179,7 @@ contract RollupCore is
     });
     rollupStore.l1GasOracleValues = L1GasOracleValues({
       pre: L1FeeData({baseFee: 1 gwei, blobFee: 1}),
-      post: L1FeeData({baseFee: block.basefee, blobFee: ExtRollupLib.getBlobBaseFee(VM_ADDRESS)}),
+      post: L1FeeData({baseFee: block.basefee, blobFee: ExtRollupLib.getBlobBaseFee()}),
       slotOfChange: LIFETIME
     });
   }
@@ -193,7 +189,7 @@ contract RollupCore is
     override(IRollupCore)
     onlyOwner
   {
-    rollupStore.provingCostPerMana = _provingCostPerMana;
+    STFLib.getStorage().provingCostPerMana = _provingCostPerMana;
   }
 
   function claimSequencerRewards(address _recipient)
@@ -201,6 +197,7 @@ contract RollupCore is
     override(IRollupCore)
     returns (uint256)
   {
+    RollupStore storage rollupStore = STFLib.getStorage();
     uint256 amount = rollupStore.sequencerRewards[msg.sender];
     rollupStore.sequencerRewards[msg.sender] = 0;
     ASSET.transfer(_recipient, amount);
@@ -218,6 +215,8 @@ contract RollupCore is
     for (uint256 i = 0; i < _epochs.length; i++) {
       Slot deadline = _epochs[i].toSlots() + Slot.wrap(PROOF_SUBMISSION_WINDOW);
       require(deadline < currentSlot, Errors.Rollup__NotPastDeadline(deadline, currentSlot));
+
+      RollupStore storage rollupStore = STFLib.getStorage();
 
       // We can use fancier bitmaps for performance
       require(
@@ -293,7 +292,7 @@ contract RollupCore is
    * @param _verifier - The new verifier contract
    */
   function setEpochVerifier(address _verifier) external override(ITestRollup) onlyOwner {
-    rollupStore.epochProofVerifier = IVerifier(_verifier);
+    STFLib.getStorage().epochProofVerifier = IVerifier(_verifier);
   }
 
   /**
@@ -304,7 +303,7 @@ contract RollupCore is
    * @param _vkTreeRoot - The new vkTreeRoot to be used by proofs
    */
   function setVkTreeRoot(bytes32 _vkTreeRoot) external override(ITestRollup) onlyOwner {
-    rollupStore.vkTreeRoot = _vkTreeRoot;
+    STFLib.getStorage().vkTreeRoot = _vkTreeRoot;
   }
 
   /**
@@ -319,7 +318,7 @@ contract RollupCore is
     override(ITestRollup)
     onlyOwner
   {
-    rollupStore.protocolContractTreeRoot = _protocolContractTreeRoot;
+    STFLib.getStorage().protocolContractTreeRoot = _protocolContractTreeRoot;
   }
 
   /**
@@ -377,6 +376,8 @@ contract RollupCore is
 
     bool isStartOfEpoch = _args.start == 1 || parentEpoch <= startEpoch - Epoch.wrap(1);
     require(isStartOfEpoch, Errors.Rollup__StartIsNotFirstBlockOfEpoch());
+
+    RollupStore storage rollupStore = STFLib.getStorage();
 
     bool isStartBuildingOnProven = _args.start - 1 <= rollupStore.tips.provenBlockNumber;
     require(isStartBuildingOnProven, Errors.Rollup__StartIsNotBuildingOnProven());
@@ -440,8 +441,6 @@ contract RollupCore is
 
         FEE_JUICE_PORTAL.distributeFees(address(this), interim.feesToClaim);
       }
-
-      // @todo Get the block rewards for
 
       if (interim.totalBurn > 0 && interim.isFeeCanonical) {
         ASSET.transfer(CUAUHXICALLI, interim.totalBurn);
@@ -507,6 +506,7 @@ contract RollupCore is
       _flags: DataStructures.ExecutionFlags({ignoreDA: false, ignoreSignatures: false})
     });
 
+    RollupStore storage rollupStore = STFLib.getStorage();
     uint256 blockNumber = ++rollupStore.tips.pendingBlockNumber;
 
     {
@@ -541,6 +541,7 @@ contract RollupCore is
   function updateL1GasFeeOracle() public override(IRollupCore) {
     Slot slot = Timestamp.wrap(block.timestamp).slotFromTimestamp();
     // The slot where we find a new queued value acceptable
+    RollupStore storage rollupStore = STFLib.getStorage();
     Slot acceptableSlot = rollupStore.l1GasOracleValues.slotOfChange + (LIFETIME - LAG);
 
     if (slot < acceptableSlot) {
@@ -549,7 +550,7 @@ contract RollupCore is
 
     rollupStore.l1GasOracleValues.pre = rollupStore.l1GasOracleValues.post;
     rollupStore.l1GasOracleValues.post =
-      L1FeeData({baseFee: block.basefee, blobFee: ExtRollupLib.getBlobBaseFee(VM_ADDRESS)});
+      L1FeeData({baseFee: block.basefee, blobFee: ExtRollupLib.getBlobBaseFee()});
     rollupStore.l1GasOracleValues.slotOfChange = slot + LAG;
   }
 
@@ -559,6 +560,7 @@ contract RollupCore is
    * @return The fee asset price
    */
   function getFeeAssetPerEth() public view override(IRollupCore) returns (FeeAssetPerEthE9) {
+    RollupStore storage rollupStore = STFLib.getStorage();
     return IntRollupLib.getFeeAssetPerEth(
       rollupStore.blocks[rollupStore.tips.pendingBlockNumber].feeHeader.feeAssetPriceNumerator
     );
@@ -570,6 +572,7 @@ contract RollupCore is
     override(IRollupCore)
     returns (L1FeeData memory)
   {
+    RollupStore storage rollupStore = STFLib.getStorage();
     return _timestamp.slotFromTimestamp() < rollupStore.l1GasOracleValues.slotOfChange
       ? rollupStore.l1GasOracleValues.pre
       : rollupStore.l1GasOracleValues.post;
@@ -593,6 +596,7 @@ contract RollupCore is
     override(ITestRollup)
     returns (ManaBaseFeeComponents memory)
   {
+    RollupStore storage rollupStore = STFLib.getStorage();
     // If we can prune, we use the proven block, otherwise the pending block
     uint256 blockOfInterest = canPruneAtTime(_timestamp)
       ? rollupStore.tips.provenBlockNumber
@@ -608,11 +612,7 @@ contract RollupCore is
   }
 
   function getEpochForBlock(uint256 _blockNumber) public view override(IRollupCore) returns (Epoch) {
-    require(
-      _blockNumber <= rollupStore.tips.pendingBlockNumber,
-      Errors.Rollup__InvalidBlockNumber(rollupStore.tips.pendingBlockNumber, _blockNumber)
-    );
-    return rollupStore.blocks[_blockNumber].slotNumber.epochFromSlot();
+    return STFLib.getEpochForBlock(_blockNumber);
   }
 
   function canPrune() public view override(IRollupCore) returns (bool) {
@@ -620,6 +620,7 @@ contract RollupCore is
   }
 
   function canPruneAtTime(Timestamp _ts) public view override(IRollupCore) returns (bool) {
+    RollupStore storage rollupStore = STFLib.getStorage();
     if (rollupStore.tips.pendingBlockNumber == rollupStore.tips.provenBlockNumber) {
       return false;
     }
@@ -631,6 +632,7 @@ contract RollupCore is
   }
 
   function _prune() internal {
+    RollupStore storage rollupStore = STFLib.getStorage();
     uint256 pending = rollupStore.tips.pendingBlockNumber;
 
     // @note  We are not deleting the blocks, but we are "winding back" the pendingTip to the last block that was proven.
@@ -662,6 +664,7 @@ contract RollupCore is
     bytes32 _blobsHashesCommitment,
     DataStructures.ExecutionFlags memory _flags
   ) internal view {
+    RollupStore storage rollupStore = STFLib.getStorage();
     uint256 pendingBlockNumber = canPruneAtTime(_currentTime)
       ? rollupStore.tips.provenBlockNumber
       : rollupStore.tips.pendingBlockNumber;
@@ -732,6 +735,7 @@ contract RollupCore is
     uint256 _congestionCost,
     uint256 _provingCost
   ) internal view returns (BlockLog memory) {
+    RollupStore storage rollupStore = STFLib.getStorage();
     FeeHeader memory parentFeeHeader = rollupStore.blocks[_blockNumber - 1].feeHeader;
     return BlockLog({
       archive: _args.archive,
