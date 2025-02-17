@@ -610,7 +610,7 @@ export class TXENode implements AztecNode {
    * @param tx - The transaction to validate for correctness.
    * @param isSimulation - True if the transaction is a simulated one without generated proofs. (Optional)
    */
-  isValidTx(_tx: Tx, _isSimulation?: boolean): Promise<TxValidationResult> {
+  isValidTx(_tx: Tx): Promise<TxValidationResult> {
     throw new Error('TXE Node method isValidTx not implemented');
   }
 
