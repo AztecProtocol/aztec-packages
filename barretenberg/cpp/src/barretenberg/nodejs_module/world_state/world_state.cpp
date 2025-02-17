@@ -127,105 +127,105 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
     _ws = std::make_unique<WorldState>(
         thread_pool_size, data_dir, map_size, tree_height, tree_prefill, initial_header_generator_point);
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::GET_TREE_INFO,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return get_tree_info(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::GET_STATE_REFERENCE,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return get_state_reference(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::GET_INITIAL_STATE_REFERENCE,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return get_initial_state_reference(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::GET_LEAF_VALUE,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return get_leaf_value(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::GET_LEAF_PREIMAGE,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return get_leaf_preimage(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::GET_SIBLING_PATH,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return get_sibling_path(obj, buffer); });
 
-    _dispatcher.registerTarget(WorldStateMessageType::GET_BLOCK_NUMBERS_FOR_LEAF_INDICES,
-                               [this](msgpack::object& obj, msgpack::sbuffer& buffer) {
-                                   return get_block_numbers_for_leaf_indices(obj, buffer);
-                               });
+    _dispatcher.register_target(WorldStateMessageType::GET_BLOCK_NUMBERS_FOR_LEAF_INDICES,
+                                [this](msgpack::object& obj, msgpack::sbuffer& buffer) {
+                                    return get_block_numbers_for_leaf_indices(obj, buffer);
+                                });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::FIND_LEAF_INDICES,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return find_leaf_indices(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::FIND_LOW_LEAF,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return find_low_leaf(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::APPEND_LEAVES,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return append_leaves(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::BATCH_INSERT,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return batch_insert(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::SEQUENTIAL_INSERT,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return sequential_insert(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::UPDATE_ARCHIVE,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return update_archive(obj, buffer); });
 
-    _dispatcher.registerTarget(WorldStateMessageType::COMMIT,
-                               [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return commit(obj, buffer); });
+    _dispatcher.register_target(WorldStateMessageType::COMMIT,
+                                [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return commit(obj, buffer); });
 
-    _dispatcher.registerTarget(WorldStateMessageType::ROLLBACK, [this](msgpack::object& obj, msgpack::sbuffer& buffer) {
-        return rollback(obj, buffer);
-    });
+    _dispatcher.register_target(
+        WorldStateMessageType::ROLLBACK,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return rollback(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::SYNC_BLOCK,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return sync_block(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::CREATE_FORK,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return create_fork(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::DELETE_FORK,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return delete_fork(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::FINALISE_BLOCKS,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return set_finalised(obj, buffer); });
 
-    _dispatcher.registerTarget(WorldStateMessageType::UNWIND_BLOCKS,
-                               [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return unwind(obj, buffer); });
+    _dispatcher.register_target(WorldStateMessageType::UNWIND_BLOCKS,
+                                [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return unwind(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::REMOVE_HISTORICAL_BLOCKS,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return remove_historical(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::GET_STATUS,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return get_status(obj, buffer); });
 
-    _dispatcher.registerTarget(WorldStateMessageType::CLOSE,
-                               [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return close(obj, buffer); });
+    _dispatcher.register_target(WorldStateMessageType::CLOSE,
+                                [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return close(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::CREATE_CHECKPOINT,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return checkpoint(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::COMMIT_CHECKPOINT,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return commit_checkpoint(obj, buffer); });
 
-    _dispatcher.registerTarget(
+    _dispatcher.register_target(
         WorldStateMessageType::REVERT_CHECKPOINT,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return revert_checkpoint(obj, buffer); });
 }
@@ -255,7 +255,7 @@ Napi::Value WorldStateWrapper::call(const Napi::CallbackInfo& info)
         auto* op = new AsyncOperation(env, deferred, [=, this](msgpack::sbuffer& buf) {
             msgpack::object_handle obj_handle = msgpack::unpack(data->data(), length);
             msgpack::object obj = obj_handle.get();
-            _dispatcher.onNewData(obj, buf);
+            _dispatcher.on_new_data(obj, buf);
         });
 
         // Napi is now responsible for destroying this object
