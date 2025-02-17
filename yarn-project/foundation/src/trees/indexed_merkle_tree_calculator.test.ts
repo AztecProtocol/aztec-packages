@@ -96,7 +96,6 @@ class TestLeafPreimage implements IndexedTreeLeafPreimage {
   }
 
   toHashInputs(): Buffer[] {
-    // Note: the protocol contract leaves only hash the value and next value.
     return [Buffer.from(this.address.toBuffer()), Buffer.from(this.nextAddress.toBuffer())];
   }
 }
@@ -160,7 +159,7 @@ describe('indexed merkle tree root calculator', () => {
     const witness = tree.getMembershipWitness(index);
     await checkSiblingPath(witness, tree);
     expect(witness.leafIndex).toEqual(BigInt(index));
-    expect(witness.siblingPath[0]).toEqual(Fr.fromBuffer(rightSiblingHash));
+    expect(witness.siblingPath[0].toString()).toEqual(Fr.fromBuffer(rightSiblingHash).toString());
   });
 
   it('should correctly get a non membership witness', async () => {
@@ -186,7 +185,7 @@ describe('indexed merkle tree root calculator', () => {
     expect(witness).toEqual(tree.getMembershipWitness(lowLeafHash));
     // The low leaf is at index 2 => it has a right sibling.
     const expectedSibling = tree.leaves[lowLeafIndex + 1];
-    expect(witness.siblingPath[0]).toEqual(Fr.fromBuffer(expectedSibling));
+    expect(witness.siblingPath[0].toString()).toStrictEqual(Fr.fromBuffer(expectedSibling).toString());
   });
 
   it('should correctly get a membership witness for addresses', async () => {
@@ -217,7 +216,9 @@ describe('indexed merkle tree root calculator', () => {
     await checkSiblingPath(witness, tree);
     const expectedSibling = testIndex % 2 ? tree.leafPreimages[testIndex - 1] : tree.leafPreimages[testIndex + 1];
     expect(witness.leafIndex).toEqual(BigInt(testIndex));
-    expect(witness.siblingPath[0]).toEqual(Fr.fromBuffer(await hasher.hashInputs(expectedSibling.toHashInputs())));
+    expect(witness.siblingPath[0].toString()).toStrictEqual(
+      Fr.fromBuffer(await hasher.hashInputs(expectedSibling.toHashInputs())).toString(),
+    );
   });
 
   it('should correctly get a non membership witness for addresses', async () => {
@@ -261,6 +262,8 @@ describe('indexed merkle tree root calculator', () => {
     const expectedSibling =
       lowLeafIndex % 2 ? tree.leafPreimages[lowLeafIndex - 1] : tree.leafPreimages[lowLeafIndex + 1];
     expect(witness.leafIndex).toEqual(BigInt(lowLeafIndex));
-    expect(witness.siblingPath[0]).toEqual(Fr.fromBuffer(await hasher.hashInputs(expectedSibling.toHashInputs())));
+    expect(witness.siblingPath[0].toString()).toStrictEqual(
+      Fr.fromBuffer(await hasher.hashInputs(expectedSibling.toHashInputs())).toString(),
+    );
   });
 });
