@@ -23,11 +23,12 @@ export class SharedMutableValues {
     const svc = new ScheduledValueChange(svcPre, svcPost, Number(svcBlockOfChange));
 
     // Extract fields for ScheduledDelayChange from first field
-    const sdcPost = firstField & 0xffffffffn;
-    const sdcPre = (firstField >> 32n) & 0xffffffffn;
-    const sdcBlockOfChange = (firstField >> 64n) & 0xffffffffn;
-    const sdcIsPostSome = (firstField >> 96n) & 1n;
-    const sdcIsPreSome = (firstField >> 97n) & 1n;
+    const sdcBlockOfChange = (firstField >> 32n) & 0xffffffffn;
+    const sdcIsPostSome = (firstField >> 64n) & 1n;
+    const sdcPost = (firstField >> 72n) & 0xffffffffn;
+    const sdcIsPreSome = (firstField >> 104n) & 1n;
+    const sdcPre = (firstField >> 112n) & 0xffffffffn;
+
     const sdc = new ScheduledDelayChange(
       sdcIsPreSome ? Number(sdcPre) : undefined,
       Number(sdcBlockOfChange),
