@@ -16,6 +16,11 @@ using witness_ct = stdlib::witness_t<Builder>;
 using rom_table_ct = stdlib::rom_table<Builder>;
 using ram_table_ct = stdlib::ram_table<Builder>;
 
+/**
+ * @brief this test checks graph description for ROM table operations
+ * The result is one connected component from reading random values at sequential indices,
+ * with no variables in one gate due to connections through table accesses
+ */
 TEST(boomerang_rom_ram_table, graph_description_rom_table)
 {
     Builder builder;
@@ -43,6 +48,11 @@ TEST(boomerang_rom_ram_table, graph_description_rom_table)
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
+/**
+ * @brief this test checks graph description for RAM table read operations
+ * The result is one connected component from reading random values at sequential indices,
+ * with no variables in one gate due to connections through table reads
+ */
 TEST(boomerang_rom_ram_table, graph_description_ram_table_read)
 {
     Builder builder;
@@ -67,6 +77,15 @@ TEST(boomerang_rom_ram_table, graph_description_ram_table_read)
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
+/**
+ * @brief this test checks graph description for RAM table write and read operations
+ * The result is one connected component from alternating write and read operations,
+ * with non-sequential access patterns and no variables in one gate.
+ * @details Test includes:
+ *          - Initial zero initialization
+ *          - Multiple update-read cycles
+ *          - Non-sequential read access pattern
+ */
 TEST(boomerang_rom_ram_table, graph_description_ram_table_write)
 {
     Builder builder;
