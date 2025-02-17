@@ -302,11 +302,6 @@ unconstrained fn __compute_fracs(
     for i in 0..FIELDS_PER_BLOB {
         denoms[i] = z.__sub(unconstrained_roots[i]); // (z - omega^i)
     }
-    println("denoms:");
-    println(denoms[0]);
-    println(denoms[1]);
-    println(denoms[2]);
-    println(denoms[3]);
     let inv_denoms: [F; FIELDS_PER_BLOB] = F::__batch_invert(denoms); // 1 / (z - omega^i), for all i
     // We're now done with `denoms` so we can reuse the allocated array to build `fracs`.
     let mut fracs: [F; FIELDS_PER_BLOB] = denoms; // y_i / (z - omega^i), for all i
