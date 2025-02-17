@@ -29,14 +29,22 @@ struct ContractInstanceHint {
     bool exists;
     FF salt;
     AztecAddress deployer;
-    ContractClassId contractClassId;
+    ContractClassId currentContractClassId;
+    ContractClassId originalContractClassId;
     FF initializationHash;
     PublicKeysHint publicKeys;
     // TODO: missing membership hints.
 
     bool operator==(const ContractInstanceHint& other) const = default;
 
-    MSGPACK_FIELDS(address, exists, salt, deployer, contractClassId, initializationHash, publicKeys);
+    MSGPACK_FIELDS(address,
+                   exists,
+                   salt,
+                   deployer,
+                   currentContractClassId,
+                   originalContractClassId,
+                   initializationHash,
+                   publicKeys);
 };
 
 struct ContractClassHint {

@@ -1,4 +1,6 @@
 import {
+  type AvmNullifierReadTreeHint,
+  type AvmPublicDataReadTreeHint,
   type ContractClassIdPreimage,
   type NullifierLeafPreimage,
   type PublicCallRequest,
@@ -63,9 +65,9 @@ export interface PublicSideEffectTraceInterface {
     contractAddress: AztecAddress,
     exists: boolean,
     instance?: SerializableContractInstance,
-    lowLeafPreimage?: NullifierLeafPreimage,
-    lowLeafIndex?: Fr,
-    lowLeafPath?: Fr[],
+    nullifierMembershipHint?: AvmNullifierReadTreeHint,
+    updateMembershipHint?: AvmPublicDataReadTreeHint,
+    updatePreimage?: Fr[],
   ): void;
   traceGetBytecode(
     contractAddress: AztecAddress,
@@ -73,9 +75,9 @@ export interface PublicSideEffectTraceInterface {
     bytecode?: Buffer,
     contractInstance?: SerializableContractInstance,
     contractClass?: ContractClassIdPreimage,
-    lowLeafPreimage?: NullifierLeafPreimage,
-    lowLeafIndex?: Fr,
-    lowLeafPath?: Fr[],
+    nullifierMembershipHint?: AvmNullifierReadTreeHint,
+    updateMembershipHint?: AvmPublicDataReadTreeHint,
+    updatePreimage?: Fr[],
   ): void;
   traceEnqueuedCall(
     /** The call request from private that enqueued this call. */

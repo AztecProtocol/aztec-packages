@@ -23,7 +23,8 @@ fi
 if ! command -v jq &> /dev/null; then
     echo "jq is not installed. Installing jq..."
     if command -v apt-get &> /dev/null; then
-        sudo apt-get update && sudo apt-get install -y jq
+        sudo apt-get update
+        sudo apt-get install -y jq
     elif command -v yum &> /dev/null; then
         sudo yum install -y jq
     elif command -v brew &> /dev/null; then

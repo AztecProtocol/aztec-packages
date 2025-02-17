@@ -2,8 +2,6 @@ telemetry:
   enabled: true
 
 aztec:
-  slotDuration: 36
-  epochDuration: 32
   realProofs: true
   l1DeploymentMnemonic: ""
   validatorKeyIndexStart: 0
