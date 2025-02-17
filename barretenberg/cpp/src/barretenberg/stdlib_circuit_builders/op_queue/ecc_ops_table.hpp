@@ -85,15 +85,20 @@ using RawEccOpsTable = EccOpsTable<eccvm::VMOperation<curve::BN254::Group>>;
  * polynomials in the proving system.
  */
 class UltraEccOpsTable {
+    static constexpr size_t TABLE_WIDTH = 4;
+    static constexpr size_t NUM_ROWS_PER_OP = 2;
+
     using Curve = curve::BN254;
     using Fr = Curve::ScalarField;
     using UltraOpsTable = EccOpsTable<UltraOp>;
+    using TableView = std::array<std::span<Fr>, TABLE_WIDTH>;
 
     UltraOpsTable table;
-    static constexpr size_t TABLE_WIDTH = 4;
 
   public:
     size_t size() const { return table.size(); }
+    size_t ultra_table_size() const { return table.size() * NUM_ROWS_PER_OP; }
+    size_t current_ultra_subtable_size() const { return table.get()[0].size() * NUM_ROWS_PER_OP; }
     void create_new_subtable(size_t size_hint = 0) { table.create_new_subtable(size_hint); }
     void push(const UltraOp& op) { table.push(op); }
 
@@ -102,7 +107,7 @@ class UltraEccOpsTable {
      * @todo multithreaded this functionality
      * @param target_columns
      */
-    void populate_column_data(std::array<std::span<Fr>, TABLE_WIDTH>& target_columns)
+    void populate_column_data(std::array<std::span<Fr>, TABLE_WIDTH>& target_columns) const
     {
         size_t i = 0;
         for (const auto& subtable : table.get()) {
@@ -119,6 +124,49 @@ class UltraEccOpsTable {
                 i++;
             }
         }
+    }
+
+    void populate_column_data_from_subtables(std::array<std::span<Fr>, TABLE_WIDTH>& target_columns,
+                                             const size_t start_idx,
+                                             const size_t end_idx) const
+    {
+        size_t i = 0;
+        for (size_t j = start_idx; j < end_idx; ++j) {
+            const auto& subtable = table.get()[j];
+            for (const auto& op : subtable) {
+                target_columns[0][i] = op.op;
+                target_columns[1][i] = op.x_lo;
+                target_columns[2][i] = op.x_hi;
+                target_columns[3][i] = op.y_lo;
+                i++;
+                target_columns[0][i] = 0; // only the first 'op' field is utilized
+                target_columns[1][i] = op.y_hi;
+                target_columns[2][i] = op.z_1;
+                target_columns[3][i] = op.z_2;
+                i++;
+            }
+        }
+    }
+
+    void populate_table_columns(TableView& target_columns) const
+    {
+        const size_t start_idx = 0;
+        const size_t end_idx = table.get().size();
+        populate_column_data_from_subtables(target_columns, start_idx, end_idx);
+    }
+
+    void populate_previous_table_columns(TableView& target_columns) const
+    {
+        const size_t start_idx = 1;
+        const size_t end_idx = table.get().size();
+        populate_column_data_from_subtables(target_columns, start_idx, end_idx);
+    }
+
+    void populate_current_subtable_columns(TableView& target_columns) const
+    {
+        const size_t start_idx = 0;
+        const size_t end_idx = 1;
+        populate_column_data_from_subtables(target_columns, start_idx, end_idx);
     }
 };
 

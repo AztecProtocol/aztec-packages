@@ -2,6 +2,7 @@
 
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/eccvm/eccvm_builder_types.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 #include "barretenberg/stdlib_circuit_builders/op_queue/ecc_ops_table.hpp"
 #include "barretenberg/stdlib_circuit_builders/op_queue/eccvm_row_tracker.hpp"
@@ -51,6 +52,50 @@ class ECCOpQueue {
         raw_ops_table.create_new_subtable();
         ultra_ops_table.create_new_subtable();
     }
+
+    std::array<Polynomial<Fr>, 4> get_ultra_ops_table_columns() const
+    {
+        const size_t table_size = ultra_ops_table.ultra_table_size();
+        std::array<Polynomial<Fr>, 4> column_polynomials;
+        std::array<std::span<fr>, 4> column_spans;
+        for (auto [column_span, column] : zip_view(column_spans, column_polynomials)) {
+            column = Polynomial<Fr>(table_size);
+            column_span = column.coeffs();
+        }
+        ultra_ops_table.populate_table_columns(column_spans);
+        return column_polynomials;
+    }
+
+    std::array<Polynomial<Fr>, 4> get_previous_ultra_ops_table_columns() const
+    {
+        const size_t table_size = ultra_ops_table.ultra_table_size();
+        const size_t current_subtable_size = ultra_ops_table.current_ultra_subtable_size();
+        const size_t previous_table_size = table_size - current_subtable_size;
+        std::array<Polynomial<Fr>, 4> column_polynomials;
+        std::array<std::span<fr>, 4> column_spans;
+        for (auto [column_span, column] : zip_view(column_spans, column_polynomials)) {
+            column = Polynomial<Fr>(previous_table_size, table_size);
+            column_span = column.coeffs();
+        }
+        ultra_ops_table.populate_previous_table_columns(column_spans);
+        return column_polynomials;
+    }
+
+    std::array<Polynomial<Fr>, 4> get_current_subtable_columns() const
+    {
+        const size_t current_subtable_size = ultra_ops_table.current_ultra_subtable_size();
+        std::array<Polynomial<Fr>, 4> column_polynomials;
+        std::array<std::span<fr>, 4> column_spans;
+        for (auto [column_span, column] : zip_view(column_spans, column_polynomials)) {
+            column = Polynomial<Fr>(current_subtable_size);
+            column_span = column.coeffs();
+        }
+        ultra_ops_table.populate_current_subtable_columns(column_spans);
+        return column_polynomials;
+    }
+
+    size_t get_ultra_ops_table_size() const { return ultra_ops_table.ultra_table_size(); }
+    size_t get_current_ultra_ops_subtable_size() const { return ultra_ops_table.current_ultra_subtable_size(); }
 
     const std::vector<ECCVMOperation>& get_raw_ops() { return raw_ops; }
 
@@ -117,6 +162,7 @@ class ECCOpQueue {
     {
         previous_ultra_ops_size = current_ultra_ops_size;
         current_ultra_ops_size = ultra_ops[0].size();
+        initialize_new_subtable();
     }
 
     [[nodiscard]] size_t get_previous_size() const { return previous_ultra_ops_size; }

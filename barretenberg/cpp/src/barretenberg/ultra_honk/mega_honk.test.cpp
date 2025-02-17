@@ -9,7 +9,9 @@
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/merge_prover.hpp"
+#include "barretenberg/ultra_honk/merge_prover_new.hpp"
 #include "barretenberg/ultra_honk/merge_verifier.hpp"
+#include "barretenberg/ultra_honk/merge_verifier_new.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -29,6 +31,8 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using MergeProver = MergeProver_<Flavor>;
     using MergeVerifier = MergeVerifier_<Flavor>;
+    using MergeProverNew = MergeProverNew_<Flavor>;
+    using MergeVerifierNew = MergeVerifierNew_<Flavor>;
     using Prover = UltraProver_<Flavor>;
     using Verifier = UltraVerifier_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
@@ -80,6 +84,20 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
     {
         MergeProver merge_prover{ op_queue };
         MergeVerifier merge_verifier;
+        auto merge_proof = merge_prover.construct_proof();
+        bool verified = merge_verifier.verify_proof(merge_proof);
+
+        return verified;
+    }
+
+    /**
+     * @brief Construct and verify a Goblin ECC op queue merge proof
+     *
+     */
+    bool construct_and_verify_merge_proof_new(auto& op_queue)
+    {
+        MergeProverNew merge_prover{ op_queue };
+        MergeVerifierNew merge_verifier;
         auto merge_proof = merge_prover.construct_proof();
         bool verified = merge_verifier.verify_proof(merge_proof);
 
@@ -250,6 +268,61 @@ TYPED_TEST(MegaHonkTests, MultipleCircuitsMergeOnly)
         // Construct and verify Goblin ECC op queue Merge proof
         auto merge_verified = this->construct_and_verify_merge_proof(op_queue);
         EXPECT_TRUE(merge_verified);
+    }
+}
+
+TYPED_TEST(MegaHonkTests, NewMergePolyconstruction)
+{
+    using Flavor = TypeParam;
+    using Fr = typename Flavor::Curve::ScalarField;
+    // Instantiate EccOpQueue. This will be shared across all circuits in the series
+    auto op_queue = std::make_shared<bb::ECCOpQueue>();
+
+    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
+
+    auto builder = typename Flavor::CircuitBuilder{ op_queue };
+    GoblinMockCircuits::construct_simple_circuit(builder);
+
+    const size_t expected_table_size = op_queue->get_ultra_ops_table_size();
+    // op_queue->set_size_data();
+
+    // EXPECT_EQ(op_queue->get_current_size(), expected_table_size);
+
+    std::array<Polynomial<Fr>, 4> table_polynomials = op_queue->get_ultra_ops_table_columns();
+    std::array<Polynomial<Fr>, 4> previous_table_polynomials = op_queue->get_previous_ultra_ops_table_columns();
+    std::array<Polynomial<Fr>, 4> subtable_polynomials = op_queue->get_current_subtable_columns();
+
+    const size_t current_subtable_size = op_queue->get_current_ultra_ops_subtable_size();
+    std::array<Polynomial<Fr>, 4> reconstructed_table_polynomials;
+    for (size_t i = 0; i < 4; ++i) {
+        reconstructed_table_polynomials[i] = Polynomial<Fr>(expected_table_size);
+        reconstructed_table_polynomials[i] += subtable_polynomials[i];
+        reconstructed_table_polynomials[i] += previous_table_polynomials[i].right_shifted(current_subtable_size);
+    }
+
+    for (auto [reconstructed, table] : zip_view(reconstructed_table_polynomials, table_polynomials)) {
+        EXPECT_EQ(reconstructed, table);
+    }
+
+    Fr eval_challenge = Fr::random_element();
+
+    std::array<Fr, 4> table_evals;
+    std::array<Fr, 4> shifted_previous_table_evals;
+    std::array<Fr, 4> subtable_evals;
+    for (auto [eval, poly] : zip_view(table_evals, table_polynomials)) {
+        eval = poly.evaluate(eval_challenge);
+    }
+    for (auto [eval, poly] : zip_view(shifted_previous_table_evals, previous_table_polynomials)) {
+        eval = poly.evaluate(eval_challenge);
+        eval *= eval_challenge.pow(current_subtable_size);
+    }
+    for (auto [eval, poly] : zip_view(subtable_evals, subtable_polynomials)) {
+        eval = poly.evaluate(eval_challenge);
+    }
+
+    for (auto [table_eval, shifted_previous_table_eval, subtable_eval] :
+         zip_view(table_evals, shifted_previous_table_evals, subtable_evals)) {
+        EXPECT_EQ(table_eval, subtable_eval + shifted_previous_table_eval);
     }
 }
 
