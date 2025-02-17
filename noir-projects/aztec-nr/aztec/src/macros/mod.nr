@@ -9,7 +9,6 @@ use functions::interfaces::STUBS;
 use notes::{generate_note_export, NOTES};
 use storage::STORAGE_LAYOUT_NAME;
 
-use crate::note::note_interface::NoteInterface;
 use dispatch::generate_public_dispatch;
 use functions::transform_unconstrained;
 use utils::module_has_storage;
@@ -129,8 +128,27 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
 
         let mut if_statements_list = &[];
 
+        let note_interface =
+            quote { crate::note::note_interface::NoteInterface }.as_trait_constraint();
+        let packable = quote { crate::protocol_types::traits::Packable<_> }.as_trait_constraint();
+
         for i in 0..notes.len() {
             let (typ, (_, _, _, _)) = notes[i];
+
+            // We get the typed expressions of `get_note_type_id` and `unpack` here rather than directly inlining them
+            // in the quote with `$typ::get_note_type_id()` and `$typ::unpack()`. Direct inlining would result
+            // in missing import warnings in the generated code (specifically, warnings that NoteInterface and
+            // Packable<N> are implemented but not in scope).
+            let get_note_type_id = typ.get_trait_impl(note_interface).unwrap().methods().filter(
+                |m| m.name() == quote { get_note_type_id },
+            )[0]
+                .as_typed_expr();
+
+            let unpack = typ.get_trait_impl(packable).unwrap().methods().filter(|m| {
+                m.name() == quote { unpack }
+            })[0]
+                .as_typed_expr();
+
             let if_or_else_if = if i == 0 {
                 quote { if }
             } else {
@@ -138,8 +156,8 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
             };
             if_statements_list = if_statements_list.push_back(
                 quote {
-                $if_or_else_if note_type_id == $typ::get_note_type_id() {
-                    aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($typ::unpack, contract_address, nonce, compute_nullifier, storage_slot, packed_note)
+                $if_or_else_if note_type_id == $get_note_type_id() {
+                    aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($unpack, contract_address, nonce, compute_nullifier, storage_slot, packed_note)
                 }
             },
             );
@@ -213,18 +231,26 @@ comptime fn generate_process_log() -> Quoted {
 
     let notes = NOTES.entries();
 
-    let note_interface = quote { NoteInterface }.as_trait_constraint();
+    let note_interface = quote { crate::note::note_interface::NoteInterface }.as_trait_constraint();
+    let packable = quote { crate::protocol_types::traits::Packable<_> }.as_trait_constraint();
 
     let mut if_note_type_id_match_statements_list = &[];
     for i in 0..notes.len() {
         let (typ, (_, packed_note_length, _, _)) = notes[i];
 
-        // We get the function definition of `get_note_type_id` here rather than directly inlining it in the quote
-        // with `$typ::get_note_type_id()`. Direct inlining would result in missing import warnings in the generated
-        // code (specifically, a warning that NoteInterface is implemented but not in scope).
+        // We get the typed expressions of `get_note_type_id` and `unpack` here rather than directly inlining them
+        // in the quote with `$typ::get_note_type_id()` and `$typ::unpack()`. Direct inlining would result
+        // in missing import warnings in the generated code (specifically, warnings that NoteInterface and
+        // Packable<N> are implemented but not in scope).
         let get_note_type_id = typ.get_trait_impl(note_interface).unwrap().methods().filter(|m| {
             m.name() == quote { get_note_type_id }
-        })[0];
+        })[0]
+            .as_typed_expr();
+
+        let unpack = typ.get_trait_impl(packable).unwrap().methods().filter(|m| {
+            m.name() == quote { unpack }
+        })[0]
+            .as_typed_expr();
 
         let if_or_else_if = if i == 0 {
             quote { if }
@@ -245,7 +271,7 @@ comptime fn generate_process_log() -> Quoted {
                         f"Expected packed note of length {expected_len} but got {actual_len} for note type id {note_type_id}"
                     );
 
-                    aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($typ::unpack, contract_address, nonce, true, storage_slot, packed_note.storage())
+                    aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($unpack, contract_address, nonce, true, storage_slot, packed_note.storage())
                 }
             },
         );
