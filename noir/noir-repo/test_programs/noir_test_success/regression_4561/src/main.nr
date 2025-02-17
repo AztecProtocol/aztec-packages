@@ -57,7 +57,7 @@ struct TestTypeFoo {
 }
 
 #[test]
-unconstrained fn complexe_struct_return() {
+unconstrained fn complex_struct_return() {
     OracleMock::mock("foo_return").returns(
         (
             0, [1, 2, 3, 4, 5, 6], 7, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], [1, 2, 3, 4, 5, 6]

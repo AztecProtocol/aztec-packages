@@ -39,17 +39,20 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {
   FeeMath,
   MANA_TARGET,
-  MINIMUM_CONGESTION_MULTIPLIER
+  MINIMUM_CONGESTION_MULTIPLIER,
+  FeeAssetPerEthE9,
+  EthValue
 } from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 
 import {
-  FeeHeader as FeeHeaderModel,
-  ManaBaseFeeComponents as ManaBaseFeeComponentsModel
+  FeeModelTestPoints,
+  TestPoint,
+  FeeHeaderModel,
+  ManaBaseFeeComponentsModel
 } from "./FeeModelTestPoints.t.sol";
 
 import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeLib.sol";
 
-import {FeeModelTestPoints, TestPoint} from "./FeeModelTestPoints.t.sol";
 import {MinimalFeeModel} from "./MinimalFeeModel.sol";
 // solhint-disable comprehensive-interface
 
@@ -131,6 +134,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       asset,
       bytes32(0),
       bytes32(0),
+      bytes32(Constants.GENESIS_ARCHIVE_ROOT),
+      bytes32(Constants.GENESIS_BLOCK_HASH),
       address(this),
       Config({
         aztecSlotDuration: SLOT_DURATION,
@@ -178,33 +183,18 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     Timestamp ts = rollup.getTimestampForSlot(slotNumber);
     uint256 bn = rollup.getPendingBlockNumber() + 1;
 
-    uint256 manaBaseFee;
-    {
-      uint256 total = point.outputs.mana_base_fee_components_in_wei.data_cost
-        + point.outputs.mana_base_fee_components_in_wei.gas_cost + 100;
+    uint256 manaBaseFee = (
+      point.outputs.mana_base_fee_components_in_fee_asset.data_cost
+        + point.outputs.mana_base_fee_components_in_fee_asset.gas_cost
+        + point.outputs.mana_base_fee_components_in_fee_asset.proving_cost
+        + point.outputs.mana_base_fee_components_in_fee_asset.congestion_cost
+    );
 
-      uint256 congestionCost = Math.mulDiv(
-        total,
-        point.outputs.mana_base_fee_components_in_wei.congestion_multiplier,
-        MINIMUM_CONGESTION_MULTIPLIER,
-        Math.Rounding.Floor
-      ) - total;
-
-      uint256 price = point.outputs.fee_asset_price_at_execution;
-      manaBaseFee = Math.mulDiv(
-        point.outputs.mana_base_fee_components_in_wei.data_cost, price, 1e9, Math.Rounding.Ceil
-      )
-        + Math.mulDiv(
-          point.outputs.mana_base_fee_components_in_wei.gas_cost, price, 1e9, Math.Rounding.Ceil
-        ) + Math.mulDiv(100, price, 1e9, Math.Rounding.Ceil)
-        + Math.mulDiv(congestionCost, price, 1e9, Math.Rounding.Ceil);
-
-      assertEq(
-        manaBaseFee,
-        rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true),
-        "mana base fee mismatch"
-      );
-    }
+    assertEq(
+      rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true),
+      manaBaseFee,
+      "mana base fee mismatch"
+    );
 
     uint256 manaSpent = point.block_header.mana_spent;
 
@@ -255,6 +245,9 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
       if (rollup.getCurrentSlot() == nextSlot) {
         TestPoint memory point = points[nextSlot.unwrap() - 1];
+        rollup.setProvingCostPerMana(
+          EthValue.wrap(point.outputs.mana_base_fee_components_in_wei.proving_cost)
+        );
         Block memory b = getBlock();
         skipBlobCheck(address(rollup));
         rollup.propose(
@@ -263,7 +256,6 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             archive: b.archive,
             blockHash: b.blockHash,
             oracleInput: OracleInput({
-              provingCostModifier: point.oracle_input.proving_cost_modifier,
               feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier
             }),
             txHashes: b.txHashes
@@ -326,6 +318,10 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     Slot nextSlot = Slot.wrap(1);
     Epoch nextEpoch = Epoch.wrap(1);
 
+    rollup.setProvingCostPerMana(
+      EthValue.wrap(points[0].outputs.mana_base_fee_components_in_wei.proving_cost)
+    );
+
     // Loop through all of the L1 metadata
     for (uint256 i = 0; i < l1Metadata.length; i++) {
       // Predict what the fee will be before we jump in time!
@@ -339,10 +335,12 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       // will be accepted as a proposal so very useful for testing a long range of blocks.
       if (rollup.getCurrentSlot() == nextSlot) {
         TestPoint memory point = points[nextSlot.unwrap() - 1];
-        point = manipulateProvingCost(point);
+        rollup.setProvingCostPerMana(
+          EthValue.wrap(point.outputs.mana_base_fee_components_in_wei.proving_cost)
+        );
 
         L1FeeData memory fees = rollup.getL1FeesAt(Timestamp.wrap(block.timestamp));
-        uint256 feeAssetPrice = rollup.getFeeAssetPrice();
+        uint256 feeAssetPrice = FeeAssetPerEthE9.unwrap(rollup.getFeeAssetPerEth());
 
         ManaBaseFeeComponents memory components =
           rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), false);
@@ -359,7 +357,6 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             archive: b.archive,
             blockHash: b.blockHash,
             oracleInput: OracleInput({
-              provingCostModifier: point.oracle_input.proving_cost_modifier,
               feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier
             }),
             txHashes: b.txHashes
@@ -370,9 +367,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
         BlockLog memory blockLog = rollup.getBlock(nextSlot.unwrap());
 
-        assertEq(
-          baseFeePrediction, componentsFeeAsset.summedBaseFee(), "base fee prediction mismatch"
-        );
+        assertEq(baseFeePrediction, componentsFeeAsset.summedBaseFee(), "mana base fee mismatch");
 
         assertEq(
           componentsFeeAsset.congestionCost,
@@ -425,7 +420,6 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
         for (uint256 feeIndex = 0; feeIndex < epochSize; feeIndex++) {
           TestPoint memory point = points[start + feeIndex - 1];
-          point = manipulateProvingCost(point);
 
           // We assume that everyone PERFECTLY pays their fees with 0 priority fees and no
           // overpaying on teardown.
@@ -516,8 +510,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     FeeHeaderModel memory bModel = FeeHeaderModel({
       excess_mana: b.excessMana,
       fee_asset_price_numerator: b.feeAssetPriceNumerator,
-      mana_used: b.manaUsed,
-      proving_cost_per_mana_numerator: b.provingCostPerManaNumerator
+      mana_used: b.manaUsed
     });
     assertEq(a, bModel);
   }

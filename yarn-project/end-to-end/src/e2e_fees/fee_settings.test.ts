@@ -21,11 +21,10 @@ describe('e2e_fees fee settings', () => {
   let paymentMethod: FeeJuicePaymentMethod;
   let testContract: TestContract;
 
-  const t = new FeesTest('fee_juice');
+  const t = new FeesTest('fee_juice', 1);
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
-    await t.applyFundAliceWithFeeJuice();
 
     ({ aliceAddress, aliceWallet, gasSettings, cheatCodes, aztecNode } = await t.setup());
 

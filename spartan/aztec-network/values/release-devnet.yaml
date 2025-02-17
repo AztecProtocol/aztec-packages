@@ -3,8 +3,6 @@ telemetry:
 
 validator:
   replicas: 1
-  sequencer:
-    enforceFees: false # disabled until the bot can fund itself
   validator:
     disabled: false
 
@@ -17,11 +15,11 @@ bootNode:
       cpu: "1.5"
 
 proverAgent:
-  replicas: 1
+  replicas: 4 # testing this as we're getting timeouts if one dies
 
 bot:
   followChain: "PENDING"
-  feePaymentMethod: "none" # disabled until the bot can fund itself
+  feePaymentMethod: "fee_juice"
   enabled: true
   txIntervalSeconds: 30
 
@@ -33,8 +31,6 @@ images:
     pullPolicy: Always
 
 aztec:
-  slotDuration: 36
-  epochDuration: 32
   realProofs: false
   extraAccounts: 9
   extraAccountsStartIndex: 69

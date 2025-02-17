@@ -220,7 +220,6 @@ describe('SequencerPublisher', () => {
         blockHash: `0x${blockHash.toString('hex')}`,
         oracleInput: {
           feeAssetPriceModifier: 0n,
-          provingCostModifier: 0n,
         },
         txHashes: [],
       },

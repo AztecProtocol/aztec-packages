@@ -11,12 +11,11 @@
     "build": "yarn clean && tsc -b && webpack",
     "build:e2e": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
-    "build:web": "webpack",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "test:with-alerts": "./scripts/test-with-alerts.sh",
     "test:e2e": "LOG_LEVEL=${LOG_LEVEL:-verbose} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=300000 --forceExit",
-    "test:e2e-docker": "./scripts/test.sh simple",
+    "test:e2e-docker": "./scripts/run_test.sh simple",
     "test:e2e-no-docker": "echo 'The command test:e2e-no-docker is now the same as test:e2e. You can now run this dropping the no-docker suffix.'; yarn test:e2e",
     "test:profile": "LOG_LEVEL=${LOG_LEVEL:-verbose} NODE_NO_WARNINGS=1 0x --output-dir \"flame_graph/{pid}.0x\" -- node --experimental-vm-modules ../node_modules/jest/bin/jest.js --runInBand --testTimeout=300000 --forceExit",
     "serve:flames": "python3 -m http.server --directory \"flame_graph\" 8000",
@@ -24,12 +23,13 @@
     "test:integration": "concurrently -k -s first -c reset,dim -n test,anvil \"yarn test:integration:run\" \"anvil\"",
     "test:integration:run": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --no-cache --runInBand --config jest.integration.config.json",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests src/fixtures",
-    "test:compose": "./scripts/test.sh compose",
+    "test:compose": "./scripts/run_test.sh compose",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src"
   },
   "dependencies": {
     "@aztec/accounts": "workspace:^",
     "@aztec/archiver": "workspace:^",
+    "@aztec/aztec": "workspace:^",
     "@aztec/aztec-node": "workspace:^",
     "@aztec/aztec.js": "workspace:^",
     "@aztec/bb-prover": "workspace:^",
@@ -88,7 +88,6 @@
     "lodash.every": "^4.6.0",
     "memdown": "^6.1.1",
     "process": "^0.11.10",
-    "puppeteer-core": "^22.2",
     "stream-browserify": "^3.0.0",
     "string-argv": "^0.3.2",
     "ts-loader": "^9.4.4",
@@ -97,8 +96,6 @@
     "typescript": "^5.0.4",
     "util": "^0.12.5",
     "viem": "2.22.8",
-    "webpack": "^5.90.0",
-    "webpack-cli": "^5.1.4",
     "zod": "^3.23.8"
   },
   "devDependencies": {
@@ -161,7 +158,7 @@
     },
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
     "rootDir": "./src",
-    "testTimeout": 30000,
+    "testTimeout": 120000,
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
     ]

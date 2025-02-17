@@ -2,45 +2,120 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
-hash=$(cache_content_hash .rebuild_patterns)
+[ -n "$cmd" ] && shift
 
-function build {
-  github_group "noir build"
-  # Downloads and checks for valid nargo and packages.
-  if ! cache_download noir-$hash.tar.gz; then
-    # Fake this so artifacts have a consistent hash in the cache and not git hash dependent
-    export COMMIT_HASH="$(echo "$hash" | sed 's/-.*//g')"
-    denoise ./scripts/bootstrap_native.sh
-    denoise ./scripts/bootstrap_packages.sh
-    cache_upload noir-$hash.tar.gz noir-repo/target/release/nargo noir-repo/target/release/acvm noir-repo/target/release/noir-profiler packages
+export hash=$(cache_content_hash .rebuild_patterns)
+export test_hash=$(cache_content_hash .rebuild_patterns .rebuild_patterns_tests)
+
+export js_projects="
+  @noir-lang/acvm_js
+  @noir-lang/types
+  @noir-lang/noirc_abi
+  @noir-lang/noir_codegen
+  @noir-lang/noir_js
+"
+export js_include=$(printf " --include %s" $js_projects)
+
+# Must be in dependency order.
+package_dirs=(
+  types
+  noir_js
+  noir_codegen
+  noirc_abi
+  acvm_js
+)
+
+# Fake this so artifacts have a consistent hash in the cache and not git hash dependent.
+export GIT_COMMIT="0000000000000000000000000000000000000000"
+export SOURCE_DATE_EPOCH=0
+export GIT_DIRTY=false
+export RUSTFLAGS="-Dwarnings"
+
+# Builds nargo, acvm and profiler binaries.
+function build_native {
+  set -euo pipefail
+  cd noir-repo
+  if cache_download noir-$hash.tar.gz; then
+    return
   fi
-  github_endgroup
+  parallel --tag --line-buffer --halt now,fail=1 ::: \
+    "cargo fmt --all --check" \
+    "cargo build --locked --release --target-dir target" \
+    "cargo clippy --target-dir target/clippy --workspace --locked --release"
+  cache_upload noir-$hash.tar.gz target/release/nargo target/release/acvm target/release/noir-profiler
 }
 
-function test_hash() {
-  hash_str $hash-$(cache_content_hash .rebuild_patterns_tests)
+# Builds js packages.
+function build_packages {
+  set -euo pipefail
+
+  if cache_download noir-packages-$hash.tar.gz; then
+    cd noir-repo
+    yarn install
+    return
+  fi
+
+  cd noir-repo
+  yarn install
+  yarn workspaces foreach --parallel --topological-dev --verbose $js_include run build
+
+  # We create a folder called packages, that contains each package as it would be published to npm, named correctly.
+  # These can be useful for testing, or portaling into other projects.
+  yarn workspaces foreach --parallel $js_include pack
+
+  cd ..
+  rm -rf packages && mkdir -p packages
+  for project in $js_projects; do
+    p=$(cd noir-repo && yarn workspaces list --json | jq -r "select(.name==\"$project\").location")
+    tar zxfv noir-repo/$p/package.tgz -C packages
+    mv packages/package packages/${project#*/}
+  done
+
+  cache_upload noir-packages-$hash.tar.gz \
+    packages \
+    noir-repo/acvm-repo/acvm_js/nodejs \
+    noir-repo/acvm-repo/acvm_js/web \
+    noir-repo/tooling/noir_codegen/lib \
+    noir-repo/tooling/noir_js/lib \
+    noir-repo/tooling/noir_js_types/lib \
+    noir-repo/tooling/noirc_abi_wasm/nodejs \
+    noir-repo/tooling/noirc_abi_wasm/web
+}
+
+export -f build_native build_packages
+
+function build {
+  echo_header "noir build"
+
+  # TODO: Move to build image?
+  denoise ./noir-repo/.github/scripts/wasm-bindgen-install.sh
+  if ! command -v cargo-binstall &>/dev/null; then
+    denoise "curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash"
+  fi
+  if ! command -v cargo-nextest &>/dev/null; then
+    denoise "cargo-binstall cargo-nextest --version 0.9.67 -y --secure"
+  fi
+
+  parallel --tag --line-buffer --halt now,fail=1 denoise ::: build_native build_packages
+  # if [ -x ./scripts/fix_incremental_ts.sh ]; then
+  #   ./scripts/fix_incremental_ts.sh
+  # fi
 }
 
 function test {
-  test_flag=noir-test-$(test_hash)
-  test_should_run $test_flag || return 0
-
-  github_group "noir test"
-  export COMMIT_HASH="$(echo "$hash" | sed 's/-.*//g')"
-  export PATH="$PWD/noir-repo/target/release/:$PATH"
-  # parallel --tag --line-buffered --timeout 5m --halt now,fail=1 \
-  #   denoise ::: ./scripts/test_native.sh ./scripts/test_js_packages.sh
-  denoise ./scripts/test_native.sh
-  denoise ./scripts/test_js_packages.sh
-  cache_upload_flag $test_flag
-  github_endgroup
+  echo_header "noir test"
+  test_cmds | filter_test_cmds | parallelise
 }
 
-function build_tests {
-  cd noir-repo
-  cargo nextest list --workspace --locked --release &>/dev/null
+function test_example {
+  local test="$1"
+  export PATH="$root/noir/noir-repo/target/release:${PATH}"
+  export BACKEND="$root/barretenberg/cpp/build/bin/bb"
+  cd "noir-repo/examples/$test"
+  ./test.sh
 }
 
+# Prints the commands to run tests, one line per test, prefixed with the appropriate content hash.
 function test_cmds {
   cd noir-repo
   cargo nextest list --workspace --locked --release -Tjson-pretty 2>/dev/null | \
@@ -53,35 +128,80 @@ function test_cmds {
         select(.value.ignored == false and .value["filter-match"].status == "matches") |
         "noir/scripts/run_test.sh \($binary) \(.key)"' | \
       sed "s|$PWD/target/release/deps/||" | \
-      # TODO: These fail. Figure out why.
-      grep -vE "(test_caches_open|requests)"
+      awk "{print \"$test_hash \" \$0 }"
+  echo "$test_hash cd noir/noir-repo && GIT_COMMIT=$GIT_COMMIT NARGO=$PWD/target/release/nargo yarn workspaces foreach --parallel --topological-dev --verbose $js_include run test"
+  # This is a test as it runs over our test programs (format is usually considered a build step).
+  echo "$test_hash noir/bootstrap.sh format --check"
+  # We need to include these as they will go out of date otherwise and externals use these examples.
+  local example_test_hash=$(hash_str $test_hash-$(../barretenberg/cpp/bootstrap.sh hash))
+  echo "$example_test_hash noir/bootstrap.sh test_example codegen_verifier"
+  echo "$example_test_hash noir/bootstrap.sh test_example prove_and_verify"
+  echo "$example_test_hash noir/bootstrap.sh test_example recursion"
+}
+
+function format {
+  # Check format of noir programs in the noir repo.
+  export PATH="$(pwd)/noir-repo/target/release:${PATH}"
+  arg=${1:-}
+  cd noir-repo/test_programs
+  if [ "$arg" = "--check" ]; then
+    # different passing of check than nargo fmt
+    ./format.sh check
+  else
+    ./format.sh
+  fi
+  cd ../noir_stdlib
+  nargo fmt $arg
+}
+
+function release_packages {
+  local dist_tag=$1
+  local version=$2
+  cd packages
+
+  for package in ${package_dirs[@]}; do
+    local path="$package"
+    [ ! -d "$path" ] && echo "Project path not found: $path" && exit 1
+    cd $path
+
+    # Rename package name @aztec/noir-<package> and update version.
+    jq ".name |= \"@aztec/noir-$package\"" package.json >tmp.json
+    mv tmp.json package.json
+    jq --arg v $version '.version = $v' package.json >tmp.json
+    mv tmp.json package.json
+
+    deploy_npm $dist_tag $version
+    cd ..
+  done
+}
+
+function release {
+  release_packages $(dist_tag) ${REF_NAME#v}
+}
+
+function release_commit {
+  release_packages next "$CURRENT_VERSION-commit.$COMMIT_HASH"
 }
 
 case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  ""|"fast"|"full")
-    build
-    ;;
-  "test")
-    test
-    ;;
   "ci")
     build
     test
     ;;
-  "build-tests")
-    build_tests
+  ""|"fast"|"full")
+    build
     ;;
-  "test-cmds")
-    test_cmds
+  test_cmds|build_native|build_packages|format|test|release|release_commit|test_example)
+    $cmd "$@"
     ;;
   "hash")
     echo $hash
     ;;
   "hash-test")
-    test_hash
+    echo $test_hash
     ;;
   *)
     echo "Unknown command: $cmd"

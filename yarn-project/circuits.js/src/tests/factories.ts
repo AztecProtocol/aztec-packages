@@ -1282,6 +1282,7 @@ export async function makeContractInstanceFromClassId(
     deployer?: AztecAddress;
     initializationHash?: Fr;
     publicKeys?: PublicKeys;
+    currentClassId?: Fr;
   },
 ): Promise<ContractInstanceWithAddress> {
   const salt = new Fr(seed);
@@ -1302,7 +1303,8 @@ export async function makeContractInstanceFromClassId(
     version: 1,
     salt,
     deployer,
-    contractClassId: classId,
+    currentContractClassId: overrides?.currentClassId ?? classId,
+    originalContractClassId: classId,
     initializationHash,
     publicKeys,
   }).withAddress(address);
@@ -1317,10 +1319,13 @@ export async function makeAvmBytecodeHints(seed = 0): Promise<AvmContractBytecod
     true,
     instance.salt,
     instance.deployer,
-    instance.contractClassId,
+    instance.currentContractClassId,
+    instance.originalContractClassId,
     instance.initializationHash,
     instance.publicKeys,
     makeAvmNullifierReadTreeHints(seed + 0x2000),
+    makeAvmPublicDataReadTreeHints(seed + 0x3000),
+    makeArray(4, i => new Fr(i), seed + 0x4000),
   );
 
   const publicBytecodeCommitment = await computePublicBytecodeCommitment(packedBytecode);
@@ -1344,6 +1349,14 @@ export function makeAvmNullifierReadTreeHints(seed = 0): AvmNullifierReadTreeHin
   const lowNullifierPreimage = new NullifierLeafPreimage(new Fr(seed), new Fr(seed + 1), BigInt(seed + 2));
   return new AvmNullifierReadTreeHint(
     lowNullifierPreimage,
+    new Fr(seed + 1),
+    makeArray(10, i => new Fr(i), seed + 0x1000),
+  );
+}
+
+export function makeAvmPublicDataReadTreeHints(seed = 0): AvmPublicDataReadTreeHint {
+  return new AvmPublicDataReadTreeHint(
+    new PublicDataTreeLeafPreimage(new Fr(seed), new Fr(seed + 1), new Fr(seed + 2), BigInt(seed + 3)),
     new Fr(seed + 1),
     makeArray(10, i => new Fr(i), seed + 0x1000),
   );
@@ -1385,13 +1398,16 @@ export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
     new AztecAddress(new Fr(seed + 0x3)),
     new Fr(seed + 0x4),
     new Fr(seed + 0x5),
+    new Fr(seed + 0x6),
     new PublicKeys(
-      new Point(new Fr(seed + 0x6), new Fr(seed + 0x7), false),
-      new Point(new Fr(seed + 0x8), new Fr(seed + 0x9), false),
-      new Point(new Fr(seed + 0x10), new Fr(seed + 0x11), false),
-      new Point(new Fr(seed + 0x12), new Fr(seed + 0x13), false),
+      new Point(new Fr(seed + 0x7), new Fr(seed + 0x8), false),
+      new Point(new Fr(seed + 0x9), new Fr(seed + 0x10), false),
+      new Point(new Fr(seed + 0x11), new Fr(seed + 0x12), false),
+      new Point(new Fr(seed + 0x13), new Fr(seed + 0x14), false),
     ),
     makeAvmNullifierReadTreeHints(seed + 0x1000),
+    makeAvmPublicDataReadTreeHints(seed + 0x2000),
+    makeArray(4, i => new Fr(i), seed + 0x3000),
   );
 }
 

@@ -209,8 +209,8 @@ spec:
               value: "{{ .Values.aztec.slotDuration }}"
             - name: AZTEC_EPOCH_DURATION
               value: "{{ .Values.aztec.epochDuration }}"
-            - name: AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS
-              value: "{{ .Values.aztec.epochProofClaimWindow }}"
+            - name: AZTEC_PROOF_SUBMISSION_WINDOW
+              value: "{{ .Values.aztec.proofSubmissionWindow }}"
             - name: PROVER_VIEM_POLLING_INTERVAL_MS
               value: {{ .Values.proverNode.viemPollingInterval | quote }}
             - name: DATA_DIRECTORY

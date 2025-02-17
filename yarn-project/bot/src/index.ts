@@ -1,7 +1,7 @@
 export { Bot } from './bot.js';
 export { BotRunner } from './runner.js';
 export {
-  BotConfig,
+  type BotConfig,
   getBotConfigFromEnv,
   getBotDefaultConfig,
   botConfigMappings,

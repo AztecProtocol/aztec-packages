@@ -28,7 +28,7 @@ import {
 } from './publisher/config.js';
 
 export * from './publisher/config.js';
-export { SequencerConfig };
+export type { SequencerConfig };
 
 /**
  * Configuration settings for the SequencerClient.
@@ -95,11 +95,6 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     env: 'SEQ_MAX_BLOCK_SIZE_IN_BYTES',
     description: 'Max block size',
     ...numberConfigHelper(1024 * 1024),
-  },
-  enforceFees: {
-    env: 'ENFORCE_FEES',
-    description: 'Whether to require every tx to have a fee payer',
-    ...booleanConfigHelper(),
   },
   enforceTimeTable: {
     env: 'SEQ_ENFORCE_TIME_TABLE',

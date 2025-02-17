@@ -1,6 +1,6 @@
 import {
-  ABIParameter,
-  AbiType,
+  type ABIParameter,
+  type AbiType,
   isAddressStruct,
   isU128Struct,
 } from "@aztec/foundation/abi";

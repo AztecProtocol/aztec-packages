@@ -301,7 +301,7 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('isValidTx(valid)', async () => {
-    const response = await context.client.isValidTx(await Tx.random(), true);
+    const response = await context.client.isValidTx(await Tx.random(), { isSimulation: true });
     expect(response).toEqual({ result: 'valid' });
   });
 
@@ -328,7 +328,8 @@ describe('AztecNodeApiSchema', () => {
     const response = await context.client.getContract(await AztecAddress.random());
     expect(response).toEqual({
       address: expect.any(AztecAddress),
-      contractClassId: expect.any(Fr),
+      currentContractClassId: expect.any(Fr),
+      originalContractClassId: expect.any(Fr),
       deployer: expect.any(AztecAddress),
       initializationHash: expect.any(Fr),
       publicKeys: expect.any(PublicKeys),
@@ -570,7 +571,7 @@ class MockAztecNode implements AztecNode {
     expect(tx).toBeInstanceOf(Tx);
     return Promise.resolve(PublicSimulationOutput.random());
   }
-  isValidTx(tx: Tx, isSimulation?: boolean | undefined): Promise<TxValidationResult> {
+  isValidTx(tx: Tx, { isSimulation }: { isSimulation?: boolean } | undefined = {}): Promise<TxValidationResult> {
     expect(tx).toBeInstanceOf(Tx);
     return Promise.resolve(isSimulation ? { result: 'valid' } : { result: 'invalid', reason: ['Invalid'] });
   }
@@ -587,7 +588,8 @@ class MockAztecNode implements AztecNode {
     expect(address).toBeInstanceOf(AztecAddress);
     const instance = {
       version: 1 as const,
-      contractClassId: Fr.random(),
+      currentContractClassId: Fr.random(),
+      originalContractClassId: Fr.random(),
       deployer: await AztecAddress.random(),
       initializationHash: Fr.random(),
       publicKeys: await PublicKeys.random(),

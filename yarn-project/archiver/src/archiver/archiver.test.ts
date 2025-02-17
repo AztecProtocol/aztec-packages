@@ -575,11 +575,7 @@ async function makeRollupTx(l2Block: L2Block) {
   const rollupInput = encodeFunctionData({
     abi: RollupAbi,
     functionName: 'propose',
-    args: [
-      { header, archive, blockHash, oracleInput: { provingCostModifier: 0n, feeAssetPriceModifier: 0n }, txHashes: [] },
-      [],
-      blobInput,
-    ],
+    args: [{ header, archive, blockHash, oracleInput: { feeAssetPriceModifier: 0n }, txHashes: [] }, [], blobInput],
   });
 
   const forwarderInput = encodeFunctionData({

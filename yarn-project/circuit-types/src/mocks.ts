@@ -92,7 +92,7 @@ export const mockTx = async (
     numberOfNonRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
     numberOfRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
     hasPublicTeardownCallRequest = false,
-    feePayer = AztecAddress.ZERO,
+    feePayer,
   }: {
     numberOfNonRevertiblePublicCallRequests?: number;
     numberOfRevertiblePublicCallRequests?: number;
@@ -108,7 +108,7 @@ export const mockTx = async (
   const data = PrivateKernelTailCircuitPublicInputs.empty();
   const firstNullifier = new Nullifier(new Fr(seed + 1), 0, Fr.ZERO);
   data.constants.txContext.gasSettings = GasSettings.default({ maxFeesPerGas: new GasFees(10, 10) });
-  data.feePayer = feePayer;
+  data.feePayer = feePayer ?? (await AztecAddress.random());
 
   let enqueuedPublicFunctionCalls: PublicExecutionRequest[] = [];
   let publicTeardownFunctionCall = PublicExecutionRequest.empty();
@@ -190,7 +190,14 @@ export const randomContractInstanceWithAddress = async (
   opts: { contractClassId?: Fr } = {},
   address?: AztecAddress,
 ): Promise<ContractInstanceWithAddress> => {
-  const instance = await SerializableContractInstance.random(opts);
+  const instance = await SerializableContractInstance.random(
+    opts.contractClassId
+      ? {
+          currentContractClassId: opts.contractClassId,
+          originalContractClassId: opts.contractClassId,
+        }
+      : undefined,
+  );
   return instance.withAddress(address ?? (await computeContractAddressFromInstance(instance)));
 };
 

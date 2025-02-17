@@ -36,7 +36,11 @@ import {
   DataStructures,
   ExtRollupLib,
   IntRollupLib,
-  EpochRewards
+  EpochRewards,
+  FeeAssetPerEthE9,
+  EthValue,
+  FeeAssetValue,
+  PriceLib
 } from "./RollupCore.sol";
 // solhint-enable no-unused-import
 
@@ -54,6 +58,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   using TimeLib for Slot;
   using TimeLib for Epoch;
   using IntRollupLib for ManaBaseFeeComponents;
+  using PriceLib for EthValue;
 
   constructor(
     IFeeJuicePortal _fpcJuicePortal,
@@ -61,6 +66,8 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     IERC20 _stakingAsset,
     bytes32 _vkTreeRoot,
     bytes32 _protocolContractTreeRoot,
+    bytes32 _genesisArchiveRoot,
+    bytes32 _genesisBlockHash,
     address _ares,
     Config memory _config
   )
@@ -70,6 +77,8 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
       _stakingAsset,
       _vkTreeRoot,
       _protocolContractTreeRoot,
+      _genesisArchiveRoot,
+      _genesisBlockHash,
       _ares,
       _config
     )
@@ -440,7 +449,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (uint256)
   {
-    return sequencerRewards[_sequencer];
+    return rollupStore.sequencerRewards[_sequencer];
   }
 
   function getCollectiveProverRewardsForEpoch(Epoch _epoch)
@@ -449,7 +458,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (uint256)
   {
-    return epochRewards[_epoch].rewards;
+    return rollupStore.epochRewards[_epoch].rewards;
   }
 
   function getSpecificProverRewardsForEpoch(Epoch _epoch, address _prover)
@@ -458,7 +467,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (uint256)
   {
-    EpochRewards storage er = epochRewards[_epoch];
+    EpochRewards storage er = rollupStore.epochRewards[_epoch];
     uint256 length = er.longestProvenLength;
 
     if (er.subEpoch[length].hasSubmitted[_prover]) {
@@ -474,11 +483,20 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (bool)
   {
-    return epochRewards[_epoch].subEpoch[_length].hasSubmitted[_prover];
+    return rollupStore.epochRewards[_epoch].subEpoch[_length].hasSubmitted[_prover];
   }
 
-  function getProvingCostPerMana() external view override(IRollup) returns (uint256) {
-    return provingCostPerMana;
+  function getProvingCostPerManaInEth() external view override(IRollup) returns (EthValue) {
+    return rollupStore.provingCostPerMana;
+  }
+
+  function getProvingCostPerManaInFeeAsset()
+    external
+    view
+    override(IRollup)
+    returns (FeeAssetValue)
+  {
+    return rollupStore.provingCostPerMana.toFeeAsset(getFeeAssetPerEth());
   }
 
   /**

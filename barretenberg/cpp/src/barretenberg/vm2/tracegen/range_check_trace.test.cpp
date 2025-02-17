@@ -17,7 +17,7 @@ using testing::Field;
 using R = TestTraceContainer::Row;
 using FF = R::FF;
 
-TEST(AvmTraceGenRangeCheckTest, RangeCheckLte16Bit)
+TEST(RangeCheckTraceGenTest, RangeCheckLte16Bit)
 {
     TestTraceContainer trace;
     RangeCheckTraceBuilder builder;
@@ -50,7 +50,7 @@ TEST(AvmTraceGenRangeCheckTest, RangeCheckLte16Bit)
                           Field(&R::range_check_dyn_diff, dynamic_diff))));
 }
 
-TEST(AvmTraceGenRangeCheckTest, RangeCheckLte48Bit)
+TEST(RangeCheckTraceGenTest, RangeCheckLte48Bit)
 {
     TestTraceContainer trace;
     RangeCheckTraceBuilder builder;
@@ -90,7 +90,7 @@ TEST(AvmTraceGenRangeCheckTest, RangeCheckLte48Bit)
                           Field(&R::range_check_sel_r1_16_bit_rng_lookup, 1))));
 }
 
-TEST(AvmTraceGenRangeCheckTest, RangeCheckLte128Bit)
+TEST(RangeCheckTraceGenTest, RangeCheckLte128Bit)
 {
     TestTraceContainer trace;
     RangeCheckTraceBuilder builder;

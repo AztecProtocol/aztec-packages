@@ -222,7 +222,6 @@ async function getBlockFromRollupTx(
       archive: Hex;
       blockHash: Hex;
       oracleInput: {
-        provingCostModifier: bigint;
         feeAssetPriceModifier: bigint;
       };
       txHashes: Hex[];

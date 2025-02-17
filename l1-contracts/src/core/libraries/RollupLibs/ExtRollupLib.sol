@@ -7,7 +7,14 @@ import {RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRol
 import {BlockLog, RollupStore} from "@aztec/core/interfaces/IRollup.sol";
 import {BlobLib} from "./BlobLib.sol";
 import {EpochProofLib} from "./EpochProofLib.sol";
-import {FeeMath, ManaBaseFeeComponents, FeeHeader, L1FeeData} from "./FeeMath.sol";
+import {
+  FeeMath,
+  ManaBaseFeeComponents,
+  FeeHeader,
+  L1FeeData,
+  EthValue,
+  FeeAssetPerEthE9
+} from "./FeeMath.sol";
 import {HeaderLib, Header} from "./HeaderLib.sol";
 import {ValidationLib, ValidateHeaderArgs} from "./ValidationLib.sol";
 // We are using this library such that we can more easily "link" just a larger external library
@@ -31,8 +38,8 @@ library ExtRollupLib {
   function getManaBaseFeeComponentsAt(
     FeeHeader storage _parentFeeHeader,
     L1FeeData memory _fees,
-    uint256 _provingCostPerMana,
-    uint256 _feeAssetPrice,
+    EthValue _provingCostPerMana,
+    FeeAssetPerEthE9 _feeAssetPrice,
     uint256 _epochDuration
   ) external view returns (ManaBaseFeeComponents memory) {
     return FeeMath.getManaBaseFeeComponentsAt(

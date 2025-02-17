@@ -25,7 +25,7 @@ use crate::{
         nullifier::{Nullifier, ScopedNullifier},
         private_call_request::PrivateCallRequest,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
-        private_kernel::private_call_data::PrivateCallData,
+        private_kernel::private_call_data::{PrivateCallData, PrivateVerificationKeyHints},
         private_kernel_data::PrivateKernelData,
         private_log::PrivateLogData,
         protocol_contract_leaf_preimage::ProtocolContractLeafPreimage,
@@ -46,14 +46,21 @@ use crate::{
     block_header::BlockHeader,
     constants::{
         CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
-        FUNCTION_TREE_HEIGHT, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX,
-        MAX_FIELD_VALUE, MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
+        DEFAULT_UPDATE_DELAY, DEPLOYER_CONTRACT_ADDRESS, FUNCTION_TREE_HEIGHT,
+        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE,
+        MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX, MAX_PROTOCOL_CONTRACTS,
         MAX_PUBLIC_LOGS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         PRIVATE_CALL_REQUEST_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS, PROTOCOL_CONTRACT_TREE_HEIGHT,
-        PUBLIC_CALL_REQUEST_LENGTH, PUBLIC_LOG_DATA_SIZE_IN_FIELDS, VK_TREE_HEIGHT,
+        PUBLIC_CALL_REQUEST_LENGTH, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
+        UPDATED_CLASS_IDS_SLOT, VK_TREE_HEIGHT,
+    },
+    contract_class_id::ContractClassId,
+    data::{
+        hash::compute_public_data_tree_index,
+        public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
     },
     hash::{
         compute_l2_to_l1_hash, compute_siloed_nullifier, compute_siloed_private_log_field,
@@ -68,8 +75,16 @@ use crate::{
         verification_key::{ClientIVCVerificationKey, HonkVerificationKey, VerificationKey},
     },
     public_keys::PublicKeys,
-    tests::fixtures::{self, contract_functions::ContractFunction, contracts::ContractData},
-    traits::{Deserialize, Empty, FromField, ToField},
+    shared_mutable::{
+        scheduled_delay_change::ScheduledDelayChange, scheduled_value_change::ScheduledValueChange,
+        shared_mutable_values::SharedMutableValues, with_hash::compute_with_hash_hash_storage_slot,
+    },
+    storage::map::derive_storage_slot_in_map,
+    tests::fixtures::{
+        self, contract_functions::ContractFunction, contracts::ContractData,
+        public_data_tree::empty_public_data_tree,
+    },
+    traits::{Deserialize, Empty, FromField, Hash, is_empty, Packable, ToField},
     transaction::{tx_context::TxContext, tx_request::TxRequest},
 };
 
@@ -163,6 +178,12 @@ pub struct FixtureBuilder {
     pub protocol_contract_membership_witness: MembershipWitness<PROTOCOL_CONTRACT_TREE_HEIGHT>,
     pub protocol_contract_leaf: ProtocolContractLeafPreimage,
 
+    // Contract updates
+    pub updated_class_id_witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>,
+    pub updated_class_id_leaf: PublicDataTreeLeafPreimage,
+    pub updated_class_id_value_change: ScheduledValueChange<ContractClassId>,
+    pub updated_class_id_delay_change: ScheduledDelayChange<DEFAULT_UPDATE_DELAY>,
+
     // Tree snapshots.
     pub archive_tree: AppendOnlyTreeSnapshot,
     pub start_snapshots: TreeSnapshots,
@@ -215,7 +236,7 @@ impl FixtureBuilder {
     pub fn in_vk_tree(&mut self, vk_index: u32) -> Self {
         self.vk_index = vk_index;
         let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =
-            comptime { fixtures::vk_tree::get_vk_merkle_tree() };
+            fixtures::vk_tree::VK_MERKLE_TREE;
 
         self.honk_vk = fixtures::vk_tree::generate_fake_honk_vk_for_index(vk_index);
         self.client_ivc_vk = fixtures::vk_tree::generate_fake_client_ivc_vk_for_index(vk_index);
@@ -228,7 +249,7 @@ impl FixtureBuilder {
     }
 
     pub fn vk_tree_root() -> Field {
-        fixtures::vk_tree::get_vk_merkle_tree().get_root()
+        fixtures::vk_tree::VK_MERKLE_TREE.get_root()
     }
 
     pub fn set_protocol_contract_root(&mut self) {
@@ -417,10 +438,8 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn to_private_call_data(self) -> PrivateCallData {
-        PrivateCallData {
-            public_inputs: self.to_private_circuit_public_inputs(),
-            vk: self.client_ivc_vk,
+    pub fn to_private_verification_key_hints(self) -> PrivateVerificationKeyHints {
+        PrivateVerificationKeyHints {
             function_leaf_membership_witness: self.function_leaf_membership_witness,
             salted_initialization_hash: self.salted_initialization_hash,
             public_keys: self.public_keys,
@@ -430,6 +449,84 @@ impl FixtureBuilder {
             protocol_contract_membership_witness: self.protocol_contract_membership_witness,
             protocol_contract_leaf: self.protocol_contract_leaf,
             acir_hash: self.acir_hash,
+            updated_class_id_witness: self.updated_class_id_witness,
+            updated_class_id_leaf: self.updated_class_id_leaf,
+            updated_class_id_value_change: self.updated_class_id_value_change.pack(),
+            updated_class_id_delay_change: self.updated_class_id_delay_change.pack(),
+        }
+    }
+
+    pub fn compute_update_tree_and_hints(&mut self) {
+        let public_data_prefill = 2;
+        let mut public_data_tree = empty_public_data_tree::<8, 3>(public_data_prefill);
+
+        if is_empty(self.updated_class_id_value_change)
+            & is_empty(self.updated_class_id_delay_change) {
+            self.historical_header.state.partial.public_data_tree.root =
+                public_data_tree.get_root();
+            self.historical_header.state.partial.public_data_tree.next_available_leaf_index =
+                public_data_prefill;
+
+            self.updated_class_id_witness = MembershipWitness {
+                leaf_index: (public_data_prefill - 1) as Field,
+                sibling_path: public_data_tree.get_sibling_path(public_data_prefill - 1),
+            };
+            self.updated_class_id_leaf = PublicDataTreeLeafPreimage {
+                slot: (public_data_prefill - 1) as Field,
+                value: 0,
+                next_slot: 0,
+                next_index: 0,
+            };
+        } else {
+            let hashed_update = SharedMutableValues::new(
+                self.updated_class_id_value_change,
+                self.updated_class_id_delay_change,
+            )
+                .hash();
+            let shared_mutable_slot =
+                derive_storage_slot_in_map(UPDATED_CLASS_IDS_SLOT as Field, self.contract_address);
+            let hash_slot = compute_with_hash_hash_storage_slot::<SharedMutableValues<ContractClassId, DEFAULT_UPDATE_DELAY>, _>(
+                shared_mutable_slot,
+            );
+            let hash_leaf_slot =
+                compute_public_data_tree_index(DEPLOYER_CONTRACT_ADDRESS, hash_slot);
+            public_data_tree.update_leaf(
+                public_data_prefill - 1,
+                PublicDataTreeLeafPreimage {
+                    slot: (public_data_prefill - 1) as Field,
+                    value: 0,
+                    next_slot: hash_leaf_slot,
+                    next_index: public_data_prefill,
+                }
+                    .hash(),
+            );
+            self.updated_class_id_leaf = PublicDataTreeLeafPreimage {
+                slot: hash_leaf_slot,
+                value: hashed_update,
+                next_slot: 0,
+                next_index: 0,
+            };
+            public_data_tree.update_leaf(public_data_prefill, self.updated_class_id_leaf.hash());
+            self.historical_header.state.partial.public_data_tree.root =
+                public_data_tree.get_root();
+            self.historical_header.state.partial.public_data_tree.next_available_leaf_index =
+                public_data_prefill + 1;
+            self.updated_class_id_witness = MembershipWitness {
+                leaf_index: public_data_prefill as Field,
+                sibling_path: public_data_tree.get_sibling_path(public_data_prefill),
+            };
+        }
+    }
+
+    pub fn set_historical_header_from_call_data(&mut self, private_call: PrivateCallData) {
+        self.historical_header = private_call.public_inputs.historical_header;
+    }
+
+    pub fn to_private_call_data(mut self) -> PrivateCallData {
+        PrivateCallData {
+            public_inputs: self.to_private_circuit_public_inputs(),
+            vk: self.client_ivc_vk,
+            verification_key_hints: self.to_private_verification_key_hints(),
         }
     }
 
@@ -1184,6 +1281,10 @@ impl Empty for FixtureBuilder {
             protocol_contract_tree_root: 0,
             protocol_contract_membership_witness: MembershipWitness::empty(),
             protocol_contract_leaf: ProtocolContractLeafPreimage::empty(),
+            updated_class_id_witness: MembershipWitness::empty(),
+            updated_class_id_leaf: PublicDataTreeLeafPreimage::empty(),
+            updated_class_id_value_change: ScheduledValueChange::empty(),
+            updated_class_id_delay_change: ScheduledDelayChange::empty(),
             archive_tree: AppendOnlyTreeSnapshot::zero(),
             start_snapshots: TreeSnapshots::empty(),
             end_snapshots: TreeSnapshots::empty(),

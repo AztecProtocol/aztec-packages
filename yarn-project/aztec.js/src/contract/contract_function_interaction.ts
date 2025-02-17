@@ -1,5 +1,5 @@
 import type { FunctionCall, PrivateKernelProverProfileResult, TxExecutionRequest } from '@aztec/circuit-types';
-import { type AztecAddress, type GasSettings } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/circuits.js';
 import {
   type FunctionAbi,
   FunctionSelector,
@@ -9,22 +9,23 @@ import {
 } from '@aztec/foundation/abi';
 
 import { type Wallet } from '../account/wallet.js';
+import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
 import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';
 
-export { SendMethodOptions };
+export type { SendMethodOptions };
 
 /**
  * Represents the options for simulating a contract function interaction.
  * Allows specifying the address from which the view method should be called.
  * Disregarded for simulation of public functions
  */
-export type SimulateMethodOptions = {
+export type SimulateMethodOptions = Pick<SendMethodOptions, 'fee'> & {
   /** The sender's Aztec address. */
   from?: AztecAddress;
-  /** Gas settings for the simulation. */
-  gasSettings?: GasSettings;
   /** Simulate without checking for the validity of the resulting transaction, e.g. whether it emits any existing nullifiers. */
   skipTxValidation?: boolean;
+  /** Whether to ensure the fee payer is not empty and has enough balance to pay for the fee. */
+  skipFeeEnforcement?: boolean;
 };
 
 /**
@@ -65,9 +66,10 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       throw new Error("Can't call `create` on an unconstrained function.");
     }
     const calls = [await this.request()];
-    const fee = await this.getFeeOptions({ calls, ...opts });
+    const capsules = this.getCapsules();
+    const fee = await this.getFeeOptions({ calls, capsules, ...opts });
     const { nonce, cancellable } = opts;
-    return await this.wallet.createTxExecutionRequest({ calls, fee, nonce, cancellable });
+    return await this.wallet.createTxExecutionRequest({ calls, fee, nonce, cancellable, capsules });
   }
 
   // docs:start:request
@@ -106,8 +108,15 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       return this.wallet.simulateUnconstrained(this.functionDao.name, this.args, this.contractAddress, options?.from);
     }
 
-    const txRequest = await this.create();
-    const simulatedTx = await this.wallet.simulateTx(txRequest, true, options?.from, options?.skipTxValidation);
+    const fee = options.fee ?? { paymentMethod: new FeeJuicePaymentMethod(AztecAddress.ZERO) };
+    const txRequest = await this.create({ fee });
+    const simulatedTx = await this.wallet.simulateTx(
+      txRequest,
+      true /* simulatePublic */,
+      options.from,
+      options.skipTxValidation,
+      options.skipFeeEnforcement ?? true,
+    );
 
     let rawReturnValues;
     if (this.functionDao.functionType == FunctionType.PRIVATE) {
@@ -138,7 +147,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       throw new Error("Can't profile an unconstrained function.");
     }
 
-    const txRequest = await this.create();
+    const txRequest = await this.create({ fee: options.fee });
     const simulatedTx = await this.wallet.simulateTx(
       txRequest,
       true,

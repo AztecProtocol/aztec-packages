@@ -69,10 +69,7 @@ impl PrivateKernelCircuitPublicInputsComposerBuilder {
         is_private_only: bool,
     ) -> PrivateKernelCircuitPublicInputs {
         let private_call = self.private_call.to_private_call_data();
-        self
-            .new_from_tx_request(is_private_only)
-            .with_private_call(private_call.public_inputs)
-            .finish()
+        self.new_from_tx_request(is_private_only).with_private_call(private_call).finish()
     }
 
     pub fn compose_from_previous_kernel(self) -> PrivateKernelCircuitPublicInputs {
@@ -88,7 +85,7 @@ impl PrivateKernelCircuitPublicInputsComposerBuilder {
         unsafe {
             PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(previous_kernel)
                 .pop_top_call_request()
-                .with_private_call(private_call.public_inputs)
+                .with_private_call(private_call)
                 .finish()
         }
     }

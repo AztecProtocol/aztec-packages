@@ -17,6 +17,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_bc_decomposition.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bitwise.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_poseidon2_hash.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_range_check.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sha256.hpp"
 #include "barretenberg/vm2/generated/relations/perms_execution.hpp"
@@ -29,6 +30,7 @@
 #include "barretenberg/vm2/tracegen/lib/lookup_into_bitwise.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
 #include "barretenberg/vm2/tracegen/lib/permutation_builder.hpp"
+#include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/sha256_trace.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
@@ -198,6 +200,18 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                     EccTraceBuilder ecc_builder;
                     AVM_TRACK_TIME("tracegen/ecc_add", ecc_builder.process(events.ecc_add, trace));
                     clear_events(events.ecc_add);
+                },
+                [&]() {
+                    Poseidon2TraceBuilder poseidon2_builder;
+                    AVM_TRACK_TIME("tracegen/poseidon2_hash",
+                                   poseidon2_builder.process_hash(events.poseidon2_hash, trace));
+                    clear_events(events.poseidon2_hash);
+                },
+                [&]() {
+                    Poseidon2TraceBuilder poseidon2_builder;
+                    AVM_TRACK_TIME("tracegen/poseidon2_permutation",
+                                   poseidon2_builder.process_permutation(events.poseidon2_permutation, trace));
+                    clear_events(events.poseidon2_permutation);
                 } });
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
     }
@@ -207,6 +221,7 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
         auto jobs_interactions = make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
             std::make_unique<LookupIntoBitwise<lookup_dummy_precomputed_lookup_settings>>(),
             std::make_unique<LookupIntoDynamicTableGeneric<lookup_dummy_dynamic_lookup_settings>>(),
+            std::make_unique<LookupIntoDynamicTableSequential<lookup_pos2_perm_lookup_settings>>(),
             std::make_unique<PermutationBuilder<perm_dummy_dynamic_permutation_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_rng_chk_diff_lookup_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_rng_chk_pow_2_lookup_settings>>(),
@@ -221,8 +236,9 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             std::make_unique<LookupIntoIndexedByClk<lookup_bitw_byte_operations_lookup_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_bitw_byte_lengths_lookup_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_bytecode_to_read_unary_lookup_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_sha256_round_constant_lookup_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_bytecode_bytes_are_bytes_lookup_settings>>());
+            std::make_unique<LookupIntoIndexedByClk<lookup_bytecode_bytes_are_bytes_lookup_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_bytecode_remaining_abs_diff_u16_lookup_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_sha256_round_constant_lookup_settings>>());
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));
     }
