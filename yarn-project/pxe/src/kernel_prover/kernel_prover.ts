@@ -10,6 +10,7 @@ import {
   getFinalMinRevertibleSideEffectCounter,
 } from '@aztec/circuit-types';
 import {
+  AztecAddress,
   ClientIvcProof,
   Fr,
   PrivateCallData,

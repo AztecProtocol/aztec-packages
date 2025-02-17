@@ -1,4 +1,9 @@
-import { FUNCTION_TREE_HEIGHT, PROTOCOL_CONTRACT_TREE_HEIGHT } from '@aztec/constants';
+import {
+  FUNCTION_TREE_HEIGHT,
+  PROTOCOL_CONTRACT_TREE_HEIGHT,
+  PUBLIC_DATA_TREE_HEIGHT,
+  UPDATES_VALUE_SIZE,
+} from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';

@@ -44,6 +44,7 @@ import {
   PUBLIC_DISPATCH_SELECTOR,
 } from '@aztec/constants';
 import {
+  type ContractArtifact,
   type FunctionArtifact,
   FunctionSelector,
   type NoteSelector,

@@ -5,11 +5,10 @@ import {
   AztecAddress,
   NullifierLeafPreimage,
   type PublicCallRequest,
-  type PublicDataTreeLeafPreimage,
+  PublicDataTreeLeafPreimage,
+  ScheduledDelayChange,
+  ScheduledValueChange,
   SerializableContractInstance,
-  UPDATED_CLASS_IDS_SLOT,
-  UPDATES_SCHEDULED_VALUE_CHANGE_LEN,
-  UPDATES_VALUE_SIZE,
   computeSharedMutableHashSlot,
 } from '@aztec/circuits.js';
 import {
@@ -27,7 +26,11 @@ import {
   MULTI_CALL_ENTRYPOINT_ADDRESS,
   REGISTERER_CONTRACT_ADDRESS,
   ROUTER_ADDRESS,
+  UPDATED_CLASS_IDS_SLOT,
+  UPDATES_SCHEDULED_VALUE_CHANGE_LEN,
+  UPDATES_VALUE_SIZE,
 } from '@aztec/constants';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';

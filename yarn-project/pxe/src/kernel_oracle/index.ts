@@ -6,12 +6,23 @@ import {
   type GrumpkinScalar,
   MembershipWitness,
   type Point,
+  ScheduledDelayChange,
+  ScheduledValueChange,
+  UpdatedClassIdHints,
   type VerificationKeyAsFields,
   computeContractClassIdPreimage,
   computeSaltedInitializationHash,
   computeSharedMutableHashSlot,
 } from '@aztec/circuits.js';
-import { type NOTE_HASH_TREE_HEIGHT, VK_TREE_HEIGHT } from '@aztec/constants';
+import { computePublicDataTreeLeafSlot, deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
+import {
+  type NOTE_HASH_TREE_HEIGHT,
+  PUBLIC_DATA_TREE_HEIGHT,
+  UPDATED_CLASS_IDS_SLOT,
+  UPDATES_SCHEDULED_VALUE_CHANGE_LEN,
+  UPDATES_VALUE_SIZE,
+  VK_TREE_HEIGHT,
+} from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { type KeyStore } from '@aztec/key-store';

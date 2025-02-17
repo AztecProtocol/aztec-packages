@@ -6,6 +6,7 @@ import {
   type MembershipWitness,
   type Point,
   type PublicKeys,
+  UpdatedClassIdHints,
   type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
 import { type FUNCTION_TREE_HEIGHT, type NOTE_HASH_TREE_HEIGHT, type VK_TREE_HEIGHT } from '@aztec/constants';

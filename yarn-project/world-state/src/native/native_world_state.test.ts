@@ -1,5 +1,12 @@
 import { type L2Block, MerkleTreeId, type MerkleTreeWriteOperations, type SiblingPath } from '@aztec/circuit-types';
-import { AppendOnlyTreeSnapshot, BlockHeader, EthAddress, Fr, PublicDataWrite } from '@aztec/circuits.js';
+import {
+  AppendOnlyTreeSnapshot,
+  BlockHeader,
+  EthAddress,
+  Fr,
+  PublicDataTreeLeaf,
+  PublicDataWrite,
+} from '@aztec/circuits.js';
 import { makeContentCommitment, makeGlobalVariables } from '@aztec/circuits.js/testing';
 import {
   ARCHIVE_HEIGHT,
