@@ -1,5 +1,6 @@
 import { type PXE, type Tx } from '@aztec/circuit-types';
-import { type AztecAddress, type ContractInstanceWithAddress } from '@aztec/circuits.js';
+import { type ContractInstanceWithAddress } from '@aztec/circuits.js/contract';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 
 import { type Wallet } from '../account/index.js';
 import { type Contract } from './contract.js';

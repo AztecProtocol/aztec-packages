@@ -3,7 +3,7 @@ import {
   computePrivateFunctionLeaf,
   computePrivateFunctionsTree,
   getContractClassFromArtifact,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/contract';
 import { FUNCTION_TREE_HEIGHT } from '@aztec/constants';
 import { type ContractArtifact, FunctionSelector } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';

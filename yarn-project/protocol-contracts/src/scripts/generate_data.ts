@@ -144,7 +144,8 @@ async function generateLogTags() {
 async function generateOutputFile(names: string[], leaves: Fr[]) {
   const content = `
     // GENERATED FILE - DO NOT EDIT. RUN \`yarn generate\` or \`yarn generate:data\`
-    import { AztecAddress, Fr } from '@aztec/circuits.js';
+    import { Fr } from '@aztec/foundation/fields';
+    import { AztecAddress } from '@aztec/foundation/aztec-address';
 
     ${generateNames(names)}
 

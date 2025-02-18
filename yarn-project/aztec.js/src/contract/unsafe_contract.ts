@@ -1,4 +1,4 @@
-import { type ContractInstanceWithAddress } from '@aztec/circuits.js';
+import { type ContractInstanceWithAddress } from '@aztec/circuits.js/contract';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 
 import { type Wallet } from '../wallet/index.js';

@@ -1,4 +1,4 @@
-import { type ContractInstanceWithAddress, computePartialAddress } from '@aztec/circuits.js';
+import { type ContractInstanceWithAddress, computePartialAddress } from '@aztec/circuits.js/contract';
 import {
   type ContractArtifact,
   type ContractNote,
