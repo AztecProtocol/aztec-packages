@@ -81,6 +81,9 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(/*size_hint=*/0, witness_values, public_inputs, varnum)
         , op_queue(std::move(op_queue_in))
     {
+        // Instantiate the subtable to be populated with goblin ecc ops from this circuit
+        op_queue->initialize_new_subtable();
+
         // Set indices to constants corresponding to Goblin ECC op codes
         set_goblin_ecc_op_code_constant_variables();
     };

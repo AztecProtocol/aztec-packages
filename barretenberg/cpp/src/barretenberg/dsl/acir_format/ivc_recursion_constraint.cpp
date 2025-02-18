@@ -236,6 +236,7 @@ std::shared_ptr<ClientIVC::DeciderVerificationKey> create_mock_decider_vk()
  *
  * @return ClientIVC::MergeProof
  */
+// WORKTODO: Make sure there is a test to check that this produces a correctly sized mock merge proof
 ClientIVC::MergeProof create_dummy_merge_proof()
 {
     using FF = ClientIVC::FF;
@@ -245,6 +246,9 @@ ClientIVC::MergeProof create_dummy_merge_proof()
     FF mock_val(5);
     auto mock_commitment = curve::BN254::AffineElement::one();
     std::vector<FF> mock_commitment_frs = field_conversion::convert_to_bn254_frs(mock_commitment);
+
+    // Populate mock subtable size
+    proof.emplace_back(mock_val);
 
     // There are 12 entities in the merge protocol (4 columns x 3 components; aggregate transcript, previous aggregate
     // transcript, current transcript contribution)
