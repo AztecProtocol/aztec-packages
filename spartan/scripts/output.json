@@ -1,0 +1,21 @@
+{
+  "mnemonic": "pull sphere trip pill reopen accident company treat poem kidney street nominee",
+  "accounts": [
+    {
+      "address": "0x773d94EFdbad41a1eD2317aCaA3E1787aC731e99",
+      "private_key": "0x1fd2fe8b6ac98db755acc90423e6b175dbcf8c3619c2fa494ff4ba3eb9a35d65"
+    },
+    {
+      "address": "0x94be6331121d423F5f822E429D0bd2ea2C7cB3DC",
+      "private_key": "0x7b3772a04980447be30ad66de43a6a21b12ad1cd4a20d8815153b566c5eb84d4"
+    },
+    {
+      "address": "0xcc8a04b1FE3fa0cb4450ff35cEd8F54a2790CCA5",
+      "private_key": "0x2e2990d7e94d140b025b4b55e03d25f2f58fac2fe3cd519865e595c625976c57"
+    },
+    {
+      "address": "0x7A59404645A157368d419b3D6658464cC0695BA7",
+      "private_key": "0x166d00291a71815de51dd3fa2401528906fb9c64e23f42f4d163e31acc084088"
+    }
+  ]
+}

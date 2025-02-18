@@ -3,8 +3,8 @@ aztec:
   proofSubmissionWindow: 8
   realProofs: false
   l1DeploymentMnemonic: ""
-  validatorKeyIndexStart: 49
-  proverKeyIndexStart: 52
+  validatorKeyIndexStart: 0
+  proverKeyIndexStart: 3
 
 ethereum:
   chainId: "11155111"

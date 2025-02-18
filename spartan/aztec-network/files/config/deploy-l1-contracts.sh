@@ -12,13 +12,13 @@ RETRY_DELAY=15
 
 for attempt in $(seq 1 $MAX_RETRIES); do
   # Construct base command
-  base_cmd="LOG_LEVEL=debug node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts --test-accounts"
+  base_cmd="LOG_LEVEL=debug node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts"
 
   # Add account - use private key if set, otherwise use mnemonic
   if [ -n "${L1_DEPLOYMENT_PRIVATE_KEY:-}" ]; then
     base_cmd="$base_cmd --private-key $L1_DEPLOYMENT_PRIVATE_KEY"
   else
-    base_cmd="$base_cmd --mnemonic '$MNEMONIC'"
+    base_cmd="$base_cmd --mnemonic '$MNEMONIC' --test-accounts"
   fi
 
   # Add validators if INIT_VALIDATORS is true

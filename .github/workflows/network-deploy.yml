@@ -168,6 +168,14 @@ jobs:
 
           $REPO/spartan/scripts/generate_devnet_config.sh ${{ env.VALUES_FILE }}
 
+      - name: Generate sepolia accounts
+        id: generate-sepolia-accounts
+        if: ${{ inputs.sepolia_deployment == 'true' }}
+        run: |
+          REPO=$(git rev-parse --show-toplevel)
+          export MNEMONIC=$(bash $REPO/spartan/scripts/prepare_sepolia_accounts.sh 1117 100 1)
+          echo "mnemonic=$MNEMONIC" >> "$GITHUB_OUTPUT"
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
@@ -187,7 +195,7 @@ jobs:
         continue-on-error: true
         run: |
           if ${{ inputs.sepolia_deployment == 'true' }}; then
-            export L1_DEPLOYMENT_MNEMONIC="${{ secrets.SEPOLIA_ACCOUNTS_MNEMONIC }}"
+            export L1_DEPLOYMENT_MNEMONIC="${{ steps.generate-sepolia-accounts.outputs.mnemonic }}"
             terraform destroy -auto-approve \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
               -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
@@ -216,7 +224,7 @@ jobs:
         working-directory: ./spartan/terraform/deploy-release
         run: |
           if ${{ inputs.sepolia_deployment == 'true' }}; then
-            export L1_DEPLOYMENT_MNEMONIC="${{ secrets.SEPOLIA_ACCOUNTS_MNEMONIC }}"
+            export L1_DEPLOYMENT_MNEMONIC="${{ steps.generate-sepolia-accounts.outputs.mnemonic }}"
             terraform plan \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
               -var="VALUES_FILE=${{ env.VALUES_FILE }}" \

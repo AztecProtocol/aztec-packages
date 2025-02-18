@@ -1,0 +1,45 @@
+{{- if .Values.ethereum.execution.externalHost }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-consolidate-balances
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-delete
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
+    "helm.sh/hook-weight": "-5"
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "aztec-network.selectorLabels" . | nindent 8 }}
+        app: consolidate-balances
+    spec:
+      restartPolicy: OnFailure
+      {{- if .Values.network.public }}
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
+      {{- end }}
+      volumes:
+        - name: config
+          emptyDir: {}
+        - name: scripts
+          configMap:
+            name: {{ include "aztec-network.fullname" . }}-scripts
+      containers:
+      - name: consolidate-balances
+        command: ["/bin/bash"]
+        args:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          cp /scripts/consolidate_sepolia_balances.sh /tmp/consolidate_sepolia_balances.sh
+          chmod +x /tmp/consolidate_sepolia_balances.sh
+          /tmp/consolidate_sepolia_balances.sh "{{ .Values.aztec.l1DeploymentMnemonic }}" {{ add .Values.validator.replicas .Values.proverNode.replicas }}
+        env:
+        - name: ETHEREUM_HOST
+          value: "{{ .Values.ethereum.execution.externalHost }}"
+      restartPolicy: Never
+  backoffLimit: 1
+{{ end }}

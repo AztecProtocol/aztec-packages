@@ -65,7 +65,7 @@ function generate_overrides {
   local overrides="$1"
   if [ -n "$overrides" ]; then
     # Split the comma-separated string into an array and generate --set arguments
-    IFS=',' read -ra OVERRIDE_ARRAY <<< "$overrides"
+    IFS=',' read -ra OVERRIDE_ARRAY <<<"$overrides"
     for override in "${OVERRIDE_ARRAY[@]}"; do
       echo "--set $override"
     done
@@ -79,6 +79,9 @@ function generate_overrides {
 if [ "$sepolia_deployment" != "true" ]; then
   echo "Generating devnet config..."
   ./generate_devnet_config.sh "$values_file"
+else
+  echo "Generating sepolia accounts..."
+  L1_ACCOUNTS_MNEMONIC=$(./prepare_sepolia_accounts.sh "$values_file")
 fi
 
 # Install the Helm chart

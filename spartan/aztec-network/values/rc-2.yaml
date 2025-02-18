@@ -5,8 +5,8 @@ aztec:
   realProofs: true
   # TODO: Will need to change these as ignition will be using them
   l1DeploymentMnemonic: ""
-  validatorKeyIndexStart: 4
-  proverKeyIndexStart: 52
+  validatorKeyIndexStart: 0
+  proverKeyIndexStart: 48
 
 images:
   aztec:
