@@ -1,6 +1,6 @@
 #! /bin/bash
 
-exec reth node \
+reth node \
     --http \
     --http.port=${HTTP_PORT} \
     --http.addr="0.0.0.0" \
@@ -22,4 +22,4 @@ exec reth node \
     --chain="/genesis/genesis.json" \
     --datadir="/data" \
     --log.stdout.format=json \
-    -vv
+    -vvv

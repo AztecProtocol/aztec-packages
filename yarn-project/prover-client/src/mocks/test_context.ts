@@ -22,11 +22,9 @@ import {
   PublicTxSimulationTester,
   PublicTxSimulator,
   SimpleContractDataSource,
-  type SimulationProvider,
-  WASMSimulatorWithBlobs,
   WorldStateDB,
 } from '@aztec/simulator/server';
-import type { MerkleTreeAdminDatabase } from '@aztec/world-state';
+import { type MerkleTreeAdminDatabase } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import { promises as fs } from 'fs';
@@ -46,7 +44,6 @@ export class TestContext {
     public publicTxSimulator: PublicTxSimulator,
     public worldState: MerkleTreeAdminDatabase,
     public publicProcessor: PublicProcessor,
-    public simulationProvider: SimulationProvider,
     public globalVariables: GlobalVariables,
     public prover: ServerCircuitProver,
     public broker: TestBroker,
@@ -69,8 +66,8 @@ export class TestContext {
   static async new(
     logger: Logger,
     proverCount = 4,
-    createProver: (bbConfig: BBProverConfig) => Promise<ServerCircuitProver> = _ =>
-      Promise.resolve(new TestCircuitProver(new WASMSimulatorWithBlobs())),
+    createProver: (bbConfig: BBProverConfig) => Promise<ServerCircuitProver> = async (bbConfig: BBProverConfig) =>
+      new TestCircuitProver(await getSimulationProvider(bbConfig, logger)),
     blockNumber = 1,
   ) {
     const directoriesToCleanup: string[] = [];
@@ -105,12 +102,8 @@ export class TestContext {
 
     let localProver: ServerCircuitProver;
     const config = await getEnvironmentConfig(logger);
-    const simulationProvider = await getSimulationProvider({
-      acvmWorkingDirectory: config?.acvmWorkingDirectory,
-      acvmBinaryPath: config?.expectedAcvmPath,
-    });
     if (!config) {
-      localProver = new TestCircuitProver(simulationProvider);
+      localProver = new TestCircuitProver();
     } else {
       const bbConfig: BBProverConfig = {
         acvmBinaryPath: config.expectedAcvmPath,
@@ -137,7 +130,6 @@ export class TestContext {
       publicTxSimulator,
       ws,
       processor,
-      simulationProvider,
       globalVariables,
       localProver,
       broker,
