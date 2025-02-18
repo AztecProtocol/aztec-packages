@@ -56,10 +56,11 @@ template <typename Flavor> bool MergeVerifierNew_<Flavor>::verify_proof(const Ho
         T_evals[idx] = transcript->template receive_from_prover<FF>("T_eval_" + std::to_string(idx));
     }
 
-    // Check the identity T(\kappa) = t(\kappa) + \kappa^m*T_prev_(\kappa). If it fails, return false
+    // Check the identity T(\kappa) = t(\kappa) + \kappa^m * T_prev_(\kappa). If it fails, return false
     bool identity_checked = true;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        bool current_check = T_evals[idx] == t_evals[idx] + T_prev_evals[idx] * kappa.pow(subtable_size);
+        FF T_prev_shifted_eval_reconstructed = T_prev_evals[idx] * kappa.pow(subtable_size);
+        bool current_check = T_evals[idx] == t_evals[idx] + T_prev_shifted_eval_reconstructed;
         info("current_check: ", current_check);
         identity_checked = identity_checked && current_check;
     }

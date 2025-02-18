@@ -1,10 +1,10 @@
-#include "barretenberg/ultra_honk/merge_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib/goblin_verifier/merge_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/ultra_honk/merge_prover.hpp"
+#include "barretenberg/ultra_honk/merge_prover_new.hpp"
+#include "barretenberg/ultra_honk/merge_verifier_new.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -31,8 +31,8 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
     using Commitment = InnerFlavor::Commitment;
     using FF = InnerFlavor::FF;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
-    using MergeProver = MergeProver_<InnerFlavor>;
-    using MergeVerifier = MergeVerifier_<InnerFlavor>;
+    using MergeProver = MergeProverNew_<InnerFlavor>;
+    using MergeVerifier = MergeVerifierNew_<InnerFlavor>;
 
   public:
     static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
