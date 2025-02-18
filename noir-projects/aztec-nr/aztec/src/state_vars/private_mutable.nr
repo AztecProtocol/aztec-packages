@@ -11,6 +11,7 @@ use crate::note::{
     note_interface::{NoteInterface, NullifiableNote},
     note_viewer_options::NoteViewerOptions,
 };
+use crate::note::retrieved_note::RetrievedNote;
 use crate::oracle::notes::check_nullifier_exists;
 use crate::state_vars::storage::Storage;
 
@@ -61,7 +62,7 @@ where
     Note: NoteInterface<N> + NullifiableNote,
 {
     // docs:start:initialize
-    pub fn initialize(self, note: &mut Note) -> NoteEmission<Note> {
+    pub fn initialize(self, note: Note) -> NoteEmission<Note> {
         // Nullify the storage slot.
         let nullifier = self.compute_initialization_nullifier();
         self.context.push_nullifier(nullifier);
@@ -71,19 +72,23 @@ where
     // docs:end:initialize
 
     // docs:start:replace
-    pub fn replace(self, new_note: &mut Note) -> NoteEmission<Note> {
-        let (prev_note, note_hash_for_read_request): (Note, Field) =
+    pub fn replace(self, new_note: Note) -> NoteEmission<Note> {
+        let (prev_retrieved_note, note_hash_for_read_request): (RetrievedNote<Note>, Field) =
             get_note(self.context, self.storage_slot);
 
         // Nullify previous note.
-        destroy_note_unsafe(self.context, prev_note, note_hash_for_read_request);
+        destroy_note_unsafe(
+            self.context,
+            prev_retrieved_note,
+            note_hash_for_read_request,
+        );
 
         // Add replacement note.
         create_note(self.context, self.storage_slot, new_note)
     }
     // docs:end:replace
 
-    pub fn initialize_or_replace(self, note: &mut Note) -> NoteEmission<Note> {
+    pub fn initialize_or_replace(self, note: Note) -> NoteEmission<Note> {
         // Safety: `check_nullifier_exists` is an unconstrained function - we can constrain a true value
         // by providing an inclusion proof of the nullifier, but cannot constrain a false value since
         // a non-inclusion proof would only be valid if done in public.
@@ -107,14 +112,15 @@ where
 
     // docs:start:get_note
     pub fn get_note(self) -> NoteEmission<Note> {
-        let mut (note, note_hash_for_read_request) = get_note(self.context, self.storage_slot);
+        let mut (retrieved_note, note_hash_for_read_request) =
+            get_note(self.context, self.storage_slot);
 
         // Nullify current note to make sure it's reading the latest note.
-        destroy_note_unsafe(self.context, note, note_hash_for_read_request);
+        destroy_note_unsafe(self.context, retrieved_note, note_hash_for_read_request);
 
         // Add the same note again.
         // Because a nonce is added to every note in the kernel, its nullifier will be different.
-        create_note(self.context, self.storage_slot, &mut note)
+        create_note(self.context, self.storage_slot, retrieved_note.note)
     }
     // docs:end:get_note
 }
