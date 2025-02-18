@@ -49,7 +49,7 @@ template <typename OpFormat> class EccOpsTable {
 
     void create_new_subtable(size_t size_hint = 0)
     {
-        std::vector<OpFormat> new_subtable;
+        Subtable new_subtable;
         new_subtable.reserve(size_hint);
         table.insert(table.begin(), std::move(new_subtable));
     }
@@ -66,6 +66,19 @@ template <typename OpFormat> class EccOpsTable {
             index -= subtable.size(); // move to the next subtable
         }
         return table.front().front(); // should never reach here
+    }
+
+    // highly inefficient copy-based reconstruction of the table for use in ECCVM/Translator
+    std::vector<OpFormat> get_reconstructed() const
+    {
+        std::vector<OpFormat> reconstructed_table;
+        reconstructed_table.reserve(size());
+        for (const auto& subtable : table) {
+            for (const auto& op : subtable) {
+                reconstructed_table.push_back(op);
+            }
+        }
+        return reconstructed_table;
     }
 };
 
