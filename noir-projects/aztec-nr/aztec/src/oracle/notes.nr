@@ -1,4 +1,4 @@
-use crate::{note::{note_header::NoteHeader, note_interface::NoteInterface}, utils::array};
+use crate::{note::{note_interface::NoteInterface, retrieved_note::RetrievedNote}, utils::array};
 
 use dep::protocol_types::{
     address::AztecAddress,
@@ -162,10 +162,10 @@ pub unconstrained fn get_notes<Note, let N: u32, let M: u32, let S: u32, let NS:
     limit: u32,
     offset: u32,
     status: u8,
-    mut placeholder_opt_notes: [Option<Note>; S], // TODO: Remove it and use `limit` to initialize the note array.
+    mut placeholder_opt_notes: [Option<RetrievedNote<Note>>; S], // TODO: Remove it and use `limit` to initialize the note array.
     placeholder_fields: [Field; NS], // TODO: Remove it and use `limit` to initialize the note array.
     _placeholder_note_length: [Field; N], // Turbofish hack? Compiler breaks calculating read_offset unless we add this parameter
-) -> [Option<Note>; S]
+) -> [Option<RetrievedNote<Note>>; S]
 where
     Note: NoteInterface<N>,
 {
@@ -200,10 +200,10 @@ where
             let note_hash_counter = fields[read_offset + 1] as u32;
             let note_content = array::subarray(fields, read_offset + 2);
 
-            let mut note = Note::unpack_content(note_content);
-            note.set_header(NoteHeader { contract_address, nonce, note_hash_counter });
+            let note = Note::unpack_content(note_content);
+            let retrieved_note = RetrievedNote { note, contract_address, nonce, note_hash_counter };
 
-            placeholder_opt_notes[i] = Option::some(note);
+            placeholder_opt_notes[i] = Option::some(retrieved_note);
         };
     }
     placeholder_opt_notes

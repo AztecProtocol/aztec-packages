@@ -3,7 +3,7 @@ use dep::aztec::{
     macros::notes::note,
     note::utils::compute_note_hash_for_nullify,
     oracle::random::random,
-    prelude::{NoteHeader, NullifiableNote, PrivateContext},
+    prelude::{NullifiableNote, PrivateContext, RetrievedNote},
     protocol_types::{
         address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
         hash::poseidon2_hash_with_separator, traits::Packable,
@@ -42,8 +42,16 @@ impl NullifiableNote for TokenNote {
     }
     // docs:end:nullifier
 
-    unconstrained fn compute_nullifier_without_context(self, storage_slot: Field) -> Field {
-        let note_hash_for_nullify = compute_note_hash_for_nullify(self, storage_slot);
+    unconstrained fn compute_nullifier_without_context(
+        self,
+        storage_slot: Field,
+        contract_address: AztecAddress,
+        note_nonce: Field,
+    ) -> Field {
+        // We set the note_hash_counter to 0 as the note is assumed to be committed (and hence not transient).
+        let retrieved_note =
+            RetrievedNote { note: self, contract_address, nonce: note_nonce, note_hash_counter: 0 };
+        let note_hash_for_nullify = compute_note_hash_for_nullify(retrieved_note, storage_slot);
         let owner_npk_m_hash: Field = get_public_keys(self.owner).npk_m.hash();
         let secret = get_nsk_app(owner_npk_m_hash);
         poseidon2_hash_with_separator(
@@ -68,7 +76,7 @@ impl OwnedNote for TokenNote {
         // the full note pre-image anyway, and so the recipient already trusts them to not disclose this
         // information. We can therefore assume that the sender will cooperate in the random value generation.
         let randomness = unsafe { random() };
-        Self { amount, owner, randomness, header: NoteHeader::empty() }
+        Self { amount, owner, randomness }
     }
 
     fn get_amount(self) -> U128 {
