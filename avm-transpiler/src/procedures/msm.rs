@@ -1,4 +1,4 @@
-const MSM_ASSEMBLY: &str = "
+pub(crate) const MSM_ASSEMBLY: &str = "
                 ; We are passed two pointers and one usize.
                 ; d0 points to the points. Points are represented by (x: Field, y: Field, is_infinite: bool)
                 ; d1 points to the scalars. Scalars are represented by (lo: Field, hi: Field) both range checked to 128 bits.
@@ -30,9 +30,9 @@ OUTER_BODY:     ADD d6, d0, d16; Compute the pointer to the point
                 ; Allocate a 256 bit array
                 MOV $1, d19; Move the free memory pointer to d19, where we'll store the bits
                 ADD $1, d9, $1; Increase the free memory pointer by 256
-                TO_RADIX_BE i18, d7, d10, d11, i19; Get the most significant bits of the full scalar
+                TORADIXBE i18, d7, d10, d11, i19; Get the most significant bits of the full scalar
                 ADD d19, d10, d20; Create a pointer to the middle of the 256 bit array
-                TO_RADIX_BE i17, d7, d10, d11, i20; Get the least significant bits of the full scalar
+                TORADIXBE i17, d7, d10, d11, i20; Get the least significant bits of the full scalar
                 ; Now we have a pointer (i19) to the bits of the scalar in BE
 
                 ; Now we need to find the pointer to the MSB
@@ -80,3 +80,14 @@ OUTER_END:      MOV d3, d0
                 MOV d5, d2
                 RETURN
 ";
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::procedures::parser::parse;
+
+    #[test]
+    fn smoke_parse_msm() {
+        parse(MSM_ASSEMBLY).expect("Failed to parse MSM assembly");
+    }
+}

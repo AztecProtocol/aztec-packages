@@ -1,0 +1,171 @@
+use regex::Regex;
+
+use crate::instructions::AvmTypeTag;
+
+#[derive(Debug)]
+pub(crate) enum Alias {
+    // Compute
+    ADD,
+    SUB,
+    MUL,
+    DIV,
+    FDIV,
+    EQ,
+    LT,
+    LTE,
+    AND,
+    OR,
+    XOR,
+    NOT,
+    SHL,
+    SHR,
+    CAST,
+    // Control flow
+    JUMP,
+    JUMPI,
+    INTERNALCALL,
+    INTERNALRETURN,
+    // Memory
+    SET,
+    MOV,
+    // Misc
+    RETURN,
+    ECADD,
+    TORADIXBE,
+}
+
+impl Alias {
+    fn lookup(as_string: &str) -> Alias {
+        match as_string {
+            "ADD" => Alias::ADD,
+            "SUB" => Alias::SUB,
+            "MUL" => Alias::MUL,
+            "DIV" => Alias::DIV,
+            "FDIV" => Alias::FDIV,
+            "EQ" => Alias::EQ,
+            "LT" => Alias::LT,
+            "LTE" => Alias::LTE,
+            "AND" => Alias::AND,
+            "OR" => Alias::OR,
+            "XOR" => Alias::XOR,
+            "NOT" => Alias::NOT,
+            "SHL" => Alias::SHL,
+            "SHR" => Alias::SHR,
+            "CAST" => Alias::CAST,
+            "JUMP" => Alias::JUMP,
+            "JUMPI" => Alias::JUMPI,
+            "INTERNALCALL" => Alias::INTERNALCALL,
+            "INTERNALRETURN" => Alias::INTERNALRETURN,
+            "SET" => Alias::SET,
+            "MOV" => Alias::MOV,
+            "RETURN" => Alias::RETURN,
+            "ECADD" => Alias::ECADD,
+            "TORADIXBE" => Alias::TORADIXBE,
+            _ => unreachable!("Invalid alias {}", as_string),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) enum Symbol {
+    Direct(usize),
+    Indirect(usize),
+    Reserved(usize),
+    Label(String),
+}
+
+#[derive(Debug)]
+pub(crate) enum Operand {
+    Symbol(Symbol),
+    Immediate(u128),
+}
+
+#[derive(Debug)]
+pub(crate) struct ParsedOpcode {
+    pub(crate) alias: Alias,
+    pub(crate) operands: Vec<Operand>,
+    pub(crate) tag: Option<AvmTypeTag>,
+    pub(crate) label: Option<String>,
+}
+
+pub(crate) type Assembly = Vec<ParsedOpcode>;
+
+// Simple regex parser
+pub(crate) fn parse(assembly: &str) -> Result<Assembly, String> {
+    // Strip out comments, then remove empty lines
+    let assembly = assembly
+        .lines()
+        .map(|line| line.split(';').next().unwrap().trim())
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<&str>>();
+    println!("{}", assembly.join("\n"));
+
+    let line_regex = Regex::new(r"^(?:(?<label>\w+):\s+)?(?<alias>\w+)(?:\s+(?<operands>.+?))?(?:\s+(?<tag>u1|u8|u16|u32|u64|u128|ff))?$").unwrap();
+
+    assembly
+        .into_iter()
+        .map(|line: &str| {
+            let Some(caps) = line_regex.captures(line) else {
+                return Err(format!("Line `{}` is invalid", line));
+            };
+
+            let label = caps.name("label").map(|m| m.as_str().to_string());
+
+            let alias = Alias::lookup(
+                caps.name("alias")
+                    .map(|m| m.as_str())
+                    .ok_or_else(|| format!("Missing opcode alias in line `{}`", line))?,
+            );
+
+            let operands = caps.name("operands").map(|m| m.as_str());
+            let operands =
+                parse_operands(operands.unwrap_or("")).map_err(|operand_parsing_err| {
+                    format!("Error parsing operands for line `{}`: {}", line, operand_parsing_err)
+                })?;
+
+            let tag = caps.name("tag").map(|m| parse_tag(m.as_str()));
+
+            Ok(ParsedOpcode { alias, label, operands, tag })
+        })
+        .collect::<Result<Vec<_>, _>>()
+}
+
+fn parse_operands(operands: &str) -> Result<Vec<Operand>, String> {
+    let operand_regex = Regex::new(r"^\$(?<reserved>\d+)|^d(?<direct>\d+)|^i(?<indirect>\d+)|^(?<immediate>\d+)|^(?<label>\w*)$").unwrap();
+    // Split by comma, then trim whitespace
+    operands
+        .split(',')
+        .map(|operand| operand.trim())
+        .map(|operand| {
+            let Some(caps) = operand_regex.captures(operand) else {
+                return Err(format!("Operand `{}` is invalid", operand));
+            };
+            if let Some(reserved) = caps.name("reserved") {
+                Ok(Operand::Symbol(Symbol::Reserved(reserved.as_str().parse().unwrap())))
+            } else if let Some(direct) = caps.name("direct") {
+                Ok(Operand::Symbol(Symbol::Direct(direct.as_str().parse().unwrap())))
+            } else if let Some(indirect) = caps.name("indirect") {
+                Ok(Operand::Symbol(Symbol::Indirect(indirect.as_str().parse().unwrap())))
+            } else if let Some(immediate) = caps.name("immediate") {
+                Ok(Operand::Immediate(immediate.as_str().parse().unwrap()))
+            } else if let Some(label) = caps.name("label") {
+                Ok(Operand::Symbol(Symbol::Label(label.as_str().to_string())))
+            } else {
+                unreachable!("Regex should have matched one of the groups")
+            }
+        })
+        .collect()
+}
+
+fn parse_tag(tag_as_string: &str) -> AvmTypeTag {
+    match tag_as_string {
+        "u1" => AvmTypeTag::UINT1,
+        "u8" => AvmTypeTag::UINT8,
+        "u16" => AvmTypeTag::UINT16,
+        "u32" => AvmTypeTag::UINT32,
+        "u64" => AvmTypeTag::UINT64,
+        "u128" => AvmTypeTag::UINT128,
+        "ff" => AvmTypeTag::FIELD,
+        _ => unreachable!("Invalid tag {}", tag_as_string),
+    }
+}
