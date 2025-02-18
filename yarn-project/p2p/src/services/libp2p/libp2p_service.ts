@@ -19,8 +19,7 @@ import {
 } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { type EpochCacheInterface } from '@aztec/epoch-cache';
-import { createLogger } from '@aztec/foundation/log';
-import { createLibp2pComponentLogger } from '@aztec/foundation/log';
+import { createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
