@@ -107,7 +107,7 @@ impl Deck<&mut PrivateContext> {
     pub fn add_cards<let N: u32>(&mut self, cards: [Card; N], owner: AztecAddress) -> [CardNote] {
         let mut inserted_cards = &[];
         for card in cards {
-            let mut card_note = CardNote::from_card(card, owner);
+            let card_note = CardNote::from_card(card, owner);
             self.set.insert(card_note.note).emit(encode_and_encrypt_note(
                 self.set.context,
                 owner,

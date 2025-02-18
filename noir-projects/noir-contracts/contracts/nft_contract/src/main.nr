@@ -333,7 +333,7 @@ pub contract NFT {
             .set_limit(1));
         assert(notes.len() == 1, "NFT not found when transferring");
 
-        let mut new_note = NFTNote::new(token_id, to);
+        let new_note = NFTNote::new(token_id, to);
 
         nfts.at(to).insert(new_note).emit(encode_and_encrypt_note(&mut context, to, from));
     }

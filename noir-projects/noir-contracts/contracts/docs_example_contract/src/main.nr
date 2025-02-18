@@ -158,7 +158,7 @@ pub contract DocsExample {
     // docs:start:initialize-private-mutable
     #[private]
     fn initialize_private_immutable(randomness: Field, points: u8) {
-        let mut new_card = CardNote::new(points, randomness, context.msg_sender());
+        let new_card = CardNote::new(points, randomness, context.msg_sender());
 
         storage.private_immutable.initialize(new_card).emit(encode_and_encrypt_note(
             &mut context,
@@ -171,7 +171,7 @@ pub contract DocsExample {
     #[private]
     // msg_sender() is 0 at deploy time. So created another function
     fn initialize_private(randomness: Field, points: u8) {
-        let mut legendary_card = CardNote::new(points, randomness, context.msg_sender());
+        let legendary_card = CardNote::new(points, randomness, context.msg_sender());
 
         // create and broadcast note
         storage.legendary_card.initialize(legendary_card).emit(encode_and_encrypt_note(
@@ -210,7 +210,7 @@ pub contract DocsExample {
     // docs:end:state_vars-NoteGetterOptionsComparatorExampleNoir
     #[private]
     fn update_legendary_card(randomness: Field, points: u8) {
-        let mut new_card = CardNote::new(points, randomness, context.msg_sender());
+        let new_card = CardNote::new(points, randomness, context.msg_sender());
 
         storage.legendary_card.replace(new_card).emit(encode_and_encrypt_note(
             &mut context,
@@ -229,7 +229,7 @@ pub contract DocsExample {
         let card = storage.legendary_card.get_note().note;
         // docs:end:state_vars-PrivateMutableGet
         let points = card.points + 1;
-        let mut new_card = CardNote::new(points, card.randomness, context.msg_sender());
+        let new_card = CardNote::new(points, card.randomness, context.msg_sender());
 
         // docs:start:state_vars-PrivateMutableReplace
         storage.legendary_card.replace(new_card).emit(encode_and_encrypt_note(
