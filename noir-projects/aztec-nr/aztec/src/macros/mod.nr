@@ -15,8 +15,6 @@ use utils::module_has_storage;
 
 global NOTE_INTERFACE: TraitConstraint =
     quote { crate::note::note_interface::NoteInterface }.as_trait_constraint();
-global PACKABLE: TraitConstraint =
-    quote { crate::protocol_types::traits::Packable<_> }.as_trait_constraint();
 
 /// Marks a contract as an Aztec contract, generating the interfaces for its functions and notes, as well as injecting
 /// the `compute_note_hash_and_optionally_a_nullifier` function PXE requires in order to validate notes.
@@ -148,7 +146,13 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
             )[0]
                 .as_typed_expr();
 
-            let unpack = typ.get_trait_impl(PACKABLE).unwrap().methods().filter(|m| {
+            // We obtain the packable trait constraint here rather than storing it as a global variable. This is because
+            // the trait has a generic parameter that gets matched on first use. If we used a global variable, we would
+            // fail to get trait implementations for types that don't match the already-matched generic parameter.
+            let packable: TraitConstraint =
+                quote { crate::protocol_types::traits::Packable<_> }.as_trait_constraint();
+
+            let unpack = typ.get_trait_impl(packable).unwrap().methods().filter(|m| {
                 m.name() == quote { unpack }
             })[0]
                 .as_typed_expr();
@@ -253,7 +257,13 @@ comptime fn generate_process_log() -> Quoted {
         })[0]
             .as_typed_expr();
 
-        let unpack = typ.get_trait_impl(PACKABLE).unwrap().methods().filter(|m| {
+        // We obtain the packable trait constraint here rather than storing it as a global variable. This is because
+        // the trait has a generic parameter that gets matched on first use. If we used a global variable, we would
+        // fail to get trait implementations for types that don't match the already-matched generic parameter.
+        let packable: TraitConstraint =
+            quote { crate::protocol_types::traits::Packable<_> }.as_trait_constraint();
+
+        let unpack = typ.get_trait_impl(packable).unwrap().methods().filter(|m| {
             m.name() == quote { unpack }
         })[0]
             .as_typed_expr();
