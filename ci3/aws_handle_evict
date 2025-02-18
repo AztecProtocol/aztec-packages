@@ -33,6 +33,7 @@ while true; do
          http://169.254.169.254/latest/meta-data/spot/termination-time &>/dev/null; then
     echo "Spot will be terminated! Exiting early."
     terminate_stdio_attached_processes
+    # Exit with 155 to signal wrapper to restart with on-demand.
     exit 155
   fi
 done
