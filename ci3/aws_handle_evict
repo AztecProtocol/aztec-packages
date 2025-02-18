@@ -1,6 +1,6 @@
 #!/bin/bash
 # Capture initial PIDs using our stdio before running the command.
-initial_stdio_pids=$(fuser /dev/stdin /dev/stdout /dev/stderr 2>/dev/null | tr -s ' ' '\n')
+initial_stdio_pids=$(fuser /dev/stdin /dev/stdout 2>/dev/null)
 
 # Gracefully signals eviction status with a 155 exit code.
 # Runs the given command in the background and waits on it while polling for eviction status.
@@ -10,10 +10,12 @@ child_pid=$!
 token=$(curl -sX PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
 
 function terminate_stdio_attached_processes {
-  # Get current PIDs using stdio and kill those that were not present at startup.
-  fuser /dev/stdin /dev/stdout /dev/stderr 2>/dev/null | tr -s ' ' '\n' \
-    | grep -vFxf <(echo "$initial_stdio_pids") \
-    | xargs -r kill -9
+  # Identify new PIDs not present initially and force kill them.
+  current_stdio_pids=$(fuser /dev/stdin /dev/stdout 2>/dev/null)
+  comm -13 \
+    <(echo "$initial_stdio_pids" | tr ' ' '\n' | sort) \
+    <(echo "$current_stdio_pids" | tr ' ' '\n' | sort) | \
+    xargs -r kill -9
 }
 
 # Poll until the child finishes or a termination notice is detected
