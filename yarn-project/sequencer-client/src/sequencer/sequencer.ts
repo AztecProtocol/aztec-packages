@@ -662,6 +662,7 @@ export class Sequencer {
     attestations?: Signature[],
     txHashes?: TxHash[],
   ): Promise<void> {
+    this.log.info('txhashes', txHashes);
     // Publishes new block to the network and awaits the tx to be mined
     this.setState(SequencerState.PUBLISHING_BLOCK, block.header.globalVariables.slotNumber.toBigInt());
 

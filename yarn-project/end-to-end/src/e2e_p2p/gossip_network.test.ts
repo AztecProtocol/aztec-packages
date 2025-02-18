@@ -41,6 +41,12 @@ describe('e2e_p2p_network', () => {
       numberOfNodes: NUM_NODES,
       basePort: BOOT_NODE_UDP_PORT,
       metricsPort: shouldCollectMetrics(),
+      // TODO(md): put in central location - part of different pr
+      // initialConfig: {
+      //   aztecEpochDuration: 8,
+      //   aztecSlotDuration: 18,
+      //   ethereumSlotDuration: 6,
+      // },
     });
 
     await t.setupAccount();

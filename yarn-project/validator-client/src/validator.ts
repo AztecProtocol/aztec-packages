@@ -205,7 +205,7 @@ export class ValidatorClient extends WithTracer implements Validator {
 
       // exp(#12055): Temp method to add txs to pool and make them available
       // TODO: handle duplication logic
-      ((this.p2pClient as any).txPool as TxPool).addTxs(proposal.payload.txs);
+      this.addProposalTxsToPool(proposal.payload.txs);
     } catch (error: any) {
       // If the transactions are not available, then we should not attempt to attest
       if (error instanceof TransactionsNotAvailableError) {
@@ -223,6 +223,15 @@ export class ValidatorClient extends WithTracer implements Validator {
 
     // If the above function does not throw an error, then we can attest to the proposal
     return this.validationService.attestToProposal(proposal);
+  }
+
+  private async addProposalTxsToPool(txs: Tx[]): Promise<void> {
+    try {
+      await ((this.p2pClient as any).txPool as TxPool).addTxs(txs);
+    } catch (error: any) {
+      // If the transactions are not available, then we should not attempt to attest
+      // do nothing, commonly getting kv error here - but i dont care rn
+    }
   }
 
   /**

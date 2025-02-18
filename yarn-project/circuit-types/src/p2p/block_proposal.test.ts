@@ -5,9 +5,12 @@ import { BlockProposal } from './block_proposal.js';
 import { makeBlockProposal } from './mocks.js';
 
 describe('Block Proposal serialization / deserialization', () => {
-  const checkEquivalence = (serialized: BlockProposal, deserialized: BlockProposal) => {
-    expect(deserialized.getSize()).toEqual(serialized.getSize());
-    expect(deserialized).toEqual(serialized);
+  const checkEquivalence = async (original: BlockProposal, deserialized: BlockProposal) => {
+    // tmp
+    // force compute tx hashes - this is not done in the deserialization
+    await Promise.all(deserialized.payload.txs.map(tx => tx.getTxHash()));
+    expect(deserialized.getSize()).toEqual(original.getSize());
+    expect(deserialized).toEqual(original);
   };
 
   it('Should serialize / deserialize', async () => {
@@ -15,7 +18,8 @@ describe('Block Proposal serialization / deserialization', () => {
 
     const serialized = proposal.toBuffer();
     const deserialized = BlockProposal.fromBuffer(serialized);
-    checkEquivalence(proposal, deserialized);
+
+    await checkEquivalence(proposal, deserialized);
   });
 
   it('Should serialize / deserialize + recover sender', async () => {
@@ -25,7 +29,7 @@ describe('Block Proposal serialization / deserialization', () => {
     const serialized = proposal.toBuffer();
     const deserialized = BlockProposal.fromBuffer(serialized);
 
-    checkEquivalence(proposal, deserialized);
+    await checkEquivalence(proposal, deserialized);
 
     // Recover signature
     const sender = await deserialized.getSender();

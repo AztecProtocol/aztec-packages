@@ -39,7 +39,9 @@ export class BlockProposalPayload implements Signable {
 
   async getPayloadToSign(domainSeparator: SignatureDomainSeparator): Promise<Buffer> {
     const abi = parseAbiParameters('uint8, (bytes32, bytes32, (uint256), bytes, bytes32[])');
-    const txArray = this.txs.map(tx => tx.toBuffer().toString('hex') as `0x${string}`);
+
+    // Sign over the tx hashes
+    const txArray = (await Promise.all(this.txs.map(tx => tx.getTxHash()))).map(tx => tx.toString());
     const encodedData = encodeAbiParameters(abi, [
       domainSeparator,
       [
