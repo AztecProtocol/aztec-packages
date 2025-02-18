@@ -1,6 +1,7 @@
 import { type ComponentLogger, type Logger } from '@libp2p/interface';
 
 import { getLogLevelFromFilters } from './log-filters.js';
+import type { LogLevel } from './log-levels.js';
 import { logFilters, logger } from './pino-logger.js';
 
 /**
@@ -13,36 +14,50 @@ export function createLibp2pComponentLogger(namespace: string): ComponentLogger 
   };
 }
 
+// Lipp2p libraries use arbitrary string substitutions, so we need to replace them with %s, this is slow so avoid doing it unless trace debugging
+function replaceFormatting(message: string) {
+  // Message can sometimes not be a string, e.g. an error object, just return it as is
+  if (!message?.replace) return message;
+
+  return message.replace(/(%p|%a)/g, '%s');
+}
+
 function createLibp2pLogger(component: string): Logger {
   // Create a direct pino logger instance for libp2p that supports string interpolation
   const log = logger.child({ module: component }, { level: getLogLevelFromFilters(logFilters, component) });
 
+  const logIfEnabled = (level: LogLevel, message: string, ...args: unknown[]) => {
+    if (!log.isLevelEnabled(level)) return;
+
+    log[level](replaceFormatting(message), ...args);
+  };
+
   // Default log level is trace as this is super super noisy
   const logFn = (message: string, ...args: unknown[]) => {
-    log.trace(message, ...args);
+    logIfEnabled('trace', message, ...args);
   };
 
   return Object.assign(logFn, {
     enabled: log.isLevelEnabled('debug'),
     error(message: string, ...args: unknown[]) {
       // We write error outputs as debug as they are often expected, e.g. connection errors can happen in happy paths
-      log.debug(message, ...args);
+      logIfEnabled('debug', message, ...args);
     },
 
     debug(message: string, ...args: unknown[]) {
-      log.debug(message, ...args);
+      logIfEnabled('debug', message, ...args);
     },
 
     info(message: string, ...args: unknown[]) {
-      log.info(message, ...args);
+      logIfEnabled('info', message, ...args);
     },
 
     warn(message: string, ...args: unknown[]) {
-      log.warn(message, ...args);
+      logIfEnabled('warn', message, ...args);
     },
 
     trace(message: string, ...args: unknown[]) {
-      log.trace(message, ...args);
+      logIfEnabled('trace', message, ...args);
     },
   });
 }
