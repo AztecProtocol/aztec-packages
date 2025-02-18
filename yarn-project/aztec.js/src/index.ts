@@ -98,6 +98,8 @@ export {
   type PXE,
 } from '@aztec/circuit-types';
 
+export { mockTx } from '@aztec/circuit-types/testing';
+
 // TODO: These kinds of things have no place on our public api.
 // External devs will almost certainly have their own methods of doing these things.
 // If we want to use them in our own "aztec.js consuming code", import them from foundation as needed.

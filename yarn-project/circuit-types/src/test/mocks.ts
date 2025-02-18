@@ -14,16 +14,23 @@ import {
   computeContractAddressFromInstance,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
+import { type BlockHeader } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { makeCombinedConstantData, makeGas, makePublicCallRequest } from '@aztec/circuits.js/testing';
+import { makeHeader } from '@aztec/circuits.js/testing';
 import { MAX_ENQUEUED_CALLS_PER_TX } from '@aztec/constants';
 import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
 import { times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
+import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
 import { ContractClassTxL2Logs, Note } from '../logs/index.js';
 import { ExtendedNote, UniqueNote } from '../notes/index.js';
+import { BlockAttestation } from '../p2p/block_attestation.js';
+import { BlockProposal } from '../p2p/block_proposal.js';
+import { ConsensusPayload } from '../p2p/consensus_payload.js';
+import { SignatureDomainSeparator, getHashedSignaturePayloadEthSignedMessage } from '../p2p/signature_utils.js';
 import {
   CountedPublicExecutionRequest,
   PrivateCallExecutionResult,
@@ -250,4 +257,45 @@ export const randomUniqueNote = async ({
     txHash,
     nonce,
   );
+};
+
+export interface MakeConsensusPayloadOptions {
+  signer?: Secp256k1Signer;
+  header?: BlockHeader;
+  archive?: Fr;
+  txHashes?: TxHash[];
+}
+
+const makeAndSignConsensusPayload = async (
+  domainSeparator: SignatureDomainSeparator,
+  options?: MakeConsensusPayloadOptions,
+) => {
+  const {
+    signer = Secp256k1Signer.random(),
+    header = makeHeader(1),
+    archive = Fr.random(),
+    txHashes = [0, 1, 2, 3, 4, 5].map(() => TxHash.random()),
+  } = options ?? {};
+
+  const payload = ConsensusPayload.fromFields({
+    header,
+    archive,
+    txHashes,
+  });
+
+  const hash = await getHashedSignaturePayloadEthSignedMessage(payload, domainSeparator);
+  const signature = signer.sign(hash);
+
+  return { payload, signature };
+};
+
+export const makeBlockProposal = async (options?: MakeConsensusPayloadOptions): Promise<BlockProposal> => {
+  const { payload, signature } = await makeAndSignConsensusPayload(SignatureDomainSeparator.blockProposal, options);
+  return new BlockProposal(payload, signature);
+};
+
+// TODO(https://github.com/AztecProtocol/aztec-packages/issues/8028)
+export const makeBlockAttestation = async (options?: MakeConsensusPayloadOptions): Promise<BlockAttestation> => {
+  const { payload, signature } = await makeAndSignConsensusPayload(SignatureDomainSeparator.blockAttestation, options);
+  return new BlockAttestation(payload, signature);
 };
