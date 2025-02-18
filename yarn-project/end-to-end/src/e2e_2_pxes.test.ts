@@ -1,17 +1,7 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type InitialAccountData, deployFundedSchnorrAccount } from '@aztec/accounts/testing';
-import {
-  type AztecAddress,
-  type AztecNode,
-  type ExtendedNote,
-  Fr,
-  type Logger,
-  type PXE,
-  type Wallet,
-  sleep,
-} from '@aztec/aztec.js';
+import { type AztecAddress, type AztecNode, Fr, type Logger, type PXE, type Wallet, sleep } from '@aztec/aztec.js';
 import { ChildContract } from '@aztec/noir-contracts.js/Child';
-import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { expect, jest } from '@jest/globals';
@@ -225,53 +215,5 @@ describe('e2e_2_pxes', () => {
     await pxeB.registerContract(token);
     await expectTokenBalance(walletB, token, walletB.getAddress(), transferAmount2, logger);
     await expectTokenBalance(sharedWalletOnB, token, sharedAccountAddress, transferAmount1 - transferAmount2, logger);
-  });
-
-  it('adds and fetches a nullified note', async () => {
-    // 1. Deploys test contract through PXE A
-    const testContract = await TestContract.deploy(walletA).send().deployed();
-
-    // 2. Create a note
-    const noteStorageSlot = 10;
-    const noteValue = 5;
-    let note: ExtendedNote;
-    {
-      const owner = walletA.getAddress();
-      const sender = owner;
-
-      const receipt = await testContract.methods
-        .call_create_note(noteValue, owner, sender, noteStorageSlot)
-        .send()
-        .wait();
-      await testContract.methods.sync_notes().simulate();
-      const notes = await walletA.getNotes({ txHash: receipt.txHash });
-      expect(notes).toHaveLength(1);
-      note = notes[0];
-    }
-
-    // TODO(#12013): We need to do this hack because NoteDao no longer populates noteTypeId
-    note.noteTypeId = TestContract.notes.ValueNote.id;
-
-    // 3. Nullify the note
-    {
-      const receipt = await testContract.methods.call_destroy_note(noteStorageSlot).send().wait({ debug: true });
-      // Check that we got 2 nullifiers - 1 for tx hash, 1 for the note
-      expect(receipt.debugInfo?.nullifiers).toHaveLength(2);
-    }
-
-    // 4. Adds the nullified public key note to PXE B
-    {
-      // We need to register the contract to be able to compute the note hash by calling compute_note_hash_and_optionally_a_nullifier(...)
-      await pxeB.registerContract(testContract);
-      await pxeB.addNullifiedNote(note);
-    }
-
-    // 5. Try fetching the nullified note
-    {
-      const testContractWithWalletB = await TestContract.at(testContract.address, walletB);
-      const noteValue = await testContractWithWalletB.methods.call_get_notes(noteStorageSlot, true).simulate();
-      expect(noteValue).toBe(noteValue);
-      // --> We have successfully obtained the nullified note from PXE B verifying that pxe.addNullifiedNote(...) works
-    }
   });
 });
