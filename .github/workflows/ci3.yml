@@ -66,6 +66,7 @@ jobs:
           LOG_ID: ${{ github.run_id }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
         run: |
           ./ci.sh ec2
       - name: Download benchmarks
@@ -153,6 +154,7 @@ jobs:
           ARCH: arm64
           LOG_ID: ${{ github.run_id }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
         run: |
           ./ci.sh ec2
 
