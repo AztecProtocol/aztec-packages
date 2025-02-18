@@ -75,7 +75,7 @@ describe('PXEService', () => {
   let tips: L2TipsStore;
 
   beforeEach(async () => {
-    const kvStore = openTmpStore();
+    const kvStore = await openTmpStore('test');
     keyStore = new KeyStore(kvStore);
     node = mock<AztecNode>();
     tips = new L2TipsStore(kvStore, 'pxe');
