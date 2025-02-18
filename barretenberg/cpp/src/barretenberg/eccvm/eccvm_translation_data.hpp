@@ -31,12 +31,13 @@ template <typename Transcript> class TranslationData {
                     const std::shared_ptr<CommitmentKey>& commitment_key)
         : concatenated_masking_term(SUBGROUP_SIZE + 2)
         , concatenated_masking_term_lagrange(SUBGROUP_SIZE)
-        , constant_term(FF::random_element())
+        , constant_term(FF{ 0 })
     {
         // Create interpolation domain
-        interpolation_domain[0] = Flavor::Curve::subgroup_generator;
+        interpolation_domain[0] = FF{ 1 };
+
         for (size_t idx = 1; idx < SUBGROUP_SIZE; idx++) {
-            interpolation_domain[idx] = interpolation_domain[idx - 1] * interpolation_domain[0];
+            interpolation_domain[idx] = interpolation_domain[idx - 1] * Flavor::Curve::subgroup_generator;
         }
 
         // Let m_0,..., m_4 be the vectors of last 4 coeffs in each transcript poly, we compute the concatenation
@@ -64,7 +65,7 @@ template <typename Transcript> class TranslationData {
             for (size_t idx = 0; idx < MASKING_OFFSET; idx++) {
                 size_t idx_to_populate = 1 + poly_idx * MASKING_OFFSET + idx;
                 coeffs_lagrange_subgroup[idx_to_populate] =
-                    transcript_polynomials[poly_idx].at(circuit_size - 1 - MASKING_OFFSET + idx);
+                    transcript_polynomials[poly_idx].at(circuit_size - MASKING_OFFSET + idx);
             }
         }
         concatenated_masking_term_lagrange = Polynomial(coeffs_lagrange_subgroup);

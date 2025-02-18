@@ -292,14 +292,14 @@ TYPED_TEST(SmallSubgroupIPATest, TranslationEvaluationsMaskingTerm)
         const std::array<Polynomial<FF>, NUM_LIBRA_EVALUATIONS> witness_polynomials =
             small_subgroup_ipa_prover.get_witness_polynomials();
 
-        std::array<FF, NUM_LIBRA_EVALUATIONS> libra_evaluations = {
+        std::array<FF, NUM_LIBRA_EVALUATIONS> small_ipa_evaluations = {
             witness_polynomials[0].evaluate(this->evaluation_challenge),
             witness_polynomials[1].evaluate(this->evaluation_challenge * Curve::subgroup_generator),
             witness_polynomials[2].evaluate(this->evaluation_challenge),
             witness_polynomials[3].evaluate(this->evaluation_challenge)
         };
 
-        bool consistency_checked = Verifier::check_eccvm_evaluations_consistency(libra_evaluations,
+        bool consistency_checked = Verifier::check_eccvm_evaluations_consistency(small_ipa_evaluations,
                                                                                  this->evaluation_challenge,
                                                                                  evaluation_challenge_x,
                                                                                  batching_challenge_v,

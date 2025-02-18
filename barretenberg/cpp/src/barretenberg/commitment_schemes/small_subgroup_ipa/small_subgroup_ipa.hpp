@@ -124,7 +124,7 @@ template <typename Flavor> class SmallSubgroupIPAProver {
     SmallSubgroupIPAProver(ZKSumcheckData<Flavor>& zk_sumcheck_data,
                            const std::vector<FF>& multivariate_challenge,
                            const FF claimed_ipa_eval,
-                           std::shared_ptr<typename Flavor::Transcript> transcript,
+                           std::shared_ptr<typename Flavor::Transcript>& transcript,
                            std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key)
         : interpolation_domain(zk_sumcheck_data.interpolation_domain)
         , concatenated_polynomial(zk_sumcheck_data.libra_concatenated_monomial_form)
@@ -174,7 +174,7 @@ template <typename Flavor> class SmallSubgroupIPAProver {
                            const FF evaluation_challenge_x,
                            const FF batching_challenge_v,
                            const FF claimed_ipa_eval,
-                           std::shared_ptr<typename Flavor::Transcript> transcript,
+                           std::shared_ptr<typename Flavor::Transcript>& transcript,
                            std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key)
         : interpolation_domain(translation_data.interpolation_domain)                    // need to initialize
         , concatenated_polynomial(std::move(translation_data.concatenated_masking_term)) // need to create
@@ -276,25 +276,20 @@ template <typename Flavor> class SmallSubgroupIPAProver {
             challenge_polynomial = Polynomial<FF>(challenge_polynomial_ifft);
         }
     }
-
+    /**
+     * @brief Compute a (public) challenge polynomial from the evaluation and batching challenges.
+     * @details While proving the batched evaluation of the masking term used to blind the ECCVM Transcript wires, the
+     * prover needs to compute the polynomial whose coefficients in the Lagrange basis over the small subgroup are given
+     * by \f$ (1, x , \ldots, x^{MASKING_OFFSET - 1}, v, x \cdot v, \ldots, x^{MASKING_OFFSET - 1}\cdot
+     * v^{NUM_TRANSCRIPT_WIRES - 1}, 0, \ldots, 0) \f$.
+     * @param evaluation_challenge_x
+     * @param batching_challenge_v
+     */
     void compute_eccvm_challenge_polynomial(const FF evaluation_challenge_x, const FF batching_challenge_v)
     {
 
-        std::vector<FF> coeffs_lagrange_basis(SUBGROUP_SIZE);
-        coeffs_lagrange_basis[0] = FF{ 1 };
-
-        FF v_power{ 1 };
-
-        for (size_t v_exponent = 0; v_exponent < 5; v_exponent++) {
-            // We concatenate 1 with CONST_PROOF_SIZE_LOG_N Libra Univariates of length LIBRA_UNIVARIATES_LENGTH
-            const size_t poly_to_concatenate_start = 1 + MASKING_OFFSET * v_exponent;
-            coeffs_lagrange_basis[poly_to_concatenate_start] = v_power;
-            for (size_t idx = poly_to_concatenate_start + 1; idx < poly_to_concatenate_start + MASKING_OFFSET; idx++) {
-                // Recursively compute the powers of the challenge
-                coeffs_lagrange_basis[idx] = coeffs_lagrange_basis[idx - 1] * evaluation_challenge_x;
-            }
-            v_power *= batching_challenge_v;
-        }
+        std::vector<FF> coeffs_lagrange_basis =
+            compute_eccvm_challenge_coeffs(evaluation_challenge_x, batching_challenge_v, SUBGROUP_SIZE, MASKING_OFFSET);
 
         challenge_polynomial_lagrange = Polynomial<FF>(coeffs_lagrange_basis);
 
@@ -478,12 +473,12 @@ template <typename Flavor> class SmallSubgroupIPAProver {
         return claimed_inner_product;
     }
     /**
-     * @brief For test purposes: Compute the sum of the Libra constant term and Libra univariates evaluated at Sumcheck
-     * challenges.
+     * @brief For test purposes: compute the batched evaluation of the last MASKING_OFFSET rows of the ECCVM transcript
+     * polynomials Op, Px, Py, z1, z2.
      *
-     * @param zk_sumcheck_data Contains Libra constant term and scaled Libra univariates
-     * @param multivariate_challenge Sumcheck challenge
-     * @param log_circuit_size
+     * @param translation_data Contains concatenated ECCVM Transcript polynomials.
+     * @param evaluation_challenge_x We evaluate the transcript polynomials at x as univariates.
+     * @param batching_challenge_v The evaluations at x are batched using v.
      */
     static FF compute_claimed_inner_product(TranslationData<typename Flavor::Transcript>& translation_data,
                                             const FF& evaluation_challenge_x,
@@ -509,7 +504,7 @@ template <typename Flavor> class SmallSubgroupIPAProver {
 
         Polynomial<FF> challenge_polynomial_lagrange(coeffs_lagrange_basis);
 
-        for (size_t idx = 0; idx < SUBGROUP_SIZE; idx++) {
+        for (size_t idx = 1; idx < SUBGROUP_SIZE; idx++) {
             claimed_inner_product +=
                 translation_data.concatenated_masking_term_lagrange.at(idx) * challenge_polynomial_lagrange.at(idx);
         }
@@ -644,7 +639,7 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
         // subgroup
         auto [challenge_poly, lagrange_first, lagrange_last] = compute_batched_barycentric_evaluations(
             challenge_polynomial_lagrange, evaluation_challenge, vanishing_poly_eval);
-
+        info("verifier challenge poly eval ", challenge_poly);
         const FF& concatenated_at_r = libra_evaluations[0];
         const FF& big_sum_shifted_eval = libra_evaluations[1];
         const FF& big_sum_eval = libra_evaluations[2];
@@ -708,11 +703,13 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
 
         // Populate the vector with the powers of the challenges
         FF v_power{ 1 };
-        for (size_t v_exponent = 0; v_exponent < MASKING_OFFSET; v_exponent++) {
-            size_t current_idx = 1 + MASKING_OFFSET * v_exponent; // Compute the current index into the vector
-            challenge_polynomial_lagrange[current_idx] = v_power;
-            for (size_t idx = current_idx + 1; idx < current_idx + MASKING_OFFSET; idx++) {
-                // Recursively compute the powers of the challenge up to the length of libra univariates
+
+        for (size_t v_exponent = 0; v_exponent < 5; v_exponent++) {
+            // We concatenate 1 with CONST_PROOF_SIZE_LOG_N Libra Univariates of length LIBRA_UNIVARIATES_LENGTH
+            const size_t poly_to_concatenate_start = 1 + MASKING_OFFSET * v_exponent;
+            challenge_polynomial_lagrange[poly_to_concatenate_start] = v_power;
+            for (size_t idx = poly_to_concatenate_start + 1; idx < poly_to_concatenate_start + MASKING_OFFSET; idx++) {
+                // Recursively compute the powers of the challenge
                 challenge_polynomial_lagrange[idx] = challenge_polynomial_lagrange[idx - 1] * evaluation_challenge_x;
             }
             v_power *= batching_challenge_v;
@@ -766,4 +763,42 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
         return result;
     }
 };
+
+template <typename FF>
+std::vector<FF> compute_eccvm_challenge_coeffs(const FF& evaluation_challenge_x,
+                                               const FF& batching_challenge_v,
+                                               size_t subgroup_size,
+                                               size_t masking_offset,
+                                               size_t num_blocks = 5)
+{
+    // The result is sized to SUBGROUP_SIZE, with 1 “leading” slot and then
+    // (1 + masking_offset * num_blocks) <= SUBGROUP_SIZE total elements set.
+    // The rest remain 0 by default if needed.
+    std::vector<FF> coeffs_lagrange_basis(subgroup_size, FF(0));
+
+    // The code in your current method:
+    //  - The first entry is 1
+    //  - Then for each v_exponent in [0..4], we do a block of length `masking_offset`,
+    //    multiplied by v^v_exponent and powers of x
+    coeffs_lagrange_basis[0] = FF(1);
+
+    FF v_power = FF(1);
+    for (size_t block = 0; block < num_blocks; block++) {
+        // Start index of this block
+        const size_t start = 1 + masking_offset * block;
+
+        // The first element in this block is v^block
+        coeffs_lagrange_basis[start] = v_power;
+
+        // Next, fill in powers of x
+        for (size_t idx = start + 1; idx < start + masking_offset; idx++) {
+            coeffs_lagrange_basis[idx] = coeffs_lagrange_basis[idx - 1] * evaluation_challenge_x;
+        }
+
+        // Move on to next power of v
+        v_power *= batching_challenge_v;
+    }
+
+    return coeffs_lagrange_basis;
+}
 } // namespace bb
