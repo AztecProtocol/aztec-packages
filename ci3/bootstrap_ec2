@@ -100,6 +100,10 @@ container_script=$(cat <<EOF
   git checkout -b $REF_NAME
   export CI_FULL=$CI_FULL
   source ci3/source
+
+  if [ -n "${DOCKERHUB_PASSWORD:-}"]; then
+    echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
+  fi
   echo "env: REF_NAME=$REF_NAME COMMIT_HASH=$COMMIT_HASH CURRENT_VERSION=$CURRENT_VERSION CI_FULL=$CI_FULL"
   if semver check "$REF_NAME"; then
     echo "Performing a release because $REF_NAME is a semver."
