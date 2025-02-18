@@ -2,7 +2,7 @@ use crate::{
     context::PrivateContext,
     note::{
         note_interface::{NoteHash, NoteType},
-        note_metadata::SettledNoteMetadata,
+        note_metadata::{NoteMetadata, SettledNoteMetadata},
         retrieved_note::RetrievedNote,
         utils::compute_note_hash_for_nullify,
     },
@@ -71,15 +71,21 @@ impl NoteHash for MockNote {
 pub(crate) struct MockNoteBuilder {
     value: Field,
     contract_address: Option<AztecAddress>,
+    nonce: Option<Field>,
 }
 
 impl MockNoteBuilder {
     pub(crate) fn new(value: Field) -> Self {
-        MockNoteBuilder { value, contract_address: Option::none() }
+        MockNoteBuilder { value, contract_address: Option::none(), nonce: Option::none() }
     }
 
     pub(crate) fn contract_address(&mut self, contract_address: AztecAddress) -> &mut Self {
         self.contract_address = Option::some(contract_address);
+        self
+    }
+
+    pub(crate) fn nonce(&mut self, nonce: Field) -> &mut Self {
+        self.nonce = Option::some(nonce);
         self
     }
 
@@ -93,7 +99,11 @@ impl MockNoteBuilder {
             contract_address: self.contract_address.unwrap_or(AztecAddress::zero()),
             // This is invalid note metadata, which would result in the kernel failing to prove note existence. Because
             // our tests don't interact with the kernel this is not a problem.
-            metadata: std::mem::zeroed(),
+            metadata: if self.nonce.is_some() {
+                NoteMetadata::from_raw_data(false, self.nonce.unwrap_unchecked())
+            } else {
+                std::mem::zeroed()
+            },
         }
     }
 }
