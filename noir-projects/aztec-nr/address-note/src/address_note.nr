@@ -8,18 +8,19 @@ use dep::aztec::{
     },
     oracle::random::random,
     protocol_types::{
-        address::AztecAddress,
-        constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        hash::poseidon2_hash_with_separator,
-        traits::{Packable, Serialize},
+        address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
+        hash::poseidon2_hash_with_separator, traits::Serialize,
     },
 };
+
+// TODO(#12008): Remove the need for the manual import of `Packable` trait here. This is a bug in macros.
+use aztec::protocol_types::traits::Packable;
 
 // docs:start:address_note_def
 // docs:start:address_note_struct
 // Stores an address
 #[note]
-#[derive(Serialize)]
+#[derive(Eq, Serialize)]
 pub struct AddressNote {
     address: AztecAddress,
     owner: AztecAddress,
@@ -70,12 +71,4 @@ impl AddressNote {
         AddressNote { address, owner, randomness }
     }
     // docs:end:address_note_def
-}
-
-impl Eq for AddressNote {
-    fn eq(self, other: Self) -> bool {
-        (self.address == other.address)
-            & (self.owner == other.owner)
-            & (self.randomness == other.randomness)
-    }
 }

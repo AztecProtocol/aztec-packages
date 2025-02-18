@@ -5,17 +5,18 @@ use dep::aztec::{
     note::{retrieved_note::RetrievedNote, utils::compute_note_hash_for_nullify},
     oracle::random::random,
     prelude::{NullifiableNote, PrivateContext},
-    protocol_types::{
-        address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER, traits::Packable,
-    },
+    protocol_types::{address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER},
 };
+
+// TODO(#12008): Remove the need for the manual import of `Packable` trait here. This is a bug in macros.
+use aztec::protocol_types::traits::Packable;
 
 #[note]
 pub struct SubscriptionNote {
     owner: AztecAddress,
     expiry_block_number: Field,
     remaining_txs: Field,
-    // Randomness of the note to hide its contents
+    // Randomness of the note to protect against note hash preimage attacks
     randomness: Field,
 }
 

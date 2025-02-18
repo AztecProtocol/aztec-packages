@@ -1,4 +1,3 @@
-// docs:start:token_types_all
 use dep::aztec::{
     macros::notes::note,
     note::utils::compute_note_hash_for_nullify,
@@ -16,6 +15,7 @@ use dep::std::mem::zeroed;
 // Owner of the tokens provides a "secret_hash" as an argument to the public "shield" function and then the tokens
 // can be redeemed in private by presenting the preimage of the "secret_hash" (the secret).
 #[note]
+#[derive(Eq)]
 pub struct TransparentNote {
     amount: Field,
     secret_hash: Field,
@@ -62,10 +62,3 @@ impl TransparentNote {
         TransparentNote { amount, secret_hash }
     }
 }
-
-impl Eq for TransparentNote {
-    fn eq(self, other: Self) -> bool {
-        (self.amount == other.amount) & (self.secret_hash == other.secret_hash)
-    }
-}
-// docs:end:token_types_all

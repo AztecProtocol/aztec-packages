@@ -9,8 +9,9 @@ use crate::note::{
 };
 use crate::oracle;
 use crate::utils::comparison::compare;
-use dep::protocol_types::constants::{
-    GET_NOTES_ORACLE_RETURN_LENGTH, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+use dep::protocol_types::{
+    constants::{GET_NOTES_ORACLE_RETURN_LENGTH, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
+    traits::Packable,
 };
 
 pub use crate::note::constants::MAX_NOTES_PER_PAGE;
@@ -18,13 +19,13 @@ pub use crate::note::constants::MAX_NOTES_PER_PAGE;
 mod test;
 
 fn extract_property_value_from_selector<let N: u32>(
-    packed_note_content: [Field; N],
+    packed_note: [Field; N],
     selector: PropertySelector,
 ) -> Field {
     // Selectors use PropertySelectors in order to locate note properties inside the packed note.
     // This allows easier packing and custom (un)packing schemas. A note property is located
     // inside the packed note using the index inside the array, a byte offset and a length.
-    let value: [u8; 32] = packed_note_content[selector.index].to_be_bytes();
+    let value: [u8; 32] = packed_note[selector.index].to_be_bytes();
     let offset = selector.offset;
     let length = selector.length;
     let mut value_field = 0 as Field;
@@ -38,14 +39,11 @@ fn extract_property_value_from_selector<let N: u32>(
     value_field
 }
 
-fn check_note_content<let N: u32>(
-    packed_note_content: [Field; N],
-    selects: BoundedVec<Option<Select>, N>,
-) {
+fn check_packed_note<let N: u32>(packed_note: [Field; N], selects: BoundedVec<Option<Select>, N>) {
     for i in 0..selects.len() {
         let select = selects.get_unchecked(i).unwrap_unchecked();
         let value_field =
-            extract_property_value_from_selector(packed_note_content, select.property_selector);
+            extract_property_value_from_selector(packed_note, select.property_selector);
 
         assert(
             compare(value_field, select.comparator, select.value.to_field()),
@@ -78,7 +76,7 @@ pub fn get_note<Note, let N: u32>(
     storage_slot: Field,
 ) -> (RetrievedNote<Note>, Field)
 where
-    Note: NoteInterface<N> + NullifiableNote,
+    Note: NoteInterface + NullifiableNote + Packable<N>,
 {
     // Safety: Constraining that we got a valid note from the oracle is fairly straightforward: all we need to do
     // is check that the metadata is correct, and that the note exists.
@@ -107,7 +105,7 @@ pub fn get_notes<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
     options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>,
     ) -> (BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>)
 where
-    Note: NoteInterface<N> + NullifiableNote + Eq,
+    Note: NoteInterface + NullifiableNote + Eq + Packable<N>,
 {
     // Safety: The notes are constrained below.
     let opt_notes = unsafe { get_notes_internal(storage_slot, options) };
@@ -132,17 +130,17 @@ fn constrain_get_notes_internal<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS
     options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>,
     ) -> (BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>)
 where
-    Note: NoteInterface<N> + NullifiableNote + Eq,
+    Note: NoteInterface + NullifiableNote + Eq + Packable<N>,
 {
     // The filter is applied first to avoid pushing note read requests for notes we're not interested in. Note that
-    // while the filter function can technically mutate the contents of the notes (as opposed to simply removing some),
-    // the private kernel will later validate that these note actually exist, so transformations would cause for that
-    // check to fail.
+    // while the filter function can technically mutate the notes (as opposed to simply removing some), the private
+    // kernel will later validate that these note actually exist, so transformations would cause for that check
+    // to fail.
     let filter_fn = options.filter;
     let filter_args = options.filter_args;
     let filtered_notes = filter_fn(opt_notes, filter_args);
 
-    let notes = crate::utils::array::collapse(filtered_notes);
+    let notes: BoundedVec<RetrievedNote<Note>, 16> = crate::utils::array::collapse(filtered_notes);
     let mut note_hashes: BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> =
         BoundedVec::new();
 
@@ -151,7 +149,7 @@ where
     // for the runtime length, and can therefore have fewer loop iterations.
     assert(notes.len() <= options.limit, "Got more notes than limit.");
 
-    let mut prev_fields = [0; N];
+    let mut prev_packed_note = [0; N];
     for i in 0..options.limit {
         if i < notes.len() {
             let retrieved_note = notes.get_unchecked(i);
@@ -164,12 +162,12 @@ where
                 "Note contract address mismatch.",
             );
 
-            let fields = retrieved_note.note.pack_content();
-            check_note_content(fields, options.selects);
+            let packed_note = retrieved_note.note.pack();
+            check_packed_note(packed_note, options.selects);
             if i != 0 {
-                check_notes_order(prev_fields, fields, options.sorts);
+                check_notes_order(prev_packed_note, packed_note, options.sorts);
             }
-            prev_fields = fields;
+            prev_packed_note = packed_note;
 
             let note_hash_for_read_request =
                 compute_note_hash_for_read_request(retrieved_note, storage_slot);
@@ -183,7 +181,7 @@ where
 
 unconstrained fn get_note_internal<Note, let N: u32>(storage_slot: Field) -> RetrievedNote<Note>
 where
-    Note: NoteInterface<N>,
+    Note: NoteInterface + Packable<N>,
 {
     let placeholder_note = [Option::none()];
     let placeholder_fields = [0; GET_NOTE_ORACLE_RETURN_LENGTH];
@@ -215,7 +213,7 @@ unconstrained fn get_notes_internal<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_
     options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>,
 ) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]
 where
-    Note: NoteInterface<N>,
+    Note: NoteInterface + Packable<N>,
 {
     // This function simply performs some transformations from NoteGetterOptions into the types required by the oracle.
     let (num_selects, select_by_indexes, select_by_offsets, select_by_lengths, select_values, select_comparators, sort_by_indexes, sort_by_offsets, sort_by_lengths, sort_order) =
@@ -252,7 +250,7 @@ pub unconstrained fn view_notes<Note, let N: u32>(
     options: NoteViewerOptions<Note, N>,
 ) -> BoundedVec<Note, MAX_NOTES_PER_PAGE>
 where
-    Note: NoteInterface<N>,
+    Note: NoteInterface + Packable<N>,
 {
     let (num_selects, select_by_indexes, select_by_offsets, select_by_lengths, select_values, select_comparators, sort_by_indexes, sort_by_offsets, sort_by_lengths, sort_order) =
         flatten_options(options.selects, options.sorts);

@@ -9,14 +9,18 @@ use dep::aztec::{
     oracle::random::random,
     protocol_types::{
         address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        hash::poseidon2_hash_with_separator, traits::Packable,
+        hash::poseidon2_hash_with_separator,
     },
 };
+
+// TODO(#12008): Remove the need for the manual import of `Packable` trait here. This is a bug in macros.
+use aztec::protocol_types::traits::Packable;
 
 pub(crate) global VALUE_NOTE_LEN: u32 = 3; // 3 plus a header.
 
 // docs:start:value-note-def
 #[note]
+#[derive(Eq)]
 pub struct ValueNote {
     value: Field,
     owner: AztecAddress,
@@ -70,13 +74,5 @@ impl ValueNote {
         let randomness = unsafe { random() };
 
         ValueNote { value, owner, randomness }
-    }
-}
-
-impl Eq for ValueNote {
-    fn eq(self, other: Self) -> bool {
-        (self.value == other.value)
-            & (self.owner == other.owner)
-            & (self.randomness == other.randomness)
     }
 }
