@@ -44,23 +44,22 @@ template <typename Flavor> bool MergeVerifierNew_<Flavor>::verify_proof(const Ho
 
     // Receive transcript poly evaluations and add corresponding univariate opening claims {(\kappa, p(\kappa), [p(X)]}
     std::array<FF, Flavor::NUM_WIRES> t_evals;
-    std::array<FF, Flavor::NUM_WIRES> T_prev_shift_evals;
+    std::array<FF, Flavor::NUM_WIRES> T_prev_evals;
     std::array<FF, Flavor::NUM_WIRES> T_evals;
     for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
         t_evals[idx] = transcript->template receive_from_prover<FF>("t_eval_" + std::to_string(idx));
     }
     for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
-        T_prev_shift_evals[idx] =
-            transcript->template receive_from_prover<FF>("T_prev_shift_eval_" + std::to_string(idx));
+        T_prev_evals[idx] = transcript->template receive_from_prover<FF>("T_prev_eval_" + std::to_string(idx));
     }
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         T_evals[idx] = transcript->template receive_from_prover<FF>("T_eval_" + std::to_string(idx));
     }
 
-    // Check the identity T(\kappa) = t(\kappa) + T_prev_shift(\kappa). If it fails, return false
+    // Check the identity T(\kappa) = t(\kappa) + \kappa^m*T_prev_(\kappa). If it fails, return false
     bool identity_checked = true;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        bool current_check = T_evals[idx] == t_evals[idx] + T_prev_shift_evals[idx];
+        bool current_check = T_evals[idx] == t_evals[idx] + T_prev_evals[idx] * kappa.pow(subtable_size);
         info("current_check: ", current_check);
         identity_checked = identity_checked && current_check;
     }
@@ -78,9 +77,8 @@ template <typename Flavor> bool MergeVerifierNew_<Flavor>::verify_proof(const Ho
         alpha_pow *= alpha;
     }
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        FF commitment_scalar = alpha_pow * kappa.pow(subtable_size);
-        batched_commitment = batched_commitment + (T_prev_commitments[idx] * commitment_scalar);
-        batched_eval += alpha_pow * T_prev_shift_evals[idx];
+        batched_commitment = batched_commitment + (T_prev_commitments[idx] * alpha_pow);
+        batched_eval += alpha_pow * T_prev_evals[idx];
         alpha_pow *= alpha;
     }
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
