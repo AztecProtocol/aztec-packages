@@ -467,13 +467,13 @@ impl<let N: u32> CallInterface<N> for PublicStaticVoidCallInterface<N> {
 }
 
 pub struct PublicStaticVoidCallInterface<let N: u32> {
-    target_contract: AztecAddress,
-    selector: FunctionSelector,
-    name: str<N>,
-    args: [Field],
-    return_type: (),
-    is_static: bool,
-    gas_opts: GasOpts,
+    pub target_contract: AztecAddress,
+    pub selector: FunctionSelector,
+    pub name: str<N>,
+    pub args: [Field],
+    pub return_type: (),
+    pub is_static: bool,
+    pub gas_opts: GasOpts,
 }
 
 impl<let N: u32> PublicStaticVoidCallInterface<N> {

@@ -11,7 +11,7 @@ use storage::STORAGE_LAYOUT_NAME;
 
 use dispatch::generate_public_dispatch;
 use functions::transform_unconstrained;
-use utils::module_has_storage;
+use utils::{get_trait_impl_method, module_has_storage};
 
 /// Marks a contract as an Aztec contract, generating the interfaces for its functions and notes, as well as injecting
 /// the `compute_note_hash_and_optionally_a_nullifier` function PXE requires in order to validate notes.
@@ -114,7 +114,7 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
 comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
     let mut max_note_packed_len: u32 = 0;
     let notes = NOTES.entries();
-    let body = if notes.len() > 0 {
+    if notes.len() > 0 {
         max_note_packed_len = notes.fold(
             0,
             |acc, (_, (_, len, _, _)): (Type, (StructDefinition, u32, Field, [(Quoted, u32, bool)]))| {
@@ -130,6 +130,18 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
 
         for i in 0..notes.len() {
             let (typ, (_, _, _, _)) = notes[i];
+
+            let get_note_type_id = get_trait_impl_method(
+                typ,
+                quote { crate::note::note_interface::NoteInterface },
+                quote { get_note_type_id },
+            );
+            let unpack = get_trait_impl_method(
+                typ,
+                quote { crate::protocol_types::traits::Packable<_> },
+                quote { unpack },
+            );
+
             let if_or_else_if = if i == 0 {
                 quote { if }
             } else {
@@ -137,8 +149,8 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
             };
             if_statements_list = if_statements_list.push_back(
                 quote {
-                $if_or_else_if note_type_id == $typ::get_note_type_id() {
-                    aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($typ::unpack, contract_address, nonce, compute_nullifier, storage_slot, packed_note)
+                $if_or_else_if note_type_id == $get_note_type_id() {
+                    aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($unpack, contract_address, nonce, compute_nullifier, storage_slot, packed_note)
                 }
             },
             );
@@ -147,27 +159,32 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
         let if_statements = if_statements_list.join(quote {});
 
         quote {
-            $if_statements
-            else {
-                panic(f"Unknown note type ID: {note_type_id}")
+            unconstrained fn compute_note_hash_and_optionally_a_nullifier(
+                contract_address: aztec::protocol_types::address::AztecAddress,
+                nonce: Field,
+                storage_slot: Field,
+                note_type_id: Field,
+                compute_nullifier: bool,
+                packed_note: [Field; $max_note_packed_len],
+            ) -> pub [Field; 4] {
+                $if_statements
+                else {
+                    panic(f"Unknown note type ID: {note_type_id}")
+                }
             }
         }
     } else {
         quote {
-            panic(f"No notes defined")
-        }
-    };
-
-    quote {
-        unconstrained fn compute_note_hash_and_optionally_a_nullifier(
-            contract_address: aztec::protocol_types::address::AztecAddress,
-            nonce: Field,
-            storage_slot: Field,
-            note_type_id: Field,
-            compute_nullifier: bool,
-            packed_note: [Field; $max_note_packed_len],
-        ) -> pub [Field; 4] {
-            $body
+            unconstrained fn compute_note_hash_and_optionally_a_nullifier(
+                _contract_address: aztec::protocol_types::address::AztecAddress,
+                _nonce: Field,
+                _storage_slot: Field,
+                _note_type_id: Field,
+                _compute_nullifier: bool,
+                _packed_note: [Field; $max_note_packed_len],
+            ) -> pub [Field; 4] {
+                panic(f"No notes defined")
+            }
         }
     }
 }
@@ -216,6 +233,17 @@ comptime fn generate_process_log() -> Quoted {
     for i in 0..notes.len() {
         let (typ, (_, packed_note_length, _, _)) = notes[i];
 
+        let get_note_type_id = get_trait_impl_method(
+            typ,
+            quote { crate::note::note_interface::NoteInterface },
+            quote { get_note_type_id },
+        );
+        let unpack = get_trait_impl_method(
+            typ,
+            quote { crate::protocol_types::traits::Packable<_> },
+            quote { unpack },
+        );
+
         let if_or_else_if = if i == 0 {
             quote { if }
         } else {
@@ -224,7 +252,7 @@ comptime fn generate_process_log() -> Quoted {
 
         if_note_type_id_match_statements_list = if_note_type_id_match_statements_list.push_back(
             quote {
-                $if_or_else_if note_type_id == $typ::get_note_type_id() {
+                $if_or_else_if note_type_id == $get_note_type_id() {
                     // As an extra safety check we make sure that the packed_note bounded vec has the
                     // expected length, to avoid scenarios in which compute_note_hash_and_optionally_a_nullifier
                     // silently trims the end if the log were to be longer.
@@ -235,7 +263,7 @@ comptime fn generate_process_log() -> Quoted {
                         f"Expected packed note of length {expected_len} but got {actual_len} for note type id {note_type_id}"
                     );
 
-                    aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($typ::unpack, contract_address, nonce, true, storage_slot, packed_note.storage())
+                    aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($unpack, contract_address, nonce, true, storage_slot, packed_note.storage())
                 }
             },
         );
@@ -243,51 +271,55 @@ comptime fn generate_process_log() -> Quoted {
 
     let if_note_type_id_match_statements = if_note_type_id_match_statements_list.join(quote {});
 
-    let body = if notes.len() > 0 {
+    if notes.len() > 0 {
         quote {
-            // Because this unconstrained function is injected after the contract is processed by the macros, it'll not
-            // be modified by the macros that alter unconstrained functions. As such, we need to manually inject the
-            // unconstrained execution context since it will not be available otherwise.
-            let context = dep::aztec::context::unconstrained_context::UnconstrainedContext::new();
+            unconstrained fn process_log(
+                log_plaintext: BoundedVec<Field, dep::aztec::protocol_types::constants::PRIVATE_LOG_SIZE_IN_FIELDS>,
+                tx_hash: Field,
+                unique_note_hashes_in_tx: BoundedVec<Field, dep::aztec::protocol_types::constants::MAX_NOTE_HASHES_PER_TX>,
+                first_nullifier_in_tx: Field,
+                recipient: aztec::protocol_types::address::AztecAddress,
+            ) {
+                // Because this unconstrained function is injected after the contract is processed by the macros, it'll not
+                // be modified by the macros that alter unconstrained functions. As such, we need to manually inject the
+                // unconstrained execution context since it will not be available otherwise.
+                let context = dep::aztec::context::unconstrained_context::UnconstrainedContext::new();
 
-            dep::aztec::note::discovery::do_process_log(
-                context,
-                log_plaintext,
-                tx_hash,
-                unique_note_hashes_in_tx,
-                first_nullifier_in_tx,
-                recipient,
-                |packed_note: BoundedVec<Field, _>, contract_address, nonce, storage_slot, note_type_id| {
-                    let hashes = $if_note_type_id_match_statements
-                    else {
-                        panic(f"Unknown note type id {note_type_id}")
-                    };
+                dep::aztec::note::discovery::do_process_log(
+                    context,
+                    log_plaintext,
+                    tx_hash,
+                    unique_note_hashes_in_tx,
+                    first_nullifier_in_tx,
+                    recipient,
+                    |packed_note: BoundedVec<Field, _>, contract_address, nonce, storage_slot, note_type_id| {
+                        let hashes = $if_note_type_id_match_statements
+                        else {
+                            panic(f"Unknown note type id {note_type_id}")
+                        };
 
-                    Option::some(
-                        dep::aztec::note::discovery::NoteHashesAndNullifier {
-                            note_hash: hashes[0],
-                            unique_note_hash: hashes[1],
-                            inner_nullifier: hashes[3],
-                        },
-                    )
-                }
-            );
+                        Option::some(
+                            dep::aztec::note::discovery::NoteHashesAndNullifier {
+                                note_hash: hashes[0],
+                                unique_note_hash: hashes[1],
+                                inner_nullifier: hashes[3],
+                            },
+                        )
+                    }
+                );
+            }
         }
     } else {
         quote {
-            panic(f"No notes defined")
-        }
-    };
-
-    quote {
-        unconstrained fn process_log(
-            log_plaintext: BoundedVec<Field, dep::aztec::protocol_types::constants::PRIVATE_LOG_SIZE_IN_FIELDS>,
-            tx_hash: Field,
-            unique_note_hashes_in_tx: BoundedVec<Field, dep::aztec::protocol_types::constants::MAX_NOTE_HASHES_PER_TX>,
-            first_nullifier_in_tx: Field,
-            recipient: aztec::protocol_types::address::AztecAddress,
-        ) {
-            $body
+            unconstrained fn process_log(
+                _log_plaintext: BoundedVec<Field, dep::aztec::protocol_types::constants::PRIVATE_LOG_SIZE_IN_FIELDS>,
+                _tx_hash: Field,
+                _unique_note_hashes_in_tx: BoundedVec<Field, dep::aztec::protocol_types::constants::MAX_NOTE_HASHES_PER_TX>,
+                _first_nullifier_in_tx: Field,
+                _recipient: aztec::protocol_types::address::AztecAddress,
+            ) {
+                panic(f"No notes defined")
+            }
         }
     }
 }
