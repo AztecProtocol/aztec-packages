@@ -133,7 +133,6 @@ EscrowContractArtifact
 FPCContractArtifact
 FeeJuiceContractArtifact
 ImportTestContractArtifact
-InclusionProofsContractArtifact
 LendingContractArtifact
 MultiCallEntrypointContractArtifact
 ParentContractArtifact
