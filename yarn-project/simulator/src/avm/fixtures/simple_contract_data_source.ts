@@ -45,6 +45,7 @@ export class SimpleContractDataSource implements ContractDataSource {
     deployer: AztecAddress,
     contractArtifact: ContractArtifact,
     seed = 0,
+    originalContractClassId?: Fr, // if previously upgraded
   ): Promise<ContractInstanceWithAddress> {
     const bytecode = getContractFunctionArtifact(PUBLIC_DISPATCH_FN_NAME, contractArtifact)!.bytecode;
     const contractClass = await makeContractClassPublic(
@@ -55,10 +56,17 @@ export class SimpleContractDataSource implements ContractDataSource {
     const constructorAbi = getContractFunctionArtifact('constructor', contractArtifact);
     const initializationHash = await computeInitializationHash(constructorAbi, constructorArgs);
     this.logger.trace(`Initialization hash for contract class ${contractClass.id}: ${initializationHash.toString()}`);
-    const contractInstance = await makeContractInstanceFromClassId(contractClass.id, seed, {
-      deployer,
-      initializationHash,
-    });
+    const contractInstance =
+      originalContractClassId === undefined
+        ? await makeContractInstanceFromClassId(contractClass.id, seed, {
+            deployer,
+            initializationHash,
+          })
+        : await makeContractInstanceFromClassId(originalContractClassId, seed, {
+            deployer,
+            initializationHash,
+            currentClassId: contractClass.id,
+          });
 
     this.addContractArtifact(contractClass.id, contractArtifact);
     await this.addContractClass(contractClass);

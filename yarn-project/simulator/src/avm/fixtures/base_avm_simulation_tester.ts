@@ -58,12 +58,14 @@ export abstract class BaseAvmSimulationTester {
     contractArtifact: ContractArtifact,
     skipNullifierInsertion = false,
     seed = 0,
+    originalContractClassId?: Fr, // if previously upgraded
   ): Promise<ContractInstanceWithAddress> {
     const contractInstance = await this.contractDataSource.registerAndDeployContract(
       constructorArgs,
       deployer,
       contractArtifact,
       seed,
+      originalContractClassId,
     );
     if (!skipNullifierInsertion) {
       await this.insertContractAddressNullifier(contractInstance.address);

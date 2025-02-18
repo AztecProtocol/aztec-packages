@@ -27,7 +27,7 @@ import { createTxForPublicCalls } from './index.js';
 
 const TIMESTAMP = new Fr(99833);
 const DEFAULT_GAS_FEES = new GasFees(2, 3);
-const DEFAULT_BLOCK_NUMBER = new Fr(42);
+export const DEFAULT_BLOCK_NUMBER = 42;
 
 export type TestEnqueuedCall = {
   address: AztecAddress;
@@ -197,6 +197,6 @@ function defaultGlobals() {
   const globals = GlobalVariables.empty();
   globals.timestamp = TIMESTAMP;
   globals.gasFees = DEFAULT_GAS_FEES; // apply some nonzero default gas fees
-  globals.blockNumber = DEFAULT_BLOCK_NUMBER;
+  globals.blockNumber = new Fr(DEFAULT_BLOCK_NUMBER);
   return globals;
 }
