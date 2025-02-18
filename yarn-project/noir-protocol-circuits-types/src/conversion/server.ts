@@ -6,6 +6,8 @@ import {
   type AvmCircuitPublicInputs,
   BLOBS_PER_BLOCK,
   type BaseParityInputs,
+  CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
+  type ContractClassLog,
   Fr,
   HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type MembershipWitness,
@@ -55,7 +57,7 @@ import {
   type SingleTxBlockRootRollupInputs,
 } from '@aztec/circuits.js/rollup';
 import { toHex } from '@aztec/foundation/bigint-buffer';
-import { mapTuple } from '@aztec/foundation/serialize';
+import { type Tuple, mapTuple } from '@aztec/foundation/serialize';
 
 import type {
   AvmAccumulatedData as AvmAccumulatedDataNoir,
@@ -76,6 +78,7 @@ import type {
   EmptyBlockRootRollupInputs as EmptyBlockRootRollupInputsNoir,
   FeeRecipient as FeeRecipientNoir,
   FixedLengthArray,
+  Log as LogNoir,
   MergeRollupInputs as MergeRollupInputsNoir,
   Field as NoirField,
   ParityPublicInputs as ParityPublicInputsNoir,
@@ -295,6 +298,30 @@ export function mapBlockBlobPublicInputsFromNoir(
   return new BlockBlobPublicInputs(
     mapTupleFromNoir(blockBlobPublicInputs.inner, BLOBS_PER_BLOCK, mapBlobPublicInputsFromNoir),
   );
+}
+
+/**
+ * Maps a contract class log to noir.
+ * @param log - The ts contract class log.
+ * @returns The noir contract class log.
+ */
+export function mapContractClassLogToNoir(log: ContractClassLog): LogNoir<typeof CONTRACT_CLASS_LOG_SIZE_IN_FIELDS> {
+  return {
+    // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
+    fields: Array.from({ length: CONTRACT_CLASS_LOG_SIZE_IN_FIELDS }, (_, idx) =>
+      mapFieldToNoir(log.fields[idx]),
+    ) as Tuple<string, typeof CONTRACT_CLASS_LOG_SIZE_IN_FIELDS>,
+  };
+}
+
+/**
+ * Maps a contract class log from noir.
+ * @param log - The noir contract class log.
+ * @returns The ts contract class log.
+ */
+export function mapContractClassLogFromNoir(log: LogNoir<typeof CONTRACT_CLASS_LOG_SIZE_IN_FIELDS>) {
+  // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
+  return new ContractClassLog(mapTupleFromNoir(log.fields, log.fields.length, mapFieldFromNoir));
 }
 
 function mapPublicDataHintToNoir(hint: PublicDataHint): PublicDataHintNoir {
@@ -804,10 +831,10 @@ export function mapPrivateBaseRollupInputsToNoir(inputs: PrivateBaseRollupInputs
     start: mapPartialStateReferenceToNoir(inputs.hints.start),
     start_sponge_blob: mapSpongeBlobToNoir(inputs.hints.startSpongeBlob),
     state_diff_hints: mapPrivateBaseStateDiffHintsToNoir(inputs.hints.stateDiffHints),
-
-    archive_root_membership_witness: mapMembershipWitnessToNoir(inputs.hints.archiveRootMembershipWitness),
-    constants: mapConstantRollupDataToNoir(inputs.hints.constants),
     fee_payer_fee_juice_balance_read_hint: mapPublicDataHintToNoir(inputs.hints.feePayerFeeJuiceBalanceReadHint),
+    archive_root_membership_witness: mapMembershipWitnessToNoir(inputs.hints.archiveRootMembershipWitness),
+    contract_class_logs_preimages: mapTuple(inputs.hints.contractClassLogsPreimages, mapContractClassLogToNoir),
+    constants: mapConstantRollupDataToNoir(inputs.hints.constants),
   };
 }
 
@@ -840,8 +867,8 @@ export function mapPublicBaseRollupInputsToNoir(inputs: PublicBaseRollupInputs):
     tube_data: mapPublicTubeDataToNoir(inputs.tubeData),
     avm_proof_data: mapAvmProofDataToNoir(inputs.avmProofData),
     start_sponge_blob: mapSpongeBlobToNoir(inputs.hints.startSpongeBlob),
-
     archive_root_membership_witness: mapMembershipWitnessToNoir(inputs.hints.archiveRootMembershipWitness),
+    contract_class_logs_preimages: mapTuple(inputs.hints.contractClassLogsPreimages, mapContractClassLogToNoir),
     constants: mapConstantRollupDataToNoir(inputs.hints.constants),
   };
 }

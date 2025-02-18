@@ -1,9 +1,11 @@
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { makeTuple } from '@aztec/foundation/array';
+import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import { ARCHIVE_HEIGHT } from '../../constants.gen.js';
+import { ARCHIVE_HEIGHT, MAX_CONTRACT_CLASS_LOGS_PER_TX } from '../../constants.gen.js';
 import { SpongeBlob } from '../blobs/sponge_blob.js';
+import { ContractClassLog } from '../contract_class_log.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { PartialStateReference } from '../partial_state_reference.js';
 import { PublicDataHint } from '../public_data_hint.js';
@@ -14,19 +16,30 @@ export type BaseRollupHints = PrivateBaseRollupHints | PublicBaseRollupHints;
 
 export class PrivateBaseRollupHints {
   constructor(
-    /** Partial state reference at the start of the rollup. */
+    /**
+     * Partial state reference at the start of the rollup.
+     */
     public start: PartialStateReference,
-    /** Sponge state to absorb blob inputs at the start of the rollup. */
+    /**
+     * Sponge state to absorb blob inputs at the start of the rollup.
+     */
     public startSpongeBlob: SpongeBlob,
-    /** Hints used while proving state diff validity. */
+    /**
+     * Hints used while proving state diff validity.
+     */
     public stateDiffHints: PrivateBaseStateDiffHints,
-    /** Public data read hint for accessing the balance of the fee payer. */
+    /**
+     * Public data read hint for accessing the balance of the fee payer.
+     */
     public feePayerFeeJuiceBalanceReadHint: PublicDataHint,
-
     /**
      * Membership witnesses of blocks referred by each of the 2 kernels.
      */
     public archiveRootMembershipWitness: MembershipWitness<typeof ARCHIVE_HEIGHT>,
+    /**
+     * Preimages to the kernel's contractClassLogsHashes.
+     */
+    public contractClassLogsPreimages: Tuple<ContractClassLog, typeof MAX_CONTRACT_CLASS_LOGS_PER_TX>,
     /**
      * Data which is not modified by the base rollup circuit.
      */
@@ -44,6 +57,7 @@ export class PrivateBaseRollupHints {
       fields.stateDiffHints,
       fields.feePayerFeeJuiceBalanceReadHint,
       fields.archiveRootMembershipWitness,
+      fields.contractClassLogsPreimages,
       fields.constants,
     ] as const;
   }
@@ -72,6 +86,7 @@ export class PrivateBaseRollupHints {
       reader.readObject(PrivateBaseStateDiffHints),
       reader.readObject(PublicDataHint),
       MembershipWitness.fromBuffer(reader, ARCHIVE_HEIGHT),
+      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_TX, ContractClassLog),
       reader.readObject(ConstantRollupData),
     );
   }
@@ -87,6 +102,7 @@ export class PrivateBaseRollupHints {
       PrivateBaseStateDiffHints.empty(),
       PublicDataHint.empty(),
       MembershipWitness.empty(ARCHIVE_HEIGHT),
+      makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, ContractClassLog.empty),
       ConstantRollupData.empty(),
     );
   }
@@ -94,12 +110,18 @@ export class PrivateBaseRollupHints {
 
 export class PublicBaseRollupHints {
   constructor(
-    /** Sponge state to absorb blob inputs at the start of the rollup. */
+    /**
+     * Sponge state to absorb blob inputs at the start of the rollup.
+     */
     public startSpongeBlob: SpongeBlob,
     /**
      * Membership witnesses of blocks referred by each of the 2 kernels.
      */
     public archiveRootMembershipWitness: MembershipWitness<typeof ARCHIVE_HEIGHT>,
+    /**
+     * Preimages to the kernel's contractClassLogsHashes.
+     */
+    public contractClassLogsPreimages: Tuple<ContractClassLog, typeof MAX_CONTRACT_CLASS_LOGS_PER_TX>,
     /**
      * Data which is not modified by the base rollup circuit.
      */
@@ -111,7 +133,12 @@ export class PublicBaseRollupHints {
   }
 
   static getFields(fields: FieldsOf<PublicBaseRollupHints>) {
-    return [fields.startSpongeBlob, fields.archiveRootMembershipWitness, fields.constants] as const;
+    return [
+      fields.startSpongeBlob,
+      fields.archiveRootMembershipWitness,
+      fields.contractClassLogsPreimages,
+      fields.constants,
+    ] as const;
   }
 
   /**
@@ -135,6 +162,7 @@ export class PublicBaseRollupHints {
     return new PublicBaseRollupHints(
       reader.readObject(SpongeBlob),
       MembershipWitness.fromBuffer(reader, ARCHIVE_HEIGHT),
+      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_TX, ContractClassLog),
       reader.readObject(ConstantRollupData),
     );
   }
@@ -147,6 +175,7 @@ export class PublicBaseRollupHints {
     return new PublicBaseRollupHints(
       SpongeBlob.empty(),
       MembershipWitness.empty(ARCHIVE_HEIGHT),
+      makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, ContractClassLog.empty),
       ConstantRollupData.empty(),
     );
   }

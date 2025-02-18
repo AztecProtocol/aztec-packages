@@ -21,7 +21,6 @@ import {
   NULLIFIER_SUBTREE_HEIGHT,
   PublicDataWrite,
 } from '@aztec/circuits.js';
-import { siloContractClassLog } from '@aztec/circuits.js/hash';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import { type DateProvider, Timer, elapsed, executeTimeout } from '@aztec/foundation/timer';

@@ -52,8 +52,8 @@ pub struct PrivateBaseRollupInputs {
     fee_payer_fee_juice_balance_read_hint: PublicDataHint,
 
     archive_root_membership_witness: MembershipWitness<ARCHIVE_HEIGHT>,
-    constants: ConstantRollupData,
     contract_class_logs_preimages: [ContractClassLog; MAX_CONTRACT_CLASS_LOGS_PER_TX],
+    constants: ConstantRollupData,
 }
 
 impl PrivateBaseRollupInputs {

@@ -33,8 +33,8 @@ pub struct PublicBaseRollupInputs {
     start_sponge_blob: SpongeBlob,
 
     archive_root_membership_witness: MembershipWitness<ARCHIVE_HEIGHT>,
-    constants: ConstantRollupData,
     contract_class_logs_preimages: [ContractClassLog; MAX_CONTRACT_CLASS_LOGS_PER_TX],
+    constants: ConstantRollupData,
 }
 
 impl PublicBaseRollupInputs {

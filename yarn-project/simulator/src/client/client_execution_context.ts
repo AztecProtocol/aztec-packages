@@ -332,7 +332,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    */
   public override emitContractClassLog(log: ContractClassLog, counter: number) {
     this.contractClassLogs.push(new CountedContractClassLog(log, counter));
-    const text = log.toBuffer();
+    const text = log.toBuffer().toString('hex');
     this.log.verbose(
       `Emitted log from ContractClassRegisterer: "${text.length > 100 ? text.slice(0, 100) + '...' : text}"`,
     );

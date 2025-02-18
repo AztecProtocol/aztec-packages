@@ -25,6 +25,7 @@ import {
   AvmExecutionHints,
   BLOBS_PER_BLOCK,
   BaseParityInputs,
+  CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
   CallContext,
   CombinedConstantData,
   ContractStorageRead,
@@ -126,6 +127,7 @@ import {
   AvmNullifierWriteTreeHint,
   AvmPublicDataReadTreeHint,
   AvmPublicDataWriteTreeHint,
+  ContractClassLog,
   CountedPublicCallRequest,
   PrivateLog,
   PrivateLogData,
@@ -188,6 +190,11 @@ function makeNoteHash(seed: number) {
 
 function makeNullifier(seed: number) {
   return new Nullifier(fr(seed), seed + 1, fr(seed + 2));
+}
+
+function makeContractClassLog(seed: number) {
+  // The '* 1' removes the 'Type instantiation is excessively deep and possibly infinite. ts(2589)' err
+  return new ContractClassLog(makeTuple(CONTRACT_CLASS_LOG_SIZE_IN_FIELDS * 1, fr, seed));
 }
 
 function makePrivateLog(seed: number) {
@@ -1096,6 +1103,8 @@ function makePrivateBaseRollupHints(seed = 1) {
 
   const archiveRootMembershipWitness = makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x9000);
 
+  const contractClassLogsPreimages = makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeContractClassLog, seed + 0x800);
+
   const constants = makeConstantRollupData(0x100);
 
   const feePayerFeeJuiceBalanceReadHint = PublicDataHint.empty();
@@ -1104,9 +1113,10 @@ function makePrivateBaseRollupHints(seed = 1) {
     start,
     startSpongeBlob,
     stateDiffHints,
-    archiveRootMembershipWitness,
-    constants,
     feePayerFeeJuiceBalanceReadHint,
+    archiveRootMembershipWitness,
+    contractClassLogsPreimages,
+    constants,
   });
 }
 
@@ -1115,11 +1125,14 @@ function makePublicBaseRollupHints(seed = 1) {
 
   const archiveRootMembershipWitness = makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x9000);
 
+  const contractClassLogsPreimages = makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeContractClassLog, seed + 0x800);
+
   const constants = makeConstantRollupData(0x100);
 
   return PublicBaseRollupHints.from({
     startSpongeBlob,
     archiveRootMembershipWitness,
+    contractClassLogsPreimages,
     constants,
   });
 }

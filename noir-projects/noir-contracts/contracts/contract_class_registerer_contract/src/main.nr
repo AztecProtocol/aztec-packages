@@ -222,7 +222,8 @@ pub contract ContractClassRegisterer {
         let log_to_emit: [Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS] =
             array_concat(log, [0; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - N]);
         // TODO(MW): use chunked poseidon if cheaper? Use variable poseidon with length of non-0 fields?
-        let log_hash = std::hash::poseidon2::Poseidon2::hash(log, N);
+        let log_hash =
+            std::hash::poseidon2::Poseidon2::hash(log_to_emit, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS);
         /// Safety: TODO(MW): constraining below length in the base rollup. Is this good/safe?
         let length = unsafe { find_index_hint_from_end(log_to_emit, |elem| !is_empty(elem)) };
         /// Safety: the below only exists to broadcast the raw log, so we can provide it to the base rollup later to be constrained.
