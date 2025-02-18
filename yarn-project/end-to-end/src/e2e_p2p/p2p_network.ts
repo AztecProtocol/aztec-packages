@@ -10,6 +10,7 @@ import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { ForwarderAbi, ForwarderBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-contracts.js/Spam';
+import type { BootstrapNode } from '@aztec/p2p/bootstrap';
 import { createBootstrapNodeFromPrivateKey, getBootstrapNodeEnr } from '@aztec/p2p/test-helpers';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
@@ -55,6 +56,8 @@ export class P2PNetworkTest {
   // The re-execution test needs a wallet and a spam contract
   public wallet?: AccountWalletWithSecretKey;
   public spamContract?: SpamContract;
+
+  public bootstrapNode?: BootstrapNode;
 
   private cleanupInterval: NodeJS.Timeout | undefined = undefined;
 
@@ -170,14 +173,14 @@ export class P2PNetworkTest {
   async applyBaseSnapshots() {
     await this.snapshotManager.snapshot('add-bootstrap-node', async ({ aztecNodeConfig }) => {
       const telemetry = getEndToEndTestTelemetryClient(this.metricsPort);
-      const bootstrapNode = await createBootstrapNodeFromPrivateKey(
+      this.bootstrapNode = await createBootstrapNodeFromPrivateKey(
         BOOTSTRAP_NODE_PRIVATE_KEY,
         this.bootNodePort,
         telemetry,
         aztecNodeConfig,
       );
       // Overwrite enr with updated info
-      this.bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
+      this.bootstrapNodeEnr = this.bootstrapNode.getENR().encodeTxt();
     });
 
     await this.snapshotManager.snapshot(
@@ -357,7 +360,7 @@ export class P2PNetworkTest {
 
   async teardown() {
     this.monitor.stop();
-    await this.bootstrapNode.stop();
+    await this.bootstrapNode?.stop();
     await this.snapshotManager.teardown();
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval);
