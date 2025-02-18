@@ -38,6 +38,9 @@
     },
     {
       "path": "../world-state"
+    },
+    {
+      "path": "../noir-contracts.js"
     }
   ],
   "include": ["src", "../bb-prover/src/test/test_circuit_prover.ts"]

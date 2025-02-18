@@ -1,3 +1,5 @@
+import { createLogger } from '@aztec/foundation/log';
+
 import type { AvmContext } from '../avm_context.js';
 import { Field, TypeTag } from '../avm_memory_types.js';
 import { StaticCallAlterationError } from '../errors.js';

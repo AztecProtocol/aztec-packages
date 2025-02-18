@@ -70,6 +70,8 @@ export class PublicTxSimulator {
    * @returns The result of the transaction's public execution.
    */
   public async simulate(tx: Tx): Promise<PublicTxResult> {
+    const startTime = process.hrtime.bigint();
+
     const txHash = await tx.getTxHash();
     this.log.debug(`Simulating ${tx.enqueuedPublicFunctionCalls.length} public calls for tx ${txHash}`, { txHash });
 
@@ -131,6 +133,9 @@ export class PublicTxSimulator {
       // FIXME(dbanks12): should not be changing immutable tx
       tx.filterRevertedLogs(tx.data.forPublic!.nonRevertibleAccumulatedData);
     }
+
+    const endTime = process.hrtime.bigint();
+    this.log.debug(`Public TX simulator took ${Number(endTime - startTime) / 1_000_000} ms\n`);
 
     return {
       avmProvingRequest,

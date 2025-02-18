@@ -83,7 +83,7 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
       sender,
       isStaticCall,
     });
-    const persistableState = await this.stateManager.fork();
+    const persistableState = this.stateManager.fork();
     const context = initContext({ env: environment, persistableState });
 
     // First we simulate (though it's not needed in this simple case).
@@ -96,7 +96,7 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
       );
     } else {
       this.logger.info(`Simulation of function ${fnName} succeeded!`);
-      await this.stateManager.merge(persistableState);
+      this.stateManager.merge(persistableState);
     }
     return result;
   }
