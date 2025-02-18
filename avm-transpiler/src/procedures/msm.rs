@@ -16,10 +16,10 @@ const MSM_ASSEMBLY: &str = "
                 SET d11, 1 u1; Initialize a constant true
                 SET d12, 0 u1; Initialize a constant false
                 ; Main loop: iterate over the points/scalars
-OUTER_HEAD:       LT d6, d2, d15 ; Check if we are done with the outer loop
+OUTER_HEAD:     LT d6, d2, d15 ; Check if we are done with the outer loop
                 JUMPI d15, OUTER_BODY
                 JUMP OUTER_END
-OUTER_BODY:       ADD d6, d0, d16; Compute the pointer to the point
+OUTER_BODY:     ADD d6, d0, d16; Compute the pointer to the point
                 ADD d6, d1, d17; Compute the pointer to the scalar lo
                 ADD d9, d7, d18; Compute the pointer to the scalar hi
                 EQ i17, d8, d19; Check if the scalar lo is zero
@@ -35,17 +35,16 @@ OUTER_BODY:       ADD d6, d0, d16; Compute the pointer to the point
                 TO_RADIX_BE i17, d7, d10, d11, i20; Get the least significant bits of the full scalar
                 ; Now we have a pointer (i19) to the bits of the scalar in BE
 
-                ; Now we need to find the index of the MSB
-                SET d21, 0 u32; Initialize the index of the MSB
-FIND_MSB_HEAD:  LT d21, d9, d22; Check if we are done with the loop
+                ; Now we need to find the pointer to the MSB
+                ADD d19, d9, d21; Initialize the end pointer
+FIND_MSB_HEAD:  LT d19, d21, d22; Check if we are done with the loop
                 JUMPI d22, FIND_MSB_BODY
                 JUMP FIND_MSB_END
-FIND_MSB_BODY:  ADD d19, d21, d22; Compute the pointer to the current bit
-                EQ i22, d11, d22; Check if the current bit is one
+FIND_MSB_BODY:  EQ i19, d11, d22; Check if the current bit is one
                 JUMPI d22, FIND_MSB_END
-FIND_MSB_INC:   ADD d21, d7, d21; Increment the index of the MSB
+FIND_MSB_INC:   ADD d21, d7, d21; Increment the pointer of the MSB
                 JUMP FIND_MSB_HEAD
-                ; Now we have the index of the MSB in d21
+                ; Now we have the pointer of the MSB in d19
 
                 ; Now store the result of the scalar multiplication in d22, d23, d24
 FIND_MSB_END:   MOV i16, d22; x
@@ -59,24 +58,24 @@ FIND_MSB_END:   MOV i16, d22; x
                 MOV d24, d27; is_infinite
 
                 ; Now we need to do the inner loop, that will do double then add
-                ; We need to iterate from the index of the MSB to 256
-INNER_HEAD:     LT d21, d9, d22; Check if we are done with the loop
-                JUMPI d22, INNER_BODY
+                ; We need to iterate from the pointer of the MSB + 1 to the end pointer (d21)
+                ADD d19, d7, d19; We start from the pointer of the MSB + 1
+INNER_HEAD:     LT d19, d21, d28; Check if we are done with the loop
+                JUMPI d28, INNER_BODY
                 JUMP INNER_END
 INNER_BODY:     ECADD d22, d23, d24, d22, d23, d24, d22; Double the current result. Note the output is not a pointer, so the result is stored in the same addresses
-                ADD d19, d21, d22; Compute the pointer to the current bit
-                EQ i22, d12, d22; Check if the current bit is zero
-                JUMPI d22, INNER_INC; If the current bit is zero, continue
+                EQ i19, d12, d28; Check if the current bit is zero
+                JUMPI d28, INNER_INC; If the current bit is zero, continue
                 ECADD d25, d26, d27, d22, d23, d24, d22; Add the original point to the result
-INNER_INC:      ADD d21, d7, d21; Increment the index
+INNER_INC:      ADD d19, d7, d19; Increment the pointer
                 JUMP INNER_HEAD
 
                 ; After the inner loop we have computed the scalar multiplication. Add it to the msm result
 INNER_END:      ECADD d3, d4, d5, d22, d23, d24, d3; Add the result to the msm result
-OUTER_INC:        ADD d6, d7, d6; Increment the outer loop variable
+OUTER_INC:      ADD d6, d7, d6; Increment the outer loop variable
                 JUMP OUTER_HEAD
                 ; After the outer loop we have computed the msm. Put it back into the first memory addresses
-OUTER_END:        MOV d3, d0
+OUTER_END:      MOV d3, d0
                 MOV d4, d1
                 MOV d5, d2
                 RETURN
