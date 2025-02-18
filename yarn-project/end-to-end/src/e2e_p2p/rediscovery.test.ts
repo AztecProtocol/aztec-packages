@@ -61,7 +61,7 @@ describe('e2e_p2p_rediscovery', () => {
     await sleep(3000);
 
     // stop bootstrap node
-    await t.bootstrapNode.stop();
+    await t.bootstrapNode?.stop();
 
     // create new nodes from datadir
     const newNodes: AztecNodeService[] = [];

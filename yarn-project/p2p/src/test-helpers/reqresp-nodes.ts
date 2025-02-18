@@ -12,6 +12,7 @@ import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
+import { SignableENR } from '@chainsafe/enr';
 import { gossipsub } from '@chainsafe/libp2p-gossipsub';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
@@ -20,6 +21,7 @@ import { identify } from '@libp2p/identify';
 import { type PeerId } from '@libp2p/interface';
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { tcp } from '@libp2p/tcp';
+import { multiaddr } from '@multiformats/multiaddr';
 import getPort from 'get-port';
 import { type Libp2p, type Libp2pOptions, createLibp2p } from 'libp2p';
 
@@ -38,7 +40,7 @@ import {
 } from '../services/reqresp/interface.js';
 import { pingHandler, statusHandler } from '../services/reqresp/protocols/index.js';
 import { ReqResp } from '../services/reqresp/reqresp.js';
-import { type PubSubLibp2p } from '../util.js';
+import { type PubSubLibp2p, convertToMultiaddr, createLibP2PPeerIdFromPrivateKey } from '../util.js';
 
 /**
  * Creates a libp2p node, pre configured.
@@ -235,13 +237,15 @@ export class AlwaysFalseCircuitVerifier implements ClientProtocolCircuitVerifier
 // Bootnodes
 export function createBootstrapNodeConfig(privateKey: string, port: number, chainConfig: ChainConfig): BootnodeConfig {
   return {
+    l1ChainId: chainConfig.l1ChainId,
+    version: chainConfig.version,
+    l1Contracts: chainConfig.l1Contracts,
     udpListenAddress: `0.0.0.0:${port}`,
     udpAnnounceAddress: `127.0.0.1:${port}`,
     peerIdPrivateKey: privateKey,
     maxPeerCount: 100,
     dataDirectory: undefined,
     dataStoreMapSizeKB: 0,
-    ...chainConfig,
   };
 }
 
@@ -253,6 +257,21 @@ export function createBootstrapNodeFromPrivateKey(
 ): Promise<BootstrapNode> {
   const config = createBootstrapNodeConfig(privateKey, port, chainConfig);
   return startBootstrapNode(config, telemetry);
+}
+
+/**
+ * Create a bootstrap node ENR
+ * @param privateKey - the private key of the bootstrap node
+ * @param port - the port of the bootstrap node
+ * @returns the bootstrap node ENR
+ */
+export async function getBootstrapNodeEnr(privateKey: string, port: number) {
+  const peerId = await createLibP2PPeerIdFromPrivateKey(privateKey);
+  const enr = SignableENR.createFromPeerId(peerId);
+  const listenAddrUdp = multiaddr(convertToMultiaddr(`127.0.0.1:${port}`, 'udp'));
+  enr.setLocationMultiaddr(listenAddrUdp);
+
+  return enr;
 }
 
 export async function createBootstrapNode(
