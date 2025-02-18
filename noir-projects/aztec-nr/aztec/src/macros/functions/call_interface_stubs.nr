@@ -50,6 +50,7 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
     }
 }
 
+/// Utility function creating stubs used by all the stub functions in this file.
 comptime fn create_stub_base(
     f: FunctionDefinition,
 ) -> (Quoted, Quoted, Quoted, Quoted, u32, Field) {
