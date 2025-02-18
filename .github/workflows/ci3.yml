@@ -185,6 +185,7 @@ jobs:
           ARCH: amd64
           LOG_ID: ${{ github.run_id }}
           INSTANCE_POSTFIX: ${{ matrix.number }}
+          DRY_RUN: 1
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           ./ci.sh ec2-test
