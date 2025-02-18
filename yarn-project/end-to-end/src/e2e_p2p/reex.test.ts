@@ -121,10 +121,11 @@ describe('e2e_p2p_reex', () => {
       jest.spyOn((node as any).p2pClient, 'broadcastProposal').mockImplementation(async (...args: unknown[]) => {
         // We remove one of the transactions, therefore the block root will be different!
         const proposal = args[0] as BlockProposal;
-        const { txHashes } = proposal.payload;
+        // TODO: reex
+        const { txs } = proposal.payload;
 
         // We need to mutate the proposal, so we cast to any
-        (proposal.payload as any).txHashes = txHashes.slice(0, txHashes.length - 1);
+        (proposal.payload as any).txs = txs.slice(0, txs.length - 1);
 
         // We sign over the proposal using the node's signing key
         // Abusing javascript to access the nodes signing key
