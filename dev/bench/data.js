@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739901873996,
+  "lastUpdate": 1739908264536,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "domuradical@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "domuradical@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "distinct": true,
-          "id": "cd3ee7f0d3b2bc13a2a1b812beb6e2654ee66ed1",
-          "message": "Merge remote-tracking branch 'origin/ci3-fake-master' into ci3-fake-master",
-          "timestamp": "2025-02-13T08:39:37Z",
-          "tree_id": "0cf5df858a63a4db1dd412fe919eb88ecb074ae7",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/cd3ee7f0d3b2bc13a2a1b812beb6e2654ee66ed1"
-        },
-        "date": 1739437400491,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18042.68821400001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15856.260483999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18538.37488099998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16065.907245000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3852.0219290001023,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3131.6464530000003 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55282.521339,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55282523000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11094.995866,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11094999000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1813917306,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1813917306 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 133987662,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 133987662 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3292,6 +3226,72 @@ window.BENCHMARK_DATA = {
             "value": 132337965,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 132337965 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "152162806+sklppy88@users.noreply.github.com",
+            "name": "esau",
+            "username": "sklppy88"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "022f2d6c813d143951b2d864d773c46d5bdb790d",
+          "message": "refactor: remove `addNullifiedNote` from pxe (#11822)\n\nThis PR removes `addNullifiedNote` from the PXE as it is unused.\n\nIt was also suggested to rework `getNoteHashAndOptionallyANullifier`\ninto `getNoteHashAndNullifier`, in TS as now the second case where we\ndon't get a nullifier is almost trivially used.\n\nI have kept `get_note_hash_and_optionally_a_nullifier` in nr intact as I\nwasn't sure this desired changing. If so, I will do that in another PR\nto keep things relatively isolated.\n\nResolves #11821\n\nCo-authored-by: Nicolás Venturo <nicolas.venturo@gmail.com>",
+          "timestamp": "2025-02-18T19:39:39Z",
+          "tree_id": "4508e82b820932d8ebac478315fed23cdcc75c95",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/022f2d6c813d143951b2d864d773c46d5bdb790d"
+        },
+        "date": 1739908257327,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18083.28719900004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16015.367543 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18561.056717999974,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16266.543104 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3831.5587230000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3103.6089170000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55039.44239,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55039443000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11278.203934000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11278205000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1819849736,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1819849736 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 131462757,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 131462757 ns\nthreads: 1"
           }
         ]
       }
