@@ -41,8 +41,7 @@ impl NullifiableNote for MockNote {
         contract_address: AztecAddress,
         note_nonce: Field,
     ) -> Field {
-        // We set the note_hash_counter to 0 as the note is not transient and the concept of transient note does
-        // not make sense in an unconstrained context.
+        // We set the note_hash_counter to 0 as the note is assumed to be committed (and hence not transient).
         let retrieved_note =
             RetrievedNote { note: self, contract_address, nonce: note_nonce, note_hash_counter: 0 };
         // We don't use any kind of secret here since this is only a mock note and having it here would make tests

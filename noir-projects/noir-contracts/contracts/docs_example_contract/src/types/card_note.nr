@@ -51,8 +51,7 @@ impl NullifiableNote for CardNote {
         contract_address: AztecAddress,
         note_nonce: Field,
     ) -> Field {
-        // We set the note_hash_counter to 0 as the note is not transient and the concept of transient note does
-        // not make sense in an unconstrained context.
+        // We set the note_hash_counter to 0 as the note is assumed to be committed (and hence not transient).
         let retrieved_note =
             RetrievedNote { note: self, contract_address, nonce: note_nonce, note_hash_counter: 0 };
         let note_hash_for_nullify = compute_note_hash_for_nullify(retrieved_note, storage_slot);
