@@ -31,7 +31,7 @@ import { type FunctionArtifact, FunctionSelector, FunctionType } from '@aztec/fo
 import { timesParallel } from '@aztec/foundation/collection';
 import { pedersenHash, poseidon2Hash } from '@aztec/foundation/crypto';
 import { KeyStore } from '@aztec/key-store';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { type AcirSimulator, type SimulationProvider, WASMSimulator } from '@aztec/simulator/client';
 
 import { jest } from '@jest/globals';
@@ -132,7 +132,7 @@ describe('Simulator oracle', () => {
   let contractAddress: AztecAddress;
 
   beforeEach(async () => {
-    const db = openTmpStore();
+    const db = await openTmpStore('test');
     aztecNode = mock<AztecNode>();
     database = await KVPxeDatabase.create(db);
     contractDataOracle = new ContractDataOracle(database);

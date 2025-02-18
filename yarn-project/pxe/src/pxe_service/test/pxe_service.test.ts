@@ -11,7 +11,7 @@ import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { type L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { KeyStore } from '@aztec/key-store';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { L2TipsStore } from '@aztec/kv-store/stores';
 import { type SimulationProvider, WASMSimulator } from '@aztec/simulator/client';
 
@@ -24,7 +24,7 @@ import { PXEService } from '../pxe_service.js';
 import { pxeTestSuite } from './pxe_test_suite.js';
 
 async function createPXEService(): Promise<PXE> {
-  const kvStore = openTmpStore();
+  const kvStore = await openTmpStore('test');
   const keyStore = new KeyStore(kvStore);
   const node = mock<AztecNode>();
   const db = await KVPxeDatabase.create(kvStore);
