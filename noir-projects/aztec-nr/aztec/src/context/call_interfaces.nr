@@ -31,11 +31,18 @@ impl<let N: u32, T> PrivateCallInterface<N, T> {
         selector: FunctionSelector,
         name: str<N>,
         args: [Field],
-        return_type: T,
         is_static: bool,
     ) -> Self {
         let args_hash = hash_args(args);
-        Self { target_contract, selector, name, args_hash, args, return_type, is_static }
+        Self {
+            target_contract,
+            selector,
+            name,
+            args_hash,
+            args,
+            return_type: std::mem::zeroed(),
+            is_static,
+        }
     }
 
     pub fn call<let M: u32>(self, context: &mut PrivateContext) -> T
@@ -175,10 +182,17 @@ impl<let N: u32, T> PrivateStaticCallInterface<N, T> {
         selector: FunctionSelector,
         name: str<N>,
         args: [Field],
-        return_type: T,
     ) -> Self {
         let args_hash = hash_args(args);
-        Self { target_contract, selector, name, args_hash, args, return_type, is_static: true }
+        Self {
+            target_contract,
+            selector,
+            name,
+            args_hash,
+            args,
+            return_type: std::mem::zeroed(),
+            is_static: true,
+        }
     }
 
     pub fn view<let M: u32>(self, context: &mut PrivateContext) -> T
@@ -290,7 +304,6 @@ impl<let N: u32, T> PublicCallInterface<N, T> {
         selector: FunctionSelector,
         name: str<N>,
         args: [Field],
-        return_type: T,
         is_static: bool,
     ) -> Self {
         Self {
@@ -299,7 +312,7 @@ impl<let N: u32, T> PublicCallInterface<N, T> {
             name,
             args,
             gas_opts: GasOpts::default(),
-            return_type,
+            return_type: std::mem::zeroed(),
             is_static,
         }
     }
@@ -399,9 +412,16 @@ impl<let N: u32> PublicVoidCallInterface<N> {
         name: str<N>,
         args: [Field],
         is_static: bool,
-        gas_opts: GasOpts,
     ) -> Self {
-        Self { target_contract, selector, name, args, return_type: (), is_static, gas_opts }
+        Self {
+            target_contract,
+            selector,
+            name,
+            args,
+            return_type: (),
+            is_static,
+            gas_opts: GasOpts::default(),
+        }
     }
 
     pub fn with_gas(self: &mut Self, gas_opts: GasOpts) -> &mut Self {
@@ -492,14 +512,13 @@ impl<let N: u32, T> PublicStaticCallInterface<N, T> {
         selector: FunctionSelector,
         name: str<N>,
         args: [Field],
-        return_type: T,
     ) -> Self {
         Self {
             target_contract,
             selector,
             name,
             args,
-            return_type,
+            return_type: std::mem::zeroed(),
             is_static: true,
             gas_opts: GasOpts::default(),
         }

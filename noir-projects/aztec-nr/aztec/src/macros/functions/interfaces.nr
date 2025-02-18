@@ -1,12 +1,5 @@
-use crate::macros::utils::{
-    add_to_field_slice, compute_fn_selector, get_fn_visibility, get_trait_impl_method,
-    is_fn_private, is_fn_public, is_fn_view,
-};
-use std::{
-    collections::umap::UHashMap,
-    hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher},
-    meta::{type_of, unquote},
-};
+use crate::macros::utils::{add_to_field_slice, compute_fn_selector, get_trait_impl_method, is_fn_private, is_fn_view};
+use std::meta::{type_of, unquote};
 
 comptime global FROM_FIELD: TypedExpr = {
     let from_field_trait = quote { protocol_types::traits::FromField }.as_trait_constraint();
@@ -97,7 +90,6 @@ comptime fn create_private_stub(f: FunctionDefinition) -> Quoted {
                 selector,
                 $fn_name_str,
                 args_acc,
-                std::mem::zeroed(),
                 false
             )
         }
@@ -118,7 +110,6 @@ comptime fn create_private_static_stub(f: FunctionDefinition) -> Quoted {
                 selector,
                 $fn_name_str,
                 args_acc,
-                std::mem::zeroed()
             )
         }
     }
@@ -175,7 +166,6 @@ comptime fn create_public_stub(f: FunctionDefinition) -> Quoted {
                 selector,
                 $fn_name_str,
                 args_acc,
-                std::mem::zeroed(),
                 false
             )
         }
@@ -196,7 +186,6 @@ comptime fn create_public_static_stub(f: FunctionDefinition) -> Quoted {
                 selector,
                 $fn_name_str,
                 args_acc,
-                std::mem::zeroed()
             )
         }
     }
@@ -215,8 +204,7 @@ comptime fn create_public_void_stub(f: FunctionDefinition) -> Quoted {
                 selector,
                 $fn_name_str,
                 args_acc,
-                false,
-                dep::aztec::context::gas::GasOpts::default()
+                false
             )
         }
     }
