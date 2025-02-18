@@ -40,9 +40,12 @@ if [ "$COMPILE" -ne 0 ]; then
   fi
 fi
 
-if [[ ! -f ./target/program.json || ! -f ./target/witness.gz ]]; then
-  echo -e "${yellow}SKIPPED${reset} (uncompiled)"
-  exit 0
+if [[ ( ! -f ./$TEST_NAME/target/program.json && \
+         ! -f ./$TEST_NAME/target/acir.msgpack ) || \
+       ( ! -f ./$TEST_NAME/target/witness.gz   && \
+         ! -f ./$TEST_NAME/target/witness.msgpack ) ]]; then
+  echo -e "\033[33mSKIPPED\033[0m (uncompiled)"
+  continue
 fi
 
 set +e
