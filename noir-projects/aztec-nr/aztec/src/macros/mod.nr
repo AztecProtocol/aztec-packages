@@ -138,7 +138,7 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
             if_statements_list = if_statements_list.push_back(
                 quote {
                 $if_or_else_if note_type_id == $typ::get_note_type_id() {
-                    aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($typ::unpack_content, note_header, compute_nullifier, storage_slot, packed_note_content)
+                    aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($typ::unpack_content, contract_address, nonce, compute_nullifier, storage_slot, packed_note_content)
                 }
             },
             );
@@ -147,7 +147,6 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
         let if_statements = if_statements_list.join(quote {});
 
         quote {
-            let note_header = aztec::prelude::NoteHeader::new(contract_address, nonce);
             $if_statements
             else {
                 panic(f"Unknown note type ID: {note_type_id}")
@@ -184,12 +183,13 @@ comptime fn generate_process_log() -> Quoted {
 
     // A typical implementation of the lambda looks something like this:
     // ```
-    // |packed_note_content: BoundedVec<Field, MAX_NOTE_SERIALIZED_LEN>, note_header: NoteHeader, storage_slot: Field, note_type_id: Field| {
+    // |packed_note_content: BoundedVec<Field, MAX_NOTE_SERIALIZED_LEN>, contract_address: AztecAddress, nonce: Field, storage_slot: Field, note_type_id: Field| {
     //     let hashes = if note_type_id == MyNoteType::get_note_type_id() {
     //         assert(packed_note_content.len() == MY_NOTE_TYPE_SERIALIZATION_LENGTH);
     //         dep::aztec::note::utils::compute_note_hash_and_optionally_a_nullifier(
     //             MyNoteType::unpack_content,
-    //             note_header,
+    //             contract_address,
+    //             nonce,
     //             true,
     //             storage_slot,
     //             packed_note_content.storage(),
@@ -235,7 +235,7 @@ comptime fn generate_process_log() -> Quoted {
                         f"Expected note content of length {expected_len} but got {actual_len} for note type id {note_type_id}"
                     );
 
-                    aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($typ::unpack_content, note_header, true, storage_slot, packed_note_content.storage())
+                    aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($typ::unpack_content, contract_address, nonce, true, storage_slot, packed_note_content.storage())
                 }
             },
         );
@@ -257,7 +257,7 @@ comptime fn generate_process_log() -> Quoted {
                 unique_note_hashes_in_tx,
                 first_nullifier_in_tx,
                 recipient,
-                |packed_note_content: BoundedVec<Field, _>, note_header, storage_slot, note_type_id| {
+                |packed_note_content: BoundedVec<Field, _>, contract_address, nonce, storage_slot, note_type_id| {
                     let hashes = $if_note_type_id_match_statements
                     else {
                         panic(f"Unknown note type id {note_type_id}")
