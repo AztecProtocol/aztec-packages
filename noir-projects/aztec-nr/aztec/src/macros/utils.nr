@@ -255,3 +255,16 @@ pub(crate) comptime fn is_note(typ: Type) -> bool {
             | def.has_named_attribute("note_custom_interface")
     })
 }
+
+/// We get the typed expressions of a trait method implementation rather than directly inlining them in a quote with
+/// `$typ::target_method()`. Direct inlining would result in missing import warnings in the generated code
+/// (specifically, warnings that `target_trait` is implemented but not in scope).
+pub(crate) comptime fn get_trait_impl_method(
+    typ: Type,
+    target_trait: Quoted,
+    target_method: Quoted,
+) -> TypedExpr {
+    let trait_constraint = target_trait.as_trait_constraint();
+    typ.get_trait_impl(trait_constraint).unwrap().methods().filter(|m| m.name() == target_method)[0]
+        .as_typed_expr()
+}

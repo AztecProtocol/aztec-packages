@@ -1,6 +1,6 @@
 use crate::macros::utils::{
-    add_to_field_slice, compute_fn_selector, get_fn_visibility, is_fn_private, is_fn_public,
-    is_fn_view,
+    add_to_field_slice, compute_fn_selector, get_fn_visibility, get_trait_impl_method,
+    is_fn_private, is_fn_public, is_fn_view,
 };
 use std::{
     collections::umap::UHashMap,
@@ -126,19 +126,13 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
         quote {}
     };
 
-    // We get the typed expression of `from_field` here rather than directly inlining it in the quote
-    // with `FunctionSelector::from_field()`. Direct inlining would result in missing import warnings
-    // in the generated code (specifically, warnings that FromField trait is implemented but not in scope).
-    let from_field_trait = quote { protocol_types::traits::FromField }.as_trait_constraint();
     let function_selector_typ =
         quote { protocol_types::abis::function_selector::FunctionSelector }.as_type();
-
-    let from_field = function_selector_typ
-        .get_trait_impl(from_field_trait)
-        .unwrap()
-        .methods()
-        .filter(|m| m.name() == quote { from_field })[0]
-        .as_typed_expr();
+    let from_field = get_trait_impl_method(
+        function_selector_typ,
+        quote { protocol_types::traits::FromField },
+        quote { from_field },
+    );
 
     quote {
         pub fn $fn_name(self, $fn_parameters_list) -> $call_interface_name<$call_interface_generics> {

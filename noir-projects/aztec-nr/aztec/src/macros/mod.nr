@@ -11,10 +11,7 @@ use storage::STORAGE_LAYOUT_NAME;
 
 use dispatch::generate_public_dispatch;
 use functions::transform_unconstrained;
-use utils::module_has_storage;
-
-global NOTE_INTERFACE: TraitConstraint =
-    quote { crate::note::note_interface::NoteInterface }.as_trait_constraint();
+use utils::{get_trait_impl_method, module_has_storage};
 
 /// Marks a contract as an Aztec contract, generating the interfaces for its functions and notes, as well as injecting
 /// the `compute_note_hash_and_optionally_a_nullifier` function PXE requires in order to validate notes.
@@ -134,28 +131,16 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
         for i in 0..notes.len() {
             let (typ, (_, _, _, _)) = notes[i];
 
-            // We get the typed expressions of `get_note_type_id` and `unpack` here rather than directly inlining them
-            // in the quote with `$typ::get_note_type_id()` and `$typ::unpack()`. Direct inlining would result
-            // in missing import warnings in the generated code (specifically, warnings that NoteInterface and
-            // Packable<N> are implemented but not in scope).
-            // Note: noir-fmt:ignore is used to avoid the following formatter bug:
-            // https://github.com/noir-lang/noir/issues/7407
-            // noir-fmt:ignore
-            let get_note_type_id = typ.get_trait_impl(NOTE_INTERFACE).unwrap().methods().filter(
-                |m| m.name() == quote { get_note_type_id },
-            )[0]
-                .as_typed_expr();
-
-            // We obtain the packable trait constraint here rather than storing it as a global variable. This is because
-            // the trait has a generic parameter that gets matched on first use. If we used a global variable, we would
-            // fail to get trait implementations for types that don't match the already-matched generic parameter.
-            let packable: TraitConstraint =
-                quote { crate::protocol_types::traits::Packable<_> }.as_trait_constraint();
-
-            let unpack = typ.get_trait_impl(packable).unwrap().methods().filter(|m| {
-                m.name() == quote { unpack }
-            })[0]
-                .as_typed_expr();
+            let get_note_type_id = get_trait_impl_method(
+                typ,
+                quote { crate::note::note_interface::NoteInterface },
+                quote { get_note_type_id },
+            );
+            let unpack = get_trait_impl_method(
+                typ,
+                quote { crate::protocol_types::traits::Packable<_> },
+                quote { unpack },
+            );
 
             let if_or_else_if = if i == 0 {
                 quote { if }
@@ -248,25 +233,16 @@ comptime fn generate_process_log() -> Quoted {
     for i in 0..notes.len() {
         let (typ, (_, packed_note_length, _, _)) = notes[i];
 
-        // We get the typed expressions of `get_note_type_id` and `unpack` here rather than directly inlining them
-        // in the quote with `$typ::get_note_type_id()` and `$typ::unpack()`. Direct inlining would result
-        // in missing import warnings in the generated code (specifically, warnings that NoteInterface and
-        // Packable<N> are implemented but not in scope).
-        let get_note_type_id = typ.get_trait_impl(NOTE_INTERFACE).unwrap().methods().filter(|m| {
-            m.name() == quote { get_note_type_id }
-        })[0]
-            .as_typed_expr();
-
-        // We obtain the packable trait constraint here rather than storing it as a global variable. This is because
-        // the trait has a generic parameter that gets matched on first use. If we used a global variable, we would
-        // fail to get trait implementations for types that don't match the already-matched generic parameter.
-        let packable: TraitConstraint =
-            quote { crate::protocol_types::traits::Packable<_> }.as_trait_constraint();
-
-        let unpack = typ.get_trait_impl(packable).unwrap().methods().filter(|m| {
-            m.name() == quote { unpack }
-        })[0]
-            .as_typed_expr();
+        let get_note_type_id = get_trait_impl_method(
+            typ,
+            quote { crate::note::note_interface::NoteInterface },
+            quote { get_note_type_id },
+        );
+        let unpack = get_trait_impl_method(
+            typ,
+            quote { crate::protocol_types::traits::Packable<_> },
+            quote { unpack },
+        );
 
         let if_or_else_if = if i == 0 {
             quote { if }
