@@ -41,6 +41,10 @@ describe('Public Processor app tests: TokenContract', () => {
     );
 
     tester = new PublicTxSimulationTester(worldStateDB, contractDataSource, merkleTrees);
+
+    // make sure tx senders have fee balance
+    await tester.setFeePayerBalance(admin);
+    await tester.setFeePayerBalance(sender);
   });
 
   it('token constructor, mint, many transfers', async () => {
@@ -51,6 +55,7 @@ describe('Public Processor app tests: TokenContract', () => {
     const nonce = new Fr(0);
 
     const constructorArgs = [admin, /*name=*/ 'Token', /*symbol=*/ 'TOK', /*decimals=*/ new Fr(18)];
+
     token = await tester.registerAndDeployContract(constructorArgs, /*deployer=*/ admin, TokenContractArtifact);
     const constructorTx = await tester.createTx(
       /*sender=*/ admin,
@@ -63,6 +68,7 @@ describe('Public Processor app tests: TokenContract', () => {
         },
       ],
     );
+
     const mintTx = await tester.createTx(
       /*sender=*/ admin,
       /*setupCalls=*/ [],

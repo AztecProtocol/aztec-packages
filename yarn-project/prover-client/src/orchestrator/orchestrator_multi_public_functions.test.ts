@@ -23,13 +23,14 @@ describe('prover/orchestrator/public-functions', () => {
   });
 
   describe('blocks with public functions', () => {
-    const admin = AztecAddress.fromNumber(42);
-    const constructorArgs = [admin, /*name=*/ 'Token', /*symbol=*/ 'TOK', /*decimals=*/ new Fr(18)];
+    let admin: AztecAddress;
     let token: ContractInstanceWithAddress;
     let constructorTx: Tx;
 
     beforeEach(async () => {
-      // use numTransactions to provide some variability in the txs
+      admin = context.feePayer; // make sure tx sender has sufficient balance
+
+      const constructorArgs = [admin, /*name=*/ 'Token', /*symbol=*/ 'TOK', /*decimals=*/ new Fr(18)];
       token = await context.tester.registerAndDeployContract(
         constructorArgs,
         /*deployer=*/ admin,
@@ -37,7 +38,7 @@ describe('prover/orchestrator/public-functions', () => {
         /*skipNullifierInsertion=*/ true,
       );
       // Note: skip nullifier insertion above so it can be performed during the constructor
-      // TX (via firstNullifier). We want all tree operations to end up in txEffects.
+      // TX (via firstNullifier). We want all tree operations to end up in txEffects!
       const contractAddressNullifier = await siloNullifier(
         AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
         token.address.toField(),
@@ -54,14 +55,15 @@ describe('prover/orchestrator/public-functions', () => {
           },
         ],
         /*teardownCall=*/ undefined,
-        /*feePayer=*/ AztecAddress.zero(), // none
+        /*feePayer=*/ admin,
         /*firstNullifier=*/ contractAddressNullifier, // as if it was deployed during private portion
       );
     });
 
     it.each([
+      [2, 1, 1], // simple
       [2, 4, 3], // simple-ish
-      [4, 16, 16], // max enqueued calls
+      [4, 8, 8], // several enqueued calls
     ] as const)(
       'builds an L2 block with %i transactions each with %i revertible and %i non revertible',
       async (

@@ -75,7 +75,7 @@ export class TestContext {
     const directoriesToCleanup: string[] = [];
     const globalVariables = makeGlobals(blockNumber);
 
-    const feePayer = await AztecAddress.random();
+    const feePayer = AztecAddress.fromNumber(42222);
     const initialFeePayerBalance = new Fr(10n ** 20n);
     const feePayerSlot = await computeFeePayerBalanceLeafSlot(feePayer);
     const prefilledPublicData = [new PublicDataTreeLeaf(feePayerSlot, initialFeePayerBalance)];
