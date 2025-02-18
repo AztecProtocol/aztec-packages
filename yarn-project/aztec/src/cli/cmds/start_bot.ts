@@ -24,7 +24,7 @@ export async function startBot(
   let pxe: PXE | undefined;
   if (options.pxe) {
     const { addPXE } = await import('./start_pxe.js');
-    pxe = await addPXE(options, signalHandlers, services, userLog);
+    ({ pxe } = await addPXE(options, signalHandlers, services, userLog));
   }
 
   const telemetry = initTelemetryClient(getTelemetryClientConfig());

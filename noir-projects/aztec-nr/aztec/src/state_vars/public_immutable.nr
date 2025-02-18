@@ -14,6 +14,25 @@ use dep::protocol_types::{constants::INITIALIZATION_SLOT_SEPARATOR, traits::Pack
 ///
 /// This is valuable when T packs to multiple fields, as it maintains "almost constant" verification overhead
 /// regardless of the original data size.
+///
+/// # Optimizing private reads in your contract
+/// Given that reading T from public immutable in private has "almost constant" constraints cost for different sizes
+/// of T it is recommended to group multiple values into a single struct when they are being read together. This can
+/// typically be some kind of configuration set up during contract initialization. E.g.:
+///
+/// ```noir
+/// use dep::aztec::protocol_types::{address::AztecAddress, traits::Packable};
+/// use std::meta::derive;
+///
+/// #[derive(Eq, Packable)]
+/// pub struct Config \{
+///     pub address_1: AztecAddress,
+///     pub value_1: U128,
+///     pub value_2: u64,
+///     ...
+/// }
+/// ```
+///
 // docs:start:public_immutable_struct
 pub struct PublicImmutable<T, Context> {
     context: Context,

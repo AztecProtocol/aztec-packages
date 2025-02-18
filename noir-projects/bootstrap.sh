@@ -1,17 +1,10 @@
 #!/usr/bin/env bash
-# TODO: Testing aztec.nr/contracts requires TXE, so must be pushed to after the final yarn project build.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
 function build {
-  github_group "noir-projects build"
-
-  # TODO: Move the build image, or better, just use devcontainer as our build container.
-  # Or just normalize the protocol circuit keys to be added to the contract artifact, base64 encoded instead of hex.
-  if ! command -v xxd &> /dev/null; then
-    denoise "apt update && apt install -y xxd"
-  fi
+  echo_header "noir-projects build"
 
   # Use fmt as a trick to download dependencies.
   # Otherwise parallel runs of nargo will trip over each other trying to download dependencies.
@@ -27,27 +20,30 @@ function build {
 
   denoise prep
 
-  parallel --tag --line-buffered --joblog joblog.txt --halt now,fail=1 ::: \
-    "denoise ./mock-protocol-circuits/bootstrap.sh $cmd" \
-    "denoise ./noir-protocol-circuits/bootstrap.sh $cmd" \
-    "denoise ./noir-contracts/bootstrap.sh $cmd"
+  parallel --tag --line-buffered --joblog joblog.txt --halt now,fail=1 denoise "'./{}/bootstrap.sh $cmd'" ::: \
+    mock-protocol-circuits \
+    noir-protocol-circuits \
+    noir-contracts
+}
 
-  github_endgroup
+function test_cmds {
+  parallel -k ./{}/bootstrap.sh test_cmds ::: noir-protocol-circuits noir-contracts aztec-nr
+}
+
+function test {
+  echo_header "noir-projects test"
+  test_cmds | filter_test_cmds | parallelise
 }
 
 case "$cmd" in
-  full|fast|ci|test|"")
+  full|fast|ci|"")
     build
     ;;
-  "test-cmds")
-    ./noir-protocol-circuits/bootstrap.sh test-cmds
-    ./noir-contracts/bootstrap.sh test-cmds
-    ./aztec-nr/bootstrap.sh test-cmds
-    exit
+  test|test_cmds)
+    $cmd
     ;;
   "hash")
     cache_content_hash .rebuild_patterns ../noir/.rebuild_patterns
-    exit
     ;;
   *)
     echo_stderr "Unknown command: $cmd"

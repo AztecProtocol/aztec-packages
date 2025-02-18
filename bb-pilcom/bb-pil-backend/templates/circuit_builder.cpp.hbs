@@ -165,7 +165,7 @@ bool AvmCircuitBuilder::check_circuit() const {
         using Relation = std::tuple_element_t<i, AvmFlavor::LookupRelations>;
         checks.push_back([&, num_rows](SignalErrorFn signal_error) {
             // Check the logderivative relation
-            bb::compute_logderivative_inverse<Flavor, Relation>(polys, params, num_rows);
+            bb::compute_logderivative_inverse<typename Flavor::FF, Relation>(polys, params, num_rows);
 
             typename Relation::SumcheckArrayOfValuesOverSubrelations lookup_result;
 

@@ -22,8 +22,11 @@
 #include "relations/bc_decomposition.hpp"
 #include "relations/bc_retrieval.hpp"
 #include "relations/bitwise.hpp"
+#include "relations/ecc.hpp"
 #include "relations/execution.hpp"
 #include "relations/instr_fetching.hpp"
+#include "relations/poseidon2_hash.hpp"
+#include "relations/poseidon2_perm.hpp"
 #include "relations/range_check.hpp"
 #include "relations/sha256.hpp"
 
@@ -31,6 +34,7 @@
 #include "relations/lookups_bc_decomposition.hpp"
 #include "relations/lookups_bitwise.hpp"
 #include "relations/lookups_execution.hpp"
+#include "relations/lookups_poseidon2_hash.hpp"
 #include "relations/lookups_range_check.hpp"
 #include "relations/lookups_sha256.hpp"
 #include "relations/perms_execution.hpp"
@@ -76,12 +80,12 @@ class AvmFlavor {
     static constexpr bool HasZK = false;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 16;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 382;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 68;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 700;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 83;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 466;
+    static constexpr size_t NUM_ALL_ENTITIES = 799;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -91,8 +95,11 @@ class AvmFlavor {
         avm2::bc_decomposition<FF_>,
         avm2::bc_retrieval<FF_>,
         avm2::bitwise<FF_>,
+        avm2::ecc<FF_>,
         avm2::execution<FF_>,
         avm2::instr_fetching<FF_>,
+        avm2::poseidon2_hash<FF_>,
+        avm2::poseidon2_perm<FF_>,
         avm2::range_check<FF_>,
         avm2::sha256<FF_>>;
 
@@ -104,9 +111,12 @@ class AvmFlavor {
         // Lookups
         lookup_bitw_byte_lengths_relation<FF_>,
         lookup_bitw_byte_operations_relation<FF_>,
+        lookup_bytecode_bytes_are_bytes_relation<FF_>,
+        lookup_bytecode_remaining_abs_diff_u16_relation<FF_>,
         lookup_bytecode_to_read_unary_relation<FF_>,
         lookup_dummy_dynamic_relation<FF_>,
         lookup_dummy_precomputed_relation<FF_>,
+        lookup_pos2_perm_relation<FF_>,
         lookup_rng_chk_diff_relation<FF_>,
         lookup_rng_chk_is_r0_16_bit_relation<FF_>,
         lookup_rng_chk_is_r1_16_bit_relation<FF_>,

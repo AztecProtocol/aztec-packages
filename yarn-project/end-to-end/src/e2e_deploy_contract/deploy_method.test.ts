@@ -51,7 +51,7 @@ describe('e2e_deploy_contract deploy method', () => {
     await contract.methods.increment_public_value(owner, 84).send().wait();
     expect(await contract.methods.get_public_value(owner).simulate()).toEqual(84n);
     expect(
-      (await pxe.getContractClassMetadata(contract.instance.contractClassId)).isContractClassPubliclyRegistered,
+      (await pxe.getContractClassMetadata(contract.instance.currentContractClassId)).isContractClassPubliclyRegistered,
     ).toBeTrue();
   });
 
@@ -149,7 +149,7 @@ describe('e2e_deploy_contract deploy method', () => {
       if (!PXE_URL) {
         return;
       }
-      const pxeClient = createPXEClient(PXE_URL, makeFetch([1, 2, 3], false));
+      const pxeClient = createPXEClient(PXE_URL, {}, makeFetch([1, 2, 3], false));
       const [wallet] = await getDeployedTestAccountsWallets(pxeClient);
       await expect(
         StatefulTestContract.deployWithOpts({ wallet, method: 'wrong_constructor' }).send().deployed(),

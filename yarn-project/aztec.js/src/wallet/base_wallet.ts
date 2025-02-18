@@ -67,8 +67,8 @@ export abstract class BaseWallet implements Wallet {
   getAddress() {
     return this.getCompleteAddress().address;
   }
-  addCapsule(capsule: Fr[]): Promise<void> {
-    return this.pxe.addCapsule(capsule);
+  storeCapsule(contract: AztecAddress, storageSlot: Fr, capsule: Fr[]): Promise<void> {
+    return this.pxe.storeCapsule(contract, storageSlot, capsule);
   }
   registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
     return this.pxe.registerAccount(secretKey, partialAddress);
@@ -94,6 +94,9 @@ export abstract class BaseWallet implements Wallet {
   registerContractClass(artifact: ContractArtifact): Promise<void> {
     return this.pxe.registerContractClass(artifact);
   }
+  updateContract(contractAddress: AztecAddress, artifact: ContractArtifact): Promise<void> {
+    return this.pxe.updateContract(contractAddress, artifact);
+  }
   getContracts(): Promise<AztecAddress[]> {
     return this.pxe.getContracts();
   }
@@ -105,7 +108,7 @@ export abstract class BaseWallet implements Wallet {
     simulatePublic: boolean,
     msgSender?: AztecAddress,
     skipTxValidation?: boolean,
-    enforceFeePayment?: boolean,
+    skipFeeEnforcement?: boolean,
     profile?: boolean,
   ): Promise<TxSimulationResult> {
     return this.pxe.simulateTx(
@@ -113,7 +116,7 @@ export abstract class BaseWallet implements Wallet {
       simulatePublic,
       msgSender,
       skipTxValidation,
-      enforceFeePayment,
+      skipFeeEnforcement,
       profile,
       this.scopes,
     );

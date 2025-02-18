@@ -70,6 +70,11 @@ template <typename FF_>
 class perm_pos_mem_read_a_relation : public GenericPermutationRelation<perm_pos_mem_read_a_permutation_settings, FF_> {
   public:
     static constexpr std::string_view NAME = perm_pos_mem_read_a_permutation_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.poseidon2_sel_poseidon_perm_mem_op.is_zero() && in.mem_sel_op_poseidon_read_a.is_zero();
+    }
 };
 template <typename FF_> using perm_pos_mem_read_a = GenericPermutation<perm_pos_mem_read_a_permutation_settings, FF_>;
 
@@ -133,6 +138,11 @@ template <typename FF_>
 class perm_pos_mem_read_b_relation : public GenericPermutationRelation<perm_pos_mem_read_b_permutation_settings, FF_> {
   public:
     static constexpr std::string_view NAME = perm_pos_mem_read_b_permutation_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.poseidon2_sel_poseidon_perm_mem_op.is_zero() && in.mem_sel_op_poseidon_read_b.is_zero();
+    }
 };
 template <typename FF_> using perm_pos_mem_read_b = GenericPermutation<perm_pos_mem_read_b_permutation_settings, FF_>;
 
@@ -196,6 +206,11 @@ template <typename FF_>
 class perm_pos_mem_read_c_relation : public GenericPermutationRelation<perm_pos_mem_read_c_permutation_settings, FF_> {
   public:
     static constexpr std::string_view NAME = perm_pos_mem_read_c_permutation_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.poseidon2_sel_poseidon_perm_mem_op.is_zero() && in.mem_sel_op_poseidon_read_c.is_zero();
+    }
 };
 template <typename FF_> using perm_pos_mem_read_c = GenericPermutation<perm_pos_mem_read_c_permutation_settings, FF_>;
 
@@ -259,6 +274,11 @@ template <typename FF_>
 class perm_pos_mem_read_d_relation : public GenericPermutationRelation<perm_pos_mem_read_d_permutation_settings, FF_> {
   public:
     static constexpr std::string_view NAME = perm_pos_mem_read_d_permutation_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.poseidon2_sel_poseidon_perm_mem_op.is_zero() && in.mem_sel_op_poseidon_read_d.is_zero();
+    }
 };
 template <typename FF_> using perm_pos_mem_read_d = GenericPermutation<perm_pos_mem_read_d_permutation_settings, FF_>;
 
@@ -323,6 +343,11 @@ class perm_pos_mem_write_a_relation
     : public GenericPermutationRelation<perm_pos_mem_write_a_permutation_settings, FF_> {
   public:
     static constexpr std::string_view NAME = perm_pos_mem_write_a_permutation_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.poseidon2_sel_poseidon_perm_mem_op.is_zero() && in.mem_sel_op_poseidon_write_a.is_zero();
+    }
 };
 template <typename FF_> using perm_pos_mem_write_a = GenericPermutation<perm_pos_mem_write_a_permutation_settings, FF_>;
 
@@ -387,6 +412,11 @@ class perm_pos_mem_write_b_relation
     : public GenericPermutationRelation<perm_pos_mem_write_b_permutation_settings, FF_> {
   public:
     static constexpr std::string_view NAME = perm_pos_mem_write_b_permutation_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.poseidon2_sel_poseidon_perm_mem_op.is_zero() && in.mem_sel_op_poseidon_write_b.is_zero();
+    }
 };
 template <typename FF_> using perm_pos_mem_write_b = GenericPermutation<perm_pos_mem_write_b_permutation_settings, FF_>;
 
@@ -451,6 +481,11 @@ class perm_pos_mem_write_c_relation
     : public GenericPermutationRelation<perm_pos_mem_write_c_permutation_settings, FF_> {
   public:
     static constexpr std::string_view NAME = perm_pos_mem_write_c_permutation_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.poseidon2_sel_poseidon_perm_mem_op.is_zero() && in.mem_sel_op_poseidon_write_c.is_zero();
+    }
 };
 template <typename FF_> using perm_pos_mem_write_c = GenericPermutation<perm_pos_mem_write_c_permutation_settings, FF_>;
 
@@ -515,6 +550,11 @@ class perm_pos_mem_write_d_relation
     : public GenericPermutationRelation<perm_pos_mem_write_d_permutation_settings, FF_> {
   public:
     static constexpr std::string_view NAME = perm_pos_mem_write_d_permutation_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.poseidon2_sel_poseidon_perm_mem_op.is_zero() && in.mem_sel_op_poseidon_write_d.is_zero();
+    }
 };
 template <typename FF_> using perm_pos_mem_write_d = GenericPermutation<perm_pos_mem_write_d_permutation_settings, FF_>;
 

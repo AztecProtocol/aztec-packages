@@ -108,8 +108,10 @@ spec:
               value: "{{ .Values.storage.dataStoreMapSize }}"
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
-            - name: USE_GCLOUD_OBSERVABILITY
-              value: "{{ .Values.telemetry.useGcloudObservability }}"
+            - name: USE_GCLOUD_LOGGING
+              value: "{{ .Values.telemetry.useGcloudLogging }}"
+            - name: USE_GCLOUD_METRICS
+              value: "{{ .Values.telemetry.useGcloudMetrics }}"
             - name: OTEL_EXCLUDE_METRICS
               value: "{{ .Values.telemetry.excludeMetrics }}"
           resources:
@@ -137,6 +139,7 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-prover-broker
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
+    app: prover-broker
 spec:
   type: ClusterIP
   selector:

@@ -1,5 +1,47 @@
 # Changelog
 
+## [0.76.4](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.76.3...aztec-package-v0.76.4) (2025-02-13)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.76.3](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.76.2...aztec-package-v0.76.3) (2025-02-13)
+
+
+### Features
+
+* Add undici ([#11818](https://github.com/AztecProtocol/aztec-packages/issues/11818)) ([8503c7a](https://github.com/AztecProtocol/aztec-packages/commit/8503c7a068da820d532fb78e3633379e1b86fbb1))
+* Initial multi-proof test ([#11779](https://github.com/AztecProtocol/aztec-packages/issues/11779)) ([f54db75](https://github.com/AztecProtocol/aztec-packages/commit/f54db75ad6fdac774ad141093622a4f6c64e3f6b))
+
+## [0.76.2](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.76.1...aztec-package-v0.76.2) (2025-02-11)
+
+
+### Miscellaneous
+
+* **logging:** Support explicit FORCE_COLOR parameter ([#11902](https://github.com/AztecProtocol/aztec-packages/issues/11902)) ([3b3f859](https://github.com/AztecProtocol/aztec-packages/commit/3b3f859f53bba6aa5cabf9f79dd210d326045e70))
+
+## [0.76.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.76.0...aztec-package-v0.76.1) (2025-02-10)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.76.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.75.0...aztec-package-v0.76.0) (2025-02-10)
+
+
+### Features
+
+* **spartan:** Blob sink in spartan ([#11307](https://github.com/AztecProtocol/aztec-packages/issues/11307)) ([d8e5bcc](https://github.com/AztecProtocol/aztec-packages/commit/d8e5bccfe674b4abfa6b645af4d62de976e7bf13))
+
+
+### Miscellaneous
+
+* Check versioning ([#11611](https://github.com/AztecProtocol/aztec-packages/issues/11611)) ([b33f1da](https://github.com/AztecProtocol/aztec-packages/commit/b33f1da9438672766ae8e266b2aa3bf7b5a8964f))
+* **p2p:** Remove min peers option ([#11789](https://github.com/AztecProtocol/aztec-packages/issues/11789)) ([cfb6797](https://github.com/AztecProtocol/aztec-packages/commit/cfb6797ec91a24052498236221372a607d7299be))
+
 ## [0.75.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.74.0...aztec-package-v0.75.0) (2025-02-06)
 
 

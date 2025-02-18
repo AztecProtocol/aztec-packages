@@ -14,7 +14,7 @@ describe('ContractAddress', () => {
   setupCustomSnapshotSerializers(expect);
   it('computePartialAddress', async () => {
     const mockInstance = {
-      contractClassId: new Fr(1),
+      originalContractClassId: new Fr(1),
       saltedInitializationHash: new Fr(2),
     };
     const result = await computePartialAddress(mockInstance);
@@ -64,7 +64,8 @@ describe('ContractAddress', () => {
       await computeContractAddressFromInstance({
         publicKeys,
         salt,
-        contractClassId,
+        originalContractClassId: contractClassId,
+        currentContractClassId: contractClassId,
         initializationHash,
         deployer,
         version: 1,

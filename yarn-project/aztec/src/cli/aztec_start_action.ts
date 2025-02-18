@@ -1,5 +1,5 @@
-import { deployInitialTestAccounts } from '@aztec/accounts/testing';
-import { AztecNodeApiSchema, PXESchema } from '@aztec/circuit-types';
+import { AztecNodeApiSchema, PXESchema, getVersioningMiddleware } from '@aztec/circuit-types';
+import { type ChainConfig } from '@aztec/circuit-types/config';
 import {
   type NamespacedApiHandlers,
   createNamespacedSafeJsonRpcServer,
@@ -14,7 +14,8 @@ import { dirname, resolve } from 'path';
 
 import { createSandbox } from '../sandbox.js';
 import { github, splash } from '../splash.js';
-import { createAccountLogs, extractNamespacedOptions, installSignalHandlers } from './util.js';
+import { extractNamespacedOptions, installSignalHandlers } from './util.js';
+import { getVersions } from './versioning.js';
 
 const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../package.json');
 const cliVersion: string = JSON.parse(readFileSync(packageJsonPath).toString()).version;
@@ -23,6 +24,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
   // list of 'stop' functions to call when process ends
   const signalHandlers: Array<() => Promise<void>> = [];
   const services: NamespacedApiHandlers = {};
+  let config: ChainConfig | undefined = undefined;
 
   if (options.sandbox) {
     const sandboxOptions = extractNamespacedOptions(options, 'sandbox');
@@ -30,25 +32,16 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
     userLog(`${splash}\n${github}\n\n`);
     userLog(`Setting up Aztec Sandbox ${cliVersion}, please stand by...`);
 
-    const { aztecNodeConfig, node, pxe, stop } = await createSandbox({
-      l1Mnemonic: options.l1Mnemonic,
-      l1RpcUrl: options.l1RpcUrl,
-      l1Salt: nodeOptions.deployAztecContractsSalt,
-    });
-
-    // Deploy test accounts by default
-    if (sandboxOptions.testAccounts) {
-      if (aztecNodeConfig.p2pEnabled) {
-        userLog(`Not setting up test accounts as we are connecting to a network`);
-      } else if (sandboxOptions.noPXE) {
-        userLog(`Not setting up test accounts as we are not exposing a PXE`);
-      } else {
-        userLog('Setting up test accounts...');
-        const accounts = await deployInitialTestAccounts(pxe);
-        const accLogs = await createAccountLogs(accounts, pxe);
-        userLog(accLogs.join(''));
-      }
-    }
+    const { node, pxe, stop } = await createSandbox(
+      {
+        l1Mnemonic: options.l1Mnemonic,
+        l1RpcUrl: options.l1RpcUrl,
+        l1Salt: nodeOptions.deployAztecContractsSalt,
+        noPXE: sandboxOptions.noPXE,
+        testAccounts: sandboxOptions.testAccounts,
+      },
+      userLog,
+    );
 
     // Start Node and PXE JSON-RPC server
     signalHandlers.push(stop);
@@ -61,7 +54,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
   } else {
     if (options.node) {
       const { startNode } = await import('./cmds/start_node.js');
-      await startNode(options, signalHandlers, services, userLog);
+      ({ config } = await startNode(options, signalHandlers, services, userLog));
     } else if (options.proofVerifier) {
       const { startProofVerifier } = await import('./cmds/start_proof_verifier.js');
       await startProofVerifier(options, signalHandlers, userLog);
@@ -70,16 +63,19 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
       await startBot(options, signalHandlers, services, userLog);
     } else if (options.proverNode) {
       const { startProverNode } = await import('./cmds/start_prover_node.js');
-      await startProverNode(options, signalHandlers, services, userLog);
+      ({ config } = await startProverNode(options, signalHandlers, services, userLog));
+    } else if (options.blobSink) {
+      const { startBlobSink } = await import('./cmds/start_blob_sink.js');
+      await startBlobSink(options, signalHandlers, userLog);
     } else if (options.pxe) {
       const { startPXE } = await import('./cmds/start_pxe.js');
-      await startPXE(options, signalHandlers, services, userLog);
+      ({ config } = await startPXE(options, signalHandlers, services, userLog));
     } else if (options.archiver) {
       const { startArchiver } = await import('./cmds/start_archiver.js');
-      await startArchiver(options, signalHandlers, services);
+      ({ config } = await startArchiver(options, signalHandlers, services));
     } else if (options.p2pBootstrap) {
       const { startP2PBootstrap } = await import('./cmds/start_p2p_bootstrap.js');
-      await startP2PBootstrap(options, signalHandlers, services, userLog);
+      ({ config } = await startP2PBootstrap(options, signalHandlers, services, userLog));
     } else if (options.proverAgent) {
       const { startProverAgent } = await import('./cmds/start_prover_agent.js');
       await startProverAgent(options, signalHandlers, services, userLog);
@@ -102,14 +98,14 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
   }
 
   installSignalHandlers(debugLogger.info, signalHandlers);
-
+  const versions = getVersions(config);
   if (Object.entries(services).length > 0) {
     const rpcServer = createNamespacedSafeJsonRpcServer(services, {
       http200OnError: false,
       log: debugLogger,
-      middlewares: [getOtelJsonRpcPropagationMiddleware()],
+      middlewares: [getOtelJsonRpcPropagationMiddleware(), getVersioningMiddleware(versions)],
     });
     const { port } = await startHttpRpcServer(rpcServer, { port: options.port });
-    debugLogger.info(`Aztec Server listening on port ${port}`);
+    debugLogger.info(`Aztec Server listening on port ${port}`, versions);
   }
 }
