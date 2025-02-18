@@ -24,9 +24,9 @@ function createLibp2pLogger(component: string): Logger {
 
   return Object.assign(logFn, {
     enabled: log.isLevelEnabled('debug'),
-
     error(message: string, ...args: unknown[]) {
-      log.error(message, ...args);
+      // We write error outputs as debug as they are often expected, e.g. connection errors can happen in happy paths
+      log.debug(message, ...args);
     },
 
     debug(message: string, ...args: unknown[]) {
