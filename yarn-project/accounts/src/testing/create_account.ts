@@ -80,12 +80,15 @@ export async function deployFundedSchnorrAccounts(
     skipClassRegistration?: boolean;
   } = { interval: 0.1, skipClassRegistration: false },
 ): Promise<AccountManager[]> {
-  return await Promise.all(
-    accounts.map((account, i) =>
-      deployFundedSchnorrAccount(pxe, account, {
+  const accountManagers: AccountManager[] = [];
+  // Serial due to https://github.com/AztecProtocol/aztec-packages/issues/12045
+  for (let i = 0; i < accounts.length; i++) {
+    accountManagers.push(
+      await deployFundedSchnorrAccount(pxe, accounts[i], {
         ...opts,
         skipClassRegistration: i !== 0 || opts.skipClassRegistration, // Register the contract class at most once.
       }),
-    ),
-  );
+    );
+  }
+  return accountManagers;
 }

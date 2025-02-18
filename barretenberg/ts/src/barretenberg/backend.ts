@@ -302,9 +302,11 @@ export class UltraHonkBackend {
     return await verifyUltraHonk(proof, new RawBuffer(vkBuf));
   }
 
-  async getVerificationKey(): Promise<Uint8Array> {
+  async getVerificationKey(options?: UltraHonkBackendOptions): Promise<Uint8Array> {
     await this.instantiate();
-    return await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive);
+    return options?.keccak
+      ? await this.api.acirWriteVkUltraKeccakHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive)
+      : await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive);
   }
 
   /** @description Returns a solidity verifier */

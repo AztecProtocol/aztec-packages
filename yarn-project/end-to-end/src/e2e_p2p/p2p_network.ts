@@ -10,8 +10,8 @@ import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { ForwarderAbi, ForwarderBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-contracts.js/Spam';
-import { type BootstrapNode } from '@aztec/p2p';
-import { createBootstrapNodeFromPrivateKey } from '@aztec/p2p/test-helpers';
+import type { BootstrapNode } from '@aztec/p2p/bootstrap';
+import { createBootstrapNodeFromPrivateKey, getBootstrapNodeEnr } from '@aztec/p2p/test-helpers';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import getPort from 'get-port';
@@ -51,13 +51,13 @@ export class P2PNetworkTest {
   public proposerPrivateKeys: `0x${string}`[] = [];
   public peerIdPrivateKeys: string[] = [];
 
-  public bootstrapNodeEnr: string = '';
-
   public deployedAccounts: InitialAccountData[] = [];
   public prefilledPublicData: PublicDataTreeLeaf[] = [];
   // The re-execution test needs a wallet and a spam contract
   public wallet?: AccountWalletWithSecretKey;
   public spamContract?: SpamContract;
+
+  public bootstrapNode?: BootstrapNode;
 
   private cleanupInterval: NodeJS.Timeout | undefined = undefined;
 
@@ -65,12 +65,12 @@ export class P2PNetworkTest {
 
   constructor(
     testName: string,
-    public bootstrapNode: BootstrapNode,
+    public bootstrapNodeEnr: string,
     public bootNodePort: number,
     private numberOfNodes: number,
     initialValidatorConfig: AztecNodeConfig,
     // If set enable metrics collection
-    metricsPort?: number,
+    private metricsPort?: number,
     assumeProvenThrough?: number,
   ) {
     this.logger = createLogger(`e2e:e2e_p2p:${testName}`);
@@ -80,8 +80,6 @@ export class P2PNetworkTest {
     this.proposerPrivateKeys = generatePrivateKeys(PROPOSER_PRIVATE_KEYS_START_INDEX, numberOfNodes);
     this.attesterPrivateKeys = generatePrivateKeys(ATTESTER_PRIVATE_KEYS_START_INDEX, numberOfNodes);
     this.attesterPublicKeys = this.attesterPrivateKeys.map(privateKey => privateKeyToAccount(privateKey).address);
-
-    this.bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
 
     this.snapshotManager = createSnapshotManager(
       `e2e_p2p_network/${testName}`,
@@ -120,9 +118,8 @@ export class P2PNetworkTest {
   }) {
     const port = basePort || (await getPort());
 
-    const telemetry = getEndToEndTestTelemetryClient(metricsPort);
-    const bootstrapNode = await createBootstrapNodeFromPrivateKey(BOOTSTRAP_NODE_PRIVATE_KEY, port, telemetry);
-    const bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
+    const bootstrapNodeENR = await getBootstrapNodeEnr(BOOTSTRAP_NODE_PRIVATE_KEY, port);
+    const bootstrapNodeEnr = bootstrapNodeENR.encodeTxt();
 
     const initialValidatorConfig = await createValidatorConfig(
       (initialConfig ?? {}) as AztecNodeConfig,
@@ -131,7 +128,7 @@ export class P2PNetworkTest {
 
     return new P2PNetworkTest(
       testName,
-      bootstrapNode,
+      bootstrapNodeEnr,
       port,
       numberOfNodes,
       initialValidatorConfig,
@@ -174,6 +171,18 @@ export class P2PNetworkTest {
   }
 
   async applyBaseSnapshots() {
+    await this.snapshotManager.snapshot('add-bootstrap-node', async ({ aztecNodeConfig }) => {
+      const telemetry = getEndToEndTestTelemetryClient(this.metricsPort);
+      this.bootstrapNode = await createBootstrapNodeFromPrivateKey(
+        BOOTSTRAP_NODE_PRIVATE_KEY,
+        this.bootNodePort,
+        telemetry,
+        aztecNodeConfig,
+      );
+      // Overwrite enr with updated info
+      this.bootstrapNodeEnr = this.bootstrapNode.getENR().encodeTxt();
+    });
+
     await this.snapshotManager.snapshot(
       'add-validators',
       async ({ deployL1ContractsValues, aztecNodeConfig, dateProvider }) => {
@@ -351,7 +360,7 @@ export class P2PNetworkTest {
 
   async teardown() {
     this.monitor.stop();
-    await this.bootstrapNode.stop();
+    await this.bootstrapNode?.stop();
     await this.snapshotManager.teardown();
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval);

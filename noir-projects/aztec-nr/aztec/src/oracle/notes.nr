@@ -1,8 +1,9 @@
-use crate::{note::{note_header::NoteHeader, note_interface::NoteInterface}, utils::array};
+use crate::{note::{note_interface::NoteInterface, retrieved_note::RetrievedNote}, utils::array};
 
 use dep::protocol_types::{
     address::AztecAddress,
     indexed_tagging_secret::{INDEXED_TAGGING_SECRET_LENGTH, IndexedTaggingSecret},
+    traits::Packable,
 };
 
 /// Notifies the simulator that a note has been created, so that it can be returned in future read requests in the same
@@ -10,7 +11,7 @@ use dep::protocol_types::{
 pub fn notify_created_note<let N: u32>(
     storage_slot: Field,
     note_type_id: Field,
-    packed_note_content: [Field; N],
+    packed_note: [Field; N],
     note_hash: Field,
     counter: u32,
 ) {
@@ -20,7 +21,7 @@ pub fn notify_created_note<let N: u32>(
         notify_created_note_oracle_wrapper(
             storage_slot,
             note_type_id,
-            packed_note_content,
+            packed_note,
             note_hash,
             counter,
         )
@@ -45,24 +46,18 @@ pub fn notify_created_nullifier(nullifier: Field) {
 unconstrained fn notify_created_note_oracle_wrapper<let N: u32>(
     storage_slot: Field,
     note_type_id: Field,
-    packed_note_content: [Field; N],
+    packed_note: [Field; N],
     note_hash: Field,
     counter: u32,
 ) {
-    let _ = notify_created_note_oracle(
-        storage_slot,
-        note_type_id,
-        packed_note_content,
-        note_hash,
-        counter,
-    );
+    let _ = notify_created_note_oracle(storage_slot, note_type_id, packed_note, note_hash, counter);
 }
 
 #[oracle(notifyCreatedNote)]
 unconstrained fn notify_created_note_oracle<let N: u32>(
     _storage_slot: Field,
     _note_type_id: Field,
-    _packed_note_content: [Field; N],
+    _packed_note: [Field; N],
     _note_hash: Field,
     _counter: u32,
 ) -> Field {}
@@ -162,12 +157,12 @@ pub unconstrained fn get_notes<Note, let N: u32, let M: u32, let S: u32, let NS:
     limit: u32,
     offset: u32,
     status: u8,
-    mut placeholder_opt_notes: [Option<Note>; S], // TODO: Remove it and use `limit` to initialize the note array.
+    mut placeholder_opt_notes: [Option<RetrievedNote<Note>>; S], // TODO: Remove it and use `limit` to initialize the note array.
     placeholder_fields: [Field; NS], // TODO: Remove it and use `limit` to initialize the note array.
-    _placeholder_note_length: [Field; N], // Turbofish hack? Compiler breaks calculating read_offset unless we add this parameter
-) -> [Option<Note>; S]
+    _placeholder_note_length: [Field; N], // Turbofish hack? Compiler breaks calculating read_offset unless we add this parameter TODO(benesjan): try removing this.
+) -> [Option<RetrievedNote<Note>>; S]
 where
-    Note: NoteInterface<N>,
+    Note: NoteInterface + Packable<N>,
 {
     sync_notes_oracle_wrapper();
     let fields = get_notes_oracle_wrapper(
@@ -198,12 +193,12 @@ where
 
             let nonce = fields[read_offset];
             let note_hash_counter = fields[read_offset + 1] as u32;
-            let note_content = array::subarray(fields, read_offset + 2);
+            let packed_note = array::subarray(fields, read_offset + 2);
 
-            let mut note = Note::unpack_content(note_content);
-            note.set_header(NoteHeader { contract_address, nonce, note_hash_counter });
+            let note = Note::unpack(packed_note);
+            let retrieved_note = RetrievedNote { note, contract_address, nonce, note_hash_counter };
 
-            placeholder_opt_notes[i] = Option::some(note);
+            placeholder_opt_notes[i] = Option::some(retrieved_note);
         };
     }
     placeholder_opt_notes
