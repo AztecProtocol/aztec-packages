@@ -170,7 +170,7 @@ template <typename Flavor> class SmallSubgroupIPAProver {
     }
 
     // A constructor to achieve ZK in TranslationEvaluations
-    SmallSubgroupIPAProver(TranslationData& translation_data,
+    SmallSubgroupIPAProver(TranslationData<typename Flavor::Transcript>& translation_data,
                            const FF evaluation_challenge_x,
                            const FF batching_challenge_v,
                            const FF claimed_ipa_eval,
@@ -475,6 +475,44 @@ template <typename Flavor> class SmallSubgroupIPAProver {
         // Libra Univariates are mutiplied by the Libra challenge in setup_auxiliary_data(), needs to be undone
         claimed_inner_product *= libra_challenge_inv / FF(1 << (log_circuit_size - 1));
         claimed_inner_product += zk_sumcheck_data.constant_term;
+        return claimed_inner_product;
+    }
+    /**
+     * @brief For test purposes: Compute the sum of the Libra constant term and Libra univariates evaluated at Sumcheck
+     * challenges.
+     *
+     * @param zk_sumcheck_data Contains Libra constant term and scaled Libra univariates
+     * @param multivariate_challenge Sumcheck challenge
+     * @param log_circuit_size
+     */
+    static FF compute_claimed_inner_product(TranslationData<typename Flavor::Transcript>& translation_data,
+                                            const FF& evaluation_challenge_x,
+                                            const FF& batching_challenge_v)
+    {
+        FF claimed_inner_product{ 0 };
+
+        std::vector<FF> coeffs_lagrange_basis(SUBGROUP_SIZE);
+        coeffs_lagrange_basis[0] = FF{ 1 };
+
+        FF v_power{ 1 };
+
+        for (size_t v_exponent = 0; v_exponent < 5; v_exponent++) {
+            // We concatenate 1 with CONST_PROOF_SIZE_LOG_N Libra Univariates of length LIBRA_UNIVARIATES_LENGTH
+            const size_t poly_to_concatenate_start = 1 + MASKING_OFFSET * v_exponent;
+            coeffs_lagrange_basis[poly_to_concatenate_start] = v_power;
+            for (size_t idx = poly_to_concatenate_start + 1; idx < poly_to_concatenate_start + MASKING_OFFSET; idx++) {
+                // Recursively compute the powers of the challenge
+                coeffs_lagrange_basis[idx] = coeffs_lagrange_basis[idx - 1] * evaluation_challenge_x;
+            }
+            v_power *= batching_challenge_v;
+        }
+
+        Polynomial<FF> challenge_polynomial_lagrange(coeffs_lagrange_basis);
+
+        for (size_t idx = 0; idx < SUBGROUP_SIZE; idx++) {
+            claimed_inner_product +=
+                translation_data.concatenated_masking_term_lagrange.at(idx) * challenge_polynomial_lagrange.at(idx);
+        }
         return claimed_inner_product;
     }
 };

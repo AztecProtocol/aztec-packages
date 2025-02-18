@@ -7,7 +7,7 @@ namespace bb {
 
 // We won't compile this class with Standard, but we will like want to compile it (at least for testing)
 // with a flavor that uses the curve Grumpkin, or a flavor that does/does not have zk, etc.
-class TranslationData {
+template <typename Transcript> class TranslationData {
   public:
     using Flavor = ECCVMFlavor;
     using FF = typename Flavor::FF;
@@ -16,7 +16,6 @@ class TranslationData {
     using PCS = typename Flavor::PCS;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using Polynomial = typename Flavor::Polynomial;
-    using Transcript = typename Flavor::Transcript;
     using TranslationEvaluations = bb::TranslationEvaluations_<FF, BF>;
     static constexpr size_t SUBGROUP_SIZE = Flavor::Curve::SUBGROUP_SIZE;
     static constexpr size_t NUM_TRANSCRIPT_POLYNOMIALS = 5;
@@ -27,7 +26,7 @@ class TranslationData {
 
     std::array<FF, SUBGROUP_SIZE> interpolation_domain;
 
-    TranslationData(RefArray<Polynomial, NUM_TRANSCRIPT_POLYNOMIALS> transcript_polynomials,
+    TranslationData(const RefVector<Polynomial>& transcript_polynomials,
                     const std::shared_ptr<Transcript>& transcript,
                     const std::shared_ptr<CommitmentKey>& commitment_key)
         : concatenated_masking_term(SUBGROUP_SIZE + 2)
@@ -49,7 +48,7 @@ class TranslationData {
                                               commitment_key->commit(concatenated_masking_term));
     };
 
-    void compute_concatenated_polynomials(RefArray<Polynomial, NUM_TRANSCRIPT_POLYNOMIALS> transcript_polynomials)
+    void compute_concatenated_polynomials(const RefVector<Polynomial>& transcript_polynomials)
     {
         const size_t circuit_size = transcript_polynomials[0].size();
 

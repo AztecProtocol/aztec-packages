@@ -245,4 +245,68 @@ TYPED_TEST(SmallSubgroupIPATest, ProverAndVerifierSimpleFailure)
     EXPECT_FALSE(consistency_checked);
 }
 
+// Simulate the interaction between the prover and the verifier leading to the consistency check performed by the
+// verifier.
+TYPED_TEST(SmallSubgroupIPATest, TranslationEvaluationsMaskingTerm)
+{
+
+    if constexpr (std::is_same_v<TypeParam, BN254Settings>) {
+        GTEST_SKIP();
+    } else {
+        using Curve = typename TypeParam::Curve;
+        using FF = typename Curve::ScalarField;
+        using Verifier = SmallSubgroupIPAVerifier<Curve>;
+        using Prover = SmallSubgroupIPAProver<TypeParam>;
+        using CK = typename TypeParam::CommitmentKey;
+
+        auto prover_transcript = TypeParam::Transcript::prover_init_empty();
+
+        // SmallSubgroupIPAProver requires at least CURVE::SUBGROUP_SIZE + 3 elements in the ck.
+        static constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
+        std::shared_ptr<CK> ck =
+            create_commitment_key<CK>(std::max<size_t>(this->circuit_size, 1ULL << (log_subgroup_size + 1)));
+
+        // Generate transcript polynomials
+        std::vector<Polynomial<FF>> transcript_polynomials;
+
+        for (size_t idx = 0; idx < 5; idx++) {
+            transcript_polynomials.push_back(Polynomial<FF>::random(this->circuit_size));
+        }
+
+        TranslationData<typename TypeParam::Transcript> translation_data(
+            RefVector(transcript_polynomials), prover_transcript, ck);
+
+        const FF evaluation_challenge_x = FF::random_element();
+        const FF batching_challenge_v = FF::random_element();
+
+        const FF claimed_inner_product =
+            Prover::compute_claimed_inner_product(translation_data, evaluation_challenge_x, batching_challenge_v);
+
+        Prover small_subgroup_ipa_prover(translation_data,
+                                         evaluation_challenge_x,
+                                         batching_challenge_v,
+                                         claimed_inner_product,
+                                         prover_transcript,
+                                         ck);
+
+        const std::array<Polynomial<FF>, NUM_LIBRA_EVALUATIONS> witness_polynomials =
+            small_subgroup_ipa_prover.get_witness_polynomials();
+
+        std::array<FF, NUM_LIBRA_EVALUATIONS> libra_evaluations = {
+            witness_polynomials[0].evaluate(this->evaluation_challenge),
+            witness_polynomials[1].evaluate(this->evaluation_challenge * Curve::subgroup_generator),
+            witness_polynomials[2].evaluate(this->evaluation_challenge),
+            witness_polynomials[3].evaluate(this->evaluation_challenge)
+        };
+
+        bool consistency_checked = Verifier::check_eccvm_evaluations_consistency(libra_evaluations,
+                                                                                 this->evaluation_challenge,
+                                                                                 evaluation_challenge_x,
+                                                                                 batching_challenge_v,
+                                                                                 claimed_inner_product);
+
+        EXPECT_TRUE(consistency_checked);
+    }
+}
+
 } // namespace bb
