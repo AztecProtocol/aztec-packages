@@ -71,6 +71,11 @@ template <typename Flavor> HonkProof MergeProverNew_<Flavor>::construct_proof()
     FF kappa = transcript->template get_challenge<FF>("kappa");
     info("kappa: ", kappa);
 
+    // WORKTODO: what I actually need to do is send claims for both [T_prev_shift] and [T_prev] then check that
+    // T_prev_shift(\gamma) = \gamma^{m_i}T_prev(\gamma). Otherwise I think I need Shplonk to open the shift from the
+    // unshifted. Interestingly the verifier can compute [T_prev_shift] as [T] - [t]. Is that useful at all? Probably
+    // not, unless this somehow makes the batch opening contain fewer commitments.
+
     // Add univariate opening claims for each polynomial.
     std::vector<OpeningClaim> opening_claims;
     // Compute evaluation t(\kappa)
