@@ -7,11 +7,10 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Fr } from '@aztec/foundation/fields';
 import { type Tuple } from '@aztec/foundation/serialize';
-import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
+import { type IndexedTreeLeafPreimage, MembershipWitness } from '@aztec/foundation/trees';
 
 import { siloNullifier } from '../hash/hash.js';
 import {
-  type MembershipWitness,
   Nullifier,
   NullifierReadRequestHintsBuilder,
   PendingReadHint,

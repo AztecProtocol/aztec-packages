@@ -14,7 +14,6 @@ import {
   BaseParityInputs,
   Fr,
   type GlobalVariables,
-  MembershipWitness,
   type ParityPublicInputs,
   PartialStateReference,
   PublicDataTreeLeaf,
@@ -58,6 +57,7 @@ import { padArrayEnd, times, timesParallel } from '@aztec/foundation/collection'
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type Tuple, assertLength } from '@aztec/foundation/serialize';
+import { MembershipWitness } from '@aztec/foundation/trees';
 import {
   ProtocolCircuitVks,
   TubeVk,

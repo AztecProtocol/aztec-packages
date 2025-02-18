@@ -3,7 +3,7 @@ import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { type UInt32 } from '../shared.js';
+import { type UInt32 } from '../../types/shared.js';
 import { VerificationKeyAsFields } from '../verification_key.js';
 import { PrivateKernelCircuitPublicInputs } from './private_kernel_circuit_public_inputs.js';
 

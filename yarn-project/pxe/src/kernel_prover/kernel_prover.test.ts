@@ -8,7 +8,6 @@ import {
 } from '@aztec/circuit-types';
 import {
   FunctionSelector,
-  MembershipWitness,
   NoteHash,
   PrivateCircuitPublicInputs,
   PrivateKernelCircuitPublicInputs,
@@ -30,6 +29,7 @@ import { NoteSelector } from '@aztec/foundation/abi';
 import { makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
+import { MembershipWitness } from '@aztec/foundation/trees';
 
 import { mock } from 'jest-mock-extended';
 

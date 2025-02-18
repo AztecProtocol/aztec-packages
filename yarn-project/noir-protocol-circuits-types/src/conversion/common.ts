@@ -14,7 +14,6 @@ import {
   L2ToL1Message,
   LogHash,
   MaxBlockNumber,
-  type MembershipWitness,
   NUM_BYTES_PER_SHA256,
   type NullifierLeafPreimage,
   OptionalNumber,
@@ -43,6 +42,7 @@ import {
 } from '@aztec/constants';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { type Tuple, mapTuple, toTruncField } from '@aztec/foundation/serialize';
+import type { MembershipWitness } from '@aztec/foundation/trees';
 
 import type {
   AppendOnlyTreeSnapshot as AppendOnlyTreeSnapshotNoir,

@@ -2,7 +2,6 @@ import { type PrivateCallExecutionResult, type PrivateKernelSimulateOutput, coll
 import {
   type Fr,
   KeyValidationHint,
-  MembershipWitness,
   type PrivateCircuitPublicInputs,
   type PrivateKernelCircuitPublicInputs,
   PrivateKernelData,
@@ -39,6 +38,7 @@ import {
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Tuple, assertLength } from '@aztec/foundation/serialize';
+import { MembershipWitness } from '@aztec/foundation/trees';
 import { privateKernelResetDimensionsConfig } from '@aztec/noir-protocol-circuits-types/client';
 
 import { type ProvingDataOracle } from '../proving_data_oracle.js';

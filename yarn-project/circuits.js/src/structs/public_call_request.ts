@@ -7,7 +7,7 @@ import { type FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
 
-import { type UInt32 } from './shared.js';
+import { type UInt32 } from '../types/shared.js';
 
 /**
  * Represents a request to call a public function.

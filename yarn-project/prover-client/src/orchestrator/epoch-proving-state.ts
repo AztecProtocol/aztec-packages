@@ -3,13 +3,7 @@ import {
   type ProofAndVerificationKey,
   type PublicInputsAndRecursiveProof,
 } from '@aztec/circuit-types';
-import {
-  type AppendOnlyTreeSnapshot,
-  type BlockHeader,
-  type Fr,
-  type GlobalVariables,
-  MembershipWitness,
-} from '@aztec/circuits.js';
+import { type AppendOnlyTreeSnapshot, type BlockHeader, type Fr, type GlobalVariables } from '@aztec/circuits.js';
 import {
   BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
@@ -25,7 +19,7 @@ import {
   VK_TREE_HEIGHT,
 } from '@aztec/constants';
 import { type Tuple } from '@aztec/foundation/serialize';
-import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
+import { MembershipWitness, type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vks';
 
 import { BlockProvingState } from './block-proving-state.js';

@@ -6,8 +6,8 @@ import { type FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
 
+import { type UInt32 } from '../types/shared.js';
 import { PrivateLog } from './private_log.js';
-import { type UInt32 } from './shared.js';
 
 export class PrivateLogData {
   constructor(public log: PrivateLog, public noteHashCounter: UInt32, public counter: UInt32) {}

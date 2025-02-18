@@ -4,9 +4,9 @@ import {
   type NOTE_HASH_TREE_HEIGHT,
 } from '@aztec/constants';
 import { type Tuple } from '@aztec/foundation/serialize';
+import type { MembershipWitness } from '@aztec/foundation/trees';
 
 import {
-  type MembershipWitness,
   NoteHashReadRequestHintsBuilder,
   PendingReadHint,
   ReadRequestResetStates,

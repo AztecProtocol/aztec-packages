@@ -45,6 +45,7 @@ import { compact } from '@aztec/foundation/collection';
 import { SchnorrSignature, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Bufferable } from '@aztec/foundation/serialize';
+import { MembershipWitness } from '@aztec/foundation/trees';
 
 import {
   type ContractClassPublic,
@@ -73,7 +74,6 @@ import {
   L2ToL1Message,
   LogHash,
   MaxBlockNumber,
-  MembershipWitness,
   NoteHash,
   Nullifier,
   NullifierLeafPreimage,

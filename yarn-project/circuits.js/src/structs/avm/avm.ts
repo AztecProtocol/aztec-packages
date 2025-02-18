@@ -11,7 +11,7 @@ import { Encoder, addExtension } from 'msgpackr';
 
 import { type ContractClassIdPreimage } from '../../contract/contract_class_id.js';
 import { PublicKeys } from '../../types/public_keys.js';
-import { Vector } from '../shared.js';
+import { Vector } from '../../types/shared.js';
 import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
 import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
 

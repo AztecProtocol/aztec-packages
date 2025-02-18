@@ -4,7 +4,6 @@ import {
   Fr,
   type FunctionSelector,
   type GrumpkinScalar,
-  MembershipWitness,
   type Point,
   ScheduledDelayChange,
   ScheduledValueChange,
@@ -25,6 +24,7 @@ import {
 } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
+import { MembershipWitness } from '@aztec/foundation/trees';
 import { type KeyStore } from '@aztec/key-store';
 import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vks';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';

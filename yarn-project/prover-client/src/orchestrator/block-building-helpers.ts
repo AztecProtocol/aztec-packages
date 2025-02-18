@@ -13,8 +13,6 @@ import {
   ContentCommitment,
   Fr,
   type GlobalVariables,
-  MembershipWitness,
-  MerkleTreeCalculator,
   NullifierLeafPreimage,
   type ParityPublicInputs,
   PartialStateReference,
@@ -48,6 +46,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
 import { type Logger } from '@aztec/foundation/log';
 import { type Tuple, assertLength, serializeToBuffer, toFriendlyJSON } from '@aztec/foundation/serialize';
+import { MembershipWitness, MerkleTreeCalculator } from '@aztec/foundation/trees';
 import { computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';

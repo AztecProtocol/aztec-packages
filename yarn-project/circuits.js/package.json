@@ -20,7 +20,9 @@
     "./contract": "./dest/contract/index.js",
     "./merkle": "./dest/merkle/index.js",
     "./simulation": "./dest/simulator/index.js",
-    "./rollup": "./dest/structs/rollup/index.js"
+    "./rollup": "./dest/structs/rollup/index.js",
+    "./kernel": "./dest/structs/kernel/index.js",
+    "./trees": "./dest/structs/trees/index.js"
   },
   "typedocOptions": {
     "entryPoints": [

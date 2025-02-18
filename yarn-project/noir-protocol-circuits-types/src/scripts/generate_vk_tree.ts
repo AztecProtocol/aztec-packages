@@ -35,7 +35,7 @@ async function main() {
   const vkTree = await buildVKTree();
   const vkTreePath = resolveRelativePath('../vk_tree.ts');
   const vkTreeFileContents = `
-import { MerkleTree } from '@aztec/circuits.js';
+import { MerkleTree } from '@aztec/foundation/trees';
 
 export const vkTree = new MerkleTree(${vkTree.height}, [${vkTree.nodes
     .map(node => `'${node.toString('hex')}'`)

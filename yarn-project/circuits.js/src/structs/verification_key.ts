@@ -9,7 +9,7 @@ import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
-import { CircuitType } from './shared.js';
+import { CircuitType } from '../types/shared.js';
 
 /**
  * Curve data.
