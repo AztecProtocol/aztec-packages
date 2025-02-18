@@ -29,14 +29,18 @@ spec:
       containers:
         - name: consolidate-balances
           {{- include "aztec-network.image" . | nindent 10 }}
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+            - name: config
+              mountPath: /shared/config
           command:
             - /bin/bash
             - -c
             - |
-              set -e
-              cp /scripts/consolidate_sepolia_balances.sh /tmp/consolidate_sepolia_balances.sh
-              chmod +x /tmp/consolidate_sepolia_balances.sh
-              /tmp/consolidate_sepolia_balances.sh "{{ .Values.aztec.l1DeploymentMnemonic }}" {{ add .Values.validator.replicas .Values.proverNode.replicas }}
+              cp /scripts/consolidate-sepolia-balances.sh /tmp/consolidate-sepolia-balances.sh
+              chmod +x /tmp/consolidate-sepolia-balances.sh
+              /tmp/consolidate-sepolia-balances.sh "{{ .Values.aztec.l1DeploymentMnemonic }}" {{ add .Values.validator.replicas .Values.proverNode.replicas }}
           env:
             - name: ETHEREUM_HOST
               value: "{{ .Values.ethereum.execution.externalHost }}"

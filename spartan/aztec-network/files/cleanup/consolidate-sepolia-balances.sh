@@ -6,6 +6,8 @@ mnemonic=$1
 num_accounts=${2:-"2"}
 funding_address=${3:-"0x33D525f5ac95c2BCf98b644738C7d5673480493A"}
 
+XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-"$HOME/.config"}
+
 # Install cast if needed
 if ! command -v cast &>/dev/null; then
   curl -L https://foundry.paradigm.xyz | bash
