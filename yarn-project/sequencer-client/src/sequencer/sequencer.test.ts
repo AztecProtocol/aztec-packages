@@ -16,6 +16,7 @@ import {
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
   WorldStateRunningState,
+  type WorldStateSyncStatus,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types/interfaces/server';
 import { mockTxForRollup } from '@aztec/circuit-types/testing';
@@ -499,7 +500,13 @@ describe('sequencer', () => {
     const currentTip = firstBlock;
     const syncedToL2Block = { number: currentTip.number, hash: (await currentTip.hash()).toString() };
     worldState.status.mockImplementation(() =>
-      Promise.resolve({ state: WorldStateRunningState.IDLE, syncedToL2Block }),
+      Promise.resolve({
+        state: WorldStateRunningState.IDLE,
+        syncSummary: {
+          latestBlockNumber: syncedToL2Block.number,
+          latestBlockHash: syncedToL2Block.hash,
+        } as WorldStateSyncStatus,
+      }),
     );
     p2p.getStatus.mockImplementation(() => Promise.resolve({ state: P2PClientState.IDLE, syncedToL2Block }));
     l2BlockSource.getL2Tips.mockImplementation(() =>

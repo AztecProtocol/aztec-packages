@@ -17,6 +17,7 @@ import {
   TxReceipt,
   TxScopedL2Log,
   type TxValidationResult,
+  type WorldStateSyncStatus,
 } from '@aztec/circuit-types';
 import { type AztecNode, type L2BlockNumber } from '@aztec/circuit-types/interfaces/client';
 import {
@@ -719,5 +720,12 @@ export class TXENode implements AztecNode {
    */
   getNodeInfo(): Promise<NodeInfo> {
     throw new Error('TXE Node method getNodeInfo not implemented');
+  }
+
+  /**
+   * Returns the sync status of the node's world state
+   */
+  getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
+    throw new Error('TXE Node method getWorldStateSyncStatus not implemented');
   }
 }

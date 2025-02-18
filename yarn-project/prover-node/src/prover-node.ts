@@ -108,7 +108,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
    * Handles an epoch being completed by starting a proof for it if there are no active jobs for it.
    * @param epochNumber - The epoch number that was just completed.
    */
-  async handleEpochCompleted(epochNumber: bigint): Promise<void> {
+  async handleEpochReadyToProve(epochNumber: bigint): Promise<void> {
     try {
       this.log.debug('jobs', JSON.stringify(this.jobs, null, 2));
       const activeJobs = await this.getActiveJobsForEpoch(epochNumber);
@@ -131,9 +131,9 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
    * Starts the prover node so it periodically checks for unproven epochs in the unfinalised chain from L1 and
    * starts proving jobs for them.
    */
-  async start() {
+  start() {
     this.txFetcher.start();
-    await this.epochsMonitor.start(this);
+    this.epochsMonitor.start(this);
     this.log.info('Started ProverNode', this.options);
   }
 

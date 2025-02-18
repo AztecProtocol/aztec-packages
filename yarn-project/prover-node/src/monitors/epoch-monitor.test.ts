@@ -1,6 +1,5 @@
-import { L2Block, type L2BlockSource, type L2Tips } from '@aztec/circuit-types';
-import { Fr } from '@aztec/circuits.js';
-import { sleep } from '@aztec/foundation/sleep';
+import { type L1RollupConstants, type L2BlockSource } from '@aztec/circuit-types';
+import { BlockHeader } from '@aztec/circuits.js';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -10,210 +9,161 @@ describe('EpochMonitor', () => {
   let l2BlockSource: MockProxy<L2BlockSource>;
   let handler: MockProxy<EpochMonitorHandler>;
   let epochMonitor: EpochMonitor;
-  let blocks: L2Block[] = [];
 
-  let lastEpochComplete: bigint = 0n;
+  let blockToSlot: Record<number, bigint>;
+  let lastEpochComplete: bigint;
+  let provenBlockNumber: number;
+  let l1Constants: Pick<L1RollupConstants, 'epochDuration'>;
+
+  // EpochSize being 10 means that epoch 0 is slots 0-9, epoch 1 is slots 10-19, etc.
   const epochSize = 10;
-  const totalNumBlocks = 100;
 
-  const randomBlockHash = () => Fr.random().toString();
-  const mockBlock = (blockNum: number) => {
-    const block = L2Block.random(blockNum, 1, 1, 1, undefined, Math.round(Math.random() * 1000000));
-    return block;
-  };
+  beforeEach(() => {
+    blockToSlot = {};
+    l1Constants = { epochDuration: epochSize };
+    lastEpochComplete = 0n;
+    provenBlockNumber = 0;
 
-  const l2Tips: L2Tips = {
-    latest: { number: 58, hash: randomBlockHash() },
-    proven: { number: 39, hash: randomBlockHash() },
-    finalized: { number: 20, hash: randomBlockHash() },
-  };
-
-  const updateTipsAndBlocks = async (startIndex?: number) => {
-    const newBlocks = [...blocks];
-    if (startIndex !== undefined) {
-      const numToAdd = totalNumBlocks - startIndex;
-      const toAdd = await Promise.all(
-        Array.from({ length: numToAdd }).map((x: unknown, index: number) => mockBlock(index + startIndex + 1)),
-      );
-      newBlocks.splice(startIndex, 0, ...toAdd);
-    }
-    const latestHeader = newBlocks.find(x => x.number == l2Tips.latest.number)!;
-    const provenHeader = newBlocks.find(x => x.number == l2Tips.proven.number)!;
-    const latestHash = await latestHeader!.hash();
-    const provenHash = await provenHeader!.hash();
-    blocks = newBlocks;
-    l2Tips.latest.hash = latestHash.toString();
-    l2Tips.proven.hash = provenHash.toString();
-  };
-
-  beforeEach(async () => {
     handler = mock<EpochMonitorHandler>();
-    await updateTipsAndBlocks(0);
     l2BlockSource = mock<L2BlockSource>({
       isEpochComplete(epochNumber) {
         return Promise.resolve(epochNumber <= lastEpochComplete);
       },
-      getL2Tips() {
-        const tips: L2Tips = {
-          latest: { number: l2Tips.latest.number, hash: l2Tips.latest.hash! },
-          proven: { number: l2Tips.proven.number, hash: l2Tips.proven.hash! },
-          finalized: { number: l2Tips.finalized.number, hash: l2Tips.finalized.hash! },
-        };
-        return Promise.resolve(tips);
+      getBlockHeader(blockNumber: number) {
+        const slot = blockToSlot[blockNumber];
+        return Promise.resolve(
+          slot === undefined
+            ? undefined
+            : mock<BlockHeader>({ getSlot: () => slot, toString: () => `0x${slot.toString(16)}` }),
+        );
       },
-      getBlocks(from, limit, _proven) {
-        const index = blocks.findIndex(x => x.number == from);
-        if (index === undefined) {
-          return Promise.resolve([]);
-        }
-        const slice = blocks.slice(index, index + limit).filter(x => x.number <= l2Tips.latest.number);
-        return Promise.resolve(slice);
-      },
-      getBlockHeader(blockNumber: number | 'latest') {
-        if (blockNumber === 'latest') {
-          blockNumber = l2Tips.latest.number;
-        }
-        return Promise.resolve(blocks.find(x => x.number == blockNumber)!.header);
+      getProvenBlockNumber() {
+        return Promise.resolve(provenBlockNumber);
       },
     });
 
-    l2BlockSource.getBlocksForEpoch.mockImplementation((epochNumber: bigint) => {
-      const startBlock = blocks.findIndex(x => x.number == Number(epochNumber) * epochSize);
-      const slice = blocks.slice(startBlock, startBlock + epochSize);
-      return Promise.resolve(slice);
-    });
-
-    epochMonitor = new EpochMonitor(l2BlockSource, { pollingIntervalMs: 10 });
+    epochMonitor = new EpochMonitor(l2BlockSource, l1Constants, { pollingIntervalMs: 10 });
+    epochMonitor.setHandler(handler);
   });
 
-  afterEach(async () => {
-    await epochMonitor.stop();
+  it('triggers sync for epoch zero', async () => {
+    blockToSlot[1] = 1n;
+    lastEpochComplete = 0n;
+
+    await epochMonitor.work();
+    expect(handler.handleEpochReadyToProve).toHaveBeenCalledWith(0n);
   });
 
-  it('triggers initial epoch sync', async () => {
-    l2BlockSource.getL2EpochNumber.mockResolvedValue(5n);
-    await epochMonitor.start(handler);
-    await sleep(100);
+  it('does not trigger epoch sync on startup', async () => {
+    lastEpochComplete = -1n;
 
-    expect(handler.handleEpochCompleted).toHaveBeenCalledWith(4n);
+    await epochMonitor.work();
+    expect(handler.handleEpochReadyToProve).not.toHaveBeenCalled();
   });
 
-  it('does not trigger initial epoch sync on epoch zero', async () => {
-    l2BlockSource.getL2EpochNumber.mockResolvedValue(0n);
-    await epochMonitor.start(handler);
-    await sleep(100);
+  it('does not trigger epoch sync on epoch zero if not complete', async () => {
+    blockToSlot[1] = 1n;
+    lastEpochComplete = -1n;
 
-    expect(handler.handleEpochCompleted).not.toHaveBeenCalled();
+    await epochMonitor.work();
+    expect(handler.handleEpochReadyToProve).not.toHaveBeenCalled();
   });
 
-  it('triggers epoch completion', async () => {
+  it('triggers initial epoch sync on running chain', async () => {
+    provenBlockNumber = 4;
+    blockToSlot[5] = 32n;
+    lastEpochComplete = 3n;
+    await epochMonitor.work();
+
+    expect(handler.handleEpochReadyToProve).toHaveBeenCalledWith(3n);
+  });
+
+  it('does not accidentally trigger for epoch zero on an empty epoch', async () => {
+    provenBlockNumber = 4;
+    lastEpochComplete = 3n;
+    await epochMonitor.work();
+
+    expect(handler.handleEpochReadyToProve).not.toHaveBeenCalled();
+  });
+
+  it('does not trigger epoch sync if epoch is already processed', async () => {
+    provenBlockNumber = 4;
+    blockToSlot[5] = 32n;
+    lastEpochComplete = 3n;
+
+    await epochMonitor.work();
+    expect(handler.handleEpochReadyToProve).toHaveBeenCalledWith(3n);
+
+    await epochMonitor.work();
+    expect(handler.handleEpochReadyToProve).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not trigger epoch sync if epoch is not complete', async () => {
+    provenBlockNumber = 4;
+    blockToSlot[5] = 32n;
+    lastEpochComplete = 2n; // epoch after last proven block is not complete
+
+    await epochMonitor.work();
+    expect(handler.handleEpochReadyToProve).not.toHaveBeenCalled();
+  });
+
+  it('does not trigger epoch sync if previous epoch is not proven', async () => {
+    provenBlockNumber = 4;
+    blockToSlot[5] = 32n;
+    lastEpochComplete = 3n;
+
+    await epochMonitor.work();
+    expect(handler.handleEpochReadyToProve).toHaveBeenCalledWith(3n);
+
     lastEpochComplete = 4n;
-    l2BlockSource.getL2EpochNumber.mockResolvedValue(5n);
-    await epochMonitor.start(handler);
-
-    await sleep(100);
-    expect(handler.handleEpochCompleted).toHaveBeenCalledWith(4n);
-    expect(handler.handleEpochCompleted).toHaveBeenCalledTimes(1);
-
-    lastEpochComplete = 5n;
-    l2Tips.latest.number = 65;
-    l2Tips.proven.number = 49;
-    await updateTipsAndBlocks();
-    await sleep(100);
-    expect(handler.handleEpochCompleted).toHaveBeenCalledWith(5n);
-    expect(handler.handleEpochCompleted).toHaveBeenCalledTimes(2);
-
-    lastEpochComplete = 6n;
-    l2Tips.latest.number = 77;
-    l2Tips.proven.number = 59;
-    await updateTipsAndBlocks();
-    await sleep(100);
-    expect(handler.handleEpochCompleted).toHaveBeenCalledWith(6n);
-    expect(handler.handleEpochCompleted).toHaveBeenCalledTimes(3);
-
-    lastEpochComplete = 7n;
-    l2Tips.latest.number = 83;
-    // A partial epoch has been proven, nothing should be triggered
-    l2Tips.proven.number = 65;
-    await updateTipsAndBlocks();
-    await sleep(100);
-    expect(handler.handleEpochCompleted).toHaveBeenCalledTimes(3);
-
-    // Now the full epoch has been proven, should trigger
-    l2Tips.proven.number = 69;
-    await updateTipsAndBlocks();
-    await sleep(100);
-    expect(handler.handleEpochCompleted).toHaveBeenCalledWith(7n);
-    expect(handler.handleEpochCompleted).toHaveBeenCalledTimes(4);
+    await epochMonitor.work();
+    expect(handler.handleEpochReadyToProve).toHaveBeenCalledTimes(1);
   });
 
-  it('triggers epoch completion if initial epoch was already complete', async () => {
-    // this happens if we start the monitor on the very last slot of an epoch
-    lastEpochComplete = 5n;
-    l2BlockSource.getL2EpochNumber.mockResolvedValue(5n);
-    l2Tips.proven.number = 49;
-    await epochMonitor.start(handler);
+  it('does not trigger on partial epoch proofs', async () => {
+    blockToSlot[5] = 32n;
+    blockToSlot[6] = 34n;
+    provenBlockNumber = 4;
+    lastEpochComplete = 3n;
 
-    await sleep(100);
-    expect(handler.handleEpochCompleted).toHaveBeenCalledWith(4n);
-    expect(handler.handleEpochCompleted).toHaveBeenCalledWith(5n);
-    expect(handler.handleEpochCompleted).toHaveBeenCalledTimes(2);
+    await epochMonitor.work();
+    expect(handler.handleEpochReadyToProve).toHaveBeenCalledWith(3n);
+
+    provenBlockNumber = 5;
+    await epochMonitor.work();
+    expect(handler.handleEpochReadyToProve).toHaveBeenCalledTimes(1);
   });
 
-  it('handles prunes', async () => {
+  it('triggers correct epoch after a prune', async () => {
+    provenBlockNumber = 4;
+    blockToSlot[5] = 32n;
+    lastEpochComplete = 3n;
+
+    // Initial sync for epoch 3
+    await epochMonitor.work();
+    expect(handler.handleEpochReadyToProve).toHaveBeenCalledWith(3n);
+    expect(handler.handleEpochReadyToProve).toHaveBeenCalledTimes(1);
+
+    // We signal epoch 4 has completed, but the proven chain still hasn't moved
     lastEpochComplete = 4n;
-    l2BlockSource.getL2EpochNumber.mockResolvedValue(5n);
-    await epochMonitor.start(handler);
+    await epochMonitor.work();
+    expect(handler.handleEpochReadyToProve).toHaveBeenCalledTimes(1);
 
-    await sleep(100);
-    expect(handler.handleEpochCompleted).toHaveBeenCalledWith(4n);
-    expect(handler.handleEpochCompleted).toHaveBeenCalledTimes(1);
-    // We signal epoch 5 has completed, the pending chain is at 65
-    // but the proven chain still hasn't moved
-    // Nothing should change
+    // Another epoch completes and we now prune back to the proven chain, nothing should change
+    delete blockToSlot[5];
     lastEpochComplete = 5n;
-    l2Tips.latest.number = 65;
-    l2Tips.proven.number = 39;
-    await updateTipsAndBlocks();
-    await sleep(100);
-    expect(handler.handleEpochCompleted).toHaveBeenCalledWith(4n);
-    expect(handler.handleEpochCompleted).toHaveBeenCalledTimes(1);
+    await epochMonitor.work();
+    expect(handler.handleEpochReadyToProve).toHaveBeenCalledTimes(1);
 
-    // The epoch is partially proven, still nothing happens
-    l2Tips.proven.number = 42;
-    await updateTipsAndBlocks();
-    await sleep(100);
-    expect(handler.handleEpochCompleted).toHaveBeenCalledWith(4n);
-    expect(handler.handleEpochCompleted).toHaveBeenCalledTimes(1);
+    // New blocks start showing up
+    blockToSlot[5] = 66n;
+    await epochMonitor.work();
+    expect(handler.handleEpochReadyToProve).toHaveBeenCalledTimes(1);
 
-    // We now prune back to the proven chain, nothing should change
-    // We will create new set of blocks from the proven block forward
-    lastEpochComplete = 5n;
-    l2Tips.latest.number = 42;
-    l2Tips.proven.number = 42;
-    await updateTipsAndBlocks(l2Tips.proven.number);
-    await sleep(100);
-    expect(handler.handleEpochCompleted).toHaveBeenCalledWith(4n);
-    expect(handler.handleEpochCompleted).toHaveBeenCalledTimes(1);
-
-    // Move the pending chain forward a few blocks
-    lastEpochComplete = 5n;
-    l2Tips.latest.number = 46;
-    l2Tips.proven.number = 42;
-    await updateTipsAndBlocks();
-    await sleep(100);
-    expect(handler.handleEpochCompleted).toHaveBeenCalledWith(4n);
-    expect(handler.handleEpochCompleted).toHaveBeenCalledTimes(1);
-
-    // Epoch 6 now consists of blocks 43 - 48
-    const startBlock = blocks.findIndex(x => x.number == 43);
-    const slice = blocks.slice(startBlock, startBlock + 5);
-    l2BlockSource.getBlocksForEpoch.mockResolvedValueOnce(slice);
+    // And the new epoch finishes
     lastEpochComplete = 6n;
-    l2Tips.latest.number = 48;
-    l2Tips.proven.number = 42;
-    await sleep(100);
-    expect(handler.handleEpochCompleted).toHaveBeenCalledWith(6n);
-    expect(handler.handleEpochCompleted).toHaveBeenCalledTimes(2);
+    await epochMonitor.work();
+    expect(handler.handleEpochReadyToProve).toHaveBeenCalledWith(6n);
+    expect(handler.handleEpochReadyToProve).toHaveBeenCalledTimes(2);
   });
 });

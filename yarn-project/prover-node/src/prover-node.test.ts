@@ -3,7 +3,6 @@ import {
   type L1ToL2MessageSource,
   L2Block,
   type L2BlockSource,
-  type L2Tips,
   type Tx,
 } from '@aztec/circuit-types';
 import {
@@ -16,7 +15,6 @@ import {
 } from '@aztec/circuit-types/interfaces/server';
 import { type ContractDataSource, EthAddress } from '@aztec/circuits.js';
 import { timesParallel } from '@aztec/foundation/collection';
-import { sleep } from '@aztec/foundation/sleep';
 import { type PublicProcessorFactory } from '@aztec/simulator/server';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -36,6 +34,7 @@ describe('prover-node', () => {
   let worldState: MockProxy<WorldStateSynchronizer>;
   let coordination: ProverCoordination;
   let mockCoordination: MockProxy<ProverCoordination>;
+  let epochMonitor: MockProxy<EpochMonitor>;
   let config: ProverNodeOptions;
 
   // Subject under test
@@ -54,7 +53,7 @@ describe('prover-node', () => {
     epochNumber: bigint;
   }[];
 
-  const createProverNode = (epochMonitor: EpochMonitor) =>
+  const createProverNode = () =>
     new TestProverNode(
       prover,
       publisher,
@@ -75,6 +74,7 @@ describe('prover-node', () => {
     contractDataSource = mock<ContractDataSource>();
     worldState = mock<WorldStateSynchronizer>();
     mockCoordination = mock<ProverCoordination>();
+    epochMonitor = mock<EpochMonitor>();
     coordination = mockCoordination;
 
     config = {
@@ -89,8 +89,14 @@ describe('prover-node', () => {
     // World state returns a new mock db every time it is asked to fork
     worldState.fork.mockImplementation(() => Promise.resolve(mock<MerkleTreeWriteOperations>()));
     worldState.status.mockResolvedValue({
-      syncedToL2Block: { number: 1, hash: '' },
       state: WorldStateRunningState.RUNNING,
+      syncSummary: {
+        latestBlockNumber: 1,
+        latestBlockHash: '',
+        finalisedBlockNumber: 0,
+        oldestHistoricBlockNumber: 0,
+        treesAreSynched: true,
+      },
     });
 
     // Publisher returns its sender address
@@ -129,119 +135,32 @@ describe('prover-node', () => {
     await proverNode.stop();
   });
 
-  describe('with mocked monitors', () => {
-    let epochMonitor: MockProxy<EpochMonitor>;
-
-    beforeEach(() => {
-      epochMonitor = mock<EpochMonitor>();
-
-      proverNode = createProverNode(epochMonitor);
-    });
-
-    it('starts a proof on a finished epoch', async () => {
-      await proverNode.handleEpochCompleted(10n);
-      expect(jobs[0].epochNumber).toEqual(10n);
-    });
-
-    it('does not start a proof if there are no blocks in the epoch', async () => {
-      l2BlockSource.getBlocksForEpoch.mockResolvedValue([]);
-      await proverNode.handleEpochCompleted(10n);
-      expect(jobs.length).toEqual(0);
-    });
-
-    it('does not start a proof if there is a tx missing from coordinator', async () => {
-      mockCoordination.getTxsByHash.mockResolvedValue([]);
-      await proverNode.handleEpochCompleted(10n);
-      expect(jobs.length).toEqual(0);
-    });
-
-    it('does not prove the same epoch twice', async () => {
-      await proverNode.handleEpochCompleted(10n);
-      await proverNode.handleEpochCompleted(10n);
-
-      expect(jobs.length).toEqual(1);
-    });
+  beforeEach(() => {
+    proverNode = createProverNode();
   });
 
-  describe('with actual monitors', () => {
-    let epochMonitor: EpochMonitor;
+  it('starts a proof on a finished epoch', async () => {
+    await proverNode.handleEpochReadyToProve(10n);
+    expect(jobs[0].epochNumber).toEqual(10n);
+  });
 
-    // Answers l2BlockSource.isEpochComplete, queried from the epoch monitor
-    let lastEpochComplete: bigint = 0n;
+  it('does not start a proof if there are no blocks in the epoch', async () => {
+    l2BlockSource.getBlocksForEpoch.mockResolvedValue([]);
+    await proverNode.handleEpochReadyToProve(10n);
+    expect(jobs.length).toEqual(0);
+  });
 
-    beforeEach(() => {
-      epochMonitor = new EpochMonitor(l2BlockSource, config);
+  it('does not start a proof if there is a tx missing from coordinator', async () => {
+    mockCoordination.getTxsByHash.mockResolvedValue([]);
+    await proverNode.handleEpochReadyToProve(10n);
+    expect(jobs.length).toEqual(0);
+  });
 
-      l2BlockSource.isEpochComplete.mockImplementation(epochNumber =>
-        Promise.resolve(epochNumber <= lastEpochComplete),
-      );
+  it('does not prove the same epoch twice', async () => {
+    await proverNode.handleEpochReadyToProve(10n);
+    await proverNode.handleEpochReadyToProve(10n);
 
-      proverNode = createProverNode(epochMonitor);
-    });
-
-    it('starts a proof during initial sync', async () => {
-      const blocks = await Promise.all([L2Block.random(10)]);
-      l2BlockSource.getL2EpochNumber.mockResolvedValue(11n);
-      l2BlockSource.getBlocksForEpoch.mockResolvedValue(blocks);
-      const tips: L2Tips = {
-        latest: { number: 10, hash: '' },
-        proven: { number: 9, hash: '' },
-        finalized: { number: 8, hash: '' },
-      };
-
-      l2BlockSource.getL2Tips.mockResolvedValue(tips);
-
-      await proverNode.start();
-      await sleep(100);
-
-      expect(jobs[0].epochNumber).toEqual(10n);
-      expect(jobs.length).toEqual(1);
-    });
-
-    it('does not start a proof if txs are not all available', async () => {
-      l2BlockSource.getL2EpochNumber.mockResolvedValue(11n);
-
-      mockCoordination.getTxsByHash.mockResolvedValue([]);
-
-      await proverNode.start();
-      await sleep(2000);
-      expect(jobs).toHaveLength(0);
-    });
-
-    it('starts a proof when a new epoch is ready', async () => {
-      const blocks = await Promise.all([L2Block.random(10), L2Block.random(11), L2Block.random(12)]);
-      lastEpochComplete = 10n;
-      l2BlockSource.getL2EpochNumber.mockResolvedValue(11n);
-      l2BlockSource.getBlocksForEpoch.mockResolvedValueOnce([blocks[0]]);
-      l2BlockSource.getBlockHeader.mockResolvedValue(blocks[1].header);
-      l2BlockSource.getBlocks.mockResolvedValue(blocks);
-      const tips1: L2Tips = {
-        latest: { number: 11, hash: (await blocks[1].header.hash()).toString() },
-        proven: { number: 9, hash: '' },
-        finalized: { number: 8, hash: '' },
-      };
-
-      l2BlockSource.getL2Tips.mockResolvedValue(tips1);
-
-      await proverNode.start();
-      await sleep(100);
-
-      // Now progress the chain by an epoch
-      l2BlockSource.getBlocksForEpoch.mockResolvedValueOnce([blocks[1]]);
-      const tips2: L2Tips = {
-        latest: { number: 12, hash: (await blocks[2].header.hash()).toString() },
-        proven: { number: 10, hash: '' },
-        finalized: { number: 8, hash: '' },
-      };
-
-      l2BlockSource.getL2Tips.mockResolvedValue(tips2);
-
-      lastEpochComplete = 11n;
-      await sleep(100);
-
-      expect(jobs[0].epochNumber).toEqual(10n);
-      expect(jobs[1].epochNumber).toEqual(11n);
-    });
+    expect(jobs.length).toEqual(1);
   });
 
   class TestProverNode extends ProverNode {
