@@ -3,7 +3,9 @@ use crate::types::token_note::OwnedNote;
 use dep::aztec::{
     context::{PrivateContext, UnconstrainedContext},
     note::note_emission::OuterNoteEmission,
-    protocol_types::{address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
+    protocol_types::{
+        address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable,
+    },
 };
 use dep::aztec::prelude::{
     NoteGetterOptions, NoteInterface, NoteViewerOptions, NullifiableNote, PrivateSet, RetrievedNote,
@@ -21,19 +23,16 @@ impl<Note, Context> BalanceSet<Note, Context> {
 }
 
 impl<Note> BalanceSet<Note, UnconstrainedContext> {
-    pub unconstrained fn balance_of<let NOTE_SERIALIZED_LEN: u32>(self: Self) -> U128
+    pub unconstrained fn balance_of<let N: u32>(self: Self) -> U128
     where
-        Note: NoteInterface<NOTE_SERIALIZED_LEN> + NullifiableNote + OwnedNote,
+        Note: NoteInterface + NullifiableNote + OwnedNote + Packable<N>,
     {
         self.balance_of_with_offset(0)
     }
 
-    pub unconstrained fn balance_of_with_offset<let NOTE_SERIALIZED_LEN: u32>(
-        self: Self,
-        offset: u32,
-    ) -> U128
+    pub unconstrained fn balance_of_with_offset<let N: u32>(self: Self, offset: u32) -> U128
     where
-        Note: NoteInterface<NOTE_SERIALIZED_LEN> + NullifiableNote + OwnedNote,
+        Note: NoteInterface + NullifiableNote + OwnedNote + Packable<N>,
     {
         let mut balance = U128::from_integer(0);
         // docs:start:view_notes
@@ -54,13 +53,9 @@ impl<Note> BalanceSet<Note, UnconstrainedContext> {
 }
 
 impl<Note> BalanceSet<Note, &mut PrivateContext> {
-    pub fn add<let NOTE_SERIALIZED_LEN: u32>(
-        self: Self,
-        owner: AztecAddress,
-        addend: U128,
-    ) -> OuterNoteEmission<Note>
+    pub fn add<let N: u32>(self: Self, owner: AztecAddress, addend: U128) -> OuterNoteEmission<Note>
     where
-        Note: NoteInterface<NOTE_SERIALIZED_LEN> + NullifiableNote + OwnedNote + Eq,
+        Note: NoteInterface + NullifiableNote + OwnedNote + Eq + Packable<N>,
     {
         if addend == U128::from_integer(0) {
             OuterNoteEmission::new(Option::none())
@@ -73,13 +68,9 @@ impl<Note> BalanceSet<Note, &mut PrivateContext> {
         }
     }
 
-    pub fn sub<let NOTE_SERIALIZED_LEN: u32>(
-        self: Self,
-        owner: AztecAddress,
-        amount: U128,
-    ) -> OuterNoteEmission<Note>
+    pub fn sub<let N: u32>(self: Self, owner: AztecAddress, amount: U128) -> OuterNoteEmission<Note>
     where
-        Note: NoteInterface<NOTE_SERIALIZED_LEN> + NullifiableNote + OwnedNote + Eq,
+        Note: NoteInterface + NullifiableNote + OwnedNote + Eq + Packable<N>,
     {
         let subtracted = self.try_sub(amount, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL);
 
@@ -98,13 +89,9 @@ impl<Note> BalanceSet<Note, &mut PrivateContext> {
     // The `max_notes` parameter is used to fine-tune the number of constraints created by this function. The gate count
     // scales relatively linearly with `max_notes`, but a lower `max_notes` parameter increases the likelihood of
     // `try_sub` subtracting an amount smaller than `target_amount`.
-    pub fn try_sub<let NOTE_SERIALIZED_LEN: u32>(
-        self: Self,
-        target_amount: U128,
-        max_notes: u32,
-    ) -> U128
+    pub fn try_sub<let N: u32>(self: Self, target_amount: U128, max_notes: u32) -> U128
     where
-        Note: NoteInterface<NOTE_SERIALIZED_LEN> + NullifiableNote + OwnedNote + Eq,
+        Note: NoteInterface + NullifiableNote + OwnedNote + Eq + Packable<N>,
     {
         // We are using a preprocessor here (filter applied in an unconstrained context) instead of a filter because
         // we do not need to prove correct execution of the preprocessor.
@@ -132,12 +119,12 @@ impl<Note> BalanceSet<Note, &mut PrivateContext> {
 // The preprocessor (a filter applied in an unconstrained context) does not check if total sum is larger or equal to
 // 'min_sum' - all it does is remove extra notes if it does reach that value.
 // Note that proper usage of this preprocessor requires for notes to be sorted in descending order.
-pub fn preprocess_notes_min_sum<Note, let NOTE_SERIALIZED_LEN: u32>(
+pub fn preprocess_notes_min_sum<Note>(
     notes: [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     min_sum: U128,
 ) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]
 where
-    Note: NoteInterface<NOTE_SERIALIZED_LEN> + NullifiableNote + OwnedNote,
+    Note: NoteInterface + NullifiableNote + OwnedNote,
 {
     let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     let mut sum = U128::from_integer(0);

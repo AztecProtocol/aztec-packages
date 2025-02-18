@@ -12,6 +12,7 @@ use crate::oracle::{
     notes::notify_created_note,
 };
 use protocol_types::constants::PUBLIC_DISPATCH_SELECTOR;
+use protocol_types::traits::Packable;
 
 pub struct TestEnvironment {}
 
@@ -157,18 +158,18 @@ impl TestEnvironment {
         contract_address: AztecAddress,
     )
     where
-        Note: NoteInterface<N> + NullifiableNote,
+        Note: NoteInterface + NullifiableNote + Packable<N>,
     {
         let original_contract_address = get_contract_address();
         cheatcodes::set_contract_address(contract_address);
         let note_hash_counter = cheatcodes::get_side_effects_counter();
 
         let note_hash = note.compute_note_hash(storage_slot);
-        let packed_content = Note::pack_content(note);
+        let packed_note = Note::pack(note);
         notify_created_note(
             storage_slot,
             Note::get_note_type_id(),
-            packed_content,
+            packed_note,
             note_hash,
             note_hash_counter,
         );

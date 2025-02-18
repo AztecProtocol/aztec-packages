@@ -249,6 +249,9 @@ describe('e2e_2_pxes', () => {
       note = notes[0];
     }
 
+    // TODO(#12013): We need to do this hack because NoteDao no longer populates noteTypeId
+    note.noteTypeId = TestContract.notes.ValueNote.id;
+
     // 3. Nullify the note
     {
       const receipt = await testContract.methods.call_destroy_note(noteStorageSlot).send().wait({ debug: true });
