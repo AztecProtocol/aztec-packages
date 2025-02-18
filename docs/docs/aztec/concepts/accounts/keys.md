@@ -134,3 +134,7 @@ Key rotation is the process of creating new signing keys to replace existing key
 On Aztec, key rotation is impossible for nullifier keys, incoming viewing keys and address keys as all of them are embedded into the address and address is unchangeable. In the meanwhile, signing keys can be rotated.
 
 ## Shared secrets
+
+Aztec uses the Elliptic Curve Diffie-Hellman (ECDH) method to allow two parties to securely create a shared secret without directly exchanging it. This shared secret encrypts private data to be shared with another party over the network, which enables private transactions without communicating with the other party outside of the network.
+
+
