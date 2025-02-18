@@ -61,7 +61,7 @@ use super::traits::{Deserialize, Packable, Serialize};
 /// # Panics
 /// - If the deserialization logic encounters a type it does not support.
 /// - If an incorrect number of fields are consumed when deserializing a string.
-pub comptime fn generate_deserialize_from_fields<N>(
+pub comptime fn generate_deserialize_from_fields(
     name: Quoted,
     typ: Type,
     field_array_name: Quoted,
@@ -453,7 +453,13 @@ pub(crate) comptime fn derive_deserialize(s: StructDefinition) -> Quoted {
     }
 }
 
-pub(crate) comptime fn derive_packable(s: StructDefinition) -> Quoted {
+/// Generates `Packable` implementation for a given struct and returns the packed length.
+///
+/// Note: We are having this function separate from `derive_packable` because we use this in the note macros to get
+/// the packed length of a note as well as the `Packable` implementation. We need the length to be able to register
+/// the note in the global `NOTES` map. There the length is used to generate
+/// `compute_note_hash_and_optionally_a_nullifier` function on contracts.
+pub comptime fn derive_packable_and_get_packed_len(s: StructDefinition) -> (Quoted, u32) {
     let packing_enabled = true;
 
     let typ = s.as_type();
@@ -471,7 +477,8 @@ pub(crate) comptime fn derive_packable(s: StructDefinition) -> Quoted {
 
     let field_packings = fields.join(quote {,});
     let packed_len = fields.len();
-    quote {
+    (
+        quote {
         impl Packable<$packed_len> for $typ {
             fn pack(self) -> [Field; $packed_len] {
                 $aux_vars_for_packing
@@ -482,7 +489,14 @@ pub(crate) comptime fn derive_packable(s: StructDefinition) -> Quoted {
                 $unpacked
             }
         }
-    }
+    },
+        packed_len,
+    )
+}
+
+pub(crate) comptime fn derive_packable(s: StructDefinition) -> Quoted {
+    let (packable_impl, _) = derive_packable_and_get_packed_len(s);
+    packable_impl
 }
 
 #[derive(Packable, Serialize, Deserialize, Eq)]

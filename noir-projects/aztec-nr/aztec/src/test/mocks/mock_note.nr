@@ -11,12 +11,11 @@ use dep::protocol_types::{
     address::AztecAddress,
     constants::{GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER},
     hash::poseidon2_hash_with_separator,
+    traits::Packable,
     utils::arrays::array_concat,
 };
 
-global MOCK_NOTE_LENGTH: u32 = 1;
-
-#[derive(Eq)]
+#[derive(Eq, Packable)]
 pub(crate) struct MockNote {
     pub(crate) value: Field,
 }
@@ -54,15 +53,7 @@ impl NullifiableNote for MockNote {
     }
 }
 
-impl NoteInterface<MOCK_NOTE_LENGTH> for MockNote {
-    fn pack_content(self) -> [Field; MOCK_NOTE_LENGTH] {
-        [self.value]
-    }
-
-    fn unpack_content(fields: [Field; MOCK_NOTE_LENGTH]) -> Self {
-        Self { value: fields[0] }
-    }
-
+impl NoteInterface for MockNote {
     fn get_note_type_id() -> Field {
         // randomly chosen note type id --> has to fit within 7 bits
         76
@@ -72,7 +63,7 @@ impl NoteInterface<MOCK_NOTE_LENGTH> for MockNote {
         // We use Poseidon2 instead of multi-scalar multiplication (MSM) here since this is not a partial note
         // and therefore does not require MSM's additive homomorphism property. Additionally, Poseidon2 uses fewer
         // constraints.
-        let input = array_concat(self.pack_content(), [storage_slot]);
+        let input = array_concat(self.pack(), [storage_slot]);
         poseidon2_hash_with_separator(input, GENERATOR_INDEX__NOTE_HASH)
     }
 }
