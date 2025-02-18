@@ -8,7 +8,7 @@ import { getAddress, getContract, parseEventLogs } from 'viem';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
-import { P2PNetworkTest } from './p2p_network.js';
+import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG } from './p2p_network.js';
 import { createPXEServiceAndSubmitTransactions } from './shared.js';
 
 jest.setTimeout(1000000);
@@ -35,6 +35,7 @@ describe('e2e_p2p_slashing', () => {
       basePort: BOOT_NODE_UDP_PORT,
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
+        ...SHORTENED_BLOCK_TIME_CONFIG,
         aztecEpochDuration: 1,
         aztecProofSubmissionWindow: 1,
         slashingQuorum,
