@@ -260,6 +260,8 @@ TYPED_TEST(SmallSubgroupIPATest, TranslationEvaluationsMaskingTerm)
         using CK = typename TypeParam::CommitmentKey;
 
         auto prover_transcript = TypeParam::Transcript::prover_init_empty();
+        // Must satisfy num_wires * MASKING_OFFSET + 1 < SUBGROUP_SIZE
+        const size_t num_wires = 5;
 
         // SmallSubgroupIPAProver requires at least CURVE::SUBGROUP_SIZE + 3 elements in the ck.
         static constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
@@ -269,7 +271,7 @@ TYPED_TEST(SmallSubgroupIPATest, TranslationEvaluationsMaskingTerm)
         // Generate transcript polynomials
         std::vector<Polynomial<FF>> transcript_polynomials;
 
-        for (size_t idx = 0; idx < 5; idx++) {
+        for (size_t idx = 0; idx < num_wires; idx++) {
             transcript_polynomials.push_back(Polynomial<FF>::random(this->circuit_size));
         }
 
@@ -279,10 +281,11 @@ TYPED_TEST(SmallSubgroupIPATest, TranslationEvaluationsMaskingTerm)
         const FF evaluation_challenge_x = FF::random_element();
         const FF batching_challenge_v = FF::random_element();
 
-        const FF claimed_inner_product =
-            Prover::compute_claimed_inner_product(translation_data, evaluation_challenge_x, batching_challenge_v);
+        const FF claimed_inner_product = Prover::compute_claimed_inner_product(
+            translation_data, evaluation_challenge_x, batching_challenge_v, num_wires);
 
         Prover small_subgroup_ipa_prover(translation_data,
+                                         num_wires,
                                          evaluation_challenge_x,
                                          batching_challenge_v,
                                          claimed_inner_product,
@@ -300,6 +303,7 @@ TYPED_TEST(SmallSubgroupIPATest, TranslationEvaluationsMaskingTerm)
         };
 
         bool consistency_checked = Verifier::check_eccvm_evaluations_consistency(small_ipa_evaluations,
+                                                                                 num_wires,
                                                                                  this->evaluation_challenge,
                                                                                  evaluation_challenge_x,
                                                                                  batching_challenge_v,
