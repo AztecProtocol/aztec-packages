@@ -2,8 +2,22 @@
 ///
 /// Returns a padded plaintext, of the same size as the input ciphertext.
 /// Note that between 1-16 bytes at the end of the returned plaintext will be pkcs#7 padding.
+///
+/// A reminder on pkcs#7 padding:
+/// PKCS#7 padding standard says to pad a plaintext to the next multiple of 16 bytes
+/// with repeated bytes of the length of the padding.
+///
+///     If the plaintext is 0 bytes:  Pad with 0x10 (16) sixteen times.
+///     If the plaintext is 1 byte:   Pad with 0x0f (15) fifteen times.
+///     If the plaintext is 2 bytes:  Pad with 0x0e (14) fourteen times.
+///     ...
+///     If the plaintext is 15 bytes: Pad with 0x01 one time.
+///
+/// So the final byte always tells you how long the padding is.
+///
 /// It's up to the calling function to identify and remove that padding.
 /// See the tests below for an example of how.
+///
 /// It's up to the calling function to determine whether decryption succeeded or failed.
 /// See the tests below for an example of how.
 unconstrained fn aes128_decrypt_oracle_wrapper<let N: u32>(
@@ -61,10 +75,13 @@ mod test {
         // The AES decryption oracle will not fail for any ciphertext; it will always
         // return some data. As for whether the decryption was successful, it's up
         // to the app to check this in a custom way.
+        //
         // E.g. if it's a note that's been encrypted, then upon decryption, the app
         // can check to see if the note hash exists onchain. If it doesn't exist
         // onchain, then that's a strong indicator that decryption has failed.
-        // E.g. for non-note messages, the plaintext could include a MAC. We
+        //
+        // E.g. for non-note messages, the plaintext could include a MAC
+        // (https://en.wikipedia.org/wiki/Message_authentication_code). We
         // demonstrate what this could look like in this test.
         //
         // We compute a MAC and we include that MAC in the plaintext. We then encrypt
@@ -86,7 +103,10 @@ mod test {
 
         // We append the mac to the plaintext. It doesn't necessarily have to be 32 bytes;
         // that's quite an extreme length. 16 bytes or 8 bytes might be sufficient, and would
-        // save on data broadcasting costs.
+        // save on data broadcasting costs. The shorter the mac, the more possibility
+        // of false positive decryptions (decryption seemingly succeeding, but the
+        // decrypted plaintext being garbage).
+        // Some projects use the `iv` (all 16 bytes or the first 8 bytes) as a mac.
         let mut plaintext_with_mac = [0 as u8; TEST_PLAINTEXT_LENGTH + TEST_MAC_LENGTH];
         for i in 0..TEST_PLAINTEXT_LENGTH {
             plaintext_with_mac[i] = plaintext[i];
