@@ -120,6 +120,7 @@ function test_cmds {
 
   # Uses mocha for browser tests, so we have to treat it differently.
   echo "$hash cd yarn-project/kv-store && yarn test"
+  echo "$hash cd yarn-project/ivc-integration && yarn test:browser"
 }
 
 function test {

@@ -29,7 +29,7 @@ export function getComponentsVersionsFromConfig(
 ): ComponentsVersions {
   return {
     l1ChainId: config.l1ChainId,
-    l1RollupAddress: config.l1Contracts?.rollupAddress, // This should not be undefined, but sometimes the config lies to us and it is...
+    l1RollupAddress: config.l1Contracts.rollupAddress,
     l2ChainVersion: config.version,
     l2ProtocolContractsTreeRoot: l2ProtocolContractsTreeRoot.toString(),
     l2CircuitsVkTreeRoot: l2CircuitsVkTreeRoot.toString(),
