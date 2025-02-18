@@ -17,7 +17,7 @@ namespace cdg {
  */
 template <typename FF>
 size_t Graph_<FF>::find_block_index(UltraCircuitBuilder& ultra_builder, const UltraBlock& block) {
-    auto gate_blocks = ultra_circuit_constructor.blocks.get_gate_blocks(); 
+    auto gate_blocks = ultra_builder.blocks.get_gate_blocks(); 
     size_t index = 0;
     for (size_t i = 0; i < gate_blocks.size(); i++) {
         if ((void*)(&gate_blocks[i]) == (void*)(&block)) {
@@ -404,15 +404,16 @@ inline std::vector<uint32_t> Graph_<FF>::get_auxiliary_gate_connected_component(
         }
         else {
             // ram constitency check
-            ASSERT(!q_arith.is_zero());
-            if (index < block.size() - 1) {
-                gate_variables.insert(gate_variables.end(),
-                                      { block.w_o()[index],
-                                        block.w_4()[index],
-                                        block.w_l()[index + 1],
-                                        block.w_r()[index + 1],
-                                        block.w_o()[index + 1],
-                                        block.w_4()[index + 1] });
+            if (!q_arith.is_zero()) { 
+                if (index < block.size() - 1) {
+                    gate_variables.insert(gate_variables.end(),
+                                        { block.w_o()[index],
+                                            block.w_4()[index],
+                                            block.w_l()[index + 1],
+                                            block.w_r()[index + 1],
+                                            block.w_o()[index + 1],
+                                            block.w_4()[index + 1] });
+                }
             }
         }
     }
@@ -1093,6 +1094,46 @@ inline void Graph_<FF>::remove_unnecessary_plookup_variables(bb::UltraCircuitBui
 }
 
 /**
+ * @brief this method removes record witness variables from variables in one gate.
+ * initially record witness is added in the circuit as ctx->add_variable(0), where ctx -- circuit builder.
+ * then aren't used anymore, so we can remove from the static analyzer.
+ * @tparam FF 
+ * @param ultra_builder 
+ */
+
+template <typename FF>
+inline void Graph_<FF>::remove_record_witness_variables(bb::UltraCircuitBuilder& ultra_builder) {
+    const auto& gate_blocks = ultra_builder.blocks.get_gate_blocks();
+    size_t blk_idx = find_block_index(ultra_builder, ultra_builder.blocks.aux);
+    std::vector<uint32_t> to_remove;
+    ASSERT(blk_idx == 3);
+    for (const auto& var_idx: variables_in_one_gate) {
+        KeyPair key = {var_idx, blk_idx};
+        if (auto search = variable_gates.find(key); search != variable_gates.end()) {
+            std::vector<size_t> gate_indexes = variable_gates[key];
+            ASSERT(gate_indexes.size() == 1);
+            size_t gate_idx = gate_indexes[0];
+            auto q_1 = gate_blocks[blk_idx].q_1()[gate_idx];
+            auto q_2 = gate_blocks[blk_idx].q_2()[gate_idx];
+            auto q_3 = gate_blocks[blk_idx].q_3()[gate_idx];
+            auto q_4 = gate_blocks[blk_idx].q_4()[gate_idx];
+            auto q_m = gate_blocks[blk_idx].q_m()[gate_idx];
+            auto q_arith = gate_blocks[blk_idx].q_arith()[gate_idx];
+            if (q_1 == 1 && q_m == 1 && q_2 == 0 && q_3 == 0 && q_4 == 0 && q_arith == 0) {
+                //record witness can be in both ROM and RAM gates, so we can ignore q_c 
+                //record witness is written as 4th variable in RAM/ROM read/write gate, so we can get 4th wire value and check it with our variable
+                if (this->to_real(ultra_builder, gate_blocks[blk_idx].w_4()[gate_idx]) == var_idx) {
+                    to_remove.emplace_back(var_idx);
+                } 
+            }
+        }
+    }
+    for (const auto& elem: to_remove) {
+        variables_in_one_gate.erase(elem);
+    }
+}
+
+/**
  * @brief this method returns a final set of variables that were in one gate
  * @tparam FF
  * @param ultra_circuit_builder circuit builder containing the variables
@@ -1126,6 +1167,7 @@ std::unordered_set<uint32_t> Graph_<FF>::show_variables_in_one_gate(bb::UltraCir
     for (const auto& elem: this->fixed_variables) {
         this->variables_in_one_gate.erase(elem);
     }
+    this->remove_record_witness_variables(ultra_circuit_builder);
     return variables_in_one_gate;
 }
 
@@ -1211,17 +1253,38 @@ template <typename FF> void Graph_<FF>::print_variables_edge_counts()
     }
 }
 
-/* template <typename FF> void Graph_<FF>::print_variables_in_one_gate()
+/**
+ * @brief this method prints information about gate's selectors for every variable in one gate
+ * @tparam FF 
+ * @param ultra_builder 
+ */
+
+template <typename FF> void Graph_<FF>::print_variables_in_one_gate(bb::UltraCircuitBuilder& ultra_builder)
 {
-    for (const auto& elem : variables_in_one_gate) {
-        if (variables_gates[elem].size() == 1) {
-            info("for variable with index ", elem, " gate index == ", variables_gates[elem][0]);
+    const auto& gate_blocks = ultra_builder.blocks.get_gate_blocks();
+    for (const auto& [key, gates]: variable_gates) {
+        if (variables_in_one_gate.contains(key.first)) {
+            ASSERT(gates.size() == 1);
+            size_t gate_index = gates[0];
+            UltraBlock block = gate_blocks[key.second];
+            info("---- printing gate selectors where variable with index ", key.first, " was found ----");
+            info("q_m == ", block.q_m()[gate_index]);
+            info("q_c == ", block.q_c()[gate_index]);
+            info("q_1 == ", block.q_1()[gate_index]);
+            info("q_2 == ", block.q_2()[gate_index]);
+            info("q_3 == ", block.q_3()[gate_index]);
+            info("q_4 == ", block.q_4()[gate_index]);
+            info("q_arith == ", block.q_arith()[gate_index]);
+            info("q_delta_range == ", block.q_delta_range()[gate_index]);
+            info("q_elliptic == ", block.q_elliptic()[gate_index]);
+            info("q_aux == ", block.q_aux()[gate_index]);
+            info("q_lookup_type == ", block.q_lookup_type()[gate_index]);
+            info("q_poseidon2_external == ", block.q_poseidon2_external()[gate_index]);
+            info("q_poseidon2_internal == ", block.q_poseidon2_internal()[gate_index]);
+            info("---- finished printing ----");
         }
-        else {
-            info("variable with index ", elem, " may be false case");
-        } 
     }
-} */
+}
 
 template class Graph_<bb::fr>;
 

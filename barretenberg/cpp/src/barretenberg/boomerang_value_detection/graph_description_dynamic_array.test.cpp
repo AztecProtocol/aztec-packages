@@ -45,8 +45,9 @@ TEST(boomerang_stdlib_dynamic_array, graph_description_dynamic_array_method_resi
     auto connected_components = graph.find_connected_components();
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
     EXPECT_EQ(connected_components.size(), 1);
-    EXPECT_EQ(variables_in_one_gate.size(), 1);
+    EXPECT_EQ(variables_in_one_gate.size(), max_size);
 }
+
 
 /**
  * @brief this test checks graph description for dynamic array consistency methods
@@ -84,5 +85,5 @@ TEST(boomerang_stdlib_dynamic_array, graph_description_dynamic_array_consistency
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
-    EXPECT_EQ(variables_in_one_gate.size(), 0);
+    EXPECT_EQ(variables_in_one_gate.size(), max_size);
 }

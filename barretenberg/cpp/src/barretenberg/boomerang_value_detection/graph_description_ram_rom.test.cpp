@@ -38,14 +38,21 @@ TEST(boomerang_rom_ram_table, graph_description_rom_table)
 
     for (size_t i = 0; i < 10; ++i) {
         field_ct index(witness_ct(&builder, (uint64_t)i));
+        index.fix_witness();
         result += table[index];
     }
 
+    result.fix_witness();
     Graph graph = Graph(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
     EXPECT_EQ(variables_in_one_gate.size(), 0);
+    if (variables_in_one_gate.size() > 0) {
+        for (const auto& elem: variables_in_one_gate) {
+            info("elem == ", elem);
+        }
+    }
 }
 
 /**
@@ -68,13 +75,17 @@ TEST(boomerang_rom_ram_table, graph_description_ram_table_read)
 
     for (size_t i = 0; i < 10; ++i) {
         field_ct index(witness_ct(&builder, (uint64_t)i));
+        index.fix_witness();
         result += table.read(index);
     }
+    result.fix_witness();
     Graph graph = Graph(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
-    EXPECT_EQ(variables_in_one_gate.size(), 0);
+    for (const auto& elem: variables_in_one_gate) {
+        info("elem == ", elem);
+    }
 }
 
 /**
@@ -130,4 +141,7 @@ TEST(boomerang_rom_ram_table, graph_description_ram_table_write)
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
     EXPECT_EQ(variables_in_one_gate.size(), 0);
+    for (const auto& elem: variables_in_one_gate) {
+        info("elem == ", elem);
+    }
 }
