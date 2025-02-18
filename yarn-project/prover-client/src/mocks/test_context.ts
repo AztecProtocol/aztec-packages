@@ -1,5 +1,5 @@
 import { type BBProverConfig } from '@aztec/bb-prover';
-import { type L2Block, MerkleTreeId, type ProcessedTx, type ServerCircuitProver, type Tx } from '@aztec/circuit-types';
+import { type L2Block, type ProcessedTx, type ServerCircuitProver, type Tx } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import {
   type AppendOnlyTreeSnapshot,
