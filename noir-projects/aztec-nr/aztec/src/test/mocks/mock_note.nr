@@ -16,6 +16,7 @@ use dep::protocol_types::{
 
 global MOCK_NOTE_LENGTH: u32 = 1;
 
+#[derive(Eq)]
 pub(crate) struct MockNote {
     pub(crate) value: Field,
 }
@@ -74,12 +75,6 @@ impl NoteInterface<MOCK_NOTE_LENGTH> for MockNote {
         // constraints.
         let input = array_concat(self.pack_content(), [storage_slot]);
         poseidon2_hash_with_separator(input, GENERATOR_INDEX__NOTE_HASH)
-    }
-}
-
-impl Eq for MockNote {
-    fn eq(self, other: Self) -> bool {
-        self.value == other.value
     }
 }
 
