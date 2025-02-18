@@ -1,5 +1,5 @@
-pub mod abi_export;
-pub mod interfaces;
+mod abi_export;
+mod call_interface_stubs;
 pub mod initialization_utils;
 pub mod stub_registry;
 
@@ -11,7 +11,7 @@ use protocol_types::meta::generate_serialize_to_fields;
 use std::meta::type_of;
 
 use abi_export::create_fn_abi_export;
-use interfaces::stub_fn;
+use call_interface_stubs::stub_fn;
 
 // Functions can have multiple attributes applied to them, e.g. a single function can have #[public], #[view] and
 // #[internal]. However. the order in which this will be evaluated is unknown, which makes combining them tricky.

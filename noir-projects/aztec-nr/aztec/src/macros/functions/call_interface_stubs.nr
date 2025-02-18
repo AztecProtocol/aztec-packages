@@ -75,7 +75,6 @@ comptime fn create_stub_base(
             quote {
                 $args
                 $arg_to_append
-                l
             }
         },
     );
