@@ -5,7 +5,7 @@ pub mod notes;
 pub mod storage;
 pub mod events;
 
-use functions::stub_registry;
+use functions::{stub_registry, utils::transform_unconstrained};
 use notes::{generate_note_export, NOTES};
 use storage::STORAGE_LAYOUT_NAME;
 
