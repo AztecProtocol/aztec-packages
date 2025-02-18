@@ -37,9 +37,10 @@ struct ManaBaseFeeComponents {
 
 struct FeeHeader {
   uint256 excessMana;
-  uint256 feeAssetPriceNumerator;
   uint256 manaUsed;
+  uint256 feeAssetPriceNumerator;
   uint256 congestionCost;
+  uint256 provingCost;
 }
 
 struct L1FeeData {

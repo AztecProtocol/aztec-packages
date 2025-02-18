@@ -11,6 +11,7 @@ import {
   EnumerableSet
 } from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
+import {FeeAssetValue} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 
 // We allow the unused imports here as they make it much simpler to import the Rollup later
 // solhint-disable no-unused-import
@@ -39,7 +40,6 @@ import {
   EpochRewards,
   FeeAssetPerEthE9,
   EthValue,
-  FeeAssetValue,
   PriceLib
 } from "./RollupCore.sol";
 // solhint-enable no-unused-import

@@ -32,12 +32,7 @@ import {
   ValidateHeaderArgs,
   Header
 } from "@aztec/core/libraries/RollupLibs/ExtRollupLib.sol";
-import {
-  EthValue,
-  FeeAssetValue,
-  FeeAssetPerEthE9,
-  PriceLib
-} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
+import {EthValue, FeeAssetPerEthE9, PriceLib} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 import {IntRollupLib} from "@aztec/core/libraries/RollupLibs/IntRollupLib.sol";
 import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
 import {StakingLib} from "@aztec/core/libraries/staking/StakingLib.sol";
@@ -175,7 +170,13 @@ contract RollupCore is
 
     // Genesis block
     rollupStore.blocks[0] = BlockLog({
-      feeHeader: FeeHeader({excessMana: 0, feeAssetPriceNumerator: 0, manaUsed: 0, congestionCost: 0}),
+      feeHeader: FeeHeader({
+        excessMana: 0,
+        feeAssetPriceNumerator: 0,
+        manaUsed: 0,
+        congestionCost: 0,
+        provingCost: 0
+      }),
       archive: _genesisArchiveRoot,
       blockHash: _genesisBlockHash,
       slotNumber: Slot.wrap(0)
@@ -424,18 +425,7 @@ contract RollupCore is
           interim.totalBurn += interim.burn;
 
           // Compute the proving fee in the fee asset
-          {
-            // @todo likely better for us to store this if we can pack it better
-            interim.feeAssetPrice = IntRollupLib.getFeeAssetPerEth(
-              rollupStore.blocks[_args.start + i - 1].feeHeader.feeAssetPriceNumerator
-            );
-          }
-          interim.proverFee = Math.min(
-            feeHeader.manaUsed
-              * FeeAssetValue.unwrap(rollupStore.provingCostPerMana.toFeeAsset(interim.feeAssetPrice)),
-            interim.fee
-          );
-
+          interim.proverFee = Math.min(feeHeader.manaUsed * feeHeader.provingCost, interim.fee);
           interim.fee -= interim.proverFee;
 
           er.rewards += interim.proverFee;
@@ -498,6 +488,11 @@ contract RollupCore is
     // Decode and validate header
     Header memory header = ExtRollupLib.decodeHeader(_args.header);
 
+    // @todo As part of a refactor of the core for propose and submit, we should
+    //       be able to set it up such that we don't need compute the fee components
+    //       unless needed.
+    //       Would be part of joining the header validation.
+
     setupEpoch();
     ManaBaseFeeComponents memory components =
       getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
@@ -515,7 +510,9 @@ contract RollupCore is
     uint256 blockNumber = ++rollupStore.tips.pendingBlockNumber;
 
     {
-      rollupStore.blocks[blockNumber] = _toBlockLog(_args, blockNumber, components.congestionCost);
+      // @note The components are measured in the fee asset.
+      rollupStore.blocks[blockNumber] =
+        _toBlockLog(_args, blockNumber, components.congestionCost, components.provingCost);
     }
 
     rollupStore.blobPublicInputsHashes[blockNumber] = blobPublicInputsHash;
@@ -729,11 +726,12 @@ contract RollupCore is
   }
 
   // Helper to avoid stack too deep
-  function _toBlockLog(ProposeArgs calldata _args, uint256 _blockNumber, uint256 _congestionCost)
-    internal
-    view
-    returns (BlockLog memory)
-  {
+  function _toBlockLog(
+    ProposeArgs calldata _args,
+    uint256 _blockNumber,
+    uint256 _congestionCost,
+    uint256 _provingCost
+  ) internal view returns (BlockLog memory) {
     FeeHeader memory parentFeeHeader = rollupStore.blocks[_blockNumber - 1].feeHeader;
     return BlockLog({
       archive: _args.archive,
@@ -745,7 +743,8 @@ contract RollupCore is
           _args.oracleInput.feeAssetPriceModifier
         ),
         manaUsed: uint256(bytes32(_args.header[0x0268:0x0288])),
-        congestionCost: _congestionCost
+        congestionCost: _congestionCost,
+        provingCost: _provingCost
       })
     });
   }
