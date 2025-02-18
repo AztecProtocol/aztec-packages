@@ -238,7 +238,7 @@ resource "google_container_node_pool" "spot_nodes_2core" {
   }
 }
 
-# Create 8 core high memory (52 GB) node pool with autoscaling, used for metrics
+# Create 8 core high memory (64 GB) node pool with autoscaling, used for metrics
 resource "google_container_node_pool" "infra_nodes_8core_highmem" {
   name     = "${var.cluster_name}-infra-8core-hi-mem"
   location = var.zone
