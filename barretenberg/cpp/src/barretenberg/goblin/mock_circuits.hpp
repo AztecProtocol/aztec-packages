@@ -149,7 +149,6 @@ class GoblinMockCircuits {
         MockCircuits::construct_goblin_ecc_op_circuit(builder);
 
         op_queue->set_size_data();
-        op_queue->initialize_new_subtable(); // WORKTODO: where to do this!?
 
         // Manually compute the op queue transcript commitments (which would normally be done by the merge prover)
 #ifndef __wasm__

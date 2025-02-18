@@ -45,8 +45,6 @@ class ECCOpQueue {
   public:
     using ECCVMOperation = bb::eccvm::VMOperation<Curve::Group>;
 
-    ECCOpQueue() { initialize_new_subtable(); }
-
     void initialize_new_subtable()
     {
         raw_ops_table.create_new_subtable();
@@ -97,7 +95,7 @@ class ECCOpQueue {
     size_t get_ultra_ops_table_size() const { return ultra_ops_table.ultra_table_size(); }
     size_t get_current_ultra_ops_subtable_size() const { return ultra_ops_table.current_ultra_subtable_size(); }
 
-    const std::vector<ECCVMOperation>& get_raw_ops() { return raw_ops; }
+    std::vector<ECCVMOperation> get_raw_ops() { return raw_ops_table.get_reconstructed(); }
 
     /**
      * @brief Get the number of rows in the 'msm' column section, for all msms in the circuit

@@ -6,7 +6,7 @@ using namespace bb;
 TEST(ECCOpQueueTest, Basic)
 {
     ECCOpQueue op_queue;
-    const auto& raw_ops = op_queue.get_raw_ops();
+    const auto raw_ops = op_queue.get_raw_ops();
     op_queue.add_accumulate(bb::g1::affine_one);
     EXPECT_EQ(raw_ops[0].base_point, bb::g1::affine_one);
     op_queue.empty_row_for_testing();

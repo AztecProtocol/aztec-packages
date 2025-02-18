@@ -29,8 +29,8 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
     using FF = Curve::ScalarField;
     using Point = Curve::AffineElement;
     using CommitmentKey = bb::CommitmentKey<Curve>;
-    using MergeProver = MergeProver_<Flavor>;
-    using MergeVerifier = MergeVerifier_<Flavor>;
+    using MergeProver = MergeProverNew_<Flavor>;
+    using MergeVerifier = MergeVerifierNew_<Flavor>;
     using MergeProverNew = MergeProverNew_<Flavor>;
     using MergeVerifierNew = MergeVerifierNew_<Flavor>;
     using Prover = UltraProver_<Flavor>;
