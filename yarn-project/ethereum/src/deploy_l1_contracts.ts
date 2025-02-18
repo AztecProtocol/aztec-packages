@@ -40,15 +40,10 @@ import type { Abi, Narrow } from 'abitype';
 import {
   type Account,
   type Chain,
-  type Client,
   type Hex,
   type HttpTransport,
-  type PublicActions,
   type PublicClient,
-  type PublicRpcSchema,
-  type WalletActions,
   type WalletClient,
-  type WalletRpcSchema,
   concatHex,
   createPublicClient,
   createWalletClient,
@@ -68,6 +63,7 @@ import { isAnvilTestChain } from './chain.js';
 import { type L1ContractsConfig } from './config.js';
 import { type L1ContractAddresses } from './l1_contract_addresses.js';
 import { L1TxUtils, type L1TxUtilsConfig, defaultL1TxUtilsConfig } from './l1_tx_utils.js';
+import type { L1Clients } from './types.js';
 
 export const DEPLOYER_ADDRESS: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
 
@@ -209,17 +205,6 @@ export interface DeployL1ContractsArgs extends L1ContractsConfig {
   /** Configuration for the L1 tx utils module. */
   l1TxConfig?: Partial<L1TxUtilsConfig>;
 }
-
-export type L1Clients = {
-  publicClient: PublicClient<HttpTransport, Chain>;
-  walletClient: Client<
-    HttpTransport,
-    Chain,
-    PrivateKeyAccount,
-    [...WalletRpcSchema, ...PublicRpcSchema],
-    PublicActions<HttpTransport, Chain> & WalletActions<Chain, PrivateKeyAccount>
-  >;
-};
 
 /**
  * Creates a wallet and a public viem client for interacting with L1.

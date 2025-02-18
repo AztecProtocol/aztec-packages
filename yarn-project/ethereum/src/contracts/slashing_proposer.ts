@@ -10,8 +10,8 @@ import {
   getContract,
 } from 'viem';
 
-import type { L1Clients } from '../deploy_l1_contracts.js';
 import type { L1TxRequest } from '../l1_tx_utils.js';
+import type { L1Clients } from '../types.js';
 import { type IEmpireBase, encodeVote } from './empire_base.js';
 
 export class SlashingProposerContract implements IEmpireBase {
