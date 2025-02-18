@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739870919435,
+  "lastUpdate": 1739883736900,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "bbbded313eef8d7dd8c42a658d7076d1ead4d761",
-          "message": "chore: only take FF (and not Flavor) in compute_logderivative_inverse (#11938)\n\nThe Flavor is not needed, and no other function in the file takes the Flavor as a template param. Just taking FF lets callers avoid having to import the whole flavor.",
-          "timestamp": "2025-02-12T12:54:05Z",
-          "tree_id": "735a99e65ae60cc03ede17419491c30f688cca2e",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/bbbded313eef8d7dd8c42a658d7076d1ead4d761"
-        },
-        "date": 1739365818831,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19692.565072999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16866.227045 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21484.14981899998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18960.353646 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4057.3854079999874,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3803.2331739999995 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 80447.255053,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 80447255000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14389.683439999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14389683000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2523608818,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2523608818 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 132905621,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 132905621 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3292,6 +3226,72 @@ window.BENCHMARK_DATA = {
             "value": 134968343,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 134968343 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60546371+PhilWindle@users.noreply.github.com",
+            "name": "PhilWindle",
+            "username": "PhilWindle"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fc8d49b3c2ac365217452e3083096a90116c97fe",
+          "message": "fix: Ensure a clean LMDB wrapper shutdown (#12041)\n\nThis PR introduces additional synchronisation into the NAPI module to\r\nensure a clean LMDB wrapper shutdown.",
+          "timestamp": "2025-02-18T12:25:36Z",
+          "tree_id": "ffcaa397f196918504df7dac96b5913aec961d99",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/fc8d49b3c2ac365217452e3083096a90116c97fe"
+        },
+        "date": 1739883729168,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18269.12806900009,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16048.445266999997 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18877.22990499992,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16482.467230000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3967.1238879998327,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3118.2572680000003 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55162.35316599999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55162353000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11259.285661,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11259288000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1816174601,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1816174601 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 131514224,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 131514224 ns\nthreads: 1"
           }
         ]
       }
