@@ -1,6 +1,10 @@
 use crate::{
     context::PrivateContext,
-    note::{note_interface::{NoteInterface, NullifiableNote}, utils::compute_siloed_nullifier},
+    note::{
+        note_interface::{NoteInterface, NullifiableNote},
+        retrieved_note::RetrievedNote,
+        utils::compute_siloed_nullifier,
+    },
     oracle::get_nullifier_membership_witness::get_low_nullifier_membership_witness,
 };
 use dep::protocol_types::{
@@ -52,28 +56,28 @@ impl ProveNullifierNonInclusion for BlockHeader {
 }
 
 trait ProveNoteNotNullified {
-    fn prove_note_not_nullified<Note, let N: u32>(
+    fn prove_note_not_nullified<Note>(
         header: BlockHeader,
-        note: Note,
+        retrieved_note: RetrievedNote<Note>,
         storage_slot: Field,
         context: &mut PrivateContext,
     )
     where
-        Note: NoteInterface<N> + NullifiableNote;
+        Note: NoteInterface + NullifiableNote;
 }
 
 impl ProveNoteNotNullified for BlockHeader {
     // docs:start:prove_note_not_nullified
-    fn prove_note_not_nullified<Note, let N: u32>(
+    fn prove_note_not_nullified<Note>(
         self,
-        note: Note,
+        retrieved_note: RetrievedNote<Note>,
         storage_slot: Field,
         context: &mut PrivateContext,
     )
     where
-        Note: NoteInterface<N> + NullifiableNote,
+        Note: NoteInterface + NullifiableNote,
     {
-        let nullifier = compute_siloed_nullifier(note, storage_slot, context);
+        let nullifier = compute_siloed_nullifier(retrieved_note, storage_slot, context);
 
         self.prove_nullifier_non_inclusion(nullifier);
     }

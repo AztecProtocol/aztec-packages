@@ -69,7 +69,8 @@ LMDBStoreWrapper::LMDBStoreWrapper(const Napi::CallbackInfo& info)
 
     _msg_processor.register_handler(LMDBStoreMessageType::STATS, this, &LMDBStoreWrapper::get_stats);
 
-    _msg_processor.register_handler(LMDBStoreMessageType::CLOSE, this, &LMDBStoreWrapper::close);
+    // The close operation requires exclusive execution, no other operations can be run concurrently with it
+    _msg_processor.register_handler(LMDBStoreMessageType::CLOSE, this, &LMDBStoreWrapper::close, true);
 }
 
 Napi::Value LMDBStoreWrapper::call(const Napi::CallbackInfo& info)
@@ -86,14 +87,25 @@ Napi::Function LMDBStoreWrapper::get_class(Napi::Env env)
                        });
 }
 
+// Simply verify that the store is still valid and that close has not been called
+void LMDBStoreWrapper::verify_store() const
+{
+    if (_store) {
+        return;
+    }
+    throw std::runtime_error(format("LMDB store unavailable, was close already called?"));
+}
+
 BoolResponse LMDBStoreWrapper::open_database(const OpenDatabaseRequest& req)
 {
+    verify_store();
     _store->open_database(req.db, !req.uniqueKeys.value_or(true));
     return { true };
 }
 
 GetResponse LMDBStoreWrapper::get(const GetRequest& req)
 {
+    verify_store();
     lmdblib::OptionalValuesVector vals;
     lmdblib::KeysVector keys = req.keys;
     _store->get(keys, vals, req.db);
@@ -102,6 +114,7 @@ GetResponse LMDBStoreWrapper::get(const GetRequest& req)
 
 HasResponse LMDBStoreWrapper::has(const HasRequest& req)
 {
+    verify_store();
     std::set<lmdblib::Key> key_set;
     for (const auto& entry : req.entries) {
         key_set.insert(entry.first);
@@ -148,6 +161,7 @@ HasResponse LMDBStoreWrapper::has(const HasRequest& req)
 
 StartCursorResponse LMDBStoreWrapper::start_cursor(const StartCursorRequest& req)
 {
+    verify_store();
     bool reverse = req.reverse.value_or(false);
     uint32_t page_size = req.count.value_or(DEFAULT_CURSOR_PAGE_SIZE);
     bool one_page = req.onePage.value_or(false);
@@ -223,6 +237,7 @@ AdvanceCursorResponse LMDBStoreWrapper::advance_cursor(const AdvanceCursorReques
 
 BatchResponse LMDBStoreWrapper::batch(const BatchRequest& req)
 {
+    verify_store();
     std::vector<lmdblib::LMDBStore::PutData> batches;
     batches.reserve(req.batches.size());
 
@@ -241,6 +256,7 @@ BatchResponse LMDBStoreWrapper::batch(const BatchRequest& req)
 
 StatsResponse LMDBStoreWrapper::get_stats()
 {
+    verify_store();
     std::vector<lmdblib::DBStats> stats;
     auto map_size = _store->get_stats(stats);
     return { stats, map_size };

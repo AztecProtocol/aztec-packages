@@ -1,6 +1,6 @@
 use crate::macros::utils::{
-    add_to_field_slice, compute_fn_selector, get_fn_visibility, is_fn_private, is_fn_public,
-    is_fn_view,
+    add_to_field_slice, compute_fn_selector, get_fn_visibility, get_trait_impl_method,
+    is_fn_private, is_fn_public, is_fn_view,
 };
 use std::{
     collections::umap::UHashMap,
@@ -126,10 +126,18 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
         quote {}
     };
 
+    let function_selector_typ =
+        quote { protocol_types::abis::function_selector::FunctionSelector }.as_type();
+    let from_field = get_trait_impl_method(
+        function_selector_typ,
+        quote { protocol_types::traits::FromField },
+        quote { from_field },
+    );
+
     quote {
         pub fn $fn_name(self, $fn_parameters_list) -> $call_interface_name<$call_interface_generics> {
             $args
-            let selector = dep::aztec::protocol_types::abis::function_selector::FunctionSelector::from_field($fn_selector);
+            let selector = $from_field($fn_selector);
             $call_interface_name {
                 target_contract: self.target_contract,
                 selector,

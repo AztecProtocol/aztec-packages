@@ -59,12 +59,16 @@ pub(crate) comptime fn add_to_field_slice(slice_name: Quoted, name: Quoted, typ:
     if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
         quote { $slice_name = $slice_name.push_back($name as Field); }
     } else if typ.as_struct().is_some() {
-        quote { $slice_name = $slice_name.append($name.serialize()); }
+        // We invoke serialize as a static trait function rather than calling $name.serialize() directly in the quote
+        // to avoid "trait not in scope" compiler warnings.
+        quote { $slice_name = $slice_name.append(aztec::protocol_types::traits::Serialize::serialize($name)); }
     } else if typ.as_array().is_some() {
         let (element_type, _) = typ.as_array().unwrap();
         let serialized_name = f"{name}_serialized".quoted_contents();
+        // We invoke serialize as a static trait function rather than calling x.serialize() directly in the quote
+        // to avoid "trait not in scope" compiler warnings.
         quote {
-            let $serialized_name = $name.map(|x: $element_type | x.serialize());
+            let $serialized_name = $name.map(|x: $element_type | aztec::protocol_types::traits::Serialize::serialize(x));
             for i in 0..$name.len() {
                 $slice_name = $slice_name.append($serialized_name[i].as_slice());
             }
@@ -250,4 +254,17 @@ pub(crate) comptime fn is_note(typ: Type) -> bool {
             | def.has_named_attribute("partial_note")
             | def.has_named_attribute("note_custom_interface")
     })
+}
+
+/// Returns the typed expression of a trait method implementation. This is preferred over directly inlining with
+/// `$typ::target_method()` in a quote, as direct inlining would result in missing import warnings in the generated
+/// code (specifically, warnings that the trait implementation is not in scope).
+pub(crate) comptime fn get_trait_impl_method(
+    typ: Type,
+    target_trait: Quoted,
+    target_method: Quoted,
+) -> TypedExpr {
+    let trait_constraint = target_trait.as_trait_constraint();
+    typ.get_trait_impl(trait_constraint).unwrap().methods().filter(|m| m.name() == target_method)[0]
+        .as_typed_expr()
 }
