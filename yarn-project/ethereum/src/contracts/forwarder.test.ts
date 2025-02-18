@@ -59,6 +59,8 @@ describe('Forwarder', () => {
       vkTreeRoot,
       protocolContractTreeRoot,
       l2FeeJuiceAddress,
+      genesisArchiveRoot: Fr.random(),
+      genesisBlockHash: Fr.random(),
     });
 
     govProposerAddress = deployed.l1ContractAddresses.governanceProposerAddress;
@@ -99,7 +101,7 @@ describe('Forwarder', () => {
   });
 
   afterAll(async () => {
-    await anvil.stop();
+    await anvil.stop().catch(err => createLogger('cleanup').error(err));
   });
 
   it('gets good error messages', async () => {

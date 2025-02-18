@@ -1,4 +1,5 @@
 // docs:start:import_aztecjs
+import type { AztecNodeConfig } from '@aztec/aztec-node';
 import { ContractDeployer, Fr, type Wallet } from '@aztec/aztec.js';
 // docs:end:import_aztecjs
 // eslint-disable-next-line no-restricted-imports
@@ -15,6 +16,7 @@ describe('e2e_simple', () => {
 
   let owner: Wallet;
   let teardown: () => Promise<void>;
+  let config: AztecNodeConfig;
 
   afterEach(() => {
     jest.restoreAllMocks();
@@ -27,6 +29,7 @@ describe('e2e_simple', () => {
       ({
         teardown,
         wallets: [owner],
+        config,
       } = await setup(1, {
         customForwarderContractAddress: EthAddress.ZERO,
         archiverPollingIntervalMS: 200,
@@ -34,6 +37,11 @@ describe('e2e_simple', () => {
         worldStateBlockCheckIntervalMS: 200,
         blockCheckIntervalMS: 200,
         minTxsPerBlock: 1,
+        aztecEpochDuration: 8,
+        aztecProofSubmissionWindow: 15,
+        aztecSlotDuration: 12,
+        ethereumSlotDuration: 12,
+        startProverNode: true,
       }));
     });
 
@@ -49,7 +57,9 @@ describe('e2e_simple', () => {
         skipClassRegistration: true,
         skipPublicDeployment: true,
       });
-      const tx = await provenTx.send().wait();
+      const tx = await provenTx
+        .send()
+        .wait({ proven: true, provenTimeout: config.aztecProofSubmissionWindow * config.aztecSlotDuration });
       expect(tx.blockNumber).toBeDefined();
     });
   });

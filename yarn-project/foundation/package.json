@@ -24,8 +24,9 @@
     "./fs": "./dest/fs/index.js",
     "./buffer": "./dest/buffer/index.js",
     "./json-rpc": "./dest/json-rpc/index.js",
-    "./json-rpc/server": "./dest/json-rpc/server/index.js",
     "./json-rpc/client": "./dest/json-rpc/client/index.js",
+    "./json-rpc/server": "./dest/json-rpc/server/index.js",
+    "./json-rpc/undici": "./dest/json-rpc/client/undici.js",
     "./json-rpc/test": "./dest/json-rpc/test/index.js",
     "./iterable": "./dest/iterable/index.js",
     "./log": "./dest/log/index.js",
@@ -61,7 +62,7 @@
     "generate": "true",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test": "HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16} RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "inherits": [
     "../package.common.json"
@@ -94,7 +95,7 @@
     "reporters": [
       "default"
     ],
-    "testTimeout": 30000,
+    "testTimeout": 120000,
     "setupFilesAfterEnv": [
       "../../foundation/src/jest/setup.mjs"
     ],
@@ -126,6 +127,7 @@
     "pino": "^9.5.0",
     "pino-pretty": "^13.0.0",
     "sha3": "^2.1.4",
+    "undici": "^7.3.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

@@ -171,6 +171,10 @@ pub global REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE: Field =
 pub global DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE: Field =
     0x85864497636cf755ae7bde03f267ce01a520981c21c3682aaf82a631;
 
+// sha224sum 'struct ContractInstanceUpdated'
+pub global DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE: Field =
+    0x0e92f9f8a534e858fcf777da206e08b0c620ecf9deb21d13479813f6;
+
 // CANONICAL CONTRACT ADDRESSES
 pub global MAX_PROTOCOL_CONTRACTS: u32 = (1 << PROTOCOL_CONTRACT_TREE_HEIGHT as u8) - 1; // Index 0 can't be used.
 pub global CANONICAL_AUTH_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(1);
@@ -180,8 +184,14 @@ pub global MULTI_CALL_ENTRYPOINT_ADDRESS: AztecAddress = AztecAddress::from_fiel
 pub global FEE_JUICE_ADDRESS: AztecAddress = AztecAddress::from_field(5);
 pub global ROUTER_ADDRESS: AztecAddress = AztecAddress::from_field(6);
 
+// Randomly chosen slot for the bytecode capsule.
+pub global REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT: Field = 79025834455612;
+
 // Slot of the balances map to be hashed with an AztecAddress (map key) to get an actual storage slot.
 pub global FEE_JUICE_BALANCES_SLOT: u32 = 1;
+
+// Slot of the updated_class_ids map to be hashed with an AztecAddress (map key) to get an actual storage slot.
+pub global UPDATED_CLASS_IDS_SLOT: u32 = 1;
 
 // CANONICAL DEFAULT KEYS
 // This below are:
@@ -496,6 +506,7 @@ pub global AVM_PUBLIC_COLUMN_MAX_SIZE: u32 = 1024;
 pub global AVM_PUBLIC_INPUTS_FLATTENED_SIZE: u32 =
     2 * AVM_PUBLIC_COLUMN_MAX_SIZE + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
 
+// Note hash generator index which can be used by custom implementations of NoteInterface::compute_note_hash
 pub global GENERATOR_INDEX__NOTE_HASH: u32 = 1;
 pub global GENERATOR_INDEX__NOTE_HASH_NONCE: u32 = 2;
 pub global GENERATOR_INDEX__UNIQUE_NOTE_HASH: u32 = 3;
@@ -544,12 +555,10 @@ pub global GENERATOR_INDEX__OVSK_M: u32 = 50;
 pub global GENERATOR_INDEX__TSK_M: u32 = 51;
 pub global GENERATOR_INDEX__PUBLIC_KEYS_HASH: u32 = 52;
 pub global GENERATOR_INDEX__NOTE_NULLIFIER: u32 = 53;
-pub global GENERATOR_INDEX__NOTE_HIDING_POINT: u32 = 54;
-pub global GENERATOR_INDEX__SYMMETRIC_KEY: u8 = 55;
-pub global GENERATOR_INDEX__SYMMETRIC_KEY_2: u8 = 56;
-
-pub global GENERATOR_INDEX__PUBLIC_TX_HASH: u32 = 57;
-pub global GENERATOR_INDEX__PRIVATE_TX_HASH: u32 = 58;
+pub global GENERATOR_INDEX__SYMMETRIC_KEY: u8 = 54;
+pub global GENERATOR_INDEX__SYMMETRIC_KEY_2: u8 = 55;
+pub global GENERATOR_INDEX__PUBLIC_TX_HASH: u32 = 56;
+pub global GENERATOR_INDEX__PRIVATE_TX_HASH: u32 = 57;
 
 // AVM memory tags
 pub global MEM_TAG_FF: Field = 0;
@@ -762,6 +771,18 @@ pub global PROOF_TYPE_ROLLUP_HONK: u32 = 5;
 pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 6;
 
 pub global TWO_POW_64: Field = 18446744073709551616;
+
+// 24 hours with a slot duration of 24 seconds
+pub global DEFAULT_UPDATE_DELAY: u32 = 3600;
+// 10 minutes with a slot duration of 24 seconds
+pub global MINIMUM_UPDATE_DELAY: u32 = 25;
+
+// Updates hold contract class id, which fit in 1 field.
+pub global UPDATES_VALUE_SIZE: u32 = 1;
+pub global UPDATES_SCHEDULED_VALUE_CHANGE_LEN: u32 = 2 * UPDATES_VALUE_SIZE + 1;
+pub global SCHEDULED_DELAY_CHANGE_PCKD_LEN: u32 = 1;
+pub global UPDATES_SHARED_MUTABLE_VALUES_LEN: u32 =
+    UPDATES_SCHEDULED_VALUE_CHANGE_LEN + SCHEDULED_DELAY_CHANGE_PCKD_LEN;
 
 mod test {
     use crate::constants::{

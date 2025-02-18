@@ -1,4 +1,5 @@
-import { Fr, type PXE } from '@aztec/aztec.js';
+import { getInitialTestAccounts } from '@aztec/accounts/testing';
+import { type PXE } from '@aztec/aztec.js';
 import { Bot, type BotConfig, SupportedTokenContracts, getBotDefaultConfig } from '@aztec/bot';
 
 import { setup } from './fixtures/utils.js';
@@ -11,11 +12,10 @@ describe('e2e_bot', () => {
   let config: BotConfig;
 
   beforeAll(async () => {
-    ({ teardown, pxe } = await setup(0));
-    const senderPrivateKey = Fr.random();
+    const initialFundedAccounts = await getInitialTestAccounts();
+    ({ teardown, pxe } = await setup(1, { initialFundedAccounts }));
     config = {
       ...getBotDefaultConfig(),
-      ...senderPrivateKey,
       followChain: 'PENDING',
     };
     bot = await Bot.create(config, { pxe });

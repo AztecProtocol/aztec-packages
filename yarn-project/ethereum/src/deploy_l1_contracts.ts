@@ -196,6 +196,10 @@ export interface DeployL1ContractsArgs extends L1ContractsConfig {
   vkTreeRoot: Fr;
   /** The protocol contract tree root. */
   protocolContractTreeRoot: Fr;
+  /** The genesis root of the archive tree. */
+  genesisArchiveRoot: Fr;
+  /** The hash of the genesis block header. */
+  genesisBlockHash: Fr;
   /** The block number to assume proven through. */
   assumeProvenThrough?: number;
   /** The salt for CREATE2 deployment. */
@@ -362,17 +366,20 @@ export const deployL1Contracts = async (
     aztecSlotDuration: args.aztecSlotDuration,
     aztecEpochDuration: args.aztecEpochDuration,
     targetCommitteeSize: args.aztecTargetCommitteeSize,
-    aztecEpochProofClaimWindowInL2Slots: args.aztecEpochProofClaimWindowInL2Slots,
+    aztecProofSubmissionWindow: args.aztecProofSubmissionWindow,
     minimumStake: args.minimumStake,
     slashingQuorum: args.slashingQuorum,
     slashingRoundSize: args.slashingRoundSize,
   };
+  logger.verbose(`Rollup config args`, rollupConfigArgs);
   const rollupArgs = [
     feeJuicePortalAddress.toString(),
     rewardDistributorAddress.toString(),
     stakingAssetAddress.toString(),
     args.vkTreeRoot.toString(),
     args.protocolContractTreeRoot.toString(),
+    args.genesisArchiveRoot.toString(),
+    args.genesisBlockHash.toString(),
     account.address.toString(),
     rollupConfigArgs,
   ];

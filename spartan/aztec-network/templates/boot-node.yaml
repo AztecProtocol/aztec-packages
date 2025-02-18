@@ -113,8 +113,8 @@ spec:
               value: "{{ .Values.aztec.slotDuration }}"
             - name: AZTEC_EPOCH_DURATION
               value: "{{ .Values.aztec.epochDuration }}"
-            - name: AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS
-              value: "{{ .Values.aztec.epochProofClaimWindow }}"
+            - name: AZTEC_PROOF_SUBMISSION_WINDOW
+              value: "{{ .Values.aztec.proofSubmissionWindow }}"
             - name: L1_GAS_PRICE_MAX
               value: "{{ .Values.ethereum.l1GasPriceMax }}"
             - name: L1_FIXED_PRIORITY_FEE_PER_GAS
@@ -131,8 +131,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-            - name: USE_GCLOUD_OBSERVABILITY
-              value: "{{ .Values.telemetry.useGcloudObservability }}"
+            - name: USE_GCLOUD_LOGGING
+              value: "{{ .Values.telemetry.useGcloudLogging }}"
+            - name: USE_GCLOUD_METRICS
+              value: "{{ .Values.telemetry.useGcloudMetrics }}"
       {{- end }}
       containers:
         - name: boot-node
@@ -229,8 +231,8 @@ spec:
               value: "{{ .Values.aztec.slotDuration }}"
             - name: AZTEC_EPOCH_DURATION
               value: "{{ .Values.aztec.epochDuration }}"
-            - name: AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS
-              value: "{{ .Values.aztec.epochProofClaimWindow }}"
+            - name: AZTEC_PROOF_SUBMISSION_WINDOW
+              value: "{{ .Values.aztec.proofSubmissionWindow }}"
             - name: ARCHIVER_POLLING_INTERVAL_MS
               value: {{ .Values.bootNode.archiverPollingInterval | quote }}
             - name: ARCHIVER_VIEM_POLLING_INTERVAL_MS
@@ -247,8 +249,10 @@ spec:
               value: "{{ .Values.storage.dataStoreMapSize }}"
             - name: WS_DB_MAP_SIZE_KB
               value: "{{ .Values.storage.worldStateMapSize }}"
-            - name: USE_GCLOUD_OBSERVABILITY
-              value: "{{ .Values.telemetry.useGcloudObservability }}"
+            - name: USE_GCLOUD_LOGGING
+              value: "{{ .Values.telemetry.useGcloudLogging }}"
+            - name: USE_GCLOUD_METRICS
+              value: "{{ .Values.telemetry.useGcloudMetrics }}"
             - name: OTEL_EXCLUDE_METRICS
               value: "{{ .Values.telemetry.excludeMetrics }}"
             {{- if .Values.blobSink.enabled }}

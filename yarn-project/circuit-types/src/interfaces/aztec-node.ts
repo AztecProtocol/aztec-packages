@@ -37,7 +37,6 @@ import {
   TxScopedL2Log,
 } from '../logs/index.js';
 import { MerkleTreeId } from '../merkle_tree_id.js';
-import { EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
 import { PublicDataWitness } from '../public_data_witness.js';
 import { SiblingPath } from '../sibling_path/index.js';
 import {
@@ -403,7 +402,7 @@ export interface AztecNode
    * This currently just checks that the transaction execution succeeds.
    * @param tx - The transaction to simulate.
    **/
-  simulatePublicCalls(tx: Tx, enforceFeePayment?: boolean): Promise<PublicSimulationOutput>;
+  simulatePublicCalls(tx: Tx, skipFeeEnforcement?: boolean): Promise<PublicSimulationOutput>;
 
   /**
    * Returns true if the transaction is valid for inclusion at the current state. Valid transactions can be
@@ -411,8 +410,9 @@ export interface AztecNode
    * due to e.g. the max_block_number property.
    * @param tx - The transaction to validate for correctness.
    * @param isSimulation - True if the transaction is a simulated one without generated proofs. (Optional)
+   * @param skipFeeEnforcement - True if the validation of the fee should be skipped. Useful when the simulation is for estimating fee (Optional)
    */
-  isValidTx(tx: Tx, isSimulation?: boolean): Promise<TxValidationResult>;
+  isValidTx(tx: Tx, options?: { isSimulation?: boolean; skipFeeEnforcement?: boolean }): Promise<TxValidationResult>;
 
   /**
    * Updates the configuration of this node.
@@ -439,18 +439,6 @@ export interface AztecNode
    * Returns the ENR of this node for peer discovery, if available.
    */
   getEncodedEnr(): Promise<string | undefined>;
-
-  /**
-   * Receives a quote for an epoch proof and stores it in its EpochProofQuotePool
-   * @param quote - The quote to store
-   */
-  addEpochProofQuote(quote: EpochProofQuote): Promise<void>;
-
-  /**
-   * Returns the received quotes for a given epoch
-   * @param epoch - The epoch for which to get the quotes
-   */
-  getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]>;
 
   /**
    * Adds a contract class bypassing the registerer.
@@ -582,7 +570,13 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   simulatePublicCalls: z.function().args(Tx.schema, optional(z.boolean())).returns(PublicSimulationOutput.schema),
 
-  isValidTx: z.function().args(Tx.schema, optional(z.boolean())).returns(TxValidationResultSchema),
+  isValidTx: z
+    .function()
+    .args(
+      Tx.schema,
+      optional(z.object({ isSimulation: optional(z.boolean()), skipFeeEnforcement: optional(z.boolean()) })),
+    )
+    .returns(TxValidationResultSchema),
 
   setConfig: z.function().args(SequencerConfigSchema.merge(ProverConfigSchema).partial()).returns(z.void()),
 
@@ -593,10 +587,6 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   flushTxs: z.function().returns(z.void()),
 
   getEncodedEnr: z.function().returns(z.string().optional()),
-
-  addEpochProofQuote: z.function().args(EpochProofQuote.schema).returns(z.void()),
-
-  getEpochProofQuotes: z.function().args(schemas.BigInt).returns(z.array(EpochProofQuote.schema)),
 
   // TODO(#10007): Remove this method
   addContractClass: z.function().args(ContractClassPublicSchema).returns(z.void()),

@@ -197,8 +197,6 @@ spec:
               value: "{{ .Values.validator.sequencer.maxTxsPerBlock }}"
             - name: SEQ_ENFORCE_TIME_TABLE
               value: "{{ .Values.validator.sequencer.enforceTimeTable }}"
-            - name: ENFORCE_FEES
-              value: "{{ .Values.validator.sequencer.enforceFees }}"
             - name: L1_CHAIN_ID
               value: "{{ .Values.ethereum.chainId }}"
             - name: OTEL_RESOURCE_ATTRIBUTES
@@ -209,8 +207,8 @@ spec:
               value: "{{ .Values.aztec.slotDuration }}"
             - name: AZTEC_EPOCH_DURATION
               value: "{{ .Values.aztec.epochDuration }}"
-            - name: AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS
-              value: "{{ .Values.aztec.epochProofClaimWindow }}"
+            - name: AZTEC_PROOF_SUBMISSION_WINDOW
+              value: "{{ .Values.aztec.proofSubmissionWindow }}"
             - name: VALIDATOR_ATTESTATIONS_POLLING_INTERVAL_MS
               value: {{ .Values.validator.attestationPollingInterval | quote }}
             - name: ARCHIVER_POLLING_INTERVAL_MS
@@ -233,8 +231,10 @@ spec:
               value: "{{ .Values.storage.dataStoreMapSize }}"
             - name: WS_DB_MAP_SIZE_KB
               value: "{{ .Values.storage.worldStateMapSize }}"
-            - name: USE_GCLOUD_OBSERVABILITY
-              value: "{{ .Values.telemetry.useGcloudObservability }}"
+            - name: USE_GCLOUD_LOGGING
+              value: "{{ .Values.telemetry.useGcloudLogging }}"
+            - name: USE_GCLOUD_METRICS
+              value: "{{ .Values.telemetry.useGcloudMetrics }}"
             - name: OTEL_EXCLUDE_METRICS
               value: "{{ .Values.telemetry.excludeMetrics }}"
             {{- if .Values.blobSink.enabled }}

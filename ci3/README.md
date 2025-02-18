@@ -1,41 +1,90 @@
 # Build System
 
-The Aztec build system is agnostic to its underlying platform. The cache system supports a remote cache that is S3 API compatible, e.g. AWS S3 or minio.
+This repository uses a custom build system that is **agnostic to CI platforms** and **leverages a remote cache** (S3 or MinIO) for caching build artifacts. Our approach enables efficient incremental builds, distributed parallel testing, and consistent deployment to ephemeral infrastructure (e.g., AWS Spot Instances).
 
-## Requirements
+We avoid heavy CI vendor lock-in by using shell scripts with a uniform framework (ci3 folder). Each project defines its own bootstrap or build script but relies on the shared `ci3` folder for advanced features like:
 
-There were several intentional requirements.
+- Generating **content hashes** to skip unchanged builds
+- Uploading/downloading build artifacts
+- Parallelizing & caching test results
+- Logging ephemeral output
+- Provisioning ephemeral AWS instances for maximum compute at minimal cost
 
-- Monorepo support (or at least, multiple projects within one repository).
-- Builds on a rich docker build image and normal dockerized execution.
-- Don't rebuild projects that haven't changed as part of a commit (generate and compare content hashes).
-- Allow fine or coarse grained control, of which file changes within a project, trigger a rebuild.
-- Stateless (apart from the source repository itself, and the remote cache).
-- Enable building on EC2 spot instances. They're extremely cheap and powerful relative to CI offerings.
-- Deploy updated services only on a fully successful build of entire project.
-- No vendor lock-in (don't use vendor specific features). Vendor easily changeable, only used for orchestration.
+## Requirements & Rationale
+
+1. **Monorepo-friendly**
+   Multiple projects within one repository can have separate build steps that only rebuild if their subset of files changes.
+
+2. **Remote Caching**
+   A stateless approach using S3-compatible storage (AWS S3 or MinIO). This replaces older Docker-image-based caches, streamlines artifact reuse, and easily shares builds across different runners or machines.
+
+3. **Content-based Rebuilds**
+   We compare content-hashes of relevant files. If no changes, no rebuild. This encourages fine-grained patterns (e.g., ignoring docs changes, but not ignoring new code).
+
+4. **Ephemeral Infrastructure**
+   We frequently run on EC2 spot instances to take advantage of cost savings. On eviction, the system gracefully shuts down and requeues tasks if needed.
+
+5. **Avoiding CI Lock-In**
+   We do *not* rely on special vendor features. Our build is run via shell scripts that can be triggered on any platform.
 
 ## Important Concepts
 
-We avoid using any CI platform-specific features. They are very general purpose, and are thus often flawed. Also, we don't want vendor lock-in as vendors have caused us multiple problems in the past.
+### Content Hashes
+Instead of tagging artifacts by commit or branch, we compute a hash of the actual files that matter (via `.rebuild_patterns`). If code, dependencies, or scripts in that set change, we produce a new content hash and thus trigger a fresh build.
 
-The build system leverages a remote cache to keep track of build artifacts and historical success or failure in terms of builds, tests, and deployments. It's otherwise stateless.
+### CI-Agnostic
+All logic is in shell scripts, grouped under the **ci3** folder. A minimal layer of environment detection handles toggling debug modes, caches, or ephemeral logs. This means the same build system can run on local machines, ephemeral Docker containers, or GitHub Actions.
 
-We work in terms of _content hashes_, not commit hashes or branches. Content hashes are like commit hashes, but are scoped to files matching the rebuild patterns.
+### Rebuild Patterns
+Each project folder often contains a `.rebuild_patterns` file. This file has patterns that, if matched by changed files, triggers a new build. Typical patterns might include: `^barretenberg/cpp/src/.*.cpp` and other patterns from root.
 
-A rebuild pattern is a regular expression that is matched against a list of changed files. We often use pretty broad regular expressions that trigger rebuilds if _any_ file in a project changes, but you can be more fine-grained, e.g. not triggering rebuilds if you change something inconsequential.
+When `cache_content_hash` sees new changes in these paths, it regenerates a new hash which prevents a cache download until an S3 artifact with that hash is uploaded.
 
-This module provides a series of tools intended to write straight-forward scripts. A script should source ci3/source and write their scripts using the tools from ci3 now in their PATH. Then tools can also be accessed using the $ci3 path variable.
+### Tools
 
-## Cache
+Tools are provieded for the following themes.
 
-Scripts that implement a simple scheme to upload and download from S3 for use with caching. Supports .rebuild_patterns files inside the monorepo for detecting changes.
-Assumes a git committed state. If that is not the case, you should not use the cache.
+1. **Caching**
+   - **`cache_content_hash`**: Takes file patterns (or `.rebuild_patterns`) to compute a stable content hash.
+   - **`cache_upload`, `cache_download`**: Upload/download `.tar.gz` artifacts from a remote S3-like cache.
+   - **`cache_upload_flag`, `cache_download_flag`**: Mark or detect a particular test's success state. Avoids re-running long tests.
 
-Rationale:
+2. **Test Parallelization & Caching**
+   - **`parallelise`**: Reads test commands from STDIN, executes in parallel, aggregates logs.
+   - **`run_test_cmd`**: Single test runner that can skip tests cached as “already passed.”
+   - **`filter_cached_test_cmd`**: Filters out test commands known to have succeeded (based on flags in redis).
 
-- We need a unified cache tool that can support distributed caching. This is needed to replace our old docker image-based caching. It is easier to share S3 access and overall easier to use S3 tarballs rather than docker images.
+3. **Ephemeral Logging**
+   - **`denoise`**: Minimizes output spam; prints dots for each line, reveals full logs only if a command fails.
+   - **`cache_log`**, **`dump_fail`**: Captures output for ephemeral storage and prints or reveals logs when needed.
 
-Installation:
+4. **AWS Provisioning**
+   - **`aws_request_instance`** & **`aws_terminate_instance`**: Provision ephemeral spot or on-demand instances.
+   - **`aws_handle_evict`**: Detects spot-instance eviction signals, handles graceful shutdown or requeue.
 
-- This is just some shell scripts, but you do need AWS credentials set up and aws commandline installed otherwise the scripts **do nothing**. Alternatively to AWS, use of S3-compatible tools like e.g. minio can be used as the cache, see test_source for an example.
+5. **Docker Isolation**
+   - **`docker_isolate`**: Executes a script in a new Docker container with ephemeral volumes, isolating host environment from side effects.
+
+6. **General Utilities**
+   - **`source_bootstrap`, `source_refname`, `source_color`**: Shared environment, color-coded logging, or version detection.
+   - **`echo_header`**: Prints a heading for better log readability.
+   - **ci3/source** is the central include-script for Aztec’s build system, automatically configuring Bash strict mode, setting up your $PATH to include all ci3 utilities (e.g. caching, parallel test commands), and providing helper functions and color-coded logging. Simply add source $(git rev-parse --show-toplevel)/ci3/source at the top of any project script to inherit a robust, preconfigured environment.
+
+### Usage Flow
+
+1. **In each project**: A `bootstrap.sh` might:
+   - Call `cache_content_hash` to detect changes.
+   - If changed, do the relevant compile step, then `cache_upload`.
+   - If not changed, do `cache_download` to restore a previously built artifact.
+
+2. **In test scripts**:
+   - We gather test commands (`test_cmds`) in a form easily read by `parallelise`.
+   - `parallelise` calls `run_test_cmd` on each line, skipping or running tests as needed.
+
+3. **In local or ephemeral servers**:
+   - Either manually run `./bootstrap.sh fast` or let the CI invoke it on a fresh machine.
+   - The system pulls dependencies, attempts to restore from remote caches, rebuilds only if necessary, then parallelizes tests.
+
+4. **On success**:
+   - Artifacts can be re-uploaded or flagged as “passed,” letting future runs skip unchanged steps.
+

@@ -147,8 +147,8 @@ export class VerificationKeyAsFields {
 
   static makeFakeRollupHonk(seed = 1): VerificationKeyAsFields {
     return new VerificationKeyAsFields(
-      makeTuple(ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, Fr.random, seed),
-      Fr.random(),
+      makeTuple(ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, i => new Fr(i), seed),
+      new Fr(seed + 1),
     );
   }
 

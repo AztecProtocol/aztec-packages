@@ -83,11 +83,15 @@ export interface PXE {
   getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined>;
 
   /**
-   * Adding a capsule to the capsule dispenser.
+   * Adds a capsule.
+   * @param contract - The address of the contract to add the capsule to.
+   * @param storageSlot - The storage slot to add the capsule to.
    * @param capsule - An array of field elements representing the capsule.
-   * @remarks A capsule is a "blob" of data that is passed to the contract through an oracle.
+   * @remarks A capsule is a "blob" of data that is passed to the contract through an oracle. It works similarly
+   * to public contract storage in that it's indexed by the contract address and storage slot but instead of the global
+   * network state it's backed by local PXE db.
    */
-  addCapsule(capsule: Fr[]): Promise<void>;
+  storeCapsule(contract: AztecAddress, storageSlot: Fr, capsule: Fr[]): Promise<void>;
 
   /**
    * Registers a user account in PXE given its master encryption private key.
@@ -147,6 +151,15 @@ export interface PXE {
   registerContract(contract: { instance: ContractInstanceWithAddress; artifact?: ContractArtifact }): Promise<void>;
 
   /**
+   * Updates a deployed contract in the PXE Service. This is used to update the contract artifact when
+   * an update has happened, so the new code can be used in the simulation of local transactions.
+   * This is called by aztec.js when instantiating a contract in a given address with a mismatching artifact.
+   * @param contractAddress - The address of the contract to update.
+   * @param artifact - The updated artifact for the contract.
+   */
+  updateContract(contractAddress: AztecAddress, artifact: ContractArtifact): Promise<void>;
+
+  /**
    * Retrieves the addresses of contracts added to this PXE Service.
    * @returns An array of contracts addresses registered on this PXE Service.
    */
@@ -191,7 +204,7 @@ export interface PXE {
     simulatePublic: boolean,
     msgSender?: AztecAddress,
     skipTxValidation?: boolean,
-    enforceFeePayment?: boolean,
+    skipFeeEnforcement?: boolean,
     profile?: boolean,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult>;
@@ -464,7 +477,7 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .function()
     .args(schemas.Fr)
     .returns(z.union([z.undefined(), z.array(schemas.Fr)])),
-  addCapsule: z.function().args(z.array(schemas.Fr)).returns(z.void()),
+  storeCapsule: z.function().args(schemas.AztecAddress, schemas.Fr, z.array(schemas.Fr)).returns(z.void()),
   registerAccount: z.function().args(schemas.Fr, schemas.Fr).returns(CompleteAddress.schema),
   getRegisteredAccounts: z.function().returns(z.array(CompleteAddress.schema)),
   registerSender: z.function().args(schemas.AztecAddress).returns(schemas.AztecAddress),
@@ -475,6 +488,7 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .function()
     .args(z.object({ instance: ContractInstanceWithAddressSchema, artifact: z.optional(ContractArtifactSchema) }))
     .returns(z.void()),
+  updateContract: z.function().args(schemas.AztecAddress, ContractArtifactSchema).returns(z.void()),
   getContracts: z.function().returns(z.array(schemas.AztecAddress)),
   proveTx: z.function().args(TxExecutionRequest.schema, PrivateExecutionResult.schema).returns(TxProvingResult.schema),
   simulateTx: z

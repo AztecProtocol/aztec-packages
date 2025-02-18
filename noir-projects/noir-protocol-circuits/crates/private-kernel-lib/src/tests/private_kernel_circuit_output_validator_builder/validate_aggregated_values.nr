@@ -13,8 +13,8 @@ fn validate_aggregated_values_empty_data_succeeds() {
 fn validate_aggregated_values_min_revertible_side_effect_counter_from_previous_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.previous_kernel.min_revertible_side_effect_counter = 123;
-    builder.output.min_revertible_side_effect_counter = 123;
+    builder.previous_kernel.min_revertible_side_effect_counter = 3;
+    builder.output.min_revertible_side_effect_counter = 3;
 
     builder.validate_as_inner_call();
 }
@@ -23,8 +23,8 @@ fn validate_aggregated_values_min_revertible_side_effect_counter_from_previous_s
 fn validate_aggregated_values_min_revertible_side_effect_counter_from_private_call_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.min_revertible_side_effect_counter = 123;
-    builder.output.min_revertible_side_effect_counter = 123;
+    builder.private_call.min_revertible_side_effect_counter = 3;
+    builder.output.min_revertible_side_effect_counter = 3;
 
     builder.validate_as_inner_call();
 }
@@ -33,9 +33,9 @@ fn validate_aggregated_values_min_revertible_side_effect_counter_from_private_ca
 fn validate_aggregated_values_min_revertible_side_effect_counter_overwrite_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.previous_kernel.min_revertible_side_effect_counter = 123;
+    builder.previous_kernel.min_revertible_side_effect_counter = 3;
     builder.private_call.min_revertible_side_effect_counter = 4567;
-    builder.output.min_revertible_side_effect_counter = 123;
+    builder.output.min_revertible_side_effect_counter = 3;
 
     builder.validate_as_inner_call();
 }
@@ -44,7 +44,7 @@ fn validate_aggregated_values_min_revertible_side_effect_counter_overwrite_fails
 fn validate_aggregated_values_min_revertible_side_effect_counter_from_previous_mismatch_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.previous_kernel.min_revertible_side_effect_counter = 123;
+    builder.previous_kernel.min_revertible_side_effect_counter = 3;
     builder.output.min_revertible_side_effect_counter = 4567;
 
     builder.validate_as_inner_call();
@@ -54,7 +54,7 @@ fn validate_aggregated_values_min_revertible_side_effect_counter_from_previous_m
 fn validate_aggregated_values_min_revertible_side_effect_counter_from_private_call_mismatch_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.min_revertible_side_effect_counter = 123;
+    builder.private_call.min_revertible_side_effect_counter = 3;
     builder.output.min_revertible_side_effect_counter = 4567;
 
     builder.validate_as_inner_call();
@@ -64,7 +64,7 @@ fn validate_aggregated_values_min_revertible_side_effect_counter_from_private_ca
 fn validate_aggregated_values_min_revertible_side_effect_counter_random_output_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.output.min_revertible_side_effect_counter = 123;
+    builder.output.min_revertible_side_effect_counter = 3;
 
     builder.validate_as_inner_call();
 }
@@ -76,8 +76,8 @@ fn validate_aggregated_values_min_revertible_side_effect_counter_random_output_f
 fn validate_aggregated_values_max_block_number_from_previous_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.previous_kernel.set_max_block_number(123);
-    builder.output.set_max_block_number(123);
+    builder.previous_kernel.set_max_block_number(3);
+    builder.output.set_max_block_number(3);
 
     builder.validate_as_inner_call();
 }
@@ -86,8 +86,8 @@ fn validate_aggregated_values_max_block_number_from_previous_succeeds() {
 fn validate_aggregated_values_max_block_number_from_private_call_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.set_max_block_number(123);
-    builder.output.set_max_block_number(123);
+    builder.private_call.set_max_block_number(3);
+    builder.output.set_max_block_number(3);
 
     builder.validate_as_inner_call();
 }
@@ -96,9 +96,9 @@ fn validate_aggregated_values_max_block_number_from_private_call_succeeds() {
 fn validate_aggregated_values_max_block_number_from_both_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.previous_kernel.set_max_block_number(123);
-    builder.private_call.set_max_block_number(123);
-    builder.output.set_max_block_number(123);
+    builder.previous_kernel.set_max_block_number(3);
+    builder.private_call.set_max_block_number(3);
+    builder.output.set_max_block_number(3);
 
     builder.validate_as_inner_call();
 }
@@ -107,9 +107,9 @@ fn validate_aggregated_values_max_block_number_from_both_succeeds() {
 fn validate_aggregated_values_max_block_number_from_both_pick_previous_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.previous_kernel.set_max_block_number(123);
-    builder.private_call.set_max_block_number(4567);
-    builder.output.set_max_block_number(123);
+    builder.previous_kernel.set_max_block_number(3);
+    builder.private_call.set_max_block_number(4);
+    builder.output.set_max_block_number(3);
 
     builder.validate_as_inner_call();
 }
@@ -118,9 +118,9 @@ fn validate_aggregated_values_max_block_number_from_both_pick_previous_succeeds(
 fn validate_aggregated_values_max_block_number_from_both_pick_private_call_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.previous_kernel.set_max_block_number(4567);
-    builder.private_call.set_max_block_number(123);
-    builder.output.set_max_block_number(123);
+    builder.previous_kernel.set_max_block_number(4);
+    builder.private_call.set_max_block_number(3);
+    builder.output.set_max_block_number(3);
 
     builder.validate_as_inner_call();
 }
@@ -129,9 +129,9 @@ fn validate_aggregated_values_max_block_number_from_both_pick_private_call_succe
 fn validate_aggregated_values_max_block_number_from_both_pick_larger_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.previous_kernel.set_max_block_number(4567);
-    builder.private_call.set_max_block_number(123);
-    builder.output.set_max_block_number(4567);
+    builder.previous_kernel.set_max_block_number(4);
+    builder.private_call.set_max_block_number(3);
+    builder.output.set_max_block_number(4);
 
     builder.validate_as_inner_call();
 }
@@ -140,7 +140,7 @@ fn validate_aggregated_values_max_block_number_from_both_pick_larger_fails() {
 fn validate_aggregated_values_max_block_number_random_output_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.output.set_max_block_number(123);
+    builder.output.set_max_block_number(3);
 
     builder.validate_as_inner_call();
 }

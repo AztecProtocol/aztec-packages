@@ -11,7 +11,7 @@ pub fn get_mint_to_public_content_hash(owner: AztecAddress, amount: U128) -> Fie
 
     // The purpose of including the following selector is to make the message unique to that specific call. Note that
     // it has nothing to do with calling the function.
-    let selector = comptime { std::hash::keccak256("mint_to_public(bytes32,uint256)".as_bytes(), 31) };
+    let selector = comptime { keccak256::keccak256("mint_to_public(bytes32,uint256)".as_bytes(), 31) };
 
     for i in 0..4 {
         hash_bytes[i] = selector[i];
@@ -36,7 +36,7 @@ pub fn get_mint_to_private_content_hash(amount: U128) -> Field {
 
     // The purpose of including the following selector is to make the message unique to that specific call. Note that
     // it has nothing to do with calling the function.
-    let selector = comptime { std::hash::keccak256("mint_to_private(uint256)".as_bytes(), 24) };
+    let selector = comptime { keccak256::keccak256("mint_to_private(uint256)".as_bytes(), 24) };
 
     for i in 0..4 {
         hash_bytes[i] = selector[i];
@@ -65,7 +65,7 @@ pub fn get_withdraw_content_hash(recipient: EthAddress, amount: U128, caller_on_
 
     // The purpose of including the following selector is to make the message unique to that specific call. Note that
     // it has nothing to do with calling the function.
-    let selector = comptime { std::hash::keccak256("withdraw(address,uint256,address)".as_bytes(), 33) };
+    let selector = comptime { keccak256::keccak256("withdraw(address,uint256,address)".as_bytes(), 33) };
 
     for i in 0..4 {
         hash_bytes[i] = selector[i];

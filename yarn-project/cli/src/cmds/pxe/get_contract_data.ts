@@ -16,7 +16,9 @@ export async function getContractData(
     isContractPubliclyDeployed: isPubliclyDeployed,
   } = await client.getContractMetadata(contractAddress);
   const contractClass =
-    includeBytecode && instance && (await client.getContractClassMetadata(instance?.contractClassId)).contractClass;
+    includeBytecode &&
+    instance &&
+    (await client.getContractClassMetadata(instance?.currentContractClassId)).contractClass;
 
   const isPrivatelyDeployed = !!instance;
   const initStr = isInitialized ? 'initialized' : 'not initialized';

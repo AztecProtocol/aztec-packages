@@ -41,6 +41,7 @@
 using namespace bb;
 
 const std::filesystem::path current_path = std::filesystem::current_path();
+const char* BB_VERSION_PLACEHOLDER = "00000000.00000000.00000000";
 const auto current_dir = current_path.filename().string();
 
 // Initializes without loading G1
@@ -910,17 +911,23 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath,
     } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
         honk_recursion = 2;
     }
-    const acir_format::ProgramMetadata metadata{ .recursive = recursive, .honk_recursion = honk_recursion };
 
-    acir_format::AcirProgram program{ get_constraint_system(bytecodePath, metadata.honk_recursion) };
-    if (!witnessPath.empty()) {
-        program.witness = get_witness(witnessPath);
-    }
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1180): Don't init grumpkin crs when unnecessary.
     init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
 
-    auto builder = acir_format::create_circuit<Builder>(program, metadata);
-    auto prover = Prover{ builder };
+    // Lambda function to ensure the builder gets freed before generating the vk. Vk generation requires initialing the
+    // pippenger runtime state which leads to it being the peak, when its functionality is purely for debugging purposes
+    // here.
+    auto prover = [&] {
+        const acir_format::ProgramMetadata metadata{ .recursive = recursive, .honk_recursion = honk_recursion };
+        acir_format::AcirProgram program{ get_constraint_system(bytecodePath, metadata.honk_recursion) };
+        if (!witnessPath.empty()) {
+            program.witness = get_witness(witnessPath);
+        }
+        auto builder = acir_format::create_circuit<Builder>(program, metadata);
+        return Prover{ builder };
+    }();
+
     size_t required_crs_size = prover.proving_key->proving_key.circuit_size;
     if constexpr (Flavor::HasZK) {
         // Ensure there are enough points to commit to the libra polynomials required for zero-knowledge sumcheck
@@ -1418,7 +1425,9 @@ int main(int argc, char* argv[])
 
         // Skip CRS initialization for any command which doesn't require the CRS.
         if (command == "--version") {
-            writeStringToStdout(BB_VERSION);
+            // Placeholder that we replace inside the binary as a pre-release step.
+            // Compared to the previous CMake injection strategy, this avoids full rebuilds.
+            std::cout << BB_VERSION_PLACEHOLDER << std::endl;
             return 0;
         }
 
