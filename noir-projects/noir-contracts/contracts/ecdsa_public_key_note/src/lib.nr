@@ -1,4 +1,4 @@
-use dep::aztec::prelude::{NoteHeader, NoteInterface, NullifiableNote, PrivateContext};
+use dep::aztec::prelude::{NoteInterface, NullifiableNote, PrivateContext, RetrievedNote};
 
 use dep::aztec::{
     note::utils::compute_note_hash_for_nullify, keys::getters::{get_nsk_app, get_public_keys},
@@ -60,20 +60,12 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
         }
         y[31] = packed_content[3].to_be_bytes::<32>()[31];
 
-        EcdsaPublicKeyNote { x, y, owner: AztecAddress::from_field(packed_content[4]), header: NoteHeader::empty() }
+        EcdsaPublicKeyNote { x, y, owner: AztecAddress::from_field(packed_content[4]) }
     }
 
     fn get_note_type_id() -> Field {
         // randomly chosen note type id --> has to fit within 7 bits
         76
-    }
-
-    fn get_header(self) -> NoteHeader {
-        self.header
-    }
-
-    fn set_header(&mut self, header: NoteHeader) {
-        self.header = header;
     }
 
     fn compute_note_hash(self, storage_slot: Field) -> Field {
@@ -99,8 +91,10 @@ impl NullifiableNote for EcdsaPublicKeyNote {
         )
     }
 
-    unconstrained fn compute_nullifier_without_context(self, storage_slot: Field) -> Field {
-        let note_hash_for_nullify = compute_note_hash_for_nullify(self, storage_slot);
+    unconstrained fn compute_nullifier_without_context(self, storage_slot: Field, contract_address: AztecAddress, note_nonce: Field) -> Field {
+        // We set the note_hash_counter to 0 as the note is assumed to be committed (and hence not transient).
+        let retrieved_note = RetrievedNote { note: self, contract_address, nonce: note_nonce, note_hash_counter: 0 };
+        let note_hash_for_nullify = compute_note_hash_for_nullify(retrieved_note, storage_slot);
         let owner_npk_m_hash = get_public_keys(self.owner).npk_m.hash();
         let secret = get_nsk_app(owner_npk_m_hash);
         poseidon2_hash_with_separator(
@@ -115,6 +109,6 @@ impl NullifiableNote for EcdsaPublicKeyNote {
 
 impl EcdsaPublicKeyNote {
     pub fn new(x: [u8; 32], y: [u8; 32], owner: AztecAddress) -> Self {
-        EcdsaPublicKeyNote { x, y, owner, header: NoteHeader::empty() }
+        EcdsaPublicKeyNote { x, y, owner }
     }
 }

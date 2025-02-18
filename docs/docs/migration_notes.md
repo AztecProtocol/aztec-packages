@@ -92,18 +92,21 @@ The new check an indexed tree allows is non-membership of addresses of non proto
 ```
 
 ### [Aztec.nr] Changes to `NoteInterface`
-
-We are in a process of discontinuing `NoteHeader` from notes.
+We removed `NoteHeader` from notes and we've introduced `RetrievedNote` struct.
 This led us to do the following changes to `NoteInterface`:
 
 ```diff
 pub trait NullifiableNote {
 ...
 -    unconstrained fn compute_nullifier_without_context(self) -> Field;
-+    unconstrained fn compute_nullifier_without_context(self, storage_slot: Field) -> Field;
++    unconstrained fn fn compute_nullifier_without_context(self, storage_slot: Field, contract_address: AztecAddress, note_nonce: Field) -> Field;
 }
 
 pub trait NoteInterface<let N: u32> {
+-    fn get_header(self) -> NoteHeader;
+
+-    fn set_header(&mut self, header: NoteHeader) -> ();
+
 -    fn compute_note_hash(self) -> Field;
 +    fn compute_note_hash(self, storage_slot: Field) -> Field;
 }
@@ -115,9 +118,25 @@ These are the changes that needed to be done to our `EcdsaPublicKeyNote`:
 
 ```diff
 + use dep::aztec::protocol_types::utils::arrays::array_concat;
+-use dep::aztec::prelude::{NoteHeader};
++use dep::aztec::prelude::{RetrievedNote};
 
 impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
 ...
+    fn unpack_content(packed_content: [Field; ECDSA_PUBLIC_KEY_NOTE_LEN]) -> EcdsaPublicKeyNote {
+         ...
+-        EcdsaPublicKeyNote { x, y, owner: AztecAddress::from_field(packed_content[4]), header: NoteHeader::empty() }
++        EcdsaPublicKeyNote { x, y, owner: AztecAddress::from_field(packed_content[4]) }
+    }
+
+-    fn get_header(self) -> NoteHeader {
+-        self.header
+-    }
+
+-    fn set_header(&mut self, header: NoteHeader) {
+-        self.header = header;
+-    }
+
 -    fn compute_note_hash(self) -> Field {
 +    fn compute_note_hash(self, storage_slot: Field) -> Field {
 -        poseidon2_hash_with_separator(self.pack_content(), GENERATOR_INDEX__NOTE_HASH)
@@ -128,10 +147,11 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
 
 impl NullifiableNote for EcdsaPublicKeyNote {
 ...
--    unconstrained fn compute_nullifier_without_context(self) -> Field {
--        let note_hash_for_nullify = compute_note_hash_for_nullify(self);
-+    unconstrained fn compute_nullifier_without_context(self, storage_slot: Field) -> Field {
-+        let note_hash_for_nullify = compute_note_hash_for_nullify(self, storage_slot);
+-    unconstrained fn compute_nullifier_without_context(self, storage_slot: Field) -> Field {
+-        let note_hash_for_nullify = compute_note_hash_for_nullify(self, storage_slot);
++    unconstrained fn compute_nullifier_without_context(self, storage_slot: Field, contract_address: AztecAddress, note_nonce: Field) -> Field {
++        let retrieved_note = RetrievedNote { note: self, contract_address, nonce: note_nonce, note_hash_counter: 0 };
++        let note_hash_for_nullify = compute_note_hash_for_nullify(retrieved_note, storage_slot);
         let owner_npk_m_hash = get_public_keys(self.owner).npk_m.hash();
         let secret = get_nsk_app(owner_npk_m_hash);
         poseidon2_hash_with_separator(
@@ -141,6 +161,94 @@ impl NullifiableNote for EcdsaPublicKeyNote {
         ],
             GENERATOR_INDEX__NOTE_NULLIFIER as Field
         )
+    }
+}
+```
+### [Aztec.nr] Changes to state variables
+Since we've removed `NoteHeader` from notes we no longer need to modify the header in the notes when working with state variables.
+This means that we no longer need to be passing a mutable note reference which led to the following changes in the API.
+
+#### PrivateImmutable
+
+For `PrivateImmutable` the changes are fairly straightforward.
+Instead of passing in a mutable reference `&mut note` just pass in `note`.
+
+```diff
+impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
+-    pub fn initialize<let N: u32>(self, note: &mut Note) -> NoteEmission<Note>
++    pub fn initialize<let N: u32>(self, note: Note) -> NoteEmission<Note>
+    where
+        Note: NoteInterface<N> + NullifiableNote,
+    {
+        ...
+    }
+}
+```
+
+#### PrivateSet
+
+For `PrivateSet` the changes are a bit more involved than the changes in `PrivateImmutable`.
+Instead of passing in a mutable reference `&mut note` to the `insert` function just pass in `note`.
+The `remove` function now takes in a `RetrievedNote<Note>` instead of a `Note` and the `get_notes` function
+now returns a vector `RetrievedNote`s instead of a vector `Note`s.
+Note getters now generally return `RetrievedNote`s so getting a hold of the `RetrievedNote` for removal should be straightforward.
+
+```diff
+impl<Note, let N: u32> PrivateSet<Note, &mut PrivateContext>
+where
+    Note: NoteInterface<N> + NullifiableNote + Eq,
+{
+-    pub fn insert(self, note: &mut Note) -> NoteEmission<Note> {
++    pub fn insert(self, note: Note) -> NoteEmission<Note> {
+        ...
+    }
+
+-    pub fn remove(self, note: Note) {
++    pub fn remove(self, retrieved_note: RetrievedNote<Note>) {
+        ...
+    }
+
+    pub fn get_notes<PREPROCESSOR_ARGS, FILTER_ARGS>(
+        self,
+        options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>,
+-    ) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> {
++    ) -> BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> {
+        ...
+    }
+}
+
+- impl<Note, let N: u32> PrivateSet<Note, &mut PublicContext>
+- where
+-    Note: NoteInterface<N> + NullifiableNote,
+- {
+-    pub fn insert_from_public(self, note: &mut Note) {
+-        create_note_hash_from_public(self.context, self.storage_slot, note);
+-    }
+- }
+```
+
+#### PrivateMutable
+
+For `PrivateMutable` the changes are similar to the changes in `PrivateImmutable`.
+
+```diff
+impl<Note, let N: u32> PrivateMutable<Note, &mut PrivateContext>
+where
+    Note: NoteInterface<N> + NullifiableNote,
+{
+-    pub fn initialize(self, note: &mut Note) -> NoteEmission<Note> {
++    pub fn initialize(self, note: Note) -> NoteEmission<Note> {
+        ...
+    }
+
+-    pub fn replace(self, new_note: &mut Note) -> NoteEmission<Note> {
++    pub fn replace(self, new_note: Note) -> NoteEmission<Note> {
+        ...
+    }
+
+-    pub fn initialize_or_replace(self, note: &mut Note) -> NoteEmission<Note> {
++    pub fn initialize_or_replace(self, note: Note) -> NoteEmission<Note> {
+        ...
     }
 }
 ```

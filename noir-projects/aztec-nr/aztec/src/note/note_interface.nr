@@ -1,7 +1,6 @@
 use crate::context::PrivateContext;
-use crate::note::note_header::NoteHeader;
+use dep::protocol_types::address::AztecAddress;
 use dep::protocol_types::traits::Empty;
-
 pub trait NoteProperties<T> {
     fn properties() -> T;
 }
@@ -32,7 +31,12 @@ pub trait NullifiableNote {
 
     /// Same as compute_nullifier, but unconstrained. This version does not take a note hash because it'll only be
     /// invoked in unconstrained contexts, where there is no gate count.
-    unconstrained fn compute_nullifier_without_context(self, storage_slot: Field) -> Field;
+    unconstrained fn compute_nullifier_without_context(
+        self,
+        storage_slot: Field,
+        contract_address: AztecAddress,
+        note_nonce: Field,
+    ) -> Field;
 }
 
 // docs:start:note_interface
@@ -41,10 +45,6 @@ pub trait NoteInterface<let N: u32> {
     fn pack_content(self) -> [Field; N];
 
     fn unpack_content(fields: [Field; N]) -> Self;
-
-    fn get_header(self) -> NoteHeader;
-
-    fn set_header(&mut self, header: NoteHeader) -> ();
 
     fn get_note_type_id() -> Field;
 
