@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739898754179,
+  "lastUpdate": 1739899069619,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "60546371+PhilWindle@users.noreply.github.com",
-            "name": "PhilWindle",
-            "username": "PhilWindle"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "fdc2042d318eb00082c1f014066d4f177c5f72a1",
-          "message": "fix: Empty blocks can now be unwound (#11920)\n\nThis PR has the following changes:\r\n\r\n1. Fixes an issue where empty blocks added from the genesis state could\r\nnot be unwound.\r\n2. Refactors the retrieval of meta data so a transaction is not required\r\nif just reading uncommitted data.\r\n3. We now provide a specific method for committing the genesis state.",
-          "timestamp": "2025-02-12T15:26:54Z",
-          "tree_id": "53f8f4c77f4c3b0288b4349b8febb3eab0b2f5cc",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/fdc2042d318eb00082c1f014066d4f177c5f72a1"
-        },
-        "date": 1739376087227,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 20615.668932000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 17638.683384 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21653.675975,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19037.451891 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4494.92410000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4212.206265 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 80197.17479,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 80197175000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 13468.419773,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 13468420000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2476523364,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2476523364 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 141588284,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 141588284 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3292,6 +3226,72 @@ window.BENCHMARK_DATA = {
             "value": 128791240,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 128791240 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7a1205c3f95ee953352baccd979a266c5a8e57fc",
+          "message": "fix: hash_str caching (#12074)\n\nit was not allowing multiple args but used that way, make more flexible",
+          "timestamp": "2025-02-18T16:54:39Z",
+          "tree_id": "b59f119592f34a54d6c8beee15583a76d0def6b9",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7a1205c3f95ee953352baccd979a266c5a8e57fc"
+        },
+        "date": 1739899062426,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18057.77098999988,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15989.715027999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18617.996016999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16417.376631 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3970.5484600001455,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3067.605636 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55685.693488,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55685691000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9341.550754999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9341558000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1804133597,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1804133597 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 132752586,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 132752586 ns\nthreads: 1"
           }
         ]
       }
