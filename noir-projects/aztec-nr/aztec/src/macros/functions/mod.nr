@@ -1,5 +1,7 @@
+pub mod abi_export;
 pub mod interfaces;
 pub mod initialization_utils;
+pub mod stub_registry;
 
 use super::utils::{
     add_to_hasher, fn_has_noinitcheck, get_fn_visibility, is_fn_initializer, is_fn_internal,
@@ -8,7 +10,8 @@ use super::utils::{
 use protocol_types::meta::generate_serialize_to_fields;
 use std::meta::type_of;
 
-use interfaces::{create_fn_abi_export, register_stub, stub_fn};
+use abi_export::create_fn_abi_export;
+use interfaces::stub_fn;
 
 // Functions can have multiple attributes applied to them, e.g. a single function can have #[public], #[view] and
 // #[internal]. However. the order in which this will be evaluated is unknown, which makes combining them tricky.
@@ -85,7 +88,7 @@ comptime fn create_init_check(f: FunctionDefinition) -> Quoted {
 pub comptime fn private(f: FunctionDefinition) -> Quoted {
     let fn_abi = create_fn_abi_export(f);
     let fn_stub = stub_fn(f);
-    register_stub(f.module(), fn_stub);
+    stub_registry::register(f.module(), fn_stub);
 
     // If a function is further modified as unconstrained, we throw an error
     if f.is_unconstrained() {
@@ -250,7 +253,7 @@ pub comptime fn public(f: FunctionDefinition) -> Quoted {
 comptime fn transform_public(f: FunctionDefinition) -> Quoted {
     let fn_abi = create_fn_abi_export(f);
     let fn_stub = stub_fn(f);
-    register_stub(f.module(), fn_stub);
+    stub_registry::register(f.module(), fn_stub);
 
     // If a function is further modified as unconstrained, we throw an error
     if f.is_unconstrained() {

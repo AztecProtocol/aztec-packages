@@ -5,7 +5,7 @@ pub mod notes;
 pub mod storage;
 pub mod events;
 
-use functions::interfaces::STUBS;
+use functions::stub_registry;
 use notes::{generate_note_export, NOTES};
 use storage::STORAGE_LAYOUT_NAME;
 
@@ -45,7 +45,7 @@ pub comptime fn aztec(m: Module) -> Quoted {
 
 comptime fn generate_contract_interface(m: Module) -> Quoted {
     let module_name = m.name();
-    let contract_stubs = STUBS.get(m);
+    let contract_stubs = stub_registry::get(m);
     let fn_stubs_quote = if contract_stubs.is_some() {
         contract_stubs.unwrap().join(quote {})
     } else {

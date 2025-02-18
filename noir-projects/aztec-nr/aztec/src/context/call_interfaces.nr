@@ -16,16 +16,28 @@ pub trait CallInterface<let N: u32> {
 }
 
 pub struct PrivateCallInterface<let N: u32, T> {
-    pub target_contract: AztecAddress,
-    pub selector: FunctionSelector,
-    pub name: str<N>,
-    pub args_hash: Field,
-    pub args: [Field],
-    pub return_type: T,
-    pub is_static: bool,
+    target_contract: AztecAddress,
+    selector: FunctionSelector,
+    name: str<N>,
+    args_hash: Field,
+    args: [Field],
+    return_type: T,
+    is_static: bool,
 }
 
 impl<let N: u32, T> PrivateCallInterface<N, T> {
+    pub fn new(
+        target_contract: AztecAddress,
+        selector: FunctionSelector,
+        name: str<N>,
+        args: [Field],
+        return_type: T,
+        is_static: bool,
+    ) -> Self {
+        let args_hash = hash_args(args);
+        Self { target_contract, selector, name, args_hash, args, return_type, is_static }
+    }
+
     pub fn call<let M: u32>(self, context: &mut PrivateContext) -> T
     where
         T: Deserialize<M>,
@@ -79,16 +91,27 @@ impl<let N: u32> CallInterface<N> for PrivateVoidCallInterface<N> {
 }
 
 pub struct PrivateVoidCallInterface<let N: u32> {
-    pub target_contract: AztecAddress,
-    pub selector: FunctionSelector,
-    pub name: str<N>,
-    pub args_hash: Field,
-    pub args: [Field],
-    pub return_type: (),
-    pub is_static: bool,
+    target_contract: AztecAddress,
+    selector: FunctionSelector,
+    name: str<N>,
+    args_hash: Field,
+    args: [Field],
+    return_type: (), // Unit type () indicates this interface is for functions that return nothing (void)
+    is_static: bool,
 }
 
 impl<let N: u32> PrivateVoidCallInterface<N> {
+    pub fn new(
+        target_contract: AztecAddress,
+        selector: FunctionSelector,
+        name: str<N>,
+        args: [Field],
+        is_static: bool,
+    ) -> Self {
+        let args_hash = hash_args(args);
+        Self { target_contract, selector, name, args_hash, args, return_type: (), is_static }
+    }
+
     pub fn call(self, context: &mut PrivateContext) {
         execution_cache::store(self.args);
         context
@@ -137,16 +160,27 @@ impl<let N: u32, T> CallInterface<N> for PrivateStaticCallInterface<N, T> {
 }
 
 pub struct PrivateStaticCallInterface<let N: u32, T> {
-    pub target_contract: AztecAddress,
-    pub selector: FunctionSelector,
-    pub name: str<N>,
-    pub args_hash: Field,
-    pub args: [Field],
-    pub return_type: T,
-    pub is_static: bool,
+    target_contract: AztecAddress,
+    selector: FunctionSelector,
+    name: str<N>,
+    args_hash: Field,
+    args: [Field],
+    return_type: T,
+    is_static: bool,
 }
 
 impl<let N: u32, T> PrivateStaticCallInterface<N, T> {
+    pub fn new(
+        target_contract: AztecAddress,
+        selector: FunctionSelector,
+        name: str<N>,
+        args: [Field],
+        return_type: T,
+    ) -> Self {
+        let args_hash = hash_args(args);
+        Self { target_contract, selector, name, args_hash, args, return_type, is_static: true }
+    }
+
     pub fn view<let M: u32>(self, context: &mut PrivateContext) -> T
     where
         T: Deserialize<M>,
@@ -185,16 +219,26 @@ impl<let N: u32> CallInterface<N> for PrivateStaticVoidCallInterface<N> {
 }
 
 pub struct PrivateStaticVoidCallInterface<let N: u32> {
-    pub target_contract: AztecAddress,
-    pub selector: FunctionSelector,
-    pub name: str<N>,
-    pub args_hash: Field,
-    pub args: [Field],
-    pub return_type: (),
-    pub is_static: bool,
+    target_contract: AztecAddress,
+    selector: FunctionSelector,
+    name: str<N>,
+    args_hash: Field,
+    args: [Field],
+    return_type: (), // Unit type () indicates this interface is for functions that return nothing (void)
+    is_static: bool,
 }
 
 impl<let N: u32> PrivateStaticVoidCallInterface<N> {
+    pub fn new(
+        target_contract: AztecAddress,
+        selector: FunctionSelector,
+        name: str<N>,
+        args: [Field],
+    ) -> Self {
+        let args_hash = hash_args(args);
+        Self { target_contract, selector, name, args_hash, args, return_type: (), is_static: true }
+    }
+
     pub fn view(self, context: &mut PrivateContext) {
         execution_cache::store(self.args);
         context
@@ -231,16 +275,35 @@ impl<let N: u32, T> CallInterface<N> for PublicCallInterface<N, T> {
 }
 
 pub struct PublicCallInterface<let N: u32, T> {
-    pub target_contract: AztecAddress,
-    pub selector: FunctionSelector,
-    pub name: str<N>,
-    pub args: [Field],
-    pub gas_opts: GasOpts,
-    pub return_type: T,
-    pub is_static: bool,
+    target_contract: AztecAddress,
+    selector: FunctionSelector,
+    name: str<N>,
+    args: [Field],
+    gas_opts: GasOpts,
+    return_type: T,
+    is_static: bool,
 }
 
 impl<let N: u32, T> PublicCallInterface<N, T> {
+    pub fn new(
+        target_contract: AztecAddress,
+        selector: FunctionSelector,
+        name: str<N>,
+        args: [Field],
+        return_type: T,
+        is_static: bool,
+    ) -> Self {
+        Self {
+            target_contract,
+            selector,
+            name,
+            args,
+            gas_opts: GasOpts::default(),
+            return_type,
+            is_static,
+        }
+    }
+
     pub fn with_gas(self: &mut Self, gas_opts: GasOpts) -> &mut Self {
         self.gas_opts = gas_opts;
         self
@@ -320,16 +383,27 @@ impl<let N: u32> CallInterface<N> for PublicVoidCallInterface<N> {
 }
 
 pub struct PublicVoidCallInterface<let N: u32> {
-    pub target_contract: AztecAddress,
-    pub selector: FunctionSelector,
-    pub name: str<N>,
-    pub args: [Field],
-    pub return_type: (),
-    pub is_static: bool,
-    pub gas_opts: GasOpts,
+    target_contract: AztecAddress,
+    selector: FunctionSelector,
+    name: str<N>,
+    args: [Field],
+    return_type: (), // Unit type () indicates this interface is for functions that return nothing (void)
+    is_static: bool,
+    gas_opts: GasOpts,
 }
 
 impl<let N: u32> PublicVoidCallInterface<N> {
+    pub fn new(
+        target_contract: AztecAddress,
+        selector: FunctionSelector,
+        name: str<N>,
+        args: [Field],
+        is_static: bool,
+        gas_opts: GasOpts,
+    ) -> Self {
+        Self { target_contract, selector, name, args, return_type: (), is_static, gas_opts }
+    }
+
     pub fn with_gas(self: &mut Self, gas_opts: GasOpts) -> &mut Self {
         self.gas_opts = gas_opts;
         self
@@ -403,16 +477,34 @@ impl<let N: u32, T> CallInterface<N> for PublicStaticCallInterface<N, T> {
 }
 
 pub struct PublicStaticCallInterface<let N: u32, T> {
-    pub target_contract: AztecAddress,
-    pub selector: FunctionSelector,
-    pub name: str<N>,
-    pub args: [Field],
-    pub return_type: T,
-    pub is_static: bool,
-    pub gas_opts: GasOpts,
+    target_contract: AztecAddress,
+    selector: FunctionSelector,
+    name: str<N>,
+    args: [Field],
+    return_type: T,
+    is_static: bool,
+    gas_opts: GasOpts,
 }
 
 impl<let N: u32, T> PublicStaticCallInterface<N, T> {
+    pub fn new(
+        target_contract: AztecAddress,
+        selector: FunctionSelector,
+        name: str<N>,
+        args: [Field],
+        return_type: T,
+    ) -> Self {
+        Self {
+            target_contract,
+            selector,
+            name,
+            args,
+            return_type,
+            is_static: true,
+            gas_opts: GasOpts::default(),
+        }
+    }
+
     pub fn with_gas(self: &mut Self, gas_opts: GasOpts) -> &mut Self {
         self.gas_opts = gas_opts;
         self
@@ -467,16 +559,33 @@ impl<let N: u32> CallInterface<N> for PublicStaticVoidCallInterface<N> {
 }
 
 pub struct PublicStaticVoidCallInterface<let N: u32> {
-    pub target_contract: AztecAddress,
-    pub selector: FunctionSelector,
-    pub name: str<N>,
-    pub args: [Field],
-    pub return_type: (),
-    pub is_static: bool,
-    pub gas_opts: GasOpts,
+    target_contract: AztecAddress,
+    selector: FunctionSelector,
+    name: str<N>,
+    args: [Field],
+    return_type: (), // Unit type () indicates this interface is for functions that return nothing (void)
+    is_static: bool,
+    gas_opts: GasOpts,
 }
 
 impl<let N: u32> PublicStaticVoidCallInterface<N> {
+    pub fn new(
+        target_contract: AztecAddress,
+        selector: FunctionSelector,
+        name: str<N>,
+        args: [Field],
+    ) -> Self {
+        Self {
+            target_contract,
+            selector,
+            name,
+            args,
+            return_type: (),
+            is_static: true,
+            gas_opts: GasOpts::default(),
+        }
+    }
+
     pub fn with_gas(self: &mut Self, gas_opts: GasOpts) -> &mut Self {
         self.gas_opts = gas_opts;
         self
