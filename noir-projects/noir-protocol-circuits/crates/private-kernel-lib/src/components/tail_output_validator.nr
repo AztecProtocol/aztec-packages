@@ -26,7 +26,7 @@ impl TailOutputValidator {
         output: PrivateToRollupKernelCircuitPublicInputs,
         previous_kernel: PrivateKernelCircuitPublicInputs,
     ) -> Self {
-        /// Safety: the below hints are constrained by calling validate(). See private_kernel_tail for use.
+        // Safety: the below hints are constrained by calling validate(). See private_kernel_tail for use.
         let hints = unsafe { generate_tail_output_hints(previous_kernel) };
         TailOutputValidator::new_with_hints(output, previous_kernel, hints)
     }

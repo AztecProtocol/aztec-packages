@@ -38,7 +38,7 @@ impl PrivateKernelTailCircuitPrivateInputs {
             self.previous_kernel.verify();
         }
         // Generate output.
-        /// Safety: The output is validated below by TailOutputValidator.
+        // Safety: The output is validated below by TailOutputValidator.
         let output = unsafe { self.generate_output() };
 
         // Validate inputs.

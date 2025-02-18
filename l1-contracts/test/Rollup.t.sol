@@ -281,7 +281,6 @@ contract RollupTest is RollupBase {
 
   function testPruneDuringPropose() public setUpFor("mixed_block_1") {
     _proposeBlock("mixed_block_1", 1);
-    assertEq(rollup.getEpochToProve(), 0, "Invalid epoch to prove");
 
     // the same block is proposed, with the diff in slot number.
     _proposeBlock("mixed_block_1", rollup.getProofSubmissionWindow() + 1);

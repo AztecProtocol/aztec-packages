@@ -204,7 +204,7 @@ fn get_tx_effects_hash_input(
     let public_logs = tx_effect.public_logs;
     let contract_class_logs = tx_effect.contract_class_logs;
 
-    /// Safety: This constructs the array of effects and is constrained below.
+    // Safety: This constructs the array of effects and is constrained below.
     let mut tx_effects_hash_input = unsafe {
         get_tx_effects_hash_input_helper(
             tx_effect.tx_hash,

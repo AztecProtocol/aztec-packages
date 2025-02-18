@@ -67,6 +67,9 @@ struct RollupStore {
   IVerifier epochProofVerifier;
   mapping(address => uint256) sequencerRewards;
   mapping(Epoch => EpochRewards) epochRewards;
+  // @todo Below can be optimised with a bitmap as we can benefit from provers likely proving for epochs close
+  // to one another.
+  mapping(address prover => mapping(Epoch epoch => bool claimed)) proverClaimed;
   EthValue provingCostPerMana;
 }
 
@@ -96,6 +99,11 @@ interface IRollupCore {
   event L2ProofVerified(uint256 indexed blockNumber, bytes32 indexed proverId);
   event PrunedPending(uint256 provenBlockNumber, uint256 pendingBlockNumber);
 
+  function claimSequencerRewards(address _recipient) external returns (uint256);
+  function claimProverRewards(address _recipient, Epoch[] memory _epochs)
+    external
+    returns (uint256);
+
   function prune() external;
   function updateL1GasFeeOracle() external;
 
@@ -123,7 +131,6 @@ interface IRollupCore {
 
   function canPrune() external view returns (bool);
   function canPruneAtTime(Timestamp _ts) external view returns (bool);
-  function getEpochToProve() external view returns (Epoch);
 
   function getEpochForBlock(uint256 _blockNumber) external view returns (Epoch);
 }
