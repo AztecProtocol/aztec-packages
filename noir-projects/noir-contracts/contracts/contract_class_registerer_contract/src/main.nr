@@ -224,9 +224,9 @@ pub contract ContractClassRegisterer {
         // TODO(MW): use chunked poseidon if cheaper? Use variable poseidon with length of non-0 fields?
         let log_hash =
             std::hash::poseidon2::Poseidon2::hash(log_to_emit, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS);
-        /// Safety: TODO(MW): constraining below length in the base rollup. Is this good/safe?
+        // Safety: TODO(MW): constraining below length in the base rollup. Is this good/safe?
         let length = unsafe { find_index_hint_from_end(log_to_emit, |elem| !is_empty(elem)) };
-        /// Safety: the below only exists to broadcast the raw log, so we can provide it to the base rollup later to be constrained.
+        // Safety: the below only exists to broadcast the raw log, so we can provide it to the base rollup later to be constrained.
         unsafe {
             emit_contract_class_unencrypted_log_private(contract_address, log_to_emit, counter);
         }
