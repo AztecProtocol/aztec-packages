@@ -1,7 +1,7 @@
 import { Fr, computeSecretHash, fileURLToPath } from '@aztec/aztec.js';
 import { LOCALHOST } from '@aztec/cli/cli-utils';
 import { type LogFn, createConsoleLogger, createLogger } from '@aztec/foundation/log';
-import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
+import { createStore } from '@aztec/kv-store/lmdb-v2';
 
 import { Argument, Command, Option } from 'commander';
 import { mkdirSync, readFileSync } from 'fs';
@@ -106,7 +106,12 @@ async function main() {
           ...(proverEnabled && { proverEnabled, bbBinaryPath, bbWorkingDirectory }), // only override if we're profiling
         });
       }
-      db.init(AztecLmdbStore.open(dataDir));
+      db.init(
+        await createStore('wallet', {
+          dataDirectory: dataDir as string,
+          dataStoreMapSizeKB: 10 * 1_024 * 1_024,
+        }),
+      );
     });
 
   injectCommands(program, userLog, debugLogger, db, pxeWrapper);
