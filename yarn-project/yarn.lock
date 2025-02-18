@@ -1143,6 +1143,7 @@ __metadata:
     "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
+    "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/simulator": "workspace:^"

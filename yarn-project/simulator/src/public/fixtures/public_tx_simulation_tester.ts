@@ -3,22 +3,19 @@ import { CallContext, FunctionSelector, GasFees, GlobalVariables, PUBLIC_DISPATC
 import { type ContractArtifact, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { TestDateProvider } from '@aztec/foundation/timer';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
-import { getTelemetryClient } from '@aztec/telemetry-client';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import { BaseAvmSimulationTester } from '../../avm/fixtures/base_avm_simulation_tester.js';
 import { getContractFunctionArtifact, getFunctionSelector } from '../../avm/fixtures/index.js';
 import { SimpleContractDataSource } from '../../avm/fixtures/simple_contract_data_source.js';
 import { WorldStateDB } from '../public_db_sources.js';
-import { PublicProcessor } from '../public_processor.js';
 import { type PublicTxResult, PublicTxSimulator } from '../public_tx_simulator.js';
 import { createTxForPublicCalls } from './index.js';
 
 const TIMESTAMP = new Fr(99833);
 const DEFAULT_GAS_FEES = new GasFees(2, 3);
-const DEFAULT_BLOCK_NUMBER = 42;
+const DEFAULT_BLOCK_NUMBER = new Fr(42);
 
 export type TestEnqueuedCall = {
   address: AztecAddress;
@@ -59,11 +56,6 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     /* need some unique first nullifier for note-nonce computations */
     firstNullifier = new Fr(420000 + this.txCount++),
   ): Promise<Tx> {
-    const globals = GlobalVariables.empty();
-    globals.timestamp = TIMESTAMP;
-    globals.gasFees = DEFAULT_GAS_FEES;
-    globals.blockNumber = new Fr(DEFAULT_BLOCK_NUMBER);
-
     const setupExecutionRequests: PublicExecutionRequest[] = [];
     for (let i = 0; i < setupCalls.length; i++) {
       const address = setupCalls[i].address;
@@ -165,34 +157,8 @@ async function executionRequestForCall(
 
 function defaultGlobals() {
   const globals = GlobalVariables.empty();
-  // apply some nonzero default gas fees
-  globals.gasFees = new GasFees(2, 3);
+  globals.timestamp = TIMESTAMP;
+  globals.gasFees = DEFAULT_GAS_FEES; // apply some nonzero default gas fees
+  globals.blockNumber = DEFAULT_BLOCK_NUMBER;
   return globals;
-}
-
-export class PublicProcessorTester extends PublicTxSimulationTester {
-  constructor(
-    processor: PublicProcessor,
-    worldStateDB: WorldStateDB,
-    contractDataSource: SimpleContractDataSource,
-    merkleTrees: MerkleTreeWriteOperations,
-  ) {
-    super(worldStateDB, contractDataSource, merkleTrees);
-  }
-
-  public static override async create(globals = defaultGlobals()): Promise<PublicProcessorTester> {
-    const contractDataSource = new SimpleContractDataSource();
-    const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-    const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
-    const simulator = new PublicTxSimulator(merkleTrees, worldStateDB, globals, /*doMerkleOperations=*/ true);
-    const processor = new PublicProcessor(
-      merkleTrees,
-      globals,
-      worldStateDB,
-      simulator,
-      new TestDateProvider(),
-      getTelemetryClient(),
-    );
-    return new PublicProcessorTester(processor, worldStateDB, contractDataSource, merkleTrees);
-  }
 }
