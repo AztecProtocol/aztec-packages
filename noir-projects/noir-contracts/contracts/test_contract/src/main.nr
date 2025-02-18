@@ -33,7 +33,8 @@ pub contract Test {
     use dep::aztec::{
         deploy::deploy_contract as aztec_deploy_contract,
         discovery::private_logs::do_process_log,
-        hash::{ArgsHasher, pedersen_hash},
+        hash::{ArgsHasher, compute_secret_hash, pedersen_hash},
+        history::note_inclusion::ProveNoteInclusion,
         macros::{events::event, functions::{internal, private, public}, storage::storage},
         note::{
             lifecycle::{create_note, destroy_note_unsafe},
@@ -119,6 +120,7 @@ pub contract Test {
     #[internal]
     fn dummy_public_call() {}
 
+    // docs:start:create_note
     #[private]
     fn call_create_note(
         value: Field,
@@ -138,6 +140,7 @@ pub contract Test {
             sender,
         ));
     }
+    // docs:end:create_note
 
     #[private]
     fn call_get_notes(storage_slot: Field, active_or_nullified: bool) -> Field {
@@ -151,8 +154,10 @@ pub contract Test {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
+        // docs:start:get_note_from_pxe
         let (retrieved_notes, _): (BoundedVec<RetrievedNote<ValueNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
             get_notes(&mut context, storage_slot, options);
+        // docs:end:get_note_from_pxe
 
         retrieved_notes.get(0).note.value
     }
@@ -224,7 +229,22 @@ pub contract Test {
         let retrieved_note = retrieved_notes.get(0);
         let note_hash = note_hashes.get(0);
 
+        // docs:start:nullify_note
         destroy_note_unsafe(&mut context, retrieved_note, note_hash);
+        // docs:end:nullify_note
+    }
+
+    #[private]
+    fn test_note_inclusion(owner: AztecAddress, storage_slot: Field) {
+        let mut options = NoteGetterOptions::new();
+        options = options.set_limit(1);
+
+        let (retrieved_notes, _): (BoundedVec<RetrievedNote<ValueNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
+            get_notes(&mut context, storage_slot, options);
+
+        let header = context.get_block_header();
+
+        header.prove_note_inclusion(retrieved_notes.get(0), storage_slot);
     }
 
     #[private]
