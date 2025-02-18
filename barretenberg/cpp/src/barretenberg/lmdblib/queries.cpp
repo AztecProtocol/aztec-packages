@@ -12,6 +12,7 @@ namespace bb::lmdblib::lmdb_queries {
 void put_value(
     Key& key, Value& data, const LMDBDatabase& db, bb::lmdblib::LMDBWriteTransaction& tx, bool duplicatesPermitted)
 {
+    (void)duplicatesPermitted;
     MDB_val dbKey;
     dbKey.mv_size = key.size();
     dbKey.mv_data = (void*)key.data();
@@ -22,7 +23,7 @@ void put_value(
 
     // The database has been configured to allow duplicate keys, but we don't permit duplicate key/value pairs
     // If we create a duplicate it will not insert it
-    unsigned int flags = duplicatesPermitted ? MDB_NODUPDATA : 0U;
+    unsigned int flags = 0U;
     call_lmdb_func("mdb_put", mdb_put, tx.underlying(), db.underlying(), &dbKey, &dbVal, flags);
 }
 
