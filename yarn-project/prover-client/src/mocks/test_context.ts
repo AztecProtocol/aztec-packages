@@ -26,6 +26,7 @@ import {
   WASMSimulatorWithBlobs,
   WorldStateDB,
 } from '@aztec/simulator/server';
+import type { MerkleTreeAdminDatabase } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import { promises as fs } from 'fs';
@@ -43,7 +44,7 @@ export class TestContext {
 
   constructor(
     public publicTxSimulator: PublicTxSimulator,
-    public worldState: NativeWorldStateService,
+    public worldState: MerkleTreeAdminDatabase,
     public publicProcessor: PublicProcessor,
     public simulationProvider: SimulationProvider,
     public globalVariables: GlobalVariables,
@@ -88,9 +89,6 @@ export class TestContext {
     );
     const publicDb = await ws.fork();
 
-    logger.error(
-      `Starting at nullifier root ${new Fr((await publicDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).root)}`,
-    );
     const contractDataSource = new SimpleContractDataSource();
     const worldStateDB = new WorldStateDB(publicDb, contractDataSource);
 
