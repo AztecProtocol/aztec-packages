@@ -59,7 +59,7 @@ function release {
 }
 
 case "$cmd" in
-  ""|"full")
+  ""|"full"|"fast")
     build_dind_image
     ;;
   test_cmds|test|release)
