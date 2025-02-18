@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739911787139,
+  "lastUpdate": 1739911886916,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b865cccad1e5ff4b1cc175acd2095f0d2c1d423d",
-          "message": "chore(avm): tracegen interactions assertion (#11972)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this line.",
-          "timestamp": "2025-02-13T12:36:22Z",
-          "tree_id": "9fd1e9f708ac7cd2a3651217ee113485a05ba9e2",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b865cccad1e5ff4b1cc175acd2095f0d2c1d423d"
-        },
-        "date": 1739451144776,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19688.813485,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16847.588804 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21438.397313000023,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19428.84856 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4073.243609000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3820.294695 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 76075.219784,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 76075219000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14408.330074999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14408331000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2347613006,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2347613006 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 133471319,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 133471319 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3296,6 +3230,72 @@ window.BENCHMARK_DATA = {
             "value": 131852914,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 131852914 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "11b4150cdacaf1b18b39ebb43dd31ba215e0c04a",
+          "message": "chore: Use native acvm when available on orchestrator tests (#11560)\n\nLocal tests show a 2x speedup.",
+          "timestamp": "2025-02-18T20:24:58Z",
+          "tree_id": "0052d787c7e6deb2f1a74f3662172f59644f13d2",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/11b4150cdacaf1b18b39ebb43dd31ba215e0c04a"
+        },
+        "date": 1739911878868,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18111.077443999875,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16047.129973000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18589.248985999802,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16304.659044999997 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3882.159546000139,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3045.3229869999996 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54546.214464000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54546214000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9941.647406000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9941652000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1814332830,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1814332830 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 129008483,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 129008483 ns\nthreads: 1"
           }
         ]
       }
