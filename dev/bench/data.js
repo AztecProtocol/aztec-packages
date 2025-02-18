@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739899069619,
+  "lastUpdate": 1739899215605,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "60546371+PhilWindle@users.noreply.github.com",
-            "name": "PhilWindle",
-            "username": "PhilWindle"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6464059047f5e563b4a2207c72ea57d84f1b43cc",
-          "message": "feat: Native world state now supports checkpointing  (#11739)\n\nThis PR introduces checkpointing to the native world state. \r\n\r\nCheckpointing allows for state updates to be reverted to a previous\r\nstate. This can be done to an arbitrary depth.\r\n\r\n---------\r\n\r\nCo-authored-by: Alex Gherghisan <alexg@aztecprotocol.com>",
-          "timestamp": "2025-02-12T19:37:48Z",
-          "tree_id": "3db75519add689febcf204a1e6ae96e5f7e5a2a7",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/6464059047f5e563b4a2207c72ea57d84f1b43cc"
-        },
-        "date": 1739390054847,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19758.472902999983,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16937.815788999997 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21385.89081500001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18897.586096000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4075.264261000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3783.0714459999995 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 75214.594814,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 75214596000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14409.883042,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14409884000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2333407771,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2333407771 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 133140235,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 133140235 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3292,6 +3226,72 @@ window.BENCHMARK_DATA = {
             "value": 132752586,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 132752586 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c067772a24816a8aa6614beb10f2d5026e7b0ab6",
+          "message": "fix: Add missing bootstrap fast aliases (#12078)",
+          "timestamp": "2025-02-18T17:00:34Z",
+          "tree_id": "02a98618c68224a5462af80ed6d7902076a48168",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c067772a24816a8aa6614beb10f2d5026e7b0ab6"
+        },
+        "date": 1739899208139,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18174.726759999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16008.194966000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18571.589092999944,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16058.12971 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3915.408137999975,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3097.3590260000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54548.120922,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54548120000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10676.128055,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10676130000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1831482488,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1831482488 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 130977593,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 130977593 ns\nthreads: 1"
           }
         ]
       }
