@@ -28,8 +28,8 @@ class ECCOpQueue {
 
     static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS = stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
 
-    std::vector<bb::eccvm::VMOperation<Curve::Group>> raw_ops;
-    std::array<std::vector<Fr>, 4> ultra_ops; // ops encoded in the width-4 Ultra format
+    std::vector<bb::eccvm::VMOperation<Curve::Group>> fuzzing_raw_ops;
+    // std::array<std::vector<Fr>, 4> ultra_ops; // ops encoded in the width-4 Ultra format
 
     RawEccOpsTable raw_ops_table;
     UltraEccOpsTable ultra_ops_table;
@@ -129,7 +129,7 @@ class ECCOpQueue {
      * @brief A fuzzing only method for setting raw ops directly
      *
      */
-    void set_raw_ops_for_fuzzing(std::vector<ECCVMOperation>& raw_ops_in) { raw_ops = raw_ops_in; }
+    void set_raw_ops_for_fuzzing(std::vector<ECCVMOperation>& raw_ops_in) { fuzzing_raw_ops = raw_ops_in; }
 
     /**
      * @brief A testing only method that adds an erroneous equality op to the raw ops
@@ -138,7 +138,7 @@ class ECCOpQueue {
      */
     void add_erroneous_equality_op_for_testing()
     {
-        raw_ops.emplace_back(ECCVMOperation{ .eq = true, .reset = true, .base_point = Point::random_element() });
+        append_raw_op(ECCVMOperation{ .eq = true, .reset = true, .base_point = Point::random_element() });
     }
 
     /**
@@ -150,55 +150,8 @@ class ECCOpQueue {
 
     Point get_accumulator() { return accumulator; }
 
-    /**
-     * @brief Set the current and previous size of the ultra_ops transcript
-     *
-     * @details previous_ultra_ops_size = M_{i-1} is needed by the prover to extract the previous aggregate op
-     * queue transcript T_{i-1} from the current one T_i. This method should be called when a circuit is 'finalized'.
-     */
-    void set_size_data()
-    {
-        previous_ultra_ops_size = current_ultra_ops_size;
-        current_ultra_ops_size = ultra_ops[0].size();
-        // initialize_new_subtable();
-    }
-
-    [[nodiscard]] size_t get_previous_size() const { return previous_ultra_ops_size; }
-    [[nodiscard]] size_t get_current_size() const { return current_ultra_ops_size; }
-
     void set_commitment_data(std::array<Point, 4>& commitments) { ultra_ops_commitments = commitments; }
     const auto& get_ultra_ops_commitments() { return ultra_ops_commitments; }
-
-    /**
-     * @brief Get a 'view' of the current ultra ops object
-     *
-     * @return std::vector<std::span<Fr>>
-     */
-    std::vector<std::span<Fr>> get_aggregate_transcript()
-    {
-        std::vector<std::span<Fr>> result;
-        result.reserve(ultra_ops.size());
-        for (auto& entry : ultra_ops) {
-            result.emplace_back(entry);
-        }
-        return result;
-    }
-
-    /**
-     * @brief Get a 'view' of the previous ultra ops object
-     *
-     * @return std::vector<std::span<Fr>>
-     */
-    std::vector<std::span<Fr>> get_previous_aggregate_transcript()
-    {
-        std::vector<std::span<Fr>> result;
-        result.reserve(ultra_ops.size());
-        // Construct T_{i-1} as a view of size M_{i-1} into T_i
-        for (auto& entry : ultra_ops) {
-            result.emplace_back(entry.begin(), previous_ultra_ops_size);
-        }
-        return result;
-    }
 
     /**
      * @brief Write point addition op to queue and natively perform addition
@@ -275,8 +228,7 @@ class ECCOpQueue {
   private:
     void append_raw_op(const ECCVMOperation& op)
     {
-        raw_ops.emplace_back(op);
-        eccvm_row_tracker.update_cached_msms(raw_ops.back());
+        eccvm_row_tracker.update_cached_msms(op);
         raw_ops_table.push(op);
     }
     /**
@@ -324,30 +276,9 @@ class ECCOpQueue {
             ultra_op.z_2 = z_2.to_montgomery_form();
         }
 
-        append_to_ultra_ops(ultra_op);
-
         ultra_ops_table.push(ultra_op);
 
         return ultra_op;
-    }
-
-    /**
-     * @brief Populate two rows of the ultra ops,representing a complete ECC operation
-     * @note Only the first 'op' field is utilized so the second is explicitly set to 0
-     *
-     * @param tuple
-     */
-    void append_to_ultra_ops(UltraOp tuple)
-    {
-        ultra_ops[0].emplace_back(tuple.op);
-        ultra_ops[1].emplace_back(tuple.x_lo);
-        ultra_ops[2].emplace_back(tuple.x_hi);
-        ultra_ops[3].emplace_back(tuple.y_lo);
-
-        ultra_ops[0].emplace_back(0);
-        ultra_ops[1].emplace_back(tuple.y_hi);
-        ultra_ops[2].emplace_back(tuple.z_1);
-        ultra_ops[3].emplace_back(tuple.z_2);
     }
 };
 

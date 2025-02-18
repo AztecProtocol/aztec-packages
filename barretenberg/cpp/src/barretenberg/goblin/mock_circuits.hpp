@@ -139,7 +139,8 @@ class GoblinMockCircuits {
      * @param op_queue
      */
     static void perform_op_queue_interactions_for_mock_first_circuit(
-        std::shared_ptr<bb::ECCOpQueue>& op_queue, std::shared_ptr<CommitmentKey> commitment_key = nullptr)
+        std::shared_ptr<bb::ECCOpQueue>& op_queue,
+        [[maybe_unused]] std::shared_ptr<CommitmentKey> commitment_key = nullptr)
     {
         PROFILE_THIS();
 
@@ -148,22 +149,21 @@ class GoblinMockCircuits {
         // Add some goblinized ecc ops
         MockCircuits::construct_goblin_ecc_op_circuit(builder);
 
-        op_queue->set_size_data();
-
         // Manually compute the op queue transcript commitments (which would normally be done by the merge prover)
 #ifndef __wasm__
         // TODO(Adam): This is crashing wasm-in-browser. It doesn't make sense to call this in browser...
         bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
 #endif
-        auto bn254_commitment_key =
-            commitment_key ? commitment_key : std::make_shared<CommitmentKey>(op_queue->get_current_size());
-        std::array<Point, Flavor::NUM_WIRES> op_queue_commitments;
-        size_t idx = 0;
-        for (auto& entry : op_queue->get_aggregate_transcript()) {
-            op_queue_commitments[idx++] = bn254_commitment_key->commit({ 0, entry });
-        }
-        // Store the commitment data for use by the prover of the next circuit
-        op_queue->set_commitment_data(op_queue_commitments);
+        // WORKTODO: may want to reinstate something analogous to this in the future
+        // auto bn254_commitment_key =
+        //     commitment_key ? commitment_key : std::make_shared<CommitmentKey>(op_queue->get_ultra_ops_table_size());
+        // std::array<Point, Flavor::NUM_WIRES> op_queue_commitments;
+        // size_t idx = 0;
+        // for (auto& entry : op_queue->get_aggregate_transcript()) {
+        //     op_queue_commitments[idx++] = bn254_commitment_key->commit({ 0, entry });
+        // }
+        // // Store the commitment data for use by the prover of the next circuit
+        // op_queue->set_commitment_data(op_queue_commitments);
     }
 
     /**

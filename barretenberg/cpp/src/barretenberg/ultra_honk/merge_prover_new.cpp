@@ -15,9 +15,8 @@ MergeProverNew_<Flavor>::MergeProverNew_(const std::shared_ptr<ECCOpQueue>& op_q
     : op_queue(op_queue)
 {
     // Update internal size data in the op queue that allows for extraction of e.g. previous aggregate transcript
-    op_queue->set_size_data();
     pcs_commitment_key =
-        commitment_key ? commitment_key : std::make_shared<CommitmentKey>(op_queue->get_current_size());
+        commitment_key ? commitment_key : std::make_shared<CommitmentKey>(op_queue->get_ultra_ops_table_size());
 }
 
 /**

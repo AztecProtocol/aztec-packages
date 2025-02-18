@@ -8,9 +8,7 @@
 #include "barretenberg/plonk_honk_shared/relation_checker.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
-#include "barretenberg/ultra_honk/merge_prover.hpp"
 #include "barretenberg/ultra_honk/merge_prover_new.hpp"
-#include "barretenberg/ultra_honk/merge_verifier.hpp"
 #include "barretenberg/ultra_honk/merge_verifier_new.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -302,7 +300,6 @@ TYPED_TEST(MegaHonkTests, NewMergePolyconstruction)
     GoblinMockCircuits::construct_simple_circuit(builder);
 
     const size_t expected_table_size = op_queue->get_ultra_ops_table_size();
-    // op_queue->set_size_data();
 
     // EXPECT_EQ(op_queue->get_current_size(), expected_table_size);
 
@@ -401,16 +398,16 @@ TYPED_TEST(MegaHonkTests, MultipleCircuitsHonkAndMerge)
         EXPECT_TRUE(merge_verified);
     }
 
-    // Compute the commitments to the aggregate op queue directly and check that they match those that were computed
-    // iteratively during transcript aggregation by the provers and stored in the op queue.
-    size_t aggregate_op_queue_size = op_queue->get_current_size();
-    auto ultra_ops = op_queue->get_aggregate_transcript();
-    auto commitment_key = std::make_shared<typename Flavor::CommitmentKey>(aggregate_op_queue_size);
-    size_t idx = 0;
-    for (const auto& result : op_queue->get_ultra_ops_commitments()) {
-        auto expected = commitment_key->commit({ /* start index */ 0, ultra_ops[idx++] });
-        EXPECT_EQ(result, expected);
-    }
+    // // Compute the commitments to the aggregate op queue directly and check that they match those that were computed
+    // // iteratively during transcript aggregation by the provers and stored in the op queue.
+    // size_t aggregate_op_queue_size = op_queue->get_current_size();
+    // auto ultra_ops = op_queue->get_aggregate_transcript();
+    // auto commitment_key = std::make_shared<typename Flavor::CommitmentKey>(aggregate_op_queue_size);
+    // size_t idx = 0;
+    // for (const auto& result : op_queue->get_ultra_ops_commitments()) {
+    //     auto expected = commitment_key->commit({ /* start index */ 0, ultra_ops[idx++] });
+    //     EXPECT_EQ(result, expected);
+    // }
 }
 
 /**
