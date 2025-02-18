@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739911886916,
+  "lastUpdate": 1739911929042,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "95b581de29df183c7ee443c990fef11a3f9a301e",
-          "message": "feat(avm): relation microbenchmarks (#11974)\n\nRelation accumulation microbenchmarks\n\n```\n----------------------------------------------------------------------\nBenchmark                            Time             CPU   Iterations\n----------------------------------------------------------------------\nalu_acc_random                   0.126 us        0.126 us      5542448\nbc_decomposition_acc_random       4.32 us         4.32 us       161914\nbc_retrieval_acc_random          0.024 us        0.024 us     28942571\nbitwise_acc_random                1.42 us         1.42 us       493754\necc_acc_random                    2.61 us         2.61 us       269299\nexecution_acc_random             0.527 us        0.527 us      1309267\ninstr_fetching_acc_random        0.024 us        0.024 us     29060773\nrange_check_acc_random            2.77 us         2.77 us       257953\nsha256_acc_random                 6.33 us         6.33 us       111173\n```",
-          "timestamp": "2025-02-13T12:38:32Z",
-          "tree_id": "a4d9ce3d63bf12aa0639719c11ea2f8763e085ff",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/95b581de29df183c7ee443c990fef11a3f9a301e"
-        },
-        "date": 1739451307833,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19715.376171000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16917.24779 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21560.375647,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19052.936192 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4092.942883000006,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3804.6566430000003 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 85588.19262599999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 85588193000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14448.867079000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14448866000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2356653593,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2356653593 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 136974539,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 136974539 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3296,6 +3230,72 @@ window.BENCHMARK_DATA = {
             "value": 129008483,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 129008483 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f1ba0153115ed913a036d1509c861c0a96706715",
+          "message": "fix: aws_handle_evict recovery & termination (#12086)\n\nThis should gracefully handle both recovering from spot evict and\nterminating in time.",
+          "timestamp": "2025-02-18T20:26:55Z",
+          "tree_id": "26f316b1a3b2b95a7e11f1c4c0217f1191a506e9",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f1ba0153115ed913a036d1509c861c0a96706715"
+        },
+        "date": 1739911921281,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18042.46969299993,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15778.143476 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18510.60002100007,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16299.096609999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3871.3426449999133,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3053.968264 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55066.977741999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55066979000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9816.247989000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9816257000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1820944555,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1820944555 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 127686960,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 127686960 ns\nthreads: 1"
           }
         ]
       }
