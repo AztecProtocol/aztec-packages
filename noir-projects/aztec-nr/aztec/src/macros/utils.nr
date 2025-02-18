@@ -256,9 +256,9 @@ pub(crate) comptime fn is_note(typ: Type) -> bool {
     })
 }
 
-/// We get the typed expressions of a trait method implementation rather than directly inlining them in a quote with
-/// `$typ::target_method()`. Direct inlining would result in missing import warnings in the generated code
-/// (specifically, warnings that `target_trait` is implemented but not in scope).
+/// Returns the typed expression of a trait method implementation. This is preferred over directly inlining with
+/// `$typ::target_method()` in a quote, as direct inlining would result in missing import warnings in the generated
+/// code (specifically, warnings that the trait implementation is not in scope).
 pub(crate) comptime fn get_trait_impl_method(
     typ: Type,
     target_trait: Quoted,
