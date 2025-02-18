@@ -2,7 +2,7 @@
 # Create intermediate state in a directory. Uses a temp dir to ensure parallel safe and cleans up on exit.
 set -eux
 
-INFLAG=${INPUT_TYPE:---input_type compiletime_stack}
+INFLAG=${INPUT_TYPE:---input_type single_circuit}
 
 if [ "$INFLAG" = "--input_type runtime_stack" ]; then
   BFLAG=target/acir.msgpack

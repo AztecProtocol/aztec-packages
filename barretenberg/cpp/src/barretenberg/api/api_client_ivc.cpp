@@ -90,9 +90,9 @@ template <typename T> T unpack_from_file(const std::filesystem::path& filename)
  * @param bytecode_path
  * @param witness_path
  */
-void write_vk_for_ivc(const std::string& output_data_type,
-                      const std::string& bytecode_path,
-                      const std::string& output_path)
+void write_vk_for_single_circuit(const std::string& output_data_type,
+                                 const std::string& bytecode_path,
+                                 const std::string& output_path)
 {
     using Builder = ClientIVC::ClientCircuit;
     using Prover = ClientIVC::MegaProver;
@@ -136,7 +136,9 @@ std::vector<acir_format::AcirProgram> _build_folding_stack(const std::string& in
     std::vector<AcirProgram> folding_stack;
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1162): Efficiently unify ACIR stack parsing
-    if (input_type == "compiletime_stack") {
+    // really a single circuit IS a compiletime stack but we want the input type distinction since it is meaningful for
+    // vk writing (maybe this is not ideal?)
+    if (input_type == "single_circuit" || input_type == "compiletime_stack") {
         auto program_stack = acir_format::get_acir_program_stack(bytecode_path, witness_path, /*honk_recursion=*/0);
         // Accumulate the entire program stack into the IVC
         while (!program_stack.empty()) {
@@ -270,7 +272,13 @@ void ClientIVCAPI::write_vk(const Flags& flags,
                             const std::filesystem::path& bytecode_path,
                             const std::filesystem::path& output_path)
 {
-    write_vk_for_ivc(flags.output_data_type, bytecode_path, output_path);
+    if (flags.input_type == "single_circuit") {
+        write_vk_for_single_circuit(flags.output_data_type, bytecode_path, output_path);
+    } else if (flags.input_type == "runtime_stack") {
+        throw_or_abort("implementing this");
+    } else {
+        throw_or_abort("Cathing compiletime_stack's that should be updated");
+    }
 }
 
 bool ClientIVCAPI::check([[maybe_unused]] const Flags& flags,
