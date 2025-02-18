@@ -140,6 +140,9 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
             // in the quote with `$typ::get_note_type_id()` and `$typ::unpack()`. Direct inlining would result
             // in missing import warnings in the generated code (specifically, warnings that NoteInterface and
             // Packable<N> are implemented but not in scope).
+            // Note: noir-fmt:ignore is used to avoid the following formatter bug:
+            // https://github.com/noir-lang/noir/issues/7407
+            // noir-fmt:ignore
             let get_note_type_id = typ.get_trait_impl(NOTE_INTERFACE).unwrap().methods().filter(
                 |m| m.name() == quote { get_note_type_id },
             )[0]
