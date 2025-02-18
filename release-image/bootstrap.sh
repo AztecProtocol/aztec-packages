@@ -4,7 +4,7 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 
 case "$cmd" in
-  ""|"full")
+  ""|"fast"|"full")
     echo_header "release-image build"
     cd ..
     denoise "docker build -f release-image/Dockerfile -t aztecprotocol/aztec:$(git rev-parse HEAD) ."
