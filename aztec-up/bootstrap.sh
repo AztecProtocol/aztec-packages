@@ -3,7 +3,8 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
-hash=$(cache_content_hash ^aztec-up/)
+hash=$(hash_str $(cache_content_hash ^aztec-up/) $(../yarn-project/bootstrap.sh hash))
+
 
 function build_dind_image {
   echo_header "aztec-up build test image"
