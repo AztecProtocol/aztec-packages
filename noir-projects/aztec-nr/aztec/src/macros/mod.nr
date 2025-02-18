@@ -5,17 +5,15 @@ pub mod notes;
 pub mod storage;
 pub mod events;
 
-use functions::interfaces::STUBS;
+use functions::{stub_registry, utils::transform_unconstrained};
 use notes::{generate_note_export, NOTES};
 use storage::STORAGE_LAYOUT_NAME;
 
 use dispatch::generate_public_dispatch;
-use functions::transform_unconstrained;
 use utils::{get_trait_impl_method, module_has_storage};
 
 /// Marks a contract as an Aztec contract, generating the interfaces for its functions and notes, as well as injecting
 /// the `compute_note_hash_and_optionally_a_nullifier` function PXE requires in order to validate notes.
-///
 /// Note: This is a module annotation, so the returned quote gets injected inside the module (contract) itself.
 pub comptime fn aztec(m: Module) -> Quoted {
     let interface = generate_contract_interface(m);
@@ -45,7 +43,7 @@ pub comptime fn aztec(m: Module) -> Quoted {
 
 comptime fn generate_contract_interface(m: Module) -> Quoted {
     let module_name = m.name();
-    let contract_stubs = STUBS.get(m);
+    let contract_stubs = stub_registry::get(m);
     let fn_stubs_quote = if contract_stubs.is_some() {
         contract_stubs.unwrap().join(quote {})
     } else {

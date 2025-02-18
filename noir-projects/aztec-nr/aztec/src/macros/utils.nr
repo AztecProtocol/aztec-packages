@@ -148,7 +148,7 @@ comptime fn signature_of_type(typ: Type) -> Quoted {
     }
 }
 
-trait AsStrQuote {
+pub(crate) trait AsStrQuote {
     fn as_str_quote(self) -> (Self, u32);
 }
 
