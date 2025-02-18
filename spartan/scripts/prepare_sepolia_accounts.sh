@@ -61,7 +61,11 @@ TX_HASH=$(cast send "$multicall_address" \
   --value "$total_value" \
   --private-key "$FUNDING_PRIVATE_KEY" \
   --rpc-url "$ETHEREUM_HOST" \
-  --legacy --json --gas-price "$gas_price")
+  --json --gas-price "$gas_price")
 
 echo >&2 "Sent ${wei_amount} wei to ${num_accounts} addresses in tx $TX_HASH"
+
+# Remove temp file
+rm output.json
+
 echo "$MNEMONIC"

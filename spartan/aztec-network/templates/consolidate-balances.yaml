@@ -27,19 +27,17 @@ spec:
           configMap:
             name: {{ include "aztec-network.fullname" . }}-scripts
       containers:
-      - name: consolidate-balances
-        command: ["/bin/bash"]
-        args:
-        - /bin/bash
-        - -c
-        - |
-          set -e
-          cp /scripts/consolidate_sepolia_balances.sh /tmp/consolidate_sepolia_balances.sh
-          chmod +x /tmp/consolidate_sepolia_balances.sh
-          /tmp/consolidate_sepolia_balances.sh "{{ .Values.aztec.l1DeploymentMnemonic }}" {{ add .Values.validator.replicas .Values.proverNode.replicas }}
-        env:
-        - name: ETHEREUM_HOST
-          value: "{{ .Values.ethereum.execution.externalHost }}"
-      restartPolicy: Never
-  backoffLimit: 1
+        - name: consolidate-balances
+          {{- include "aztec-network.image" . | nindent 10 }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              cp /scripts/consolidate_sepolia_balances.sh /tmp/consolidate_sepolia_balances.sh
+              chmod +x /tmp/consolidate_sepolia_balances.sh
+              /tmp/consolidate_sepolia_balances.sh "{{ .Values.aztec.l1DeploymentMnemonic }}" {{ add .Values.validator.replicas .Values.proverNode.replicas }}
+          env:
+            - name: ETHEREUM_HOST
+              value: "{{ .Values.ethereum.execution.externalHost }}"
 {{ end }}

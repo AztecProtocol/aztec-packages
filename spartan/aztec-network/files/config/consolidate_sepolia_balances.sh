@@ -32,7 +32,7 @@ for i in $(seq 0 $((num_accounts - 1))); do
 
     if [ "$send_amount" -gt "0" ]; then
       echo "Sending $send_amount wei from $address to $funding_address"
-      cast send --private-key "$private_key" --rpc-url "$ETHEREUM_HOST" --legacy "$funding_address" \
+      cast send --private-key "$private_key" --rpc-url "$ETHEREUM_HOST" "$funding_address" \
         --value "$send_amount" --gas-price "$gas_price" --async
     else
       echo "Balance too low to cover gas costs for $address"

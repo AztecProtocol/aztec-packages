@@ -82,6 +82,8 @@ if [ "$sepolia_deployment" != "true" ]; then
 else
   echo "Generating sepolia accounts..."
   L1_ACCOUNTS_MNEMONIC=$(./prepare_sepolia_accounts.sh "$values_file")
+  # write the mnemonic to a file
+  echo "$L1_ACCOUNTS_MNEMONIC" >mnemonic.tmp
 fi
 
 # Install the Helm chart

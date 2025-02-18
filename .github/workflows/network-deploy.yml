@@ -173,7 +173,7 @@ jobs:
         if: ${{ inputs.sepolia_deployment == 'true' }}
         run: |
           REPO=$(git rev-parse --show-toplevel)
-          export MNEMONIC=$(bash $REPO/spartan/scripts/prepare_sepolia_accounts.sh 1117 100 1)
+          export MNEMONIC=$(bash $REPO/spartan/scripts/prepare_sepolia_accounts.sh ${{ env.VALUES_FILE }} 1)
           echo "mnemonic=$MNEMONIC" >> "$GITHUB_OUTPUT"
 
       - name: Setup Terraform
