@@ -51,7 +51,7 @@ impl ContractClassLogData {
     }
 
     pub fn with_log_size_hint(self) -> Self {
-        /// Safety: this just returns a hint and is contrained elsewhere (in validate_log_size_hint(), called by each init and inner kernel)
+        // Safety: this just returns a hint and is contrained elsewhere (in validate_log_size_hint(), called by each init and inner kernel)
         Self {
             log: self.log,
             counter: self.counter,
@@ -320,7 +320,7 @@ pub fn contract_class_log_array_length<let N: u32>(
     array: [Scoped<ContractClassLogData>; N],
 ) -> u32 {
     // We get the length by checking the index of the first empty element.
-    /// Safety: This is safe because we have validated the array (or will shortly after this call)
+    // Safety: This is safe because we have validated the array (or will shortly after this call)
     let length = unsafe { find_index_hint(array, |elem| elem.is_empty()) };
     if length != 0 {
         assert(!array[length - 1].is_empty());
@@ -336,7 +336,7 @@ pub fn contract_class_log_array_merge<let N: u32>(
     array1: [Scoped<ContractClassLogData>; N],
     array2: [Scoped<ContractClassLogData>; N],
 ) -> [Scoped<ContractClassLogData>; N] {
-    /// Safety: we constrain this array below
+    // Safety: we constrain this array below
     let result = unsafe { contract_class_log_array_merge_helper(array1, array2) };
     let left_len = contract_class_log_array_length(array1);
     let mut add_from_left = true;
