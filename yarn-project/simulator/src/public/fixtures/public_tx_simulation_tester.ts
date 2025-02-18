@@ -16,6 +16,10 @@ import { PublicProcessor } from '../public_processor.js';
 import { type PublicTxResult, PublicTxSimulator } from '../public_tx_simulator.js';
 import { createTxForPublicCalls } from './index.js';
 
+const TIMESTAMP = new Fr(99833);
+const DEFAULT_GAS_FEES = new GasFees(2, 3);
+const DEFAULT_BLOCK_NUMBER = 42;
+
 export type TestEnqueuedCall = {
   address: AztecAddress;
   fnName: string;
@@ -51,10 +55,15 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     setupCalls: TestEnqueuedCall[] = [],
     appCalls: TestEnqueuedCall[] = [],
     teardownCall?: TestEnqueuedCall,
-    feePayer: AztecAddress = AztecAddress.zero(),
+    feePayer: AztecAddress = sender,
     /* need some unique first nullifier for note-nonce computations */
     firstNullifier = new Fr(420000 + this.txCount++),
   ): Promise<Tx> {
+    const globals = GlobalVariables.empty();
+    globals.timestamp = TIMESTAMP;
+    globals.gasFees = DEFAULT_GAS_FEES;
+    globals.blockNumber = new Fr(DEFAULT_BLOCK_NUMBER);
+
     const setupExecutionRequests: PublicExecutionRequest[] = [];
     for (let i = 0; i < setupCalls.length; i++) {
       const address = setupCalls[i].address;
@@ -118,6 +127,8 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     globals = defaultGlobals(),
   ): Promise<PublicTxResult> {
     const tx = await this.createTx(sender, setupCalls, appCalls, teardownCall, feePayer, firstNullifier);
+
+    await this.setFeePayerBalance(feePayer);
 
     const simulator = new PublicTxSimulator(this.merkleTrees, this.worldStateDB, globals, /*doMerkleOperations=*/ true);
 

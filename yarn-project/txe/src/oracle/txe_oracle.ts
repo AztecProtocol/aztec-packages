@@ -164,6 +164,7 @@ export class TXE implements TypedOracle {
     this.viewDataOracle = new ViewDataOracle(
       this.contractAddress,
       [] /* authWitnesses */,
+      [] /* capsules */,
       this.simulatorOracle, // note: SimulatorOracle implements DBOracle
       this.node,
       /* log, */
@@ -873,7 +874,7 @@ export class TXE implements TypedOracle {
     if (!instance) {
       return undefined;
     }
-    const artifact = await this.contractDataOracle.getContractArtifact(instance!.contractClassId);
+    const artifact = await this.contractDataOracle.getContractArtifact(instance!.currentContractClassId);
     if (!artifact) {
       return undefined;
     }

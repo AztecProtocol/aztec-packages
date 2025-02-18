@@ -79,7 +79,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     appCalls: TestEnqueuedCall[],
     teardownCall: TestEnqueuedCall | undefined,
     expectRevert: boolean | undefined,
-    feePayer?: AztecAddress,
+    feePayer = sender,
   ) {
     const simRes = await this.simulateTx(sender, setupCalls, appCalls, teardownCall, feePayer);
     expect(simRes.revertCode.isOK()).toBe(expectRevert ? false : true);
@@ -156,7 +156,7 @@ export class AvmProvingTesterV2 extends PublicTxSimulationTester {
     appCalls: TestEnqueuedCall[],
     teardownCall: TestEnqueuedCall | undefined,
     expectRevert: boolean | undefined,
-    feePayer?: AztecAddress,
+    feePayer = sender,
   ) {
     const simRes = await this.simulateTx(sender, setupCalls, appCalls, teardownCall, feePayer);
     expect(simRes.revertCode.isOK()).toBe(expectRevert ? false : true);

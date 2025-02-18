@@ -8,11 +8,11 @@ import {
 import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { type Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 
-import { computeFeePayerBalanceStorageSlot } from '../../server.js';
 import { type SimpleContractDataSource } from './simple_contract_data_source.js';
 
 /**
@@ -29,9 +29,13 @@ import { type SimpleContractDataSource } from './simple_contract_data_source.js'
 export abstract class BaseAvmSimulationTester {
   public logger = createLogger('avm-simulation-tester');
 
-  constructor(public contractDataSource: SimpleContractDataSource, public merkleTrees: MerkleTreeWriteOperations) {}
+  constructor(
+    public contractDataSource: SimpleContractDataSource,
+    public merkleTrees: MerkleTreeWriteOperations,
+    private initialFeePayerBalance = new Fr(10 ** 10),
+  ) {}
 
-  async setFeePayerBalance(feePayer: AztecAddress, balance: Fr) {
+  async setFeePayerBalance(feePayer: AztecAddress, balance = this.initialFeePayerBalance) {
     const feeJuiceAddress = ProtocolContractAddress.FeeJuice;
     const balanceSlot = await computeFeePayerBalanceStorageSlot(feePayer);
     await this.setPublicStorage(feeJuiceAddress, balanceSlot, balance);

@@ -45,7 +45,7 @@ describe('AVM WitGen & Circuit – check circuit - contract class limits', () =>
 
       // include another contract address that reuses a class ID to ensure that we can call it even after the limit is reached
       const instanceSameClassAsFirstContract = await makeContractInstanceFromClassId(
-        instances[0].contractClassId,
+        instances[0].currentContractClassId,
         /*seed=*/ 1000,
       );
       instanceAddresses.push(instanceSameClassAsFirstContract.address);

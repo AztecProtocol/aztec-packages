@@ -4,6 +4,7 @@ use crate::note::{
     note_getter_options::{NoteGetterOptions, NoteStatus, PropertySelector, Select, Sort, SortOrder},
     note_interface::{NoteInterface, NullifiableNote},
     note_viewer_options::NoteViewerOptions,
+    retrieved_note::RetrievedNote,
     utils::compute_note_hash_for_read_request,
 };
 use crate::oracle;
@@ -35,15 +36,6 @@ fn extract_property_value_from_selector<let N: u32>(
         }
     }
     value_field
-}
-
-fn check_note_header<Note, let N: u32>(context: PrivateContext, note: Note)
-where
-    Note: NoteInterface<N>,
-{
-    let header = note.get_header();
-    let contract_address = context.this_address();
-    assert(header.contract_address.eq(contract_address), "Mismatch note header contract address.");
 }
 
 fn check_note_content<let N: u32>(
@@ -84,30 +76,40 @@ fn check_notes_order<let N: u32>(
 pub fn get_note<Note, let N: u32>(
     context: &mut PrivateContext,
     storage_slot: Field,
-) -> (Note, Field)
+) -> (RetrievedNote<Note>, Field)
 where
     Note: NoteInterface<N> + NullifiableNote,
 {
-    /// Safety: Constraining that we got a valid note from the oracle is fairly straightforward: all we need to do
-    /// is check that the metadata is correct, and that the note exists.
-    let note = unsafe { get_note_internal(storage_slot) };
-    check_note_header(*context, note);
+    // Safety: Constraining that we got a valid note from the oracle is fairly straightforward: all we need to do
+    // is check that the metadata is correct, and that the note exists.
+    let retrieved_note = unsafe { get_note_internal::<Note, N>(storage_slot) };
 
-    let note_hash_for_read_request = compute_note_hash_for_read_request(note, storage_slot);
+    // For non-transient notes, the contract address is implicitly checked since the hash returned from
+    // `compute_note_hash_for_read_request(...)` is siloed and kernels verify the siloing during note
+    // read request validation. For transient notes, however, we return an "unsiloed" hash, so we need to check
+    // that the contract address returned from the oracle matches. Since branching in circuits is expensive, we
+    // perform this check on all the note types.
+    assert(
+        retrieved_note.contract_address.eq(context.this_address()),
+        "Note contract address mismatch.",
+    );
+
+    let note_hash_for_read_request =
+        compute_note_hash_for_read_request(retrieved_note, storage_slot);
     context.push_note_hash_read_request(note_hash_for_read_request);
 
-    (note, note_hash_for_read_request)
+    (retrieved_note, note_hash_for_read_request)
 }
 
 pub fn get_notes<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
     context: &mut PrivateContext,
     storage_slot: Field,
     options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>,
-    ) -> (BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>)
+    ) -> (BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>)
 where
     Note: NoteInterface<N> + NullifiableNote + Eq,
 {
-    /// Safety: The notes are constrained below.
+    // Safety: The notes are constrained below.
     let opt_notes = unsafe { get_notes_internal(storage_slot, options) };
 
     // We apply the constraints in a separate function instead of inlining them here to make it easier to test that
@@ -126,9 +128,9 @@ unconstrained fn apply_preprocessor<Note, PREPROCESSOR_ARGS>(
 fn constrain_get_notes_internal<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
     context: &mut PrivateContext,
     storage_slot: Field,
-    opt_notes: [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    opt_notes: [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>,
-    ) -> (BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>)
+    ) -> (BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>)
 where
     Note: NoteInterface<N> + NullifiableNote + Eq,
 {
@@ -152,16 +154,25 @@ where
     let mut prev_fields = [0; N];
     for i in 0..options.limit {
         if i < notes.len() {
-            let note = notes.get_unchecked(i);
-            let fields = note.pack_content();
-            check_note_header(*context, note);
+            let retrieved_note = notes.get_unchecked(i);
+
+            // TODO: For non-transient notes, the contract address appears to be implicitly checked since we return
+            // a siloed note hash from the `compute_note_hash_for_read_request(...)` function. Investigate whether this
+            // check is needed for transient notes and if not, remove it.
+            assert(
+                retrieved_note.contract_address.eq(context.this_address()),
+                "Note contract address mismatch.",
+            );
+
+            let fields = retrieved_note.note.pack_content();
             check_note_content(fields, options.selects);
             if i != 0 {
                 check_notes_order(prev_fields, fields, options.sorts);
             }
             prev_fields = fields;
 
-            let note_hash_for_read_request = compute_note_hash_for_read_request(note, storage_slot);
+            let note_hash_for_read_request =
+                compute_note_hash_for_read_request(retrieved_note, storage_slot);
             context.push_note_hash_read_request(note_hash_for_read_request);
             note_hashes.push(note_hash_for_read_request);
         };
@@ -170,7 +181,7 @@ where
     (notes, note_hashes)
 }
 
-unconstrained fn get_note_internal<Note, let N: u32>(storage_slot: Field) -> Note
+unconstrained fn get_note_internal<Note, let N: u32>(storage_slot: Field) -> RetrievedNote<Note>
 where
     Note: NoteInterface<N>,
 {
@@ -202,7 +213,7 @@ where
 unconstrained fn get_notes_internal<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
     storage_slot: Field,
     options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>,
-) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]
+) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]
 where
     Note: NoteInterface<N>,
 {
@@ -272,7 +283,8 @@ where
     let mut notes = BoundedVec::new();
     for i in 0..notes_array.len() {
         if notes_array[i].is_some() {
-            notes.push(notes_array[i].unwrap_unchecked());
+            // We're not constraining note existence so we just drop the metadata
+            notes.push(notes_array[i].unwrap_unchecked().note);
         }
     }
 

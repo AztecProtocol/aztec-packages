@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <ranges>
 #include <stdexcept>
+#include <vector>
 
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -45,8 +46,9 @@ void BytecodeTraceBuilder::process_decomposition(
                                                                         : remaining - DECOMPOSE_WINDOW_SIZE;
             const bool is_last = remaining == 1;
 
+            // We set the decomposition in bytes, and other values.
             trace.set(
-                row,
+                row + i,
                 { {
                     { C::bc_decomposition_sel, 1 },
                     { C::bc_decomposition_id, id },
@@ -133,8 +135,31 @@ void BytecodeTraceBuilder::process_decomposition(
                     { C::bc_decomposition_sel_pc_plus_34, bytecode_exists_at(i + 34) },
                     { C::bc_decomposition_sel_pc_plus_35, bytecode_exists_at(i + 35) },
                 } });
-            row++;
         }
+
+        // We set the packed field every 31 bytes.
+        auto bytecode_field_at = [&](size_t i) -> FF {
+            // We need to read uint256_ts because reading FFs messes up the order of the bytes.
+            uint256_t as_int = 0;
+            if (bytecode_len - i >= 32) {
+                as_int = from_buffer<uint256_t>(bytecode, i);
+            } else {
+                std::vector<uint8_t> tail(bytecode.begin() + static_cast<ssize_t>(i), bytecode.end());
+                tail.resize(32, 0);
+                as_int = from_buffer<uint256_t>(tail, 0);
+            }
+            return as_int >> 8;
+        };
+        for (uint32_t i = 0; i < bytecode_len; i += 31) {
+            trace.set(row + i,
+                      { {
+                          { C::bc_decomposition_sel_packed, 1 },
+                          { C::bc_decomposition_packed_field, bytecode_field_at(i) },
+                      } });
+        }
+
+        // We advance to the next bytecode.
+        row += bytecode_len;
     }
 }
 

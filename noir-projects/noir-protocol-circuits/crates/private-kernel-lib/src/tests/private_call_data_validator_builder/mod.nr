@@ -32,7 +32,9 @@ impl PrivateCallDataValidatorBuilder {
     }
 
     pub fn new_from_counter(counter: u32) -> Self {
-        let private_call = FixtureBuilder::new_from_counter(counter);
+        let mut private_call = FixtureBuilder::new_from_counter(counter);
+        private_call.compute_update_tree_and_hints();
+
         let previous_note_hashes = BoundedVec::new();
         PrivateCallDataValidatorBuilder { private_call, previous_note_hashes }
     }

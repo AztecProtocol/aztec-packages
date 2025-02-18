@@ -4,11 +4,15 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 
 case "$cmd" in
-  ""|"full")
+  ""|"fast"|"full")
     echo_header "release-image build"
     cd ..
     denoise "docker build -f release-image/Dockerfile -t aztecprotocol/aztec:$(git rev-parse HEAD) ."
     docker tag aztecprotocol/aztec:$(git rev-parse HEAD) aztecprotocol/aztec:latest
+    if [ "$REF_NAME" == "master" ] && [ "$CI" -eq 1 ]; then
+      docker tag aztecprotocol/aztec:$COMMIT_HASH aztecprotocol/aztec:$COMMIT_HASH-$(arch)
+      do_or_dryrun docker push aztecprotocol/aztec:$COMMIT_HASH-$(arch)
+    fi
     ;;
   "release")
     echo_header "release-image release"
