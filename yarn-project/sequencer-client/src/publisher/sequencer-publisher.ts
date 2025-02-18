@@ -20,12 +20,12 @@ import {
   type L1ContractsConfig,
   type L1GasConfig,
   type L1TxRequest,
-  type L1TxUtilsWithBlobs,
   RollupContract,
   type SlashingProposerContract,
   type TransactionStats,
   formatViemError,
 } from '@aztec/ethereum';
+import { type L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { toHex } from '@aztec/foundation/bigint-buffer';
 import { type Signature } from '@aztec/foundation/eth-signature';
 import { createLogger } from '@aztec/foundation/log';
@@ -482,7 +482,6 @@ export class SequencerPublisher {
         oracleInput: {
           // We are currently not modifying these. See #9963
           feeAssetPriceModifier: 0n,
-          provingCostModifier: 0n,
         },
         blockHash: `0x${encodedData.blockHash.toString('hex')}`,
         txHashes,

@@ -44,14 +44,14 @@ sequenceDiagram
     participant L2 Bridge Contract
     participant L2 Token Contract
 
-    User->>TokenPortal: Deposit Tokens
+    L1 User->>L1 TokenPortal: Deposit Tokens
 
-    Note over TokenPortal: 1. Encode mint message<br/>(recipient + amount)<br/>2. Hash message to field<br/>element (~254 bits)
+    Note over L1 TokenPortal: 1. Encode mint message<br/>(recipient + amount)<br/>2. Hash message to field<br/>element (~254 bits)
 
-    TokenPortal->>Aztec Inbox: Send message
-    Note over Aztec Inbox: Validates:<br/>1. Recipient Aztec address<br/>2. Aztec version<br/>3. Message content hash<br/>4. Secret hash
+    L1 TokenPortal->>L1 Aztec Inbox: Send message
+    Note over L1 Aztec Inbox: Validates:<br/>1. Recipient Aztec address<br/>2. Aztec version<br/>3. Message content hash<br/>4. Secret hash
 
-    Aztec Inbox-->>L2 Bridge Contract: Forward message
+    L1 Aztec Inbox-->>L2 Bridge Contract: Forward message
     Note over L2 Bridge Contract: 1. Verify message<br/>2. Process secret<br/>3. Decode mint parameters
 
     L2 Bridge Contract->>L2 Token Contract: Call mint function

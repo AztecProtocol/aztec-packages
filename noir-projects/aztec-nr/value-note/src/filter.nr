@@ -1,18 +1,19 @@
 use crate::value_note::ValueNote;
+use dep::aztec::note::retrieved_note::RetrievedNote;
 use dep::aztec::protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL;
 
 pub fn filter_notes_min_sum(
-    notes: [Option<ValueNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    notes: [Option<RetrievedNote<ValueNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     min_sum: Field,
-) -> [Option<ValueNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
+) -> [Option<RetrievedNote<ValueNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
     let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
 
     let mut sum = U128::from_integer(0);
     for i in 0..notes.len() {
         if notes[i].is_some() & (sum < U128::from_integer(min_sum)) {
-            let note = notes[i].unwrap_unchecked();
-            selected[i] = Option::some(note);
-            sum += U128::from_integer(note.value);
+            let retrieved_note = notes[i].unwrap_unchecked();
+            selected[i] = Option::some(retrieved_note);
+            sum += U128::from_integer(retrieved_note.note.value);
         }
     }
 

@@ -10,7 +10,7 @@
     "serve:dest:mt": "serve -n -L -p ${PORT:-8080} -c ../serve.json dest"
   },
   "devDependencies": {
-    "@aztec/bb.js": "../../ts",
+    "@aztec/bb.js": "portal:../../ts",
     "@types/debug": "^4.1.12",
     "@types/pako": "^2.0.3",
     "debug": "^4.3.4",
@@ -21,7 +21,7 @@
     "typescript": "^5.4.2",
     "webpack": "^5.90.3",
     "webpack-cli": "^5.1.4",
-    "webpack-dev-server": "^5.0.3"
+    "webpack-dev-server": "^5.2.0"
   },
   "packageManager": "yarn@4.5.2"
 }

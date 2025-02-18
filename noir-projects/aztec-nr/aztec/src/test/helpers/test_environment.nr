@@ -6,12 +6,13 @@ use crate::context::{
 use crate::hash::hash_args;
 use crate::test::helpers::{cheatcodes, utils::Deployer};
 
-use crate::note::{note_header::NoteHeader, note_interface::{NoteInterface, NullifiableNote}};
+use crate::note::note_interface::{NoteInterface, NullifiableNote};
 use crate::oracle::{
     execution::{get_block_number, get_contract_address},
     notes::notify_created_note,
 };
 use protocol_types::constants::PUBLIC_DISPATCH_SELECTOR;
+use protocol_types::traits::Packable;
 
 pub struct TestEnvironment {}
 
@@ -152,25 +153,23 @@ impl TestEnvironment {
     /// not having an encrypted log emitted. TXE alternative to `PXE.addNote(...)`.
     pub unconstrained fn add_note<Note, let N: u32>(
         _self: Self,
-        note: &mut Note,
+        note: Note,
         storage_slot: Field,
         contract_address: AztecAddress,
     )
     where
-        Note: NoteInterface<N> + NullifiableNote,
+        Note: NoteInterface + NullifiableNote + Packable<N>,
     {
         let original_contract_address = get_contract_address();
         cheatcodes::set_contract_address(contract_address);
         let note_hash_counter = cheatcodes::get_side_effects_counter();
 
-        let header = NoteHeader { contract_address, storage_slot, nonce: 0, note_hash_counter };
-        note.set_header(header);
-        let note_hash = note.compute_note_hash();
-        let packed_content = Note::pack_content(*note);
+        let note_hash = note.compute_note_hash(storage_slot);
+        let packed_note = Note::pack(note);
         notify_created_note(
             storage_slot,
             Note::get_note_type_id(),
-            packed_content,
+            packed_note,
             note_hash,
             note_hash_counter,
         );

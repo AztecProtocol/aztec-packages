@@ -24,3 +24,9 @@ export type ViemClient = Client<
 
 /** Type for a viem public client */
 export type ViemPublicClient = PublicClient<HttpTransport, Chain>;
+
+/** Both L1 clients */
+export type L1Clients = {
+  publicClient: ViemPublicClient;
+  walletClient: ViemClient;
+};
