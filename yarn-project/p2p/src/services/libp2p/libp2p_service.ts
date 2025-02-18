@@ -41,7 +41,6 @@ import { identify } from '@libp2p/identify';
 import { type Message, type PeerId, TopicValidatorResult } from '@libp2p/interface';
 import { type ConnectionManager } from '@libp2p/interface-internal';
 import '@libp2p/kad-dht';
-import { mplex } from '@libp2p/mplex';
 import { tcp } from '@libp2p/tcp';
 import { createLibp2p } from 'libp2p';
 
@@ -206,7 +205,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       ],
       datastore,
       peerDiscovery,
-      streamMuxers: [mplex(), yamux()],
+      streamMuxers: [yamux()],
       connectionEncryption: [noise()],
       connectionManager: {
         minConnections: 0,
