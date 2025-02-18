@@ -7,9 +7,9 @@ use crate::{
     utils::make_operand,
 };
 use fxhash::FxHashMap as HashMap;
+use operand_collector::OperandCollector;
 
 use super::parser::{Alias, Assembly, Operand, ParsedOpcode, Symbol};
-
 
 pub(crate) type Label = String;
 
@@ -21,14 +21,23 @@ pub(crate) struct CompiledProcedure {
     pub unresolved_jumps: HashMap<usize, Label>,
 }
 
-enum Immediate {
-    Numeric(u128),
-    Label(Label),
+impl CompiledProcedure {
+    fn add_instruction(
+        &mut self,
+        instruction: AvmInstruction,
+        label_prefix: Label,
+        label: Option<Label>,
+    ) {
+        self.instructions.push(instruction);
+        if let Some(label) = label {
+            self.locations.insert(self.instructions.len() - 1, prefix_label(label_prefix, label));
+        }
+    }
 }
 
 pub(crate) fn compile(
     parsed_assembly: Assembly,
-    label_prefix: String,
+    label_prefix: Label,
 ) -> Result<CompiledProcedure, String> {
     let instructions = Vec::with_capacity(parsed_assembly.len());
     let locations = HashMap::default();
@@ -63,6 +72,7 @@ fn compile_binary_instruction(
     result: &mut CompiledProcedure,
 ) -> Result<(), String> {
     let alias = parsed_opcode.alias;
+    let label = parsed_opcode.label;
     let mut collector = OperandCollector::new(parsed_opcode, label_prefix);
     collector.memory_address_operand()?;
     collector.memory_address_operand()?;
@@ -129,12 +139,18 @@ fn compile_binary_instruction(
         },
         _ => unreachable!("Invalid binary opcode: {:?}", alias),
     };
-    let instruction = AvmInstruction {
-        opcode: avm_opcode,
-        indirect: Some(build_addressing_mode(indirect)),
-        operands: operands.iter().map(|operand| make_operand(bits_needed, operand)).collect(),
-        ..Default::default()
-    };
+
+    result.add_instruction(
+        AvmInstruction {
+            opcode: avm_opcode,
+            indirect: Some(build_addressing_mode(indirect)),
+            operands: operands.iter().map(|operand| make_operand(bits_needed, operand)).collect(),
+            ..Default::default()
+        },
+        label_prefix,
+        label,
+    );
+    Ok(())
 }
 
 fn build_addressing_mode(indirect: Vec<bool>) -> AvmOperand {
@@ -153,4 +169,8 @@ fn build_addressing_mode(indirect: Vec<bool>) -> AvmOperand {
     } else {
         AvmOperand::U16 { value: result as u16 }
     }
+}
+
+fn prefix_label(label_prefix: Label, label: Label) -> Label {
+    format!("{}__PREFIX__{}", label_prefix, label)
 }

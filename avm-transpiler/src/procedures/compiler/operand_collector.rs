@@ -1,4 +1,6 @@
-use crate::procedures::parser::{Operand, Symbol};
+use crate::procedures::parser::{Operand, ParsedOpcode, Symbol};
+
+use super::Label;
 
 // We should probably pull these constants from the noir compiler
 const NUM_RESERVED_REGISTERS: usize = 3;
@@ -6,6 +8,11 @@ const MAX_STACK_FRAME_SIZE: usize = 2048;
 const MAX_STACK_SIZE: usize = 16 * MAX_STACK_FRAME_SIZE;
 const MAX_SCRATCH_SPACE: usize = 64;
 const SCRATCH_SPACE_START: usize = NUM_RESERVED_REGISTERS + MAX_STACK_SIZE;
+
+enum Immediate {
+    Numeric(u128),
+    Label(Label),
+}
 
 pub(crate) struct OperandCollectionResult {
     operands: Vec<usize>,
