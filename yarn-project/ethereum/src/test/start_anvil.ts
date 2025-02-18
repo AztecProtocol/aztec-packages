@@ -12,7 +12,7 @@ export async function startAnvil(
     l1BlockTime?: number;
   } = {},
 ): Promise<{ anvil: Anvil; rpcUrl: string; stop: () => Promise<void> }> {
-  const anvilBinary = resolve(dirname(fileURLToPath(import.meta.url)), '../../', 'scripts/anvil.sh');
+  const anvilBinary = resolve(dirname(fileURLToPath(import.meta.url)), '../../', 'scripts/anvil_kill_wrapper.sh');
 
   let port: number | undefined;
 
