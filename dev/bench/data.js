@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739834376221,
+  "lastUpdate": 1739870919435,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "lucasxia01@gmail.com",
-            "name": "Lucas Xia",
-            "username": "lucasxia01"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b4e2264a9a7df027f5266f1f88b014bd72af76f0",
-          "message": "fix: memory fragmentation fixes to cut UltraHonk memory usage by 26% (#11895)\n\nprove_ultra_honk on the verify_honk_proof circuit goes from 3059.63MiB\r\nto 2251.31MiB, a decrease of 26%. This gets us close to the memory\r\nreported by tracy, 2081MiB, which doesn't account for any fragmentation\r\nissues.\r\n\r\nThe fix hinges on a couple key issues: we want to deallocate large\r\nobjects when we don't need them anymore and we need to be careful with\r\nour vector usage.\r\n\r\nFirst, we should deallocate the builder after the prover is constructed\r\nand before we call construct_proof, and we should also deallocate the\r\ncommitment_key during sumcheck since we do not need to commit to any\r\npolynomials during that phase.\r\n\r\nSecond, this deallocation of the commitment key does not actually help\r\nmemory that much, in large part due to fragmentation. I discovered that\r\nour usage of the manifest, which uses vectors for each round data,\r\ncaused tiny vectors to be littered across memory, often breaking up what\r\notherwise would be a large contiguous block of memory.\r\n\r\nWith this in mind, we now only use the prover manifest when we specify\r\nthat we want the manifest specifically, i.e. for the manifest tests. The\r\nnative and recursive verifier manifests will be enabled for now.",
-          "timestamp": "2025-02-12T02:54:48Z",
-          "tree_id": "48e7ad322d9d4e1d704879a4022e01b374809e91",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b4e2264a9a7df027f5266f1f88b014bd72af76f0"
-        },
-        "date": 1739329891723,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 20575.342438999996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 17820.398479000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21678.447344000007,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19193.473605000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4918.01634600003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4384.930490000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 73335.59736900001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 73335597000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 13446.440172,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 13446442000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2477130464,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2477130464 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 141930056,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 141930056 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3292,6 +3226,72 @@ window.BENCHMARK_DATA = {
             "value": 135508193,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 135508193 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "16536249+LHerskind@users.noreply.github.com",
+            "name": "Lasse Herskind",
+            "username": "LHerskind"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8aee21da34016782dfb0476df858d64e3333d994",
+          "message": "feat: make rewards claimable (#11975)\n\nFixes #11949.",
+          "timestamp": "2025-02-18T09:04:01Z",
+          "tree_id": "b5bfdb2c01aa7348ee5ca806425d3fdea6272ec7",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8aee21da34016782dfb0476df858d64e3333d994"
+        },
+        "date": 1739870911877,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18112.768509000034,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15981.205748999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18718.990391000036,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16333.252645000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4003.4159639999416,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3102.036591 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54970.957800000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54970958000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11057.511843,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11057513000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1829537793,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1829537793 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 134968343,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 134968343 ns\nthreads: 1"
           }
         ]
       }
