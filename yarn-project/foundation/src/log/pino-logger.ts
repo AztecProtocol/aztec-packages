@@ -83,7 +83,7 @@ function isLevelEnabled(logger: pino.Logger<'verbose', boolean>, level: LogLevel
 
 // Load log levels from environment variables.
 const defaultLogLevel = process.env.NODE_ENV === 'test' ? 'silent' : 'info';
-const [logLevel, logFilters] = parseEnv(process.env.LOG_LEVEL, defaultLogLevel);
+export const [logLevel, logFilters] = parseEnv(process.env.LOG_LEVEL, defaultLogLevel);
 
 // Define custom logging levels for pino.
 const customLevels = { verbose: 25 };
@@ -169,7 +169,7 @@ function makeLogger() {
   }
 }
 
-const logger = makeLogger();
+export const logger = makeLogger();
 
 // Log the logger configuration.
 logger.verbose(

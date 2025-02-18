@@ -20,6 +20,7 @@ import {
 import { Fr } from '@aztec/circuits.js';
 import { type EpochCacheInterface } from '@aztec/epoch-cache';
 import { createLogger } from '@aztec/foundation/log';
+import { createLibp2pComponentLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
@@ -65,7 +66,6 @@ import { pingHandler, reqRespBlockHandler, reqRespTxHandler, statusHandler } fro
 import { ReqResp } from '../reqresp/reqresp.js';
 import type { P2PService, PeerDiscoveryService } from '../service.js';
 import { GossipSubEvent } from '../types.js';
-import { createLibp2pComponentLogger } from './libp2p_logger.js';
 
 interface MessageValidator {
   validator: {
