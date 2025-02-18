@@ -94,7 +94,7 @@ comptime fn generate_note_interface(s: StructDefinition, note_type_id: Field) ->
 /// We use multi-scalar multiplication (MSM) instead of Poseidon2 here since this is a partial note and therefore
 /// does require MSM's additive homomorphism property (the property is used to add to the commitment in public).
 /// We don't use this implementation for standard notes as well because Poseidon2 is significantly cheaper
-/// constrains-wise.
+/// constraints-wise.
 ///
 /// # On including length in note hash preimage
 /// For a given commitment C = a*G1 + b*G2 + c*G3 we take an x-coordinate of C.x and use it as the hash.
