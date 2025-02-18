@@ -29,10 +29,10 @@ describe('Public TX simulator apps tests: AvmTestContract', () => {
     const args = [
       argsField,
       argsU8,
-      /*getInstanceForAddress=*/ expectContractInstance.address.toField(),
-      /*expectedDeployer=*/ expectContractInstance.deployer.toField(),
-      /*expectedClassId=*/ expectContractInstance.contractClassId.toField(),
-      /*expectedInitializationHash=*/ expectContractInstance.initializationHash.toField(),
+      /*getInstanceForAddress=*/ expectContractInstance.address,
+      /*expectedDeployer=*/ expectContractInstance.deployer,
+      /*expectedClassId=*/ expectContractInstance.currentContractClassId,
+      /*expectedInitializationHash=*/ expectContractInstance.initializationHash,
     ];
 
     const bulkResult = await simTester.simulateTx(
