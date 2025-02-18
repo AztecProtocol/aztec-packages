@@ -87,7 +87,7 @@ contract UniswapPortalTest is Test {
     // have DAI locked in portal that can be moved when funds are withdrawn
     deal(address(DAI), address(daiTokenPortal), amount);
 
-    outbox = rollup.OUTBOX();
+    outbox = rollup.getOutbox();
   }
 
   /**

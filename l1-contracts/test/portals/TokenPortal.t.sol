@@ -72,8 +72,8 @@ contract TokenPortalTest is Test {
       bytes32(0),
       address(this)
     );
-    inbox = rollup.INBOX();
-    outbox = rollup.OUTBOX();
+    inbox = rollup.getInbox();
+    outbox = rollup.getOutbox();
 
     registry.upgrade(address(rollup));
 

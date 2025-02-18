@@ -77,7 +77,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     feeRecipient: AztecAddress,
     slotNumber?: bigint,
   ): Promise<GlobalVariables> {
-    const version = new Fr(await this.rollupContract.read.VERSION());
+    const version = new Fr(await this.rollupContract.read.getVersion());
     const chainId = new Fr(this.publicClient.chain.id);
 
     if (slotNumber === undefined) {
