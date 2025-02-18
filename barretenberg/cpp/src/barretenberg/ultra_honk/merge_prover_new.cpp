@@ -49,7 +49,7 @@ template <typename Flavor> HonkProof MergeProverNew_<Flavor>::construct_proof()
     const size_t current_table_size = T_current[0].size();
     const size_t current_subtable_size = t_current[0].size();
 
-    transcript->send_to_verifier("subtable_size", current_subtable_size);
+    transcript->send_to_verifier("subtable_size", static_cast<uint32_t>(current_subtable_size));
     info("subtable_size: ", current_subtable_size);
 
     // Compute/get commitments [t^{shift}], [T_prev], and [T] and add to transcript
