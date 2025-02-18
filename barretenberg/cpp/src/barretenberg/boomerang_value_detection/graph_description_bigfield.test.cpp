@@ -178,11 +178,6 @@ TEST(boomerang_bigfield, test_graph_description_bigfield_division) {
     //it is the false case, but it will be secure just to check that there are no other variables except for them
     //otherwise there is a possibility to remove dangerous variables from other functions.
     EXPECT_EQ(variables_in_one_gate.size(), 3);     
-    if (variables_in_one_gate.size() > 0) {
-        for (const auto& elem: variables_in_one_gate) {
-            info("elem == ", elem);
-        }
-    }
 }
 
 /**
@@ -308,11 +303,6 @@ TEST(boomerang_bigfield, test_graph_description_sqr_function) {
     EXPECT_EQ(connected_components.size(), num_repetitions);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
     EXPECT_EQ(variables_in_one_gate.size(), 0);
-    if (variables_in_one_gate.size() > 0) {
-        for (const auto &elem: variables_in_one_gate) {
-            info("elem == ", elem);
-        }
-    }
 }
 
 /**
@@ -379,18 +369,8 @@ TEST(boomerang_bigfield, test_graph_description_mult_madd_function) {
     }
     builder.finalize_circuit(false);
     auto graph = Graph(builder);
-    auto connected_components = graph.find_connected_components();
-    info("size of connected commponents == ", connected_components.size());
-    for (size_t i = 0; i < connected_components.size(); i++) {
-        info("size of the ", i, " connected component == ", connected_components[i].size());
-    }
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
     EXPECT_EQ(variables_in_one_gate.size(), 0); 
-    if (variables_in_one_gate.size() > 0) {
-        for (const auto& elem: variables_in_one_gate) {
-            info("elem == ", elem);
-        }
-    }
 }
 
 /**
@@ -413,8 +393,5 @@ TEST(boomerang_bigfield, test_graph_description_constructor_high_low_bits)
     auto connected_components = graph.find_connected_components();
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
     EXPECT_EQ(variables_in_one_gate.size(), 0);
-    for (const auto &elem: variables_in_one_gate) {
-        info("elem == ", elem);
-    }
 }
 

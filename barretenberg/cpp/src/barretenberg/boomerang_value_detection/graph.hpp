@@ -145,12 +145,13 @@ template <typename FF> class Graph_ {
                                                      bb::UltraCircuitBuilder& ultra_circuit_builder,
                                                      bb::plookup::BasicTableId& table_id,
                                                      size_t gate_index);
+    void remove_record_witness_variables(bb::UltraCircuitBuilder& ultra_builder);
 
     void print_graph();
     void print_connected_components();
     void print_variables_gate_counts();
     void print_variables_edge_counts();
-    void print_variables_in_one_gate();
+    void print_variables_in_one_gate(bb::UltraCircuitBuilder& ultra_builder);
     ~Graph_() = default;
 
   private:
