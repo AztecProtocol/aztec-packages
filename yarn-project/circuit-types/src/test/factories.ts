@@ -28,9 +28,9 @@ import { makeTuple } from '@aztec/foundation/array';
 import { type MerkleTreeReadOperations } from '../interfaces/merkle_tree_operations.js';
 import { ProvingRequestType } from '../interfaces/proving-job.js';
 import { makeHeader } from '../l2_block_code_to_purge.js';
-import { mockTx } from '../mocks.js';
 import { type GasUsed } from '../tx/gas_used.js';
 import { makeProcessedTxFromPrivateOnlyTx, makeProcessedTxFromTxWithPublicCalls } from '../tx/processed_tx.js';
+import { mockTx } from './mocks.js';
 
 /** Makes a bloated processed tx for testing purposes. */
 export async function makeBloatedProcessedTx({

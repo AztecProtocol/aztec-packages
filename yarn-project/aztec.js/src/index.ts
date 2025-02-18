@@ -83,7 +83,6 @@ export {
   LogId,
   MerkleTreeId,
   merkleTreeIds,
-  mockTx,
   Note,
   SiblingPath,
   Tx,

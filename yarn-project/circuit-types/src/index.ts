@@ -14,7 +14,6 @@ export * from './l2_block_source.js';
 export * from './logs/index.js';
 export * from './merkle_tree_id.js';
 export * from './messaging/index.js';
-export * from './mocks.js';
 export * from './notes/index.js';
 export * from './nullifier_with_block_source.js';
 export * from './p2p/index.js';

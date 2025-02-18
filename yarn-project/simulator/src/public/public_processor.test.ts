@@ -6,8 +6,8 @@ import {
   type TreeInfo,
   type Tx,
   type TxValidator,
-  mockTx,
 } from '@aztec/circuit-types';
+import { mockTx } from '@aztec/circuit-types/testing';
 import {
   AvmCircuitInputs,
   AztecAddress,

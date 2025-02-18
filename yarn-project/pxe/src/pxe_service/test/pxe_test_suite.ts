@@ -1,9 +1,9 @@
+import { type PXE } from '@aztec/circuit-types';
 import {
-  type PXE,
   randomContractArtifact,
   randomContractInstanceWithAddress,
   randomDeployedContract,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/testing';
 import { AztecAddress, Fr, getContractClassFromArtifact } from '@aztec/circuits.js';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 

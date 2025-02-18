@@ -6,8 +6,8 @@ import {
   TxExecutionPhase,
   UnencryptedFunctionL2Logs,
   UnencryptedL2Log,
-  mockTx,
 } from '@aztec/circuit-types';
+import { mockTx } from '@aztec/circuit-types/testing';
 import {
   AppendOnlyTreeSnapshot,
   AztecAddress,

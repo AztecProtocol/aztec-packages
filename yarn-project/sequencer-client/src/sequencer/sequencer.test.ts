@@ -15,8 +15,8 @@ import {
   WorldStateRunningState,
   type WorldStateSynchronizer,
   makeProcessedTxFromPrivateOnlyTx,
-  mockTxForRollup,
 } from '@aztec/circuit-types';
+import { mockTxForRollup } from '@aztec/circuit-types/testing';
 import {
   AztecAddress,
   BlockHeader,

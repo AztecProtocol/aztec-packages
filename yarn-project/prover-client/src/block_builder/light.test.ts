@@ -7,7 +7,7 @@ import {
   type ServerCircuitProver,
   toNumBlobFields,
 } from '@aztec/circuit-types';
-import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
+import { makeBloatedProcessedTx } from '@aztec/circuit-types/testing';
 import {
   type AppendOnlyTreeSnapshot,
   AztecAddress,

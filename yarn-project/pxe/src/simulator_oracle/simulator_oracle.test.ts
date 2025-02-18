@@ -7,11 +7,10 @@ import {
   type TxEffect,
   TxHash,
   TxScopedL2Log,
-  randomContractArtifact,
-  randomContractInstanceWithAddress,
   randomInBlock,
   wrapInBlock,
 } from '@aztec/circuit-types';
+import { randomContractArtifact, randomContractInstanceWithAddress } from '@aztec/circuit-types/testing';
 import {
   AztecAddress,
   CompleteAddress,

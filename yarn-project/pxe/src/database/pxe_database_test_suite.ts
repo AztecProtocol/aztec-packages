@@ -1,4 +1,5 @@
-import { NoteStatus, type NotesFilter, randomTxHash } from '@aztec/circuit-types';
+import { NoteStatus, type NotesFilter } from '@aztec/circuit-types';
+import { randomTxHash } from '@aztec/circuit-types/testing';
 import { AztecAddress, CompleteAddress, PublicKeys, SerializableContractInstance } from '@aztec/circuits.js';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';

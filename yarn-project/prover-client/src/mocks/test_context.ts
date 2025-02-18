@@ -6,7 +6,7 @@ import {
   type ServerCircuitProver,
   type Tx,
 } from '@aztec/circuit-types';
-import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
+import { makeBloatedProcessedTx } from '@aztec/circuit-types/testing';
 import {
   type AppendOnlyTreeSnapshot,
   AztecAddress,

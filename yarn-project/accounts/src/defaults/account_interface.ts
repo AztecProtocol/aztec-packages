@@ -3,7 +3,7 @@ import { type EntrypointInterface, type ExecutionRequestInit } from '@aztec/azte
 import { type AuthWitness, type TxExecutionRequest } from '@aztec/circuit-types';
 import { type AztecAddress, type CompleteAddress, type NodeInfo } from '@aztec/circuits.js';
 import { DefaultAccountEntrypoint } from '@aztec/entrypoints/account';
-import type { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 
 /**
  * Default implementation for an account interface. Requires that the account uses the default

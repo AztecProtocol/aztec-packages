@@ -1,4 +1,5 @@
-import { type Tx, mockTx } from '@aztec/circuit-types';
+import { type Tx } from '@aztec/circuit-types';
+import { mockTx } from '@aztec/circuit-types/testing';
 import { AztecAddress, Fr, FunctionSelector, GasFees, GasSettings } from '@aztec/circuits.js';
 import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { U128 } from '@aztec/foundation/abi';

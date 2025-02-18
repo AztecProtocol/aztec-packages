@@ -8,8 +8,8 @@ import {
   type MerkleTreeReadOperations,
   type NullifierWithBlockSource,
   type WorldStateSynchronizer,
-  mockTx,
 } from '@aztec/circuit-types';
+import { mockTx } from '@aztec/circuit-types/testing';
 import {
   AztecAddress,
   type ContractDataSource,

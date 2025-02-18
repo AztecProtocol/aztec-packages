@@ -22,16 +22,16 @@ import { times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
-import { ContractClassTxL2Logs, Note } from './logs/index.js';
-import { ExtendedNote, UniqueNote } from './notes/index.js';
+import { ContractClassTxL2Logs, Note } from '../logs/index.js';
+import { ExtendedNote, UniqueNote } from '../notes/index.js';
 import {
   CountedPublicExecutionRequest,
   PrivateCallExecutionResult,
   PrivateExecutionResult,
-} from './private_execution_result.js';
-import { PublicExecutionRequest } from './public_execution_request.js';
-import { PublicSimulationOutput, Tx, TxHash, TxSimulationResult, accumulatePrivateReturnValues } from './tx/index.js';
-import { TxEffect } from './tx_effect.js';
+} from '../private_execution_result.js';
+import { PublicExecutionRequest } from '../public_execution_request.js';
+import { PublicSimulationOutput, Tx, TxHash, TxSimulationResult, accumulatePrivateReturnValues } from '../tx/index.js';
+import { TxEffect } from '../tx_effect.js';
 
 export const randomTxHash = (): TxHash => TxHash.random();
 
