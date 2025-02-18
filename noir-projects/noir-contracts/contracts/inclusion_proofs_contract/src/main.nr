@@ -144,7 +144,7 @@ pub contract InclusionProofs {
             context.get_block_header()
         };
         // docs:start:prove_note_validity
-        header.prove_note_validity(note, note_storage_slot, &mut context);
+        header.prove_note_exists_and_not_nullified(note, note_storage_slot, &mut context);
         // docs:end:prove_note_validity
     }
 

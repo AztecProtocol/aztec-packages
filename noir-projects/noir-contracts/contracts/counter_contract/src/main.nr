@@ -155,7 +155,7 @@ pub contract Counter {
 
         let old_note = notes.get(0);
 
-        env.private().get_block_header().prove_note_validity(
+        env.private().get_block_header().prove_note_exists_and_not_nullified(
             old_note,
             owner_slot,
             &mut env.private(),
@@ -164,7 +164,7 @@ pub contract Counter {
         destroy_note(&mut env.private(), old_note, owner_slot);
         env.advance_block_by(1);
 
-        env.private().get_block_header().prove_note_is_nullified(
+        env.private().get_block_header().prove_note_exists_and_not_nullified(
             old_note,
             owner_slot,
             &mut env.private(),
@@ -263,7 +263,7 @@ pub contract Counter {
 
         let old_note = notes.get(0);
 
-        env.private().get_block_header().prove_note_validity(
+        env.private().get_block_header().prove_note_exists_and_not_nullified(
             old_note,
             owner_slot,
             &mut env.private(),
