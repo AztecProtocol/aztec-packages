@@ -18,7 +18,6 @@ import {
   type AztecAsyncKVStore,
   type AztecAsyncMap,
   type AztecAsyncMultiMap,
-  type AztecAsyncSet,
   type AztecAsyncSingleton,
 } from '@aztec/kv-store';
 import { contractArtifactFromBuffer, contractArtifactToBuffer } from '@aztec/types/abi';
@@ -33,7 +32,7 @@ export class KVPxeDatabase implements PxeDatabase {
   #synchronizedBlock: AztecAsyncSingleton<Buffer>;
   #completeAddresses: AztecAsyncArray<Buffer>;
   #completeAddressIndex: AztecAsyncMap<string, number>;
-  #addressBook: AztecAsyncSet<string>;
+  #addressBook: AztecAsyncMap<string, true>;
   #authWitnesses: AztecAsyncMap<string, Buffer[]>;
   #notes: AztecAsyncMap<string, Buffer>;
   #nullifiedNotes: AztecAsyncMap<string, Buffer>;
@@ -50,7 +49,7 @@ export class KVPxeDatabase implements PxeDatabase {
   #contractInstances: AztecAsyncMap<string, Buffer>;
   #db: AztecAsyncKVStore;
 
-  #scopes: AztecAsyncSet<string>;
+  #scopes: AztecAsyncMap<string, true>;
   #notesToScope: AztecAsyncMultiMap<string, string>;
   #notesByContractAndScope: Map<string, AztecAsyncMultiMap<string, string>>;
   #notesByStorageSlotAndScope: Map<string, AztecAsyncMultiMap<string, string>>;
@@ -74,7 +73,7 @@ export class KVPxeDatabase implements PxeDatabase {
     this.#completeAddresses = db.openArray('complete_addresses');
     this.#completeAddressIndex = db.openMap('complete_address_index');
 
-    this.#addressBook = db.openSet('address_book');
+    this.#addressBook = db.openMap('address_book');
 
     this.#authWitnesses = db.openMap('auth_witnesses');
 
@@ -95,7 +94,7 @@ export class KVPxeDatabase implements PxeDatabase {
     this.#nullifiedNotesByAddressPoint = db.openMultiMap('nullified_notes_by_address_point');
     this.#nullifiedNotesByNullifier = db.openMap('nullified_notes_by_nullifier');
 
-    this.#scopes = db.openSet('scopes');
+    this.#scopes = db.openMap('scopes');
     this.#notesToScope = db.openMultiMap('notes_to_scope');
     this.#notesByContractAndScope = new Map<string, AztecAsyncMultiMap<string, string>>();
     this.#notesByStorageSlotAndScope = new Map<string, AztecAsyncMultiMap<string, string>>();
@@ -112,7 +111,7 @@ export class KVPxeDatabase implements PxeDatabase {
 
   public static async create(db: AztecAsyncKVStore): Promise<KVPxeDatabase> {
     const pxeDB = new KVPxeDatabase(db);
-    for await (const scope of pxeDB.#scopes.entriesAsync()) {
+    for await (const scope of pxeDB.#scopes.keysAsync()) {
       pxeDB.#notesByContractAndScope.set(scope, db.openMultiMap(`${scope}:notes_by_contract`));
       pxeDB.#notesByStorageSlotAndScope.set(scope, db.openMultiMap(`${scope}:notes_by_storage_slot`));
       pxeDB.#notesByTxHashAndScope.set(scope, db.openMultiMap(`${scope}:notes_by_tx_hash`));
@@ -225,7 +224,7 @@ export class KVPxeDatabase implements PxeDatabase {
           await this.#notes.delete(noteIndex);
           await this.#notesToScope.delete(noteIndex);
           await this.#nullifierToNoteId.delete(noteDao.siloedNullifier.toString());
-          const scopes = await toArray(this.#scopes.entriesAsync());
+          const scopes = await toArray(this.#scopes.keysAsync());
           for (const scope of scopes) {
             await this.#notesByAddressPointAndScope.get(scope)!.deleteValue(noteDao.addressPoint.toString(), noteIndex);
             await this.#notesByTxHashAndScope.get(scope)!.deleteValue(noteDao.txHash.toString(), noteIndex);
@@ -295,7 +294,7 @@ export class KVPxeDatabase implements PxeDatabase {
 
     const candidateNoteSources = [];
 
-    filter.scopes ??= (await toArray(this.#scopes.entriesAsync())).map(addressString =>
+    filter.scopes ??= (await toArray(this.#scopes.keysAsync())).map(addressString =>
       AztecAddress.fromString(addressString),
     );
 
@@ -419,7 +418,7 @@ export class KVPxeDatabase implements PxeDatabase {
         await this.#notes.delete(noteIndex);
         await this.#notesToScope.delete(noteIndex);
 
-        const scopes = await toArray(this.#scopes.entriesAsync());
+        const scopes = await toArray(this.#scopes.keysAsync());
 
         for (const scope of scopes) {
           await this.#notesByAddressPointAndScope.get(scope)!.deleteValue(accountAddressPoint.toString(), noteIndex);
@@ -486,7 +485,7 @@ export class KVPxeDatabase implements PxeDatabase {
       return false;
     }
 
-    await this.#scopes.add(scopeString);
+    await this.#scopes.set(scopeString, true);
     this.#notesByContractAndScope.set(scopeString, this.#db.openMultiMap(`${scopeString}:notes_by_contract`));
     this.#notesByStorageSlotAndScope.set(scopeString, this.#db.openMultiMap(`${scopeString}:notes_by_storage_slot`));
     this.#notesByTxHashAndScope.set(scopeString, this.#db.openMultiMap(`${scopeString}:notes_by_tx_hash`));
@@ -547,13 +546,13 @@ export class KVPxeDatabase implements PxeDatabase {
       return false;
     }
 
-    await this.#addressBook.add(address.toString());
+    await this.#addressBook.set(address.toString(), true);
 
     return true;
   }
 
   async getSenderAddresses(): Promise<AztecAddress[]> {
-    return (await toArray(this.#addressBook.entriesAsync())).map(AztecAddress.fromString);
+    return (await toArray(this.#addressBook.keysAsync())).map(AztecAddress.fromString);
   }
 
   async removeSenderAddress(address: AztecAddress): Promise<boolean> {
