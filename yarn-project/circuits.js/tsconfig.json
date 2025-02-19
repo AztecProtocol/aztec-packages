@@ -22,5 +22,6 @@
       "path": "../types"
     }
   ],
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["dest/**/*.js"]
 }

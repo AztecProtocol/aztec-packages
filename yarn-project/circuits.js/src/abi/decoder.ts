@@ -1,8 +1,5 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
-
-import { z } from 'zod';
 
 import { type ABIParameter, type ABIVariable, type AbiType } from './abi.js';
 import { U128 } from './u128.js';

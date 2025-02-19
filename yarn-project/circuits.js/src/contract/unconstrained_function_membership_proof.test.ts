@@ -14,7 +14,7 @@ describe('unconstrained_function_membership_proof', () => {
   let artifact: ContractArtifact;
   let contractClass: ContractClass & ContractClassIdPreimage;
   let unconstrainedFunction: FunctionArtifact;
-  let vkHash: Fr;
+  let vkHash: Fr = Fr.random();
   let selector: FunctionSelector;
 
   beforeEach(async () => {
