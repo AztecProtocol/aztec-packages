@@ -1170,15 +1170,22 @@ pub comptime fn custom_note(s: StructDefinition) -> Quoted {
 ///     fn compute_nullifier_without_context(...) -> Field { ... }
 /// }
 /// ```
-pub comptime fn partial_custom_note(
-    s: StructDefinition,
-    setup_payload_name: Quoted,
-    finalization_payload_name: Quoted,
-) -> Quoted {
+#[varargs]
+pub comptime fn partial_custom_note(s: StructDefinition, nullable_fields: [Quoted]) -> Quoted {
     let (packable_impl, note_packed_len) = derive_packable_if_not_implemented_and_get_len(s);
     let note_type_id = get_next_note_type_id();
 
-    let (indexed_fixed_fields, indexed_nullable_fields) = index_note_fields(s, &[]);
+    let (indexed_fixed_fields, indexed_nullable_fields) = index_note_fields(s, nullable_fields);
+
+    let note_properties = generate_note_properties(s);
+    let (setup_payload_impl, setup_payload_name) =
+        generate_setup_payload(s, indexed_fixed_fields, indexed_nullable_fields);
+    let (finalization_payload_impl, finalization_payload_name) =
+        generate_finalization_payload(s, indexed_fixed_fields, indexed_nullable_fields);
+    let note_interface_impl = generate_note_interface(s, note_type_id);
+    let partial_note_impl =
+        generate_partial_note_impl(s, setup_payload_name, finalization_payload_name);
+
     register_note(
         s,
         note_packed_len,
@@ -1187,15 +1194,12 @@ pub comptime fn partial_custom_note(
         indexed_nullable_fields,
     );
 
-    let note_properties = generate_note_properties(s);
-    let note_interface_impl = generate_note_interface(s, note_type_id);
-    let partial_note_impl =
-        generate_partial_note_impl(s, setup_payload_name, finalization_payload_name);
-
     quote {
         $note_properties
+        $setup_payload_impl
+        $finalization_payload_impl
         $note_interface_impl
-        $packable_impl
         $partial_note_impl
+        $packable_impl
     }
 }
