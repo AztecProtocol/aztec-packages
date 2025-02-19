@@ -110,8 +110,13 @@ where
     }
 
     fn read_delay_change(self) -> ScheduledDelayChange<INITIAL_DELAY> {
-        // We don't read ScheduledDelayChange directly by having it implement Packable because ScheduledValueChange
-        // and ScheduledDelayChange are packed together (sdc and svc.block_of_change are stored in the same slot).
+        // Since all ScheduledDelayChange member are packed into a single field, we can read a single storage slot
+        // here and skip the ones that correspond to ScheduledValueChange members. We are abusing the fact that
+        // the field containing the ScheduledDelayChange data is the first one in the storage layout - otherwise we'd
+        // need to offset the storage slot to get the position where it'd land.
+        // We don't read ScheduledDelayChange directly by having it implement Packable because
+        // ScheduledValueChange and ScheduledDelayChange are packed together (sdc and svc.block_of_change are
+        // stored in the same slot).
         let packed = self.context.storage_read(self.storage_slot);
         SharedMutableValues::<T, INITIAL_DELAY>::unpack_delay_change(packed)
     }
