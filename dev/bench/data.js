@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739969563457,
+  "lastUpdate": 1739976175357,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "be1b563ffe99689af45c9241a1d94d53de1c4e35",
-          "message": "chore: op wires index from 0 (#11986)\n\nThe ecc op relation in Mega is designed to check that the ecc op data\nhas been duplicated across the wires and ecc_op_wires. Because the wires\nneed to be shifted, they contain a zero row, meaning the ecc op data is\nstored starting from index 1. Prior to this PR, the op wires also stored\nthe data this way, even though they dont need to be shifted. Its more\nconvenient for the ecc op wires to index from zero. This is achieved by\nsimply utilizing the shifted wires in the relation so that we check\necc_op_wire[i] = wire[i+1].\n\nNote: also fixes an incorrect skip condition in the EccOpRelation that\nwas not caught prior due to an unrelated bug that will be fixed in\nanother PR.",
-          "timestamp": "2025-02-13T12:31:44-07:00",
-          "tree_id": "8a0820276c52745ef79a215c3bdb37b28429aa03",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/be1b563ffe99689af45c9241a1d94d53de1c4e35"
-        },
-        "date": 1739476133902,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 20560.81565299996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 17695.849037000004 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21682.422184000017,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18906.432971000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4472.108256000012,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4163.633242 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 73320.063362,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 73320063000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 13456.631414999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 13456632000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2611656601,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2611656601 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 142926815,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 142926815 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3300,6 +3234,72 @@ window.BENCHMARK_DATA = {
             "value": 128597189,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 128597189 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sirasistant@gmail.com",
+            "name": "Álvaro Rodríguez",
+            "username": "sirasistant"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e3bc1a5401bc16876706cee019a73b441ee98afa",
+          "message": "fix: Use gas billed in block header building (#12101)\n\nFixes https://github.com/AztecProtocol/aztec-packages/issues/12089",
+          "timestamp": "2025-02-19T15:15:39+01:00",
+          "tree_id": "71d5ad78761ec4b1731d4d4896feaccd76020caa",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e3bc1a5401bc16876706cee019a73b441ee98afa"
+        },
+        "date": 1739976167822,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18232.54027899998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16147.084724999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18776.526205999973,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16321.302573 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3989.462730000014,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3142.032781 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54911.461774999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54911460000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10867.966644999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10867969000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1829487357,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1829487357 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 131622903,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 131622903 ns\nthreads: 1"
           }
         ]
       }
