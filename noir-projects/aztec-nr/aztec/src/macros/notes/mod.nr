@@ -69,6 +69,23 @@ comptime fn generate_note_interface(s: StructDefinition, note_type_id: Field) ->
     }
 }
 
+/// Generates default `NoteHashing` trait implementation for a given note struct `s` and returns it as a quote.
+///
+/// # Generated Implementation
+/// ```
+/// impl NoteHashing for NoteStruct {
+///     fn compute_note_hash(self, storage_slot: Field) -> Field { ... }
+///
+///     fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field { ... }
+///
+///     unconstrained fn compute_nullifier_without_context(
+///         self,
+///         storage_slot: Field,
+///         contract_address: AztecAddress,
+///         note_nonce: Field,
+///     ) -> Field { ... }
+/// }
+/// ```
 comptime fn generate_note_hashing(s: StructDefinition) -> Quoted {
     let name = s.name();
 
@@ -113,19 +130,28 @@ comptime fn generate_note_hashing(s: StructDefinition) -> Quoted {
     }
 }
 
-/// Generates default `NoteInterface` implementation for a given partial note struct `s` and returns it as a quote.
+/// Generates default `NoteHashing` implementation for a given partial note struct `s` and returns it as a quote.
 ///
-/// impl NoteInterface for NoteStruct {
-///     fn get_note_type_id() -> Field {
+/// impl NoteHashing for NoteStruct {
+///     fn compute_note_hash(self, storage_slot: Field) -> Field {
 ///         ...
 ///     }
 ///
-///     fn compute_note_hash(self, storage_slot: Field) -> Field {
+///     fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
+///         ...
+///     }
+///
+///     unconstrained fn compute_nullifier_without_context(
+///         self,
+///         storage_slot: Field,
+///         contract_address: AztecAddress,
+///         note_nonce: Field,
+///     ) -> Field {
 ///         ...
 ///     }
 /// }
 ///
-/// # On differences from `generate_note_interface`
+/// # On differences from `generate_note_hashing`
 /// We use multi-scalar multiplication (MSM) instead of Poseidon2 here since this is a partial note and therefore
 /// does require MSM's additive homomorphism property (the property is used to add to the commitment in public).
 /// We don't use this implementation for standard notes as well because Poseidon2 is significantly cheaper
