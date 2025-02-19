@@ -59,7 +59,7 @@ describe('Client IVC Integration', () => {
   // 1. Run a mock app that creates two commitments
   // 2. Run the init kernel to process the app run
   // 3. Run the tail kernel to finish the client IVC chain.
-  it.skip('Should generate a verifiable client IVC proof from a simple mock tx', async () => {
+  it('Should generate a verifiable client IVC proof from a simple mock tx', async () => {
     const [bytecodes, witnessStack] = await generate3FunctionTestingIVCStack();
 
     const proof = await createClientIvcProof(witnessStack, bytecodes);
