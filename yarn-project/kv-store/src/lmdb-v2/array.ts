@@ -43,7 +43,7 @@ export class LMDBArray<T> implements AztecAsyncArray<T> {
     });
   }
 
-  async setAt(index: number, val: T): Promise<boolean> {
+  setAt(index: number, val: T): Promise<boolean> {
     return execInWriteTx(this.store, async tx => {
       const length = await this.lengthAsync();
       if (index < 0) {
