@@ -26,19 +26,12 @@ jobs:
     # condition:
     #   - Always allow 'push' and 'workflow_dispatch' jobs.
     #   - Otherwise, only run pull_request events on internal PRs and pull_request_target on external PRs.
-    #     Then, we must either not be in draft mode, or have just labeled this as 'trigger-workflow'.
     if: >
       github.event_name == 'push' ||
       github.event_name == 'workflow_dispatch' ||
       (
-        (
-          (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
-          (github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository)
-        ) &&
-        (
-          github.event.pull_request.draft == false ||
-          (github.event.action == 'labeled' && github.event.label.name == 'trigger-workflow')
-        )
+        (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
+        (github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository)
       )
     steps:
       - name: Checkout
@@ -51,6 +44,13 @@ jobs:
         run: |
           git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1
           git diff --name-only ${{ github.event.pull_request.base.ref }} HEAD ci3 ci.sh | grep -q . && { echo "Error: External PRs can't contain CI changes."; exit 1; }
+      - name: Fail If Draft
+        if: github.event.pull_request.draft && (github.event.action != 'labeled' || github.event.label.name != 'trigger-workflow')
+        run: echo "CI is not run on drafts." && exit 1
+      - name: CI Full Override
+        # TODO consolidate legacy labels to just ci-full.
+        if: contains(github.event.pull_request.labels.*.name, 'e2e-all') || contains(github.event.pull_request.labels.*.name, 'network-all') || contains(github.event.pull_request.labels.*.name, 'ci-full')
+        run: echo "CI_FULL=1" >> $GITHUB_ENV
       - name: Setup
         run: |
           # Ensure we can SSH into the spot instances we request.
@@ -66,6 +66,7 @@ jobs:
           LOG_ID: ${{ github.run_id }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
         run: |
           ./ci.sh ec2
       - name: Download benchmarks
@@ -110,7 +111,6 @@ jobs:
     # condition:
     #   - Always allow 'push' and 'workflow_dispatch' jobs.
     #   - Otherwise, only run pull_request events on internal PRs and pull_request_target on external PRs.
-    #     Then, we must either not be in draft mode, or have just labeled this as 'trigger-workflow'.
     #     Then, **unlike ci-amd64**, if we aren't labeled 'arm64-ci', do nothing.
     if: >
       github.event_name == 'push' ||
@@ -119,10 +119,6 @@ jobs:
         (
           (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
           (github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository)
-        ) &&
-        (
-          github.event.pull_request.draft == false ||
-          (github.event.action == 'labeled' && github.event.label.name == 'trigger-workflow')
         ) &&
         contains(github.event.pull_request.labels.*.name, 'arm64-ci')
       )
@@ -137,6 +133,13 @@ jobs:
         run: |
           git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1
           git diff --name-only ${{ github.event.pull_request.base.ref }} HEAD ci3 ci.sh | grep -q . && { echo "Error: External PRs can't contain CI changes."; exit 1; }
+      - name: Fail If Draft
+        if: github.event.pull_request.draft && (github.event.action != 'labeled' || github.event.label.name != 'trigger-workflow')
+        run: echo "CI is not run on drafts." && exit 1
+      - name: CI Full Override
+        # TODO consolidate legacy labels to just ci-full.
+        if: contains(github.event.pull_request.labels.*.name, 'e2e-all') || contains(github.event.pull_request.labels.*.name, 'network-all') || contains(github.event.pull_request.labels.*.name, 'ci-full')
+        run: echo "CI_FULL=1" >> $GITHUB_ENV
       - name: Setup
         run: |
           # Ensure we can SSH into the spot instances we request.
@@ -151,6 +154,7 @@ jobs:
           ARCH: arm64
           LOG_ID: ${{ github.run_id }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
         run: |
           ./ci.sh ec2
 
@@ -181,6 +185,7 @@ jobs:
           ARCH: amd64
           LOG_ID: ${{ github.run_id }}
           INSTANCE_POSTFIX: ${{ matrix.number }}
+          DRY_RUN: 1
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           ./ci.sh ec2-test

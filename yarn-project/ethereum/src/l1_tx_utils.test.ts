@@ -45,7 +45,7 @@ describe('GasUtils', () => {
   const logger = createLogger('ethereum:test:l1_gas_test');
 
   beforeAll(async () => {
-    const { anvil: anvilInstance, rpcUrl } = await startAnvil(1);
+    const { anvil: anvilInstance, rpcUrl } = await startAnvil({ l1BlockTime: 1 });
     anvil = anvilInstance;
     cheatCodes = new EthCheatCodes(rpcUrl);
     const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });

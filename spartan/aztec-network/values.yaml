@@ -117,7 +117,6 @@ validator:
     minTxsPerBlock: 1
     maxTxsPerBlock: 4
     enforceTimeTable: true
-    enforceFees: false
   validator:
     disabled: false
     reexecute: true
@@ -201,13 +200,14 @@ bot:
   logLevel: "debug; info: aztec:simulator, json-rpc"
   replicas: 1
   botPrivateKey: "0xcafe"
+  l1Mnemonic: "test test test test test test test test test test test junk"
   txIntervalSeconds: 24
   privateTransfersPerTx: 0
   publicTransfersPerTx: 1
   # Do not wait for transactions
   followChain: "NONE"
   botNoStart: false
-  feePaymentMethod: "none"
+  feePaymentMethod: "fee_juice"
   maxErrors: 3
   stopIfUnhealthy: true
   service:

@@ -22,11 +22,11 @@ import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { timesParallel } from '@aztec/foundation/collection';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
+import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { computeFeePayerBalanceLeafSlot } from './fee_payment.js';
 import { type WorldStateDB } from './public_db_sources.js';
 import { PublicProcessor } from './public_processor.js';
 import { type PublicTxResult, type PublicTxSimulator } from './public_tx_simulator.js';
@@ -67,6 +67,7 @@ describe('public_processor', () => {
         totalGas: Gas.empty(),
         teardownGas: Gas.empty(),
         publicGas: Gas.empty(),
+        billedGas: Gas.empty(),
       },
       revertCode: RevertCode.OK,
       processedPhases: [],

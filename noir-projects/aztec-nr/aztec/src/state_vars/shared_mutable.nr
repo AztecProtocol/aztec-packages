@@ -1,21 +1,14 @@
-use dep::protocol_types::traits::Packable;
+use dep::protocol_types::{
+    shared_mutable::{ScheduledDelayChange, ScheduledValueChange, SharedMutableValues},
+    traits::Packable,
+};
 
 use crate::{
     context::{PrivateContext, PublicContext, UnconstrainedContext},
-    state_vars::{
-        shared_mutable::{
-            scheduled_delay_change::ScheduledDelayChange,
-            scheduled_value_change::ScheduledValueChange,
-            shared_mutable_values::SharedMutableValues,
-        },
-        storage::Storage,
-    },
+    state_vars::storage::Storage,
     utils::with_hash::WithHash,
 };
 
-pub(crate) mod shared_mutable_values;
-pub(crate) mod scheduled_delay_change;
-pub(crate) mod scheduled_value_change;
 mod test;
 
 pub struct SharedMutable<T, let INITIAL_DELAY: u32, Context> {
@@ -69,6 +62,10 @@ where
 {
 
     pub fn schedule_value_change(self, new_value: T) {
+        let _value_change = self.schedule_and_return_value_change(new_value);
+    }
+
+    pub fn schedule_and_return_value_change(self, new_value: T) -> ScheduledValueChange<T> {
         let mut value_change = self.read_value_change();
         let delay_change = self.read_delay_change();
 
@@ -81,6 +78,8 @@ where
         value_change.schedule_change(new_value, block_number, current_delay, block_of_change);
 
         self.write(value_change, delay_change);
+
+        value_change
     }
 
     pub fn schedule_delay_change(self, new_delay: u32) {

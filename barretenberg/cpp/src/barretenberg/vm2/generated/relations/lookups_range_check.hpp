@@ -82,7 +82,7 @@ class lookup_rng_chk_pow_2_relation : public GenericLookupRelation<lookup_rng_ch
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.range_check_sel.is_zero() && in.precomputed_sel_range_8.is_zero();
+        return in.lookup_rng_chk_pow_2_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)
@@ -164,7 +164,7 @@ class lookup_rng_chk_diff_relation : public GenericLookupRelation<lookup_rng_chk
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.range_check_sel.is_zero() && in.precomputed_sel_range_16.is_zero();
+        return in.lookup_rng_chk_diff_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)
@@ -247,7 +247,7 @@ class lookup_rng_chk_is_r0_16_bit_relation
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.range_check_sel_r0_16_bit_rng_lookup.is_zero() && in.precomputed_sel_range_16.is_zero();
+        return in.lookup_rng_chk_is_r0_16_bit_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)
@@ -330,7 +330,7 @@ class lookup_rng_chk_is_r1_16_bit_relation
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.range_check_sel_r1_16_bit_rng_lookup.is_zero() && in.precomputed_sel_range_16.is_zero();
+        return in.lookup_rng_chk_is_r1_16_bit_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)
@@ -413,7 +413,7 @@ class lookup_rng_chk_is_r2_16_bit_relation
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.range_check_sel_r2_16_bit_rng_lookup.is_zero() && in.precomputed_sel_range_16.is_zero();
+        return in.lookup_rng_chk_is_r2_16_bit_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)
@@ -496,7 +496,7 @@ class lookup_rng_chk_is_r3_16_bit_relation
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.range_check_sel_r3_16_bit_rng_lookup.is_zero() && in.precomputed_sel_range_16.is_zero();
+        return in.lookup_rng_chk_is_r3_16_bit_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)
@@ -579,7 +579,7 @@ class lookup_rng_chk_is_r4_16_bit_relation
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.range_check_sel_r4_16_bit_rng_lookup.is_zero() && in.precomputed_sel_range_16.is_zero();
+        return in.lookup_rng_chk_is_r4_16_bit_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)
@@ -662,7 +662,7 @@ class lookup_rng_chk_is_r5_16_bit_relation
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.range_check_sel_r5_16_bit_rng_lookup.is_zero() && in.precomputed_sel_range_16.is_zero();
+        return in.lookup_rng_chk_is_r5_16_bit_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)
@@ -745,7 +745,7 @@ class lookup_rng_chk_is_r6_16_bit_relation
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.range_check_sel_r6_16_bit_rng_lookup.is_zero() && in.precomputed_sel_range_16.is_zero();
+        return in.lookup_rng_chk_is_r6_16_bit_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)
@@ -828,7 +828,7 @@ class lookup_rng_chk_is_r7_16_bit_relation
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.range_check_sel.is_zero() && in.precomputed_sel_range_16.is_zero();
+        return in.lookup_rng_chk_is_r7_16_bit_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)

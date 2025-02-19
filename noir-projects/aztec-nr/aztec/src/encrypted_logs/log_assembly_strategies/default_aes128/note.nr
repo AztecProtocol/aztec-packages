@@ -14,6 +14,7 @@ use crate::{
 };
 use dep::protocol_types::{
     abis::note_hash::NoteHash, address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS,
+    traits::Packable,
 };
 use std::aes128::aes128_encrypt;
 
@@ -201,12 +202,7 @@ pub(crate) fn get_arr_of_size__log_bytes__from_PT<let PT: u32>() -> [u8; (((PT +
 /********************************************************/
 
 // TODO: it feels like this existence check is in the wrong place. In fact, why is it needed at all? Under what circumstances have we found a non-existent note being emitted accidentally?
-fn assert_note_exists<Note, let N: u32>(context: PrivateContext, note: Note)
-where
-    Note: NoteInterface<N>,
-{
-    let note_header = note.get_header();
-    let note_hash_counter = note_header.note_hash_counter;
+fn assert_note_exists<let N: u32>(context: PrivateContext, note_hash_counter: u32) {
     // TODO(#8589): use typesystem to skip this check when not needed
     let note_exists =
         context.note_hashes.storage().any(|n: NoteHash| n.counter == note_hash_counter);
@@ -222,11 +218,10 @@ fn compute_note_plaintext_for_this_strategy<Note, let N: u32>(
     storage_slot: Field,
 ) -> [u8; N * 32 + 64]
 where
-    Note: NoteInterface<N>,
+    Note: NoteInterface + Packable<N>,
 {
-    let packed_note = note.pack_content();
+    let packed_note = note.pack();
 
-    let note_header = note.get_header();
     let storage_slot_bytes: [u8; 32] = storage_slot.to_be_bytes();
 
     // TODO(#10952): The following can be reduced to 7 bits
@@ -257,7 +252,7 @@ fn compute_log<Note, let N: u32>(
     sender: AztecAddress,
 ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
 where
-    Note: NoteInterface<N>,
+    Note: NoteInterface + Packable<N>,
 {
     // *****************************************************************************
     // Compute the shared secret
@@ -344,8 +339,8 @@ where
 
     let mut log_bytes_padding_to_mult_31 =
         get_arr_of_size__log_bytes_padding__from_PT::<(N * 32) + 64>();
-    /// Safety: this randomness won't be constrained to be random. It's in the
-    /// interest of the executor of this fn to encrypt with random bytes.
+    // Safety: this randomness won't be constrained to be random. It's in the
+    // interest of the executor of this fn to encrypt with random bytes.
     log_bytes_padding_to_mult_31 = unsafe { get_random_bytes() };
 
     let mut log_bytes = get_arr_of_size__log_bytes__from_PT::<(N * 32) + 64>();
@@ -406,7 +401,7 @@ where
     offset += log_bytes_as_fields.len();
 
     for i in offset..PRIVATE_LOG_SIZE_IN_FIELDS {
-        /// Safety: randomness cannot be constrained.
+        // Safety: randomness cannot be constrained.
         final_log[i] = unsafe { random() };
     }
 
@@ -421,7 +416,7 @@ unconstrained fn compute_log_unconstrained<Note, let N: u32>(
     sender: AztecAddress,
 ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
 where
-    Note: NoteInterface<N>,
+    Note: NoteInterface + Packable<N>,
 {
     compute_log(context, note, storage_slot, recipient, sender)
 }
@@ -436,14 +431,13 @@ pub fn encode_and_encrypt_note<Note, let N: u32>(
     sender: AztecAddress,
 ) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress)](NoteEmission<Note>) -> ()
 where
-    Note: NoteInterface<N>,
+    Note: NoteInterface + Packable<N>,
 {
     |e: NoteEmission<Note>| {
         let note = e.note;
         let storage_slot = e.storage_slot;
-        assert_note_exists(*context, note);
-
-        let note_hash_counter = note.get_header().note_hash_counter;
+        let note_hash_counter = e.note_hash_counter;
+        assert_note_exists(*context, note_hash_counter);
 
         let encrypted_log = compute_log(*context, note, storage_slot, recipient, sender);
         context.emit_raw_note_log(encrypted_log, note_hash_counter);
@@ -460,14 +454,14 @@ pub fn encode_and_encrypt_note_unconstrained<Note, let N: u32>(
     sender: AztecAddress,
 ) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress)](NoteEmission<Note>) -> ()
 where
-    Note: NoteInterface<N>,
+    Note: NoteInterface + Packable<N>,
 {
     |e: NoteEmission<Note>| {
         let note = e.note;
         let storage_slot = e.storage_slot;
-        assert_note_exists(*context, note);
+        let note_hash_counter = e.note_hash_counter;
 
-        let note_hash_counter = note.get_header().note_hash_counter;
+        assert_note_exists(*context, note_hash_counter);
 
         //   Unconstrained logs have both their content and encryption unconstrained - it could occur that the
         // recipient is unable to decrypt the payload.
@@ -503,7 +497,7 @@ mod test {
         ); // This is an address copied to match the typescript one.
 
         let storage_slot = 42;
-        let note = MockNote::new(1234).contract_address(context.this_address()).build();
+        let note = MockNote::new(1234).build_note();
         let contract_address = context.this_address();
 
         // All the values in this test were copied over from `encrypted_log_payload.test.ts`
