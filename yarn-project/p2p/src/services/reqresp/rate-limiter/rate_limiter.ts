@@ -72,10 +72,21 @@ interface PeerRateLimiter {
   lastAccess: number;
 }
 
-enum RateLimitStatus {
-  Allowed,
+export enum RateLimitStatus {
   DeniedGlobal,
   DeniedPeer,
+  Allowed, // Note: allowed last to prevent enum evaluating to 0 for success
+}
+
+export function prettyPrintRateLimitStatus(status: RateLimitStatus) {
+  switch (status) {
+    case RateLimitStatus.DeniedGlobal:
+      return 'DeniedGlobal';
+    case RateLimitStatus.DeniedPeer:
+      return 'DeniedPeer';
+    case RateLimitStatus.Allowed:
+      return 'Allowed';
+  }
 }
 
 /**
@@ -191,10 +202,10 @@ export class RequestResponseRateLimiter {
     }, CHECK_DISCONNECTED_PEERS_INTERVAL_MS);
   }
 
-  allow(subProtocol: ReqRespSubProtocol, peerId: PeerId): boolean {
+  allow(subProtocol: ReqRespSubProtocol, peerId: PeerId): RateLimitStatus {
     const limiter = this.subProtocolRateLimiters.get(subProtocol);
     if (!limiter) {
-      return true;
+      return RateLimitStatus.Allowed;
     }
     const rateLimitStatus = limiter.allow(peerId);
 
@@ -202,12 +213,10 @@ export class RequestResponseRateLimiter {
       case RateLimitStatus.DeniedPeer:
         // Hitting a peer specific limit, we should lightly penalise the peer
         this.peerScoring.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
-        return false;
-      case RateLimitStatus.DeniedGlobal:
-        // Hitting a global limit, we should not penalise the peer
-        return false;
+        return RateLimitStatus.DeniedPeer;
       default:
-        return true;
+        // Hitting a global limit, we should not penalise the peer
+        return rateLimitStatus;
     }
   }
 
