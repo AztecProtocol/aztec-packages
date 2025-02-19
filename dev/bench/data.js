@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739992414777,
+  "lastUpdate": 1739992473544,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "asterite@gmail.com",
-            "name": "Ary Borenszweig",
-            "username": "asterite"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d1144e57927bf062ddb43d1194a40a686e2f9737",
-          "message": "chore: turn get_vk_merkle_tree into a global (#12009)\n\nCalling `get_vk_merkle_tree` during comptime takes 80ms on my machine.\nIt's called several times during compilation.\n\nRunning `time nargo check --force` inside `rollup-base-private` used to\ntake 1.3 seconds on my machine. With this change it takes 0.6 seconds.\nIt's not that much for a human, but `nargo check` is what LSP uses so\nthis should speed up LSP in these projects by a noticeable amount.",
-          "timestamp": "2025-02-14T17:37:23Z",
-          "tree_id": "cb9109cd3505edd4eff100d3914232e7ebca7850",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d1144e57927bf062ddb43d1194a40a686e2f9737"
-        },
-        "date": 1739556014051,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18124.868891999995,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16007.239689000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18593.10187999995,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16501.382161 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3925.6521390000216,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3167.3881949999995 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55468.425597,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55468426000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11131.095260999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11131099000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1823151374,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1823151374 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 135660520,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 135660520 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3300,6 +3234,72 @@ window.BENCHMARK_DATA = {
             "value": 133996134,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 133996134 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "gregojquiros@gmail.com",
+            "name": "Gregorio Juliana",
+            "username": "Thunkar"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1e4ad1c93a2f0dee4796542d6ca0f1e6ec2f13af",
+          "message": "chore: @aztec/stdlib pt1 -> cleanup circuits js (#12039)\n\nThis initial PR focuses on:\n\n- Moving generic stuff from `circuits.js` to `foundation`: merkle tree\ncalculator is general enough to be on foundation, same with crypto\nfunctions.\n- Extracting references to blobs from `circuits.js` so they're not\naccidentally imported into browser bundles again. Still work to do here,\nthis will only be completely realized once the \"catchall\" export is\nremoved.\n- Extracting `constants` to its own package to deal with circular\nreferences -> `blob-lib` and `circuits.js` need them, this opens the\ndoor to cleaner and more advanced anti \"I forgot to update constants\"\nmeasures.\n- Prepare `foundation` and `circuits.js` so aztec-specific code is moved\nfrom the former to the latter (will be done in a new PR, specifically\ntargetting aztec-address, abi already moved).\n- Preparing `circuits.js` for a reorg, specifically targeting the\nremoval of the \"catchall\" export and moving to granular approach. This\nwill end with the renaming of `circuits.js` to `stdlib`.\n- Preparing for the removal of a lot of reexports. They will be kept to\na minimum, with the exception of outwards-facing APIs such as `aztec.js`",
+          "timestamp": "2025-02-19T19:42:35+01:00",
+          "tree_id": "9352cd261229d6a67655be64cb69b07ef2d75028",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1e4ad1c93a2f0dee4796542d6ca0f1e6ec2f13af"
+        },
+        "date": 1739992466383,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18363.999492999938,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16241.730371 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18827.25016900008,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16349.914595999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3902.087054999811,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3104.890923 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54899.189947000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54899190000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9695.749147,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9695753000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1816245044,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1816245044 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 129832651,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 129832651 ns\nthreads: 1"
           }
         ]
       }
