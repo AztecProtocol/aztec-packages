@@ -21,12 +21,13 @@ MergeProver_<Flavor>::MergeProver_(const std::shared_ptr<ECCOpQueue>& op_queue,
 
 /**
  * @brief Prove proper construction of the aggregate Goblin ECC op queue polynomials T^(j), j = 1,2,3,4.
- * @details Let T^(j) be the jth column of the aggregate op queue after incorporating the contribution from the
- * present circuit. T_prev^(j) corresponds to the aggregate op queue at the previous stage and $t^(j)$ represents
- * the contribution from the present circuit only. For each j, we have the relationship T = T_prev + right_shift(t,
- * M_{i-1}), where the shift magnitude M_{i-1} is the honest length of T_prev. This protocol demonstrates, assuming the
- * length of T_prev is at most M_{i-1}, that the aggregate op queue has been constructed correctly via a simple
- * Schwartz-Zippel check. Evaluations are proven via batched KZG.
+ * @details Let T_j be the jth column of the aggregate ecc op table after prepending the subtable columns t_j containing
+ * the contribution from the present circuit. T_{j,prev} corresponds to the columns of the aggregate table at the
+ * previous stage. For each column we have the relationship T_j = t_j + right_shift(T_{j,prev}, k), where k is the
+ * length of the subtable columns t_j. This protocol demonstrates, assuming the length of t is at most k, that the
+ * aggregate ecc op table has been constructed correctly via the simple Schwartz-Zippel check:
+ *
+ *      T_j(\kappa) = t_j(\kappa) + \kappa^k * (T_{j,prev}(\kappa)).
  *
  * TODO(#746): Prove connection between t^{shift}, committed to herein, and t, used in the main protocol. See issue
  * for details (https://github.com/AztecProtocol/barretenberg/issues/746).
@@ -37,14 +38,14 @@ template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
 {
     transcript = std::make_shared<Transcript>();
 
-    // Extract T, T_prev, t
+    // Extract columns of the full table T_j, the previous table T_{j,prev}, and the current subtable t_j
     std::array<Polynomial, 4> T_current = op_queue->get_ultra_ops_table_columns();
     std::array<Polynomial, 4> T_prev = op_queue->get_previous_ultra_ops_table_columns();
     std::array<Polynomial, 4> t_current = op_queue->get_current_subtable_columns();
 
     // TODO(#723): Cannot currently support an empty T_prev. Need to be able to properly handle zero commitment.
     ASSERT(T_prev[0].size() > 0);
-    ASSERT(T_current[0].size() > T_prev[0].size()); // Must have some new ops to accumulate otherwise C_t_shift = 0
+    ASSERT(T_current[0].size() > T_prev[0].size()); // Must have some new ops to accumulate otherwise [t_j] = 0
 
     const size_t current_table_size = T_current[0].size();
     const size_t current_subtable_size = t_current[0].size();
@@ -55,17 +56,17 @@ template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
     // Compute/get commitments [t^{shift}], [T_prev], and [T] and add to transcript
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         // Compute commitments
-        Commitment C_t_current = pcs_commitment_key->commit(t_current[idx]);
-        Commitment C_T_prev = pcs_commitment_key->commit(T_prev[idx]);
-        Commitment C_T_current = pcs_commitment_key->commit(T_current[idx]);
+        Commitment t_commitment = pcs_commitment_key->commit(t_current[idx]);
+        Commitment T_prev_commitment = pcs_commitment_key->commit(T_prev[idx]);
+        Commitment T_commitment = pcs_commitment_key->commit(T_current[idx]);
 
         std::string suffix = std::to_string(idx);
-        transcript->send_to_verifier("t_CURRENT_" + suffix, C_t_current);
-        transcript->send_to_verifier("T_PREV_" + suffix, C_T_prev);
-        transcript->send_to_verifier("T_CURRENT_" + suffix, C_T_current);
+        transcript->send_to_verifier("t_CURRENT_" + suffix, t_commitment);
+        transcript->send_to_verifier("T_PREV_" + suffix, T_prev_commitment);
+        transcript->send_to_verifier("T_CURRENT_" + suffix, T_commitment);
     }
 
-    // Compute evaluations T(\kappa), T_prev_shift(\kappa), t(\kappa), add to transcript. For each polynomial we add a
+    // Compute evaluations T_j(\kappa), T_{j,prev}(\kappa), t_j(\kappa), add to transcript. For each polynomial we add a
     // univariate opening claim {p(X), (\kappa, p(\kappa))} to the set of claims to be checked via batched KZG.
     FF kappa = transcript->template get_challenge<FF>("kappa");
     info("kappa: ", kappa);
@@ -109,12 +110,8 @@ template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
     info("batched_commitment: ", pcs_commitment_key->commit(batched_polynomial));
 
     // Construct and commit to KZG quotient polynomial q = (f - v) / (X - kappa)
-    auto quotient = batched_polynomial;
-    quotient.at(0) -= batched_eval;
-    quotient.factor_roots(kappa);
-
-    auto quotient_commitment = pcs_commitment_key->commit(quotient);
-    transcript->send_to_verifier("KZG:W", quotient_commitment);
+    OpeningClaim batched_claim = { std::move(batched_polynomial), { kappa, batched_eval } };
+    PCS::compute_opening_proof(pcs_commitment_key, batched_claim, transcript);
 
     return transcript->proof_data;
 }
