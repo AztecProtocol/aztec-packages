@@ -11,11 +11,11 @@ import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
 import { type ContractArtifact, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { type Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 
-import { computeFeePayerBalanceStorageSlot } from '../../server.js';
 import { PUBLIC_DISPATCH_FN_NAME, getContractFunctionArtifact } from './index.js';
 import { type SimpleContractDataSource } from './simple_contract_data_source.js';
 
@@ -38,9 +38,10 @@ export abstract class BaseAvmSimulationTester {
     public merkleTrees: MerkleTreeWriteOperations,
     /* May want to skip contract deployment tree ops to test failed contract address nullifier checks on CALL */
     private skipContractDeployments = false,
+    private initialFeePayerBalance = new Fr(10 ** 10),
   ) {}
 
-  async setFeePayerBalance(feePayer: AztecAddress, balance: Fr) {
+  async setFeePayerBalance(feePayer: AztecAddress, balance = this.initialFeePayerBalance) {
     const feeJuiceAddress = ProtocolContractAddress.FeeJuice;
     const balanceSlot = await computeFeePayerBalanceStorageSlot(feePayer);
     await this.setPublicStorage(feeJuiceAddress, balanceSlot, balance);

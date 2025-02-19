@@ -59,6 +59,8 @@ export async function foreignCallHandler(name: string, args: ForeignCallInput[])
       }
     });
     return Promise.resolve([blobPublicInputs.toFields().map(toACVMField)]);
+  } else if (name === 'noOp') {
+    // Workaround for compiler issues where data is deleted because it's "unused"
   } else {
     throw Error(`unexpected oracle during execution: ${name}`);
   }

@@ -20,8 +20,8 @@ sel * (1 - sel) = 0;
 sel + last = 0; // They are both boolean so it corresponds to sel == 0 AND last == 0.
 
 pol commit start; // Identifies when we want to capture the output to the main trace.
-                  // No need to constrain start to be a boolean, we only need it to select
-                  // the row to pass values with execution trace.
+// Must be constrained as a boolean as any selector used in a lookup/permutation.
+start * (1 - start) = 0;
 
 // To support dynamically sized memory operands we use a counter against a lookup
 // This decrementing counter goes from [TAG_LEN, 0] where TAG_LEN is the number of bytes in the

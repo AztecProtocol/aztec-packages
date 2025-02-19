@@ -95,11 +95,11 @@ To create and deploy the account, we will use the `AccountManager` class, which 
 
 #include_code account-contract-deploy yarn-project/end-to-end/src/guides/writing_an_account_contract.test.ts typescript
 
-Note that we get a `Wallet` instance out of the account, which we can use for initializing the token contract class after deployment, so any transactions sent to it are sent from our wallet. We can then send a transaction to it and check its effects:
+Note that we used a funded wallet to deploy the account contract and pay for the transaction fee. The new account doesn't have any funds yet. We will continue using the funded wallet to deploy the token contract:
 
-#include_code account-contract-works yarn-project/end-to-end/src/guides/writing_an_account_contract.test.ts typescript
+#include_code token-contract-deploy yarn-project/end-to-end/src/guides/writing_an_account_contract.test.ts typescript
 
-If we run this, we get `Balance of wallet is now 150`, which shows that the `mint` call was successfully executed from our account contract.
+If we run this, we get `Balance of wallet is now 150`, which shows that the `mint` call was successfully executed for our account contract.
 
 To make sure that we are actually validating the provided signature in our account contract, we can try signing with a different key. To do this, we will set up a new `Account` instance pointing to the contract we already deployed but using a wrong signing key:
 

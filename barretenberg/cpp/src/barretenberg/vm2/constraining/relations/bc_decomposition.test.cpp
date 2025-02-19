@@ -302,5 +302,54 @@ TEST(BytecodeDecompositionConstrainingTest, NegativeWrongBytesToReadWithCorrecti
         "BC_DEC_OVERFLOW_CORRECTION_VALUE");
 }
 
+TEST(BytecodeDecompositionConstrainingTest, NegativeWrongPacking)
+{
+    TestTraceContainer trace;
+    trace.set(0,
+              { {
+                  { C::bc_decomposition_sel_packed, 1 },
+                  { C::bc_decomposition_bytes, 0x12 },
+                  { C::bc_decomposition_bytes_pc_plus_1, 0x34 },
+                  { C::bc_decomposition_bytes_pc_plus_2, 0x56 },
+                  { C::bc_decomposition_bytes_pc_plus_3, 0x78 },
+                  { C::bc_decomposition_bytes_pc_plus_4, 0x9A },
+                  { C::bc_decomposition_bytes_pc_plus_5, 0xBC },
+                  { C::bc_decomposition_bytes_pc_plus_6, 0xDE },
+                  { C::bc_decomposition_bytes_pc_plus_7, 0xF0 },
+                  { C::bc_decomposition_bytes_pc_plus_8, 0x12 },
+                  { C::bc_decomposition_bytes_pc_plus_9, 0x34 },
+                  { C::bc_decomposition_bytes_pc_plus_10, 0x56 },
+                  { C::bc_decomposition_bytes_pc_plus_11, 0x78 },
+                  { C::bc_decomposition_bytes_pc_plus_12, 0x9A },
+                  { C::bc_decomposition_bytes_pc_plus_13, 0xBC },
+                  { C::bc_decomposition_bytes_pc_plus_14, 0xDE },
+                  { C::bc_decomposition_bytes_pc_plus_15, 0xF0 },
+                  { C::bc_decomposition_bytes_pc_plus_16, 0x12 },
+                  { C::bc_decomposition_bytes_pc_plus_17, 0x34 },
+                  { C::bc_decomposition_bytes_pc_plus_18, 0x56 },
+                  { C::bc_decomposition_bytes_pc_plus_19, 0x78 },
+                  { C::bc_decomposition_bytes_pc_plus_20, 0x9A },
+                  { C::bc_decomposition_bytes_pc_plus_21, 0xBC },
+                  { C::bc_decomposition_bytes_pc_plus_22, 0xDE },
+                  { C::bc_decomposition_bytes_pc_plus_23, 0xF0 },
+                  { C::bc_decomposition_bytes_pc_plus_24, 0x12 },
+                  { C::bc_decomposition_bytes_pc_plus_25, 0x34 },
+                  { C::bc_decomposition_bytes_pc_plus_26, 0x56 },
+                  { C::bc_decomposition_bytes_pc_plus_27, 0x78 },
+                  { C::bc_decomposition_bytes_pc_plus_28, 0x9A },
+                  { C::bc_decomposition_bytes_pc_plus_29, 0xBC },
+                  { C::bc_decomposition_bytes_pc_plus_30, 0xDE },
+                  { C::bc_decomposition_packed_field,
+                    // Note that we have to prepend 0x00 to the packed field to make it 32 bytes long
+                    // since the constructor for FF expects 32 bytes.
+                    FF("0x00123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDE") },
+              } });
+
+    check_relation<bc_decomposition>(trace, bc_decomposition::SR_BC_DECOMPOSITION_REPACKING);
+    trace.set(C::bc_decomposition_bytes_pc_plus_20, 0, 0); // Mutate to wrong value
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_decomposition>(trace, bc_decomposition::SR_BC_DECOMPOSITION_REPACKING),
+                              "BC_DECOMPOSITION_REPACKING");
+}
+
 } // namespace
 } // namespace bb::avm2::constraining

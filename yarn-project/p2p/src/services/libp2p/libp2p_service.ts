@@ -19,7 +19,7 @@ import {
 } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { type EpochCacheInterface } from '@aztec/epoch-cache';
-import { createLogger } from '@aztec/foundation/log';
+import { createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
@@ -65,7 +65,6 @@ import { pingHandler, reqRespBlockHandler, reqRespTxHandler, statusHandler } fro
 import { ReqResp } from '../reqresp/reqresp.js';
 import type { P2PService, PeerDiscoveryService } from '../service.js';
 import { GossipSubEvent } from '../types.js';
-import { createLibp2pComponentLogger } from './libp2p_logger.js';
 
 interface MessageValidator {
   validator: {
@@ -268,8 +267,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
           connectionManager: components.connectionManager,
         }),
       },
-      // Fix the peer id in libp2p logs so we can see the source of the log
-      logger: createLibp2pComponentLogger(logger.module, { sourcePeerId: peerId }),
+      logger: createLibp2pComponentLogger(logger.module),
     });
 
     return new LibP2PService(

@@ -59,6 +59,8 @@ contract SlashingScenario is TestBase {
       _stakingAsset: testERC20,
       _vkTreeRoot: bytes32(0),
       _protocolContractTreeRoot: bytes32(0),
+      _genesisArchiveRoot: bytes32(0),
+      _genesisBlockHash: bytes32(0),
       _ares: address(this),
       _config: Config({
         aztecSlotDuration: TestConstants.AZTEC_SLOT_DURATION,

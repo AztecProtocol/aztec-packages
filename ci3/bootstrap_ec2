@@ -99,6 +99,16 @@ container_script=$(cat <<EOF
   git checkout FETCH_HEAD
   git checkout -b $REF_NAME
   export CI_FULL=$CI_FULL
+  export DRY_RUN=${DRY_RUN:-0}
+  source ci3/source
+
+  if [ -n "${DOCKERHUB_PASSWORD:-}" ] && ([ "$REF_NAME" == "master" ] || semver check "$REF_NAME"); then
+    echo ${DOCKERHUB_PASSWORD:-} | docker login -u aztecprotocolci --password-stdin
+  fi
+  echo "env: REF_NAME=$REF_NAME COMMIT_HASH=$COMMIT_HASH CURRENT_VERSION=$CURRENT_VERSION CI_FULL=$CI_FULL DRY_RUN=${DRY_RUN:-0}"
+  if semver check "$REF_NAME"; then
+    echo "Performing a release because $REF_NAME is a semver."
+  fi
   set -x
   $cmd
 EOF
@@ -120,8 +130,8 @@ EOF
 set +e
 ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
   # TODO: This should *not* be needed in a CI run. Remove "watching" code, e.g. in boxes.
-  sudo sysctl fs.inotify.max_user_watches=1048576
-  sudo sysctl fs.inotify.max_user_instances=1048576
+  sudo sysctl fs.inotify.max_user_watches=1048576 &>/dev/null
+  sudo sysctl fs.inotify.max_user_instances=1048576 &>/dev/null
 
   echo Loading CRS into tmpfs...
   sudo mkdir /mnt/bb-crs
