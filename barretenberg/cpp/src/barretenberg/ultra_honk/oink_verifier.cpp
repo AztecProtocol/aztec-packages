@@ -44,16 +44,17 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_preamble_roun
         transcript->template receive_from_prover<uint32_t>(domain_separator + "pub_inputs_offset");
 
     if (circuit_size != verification_key->verification_key->circuit_size) {
-        throw_or_abort(std::format("OinkVerifier::execute_preamble_round: proof circuit size ({}) does not "
-                                   "match verification key circuit size ({})!",
-                                   circuit_size,
-                                   verification_key->verification_key->circuit_size));
+        const std::string message = "OinkVerifier::execute_preamble_round: proof circuit size (" +
+                                    std::to_string(circuit_size) + ") does not match verification key circuit size (" +
+                                    std::to_string(verification_key->verification_key->circuit_size) + ")!";
+        throw_or_abort(message);
     }
     if (public_input_size != verification_key->verification_key->num_public_inputs) {
-        throw_or_abort(std::format("OinkVerifier::execute_preamble_round: proof public inputs size ({}) does not match "
-                                   "verification key circuit size ({})!",
-                                   public_input_size,
-                                   verification_key->verification_key->num_public_inputs));
+        const std::string message = "OinkVerifier::execute_preamble_round: proof public inputs size (" +
+                                    std::to_string(public_input_size) +
+                                    ") does not match verification key circuit size (" +
+                                    std::to_string(verification_key->verification_key->num_public_inputs) + ")!";
+        throw_or_abort(message);
     }
     if (pub_inputs_offset != verification_key->verification_key->pub_inputs_offset) {
         throw_or_abort("OinkVerifier::execute_preamble_round: public inputs offset does not match verification key!");

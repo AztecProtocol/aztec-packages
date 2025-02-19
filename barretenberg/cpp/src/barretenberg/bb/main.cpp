@@ -643,7 +643,8 @@ int main(int argc, char* argv[])
             return 0;
         }
         auto subcommands = app.get_subcommands();
-        throw_or_abort(std::format("No handler for subcommand {}", subcommands[0]->get_name()));
+        const std::string message = std::string("No handler for subcommand ") + subcommands[0]->get_name();
+        throw_or_abort(message);
         return 1;
     };
 
