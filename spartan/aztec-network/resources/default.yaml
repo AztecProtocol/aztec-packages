@@ -1,0 +1,68 @@
+storage:
+  localSsd: false
+  dataStoreMapSize: "134217728" # 128 GB
+  worldStateMapSize: "134217728" # 128 GB
+
+bootNode:
+  resources:
+    requests:
+      memory: "5Gi"
+
+validator:
+  resources:
+    requests:
+      memory: "5Gi"
+
+proverNode:
+  resources:
+    requests:
+      memory: "5Gi"
+
+pxe:
+  resources:
+    requests:
+      memory: "4Gi"
+
+bot:
+  gke:
+    spotEnabled: true
+  resources:
+    requests:
+      memory: "5Gi"
+
+proverAgent:
+  resources:
+    requests:
+      memory: "5Gi"
+
+proverBroker:
+  resources:
+    requests:
+      memory: "5Gi"
+
+blobSink:
+  resources:
+
+faucet:
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+
+ethereum:
+  execution:
+    resources:
+      requests:
+        memory: "4Gi"
+    storageSize: "80Gi"
+  beacon:
+    resources:
+      requests:
+        memory: "4Gi"
+      limits:
+        memory: "4Gi"
+    storageSize: "80Gi"
+  validator:
+    resources:
+      requests:
+        memory: "4Gi"
