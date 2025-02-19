@@ -1,13 +1,11 @@
-import { TestCircuitProver } from '@aztec/bb-prover';
 import { type ServerCircuitProver } from '@aztec/circuit-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
-import { WASMSimulatorWithBlobs } from '@aztec/simulator/server';
 
 import { jest } from '@jest/globals';
 
 import { TestContext } from '../mocks/test_context.js';
-import { ProvingOrchestrator } from './orchestrator.js';
+import { type ProvingOrchestrator } from './orchestrator.js';
 
 const logger = createLogger('prover-client:test:orchestrator-failures');
 const LONG_TIMEOUT = 600_000;
@@ -15,6 +13,7 @@ const LONG_TIMEOUT = 600_000;
 describe('prover/orchestrator/failures', () => {
   let context: TestContext;
   let orchestrator: ProvingOrchestrator;
+  let prover: ServerCircuitProver;
 
   beforeEach(async () => {
     context = await TestContext.new(logger);
@@ -25,11 +24,8 @@ describe('prover/orchestrator/failures', () => {
   });
 
   describe('error handling', () => {
-    let mockProver: ServerCircuitProver;
-
     beforeEach(() => {
-      mockProver = new TestCircuitProver(new WASMSimulatorWithBlobs());
-      orchestrator = new ProvingOrchestrator(context.worldState, mockProver);
+      ({ prover, orchestrator } = context);
     });
 
     const run = async (message: string) => {
@@ -80,24 +76,24 @@ describe('prover/orchestrator/failures', () => {
     it.each([
       [
         'Private Base Rollup Failed',
-        (msg: string) => jest.spyOn(mockProver, 'getPrivateBaseRollupProof').mockRejectedValue(msg),
+        (msg: string) => jest.spyOn(prover, 'getPrivateBaseRollupProof').mockRejectedValue(msg),
       ],
       [
         'Public Base Rollup Failed',
-        (msg: string) => jest.spyOn(mockProver, 'getPublicBaseRollupProof').mockRejectedValue(msg),
+        (msg: string) => jest.spyOn(prover, 'getPublicBaseRollupProof').mockRejectedValue(msg),
       ],
-      ['Merge Rollup Failed', (msg: string) => jest.spyOn(mockProver, 'getMergeRollupProof').mockRejectedValue(msg)],
+      ['Merge Rollup Failed', (msg: string) => jest.spyOn(prover, 'getMergeRollupProof').mockRejectedValue(msg)],
       [
         'Block Root Rollup Failed',
-        (msg: string) => jest.spyOn(mockProver, 'getBlockRootRollupProof').mockRejectedValue(msg),
+        (msg: string) => jest.spyOn(prover, 'getBlockRootRollupProof').mockRejectedValue(msg),
       ],
       [
         'Block Merge Rollup Failed',
-        (msg: string) => jest.spyOn(mockProver, 'getBlockMergeRollupProof').mockRejectedValue(msg),
+        (msg: string) => jest.spyOn(prover, 'getBlockMergeRollupProof').mockRejectedValue(msg),
       ],
-      ['Root Rollup Failed', (msg: string) => jest.spyOn(mockProver, 'getRootRollupProof').mockRejectedValue(msg)],
-      ['Base Parity Failed', (msg: string) => jest.spyOn(mockProver, 'getBaseParityProof').mockRejectedValue(msg)],
-      ['Root Parity Failed', (msg: string) => jest.spyOn(mockProver, 'getRootParityProof').mockRejectedValue(msg)],
+      ['Root Rollup Failed', (msg: string) => jest.spyOn(prover, 'getRootRollupProof').mockRejectedValue(msg)],
+      ['Base Parity Failed', (msg: string) => jest.spyOn(prover, 'getBaseParityProof').mockRejectedValue(msg)],
+      ['Root Parity Failed', (msg: string) => jest.spyOn(prover, 'getRootParityProof').mockRejectedValue(msg)],
     ] as const)(
       'handles a %s error',
       async (message: string, makeFailedProof: (msg: string) => void) => {
