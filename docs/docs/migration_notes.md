@@ -92,7 +92,7 @@ The new check an indexed tree allows is non-membership of addresses of non proto
 ```
 
 ### [Aztec.nr] Changes to `NoteInterface`
-We removed `NoteHeader` from notes and we've introduced `RetrievedNote` struct.
+We removed `NoteHeader` from notes, we've introduced a `RetrievedNote` struct and instead of the `pack_content` and `unpack_content` functions we make notes implement the standard `Packable` trait.
 This led us to do the following changes to `NoteInterface`:
 
 ```diff
@@ -102,11 +102,12 @@ pub trait NullifiableNote {
 +    unconstrained fn fn compute_nullifier_without_context(self, storage_slot: Field, contract_address: AztecAddress, note_nonce: Field) -> Field;
 }
 
-pub trait NoteInterface<let N: u32> {
+-pub trait NoteInterface<let N: u32> {
++pub trait NoteInterface {
+-    fn pack_content(self) -> [Field; N];
+-    fn unpack_content(fields: [Field; N]) -> Self;
 -    fn get_header(self) -> NoteHeader;
-
 -    fn set_header(&mut self, header: NoteHeader) -> ();
-
 -    fn compute_note_hash(self) -> Field;
 +    fn compute_note_hash(self, storage_slot: Field) -> Field;
 }
@@ -121,13 +122,15 @@ These are the changes that needed to be done to our `EcdsaPublicKeyNote`:
 -use dep::aztec::prelude::{NoteHeader};
 +use dep::aztec::prelude::{RetrievedNote};
 
-impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
-...
-    fn unpack_content(packed_content: [Field; ECDSA_PUBLIC_KEY_NOTE_LEN]) -> EcdsaPublicKeyNote {
-         ...
--        EcdsaPublicKeyNote { x, y, owner: AztecAddress::from_field(packed_content[4]), header: NoteHeader::empty() }
-+        EcdsaPublicKeyNote { x, y, owner: AztecAddress::from_field(packed_content[4]) }
-    }
+- impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
++ impl NoteInterface for EcdsaPublicKeyNote {
+-    fn pack_content(self) -> [Field; ECDSA_PUBLIC_KEY_NOTE_LEN] {
+-        ...
+-    }
+
+-    fn unpack_content(packed_content: [Field; ECDSA_PUBLIC_KEY_NOTE_LEN]) -> EcdsaPublicKeyNote {
+-         ...
+-    }
 
 -    fn get_header(self) -> NoteHeader {
 -        self.header
@@ -145,6 +148,25 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
     }
 }
 
+If you need to keep the custom implementation of the packing functionality, manually implement the `Packable` trait:
+
+```diff
++ use dep::aztec::protocol_types::traits::Packable;
+
++impl Packable<N> for YourNote {
++    fn pack(self) -> [Field; N] {
++        ...
++    }
++
++    fn unpack(fields: [Field; N]) -> Self {
++        ...
++    }
++}
+```
+
+If you don't provide a custom implementation of the `Packable` trait, a default one will be generated.
+
+```diff
 impl NullifiableNote for EcdsaPublicKeyNote {
 ...
 -    unconstrained fn compute_nullifier_without_context(self, storage_slot: Field) -> Field {

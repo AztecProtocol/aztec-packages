@@ -56,7 +56,7 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     // docs:start:initialize
     pub fn initialize<let N: u32>(self, note: Note) -> NoteEmission<Note>
     where
-        Note: NoteInterface<N> + NullifiableNote,
+        Note: NoteInterface + NullifiableNote + Packable<N>,
     {
         // Nullify the storage slot.
         let nullifier = self.compute_initialization_nullifier();
@@ -69,7 +69,7 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     // docs:start:get_note
     pub fn get_note<let N: u32>(self) -> Note
     where
-        Note: NoteInterface<N> + NullifiableNote,
+        Note: NoteInterface + NullifiableNote + Packable<N>,
     {
         let storage_slot = self.storage_slot;
         let retrieved_note = get_note(self.context, storage_slot).0;
@@ -94,7 +94,7 @@ impl<Note> PrivateImmutable<Note, UnconstrainedContext> {
     // docs:start:view_note
     pub unconstrained fn view_note<let N: u32>(self) -> Note
     where
-        Note: NoteInterface<N> + NullifiableNote,
+        Note: NoteInterface + NullifiableNote + Packable<N>,
     {
         let mut options = NoteViewerOptions::new();
         view_notes(self.storage_slot, options.set_limit(1)).get(0)

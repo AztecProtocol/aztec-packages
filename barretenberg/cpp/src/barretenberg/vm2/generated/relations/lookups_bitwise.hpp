@@ -81,7 +81,7 @@ class lookup_bitw_byte_lengths_relation : public GenericLookupRelation<lookup_bi
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.bitwise_start.is_zero() && in.precomputed_sel_integral_tag.is_zero();
+        return in.lookup_bitw_byte_lengths_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)
@@ -175,7 +175,7 @@ class lookup_bitw_byte_operations_relation
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.bitwise_sel.is_zero() && in.precomputed_sel_bitwise.is_zero();
+        return in.lookup_bitw_byte_operations_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)

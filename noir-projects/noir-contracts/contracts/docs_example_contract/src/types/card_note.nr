@@ -2,19 +2,21 @@ use dep::aztec::{
     keys::getters::{get_nsk_app, get_public_keys},
     macros::notes::note,
     note::utils::compute_note_hash_for_nullify,
+    prelude::{NullifiableNote, PrivateContext, RetrievedNote},
     protocol_types::{
-        address::AztecAddress,
-        constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        hash::poseidon2_hash_with_separator,
-        traits::{Packable, Serialize},
+        address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
+        hash::poseidon2_hash_with_separator, traits::Serialize,
     },
 };
-use dep::aztec::prelude::{NullifiableNote, PrivateContext, RetrievedNote};
+
+// TODO(#12008): Remove the need for the manual import of `Packable` trait here. This is a bug in macros.
+use aztec::protocol_types::traits::Packable;
 
 // docs:start:state_vars-CardNote
 global CARD_NOTE_LEN: u32 = 3; // 3 plus a header.
 
 #[note]
+#[derive(Eq)]
 pub struct CardNote {
     points: u8,
     randomness: Field,
@@ -72,11 +74,3 @@ impl Serialize<3> for CardNote {
     }
 }
 // docs:end:serialize
-
-impl Eq for CardNote {
-    fn eq(self, other: Self) -> bool {
-        (self.points == other.points)
-            & (self.owner == other.owner)
-            & (self.randomness == other.randomness)
-    }
-}

@@ -86,7 +86,7 @@ case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  ""|"full")
+  ""|"full"|"fast")
     build_and_preview
     ;;
   "hash")

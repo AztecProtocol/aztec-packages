@@ -6,9 +6,12 @@ use dep::aztec::{
     prelude::{NullifiableNote, PrivateContext, RetrievedNote},
     protocol_types::{
         address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        hash::poseidon2_hash_with_separator, traits::Packable,
+        hash::poseidon2_hash_with_separator,
     },
 };
+
+// TODO(#12008): Remove the need for the manual import of `Packable` trait here. This is a bug in macros.
+use aztec::protocol_types::traits::Packable;
 
 trait OwnedNote {
     fn new(amount: U128, owner: AztecAddress) -> Self;
@@ -16,11 +19,12 @@ trait OwnedNote {
 }
 
 #[note]
+#[derive(Eq)]
 pub struct TokenNote {
     // The amount of tokens in the note
     amount: U128,
     owner: AztecAddress,
-    // Randomness of the note to hide its contents
+    // Randomness of the note to protect against note hash preimage attacks
     randomness: Field,
 }
 
@@ -56,14 +60,6 @@ impl NullifiableNote for TokenNote {
             [note_hash_for_nullify, secret],
             GENERATOR_INDEX__NOTE_NULLIFIER as Field,
         )
-    }
-}
-
-impl Eq for TokenNote {
-    fn eq(self, other: Self) -> bool {
-        (self.amount == other.amount)
-            & (self.owner == other.owner)
-            & (self.randomness == other.randomness)
     }
 }
 

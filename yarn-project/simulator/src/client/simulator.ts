@@ -162,21 +162,19 @@ export class AcirSimulator {
   }
 
   /**
-   * Computes the inner nullifier of a note.
+   * Computes the note hash and inner nullifier of a note.
    * @param contractAddress - The address of the contract.
-   * @param nonce - The nonce of the note hash.
+   * @param nonce - The nonce of the note hash, is not used when calculating the base note hash.
    * @param storageSlot - The storage slot.
    * @param noteTypeId - The note type identifier.
-   * @param computeNullifier - A flag indicating whether to compute the nullifier or just return 0.
    * @param note - The note.
-   * @returns The nullifier.
+   * @returns The note hash (and intermediary forms) and inner nullifier.
    */
-  public async computeNoteHashAndOptionallyANullifier(
+  public async computeNoteHashAndNullifier(
     contractAddress: AztecAddress,
     nonce: Fr,
     storageSlot: Fr,
     noteTypeId: NoteSelector,
-    computeNullifier: boolean,
     note: Note,
   ) {
     const artifact: FunctionArtifact | undefined = await this.db.getFunctionArtifactByName(
@@ -212,14 +210,7 @@ export class AcirSimulator {
       selector,
       type: FunctionType.UNCONSTRAINED,
       isStatic: artifact.isStatic,
-      args: encodeArguments(artifact, [
-        contractAddress,
-        nonce,
-        storageSlot,
-        noteTypeId,
-        computeNullifier,
-        extendedNoteItems,
-      ]),
+      args: encodeArguments(artifact, [contractAddress, nonce, storageSlot, noteTypeId, true, extendedNoteItems]),
       returnTypes: artifact.returnTypes,
     };
 
@@ -236,25 +227,5 @@ export class AcirSimulator {
       siloedNoteHash: new Fr(siloedNoteHash),
       innerNullifier: new Fr(innerNullifier),
     };
-  }
-
-  /**
-   * Computes a hash of the note.
-   * @param contractAddress - The address of the contract.
-   * @param storageSlot - The storage slot.
-   * @param noteTypeId - The note type identifier.
-   * @param note - The note.
-   * @returns The note hash.
-   */
-  public async computeNoteHash(contractAddress: AztecAddress, storageSlot: Fr, noteTypeId: NoteSelector, note: Note) {
-    const { noteHash } = await this.computeNoteHashAndOptionallyANullifier(
-      contractAddress,
-      Fr.ZERO,
-      storageSlot,
-      noteTypeId,
-      false,
-      note,
-    );
-    return noteHash;
   }
 }
