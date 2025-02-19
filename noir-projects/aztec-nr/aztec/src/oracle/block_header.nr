@@ -35,7 +35,7 @@ pub fn get_block_header_at(block_number: u32, context: PrivateContext) -> BlockH
         );
 
         // 3) Get the header hint of a given block from an oracle
-        /// Safety: The header is constrained to be in the archive tree below.
+        // Safety: The header is constrained to be in the archive tree below.
         let header = unsafe { get_block_header_at_internal(block_number) };
 
         // 4) We make sure that the header hint we received from the oracle exists in the state tree and is the actual header
@@ -62,7 +62,7 @@ fn constrain_get_block_header_at_internal(
     let block_hash = header_hint.hash();
 
     // 2) Get the membership witness of the block in the archive tree
-    /// Safety: The witness is only used as a "magical value" that makes the merkle proof below pass. Hence it's safe.
+    // Safety: The witness is only used as a "magical value" that makes the merkle proof below pass. Hence it's safe.
     let witness = unsafe { get_archive_membership_witness(last_archive_block_number, block_hash) };
 
     // 3) Check that the block is in the archive (i.e. the witness is valid)
@@ -94,12 +94,12 @@ mod test {
         let current_header = env.private().historical_header;
 
         let target_block_number = 3;
-        let bad_header = get_block_header_at_internal(target_block_number - 1);
+        let bad_header = get_block_header_at_internal(target_block_number);
 
         // We pass in a different block number than the header received
         constrain_get_block_header_at_internal(
             bad_header,
-            2,
+            target_block_number - 1,
             current_header.global_variables.block_number as u32 - 1,
             current_header.last_archive.root,
         );

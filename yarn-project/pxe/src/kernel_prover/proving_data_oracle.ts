@@ -1,17 +1,16 @@
-import { type NullifierMembershipWitness } from '@aztec/circuit-types';
+import { type NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/client';
 import {
-  type FUNCTION_TREE_HEIGHT,
   type Fr,
   type FunctionSelector,
   type GrumpkinScalar,
-  type MembershipWitness,
-  type NOTE_HASH_TREE_HEIGHT,
   type Point,
   type PublicKeys,
-  type VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
+import { UpdatedClassIdHints } from '@aztec/circuits.js/kernel';
+import { type FUNCTION_TREE_HEIGHT, type NOTE_HASH_TREE_HEIGHT, type VK_TREE_HEIGHT } from '@aztec/constants';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import type { MembershipWitness } from '@aztec/foundation/trees';
 
 /**
  * Provides functionality to fetch membership witnesses for verification keys,
@@ -19,9 +18,12 @@ import { type AztecAddress } from '@aztec/foundation/aztec-address';
  */
 export interface ProvingDataOracle {
   /** Retrieves the preimage of a contract address from the registered contract instances db. */
-  getContractAddressPreimage(
-    address: AztecAddress,
-  ): Promise<{ saltedInitializationHash: Fr; publicKeys: PublicKeys; contractClassId: Fr }>;
+  getContractAddressPreimage(address: AztecAddress): Promise<{
+    saltedInitializationHash: Fr;
+    publicKeys: PublicKeys;
+    currentContractClassId: Fr;
+    originalContractClassId: Fr;
+  }>;
 
   /** Retrieves the preimage of a contract class id from the contract classes db. */
   getContractClassIdPreimage(
@@ -29,16 +31,16 @@ export interface ProvingDataOracle {
   ): Promise<{ artifactHash: Fr; publicBytecodeCommitment: Fr; privateFunctionsRoot: Fr }>;
 
   /**
-   * Retrieve the function membership witness for the given contract address and function selector.
+   * Retrieve the function membership witness for the given contract class and function selector.
    * The function membership witness represents a proof that the function belongs to the specified contract.
    * Throws an error if the contract address or function selector is unknown.
    *
-   * @param contractAddress - The contract address.
+   * @param contractClassId - The id of the class.
    * @param selector - The function selector.
    * @returns A promise that resolves with the MembershipWitness instance for the specified contract's function.
    */
   getFunctionMembershipWitness(
-    contractAddress: AztecAddress,
+    contractClassId: Fr,
     selector: FunctionSelector,
   ): Promise<MembershipWitness<typeof FUNCTION_TREE_HEIGHT>>;
 
@@ -80,4 +82,6 @@ export interface ProvingDataOracle {
   getMasterSecretKey(masterPublicKey: Point): Promise<GrumpkinScalar>;
 
   getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
+
+  getUpdatedClassIdHints(contractAddress: AztecAddress): Promise<UpdatedClassIdHints>;
 }

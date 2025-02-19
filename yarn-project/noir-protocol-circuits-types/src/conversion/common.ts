@@ -1,5 +1,4 @@
 import {
-  AppendOnlyTreeSnapshot,
   AztecAddress,
   BlockHeader,
   ContentCommitment,
@@ -13,23 +12,13 @@ import {
   GrumpkinScalar,
   L2ToL1Message,
   LogHash,
-  MAX_CONTRACT_CLASS_LOGS_PER_TX,
-  MAX_L2_TO_L1_MSGS_PER_TX,
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  MAX_PRIVATE_LOGS_PER_TX,
   MaxBlockNumber,
-  type MembershipWitness,
   NUM_BYTES_PER_SHA256,
-  type NullifierLeafPreimage,
   OptionalNumber,
-  type PRIVATE_LOG_SIZE_IN_FIELDS,
   PartialStateReference,
   Point,
   PrivateLog,
-  PrivateToRollupAccumulatedData,
   PublicCallRequest,
-  type PublicDataTreeLeafPreimage,
   type PublicDataWrite,
   PublicLog,
   ScopedL2ToL1Message,
@@ -38,8 +27,24 @@ import {
   TxContext,
   type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
+import { PrivateToRollupAccumulatedData } from '@aztec/circuits.js/kernel';
+import {
+  AppendOnlyTreeSnapshot,
+  type NullifierLeafPreimage,
+  type ProtocolContractLeafPreimage,
+  type PublicDataTreeLeafPreimage,
+} from '@aztec/circuits.js/trees';
+import {
+  MAX_CONTRACT_CLASS_LOGS_PER_TX,
+  MAX_L2_TO_L1_MSGS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+  MAX_PRIVATE_LOGS_PER_TX,
+  type PRIVATE_LOG_SIZE_IN_FIELDS,
+} from '@aztec/constants';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { type Tuple, mapTuple, toTruncField } from '@aztec/foundation/serialize';
+import type { MembershipWitness } from '@aztec/foundation/trees';
 
 import type {
   AppendOnlyTreeSnapshot as AppendOnlyTreeSnapshotNoir,
@@ -66,6 +71,7 @@ import type {
   Option as OptionalNumberNoir,
   PartialStateReference as PartialStateReferenceNoir,
   PrivateToRollupAccumulatedData as PrivateToRollupAccumulatedDataNoir,
+  ProtocolContractLeafPreimage as ProtocolContractLeafPreimageNoir,
   PublicCallRequest as PublicCallRequestNoir,
   PublicDataTreeLeafPreimage as PublicDataTreeLeafPreimageNoir,
   PublicDataWrite as PublicDataWriteNoir,
@@ -561,17 +567,17 @@ export function mapStateReferenceFromNoir(stateReference: StateReferenceNoir): S
 }
 
 /**
- * Maps a nullifier leaf preimage to noir
- * @param nullifierLeafPreimage - The nullifier leaf preimage.
- * @returns The noir nullifier leaf preimage.
+ * Maps a partial state reference to a noir partial state reference.
+ * @param partialStateReference - The partial state reference.
+ * @returns The noir partial state reference.
  */
-export function mapNullifierLeafPreimageToNoir(
-  nullifierLeafPreimage: NullifierLeafPreimage,
-): NullifierLeafPreimageNoir {
+export function mapPartialStateReferenceToNoir(
+  partialStateReference: PartialStateReference,
+): PartialStateReferenceNoir {
   return {
-    nullifier: mapFieldToNoir(nullifierLeafPreimage.nullifier),
-    next_nullifier: mapFieldToNoir(nullifierLeafPreimage.nextNullifier),
-    next_index: mapNumberToNoir(Number(nullifierLeafPreimage.nextIndex)),
+    note_hash_tree: mapAppendOnlyTreeSnapshotToNoir(partialStateReference.noteHashTree),
+    nullifier_tree: mapAppendOnlyTreeSnapshotToNoir(partialStateReference.nullifierTree),
+    public_data_tree: mapAppendOnlyTreeSnapshotToNoir(partialStateReference.publicDataTree),
   };
 }
 
@@ -590,11 +596,18 @@ export function mapPartialStateReferenceFromNoir(
   );
 }
 
-export function mapMembershipWitnessToNoir<N extends number>(witness: MembershipWitness<N>): MembershipWitnessNoir<N> {
-  const siblingPath = mapTuple(witness.siblingPath, mapFieldToNoir) as FixedLengthArray<NoirField, N>;
+/**
+ * Maps a nullifier leaf preimage to noir
+ * @param nullifierLeafPreimage - The nullifier leaf preimage.
+ * @returns The noir nullifier leaf preimage.
+ */
+export function mapNullifierLeafPreimageToNoir(
+  nullifierLeafPreimage: NullifierLeafPreimage,
+): NullifierLeafPreimageNoir {
   return {
-    leaf_index: witness.leafIndex.toString(),
-    sibling_path: siblingPath,
+    nullifier: mapFieldToNoir(nullifierLeafPreimage.nullifier),
+    next_nullifier: mapFieldToNoir(nullifierLeafPreimage.nextNullifier),
+    next_index: mapNumberToNoir(Number(nullifierLeafPreimage.nextIndex)),
   };
 }
 
@@ -611,17 +624,25 @@ export function mapPublicDataTreePreimageToNoir(preimage: PublicDataTreeLeafPrei
 }
 
 /**
- * Maps a partial state reference to a noir partial state reference.
- * @param partialStateReference - The partial state reference.
- * @returns The noir partial state reference.
+ * Maps a protocol contract leaf preimage to noir
+ * @param protocolContractPreimage - The protocol contract leaf preimage.
+ * @returns The noir protocol contract leaf preimage.
+ * Note: the circuit does not use next_index, so it does not exist in the noir struct.
  */
-export function mapPartialStateReferenceToNoir(
-  partialStateReference: PartialStateReference,
-): PartialStateReferenceNoir {
+export function mapProtocolContractLeafPreimageToNoir(
+  protocolContractPreimage: ProtocolContractLeafPreimage,
+): ProtocolContractLeafPreimageNoir {
   return {
-    note_hash_tree: mapAppendOnlyTreeSnapshotToNoir(partialStateReference.noteHashTree),
-    nullifier_tree: mapAppendOnlyTreeSnapshotToNoir(partialStateReference.nullifierTree),
-    public_data_tree: mapAppendOnlyTreeSnapshotToNoir(partialStateReference.publicDataTree),
+    address: mapFieldToNoir(protocolContractPreimage.address),
+    next_address: mapFieldToNoir(protocolContractPreimage.nextAddress),
+  };
+}
+
+export function mapMembershipWitnessToNoir<N extends number>(witness: MembershipWitness<N>): MembershipWitnessNoir<N> {
+  const siblingPath = mapTuple(witness.siblingPath, mapFieldToNoir) as FixedLengthArray<NoirField, N>;
+  return {
+    leaf_index: witness.leafIndex.toString(),
+    sibling_path: siblingPath,
   };
 }
 

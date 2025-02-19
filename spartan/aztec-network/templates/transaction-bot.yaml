@@ -109,6 +109,8 @@ spec:
               value: "1"
             - name: LOG_LEVEL
               value: "{{ .Values.bot.logLevel }}"
+            - name: BOT_L1_MNEMONIC
+              value: "{{ .Values.bot.l1Mnemonic }}"
             - name: BOT_PRIVATE_KEY
               value: "{{ .Values.bot.botPrivateKey }}"
             - name: BOT_TX_INTERVAL_SECONDS
@@ -131,10 +133,14 @@ spec:
               value: "{{ .Values.bot.maxErrors }}"
             - name: BOT_STOP_WHEN_UNHEALTHY
               value: "{{ .Values.bot.stopIfUnhealthy }}"
-            - name: USE_GCLOUD_OBSERVABILITY
-              value: "{{ .Values.telemetry.useGcloudObservability }}"
+            - name: USE_GCLOUD_LOGGING
+              value: "{{ .Values.telemetry.useGcloudLogging }}"
+            - name: USE_GCLOUD_METRICS
+              value: "{{ .Values.telemetry.useGcloudMetrics }}"
             - name: OTEL_EXCLUDE_METRICS
               value: "{{ .Values.telemetry.excludeMetrics }}"
+            - name: L1_CHAIN_ID
+              value: "{{ .Values.ethereum.chainId }}"
           ports:
             - name: http
               containerPort: {{ .Values.bot.service.nodePort }}
@@ -164,6 +170,7 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-bot
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
+    app: bot
 spec:
   type: {{ .Values.bot.service.type }}
   selector:

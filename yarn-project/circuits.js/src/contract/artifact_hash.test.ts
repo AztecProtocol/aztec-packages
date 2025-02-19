@@ -1,5 +1,4 @@
-import { type ContractArtifact } from '@aztec/foundation/abi';
-
+import { type ContractArtifact } from '../abi/index.js';
 import { getTestContractArtifact } from '../tests/fixtures.js';
 import { computeArtifactHash } from './artifact_hash.js';
 

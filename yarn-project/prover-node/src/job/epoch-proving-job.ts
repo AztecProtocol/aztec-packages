@@ -1,14 +1,16 @@
 import {
-  type EpochProver,
-  type EpochProvingJobState,
-  EpochProvingJobTerminalState,
-  type ForkMerkleTreeOperations,
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockSource,
   type ProcessedTx,
   type Tx,
 } from '@aztec/circuit-types';
+import {
+  type EpochProver,
+  type EpochProvingJobState,
+  EpochProvingJobTerminalState,
+  type ForkMerkleTreeOperations,
+} from '@aztec/circuit-types/interfaces/server';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -61,6 +63,10 @@ export class EpochProvingJob implements Traceable {
 
   public getState(): EpochProvingJobState {
     return this.state;
+  }
+
+  public getEpochNumber(): bigint {
+    return this.epochNumber;
   }
 
   /**

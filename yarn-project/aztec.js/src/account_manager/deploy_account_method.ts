@@ -5,7 +5,7 @@ import {
   FunctionSelector,
   encodeArguments,
   getFunctionArtifactByName,
-} from '@aztec/foundation/abi';
+} from '@aztec/circuits.js/abi';
 
 import { type AuthWitnessProvider } from '../account/interface.js';
 import { type Wallet } from '../account/wallet.js';

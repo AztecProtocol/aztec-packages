@@ -1,10 +1,5 @@
-import {
-  type BlockHeader,
-  type Fr,
-  type NullifierLeaf,
-  type PublicDataTreeLeaf,
-  type StateReference,
-} from '@aztec/circuits.js';
+import { type BlockHeader, type Fr, type StateReference } from '@aztec/circuits.js';
+import { type NullifierLeaf, type PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { createLogger } from '@aztec/foundation/log';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
@@ -258,6 +253,21 @@ export interface MerkleTreeWriteOperations extends MerkleTreeReadOperations {
    * Closes the database, discarding any uncommitted changes.
    */
   close(): Promise<void>;
+
+  /**
+   * Checkpoints the current fork state
+   */
+  createCheckpoint(): Promise<void>;
+
+  /**
+   * Commits the current checkpoint
+   */
+  commitCheckpoint(): Promise<void>;
+
+  /**
+   * Reverts the current checkpoint
+   */
+  revertCheckpoint(): Promise<void>;
 }
 
 /**

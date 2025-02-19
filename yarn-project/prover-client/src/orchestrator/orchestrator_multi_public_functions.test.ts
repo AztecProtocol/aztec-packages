@@ -1,4 +1,4 @@
-import { mockTx } from '@aztec/circuit-types';
+import { mockTx } from '@aztec/circuit-types/testing';
 import { timesParallel } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
@@ -36,7 +36,7 @@ describe('prover/orchestrator/public-functions', () => {
         );
         for (const tx of txs) {
           tx.data.constants.historicalHeader = context.getBlockHeader(0);
-          tx.data.constants.vkTreeRoot = await getVKTreeRoot();
+          tx.data.constants.vkTreeRoot = getVKTreeRoot();
           tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
         }
 

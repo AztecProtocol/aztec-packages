@@ -1,10 +1,10 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import {
   type EthAddress,
   FeeJuicePaymentMethodWithClaim,
   Fr,
   type PXE,
-  SignerlessWallet,
   TxStatus,
   type WaitOpts,
   createAztecNodeClient,
@@ -12,9 +12,8 @@ import {
   fileURLToPath,
   retryUntil,
 } from '@aztec/aztec.js';
-import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 // eslint-disable-next-line no-restricted-imports
-import { PXESchema } from '@aztec/circuit-types';
+import { PXESchema } from '@aztec/circuit-types/interfaces/client';
 import { deriveSigningKey } from '@aztec/circuits.js';
 import { createNamespacedSafeJsonRpcServer, startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
 import { type Logger } from '@aztec/foundation/log';
@@ -294,10 +293,12 @@ describe('End-to-end tests for devnet', () => {
   }
 
   async function advanceChainWithEmptyBlocks(pxe: PXE) {
-    const { l1ChainId, protocolVersion } = await pxe.getNodeInfo();
-    const test = await TestContract.deploy(
-      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(l1ChainId, protocolVersion)),
-    )
+    const [deployWallet] = await getDeployedTestAccountsWallets(pxe);
+    if (!deployWallet) {
+      throw new Error('A funded wallet is required to create dummy txs.');
+    }
+
+    const test = await TestContract.deploy(deployWallet)
       .send({ universalDeploy: true, skipClassRegistration: true })
       .deployed();
 

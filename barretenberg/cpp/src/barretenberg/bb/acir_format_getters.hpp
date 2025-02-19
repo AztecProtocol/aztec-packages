@@ -1,5 +1,4 @@
 #pragma once
-#include "barretenberg/bb/config.hpp"
 #include "barretenberg/bb/file_io.hpp"
 #include "barretenberg/bb/get_bytecode.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"

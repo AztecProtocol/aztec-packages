@@ -1,4 +1,22 @@
 import {
+  type AztecAddress,
+  type ContractClassIdPreimage,
+  EthAddress,
+  type Gas,
+  type GasSettings,
+  type GlobalVariables,
+  L2ToL1Message,
+  NoteHash,
+  Nullifier,
+  PublicCallRequest,
+  PublicDataUpdateRequest,
+  PublicDataWrite,
+  PublicLog,
+  ScopedL2ToL1Message,
+  SerializableContractInstance,
+  type TreeSnapshots,
+} from '@aztec/circuits.js';
+import {
   AvmAccumulatedData,
   AvmAppendTreeHint,
   AvmCircuitPublicInputs,
@@ -10,14 +28,12 @@ import {
   AvmNullifierWriteTreeHint,
   AvmPublicDataReadTreeHint,
   AvmPublicDataWriteTreeHint,
-  type AztecAddress,
-  type ContractClassIdPreimage,
-  EthAddress,
-  type Gas,
-  type GasSettings,
-  type GlobalVariables,
+} from '@aztec/circuits.js/avm';
+import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { PrivateToAvmAccumulatedData, PrivateToAvmAccumulatedDataArrayLengths } from '@aztec/circuits.js/kernel';
+import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
+import {
   L1_TO_L2_MSG_TREE_HEIGHT,
-  L2ToL1Message,
   MAX_ENQUEUED_CALLS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
@@ -28,24 +44,10 @@ import {
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
-  NoteHash,
-  Nullifier,
-  NullifierLeafPreimage,
   PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
   PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
-  PrivateToAvmAccumulatedData,
-  PrivateToAvmAccumulatedDataArrayLengths,
-  PublicCallRequest,
-  PublicDataTreeLeafPreimage,
-  PublicDataUpdateRequest,
-  PublicDataWrite,
-  PublicLog,
-  ScopedL2ToL1Message,
-  SerializableContractInstance,
-  type TreeSnapshots,
-} from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+} from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
@@ -127,7 +129,6 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     /** We need to track the set of class IDs used for bytecode retrieval to deduplicate and enforce limits. */
     private gotBytecodeFromClassIds: UniqueClassIds = new UniqueClassIds(),
   ) {
-    this.log.debug(`Creating trace instance with startSideEffectCounter: ${startSideEffectCounter}`);
     this.sideEffectCounter = startSideEffectCounter;
     this.avmCircuitHints = AvmExecutionHints.empty();
   }
@@ -215,7 +216,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     path: Fr[] = emptyPublicDataPath(),
   ) {
     this.avmCircuitHints.publicDataReads.items.push(new AvmPublicDataReadTreeHint(leafPreimage, leafIndex, path));
-    this.log.debug(
+    this.log.trace(
       `Tracing storage read (address=${contractAddress}, slot=${slot}): value=${value} (counter=${this.sideEffectCounter})`,
     );
     this.incrementSideEffectCounter();
@@ -265,7 +266,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
       new AvmPublicDataWriteTreeHint(readHint, newLeafPreimage, insertionPath),
     );
 
-    this.log.debug(
+    this.log.trace(
       `Traced public data write (address=${contractAddress}, slot=${slot}): value=${value} (counter=${this.sideEffectCounter}, isProtocol:${protocolWrite})`,
     );
     this.incrementSideEffectCounter();
@@ -282,6 +283,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     // New Hinting
     this.avmCircuitHints.noteHashReads.items.push(new AvmAppendTreeHint(leafIndex, noteHash, path));
     // NOTE: counter does not increment for note hash checks (because it doesn't rely on pending note hashes)
+    this.log.trace(`Tracing note hash check (counter=${this.sideEffectCounter})`);
   }
 
   public traceNewNoteHash(noteHash: Fr, leafIndex: Fr = Fr.zero(), path: Fr[] = emptyNoteHashPath()) {
@@ -290,8 +292,8 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     }
 
     this.noteHashes.push(new NoteHash(noteHash, this.sideEffectCounter));
-    this.log.debug(`NEW_NOTE_HASH cnt: ${this.sideEffectCounter}`);
     this.avmCircuitHints.noteHashWrites.items.push(new AvmAppendTreeHint(leafIndex, noteHash, path));
+    this.log.trace(`Tracing new note hash (counter=${this.sideEffectCounter})`);
     this.incrementSideEffectCounter();
   }
 
@@ -305,7 +307,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     this.avmCircuitHints.nullifierReads.items.push(
       new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath),
     );
-    this.log.debug(`NULLIFIER_EXISTS cnt: ${this.sideEffectCounter}`);
+    this.log.trace(`Tracing nullifier check (counter=${this.sideEffectCounter})`);
     this.incrementSideEffectCounter();
   }
 
@@ -324,7 +326,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
 
     const lowLeafReadHint = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath);
     this.avmCircuitHints.nullifierWrites.items.push(new AvmNullifierWriteTreeHint(lowLeafReadHint, insertionPath));
-    this.log.debug(`NEW_NULLIFIER cnt: ${this.sideEffectCounter}`);
+    this.log.trace(`Tracing new nullifier (counter=${this.sideEffectCounter})`);
     this.incrementSideEffectCounter();
   }
 
@@ -337,6 +339,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     path: Fr[] = emptyL1ToL2MessagePath(),
   ) {
     this.avmCircuitHints.l1ToL2MessageReads.items.push(new AvmAppendTreeHint(msgLeafIndex, msgHash, path));
+    this.log.trace(`Tracing l1 to l2 message check (counter=${this.sideEffectCounter})`);
   }
 
   public traceNewL2ToL1Message(contractAddress: AztecAddress, recipient: Fr, content: Fr) {
@@ -348,7 +351,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     this.l2ToL1Messages.push(
       new L2ToL1Message(recipientAddress, content, this.sideEffectCounter).scope(contractAddress),
     );
-    this.log.debug(`NEW_L2_TO_L1_MSG cnt: ${this.sideEffectCounter}`);
+    this.log.trace(`Tracing new l2 to l1 message (counter=${this.sideEffectCounter})`);
     this.incrementSideEffectCounter();
   }
 
@@ -362,7 +365,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     }
     const publicLog = new PublicLog(contractAddress, padArrayEnd(log, Fr.ZERO, PUBLIC_LOG_DATA_SIZE_IN_FIELDS));
     this.publicLogs.push(publicLog);
-    this.log.debug(`NEW_PUBLIC_LOG cnt: ${this.sideEffectCounter}`);
+    this.log.trace(`Tracing new public log (counter=${this.sideEffectCounter})`);
     this.incrementSideEffectCounter();
   }
 
@@ -370,24 +373,26 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     contractAddress: AztecAddress,
     exists: boolean,
     instance: SerializableContractInstance = SerializableContractInstance.default(),
-    lowLeafPreimage: NullifierLeafPreimage = NullifierLeafPreimage.empty(),
-    lowLeafIndex: Fr = Fr.zero(),
-    lowLeafPath: Fr[] = emptyNullifierPath(),
+    nullifierMembershipHint: AvmNullifierReadTreeHint = AvmNullifierReadTreeHint.empty(),
+    updateMembershipHint: AvmPublicDataReadTreeHint = AvmPublicDataReadTreeHint.empty(),
+    updatePreimage: Fr[] = [],
   ) {
-    const membershipHint = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath);
     this.avmCircuitHints.contractInstances.items.push(
       new AvmContractInstanceHint(
         contractAddress,
         exists,
         instance.salt,
         instance.deployer,
-        instance.contractClassId,
+        instance.currentContractClassId,
+        instance.originalContractClassId,
         instance.initializationHash,
         instance.publicKeys,
-        membershipHint,
+        nullifierMembershipHint,
+        updateMembershipHint,
+        updatePreimage,
       ),
     );
-    this.log.debug(`CONTRACT_INSTANCE cnt: ${this.sideEffectCounter}`);
+    this.log.trace(`Tracing contract instance retrieval (counter=${this.sideEffectCounter})`);
     this.incrementSideEffectCounter();
   }
 
@@ -404,9 +409,9 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
       privateFunctionsRoot: Fr.zero(),
       publicBytecodeCommitment: Fr.zero(),
     },
-    lowLeafPreimage: NullifierLeafPreimage = NullifierLeafPreimage.empty(),
-    lowLeafIndex: Fr = Fr.zero(),
-    lowLeafPath: Fr[] = emptyNullifierPath(),
+    nullifierMembershipHint: AvmNullifierReadTreeHint = AvmNullifierReadTreeHint.empty(),
+    updateMembershipHint: AvmPublicDataReadTreeHint = AvmPublicDataReadTreeHint.empty(),
+    updatePreimage: Fr[] = [],
   ) {
     // FIXME: The way we are hinting contract bytecodes is fundamentally broken.
     // We are mapping contract class ID to a bytecode hint
@@ -416,23 +421,25 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     // But without that instance hinted, the circuit can't prove that the called contract address
     // actually corresponds to any class ID.
 
-    const membershipHint = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath);
     const instance = new AvmContractInstanceHint(
       contractAddress,
       exists,
       contractInstance.salt,
       contractInstance.deployer,
-      contractInstance.contractClassId,
+      contractInstance.currentContractClassId,
+      contractInstance.originalContractClassId,
       contractInstance.initializationHash,
       contractInstance.publicKeys,
-      membershipHint,
+      nullifierMembershipHint,
+      updateMembershipHint,
+      updatePreimage,
     );
 
     // Always hint the contract instance separately from the bytecode hint.
     // Since the bytecode hints are keyed by class ID, we need to hint the instance separately
     // since there might be multiple instances hinted for the same class ID.
     this.avmCircuitHints.contractInstances.items.push(instance);
-    this.log.debug(
+    this.log.trace(
       `Tracing contract instance for bytecode retrieval: exists=${exists}, instance=${jsonStringify(contractInstance)}`,
     );
 
@@ -445,10 +452,10 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     // Don't we still need to hint if the class ID already exists?
     // Because the circuit needs to prove that the called contract address corresponds to the class ID.
     // To do so, the circuit needs to know the class ID in the
-    if (this.gotBytecodeFromClassIds.has(contractInstance.contractClassId.toString())) {
+    if (this.gotBytecodeFromClassIds.has(contractInstance.currentContractClassId.toString())) {
       // this ensures there are no duplicates
-      this.log.debug(
-        `Contract class id ${contractInstance.contractClassId.toString()} already exists in previous hints`,
+      this.log.trace(
+        `Contract class id ${contractInstance.currentContractClassId.toString()} already exists in previous hints`,
       );
       return;
     }
@@ -462,7 +469,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     // present/used. That would require more bytecode hashing which is exactly what this limit exists to avoid.
     if (this.gotBytecodeFromClassIds.size() >= MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS) {
       this.log.debug(
-        `Bytecode retrieval failure for contract class ID ${contractInstance.contractClassId.toString()} (limit reached)`,
+        `Bytecode retrieval failure for contract class ID ${contractInstance.currentContractClassId.toString()} (limit reached)`,
       );
       throw new SideEffectLimitReachedError(
         'contract calls to unique class IDs',
@@ -470,14 +477,14 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
       );
     }
 
-    this.log.debug(`Tracing bytecode & contract class for bytecode retrieval: class=${jsonStringify(contractClass)}`);
+    this.log.trace(`Tracing bytecode & contract class for bytecode retrieval: class=${jsonStringify(contractClass)}`);
     this.avmCircuitHints.contractBytecodeHints.set(
-      contractInstance.contractClassId.toString(),
+      contractInstance.currentContractClassId.toString(),
       new AvmContractBytecodeHints(bytecode, instance, contractClass),
     );
     // After adding the bytecode hint, mark the classId as retrieved to avoid duplication.
     // The above map alone isn't sufficient because we need to check the parent trace's (and its parent) as well.
-    this.gotBytecodeFromClassIds.add(contractInstance.contractClassId.toString());
+    this.gotBytecodeFromClassIds.add(contractInstance.currentContractClassId.toString());
   }
 
   /**
@@ -492,7 +499,6 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     /** Did the call revert? */
     _reverted: boolean,
   ) {
-    this.log.debug(`Tracing enqueued call`);
     // TODO(4805): check if some threshold is reached for max enqueued or nested calls (to unique contracts?)
     this.enqueuedCalls.push(publicCallRequest);
     this.avmCircuitHints.enqueuedCalls.items.push(new AvmEnqueuedCallHint(publicCallRequest.contractAddress, calldata));

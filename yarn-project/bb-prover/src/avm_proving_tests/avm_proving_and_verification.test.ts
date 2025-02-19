@@ -1,10 +1,6 @@
-import {
-  type ContractClassPublic,
-  type ContractInstanceWithAddress,
-  FunctionSelector,
-  PUBLIC_DISPATCH_SELECTOR,
-} from '@aztec/circuits.js';
+import { type ContractClassPublic, type ContractInstanceWithAddress, FunctionSelector } from '@aztec/circuits.js';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
+import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 import { getAvmTestContractBytecode } from '@aztec/simulator/public/fixtures';
@@ -49,7 +45,7 @@ describe('AVM WitGen & Circuit – proving and verification', () => {
         argsU8,
         /*getInstanceForAddress=*/ expectContractInstance.address.toField(),
         /*expectedDeployer=*/ expectContractInstance.deployer.toField(),
-        /*expectedClassId=*/ expectContractInstance.contractClassId.toField(),
+        /*expectedClassId=*/ expectContractInstance.currentContractClassId.toField(),
         /*expectedInitializationHash=*/ expectContractInstance.initializationHash.toField(),
       ];
 

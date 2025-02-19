@@ -1,71 +1,94 @@
-import { type WaitOpts } from '@aztec/aztec.js';
-import { type AccountWalletWithSecretKey } from '@aztec/aztec.js/wallet';
-import { type PXE } from '@aztec/circuit-types';
-import { Fr, deriveSigningKey } from '@aztec/circuits.js';
+import { type AccountManager, FeeJuicePaymentMethod, type PXE, type WaitOpts } from '@aztec/aztec.js';
+import { deriveSigningKey } from '@aztec/circuits.js/keys';
+import { Fr } from '@aztec/foundation/fields';
 
+import { getSchnorrAccountContractAddress } from '../schnorr/account_contract.js';
 import { getSchnorrAccount } from '../schnorr/index.js';
+import { type InitialAccountData } from './configuration.js';
 
 /**
- * Deploys and registers a new account using random private keys and returns the associated Schnorr account wallet. Useful for testing.
- * @param pxe - PXE.
- * @returns - A wallet for a fresh account.
+ * Generate a fixed amount of random schnorr account contract instance.
  */
-export async function createAccount(pxe: PXE): Promise<AccountWalletWithSecretKey> {
-  const secretKey = Fr.random();
-  const signingKey = deriveSigningKey(secretKey);
-  const account = await getSchnorrAccount(pxe, secretKey, signingKey);
-  return account.waitSetup();
+export async function generateSchnorrAccounts(numberOfAccounts: number) {
+  const secrets = Array.from({ length: numberOfAccounts }, () => Fr.random());
+  return await Promise.all(
+    secrets.map(async secret => {
+      const salt = Fr.random();
+      return {
+        secret,
+        signingKey: deriveSigningKey(secret),
+        salt,
+        address: await getSchnorrAccountContractAddress(secret, salt),
+      };
+    }),
+  );
 }
 
 /**
- * Creates a given number of random accounts using the Schnorr account wallet.
- * @param pxe - PXE.
- * @param numberOfAccounts - How many accounts to create.
- * @param secrets - Optional array of secrets to use for the accounts. If empty, random secrets will be generated.
- * @throws If the secrets array is not empty and does not have the same length as the number of accounts.
- * @returns The created account wallets.
+ * Data for deploying funded account.
  */
-export async function createAccounts(
+type DeployAccountData = Pick<InitialAccountData, 'secret' | 'salt'> & {
+  /**
+   * An optional signingKey if it's not derived from the secret.
+   */
+  signingKey?: InitialAccountData['signingKey'];
+};
+
+/**
+ * Deploy schnorr account contract.
+ * It will pay for the fee for the deployment itself. So it must be funded with the prefilled public data.
+ */
+export async function deployFundedSchnorrAccount(
   pxe: PXE,
-  numberOfAccounts = 1,
-  secrets: Fr[] = [],
-  waitOpts: WaitOpts = { interval: 0.1 },
-): Promise<AccountWalletWithSecretKey[]> {
-  if (secrets.length == 0) {
-    secrets = Array.from({ length: numberOfAccounts }, () => Fr.random());
-  } else if (secrets.length > 0 && secrets.length !== numberOfAccounts) {
-    throw new Error('Secrets array must be empty or have the same length as the number of accounts');
+  account: DeployAccountData,
+  opts: WaitOpts & {
+    /**
+     * Whether or not to skip registering contract class.
+     */
+    skipClassRegistration?: boolean;
+  } = { interval: 0.1, skipClassRegistration: false },
+): Promise<AccountManager> {
+  const signingKey = account.signingKey ?? deriveSigningKey(account.secret);
+  const accountManager = await getSchnorrAccount(pxe, account.secret, signingKey, account.salt);
+
+  // Pay the fee by the account itself.
+  // This only works when the world state is prefilled with the balance for the account in test environment.
+  const paymentMethod = new FeeJuicePaymentMethod(accountManager.getAddress());
+
+  await accountManager
+    .deploy({
+      skipClassRegistration: opts.skipClassRegistration,
+      skipPublicDeployment: true,
+      fee: { paymentMethod },
+    })
+    .wait(opts);
+
+  return accountManager;
+}
+
+/**
+ * Deploy schnorr account contracts.
+ * They will pay for the fees for the deployment themselves. So they must be funded with the prefilled public data.
+ */
+export async function deployFundedSchnorrAccounts(
+  pxe: PXE,
+  accounts: DeployAccountData[],
+  opts: WaitOpts & {
+    /**
+     * Whether or not to skip registering contract class.
+     */
+    skipClassRegistration?: boolean;
+  } = { interval: 0.1, skipClassRegistration: false },
+): Promise<AccountManager[]> {
+  const accountManagers: AccountManager[] = [];
+  // Serial due to https://github.com/AztecProtocol/aztec-packages/issues/12045
+  for (let i = 0; i < accounts.length; i++) {
+    accountManagers.push(
+      await deployFundedSchnorrAccount(pxe, accounts[i], {
+        ...opts,
+        skipClassRegistration: i !== 0 || opts.skipClassRegistration, // Register the contract class at most once.
+      }),
+    );
   }
-
-  // Prepare deployments
-  const accountsAndDeployments = await Promise.all(
-    secrets.map(async (secret, index) => {
-      const signingKey = deriveSigningKey(secret);
-      const account = await getSchnorrAccount(pxe, secret, signingKey);
-
-      // only register the contract class once
-      let skipClassRegistration = true;
-      if (index === 0) {
-        // for the first account, check if the contract class is already registered, otherwise we should register now
-        if (
-          !(await pxe.getContractClassMetadata(account.getInstance().contractClassId)).isContractClassPubliclyRegistered
-        ) {
-          skipClassRegistration = false;
-        }
-      }
-
-      const deployMethod = await account.getDeployMethod();
-      const provenTx = await deployMethod.prove({
-        contractAddressSalt: new Fr(account.salt),
-        skipClassRegistration,
-        skipPublicDeployment: true,
-        universalDeploy: true,
-      });
-      return { account, provenTx };
-    }),
-  );
-
-  // Send them and await them to be mined
-  await Promise.all(accountsAndDeployments.map(({ provenTx }) => provenTx.send().wait(waitOpts)));
-  return Promise.all(accountsAndDeployments.map(({ account }) => account.getWallet()));
+  return accountManagers;
 }

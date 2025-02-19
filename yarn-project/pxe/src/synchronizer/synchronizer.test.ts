@@ -1,4 +1,5 @@
-import { type AztecNode, L2Block, type L2BlockStream } from '@aztec/circuit-types';
+import { L2Block, type L2BlockStream } from '@aztec/circuit-types';
+import { type AztecNode } from '@aztec/circuit-types/interfaces/client';
 import { timesParallel } from '@aztec/foundation/collection';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { L2TipsStore } from '@aztec/kv-store/stores';

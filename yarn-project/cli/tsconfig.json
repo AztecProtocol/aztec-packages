@@ -16,6 +16,9 @@
       "path": "../circuit-types"
     },
     {
+      "path": "../constants"
+    },
+    {
       "path": "../foundation"
     },
     {
@@ -23,6 +26,9 @@
     },
     {
       "path": "../types"
+    },
+    {
+      "path": "../world-state"
     },
     {
       "path": "../accounts"

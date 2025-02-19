@@ -1,4 +1,5 @@
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
+import { type ChainConfig, chainConfigMappings } from '@aztec/circuit-types/config';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
@@ -33,7 +34,7 @@ export interface PXEConfig {
   l2StartingBlock: number;
 }
 
-export type PXEServiceConfig = PXEConfig & KernelProverConfig & BBProverConfig & DataStoreConfig;
+export type PXEServiceConfig = PXEConfig & KernelProverConfig & BBProverConfig & DataStoreConfig & ChainConfig;
 
 export type CliPXEOptions = {
   /** External Aztec network to connect to. e.g. devnet */
@@ -46,6 +47,7 @@ export type CliPXEOptions = {
 
 export const pxeConfigMappings: ConfigMappingsType<PXEServiceConfig> = {
   ...dataConfigMappings,
+  ...chainConfigMappings,
   l2StartingBlock: {
     env: 'PXE_L2_STARTING_BLOCK',
     ...numberConfigHelper(INITIAL_L2_BLOCK_NUM),

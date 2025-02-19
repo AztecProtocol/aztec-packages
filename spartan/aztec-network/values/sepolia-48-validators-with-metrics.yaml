@@ -1,9 +1,6 @@
 telemetry:
   enabled: true
 
-aztec:
-  slotDuration: 36 # in seconds,
-
 network:
   setupL2Contracts: false
   public: false
@@ -11,7 +8,10 @@ network:
 ethereum:
   chainId: "11155111"
   deployL1ContractsPrivateKey:
-  externalHost:
+  execution:
+    externalHost:
+  beacon:
+    externalHost:
 
 validator:
   l1FixedPriorityFeePerGas: 2

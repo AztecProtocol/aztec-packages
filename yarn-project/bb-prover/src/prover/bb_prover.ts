@@ -1,31 +1,24 @@
 /* eslint-disable require-await */
+import { ProvingError } from '@aztec/circuit-types';
 import {
   type ProofAndVerificationKey,
-  ProvingError,
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
   makeProofAndVerificationKey,
   makePublicInputsAndRecursiveProof,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
 import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
-  AGGREGATION_OBJECT_LENGTH,
-  AVM_PROOF_LENGTH_IN_FIELDS,
-  type AvmCircuitInputs,
   type BaseParityInputs,
   Fr,
-  IPA_CLAIM_LENGTH,
-  NESTED_RECURSIVE_PROOF_LENGTH,
-  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   type ParityPublicInputs,
   Proof,
-  RECURSIVE_PROOF_LENGTH,
   RecursiveProof,
   type RootParityInputs,
-  TUBE_PROOF_LENGTH,
   type VerificationKeyData,
   makeRecursiveProofFromBinary,
 } from '@aztec/circuits.js';
+import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
 import {
   type BaseOrMergeRollupPublicInputs,
   type BlockMergeRollupInputs,
@@ -40,6 +33,15 @@ import {
   type SingleTxBlockRootRollupInputs,
   type TubeInputs,
 } from '@aztec/circuits.js/rollup';
+import {
+  AGGREGATION_OBJECT_LENGTH,
+  AVM_PROOF_LENGTH_IN_FIELDS,
+  IPA_CLAIM_LENGTH,
+  NESTED_RECURSIVE_PROOF_LENGTH,
+  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+  RECURSIVE_PROOF_LENGTH,
+  TUBE_PROOF_LENGTH,
+} from '@aztec/constants';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';

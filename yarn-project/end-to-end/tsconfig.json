@@ -13,6 +13,9 @@
       "path": "../archiver"
     },
     {
+      "path": "../aztec"
+    },
+    {
       "path": "../aztec-node"
     },
     {
@@ -20,6 +23,9 @@
     },
     {
       "path": "../bb-prover"
+    },
+    {
+      "path": "../blob-lib"
     },
     {
       "path": "../blob-sink"
@@ -32,6 +38,9 @@
     },
     {
       "path": "../circuits.js"
+    },
+    {
+      "path": "../constants"
     },
     {
       "path": "../entrypoints"

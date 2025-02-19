@@ -4,38 +4,35 @@ use dep::aztec::{
     context::{PrivateContext, UnconstrainedContext},
     note::note_emission::OuterNoteEmission,
     protocol_types::{
-        address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, public_keys::NpkM,
+        address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable,
     },
 };
 use dep::aztec::prelude::{
-    NoteGetterOptions, NoteInterface, NoteViewerOptions, NullifiableNote, PrivateSet,
+    NoteGetterOptions, NoteInterface, NoteViewerOptions, NullifiableNote, PrivateSet, RetrievedNote,
 };
 
-pub struct BalanceSet<T, Context> {
-    set: PrivateSet<T, Context>,
+pub struct BalanceSet<Note, Context> {
+    set: PrivateSet<Note, Context>,
 }
 
-impl<T, Context> BalanceSet<T, Context> {
+impl<Note, Context> BalanceSet<Note, Context> {
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { set: PrivateSet::new(context, storage_slot) }
     }
 }
 
-impl<T> BalanceSet<T, UnconstrainedContext> {
-    pub unconstrained fn balance_of<let T_SERIALIZED_LEN: u32>(self: Self) -> U128
+impl<Note> BalanceSet<Note, UnconstrainedContext> {
+    pub unconstrained fn balance_of<let N: u32>(self: Self) -> U128
     where
-        T: NoteInterface<T_SERIALIZED_LEN> + NullifiableNote + OwnedNote,
+        Note: NoteInterface + NullifiableNote + OwnedNote + Packable<N>,
     {
         self.balance_of_with_offset(0)
     }
 
-    pub unconstrained fn balance_of_with_offset<let T_SERIALIZED_LEN: u32>(
-        self: Self,
-        offset: u32,
-    ) -> U128
+    pub unconstrained fn balance_of_with_offset<let N: u32>(self: Self, offset: u32) -> U128
     where
-        T: NoteInterface<T_SERIALIZED_LEN> + NullifiableNote + OwnedNote,
+        Note: NoteInterface + NullifiableNote + OwnedNote + Packable<N>,
     {
         let mut balance = U128::from_integer(0);
         // docs:start:view_notes
@@ -55,33 +52,25 @@ impl<T> BalanceSet<T, UnconstrainedContext> {
     }
 }
 
-impl<T> BalanceSet<T, &mut PrivateContext> {
-    pub fn add<let T_SERIALIZED_LEN: u32>(
-        self: Self,
-        owner: AztecAddress,
-        addend: U128,
-    ) -> OuterNoteEmission<T>
+impl<Note> BalanceSet<Note, &mut PrivateContext> {
+    pub fn add<let N: u32>(self: Self, owner: AztecAddress, addend: U128) -> OuterNoteEmission<Note>
     where
-        T: NoteInterface<T_SERIALIZED_LEN> + NullifiableNote + OwnedNote + Eq,
+        Note: NoteInterface + NullifiableNote + OwnedNote + Eq + Packable<N>,
     {
         if addend == U128::from_integer(0) {
             OuterNoteEmission::new(Option::none())
         } else {
-            let mut addend_note = T::new(addend, owner);
+            let mut addend_note = Note::new(addend, owner);
 
             // docs:start:insert
-            OuterNoteEmission::new(Option::some(self.set.insert(&mut addend_note)))
+            OuterNoteEmission::new(Option::some(self.set.insert(addend_note)))
             // docs:end:insert
         }
     }
 
-    pub fn sub<let T_SERIALIZED_LEN: u32>(
-        self: Self,
-        owner: AztecAddress,
-        amount: U128,
-    ) -> OuterNoteEmission<T>
+    pub fn sub<let N: u32>(self: Self, owner: AztecAddress, amount: U128) -> OuterNoteEmission<Note>
     where
-        T: NoteInterface<T_SERIALIZED_LEN> + NullifiableNote + OwnedNote + Eq,
+        Note: NoteInterface + NullifiableNote + OwnedNote + Eq + Packable<N>,
     {
         let subtracted = self.try_sub(amount, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL);
 
@@ -100,13 +89,9 @@ impl<T> BalanceSet<T, &mut PrivateContext> {
     // The `max_notes` parameter is used to fine-tune the number of constraints created by this function. The gate count
     // scales relatively linearly with `max_notes`, but a lower `max_notes` parameter increases the likelihood of
     // `try_sub` subtracting an amount smaller than `target_amount`.
-    pub fn try_sub<let T_SERIALIZED_LEN: u32>(
-        self: Self,
-        target_amount: U128,
-        max_notes: u32,
-    ) -> U128
+    pub fn try_sub<let N: u32>(self: Self, target_amount: U128, max_notes: u32) -> U128
     where
-        T: NoteInterface<T_SERIALIZED_LEN> + NullifiableNote + OwnedNote + Eq,
+        Note: NoteInterface + NullifiableNote + OwnedNote + Eq + Packable<N>,
     {
         // We are using a preprocessor here (filter applied in an unconstrained context) instead of a filter because
         // we do not need to prove correct execution of the preprocessor.
@@ -134,12 +119,12 @@ impl<T> BalanceSet<T, &mut PrivateContext> {
 // The preprocessor (a filter applied in an unconstrained context) does not check if total sum is larger or equal to
 // 'min_sum' - all it does is remove extra notes if it does reach that value.
 // Note that proper usage of this preprocessor requires for notes to be sorted in descending order.
-pub fn preprocess_notes_min_sum<T, let T_SERIALIZED_LEN: u32>(
-    notes: [Option<T>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+pub fn preprocess_notes_min_sum<Note>(
+    notes: [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     min_sum: U128,
-) -> [Option<T>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]
+) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]
 where
-    T: NoteInterface<T_SERIALIZED_LEN> + NullifiableNote + OwnedNote,
+    Note: NoteInterface + NullifiableNote + OwnedNote,
 {
     let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     let mut sum = U128::from_integer(0);
@@ -149,9 +134,9 @@ where
         // sorted in descending order, the filter will only choose the notes with values 3 and 2, but if sorted in
         // ascending order it will choose 4 notes of value 1.
         if notes[i].is_some() & sum < min_sum {
-            let note = notes[i].unwrap_unchecked();
-            selected[i] = Option::some(note);
-            sum = sum.add(note.get_amount());
+            let retrieved_note = notes[i].unwrap_unchecked();
+            selected[i] = Option::some(retrieved_note);
+            sum = sum.add(retrieved_note.note.get_amount());
         }
     }
     selected

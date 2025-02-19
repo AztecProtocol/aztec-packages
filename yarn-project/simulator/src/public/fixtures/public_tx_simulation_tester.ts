@@ -1,18 +1,16 @@
 import { MerkleTreeId, PublicExecutionRequest, type Tx } from '@aztec/circuit-types';
+import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
+import { CallContext, FunctionSelector, GasFees, GlobalVariables } from '@aztec/circuits.js';
+import { type ContractArtifact, encodeArguments } from '@aztec/circuits.js/abi';
+import { type AvmCircuitPublicInputs } from '@aztec/circuits.js/avm';
 import {
-  type AvmCircuitPublicInputs,
-  CallContext,
-  FunctionSelector,
-  GasFees,
-  GlobalVariables,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
   PUBLIC_DISPATCH_SELECTOR,
-} from '@aztec/circuits.js';
-import { type ContractArtifact, encodeArguments } from '@aztec/foundation/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+} from '@aztec/constants';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
@@ -25,8 +23,9 @@ import { WorldStateDB } from '../public_db_sources.js';
 import { type PublicTxResult, PublicTxSimulator } from '../public_tx_simulator.js';
 import { createTxForPublicCalls } from './index.js';
 
-const TIMESTAMP = new Fr(99833);
-const DEFAULT_GAS_FEES = new GasFees(2, 3);
+export const TIMESTAMP = new Fr(99833);
+export const DEFAULT_GAS_FEES = new GasFees(2, 3);
+export const DEFAULT_BLOCK_NUMBER = 42;
 
 export type TestEnqueuedCall = {
   address: AztecAddress;
@@ -43,10 +42,20 @@ export type TestEnqueuedCall = {
 export class PublicTxSimulationTester extends BaseAvmSimulationTester {
   private txCount = 0;
 
+  constructor(
+    private worldStateDB: WorldStateDB,
+    contractDataSource: SimpleContractDataSource,
+    merkleTrees: MerkleTreeWriteOperations,
+    skipContractDeployments: boolean,
+  ) {
+    super(contractDataSource, merkleTrees, skipContractDeployments);
+  }
+
   public static async create(skipContractDeployments = false): Promise<PublicTxSimulationTester> {
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-    return new PublicTxSimulationTester(contractDataSource, merkleTrees, skipContractDeployments);
+    const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
+    return new PublicTxSimulationTester(worldStateDB, contractDataSource, merkleTrees, skipContractDeployments);
   }
 
   public async simulateTx(
@@ -54,14 +63,16 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     setupCalls: TestEnqueuedCall[] = [],
     appCalls: TestEnqueuedCall[] = [],
     teardownCall?: TestEnqueuedCall,
-    feePayer: AztecAddress = AztecAddress.zero(),
+    feePayer: AztecAddress = sender,
   ): Promise<PublicTxResult> {
     const globals = GlobalVariables.empty();
     globals.timestamp = TIMESTAMP;
     globals.gasFees = DEFAULT_GAS_FEES;
+    globals.blockNumber = new Fr(DEFAULT_BLOCK_NUMBER);
 
-    const worldStateDB = new WorldStateDB(this.merkleTrees, this.contractDataSource);
-    const simulator = new PublicTxSimulator(this.merkleTrees, worldStateDB, globals, /*doMerkleOperations=*/ true);
+    const simulator = new PublicTxSimulator(this.merkleTrees, this.worldStateDB, globals, /*doMerkleOperations=*/ true);
+
+    await this.setFeePayerBalance(feePayer);
 
     const setupExecutionRequests: PublicExecutionRequest[] = [];
     for (let i = 0; i < setupCalls.length; i++) {
@@ -118,7 +129,10 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
       feePayer,
     );
 
+    const startTime = performance.now();
     const avmResult = await simulator.simulate(tx);
+    const endTime = performance.now();
+    this.logger.debug(`Public transaction simulation took ${endTime - startTime}ms`);
 
     if (avmResult.revertCode.isOK()) {
       await this.commitTxStateUpdates(avmResult.avmProvingRequest.inputs.publicInputs);

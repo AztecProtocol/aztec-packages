@@ -13,6 +13,9 @@
       "path": "../circuits.js"
     },
     {
+      "path": "../constants"
+    },
+    {
       "path": "../epoch-cache"
     },
     {
@@ -20,6 +23,12 @@
     },
     {
       "path": "../kv-store"
+    },
+    {
+      "path": "../noir-protocol-circuits-types"
+    },
+    {
+      "path": "../protocol-contracts"
     },
     {
       "path": "../telemetry-client"

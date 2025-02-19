@@ -12,7 +12,7 @@ Below, we go more into depth of what is happening under the hood when you create
 When you define a function in an Aztec contract, it undergoes several transformations when it is compiled. These transformations prepare the function for execution. These transformations include:
 
 - [Creating a context for the function](#context-creation)
-- [Handling function inputs](#input-handling)
+- [Handling function inputs](#private-and-public-input-injection)
 - [Processing return values](#return-value-handling)
 - [Computing note hashes and nullifiers](#computing-note-hash-and-nullifier)
 - [Generating function signatures](#function-signature-generation)
@@ -156,10 +156,10 @@ The function is automatically generated based on the note types defined in the c
    ```rust
    if (note_type_id == NoteType::get_note_type_id()) {
        aztec::note::utils::compute_note_hash_and_optionally_a_nullifier(
-           NoteType::unpack_content,
+           NoteType::unpack,
            note_header,
            compute_nullifier,
-           packed_note_content
+           packed_note
        )
    }
    ```
@@ -192,7 +192,7 @@ fn compute_fn_signature_hash(fn_name: &str, parameters: &[Type]) -> u32 {
 
 - A string representation of the function is created, including the function name and parameter types
 - This signature string is then hashed using Keccak-256
-- The first 4 bytes of the resulting hash are converted to a u32 integer
+- The first 4 bytes of the resulting hash are coverted to a u32 integer
 
 ### Integration into contract interface
 
@@ -270,7 +270,7 @@ struct transfer_abi {
 Contract artifacts are important because:
 
 - They provide a machine-readable description of the contract
-- They can be used to generate bindings for interacting with the contract (read [here](../../../guides/developer_guides/smart_contracts/how_to_compile_contract.md) to learn how to create TypeScript bindings)
+- They can be used to generate bindings for interacting with the contract (read [here](../../../developers/guides/smart_contracts/how_to_compile_contract.md) to learn how to create TypeScript bindings)
 - They help decode function return values in the simulator
 
 ## Further reading

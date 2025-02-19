@@ -19,6 +19,9 @@
       "path": "../circuits.js"
     },
     {
+      "path": "../constants"
+    },
+    {
       "path": "../foundation"
     },
     {
@@ -35,9 +38,6 @@
     },
     {
       "path": "../simulator"
-    },
-    {
-      "path": "../telemetry-client"
     },
     {
       "path": "../types"
