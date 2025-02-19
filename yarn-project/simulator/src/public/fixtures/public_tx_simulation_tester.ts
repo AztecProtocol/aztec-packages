@@ -1,19 +1,7 @@
-import { MerkleTreeId, type MerkleTreeWriteOperations, PublicExecutionRequest, type Tx } from '@aztec/circuit-types';
-import {
-  AvmCircuitPublicInputs,
-  CallContext,
-  FunctionSelector,
-  GasFees,
-  GlobalVariables,
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  NULLIFIER_SUBTREE_HEIGHT,
-  PUBLIC_DATA_TREE_HEIGHT,
-  PUBLIC_DISPATCH_SELECTOR,
-} from '@aztec/circuits.js';
+import { type MerkleTreeWriteOperations, PublicExecutionRequest, type Tx } from '@aztec/circuit-types';
+import { CallContext, FunctionSelector, GasFees, GlobalVariables, PUBLIC_DISPATCH_SELECTOR } from '@aztec/circuits.js';
 import { type ContractArtifact, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 import { NativeWorldStateService } from '@aztec/world-state';
@@ -141,33 +129,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     const endTime = performance.now();
     this.logger.debug(`Public transaction simulation took ${endTime - startTime}ms`);
 
-    if (avmResult.revertCode.isOK()) {
-      await this.commitTxStateUpdates(avmResult.avmProvingRequest.inputs.publicInputs);
-    }
-
     return avmResult;
-  }
-
-  private async commitTxStateUpdates(avmCircuitInputs: AvmCircuitPublicInputs) {
-    await this.merkleTrees.appendLeaves(
-      MerkleTreeId.NOTE_HASH_TREE,
-      padArrayEnd(avmCircuitInputs.accumulatedData.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
-    );
-    try {
-      await this.merkleTrees.batchInsert(
-        MerkleTreeId.NULLIFIER_TREE,
-        padArrayEnd(avmCircuitInputs.accumulatedData.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(n => n.toBuffer()),
-        NULLIFIER_SUBTREE_HEIGHT,
-      );
-    } catch (error) {
-      this.logger.warn(`Detected duplicate nullifier.`);
-    }
-
-    await this.merkleTrees.batchInsert(
-      MerkleTreeId.PUBLIC_DATA_TREE,
-      avmCircuitInputs.accumulatedData.publicDataWrites.map(w => w.toBuffer()),
-      PUBLIC_DATA_TREE_HEIGHT,
-    );
   }
 }
 

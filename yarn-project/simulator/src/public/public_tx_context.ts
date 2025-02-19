@@ -22,6 +22,7 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  NULLIFIER_SUBTREE_HEIGHT,
   PrivateToAvmAccumulatedData,
   PrivateToAvmAccumulatedDataArrayLengths,
   type PrivateToPublicAccumulatedData,
@@ -111,12 +112,7 @@ export class PublicTxContext {
     const firstNullifier = nonRevertibleAccumulatedDataFromPrivate.nullifiers[0];
 
     // Transaction level state manager that will be forked for revertible phases.
-    const txStateManager = await AvmPersistableStateManager.create(
-      worldStateDB,
-      trace,
-      doMerkleOperations,
-      firstNullifier,
-    );
+    const txStateManager = AvmPersistableStateManager.create(worldStateDB, trace, doMerkleOperations, firstNullifier);
 
     const gasSettings = tx.data.constants.txContext.gasSettings;
     const gasUsedByPrivate = tx.data.gasUsed;
@@ -149,9 +145,9 @@ export class PublicTxContext {
    * All phases have been processed.
    * Actual transaction fee and actual total consumed gas can now be queried.
    */
-  halt() {
+  async halt() {
     if (this.state.isForked()) {
-      this.state.mergeForkedState();
+      await this.state.mergeForkedState();
     }
     this.halted = true;
   }
@@ -325,43 +321,21 @@ export class PublicTxContext {
    */
   private async generateAvmCircuitPublicInputs(endStateReference: StateReference): Promise<AvmCircuitPublicInputs> {
     assert(this.halted, 'Can only get AvmCircuitPublicInputs after tx execution ends');
-    const ephemeralTrees = this.state.getActiveStateManager().merkleTrees;
-
-    const noteHashTree = await ephemeralTrees.getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE);
-    const nullifierTree = await ephemeralTrees.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
-    const publicDataTree = await ephemeralTrees.getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE);
-
-    // Pad the note hash and nullifier trees
-    const paddedNoteHashTreeSize =
-      this.startStateReference.partial.noteHashTree.nextAvailableLeafIndex + MAX_NOTE_HASHES_PER_TX;
-    if (noteHashTree.nextAvailableLeafIndex > paddedNoteHashTreeSize) {
-      throw new Error(
-        `Inserted too many leaves in note hash tree: ${noteHashTree.nextAvailableLeafIndex} > ${paddedNoteHashTreeSize}`,
-      );
-    }
-    noteHashTree.nextAvailableLeafIndex = paddedNoteHashTreeSize;
-
-    const paddedNullifierTreeSize =
-      this.startStateReference.partial.nullifierTree.nextAvailableLeafIndex + MAX_NULLIFIERS_PER_TX;
-    if (nullifierTree.nextAvailableLeafIndex > paddedNullifierTreeSize) {
-      throw new Error(
-        `Inserted too many leaves in nullifier tree: ${nullifierTree.nextAvailableLeafIndex} > ${paddedNullifierTreeSize}`,
-      );
-    }
-    nullifierTree.nextAvailableLeafIndex = paddedNullifierTreeSize;
-
-    const endTreeSnapshots = new TreeSnapshots(
-      endStateReference.l1ToL2MessageTree,
-      noteHashTree,
-      nullifierTree,
-      publicDataTree,
-    );
+    const stateManager = this.state.getActiveStateManager();
 
     const startTreeSnapshots = new TreeSnapshots(
       this.startStateReference.l1ToL2MessageTree,
       this.startStateReference.partial.noteHashTree,
       this.startStateReference.partial.nullifierTree,
       this.startStateReference.partial.publicDataTree,
+    );
+
+    // Will be patched/padded at the end of this fn
+    const endTreeSnapshots = new TreeSnapshots(
+      endStateReference.l1ToL2MessageTree,
+      endStateReference.partial.noteHashTree,
+      endStateReference.partial.nullifierTree,
+      endStateReference.partial.publicDataTree,
     );
 
     const avmCircuitPublicInputs = this.trace.toAvmCircuitPublicInputs(
@@ -427,6 +401,24 @@ export class PublicTxContext {
       PublicDataWrite.empty(),
       MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     );
+    const numNoteHashesToPad =
+      MAX_NOTE_HASHES_PER_TX - countAccumulatedItems(avmCircuitPublicInputs.accumulatedData.noteHashes);
+    await stateManager.db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, padArrayEnd([], Fr.ZERO, numNoteHashesToPad));
+    const numNullifiersToPad =
+      MAX_NULLIFIERS_PER_TX - countAccumulatedItems(avmCircuitPublicInputs.accumulatedData.nullifiers);
+    await stateManager.db.batchInsert(
+      MerkleTreeId.NULLIFIER_TREE,
+      padArrayEnd([], Fr.ZERO, numNullifiersToPad).map(nullifier => nullifier.toBuffer()),
+      NULLIFIER_SUBTREE_HEIGHT,
+    );
+
+    const paddedState = await stateManager.db.getStateReference();
+    avmCircuitPublicInputs.endTreeSnapshots = new TreeSnapshots(
+      paddedState.l1ToL2MessageTree,
+      paddedState.partial.noteHashTree,
+      paddedState.partial.nullifierTree,
+      paddedState.partial.publicDataTree,
+    );
 
     return avmCircuitPublicInputs;
   }
@@ -467,10 +459,10 @@ class PhaseStateManager {
     this.log = createLogger(`simulator:public_phase_state_manager`);
   }
 
-  fork() {
+  async fork() {
     assert(!this.currentlyActiveStateManager, 'Cannot fork when already forked');
     this.log.debug(`Forking phase state manager`);
-    this.currentlyActiveStateManager = this.txStateManager.fork();
+    this.currentlyActiveStateManager = await this.txStateManager.fork();
   }
 
   getActiveStateManager() {
@@ -481,18 +473,18 @@ class PhaseStateManager {
     return !!this.currentlyActiveStateManager;
   }
 
-  mergeForkedState() {
+  async mergeForkedState() {
     assert(this.currentlyActiveStateManager, 'No forked state to merge');
     this.log.debug(`Merging in forked state`);
-    this.txStateManager.merge(this.currentlyActiveStateManager!);
+    await this.txStateManager.merge(this.currentlyActiveStateManager!);
     // Drop the forked state manager now that it is merged
     this.currentlyActiveStateManager = undefined;
   }
 
-  discardForkedState() {
+  async discardForkedState() {
     this.log.debug(`Discarding forked state`);
     assert(this.currentlyActiveStateManager, 'No forked state to discard');
-    this.txStateManager.reject(this.currentlyActiveStateManager!);
+    await this.txStateManager.reject(this.currentlyActiveStateManager!);
     // Drop the forked state manager. We don't want it!
     this.currentlyActiveStateManager = undefined;
   }

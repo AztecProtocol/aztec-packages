@@ -2,7 +2,9 @@ import { MerkleTreeId, type MerkleTreeWriteOperations } from '@aztec/circuit-typ
 import {
   DEPLOYER_CONTRACT_ADDRESS,
   GasFees,
+  type NullifierLeafPreimage,
   PublicDataTreeLeafPreimage,
+  PublicDataWrite,
   PublicKeys,
   SerializableContractInstance,
 } from '@aztec/circuits.js';
@@ -26,14 +28,13 @@ import { NativeWorldStateService } from '@aztec/world-state';
 import { randomInt } from 'crypto';
 import { mock } from 'jest-mock-extended';
 
-import { type WorldStateDB } from '../public/public_db_sources.js';
+import { WorldStateDB } from '../public/public_db_sources.js';
 import { SideEffectTrace } from '../public/side_effect_trace.js';
 import { type PublicSideEffectTraceInterface } from '../public/side_effect_trace_interface.js';
 import { type AvmContext } from './avm_context.js';
 import { type AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { type MemoryValue, TypeTag, type Uint8, type Uint64 } from './avm_memory_types.js';
 import { AvmSimulator } from './avm_simulator.js';
-import { AvmEphemeralForest } from './avm_tree.js';
 import { isAvmBytecode, markBytecodeAsAvm } from './bytecode_utils.js';
 import {
   getAvmGadgetsTestContractBytecode,
@@ -49,6 +50,7 @@ import {
   randomMemoryUint64s,
   resolveAvmTestContractAssertionMessage,
 } from './fixtures/index.js';
+import { SimpleContractDataSource } from './fixtures/simple_contract_data_source.js';
 import { type AvmPersistableStateManager } from './journal/journal.js';
 import {
   Add,
@@ -514,6 +516,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const value1 = new Fr(69);
     let siloedNullifier0: Fr;
 
+    let db: MerkleTreeWriteOperations;
     let worldStateDB: WorldStateDB;
     let trace: PublicSideEffectTraceInterface;
     let persistableState: AvmPersistableStateManager;
@@ -523,7 +526,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     });
 
     beforeEach(() => {
+      db = mock<MerkleTreeWriteOperations>();
       worldStateDB = mock<WorldStateDB>();
+      (worldStateDB as jest.Mocked<WorldStateDB>).getMerkleInterface.mockReturnValue(db);
       trace = mock<PublicSideEffectTraceInterface>();
       persistableState = initPersistableStateManager({ worldStateDB, trace });
     });
@@ -1109,31 +1114,40 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const slotNumber0 = 1; // must update Noir contract if changing this
     const slot0 = new Fr(slotNumber0);
 
-    let worldStateDB: WorldStateDB;
+    const firstNullifier = new Fr(333);
+
+    const noteHashIndexInTx = 0;
+    let siloedNullifier0: Fr;
+    let uniqueNoteHash0: Fr;
+
     let merkleTrees: MerkleTreeWriteOperations;
     let trace: PublicSideEffectTraceInterface;
     let persistableState: AvmPersistableStateManager;
-    let ephemeralForest: AvmEphemeralForest;
 
     let leafSlot0: Fr;
 
     beforeAll(async () => {
       leafSlot0 = await computePublicDataTreeLeafSlot(address, slot0);
+      siloedNullifier0 = await siloNullifier(address, value0);
+      const siloedNoteHash0 = await siloNoteHash(address, value0);
+      const nonce = await computeNoteHashNonce(firstNullifier, noteHashIndexInTx);
+      uniqueNoteHash0 = await computeUniqueNoteHash(nonce, siloedNoteHash0);
     });
 
     beforeEach(async () => {
       trace = mock<PublicSideEffectTraceInterface>();
+      mockNoteHashCount(trace, noteHashIndexInTx);
 
-      worldStateDB = mock<WorldStateDB>();
+      const contractDataSource = new SimpleContractDataSource();
       merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-      (worldStateDB as jest.Mocked<WorldStateDB>).getMerkleInterface.mockReturnValue(merkleTrees);
-      ephemeralForest = await AvmEphemeralForest.create(worldStateDB.getMerkleInterface());
+      const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
 
       persistableState = initPersistableStateManager({
         worldStateDB,
         trace,
         doMerkleOperations: true,
-        merkleTrees: ephemeralForest,
+        db: merkleTrees,
+        firstNullifier,
       });
     });
 
@@ -1144,19 +1158,186 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       });
     };
 
+    describe('Note hashes', () => {
+      it('Should append new note hash correctly', async () => {
+        const calldata = [value0];
+        const treeInfo = await merkleTrees.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
+        const leafIndex = treeInfo.size;
+        const insertionPath = await merkleTrees.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
+
+        const context = createContext(calldata);
+        const bytecode = getAvmTestContractBytecode('new_note_hash');
+
+        const results = await new AvmSimulator(context).executeBytecode(bytecode);
+        expect(results.reverted).toBe(false);
+        expect(results.output).toEqual([]);
+
+        expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
+        expect(trace.traceNewNoteHash).toHaveBeenCalledWith(
+          uniqueNoteHash0,
+          new Fr(leafIndex),
+          insertionPath.toFields(),
+        );
+      });
+      it('Note hash check properly returns exists=false', async () => {
+        const treeInfo = await merkleTrees.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
+        const leafIndex = treeInfo.size;
+
+        const leafPath = (await merkleTrees.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, leafIndex)).toFields();
+
+        const calldata = [uniqueNoteHash0, new Fr(leafIndex)];
+        const context = createContext(calldata);
+        const bytecode = getAvmTestContractBytecode('note_hash_exists');
+
+        const results = await new AvmSimulator(context).executeBytecode(bytecode);
+        expect(results.reverted).toBe(false);
+        expect(results.output).toEqual([/*exists=*/ Fr.ZERO]);
+
+        expect(trace.traceNoteHashCheck).toHaveBeenCalledTimes(1);
+        expect(trace.traceNoteHashCheck).toHaveBeenCalledWith(
+          address,
+          /*gotLeafValue=*/ Fr.ZERO,
+          new Fr(leafIndex),
+          /*exists=*/ false,
+          leafPath,
+        );
+      });
+      it('Note hash check properly returns exists=true', async () => {
+        const treeInfo = await merkleTrees.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
+        const leafIndex = treeInfo.size;
+        await merkleTrees.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, [uniqueNoteHash0]);
+
+        const leafPath = (await merkleTrees.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, leafIndex)).toFields();
+
+        const calldata = [uniqueNoteHash0, new Fr(leafIndex)];
+        const context = createContext(calldata);
+        const bytecode = getAvmTestContractBytecode('note_hash_exists');
+
+        const results = await new AvmSimulator(context).executeBytecode(bytecode);
+        expect(results.reverted).toBe(false);
+        expect(results.output).toEqual([/*exists=*/ Fr.ONE]);
+
+        expect(trace.traceNoteHashCheck).toHaveBeenCalledTimes(1);
+        expect(trace.traceNoteHashCheck).toHaveBeenCalledWith(
+          address,
+          uniqueNoteHash0,
+          new Fr(leafIndex),
+          /*exists=*/ true,
+          leafPath,
+        );
+      });
+    });
+    describe('Nullifiers', () => {
+      it('Should append a new nullifier correctly', async () => {
+        const calldata = [value0];
+
+        const {
+          preimage: lowLeafPreimage,
+          leafOrLowLeafIndex: lowLeafIndex,
+          alreadyPresent: leafAlreadyPresent,
+        } = await persistableState.getLeafOrLowLeafInfo<MerkleTreeId.NULLIFIER_TREE, NullifierLeafPreimage>(
+          MerkleTreeId.NULLIFIER_TREE,
+          siloedNullifier0.toBigInt(),
+        );
+        const lowLeafPath = (await merkleTrees.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, lowLeafIndex)).toFields();
+        expect(leafAlreadyPresent).toEqual(false);
+        expect(lowLeafPreimage.nullifier).not.toEqual(siloedNullifier0);
+
+        const context = createContext(calldata);
+        const bytecode = getAvmTestContractBytecode('new_nullifier');
+
+        const results = await new AvmSimulator(context).executeBytecode(bytecode);
+        expect(results.reverted).toBe(false);
+        expect(results.output).toEqual([]);
+
+        expect(trace.traceNewNullifier).toHaveBeenCalledTimes(1);
+        expect(trace.traceNewNullifier).toHaveBeenCalledWith(
+          siloedNullifier0,
+          lowLeafPreimage,
+          new Fr(lowLeafIndex),
+          lowLeafPath,
+          expect.anything(), // can't know path without performing test insertion
+        );
+      });
+      it('Nullifier check properly returns exists=false', async () => {
+        const calldata = [value0];
+
+        const {
+          preimage: lowLeafPreimage,
+          leafOrLowLeafIndex: lowLeafIndex,
+          alreadyPresent: leafAlreadyPresent,
+        } = await persistableState.getLeafOrLowLeafInfo<MerkleTreeId.NULLIFIER_TREE, NullifierLeafPreimage>(
+          MerkleTreeId.NULLIFIER_TREE,
+          siloedNullifier0.toBigInt(),
+        );
+        const lowLeafPath = (await merkleTrees.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, lowLeafIndex)).toFields();
+
+        expect(leafAlreadyPresent).toEqual(false);
+        expect(lowLeafPreimage.nullifier).not.toEqual(siloedNullifier0);
+
+        const context = createContext(calldata);
+        const bytecode = getAvmTestContractBytecode('nullifier_exists');
+
+        const results = await new AvmSimulator(context).executeBytecode(bytecode);
+        expect(results.reverted).toBe(false);
+        expect(results.output).toEqual([/*exists=*/ Fr.ZERO]);
+
+        expect(trace.traceNullifierCheck).toHaveBeenCalledTimes(1);
+        expect(trace.traceNullifierCheck).toHaveBeenCalledWith(
+          siloedNullifier0,
+          /*exists=*/ false,
+          lowLeafPreimage,
+          new Fr(lowLeafIndex),
+          lowLeafPath,
+        );
+      });
+      it('Nullifier check properly returns exists=true', async () => {
+        const calldata = [value0];
+        await merkleTrees.sequentialInsert(MerkleTreeId.NULLIFIER_TREE, [siloedNullifier0.toBuffer()]);
+
+        const {
+          preimage: leafPreimage,
+          leafOrLowLeafIndex: leafIndex,
+          alreadyPresent: leafAlreadyPresent,
+        } = await persistableState.getLeafOrLowLeafInfo<MerkleTreeId.NULLIFIER_TREE, NullifierLeafPreimage>(
+          MerkleTreeId.NULLIFIER_TREE,
+          siloedNullifier0.toBigInt(),
+        );
+        const leafPath = (await merkleTrees.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, leafIndex)).toFields();
+
+        expect(leafAlreadyPresent).toEqual(true);
+        expect(leafPreimage.nullifier).toEqual(siloedNullifier0);
+
+        const context = createContext(calldata);
+        const bytecode = getAvmTestContractBytecode('nullifier_exists');
+
+        const results = await new AvmSimulator(context).executeBytecode(bytecode);
+        expect(results.reverted).toBe(false);
+        expect(results.output).toEqual([/*exists=*/ Fr.ONE]);
+
+        expect(trace.traceNullifierCheck).toHaveBeenCalledTimes(1);
+        expect(trace.traceNullifierCheck).toHaveBeenCalledWith(
+          siloedNullifier0,
+          /*exists=*/ true,
+          leafPreimage,
+          new Fr(leafIndex),
+          leafPath,
+        );
+      });
+    });
     describe('Public storage accesses', () => {
       it('Should set value in storage (single)', async () => {
         const calldata = [value0];
         const {
           preimage: lowLeafPreimage,
-          index: lowLeafIndex,
+          leafOrLowLeafIndex: lowLeafIndex,
           alreadyPresent: leafAlreadyPresent,
-        } = await ephemeralForest.getLeafOrLowLeafInfo<MerkleTreeId.PUBLIC_DATA_TREE, PublicDataTreeLeafPreimage>(
+        } = await persistableState.getLeafOrLowLeafInfo<MerkleTreeId.PUBLIC_DATA_TREE, PublicDataTreeLeafPreimage>(
           MerkleTreeId.PUBLIC_DATA_TREE,
-          leafSlot0,
+          leafSlot0.toBigInt(),
         );
 
-        const lowLeafPath = await ephemeralForest.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, lowLeafIndex);
+        const lowLeafPath = (await merkleTrees.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, lowLeafIndex)).toFields();
 
         // leafSlot0 should NOT be present in the tree!
         expect(leafAlreadyPresent).toEqual(false);
@@ -1195,14 +1376,14 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
         const {
           preimage: lowLeafPreimage,
-          index: lowLeafIndex,
+          leafOrLowLeafIndex: lowLeafIndex,
           alreadyPresent: leafAlreadyPresent,
-        } = await ephemeralForest.getLeafOrLowLeafInfo<MerkleTreeId.PUBLIC_DATA_TREE, PublicDataTreeLeafPreimage>(
+        } = await persistableState.getLeafOrLowLeafInfo<MerkleTreeId.PUBLIC_DATA_TREE, PublicDataTreeLeafPreimage>(
           MerkleTreeId.PUBLIC_DATA_TREE,
-          leafSlot0,
+          leafSlot0.toBigInt(),
         );
 
-        const lowLeafPath = await ephemeralForest.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, lowLeafIndex);
+        const lowLeafPath = (await merkleTrees.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, lowLeafIndex)).toFields();
 
         // leafSlot0 should NOT be present in the tree!
         expect(leafAlreadyPresent).toEqual(false);
@@ -1227,18 +1408,15 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       it('Should read value in storage (single) - written before, leaf exists', async () => {
         const context = createContext();
-        (worldStateDB as jest.Mocked<WorldStateDB>).storageRead.mockImplementationOnce(
-          (_contractAddress: AztecAddress, _slot: Fr) => Promise.resolve(value0),
-        );
+        const publicDataWrite = new PublicDataWrite(leafSlot0, value0);
+        await merkleTrees.sequentialInsert(MerkleTreeId.PUBLIC_DATA_TREE, [publicDataWrite.toBuffer()]);
 
-        await ephemeralForest.writePublicStorage(leafSlot0, value0);
-
-        const { preimage: leafPreimage, index: leafIndex } = await ephemeralForest.getLeafOrLowLeafInfo<
+        const { preimage: leafPreimage, leafOrLowLeafIndex: leafIndex } = await persistableState.getLeafOrLowLeafInfo<
           MerkleTreeId.PUBLIC_DATA_TREE,
           PublicDataTreeLeafPreimage
-        >(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot0);
+        >(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot0.toBigInt());
 
-        const leafPath = await ephemeralForest.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex);
+        const leafPath = (await merkleTrees.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex)).toFields();
 
         // leafSlot0 should be present in the tree!
         expect(leafPreimage.slot).toEqual(leafSlot0);
@@ -1266,13 +1444,13 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
         const {
           preimage: lowLeafPreimage,
-          index: lowLeafIndex,
+          leafOrLowLeafIndex: lowLeafIndex,
           alreadyPresent: leafAlreadyPresent,
-        } = await ephemeralForest.getLeafOrLowLeafInfo<MerkleTreeId.PUBLIC_DATA_TREE, PublicDataTreeLeafPreimage>(
+        } = await persistableState.getLeafOrLowLeafInfo<MerkleTreeId.PUBLIC_DATA_TREE, PublicDataTreeLeafPreimage>(
           MerkleTreeId.PUBLIC_DATA_TREE,
-          leafSlot0,
+          leafSlot0.toBigInt(),
         );
-        const lowLeafPath = await ephemeralForest.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, lowLeafIndex);
+        const lowLeafPath = (await merkleTrees.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, lowLeafIndex)).toFields();
 
         // leafSlot0 should NOT be present in the tree!
         expect(leafAlreadyPresent).toEqual(false);
@@ -1291,12 +1469,12 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(results.reverted).toBe(false);
         expect(results.output).toEqual([value0]);
 
-        const { preimage: leafPreimage, index: leafIndex } = await ephemeralForest.getLeafOrLowLeafInfo<
+        const { preimage: leafPreimage, leafOrLowLeafIndex: leafIndex } = await persistableState.getLeafOrLowLeafInfo<
           MerkleTreeId.PUBLIC_DATA_TREE,
           PublicDataTreeLeafPreimage
-        >(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot0);
+        >(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot0.toBigInt());
 
-        const leafPath = await ephemeralForest.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex);
+        const leafPath = (await merkleTrees.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex)).toFields();
 
         // leafSlot0 should now be present in the tree!
         expect(leafPreimage.slot).toEqual(leafSlot0);

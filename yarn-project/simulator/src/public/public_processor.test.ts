@@ -18,7 +18,6 @@ import {
   PublicDataWrite,
   RevertCode,
 } from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { timesParallel } from '@aztec/foundation/collection';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
@@ -112,7 +111,7 @@ describe('public_processor', () => {
       expect(processed[0].data).toEqual(tx.data);
       expect(failed).toEqual([]);
 
-      expect(worldStateDB.commit).toHaveBeenCalledTimes(1);
+      expect(worldStateDB.commitCheckpoint).toHaveBeenCalledTimes(1);
     });
 
     it('runs a tx with reverted enqueued public calls', async function () {
@@ -127,7 +126,7 @@ describe('public_processor', () => {
       expect(processed[0].hash).toEqual(await tx.getTxHash());
       expect(failed).toEqual([]);
 
-      expect(worldStateDB.commit).toHaveBeenCalledTimes(1);
+      expect(worldStateDB.commitCheckpoint).toHaveBeenCalledTimes(1);
     });
 
     it('returns failed txs without aborting entire operation', async function () {
@@ -141,7 +140,8 @@ describe('public_processor', () => {
       expect(failed[0].tx).toEqual(tx);
       expect(failed[0].error).toEqual(new SimulationError(`Failed`, []));
 
-      expect(worldStateDB.commit).toHaveBeenCalledTimes(0);
+      expect(worldStateDB.commitCheckpoint).toHaveBeenCalledTimes(0);
+      expect(worldStateDB.revertCheckpoint).toHaveBeenCalledTimes(1);
     });
 
     it('does not attempt to overfill a block', async function () {
@@ -154,8 +154,6 @@ describe('public_processor', () => {
       expect(processed[0].hash).toEqual(await txs[0].getTxHash());
       expect(processed[1].hash).toEqual(await txs[1].getTxHash());
       expect(failed).toEqual([]);
-
-      expect(worldStateDB.commit).toHaveBeenCalledTimes(2);
     });
 
     it('does not send a transaction to the prover if pre validation fails', async function () {
@@ -201,7 +199,7 @@ describe('public_processor', () => {
       expect(processed[0].hash).toEqual(await txs[0].getTxHash());
       expect(processed[1].hash).toEqual(await txs[1].getTxHash());
       expect(failed).toEqual([]);
-      expect(worldStateDB.commit).toHaveBeenCalledTimes(2);
+      expect(worldStateDB.commitCheckpoint).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -211,10 +209,6 @@ describe('public_processor', () => {
 
     beforeEach(() => {
       worldStateDB.storageRead.mockResolvedValue(initialBalance);
-
-      worldStateDB.storageWrite.mockImplementation(async (address: AztecAddress, slot: Fr) =>
-        (await computePublicDataTreeLeafSlot(address, slot)).toBigInt(),
-      );
     });
 
     it('injects balance update with no public calls', async function () {
@@ -236,7 +230,6 @@ describe('public_processor', () => {
       );
       expect(failed).toEqual([]);
 
-      expect(worldStateDB.commit).toHaveBeenCalledTimes(1);
       expect(worldStateDB.storageWrite).toHaveBeenCalledTimes(1);
     });
 
@@ -257,7 +250,8 @@ describe('public_processor', () => {
       expect(failed).toHaveLength(1);
       expect(failed[0].error.message).toMatch(/Not enough balance/i);
 
-      expect(worldStateDB.commit).toHaveBeenCalledTimes(0);
+      expect(worldStateDB.commitCheckpoint).toHaveBeenCalledTimes(0);
+      expect(worldStateDB.revertCheckpoint).toHaveBeenCalledTimes(1);
       expect(worldStateDB.storageWrite).toHaveBeenCalledTimes(0);
     });
   });
