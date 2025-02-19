@@ -125,7 +125,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     setupCalls: TestEnqueuedCall[] = [],
     appCalls: TestEnqueuedCall[] = [],
     teardownCall?: TestEnqueuedCall,
-    feePayer: AztecAddress = AztecAddress.zero(),
+    feePayer: AztecAddress = sender,
     /* need some unique first nullifier for note-nonce computations */
     firstNullifier = new Fr(420000 + this.txCount++),
     globals = defaultGlobals(),
