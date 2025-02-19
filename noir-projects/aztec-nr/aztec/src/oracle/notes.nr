@@ -1,8 +1,9 @@
-use crate::{note::{note_header::NoteHeader, note_interface::NoteInterface}, utils::array};
+use crate::{note::{note_interface::NoteInterface, retrieved_note::RetrievedNote}, utils::array};
 
 use dep::protocol_types::{
     address::AztecAddress,
     indexed_tagging_secret::{INDEXED_TAGGING_SECRET_LENGTH, IndexedTaggingSecret},
+    traits::Packable,
 };
 
 /// Notifies the simulator that a note has been created, so that it can be returned in future read requests in the same
@@ -10,17 +11,17 @@ use dep::protocol_types::{
 pub fn notify_created_note<let N: u32>(
     storage_slot: Field,
     note_type_id: Field,
-    packed_note_content: [Field; N],
+    packed_note: [Field; N],
     note_hash: Field,
     counter: u32,
 ) {
-    /// Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
-    /// to call.
+    // Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
+    // to call.
     unsafe {
         notify_created_note_oracle_wrapper(
             storage_slot,
             note_type_id,
-            packed_note_content,
+            packed_note,
             note_hash,
             counter,
         )
@@ -31,8 +32,8 @@ pub fn notify_created_note<let N: u32>(
 /// the same transaction. This note should only be removed to the non-volatile database if its nullifier is found in an
 /// actual block.
 pub fn notify_nullified_note(nullifier: Field, note_hash: Field, counter: u32) {
-    /// Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
-    /// to call.
+    // Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
+    // to call.
     unsafe { notify_nullified_note_oracle_wrapper(nullifier, note_hash, counter) };
 }
 
@@ -45,24 +46,18 @@ pub fn notify_created_nullifier(nullifier: Field) {
 unconstrained fn notify_created_note_oracle_wrapper<let N: u32>(
     storage_slot: Field,
     note_type_id: Field,
-    packed_note_content: [Field; N],
+    packed_note: [Field; N],
     note_hash: Field,
     counter: u32,
 ) {
-    let _ = notify_created_note_oracle(
-        storage_slot,
-        note_type_id,
-        packed_note_content,
-        note_hash,
-        counter,
-    );
+    let _ = notify_created_note_oracle(storage_slot, note_type_id, packed_note, note_hash, counter);
 }
 
 #[oracle(notifyCreatedNote)]
 unconstrained fn notify_created_note_oracle<let N: u32>(
     _storage_slot: Field,
     _note_type_id: Field,
-    _packed_note_content: [Field; N],
+    _packed_note: [Field; N],
     _note_hash: Field,
     _counter: u32,
 ) -> Field {}
@@ -162,12 +157,12 @@ pub unconstrained fn get_notes<Note, let N: u32, let M: u32, let S: u32, let NS:
     limit: u32,
     offset: u32,
     status: u8,
-    mut placeholder_opt_notes: [Option<Note>; S], // TODO: Remove it and use `limit` to initialize the note array.
+    mut placeholder_opt_notes: [Option<RetrievedNote<Note>>; S], // TODO: Remove it and use `limit` to initialize the note array.
     placeholder_fields: [Field; NS], // TODO: Remove it and use `limit` to initialize the note array.
-    _placeholder_note_length: [Field; N], // Turbofish hack? Compiler breaks calculating read_offset unless we add this parameter
-) -> [Option<Note>; S]
+    _placeholder_note_length: [Field; N], // Turbofish hack? Compiler breaks calculating read_offset unless we add this parameter TODO(benesjan): try removing this.
+) -> [Option<RetrievedNote<Note>>; S]
 where
-    Note: NoteInterface<N>,
+    Note: NoteInterface + Packable<N>,
 {
     sync_notes_oracle_wrapper();
     let fields = get_notes_oracle_wrapper(
@@ -198,12 +193,12 @@ where
 
             let nonce = fields[read_offset];
             let note_hash_counter = fields[read_offset + 1] as u32;
-            let note_content = array::subarray(fields, read_offset + 2);
+            let packed_note = array::subarray(fields, read_offset + 2);
 
-            let mut note = Note::unpack_content(note_content);
-            note.set_header(NoteHeader { contract_address, nonce, note_hash_counter });
+            let note = Note::unpack(packed_note);
+            let retrieved_note = RetrievedNote { note, contract_address, nonce, note_hash_counter };
 
-            placeholder_opt_notes[i] = Option::some(note);
+            placeholder_opt_notes[i] = Option::some(retrieved_note);
         };
     }
     placeholder_opt_notes
@@ -249,8 +244,8 @@ unconstrained fn get_indexed_tagging_secret_as_sender_oracle(
 /// otherwise e.g. a reverting transaction can cause the sender to accidentally skip indices and later produce notes
 /// that are not found by the recipient.
 pub fn increment_app_tagging_secret_index_as_sender(sender: AztecAddress, recipient: AztecAddress) {
-    /// Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
-    /// to call.
+    // Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
+    // to call.
     unsafe {
         increment_app_tagging_secret_index_as_sender_wrapper(sender, recipient);
     }
@@ -272,8 +267,8 @@ unconstrained fn increment_app_tagging_secret_index_as_sender_oracle(
 /// Finds new notes that may have been sent to all registered accounts in PXE in the current contract and makes them available
 /// for later querying via the `get_notes` oracle.
 pub fn sync_notes() {
-    /// Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
-    /// to call.
+    // Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
+    // to call.
     unsafe {
         sync_notes_oracle_wrapper();
     }

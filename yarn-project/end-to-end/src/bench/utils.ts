@@ -127,15 +127,27 @@ export function getFolderSize(path: string): number {
  * @param index - Index of the call within a block.
  * @param context - End to end context.
  * @param contract - Benchmarking contract.
+ * @param heavyPublicCompute - Whether the transactions include heavy public compute (like a big sha256).
  * @returns A BatchCall instance.
  */
-export async function makeCall(index: number, context: EndToEndContext, contract: BenchmarkingContract) {
+export async function makeCall(
+  index: number,
+  context: EndToEndContext,
+  contract: BenchmarkingContract,
+  heavyPublicCompute: boolean,
+) {
   const owner = context.wallet.getAddress();
   const sender = owner;
-  return new BatchCall(context.wallet, [
-    await contract.methods.create_note(owner, sender, index + 1).request(),
-    await contract.methods.increment_balance(owner, index + 1).request(),
-  ]);
+  if (heavyPublicCompute) {
+    return new BatchCall(context.wallet, [
+      await contract.methods.sha256_hash_2048(randomBytesAsBigInts(2048)).request(),
+    ]);
+  } else {
+    return new BatchCall(context.wallet, [
+      await contract.methods.create_note(owner, sender, index + 1).request(),
+      await contract.methods.increment_balance(owner, index + 1).request(),
+    ]);
+  }
 }
 
 /**
@@ -144,14 +156,16 @@ export async function makeCall(index: number, context: EndToEndContext, contract
  * @param txCount - How many txs to send
  * @param context - End to end context.
  * @param contract - Target contract.
+ * @param heavyPublicCompute - Whether the transactions include heavy public compute (like a big sha256).
  * @returns Array of sent txs.
  */
 export async function sendTxs(
   txCount: number,
   context: EndToEndContext,
   contract: BenchmarkingContract,
+  heavyPublicCompute: boolean = false,
 ): Promise<SentTx[]> {
-  const calls = await timesParallel(txCount, index => makeCall(index, context, contract));
+  const calls = await timesParallel(txCount, index => makeCall(index, context, contract, heavyPublicCompute));
   context.logger.info(`Creating ${txCount} txs`);
   const provenTxs = await Promise.all(calls.map(call => call.prove({ skipPublicSimulation: true })));
   context.logger.info(`Sending ${txCount} txs`);
@@ -190,4 +204,8 @@ export async function createNewPXE(
   const pxe = await createPXEService(node, pxeConfig);
   await pxe.registerContract(contract);
   return pxe;
+}
+
+function randomBytesAsBigInts(length: number): bigint[] {
+  return [...Array(length)].map(_ => BigInt(Math.floor(Math.random() * 255)));
 }

@@ -22,7 +22,7 @@ using testing::Field;
 using R = TestTraceContainer::Row;
 using FF = R::FF;
 
-TEST(AvmTraceGenBytecodeTest, basicShortLength)
+TEST(BytecodeTraceGenTest, basicShortLength)
 {
     TestTraceContainer trace;
     BytecodeTraceBuilder builder;
@@ -100,7 +100,7 @@ TEST(AvmTraceGenBytecodeTest, basicShortLength)
                       ROW_FIELD_EQ(R, bc_decomposition_last_of_contract, 1)));
 }
 
-TEST(AvmTraceGenBytecodeTest, basicLongerThanWindowSize)
+TEST(BytecodeTraceGenTest, basicLongerThanWindowSize)
 {
     TestTraceContainer trace;
     BytecodeTraceBuilder builder;
@@ -181,7 +181,7 @@ TEST(AvmTraceGenBytecodeTest, basicLongerThanWindowSize)
                       ROW_FIELD_EQ(R, bc_decomposition_last_of_contract, 1)));
 }
 
-TEST(AvmTraceGenBytecodeTest, multipleEvents)
+TEST(BytecodeTraceGenTest, multipleEvents)
 {
     TestTraceContainer trace;
     BytecodeTraceBuilder builder;

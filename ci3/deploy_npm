@@ -48,6 +48,6 @@ else
     npm dist-tag add $package_name@$version $dist_tag
   else
     # Publish new version.
-    denoise npm publish --ignore-scripts --tag $dist_tag --access public
+    denoise "npm publish --ignore-scripts --tag $dist_tag --access public"
   fi
 fi

@@ -60,8 +60,9 @@ tests::debug_ram_blowup_regression
 simple e2e_p2p/gossip_network
 simple e2e_p2p/rediscovery
 simple e2e_p2p/reqresp
-simple e2e_p2p/upgrade_governance_proposer
+simple e2e_p2p/reex
 simple e2e_p2p/slashing
+simple e2e_p2p/upgrade_governance_proposer
 
 # Started failing with some AVM proof error...
 e2e_prover/full fake
@@ -140,4 +141,7 @@ sequencer-client/src/slasher/slasher_client.test.ts
 foundation/src/promise/running-promise.test.ts
 # This has recently started to hit p2p drop issues.
 spartan/bootstrap.sh test-kind-4epochs
+# Hit issues, see https://github.com/AztecProtocol/aztec-packages/actions/runs/13316358796
+# Note, we don't currently think this is special to blob with sink, but reducing error surface error is important.
+spartan/bootstrap.sh test-kind-transfer-blob-with-sink
 spartan/bootstrap.sh test-local

@@ -99,7 +99,7 @@ export class TXEService {
       await this.addAccount(artifact, instance, secret);
     } else {
       await (this.typedOracle as TXE).addContractInstance(instance);
-      await (this.typedOracle as TXE).addContractArtifact(instance.contractClassId, artifact);
+      await (this.typedOracle as TXE).addContractArtifact(instance.currentContractClassId, artifact);
       this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
     }
 
@@ -107,7 +107,7 @@ export class TXEService {
       toArray([
         instance.salt,
         instance.deployer.toField(),
-        instance.contractClassId,
+        instance.currentContractClassId,
         instance.initializationHash,
         ...instance.publicKeys.toFields(),
       ]),
@@ -153,7 +153,7 @@ export class TXEService {
   async addAccount(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: ForeignCallSingle) {
     this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
     await (this.typedOracle as TXE).addContractInstance(instance);
-    await (this.typedOracle as TXE).addContractArtifact(instance.contractClassId, artifact);
+    await (this.typedOracle as TXE).addContractArtifact(instance.currentContractClassId, artifact);
 
     const keyStore = (this.typedOracle as TXE).getKeyStore();
     const completeAddress = await keyStore.addAccount(fromSingle(secret), await computePartialAddress(instance));
@@ -392,7 +392,7 @@ export class TXEService {
       toArray([
         instance.salt,
         instance.deployer.toField(),
-        instance.contractClassId,
+        instance.currentContractClassId,
         instance.initializationHash,
         ...instance.publicKeys.toFields(),
       ]),
@@ -626,7 +626,7 @@ export class TXEService {
   async avmOpcodeGetContractInstanceClassId(address: ForeignCallSingle) {
     const instance = await this.typedOracle.getContractInstance(addressFromSingle(address));
     return toForeignCallResult([
-      toSingle(instance.contractClassId),
+      toSingle(instance.currentContractClassId),
       // AVM requires an extra boolean indicating the instance was found
       toSingle(new Fr(1)),
     ]);

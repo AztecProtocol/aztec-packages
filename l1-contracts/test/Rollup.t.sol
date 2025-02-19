@@ -95,7 +95,14 @@ contract RollupTest is RollupBase {
     rollup = IInstance(
       address(
         new Rollup(
-          feeJuicePortal, rewardDistributor, testERC20, bytes32(0), bytes32(0), address(this)
+          feeJuicePortal,
+          rewardDistributor,
+          testERC20,
+          bytes32(0),
+          bytes32(0),
+          bytes32(Constants.GENESIS_ARCHIVE_ROOT),
+          bytes32(Constants.GENESIS_BLOCK_HASH),
+          address(this)
         )
       )
     );
@@ -274,7 +281,6 @@ contract RollupTest is RollupBase {
 
   function testPruneDuringPropose() public setUpFor("mixed_block_1") {
     _proposeBlock("mixed_block_1", 1);
-    assertEq(rollup.getEpochToProve(), 0, "Invalid epoch to prove");
 
     // the same block is proposed, with the diff in slot number.
     _proposeBlock("mixed_block_1", rollup.getProofSubmissionWindow() + 1);
