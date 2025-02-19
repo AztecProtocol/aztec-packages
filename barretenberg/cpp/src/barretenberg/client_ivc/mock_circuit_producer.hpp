@@ -1,3 +1,4 @@
+#pragma once
 
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/op_count.hpp"
@@ -153,6 +154,75 @@ class PrivateFunctionExecutionMockCircuitProducer {
             vkeys.emplace_back(ivc.honk_vk);                  // save the VK for the circuit
         }
         circuit_counter = 0; // reset the internal circuit counter back to 0
+
+        return vkeys;
+    }
+};
+
+/**
+ * @brief A test utility for generating alternating mock app and kernel circuits and precomputing verification keys
+ *
+ */
+class ClientIVCMockCircuitProducer {
+    using ClientCircuit = ClientIVC::ClientCircuit;
+
+    bool is_kernel = false;
+
+    /**
+     * @brief Construct mock circuit with arithmetic gates and goblin ops
+     * @details Defaulted to add 2^16 gates (which will bump to next power of two with the addition of dummy gates).
+     * The size of the baseline circuit needs to be ~2x the number of gates appended to the kernel circuits via
+     * recursive verifications (currently ~60k) to ensure that the circuits being folded are equal in size. (This is
+     * only necessary if the structured trace is not in use).
+     *
+     */
+    static ClientCircuit create_mock_circuit(ClientIVC& ivc, size_t log2_num_gates = 16)
+    {
+        ClientCircuit circuit{ ivc.goblin.op_queue };
+        MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates);
+
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): We require goblin ops to be added to the
+        // function circuit because we cannot support zero commtiments. While the builder handles this at
+        // finalisation stage via the add_gates_to_ensure_all_polys_are_non_zero function for other MegaHonk
+        // circuits (where we don't explicitly need to add goblin ops), in ClientIVC merge proving happens prior to
+        // folding where the absense of goblin ecc ops will result in zero commitments.
+        MockCircuits::construct_goblin_ecc_op_circuit(circuit);
+        return circuit;
+    }
+
+  public:
+    ClientCircuit create_next_circuit(ClientIVC& ivc, size_t log2_num_gates = 16, const size_t num_public_inputs = 0)
+    {
+        ClientCircuit circuit{ ivc.goblin.op_queue };
+        circuit = create_mock_circuit(ivc, log2_num_gates); // construct mock base logic
+        if (is_kernel) {
+            ivc.complete_kernel_circuit_logic(circuit); // complete with recursive verifiers etc
+        }
+        info("num pub inputs before: ", num_public_inputs);
+        info("num pub inputs in circuit before: ", circuit.get_num_public_inputs());
+        while (circuit.get_num_public_inputs() < num_public_inputs) {
+            circuit.add_public_variable(13634816);
+        }
+        info("num pub inputs in circuit after: ", circuit.get_num_public_inputs());
+        is_kernel = !is_kernel; // toggle is_kernel on/off alternatingly
+
+        return circuit;
+    }
+
+    auto precompute_verification_keys(const size_t num_circuits,
+                                      TraceSettings trace_settings,
+                                      size_t log2_num_gates = 16)
+    {
+        ClientIVC ivc{ trace_settings }; // temporary IVC instance needed to produce the complete kernel circuits
+
+        std::vector<std::shared_ptr<MegaFlavor::VerificationKey>> vkeys;
+
+        for (size_t idx = 0; idx < num_circuits; ++idx) {
+            ClientCircuit circuit = create_next_circuit(ivc, log2_num_gates); // create the next circuit
+            ivc.accumulate(circuit);                                          // accumulate the circuit
+            vkeys.emplace_back(ivc.honk_vk);                                  // save the VK for the circuit
+        }
+        is_kernel = false;
 
         return vkeys;
     }

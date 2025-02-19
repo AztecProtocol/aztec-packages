@@ -243,7 +243,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
  * @details The aim of this intermediate stage is to reduce the cost of producing a zero-knowledge ClientIVCProof.
  * @return HonkProof - a Mega proof
  */
-HonkProof ClientIVC::construct_and_prove_hiding_circuit()
+std::shared_ptr<ClientIVC::DeciderProvingKey> ClientIVC::construct_hiding_circuit_key()
 {
     trace_usage_tracker.print(); // print minimum structured sizes for each block
     ASSERT(verification_queue.size() == 1);
@@ -260,6 +260,7 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
     // inputs to the tube circuit) which are intermediate stages.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): link these properly, likely insecure
     auto num_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(fold_proof[PUBLIC_INPUTS_SIZE_INDEX]));
+    info("NUMBER OF PUBLIC INPUTS IN FOLD PROOF: ", num_public_inputs);
     num_public_inputs -= bb::PAIRING_POINT_ACCUMULATOR_SIZE;      // exclude aggregation object
     num_public_inputs -= bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE; // exclude propagated databus commitments
     for (size_t i = 0; i < num_public_inputs; i++) {
@@ -295,12 +296,40 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
 
     auto decider_pk = std::make_shared<DeciderProvingKey>(builder, TraceSettings(), bn254_commitment_key);
     honk_vk = std::make_shared<MegaVerificationKey>(decider_pk->proving_key);
+
+    return decider_pk;
+}
+
+/**
+ * @brief Construct the hiding circuit, which recursively verifies the last folding proof and decider proof, and
+ * then produce a proof of the circuit's correctness with MegaHonk.
+ *
+ * @details The aim of this intermediate stage is to reduce the cost of producing a zero-knowledge ClientIVCProof.
+ * @return HonkProof - a Mega proof
+ */
+HonkProof ClientIVC::construct_and_prove_hiding_circuit()
+{
+    auto decider_pk = construct_hiding_circuit_key();
     MegaProver prover(decider_pk);
-
     HonkProof proof = prover.construct_proof();
-
     return proof;
 }
+
+/**
+ * @brief Construct a proof for the IVC, which, if verified, fully establishes its correctness
+ *
+ * @return Proof
+ */
+void ClientIVC::construct_vk()
+{
+    if (!one_circuit) {
+        construct_hiding_circuit_key();
+        ASSERT(merge_verification_queue.size() == 1); // ensure only a single merge proof remains in the queue
+    }
+
+    MergeProof& merge_proof = merge_verification_queue[0];
+    goblin.prove(merge_proof);
+};
 
 /**
  * @brief Construct a proof for the IVC, which, if verified, fully establishes its correctness

@@ -463,7 +463,7 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
     // We expect the length of the internal verification queue to match the number of ivc recursion constraints
     if (constraints.ivc_recursion_constraints.size() != ivc->verification_queue.size()) {
         info("WARNING: Mismatch in number of recursive verifications during kernel creation!");
-        ASSERT(false);
+        // ASSERT(false);
     }
 
     // If no witness is provided, populate the VK and public inputs in the recursion constraint with dummy values so

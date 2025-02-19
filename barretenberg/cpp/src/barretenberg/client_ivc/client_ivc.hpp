@@ -172,8 +172,10 @@ class ClientIVC {
                     const std::shared_ptr<MegaVerificationKey>& precomputed_vk = nullptr,
                     const bool mock_vk = false);
 
+    void construct_vk();
     Proof prove();
 
+    std::shared_ptr<ClientIVC::DeciderProvingKey> construct_hiding_circuit_key();
     HonkProof construct_and_prove_hiding_circuit();
 
     static bool verify(const Proof& proof, const VerificationKey& vk);

@@ -1,4 +1,5 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/client_ivc/mock_circuit_producer.hpp"
 #include "barretenberg/client_ivc/test_bench_shared.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
@@ -32,69 +33,6 @@ class ClientIVCTests : public ::testing::Test {
     using FoldingVerifier = ProtogalaxyVerifier_<DeciderVerificationKeys>;
 
     /**
-     * @brief Construct mock circuit with arithmetic gates and goblin ops
-     * @details Defaulted to add 2^16 gates (which will bump to next power of two with the addition of dummy gates).
-     * The size of the baseline circuit needs to be ~2x the number of gates appended to the kernel circuits via
-     * recursive verifications (currently ~60k) to ensure that the circuits being folded are equal in size. (This is
-     * only necessary if the structured trace is not in use).
-     *
-     */
-    static Builder create_mock_circuit(ClientIVC& ivc, size_t log2_num_gates = 16)
-    {
-        Builder circuit{ ivc.goblin.op_queue };
-        MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates);
-
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): We require goblin ops to be added to the
-        // function circuit because we cannot support zero commtiments. While the builder handles this at
-        // finalisation stage via the add_gates_to_ensure_all_polys_are_non_zero function for other MegaHonk
-        // circuits (where we don't explicitly need to add goblin ops), in ClientIVC merge proving happens prior to
-        // folding where the absense of goblin ecc ops will result in zero commitments.
-        MockCircuits::construct_goblin_ecc_op_circuit(circuit);
-        return circuit;
-    }
-
-    /**
-     * @brief A test utility for generating alternating mock app and kernel circuits and precomputing verification keys
-     *
-     */
-    class MockCircuitProducer {
-        using ClientCircuit = ClientIVC::ClientCircuit;
-
-        bool is_kernel = false;
-
-      public:
-        ClientCircuit create_next_circuit(ClientIVC& ivc, size_t log2_num_gates = 16)
-        {
-            ClientCircuit circuit{ ivc.goblin.op_queue };
-            circuit = create_mock_circuit(ivc, log2_num_gates); // construct mock base logic
-            if (is_kernel) {
-                ivc.complete_kernel_circuit_logic(circuit); // complete with recursive verifiers etc
-            }
-            is_kernel = !is_kernel; // toggle is_kernel on/off alternatingly
-
-            return circuit;
-        }
-
-        auto precompute_verification_keys(const size_t num_circuits,
-                                          TraceSettings trace_settings,
-                                          size_t log2_num_gates = 16)
-        {
-            ClientIVC ivc{ trace_settings }; // temporary IVC instance needed to produce the complete kernel circuits
-
-            std::vector<std::shared_ptr<VerificationKey>> vkeys;
-
-            for (size_t idx = 0; idx < num_circuits; ++idx) {
-                ClientCircuit circuit = create_next_circuit(ivc, log2_num_gates); // create the next circuit
-                ivc.accumulate(circuit);                                          // accumulate the circuit
-                vkeys.emplace_back(ivc.honk_vk);                                  // save the VK for the circuit
-            }
-            is_kernel = false;
-
-            return vkeys;
-        }
-    };
-
-    /**
      * @brief Tamper with a proof by finding the first non-zero value and incrementing it by 1
      *
      */
@@ -119,7 +57,30 @@ TEST_F(ClientIVCTests, Basic)
 {
     ClientIVC ivc;
 
-    MockCircuitProducer circuit_producer;
+    ClientIVCMockCircuitProducer circuit_producer;
+
+    // Initialize the IVC with an arbitrary circuit
+    Builder circuit_0 = circuit_producer.create_next_circuit(ivc);
+    ivc.accumulate(circuit_0);
+
+    // Create another circuit and accumulate
+    Builder circuit_1 = circuit_producer.create_next_circuit(ivc);
+    ivc.accumulate(circuit_1);
+
+    EXPECT_TRUE(ivc.prove_and_verify());
+};
+
+/**
+ * @brief A simple-as-possible test demonstrating IVC for two mock circuits
+ * @details When accumulating only two circuits, only a single round of folding is performed thus no recursive
+ * verification occurs.
+ *
+ */
+TEST_F(ClientIVCTests, WriteVK)
+{
+    ClientIVC ivc;
+
+    ClientIVCMockCircuitProducer circuit_producer;
 
     // Initialize the IVC with an arbitrary circuit
     Builder circuit_0 = circuit_producer.create_next_circuit(ivc);
@@ -141,7 +102,7 @@ TEST_F(ClientIVCTests, BasicFour)
 {
     ClientIVC ivc;
 
-    MockCircuitProducer circuit_producer;
+    ClientIVCMockCircuitProducer circuit_producer;
     for (size_t idx = 0; idx < 4; ++idx) {
         Builder circuit = circuit_producer.create_next_circuit(ivc);
         ivc.accumulate(circuit);
@@ -163,7 +124,7 @@ TEST_F(ClientIVCTests, BadProofFailure)
     {
         ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
 
-        MockCircuitProducer circuit_producer;
+        ClientIVCMockCircuitProducer circuit_producer;
 
         // Construct and accumulate a set of mocked private function execution circuits
         size_t NUM_CIRCUITS = 4;
@@ -178,7 +139,7 @@ TEST_F(ClientIVCTests, BadProofFailure)
     {
         ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
 
-        MockCircuitProducer circuit_producer;
+        ClientIVCMockCircuitProducer circuit_producer;
 
         // Construct and accumulate a set of mocked private function execution circuits
         size_t NUM_CIRCUITS = 4;
@@ -202,7 +163,7 @@ TEST_F(ClientIVCTests, BadProofFailure)
     {
         ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
 
-        MockCircuitProducer circuit_producer;
+        ClientIVCMockCircuitProducer circuit_producer;
 
         // Construct and accumulate a set of mocked private function execution circuits
         size_t NUM_CIRCUITS = 4;
@@ -226,7 +187,7 @@ TEST_F(ClientIVCTests, BadProofFailure)
     {
         ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
 
-        MockCircuitProducer circuit_producer;
+        ClientIVCMockCircuitProducer circuit_producer;
 
         // Construct and accumulate a set of mocked private function execution circuits
         size_t NUM_CIRCUITS = 4;
@@ -253,7 +214,7 @@ TEST_F(ClientIVCTests, BasicLarge)
 {
     ClientIVC ivc;
 
-    MockCircuitProducer circuit_producer;
+    ClientIVCMockCircuitProducer circuit_producer;
 
     // Construct and accumulate a set of mocked private function execution circuits
     size_t NUM_CIRCUITS = 6;
@@ -274,7 +235,7 @@ TEST_F(ClientIVCTests, BasicStructured)
 {
     ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
 
-    MockCircuitProducer circuit_producer;
+    ClientIVCMockCircuitProducer circuit_producer;
 
     size_t NUM_CIRCUITS = 4;
 
@@ -299,7 +260,7 @@ TEST_F(ClientIVCTests, PrecomputedVerificationKeys)
 
     size_t NUM_CIRCUITS = 4;
 
-    MockCircuitProducer circuit_producer;
+    ClientIVCMockCircuitProducer circuit_producer;
 
     auto precomputed_vks = circuit_producer.precompute_verification_keys(NUM_CIRCUITS, TraceSettings{});
 
@@ -323,7 +284,7 @@ TEST_F(ClientIVCTests, StructuredPrecomputedVKs)
     size_t NUM_CIRCUITS = 4;
     size_t log2_num_gates = 5; // number of gates in baseline mocked circuit
 
-    MockCircuitProducer circuit_producer;
+    ClientIVCMockCircuitProducer circuit_producer;
 
     auto precomputed_vks =
         circuit_producer.precompute_verification_keys(NUM_CIRCUITS, ivc.trace_settings, log2_num_gates);
@@ -350,7 +311,7 @@ TEST_F(ClientIVCTests, VKIndependenceTest)
 
     auto generate_vk = [&](size_t num_circuits) {
         ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
-        MockCircuitProducer circuit_producer;
+        ClientIVCMockCircuitProducer circuit_producer;
         for (size_t j = 0; j < num_circuits; ++j) {
             auto circuit = circuit_producer.create_next_circuit(ivc, log2_num_gates);
             ivc.accumulate(circuit);
@@ -433,7 +394,7 @@ TEST_F(ClientIVCTests, StructuredTraceOverflow)
     // Define trace settings with sufficient overflow capacity to accommodate each of the circuits to be accumulated
     ClientIVC ivc{ { SMALL_TEST_STRUCTURE, /*overflow_capacity=*/1 << 17 } };
 
-    MockCircuitProducer circuit_producer;
+    ClientIVCMockCircuitProducer circuit_producer;
 
     size_t NUM_CIRCUITS = 4;
 
@@ -460,7 +421,7 @@ TEST_F(ClientIVCTests, DynamicOverflow)
     // Define trace settings with zero overflow capacity
     ClientIVC ivc{ { SMALL_TEST_STRUCTURE_FOR_OVERFLOWS, /*overflow_capacity=*/0 } };
 
-    MockCircuitProducer circuit_producer;
+    ClientIVCMockCircuitProducer circuit_producer;
 
     const size_t NUM_CIRCUITS = 2;
 
@@ -489,7 +450,7 @@ TEST_F(ClientIVCTests, DynamicOverflowCircuitSizeChange)
     // uint32_t overflow_capacity = 1 << 1;
     ClientIVC ivc{ { SMALL_TEST_STRUCTURE_FOR_OVERFLOWS, overflow_capacity } };
 
-    MockCircuitProducer circuit_producer;
+    ClientIVCMockCircuitProducer circuit_producer;
 
     const size_t NUM_CIRCUITS = 2;
 
