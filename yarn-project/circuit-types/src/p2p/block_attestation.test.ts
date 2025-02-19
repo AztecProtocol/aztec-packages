@@ -1,8 +1,8 @@
 // Serde test for the block attestation type
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 
+import { makeBlockAttestation } from '../test/mocks.js';
 import { BlockAttestation } from './block_attestation.js';
-import { makeBlockAttestation } from './mocks.js';
 
 describe('Block Attestation serialization / deserialization', () => {
   const checkEquivalence = (serialized: BlockAttestation, deserialized: BlockAttestation) => {

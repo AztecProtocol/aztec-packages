@@ -1,6 +1,6 @@
+import { GLOBAL_VARIABLES_LENGTH } from '@aztec/constants';
 import { randomInt } from '@aztec/foundation/crypto';
 
-import { GLOBAL_VARIABLES_LENGTH } from '../constants.gen.js';
 import { makeGlobalVariables } from '../tests/factories.js';
 import { GlobalVariables } from './global_variables.js';
 

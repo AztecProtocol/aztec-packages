@@ -1,28 +1,32 @@
-import { type AztecNode, type L2BlockNumber } from '@aztec/circuit-types';
+import { type AztecNode, type L2BlockNumber } from '@aztec/circuit-types/interfaces/client';
 import {
   type AztecAddress,
   Fr,
   type FunctionSelector,
   type GrumpkinScalar,
-  MembershipWitness,
-  type NOTE_HASH_TREE_HEIGHT,
-  PUBLIC_DATA_TREE_HEIGHT,
   type Point,
-  ScheduledDelayChange,
-  ScheduledValueChange,
-  UPDATED_CLASS_IDS_SLOT,
-  UPDATES_SCHEDULED_VALUE_CHANGE_LEN,
-  UPDATES_VALUE_SIZE,
-  UpdatedClassIdHints,
-  VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
   computeContractClassIdPreimage,
   computeSaltedInitializationHash,
-  computeSharedMutableHashSlot,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot, deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
+import { UpdatedClassIdHints } from '@aztec/circuits.js/kernel';
+import {
+  ScheduledDelayChange,
+  ScheduledValueChange,
+  computeSharedMutableHashSlot,
+} from '@aztec/circuits.js/shared-mutable';
+import {
+  type NOTE_HASH_TREE_HEIGHT,
+  PUBLIC_DATA_TREE_HEIGHT,
+  UPDATED_CLASS_IDS_SLOT,
+  UPDATES_SCHEDULED_VALUE_CHANGE_LEN,
+  UPDATES_VALUE_SIZE,
+  VK_TREE_HEIGHT,
+} from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
+import { MembershipWitness } from '@aztec/foundation/trees';
 import { type KeyStore } from '@aztec/key-store';
 import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vks';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';

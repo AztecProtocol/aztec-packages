@@ -1,5 +1,5 @@
 import { type GrumpkinScalar, type PublicKey } from '@aztec/circuits.js';
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { Grumpkin } from '@aztec/foundation/crypto';
 
 /**
  * Method for generating a public grumpkin key from a private key.

@@ -6,14 +6,12 @@ import {
   type L2BlockSource,
   type L2BlockStreamEvent,
   type L2Tips,
-  type P2PApi,
   type P2PClientType,
-  type PeerInfo,
-  type ProverCoordination,
   type Tx,
   type TxHash,
 } from '@aztec/circuit-types';
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
+import { type P2PApi, type PeerInfo, type ProverCoordination } from '@aztec/circuit-types/interfaces/server';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { type AztecAsyncKVStore, type AztecAsyncMap, type AztecAsyncSingleton } from '@aztec/kv-store';
 import {

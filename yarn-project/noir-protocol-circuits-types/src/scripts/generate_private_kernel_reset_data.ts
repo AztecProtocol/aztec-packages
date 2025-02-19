@@ -1,3 +1,4 @@
+import { type PrivateKernelResetDimensionsConfig, privateKernelResetDimensionNames } from '@aztec/circuits.js/kernel';
 import {
   MAX_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
@@ -6,10 +7,8 @@ import {
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
   PRIVATE_KERNEL_RESET_INDEX,
-  type PrivateKernelResetDimensionsConfig,
   VK_TREE_HEIGHT,
-  privateKernelResetDimensionNames,
-} from '@aztec/circuits.js';
+} from '@aztec/constants';
 import { createConsoleLogger } from '@aztec/foundation/log';
 
 import { promises as fs } from 'fs';
@@ -35,7 +34,7 @@ const maxDimensions = [
 
 function generateTypeFileImports() {
   return `
-    import { PrivateKernelResetDimensions, type PrivateKernelResetDimensionsConfig } from '@aztec/circuits.js';
+    import { PrivateKernelResetDimensions, type PrivateKernelResetDimensionsConfig } from '@aztec/circuits.js/kernel';
   `;
 }
 
@@ -50,7 +49,7 @@ function generateVkFileImports() {
 
 function generateDataFileImports() {
   return `
-    import { type NoirCompiledCircuit } from '@aztec/types/noir';
+    import { type NoirCompiledCircuit } from '@aztec/circuits.js/noir';
 
     import { type PrivateResetArtifact } from './private_kernel_reset_types.js';
   `;

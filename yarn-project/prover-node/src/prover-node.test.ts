@@ -1,16 +1,18 @@
 import {
   EmptyL1RollupConstants,
-  type EpochProverManager,
-  type EpochProvingJobState,
   type L1ToL2MessageSource,
   L2Block,
   type L2BlockSource,
+  type Tx,
+} from '@aztec/circuit-types';
+import {
+  type EpochProverManager,
+  type EpochProvingJobState,
   type MerkleTreeWriteOperations,
   type ProverCoordination,
-  type Tx,
   WorldStateRunningState,
   type WorldStateSynchronizer,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
 import { type ContractDataSource, EthAddress } from '@aztec/circuits.js';
 import { timesParallel } from '@aztec/foundation/collection';
 import { sleep } from '@aztec/foundation/sleep';

@@ -1,6 +1,6 @@
+import { L2_TO_L1_MESSAGE_LENGTH } from '@aztec/constants';
 import { randomInt } from '@aztec/foundation/crypto';
 
-import { L2_TO_L1_MESSAGE_LENGTH } from '../constants.gen.js';
 import { makeL2ToL1Message } from '../tests/factories.js';
 import { L2ToL1Message } from './l2_to_l1_message.js';
 

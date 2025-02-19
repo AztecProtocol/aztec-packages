@@ -1,5 +1,6 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
-import { P2PApiSchema, ProverNodeApiSchema, type ProvingJobBroker, createAztecNodeClient } from '@aztec/circuit-types';
+import { createAztecNodeClient } from '@aztec/circuit-types/interfaces/client';
+import { P2PApiSchema, ProverNodeApiSchema, type ProvingJobBroker } from '@aztec/circuit-types/interfaces/server';
 import { NULL_KEY } from '@aztec/ethereum';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';

@@ -1,4 +1,4 @@
-import * as c from '@aztec/circuits.js/constants';
+import * as c from '@aztec/constants';
 
 import { TypeTag } from './avm_memory_types.js';
 import { InstructionExecutionError } from './errors.js';

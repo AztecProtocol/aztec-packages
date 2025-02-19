@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-import { loadContractArtifact } from '@aztec/types/abi';
+import { loadContractArtifact } from '@aztec/circuits.js/abi';
 
 import crypto from 'crypto';
 import { access, mkdir, readFile, readdir, stat, writeFile } from 'fs/promises';

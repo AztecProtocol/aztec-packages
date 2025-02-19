@@ -1,4 +1,4 @@
-import { type NoirCompiledCircuit } from '@aztec/types/noir';
+import { type NoirCompiledCircuit } from '@aztec/circuits.js/noir';
 
 import PrivateKernelInitJson from '../../../artifacts/private_kernel_init.json' assert { type: 'json' };
 import PrivateKernelInitSimulatedJson from '../../../artifacts/private_kernel_init_simulated.json' assert { type: 'json' };
