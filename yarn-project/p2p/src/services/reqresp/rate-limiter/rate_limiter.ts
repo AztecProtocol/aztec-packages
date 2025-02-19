@@ -209,15 +209,10 @@ export class RequestResponseRateLimiter {
     }
     const rateLimitStatus = limiter.allow(peerId);
 
-    switch (rateLimitStatus) {
-      case RateLimitStatus.DeniedPeer:
-        // Hitting a peer specific limit, we should lightly penalise the peer
-        this.peerScoring.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
-        return RateLimitStatus.DeniedPeer;
-      default:
-        // Hitting a global limit, we should not penalise the peer
-        return rateLimitStatus;
+    if (rateLimitStatus === RateLimitStatus.DeniedGlobal) {
+      this.peerScoring.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
     }
+    return rateLimitStatus;
   }
 
   cleanupInactivePeers() {
