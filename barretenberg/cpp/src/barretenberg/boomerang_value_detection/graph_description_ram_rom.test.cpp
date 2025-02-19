@@ -30,13 +30,17 @@ TEST(boomerang_rom_ram_table, graph_description_rom_table)
     for (size_t i = 0; i < table_size; ++i) {
         table_values.emplace_back(witness_ct(&builder, bb::fr::random_element()));
     }
+    for (auto& elem: table_values) {
+        elem.fix_witness();
+    }
 
     rom_table_ct table(table_values);
+    std::unordered_set<uint32_t> safety_variables;
 
     field_ct result = field_ct(witness_ct(&builder, (uint64_t)0));
-    info("result witness index == ", result.witness_index);
 
     for (size_t i = 0; i < 10; ++i) {
+        safety_variables.insert(result.witness_index);
         field_ct index(witness_ct(&builder, (uint64_t)i));
         index.fix_witness();
         result += table[index];
@@ -47,12 +51,9 @@ TEST(boomerang_rom_ram_table, graph_description_rom_table)
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
-    EXPECT_EQ(variables_in_one_gate.size(), 0);
-    if (variables_in_one_gate.size() > 0) {
-        for (const auto& elem: variables_in_one_gate) {
-            info("elem == ", elem);
-        }
-    }
+    for (const auto& elem: variables_in_one_gate) {
+        EXPECT_EQ(variables_in_one_gate.contains(elem), true);
+    } 
 }
 
 /**
@@ -70,21 +71,28 @@ TEST(boomerang_rom_ram_table, graph_description_ram_table_read)
         table_values.emplace_back(witness_ct(&builder, bb::fr::random_element()));
     }
 
+    for (auto& elem: table_values) {
+        elem.fix_witness();
+    }
+
     ram_table_ct table(table_values);
     field_ct result = field_ct(witness_ct(&builder, (uint64_t)0));
+    std::unordered_set<uint32_t> safety_variables;
 
     for (size_t i = 0; i < 10; ++i) {
+        safety_variables.insert(result.witness_index);
         field_ct index(witness_ct(&builder, (uint64_t)i));
         index.fix_witness();
         result += table.read(index);
     }
+
     result.fix_witness();
     Graph graph = Graph(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
     for (const auto& elem: variables_in_one_gate) {
-        info("elem == ", elem);
+        EXPECT_EQ(safety_variables.contains(elem), true);
     }
 }
 
@@ -103,13 +111,14 @@ TEST(boomerang_rom_ram_table, graph_description_ram_table_write)
     const size_t table_size = 10;
 
     std::vector<fr> table_values(table_size);
-
     ram_table_ct table(&builder, table_size);
 
     for (size_t i = 0; i < table_size; ++i) {
         table.write(i, 0);
     }
+    std::unordered_set<uint32_t> safety_variables;
     field_ct result(0);
+    safety_variables.insert(result.witness_index);
 
     const auto update = [&]() {
         for (size_t i = 0; i < table_size / 2; ++i) {
@@ -117,16 +126,26 @@ TEST(boomerang_rom_ram_table, graph_description_ram_table_write)
             table_values[2 * i + 1] = fr::random_element();
 
             // init with both constant and variable values
-            table.write(2 * i, witness_ct(&builder, table_values[2 * i]));
-            table.write(2 * i + 1, witness_ct(&builder, table_values[2 * i + 1]));
+            field_ct value1(witness_ct(&builder, table_values[2 * i]));
+            field_ct value2(witness_ct(&builder, table_values[2 * i + 1]));
+            value1.fix_witness();
+            value2.fix_witness();
+            table.write(2 * i, value1);
+            table.write(2 * i + 1, value2);
         }
     };
 
     const auto read = [&]() {
         for (size_t i = 0; i < table_size / 2; ++i) {
             const size_t index = table_size - 2 - (i * 2); // access in something other than basic incremental order
-            result += table.read(witness_ct(&builder, index));
-            result += table.read(index + 1);
+            field_ct index1(witness_ct(&builder, index));
+            field_ct index2(witness_ct(&builder, index + 1));
+            index1.fix_witness();
+            index2.fix_witness();
+            result += table.read(index1);
+            safety_variables.insert(result.witness_index);
+            result += table.read(index2);
+            safety_variables.insert(result.witness_index);
         }
     };
 
@@ -136,12 +155,12 @@ TEST(boomerang_rom_ram_table, graph_description_ram_table_write)
     read();
     update();
 
+    result.fix_witness();
     Graph graph = Graph(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
-    EXPECT_EQ(variables_in_one_gate.size(), 0);
     for (const auto& elem: variables_in_one_gate) {
-        info("elem == ", elem);
+        EXPECT_EQ(safety_variables.contains(elem), true);
     }
 }
