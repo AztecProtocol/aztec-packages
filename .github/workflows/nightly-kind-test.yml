@@ -34,10 +34,11 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       image_tag: ${{ steps.find-tag.outputs.tag }}
-      fetch-depth: 0
     steps:
       - uses: actions/checkout@v4
-        with: { ref: "${{ env.GIT_COMMIT }}" }
+        with:
+          ref: "${{ env.GIT_COMMIT }}"
+          fetch-depth: 0
       - name: Find latest available image tag
         id: find-tag
         run: |
