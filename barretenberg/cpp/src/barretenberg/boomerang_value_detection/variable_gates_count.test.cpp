@@ -25,7 +25,7 @@ TEST(ultra_circuit_constructor, test_variable_gates_count_for_decompose)
 
     Graph graph = Graph(circuit_constructor);
     std::unordered_set<uint32_t> variables_in_on_gate = graph.show_variables_in_one_gate(circuit_constructor);
-    EXPECT_EQ(variables_in_on_gate.size(), 1);
+    EXPECT_EQ(variables_in_on_gate.size(), 0);
 }
 
 TEST(ultra_circuit_constructor, test_variable_gates_count_for_decompose2)
@@ -41,7 +41,7 @@ TEST(ultra_circuit_constructor, test_variable_gates_count_for_decompose2)
 
     Graph graph = Graph(circuit_constructor);
     auto variables_in_on_gate = graph.show_variables_in_one_gate(circuit_constructor);
-    EXPECT_EQ(variables_in_on_gate.size(), 1);
+    EXPECT_EQ(variables_in_on_gate.size(), 0);
 }
 
 TEST(utils, test_selectors_for_decompose)
@@ -86,7 +86,7 @@ TEST(ultra_circuit_constructor, test_variable_gates_count_for_two_decomposes)
 
     Graph graph = Graph(circuit_constructor);
     std::unordered_set<uint32_t> variables_in_one_gate = graph.show_variables_in_one_gate(circuit_constructor);
-    EXPECT_EQ(variables_in_one_gate.size(), 2);
+    EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
 TEST(ultra_circuit_constructor, test_decompose_with_boolean_gates)
@@ -127,5 +127,5 @@ TEST(ultra_circuit_constructor, test_decompose_for_6_bit_number)
 
     Graph graph = Graph(circuit_constructor);
     std::unordered_set<uint32_t> variables_in_on_gate = graph.show_variables_in_one_gate(circuit_constructor);
-    EXPECT_EQ(variables_in_on_gate.size(), 1);
+    EXPECT_EQ(variables_in_on_gate.size(), 0);
 }

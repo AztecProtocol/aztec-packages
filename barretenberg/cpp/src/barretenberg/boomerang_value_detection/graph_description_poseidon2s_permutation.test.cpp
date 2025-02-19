@@ -145,6 +145,9 @@ TEST(boomerang_poseidon2s, test_graph_for_poseidon2s_one_permutation)
 
     auto poseidon2permutation = Permutation();
     [[maybe_unused]] auto new_state = poseidon2permutation.permutation(&builder, inputs);
+    for (auto& elem: new_state) {
+        elem.fix_witness();
+    }
 
     auto graph = Graph(builder);
     auto connected_components = graph.find_connected_components();
@@ -173,12 +176,17 @@ TEST(boomerang_poseidon2s, test_graph_for_poseidon2s_two_permutations)
     }
 
     auto poseidon2permutation = Permutation();
-    poseidon2permutation.permutation(&builder, input1);
-    poseidon2permutation.permutation(&builder, input2);
+    [[maybe_unused]] auto state1 = poseidon2permutation.permutation(&builder, input1);
+    [[maybe_unused]] auto state2 = poseidon2permutation.permutation(&builder, input2);
+    for (auto& elem: state1) {
+        elem.fix_witness();
+    }
+    for (auto& elem: state2) {
+        elem.fix_witness();
+    }
     auto graph = Graph(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 2);
-    graph.print_connected_components();
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
