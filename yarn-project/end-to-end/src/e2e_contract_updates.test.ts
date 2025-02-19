@@ -45,7 +45,7 @@ describe('e2e_contract_updates', () => {
     };
 
     const valueChange = ScheduledValueChange.empty(1);
-    const delayChange = new ScheduledDelayChange(undefined, 0, DEFAULT_TEST_UPDATE_DELAY);
+    const delayChange = new ScheduledDelayChange(undefined, DEFAULT_TEST_UPDATE_DELAY, 0);
     const sharedMutableValuesWithHash = new SharedMutableValuesWithHash(valueChange, delayChange);
 
     await sharedMutableValuesWithHash.writeToTree(sharedMutableSlot, writeToTree);

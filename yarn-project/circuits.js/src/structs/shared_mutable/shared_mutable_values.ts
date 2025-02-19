@@ -31,8 +31,8 @@ export class SharedMutableValues {
 
     const sdc = new ScheduledDelayChange(
       sdcIsPreSome ? Number(sdcPre) : undefined,
-      Number(sdcBlockOfChange),
       sdcIsPostSome ? Number(sdcPost) : undefined,
+      Number(sdcBlockOfChange),
     );
 
     return new this(svc, sdc);
@@ -45,8 +45,8 @@ export class SharedMutableValues {
     firstField |= BigInt(this.sdc.blockOfChange) << 32n;
     firstField |= (this.sdc.post === undefined ? 0n : 1n) << 64n;
     firstField |= BigInt(this.sdc.post || 0) << 72n;
-    firstField |= (this.sdc.previous === undefined ? 0n : 1n) << 104n;
-    firstField |= BigInt(this.sdc.previous || 0) << 112n;
+    firstField |= (this.sdc.pre === undefined ? 0n : 1n) << 104n;
+    firstField |= BigInt(this.sdc.pre || 0) << 112n;
 
     return [new Fr(firstField), ...this.svc.previous, ...this.svc.post];
   }
