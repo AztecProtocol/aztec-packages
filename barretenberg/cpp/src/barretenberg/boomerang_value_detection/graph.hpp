@@ -168,4 +168,5 @@ template <typename FF> class Graph_ {
 };
 
 using Graph = Graph_<bb::fr>;
+
 } //namespace cgd
