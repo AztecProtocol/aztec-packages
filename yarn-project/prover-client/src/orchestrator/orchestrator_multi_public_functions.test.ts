@@ -1,4 +1,4 @@
-import { mockTx } from '@aztec/circuit-types';
+import { mockTx } from '@aztec/circuit-types/testing';
 import { timesParallel } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';

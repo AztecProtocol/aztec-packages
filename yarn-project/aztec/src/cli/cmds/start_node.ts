@@ -1,6 +1,7 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
 import { aztecNodeConfigMappings, getConfigEnvVars as getNodeConfigEnvVars } from '@aztec/aztec-node';
-import { AztecNodeApiSchema, P2PApiSchema, type PXE } from '@aztec/circuit-types';
+import { AztecNodeApiSchema, type PXE } from '@aztec/circuit-types/interfaces/client';
+import { P2PApiSchema } from '@aztec/circuit-types/interfaces/server';
 import { NULL_KEY } from '@aztec/ethereum';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';

@@ -3,15 +3,15 @@ import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
   FunctionSelector,
-  PUBLIC_DISPATCH_SELECTOR,
-  ScheduledDelayChange,
-  ScheduledValueChange,
-  UPDATED_CLASS_IDS_SLOT,
-  UPDATES_SCHEDULED_VALUE_CHANGE_LEN,
-  computeSharedMutableHashSlot,
 } from '@aztec/circuits.js';
 import { deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
+import {
+  ScheduledDelayChange,
+  ScheduledValueChange,
+  computeSharedMutableHashSlot,
+} from '@aztec/circuits.js/shared-mutable';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
+import { PUBLIC_DISPATCH_SELECTOR, UPDATED_CLASS_IDS_SLOT, UPDATES_SCHEDULED_VALUE_CHANGE_LEN } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';

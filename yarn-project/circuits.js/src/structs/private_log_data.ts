@@ -1,3 +1,4 @@
+import { PRIVATE_LOG_DATA_LENGTH } from '@aztec/constants';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
@@ -5,9 +6,8 @@ import { type FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
 
-import { PRIVATE_LOG_DATA_LENGTH } from '../constants.gen.js';
+import { type UInt32 } from '../types/shared.js';
 import { PrivateLog } from './private_log.js';
-import { type UInt32 } from './shared.js';
 
 export class PrivateLogData {
   constructor(public log: PrivateLog, public noteHashCounter: UInt32, public counter: UInt32) {}

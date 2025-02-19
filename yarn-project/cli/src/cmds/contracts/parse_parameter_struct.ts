@@ -1,4 +1,4 @@
-import { type StructType } from '@aztec/foundation/abi';
+import { type StructType } from '@aztec/circuits.js/abi';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { type LogFn } from '@aztec/foundation/log';
 

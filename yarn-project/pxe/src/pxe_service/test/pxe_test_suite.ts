@@ -1,10 +1,11 @@
+import { type PXE } from '@aztec/circuit-types/interfaces/client';
 import {
-  type PXE,
   randomContractArtifact,
   randomContractInstanceWithAddress,
   randomDeployedContract,
-} from '@aztec/circuit-types';
-import { AztecAddress, Fr, INITIAL_L2_BLOCK_NUM, getContractClassFromArtifact } from '@aztec/circuits.js';
+} from '@aztec/circuit-types/testing';
+import { AztecAddress, Fr, getContractClassFromArtifact } from '@aztec/circuits.js';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 
 import omit from 'lodash.omit';
 

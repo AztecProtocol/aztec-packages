@@ -1,4 +1,5 @@
-import { ClientIvcProof, Gas, PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js';
+import { ClientIvcProof, Gas } from '@aztec/circuits.js';
+import { PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';

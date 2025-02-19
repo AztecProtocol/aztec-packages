@@ -1,5 +1,5 @@
+import { type PXE } from '@aztec/aztec.js';
 import { type AccountWalletWithSecretKey } from '@aztec/aztec.js/wallet';
-import { type PXE } from '@aztec/circuit-types';
 import { deriveMasterIncomingViewingSecretKey } from '@aztec/circuits.js/keys';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, type GrumpkinScalar } from '@aztec/foundation/fields';

@@ -1,16 +1,16 @@
-import { makeTuple } from '@aztec/foundation/array';
-import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
-import { type FieldsOf } from '@aztec/foundation/types';
-
 import {
   MAX_NULLIFIERS_PER_TX,
   NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
-} from '../../constants.gen.js';
-import { MembershipWitness } from '../membership_witness.js';
+} from '@aztec/constants';
+import { makeTuple } from '@aztec/foundation/array';
+import { Fr } from '@aztec/foundation/fields';
+import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { MembershipWitness } from '@aztec/foundation/trees';
+import { type FieldsOf } from '@aztec/foundation/types';
+
 import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '../trees/index.js';
 
 /**

@@ -1,10 +1,5 @@
-import {
-  type AztecNode,
-  type FunctionCall,
-  type Note,
-  PrivateExecutionResult,
-  type TxExecutionRequest,
-} from '@aztec/circuit-types';
+import { type FunctionCall, type Note, type TxExecutionRequest } from '@aztec/circuit-types';
+import { type AztecNode, PrivateExecutionResult } from '@aztec/circuit-types/interfaces/client';
 import { CallContext } from '@aztec/circuits.js';
 import {
   type ArrayType,
@@ -13,7 +8,7 @@ import {
   FunctionType,
   type NoteSelector,
   encodeArguments,
-} from '@aztec/foundation/abi';
+} from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';

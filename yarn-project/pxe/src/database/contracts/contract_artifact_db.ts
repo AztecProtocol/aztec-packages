@@ -1,4 +1,4 @@
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type ContractArtifact } from '@aztec/circuits.js/abi';
 import { type Fr } from '@aztec/foundation/fields';
 
 /**

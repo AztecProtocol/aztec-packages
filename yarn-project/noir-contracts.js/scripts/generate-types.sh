@@ -25,7 +25,7 @@ echo "// Auto generated module - do not edit!" >"$INDEX"
 mkdir -p artifacts
 
 decl=$(cat <<EOF
-import { type NoirCompiledContract } from '@aztec/types/noir';
+import { type NoirCompiledContract } from '@aztec/circuits.js/noir';
 const circuit: NoirCompiledContract;
 export = circuit;
 EOF

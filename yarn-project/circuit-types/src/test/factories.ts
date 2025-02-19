@@ -1,34 +1,34 @@
 import {
-  AvmCircuitInputs,
-  AvmCircuitPublicInputs,
-  AvmExecutionHints,
   AztecAddress,
   type BlockHeader,
-  FIXED_DA_GAS,
-  FIXED_L2_GAS,
   Fr,
   Gas,
   GasFees,
   GasSettings,
   GlobalVariables,
-  MAX_NULLIFIERS_PER_TX,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PublicDataWrite,
   PublicLog,
   RevertCode,
   ScopedLogHash,
-  TxConstantData,
   mergeAccumulatedData,
 } from '@aztec/circuits.js';
+import { AvmCircuitInputs, AvmCircuitPublicInputs, AvmExecutionHints } from '@aztec/circuits.js/avm';
+import { TxConstantData } from '@aztec/circuits.js/kernel';
 import { makePrivateToPublicAccumulatedData, makePrivateToRollupAccumulatedData } from '@aztec/circuits.js/testing';
+import {
+  FIXED_DA_GAS,
+  FIXED_L2_GAS,
+  MAX_NULLIFIERS_PER_TX,
+  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+} from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 
 import { type MerkleTreeReadOperations } from '../interfaces/merkle_tree_operations.js';
 import { ProvingRequestType } from '../interfaces/proving-job.js';
 import { makeHeader } from '../l2_block_code_to_purge.js';
-import { mockTx } from '../mocks.js';
 import { type GasUsed } from '../tx/gas_used.js';
 import { makeProcessedTxFromPrivateOnlyTx, makeProcessedTxFromTxWithPublicCalls } from '../tx/processed_tx.js';
+import { mockTx } from './mocks.js';
 
 /** Makes a bloated processed tx for testing purposes. */
 export async function makeBloatedProcessedTx({

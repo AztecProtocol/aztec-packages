@@ -8,7 +8,8 @@ import {
   type PublicKey,
   SerializableContractInstance,
 } from '@aztec/circuits.js';
-import { type ContractArtifact, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
+import { type ContractArtifact, FunctionSelector, FunctionType } from '@aztec/circuits.js/abi';
+import { contractArtifactFromBuffer, contractArtifactToBuffer } from '@aztec/circuits.js/abi';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr, type Point } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
@@ -21,7 +22,6 @@ import {
   type AztecAsyncSet,
   type AztecAsyncSingleton,
 } from '@aztec/kv-store';
-import { contractArtifactFromBuffer, contractArtifactToBuffer } from '@aztec/types/abi';
 
 import { NoteDao } from './note_dao.js';
 import { type PxeDatabase } from './pxe_database.js';

@@ -1,3 +1,4 @@
+import { GLOBAL_VARIABLES_LENGTH } from '@aztec/constants';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -9,7 +10,6 @@ import { type FieldsOf } from '@aztec/foundation/types';
 import { inspect } from 'util';
 import { z } from 'zod';
 
-import { GLOBAL_VARIABLES_LENGTH } from '../constants.gen.js';
 import { GasFees } from './gas_fees.js';
 
 /**

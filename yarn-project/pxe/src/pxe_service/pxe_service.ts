@@ -1,8 +1,6 @@
 import {
   type AuthWitness,
-  type AztecNode,
   EventMetadata,
-  type EventMetadataDefinition,
   type ExtendedNote,
   type FunctionCall,
   type GetContractClassLogsResponse,
@@ -13,11 +11,6 @@ import {
   type LogFilter,
   MerkleTreeId,
   type NotesFilter,
-  type PXE,
-  type PXEInfo,
-  type PrivateExecutionResult,
-  type PrivateKernelProver,
-  type PrivateKernelSimulateOutput,
   PrivateSimulationResult,
   type PublicSimulationOutput,
   type SiblingPath,
@@ -32,19 +25,23 @@ import {
   UniqueNote,
   getNonNullifiedL1ToL2MessageWitness,
 } from '@aztec/circuit-types';
+import {
+  type AztecNode,
+  type EventMetadataDefinition,
+  type PXE,
+  type PXEInfo,
+  type PrivateExecutionResult,
+  type PrivateKernelProver,
+  type PrivateKernelSimulateOutput,
+} from '@aztec/circuit-types/interfaces/client';
 import type {
   CompleteAddress,
   ContractClassWithId,
   ContractInstanceWithAddress,
   GasFees,
-  L1_TO_L2_MSG_TREE_HEIGHT,
   NodeInfo,
   PartialAddress,
-  PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/circuits.js';
-import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/circuits.js/contract';
-import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
-import { computeAddressSecret } from '@aztec/circuits.js/keys';
 import {
   type AbiDecoded,
   type ContractArtifact,
@@ -53,7 +50,12 @@ import {
   FunctionType,
   decodeFunctionSignature,
   encodeArguments,
-} from '@aztec/foundation/abi';
+} from '@aztec/circuits.js/abi';
+import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/circuits.js/contract';
+import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
+import { PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
+import { computeAddressSecret } from '@aztec/circuits.js/keys';
+import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, type Point } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';

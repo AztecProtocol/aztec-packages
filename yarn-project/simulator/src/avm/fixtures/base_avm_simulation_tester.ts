@@ -1,15 +1,15 @@
-import { MerkleTreeId, type MerkleTreeWriteOperations } from '@aztec/circuit-types';
+import { MerkleTreeId } from '@aztec/circuit-types';
+import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
-  DEPLOYER_CONTRACT_ADDRESS,
-  PUBLIC_DISPATCH_SELECTOR,
   PublicDataWrite,
   computeInitializationHash,
 } from '@aztec/circuits.js';
+import { type ContractArtifact, FunctionSelector } from '@aztec/circuits.js/abi';
 import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
-import { type ContractArtifact, FunctionSelector } from '@aztec/foundation/abi';
+import { DEPLOYER_CONTRACT_ADDRESS, PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
