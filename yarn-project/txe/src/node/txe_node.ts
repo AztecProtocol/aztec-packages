@@ -17,7 +17,6 @@ import {
   TxReceipt,
   TxScopedL2Log,
   type TxValidationResult,
-  type WorldStateSyncStatus,
 } from '@aztec/circuit-types';
 import { type AztecNode, type L2BlockNumber } from '@aztec/circuit-types/interfaces/client';
 import {
@@ -26,6 +25,7 @@ import {
   type NullifierMembershipWitness,
   type ProverConfig,
   type SequencerConfig,
+  type WorldStateSyncStatus,
 } from '@aztec/circuit-types/interfaces/server';
 import {
   type AztecAddress,
