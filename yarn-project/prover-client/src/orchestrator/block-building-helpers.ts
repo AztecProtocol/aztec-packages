@@ -344,7 +344,7 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
     const contentCommitment = new ContentCommitment(new Fr(numTxs), blobsHash, parityShaRoot, outHash);
 
     const fees = body.txEffects.reduce((acc, tx) => acc.add(tx.transactionFee), Fr.ZERO);
-    const manaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.totalGas.l2Gas)), Fr.ZERO);
+    const manaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.billedGas.l2Gas)), Fr.ZERO);
 
     const header = new BlockHeader(previousArchive, contentCommitment, stateReference, globalVariables, fees, manaUsed);
 

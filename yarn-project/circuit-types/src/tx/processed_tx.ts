@@ -102,7 +102,9 @@ export async function makeProcessedTxFromPrivateOnlyTx(
   );
 
   const gasUsed = {
+    // Billed gas is the same as total gas since there is no teardown execution
     totalGas: tx.data.gasUsed,
+    billedGas: tx.data.gasUsed,
     teardownGas: Gas.empty(),
     publicGas: Gas.empty(),
   } satisfies GasUsed;
