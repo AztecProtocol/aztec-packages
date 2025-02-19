@@ -32,22 +32,17 @@ describe('AVM WitGen & Circuit - contract updates', () => {
     nextClassId: Fr,
     blockOfChange: number,
   ) => {
-    const sharedMutableSlot = await deriveStorageSlotInMap(new Fr(UPDATED_CLASS_IDS_SLOT), contractAddress);
+    const { sharedMutableSlot } = await SharedMutableValuesWithHash.getContractUpdateSlots(contractAddress);
 
     const valueChange = new ScheduledValueChange([previousClassId], [nextClassId], blockOfChange);
     const delayChange = ScheduledDelayChange.empty();
-    const sharedMutableValues = new SharedMutableValues(valueChange, delayChange);
+    const sharedMutableValuesWithHash = new SharedMutableValuesWithHash(valueChange, delayChange);
 
     const writeToTree = async (storageSlot: Fr, value: Fr) => {
       await tester.setPublicStorage(ProtocolContractAddress.ContractInstanceDeployer, storageSlot, value);
     };
 
-    await sharedMutableValues.writeToTree(sharedMutableSlot, writeToTree);
-
-    const updateHash = await sharedMutableValues.hash();
-
-    const hashSlot = sharedMutableSlot.add(new Fr(SHARED_MUTABLE_VALUES_LEN));
-    await writeToTree(hashSlot, updateHash);
+    await sharedMutableValuesWithHash.writeToTree(sharedMutableSlot, writeToTree);
   };
 
   it(

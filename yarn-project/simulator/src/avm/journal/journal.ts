@@ -4,10 +4,8 @@ import { AvmNullifierReadTreeHint, AvmPublicDataReadTreeHint } from '@aztec/circ
 import {
   computeNoteHashNonce,
   computePublicDataTreeLeafSlot,
-  computeUniqueNoteHash,
-  deriveStorageSlotInMap,
-  siloNoteHash,
-  siloNullifier,
+  computeUniqueNoteHash, siloNoteHash,
+  siloNullifier
 } from '@aztec/circuits.js/hash';
 import {
   ScheduledDelayChange,
@@ -748,16 +746,14 @@ export class AvmPersistableStateManager {
   }
 
   async getContractUpdateHints(contractAddress: AztecAddress) {
-    const sharedMutableSlot = await deriveStorageSlotInMap(new Fr(UPDATED_CLASS_IDS_SLOT), contractAddress);
-
-    const hashSlot = sharedMutableSlot.add(new Fr(SHARED_MUTABLE_VALUES_LEN));
+    const {sharedMutableSlot, sharedMutableHashSlot} = await SharedMutableValuesWithHash.getContractUpdateSlots(contractAddress);
 
     const {
       value: hash,
       leafPreimage,
       leafIndex,
       leafPath,
-    } = await this.getPublicDataMembership(ProtocolContractAddress.ContractInstanceDeployer, hashSlot);
+    } = await this.getPublicDataMembership(ProtocolContractAddress.ContractInstanceDeployer, sharedMutableHashSlot);
     const updateMembership = new AvmPublicDataReadTreeHint(leafPreimage, leafIndex, leafPath);
 
     const readStorage = async (storageSlot: Fr) =>

@@ -13,6 +13,8 @@ import { UpdatableContract } from '@aztec/noir-contracts.js/Updatable';
 import { UpdatedContract, UpdatedContractArtifact } from '@aztec/noir-contracts.js/Updated';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
+import { setup } from './fixtures/utils.js';
+
 // Set the update delay in genesis data so it's feasible to test in an e2e test
 const DEFAULT_TEST_UPDATE_DELAY = 10;
 
@@ -44,14 +46,9 @@ describe('e2e_contract_updates', () => {
 
     const valueChange = ScheduledValueChange.empty(1);
     const delayChange = new ScheduledDelayChange(undefined, 0, DEFAULT_TEST_UPDATE_DELAY);
-    const sharedMutableValues = new SharedMutableValues(valueChange, delayChange);
+    const sharedMutableValuesWithHash = new SharedMutableValuesWithHash(valueChange, delayChange);
 
-    await sharedMutableValues.writeToTree(sharedMutableSlot, writeToTree);
-
-    const updateHash = await sharedMutableValues.hash();
-
-    const hashSlot = sharedMutableSlot.add(new Fr(SHARED_MUTABLE_VALUES_LEN));
-    await writeToTree(hashSlot, updateHash);
+    await sharedMutableValuesWithHash.writeToTree(sharedMutableSlot, writeToTree);
 
     return leaves;
   };
