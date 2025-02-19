@@ -1,4 +1,4 @@
-use crate::shared_mutable::scheduled_delay_change::ScheduledDelayChange;
+use crate::{shared_mutable::scheduled_delay_change::ScheduledDelayChange, traits::Packable};
 
 global TEST_INITIAL_DELAY: u32 = 13;
 
