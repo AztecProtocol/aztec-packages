@@ -43,7 +43,7 @@ import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { RunningPromise } from '@aztec/foundation/running-promise';
+import { RunningPromise, makeLoggingErrorHandler } from '@aztec/foundation/running-promise';
 import { count } from '@aztec/foundation/string';
 import { elapsed } from '@aztec/foundation/timer';
 import { InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
@@ -205,11 +205,17 @@ export class Archiver implements ArchiveSource, Traceable {
       await this.sync(blockUntilSynced);
     }
 
-    this.runningPromise = new RunningPromise(() => this.sync(false), this.log, this.config.pollingIntervalMs, [
-      // Ignored errors will not log to the console
-      // We ignore NoBlobBodiesFound as the message may not have been passed to the blob sink yet
-      NoBlobBodiesFoundError,
-    ]);
+    this.runningPromise = new RunningPromise(
+      () => this.sync(false),
+      this.log,
+      this.config.pollingIntervalMs,
+      makeLoggingErrorHandler(
+        this.log,
+        // Ignored errors will not log to the console
+        // We ignore NoBlobBodiesFound as the message may not have been passed to the blob sink yet
+        NoBlobBodiesFoundError,
+      ),
+    );
 
     this.runningPromise.start();
   }
