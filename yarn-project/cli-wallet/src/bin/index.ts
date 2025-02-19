@@ -25,7 +25,7 @@ function injectInternalCommands(program: Command, log: LogFn, db: WalletDB) {
     .argument('<key>', 'Key to alias.')
     .argument('<value>', 'Value to assign to the alias.')
     .action(async (type, key, value) => {
-      value = db.tryRetrieveAlias(value) || value;
+      value = (await db.tryRetrieveAlias(value)) || value;
       await db.storeAlias(type, key, value, log);
     });
 
@@ -114,7 +114,7 @@ async function main() {
       );
     });
 
-  injectCommands(program, userLog, debugLogger, db, pxeWrapper);
+  await injectCommands(program, userLog, debugLogger, db, pxeWrapper);
   injectInternalCommands(program, userLog, db);
   await program.parseAsync(process.argv);
 }
