@@ -9,8 +9,8 @@ import {
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
 } from '../../constants.gen.js';
+import { ScopedContractClassLogData } from '../contract_class_log_data.js';
 import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
-import { ScopedLogHash } from '../log_hash.js';
 import { PrivateLog } from '../private_log.js';
 import { PublicCallRequest } from '../public_call_request.js';
 import { PrivateToPublicAccumulatedData } from './private_to_public_accumulated_data.js';
@@ -26,7 +26,7 @@ export class PrivateToPublicAccumulatedDataBuilder {
   private nullifiers: Fr[] = [];
   private l2ToL1Msgs: ScopedL2ToL1Message[] = [];
   private privateLogs: PrivateLog[] = [];
-  private contractClassLogsHashes: ScopedLogHash[] = [];
+  private contractClassLogs: ScopedContractClassLogData[] = [];
   private publicCallRequests: PublicCallRequest[] = [];
 
   pushNoteHash(newNoteHash: Fr) {
@@ -69,13 +69,13 @@ export class PrivateToPublicAccumulatedDataBuilder {
     return this;
   }
 
-  pushContractClassLogsHash(contractClassLogsHash: ScopedLogHash) {
-    this.contractClassLogsHashes.push(contractClassLogsHash);
+  pushContractClassLog(contractClassLog: ScopedContractClassLogData) {
+    this.contractClassLogs.push(contractClassLog);
     return this;
   }
 
-  withContractClassLogsHashes(contractClassLogsHashes: ScopedLogHash[]) {
-    this.contractClassLogsHashes = contractClassLogsHashes;
+  withContractClassLogs(contractClassLog: ScopedContractClassLogData[]) {
+    this.contractClassLogs = contractClassLog;
     return this;
   }
 
@@ -95,7 +95,7 @@ export class PrivateToPublicAccumulatedDataBuilder {
       padArrayEnd(this.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX),
       padArrayEnd(this.l2ToL1Msgs, ScopedL2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_TX),
       padArrayEnd(this.privateLogs, PrivateLog.empty(), MAX_PRIVATE_LOGS_PER_TX),
-      padArrayEnd(this.contractClassLogsHashes, ScopedLogHash.empty(), MAX_CONTRACT_CLASS_LOGS_PER_TX),
+      padArrayEnd(this.contractClassLogs, ScopedContractClassLogData.empty(), MAX_CONTRACT_CLASS_LOGS_PER_TX),
       padArrayEnd(this.publicCallRequests, PublicCallRequest.empty(), MAX_ENQUEUED_CALLS_PER_TX),
     );
   }

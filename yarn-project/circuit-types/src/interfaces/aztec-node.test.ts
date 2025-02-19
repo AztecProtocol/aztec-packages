@@ -32,8 +32,8 @@ import { resolve } from 'path';
 import { type InBlock, randomInBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { type L2Tips } from '../l2_block_source.js';
+import { ExtendedContractClassLog } from '../logs/extended_contract_class_log.js';
 import { ExtendedPublicLog } from '../logs/extended_public_log.js';
-import { ExtendedUnencryptedL2Log } from '../logs/extended_unencrypted_l2_log.js';
 import {
   type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
@@ -243,7 +243,7 @@ describe('AztecNodeApiSchema', () => {
 
   it('getContractClassLogs', async () => {
     const response = await context.client.getContractClassLogs({ contractAddress: await AztecAddress.random() });
-    expect(response).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
+    expect(response).toEqual({ logs: [expect.any(ExtendedContractClassLog)], maxLogsHit: true });
   });
 
   it('getLogsByTags', async () => {
@@ -524,9 +524,9 @@ class MockAztecNode implements AztecNode {
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
     return { logs: [await ExtendedPublicLog.random()], maxLogsHit: true };
   }
-  async getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
+  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
-    return { logs: [await ExtendedUnencryptedL2Log.random()], maxLogsHit: true };
+    return Promise.resolve({ logs: [ExtendedContractClassLog.random()], maxLogsHit: true });
   }
   getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     expect(tags).toHaveLength(1);

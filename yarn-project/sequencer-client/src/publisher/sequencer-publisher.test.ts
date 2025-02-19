@@ -47,7 +47,6 @@ describe('SequencerPublisher', () => {
   let header: Buffer;
   let archive: Buffer;
   let blockHash: Buffer;
-  let body: Buffer;
 
   let blobSinkClient: HttpBlobSinkClient;
   let mockBlobSinkServer: Server | undefined = undefined;
@@ -66,7 +65,6 @@ describe('SequencerPublisher', () => {
     header = l2Block.header.toBuffer();
     archive = l2Block.archive.root.toBuffer();
     blockHash = (await l2Block.header.hash()).toBuffer();
-    body = l2Block.body.toBuffer();
 
     proposeTxHash = `0x${Buffer.from('txHashPropose').toString('hex')}`; // random tx hash
 
@@ -144,7 +142,6 @@ describe('SequencerPublisher', () => {
     header = l2Block.header.toBuffer();
     archive = l2Block.archive.root.toBuffer();
     blockHash = (await l2Block.header.hash()).toBuffer();
-    body = l2Block.body.toBuffer();
   });
 
   const closeServer = (server: Server): Promise<void> => {
@@ -227,7 +224,6 @@ describe('SequencerPublisher', () => {
         txHashes: [],
       },
       [],
-      `0x${body.toString('hex')}`,
       blobInput,
     ] as const;
     expect(forwarder.forward).toHaveBeenCalledWith(

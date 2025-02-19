@@ -5,19 +5,19 @@ import { BufferReader, boolToBuffer, numToUInt32BE } from '@aztec/foundation/ser
 import { z } from 'zod';
 
 import { TxHash } from '../tx/tx_hash.js';
+import { ExtendedContractClassLog } from './extended_contract_class_log.js';
 import { ExtendedPublicLog } from './extended_public_log.js';
-import { ExtendedUnencryptedL2Log } from './extended_unencrypted_l2_log.js';
 
 /** Response for the getContractClassLogs archiver call. */
 export type GetContractClassLogsResponse = {
-  /** An array of ExtendedUnencryptedL2Log elements. */
-  logs: ExtendedUnencryptedL2Log[];
+  /** An array of ExtendedContractClassLog elements. */
+  logs: ExtendedContractClassLog[];
   /** Indicates if a limit has been reached. */
   maxLogsHit: boolean;
 };
 
 export const GetContractClassLogsResponseSchema = z.object({
-  logs: z.array(ExtendedUnencryptedL2Log.schema),
+  logs: z.array(ExtendedContractClassLog.schema),
   maxLogsHit: z.boolean(),
 }) satisfies ZodFor<GetContractClassLogsResponse>;
 

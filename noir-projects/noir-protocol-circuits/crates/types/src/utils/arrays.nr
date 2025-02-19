@@ -81,6 +81,26 @@ pub unconstrained fn find_index_hint<T, let N: u32, Env>(
     index
 }
 
+// As above, but counts from the end of the array.
+// Useful for finding trailing zeroes in arrays which may have valid empty values.
+// e.g. removing trailing 0s from [1, 0, 2, 0, 0, 0] -> [1, 0, 2]
+// TODO: can be removed if contract class and private logs cannot contain valid 0s.
+pub unconstrained fn find_index_hint_from_end<T, let N: u32, Env>(
+    array: [T; N],
+    find: fn[Env](T) -> bool,
+) -> u32 {
+    let mut index = 0;
+    for i in 0..N {
+        let j = N - i - 1;
+        // We check `index == 0` to ensure that we only update the index if we haven't found a match yet.
+        if (index == 0) & !find(array[j]) {
+            // Since we are looking from the end of the array, the index at which find() is true is the next one:
+            index = j + 1;
+        }
+    }
+    index
+}
+
 // Routine which validates that all zero values of an array form a contiguous region at the end, i.e.,
 // of the form: [*,*,*...,0,0,0,0] where any * is non-zero. Note that a full array of non-zero values is
 // valid.

@@ -1,6 +1,7 @@
 use crate::{
     abis::{
-        log_hash::ScopedLogHash, private_log::PrivateLog, public_call_request::PublicCallRequest,
+        contract_class_log::ContractClassLogData, private_log::PrivateLog,
+        public_call_request::PublicCallRequest, side_effect::scoped::Scoped,
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     traits::{Deserialize, Empty, Serialize},
@@ -17,7 +18,8 @@ pub struct PrivateToPublicAccumulatedData {
     pub nullifiers: [Field; MAX_NULLIFIERS_PER_TX],
     pub l2_to_l1_msgs: [ScopedL2ToL1Message; MAX_L2_TO_L1_MSGS_PER_TX],
     pub private_logs: [PrivateLog; MAX_PRIVATE_LOGS_PER_TX],
-    pub contract_class_logs_hashes: [ScopedLogHash; MAX_CONTRACT_CLASS_LOGS_PER_TX],
+    // TODO(MW): Think about siloing contract class logs and what should be here
+    pub contract_class_logs: [Scoped<ContractClassLogData>; MAX_CONTRACT_CLASS_LOGS_PER_TX],
     pub public_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
 }
 
@@ -28,7 +30,7 @@ impl Empty for PrivateToPublicAccumulatedData {
             nullifiers: [0; MAX_NULLIFIERS_PER_TX],
             l2_to_l1_msgs: [ScopedL2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_TX],
             private_logs: [PrivateLog::empty(); MAX_PRIVATE_LOGS_PER_TX],
-            contract_class_logs_hashes: [ScopedLogHash::empty(); MAX_CONTRACT_CLASS_LOGS_PER_TX],
+            contract_class_logs: [Scoped::empty(); MAX_CONTRACT_CLASS_LOGS_PER_TX],
             public_call_requests: [PublicCallRequest::empty(); MAX_ENQUEUED_CALLS_PER_TX],
         }
     }
@@ -40,7 +42,7 @@ impl Eq for PrivateToPublicAccumulatedData {
             & (self.nullifiers == other.nullifiers)
             & (self.l2_to_l1_msgs == other.l2_to_l1_msgs)
             & (self.private_logs == other.private_logs)
-            & (self.contract_class_logs_hashes == other.contract_class_logs_hashes)
+            & (self.contract_class_logs == other.contract_class_logs)
             & (self.public_call_requests == other.public_call_requests)
     }
 }
@@ -58,8 +60,8 @@ impl Serialize<PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH> for PrivateToPublicAcc
         for i in 0..self.private_logs.len() {
             fields.extend_from_array(self.private_logs[i].serialize());
         }
-        for i in 0..self.contract_class_logs_hashes.len() {
-            fields.extend_from_array(self.contract_class_logs_hashes[i].serialize());
+        for i in 0..self.contract_class_logs.len() {
+            fields.extend_from_array(self.contract_class_logs[i].serialize());
         }
         for i in 0..self.public_call_requests.len() {
             fields.extend_from_array(self.public_call_requests[i].serialize());
@@ -88,9 +90,9 @@ impl Deserialize<PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH> for PrivateToPublicA
                 PrivateLog::deserialize,
                 [PrivateLog::empty(); MAX_PRIVATE_LOGS_PER_TX],
             ),
-            contract_class_logs_hashes: reader.read_struct_array(
-                ScopedLogHash::deserialize,
-                [ScopedLogHash::empty(); MAX_CONTRACT_CLASS_LOGS_PER_TX],
+            contract_class_logs: reader.read_struct_array(
+                Scoped::deserialize,
+                [Scoped::empty(); MAX_CONTRACT_CLASS_LOGS_PER_TX],
             ),
             public_call_requests: reader.read_struct_array(
                 PublicCallRequest::deserialize,

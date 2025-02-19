@@ -1,7 +1,7 @@
 use types::{
     abis::{
-        log_hash::ScopedLogHash, private_log::PrivateLog, public_data_write::PublicDataWrite,
-        public_log::PublicLog,
+        contract_class_log::ContractClassLog, private_log::PrivateLog,
+        public_data_write::PublicDataWrite, public_log::PublicLog,
     },
     constants::{
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
@@ -21,8 +21,7 @@ pub(crate) struct TxEffect {
     pub(crate) public_data_writes: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     pub(crate) private_logs: [PrivateLog; MAX_PRIVATE_LOGS_PER_TX],
     pub(crate) public_logs: [PublicLog; MAX_PUBLIC_LOGS_PER_TX],
-    pub(crate) contract_class_log_preimages_length: Field,
-    pub(crate) contract_class_logs_hashes: [ScopedLogHash; MAX_CONTRACT_CLASS_LOGS_PER_TX],
+    pub(crate) contract_class_logs: [ContractClassLog; MAX_CONTRACT_CLASS_LOGS_PER_TX],
 }
 
 impl Empty for TxEffect {
@@ -39,8 +38,7 @@ impl Empty for TxEffect {
             ],
             private_logs: [PrivateLog::empty(); MAX_PRIVATE_LOGS_PER_TX],
             public_logs: [PublicLog::empty(); MAX_PUBLIC_LOGS_PER_TX],
-            contract_class_log_preimages_length: 0,
-            contract_class_logs_hashes: [ScopedLogHash::empty(); MAX_CONTRACT_CLASS_LOGS_PER_TX],
+            contract_class_logs: [ContractClassLog::empty(); MAX_CONTRACT_CLASS_LOGS_PER_TX],
         }
     }
 }

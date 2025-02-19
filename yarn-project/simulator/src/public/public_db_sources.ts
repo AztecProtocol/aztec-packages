@@ -1,5 +1,4 @@
 import {
-  ContractClassTxL2Logs,
   MerkleTreeId,
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
@@ -20,7 +19,11 @@ import {
   type PublicDataTreeLeafPreimage,
   computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
-import { computeL1ToL2MessageNullifier, computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import {
+  computeL1ToL2MessageNullifier,
+  computePublicDataTreeLeafSlot,
+  siloContractClassLog,
+} from '@aztec/circuits.js/hash';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
@@ -47,10 +50,10 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
    */
   public async addNewContracts(tx: Tx): Promise<void> {
     // Extract contract class and instance data from logs and add to cache for this block
-    const logs = tx.contractClassLogs.unrollLogs();
-    const contractClassRegisteredEvents = logs
-      .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log.data))
-      .map(log => ContractClassRegisteredEvent.fromLog(log.data));
+    const siloedLogs = await Promise.all(tx.data.getNonEmptyContractClassLogs().map(log => siloContractClassLog(log)));
+    const contractClassRegisteredEvents = siloedLogs
+      .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log))
+      .map(log => ContractClassRegisteredEvent.fromLog(log));
     await Promise.all(
       contractClassRegisteredEvents.map(async event => {
         this.log.debug(`Adding class ${event.contractClassId.toString()} to public execution contract cache`);
@@ -76,22 +79,18 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
    * @param tx - The tx's contracts to be removed
    * @param onlyRevertible - Whether to only remove contracts added from revertible contract class logs
    */
-  public removeNewContracts(tx: Tx, onlyRevertible: boolean = false): Promise<void> {
+  public async removeNewContracts(tx: Tx, onlyRevertible: boolean = false): Promise<void> {
     // TODO(@spalladino): Can this inadvertently delete a valid contract added by another tx?
     // Let's say we have two txs adding the same contract on the same block. If the 2nd one reverts,
     // wouldn't that accidentally remove the contract added on the first one?
     const contractClassLogs = onlyRevertible
-      ? tx.contractClassLogs
-          .filterScoped(
-            tx.data.forPublic!.revertibleAccumulatedData.contractClassLogsHashes,
-            ContractClassTxL2Logs.empty(),
-          )
-          .unrollLogs()
-      : tx.contractClassLogs.unrollLogs();
-    contractClassLogs
-      .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log.data))
+      ? tx.data.forPublic!.revertibleAccumulatedData.contractClassLogs
+      : tx.data.getNonEmptyContractClassLogs();
+    const siloedLogs = await Promise.all(contractClassLogs.map(log => siloContractClassLog(log)));
+    siloedLogs
+      .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log))
       .forEach(log => {
-        const event = ContractClassRegisteredEvent.fromLog(log.data);
+        const event = ContractClassRegisteredEvent.fromLog(log);
         this.classCache.delete(event.contractClassId.toString());
       });
 
