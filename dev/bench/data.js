@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739979196911,
+  "lastUpdate": 1739981256881,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "karl.lye@gmail.com",
-            "name": "Charlie Lye",
-            "username": "charlielye"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "723163a9a93d628c9688ff5861ed7bff556bae16",
-          "message": "feat: Cl/ci3.3 (#10946)\n\n[CI3 introduction.](https://hackmd.io/bTnKHtTHT8mAdTtD0t7JvA?view)\r\n\r\nThis is a majority step towards the vision of CI3, still namely missing\r\nmerge queue.\r\n\r\nNew features:\r\n- Grinding flakes in master. We run all tests on 5 separate runners to\r\nreport on flakes at the source.\r\n- External contributors can now have CI run just by approving their PR. \r\n- Ability to debug CI entirely from commandline from any machine. Get\r\ndropped into a productive shell right after the CI failure by doing\r\n`./ci.sh ec2` while your PR is a draft (note: do not do this if pushing\r\nto a non-draft PR).\r\n- Add tests to CI by adding tests to bootstrap. Target a rich\r\nenvironment with no differences from running inside the dev container.\r\n- Releases that are fully dry-runnable and deployable from a single\r\ncommand. See above hackmd for details.\r\n- Recovery from spot eviction (finally implemented correctly).\r\n\r\nSome remaining items are tracked here.\r\nhttps://github.com/aztecprotocol/aztec-packages/issues/10775\r\n\r\n---------\r\n\r\nCo-authored-by: ludamad <domuradical@gmail.com>\r\nCo-authored-by: ludamad <adam.domurad@gmail.com>\r\nCo-authored-by: thunkar <gregojquiros@gmail.com>",
-          "timestamp": "2025-02-14T12:59:22Z",
-          "tree_id": "85acd18259eaa089b56151f51cbcc72dcf0ebff2",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/723163a9a93d628c9688ff5861ed7bff556bae16"
-        },
-        "date": 1739540072733,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18351.557659000035,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16251.382791000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18748.663436000017,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16344.662915 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3966.570054000158,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3172.46146 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55257.81427,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55257815000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11365.368749,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11365373000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1832061531,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1832061531 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 131153334,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 131153334 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3300,6 +3234,72 @@ window.BENCHMARK_DATA = {
             "value": 130210216,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 130210216 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15848336+TomAFrench@users.noreply.github.com",
+            "name": "Tom French",
+            "username": "TomAFrench"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fc9f1c42128140b7bef794e7ae494fd1566cdb73",
+          "message": "chore: fix error in oracle definition (#12090)\n\nThis is breaking a compiler check that we're wanting to promote to an\nerror.",
+          "timestamp": "2025-02-19T15:41:54Z",
+          "tree_id": "bbc14758038651a9759873f21d9cace227af3db1",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/fc9f1c42128140b7bef794e7ae494fd1566cdb73"
+        },
+        "date": 1739981248812,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18479.34057400016,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16180.573521999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18777.162584000052,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16186.855306000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3940.244743000221,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3154.769091 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55020.636714,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55020636000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10007.225221,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10007231000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1837606682,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1837606682 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 130570026,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 130570026 ns\nthreads: 1"
           }
         ]
       }
