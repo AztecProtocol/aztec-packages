@@ -15,6 +15,8 @@ export class WalletDB {
   #bridgedFeeJuice!: AztecAsyncMap<string, Buffer>;
   #transactions!: AztecAsyncMap<string, Buffer>;
 
+  public readonly aliasCache = new WalletAliasCache(this);
+
   private static instance: WalletDB;
 
   static getInstance() {
@@ -25,11 +27,13 @@ export class WalletDB {
     return WalletDB.instance;
   }
 
-  init(store: AztecAsyncKVStore) {
+  async init(store: AztecAsyncKVStore) {
     this.#accounts = store.openMap('accounts');
     this.#aliases = store.openMap('aliases');
     this.#bridgedFeeJuice = store.openMap('bridgedFeeJuice');
     this.#transactions = store.openMap('transactions');
+
+    await this.aliasCache.refresh();
   }
 
   async pushBridgedFeeJuice(recipient: AztecAddress, secret: Fr, amount: bigint, leafIndex: bigint, log: LogFn) {
@@ -207,7 +211,7 @@ export class WalletDB {
 export class WalletAliasCache {
   private cache = new Map<string, string>();
 
-  private constructor(private db?: WalletDB) {}
+  constructor(private db?: WalletDB) {}
 
   static async new(db?: WalletDB): Promise<WalletAliasCache> {
     const cache = new WalletAliasCache(db);

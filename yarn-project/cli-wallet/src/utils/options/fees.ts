@@ -167,7 +167,6 @@ export function parsePaymentMethod(
   };
 
   return async (sender: AccountWallet) => {
-    const cache = await WalletAliasCache.new(db);
     switch (parsed.method) {
       case 'fee_juice': {
         if (parsed.claim || (parsed.claimSecret && parsed.claimAmount && parsed.messageLeafIndex)) {
@@ -195,19 +194,19 @@ export function parsePaymentMethod(
           log(`Using Fee Juice for fee payment`);
           const { FeeJuicePaymentMethod } = await import('@aztec/aztec.js/fee');
           const feePayer = parsed.feePayer
-            ? aliasedAddressParser('accounts', parsed.feePayer, cache)
+            ? aliasedAddressParser('accounts', parsed.feePayer, db?.aliasCache)
             : sender.getAddress();
           return new FeeJuicePaymentMethod(feePayer);
         }
       }
       case 'fpc-public': {
-        const [asset, fpc] = getFpcOpts(parsed, cache);
+        const [asset, fpc] = getFpcOpts(parsed, db?.aliasCache);
         log(`Using public fee payment with asset ${asset} via paymaster ${fpc}`);
         const { PublicFeePaymentMethod } = await import('@aztec/aztec.js/fee');
         return new PublicFeePaymentMethod(fpc, sender);
       }
       case 'fpc-private': {
-        const [asset, fpc] = getFpcOpts(parsed, cache);
+        const [asset, fpc] = getFpcOpts(parsed, db?.aliasCache);
         log(`Using private fee payment with asset ${asset} via paymaster ${fpc}`);
         const { PrivateFeePaymentMethod } = await import('@aztec/aztec.js/fee');
         return new PrivateFeePaymentMethod(fpc, sender);

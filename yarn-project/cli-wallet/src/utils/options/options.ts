@@ -59,12 +59,12 @@ export function aliasedAddressParser(defaultPrefix: AliasType, address: string, 
   }
 }
 
-export function aliasedSecretKeyParser(sk: string, db: WalletAliasCache) {
+export function aliasedSecretKeyParser(sk: string, db?: WalletAliasCache) {
   if (sk.startsWith('0x')) {
     return parseSecretKey(sk);
   } else {
     const prefixed = `${sk.startsWith('accounts') ? '' : 'accounts'}:${sk.endsWith(':sk') ? sk : `${sk}:sk`}`;
-    const rawSk = db.retrieveAlias(prefixed) ?? sk;
+    const rawSk = db?.retrieveAlias(prefixed) ?? sk;
     return parseSecretKey(rawSk);
   }
 }
@@ -103,12 +103,12 @@ export function createContractAddressOption(db?: WalletAliasCache) {
     .makeOptionMandatory(true);
 }
 
-export function artifactPathParser(filePath: string, db: WalletAliasCache) {
+export function artifactPathParser(filePath: string, db?: WalletAliasCache) {
   if (filePath.includes('@')) {
     const [pkg, contractName] = filePath.split('@');
     return contractArtifactFromWorkspace(pkg, contractName);
   } else if (!new RegExp(/^(\.|\/|[A-Z]:).*\.json$/).test(filePath)) {
-    filePath = db.retrieveAlias(`artifacts:${filePath}`) ?? filePath;
+    filePath = db?.retrieveAlias(`artifacts:${filePath}`) ?? filePath;
   }
   if (!filePath) {
     throw new Error(
@@ -134,7 +134,7 @@ export async function artifactPathFromPromiseOrAlias(
   return artifactPath;
 }
 
-export function createArtifactOption(db: WalletAliasCache) {
+export function createArtifactOption(db?: WalletAliasCache) {
   return new Option('-c, --contract-artifact <fileLocation>', ARTIFACT_DESCRIPTION)
     .argParser(filePath => artifactPathParser(filePath, db))
     .makeOptionMandatory(false);

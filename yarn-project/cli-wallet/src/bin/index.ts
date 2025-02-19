@@ -106,7 +106,7 @@ async function main() {
           ...(proverEnabled && { proverEnabled, bbBinaryPath, bbWorkingDirectory }), // only override if we're profiling
         });
       }
-      db.init(
+      await db.init(
         await createStore('wallet', {
           dataDirectory: dataDir as string,
           dataStoreMapSizeKB: 10 * 1_024 * 1_024,
@@ -114,7 +114,7 @@ async function main() {
       );
     });
 
-  await injectCommands(program, userLog, debugLogger, db, pxeWrapper);
+  injectCommands(program, userLog, debugLogger, db, pxeWrapper);
   injectInternalCommands(program, userLog, db);
   await program.parseAsync(process.argv);
 }
