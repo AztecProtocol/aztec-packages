@@ -70,7 +70,6 @@ ethereum:
     externalHost:
     resources:
       requests:
-        memory: "1Gi"
         cpu: "0.5"
   beacon:
     externalHost:
@@ -78,12 +77,10 @@ ethereum:
     apiKeyHeader: ""
     resources:
       requests:
-        memory: "1Gi"
         cpu: "0.5"
   validator:
     resources:
       requests:
-        memory: "1Gi"
         cpu: "0.5"
 
 jobs:
