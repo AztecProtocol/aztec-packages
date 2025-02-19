@@ -6,10 +6,11 @@ using namespace bb;
 TEST(ECCOpQueueTest, Basic)
 {
     ECCOpQueue op_queue;
-    const auto raw_ops = op_queue.get_raw_ops();
+    op_queue.initialize_new_subtable();
     op_queue.add_accumulate(bb::g1::affine_one);
-    EXPECT_EQ(raw_ops[0].base_point, bb::g1::affine_one);
     op_queue.empty_row_for_testing();
+    const auto raw_ops = op_queue.get_raw_ops();
+    EXPECT_EQ(raw_ops[0].base_point, bb::g1::affine_one);
     EXPECT_EQ(raw_ops[1].add, false);
 }
 
@@ -26,6 +27,7 @@ TEST(ECCOpQueueTest, InternalAccumulatorCorrectness)
 
     // Add the same operations to the ECC op queue; the native computation is performed under the hood.
     ECCOpQueue op_queue;
+    op_queue.initialize_new_subtable();
     op_queue.add_accumulate(P1);
     op_queue.mul_accumulate(P2, z);
 

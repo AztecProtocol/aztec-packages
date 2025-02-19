@@ -266,25 +266,11 @@ TYPED_TEST(MegaHonkTests, NewMergePolyconstruction)
     auto builder = typename Flavor::CircuitBuilder{ op_queue };
     GoblinMockCircuits::construct_simple_circuit(builder);
 
-    const size_t expected_table_size = op_queue->get_ultra_ops_table_size();
-
-    // EXPECT_EQ(op_queue->get_current_size(), expected_table_size);
-
     std::array<Polynomial<Fr>, 4> table_polynomials = op_queue->get_ultra_ops_table_columns();
     std::array<Polynomial<Fr>, 4> previous_table_polynomials = op_queue->get_previous_ultra_ops_table_columns();
     std::array<Polynomial<Fr>, 4> subtable_polynomials = op_queue->get_current_subtable_columns();
 
     const size_t current_subtable_size = op_queue->get_current_ultra_ops_subtable_size();
-    std::array<Polynomial<Fr>, 4> reconstructed_table_polynomials;
-    for (size_t i = 0; i < 4; ++i) {
-        reconstructed_table_polynomials[i] = Polynomial<Fr>(expected_table_size);
-        reconstructed_table_polynomials[i] += subtable_polynomials[i];
-        reconstructed_table_polynomials[i] += previous_table_polynomials[i].right_shifted(current_subtable_size);
-    }
-
-    for (auto [reconstructed, table] : zip_view(reconstructed_table_polynomials, table_polynomials)) {
-        EXPECT_EQ(reconstructed, table);
-    }
 
     Fr eval_challenge = Fr::random_element();
 

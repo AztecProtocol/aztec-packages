@@ -28,16 +28,11 @@ class ECCOpQueue {
 
     static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS = stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
 
-    std::vector<bb::eccvm::VMOperation<Curve::Group>> fuzzing_raw_ops;
-    // std::array<std::vector<Fr>, 4> ultra_ops; // ops encoded in the width-4 Ultra format
-
     RawEccOpsTable raw_ops_table;
     UltraEccOpsTable ultra_ops_table;
 
-    size_t current_ultra_ops_size = 0;  // M_i
-    size_t previous_ultra_ops_size = 0; // M_{i-1}
-
-    std::array<Point, 4> ultra_ops_commitments;
+    // Storage for the reconstructed raw ops table in contiguous memory
+    std::vector<bb::eccvm::VMOperation<Curve::Group>> raw_ops_reconstructed;
 
     // Tracks numer of muls and size of eccvm in real time as the op queue is updated
     EccvmRowTracker eccvm_row_tracker;
@@ -53,44 +48,21 @@ class ECCOpQueue {
 
     std::array<Polynomial<Fr>, 4> get_ultra_ops_table_columns() const
     {
-        const size_t table_size = ultra_ops_table.ultra_table_size();
-        std::array<Polynomial<Fr>, 4> column_polynomials;
-        std::array<std::span<fr>, 4> column_spans;
-        for (auto [column_span, column] : zip_view(column_spans, column_polynomials)) {
-            column = Polynomial<Fr>(table_size);
-            column_span = column.coeffs();
-        }
-        ultra_ops_table.populate_table_columns(column_spans);
-        return column_polynomials;
+        return ultra_ops_table.construct_table_columns();
     }
 
     std::array<Polynomial<Fr>, 4> get_previous_ultra_ops_table_columns() const
     {
-        const size_t table_size = ultra_ops_table.ultra_table_size();
-        const size_t current_subtable_size = ultra_ops_table.current_ultra_subtable_size();
-        const size_t previous_table_size = table_size - current_subtable_size;
-        std::array<Polynomial<Fr>, 4> column_polynomials;
-        std::array<std::span<fr>, 4> column_spans;
-        for (auto [column_span, column] : zip_view(column_spans, column_polynomials)) {
-            column = Polynomial<Fr>(previous_table_size, table_size);
-            column_span = column.coeffs();
-        }
-        ultra_ops_table.populate_previous_table_columns(column_spans);
-        return column_polynomials;
+        return ultra_ops_table.construct_previous_table_columns();
     }
 
     std::array<Polynomial<Fr>, 4> get_current_subtable_columns() const
     {
-        const size_t current_subtable_size = ultra_ops_table.current_ultra_subtable_size();
-        std::array<Polynomial<Fr>, 4> column_polynomials;
-        std::array<std::span<fr>, 4> column_spans;
-        for (auto [column_span, column] : zip_view(column_spans, column_polynomials)) {
-            column = Polynomial<Fr>(current_subtable_size);
-            column_span = column.coeffs();
-        }
-        ultra_ops_table.populate_current_subtable_columns(column_spans);
-        return column_polynomials;
+        return ultra_ops_table.construct_current_subtable_columns();
     }
+
+    // Reconstruct the full table of raw ops in contiguous memory from the independent subtables
+    void construct_full_raw_ops_table() { raw_ops_reconstructed = raw_ops_table.get_reconstructed(); }
 
     size_t get_ultra_ops_table_size() const { return ultra_ops_table.ultra_table_size(); }
     size_t get_current_ultra_ops_subtable_size() const { return ultra_ops_table.current_ultra_subtable_size(); }
@@ -129,7 +101,7 @@ class ECCOpQueue {
      * @brief A fuzzing only method for setting raw ops directly
      *
      */
-    void set_raw_ops_for_fuzzing(std::vector<ECCVMOperation>& raw_ops_in) { fuzzing_raw_ops = raw_ops_in; }
+    void set_raw_ops_for_fuzzing(std::vector<ECCVMOperation>& raw_ops_in) { raw_ops_reconstructed = raw_ops_in; }
 
     /**
      * @brief A testing only method that adds an erroneous equality op to the raw ops
@@ -149,9 +121,6 @@ class ECCOpQueue {
     void empty_row_for_testing() { append_raw_op(ECCVMOperation{ .base_point = point_at_infinity }); }
 
     Point get_accumulator() { return accumulator; }
-
-    void set_commitment_data(std::array<Point, 4>& commitments) { ultra_ops_commitments = commitments; }
-    const auto& get_ultra_ops_commitments() { return ultra_ops_commitments; }
 
     /**
      * @brief Write point addition op to queue and natively perform addition

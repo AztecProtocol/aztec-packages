@@ -2,6 +2,7 @@
 
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/eccvm/eccvm_builder_types.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 #include <deque>
 namespace bb {
 
@@ -42,6 +43,8 @@ template <typename OpFormat> class EccOpsTable {
         }
         return total;
     }
+
+    size_t num_subtables() const { return table.size(); }
 
     auto& get() const { return table; }
 
@@ -105,6 +108,7 @@ class UltraEccOpsTable {
     using Fr = Curve::ScalarField;
     using UltraOpsTable = EccOpsTable<UltraOp>;
     using TableView = std::array<std::span<Fr>, TABLE_WIDTH>;
+    using ColumnPolynomials = std::array<Polynomial<Fr>, TABLE_WIDTH>;
 
     UltraOpsTable table;
 
@@ -112,6 +116,7 @@ class UltraEccOpsTable {
     size_t size() const { return table.size(); }
     size_t ultra_table_size() const { return table.size() * NUM_ROWS_PER_OP; }
     size_t current_ultra_subtable_size() const { return table.get()[0].size() * NUM_ROWS_PER_OP; }
+    size_t previous_ultra_table_size() const { return (ultra_table_size() - current_ultra_subtable_size()); }
     void create_new_subtable(size_t size_hint = 0) { table.create_new_subtable(size_hint); }
     void push(const UltraOp& op) { table.push(op); }
 
@@ -139,7 +144,7 @@ class UltraEccOpsTable {
         }
     }
 
-    void populate_column_data_from_subtables(std::array<std::span<Fr>, TABLE_WIDTH>& target_columns,
+    void populate_column_data_from_subtables(ColumnPolynomials& column_polynomials,
                                              const size_t start_idx,
                                              const size_t end_idx) const
     {
@@ -147,39 +152,60 @@ class UltraEccOpsTable {
         for (size_t j = start_idx; j < end_idx; ++j) {
             const auto& subtable = table.get()[j];
             for (const auto& op : subtable) {
-                target_columns[0][i] = op.op;
-                target_columns[1][i] = op.x_lo;
-                target_columns[2][i] = op.x_hi;
-                target_columns[3][i] = op.y_lo;
+                column_polynomials[0].at(i) = op.op;
+                column_polynomials[1].at(i) = op.x_lo;
+                column_polynomials[2].at(i) = op.x_hi;
+                column_polynomials[3].at(i) = op.y_lo;
                 i++;
-                target_columns[0][i] = 0; // only the first 'op' field is utilized
-                target_columns[1][i] = op.y_hi;
-                target_columns[2][i] = op.z_1;
-                target_columns[3][i] = op.z_2;
+                column_polynomials[0].at(i) = 0; // only the first 'op' field is utilized
+                column_polynomials[1].at(i) = op.y_hi;
+                column_polynomials[2].at(i) = op.z_1;
+                column_polynomials[3].at(i) = op.z_2;
                 i++;
             }
         }
     }
 
-    void populate_table_columns(TableView& target_columns) const
+    ColumnPolynomials construct_table_columns() const
     {
+        ColumnPolynomials column_polynomials;
+        for (auto& poly : column_polynomials) {
+            poly = Polynomial<Fr>(ultra_table_size());
+        }
+
         const size_t start_idx = 0;
-        const size_t end_idx = table.get().size();
-        populate_column_data_from_subtables(target_columns, start_idx, end_idx);
+        const size_t end_idx = table.num_subtables();
+        populate_column_data_from_subtables(column_polynomials, start_idx, end_idx);
+
+        return column_polynomials;
     }
 
-    void populate_previous_table_columns(TableView& target_columns) const
+    ColumnPolynomials construct_previous_table_columns() const
     {
+        ColumnPolynomials column_polynomials;
+        for (auto& poly : column_polynomials) {
+            poly = Polynomial<Fr>(previous_ultra_table_size());
+        }
+
         const size_t start_idx = 1;
-        const size_t end_idx = table.get().size();
-        populate_column_data_from_subtables(target_columns, start_idx, end_idx);
+        const size_t end_idx = table.num_subtables();
+        populate_column_data_from_subtables(column_polynomials, start_idx, end_idx);
+
+        return column_polynomials;
     }
 
-    void populate_current_subtable_columns(TableView& target_columns) const
+    ColumnPolynomials construct_current_subtable_columns() const
     {
+        ColumnPolynomials column_polynomials;
+        for (auto& poly : column_polynomials) {
+            poly = Polynomial<Fr>(current_ultra_subtable_size());
+        }
+
         const size_t start_idx = 0;
         const size_t end_idx = 1;
-        populate_column_data_from_subtables(target_columns, start_idx, end_idx);
+        populate_column_data_from_subtables(column_polynomials, start_idx, end_idx);
+
+        return column_polynomials;
     }
 };
 
