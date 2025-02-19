@@ -390,7 +390,15 @@ describe('Private Execution test suite', () => {
       const noteHashes = getNonEmptyItems(result.publicInputs.noteHashes);
       expect(noteHashes).toHaveLength(1);
       expect(noteHashes[0].value).toEqual(
-        await acirSimulator.computeNoteHash(contractAddress, newNote.storageSlot, newNote.noteTypeId, newNote.note),
+        (
+          await acirSimulator.computeNoteHashAndNullifier(
+            contractAddress,
+            Fr.ZERO,
+            newNote.storageSlot,
+            newNote.noteTypeId,
+            newNote.note,
+          )
+        ).noteHash,
       );
 
       const privateLogs = getNonEmptyItems(result.publicInputs.privateLogs);
@@ -412,7 +420,15 @@ describe('Private Execution test suite', () => {
       const noteHashes = getNonEmptyItems(result.publicInputs.noteHashes);
       expect(noteHashes).toHaveLength(1);
       expect(noteHashes[0].value).toEqual(
-        await acirSimulator.computeNoteHash(contractAddress, newNote.storageSlot, newNote.noteTypeId, newNote.note),
+        (
+          await acirSimulator.computeNoteHashAndNullifier(
+            contractAddress,
+            Fr.ZERO,
+            newNote.storageSlot,
+            newNote.noteTypeId,
+            newNote.note,
+          )
+        ).noteHash,
       );
 
       const privateLogs = getNonEmptyItems(result.publicInputs.privateLogs);
@@ -437,14 +453,7 @@ describe('Private Execution test suite', () => {
       oracle.getNotes.mockResolvedValue(notes);
 
       const consumedNotes = await asyncMap(notes, ({ nonce, note }) =>
-        acirSimulator.computeNoteHashAndOptionallyANullifier(
-          contractAddress,
-          nonce,
-          storageSlot,
-          valueNoteTypeId,
-          true,
-          note,
-        ),
+        acirSimulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, valueNoteTypeId, note),
       );
       await insertLeaves(consumedNotes.map(n => n.uniqueNoteHash));
 
@@ -476,8 +485,24 @@ describe('Private Execution test suite', () => {
       expect(noteHashes).toHaveLength(2);
       const [changeNoteHash, recipientNoteHash] = noteHashes;
       const [siloedChangeNoteHash, siloedRecipientNoteHash] = [
-        await acirSimulator.computeNoteHash(contractAddress, storageSlot, valueNoteTypeId, changeNote.note),
-        await acirSimulator.computeNoteHash(contractAddress, recipientStorageSlot, valueNoteTypeId, recipientNote.note),
+        (
+          await acirSimulator.computeNoteHashAndNullifier(
+            contractAddress,
+            Fr.ZERO,
+            storageSlot,
+            valueNoteTypeId,
+            changeNote.note,
+          )
+        ).noteHash,
+        (
+          await acirSimulator.computeNoteHashAndNullifier(
+            contractAddress,
+            Fr.ZERO,
+            recipientStorageSlot,
+            valueNoteTypeId,
+            recipientNote.note,
+          )
+        ).noteHash,
       ];
       expect(changeNoteHash.value).toEqual(siloedChangeNoteHash);
       expect(recipientNoteHash.value).toEqual(siloedRecipientNoteHash);
@@ -505,14 +530,7 @@ describe('Private Execution test suite', () => {
       oracle.getNotes.mockResolvedValue(notes);
 
       const consumedNotes = await asyncMap(notes, ({ nonce, note }) =>
-        acirSimulator.computeNoteHashAndOptionallyANullifier(
-          contractAddress,
-          nonce,
-          storageSlot,
-          valueNoteTypeId,
-          true,
-          note,
-        ),
+        acirSimulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, valueNoteTypeId, note),
       );
       await insertLeaves(consumedNotes.map(n => n.uniqueNoteHash));
 
@@ -1004,8 +1022,9 @@ describe('Private Execution test suite', () => {
         owner,
       );
 
-      const derivedNoteHash = await acirSimulator.computeNoteHash(
+      const { noteHash: derivedNoteHash } = await acirSimulator.computeNoteHashAndNullifier(
         contractAddress,
+        Fr.ZERO,
         storageSlot,
         valueNoteTypeId,
         noteAndSlot.note,
@@ -1081,8 +1100,9 @@ describe('Private Execution test suite', () => {
       const noteHashes = getNonEmptyItems(execInsert.publicInputs.noteHashes);
       expect(noteHashes).toHaveLength(1);
 
-      const derivedNoteHash = await acirSimulator.computeNoteHash(
+      const { noteHash: derivedNoteHash } = await acirSimulator.computeNoteHashAndNullifier(
         contractAddress,
+        Fr.ZERO,
         noteAndSlot.storageSlot,
         noteAndSlot.noteTypeId,
         noteAndSlot.note,

@@ -139,9 +139,6 @@ export abstract class BaseWallet implements Wallet {
   addNote(note: ExtendedNote): Promise<void> {
     return this.pxe.addNote(note, this.getAddress());
   }
-  addNullifiedNote(note: ExtendedNote): Promise<void> {
-    return this.pxe.addNullifiedNote(note);
-  }
   getBlock(number: number): Promise<L2Block | undefined> {
     return this.pxe.getBlock(number);
   }

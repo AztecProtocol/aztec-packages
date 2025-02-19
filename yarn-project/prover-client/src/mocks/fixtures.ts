@@ -31,7 +31,7 @@ export const getEnvironmentConfig = async (logger: Logger) => {
     const tempWorkingDirectory = `${TEMP_DIR}/${randomBytes(4).toString('hex')}`;
     const bbWorkingDirectory = BB_WORKING_DIRECTORY ? BB_WORKING_DIRECTORY : `${tempWorkingDirectory}/bb`;
     await fs.mkdir(bbWorkingDirectory, { recursive: true });
-    logger.verbose(`Using native BB binary at ${expectedBBPath} with working directory ${bbWorkingDirectory}`);
+    logger.info(`Found native BB binary at ${expectedBBPath} with working directory ${bbWorkingDirectory}`);
 
     const expectedAcvmPath = ACVM_BINARY_PATH
       ? ACVM_BINARY_PATH
@@ -39,7 +39,7 @@ export const getEnvironmentConfig = async (logger: Logger) => {
     await fs.access(expectedAcvmPath, fs.constants.R_OK);
     const acvmWorkingDirectory = ACVM_WORKING_DIRECTORY ? ACVM_WORKING_DIRECTORY : `${tempWorkingDirectory}/acvm`;
     await fs.mkdir(acvmWorkingDirectory, { recursive: true });
-    logger.verbose(`Using native ACVM binary at ${expectedAcvmPath} with working directory ${acvmWorkingDirectory}`);
+    logger.info(`Found native ACVM binary at ${expectedAcvmPath} with working directory ${acvmWorkingDirectory}`);
 
     const bbSkipCleanup = ['1', 'true'].includes(BB_SKIP_CLEANUP);
     bbSkipCleanup && logger.verbose(`Not going to clean up BB working directory ${bbWorkingDirectory} after run`);
@@ -53,7 +53,7 @@ export const getEnvironmentConfig = async (logger: Logger) => {
       bbSkipCleanup,
     };
   } catch (err) {
-    logger.verbose(`Native BB not available, error: ${err}`);
+    logger.info(`Native BB not available: ${err}`);
     return undefined;
   }
 };

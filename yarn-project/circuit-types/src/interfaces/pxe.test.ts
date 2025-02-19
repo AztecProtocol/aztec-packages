@@ -236,10 +236,6 @@ describe('PXESchema', () => {
     await context.client.addNote(await ExtendedNote.random(), address);
   });
 
-  it('addNullifiedNote', async () => {
-    await context.client.addNullifiedNote(await ExtendedNote.random());
-  });
-
   it('getBlock', async () => {
     const result = await context.client.getBlock(1);
     expect(result).toBeInstanceOf(L2Block);
@@ -461,10 +457,6 @@ class MockPXE implements PXE {
   addNote(note: ExtendedNote, scope?: AztecAddress | undefined): Promise<void> {
     expect(note).toBeInstanceOf(ExtendedNote);
     expect(scope).toEqual(this.address);
-    return Promise.resolve();
-  }
-  addNullifiedNote(note: ExtendedNote): Promise<void> {
-    expect(note).toBeInstanceOf(ExtendedNote);
     return Promise.resolve();
   }
   getBlock(number: number): Promise<L2Block | undefined> {

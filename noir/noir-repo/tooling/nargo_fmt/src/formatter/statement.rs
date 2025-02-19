@@ -1,7 +1,7 @@
 use noirc_frontend::{
     ast::{
         AssignStatement, Expression, ExpressionKind, ForLoopStatement, ForRange, LetStatement,
-        Pattern, Statement, StatementKind, UnresolvedType, UnresolvedTypeData,
+        Pattern, Statement, StatementKind, UnresolvedType, UnresolvedTypeData, WhileStatement,
     },
     token::{Keyword, SecondaryAttribute, Token, TokenKind},
 };
@@ -73,6 +73,9 @@ impl<'a, 'b> ChunkFormatter<'a, 'b> {
             }
             StatementKind::Loop(block, _) => {
                 group.group(self.format_loop(block));
+            }
+            StatementKind::While(while_) => {
+                group.group(self.format_while(while_));
             }
             StatementKind::Break => {
                 group.text(self.chunk(|formatter| {
@@ -266,6 +269,36 @@ impl<'a, 'b> ChunkFormatter<'a, 'b> {
         group
     }
 
+    fn format_while(&mut self, while_: WhileStatement) -> ChunkGroup {
+        let mut group = ChunkGroup::new();
+
+        group.text(self.chunk(|formatter| {
+            formatter.write_keyword(Keyword::While);
+        }));
+
+        group.space(self);
+        self.format_expression(while_.condition, &mut group);
+        group.space(self);
+
+        let ExpressionKind::Block(block) = while_.body.kind else {
+            panic!("Expected a block expression for loop body");
+        };
+
+        group.group(self.format_block_expression(
+            block, true, // force multiple lines
+        ));
+
+        // If there's a trailing semicolon, remove it
+        group.text(self.chunk(|formatter| {
+            formatter.skip_whitespace_if_it_is_not_a_newline();
+            if formatter.is_at(Token::Semicolon) {
+                formatter.bump();
+            }
+        }));
+
+        group
+    }
+
     fn format_comptime_statement(&mut self, statement: Statement) -> ChunkGroup {
         let mut group = ChunkGroup::new();
 
@@ -375,7 +408,7 @@ mod tests {
 
     #[test]
     fn format_let_statement_with_unsafe_comment() {
-        let src = " fn foo() { 
+        let src = " fn foo() {
         // Safety: some comment
         let  x  =  unsafe { 1 } ; } ";
         let expected = "fn foo() {
@@ -388,7 +421,7 @@ mod tests {
 
     #[test]
     fn format_let_statement_with_unsafe_doc_comment() {
-        let src = " fn foo() { 
+        let src = " fn foo() {
         /// Safety: some comment
         let  x  =  unsafe { 1 } ; } ";
         let expected = "fn foo() {
@@ -514,7 +547,7 @@ mod tests {
 
     #[test]
     fn format_unsafe_statement() {
-        let src = " fn foo() { unsafe { 
+        let src = " fn foo() { unsafe {
         1  } } ";
         let expected = "fn foo() {
     unsafe {
@@ -752,6 +785,42 @@ mod tests {
         let src = " fn foo() {  loop  { 1 ; 2  }  } ";
         let expected = "fn foo() {
     loop {
+        1;
+        2
+    }
+}
+";
+        assert_format(src, expected);
+    }
+
+    #[test]
+    fn format_empty_while() {
+        let src = " fn foo() {  while  condition  {   }  } ";
+        let expected = "fn foo() {
+    while condition {}
+}
+";
+        assert_format(src, expected);
+    }
+
+    #[test]
+    fn format_non_empty_while() {
+        let src = " fn foo() {  while  condition  {  1 ; 2  }  } ";
+        let expected = "fn foo() {
+    while condition {
+        1;
+        2
+    }
+}
+";
+        assert_format(src, expected);
+    }
+
+    #[test]
+    fn format_while_with_semicolon() {
+        let src = " fn foo() {  while  condition  {  1 ; 2  };  } ";
+        let expected = "fn foo() {
+    while condition {
         1;
         2
     }
