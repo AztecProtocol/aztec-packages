@@ -613,7 +613,7 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
         }
         // The probability of this event is negligible but it has to be processed correctly
         if (evaluation_challenge_in_small_subgroup) {
-            throw_or_abort("Gemini evaluation challenge is in the SmallSubgroup.");
+            throw_or_abort("Evaluation challenge is in the SmallSubgroup.");
         }
         // Construct the challenge polynomial from the evaluation and batching challenges, the verifier has to evaluate
         // it on its own
@@ -624,7 +624,7 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
         // subgroup
         auto [challenge_poly, lagrange_first, lagrange_last] = compute_batched_barycentric_evaluations(
             challenge_polynomial_lagrange, evaluation_challenge, vanishing_poly_eval);
-        info("verifier challenge poly eval ", challenge_poly);
+
         const FF& concatenated_at_r = small_ipa_evaluations[0];
         const FF& big_sum_shifted_eval = small_ipa_evaluations[1];
         const FF& big_sum_eval = small_ipa_evaluations[2];

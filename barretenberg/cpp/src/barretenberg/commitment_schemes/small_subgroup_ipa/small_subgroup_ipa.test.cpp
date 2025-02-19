@@ -14,6 +14,8 @@ template <typename Flavor> class SmallSubgroupIPATest : public ::testing::Test {
     using Transcript = typename Flavor::Transcript;
     using FF = typename Curve::ScalarField;
 
+    static constexpr FF subgroup_generator = Curve::subgroup_generator;
+
     static constexpr size_t log_circuit_size = 7;
     static constexpr size_t circuit_size = 1ULL << log_circuit_size;
 
@@ -28,6 +30,16 @@ template <typename Flavor> class SmallSubgroupIPATest : public ::testing::Test {
             challenge = FF::random_element();
         }
         return multivariate_challenge;
+    }
+
+    // A helper to evaluate the four IPA witness polynomials at x, x*g, x, x
+    std::array<FF, 4> evaluate_small_ipa_witnesses(const std::array<Polynomial<FF>, 4>& witness_polynomials)
+    {
+        // Hard-coded pattern of evaluation: (x, x*g, x, x)
+        return { witness_polynomials[0].evaluate(evaluation_challenge),
+                 witness_polynomials[1].evaluate(evaluation_challenge * subgroup_generator),
+                 witness_polynomials[2].evaluate(evaluation_challenge),
+                 witness_polynomials[3].evaluate(evaluation_challenge) };
     }
 };
 
@@ -182,18 +194,11 @@ TYPED_TEST(SmallSubgroupIPATest, ProverAndVerifierSimple)
     Prover small_subgroup_ipa_prover =
         Prover(zk_sumcheck_data, multivariate_challenge, claimed_inner_product, prover_transcript, ck);
 
-    const std::array<Polynomial<FF>, NUM_LIBRA_EVALUATIONS> witness_polynomials =
-        small_subgroup_ipa_prover.get_witness_polynomials();
-
-    std::array<FF, NUM_LIBRA_EVALUATIONS> libra_evaluations = {
-        witness_polynomials[0].evaluate(this->evaluation_challenge),
-        witness_polynomials[1].evaluate(this->evaluation_challenge * Curve::subgroup_generator),
-        witness_polynomials[2].evaluate(this->evaluation_challenge),
-        witness_polynomials[3].evaluate(this->evaluation_challenge)
-    };
+    const std::array<FF, NUM_LIBRA_EVALUATIONS> small_ipa_evaluations =
+        this->evaluate_small_ipa_witnesses(small_subgroup_ipa_prover.get_witness_polynomials());
 
     bool consistency_checked = Verifier::check_evaluations_consistency(
-        libra_evaluations, this->evaluation_challenge, multivariate_challenge, claimed_inner_product);
+        small_ipa_evaluations, this->evaluation_challenge, multivariate_challenge, claimed_inner_product);
 
     EXPECT_TRUE(consistency_checked);
 }
@@ -231,15 +236,11 @@ TYPED_TEST(SmallSubgroupIPATest, ProverAndVerifierSimpleFailure)
     // Tamper with witness polynomials
     witness_polynomials[0].at(0) = FF::random_element();
 
-    std::array<FF, NUM_LIBRA_EVALUATIONS> libra_evaluations = {
-        witness_polynomials[0].evaluate(this->evaluation_challenge),
-        witness_polynomials[1].evaluate(this->evaluation_challenge * Curve::subgroup_generator),
-        witness_polynomials[2].evaluate(this->evaluation_challenge),
-        witness_polynomials[3].evaluate(this->evaluation_challenge)
-    };
+    const std::array<FF, NUM_LIBRA_EVALUATIONS> small_ipa_evaluations =
+        this->evaluate_small_ipa_witnesses(witness_polynomials);
 
     bool consistency_checked = Verifier::check_evaluations_consistency(
-        libra_evaluations, this->evaluation_challenge, multivariate_challenge, claimed_inner_product);
+        small_ipa_evaluations, this->evaluation_challenge, multivariate_challenge, claimed_inner_product);
 
     // Since witness polynomials were modified, the consistency check must fail
     EXPECT_FALSE(consistency_checked);
@@ -249,7 +250,7 @@ TYPED_TEST(SmallSubgroupIPATest, ProverAndVerifierSimpleFailure)
 // verifier.
 TYPED_TEST(SmallSubgroupIPATest, TranslationEvaluationsMaskingTerm)
 {
-
+    // TranslationData class is Grumpkin-specific
     if constexpr (std::is_same_v<TypeParam, BN254Settings>) {
         GTEST_SKIP();
     } else {
@@ -292,15 +293,8 @@ TYPED_TEST(SmallSubgroupIPATest, TranslationEvaluationsMaskingTerm)
                                          prover_transcript,
                                          ck);
 
-        const std::array<Polynomial<FF>, NUM_LIBRA_EVALUATIONS> witness_polynomials =
-            small_subgroup_ipa_prover.get_witness_polynomials();
-
-        std::array<FF, NUM_LIBRA_EVALUATIONS> small_ipa_evaluations = {
-            witness_polynomials[0].evaluate(this->evaluation_challenge),
-            witness_polynomials[1].evaluate(this->evaluation_challenge * Curve::subgroup_generator),
-            witness_polynomials[2].evaluate(this->evaluation_challenge),
-            witness_polynomials[3].evaluate(this->evaluation_challenge)
-        };
+        const std::array<FF, NUM_LIBRA_EVALUATIONS> small_ipa_evaluations =
+            this->evaluate_small_ipa_witnesses(small_subgroup_ipa_prover.get_witness_polynomials());
 
         bool consistency_checked = Verifier::check_eccvm_evaluations_consistency(small_ipa_evaluations,
                                                                                  num_wires,
