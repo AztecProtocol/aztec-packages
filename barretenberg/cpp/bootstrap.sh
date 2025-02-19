@@ -32,6 +32,7 @@ function build_nodejs_module {
 }
 
 function build_darwin {
+  set -eu
   local arch=${1:-$(arch)}
   if ! cache_download barretenberg-darwin-$hash.tar.gz; then
     # Download sdk.
