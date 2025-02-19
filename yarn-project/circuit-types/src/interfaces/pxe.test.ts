@@ -14,13 +14,13 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { type AbiDecoded, type ContractArtifact, EventSelector } from '@aztec/circuits.js/abi';
+import { loadContractArtifact } from '@aztec/circuits.js/abi';
 import { PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
 import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
 import { memoize } from '@aztec/foundation/decorators';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 import { fileURLToPath } from '@aztec/foundation/url';
-import { loadContractArtifact } from '@aztec/types/abi';
 
 import { jest } from '@jest/globals';
 import { deepStrictEqual } from 'assert';

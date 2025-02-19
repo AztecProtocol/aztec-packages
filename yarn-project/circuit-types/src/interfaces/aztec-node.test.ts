@@ -14,6 +14,7 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/circuits.js/abi';
+import { loadContractArtifact } from '@aztec/circuits.js/abi';
 import {
   ARCHIVE_HEIGHT,
   L1_TO_L2_MSG_TREE_HEIGHT,
@@ -25,7 +26,6 @@ import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-c
 import { memoize } from '@aztec/foundation/decorators';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 import { fileURLToPath } from '@aztec/foundation/url';
-import { loadContractArtifact } from '@aztec/types/abi';
 
 import { readFileSync } from 'fs';
 import omit from 'lodash.omit';

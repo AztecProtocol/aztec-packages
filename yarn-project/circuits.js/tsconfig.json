@@ -17,11 +17,7 @@
     },
     {
       "path": "../foundation"
-    },
-    {
-      "path": "../types"
     }
   ],
-  "include": ["src"],
-  "exclude": ["dest/**/*.js"]
+  "include": ["src"]
 }

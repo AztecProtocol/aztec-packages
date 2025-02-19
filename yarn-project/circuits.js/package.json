@@ -23,7 +23,8 @@
     "./kernel": "./dest/structs/kernel/index.js",
     "./trees": "./dest/structs/trees/index.js",
     "./avm": "./dest/structs/avm/index.js",
-    "./schemas": "./dest/schemas/index.js"
+    "./schemas": "./dest/schemas/index.js",
+    "./noir": "./dest/noir/index.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -33,7 +34,7 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && yarn generate && tsc -b --verbose",
+    "build": "yarn clean && yarn generate && tsc -b",
     "generate": "./scripts/copy-contracts.sh",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
@@ -48,7 +49,6 @@
     "@aztec/constants": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
-    "@aztec/types": "workspace:^",
     "msgpackr": "^1.11.2",
     "tslib": "^2.4.0",
     "zod": "^3.23.8"

@@ -1,4 +1,6 @@
 import { AztecAddress, Fr, getContractInstanceFromDeployParams } from '@aztec/circuits.js';
+import { loadContractArtifact } from '@aztec/circuits.js/abi';
+import { type NoirCompiledContract } from '@aztec/circuits.js/noir';
 import {
   CANONICAL_AUTH_REGISTRY_ADDRESS,
   DEPLOYER_CONTRACT_ADDRESS,
@@ -14,8 +16,6 @@ import {
 } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { createConsoleLogger } from '@aztec/foundation/log';
-import { loadContractArtifact } from '@aztec/types/abi';
-import { type NoirCompiledContract } from '@aztec/types/noir';
 
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -79,7 +79,7 @@ async function computeRoot(names: string[], leaves: Fr[]) {
 
 async function generateDeclarationFile(destName: string) {
   const content = `
-    import { type NoirCompiledContract } from '@aztec/types/noir';
+    import { type NoirCompiledContract } from '@aztec/circuits.js/noir';
     const circuit: NoirCompiledContract;
     export = circuit;
   `;

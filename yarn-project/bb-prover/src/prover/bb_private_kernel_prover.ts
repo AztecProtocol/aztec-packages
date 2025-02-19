@@ -9,6 +9,7 @@ import {
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/circuits.js';
+import { type NoirCompiledCircuit } from '@aztec/circuits.js/noir';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
@@ -28,7 +29,6 @@ import {
 import { type ArtifactProvider, type ClientProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
 import { ClientCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
 import { type SimulationProvider } from '@aztec/simulator/client';
-import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import { type Abi, type WitnessMap } from '@noir-lang/types';
 

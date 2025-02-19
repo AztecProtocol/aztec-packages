@@ -1,5 +1,5 @@
-import { loadContractArtifact } from '@aztec/types/abi';
-import { type NoirCompiledContract } from '@aztec/types/noir';
+import { loadContractArtifact } from '@aztec/circuits.js/abi';
+import { type NoirCompiledContract } from '@aztec/circuits.js/noir';
 
 import ContractInstanceDeployerJson from '../../artifacts/ContractInstanceDeployer.json' assert { type: 'json' };
 import { makeProtocolContract } from '../make_protocol_contract.js';

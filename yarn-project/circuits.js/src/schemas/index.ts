@@ -5,12 +5,14 @@ import { type ZodFor, schemas as foundationSchemas } from '@aztec/foundation/sch
 import { z } from 'zod';
 
 import type { AbiDecoded } from '../abi/decoder.js';
+import { EventSelector } from '../abi/event_selector.js';
 import { FunctionSelector } from '../abi/function_selector.js';
 import { NoteSelector } from '../abi/note_selector.js';
 
 export const schemas = {
   NoteSelector: NoteSelector.schema,
   FunctionSelector: FunctionSelector.schema,
+  EventSelector: EventSelector.schema,
   ...foundationSchemas,
 };
 
@@ -21,3 +23,5 @@ export const AbiDecodedSchema: ZodFor<AbiDecoded> = z.union([
   z.array(z.lazy(() => AbiDecodedSchema)),
   z.record(z.lazy(() => AbiDecodedSchema)),
 ]);
+
+export { type ZodFor, bufferSchema, hexSchema, hexSchemaFor, bufferSchemaFor } from '@aztec/foundation/schemas';

@@ -1,8 +1,8 @@
+import { type NoirCompiledCircuit } from '@aztec/circuits.js/noir';
 import { type LogFn } from '@aztec/foundation/log';
 import { ClientCircuitArtifacts } from '@aztec/noir-protocol-circuits-types/client/bundle';
 import { ServerCircuitArtifacts } from '@aztec/noir-protocol-circuits-types/server';
 import { type ProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
-import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import { Command } from 'commander';
 

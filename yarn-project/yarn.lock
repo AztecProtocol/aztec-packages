@@ -510,7 +510,6 @@ __metadata:
     "@aztec/constants": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
-    "@aztec/types": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^18.7.23"

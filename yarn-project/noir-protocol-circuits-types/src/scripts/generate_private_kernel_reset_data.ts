@@ -49,7 +49,7 @@ function generateVkFileImports() {
 
 function generateDataFileImports() {
   return `
-    import { type NoirCompiledCircuit } from '@aztec/types/noir';
+    import { type NoirCompiledCircuit } from '@aztec/circuits.js/noir';
 
     import { type PrivateResetArtifact } from './private_kernel_reset_types.js';
   `;
