@@ -28,7 +28,11 @@ bot:
 proverAgent:
   resources:
     requests:
-      memory: "5Gi"
+      memory: "64Gi"
+      cpu: "16"
+    limits:
+      memory: "96Gi"
+      cpu: "16"
 
 proverBroker:
   resources:

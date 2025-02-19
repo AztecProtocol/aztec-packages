@@ -1,39 +1,39 @@
 bootNode:
   resources:
     requests:
-      memory: "5Gi"
+      memory: "2Gi"
 
 validator:
   resources:
     requests:
-      memory: "5Gi"
+      memory: "512Mi"
 
 proverNode:
   resources:
     requests:
-      memory: "5Gi"
+      memory: "2Gi"
 
 pxe:
   resources:
     requests:
-      memory: "4Gi"
+      memory: "2Gi"
 
 bot:
   gke:
     spotEnabled: true
   resources:
     requests:
-      memory: "5Gi"
+      memory: "2Gi"
 
 proverAgent:
   resources:
     requests:
-      memory: "5Gi"
+      memory: "2Gi"
 
 proverBroker:
   resources:
     requests:
-      memory: "5Gi"
+      memory: "2Gi"
 
 blobSink:
   resources:
@@ -48,16 +48,21 @@ ethereum:
   execution:
     resources:
       requests:
-        memory: "4Gi"
+        memory: "2Gi"
+      limits:
+        memory: "2Gi"
     storageSize: "80Gi"
   beacon:
     resources:
       requests:
-        memory: "4Gi"
+        memory: "2Gi"
       limits:
-        memory: "4Gi"
+        memory: "2Gi"
     storageSize: "80Gi"
   validator:
     resources:
       requests:
-        memory: "4Gi"
+        memory: "2Gi"
+      limits:
+        memory: "2Gi"
+
