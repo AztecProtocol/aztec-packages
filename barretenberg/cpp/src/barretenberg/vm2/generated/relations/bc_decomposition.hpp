@@ -12,9 +12,9 @@ template <typename FF_> class bc_decompositionImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 83> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 3, 4, 4, 5, 3, 4, 4, 4, 3, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+    static constexpr std::array<size_t, 85> SUBRELATION_PARTIAL_LENGTHS = {
+        3, 3, 4, 4, 5, 3, 4, 4, 4, 3, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
     };
 
@@ -626,6 +626,51 @@ template <typename FF_> class bc_decompositionImpl {
             tmp *= scaling_factor;
             std::get<82>(evals) += typename Accumulator::View(tmp);
         }
+        {
+            using Accumulator = typename std::tuple_element_t<83, ContainerOverSubrelations>;
+            auto tmp = new_term.bc_decomposition_sel_packed * (FF(1) - new_term.bc_decomposition_sel_packed);
+            tmp *= scaling_factor;
+            std::get<83>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<84, ContainerOverSubrelations>;
+            auto tmp =
+                new_term.bc_decomposition_sel_packed *
+                ((FF(1) * new_term.bc_decomposition_bytes_pc_plus_30 +
+                  FF(256) * new_term.bc_decomposition_bytes_pc_plus_29 +
+                  FF(65536) * new_term.bc_decomposition_bytes_pc_plus_28 +
+                  FF(16777216) * new_term.bc_decomposition_bytes_pc_plus_27 +
+                  FF(4294967296UL) * new_term.bc_decomposition_bytes_pc_plus_26 +
+                  FF(1099511627776UL) * new_term.bc_decomposition_bytes_pc_plus_25 +
+                  FF(281474976710656UL) * new_term.bc_decomposition_bytes_pc_plus_24 +
+                  FF(72057594037927936UL) * new_term.bc_decomposition_bytes_pc_plus_23 +
+                  FF(uint256_t{ 0UL, 1UL, 0UL, 0UL }) * new_term.bc_decomposition_bytes_pc_plus_22 +
+                  FF(uint256_t{ 0UL, 256UL, 0UL, 0UL }) * new_term.bc_decomposition_bytes_pc_plus_21 +
+                  FF(uint256_t{ 0UL, 65536UL, 0UL, 0UL }) * new_term.bc_decomposition_bytes_pc_plus_20 +
+                  FF(uint256_t{ 0UL, 16777216UL, 0UL, 0UL }) * new_term.bc_decomposition_bytes_pc_plus_19 +
+                  FF(uint256_t{ 0UL, 4294967296UL, 0UL, 0UL }) * new_term.bc_decomposition_bytes_pc_plus_18 +
+                  FF(uint256_t{ 0UL, 1099511627776UL, 0UL, 0UL }) * new_term.bc_decomposition_bytes_pc_plus_17 +
+                  FF(uint256_t{ 0UL, 281474976710656UL, 0UL, 0UL }) * new_term.bc_decomposition_bytes_pc_plus_16 +
+                  FF(uint256_t{ 0UL, 72057594037927936UL, 0UL, 0UL }) * new_term.bc_decomposition_bytes_pc_plus_15 +
+                  FF(uint256_t{ 0UL, 0UL, 1UL, 0UL }) * new_term.bc_decomposition_bytes_pc_plus_14 +
+                  FF(uint256_t{ 0UL, 0UL, 256UL, 0UL }) * new_term.bc_decomposition_bytes_pc_plus_13 +
+                  FF(uint256_t{ 0UL, 0UL, 65536UL, 0UL }) * new_term.bc_decomposition_bytes_pc_plus_12 +
+                  FF(uint256_t{ 0UL, 0UL, 16777216UL, 0UL }) * new_term.bc_decomposition_bytes_pc_plus_11 +
+                  FF(uint256_t{ 0UL, 0UL, 4294967296UL, 0UL }) * new_term.bc_decomposition_bytes_pc_plus_10 +
+                  FF(uint256_t{ 0UL, 0UL, 1099511627776UL, 0UL }) * new_term.bc_decomposition_bytes_pc_plus_9 +
+                  FF(uint256_t{ 0UL, 0UL, 281474976710656UL, 0UL }) * new_term.bc_decomposition_bytes_pc_plus_8 +
+                  FF(uint256_t{ 0UL, 0UL, 72057594037927936UL, 0UL }) * new_term.bc_decomposition_bytes_pc_plus_7 +
+                  FF(uint256_t{ 0UL, 0UL, 0UL, 1UL }) * new_term.bc_decomposition_bytes_pc_plus_6 +
+                  FF(uint256_t{ 0UL, 0UL, 0UL, 256UL }) * new_term.bc_decomposition_bytes_pc_plus_5 +
+                  FF(uint256_t{ 0UL, 0UL, 0UL, 65536UL }) * new_term.bc_decomposition_bytes_pc_plus_4 +
+                  FF(uint256_t{ 0UL, 0UL, 0UL, 16777216UL }) * new_term.bc_decomposition_bytes_pc_plus_3 +
+                  FF(uint256_t{ 0UL, 0UL, 0UL, 4294967296UL }) * new_term.bc_decomposition_bytes_pc_plus_2 +
+                  FF(uint256_t{ 0UL, 0UL, 0UL, 1099511627776UL }) * new_term.bc_decomposition_bytes_pc_plus_1 +
+                  FF(uint256_t{ 0UL, 0UL, 0UL, 281474976710656UL }) * new_term.bc_decomposition_bytes) -
+                 new_term.bc_decomposition_packed_field);
+            tmp *= scaling_factor;
+            std::get<84>(evals) += typename Accumulator::View(tmp);
+        }
     }
 };
 
@@ -654,6 +699,8 @@ template <typename FF> class bc_decomposition : public Relation<bc_decomposition
             return "BC_DEC_OVERFLOW_CORRECTION_VALUE";
         case 47:
             return "BC_DEC_UNARY_RECONSTRUCTION";
+        case 84:
+            return "BC_DECOMPOSITION_REPACKING";
         }
         return std::to_string(index);
     }
@@ -668,6 +715,7 @@ template <typename FF> class bc_decomposition : public Relation<bc_decomposition
     static constexpr size_t SR_BC_DEC_ABS_DIFF = 10;
     static constexpr size_t SR_BC_DEC_OVERFLOW_CORRECTION_VALUE = 11;
     static constexpr size_t SR_BC_DEC_UNARY_RECONSTRUCTION = 47;
+    static constexpr size_t SR_BC_DECOMPOSITION_REPACKING = 84;
 };
 
 } // namespace bb::avm2

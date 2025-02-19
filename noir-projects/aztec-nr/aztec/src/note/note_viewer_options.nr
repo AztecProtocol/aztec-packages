@@ -1,7 +1,7 @@
 use crate::note::constants::MAX_NOTES_PER_PAGE;
 use crate::note::note_getter_options::{NoteStatus, PropertySelector, Select, Sort};
 use crate::note::note_interface::NoteInterface;
-use dep::protocol_types::traits::ToField;
+use dep::protocol_types::traits::{Packable, ToField};
 use std::option::Option;
 
 // docs:start:NoteViewerOptions
@@ -17,7 +17,7 @@ pub struct NoteViewerOptions<Note, let N: u32> {
 impl<Note, let N: u32> NoteViewerOptions<Note, N> {
     pub fn new() -> NoteViewerOptions<Note, N>
     where
-        Note: NoteInterface<N>,
+        Note: NoteInterface + Packable<N>,
     {
         NoteViewerOptions {
             selects: BoundedVec::new(),
