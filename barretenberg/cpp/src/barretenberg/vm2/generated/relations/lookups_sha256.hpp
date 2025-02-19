@@ -15,6 +15,7 @@ namespace bb::avm2 {
 class lookup_sha256_round_constant_lookup_settings {
   public:
     static constexpr std::string_view NAME = "LOOKUP_SHA256_ROUND_CONSTANT";
+    static constexpr std::string_view RELATION_NAME = "sha256";
 
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
@@ -79,10 +80,11 @@ class lookup_sha256_round_constant_relation
   public:
     using Settings = lookup_sha256_round_constant_lookup_settings;
     static constexpr std::string_view NAME = lookup_sha256_round_constant_lookup_settings::NAME;
+    static constexpr std::string_view RELATION_NAME = lookup_sha256_round_constant_lookup_settings::RELATION_NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.sha256_sel.is_zero() && in.precomputed_sel_sha256_compression.is_zero();
+        return in.lookup_sha256_round_constant_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)

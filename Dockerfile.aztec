@@ -9,6 +9,7 @@ COPY /usr/src /usr/src
 
 # Set the version returned in getNodeVersion to current version
 # aztec-base assumed to have jq installed
+# TODO: make sure this version arg is captured by the new release image build
 ARG VERSION=0.1.0
 RUN if [ -n "$VERSION" ]; then \
     echo "Setting version to $VERSION"; \

@@ -134,12 +134,11 @@ void DeciderProvingKey_<Flavor>::allocate_ecc_op_polynomials(const Circuit& circ
     PROFILE_THIS_NAME("allocate_ecc_op_polynomials");
 
     // Allocate the ecc op wires and selector
-    const size_t op_wire_offset = circuit.blocks.ecc_op.trace_offset;
     const size_t ecc_op_block_size = circuit.blocks.ecc_op.get_fixed_size(is_structured);
     for (auto& wire : proving_key.polynomials.get_ecc_op_wires()) {
-        wire = Polynomial(ecc_op_block_size, proving_key.circuit_size, op_wire_offset);
+        wire = Polynomial(ecc_op_block_size, proving_key.circuit_size);
     }
-    proving_key.polynomials.lagrange_ecc_op = Polynomial(ecc_op_block_size, proving_key.circuit_size, op_wire_offset);
+    proving_key.polynomials.lagrange_ecc_op = Polynomial(ecc_op_block_size, proving_key.circuit_size);
 }
 
 template <IsUltraFlavor Flavor>

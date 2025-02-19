@@ -14,7 +14,7 @@ export async function deployInstance(
   instance: ContractInstanceWithAddress,
 ): Promise<ContractFunctionInteraction> {
   const deployerContract = await getDeployerContract(wallet);
-  const { salt, contractClassId, publicKeys, deployer } = instance;
+  const { salt, currentContractClassId: contractClassId, publicKeys, deployer } = instance;
   const isUniversalDeploy = deployer.isZero();
   if (!isUniversalDeploy && !wallet.getAddress().equals(deployer)) {
     throw new Error(

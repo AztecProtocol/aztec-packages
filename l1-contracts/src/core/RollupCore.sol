@@ -148,6 +148,8 @@ contract RollupCore is
     IERC20 _stakingAsset,
     bytes32 _vkTreeRoot,
     bytes32 _protocolContractTreeRoot,
+    bytes32 _genesisArchiveRoot,
+    bytes32 _genesisBlockHash,
     address _ares,
     Config memory _config
   ) Ownable(_ares) {
@@ -178,8 +180,8 @@ contract RollupCore is
     // Genesis block
     rollupStore.blocks[0] = BlockLog({
       feeHeader: FeeHeader({excessMana: 0, feeAssetPriceNumerator: 0, manaUsed: 0, congestionCost: 0}),
-      archive: bytes32(Constants.GENESIS_ARCHIVE_ROOT),
-      blockHash: bytes32(Constants.GENESIS_BLOCK_HASH),
+      archive: _genesisArchiveRoot,
+      blockHash: _genesisBlockHash,
       slotNumber: Slot.wrap(0)
     });
     rollupStore.l1GasOracleValues = L1GasOracleValues({
@@ -195,6 +197,47 @@ contract RollupCore is
     onlyOwner
   {
     rollupStore.provingCostPerMana = _provingCostPerMana;
+  }
+
+  function claimSequencerRewards(address _recipient)
+    external
+    override(IRollupCore)
+    returns (uint256)
+  {
+    uint256 amount = rollupStore.sequencerRewards[msg.sender];
+    rollupStore.sequencerRewards[msg.sender] = 0;
+    ASSET.transfer(_recipient, amount);
+
+    return amount;
+  }
+
+  function claimProverRewards(address _recipient, Epoch[] memory _epochs)
+    external
+    override(IRollupCore)
+    returns (uint256)
+  {
+    Slot currentSlot = Timestamp.wrap(block.timestamp).slotFromTimestamp();
+    uint256 accumulatedRewards = 0;
+    for (uint256 i = 0; i < _epochs.length; i++) {
+      Slot deadline = _epochs[i].toSlots() + Slot.wrap(PROOF_SUBMISSION_WINDOW);
+      require(deadline < currentSlot, Errors.Rollup__NotPastDeadline(deadline, currentSlot));
+
+      // We can use fancier bitmaps for performance
+      require(
+        !rollupStore.proverClaimed[msg.sender][_epochs[i]],
+        Errors.Rollup__AlreadyClaimed(msg.sender, _epochs[i])
+      );
+      rollupStore.proverClaimed[msg.sender][_epochs[i]] = true;
+
+      EpochRewards storage e = rollupStore.epochRewards[_epochs[i]];
+      if (e.subEpoch[e.longestProvenLength].hasSubmitted[msg.sender]) {
+        accumulatedRewards += (e.rewards / e.subEpoch[e.longestProvenLength].summedCount);
+      }
+    }
+
+    ASSET.transfer(_recipient, accumulatedRewards);
+
+    return accumulatedRewards;
   }
 
   function deposit(address _attester, address _proposer, address _withdrawer, uint256 _amount)
@@ -336,7 +379,10 @@ contract RollupCore is
 
     interim.deadline = startEpoch.toSlots() + Slot.wrap(PROOF_SUBMISSION_WINDOW);
     require(
-      interim.deadline >= Timestamp.wrap(block.timestamp).slotFromTimestamp(), "past deadline"
+      interim.deadline >= Timestamp.wrap(block.timestamp).slotFromTimestamp(),
+      Errors.Rollup__PastDeadline(
+        interim.deadline, Timestamp.wrap(block.timestamp).slotFromTimestamp()
+      )
     );
 
     // By making sure that the previous block is in another epoch, we know that we were
@@ -607,23 +653,6 @@ contract RollupCore is
       Errors.Rollup__InvalidBlockNumber(rollupStore.tips.pendingBlockNumber, _blockNumber)
     );
     return rollupStore.blocks[_blockNumber].slotNumber.epochFromSlot();
-  }
-
-  /**
-   * @notice  Get the epoch that should be proven
-   *
-   * @dev    This is the epoch that should be proven. It does so by getting the epoch of the block
-   *        following the last proven block. If there is no such block (i.e. the pending chain is
-   *        the same as the proven chain), then revert.
-   *
-   * @return uint256 - The epoch to prove
-   */
-  function getEpochToProve() public view override(IRollupCore) returns (Epoch) {
-    require(
-      rollupStore.tips.provenBlockNumber != rollupStore.tips.pendingBlockNumber,
-      Errors.Rollup__NoEpochToProve()
-    );
-    return getEpochForBlock(rollupStore.tips.provenBlockNumber + 1);
   }
 
   function canPrune() public view override(IRollupCore) returns (bool) {

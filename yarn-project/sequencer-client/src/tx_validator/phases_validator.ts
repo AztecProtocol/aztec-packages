@@ -78,14 +78,14 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       }
 
       if ('classId' in entry && !('selector' in entry)) {
-        if (contractClass.contractClassId.equals(entry.classId)) {
+        if (contractClass.currentContractClassId.equals(entry.classId)) {
           return true;
         }
       }
 
       if ('classId' in entry && 'selector' in entry) {
         if (
-          contractClass.contractClassId.equals(entry.classId) &&
+          contractClass.currentContractClassId.equals(entry.classId) &&
           (entry.selector === undefined || entry.selector.equals(functionSelector))
         ) {
           return true;

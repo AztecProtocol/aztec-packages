@@ -15,6 +15,7 @@ namespace bb::avm2 {
 class perm_dummy_dynamic_permutation_settings {
   public:
     static constexpr std::string_view NAME = "PERM_DUMMY_DYNAMIC";
+    static constexpr std::string_view RELATION_NAME = "execution";
 
     // This constant defines how many columns are bundled together to form each set.
     constexpr static size_t COLUMNS_PER_SET = 4;
@@ -67,10 +68,11 @@ class perm_dummy_dynamic_relation : public GenericPermutationRelation<perm_dummy
   public:
     using Settings = perm_dummy_dynamic_permutation_settings;
     static constexpr std::string_view NAME = perm_dummy_dynamic_permutation_settings::NAME;
+    static constexpr std::string_view RELATION_NAME = perm_dummy_dynamic_permutation_settings::RELATION_NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.execution_sel.is_zero() && in.execution_sel.is_zero();
+        return in.perm_dummy_dynamic_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)

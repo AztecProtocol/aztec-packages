@@ -9,9 +9,12 @@ import {
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import {
   type AppendOnlyTreeSnapshot,
+  AztecAddress,
   type BlockHeader,
   type Gas,
   type GlobalVariables,
+  PublicDataTreeLeaf,
+  PublicDataWrite,
   TreeSnapshots,
 } from '@aztec/circuits.js';
 import { times, timesParallel } from '@aztec/foundation/collection';
@@ -20,13 +23,8 @@ import { type Logger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import {
-  PublicProcessor,
-  PublicTxSimulator,
-  type SimulationProvider,
-  WASMSimulatorWithBlobs,
-  type WorldStateDB,
-} from '@aztec/simulator/server';
+import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
+import { PublicProcessor, PublicTxSimulator, type WorldStateDB } from '@aztec/simulator/server';
 import { type MerkleTreeAdminDatabase } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
@@ -45,21 +43,25 @@ import { getEnvironmentConfig, getSimulationProvider, makeGlobals, updateExpecte
 
 export class TestContext {
   private headers: Map<number, BlockHeader> = new Map();
+  private feePayerBalance: Fr;
 
   constructor(
     public publicTxSimulator: PublicTxSimulator,
     public worldState: MerkleTreeAdminDatabase,
     public publicProcessor: PublicProcessor,
-    public simulationProvider: SimulationProvider,
     public globalVariables: GlobalVariables,
     public prover: ServerCircuitProver,
     public broker: TestBroker,
     public brokerProverFacade: BrokerCircuitProverFacade,
     public orchestrator: TestProvingOrchestrator,
     public blockNumber: number,
+    public feePayer: AztecAddress,
+    initialFeePayerBalance: Fr,
     public directoriesToCleanup: string[],
     public logger: Logger,
-  ) {}
+  ) {
+    this.feePayerBalance = initialFeePayerBalance;
+  }
 
   public get epochProver() {
     return this.orchestrator;
@@ -68,8 +70,8 @@ export class TestContext {
   static async new(
     logger: Logger,
     proverCount = 4,
-    createProver: (bbConfig: BBProverConfig) => Promise<ServerCircuitProver> = _ =>
-      Promise.resolve(new TestCircuitProver(new WASMSimulatorWithBlobs())),
+    createProver: (bbConfig: BBProverConfig) => Promise<ServerCircuitProver> = async (bbConfig: BBProverConfig) =>
+      new TestCircuitProver(await getSimulationProvider(bbConfig, logger)),
     blockNumber = 1,
   ) {
     const directoriesToCleanup: string[] = [];
@@ -77,8 +79,17 @@ export class TestContext {
 
     const worldStateDB = mock<WorldStateDB>();
 
+    const feePayer = await AztecAddress.random();
+    const initialFeePayerBalance = new Fr(10n ** 20n);
+    const feePayerSlot = await computeFeePayerBalanceLeafSlot(feePayer);
+    const prefilledPublicData = [new PublicDataTreeLeaf(feePayerSlot, initialFeePayerBalance)];
+
     // Separated dbs for public processor and prover - see public_processor for context
-    const ws = await NativeWorldStateService.tmp();
+    const ws = await NativeWorldStateService.tmp(
+      undefined /* rollupAddress */,
+      true /* cleanupTmpDir */,
+      prefilledPublicData,
+    );
     const publicDb = await ws.fork();
 
     worldStateDB.getMerkleInterface.mockReturnValue(publicDb);
@@ -94,12 +105,8 @@ export class TestContext {
 
     let localProver: ServerCircuitProver;
     const config = await getEnvironmentConfig(logger);
-    const simulationProvider = await getSimulationProvider({
-      acvmWorkingDirectory: config?.acvmWorkingDirectory,
-      acvmBinaryPath: config?.expectedAcvmPath,
-    });
     if (!config) {
-      localProver = new TestCircuitProver(simulationProvider);
+      localProver = new TestCircuitProver();
     } else {
       const bbConfig: BBProverConfig = {
         acvmBinaryPath: config.expectedAcvmPath,
@@ -126,13 +133,14 @@ export class TestContext {
       publicTxSimulator,
       ws,
       processor,
-      simulationProvider,
       globalVariables,
       localProver,
       broker,
       facade,
       orchestrator,
       blockNumber,
+      feePayer,
+      initialFeePayerBalance,
       directoriesToCleanup,
       logger,
     );
@@ -160,19 +168,28 @@ export class TestContext {
     }
   }
 
-  public makeProcessedTx(opts?: Parameters<typeof makeBloatedProcessedTx>[0]): Promise<ProcessedTx>;
-  public makeProcessedTx(seed?: number): Promise<ProcessedTx>;
-  public makeProcessedTx(seedOrOpts?: Parameters<typeof makeBloatedProcessedTx>[0] | number): Promise<ProcessedTx> {
+  public async makeProcessedTx(opts?: Parameters<typeof makeBloatedProcessedTx>[0]): Promise<ProcessedTx>;
+  public async makeProcessedTx(seed?: number): Promise<ProcessedTx>;
+  public async makeProcessedTx(
+    seedOrOpts?: Parameters<typeof makeBloatedProcessedTx>[0] | number,
+  ): Promise<ProcessedTx> {
     const opts = typeof seedOrOpts === 'number' ? { seed: seedOrOpts } : seedOrOpts;
     const blockNum = (opts?.globalVariables ?? this.globalVariables).blockNumber.toNumber();
     const header = this.getBlockHeader(blockNum - 1);
-    return makeBloatedProcessedTx({
+    const tx = await makeBloatedProcessedTx({
       header,
       vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
       globalVariables: this.globalVariables,
+      feePayer: this.feePayer,
       ...opts,
     });
+    this.feePayerBalance = new Fr(this.feePayerBalance.toBigInt() - tx.txEffect.transactionFee.toBigInt());
+    if (opts?.privateOnly) {
+      const feePayerSlot = await computeFeePayerBalanceLeafSlot(this.feePayer);
+      tx.txEffect.publicDataWrites[0] = new PublicDataWrite(feePayerSlot, this.feePayerBalance);
+    }
+    return tx;
   }
 
   /** Creates a block with the given number of txs and adds it to world-state */

@@ -19,7 +19,7 @@ export async function createOrRetrieveAccount(
   type: AccountType = 'schnorr',
   salt?: Fr,
   publicKey?: string | undefined,
-) {
+): Promise<AccountManager> {
   let account;
 
   salt ??= Fr.ZERO;
