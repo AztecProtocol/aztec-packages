@@ -22,6 +22,7 @@ describe('AVM simulator apps tests: AvmTestContract', () => {
         /*constructorArgs=*/ [],
         deployer,
         /*contractArtifact=*/ AvmTestContractArtifact,
+        /*skipNullifierInsertion=*/ false,
         /*seed=*/ i,
       );
       instances.push(instance);

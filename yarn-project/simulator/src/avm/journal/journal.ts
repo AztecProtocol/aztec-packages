@@ -1,5 +1,5 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
-import { AztecAddress, type PublicCallRequest, SerializableContractInstance } from '@aztec/circuits.js';
+import { type PublicCallRequest, SerializableContractInstance } from '@aztec/circuits.js';
 import { AvmNullifierReadTreeHint, AvmPublicDataReadTreeHint } from '@aztec/circuits.js/avm';
 import {
   computeNoteHashNonce,
@@ -26,6 +26,7 @@ import {
   UPDATES_SCHEDULED_VALUE_CHANGE_LEN,
   UPDATES_VALUE_SIZE,
 } from '@aztec/constants';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';

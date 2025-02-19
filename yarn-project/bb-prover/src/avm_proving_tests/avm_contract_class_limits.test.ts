@@ -22,6 +22,7 @@ describe('AVM WitGen & Circuit – check circuit - contract class limits', () =>
         /*constructorArgs=*/ [],
         deployer,
         /*contractArtifact=*/ AvmTestContractArtifact,
+        /*skipNullifierInsertion=*/ false,
         /*seed=*/ i,
       );
       instances.push(instance);
