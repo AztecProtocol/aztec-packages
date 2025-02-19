@@ -39,7 +39,7 @@
     "rehype-katex": "7",
     "remark-math": "6",
     "remark-mdx": "^3.0.1",
-    "sharp": "^0.33.3",
+    "sharp": "0.32.6",
     "vscode-jsonrpc": "^8.2.1",
     "vscode-languageserver-types": "^3.17.5"
   },

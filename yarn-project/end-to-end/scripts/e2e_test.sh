@@ -73,6 +73,7 @@ else
     docker run \
       -e HARDWARE_CONCURRENCY="$HARDWARE_CONCURRENCY" \
       -e FAKE_PROOFS="$FAKE_PROOFS" \
+      -e FORCE_COLOR=1 \
       $env_args \
       --volume "$(pwd)"/out:/out \
       --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG \

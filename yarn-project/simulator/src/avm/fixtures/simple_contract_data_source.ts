@@ -6,7 +6,7 @@ import {
   type PublicFunction,
   computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type ContractArtifact } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -74,8 +74,8 @@ export class SimpleContractDataSource implements ContractDataSource {
       return undefined;
     }
     this.logger.debug(`Retrieved contract artifact for address: ${address}`);
-    this.logger.debug(`Contract class ID: ${contractInstance.contractClassId}`);
-    return Promise.resolve(this.contractArtifacts.get(contractInstance!.contractClassId.toString()));
+    this.logger.debug(`Contract class ID: ${contractInstance.currentContractClassId}`);
+    return Promise.resolve(this.contractArtifacts.get(contractInstance!.currentContractClassId.toString()));
   }
 
   getContractFunctionName(_address: AztecAddress, _selector: FunctionSelector): Promise<string> {

@@ -1,4 +1,4 @@
-import { Blob } from '@aztec/foundation/blob';
+import { Blob } from '@aztec/blob-lib';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -45,7 +45,7 @@ describe('GasUtils', () => {
   const logger = createLogger('ethereum:test:l1_gas_test');
 
   beforeAll(async () => {
-    const { anvil: anvilInstance, rpcUrl } = await startAnvil(1);
+    const { anvil: anvilInstance, rpcUrl } = await startAnvil({ l1BlockTime: 1 });
     anvil = anvilInstance;
     cheatCodes = new EthCheatCodes(rpcUrl);
     const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
@@ -92,7 +92,7 @@ describe('GasUtils', () => {
   afterAll(async () => {
     // disabling interval mining as it seems to cause issues with stopping anvil
     await cheatCodes.setIntervalMining(0); // Disable interval mining
-    await anvil.stop();
+    await anvil.stop().catch(err => createLogger('cleanup').error(err));
   }, 5_000);
 
   it('sends and monitors a simple transaction', async () => {

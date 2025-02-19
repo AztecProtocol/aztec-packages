@@ -8,7 +8,13 @@
   },
   "references": [
     {
+      "path": "../blob-lib"
+    },
+    {
       "path": "../circuits.js"
+    },
+    {
+      "path": "../constants"
     },
     {
       "path": "../foundation"

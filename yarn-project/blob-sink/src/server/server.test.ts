@@ -1,4 +1,5 @@
-import { Blob, makeEncodedBlob } from '@aztec/foundation/blob';
+import { Blob } from '@aztec/blob-lib';
+import { makeEncodedBlob } from '@aztec/blob-lib/testing';
 
 import request from 'supertest';
 
@@ -17,6 +18,13 @@ describe('BlobSinkService', () => {
 
   afterEach(async () => {
     await service.stop();
+  });
+
+  describe('status', () => {
+    it('should return 200', async () => {
+      const response = await request(service.getApp()).get('/status');
+      expect(response.status).toBe(200);
+    });
   });
 
   describe('should store and retrieve a blob sidecar', () => {

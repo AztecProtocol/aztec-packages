@@ -6,51 +6,66 @@ cmd=${1:-}
 hash=$(cache_content_hash ../cpp/.rebuild_patterns .rebuild_patterns)
 
 function build {
-  github_group "bb.js build"
-  if ! cache_download bb.js-$hash.tar.gz; then
-    denoise yarn install
-    find . -exec touch -d "@0" {} + 2>/dev/null || true
+  echo_header "bb.js build"
+  denoise "yarn install"
 
-    denoise yarn build
+  if ! cache_download bb.js-$hash.tar.gz; then
+    find . -exec touch -d "@0" {} + 2>/dev/null || true
+    yarn clean
+    parallel -v --line-buffered --tag 'denoise "yarn {}"' ::: build:wasm build:esm build:cjs build:browser
     cache_upload bb.js-$hash.tar.gz dest
-  else
-    denoise yarn install
   fi
-  github_endgroup
+
+  # We copy snapshot dirs to dest so we can run tests from dest.
+  # This is because web-workers run into issues with transpilation.
+  for snapshot_dir in src/**/__snapshots__; do
+    dest_dir="${snapshot_dir/src\//dest\/node\/}"
+    rm -rf "$dest_dir"
+    cp -r "$snapshot_dir" "$dest_dir"
+    for file in $dest_dir/*.test.ts.snap; do
+      mv "$file" "${file/.test.ts.snap/.test.js.snap}"
+    done
+  done
+}
+
+function test_cmds {
+  cd dest/node
+  for test in **/*.test.js; do
+    echo "$hash barretenberg/ts/scripts/run_test.sh $test"
+  done
 }
 
 function test {
-  test_should_run bb.js-tests-$hash || return 0
+  echo_header "bb.js test"
+  test_cmds | filter_test_cmds | parallelise
+}
 
-  github_group "bb.js test"
-  denoise yarn test
-  cache_upload_flag bb.js-tests-$hash
-  github_endgroup
+function release {
+  local version=${REF_NAME#v}
+  deploy_npm $(dist_tag) $version
+}
+
+function release_commit {
+  local version="$CURRENT_VERSION-commit.$COMMIT_HASH"
+  deploy_npm next $version
 }
 
 case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  ""|"fast"|"full")
-    build
-    ;;
-  "test")
-    test
-    ;;
-  "test-cmds")
-    wd=$(realpath --relative-to=$root $PWD)
-    ./node_modules/.bin/jest --listTests --testRegex '\.test\.js$' --rootDir ./dest/node | \
-      sed "s|$(pwd)/||" | while read -r test; do
-        echo "$wd/scripts/run_test.sh $test"
-      done
-    ;;
   "ci")
     build
     test
     ;;
+  ""|"fast"|"full")
+    build
+    ;;
   "hash")
     echo "$hash"
+    ;;
+  test|test_cmds|release|release_commit)
+    $cmd
     ;;
   *)
     echo "Unknown command: $cmd"

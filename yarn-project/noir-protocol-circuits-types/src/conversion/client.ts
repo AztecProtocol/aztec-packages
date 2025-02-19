@@ -1,5 +1,4 @@
 import {
-  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   CallContext,
   CountedPublicCallRequest,
   Fr,
@@ -8,36 +7,14 @@ import {
   KeyValidationRequest,
   KeyValidationRequestAndGenerator,
   LogHash,
-  MAX_CONTRACT_CLASS_LOGS_PER_TX,
-  MAX_ENQUEUED_CALLS_PER_TX,
-  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-  MAX_L2_TO_L1_MSGS_PER_TX,
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-  MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
-  MAX_PRIVATE_LOGS_PER_TX,
-  type NOTE_HASH_TREE_HEIGHT,
-  type NULLIFIER_TREE_HEIGHT,
   NoteHash,
   type NoteHashReadRequestHints,
   Nullifier,
-  type NullifierLeafPreimage,
   type NullifierReadRequestHints,
-  PartialPrivateTailPublicInputsForPublic,
-  PartialPrivateTailPublicInputsForRollup,
   type PendingReadHint,
-  PrivateAccumulatedData,
-  type PrivateCallData,
   PrivateCallRequest,
   type PrivateCircuitPublicInputs,
-  PrivateKernelCircuitPublicInputs,
-  type PrivateKernelData,
-  type PrivateKernelResetHints,
-  PrivateKernelTailCircuitPublicInputs,
   PrivateLogData,
-  PrivateToPublicAccumulatedData,
   PrivateValidationRequests,
   type PublicKeys,
   ReadRequest,
@@ -50,11 +27,40 @@ import {
   ScopedPrivateLogData,
   ScopedReadRequest,
   type SettledReadHint,
-  type TransientDataIndexHint,
-  TxConstantData,
   type TxRequest,
 } from '@aztec/circuits.js';
-import { mapTuple } from '@aztec/foundation/serialize';
+import {
+  PartialPrivateTailPublicInputsForPublic,
+  PartialPrivateTailPublicInputsForRollup,
+  PrivateAccumulatedData,
+  type PrivateCallData,
+  PrivateKernelCircuitPublicInputs,
+  type PrivateKernelData,
+  type PrivateKernelResetHints,
+  PrivateKernelTailCircuitPublicInputs,
+  PrivateToPublicAccumulatedData,
+  type PrivateVerificationKeyHints,
+  type TransientDataIndexHint,
+  TxConstantData,
+} from '@aztec/circuits.js/kernel';
+import { type NullifierLeafPreimage } from '@aztec/circuits.js/trees';
+import {
+  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  MAX_CONTRACT_CLASS_LOGS_PER_TX,
+  MAX_ENQUEUED_CALLS_PER_TX,
+  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+  MAX_L2_TO_L1_MSGS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+  MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
+  MAX_PRIVATE_LOGS_PER_TX,
+  type NOTE_HASH_TREE_HEIGHT,
+  type NULLIFIER_TREE_HEIGHT,
+  UPDATES_SCHEDULED_VALUE_CHANGE_LEN,
+} from '@aztec/constants';
+import { assertLength, mapTuple } from '@aztec/foundation/serialize';
 
 import type {
   CallContext as CallContextNoir,
@@ -85,6 +91,7 @@ import type {
   PrivateToPublicKernelCircuitPublicInputs as PrivateToPublicKernelCircuitPublicInputsNoir,
   PrivateToRollupKernelCircuitPublicInputs as PrivateToRollupKernelCircuitPublicInputsNoir,
   PrivateValidationRequests as PrivateValidationRequestsNoir,
+  PrivateVerificationKeyHints as PrivateVerificationKeyHintsNoir,
   PublicKeys as PublicKeysNoir,
   ReadRequest as ReadRequestNoir,
   ReadRequestStatus as ReadRequestStatusNoir,
@@ -124,8 +131,10 @@ import {
   mapPrivateLogFromNoir,
   mapPrivateLogToNoir,
   mapPrivateToRollupAccumulatedDataFromNoir,
+  mapProtocolContractLeafPreimageToNoir,
   mapPublicCallRequestFromNoir,
   mapPublicCallRequestToNoir,
+  mapPublicDataTreePreimageToNoir,
   mapScopedL2ToL1MessageFromNoir,
   mapScopedL2ToL1MessageToNoir,
   mapTupleFromNoir,
@@ -603,6 +612,42 @@ export function mapFunctionDataFromNoir(functionData: FunctionDataNoir): Functio
   return new FunctionData(mapFunctionSelectorFromNoir(functionData.selector), functionData.is_private);
 }
 
+export function mapPrivateVerificationKeyHintsToNoir(
+  privateVerificationKeyHints: PrivateVerificationKeyHints,
+): PrivateVerificationKeyHintsNoir {
+  const updatedClassIdValueChangeAsFields = assertLength(
+    privateVerificationKeyHints.updatedClassIdHints.updatedClassIdValueChange.toFields(),
+    UPDATES_SCHEDULED_VALUE_CHANGE_LEN,
+  );
+
+  return {
+    function_leaf_membership_witness: mapMembershipWitnessToNoir(
+      privateVerificationKeyHints.functionLeafMembershipWitness,
+    ),
+    contract_class_artifact_hash: mapFieldToNoir(privateVerificationKeyHints.contractClassArtifactHash),
+    contract_class_public_bytecode_commitment: mapFieldToNoir(
+      privateVerificationKeyHints.contractClassPublicBytecodeCommitment,
+    ),
+    public_keys: mapPublicKeysToNoir(privateVerificationKeyHints.publicKeys),
+    salted_initialization_hash: mapWrappedFieldToNoir(privateVerificationKeyHints.saltedInitializationHash),
+    protocol_contract_membership_witness: mapMembershipWitnessToNoir(
+      privateVerificationKeyHints.protocolContractMembershipWitness,
+    ),
+    protocol_contract_leaf: mapProtocolContractLeafPreimageToNoir(privateVerificationKeyHints.protocolContractLeaf),
+    acir_hash: mapFieldToNoir(privateVerificationKeyHints.acirHash),
+    updated_class_id_witness: mapMembershipWitnessToNoir(
+      privateVerificationKeyHints.updatedClassIdHints.updatedClassIdWitness,
+    ),
+    updated_class_id_leaf: mapPublicDataTreePreimageToNoir(
+      privateVerificationKeyHints.updatedClassIdHints.updatedClassIdLeaf,
+    ),
+    updated_class_id_value_change: mapTuple(updatedClassIdValueChangeAsFields, mapFieldToNoir),
+    updated_class_id_delay_change: [
+      mapFieldToNoir(privateVerificationKeyHints.updatedClassIdHints.updatedClassIdDelayChange.toField()),
+    ],
+  };
+}
+
 /**
  * Maps a private call data to a noir private call data.
  * @param privateCallData - The private call data.
@@ -611,13 +656,7 @@ export function mapFunctionDataFromNoir(functionData: FunctionDataNoir): Functio
 export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): PrivateCallDataWithoutPublicInputsNoir {
   return {
     vk: mapVerificationKeyToNoir(privateCallData.vk, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
-    function_leaf_membership_witness: mapMembershipWitnessToNoir(privateCallData.functionLeafMembershipWitness),
-    contract_class_artifact_hash: mapFieldToNoir(privateCallData.contractClassArtifactHash),
-    contract_class_public_bytecode_commitment: mapFieldToNoir(privateCallData.contractClassPublicBytecodeCommitment),
-    public_keys: mapPublicKeysToNoir(privateCallData.publicKeys),
-    salted_initialization_hash: mapWrappedFieldToNoir(privateCallData.saltedInitializationHash),
-    protocol_contract_sibling_path: mapTuple(privateCallData.protocolContractSiblingPath, mapFieldToNoir),
-    acir_hash: mapFieldToNoir(privateCallData.acirHash),
+    verification_key_hints: mapPrivateVerificationKeyHintsToNoir(privateCallData.verificationKeyHints),
   };
 }
 

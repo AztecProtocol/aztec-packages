@@ -2,7 +2,9 @@
 # Look at noir-contracts bootstrap.sh for some tips r.e. bash.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-CMD=${1:-}
+cmd=${1:-}
+project_name=$(basename "$PWD")
+test_flag=$project_name-tests-$(cache_content_hash ../../noir/.rebuild_patterns "^noir-projects/$project_name")
 
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
@@ -13,17 +15,15 @@ export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export BB_HASH=$(cache_content_hash ../../barretenberg/cpp/.rebuild_patterns)
 export NARGO_HASH=$(cache_content_hash ../../noir/.rebuild_patterns)
 
-# Set flags for parallel
-export PARALLELISM=${PARALLELISM:-16}
-export PARALLEL_FLAGS="-j$PARALLELISM -v --line-buffer --tag --halt now,fail=1"
-if [[ -n "${MEMSUSPEND-}" ]]; then
-  export PARALLEL_FLAGS="$PARALLEL_FLAGS --memsuspend $MEMSUSPEND"
-fi
-
-tmp_dir=./target/tmp
 key_dir=./target/keys
+mkdir -p $key_dir
 
-# Circuits matching these patterns we have clientivc keys computed, rather than ultrahonk.
+# Hash of the entire protocol circuits.
+# Needed for test hash, as we presently don't have a program hash for each individual test.
+# Means if anything within the dir changes, the tests will rerun.
+circuits_hash=$(cache_content_hash "^noir-projects/$project_name/crates/" ../../noir/.rebuild_patterns)
+
+# Circuits matching these patterns we have client-ivc keys computed, rather than ultra-honk.
 ivc_patterns=(
   "private_kernel_init"
   "private_kernel_inner"
@@ -43,21 +43,18 @@ rollup_honk_patterns=(
 
 ivc_regex=$(IFS="|"; echo "${ivc_patterns[*]}")
 rollup_honk_regex=$(IFS="|"; echo "${rollup_honk_patterns[*]}")
+# Rollup needs a verifier, and has a keccak precompile for efficiency.
+# Use patterns for consistency, even though this just applies to the root.
 keccak_honk_regex=rollup_root
-# We do this for the rollup root only.
 verifier_generate_regex=rollup_root
 
 function on_exit() {
-  rm -rf $tmp_dir
   rm -f joblog.txt
 }
 trap on_exit EXIT
 
-mkdir -p $tmp_dir
-mkdir -p $key_dir
-
 # Export vars needed inside compile.
-export tmp_dir key_dir ci3 ivc_regex rollup_honk_regex keccak_honk_regex verifier_generate_regex
+export key_dir ci3 ivc_regex project_name rollup_honk_regex keccak_honk_regex verifier_generate_regex circuits_hash
 
 function compile {
   set -euo pipefail
@@ -66,11 +63,14 @@ function compile {
   local filename="$name.json"
   local json_path="./target/$filename"
   local program_hash hash bytecode_hash vk vk_fields
+
+  # We get the monomorphized program hash from nargo. If this changes, we have to recompile.
   local program_hash_cmd="$NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2"
   # echo_stderr $program_hash_cmd
   program_hash=$(dump_fail "$program_hash_cmd")
   echo_stderr "Hash preimage: $NARGO_HASH-$program_hash"
   hash=$(hash_str "$NARGO_HASH-$program_hash")
+
   if ! cache_download circuit-$hash.tar.gz 1>&2; then
     SECONDS=0
     rm -f $json_path
@@ -79,10 +79,15 @@ function compile {
     echo_stderr "$compile_cmd"
     dump_fail "$compile_cmd"
     echo_stderr "Compilation complete for: $name (${SECONDS}s)"
+    bytecode_size=$(jq -r .bytecode $json_path | base64 -d | gunzip | wc -c)
+    # TODO: Yes, you're reading that right. 850MB. That's why I'm adding this here, so we can't keep going up.
+    if [ "$bytecode_size" -gt $((850 * 1024 * 1024)) ]; then
+      echo "Error: $json_path bytecode size of $bytecode_size exceeds 850MB"
+      exit 1
+    fi
     cache_upload circuit-$hash.tar.gz $json_path &> /dev/null
   fi
 
-  echo "$name"
   if echo "$name" | grep -qE "${ivc_regex}"; then
     local proto="client_ivc"
     local write_vk_cmd="write_vk_for_ivc"
@@ -103,12 +108,11 @@ function compile {
     local write_vk_cmd="write_vk_ultra_honk -h 1"
     local vk_as_fields_cmd="vk_as_fields_ultra_honk"
   fi
-  echo "$proto$"
 
   # No vks needed for simulated circuits.
   [[ "$name" == *"simulated"* ]] && return
 
-  # Change this to add verification_key to original json, like contracts does.
+  # TODO: Change this to add verification_key to original json, like contracts does.
   # Will require changing TS code downstream.
   bytecode_hash=$(jq -r '.bytecode' $json_path | sha256sum | tr -d ' -')
   hash=$(hash_str "$BB_HASH-$bytecode_hash-$proto")
@@ -120,9 +124,8 @@ function compile {
     echo_stderr $vk_cmd
     vk=$(dump_fail "$vk_cmd")
     local vkf_cmd="echo '$vk' | xxd -r -p | $BB $vk_as_fields_cmd -k - -o -"
-    # echo_stderrr $vkf_cmd
+    # echo_stderr $vkf_cmd
     vk_fields=$(dump_fail "$vkf_cmd")
-
     jq -n --arg vk "$vk" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
     echo_stderr "Key output at: $key_path (${SECONDS}s)"
     if echo "$name" | grep -qE "${verifier_generate_regex}"; then
@@ -138,10 +141,14 @@ function compile {
     fi
   fi
 }
+export -f compile
 
 function build {
+  # We allow errors so we can output the joblog.
   set +e
   set -u
+  rm -rf target
+  mkdir -p $key_dir
 
   [ -f "package.json" ] && denoise "yarn && node ./scripts/generate_variants.js"
 
@@ -152,37 +159,50 @@ function build {
           echo "$(basename $dir)"
       fi
     done | \
-    parallel $PARALLEL_FLAGS --joblog joblog.txt compile {}
+    parallel -v --line-buffer --tag --halt now,fail=1 --memsuspend ${MEMSUSPEND:-64G} \
+      --joblog joblog.txt compile {}
   code=$?
   cat joblog.txt
   return $code
 }
 
-# We don't blindly execute all circuits as some will have no `Prover.toml`.
-CIRCUITS_TO_EXECUTE="private-kernel-init private-kernel-inner private-kernel-reset private-kernel-tail-to-public private-kernel-tail rollup-base-private rollup-base-public rollup-block-root rollup-block-merge rollup-merge rollup-root"
-
-function test {
-  set -eu
-  name=$(basename "$PWD")
-  CIRCUITS_HASH=$(cache_content_hash ../../noir/.rebuild_patterns "^noir-projects/$name")
-  test_should_run $name-tests-$CIRCUITS_HASH || return 0
-
-  RAYON_NUM_THREADS= $NARGO test --skip-brillig-constraints-check
-  cache_upload_flag $name-tests-$CIRCUITS_HASH
-
-  for circuit in $CIRCUITS_TO_EXECUTE; do
-    $NARGO execute --program-dir noir-projects/noir-protocol-circuits/crates/$circuit --silence-warnings --skip-brillig-constraints-check
+function test_cmds {
+  $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
+    echo "$circuits_hash noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
+  done
+  # We don't blindly execute all circuits as some will have no `Prover.toml`.
+  circuits_to_execute="
+    private-kernel-init
+    private-kernel-inner
+    private-kernel-reset
+    private-kernel-tail-to-public
+    private-kernel-tail
+    rollup-base-private
+    rollup-base-public
+    rollup-block-root
+    rollup-block-merge
+    rollup-merge rollup-root
+  "
+  nargo_root_rel=$(realpath --relative-to=$root $NARGO)
+  for circuit in $circuits_to_execute; do
+    echo "$circuits_hash $nargo_root_rel execute --program-dir noir-projects/noir-protocol-circuits/crates/$circuit --silence-warnings --skip-brillig-constraints-check"
   done
 }
 
-export -f compile test build
+function test {
+  test_cmds | filter_test_cmds | parallelise
+}
 
-case "$CMD" in
+case "$cmd" in
   "clean")
     git clean -fdx
     ;;
   "clean-keys")
     rm -rf $key_dir
+    ;;
+  "ci")
+    build
+    test
     ;;
   ""|"fast"|"full")
     build
@@ -191,21 +211,10 @@ case "$CMD" in
     shift
     compile $1
     ;;
-  "test")
-    test
-    ;;
-  "test-cmds")
-    $NARGO test --list-tests --silence-warnings | while read -r package test; do
-      echo "noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
-    done
-    for circuit in $CIRCUITS_TO_EXECUTE; do
-      echo "$NARGO execute --program-dir noir-projects/noir-protocol-circuits/crates/$circuit --silence-warnings --skip-brillig-constraints-check"
-    done
-    ;;
-  "ci")
-    parallel --tag --line-buffered {} ::: build test
+  test|test_cmds)
+    $cmd
     ;;
   *)
-    echo_stderr "Unknown command: $CMD"
+    echo_stderr "Unknown command: $cmd"
     exit 1
 esac

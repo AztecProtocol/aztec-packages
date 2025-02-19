@@ -1,4 +1,4 @@
-import { type AztecNode, AztecNodeApiSchema } from '@aztec/circuit-types';
+import { type AztecNode, AztecNodeApiSchema } from '@aztec/circuit-types/interfaces/client';
 import { createTracedJsonRpcServer } from '@aztec/telemetry-client';
 
 /**

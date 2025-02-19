@@ -8,7 +8,7 @@
  */
 import { type Fr } from '@aztec/circuits.js';
 
-export { type AccountContract } from './contract.js';
+export { type AccountContract, getAccountContractAddress } from './contract.js';
 export { type AccountInterface, type AuthWitnessProvider } from './interface.js';
 export * from './wallet.js';
 

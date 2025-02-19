@@ -1,6 +1,7 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
-import { mockTx } from '@aztec/circuit-types';
-import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
+import { mockTx } from '@aztec/circuit-types/testing';
+import { Fr } from '@aztec/circuits.js';
+import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -50,7 +51,7 @@ describe('prover/bb_prover/full-rollup', () => {
           const txOpts = { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 };
           const tx = await mockTx(blockNum * 100_000 + 1000 * (i + 1), txOpts);
           tx.data.constants.historicalHeader = initialHeader;
-          tx.data.constants.vkTreeRoot = await getVKTreeRoot();
+          tx.data.constants.vkTreeRoot = getVKTreeRoot();
           return tx;
         });
 

@@ -1,4 +1,5 @@
-import { type Tx, mockTx } from '@aztec/circuit-types';
+import { type Tx } from '@aztec/circuit-types';
+import { mockTx } from '@aztec/circuit-types/testing';
 import { type AztecAddress, type ContractDataSource, Fr, type FunctionSelector } from '@aztec/circuits.js';
 import { makeAztecAddress, makeSelector } from '@aztec/circuits.js/testing';
 
@@ -32,7 +33,8 @@ describe('PhasesTxValidator', () => {
     contractDataSource = mock<ContractDataSource>({
       getContract: mockFn().mockImplementation(() => {
         return {
-          contractClassId: Fr.random(),
+          currentContractClassId: Fr.random(),
+          originalContractClassId: Fr.random(),
         };
       }),
     });
@@ -71,7 +73,8 @@ describe('PhasesTxValidator', () => {
     contractDataSource.getContract.mockImplementationOnce(contractAddress => {
       if (address.equals(contractAddress)) {
         return Promise.resolve({
-          contractClassId: allowedContractClass,
+          currentContractClassId: allowedContractClass,
+          originalContractClassId: Fr.random(),
         } as any);
       } else {
         return Promise.resolve(undefined);
@@ -94,7 +97,8 @@ describe('PhasesTxValidator', () => {
     contractDataSource.getContract.mockImplementationOnce(contractAddress => {
       if (address.equals(contractAddress)) {
         return Promise.resolve({
-          contractClassId: Fr.random(),
+          currentContractClassId: Fr.random(),
+          originalContractClassId: Fr.random(),
         } as any);
       } else {
         return Promise.resolve(undefined);

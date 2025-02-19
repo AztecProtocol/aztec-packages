@@ -211,17 +211,22 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
             auto r = FF::random_element();
 
             std::array<FF, multivariate_n> z_perm = { 0, 0, 0, 0, 0, 0, z_1, z_2 };
-            std::array<FF, multivariate_n> lookup_inverses = { 0, 0, 0, 0, 0, 0, r * r, r };
-
+            std::array<FF, multivariate_n> lookup_inverses = { 0, 0, 0, 0, 0, r, r * r, r * r * r };
+            // To avoid triggering the skipping mechanism in LogDerivativeRelation, we have to ensure
+            // that the condition (in.q_lookup.is_zero() && in.lookup_read_counts.is_zero()) is not satisfied in the
+            // blinded rows
+            std::array<FF, multivariate_n> skipping_disabler = { 0, 0, 0, 0, 0, 1, 1, 1 };
             full_polynomials.z_perm = bb::Polynomial<FF>(z_perm);
             full_polynomials.lookup_inverses = bb::Polynomial<FF>(lookup_inverses);
-
+            full_polynomials.lookup_read_counts = bb::Polynomial<FF>(skipping_disabler);
             if constexpr (std::is_same<Flavor, MegaZKFlavor>::value) {
-                std::array<FF, multivariate_n> ecc_op_wire = { 0, 0, 0, 0, 0, 0, r * r * r, w_4[6] };
-                std::array<FF, multivariate_n> return_data_inverses = { 0, 0, 0, 0, 0, 0, FF(7) * r * r, -r };
-
-                full_polynomials.ecc_op_wire_1 = bb::Polynomial<FF>(ecc_op_wire);
+                std::array<FF, multivariate_n> return_data_inverses = { 0, 0, 0, 0, 0, 0, r * r, -r };
                 full_polynomials.return_data_inverses = bb::Polynomial<FF>(return_data_inverses);
+
+                // To avoid triggering the skipping mechanism in DatabusLookupRelation, we have to ensure that the
+                // condition (in.calldata_read_counts.is_zero() && in.secondary_calldata_read_counts.is_zero() &&
+                //  in.return_data_read_counts.is_zero()) is not satisfied in the blinded rows
+                full_polynomials.calldata_read_counts = bb::Polynomial<FF>(skipping_disabler);
             }
         }
         full_polynomials.w_l = bb::Polynomial<FF>(w_l);

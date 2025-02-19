@@ -1,5 +1,4 @@
 import {
-  type AztecNode,
   EncryptedLogPayload,
   L1NotePayload,
   L2Block,
@@ -7,27 +6,25 @@ import {
   type TxEffect,
   TxHash,
   TxScopedL2Log,
-  randomContractArtifact,
-  randomContractInstanceWithAddress,
   randomInBlock,
   wrapInBlock,
 } from '@aztec/circuit-types';
+import { type AztecNode } from '@aztec/circuit-types/interfaces/client';
+import { randomContractArtifact, randomContractInstanceWithAddress } from '@aztec/circuit-types/testing';
 import {
   AztecAddress,
   CompleteAddress,
   type Fq,
   Fr,
   GrumpkinScalar,
-  INITIAL_L2_BLOCK_NUM,
   IndexedTaggingSecret,
-  MAX_NOTE_HASHES_PER_TX,
-  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
   PublicLog,
   computeAddress,
   computeTaggingSecretPoint,
   deriveKeys,
 } from '@aztec/circuits.js';
-import { type FunctionArtifact, FunctionType } from '@aztec/foundation/abi';
+import { type FunctionArtifact, FunctionSelector, FunctionType } from '@aztec/circuits.js/abi';
+import { INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX, PUBLIC_LOG_DATA_SIZE_IN_FIELDS } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { pedersenHash, poseidon2Hash } from '@aztec/foundation/crypto';
 import { KeyStore } from '@aztec/key-store';
@@ -554,7 +551,7 @@ describe('Simulator oracle', () => {
       const contractArtifact = randomContractArtifact();
       contractArtifact.functions = [processLogFuncArtifact];
       await database.addContractInstance(contractInstance);
-      await database.addContractArtifact(contractInstance.contractClassId, contractArtifact);
+      await database.addContractArtifact(contractInstance.currentContractClassId, contractArtifact);
       contractAddress = contractInstance.address;
 
       addNotesSpy = jest.spyOn(database, 'addNotes');
@@ -571,7 +568,7 @@ describe('Simulator oracle', () => {
       addNotesSpy.mockReset();
       getNotesSpy.mockReset();
       removeNullifiedNotesSpy.mockReset();
-      simulator.computeNoteHashAndOptionallyANullifier.mockReset();
+      simulator.computeNoteHashAndNullifier.mockReset();
       aztecNode.getTxEffect.mockReset();
     });
 
@@ -655,7 +652,12 @@ describe('Simulator oracle', () => {
 
       // We test that a call to `processLog` is made with the correct function artifact and contract address
       expect(runUnconstrainedSpy).toHaveBeenCalledTimes(3);
-      expect(runUnconstrainedSpy).toHaveBeenCalledWith(expect.anything(), processLogFuncArtifact, contractAddress, []);
+      expect(runUnconstrainedSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        contractAddress,
+        await FunctionSelector.fromNameAndParameters(processLogFuncArtifact.name, processLogFuncArtifact.parameters),
+        [],
+      );
     }, 30_000);
 
     it('should not store notes that do not belong to us', async () => {

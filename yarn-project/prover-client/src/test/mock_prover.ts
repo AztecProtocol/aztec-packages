@@ -8,21 +8,15 @@ import {
   type ServerCircuitProver,
   makeProofAndVerificationKey,
   makePublicInputsAndRecursiveProof,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
 import {
-  AVM_PROOF_LENGTH_IN_FIELDS,
-  AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  type AvmCircuitInputs,
   type BaseParityInputs,
-  NESTED_RECURSIVE_PROOF_LENGTH,
-  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-  RECURSIVE_PROOF_LENGTH,
   type RootParityInputs,
-  TUBE_PROOF_LENGTH,
   VerificationKeyData,
   makeEmptyRecursiveProof,
   makeRecursiveProof,
 } from '@aztec/circuits.js';
+import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
 import {
   type BaseOrMergeRollupPublicInputs,
   type BlockMergeRollupInputs,
@@ -42,6 +36,14 @@ import {
   makeParityPublicInputs,
   makeRootRollupPublicInputs,
 } from '@aztec/circuits.js/testing';
+import {
+  AVM_PROOF_LENGTH_IN_FIELDS,
+  AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  NESTED_RECURSIVE_PROOF_LENGTH,
+  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+  RECURSIVE_PROOF_LENGTH,
+  TUBE_PROOF_LENGTH,
+} from '@aztec/constants';
 import { times } from '@aztec/foundation/collection';
 
 import { InlineProofStore, type ProofStore } from '../proving_broker/proof_store/index.js';
@@ -50,7 +52,7 @@ import { ProvingBroker } from '../proving_broker/proving_broker.js';
 import { InMemoryBrokerDatabase } from '../proving_broker/proving_broker_database/memory.js';
 
 export class TestBroker implements ProvingJobProducer {
-  private broker = new ProvingBroker(new InMemoryBrokerDatabase());
+  private broker: ProvingBroker;
   private agents: ProvingAgent[];
 
   constructor(
@@ -59,6 +61,7 @@ export class TestBroker implements ProvingJobProducer {
     private proofStore: ProofStore = new InlineProofStore(),
     agentPollInterval = 100,
   ) {
+    this.broker = new ProvingBroker(new InMemoryBrokerDatabase());
     this.agents = times(
       agentCount,
       () => new ProvingAgent(this.broker, proofStore, prover, undefined, agentPollInterval),

@@ -1,6 +1,8 @@
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types';
-import { type AvmCircuitInputs, AztecAddress, VerificationKeyData } from '@aztec/circuits.js';
+import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
+import { AztecAddress, VerificationKeyData } from '@aztec/circuits.js';
+import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
 import { PublicTxSimulationTester, type TestEnqueuedCall } from '@aztec/simulator/public/fixtures';
+import { WorldStateDB } from '@aztec/simulator/server';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import fs from 'node:fs/promises';
@@ -25,11 +27,12 @@ export class AvmProvingTester extends PublicTxSimulationTester {
   constructor(
     private bbWorkingDirectory: string,
     private checkCircuitOnly: boolean,
+    worldStateDB: WorldStateDB,
     contractDataSource: SimpleContractDataSource,
     merkleTrees: MerkleTreeWriteOperations,
     skipContractDeployments: boolean,
   ) {
-    super(contractDataSource, merkleTrees, skipContractDeployments);
+    super(worldStateDB, contractDataSource, merkleTrees, skipContractDeployments);
   }
 
   static override async create(checkCircuitOnly: boolean = false, skipContractDeployments: boolean = false) {
@@ -37,9 +40,11 @@ export class AvmProvingTester extends PublicTxSimulationTester {
 
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
+    const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
     return new AvmProvingTester(
       bbWorkingDirectory,
       checkCircuitOnly,
+      worldStateDB,
       contractDataSource,
       merkleTrees,
       skipContractDeployments,
@@ -83,7 +88,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     appCalls: TestEnqueuedCall[],
     teardownCall: TestEnqueuedCall | undefined,
     expectRevert: boolean | undefined,
-    feePayer?: AztecAddress,
+    feePayer = sender,
   ) {
     const simRes = await this.simulateTx(sender, setupCalls, appCalls, teardownCall, feePayer);
     expect(simRes.revertCode.isOK()).toBe(expectRevert ? false : true);
@@ -110,11 +115,12 @@ export class AvmProvingTester extends PublicTxSimulationTester {
 export class AvmProvingTesterV2 extends PublicTxSimulationTester {
   constructor(
     private bbWorkingDirectory: string,
+    worldStateDB: WorldStateDB,
     contractDataSource: SimpleContractDataSource,
     merkleTrees: MerkleTreeWriteOperations,
     skipContractDeployments: boolean,
   ) {
-    super(contractDataSource, merkleTrees, skipContractDeployments);
+    super(worldStateDB, contractDataSource, merkleTrees, skipContractDeployments);
   }
 
   static override async create(skipContractDeployments: boolean = false) {
@@ -122,7 +128,14 @@ export class AvmProvingTesterV2 extends PublicTxSimulationTester {
 
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-    return new AvmProvingTesterV2(bbWorkingDirectory, contractDataSource, merkleTrees, skipContractDeployments);
+    const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
+    return new AvmProvingTesterV2(
+      bbWorkingDirectory,
+      worldStateDB,
+      contractDataSource,
+      merkleTrees,
+      skipContractDeployments,
+    );
   }
 
   async proveV2(avmCircuitInputs: AvmCircuitInputs): Promise<BBResult> {
@@ -159,7 +172,7 @@ export class AvmProvingTesterV2 extends PublicTxSimulationTester {
     appCalls: TestEnqueuedCall[],
     teardownCall: TestEnqueuedCall | undefined,
     expectRevert: boolean | undefined,
-    feePayer?: AztecAddress,
+    feePayer = sender,
   ) {
     const simRes = await this.simulateTx(sender, setupCalls, appCalls, teardownCall, feePayer);
     expect(simRes.revertCode.isOK()).toBe(expectRevert ? false : true);
