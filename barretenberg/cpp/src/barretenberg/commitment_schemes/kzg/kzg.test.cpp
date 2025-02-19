@@ -59,34 +59,6 @@ TEST_F(KZGTest, single)
     EXPECT_EQ(vk->pairing_check(pairing_points[0], pairing_points[1]), true);
 }
 
-TEST_F(KZGTest, OpenShiftViaUnshiftedCommitment)
-{
-    // Construct a polynomial that is right shiftable by shift_magnitude
-    const size_t shift_magnitude = 4;
-    // const size_t shift_magnitude = 0;
-    auto witness = bb::Polynomial<Fr>::random(n - shift_magnitude, n, 0);
-    bb::Polynomial<Fr> witness_shifted(n);
-    witness_shifted += witness.right_shifted(shift_magnitude);
-
-    // Commit to the unshifted polynomial
-    const Commitment commitment = ck->commit(witness);
-
-    // Compute the shifted evaluation
-    const Fr challenge = Fr::random_element();
-    const Fr unshifted_evaluation = witness.evaluate(challenge);
-    const Fr shifted_evaluation = unshifted_evaluation * challenge.pow(shift_magnitude);
-
-    auto prover_transcript = NativeTranscript::prover_init_empty();
-    PCS::compute_opening_proof(ck, { witness, { challenge, unshifted_evaluation } }, prover_transcript);
-
-    Fr unshifted_eval_reconstructed = shifted_evaluation * (challenge.pow(shift_magnitude)).invert();
-    auto opening_claim = OpeningClaim<Curve>{ { challenge, unshifted_eval_reconstructed }, commitment };
-    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
-    const auto pairing_points = PCS::reduce_verify(opening_claim, verifier_transcript);
-
-    EXPECT_EQ(vk->pairing_check(pairing_points[0], pairing_points[1]), true);
-}
-
 /**
  * @brief Test opening proof of a polynomial given by its evaluations at \f$ i = 0, \ldots, n \f$. Should only be used
  * for small values of \f$ n \f$.

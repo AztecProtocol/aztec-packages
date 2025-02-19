@@ -8,8 +8,8 @@
 #include "barretenberg/plonk_honk_shared/relation_checker.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
-#include "barretenberg/ultra_honk/merge_prover_new.hpp"
-#include "barretenberg/ultra_honk/merge_verifier_new.hpp"
+#include "barretenberg/ultra_honk/merge_prover.hpp"
+#include "barretenberg/ultra_honk/merge_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -27,10 +27,8 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
     using FF = Curve::ScalarField;
     using Point = Curve::AffineElement;
     using CommitmentKey = bb::CommitmentKey<Curve>;
-    using MergeProver = MergeProverNew_<Flavor>;
-    using MergeVerifier = MergeVerifierNew_<Flavor>;
-    using MergeProverNew = MergeProverNew_<Flavor>;
-    using MergeVerifierNew = MergeVerifierNew_<Flavor>;
+    using MergeProver = MergeProver_<Flavor>;
+    using MergeVerifier = MergeVerifier_<Flavor>;
     using Prover = UltraProver_<Flavor>;
     using Verifier = UltraVerifier_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
@@ -82,20 +80,6 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
     {
         MergeProver merge_prover{ op_queue };
         MergeVerifier merge_verifier;
-        auto merge_proof = merge_prover.construct_proof();
-        bool verified = merge_verifier.verify_proof(merge_proof);
-
-        return verified;
-    }
-
-    /**
-     * @brief Construct and verify a Goblin ECC op queue merge proof
-     *
-     */
-    bool construct_and_verify_merge_proof_new(auto& op_queue)
-    {
-        MergeProverNew merge_prover{ op_queue };
-        MergeVerifierNew merge_verifier;
         auto merge_proof = merge_prover.construct_proof();
         bool verified = merge_verifier.verify_proof(merge_proof);
 
@@ -269,24 +253,7 @@ TYPED_TEST(MegaHonkTests, MultipleCircuitsMergeOnly)
     }
 }
 
-TYPED_TEST(MegaHonkTests, NewMultipleCircuitsMergeOnly)
-{
-    using Flavor = TypeParam;
-    // Instantiate EccOpQueue. This will be shared across all circuits in the series
-    auto op_queue = std::make_shared<bb::ECCOpQueue>();
-
-    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
-
-    // Construct multiple test circuits that share an ECC op queue. Generate and verify a proof for each.
-    auto builder = typename Flavor::CircuitBuilder{ op_queue };
-
-    GoblinMockCircuits::construct_simple_circuit(builder);
-
-    // Construct and verify Goblin ECC op queue Merge proof
-    auto merge_verified = this->construct_and_verify_merge_proof_new(op_queue);
-    EXPECT_TRUE(merge_verified);
-}
-
+// WORKTODO: move to op queue test suite?
 TYPED_TEST(MegaHonkTests, NewMergePolyconstruction)
 {
     using Flavor = TypeParam;

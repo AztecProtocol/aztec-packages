@@ -13,7 +13,7 @@ namespace bb {
  * @brief Prover class for the Goblin ECC op queue transcript merge protocol
  *
  */
-template <typename Flavor> class MergeProverNew_ {
+template <typename Flavor> class MergeProver_ {
     using FF = typename Flavor::FF;
     using Polynomial = typename Flavor::Polynomial;
     using CommitmentKey = typename Flavor::CommitmentKey;
@@ -27,8 +27,8 @@ template <typename Flavor> class MergeProverNew_ {
   public:
     std::shared_ptr<Transcript> transcript;
 
-    explicit MergeProverNew_(const std::shared_ptr<ECCOpQueue>& op_queue,
-                             std::shared_ptr<CommitmentKey> commitment_key = nullptr);
+    explicit MergeProver_(const std::shared_ptr<ECCOpQueue>& op_queue,
+                          std::shared_ptr<CommitmentKey> commitment_key = nullptr);
 
     BB_PROFILE HonkProof construct_proof();
 

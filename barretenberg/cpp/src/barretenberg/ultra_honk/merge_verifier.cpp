@@ -1,11 +1,11 @@
-#include "merge_verifier_new.hpp"
+#include "merge_verifier.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 
 namespace bb {
 
 template <typename Flavor>
-MergeVerifierNew_<Flavor>::MergeVerifierNew_()
+MergeVerifier_<Flavor>::MergeVerifier_()
     : transcript(std::make_shared<Transcript>())
     , pcs_verification_key(std::make_unique<VerifierCommitmentKey>()){};
 
@@ -21,7 +21,7 @@ MergeVerifierNew_<Flavor>::MergeVerifierNew_()
  * @tparam Flavor
  * @return bool
  */
-template <typename Flavor> bool MergeVerifierNew_<Flavor>::verify_proof(const HonkProof& proof)
+template <typename Flavor> bool MergeVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
     transcript = std::make_shared<Transcript>(proof);
 
@@ -98,8 +98,8 @@ template <typename Flavor> bool MergeVerifierNew_<Flavor>::verify_proof(const Ho
     return identity_checked && verified;
 }
 
-template class MergeVerifierNew_<UltraFlavor>;
-template class MergeVerifierNew_<MegaFlavor>;
-template class MergeVerifierNew_<MegaZKFlavor>;
+template class MergeVerifier_<UltraFlavor>;
+template class MergeVerifier_<MegaFlavor>;
+template class MergeVerifier_<MegaZKFlavor>;
 
 } // namespace bb

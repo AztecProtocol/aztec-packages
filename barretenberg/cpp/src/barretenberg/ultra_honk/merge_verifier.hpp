@@ -13,7 +13,7 @@ namespace bb {
  * @brief Verifier class for the Goblin ECC op queue transcript merge protocol
  *
  */
-template <typename Flavor> class MergeVerifierNew_ {
+template <typename Flavor> class MergeVerifier_ {
     using Curve = typename Flavor::Curve;
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
@@ -25,7 +25,7 @@ template <typename Flavor> class MergeVerifierNew_ {
   public:
     std::shared_ptr<Transcript> transcript;
 
-    explicit MergeVerifierNew_();
+    explicit MergeVerifier_();
     bool verify_proof(const HonkProof& proof);
 
   private:

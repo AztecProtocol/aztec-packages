@@ -1,4 +1,4 @@
-#include "merge_prover_new.hpp"
+#include "merge_prover.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
 
 namespace bb {
@@ -10,8 +10,8 @@ namespace bb {
  *
  */
 template <class Flavor>
-MergeProverNew_<Flavor>::MergeProverNew_(const std::shared_ptr<ECCOpQueue>& op_queue,
-                                         std::shared_ptr<CommitmentKey> commitment_key)
+MergeProver_<Flavor>::MergeProver_(const std::shared_ptr<ECCOpQueue>& op_queue,
+                                   std::shared_ptr<CommitmentKey> commitment_key)
     : op_queue(op_queue)
 {
     // Update internal size data in the op queue that allows for extraction of e.g. previous aggregate transcript
@@ -33,7 +33,7 @@ MergeProverNew_<Flavor>::MergeProverNew_(const std::shared_ptr<ECCOpQueue>& op_q
  *
  * @return honk::proof
  */
-template <typename Flavor> HonkProof MergeProverNew_<Flavor>::construct_proof()
+template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
 {
     transcript = std::make_shared<Transcript>();
 
@@ -119,8 +119,8 @@ template <typename Flavor> HonkProof MergeProverNew_<Flavor>::construct_proof()
     return transcript->proof_data;
 }
 
-template class MergeProverNew_<UltraFlavor>;
-template class MergeProverNew_<MegaFlavor>;
-template class MergeProverNew_<MegaZKFlavor>;
+template class MergeProver_<UltraFlavor>;
+template class MergeProver_<MegaFlavor>;
+template class MergeProver_<MegaZKFlavor>;
 
 } // namespace bb

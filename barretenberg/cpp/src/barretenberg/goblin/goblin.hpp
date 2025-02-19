@@ -14,8 +14,8 @@
 #include "barretenberg/translator_vm/translator_circuit_builder.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"
 #include "barretenberg/translator_vm/translator_verifier.hpp"
-#include "barretenberg/ultra_honk/merge_prover_new.hpp"
-#include "barretenberg/ultra_honk/merge_verifier_new.hpp"
+#include "barretenberg/ultra_honk/merge_prover.hpp"
+#include "barretenberg/ultra_honk/merge_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -37,7 +37,7 @@ class GoblinProver {
     using TranslatorBuilder = TranslatorCircuitBuilder;
     using RecursiveMergeVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier_<MegaBuilder>;
     using PairingPoints = RecursiveMergeVerifier::PairingPoints;
-    using MergeProver = MergeProverNew_<MegaFlavor>;
+    using MergeProver = MergeProver_<MegaFlavor>;
     using VerificationKey = MegaFlavor::VerificationKey;
     using MergeProof = std::vector<FF>;
     /**
@@ -256,7 +256,7 @@ class GoblinVerifier {
   public:
     using ECCVMVerificationKey = ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
-    using MergeVerifier = bb::MergeVerifierNew_<MegaFlavor>;
+    using MergeVerifier = bb::MergeVerifier_<MegaFlavor>;
 
     struct VerifierInput {
         std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key;
