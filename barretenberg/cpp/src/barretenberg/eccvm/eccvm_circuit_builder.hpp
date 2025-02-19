@@ -113,7 +113,7 @@ class ECCVMCircuitBuilder {
         std::vector<std::pair<size_t, size_t>> msm_mul_index;
         std::vector<size_t> msm_sizes;
 
-        const auto raw_ops = op_queue->get_raw_ops();
+        const auto& raw_ops = op_queue->get_raw_ops();
         size_t op_idx = 0;
         // populate opqueue and mul indices
         for (const auto& op : raw_ops) {

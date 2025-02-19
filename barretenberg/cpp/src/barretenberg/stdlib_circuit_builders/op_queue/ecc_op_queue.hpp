@@ -67,7 +67,13 @@ class ECCOpQueue {
     size_t get_ultra_ops_table_size() const { return ultra_ops_table.ultra_table_size(); }
     size_t get_current_ultra_ops_subtable_size() const { return ultra_ops_table.current_ultra_subtable_size(); }
 
-    std::vector<ECCVMOperation> get_raw_ops() { return raw_ops_table.get_reconstructed(); }
+    std::vector<ECCVMOperation>& get_raw_ops()
+    {
+        if (raw_ops_reconstructed.empty()) {
+            construct_full_raw_ops_table();
+        }
+        return raw_ops_reconstructed;
+    }
 
     /**
      * @brief Get the number of rows in the 'msm' column section, for all msms in the circuit

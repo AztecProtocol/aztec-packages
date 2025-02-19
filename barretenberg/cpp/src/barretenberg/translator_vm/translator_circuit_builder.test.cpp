@@ -105,7 +105,7 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
     // Get an inverse
     Fq x_inv = x.invert();
     // Compute the batched evaluation of polynomials (multiplying by inverse to go from lower to higher)
-    const auto raw_ops = op_queue->get_raw_ops();
+    const auto& raw_ops = op_queue->get_raw_ops();
     for (const auto& ecc_op : raw_ops) {
         op_accumulator = op_accumulator * x_inv + ecc_op.get_opcode_value();
         const auto [x_u256, y_u256] = ecc_op.get_base_point_standard_form();

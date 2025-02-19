@@ -591,7 +591,7 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::compute_wi
 void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_ptr<ECCOpQueue> ecc_op_queue)
 {
     using Fq = bb::fq;
-    const auto raw_ops = ecc_op_queue->get_raw_ops();
+    const auto& raw_ops = ecc_op_queue->get_raw_ops();
     std::vector<Fq> accumulator_trace;
     Fq current_accumulator(0);
     if (raw_ops.empty()) {
