@@ -124,6 +124,7 @@ export async function makeBloatedProcessedTx({
       totalGas: Gas.empty(),
       teardownGas: Gas.empty(),
       publicGas: Gas.empty(),
+      billedGas: Gas.empty(),
     } satisfies GasUsed;
 
     return makeProcessedTxFromTxWithPublicCalls(

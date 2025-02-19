@@ -138,6 +138,7 @@ export class PublicTxSimulator {
         totalGas: context.getActualGasUsed(),
         teardownGas: context.teardownGasUsed,
         publicGas: context.getActualPublicGasUsed(),
+        billedGas: context.getTotalGasUsed(),
       },
       revertCode,
       revertReason: context.revertReason,
