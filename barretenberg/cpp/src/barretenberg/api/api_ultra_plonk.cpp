@@ -47,7 +47,7 @@ std::string vk_to_json(std::vector<bb::fr> const& data)
  * @param bytecode_path Path to the file containing the serialized circuit
  * @param witness_path Path to the file containing the serialized witness
  * @param output_path Path to write the proof to
- * @param recursive Whether to use recursive proof generation of non-recursive
+ * @param recursive Whether to use recursive proof generation or non-recursive
  */
 void prove_ultra_plonk(const std::string& bytecode_path,
                        const std::string& witness_path,
@@ -164,7 +164,7 @@ bool verify_ultra_plonk(const std::string& proof_path, const std::string& vk_pat
  *
  * @param bytecode_path Path to the file containing the serialized circuit
  * @param witness_path Path to the file containing the serialized witness
- * @param recursive Whether to use recursive proof generation of non-recursive
+ * @param recursive Whether to use recursive proof generation or non-recursive
  * @return true if the proof is valid
  * @return false if the proof is invalid
  */
