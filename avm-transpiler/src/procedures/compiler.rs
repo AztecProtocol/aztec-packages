@@ -9,14 +9,20 @@ use crate::{
 use fxhash::FxHashMap as HashMap;
 use operand_collector::OperandCollector;
 
-use super::parser::{Alias, Assembly, ParsedOpcode};
+use super::{
+    parser::{Alias, Assembly, ParsedOpcode},
+    Procedure,
+};
 
 pub(crate) type Label = String;
+pub(crate) use operand_collector::SCRATCH_SPACE_START;
 
 pub(crate) struct CompiledProcedure {
     pub instructions: Vec<AvmInstruction>,
     // Map of instruction index to label
-    pub locations: HashMap<usize, Label>,
+    pub locations: HashMap<Label, usize>,
+
+    pub instructions_size: usize,
 }
 
 impl CompiledProcedure {
@@ -26,24 +32,30 @@ impl CompiledProcedure {
         label_prefix: Label,
         label: Option<Label>,
     ) {
-        self.instructions.push(instruction);
+        // TODO improve labelling
+        // Make prefixes typed instead of string formatting
+        // Make prefixing upstream instead of the collector and compiler. Ideally here, avoid leaking the label_prefix
         if let Some(label) = label {
-            self.locations.insert(self.instructions.len() - 1, prefix_label(&label_prefix, &label));
+            self.locations.insert(prefix_label(&label_prefix, &label), self.instructions_size);
         }
+        self.instructions_size += instruction.size();
+        self.instructions.push(instruction);
     }
 }
 
 pub(crate) fn compile(
     parsed_assembly: Assembly,
-    label_prefix: Label,
+    procedure: Procedure,
 ) -> Result<CompiledProcedure, String> {
     let instructions = Vec::with_capacity(parsed_assembly.len());
     let locations = HashMap::default();
-    let mut result = CompiledProcedure { instructions, locations };
+    let mut result = CompiledProcedure { instructions, locations, instructions_size: 0 };
     for parsed_opcode in parsed_assembly.into_iter() {
-        compile_opcode(parsed_opcode.clone(), label_prefix.clone(), &mut result)
+        compile_opcode(parsed_opcode.clone(), procedure.label_prefix(), &mut result)
             .map_err(|err| format!("Error compiling opcode {:?}: {}", parsed_opcode, err))?;
     }
+
+    result.locations.insert(procedure.entrypoint_label(), 0);
 
     Ok(result)
 }

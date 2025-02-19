@@ -2,28 +2,33 @@ use compiler::{compile, CompiledProcedure};
 use msm::MSM_ASSEMBLY;
 use parser::parse;
 
-pub(crate) use compiler::Label;
+pub(crate) use compiler::{Label, SCRATCH_SPACE_START};
 
 mod compiler;
 mod msm;
 mod parser;
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub(crate) enum Procedure {
     MSM,
 }
 
 impl Procedure {
-    fn label_prefix(self) -> String {
+    pub(crate) fn label_prefix(self) -> String {
         match self {
             Procedure::MSM => "MSM_PROCEDURE_PREFIX".to_string(),
         }
     }
+
+    pub(crate) fn entrypoint_label(self) -> String {
+        format!("{}__{}", self.label_prefix(), "ENTRYPOINT")
+    }
 }
 
-pub(crate) fn add_procedure(procedure: Procedure) -> Result<CompiledProcedure, String> {
+pub(crate) fn compile_procedure(procedure: Procedure) -> Result<CompiledProcedure, String> {
     let assembly = match procedure {
         Procedure::MSM => MSM_ASSEMBLY,
     };
     let parsed = parse(assembly)?;
-    compile(parsed, procedure.label_prefix())
+    compile(parsed, procedure)
 }

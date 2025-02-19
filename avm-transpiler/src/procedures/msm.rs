@@ -1,26 +1,31 @@
 pub(crate) const MSM_ASSEMBLY: &str = "
-                ; We are passed two pointers and one usize.
+                ; We are passed three pointers and one usize.
                 ; d0 points to the points. Points are represented by (x: Field, y: Field, is_infinite: bool)
                 ; d1 points to the scalars. Scalars are represented by (lo: Field, hi: Field) both range checked to 128 bits.
-                ; d2 contains the number of points and scalars, which should be the same.
-
-                SET d3, 0 ff ; Initialize the msm result: point at infinity
-                SET d4, 0 ff
-                SET d5, 1 u1
+                ; d2 contains the number of points, which should be the half of the scalars.
+                ; d3 points to the result. The result is a point.
+                SET d7, 1 u32; Initialize a constant one
+                ADD d3, d7, d4; Compute the pointer to the result y
+                ADD d4, d7, d5; Compute the pointer to the result is_infinite
+                ; Initialize the msm result: point at infinity
+                SET i3, 0 ff
+                SET i4, 0 ff
+                SET i5, 1 u1
                 ; Loop globals
                 SET d6, 0 u32; Initialize the outer loop variable, ranging from 0 to the number of points
-                SET d7, 1 u32; Initialize a constant one
                 SET d8, 0 ff; Initialize a 0 FF
                 SET d9, 256 u32; Initialize a constant 256
                 SET d10, 128 u32; Initialize a constant 128
                 SET d11, 1 u1; Initialize a constant true
                 SET d12, 0 u1; Initialize a constant false
+                SET d13, 2 u32; Initialize a constant 2
                 ; Main loop: iterate over the points/scalars
 OUTER_HEAD:     LT d6, d2, d15 ; Check if we are done with the outer loop
                 JUMPI d15, OUTER_BODY
                 JUMP OUTER_END
 OUTER_BODY:     ADD d6, d0, d16; Compute the pointer to the point
-                ADD d6, d1, d17; Compute the pointer to the scalar lo
+                MUL d6, d13, d17; Compute the pointer to the scalar lo
+                ADD d17, d1, d17
                 ADD d9, d7, d18; Compute the pointer to the scalar hi
                 EQ i17, d8, d19; Check if the scalar lo is zero
                 EQ i18, d8, d20; Check if the scalar hi is zero
@@ -71,20 +76,17 @@ INNER_INC:      ADD d19, d7, d19; Increment the pointer
                 JUMP INNER_HEAD
 
                 ; After the inner loop we have computed the scalar multiplication. Add it to the msm result
-INNER_END:      ECADD d3, d4, d5, d22, d23, d24, d3; Add the result to the msm result
+INNER_END:      ECADD i3, i4, i5, d22, d23, d24, i3; Add the result to the msm result
 OUTER_INC:      ADD d6, d7, d6; Increment the outer loop variable
                 JUMP OUTER_HEAD
-                ; After the outer loop we have computed the msm. Put it back into the first memory addresses
-OUTER_END:      MOV d3, d0
-                MOV d4, d1
-                MOV d5, d2
-                INTERNALRETURN
+                ; After the outer loop we have computed the msm. We can return since we wrote the result in i3, i4, i5
+OUTER_END:      INTERNALRETURN
 ";
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::procedures::{compiler::compile, parser::parse};
+    use crate::procedures::{compiler::compile, parser::parse, Procedure};
 
     #[test]
     fn smoke_parse_msm() {
@@ -94,6 +96,6 @@ mod tests {
     #[test]
     fn smoke_compile_msm() {
         let parsed = parse(MSM_ASSEMBLY).expect("Failed to parse MSM assembly");
-        compile(parsed, "Fooo".to_string()).expect("Failed to compile MSM assembly");
+        compile(parsed, Procedure::MSM).expect("Failed to compile MSM assembly");
     }
 }

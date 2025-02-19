@@ -1,4 +1,5 @@
 use acvm::acir::brillig::{BitSize, IntegerBitSize, Opcode as BrilligOpcode};
+use fxhash::{FxHashMap as HashMap, FxHashSet as HashSet};
 use std::collections::BTreeMap;
 
 use acvm::acir::circuit::BrilligOpcodeLocation;
@@ -11,6 +12,7 @@ use noirc_errors::debug_info::DebugInfo;
 use crate::bit_traits::{bits_needed_for, BitsQueryable};
 use crate::instructions::{AddressingModeBuilder, AvmInstruction, AvmOperand, AvmTypeTag};
 use crate::opcodes::AvmOpcode;
+use crate::procedures::{compile_procedure, Procedure, SCRATCH_SPACE_START};
 use crate::utils::{dbg_print_avm_program, dbg_print_brillig_program, make_operand};
 
 /// Transpile a Brillig program to AVM bytecode
@@ -21,6 +23,7 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
     let mut avm_instrs: Vec<AvmInstruction> = Vec::new();
     let mut brillig_pcs_to_avm_pcs: Vec<usize> = [0_usize].to_vec();
     let mut current_avm_pc: usize = 0;
+    let mut procedures_used: HashSet<Procedure> = HashSet::default();
 
     // Transpile a Brillig instruction to one or more AVM instructions
     for brillig_instr in brillig_bytecode {
@@ -330,7 +333,7 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                 handle_foreign_call(&mut avm_instrs, function, destinations, inputs);
             }
             BrilligOpcode::BlackBox(operation) => {
-                handle_black_box_function(&mut avm_instrs, operation);
+                handle_black_box_function(&mut avm_instrs, operation, &mut procedures_used);
             }
             _ => panic!(
                 "Transpiler doesn't know how to process {:?} brillig instruction",
@@ -344,8 +347,25 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
         brillig_pcs_to_avm_pcs.push(current_avm_pc);
     }
 
+    let mut procedure_locations = HashMap::default();
+    for procedure in procedures_used.into_iter() {
+        let compiled_procedure = compile_procedure(procedure).unwrap_or_else(|err| {
+            panic!("Failed to compile procedure {:?} with error: {:?}", procedure, err)
+        });
+        procedure_locations.extend(compiled_procedure.locations.into_iter().map(
+            |(label, local_location)| {
+                let global_location = local_location + current_avm_pc;
+                assert!(global_location.num_bits() <= 32, "Oops! AVM PC is too large!");
+
+                (label, global_location)
+            },
+        ));
+        current_avm_pc += compiled_procedure.instructions_size;
+        avm_instrs.extend(compiled_procedure.instructions);
+    }
+
     // Now that we have the general structure of the AVM program, we need to resolve the
-    // Brillig jump locations.
+    // now unresolved jump locations.
     let mut avm_instrs = avm_instrs
         .into_iter()
         .map(|i| match i.opcode {
@@ -358,6 +378,12 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                             let avm_pc = brillig_pcs_to_avm_pcs[brillig_pc as usize];
                             assert!(avm_pc.num_bits() <= 32, "Oops! AVM PC is too large!");
                             AvmOperand::U32 { value: avm_pc as u32 }
+                        }
+                        AvmOperand::PROCEDURE_LABEL { label } => {
+                            let resolved_location = *procedure_locations
+                                .get(&label)
+                                .expect(format!("Procedure label {:?} not found", label).as_str());
+                            AvmOperand::U32 { value: resolved_location as u32 }
                         }
                         _ => o,
                     })
@@ -993,9 +1019,35 @@ fn generate_mov_instruction(
     }
 }
 
+fn generate_mov_to_procedure(source: &MemoryAddress, index: usize) -> AvmInstruction {
+    let target_address = SCRATCH_SPACE_START + index;
+    generate_mov_instruction(
+        Some(
+            AddressingModeBuilder::default()
+                .direct_operand(&source)
+                .direct_operand(&MemoryAddress::Direct(target_address))
+                .build(),
+        ),
+        source.to_usize() as u32,
+        target_address as u32,
+    )
+}
+
+fn generate_procedure_call(procedure: Procedure) -> AvmInstruction {
+    AvmInstruction {
+        opcode: AvmOpcode::INTERNALCALL,
+        immediates: vec![AvmOperand::PROCEDURE_LABEL { label: procedure.entrypoint_label() }],
+        ..Default::default()
+    }
+}
+
 /// Black box functions
 /// (array goes in -> field element comes out)
-fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &BlackBoxOp) {
+fn handle_black_box_function(
+    avm_instrs: &mut Vec<AvmInstruction>,
+    operation: &BlackBoxOp,
+    procedures_used: &mut HashSet<Procedure>,
+) {
     match operation {
         BlackBoxOp::Sha256Compression { input, hash_values, output } => {
             let inputs_offset = input.pointer.to_usize();
@@ -1127,34 +1179,19 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
             ],
             ..Default::default()
         }),
-        // Temporary while we dont have efficient noir implementations
+
         BlackBoxOp::MultiScalarMul { points, scalars, outputs } => {
             // The length of the scalars vector is 2x the length of the points vector due to limb
             // decomposition
-            let points_offset = points.pointer.to_usize();
-            let num_points = points.size.to_usize();
-            let scalars_offset = scalars.pointer.to_usize();
             // Output array is fixed to 3
             assert_eq!(outputs.size, 3, "Output array size must be equal to 3");
-            let outputs_offset = outputs.pointer.to_usize();
-            avm_instrs.push(AvmInstruction {
-                opcode: AvmOpcode::MSM,
-                indirect: Some(
-                    AddressingModeBuilder::default()
-                        .indirect_operand(&points.pointer)
-                        .indirect_operand(&scalars.pointer)
-                        .indirect_operand(&outputs.pointer)
-                        .direct_operand(&points.size)
-                        .build(),
-                ),
-                operands: vec![
-                    AvmOperand::U16 { value: points_offset as u16 },
-                    AvmOperand::U16 { value: scalars_offset as u16 },
-                    AvmOperand::U16 { value: outputs_offset as u16 },
-                    AvmOperand::U16 { value: num_points as u16 },
-                ],
-                ..Default::default()
-            });
+
+            avm_instrs.push(generate_mov_to_procedure(&points.pointer, 0));
+            avm_instrs.push(generate_mov_to_procedure(&scalars.pointer, 1));
+            avm_instrs.push(generate_mov_to_procedure(&points.size, 2));
+            avm_instrs.push(generate_mov_to_procedure(&outputs.pointer, 3));
+            avm_instrs.push(generate_procedure_call(Procedure::MSM));
+            procedures_used.insert(Procedure::MSM);
         }
         _ => panic!("Transpiler doesn't know how to process {:?}", operation),
     }

@@ -10,7 +10,7 @@ const NUM_RESERVED_REGISTERS: usize = 3;
 const MAX_STACK_FRAME_SIZE: usize = 2048;
 const MAX_STACK_SIZE: usize = 16 * MAX_STACK_FRAME_SIZE;
 const MAX_SCRATCH_SPACE: usize = 64;
-const SCRATCH_SPACE_START: usize = NUM_RESERVED_REGISTERS + MAX_STACK_SIZE;
+pub(crate) const SCRATCH_SPACE_START: usize = NUM_RESERVED_REGISTERS + MAX_STACK_SIZE;
 
 pub(crate) enum Immediate {
     Numeric(u128),
@@ -131,7 +131,7 @@ impl OperandCollector {
                     Ok(Immediate::Label(prefix_label(&self.label_prefix, &label)))
                 }
             },
-            Operand::Immediate(value) => Err("Expected label found numeric".to_string()),
+            Operand::Immediate(_) => Err("Expected label found numeric".to_string()),
         }?;
         self.extracted_immediates.push(immediate);
         Ok(())
