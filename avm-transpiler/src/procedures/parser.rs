@@ -2,7 +2,7 @@ use regex::Regex;
 
 use crate::instructions::AvmTypeTag;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub(crate) enum Alias {
     // Compute
     ADD,
@@ -23,13 +23,11 @@ pub(crate) enum Alias {
     // Control flow
     JUMP,
     JUMPI,
-    INTERNALCALL,
-    INTERNALRETURN,
     // Memory
     SET,
     MOV,
     // Misc
-    RETURN,
+    INTERNALRETURN,
     ECADD,
     TORADIXBE,
 }
@@ -54,11 +52,9 @@ impl Alias {
             "CAST" => Alias::CAST,
             "JUMP" => Alias::JUMP,
             "JUMPI" => Alias::JUMPI,
-            "INTERNALCALL" => Alias::INTERNALCALL,
             "INTERNALRETURN" => Alias::INTERNALRETURN,
             "SET" => Alias::SET,
             "MOV" => Alias::MOV,
-            "RETURN" => Alias::RETURN,
             "ECADD" => Alias::ECADD,
             "TORADIXBE" => Alias::TORADIXBE,
             _ => unreachable!("Invalid alias {}", as_string),
@@ -66,7 +62,7 @@ impl Alias {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum Symbol {
     Direct(usize),
     Indirect(usize),
@@ -74,13 +70,13 @@ pub(crate) enum Symbol {
     Label(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum Operand {
     Symbol(Symbol),
     Immediate(u128),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct ParsedOpcode {
     pub(crate) alias: Alias,
     pub(crate) operands: Vec<Operand>,
@@ -136,6 +132,7 @@ fn parse_operands(operands: &str) -> Result<Vec<Operand>, String> {
     operands
         .split(',')
         .map(|operand| operand.trim())
+        .filter(|operand| !operand.is_empty())
         .map(|operand| {
             let Some(caps) = operand_regex.captures(operand) else {
                 return Err(format!("Operand `{}` is invalid", operand));

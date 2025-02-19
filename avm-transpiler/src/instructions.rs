@@ -5,6 +5,7 @@ use acvm::acir::brillig::MemoryAddress;
 use acvm::{AcirField, FieldElement};
 
 use crate::opcodes::AvmOpcode;
+use crate::procedures::Label as ProcedureLabel;
 
 /// A simple representation of an AVM instruction for the purpose
 /// of generating an AVM bytecode from Brillig.
@@ -130,6 +131,7 @@ pub enum AvmOperand {
     FF { value: FieldElement },
     // Unresolved brillig pc that needs translation to a 16 bit byte-indexed PC.
     BRILLIG_LOCATION { brillig_pc: u32 },
+    PROCEDURE_LABEL { label: ProcedureLabel },
 }
 
 impl Display for AvmOperand {
@@ -144,6 +146,7 @@ impl Display for AvmOperand {
             AvmOperand::BRILLIG_LOCATION { brillig_pc } => {
                 write!(f, " BRILLIG_LOCATION:{}", brillig_pc)
             }
+            AvmOperand::PROCEDURE_LABEL { label } => write!(f, " PROCEDURE_LABEL:{}", label),
         }
     }
 }
@@ -157,7 +160,9 @@ impl AvmOperand {
             AvmOperand::U64 { value } => value.to_be_bytes().to_vec(),
             AvmOperand::U128 { value } => value.to_be_bytes().to_vec(),
             AvmOperand::FF { value } => value.to_be_bytes(),
-            AvmOperand::BRILLIG_LOCATION { brillig_pc } => brillig_pc.to_be_bytes().to_vec(),
+            AvmOperand::BRILLIG_LOCATION { .. } | AvmOperand::PROCEDURE_LABEL { .. } => {
+                unreachable!("Can't serialize BRILLIG_LOCATION or PROCEDURE_LABEL, they must be resolved first")
+            }
         }
     }
 }

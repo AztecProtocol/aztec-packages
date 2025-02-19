@@ -78,16 +78,22 @@ OUTER_INC:      ADD d6, d7, d6; Increment the outer loop variable
 OUTER_END:      MOV d3, d0
                 MOV d4, d1
                 MOV d5, d2
-                RETURN
+                INTERNALRETURN
 ";
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::procedures::parser::parse;
+    use crate::procedures::{compiler::compile, parser::parse};
 
     #[test]
     fn smoke_parse_msm() {
         parse(MSM_ASSEMBLY).expect("Failed to parse MSM assembly");
+    }
+
+    #[test]
+    fn smoke_compile_msm() {
+        let parsed = parse(MSM_ASSEMBLY).expect("Failed to parse MSM assembly");
+        compile(parsed, "Fooo".to_string()).expect("Failed to compile MSM assembly");
     }
 }
