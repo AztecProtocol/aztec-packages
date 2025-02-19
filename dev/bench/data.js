@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739969313540,
+  "lastUpdate": 1739969563457,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "132435771+jeanmon@users.noreply.github.com",
-            "name": "Jean M",
-            "username": "jeanmon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6c9305897c9c333791d333d332cafa352f9bbe58",
-          "message": "feat: PIL relations modifications for bc decomposition (#11935)\n\n```\r\n----------------------------------------------------------------------\r\nBenchmark                            Time             CPU   Iterations\r\n----------------------------------------------------------------------\r\nalu_acc_random                   0.126 us        0.126 us      5553823\r\nbc_decomposition_acc_random       8.73 us         8.73 us        80583\r\nbc_retrieval_acc_random          0.024 us        0.024 us     29187915\r\nbitwise_acc_random                1.42 us         1.42 us       493026\r\necc_acc_random                    2.59 us         2.59 us       269872\r\nexecution_acc_random             0.524 us        0.524 us      1339762\r\ninstr_fetching_acc_random        0.024 us        0.024 us     29288136\r\nrange_check_acc_random            2.67 us         2.67 us       262513\r\nsha256_acc_random                 6.25 us         6.25 us       111991\r\n```",
-          "timestamp": "2025-02-13T17:34:57+01:00",
-          "tree_id": "6d597e1136ea4cf605059f4e576847822281d4eb",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/6c9305897c9c333791d333d332cafa352f9bbe58"
-        },
-        "date": 1739465955500,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 20794.973448000008,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 17974.696425000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21791.425892000007,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19180.924053 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4472.892544999979,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4112.5963329999995 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 73158.95751,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 73158958000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 13531.784989000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 13531785000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2490362517,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2490362517 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 147715099,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 147715099 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3300,6 +3234,72 @@ window.BENCHMARK_DATA = {
             "value": 130329855,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 130329855 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60546371+PhilWindle@users.noreply.github.com",
+            "name": "PhilWindle",
+            "username": "PhilWindle"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9dac0c6227a8b19b335e0b2812946273a9580a78",
+          "message": "chore: Provide defaults for bb and acvm in release image (#12105)\n\nThis PR attempts to fix deployments by re-instating defaults env vars\nfor bb and acvm in yarn project.",
+          "timestamp": "2025-02-19T12:41:18Z",
+          "tree_id": "dd3ec41b0f1fbc35ad4d6a8aae58de868f90f03b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/9dac0c6227a8b19b335e0b2812946273a9580a78"
+        },
+        "date": 1739969556062,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 17934.122342000024,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15866.812563000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18516.76063599996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16392.960636 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3832.938817000013,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3095.571844 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55038.778769,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55038776000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11039.586822,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11039588000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1806512226,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1806512226 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 128597189,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 128597189 ns\nthreads: 1"
           }
         ]
       }
