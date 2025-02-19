@@ -89,7 +89,7 @@ class lookup_dummy_precomputed_relation : public GenericLookupRelation<lookup_du
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.execution_sel.is_zero() && in.precomputed_sel_bitwise.is_zero();
+        return in.lookup_dummy_precomputed_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)
@@ -181,7 +181,7 @@ class lookup_dummy_dynamic_relation : public GenericLookupRelation<lookup_dummy_
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.execution_sel.is_zero() && in.execution_sel.is_zero();
+        return in.lookup_dummy_dynamic_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)

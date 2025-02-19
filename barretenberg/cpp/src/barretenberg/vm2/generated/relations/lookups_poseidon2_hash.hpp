@@ -98,7 +98,7 @@ class lookup_pos2_perm_relation : public GenericLookupRelation<lookup_pos2_perm_
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.poseidon2_hash_sel.is_zero() && in.poseidon2_perm_sel.is_zero();
+        return in.lookup_pos2_perm_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)

@@ -59,7 +59,7 @@ template <typename FF_> class {{perm_name}}_relation : public GenericPermutation
         {{! TODO: This is a safe skippable condition, but there might be a better one. --}}
         template <typename AllEntities> inline static bool skip(const AllEntities& in)
         {
-            return in.{{lhs_selector}}.is_zero() && in.{{rhs_selector}}.is_zero();
+            return in.{{inverses_col}}.is_zero();
         }
 
         static std::string get_subrelation_label(size_t index) {
