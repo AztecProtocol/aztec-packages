@@ -1095,22 +1095,6 @@ export class BarretenbergApiSync {
     return out as any;
   }
 
-  acirGatesMegaHonk(
-    constraintSystemBuf: Uint8Array,
-    recursive: boolean,
-    honkRecursion: boolean,
-  ): [number, number, number] {
-    const inArgs = [constraintSystemBuf, recursive, honkRecursion].map(serializeBufferable);
-    const outTypes: OutputType[] = [NumberDeserializer(), NumberDeserializer()];
-    const result = this.wasm.callWasmExport(
-      'acir_gate_mega_honk',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out as any;
-  }
-
   acirNewAcirComposer(sizeHint: number): Ptr {
     const inArgs = [sizeHint].map(serializeBufferable);
     const outTypes: OutputType[] = [Ptr];
