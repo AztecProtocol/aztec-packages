@@ -38,6 +38,13 @@ const BOOTSTRAP_NODE_PRIVATE_KEY = '080212208f988fc0899e4a73a5aee4d271a5f2067060
 const l1ContractsConfig = getL1ContractsConfigEnvVars();
 export const WAIT_FOR_TX_TIMEOUT = l1ContractsConfig.aztecSlotDuration * 3;
 
+export const SHORTENED_BLOCK_TIME_CONFIG = {
+  aztecEpochDuration: 4,
+  aztecSlotDuration: 12,
+  ethereumSlotDuration: 4,
+  aztecProofSubmissionWindow: 4 * 2 - 1, // epoch_duration * 2 - 1
+};
+
 export class P2PNetworkTest {
   private snapshotManager: ISnapshotManager;
   private baseAccount;
@@ -86,13 +93,19 @@ export class P2PNetworkTest {
       process.env.E2E_DATA_PATH,
       {
         ...initialValidatorConfig,
-        ethereumSlotDuration: l1ContractsConfig.ethereumSlotDuration,
+        ethereumSlotDuration: initialValidatorConfig.ethereumSlotDuration ?? l1ContractsConfig.ethereumSlotDuration,
+        aztecEpochDuration: initialValidatorConfig.aztecEpochDuration ?? l1ContractsConfig.aztecEpochDuration,
+        aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
+        aztecProofSubmissionWindow:
+          initialValidatorConfig.aztecProofSubmissionWindow ?? l1ContractsConfig.aztecProofSubmissionWindow,
         salt: 420,
         metricsPort: metricsPort,
         numberOfInitialFundedAccounts: 1,
       },
       {
         aztecEpochDuration: initialValidatorConfig.aztecEpochDuration ?? l1ContractsConfig.aztecEpochDuration,
+        ethereumSlotDuration: initialValidatorConfig.ethereumSlotDuration ?? l1ContractsConfig.ethereumSlotDuration,
+        aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
         aztecProofSubmissionWindow:
           initialValidatorConfig.aztecProofSubmissionWindow ?? l1ContractsConfig.aztecProofSubmissionWindow,
         assumeProvenThrough: assumeProvenThrough ?? Number.MAX_SAFE_INTEGER,
