@@ -572,14 +572,14 @@ export function injectCommands(
       if (txHash) {
         await checkTx(client, txHash, false, log);
       } else if (db) {
-        const aliases = db.listAliases('transactions');
+        const aliases = await db.listAliases('transactions');
         const totalPages = Math.ceil(aliases.length / pageSize);
         page = Math.min(page - 1, totalPages - 1);
         const dataRows = await Promise.all(
           aliases.slice(page * pageSize, pageSize * (1 + page)).map(async ({ key, value }) => ({
             alias: key,
             txHash: value,
-            cancellable: db.retrieveTxData(TxHash.fromString(value)).cancellable,
+            cancellable: (await db.retrieveTxData(TxHash.fromString(value))).cancellable,
             status: await checkTx(client, TxHash.fromString(value), true, log),
           })),
         );
@@ -623,7 +623,7 @@ export function injectCommands(
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
       const wallet = await getWalletWithScopes(account, db);
 
-      const txData = db?.retrieveTxData(txHash);
+      const txData = await db?.retrieveTxData(txHash);
       if (!txData) {
         throw new Error('Transaction data not found in the database, cannot reuse nonce');
       }

@@ -25,7 +25,7 @@ export async function createOrRetrieveAccount(
   salt ??= Fr.ZERO;
 
   if (db && address) {
-    ({ type, secretKey, salt } = db.retrieveAccount(address));
+    ({ type, secretKey, salt } = await db.retrieveAccount(address));
   }
 
   if (!salt) {
@@ -45,7 +45,7 @@ export async function createOrRetrieveAccount(
     case 'ecdsasecp256r1ssh': {
       let publicSigningKey;
       if (db && address) {
-        publicSigningKey = db.retrieveAccountMetadata(address, 'publicSigningKey');
+        publicSigningKey = await db.retrieveAccountMetadata(address, 'publicSigningKey');
       } else if (publicKey) {
         const identities = await getIdentities();
         const foundIdentity = identities.find(
@@ -89,7 +89,7 @@ export async function getWalletWithScopes(account: AccountManager, db?: WalletDB
     const address = wallet.getAddress().toString();
     let storedScopes: string[] = [];
     try {
-      storedScopes = (db.retrieveAccountMetadata(wallet.getAddress(), 'scopes') ?? '').toString().split(',');
+      storedScopes = ((await db.retrieveAccountMetadata(wallet.getAddress(), 'scopes')) ?? '').toString().split(',');
       // eslint-disable-next-line no-empty
     } catch {}
     const currentScopes = wallet.getScopes()?.map(scopes => scopes.toString()) ?? [];

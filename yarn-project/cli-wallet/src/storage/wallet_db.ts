@@ -1,7 +1,7 @@
 import { type AuthWitness, type TxHash } from '@aztec/circuit-types';
 import { type AztecAddress, Fr, GasSettings } from '@aztec/circuits.js';
 import { type LogFn } from '@aztec/foundation/log';
-import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
+import { type AztecAsyncKVStore, type AztecAsyncMap } from '@aztec/kv-store';
 
 import { type AccountType } from '../utils/accounts.js';
 import { extractECDSAPublicKeyFromBase64String } from '../utils/ecdsa.js';
@@ -10,12 +10,14 @@ export const Aliases = ['accounts', 'contracts', 'artifacts', 'secrets', 'transa
 export type AliasType = (typeof Aliases)[number];
 
 export class WalletDB {
-  #accounts!: AztecMap<string, Buffer>;
-  #aliases!: AztecMap<string, Buffer>;
-  #bridgedFeeJuice!: AztecMap<string, Buffer>;
-  #transactions!: AztecMap<string, Buffer>;
+  #accounts!: AztecAsyncMap<string, Buffer>;
+  #aliases!: AztecAsyncMap<string, Buffer>;
+  #bridgedFeeJuice!: AztecAsyncMap<string, Buffer>;
+  #transactions!: AztecAsyncMap<string, Buffer>;
 
   private static instance: WalletDB;
+
+  private aliasCache = new Map<string, string>();
 
   static getInstance() {
     if (!WalletDB.instance) {
@@ -25,15 +27,21 @@ export class WalletDB {
     return WalletDB.instance;
   }
 
-  init(store: AztecKVStore) {
+  async init(store: AztecAsyncKVStore) {
     this.#accounts = store.openMap('accounts');
     this.#aliases = store.openMap('aliases');
     this.#bridgedFeeJuice = store.openMap('bridgedFeeJuice');
     this.#transactions = store.openMap('transactions');
+
+    await this.refreshAliasCache();
+  }
+
+  private async refreshAliasCache() {
+    this.aliasCache = new Map((await this.listAliases()).map(({ key, value }) => [key, value]));
   }
 
   async pushBridgedFeeJuice(recipient: AztecAddress, secret: Fr, amount: bigint, leafIndex: bigint, log: LogFn) {
-    let stackPointer = this.#bridgedFeeJuice.get(`${recipient.toString()}:stackPointer`)?.readInt8() || 0;
+    let stackPointer = (await this.#bridgedFeeJuice.getAsync(`${recipient.toString()}:stackPointer`))?.readInt8() || 0;
     stackPointer++;
     await this.#bridgedFeeJuice.set(
       `${recipient.toString()}:${stackPointer}`,
@@ -44,8 +52,8 @@ export class WalletDB {
   }
 
   async popBridgedFeeJuice(recipient: AztecAddress, log: LogFn) {
-    let stackPointer = this.#bridgedFeeJuice.get(`${recipient.toString()}:stackPointer`)?.readInt8() || 0;
-    const result = this.#bridgedFeeJuice.get(`${recipient.toString()}:${stackPointer}`);
+    let stackPointer = (await this.#bridgedFeeJuice.getAsync(`${recipient.toString()}:stackPointer`))?.readInt8() || 0;
+    const result = this.#bridgedFeeJuice.getAsync(`${recipient.toString()}:${stackPointer}`);
     if (!result) {
       throw new Error(
         `No stored fee juice available for recipient ${recipient.toString()}. Please provide claim amount and secret. Stack pointer ${stackPointer}`,
@@ -80,11 +88,15 @@ export class WalletDB {
     }
     await this.#aliases.set('accounts:last', Buffer.from(address.toString()));
     log(`Account stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
+
+    await this.refreshAliasCache();
   }
 
   async storeSender(address: AztecAddress, alias: string, log: LogFn) {
     await this.#aliases.set(`accounts:${alias}`, Buffer.from(address.toString()));
     log(`Account stored in database with alias ${alias} as a sender`);
+
+    await this.refreshAliasCache();
   }
 
   async storeContract(address: AztecAddress, artifactPath: string, log: LogFn, alias?: string) {
@@ -96,6 +108,8 @@ export class WalletDB {
     await this.#aliases.set(`artifacts:last`, Buffer.from(artifactPath));
     await this.#aliases.set(`artifacts:${address.toString()}`, Buffer.from(artifactPath));
     log(`Contract stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
+
+    await this.refreshAliasCache();
   }
 
   async storeAuthwitness(authWit: AuthWitness, log: LogFn, alias?: string) {
@@ -104,6 +118,8 @@ export class WalletDB {
     }
     await this.#aliases.set(`authwits:last`, Buffer.from(authWit.toString()));
     log(`Authorization witness stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
+
+    await this.refreshAliasCache();
   }
 
   async storeTx(
@@ -124,33 +140,36 @@ export class WalletDB {
     await this.#transactions.set(`${txHash.toString()}:gasSettings`, gasSettings.toBuffer());
     await this.#aliases.set(`transactions:last`, Buffer.from(txHash.toString()));
     log(`Transaction hash stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
+
+    await this.refreshAliasCache();
   }
 
-  retrieveTxData(txHash: TxHash) {
-    const nonceBuffer = this.#transactions.get(`${txHash.toString()}:nonce`);
+  async retrieveTxData(txHash: TxHash) {
+    const nonceBuffer = await this.#transactions.getAsync(`${txHash.toString()}:nonce`);
     if (!nonceBuffer) {
       throw new Error(
         `Could not find ${txHash.toString()}:nonce. Transaction with hash "${txHash.toString()}" does not exist on this wallet.`,
       );
     }
     const nonce = Fr.fromBuffer(nonceBuffer);
-    const cancellable = this.#transactions.get(`${txHash.toString()}:cancellable`)!.toString() === 'true';
-    const gasBuffer = this.#transactions.get(`${txHash.toString()}:gasSettings`)!;
+    const cancellable = (await this.#transactions.getAsync(`${txHash.toString()}:cancellable`))!.toString() === 'true';
+    const gasBuffer = (await this.#transactions.getAsync(`${txHash.toString()}:gasSettings`))!;
     return { txHash, nonce, cancellable, gasSettings: GasSettings.fromBuffer(gasBuffer) };
   }
 
   tryRetrieveAlias(arg: string) {
     try {
-      return this.retrieveAlias(arg);
+      return this.retrieveAliasFromCache(arg);
     } catch (e) {
       return arg;
     }
   }
 
-  retrieveAlias(arg: string) {
+  public retrieveAliasFromCache(arg: string) {
     if (Aliases.find(alias => arg.startsWith(`${alias}:`))) {
       const [type, ...alias] = arg.split(':');
-      const data = this.#aliases.get(`${type}:${alias.join(':') ?? 'last'}`);
+      const aliasKey = `${type}:${alias.join(':') ?? 'last'}`;
+      const data = this.aliasCache.get(aliasKey);
       if (!data) {
         throw new Error(`Could not find alias ${arg}`);
       }
@@ -160,12 +179,25 @@ export class WalletDB {
     }
   }
 
-  listAliases(type?: AliasType) {
+  async retrieveAlias(arg: string) {
+    if (Aliases.find(alias => arg.startsWith(`${alias}:`))) {
+      const [type, ...alias] = arg.split(':');
+      const data = await this.#aliases.getAsync(`${type}:${alias.join(':') ?? 'last'}`);
+      if (!data) {
+        throw new Error(`Could not find alias ${arg}`);
+      }
+      return data.toString();
+    } else {
+      throw new Error(`Aliases must start with one of ${Aliases.join(', ')}`);
+    }
+  }
+
+  async listAliases(type?: AliasType) {
     const result = [];
     if (type && !Aliases.includes(type)) {
       throw new Error(`Unknown alias type ${type}`);
     }
-    for (const [key, value] of this.#aliases.entries()) {
+    for await (const [key, value] of this.#aliases.entriesAsync()) {
       if (!type || key.startsWith(`${type}:`)) {
         result.push({ key, value: value.toString() });
       }
@@ -174,32 +206,35 @@ export class WalletDB {
   }
 
   async storeAccountMetadata(aliasOrAddress: AztecAddress | string, metadataKey: string, metadata: Buffer) {
-    const { address } = this.retrieveAccount(aliasOrAddress);
+    const { address } = await this.retrieveAccount(aliasOrAddress);
     await this.#accounts.set(`${address.toString()}:${metadataKey}`, metadata);
   }
 
-  retrieveAccountMetadata(aliasOrAddress: AztecAddress | string, metadataKey: string) {
-    const { address } = this.retrieveAccount(aliasOrAddress);
-    const result = this.#accounts.get(`${address.toString()}:${metadataKey}`);
+  async retrieveAccountMetadata(aliasOrAddress: AztecAddress | string, metadataKey: string) {
+    const { address } = await this.retrieveAccount(aliasOrAddress);
+    const result = await this.#accounts.getAsync(`${address.toString()}:${metadataKey}`);
     if (!result) {
       throw new Error(`Could not find metadata with key ${metadataKey} for account ${aliasOrAddress}`);
     }
     return result;
   }
 
-  retrieveAccount(address: AztecAddress | string) {
-    const secretKeyBuffer = this.#accounts.get(`${address.toString()}:sk`);
+  async retrieveAccount(address: AztecAddress | string) {
+    const secretKeyBuffer = await this.#accounts.getAsync(`${address.toString()}:sk`);
     if (!secretKeyBuffer) {
       throw new Error(`Could not find ${address}:sk. Account "${address.toString}" does not exist on this wallet.`);
     }
     const secretKey = Fr.fromBuffer(secretKeyBuffer);
-    const salt = Fr.fromBuffer(this.#accounts.get(`${address.toString()}:salt`)!);
-    const type = this.#accounts.get(`${address.toString()}:type`)!.toString('utf8') as AccountType;
+    const salt = Fr.fromBuffer((await this.#accounts.getAsync(`${address.toString()}:salt`))!);
+    const type = (await this.#accounts.getAsync(`${address.toString()}:type`))!.toString('utf8') as AccountType;
     return { address, secretKey, salt, type };
   }
 
   async storeAlias(type: AliasType, key: string, value: Buffer, log: LogFn) {
     await this.#aliases.set(`${type}:${key}`, value);
+    await this.refreshAliasCache();
     log(`Data stored in database with alias ${type}:${key}`);
+
+    await this.refreshAliasCache();
   }
 }
