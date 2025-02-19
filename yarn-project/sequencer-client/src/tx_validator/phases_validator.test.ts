@@ -1,4 +1,5 @@
-import { type Tx, mockTx } from '@aztec/circuit-types';
+import { type Tx } from '@aztec/circuit-types';
+import { mockTx } from '@aztec/circuit-types/testing';
 import { type AztecAddress, type ContractDataSource, Fr, type FunctionSelector } from '@aztec/circuits.js';
 import { makeAztecAddress, makeSelector } from '@aztec/circuits.js/testing';
 

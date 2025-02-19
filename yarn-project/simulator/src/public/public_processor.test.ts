@@ -1,23 +1,12 @@
+import { type ProcessedTx, SimulationError, type Tx, type TxValidator } from '@aztec/circuit-types';
 import {
   type MerkleTreeWriteOperations,
-  type ProcessedTx,
   ProvingRequestType,
-  SimulationError,
   type TreeInfo,
-  type Tx,
-  type TxValidator,
-  mockTx,
-} from '@aztec/circuit-types';
-import {
-  AvmCircuitInputs,
-  AztecAddress,
-  Fr,
-  Gas,
-  GasFees,
-  GlobalVariables,
-  PublicDataWrite,
-  RevertCode,
-} from '@aztec/circuits.js';
+} from '@aztec/circuit-types/interfaces/server';
+import { mockTx } from '@aztec/circuit-types/testing';
+import { AztecAddress, Fr, Gas, GasFees, GlobalVariables, PublicDataWrite, RevertCode } from '@aztec/circuits.js';
+import { AvmCircuitInputs } from '@aztec/circuits.js/avm';
 import { timesParallel } from '@aztec/foundation/collection';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
@@ -66,6 +55,7 @@ describe('public_processor', () => {
         totalGas: Gas.empty(),
         teardownGas: Gas.empty(),
         publicGas: Gas.empty(),
+        billedGas: Gas.empty(),
       },
       revertCode: RevertCode.OK,
       processedPhases: [],

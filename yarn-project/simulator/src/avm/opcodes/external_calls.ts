@@ -1,7 +1,6 @@
 import type { AvmContext } from '../avm_context.js';
 import { type AvmContractCallResult } from '../avm_contract_call_result.js';
 import { type Field, TypeTag, Uint1 } from '../avm_memory_types.js';
-import { AvmSimulator } from '../avm_simulator.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
@@ -62,7 +61,7 @@ abstract class ExternalCall extends Instruction {
     const aztecAddress = callAddress.toAztecAddress();
     const nestedContext = await context.createNestedContractCallContext(aztecAddress, calldata, allocatedGas, callType);
 
-    const simulator = await AvmSimulator.build(nestedContext);
+    const simulator = await context.provideSimulator!(nestedContext);
     const nestedCallResults: AvmContractCallResult = await simulator.execute();
     const success = !nestedCallResults.reverted;
 

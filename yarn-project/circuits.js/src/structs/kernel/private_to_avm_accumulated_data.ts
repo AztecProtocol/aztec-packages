@@ -1,3 +1,9 @@
+import {
+  MAX_L2_TO_L1_MSGS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+  PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH,
+} from '@aztec/constants';
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
@@ -11,14 +17,8 @@ import {
 
 import { inspect } from 'util';
 
-import {
-  MAX_L2_TO_L1_MSGS_PER_TX,
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH,
-} from '../../constants.gen.js';
+import { type UInt32 } from '../../types/shared.js';
 import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
-import { type UInt32 } from '../shared.js';
 
 export class PrivateToAvmAccumulatedData {
   constructor(

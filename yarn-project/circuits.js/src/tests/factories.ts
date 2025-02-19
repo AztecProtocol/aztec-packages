@@ -1,45 +1,12 @@
-import { type FieldsOf, makeHalfFullTuple, makeTuple } from '@aztec/foundation/array';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { compact } from '@aztec/foundation/collection';
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
-import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Bufferable } from '@aztec/foundation/serialize';
-
-import { SchnorrSignature } from '../barretenberg/index.js';
-import {
-  type ContractClassPublic,
-  type ContractInstanceWithAddress,
-  type ExecutablePrivateFunctionWithMembershipProof,
-  type PrivateFunction,
-  type PublicFunction,
-  SerializableContractInstance,
-  type UnconstrainedFunctionWithMembershipProof,
-} from '../contract/index.js';
+import { makeBlockBlobPublicInputs, makeSpongeBlob } from '@aztec/blob-lib/testing';
 import {
   ARCHIVE_HEIGHT,
   AVM_PROOF_LENGTH_IN_FIELDS,
   AZTEC_MAX_EPOCH_DURATION,
-  AvmCircuitInputs,
-  AvmContractInstanceHint,
-  AvmExecutionHints,
   BLOBS_PER_BLOCK,
-  BaseParityInputs,
-  CallContext,
-  CombinedConstantData,
-  ContractStorageRead,
-  ContractStorageUpdateRequest,
   FIELDS_PER_BLOB,
-  Fr,
-  FunctionData,
-  FunctionSelector,
   GeneratorIndex,
-  GrumpkinScalar,
-  KeyValidationRequest,
-  KeyValidationRequestAndGenerator,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-  L2ToL1Message,
-  LogHash,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_ENQUEUED_CALLS_PER_CALL,
   MAX_ENQUEUED_CALLS_PER_TX,
@@ -57,8 +24,6 @@ import {
   MAX_PRIVATE_LOGS_PER_TX,
   MAX_PUBLIC_LOGS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MaxBlockNumber,
-  MembershipWitness,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
@@ -66,39 +31,65 @@ import {
   NULLIFIER_TREE_HEIGHT,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   NUM_MSGS_PER_BASE_PARITY,
-  NoteHash,
-  Nullifier,
-  NullifierLeafPreimage,
   PRIVATE_LOG_SIZE_IN_FIELDS,
   PUBLIC_DATA_TREE_HEIGHT,
   PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
+  RECURSIVE_PROOF_LENGTH,
+  TUBE_PROOF_LENGTH,
+  VK_TREE_HEIGHT,
+} from '@aztec/constants';
+import { type FieldsOf, makeHalfFullTuple, makeTuple } from '@aztec/foundation/array';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { compact } from '@aztec/foundation/collection';
+import { SchnorrSignature, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { type Bufferable } from '@aztec/foundation/serialize';
+import { MembershipWitness } from '@aztec/foundation/trees';
+
+import {
+  type ContractClassPublic,
+  type ContractInstanceWithAddress,
+  type ExecutablePrivateFunctionWithMembershipProof,
+  type PrivateFunction,
+  type PublicFunction,
+  SerializableContractInstance,
+  type UnconstrainedFunctionWithMembershipProof,
+} from '../contract/index.js';
+import {
+  BaseParityInputs,
+  CallContext,
+  ContractStorageRead,
+  ContractStorageUpdateRequest,
+  Fr,
+  FunctionData,
+  FunctionSelector,
+  GrumpkinScalar,
+  KeyValidationRequest,
+  KeyValidationRequestAndGenerator,
+  L2ToL1Message,
+  LogHash,
+  MaxBlockNumber,
+  NoteHash,
+  Nullifier,
   ParityPublicInputs,
-  PartialPrivateTailPublicInputsForPublic,
-  PartialPrivateTailPublicInputsForRollup,
   PartialStateReference,
   Point,
   PrivateCallRequest,
   PrivateCircuitPublicInputs,
-  PrivateKernelTailCircuitPublicInputs,
-  PrivateToRollupAccumulatedData,
   Proof,
   PublicCallRequest,
   PublicDataHint,
   PublicDataRead,
-  PublicDataTreeLeaf,
-  PublicDataTreeLeafPreimage,
   PublicKeys,
-  RECURSIVE_PROOF_LENGTH,
   ReadRequest,
   RollupTypes,
   RootParityInput,
   RootParityInputs,
   ScopedLogHash,
   StateReference,
-  TUBE_PROOF_LENGTH,
   TxContext,
   TxRequest,
-  VK_TREE_HEIGHT,
   Vector,
   VerificationKey,
   VerificationKeyAsFields,
@@ -108,8 +99,20 @@ import {
   computePublicBytecodeCommitment,
   makeRecursiveProof,
 } from '../index.js';
-import { BlobPublicInputs, BlockBlobPublicInputs } from '../structs/blobs/blob_public_inputs.js';
-import { Poseidon2Sponge, SpongeBlob } from '../structs/blobs/sponge_blob.js';
+import {
+  AvmAccumulatedData,
+  AvmAppendTreeHint,
+  AvmCircuitInputs,
+  AvmCircuitPublicInputs,
+  AvmContractBytecodeHints,
+  AvmContractInstanceHint,
+  AvmEnqueuedCallHint,
+  AvmExecutionHints,
+  AvmNullifierReadTreeHint,
+  AvmNullifierWriteTreeHint,
+  AvmPublicDataReadTreeHint,
+  AvmPublicDataWriteTreeHint,
+} from '../structs/avm/index.js';
 import { BlockHeader } from '../structs/block_header.js';
 import { ContentCommitment, NUM_BYTES_PER_SHA256 } from '../structs/content_commitment.js';
 import { Gas } from '../structs/gas.js';
@@ -117,29 +120,27 @@ import { GasFees } from '../structs/gas_fees.js';
 import { GasSettings } from '../structs/gas_settings.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 import {
-  AvmAccumulatedData,
-  AvmAppendTreeHint,
-  AvmCircuitPublicInputs,
-  AvmContractBytecodeHints,
-  AvmEnqueuedCallHint,
-  AvmNullifierReadTreeHint,
-  AvmNullifierWriteTreeHint,
-  AvmPublicDataReadTreeHint,
-  AvmPublicDataWriteTreeHint,
   CountedPublicCallRequest,
   PrivateLog,
   PrivateLogData,
-  PrivateToAvmAccumulatedData,
-  PrivateToAvmAccumulatedDataArrayLengths,
-  PrivateToPublicAccumulatedData,
-  PrivateToPublicKernelCircuitPublicInputs,
   PublicDataWrite,
   PublicLog,
   ScopedL2ToL1Message,
   TreeSnapshots,
-  TxConstantData,
   VkWitnessData,
 } from '../structs/index.js';
+import {
+  CombinedConstantData,
+  PartialPrivateTailPublicInputsForPublic,
+  PartialPrivateTailPublicInputsForRollup,
+  PrivateKernelTailCircuitPublicInputs,
+  PrivateToAvmAccumulatedData,
+  PrivateToAvmAccumulatedDataArrayLengths,
+  PrivateToPublicAccumulatedData,
+  PrivateToPublicKernelCircuitPublicInputs,
+  PrivateToRollupAccumulatedData,
+  TxConstantData,
+} from '../structs/kernel/index.js';
 import { PrivateToRollupKernelCircuitPublicInputs } from '../structs/kernel/private_to_rollup_kernel_circuit_public_inputs.js';
 import { AvmProofData } from '../structs/rollup/avm_proof_data.js';
 import { BaseOrMergeRollupPublicInputs } from '../structs/rollup/base_or_merge_rollup_public_inputs.js';
@@ -168,6 +169,8 @@ import { RootRollupInputs, RootRollupPublicInputs } from '../structs/rollup/root
 import { PrivateBaseStateDiffHints } from '../structs/rollup/state_diff_hints.js';
 import { RollupValidationRequests } from '../structs/rollup_validation_requests.js';
 import { AppendOnlyTreeSnapshot } from '../structs/trees/append_only_tree_snapshot.js';
+import { NullifierLeafPreimage } from '../structs/trees/nullifier_leaf.js';
+import { PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '../structs/trees/public_data_leaf.js';
 
 /**
  * Creates an arbitrary side effect object with the given seed.
@@ -633,36 +636,6 @@ export function makeScopedL2ToL1Message(seed = 1): ScopedL2ToL1Message {
  */
 export function makeAppendOnlyTreeSnapshot(seed = 1): AppendOnlyTreeSnapshot {
   return new AppendOnlyTreeSnapshot(fr(seed), seed);
-}
-
-/**
- * Makes arbitrary poseidon sponge for blob inputs.
- * Note: will not verify inside the circuit.
- * @param seed - The seed to use for generating the sponge.
- * @returns A sponge blob instance.
- */
-export function makeSpongeBlob(seed = 1): SpongeBlob {
-  return new SpongeBlob(new Poseidon2Sponge(makeTuple(3, fr), makeTuple(4, fr), 1, false), seed, seed + 1);
-}
-
-/**
- * Makes arbitrary blob public inputs.
- * Note: will not verify inside the circuit.
- * @param seed - The seed to use for generating the blob inputs.
- * @returns A blob public inputs instance.
- */
-export function makeBlobPublicInputs(seed = 1): BlobPublicInputs {
-  return new BlobPublicInputs(fr(seed), BigInt(seed + 1), makeTuple(2, fr));
-}
-
-/**
- * Makes arbitrary block blob public inputs.
- * Note: will not verify inside the circuit.
- * @param seed - The seed to use for generating the blob inputs.
- * @returns A block blob public inputs instance.
- */
-export function makeBlockBlobPublicInputs(seed = 1): BlockBlobPublicInputs {
-  return new BlockBlobPublicInputs(makeTuple(BLOBS_PER_BLOCK, () => makeBlobPublicInputs(seed)));
 }
 
 /**

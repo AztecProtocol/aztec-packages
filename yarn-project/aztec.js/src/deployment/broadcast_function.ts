@@ -1,14 +1,16 @@
 import { Capsule } from '@aztec/circuit-types';
+import { type ContractArtifact, FunctionSelector, FunctionType, bufferAsFields } from '@aztec/circuits.js/abi';
 import {
-  ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
-  MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
-  REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
   computeVerificationKeyHash,
   createPrivateFunctionMembershipProof,
   createUnconstrainedFunctionMembershipProof,
   getContractClassFromArtifact,
-} from '@aztec/circuits.js';
-import { type ContractArtifact, FunctionSelector, FunctionType, bufferAsFields } from '@aztec/foundation/abi';
+} from '@aztec/circuits.js/contract';
+import {
+  ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
+  MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
+  REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
+} from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';

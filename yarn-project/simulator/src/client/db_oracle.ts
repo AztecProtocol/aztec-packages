@@ -2,10 +2,10 @@ import {
   type L2Block,
   type MerkleTreeId,
   type NoteStatus,
-  type NullifierMembershipWitness,
   type PublicDataWitness,
   type TxScopedL2Log,
 } from '@aztec/circuit-types';
+import { type NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/client';
 import {
   type BlockHeader,
   type CompleteAddress,
@@ -13,7 +13,7 @@ import {
   type IndexedTaggingSecret,
   type KeyValidationRequest,
 } from '@aztec/circuits.js';
-import { type FunctionArtifact, type FunctionSelector } from '@aztec/foundation/abi';
+import { type FunctionArtifact, type FunctionSelector } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
 

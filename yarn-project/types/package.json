@@ -5,11 +5,7 @@
   "main": "./dest/index.js",
   "types": "./dest/index.d.ts",
   "exports": {
-    "./abi": "./dest/abi/index.js",
-    "./contracts": "./dest/contracts/index.js",
     "./interfaces": "./dest/interfaces/index.js",
-    "./membership": "./dest/sibling-path/index.js",
-    "./noir": "./dest/noir/index.js",
     "./network": "./dest/network/index.js"
   },
   "scripts": {

@@ -1,8 +1,5 @@
 import {
-  type AvmProvingRequest,
   MerkleTreeId,
-  type MerkleTreeReadOperations,
-  ProvingRequestType,
   type PublicExecutionRequest,
   type SimulationError,
   type Tx,
@@ -10,22 +7,16 @@ import {
   type TxHash,
 } from '@aztec/circuit-types';
 import {
-  AvmCircuitInputs,
-  type AvmCircuitPublicInputs,
+  type AvmProvingRequest,
+  type MerkleTreeReadOperations,
+  ProvingRequestType,
+} from '@aztec/circuit-types/interfaces/server';
+import {
   type AztecAddress,
   Fr,
   Gas,
   type GasSettings,
   type GlobalVariables,
-  MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
-  MAX_L2_TO_L1_MSGS_PER_TX,
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  NULLIFIER_SUBTREE_HEIGHT,
-  PrivateToAvmAccumulatedData,
-  PrivateToAvmAccumulatedDataArrayLengths,
-  type PrivateToPublicAccumulatedData,
   PublicCallRequest,
   PublicDataWrite,
   RevertCode,
@@ -35,6 +26,20 @@ import {
   countAccumulatedItems,
   mergeAccumulatedData,
 } from '@aztec/circuits.js';
+import { AvmCircuitInputs, type AvmCircuitPublicInputs } from '@aztec/circuits.js/avm';
+import {
+  PrivateToAvmAccumulatedData,
+  PrivateToAvmAccumulatedDataArrayLengths,
+  type PrivateToPublicAccumulatedData,
+} from '@aztec/circuits.js/kernel';
+import {
+  MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
+  MAX_L2_TO_L1_MSGS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  NULLIFIER_SUBTREE_HEIGHT,
+} from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';

@@ -1,7 +1,9 @@
-import { type MerkleTreeWriteOperations, PublicExecutionRequest, type Tx } from '@aztec/circuit-types';
-import { CallContext, FunctionSelector, GasFees, GlobalVariables, PUBLIC_DISPATCH_SELECTOR } from '@aztec/circuits.js';
-import { type ContractArtifact, encodeArguments } from '@aztec/foundation/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { PublicExecutionRequest, type Tx } from '@aztec/circuit-types';
+import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
+import { CallContext, FunctionSelector, GasFees, GlobalVariables } from '@aztec/circuits.js';
+import { type ContractArtifact, encodeArguments } from '@aztec/circuits.js/abi';
+import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 import { NativeWorldStateService } from '@aztec/world-state';

@@ -7,7 +7,7 @@ import {
   getContractClassFromArtifact,
   getContractInstanceFromDeployParams,
 } from '@aztec/circuits.js';
-import { type ContractArtifact, type FunctionArtifact, getInitializer } from '@aztec/foundation/abi';
+import { type ContractArtifact, type FunctionArtifact, getInitializer } from '@aztec/circuits.js/abi';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { type Wallet } from '../account/index.js';

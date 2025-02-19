@@ -1,17 +1,11 @@
 import { type PublicExecutionRequest, Tx } from '@aztec/circuit-types';
+import { BlockHeader, Gas, GasFees, GasSettings, RollupValidationRequests, TxContext } from '@aztec/circuits.js';
 import {
-  BlockHeader,
-  DEFAULT_GAS_LIMIT,
-  Gas,
-  GasFees,
-  GasSettings,
-  MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
   PartialPrivateTailPublicInputsForPublic,
   PrivateKernelTailCircuitPublicInputs,
-  RollupValidationRequests,
   TxConstantData,
-  TxContext,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/kernel';
+import { DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/constants';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 

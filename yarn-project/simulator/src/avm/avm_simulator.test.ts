@@ -1,14 +1,7 @@
-import { MerkleTreeId, type MerkleTreeWriteOperations } from '@aztec/circuit-types';
-import {
-  DEPLOYER_CONTRACT_ADDRESS,
-  GasFees,
-  type NullifierLeafPreimage,
-  PublicDataTreeLeafPreimage,
-  PublicDataWrite,
-  PublicKeys,
-  SerializableContractInstance,
-} from '@aztec/circuits.js';
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { MerkleTreeId } from '@aztec/circuit-types';
+import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
+import { GasFees, PublicDataWrite, PublicKeys, SerializableContractInstance } from '@aztec/circuits.js';
+import { FunctionSelector } from '@aztec/circuits.js/abi';
 import {
   computeNoteHashNonce,
   computePublicDataTreeLeafSlot,
@@ -18,9 +11,18 @@ import {
   siloNullifier,
 } from '@aztec/circuits.js/hash';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
-import { FunctionSelector } from '@aztec/foundation/abi';
+import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
+import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { keccak256, keccakf1600, pedersenCommit, pedersenHash, poseidon2Hash, sha256 } from '@aztec/foundation/crypto';
+import {
+  Grumpkin,
+  keccak256,
+  keccakf1600,
+  pedersenCommit,
+  pedersenHash,
+  poseidon2Hash,
+  sha256,
+} from '@aztec/foundation/crypto';
 import { Fq, Fr, Point } from '@aztec/foundation/fields';
 import { type Fieldable } from '@aztec/foundation/serialize';
 import { NativeWorldStateService } from '@aztec/world-state';

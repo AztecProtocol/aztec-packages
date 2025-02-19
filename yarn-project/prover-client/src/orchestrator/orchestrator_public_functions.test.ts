@@ -1,4 +1,4 @@
-import { mockTx } from '@aztec/circuit-types';
+import { mockTx } from '@aztec/circuit-types/testing';
 import { createLogger } from '@aztec/foundation/log';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';

@@ -1,12 +1,8 @@
-import { MerkleTreeId, type MerkleTreeWriteOperations } from '@aztec/circuit-types';
-import {
-  type AztecAddress,
-  type ContractDataSource,
-  Fr,
-  type PublicDataTreeLeafPreimage,
-  PublicDataWrite,
-} from '@aztec/circuits.js';
+import { MerkleTreeId } from '@aztec/circuit-types';
+import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
+import { type AztecAddress, type ContractDataSource, Fr, PublicDataWrite } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { type PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
 import { WorldStateDB } from '@aztec/simulator/server';
 
 import { type TXE } from '../oracle/txe_oracle.js';

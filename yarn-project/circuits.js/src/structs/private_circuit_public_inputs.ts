@@ -1,15 +1,3 @@
-import { makeTuple } from '@aztec/foundation/array';
-import { Fr } from '@aztec/foundation/fields';
-import { bufferSchemaFor } from '@aztec/foundation/schemas';
-import {
-  BufferReader,
-  FieldReader,
-  type Tuple,
-  serializeToBuffer,
-  serializeToFields,
-} from '@aztec/foundation/serialize';
-import { type FieldsOf } from '@aztec/foundation/types';
-
 import {
   MAX_CONTRACT_CLASS_LOGS_PER_CALL,
   MAX_ENQUEUED_CALLS_PER_CALL,
@@ -22,7 +10,19 @@ import {
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PRIVATE_LOGS_PER_CALL,
   PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-} from '../constants.gen.js';
+} from '@aztec/constants';
+import { makeTuple } from '@aztec/foundation/array';
+import { Fr } from '@aztec/foundation/fields';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
+import {
+  BufferReader,
+  FieldReader,
+  type Tuple,
+  serializeToBuffer,
+  serializeToFields,
+} from '@aztec/foundation/serialize';
+import { type FieldsOf } from '@aztec/foundation/types';
+
 import { BlockHeader } from '../structs/block_header.js';
 import { isEmptyArray } from '../utils/index.js';
 import { CallContext } from './call_context.js';

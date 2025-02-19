@@ -1,7 +1,3 @@
-import { makeTuple } from '@aztec/foundation/array';
-import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
-import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
-
 import {
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_ENQUEUED_CALLS_PER_TX,
@@ -10,7 +6,11 @@ import {
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
-} from '../../constants.gen.js';
+} from '@aztec/constants';
+import { makeTuple } from '@aztec/foundation/array';
+import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
+
 import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
 import { ScopedLogHash } from '../log_hash.js';
 import { ScopedNoteHash } from '../note_hash.js';
