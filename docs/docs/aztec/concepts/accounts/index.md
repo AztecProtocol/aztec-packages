@@ -6,11 +6,11 @@ tags: [accounts]
 
 Aztec has native account abstraction. Every account in Aztec is a smart contract.
 
-In this section, you’ll learn about Aztec’s account abstraction, Aztec accounts and address derivation, how wallets relate to accounts, and how the entrypoints are defined.
+In this section, you'll learn about Aztec's account abstraction, Aztec accounts and address derivation, how wallets relate to accounts, and how the entrypoints are defined.
 
 ## Account Abstraction (AA)
 
-Under the Account Abstraction, the identity of a user is usually represented by a smart contract.
+Under the Account Abstraction, the identity of a user is usually represented by a smart contract. That makes user's on-chain identity more flexible. For example, Bitcoin has rigid accounts that must be a private key, whereas a user might want their on-chain identity to be represented by a physical passport.
 
 Among the account parts to be abstracted are authentication (“Who I am”), authorization (“What I am allowed to do”), replay protection, fee payment, and execution.
 
@@ -28,7 +28,7 @@ In the case of Aztec, we have native Account Abstraction.
 
 While we talk about “arbitrary verification logic” describing the intuition behind AA, the logic is usually not really arbitrary. The verification logic (i.e. what can be checked as an authorization) is limited to make the verification time fast and bounded. If it is not bounded, an attacker can flood the mempool with expensive invalid transactions clogging the network. That is the case for all chains where transaction validity is checked by the sequencer.
 
-On Aztec, there is no limitation on verification logic, as transaction validity check is executed client-side and a proof of validity is supplied to the sequencer. The sequencer only verifies the proof and this process is independent of the verification logic complexity.
+On Aztec, there is no limitation on verification logic. The sequencer only verifies the proof and this process is independent of the verification logic complexity.
 
 This unlocks a whole universe of new use cases and optimization of existing ones. Whenever the dapp can benefit from moving expensive computations off-chain, Aztec AA will provide a unique chance for an optimization. That is to say, on traditional chains users pay for each executed opcode, hence more complex operations (e.g. alternative signature verification) are quite expensive. In the case of Aztec, it can be moved off-chain so that it becomes almost free. The user pays for the operations in terms of client-side prover time.
 
@@ -63,8 +63,6 @@ def entryPoint(payload):
         enqueueCall(to, data, value, gasLimit);
 ```
 
-Read more about how to write an account contract [here](../../../tutorials/codealong/contract_tutorials/write_accounts_contract.md).
-
 A request for executing an action requires:
 - The `origin` contract to execute as the first step.
 - The initial function to call (usually `entrypoint`).
@@ -90,21 +88,19 @@ Entrypoints for the following cases:
 
 ### Account contracts and wallets
 
-Account contracts are tightly coupled to the wallet software that users use to interact with the protocol. Dapps submit to the wallet software one or more function calls to be executed (e.g. "call swap in X contract"), and the wallet encodes and authenticates the request as a valid payload for the user's account contract. The account contract then validates the request encoded and authenticated by the wallet, and executes the function calls requested by the dapp.
+Account contracts are tightly coupled to the wallet software that users use to interact with the protocol. Dapps submit to the wallet software one or more function calls to be executed (e.g. "call swap in X contract"), and the wallet encodes the request as a valid payload for the user's account contract. The account contract then validates the request encoded by the wallet, and executes the function calls requested by the dapp.
 
 ### Account initialization
 
 When a user wants to interact with the network, as their first action, they need to deploy their account contract (analogous to setting up a wallet with a seed phrase in an EOA).
 
-However, this is not required when sitting on the receiving end. The user address can be deterministically derived from their encryption public key and the account contract they intend to deploy. So that the funds can be sent to an account that hasn’t been deployed yet.
+However, this is not required when sitting on the receiving end. The user address can be deterministically derived from their encryption public key and the account contract they intend to deploy. So that the funds can be sent to an account that hasn't been deployed yet.
 
 Users will need to pay transaction fees in order to deploy their account contract. This can be done by sending fee juice to their account contract address (which can be derived deterministically, as mentioned above), so that the account has funds to pay for its own deployment. Alternatively, the fee can be paid for by another account, using [fee abstraction](#fee-abstraction).
 
 ## What is account address
 
-Address is derived from the [address keys](keys.md#address-keys). While the AddressPublicKey is an elliptic curve point of the form (x,y), the address is its x coordinate.
-
-The address y coordinate can be derived when needed using the formula y = sqrt(x^3 - 17), coming from the [Grumpkin elliptic curve](https://github.com/AztecProtocol/aztec-connect/blob/9374aae687ec5ea01adeb651e7b9ab0d69a1b33b/markdown/specs/aztec-connect/src/primitives.md). For x to be legit as an address there should exist a corresponding y that satisfies the aforementioned equation: any field element cannot work as an address.
+Address is derived from the [address keys](keys.md#address-keys). While the AddressPublicKey is an elliptic curve point of the form (x,y) on the [Grumpkin elliptic curve](https://github.com/AztecProtocol/aztec-connect/blob/9374aae687ec5ea01adeb651e7b9ab0d69a1b33b/markdown/specs/aztec-connect/src/primitives.md), the address is its x coordinate. The corresponding y coordinate can be derived if needed. For x to be legit as an address there should exist a corresponding y that satisfies the curve equation: any field element cannot work as an address.
 
 ### Complete address
 
@@ -127,7 +123,7 @@ When executing a private function, this authorization is checked by requesting a
 
 The user's [Private eXecution Environment (PXE)](../concepts/pxe/index.md) is responsible for storing these auth witnesses and returning them to the requesting account contract. Auth witnesses can belong to the current user executing the local transaction, or to another user who shared it out-of-band.
 
-However, during a public function execution, it is not possible to retrieve a value from the local [oracle](../../smart_contracts/oracles/index.md). To support authorizations in public functions, account contracts should save in contract storage what actions have been pre-authorized by their owner.
+However, during a public function execution, it is not possible to retrieve a value from the local [oracle](../../smart_contracts/oracles/index.md). To support authorizations in public functions, account contracts should save in a public authwit registry what actions have been pre-authorized by their owner.
 
 These two patterns combined allow an account contract to answer whether an action `is_valid_impl` for a given user both in private and public contexts.
 
@@ -149,17 +145,17 @@ Nonce is a sequentially increasing number (transaction-over-transaction) and it 
 
 In particular, nonce management defines what it means for a transaction to be canceled, the rules of transaction ordering, and replay protection. In Ethereum, nonce is enshrined into the protocol. For example, to cancel a transaction, its sender should send another transaction with the same nonce but with a higher transaction fee.
 
-On the Aztec network, nonce is abstracted i.e. if a developer wants to customize it, they get to decide how they handle replay protection, transaction cancellation, as well as ordering. It’s mostly relevant to those building wallets. For example, a developer can design a wallet that allows sending big transactions with very low priority fees because the transactions are not time sensitive (i.e. the preference is that a transaction is cheap and doesn’t matter if it is slow). If one tries to apply this logic today on Ethereum (under sequential nonces), when they send a large, slow transaction they can’t send any other transactions until that first large, slow transaction is processed.
+On the Aztec network, nonce is abstracted i.e. if a developer wants to customize it, they get to decide how they handle replay protection, transaction cancellation, as well as ordering. It's mostly relevant to those building wallets. For example, a developer can design a wallet that allows sending big transactions with very low priority fees because the transactions are not time sensitive (i.e. the preference is that a transaction is cheap and doesn't matter if it is slow). If one tries to apply this logic today on Ethereum (under sequential nonces), when they send a large, slow transaction they can't send any other transactions until that first large, slow transaction is processed.
 
 ### Fee abstraction
 
-It doesn’t have to be the transaction sender who pays the transaction fees. Wallets or dapp developers can choose any payment logic they want using a paymaster.
+It doesn't have to be the transaction sender who pays the transaction fees. Wallets or dapp developers can choose any payment logic they want using a paymaster.
 
-Paymaster is a contract that can pay for transactions on behalf of users.
+Paymaster is a contract that can pay for transactions on behalf of users. It is invoked during the private execution stage and set as the fee payer.
 - It can be managed by a dapp itself (e.g. a DEX can have its own paymaster) or operate as a third party service available for everyone.
 - Fees can be paid publicly or privately.
 - Fees can be paid in any token.
 
 Fee abstraction unlocks use cases like:
-- Sponsored transactions (e.g. the dapp’s business model might assume revenue from other streams besides transaction fees or the dapp might utilize sponsored transaction mechanics for marketing purposes). For example, sponsoring the first ten transactions for every user.
+- Sponsored transactions (e.g. the dapp's business model might assume revenue from other streams besides transaction fees or the dapp might utilize sponsored transaction mechanics for marketing purposes). For example, sponsoring the first ten transactions for every user.
 - Flexibility in the currency used in transaction payments (e.g. users can pay for transactions in ERC-20 token).
