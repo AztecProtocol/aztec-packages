@@ -11,7 +11,7 @@ import { type LogFn } from '@aztec/foundation/log';
 
 import { Option } from 'commander';
 
-import { WalletAliasCache, type WalletDB } from '../../storage/wallet_db.js';
+import { type WalletDB } from '../../storage/wallet_db.js';
 import { createOrRetrieveAccount } from '../accounts.js';
 import { aliasedAddressParser } from './options.js';
 
@@ -153,7 +153,7 @@ export function parsePaymentMethod(
     return acc;
   }, {} as Record<string, string>);
 
-  const getFpcOpts = (parsed: Record<string, string>, cache?: WalletAliasCache) => {
+  const getFpcOpts = (parsed: Record<string, string>, db?: WalletDB) => {
     if (!parsed.fpc) {
       throw new Error('Missing "fpc" in payment option');
     }
@@ -161,7 +161,7 @@ export function parsePaymentMethod(
       throw new Error('Missing "asset" in payment option');
     }
 
-    const fpc = aliasedAddressParser('contracts', parsed.fpc, cache);
+    const fpc = aliasedAddressParser('contracts', parsed.fpc, db);
 
     return [AztecAddress.fromString(parsed.asset), fpc];
   };
@@ -194,19 +194,19 @@ export function parsePaymentMethod(
           log(`Using Fee Juice for fee payment`);
           const { FeeJuicePaymentMethod } = await import('@aztec/aztec.js/fee');
           const feePayer = parsed.feePayer
-            ? aliasedAddressParser('accounts', parsed.feePayer, db?.aliasCache)
+            ? aliasedAddressParser('accounts', parsed.feePayer, db)
             : sender.getAddress();
           return new FeeJuicePaymentMethod(feePayer);
         }
       }
       case 'fpc-public': {
-        const [asset, fpc] = getFpcOpts(parsed, db?.aliasCache);
+        const [asset, fpc] = getFpcOpts(parsed, db);
         log(`Using public fee payment with asset ${asset} via paymaster ${fpc}`);
         const { PublicFeePaymentMethod } = await import('@aztec/aztec.js/fee');
         return new PublicFeePaymentMethod(fpc, sender);
       }
       case 'fpc-private': {
-        const [asset, fpc] = getFpcOpts(parsed, db?.aliasCache);
+        const [asset, fpc] = getFpcOpts(parsed, db);
         log(`Using private fee payment with asset ${asset} via paymaster ${fpc}`);
         const { PrivateFeePaymentMethod } = await import('@aztec/aztec.js/fee');
         return new PrivateFeePaymentMethod(fpc, sender);
