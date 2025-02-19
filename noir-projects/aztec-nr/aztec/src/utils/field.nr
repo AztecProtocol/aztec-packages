@@ -84,9 +84,9 @@ pub unconstrained fn __sqrt(x: Field) -> (bool, Field) {
 // Returns (false, 0) if there is no square root.
 // Returns (true, sqrt) if there is a square root.
 pub fn sqrt(x: Field) -> Option<Field> {
-    /// Safety: if the hint returns the square root of x, then we simply square it
-    /// check the result equals x. If x is not square, we return a value that
-    /// enables us to prove that fact (see the `else` clause below).
+    // Safety: if the hint returns the square root of x, then we simply square it
+    // check the result equals x. If x is not square, we return a value that
+    // enables us to prove that fact (see the `else` clause below).
     let (is_sq, maybe_sqrt) = unsafe { __sqrt(x) };
 
     if is_sq {

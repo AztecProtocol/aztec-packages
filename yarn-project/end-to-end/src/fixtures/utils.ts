@@ -386,7 +386,7 @@ export async function setup(
       );
     }
 
-    const res = await startAnvil(opts.ethereumSlotDuration);
+    const res = await startAnvil({ l1BlockTime: opts.ethereumSlotDuration });
     anvil = res.anvil;
     config.l1RpcUrl = res.rpcUrl;
   }
