@@ -96,6 +96,10 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     this.txFetcher = new RunningPromise(() => this.checkForTxs(), this.log, this.options.txGatheringIntervalMs);
   }
 
+  public getProverId() {
+    return this.prover.getProverId();
+  }
+
   public getP2P() {
     const asP2PClient = this.coordination as P2P<P2PClientType.Prover>;
     if (typeof asP2PClient.isP2PClient === 'function' && asP2PClient.isP2PClient()) {
