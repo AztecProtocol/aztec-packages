@@ -1,7 +1,6 @@
 import type { AvmContext } from '../avm_context.js';
 import { type AvmContractCallResult } from '../avm_contract_call_result.js';
 import { type Field, TypeTag, Uint1 } from '../avm_memory_types.js';
-import { AvmSimulator } from '../avm_simulator.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
@@ -30,7 +29,7 @@ abstract class ExternalCall extends Instruction {
   }
 
   public async execute(context: AvmContext) {
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
     const operands = [this.gasOffset, this.addrOffset, this.argsOffset, this.argsSizeOffset, this.successOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [gasOffset, addrOffset, argsOffset, argsSizeOffset, successOffset] = addressing.resolve(operands, memory);
@@ -62,7 +61,7 @@ abstract class ExternalCall extends Instruction {
     const aztecAddress = callAddress.toAztecAddress();
     const nestedContext = context.createNestedContractCallContext(aztecAddress, calldata, allocatedGas, callType);
 
-    const simulator = await AvmSimulator.build(nestedContext);
+    const simulator = await context.provideSimulator!(nestedContext);
     const nestedCallResults: AvmContractCallResult = await simulator.execute();
     const success = !nestedCallResults.reverted;
 
@@ -94,7 +93,6 @@ abstract class ExternalCall extends Instruction {
     } else {
       context.persistableState.reject(nestedContext.persistableState);
     }
-    memory.assert({ reads: calldataSize + 4, writes: 1, addressing });
   }
 
   public abstract override get type(): 'CALL' | 'STATICCALL';
@@ -134,7 +132,7 @@ export class Return extends Instruction {
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
 
     const operands = [this.returnOffset, this.returnSizeOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
@@ -147,7 +145,6 @@ export class Return extends Instruction {
     const output = memory.getSlice(returnOffset, returnSize).map(word => word.toFr());
 
     context.machineState.return(output);
-    memory.assert({ reads: returnSize + 1, addressing });
   }
 
   public override handlesPC(): boolean {
@@ -177,7 +174,7 @@ export class Revert extends Instruction {
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
 
     const operands = [this.returnOffset, this.retSizeOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
@@ -189,7 +186,6 @@ export class Revert extends Instruction {
     const output = memory.getSlice(returnOffset, retSize).map(word => word.toFr());
 
     context.machineState.revert(output);
-    memory.assert({ reads: retSize + 1, addressing });
   }
 
   // We don't want to increase the PC after reverting because it breaks messages.

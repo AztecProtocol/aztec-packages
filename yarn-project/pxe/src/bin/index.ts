@@ -17,7 +17,7 @@ async function main() {
   logger.info(`Setting up PXE...`);
 
   const pxeConfig = getPXEServiceConfig();
-  const nodeRpcClient = createAztecNodeClient(AZTEC_NODE_URL);
+  const nodeRpcClient = createAztecNodeClient(AZTEC_NODE_URL, {});
   const pxeService = await createPXEService(nodeRpcClient, pxeConfig);
 
   const shutdown = () => {

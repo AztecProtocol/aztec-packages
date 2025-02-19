@@ -16,7 +16,7 @@ namespace {
 using ::testing::ReturnRef;
 using ::testing::StrictMock;
 
-TEST(AvmSimulationSha256CompressionTest, Sha256Compression)
+TEST(Sha256CompressionSimulationTest, Sha256Compression)
 {
     NoopEventEmitter<MemoryEvent> emitter;
     Memory mem(/*space_id=*/0, emitter);

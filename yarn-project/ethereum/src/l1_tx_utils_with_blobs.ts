@@ -1,4 +1,4 @@
-import { Blob } from '@aztec/foundation/blob';
+import { Blob } from '@aztec/blob-lib';
 
 import { formatGwei } from 'viem';
 

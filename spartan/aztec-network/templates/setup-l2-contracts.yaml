@@ -65,7 +65,7 @@ spec:
               done
               echo "PXE service is ready!"
               set -e
-              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js setup-protocol-contracts --skipProofWait --l1-chain-id {{ .Values.ethereum.chainId }}
+              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js setup-protocol-contracts --skipProofWait
               echo "L2 contracts initialized"
           env:
             - name: K8S_POD_UID
@@ -102,6 +102,8 @@ spec:
               value: "{{ .Values.proverNode.service.nodePort }}"
             - name: SERVICE_NAME
               value: {{ include "aztec-network.fullname" . }}
-            - name: USE_GCLOUD_OBSERVABILITY
-              value: "{{ .Values.telemetry.useGcloudObservability }}"
+            - name: USE_GCLOUD_LOGGING
+              value: "{{ .Values.telemetry.useGcloudLogging }}"
+            - name: USE_GCLOUD_METRICS
+              value: "{{ .Values.telemetry.useGcloudMetrics }}"
 {{ end }}

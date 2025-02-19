@@ -41,7 +41,7 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
 
     if (g1_file_size >= num_points * 64 && g1_file_size % 64 == 0) {
         vinfo("using cached bn254 crs of size ", std::to_string(g1_file_size / 64), " at ", g1_path);
-        auto data = read_file(g1_path, g1_file_size);
+        auto data = read_file(g1_path, num_points * 64);
         auto points = std::vector<g1::affine_element>(num_points);
         for (size_t i = 0; i < num_points; ++i) {
             points[i] = from_buffer<g1::affine_element>(data, i * 64);

@@ -1,17 +1,17 @@
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
 
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <ranges>
 #include <stdexcept>
+#include <vector>
 
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 
 namespace bb::avm2::tracegen {
 namespace {
-
-constexpr uint32_t DECOMPOSE_WINDOW_SIZE = 36;
 
 // This returns a number whose first n bits are set to 1.
 uint64_t as_unary(uint32_t n)
@@ -31,27 +31,33 @@ void BytecodeTraceBuilder::process_decomposition(
 
     // We start from row 1 because we need a row of zeroes for the shifts.
     uint32_t row = 1;
-    uint8_t id = 0;
 
     for (const auto& event : events) {
         const auto& bytecode = *event.bytecode;
+        const auto id = event.bytecode_id;
         auto bytecode_at = [&bytecode](size_t i) -> uint8_t { return i < bytecode.size() ? bytecode[i] : 0; };
         auto bytecode_exists_at = [&bytecode](size_t i) -> uint8_t { return i < bytecode.size() ? 1 : 0; };
         const uint32_t bytecode_len = static_cast<uint32_t>(bytecode.size());
 
-        for (uint32_t i = 0; i < bytecode.size(); i++) {
+        for (uint32_t i = 0; i < bytecode_len; i++) {
             const uint32_t remaining = bytecode_len - i;
             const uint32_t bytes_to_read = std::min(remaining, DECOMPOSE_WINDOW_SIZE);
-            bool is_last = remaining == 1;
+            const uint32_t abs_diff = DECOMPOSE_WINDOW_SIZE > remaining ? DECOMPOSE_WINDOW_SIZE - remaining
+                                                                        : remaining - DECOMPOSE_WINDOW_SIZE;
+            const bool is_last = remaining == 1;
 
+            // We set the decomposition in bytes, and other values.
             trace.set(
-                row,
+                row + i,
                 { {
                     { C::bc_decomposition_sel, 1 },
                     { C::bc_decomposition_id, id },
                     { C::bc_decomposition_pc, i },
                     { C::bc_decomposition_last_of_contract, is_last ? 1 : 0 },
                     { C::bc_decomposition_bytes_remaining, remaining },
+                    { C::bc_decomposition_bytes_rem_inv, FF(remaining).invert() }, // remaining != 0 for activated rows
+                    { C::bc_decomposition_bytes_rem_min_one_inv, is_last ? 0 : FF(remaining - 1).invert() },
+                    { C::bc_decomposition_abs_diff, abs_diff },
                     { C::bc_decomposition_bytes_to_read, bytes_to_read },
                     { C::bc_decomposition_bytes_to_read_unary, as_unary(bytes_to_read) },
                     { C::bc_decomposition_sel_overflow_correction_needed, remaining < DECOMPOSE_WINDOW_SIZE ? 1 : 0 },
@@ -129,9 +135,31 @@ void BytecodeTraceBuilder::process_decomposition(
                     { C::bc_decomposition_sel_pc_plus_34, bytecode_exists_at(i + 34) },
                     { C::bc_decomposition_sel_pc_plus_35, bytecode_exists_at(i + 35) },
                 } });
-            row++;
         }
-        id++;
+
+        // We set the packed field every 31 bytes.
+        auto bytecode_field_at = [&](size_t i) -> FF {
+            // We need to read uint256_ts because reading FFs messes up the order of the bytes.
+            uint256_t as_int = 0;
+            if (bytecode_len - i >= 32) {
+                as_int = from_buffer<uint256_t>(bytecode, i);
+            } else {
+                std::vector<uint8_t> tail(bytecode.begin() + static_cast<ssize_t>(i), bytecode.end());
+                tail.resize(32, 0);
+                as_int = from_buffer<uint256_t>(tail, 0);
+            }
+            return as_int >> 8;
+        };
+        for (uint32_t i = 0; i < bytecode_len; i += 31) {
+            trace.set(row + i,
+                      { {
+                          { C::bc_decomposition_sel_packed, 1 },
+                          { C::bc_decomposition_packed_field, bytecode_field_at(i) },
+                      } });
+        }
+
+        // We advance to the next bytecode.
+        row += bytecode_len;
     }
 }
 

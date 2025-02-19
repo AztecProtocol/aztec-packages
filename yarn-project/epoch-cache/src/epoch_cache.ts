@@ -20,6 +20,20 @@ type EpochAndSlot = {
   ts: bigint;
 };
 
+export interface EpochCacheInterface {
+  getCommittee(nextSlot: boolean): Promise<EthAddress[]>;
+  getEpochAndSlotNow(): EpochAndSlot;
+  getProposerIndexEncoding(epoch: bigint, slot: bigint, seed: bigint): `0x${string}`;
+  computeProposerIndex(slot: bigint, epoch: bigint, seed: bigint, size: bigint): bigint;
+  getProposerInCurrentOrNextSlot(): Promise<{
+    currentProposer: EthAddress;
+    nextProposer: EthAddress;
+    currentSlot: bigint;
+    nextSlot: bigint;
+  }>;
+  isInCommittee(validator: EthAddress): Promise<boolean>;
+}
+
 /**
  * Epoch cache
  *
@@ -30,7 +44,10 @@ type EpochAndSlot = {
  *
  * Note: This class is very dependent on the system clock being in sync.
  */
-export class EpochCache extends EventEmitter<{ committeeChanged: [EthAddress[], bigint] }> {
+export class EpochCache
+  extends EventEmitter<{ committeeChanged: [EthAddress[], bigint] }>
+  implements EpochCacheInterface
+{
   private committee: EthAddress[];
   private cachedEpoch: bigint;
   private cachedSampleSeed: bigint;
@@ -99,12 +116,12 @@ export class EpochCache extends EventEmitter<{ committeeChanged: [EthAddress[], 
     return this.getEpochAndSlotAtTimestamp(this.nowInSeconds());
   }
 
-  getEpochAndSlotInNextSlot(): EpochAndSlot {
+  private getEpochAndSlotInNextSlot(): EpochAndSlot {
     const nextSlotTs = this.nowInSeconds() + BigInt(this.l1constants.slotDuration);
     return this.getEpochAndSlotAtTimestamp(nextSlotTs);
   }
 
-  getEpochAndSlotAtTimestamp(ts: bigint): EpochAndSlot {
+  private getEpochAndSlotAtTimestamp(ts: bigint): EpochAndSlot {
     return {
       epoch: getEpochNumberAtTimestamp(ts, this.l1constants),
       slot: getSlotAtTimestamp(ts, this.l1constants),

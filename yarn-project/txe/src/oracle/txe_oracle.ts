@@ -22,7 +22,6 @@ import {
   CallContext,
   type ContractInstance,
   type ContractInstanceWithAddress,
-  DEPLOYER_CONTRACT_ADDRESS,
   Gas,
   GasFees,
   GlobalVariables,
@@ -45,10 +44,8 @@ import {
   type PublicDataTreeLeafPreimage,
   PublicDataWrite,
   type PublicLog,
-  computeContractClassId,
   computeTaggingSecretPoint,
   deriveKeys,
-  getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { Schnorr } from '@aztec/circuits.js/barretenberg';
 import {
@@ -85,6 +82,7 @@ import {
   type NoteData,
   Oracle,
   type TypedOracle,
+  ViewDataOracle,
   WASMSimulator,
   extractCallStack,
   extractPrivateCircuitPublicInputs,
@@ -119,6 +117,7 @@ export class TXE implements TypedOracle {
 
   private contractDataOracle: ContractDataOracle;
   private simulatorOracle: SimulatorOracle;
+  private viewDataOracle: ViewDataOracle;
 
   private publicDataWrites: PublicDataWrite[] = [];
   private uniqueNoteHashesFromPublic: Fr[] = [];
@@ -161,6 +160,16 @@ export class TXE implements TypedOracle {
       keyStore,
       this.node,
       this.simulationProvider,
+    );
+
+    this.viewDataOracle = new ViewDataOracle(
+      this.contractAddress,
+      [] /* authWitnesses */,
+      [] /* capsules */,
+      this.simulatorOracle, // note: SimulatorOracle implements DBOracle
+      this.node,
+      /* log, */
+      /* scopes, */
     );
 
     this.debug = createDebugOnlyLogger('aztec:kv-pxe-database');
@@ -252,9 +261,8 @@ export class TXE implements TypedOracle {
     await this.txeDatabase.addContractInstance(contractInstance);
   }
 
-  async addContractArtifact(artifact: ContractArtifact) {
-    const contractClass = await getContractClassFromArtifact(artifact);
-    await this.txeDatabase.addContractArtifact(await computeContractClassId(contractClass), artifact);
+  async addContractArtifact(contractClassId: Fr, artifact: ContractArtifact) {
+    await this.txeDatabase.addContractArtifact(contractClassId, artifact);
   }
 
   async getPrivateContextInputs(
@@ -503,6 +511,8 @@ export class TXE implements TypedOracle {
       Fr.ZERO,
     );
 
+    header.globalVariables.blockNumber = new Fr(blockNumber);
+
     return header;
   }
 
@@ -512,10 +522,6 @@ export class TXE implements TypedOracle {
 
   getAuthWitness(messageHash: Fr) {
     return this.txeDatabase.getAuthWitness(messageHash);
-  }
-
-  popCapsule(): Promise<Fr[]> {
-    throw new Error('Method not implemented.');
   }
 
   async getNotes(
@@ -742,6 +748,8 @@ export class TXE implements TypedOracle {
       Fr.ZERO,
     );
 
+    header.globalVariables.blockNumber = new Fr(blockNumber);
+
     l2Block.header = header;
 
     await fork.updateArchive(l2Block.header);
@@ -867,7 +875,7 @@ export class TXE implements TypedOracle {
     if (!instance) {
       return undefined;
     }
-    const artifact = await this.contractDataOracle.getContractArtifact(instance!.contractClassId);
+    const artifact = await this.contractDataOracle.getContractArtifact(instance!.currentContractClassId);
     if (!artifact) {
       return undefined;
     }
@@ -889,7 +897,6 @@ export class TXE implements TypedOracle {
     const executionRequest = new PublicExecutionRequest(callContext, args);
 
     const db = this.baseFork;
-    const worldStateDb = new TXEWorldStateDB(db, new TXEPublicContractDataSource(this), this);
 
     const globalVariables = GlobalVariables.empty();
     globalVariables.chainId = new Fr(await this.node.getChainId());
@@ -897,28 +904,9 @@ export class TXE implements TypedOracle {
     globalVariables.blockNumber = new Fr(this.blockNumber);
     globalVariables.gasFees = new GasFees(1, 1);
 
-    const tempFork = await this.nativeWorldStateService.fork();
-    // Apply current public data writes
-    await tempFork.sequentialInsert(
-      MerkleTreeId.PUBLIC_DATA_TREE,
-      this.publicDataWrites.map(p => p.toBuffer()),
-    );
-
-    // If the contract instance exists in the TXE's world state, make sure its nullifier is present in the tree
-    // so its nullifier check passes.
-    if ((await worldStateDb.getContractInstance(callContext.contractAddress)) !== undefined) {
-      const contractAddressNullifier = await siloNullifier(
-        AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
-        callContext.contractAddress.toField(),
-      );
-      if ((await worldStateDb.getNullifierIndex(contractAddressNullifier)) === undefined) {
-        await tempFork.batchInsert(MerkleTreeId.NULLIFIER_TREE, [contractAddressNullifier.toBuffer()], 0);
-      }
-    }
-
     const simulator = new PublicTxSimulator(
-      tempFork,
-      new TXEWorldStateDB(tempFork, new TXEPublicContractDataSource(this), this),
+      db,
+      new TXEWorldStateDB(db, new TXEPublicContractDataSource(this), this),
       globalVariables,
     );
 
@@ -955,7 +943,6 @@ export class TXE implements TypedOracle {
       ),
     );
 
-    await tempFork.close();
     return Promise.resolve(result);
   }
 
@@ -1186,35 +1173,39 @@ export class TXE implements TypedOracle {
     return preimage.value;
   }
 
-  dbStore(contractAddress: AztecAddress, slot: Fr, values: Fr[]): Promise<void> {
+  storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.txeDatabase.dbStore(this.contractAddress, slot, values);
+    return this.txeDatabase.storeCapsule(this.contractAddress, slot, capsule);
   }
 
-  dbLoad(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
+  loadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.txeDatabase.dbLoad(this.contractAddress, slot);
+    return this.txeDatabase.loadCapsule(this.contractAddress, slot);
   }
 
-  dbDelete(contractAddress: AztecAddress, slot: Fr): Promise<void> {
+  deleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.txeDatabase.dbDelete(this.contractAddress, slot);
+    return this.txeDatabase.deleteCapsule(this.contractAddress, slot);
   }
 
-  dbCopy(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
+  copyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.txeDatabase.dbCopy(this.contractAddress, srcSlot, dstSlot, numEntries);
+    return this.txeDatabase.copyCapsule(this.contractAddress, srcSlot, dstSlot, numEntries);
+  }
+
+  aes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer> {
+    return this.viewDataOracle.aes128Decrypt(ciphertext, iv, symKey);
   }
 }

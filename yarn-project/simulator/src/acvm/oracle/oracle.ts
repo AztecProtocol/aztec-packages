@@ -59,7 +59,7 @@ export class Oracle {
     return [
       instance.salt,
       instance.deployer,
-      instance.contractClassId,
+      instance.currentContractClassId,
       instance.initializationHash,
       ...instance.publicKeys.toFields(),
     ].map(toACVMField);
@@ -141,14 +141,6 @@ export class Oracle {
       throw new Error(`Authorization not found for message hash ${messageHashField}`);
     }
     return witness.map(toACVMField);
-  }
-
-  async popCapsule(): Promise<ACVMField[]> {
-    const capsule = await this.typedOracle.popCapsule();
-    if (!capsule) {
-      throw new Error(`No capsules available`);
-    }
-    return capsule.map(toACVMField);
   }
 
   async getPublicKeysAndPartialAddress([address]: ACVMField[]): Promise<ACVMField[]> {
@@ -415,20 +407,20 @@ export class Oracle {
     }
   }
 
-  async dbStore([contractAddress]: ACVMField[], [slot]: ACVMField[], values: ACVMField[]) {
-    await this.typedOracle.dbStore(
+  async storeCapsule([contractAddress]: ACVMField[], [slot]: ACVMField[], capsule: ACVMField[]) {
+    await this.typedOracle.storeCapsule(
       AztecAddress.fromField(fromACVMField(contractAddress)),
       fromACVMField(slot),
-      values.map(fromACVMField),
+      capsule.map(fromACVMField),
     );
   }
 
-  async dbLoad(
+  async loadCapsule(
     [contractAddress]: ACVMField[],
     [slot]: ACVMField[],
     [tSize]: ACVMField[],
   ): Promise<(ACVMField | ACVMField[])[]> {
-    const values = await this.typedOracle.dbLoad(
+    const values = await this.typedOracle.loadCapsule(
       AztecAddress.fromField(fromACVMField(contractAddress)),
       fromACVMField(slot),
     );
@@ -444,17 +436,17 @@ export class Oracle {
     }
   }
 
-  async dbDelete([contractAddress]: ACVMField[], [slot]: ACVMField[]) {
-    await this.typedOracle.dbDelete(AztecAddress.fromField(fromACVMField(contractAddress)), fromACVMField(slot));
+  async deleteCapsule([contractAddress]: ACVMField[], [slot]: ACVMField[]) {
+    await this.typedOracle.deleteCapsule(AztecAddress.fromField(fromACVMField(contractAddress)), fromACVMField(slot));
   }
 
-  async dbCopy(
+  async copyCapsule(
     [contractAddress]: ACVMField[],
     [srcSlot]: ACVMField[],
     [dstSlot]: ACVMField[],
     [numEntries]: ACVMField[],
   ) {
-    await this.typedOracle.dbCopy(
+    await this.typedOracle.copyCapsule(
       AztecAddress.fromField(fromACVMField(contractAddress)),
       fromACVMField(srcSlot),
       fromACVMField(dstSlot),

@@ -6,6 +6,7 @@ import { makeProtocolContract } from '../make_protocol_contract.js';
 import { type ProtocolContract } from '../protocol_contract.js';
 
 export * from './contract_instance_deployed_event.js';
+export * from './contract_instance_updated_event.js';
 
 export const ContractInstanceDeployerArtifact = loadContractArtifact(
   ContractInstanceDeployerJson as NoirCompiledContract,

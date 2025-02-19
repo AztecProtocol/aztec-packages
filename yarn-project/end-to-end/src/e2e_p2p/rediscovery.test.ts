@@ -27,6 +27,7 @@ describe('e2e_p2p_rediscovery', () => {
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       metricsPort: shouldCollectMetrics(),
     });
+    await t.setupAccount();
     await t.applyBaseSnapshots();
     await t.setup();
 
@@ -50,6 +51,7 @@ describe('e2e_p2p_rediscovery', () => {
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
+      t.prefilledPublicData,
       DATA_DIR,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up`
       shouldCollectMetrics(),
@@ -59,7 +61,7 @@ describe('e2e_p2p_rediscovery', () => {
     await sleep(3000);
 
     // stop bootstrap node
-    await t.bootstrapNode.stop();
+    await t.bootstrapNode?.stop();
 
     // create new nodes from datadir
     const newNodes: AztecNodeService[] = [];
@@ -77,6 +79,7 @@ describe('e2e_p2p_rediscovery', () => {
         i + 1 + BOOT_NODE_UDP_PORT,
         undefined,
         i,
+        t.prefilledPublicData,
         `${DATA_DIR}-${i}`,
       );
       t.logger.info(`Node ${i} restarted`);
@@ -88,7 +91,7 @@ describe('e2e_p2p_rediscovery', () => {
     await sleep(2000);
 
     for (const node of newNodes) {
-      const context = await createPXEServiceAndSubmitTransactions(t.logger, node, NUM_TXS_PER_NODE);
+      const context = await createPXEServiceAndSubmitTransactions(t.logger, node, NUM_TXS_PER_NODE, t.fundedAccount);
       contexts.push(context);
     }
 

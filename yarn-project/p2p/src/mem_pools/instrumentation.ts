@@ -5,6 +5,7 @@ import {
   LmdbMetrics,
   type LmdbStatsCallback,
   Metrics,
+  type MetricsType,
   type TelemetryClient,
   type UpDownCounter,
 } from '@aztec/telemetry-client';
@@ -12,12 +13,11 @@ import {
 export enum PoolName {
   TX_POOL = 'TxPool',
   ATTESTATION_POOL = 'AttestationPool',
-  EPOCH_PROOF_QUOTE_POOL = 'EpochProofQuotePool',
 }
 
 type MetricsLabels = {
-  objectInMempool: Metrics;
-  objectSize: Metrics;
+  objectInMempool: MetricsType;
+  objectSize: MetricsType;
 };
 
 /**
@@ -35,11 +35,6 @@ function getMetricsLabels(name: PoolName): MetricsLabels {
     return {
       objectInMempool: Metrics.MEMPOOL_ATTESTATIONS_COUNT,
       objectSize: Metrics.MEMPOOL_ATTESTATIONS_SIZE,
-    };
-  } else if (name === PoolName.EPOCH_PROOF_QUOTE_POOL) {
-    return {
-      objectInMempool: Metrics.MEMPOOL_PROVER_QUOTE_COUNT,
-      objectSize: Metrics.MEMPOOL_PROVER_QUOTE_SIZE,
     };
   }
 

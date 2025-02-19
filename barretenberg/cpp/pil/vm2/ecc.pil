@@ -1,0 +1,101 @@
+// This subtrace supports point addition over the Grumpkin curve.
+// Given two points, P & Q, this trace computes R = P + Q.
+// The only assumption here are that the inputs P & Q are points on the Grumpkin curve (note that the Point at Infinity is considered on the curve).
+// Grumpkin Curve Eqn in SW form:  Y^2 = X^3 − 17,
+// Grumpkin forms a 2-cycle with BN254, i.e the base field of one is the scalar field of the other and vice-versa.
+// This makes its points natively representable in our VM.
+namespace ecc;
+
+    // The canonical coordinates representing the point at infinity from affine_element::infinity in bb
+    // The x-coordinate is equal to (uint256(p) + 1 / 2)
+    pol INFINITY_X = 10944121435919637611123202872628637544274182200208017171849102093287904247809;
+    pol INFINITY_Y = 0;
+
+    // This is the selector with which other subtraces will reference
+    pol commit sel;
+    sel * (1 - sel) = 0;
+    #[skippable_if]
+    sel = 0;
+
+    pol commit double_op;
+    double_op * (1 - double_op) = 0;
+    pol commit add_op;
+    add_op * (1 - add_op) = 0;
+
+    // When the sel is on, we are either doubling, adding or handling the edge case
+    sel = double_op + add_op + INFINITY_PRED;
+
+    // Point P in affine form
+    pol commit p_x;
+    pol commit p_y;
+    pol commit p_is_inf;
+    p_is_inf * (1 - p_is_inf) = 0;
+
+    // Point Q in affine form
+    pol commit q_x;
+    pol commit q_y;
+    pol commit q_is_inf;
+    q_is_inf * (1 - q_is_inf) = 0;
+
+    // Resulting Point R in affine form
+    pol commit r_x;
+    pol commit r_y;
+    pol commit r_is_inf;
+    r_is_inf * (1 - r_is_inf) = 0;
+
+    // Check the coordinates to see if we need to handle an edge case
+    // Check x coordinates, i.e. p_x == q_x
+    pol commit x_match;
+    x_match * (1 - x_match) = 0;
+    pol X_DIFF = q_x - p_x;
+    pol commit inv_x_diff;
+    // x_match == 1 IFF X_DIFF = 0
+    sel * (X_DIFF * (x_match * (1 - inv_x_diff) + inv_x_diff) - 1 + x_match) = 0;
+
+    // Check y coordinates, i.e. p_y == q_y
+    pol commit y_match;
+    y_match * (1 - y_match) = 0;
+    pol Y_DIFF = q_y - p_y;
+    pol commit inv_y_diff;
+    // y_match == 1 IFF Y_DIFF = 0,
+    sel * (Y_DIFF * (y_match * (1 - inv_y_diff) + inv_y_diff) - 1 + y_match) = 0;
+
+    // If x and y match, we must double
+    #[DOUBLE_PRED]
+    double_op - (x_match * y_match) = 0;
+    // If x matches but y does not (this implies p_y = -q_y), the result will be the point at infinity
+    pol INFINITY_PRED = x_match * (1 - y_match);
+
+    // Check if the result should be infinity
+    pol BOTH_INF = p_is_inf * q_is_inf;
+    pol BOTH_NON_INF = (1 - p_is_inf) * (1 - q_is_inf);
+    // Used to reduce the degree of the relations
+    pol commit result_infinity;
+    #[INFINITY_RESULT]
+    sel * (result_infinity - (INFINITY_PRED * BOTH_NON_INF + BOTH_INF)) = 0;
+
+    // The lambda calculation for doubling involves division by (2 * p_y);
+    pol commit inv_2_p_y;
+    (1 - result_infinity) * double_op * (2 * p_y * inv_2_p_y - 1) = 0;
+
+    // We commit to the lambda column to minimise the degree of subsequent relations
+    pol commit lambda;
+    #[COMPUTED_LAMBDA]
+    sel * (lambda - (double_op * (3 * p_x * p_x) * inv_2_p_y + add_op * Y_DIFF * inv_x_diff)) = 0;
+    pol COMPUTED_R_X = lambda * lambda - p_x - q_x;
+    pol COMPUTED_R_Y = lambda * (p_x - r_x) - p_y;
+
+    // Handle each separate edge case
+    // (1) Either p or q is infinity but not both (covered by result_infinity), the result is the non-infinity point
+    // (2) The result is infinity, result is (INFINITY_X, INFINITY_Y)
+    // (3) Neither point is infinity and NOT RESULT_INFINITY, result is (COMPUTED_R_X, COMPUTED_R_Y)
+    pol EITHER_INF = p_is_inf + q_is_inf - 2 * BOTH_INF;
+    pol USE_COMPUTED_RESULT = (1 - p_is_inf) * (1 - q_is_inf) * (1 - INFINITY_PRED);
+
+    #[OUTPUT_X_COORD]
+    sel * (r_x - (EITHER_INF * (p_is_inf * q_x + q_is_inf * p_x)) - result_infinity * INFINITY_X - USE_COMPUTED_RESULT * COMPUTED_R_X) = 0;
+    #[OUTPUT_Y_COORD]
+    sel * (r_y - (EITHER_INF * (p_is_inf * q_y + q_is_inf * p_y)) - result_infinity * INFINITY_Y - USE_COMPUTED_RESULT * COMPUTED_R_Y) = 0;
+    #[OUTPUT_INF_FLAG]
+    sel * (r_is_inf - result_infinity) = 0;
+

@@ -1,5 +1,9 @@
 use crate::tests::private_call_data_validator_builder::PrivateCallDataValidatorBuilder;
-use dep::types::{abis::note_hash::NoteHash, address::AztecAddress};
+use dep::types::{
+    abis::{note_hash::NoteHash, side_effect::Ordered},
+    address::AztecAddress,
+    traits::FromField,
+};
 
 #[test]
 fn validate_note_logs_succeeds() {

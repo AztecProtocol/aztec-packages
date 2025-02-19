@@ -66,11 +66,7 @@ library Errors {
   error Rollup__InvalidBlobPublicInputsHash(bytes32 expected, bytes32 actual); // 0xfe6b4994
   error Rollup__NoEpochToProve(); // 0xcbaa3951
   error Rollup__NonSequentialProving(); // 0x1e5be132
-  error Rollup__NotClaimingCorrectEpoch(Epoch expected, Epoch actual); // 0xf0e0744d
   error Rollup__NothingToPrune(); // 0x850defd3
-  error Rollup__NotInClaimPhase(uint256 currentSlotInEpoch, uint256 claimDuration); // 0xe6969f11
-  error Rollup__ProofRightAlreadyClaimed(); // 0x2cac5f0a
-  error Rollup__QuoteExpired(Slot currentSlot, Slot quoteSlot); // 0x20a001eb
   error Rollup__SlotAlreadyInChain(Slot lastSlot, Slot proposedSlot); // 0x83510bd0
   error Rollup__TimestampInFuture(Timestamp max, Timestamp actual); // 0x89f30690
   error Rollup__TimestampTooOld(); // 0x72ed9c81
@@ -80,6 +76,12 @@ library Errors {
   error Rollup__NonZeroL2Fee(); // 0x7e728abc
   error Rollup__InvalidBasisPointFee(uint256 basisPointFee); // 0x4292d136
   error Rollup__InvalidManaBaseFee(uint256 expected, uint256 actual); // 0x73b6d896
+  error Rollup__StartAndEndNotSameEpoch(Epoch start, Epoch end);
+  error Rollup__StartIsNotFirstBlockOfEpoch();
+  error Rollup__StartIsNotBuildingOnProven();
+  error Rollup__AlreadyClaimed(address prover, Epoch epoch);
+  error Rollup__NotPastDeadline(Slot deadline, Slot currentSlot);
+  error Rollup__PastDeadline(Slot deadline, Slot currentSlot);
 
   // HeaderLib
   error HeaderLib__InvalidHeaderSize(uint256 expected, uint256 actual); // 0xf3ccb247
@@ -129,6 +131,5 @@ library Errors {
   error ProofCommitmentEscrow__WithdrawRequestNotReady(uint256 current, Timestamp readyAt); // 0xb32ab8a7
 
   // FeeMath
-  error FeeMath__InvalidProvingCostModifier(); // 0x8b9d62ac
   error FeeMath__InvalidFeeAssetPriceModifier(); // 0xf2fb32ad
 }
