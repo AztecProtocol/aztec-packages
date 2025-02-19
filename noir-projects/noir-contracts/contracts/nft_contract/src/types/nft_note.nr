@@ -6,6 +6,7 @@ use dep::aztec::{
 use aztec::protocol_types::traits::Packable;
 
 // docs:start:nft_note
+// Note: We don't need a custom note here. I am using it just to test the partial_custom_note macro.
 #[partial_note(quote { token_id})]
 #[derive(Eq)]
 pub struct NFTNote {
@@ -17,6 +18,7 @@ pub struct NFTNote {
     randomness: Field,
 }
 // docs:end:nft_note
+
 impl NFTNote {
     pub fn new(token_id: Field, owner: AztecAddress) -> Self {
         // Safety: We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing,

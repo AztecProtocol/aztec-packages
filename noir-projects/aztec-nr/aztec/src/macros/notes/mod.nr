@@ -989,8 +989,8 @@ comptime fn index_note_fields(
 /// - SetupPayload
 /// - FinalizationPayload
 /// - PartialNote trait implementation
-/// - NoteExport
 /// - NoteInterface trait implementation
+/// - NoteHashing trait implementation
 /// - Packable implementation
 ///
 /// Registers the note in the global `NOTES` map.
@@ -1040,6 +1040,7 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
 /// Generates the following:
 /// - NoteTypeProperties
 /// - NoteInterface trait implementation
+/// - NoteHashing trait implementation
 /// - Packable implementation
 ///
 /// Registers the note in the global `NOTES` map.
@@ -1070,14 +1071,44 @@ pub comptime fn note(s: StructDefinition) -> Quoted {
     }
 }
 
-/// Generates the following:
-/// - NoteTypeProperties
-/// - Packable implementation
+/// Generates code for a custom note implementation that requires specialized note hash or nullifier computation.
 ///
-/// Registers the note in the global `NOTES` map.
+/// # Generated Code
+/// - NoteTypeProperties: Defines the structure and properties of note fields
+/// - NoteInterface trait implementation: Provides the note type ID
+/// - Packable implementation: Enables serialization/deserialization of the note
 ///
-/// For more details on the generated code, see the individual functions.
-pub comptime fn note_custom_interface(s: StructDefinition) -> Quoted {
+/// # Registration
+/// Registers the note in the global `NOTES` map with:
+/// - Note type ID
+/// - Packed length
+/// - Field indices and nullability
+///
+/// # Use Cases
+/// Use this macro when implementing a note that needs custom:
+/// - Note hash computation logic
+/// - Nullifier computation logic
+///
+/// The macro omits generating default NoteHashing trait implementation, allowing you to provide your own.
+///
+/// # Example
+/// ```
+/// #[custom_note]
+/// struct CustomNote {
+///     value: Field,
+///     metadata: Field
+/// }
+///
+/// impl NoteHashing for CustomNote {
+///     // Custom note hash computation...
+///     fn compute_note_hash(...) -> Field { ... }
+///
+///     // Custom nullifier computation...
+///     fn compute_nullifier(...) -> Field { ... }
+///     fn compute_nullifier_without_context(...) -> Field { ... }
+/// }
+/// ```
+pub comptime fn custom_note(s: StructDefinition) -> Quoted {
     let (packable_impl, note_packed_len) = derive_packable_if_not_implemented_and_get_len(s);
     let note_type_id = get_next_note_type_id();
 
@@ -1097,5 +1128,74 @@ pub comptime fn note_custom_interface(s: StructDefinition) -> Quoted {
         $note_properties
         $note_interface_impl
         $packable_impl
+    }
+}
+
+/// Generates code for a custom partial note implementation that requires specialized note hash or nullifier
+/// computation.
+///
+/// # Generated Code
+/// - NoteTypeProperties: Defines the structure and properties of note fields
+/// - NoteInterface trait implementation: Provides the note type ID
+/// - Packable implementation: Enables serialization/deserialization of the note
+/// - PartialNote trait implementation: Supports two-phase note construction
+///
+/// # Registration
+/// Registers the note in the global `NOTES` map with:
+/// - Note type ID
+/// - Packed length
+/// - Field indices and nullability
+///
+/// # Use Cases
+/// Use this macro when implementing a partial note that needs custom:
+/// - Note hash computation logic
+/// - Nullifier computation logic
+///
+/// The macro omits generating default NoteHashing trait implementation, allowing you to provide your own.
+///
+/// # Example
+/// ```
+/// #[partial_custom_note]
+/// struct CustomNote {
+///     value: Field,
+///     metadata: Field
+/// }
+///
+/// impl NoteHashing for CustomNote {
+///     // Custom note hash computation...
+///     fn compute_note_hash(...) -> Field { ... }
+///
+///     // Custom nullifier computation...
+///     fn compute_nullifier(...) -> Field { ... }
+///     fn compute_nullifier_without_context(...) -> Field { ... }
+/// }
+/// ```
+pub comptime fn partial_custom_note(
+    s: StructDefinition,
+    setup_payload_name: Quoted,
+    finalization_payload_name: Quoted,
+) -> Quoted {
+    let (packable_impl, note_packed_len) = derive_packable_if_not_implemented_and_get_len(s);
+    let note_type_id = get_next_note_type_id();
+
+    let (indexed_fixed_fields, indexed_nullable_fields) = index_note_fields(s, &[]);
+    register_note(
+        s,
+        note_packed_len,
+        note_type_id,
+        indexed_fixed_fields,
+        indexed_nullable_fields,
+    );
+
+    let note_properties = generate_note_properties(s);
+    let note_interface_impl = generate_note_interface(s, note_type_id);
+    let partial_note_impl =
+        generate_partial_note_impl(s, setup_payload_name, finalization_payload_name);
+
+    quote {
+        $note_properties
+        $note_interface_impl
+        $packable_impl
+        $partial_note_impl
     }
 }
