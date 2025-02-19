@@ -41,6 +41,7 @@ jobs:
       - name: Find latest available image tag
         id: find-tag
         run: |
+          set -x
           COMMIT=${{ env.GIT_COMMIT }}
           MAX_ATTEMPTS=10
 
