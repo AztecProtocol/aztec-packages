@@ -1,16 +1,7 @@
 use dep::aztec::{
-    context::PrivateContext,
-    keys::getters::{get_nsk_app, get_public_keys},
     macros::notes::note,
-    note::{
-        note_interface::NoteHashing, retrieved_note::RetrievedNote,
-        utils::compute_note_hash_for_nullify,
-    },
     oracle::random::random,
-    protocol_types::{
-        address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        hash::poseidon2_hash_with_separator, traits::Serialize,
-    },
+    protocol_types::{address::AztecAddress, traits::Serialize},
 };
 
 // TODO(#12008): Remove the need for the manual import of `Packable` trait here. This is a bug in macros.

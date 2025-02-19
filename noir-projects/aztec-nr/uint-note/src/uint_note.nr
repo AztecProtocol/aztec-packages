@@ -1,7 +1,6 @@
 use dep::aztec::{
     macros::notes::partial_note,
     oracle::random::random,
-    prelude::PrivateContext,
     protocol_types::{address::AztecAddress, traits::Serialize},
 };
 
