@@ -382,7 +382,7 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                         AvmOperand::PROCEDURE_LABEL { label } => {
                             let resolved_location = *procedure_locations
                                 .get(&label)
-                                .expect(format!("Procedure label {:?} not found", label).as_str());
+                                .unwrap_or_else(|| panic!("Procedure label {:?} not found", label));
                             AvmOperand::U32 { value: resolved_location as u32 }
                         }
                         _ => o,
@@ -1024,7 +1024,7 @@ fn generate_mov_to_procedure(source: &MemoryAddress, index: usize) -> AvmInstruc
     generate_mov_instruction(
         Some(
             AddressingModeBuilder::default()
-                .direct_operand(&source)
+                .direct_operand(source)
                 .direct_operand(&MemoryAddress::Direct(target_address))
                 .build(),
         ),
@@ -1190,8 +1190,8 @@ fn handle_black_box_function(
             avm_instrs.push(generate_mov_to_procedure(&scalars.pointer, 1));
             avm_instrs.push(generate_mov_to_procedure(&points.size, 2));
             avm_instrs.push(generate_mov_to_procedure(&outputs.pointer, 3));
-            avm_instrs.push(generate_procedure_call(Procedure::MSM));
-            procedures_used.insert(Procedure::MSM);
+            avm_instrs.push(generate_procedure_call(Procedure::MultiScalarMul));
+            procedures_used.insert(Procedure::MultiScalarMul);
         }
         _ => panic!("Transpiler doesn't know how to process {:?}", operation),
     }

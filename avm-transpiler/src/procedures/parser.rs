@@ -2,6 +2,7 @@ use regex::Regex;
 
 use crate::instructions::AvmTypeTag;
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum Alias {
     // Compute
@@ -94,7 +95,6 @@ pub(crate) fn parse(assembly: &str) -> Result<Assembly, String> {
         .map(|line| line.split(';').next().unwrap().trim())
         .filter(|line| !line.is_empty())
         .collect::<Vec<&str>>();
-    println!("{}", assembly.join("\n"));
 
     let line_regex = Regex::new(r"^(?:(?<label>\w+):\s+)?(?<alias>\w+)(?:\s+(?<operands>.+?))?(?:\s+(?<tag>u1|u8|u16|u32|u64|u128|ff))?$").unwrap();
 

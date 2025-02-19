@@ -113,7 +113,6 @@ fn compile_opcode(
                     operands: vec![make_operand(bits_needed_mem, &dest_address)],
                     immediates: vec![make_operand(bits_needed_opcode, &immediate_value)],
                     tag: collection.tag,
-                    ..Default::default()
                 },
                 label_prefix,
                 label,

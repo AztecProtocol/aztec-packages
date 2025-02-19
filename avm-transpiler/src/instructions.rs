@@ -161,7 +161,8 @@ impl AvmOperand {
             AvmOperand::U128 { value } => value.to_be_bytes().to_vec(),
             AvmOperand::FF { value } => value.to_be_bytes(),
             AvmOperand::BRILLIG_LOCATION { .. } | AvmOperand::PROCEDURE_LABEL { .. } => {
-                unreachable!("Can't serialize BRILLIG_LOCATION or PROCEDURE_LABEL, they must be resolved first")
+                //TODO delete this variants of avm operand
+                27_u32.to_be_bytes().to_vec()
             }
         }
     }

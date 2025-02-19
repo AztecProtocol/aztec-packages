@@ -96,6 +96,6 @@ mod tests {
     #[test]
     fn smoke_compile_msm() {
         let parsed = parse(MSM_ASSEMBLY).expect("Failed to parse MSM assembly");
-        compile(parsed, Procedure::MSM).expect("Failed to compile MSM assembly");
+        compile(parsed, Procedure::MultiScalarMul).expect("Failed to compile MSM assembly");
     }
 }

@@ -10,13 +10,13 @@ mod parser;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub(crate) enum Procedure {
-    MSM,
+    MultiScalarMul,
 }
 
 impl Procedure {
     pub(crate) fn label_prefix(self) -> String {
         match self {
-            Procedure::MSM => "MSM_PROCEDURE_PREFIX".to_string(),
+            Procedure::MultiScalarMul => "MSM_PROCEDURE_PREFIX".to_string(),
         }
     }
 
@@ -27,7 +27,7 @@ impl Procedure {
 
 pub(crate) fn compile_procedure(procedure: Procedure) -> Result<CompiledProcedure, String> {
     let assembly = match procedure {
-        Procedure::MSM => MSM_ASSEMBLY,
+        Procedure::MultiScalarMul => MSM_ASSEMBLY,
     };
     let parsed = parse(assembly)?;
     compile(parsed, procedure)
