@@ -3,7 +3,7 @@ import { type Gas } from '@aztec/circuits.js';
 export interface GasUsed {
   /**
    * Total gas used across both private and public executions.
-   * Note that this does not determine the transaction fee. The fee is calculated gasBilled, which uses `teardownGasLimits` from
+   * Note that this does not determine the transaction fee. The fee is calculated with billedGas, which uses `teardownGasLimits` from
    * `GasSettings`, rather than actual teardown gas.
    */
   totalGas: Gas;
