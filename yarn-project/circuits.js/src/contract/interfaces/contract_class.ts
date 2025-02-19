@@ -1,8 +1,9 @@
-import { type FunctionSelector } from '@aztec/foundation/abi';
 import { type Fr } from '@aztec/foundation/fields';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
+
+import { FunctionSelector } from '../../abi/index.js';
 
 const VERSION = 1 as const;
 
@@ -34,7 +35,7 @@ export interface PrivateFunction {
 }
 
 const PrivateFunctionSchema = z.object({
-  selector: schemas.FunctionSelector,
+  selector: FunctionSelector.schema,
   vkHash: schemas.Fr,
 }) satisfies ZodFor<PrivateFunction>;
 
@@ -57,7 +58,7 @@ export interface PublicFunction {
 }
 
 export const PublicFunctionSchema = z.object({
-  selector: schemas.FunctionSelector,
+  selector: FunctionSelector.schema,
   bytecode: schemas.Buffer,
 }) satisfies ZodFor<PublicFunction>;
 
@@ -71,7 +72,7 @@ export interface UnconstrainedFunction {
 
 const UnconstrainedFunctionSchema = z.object({
   /** lala */
-  selector: schemas.FunctionSelector,
+  selector: FunctionSelector.schema,
   bytecode: schemas.Buffer,
 }) satisfies ZodFor<UnconstrainedFunction>;
 

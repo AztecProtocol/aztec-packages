@@ -39,7 +39,7 @@ if [ "$REF_NAME" == "master" ]; then
   # Allow parallelism on master by having the instance name be the commit.
   instance_name="$current_commit"_$arch
 else
-  instance_name=$(echo -n "$REF_NAME" | tr -c 'a-zA-Z0-9-' '_')_$arch
+  instance_name=$(echo -n "$REF_NAME" | head -c 50 | tr -c 'a-zA-Z0-9-' '_')_$arch
 fi
 
 [ -n "${INSTANCE_POSTFIX:-}" ] && instance_name+="_$INSTANCE_POSTFIX"
@@ -99,12 +99,13 @@ container_script=$(cat <<EOF
   git checkout FETCH_HEAD
   git checkout -b $REF_NAME
   export CI_FULL=$CI_FULL
+  export DRY_RUN=${DRY_RUN:-0}
   source ci3/source
 
   if [ -n "${DOCKERHUB_PASSWORD:-}" ] && ([ "$REF_NAME" == "master" ] || semver check "$REF_NAME"); then
     echo ${DOCKERHUB_PASSWORD:-} | docker login -u aztecprotocolci --password-stdin
   fi
-  echo "env: REF_NAME=$REF_NAME COMMIT_HASH=$COMMIT_HASH CURRENT_VERSION=$CURRENT_VERSION CI_FULL=$CI_FULL"
+  echo "env: REF_NAME=$REF_NAME COMMIT_HASH=$COMMIT_HASH CURRENT_VERSION=$CURRENT_VERSION CI_FULL=$CI_FULL DRY_RUN=${DRY_RUN:-0}"
   if semver check "$REF_NAME"; then
     echo "Performing a release because $REF_NAME is a semver."
   fi

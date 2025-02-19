@@ -3,7 +3,6 @@ import {
   AztecAddress,
   CompleteAddress,
   Fr,
-  GeneratorIndex,
   GrumpkinScalar,
   KEY_PREFIXES,
   type KeyPrefix,
@@ -14,6 +13,7 @@ import {
   deriveKeys,
   derivePublicKeyFromSecretKey,
 } from '@aztec/circuits.js';
+import { GeneratorIndex } from '@aztec/constants';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { toArray } from '@aztec/foundation/iterable';
 import { type Bufferable, serializeToBuffer } from '@aztec/foundation/serialize';

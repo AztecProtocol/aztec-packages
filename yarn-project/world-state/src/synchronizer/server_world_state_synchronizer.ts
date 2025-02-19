@@ -9,19 +9,21 @@ import {
   type L2BlockStreamLocalDataProvider,
   type L2Tips,
   MerkleTreeId,
+} from '@aztec/circuit-types';
+import {
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
   WorldStateRunningState,
   type WorldStateSynchronizer,
   type WorldStateSynchronizerStatus,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
 import { type L2BlockHandledStats } from '@aztec/circuit-types/stats';
-import { MerkleTreeCalculator } from '@aztec/circuits.js';
-import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js/constants';
+import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/constants';
 import { type Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { elapsed } from '@aztec/foundation/timer';
+import { MerkleTreeCalculator } from '@aztec/foundation/trees';
 import { SHA256Trunc } from '@aztec/merkle-tree';
 import { TraceableL2BlockStream, getTelemetryClient } from '@aztec/telemetry-client';
 

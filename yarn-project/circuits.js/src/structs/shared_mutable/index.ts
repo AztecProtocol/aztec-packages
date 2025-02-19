@@ -1,6 +1,5 @@
+import { SCHEDULED_DELAY_CHANGE_PCKD_LEN } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
-
-import { SCHEDULED_DELAY_CHANGE_PCKD_LEN } from '../../constants.gen.js';
 
 export * from './scheduled_delay_change.js';
 export * from './scheduled_value_change.js';

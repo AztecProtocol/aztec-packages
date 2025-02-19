@@ -1,22 +1,24 @@
 import {
   BlockAttestation,
   BlockProposal,
-  type ClientProtocolCircuitVerifier,
   type Gossipable,
   type L2BlockSource,
   MerkleTreeId,
   P2PClientType,
   PeerErrorSeverity,
-  type PeerInfo,
   type RawGossipMessage,
   TopicTypeMap,
   Tx,
   type TxHash,
   type TxValidationResult,
-  type WorldStateSynchronizer,
   getTopicTypeForClientType,
   metricsTopicStrToLabels,
 } from '@aztec/circuit-types';
+import {
+  type ClientProtocolCircuitVerifier,
+  type PeerInfo,
+  type WorldStateSynchronizer,
+} from '@aztec/circuit-types/interfaces/server';
 import { Fr } from '@aztec/circuits.js';
 import { type EpochCacheInterface } from '@aztec/epoch-cache';
 import { createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';

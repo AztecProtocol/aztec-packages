@@ -1,4 +1,5 @@
-import { NESTED_RECURSIVE_PROOF_LENGTH, RECURSIVE_PROOF_LENGTH } from '../../constants.gen.js';
+import { NESTED_RECURSIVE_PROOF_LENGTH, RECURSIVE_PROOF_LENGTH } from '@aztec/constants';
+
 import { makeRootParityInput } from '../../tests/factories.js';
 import { RootParityInput } from './root_parity_input.js';
 

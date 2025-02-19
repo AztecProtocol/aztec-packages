@@ -1,12 +1,15 @@
 import { type BBSuccess, BB_RESULT, generateAvmProof, generateProof, verifyProof } from '@aztec/bb-prover';
-import { type AvmCircuitInputs, AztecAddress, type ContractInstanceWithAddress, Fr } from '@aztec/circuits.js';
+import { type ContractInstanceWithAddress } from '@aztec/circuits.js';
+import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
 import {
   AVM_PROOF_LENGTH_IN_FIELDS,
   AVM_PUBLIC_COLUMN_MAX_SIZE,
   AVM_PUBLIC_INPUTS_FLATTENED_SIZE,
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-} from '@aztec/circuits.js/constants';
+} from '@aztec/constants';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';

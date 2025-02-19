@@ -1,6 +1,6 @@
-import { type AccountManager, FeeJuicePaymentMethod, type WaitOpts } from '@aztec/aztec.js';
-import { type PXE } from '@aztec/circuit-types';
-import { Fr, deriveSigningKey } from '@aztec/circuits.js';
+import { type AccountManager, FeeJuicePaymentMethod, type PXE, type WaitOpts } from '@aztec/aztec.js';
+import { deriveSigningKey } from '@aztec/circuits.js/keys';
+import { Fr } from '@aztec/foundation/fields';
 
 import { getSchnorrAccountContractAddress } from '../schnorr/account_contract.js';
 import { getSchnorrAccount } from '../schnorr/index.js';

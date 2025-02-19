@@ -1,6 +1,3 @@
-import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
-
 import {
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_ENQUEUED_CALLS_PER_TX,
@@ -8,7 +5,10 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
-} from '../../constants.gen.js';
+} from '@aztec/constants';
+import { padArrayEnd } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
+
 import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
 import { ScopedLogHash } from '../log_hash.js';
 import { PrivateLog } from '../private_log.js';

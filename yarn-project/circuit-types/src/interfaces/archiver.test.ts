@@ -12,10 +12,9 @@ import {
   computePublicBytecodeCommitment,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type ContractArtifact, loadContractArtifact } from '@aztec/circuits.js/abi';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 import { fileURLToPath } from '@aztec/foundation/url';
-import { loadContractArtifact } from '@aztec/types/abi';
 
 import { readFileSync } from 'fs';
 import omit from 'lodash.omit';

@@ -1,6 +1,6 @@
+import { Fr, PrivateLog, PublicDataWrite, PublicLog, RevertCode } from '@aztec/circuits.js';
 import {
   CONTRACT_CLASS_LOGS_PREFIX,
-  Fr,
   L2_L1_MSGS_PREFIX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
@@ -14,13 +14,9 @@ import {
   PUBLIC_DATA_UPDATE_REQUESTS_PREFIX,
   PUBLIC_LOGS_PREFIX,
   PUBLIC_LOG_SIZE_IN_FIELDS,
-  PrivateLog,
-  PublicDataWrite,
-  PublicLog,
   REVERT_CODE_PREFIX,
-  RevertCode,
   TX_FEE_PREFIX,
-} from '@aztec/circuits.js';
+} from '@aztec/constants';
 import { type FieldsOf, makeTuple, makeTupleAsync } from '@aztec/foundation/array';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { padArrayEnd } from '@aztec/foundation/collection';

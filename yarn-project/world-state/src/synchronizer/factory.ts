@@ -1,5 +1,5 @@
 import { type L1ToL2MessageSource, type L2BlockSource } from '@aztec/circuit-types';
-import { type PublicDataTreeLeaf } from '@aztec/circuits.js';
+import { type PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 

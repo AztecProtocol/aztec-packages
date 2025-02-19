@@ -3,13 +3,13 @@ import {
   type ContractDataSource,
   type ContractInstanceWithAddress,
   FunctionSelector,
-  PUBLIC_DISPATCH_SELECTOR,
   type PublicFunction,
   computeInitializationHash,
   computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
+import { type ContractArtifact } from '@aztec/circuits.js/abi';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';

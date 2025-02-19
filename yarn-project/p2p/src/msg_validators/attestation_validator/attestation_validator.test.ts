@@ -1,4 +1,5 @@
-import { PeerErrorSeverity, makeBlockAttestation } from '@aztec/circuit-types';
+import { PeerErrorSeverity } from '@aztec/circuit-types';
+import { makeBlockAttestation } from '@aztec/circuit-types/testing';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { type EpochCache } from '@aztec/epoch-cache';
 

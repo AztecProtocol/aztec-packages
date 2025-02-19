@@ -487,7 +487,7 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
     ivc->instantiate_stdlib_verification_queue(builder, stdlib_verification_keys);
 
     // Connect the public_input witnesses in each constraint to the corresponding public input witnesses in the internal
-    // verification queue. This ensures that the witnesses utlized in constraints generated based on acir are properly
+    // verification queue. This ensures that the witnesses utilized in constraints generated based on acir are properly
     // connected to the constraints generated herein via the ivc scheme (e.g. recursive verifications).
     for (auto [constraint, queue_entry] :
          zip_view(constraints.ivc_recursion_constraints, ivc->stdlib_verification_queue)) {

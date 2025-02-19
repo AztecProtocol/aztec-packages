@@ -1,12 +1,12 @@
+import { type ContractInstanceWithAddress } from '@aztec/circuits.js';
 import {
-  AztecAddress,
-  type ContractInstanceWithAddress,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_PUBLIC_LOGS_PER_TX,
-} from '@aztec/circuits.js';
+} from '@aztec/constants';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 

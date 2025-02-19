@@ -1,4 +1,5 @@
-import { Fr, NullifierLeaf, NullifierLeafPreimage } from '@aztec/circuits.js';
+import { Fr } from '@aztec/circuits.js';
+import { NullifierLeaf, NullifierLeafPreimage } from '@aztec/circuits.js/trees';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type Hasher } from '@aztec/types/interfaces';

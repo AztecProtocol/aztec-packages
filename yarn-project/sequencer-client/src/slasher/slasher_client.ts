@@ -6,7 +6,7 @@ import {
   type L2BlockStreamEvent,
   type L2Tips,
 } from '@aztec/circuit-types';
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { type L1ContractsConfig, type L1ReaderConfig, createEthereumChain } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';

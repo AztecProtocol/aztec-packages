@@ -1,4 +1,4 @@
-import { type ProvingJobBroker } from '@aztec/circuit-types';
+import { type ProvingJobBroker } from '@aztec/circuit-types/interfaces/server';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
 import {

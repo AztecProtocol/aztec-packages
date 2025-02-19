@@ -1,15 +1,15 @@
-import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { type FieldsOf } from '@aztec/foundation/types';
-
 import {
   FUNCTION_TREE_HEIGHT,
   PROTOCOL_CONTRACT_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
   UPDATES_VALUE_SIZE,
-} from '../../constants.gen.js';
+} from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { MembershipWitness } from '@aztec/foundation/trees';
+import { type FieldsOf } from '@aztec/foundation/types';
+
 import { PublicKeys } from '../../types/public_keys.js';
-import { MembershipWitness } from '../membership_witness.js';
 import { PrivateCircuitPublicInputs } from '../private_circuit_public_inputs.js';
 import { ScheduledDelayChange } from '../shared_mutable/scheduled_delay_change.js';
 import { ScheduledValueChange } from '../shared_mutable/scheduled_value_change.js';
