@@ -44,7 +44,8 @@ where
     }
 
     pub fn unpack_delay_change(packed: Field) -> ScheduledDelayChange<INITIAL_DELAY> {
-        // Unpack the first field containing sdc and svc block_of_change values
+        // This function expects to be called with just the first field of the packed representation, which contains sdc
+        // and svc block_of_change. We'll discard the svc component.
         let svc_block_of_change = packed as u32;
 
         let mut tmp = (packed - svc_block_of_change as Field) / TWO_POW_32;
