@@ -617,7 +617,7 @@ export function mapPrivateVerificationKeyHintsToNoir(
 ): PrivateVerificationKeyHintsNoir {
   const updatedClassIdSharedMutableValuesFields = assertLength(
     privateVerificationKeyHints.updatedClassIdHints.updatedClassIdValues.toFields(),
-    UPDATES_SCHEDULED_VALUE_CHANGE_LEN,
+    UPDATES_SHARED_MUTABLE_VALUES_LEN,
   );
 
   return {
