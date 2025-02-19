@@ -1,5 +1,9 @@
-import { AztecAddress } from '../aztec-address/index.js';
-import { Fr } from '../fields/index.js';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { Fr } from '@aztec/foundation/fields';
+import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+
+import { z } from 'zod';
+
 import { type ABIParameter, type ABIVariable, type AbiType } from './abi.js';
 import { U128 } from './u128.js';
 import { isAztecAddressStruct, isU128Struct, parseSignedInt } from './utils.js';
@@ -193,3 +197,11 @@ export function decodeFunctionSignature(name: string, parameters: ABIParameter[]
 export function decodeFunctionSignatureWithParameterNames(name: string, parameters: ABIParameter[]) {
   return new FunctionSignatureDecoder(name, parameters, true).decode();
 }
+
+export const AbiDecodedSchema: ZodFor<AbiDecoded> = z.union([
+  schemas.BigInt,
+  z.boolean(),
+  schemas.AztecAddress,
+  z.array(z.lazy(() => AbiDecodedSchema)),
+  z.record(z.lazy(() => AbiDecodedSchema)),
+]);

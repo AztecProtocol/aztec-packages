@@ -1,5 +1,4 @@
 import {
-  AppendOnlyTreeSnapshot,
   AztecAddress,
   BlockHeader,
   ContentCommitment,
@@ -15,15 +14,11 @@ import {
   LogHash,
   MaxBlockNumber,
   NUM_BYTES_PER_SHA256,
-  type NullifierLeafPreimage,
   OptionalNumber,
   PartialStateReference,
   Point,
   PrivateLog,
-  PrivateToRollupAccumulatedData,
-  type ProtocolContractLeafPreimage,
   PublicCallRequest,
-  type PublicDataTreeLeafPreimage,
   type PublicDataWrite,
   PublicLog,
   ScopedL2ToL1Message,
@@ -32,6 +27,13 @@ import {
   TxContext,
   type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
+import { PrivateToRollupAccumulatedData } from '@aztec/circuits.js/kernel';
+import {
+  AppendOnlyTreeSnapshot,
+  type NullifierLeafPreimage,
+  type ProtocolContractLeafPreimage,
+  type PublicDataTreeLeafPreimage,
+} from '@aztec/circuits.js/trees';
 import {
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,

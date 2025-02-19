@@ -1,11 +1,11 @@
 import { type ExecutablePrivateFunctionWithMembershipProof, type PrivateFunction } from '@aztec/circuits.js';
+import { FunctionSelector, bufferFromFields } from '@aztec/circuits.js/abi';
 import {
   ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
   FUNCTION_TREE_HEIGHT,
   MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
   REGISTERER_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS,
 } from '@aztec/constants';
-import { FunctionSelector, bufferFromFields } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple } from '@aztec/foundation/serialize';
 

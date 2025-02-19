@@ -6,7 +6,7 @@ import {
   type AbiValue,
   type DebugFileMap,
   type DebugInfo,
-} from '@aztec/foundation/abi';
+} from '@aztec/circuits.js/abi';
 
 export const AZTEC_PRIVATE_ATTRIBUTE = 'private';
 export const AZTEC_PUBLIC_ATTRIBUTE = 'public';

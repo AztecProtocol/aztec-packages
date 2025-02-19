@@ -1,4 +1,5 @@
-import { setupCustomSnapshotSerializers } from '../testing/index.js';
+import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
+
 import { FunctionSelector } from './function_selector.js';
 
 describe('FunctionSelector', () => {

@@ -1,11 +1,11 @@
 import { TX_REQUEST_LENGTH } from '@aztec/constants';
-import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
+import { FunctionSelector } from '../abi/index.js';
 import { makeTxRequest } from '../tests/factories.js';
 import { FunctionData } from './function_data.js';
 import { Gas } from './gas.js';

@@ -41,10 +41,6 @@ import type {
   PartialAddress,
   PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/circuits.js';
-import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/circuits.js/contract';
-import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
-import { computeAddressSecret } from '@aztec/circuits.js/keys';
-import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import {
   type AbiDecoded,
   type ContractArtifact,
@@ -53,7 +49,11 @@ import {
   FunctionType,
   decodeFunctionSignature,
   encodeArguments,
-} from '@aztec/foundation/abi';
+} from '@aztec/circuits.js/abi';
+import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/circuits.js/contract';
+import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
+import { computeAddressSecret } from '@aztec/circuits.js/keys';
+import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, type Point } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';

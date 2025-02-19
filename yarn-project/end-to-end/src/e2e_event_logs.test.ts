@@ -6,7 +6,7 @@ import {
   Fr,
   L1EventPayload,
 } from '@aztec/aztec.js';
-import { EventSelector } from '@aztec/foundation/abi';
+import { EventSelector } from '@aztec/circuits.js/abi';
 import { makeTuple } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';
 import { type Tuple } from '@aztec/foundation/serialize';

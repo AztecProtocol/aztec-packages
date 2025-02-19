@@ -1,9 +1,5 @@
 import { z } from 'zod';
 
-import { type AbiDecoded } from '../abi/decoder.js';
-import { EventSelector } from '../abi/event_selector.js';
-import { FunctionSelector } from '../abi/function_selector.js';
-import { NoteSelector } from '../abi/note_selector.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import { Buffer32 } from '../buffer/buffer32.js';
 import { EthAddress } from '../eth-address/index.js';
@@ -20,15 +16,6 @@ export const schemas = {
 
   /** Accepts a hex string. */
   AztecAddress: AztecAddress.schema,
-
-  /** Accepts a hex string. */
-  FunctionSelector: FunctionSelector.schema,
-
-  /** Accepts a hex string. */
-  NoteSelector: NoteSelector.schema,
-
-  /** Accepts a hex string. */
-  EventSelector: EventSelector.schema,
 
   /** Accepts a hex string. */
   Fr: Fr.schema,
@@ -78,11 +65,3 @@ export const schemas = {
   /** Hex string with an optional 0x prefix which gets removed as part of the parsing. */
   HexString: hexSchema,
 };
-
-export const AbiDecodedSchema: ZodFor<AbiDecoded> = z.union([
-  schemas.BigInt,
-  z.boolean(),
-  schemas.AztecAddress,
-  z.array(z.lazy(() => AbiDecodedSchema)),
-  z.record(z.lazy(() => AbiDecodedSchema)),
-]);

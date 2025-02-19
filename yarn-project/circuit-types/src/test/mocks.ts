@@ -12,6 +12,7 @@ import {
   computeContractAddressFromInstance,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
+import { type ContractArtifact, NoteSelector } from '@aztec/circuits.js/abi';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import {
   PartialPrivateTailPublicInputsForPublic,
@@ -20,7 +21,6 @@ import {
 } from '@aztec/circuits.js/kernel';
 import { makeCombinedConstantData, makeGas, makeHeader, makePublicCallRequest } from '@aztec/circuits.js/testing';
 import { MAX_ENQUEUED_CALLS_PER_TX } from '@aztec/constants';
-import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer, randomBytes } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';

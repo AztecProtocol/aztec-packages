@@ -5,7 +5,7 @@ import {
   computePublicBytecodeCommitment,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { FunctionType, decodeFunctionSignature } from '@aztec/foundation/abi';
+import { FunctionType, decodeFunctionSignature } from '@aztec/circuits.js/abi';
 import { createLogger } from '@aztec/foundation/log';
 import { type Maybe } from '@aztec/foundation/types';
 import { type DataStoreConfig } from '@aztec/kv-store/config';

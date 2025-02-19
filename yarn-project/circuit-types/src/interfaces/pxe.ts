@@ -14,7 +14,6 @@ import {
   type ProtocolContractAddresses,
   ProtocolContractAddressesSchema,
 } from '@aztec/circuits.js';
-import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import {
   type AbiDecoded,
   type AbiType,
@@ -22,7 +21,8 @@ import {
   type ContractArtifact,
   ContractArtifactSchema,
   type EventSelector,
-} from '@aztec/foundation/abi';
+} from '@aztec/circuits.js/abi';
+import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { AbiDecodedSchema, type ApiSchemaFor, type ZodFor, optional, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';

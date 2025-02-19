@@ -6,9 +6,9 @@ import {
   PublicDataWrite,
   computePartialAddress,
 } from '@aztec/circuits.js';
+import { type ContractArtifact, NoteSelector } from '@aztec/circuits.js/abi';
 import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
 import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
-import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Logger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';

@@ -31,8 +31,8 @@ import {
   type PartialAddress,
   type Point,
 } from '@aztec/circuits.js';
+import type { AbiDecoded, ContractArtifact } from '@aztec/circuits.js/abi';
 import { type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import type { AbiDecoded, ContractArtifact } from '@aztec/foundation/abi';
 
 import { type Wallet } from '../account/wallet.js';
 import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';

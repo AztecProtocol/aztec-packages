@@ -1,13 +1,13 @@
 /* eslint-disable camelcase */
+import { type Fr } from '@aztec/foundation/fields';
+import { createLogger } from '@aztec/foundation/log';
+import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+
 import { inflate } from 'pako';
 import { z } from 'zod';
 
-import { type Fr } from '../fields/fields.js';
-import { createLogger } from '../log/index.js';
-import { schemas } from '../schemas/schemas.js';
-import { type ZodFor } from '../schemas/types.js';
 import { FunctionSelector } from './function_selector.js';
-import { type NoteSelector } from './note_selector.js';
+import { NoteSelector } from './note_selector.js';
 
 /** A basic value. */
 export interface BasicValue<T extends string, V> {
@@ -318,7 +318,7 @@ export type ContractNote = {
 };
 
 export const ContractNoteSchema = z.object({
-  id: schemas.NoteSelector,
+  id: NoteSelector.schema,
   typ: z.string(),
   fields: z.array(NoteFieldSchema),
 }) satisfies ZodFor<ContractNote>;

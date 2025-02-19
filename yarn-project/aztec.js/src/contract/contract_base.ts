@@ -1,11 +1,11 @@
-import { type ContractInstanceWithAddress, computePartialAddress } from '@aztec/circuits.js/contract';
 import {
   type ContractArtifact,
   type ContractNote,
   type FieldLayout,
   type FunctionArtifact,
   FunctionSelector,
-} from '@aztec/foundation/abi';
+} from '@aztec/circuits.js/abi';
+import { type ContractInstanceWithAddress, computePartialAddress } from '@aztec/circuits.js/contract';
 
 import { type Wallet } from '../account/index.js';
 import { ContractFunctionInteraction } from './contract_function_interaction.js';

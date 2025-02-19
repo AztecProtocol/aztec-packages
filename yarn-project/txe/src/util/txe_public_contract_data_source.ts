@@ -8,8 +8,8 @@ import {
   type PublicFunction,
   computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
+import { type ContractArtifact } from '@aztec/circuits.js/abi';
 import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
-import { type ContractArtifact } from '@aztec/foundation/abi';
 import { PrivateFunctionsTree } from '@aztec/pxe';
 
 import { type TXE } from '../oracle/txe_oracle.js';

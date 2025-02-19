@@ -1,4 +1,5 @@
-import { Fr } from '../fields/fields.js';
+import { Fr } from '@aztec/foundation/fields';
+
 import { type ABIParameterVisibility, type FunctionArtifact } from './abi.js';
 import { decodeFromAbi, decodeFunctionSignature, decodeFunctionSignatureWithParameterNames } from './decoder.js';
 

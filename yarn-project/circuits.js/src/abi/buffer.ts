@@ -1,6 +1,6 @@
-import chunk from 'lodash.chunk';
+import { Fr } from '@aztec/foundation/fields';
 
-import { Fr } from '../fields/fields.js';
+import chunk from 'lodash.chunk';
 
 /**
  * Formats a buffer as an array of fields. Splits the input into 31-byte chunks, and stores each

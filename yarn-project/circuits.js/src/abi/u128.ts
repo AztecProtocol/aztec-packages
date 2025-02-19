@@ -1,4 +1,4 @@
-import { Fr } from '../fields/fields.js';
+import { Fr } from '@aztec/foundation/fields';
 
 // A typescript version of noir::std::U128
 export class U128 {

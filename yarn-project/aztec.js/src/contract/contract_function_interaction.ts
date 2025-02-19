@@ -5,7 +5,7 @@ import {
   FunctionType,
   decodeFromAbi,
   encodeArguments,
-} from '@aztec/foundation/abi';
+} from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 
 import { type Wallet } from '../account/wallet.js';

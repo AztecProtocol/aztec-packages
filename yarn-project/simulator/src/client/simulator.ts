@@ -13,7 +13,7 @@ import {
   FunctionType,
   type NoteSelector,
   encodeArguments,
-} from '@aztec/foundation/abi';
+} from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';

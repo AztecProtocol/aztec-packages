@@ -1,8 +1,9 @@
-import { fromHex, toBigIntBE } from '../bigint-buffer/index.js';
-import { poseidon2HashBytes, randomBytes } from '../crypto/index.js';
-import { type Fr } from '../fields/fields.js';
-import { hexSchemaFor } from '../schemas/utils.js';
-import { BufferReader } from '../serialize/buffer_reader.js';
+import { fromHex, toBigIntBE } from '@aztec/foundation/bigint-buffer';
+import { poseidon2HashBytes, randomBytes } from '@aztec/foundation/crypto';
+import { type Fr } from '@aztec/foundation/fields';
+import { hexSchemaFor } from '@aztec/foundation/schemas';
+import { BufferReader } from '@aztec/foundation/serialize';
+
 import { Selector } from './selector.js';
 
 /* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */

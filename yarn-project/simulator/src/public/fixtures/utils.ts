@@ -11,8 +11,8 @@ import {
   TxConstantData,
   TxContext,
 } from '@aztec/circuits.js';
+import { type FunctionArtifact } from '@aztec/circuits.js/abi';
 import { DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/constants';
-import { type FunctionArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';

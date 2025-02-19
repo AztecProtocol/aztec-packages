@@ -26,10 +26,10 @@ import {
   StateReference,
   countAccumulatedItems,
 } from '@aztec/circuits.js';
+import { bufferAsFields } from '@aztec/circuits.js/abi';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { fr, makeContractClassPublic } from '@aztec/circuits.js/testing';
 import { NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, REGISTERER_CONTRACT_ADDRESS } from '@aztec/constants';
-import { bufferAsFields } from '@aztec/foundation/abi';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';

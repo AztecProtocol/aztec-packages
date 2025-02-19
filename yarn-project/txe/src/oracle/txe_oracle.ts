@@ -38,6 +38,13 @@ import {
   deriveKeys,
 } from '@aztec/circuits.js';
 import {
+  type ContractArtifact,
+  type FunctionAbi,
+  FunctionSelector,
+  type NoteSelector,
+  countArgumentsSize,
+} from '@aztec/circuits.js/abi';
+import {
   computeNoteHashNonce,
   computePublicDataTreeLeafSlot,
   computeUniqueNoteHash,
@@ -61,13 +68,6 @@ import {
   type PUBLIC_DATA_TREE_HEIGHT,
   PUBLIC_DISPATCH_SELECTOR,
 } from '@aztec/constants';
-import {
-  type ContractArtifact,
-  type FunctionAbi,
-  FunctionSelector,
-  type NoteSelector,
-  countArgumentsSize,
-} from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Schnorr, poseidon2Hash } from '@aztec/foundation/crypto';

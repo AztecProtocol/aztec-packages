@@ -1,5 +1,5 @@
 import { AztecAddress, type Fr, FunctionSelector } from '@aztec/circuits.js';
-import { type OpcodeLocation } from '@aztec/foundation/abi';
+import { type OpcodeLocation } from '@aztec/circuits.js/abi';
 import { schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';

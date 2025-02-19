@@ -8,7 +8,7 @@ import {
   type PublicKey,
   SerializableContractInstance,
 } from '@aztec/circuits.js';
-import { type ContractArtifact, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
+import { type ContractArtifact, FunctionSelector, FunctionType } from '@aztec/circuits.js/abi';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr, type Point } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';

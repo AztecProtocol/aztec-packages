@@ -6,6 +6,7 @@ import {
   GasFees,
   GlobalVariables,
 } from '@aztec/circuits.js';
+import { type ContractArtifact, encodeArguments } from '@aztec/circuits.js/abi';
 import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
@@ -13,7 +14,6 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
   PUBLIC_DISPATCH_SELECTOR,
 } from '@aztec/constants';
-import { type ContractArtifact, encodeArguments } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';

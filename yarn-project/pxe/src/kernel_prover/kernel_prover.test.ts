@@ -18,6 +18,7 @@ import {
   VerificationKey,
   VerificationKeyAsFields,
 } from '@aztec/circuits.js';
+import { NoteSelector } from '@aztec/circuits.js/abi';
 import { makeTxRequest } from '@aztec/circuits.js/testing';
 import {
   CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
@@ -25,7 +26,6 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   VK_TREE_HEIGHT,
 } from '@aztec/constants';
-import { NoteSelector } from '@aztec/foundation/abi';
 import { makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';

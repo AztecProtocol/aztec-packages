@@ -1,7 +1,7 @@
 import { FUNCTION_DATA_LENGTH } from '@aztec/constants';
-import { FunctionSelector } from '@aztec/foundation/abi';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 
+import { FunctionSelector } from '../abi/index.js';
 import { FunctionData } from './function_data.js';
 
 describe('FunctionData', () => {

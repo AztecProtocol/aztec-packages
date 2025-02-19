@@ -12,7 +12,7 @@ import {
   type IntegerValue,
   type StructValue,
   type TypedStructFieldValue,
-} from '@aztec/foundation/abi';
+} from '@aztec/circuits.js/abi';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 
 import {

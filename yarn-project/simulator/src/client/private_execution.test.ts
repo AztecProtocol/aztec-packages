@@ -29,6 +29,15 @@ import {
   getNonEmptyItems,
 } from '@aztec/circuits.js';
 import {
+  type ContractArtifact,
+  type FunctionArtifact,
+  FunctionSelector,
+  type NoteSelector,
+  encodeArguments,
+  getFunctionArtifact,
+  getFunctionArtifactByName,
+} from '@aztec/circuits.js/abi';
+import {
   computeNoteHashNonce,
   computeSecretHash,
   computeVarArgsHash,
@@ -43,15 +52,6 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
   PUBLIC_DISPATCH_SELECTOR,
 } from '@aztec/constants';
-import {
-  type ContractArtifact,
-  type FunctionArtifact,
-  FunctionSelector,
-  type NoteSelector,
-  encodeArguments,
-  getFunctionArtifact,
-  getFunctionArtifactByName,
-} from '@aztec/foundation/abi';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { times } from '@aztec/foundation/collection';

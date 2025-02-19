@@ -1,7 +1,7 @@
 import { FunctionCall, HashedValues } from '@aztec/circuit-types';
 import { type AztecAddress, Fr, type GasSettings } from '@aztec/circuits.js';
+import { FunctionType } from '@aztec/circuits.js/abi';
 import { GeneratorIndex } from '@aztec/constants';
-import { FunctionType } from '@aztec/foundation/abi';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { type Tuple } from '@aztec/foundation/serialize';

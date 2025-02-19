@@ -5,7 +5,7 @@ import {
   type FunctionDebugMetadata,
   type FunctionSelector,
   getFunctionDebugMetadata,
-} from '@aztec/foundation/abi';
+} from '@aztec/circuits.js/abi';
 import { type Fr } from '@aztec/foundation/fields';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import { ContractClassNotFoundError, ContractNotFoundError } from '@aztec/simulator/client';

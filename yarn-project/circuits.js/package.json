@@ -8,6 +8,7 @@
   ],
   "exports": {
     ".": "./dest/index.js",
+    "./abi": "./dest/abi/index.js",
     "./hash": "./dest/hash/index.js",
     "./keys": "./dest/keys/index.js",
     "./barretenberg": "./dest/barretenberg/index.js",

@@ -1,5 +1,5 @@
 import { type IsEmpty, PrivateCircuitPublicInputs, sortByCounter } from '@aztec/circuits.js';
-import { NoteSelector } from '@aztec/foundation/abi';
+import { NoteSelector } from '@aztec/circuits.js/abi';
 import { timesParallel } from '@aztec/foundation/collection';
 import { randomBytes, randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';

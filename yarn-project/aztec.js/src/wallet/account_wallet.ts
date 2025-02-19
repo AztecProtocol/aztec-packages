@@ -1,6 +1,6 @@
 import { type AuthWitness, type PXE, type TxExecutionRequest } from '@aztec/circuit-types';
 import { type AztecAddress, Fr } from '@aztec/circuits.js';
-import { type ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/foundation/abi';
+import { type ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/circuits.js/abi';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import { type AccountInterface } from '../account/interface.js';

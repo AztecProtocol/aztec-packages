@@ -23,8 +23,8 @@ import {
   computeTaggingSecretPoint,
   deriveKeys,
 } from '@aztec/circuits.js';
+import { type FunctionArtifact, FunctionSelector, FunctionType } from '@aztec/circuits.js/abi';
 import { INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX, PUBLIC_LOG_DATA_SIZE_IN_FIELDS } from '@aztec/constants';
-import { type FunctionArtifact, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { timesParallel } from '@aztec/foundation/collection';
 import { pedersenHash, poseidon2Hash } from '@aztec/foundation/crypto';
 import { KeyStore } from '@aztec/key-store';
