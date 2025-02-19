@@ -32,24 +32,19 @@ export class TXEWorldStateDB extends WorldStateDB {
     return value;
   }
 
-  override async storageWrite(contract: AztecAddress, slot: Fr, newValue: Fr): Promise<bigint> {
+  override async storageWrite(contract: AztecAddress, slot: Fr, newValue: Fr): Promise<void> {
     await this.txe.addPublicDataWrites([
       new PublicDataWrite(await computePublicDataTreeLeafSlot(contract, slot), newValue),
     ]);
-
-    return newValue.toBigInt();
   }
 
-  override checkpoint(): Promise<void> {
+  override createCheckpoint(): Promise<void> {
     return Promise.resolve();
   }
-  override rollbackToCheckpoint(): Promise<void> {
-    throw new Error('Cannot rollback');
-  }
-  override commit(): Promise<void> {
+  override commitCheckpoint(): Promise<void> {
     return Promise.resolve();
   }
-  override rollbackToCommit(): Promise<void> {
+  override revertCheckpoint(): Promise<void> {
     throw new Error('Cannot rollback');
   }
 }
