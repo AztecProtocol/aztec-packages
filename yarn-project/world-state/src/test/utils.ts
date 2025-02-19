@@ -4,7 +4,8 @@ import {
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
 } from '@aztec/circuit-types';
-import { AppendOnlyTreeSnapshot, Fr } from '@aztec/circuits.js';
+import { Fr } from '@aztec/circuits.js';
+import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
 import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,

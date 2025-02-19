@@ -9,7 +9,6 @@ import {
 } from '@aztec/circuit-types';
 import { mockTx } from '@aztec/circuit-types/testing';
 import {
-  AppendOnlyTreeSnapshot,
   AztecAddress,
   BlockHeader,
   type ContractDataSource,
@@ -19,7 +18,6 @@ import {
   GasSettings,
   GlobalVariables,
   PartialStateReference,
-  PublicDataTreeLeaf,
   PublicDataWrite,
   RevertCode,
   ScopedLogHash,
@@ -29,6 +27,7 @@ import {
 import { bufferAsFields } from '@aztec/circuits.js/abi';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { fr, makeContractClassPublic } from '@aztec/circuits.js/testing';
+import { AppendOnlyTreeSnapshot, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, REGISTERER_CONTRACT_ADDRESS } from '@aztec/constants';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';

@@ -10,16 +10,11 @@ import {
   type TxHash,
 } from '@aztec/circuit-types';
 import {
-  AvmCircuitInputs,
-  type AvmCircuitPublicInputs,
   type AztecAddress,
   Fr,
   Gas,
   type GasSettings,
   type GlobalVariables,
-  PrivateToAvmAccumulatedData,
-  PrivateToAvmAccumulatedDataArrayLengths,
-  type PrivateToPublicAccumulatedData,
   PublicCallRequest,
   PublicDataWrite,
   RevertCode,
@@ -29,6 +24,12 @@ import {
   countAccumulatedItems,
   mergeAccumulatedData,
 } from '@aztec/circuits.js';
+import { AvmCircuitInputs, type AvmCircuitPublicInputs } from '@aztec/circuits.js/avm';
+import {
+  PrivateToAvmAccumulatedData,
+  PrivateToAvmAccumulatedDataArrayLengths,
+  type PrivateToPublicAccumulatedData,
+} from '@aztec/circuits.js/kernel';
 import {
   MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
   MAX_L2_TO_L1_MSGS_PER_TX,

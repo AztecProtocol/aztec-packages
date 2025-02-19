@@ -42,13 +42,15 @@ import {
   Fr,
   type GasFees,
   type NodeInfo,
-  type NullifierLeafPreimage,
   type PrivateLog,
   type ProtocolContractAddresses,
-  type PublicDataTreeLeaf,
-  type PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
+import {
+  type NullifierLeafPreimage,
+  type PublicDataTreeLeaf,
+  type PublicDataTreeLeafPreimage,
+} from '@aztec/circuits.js/trees';
 import {
   type ARCHIVE_HEIGHT,
   INITIAL_L2_BLOCK_NUM,

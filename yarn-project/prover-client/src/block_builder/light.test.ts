@@ -9,14 +9,12 @@ import {
 } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/testing';
 import {
-  type AppendOnlyTreeSnapshot,
   AztecAddress,
   BaseParityInputs,
   Fr,
   type GlobalVariables,
   type ParityPublicInputs,
   PartialStateReference,
-  PublicDataTreeLeaf,
   PublicDataWrite,
   type RecursiveProof,
   RootParityInput,
@@ -41,6 +39,7 @@ import {
   SingleTxBlockRootRollupInputs,
 } from '@aztec/circuits.js/rollup';
 import { makeGlobalVariables } from '@aztec/circuits.js/testing';
+import { type AppendOnlyTreeSnapshot, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import {
   BLOBS_PER_BLOCK,
   FIELDS_PER_BLOB,

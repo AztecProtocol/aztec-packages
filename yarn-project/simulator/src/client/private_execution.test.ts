@@ -9,7 +9,6 @@ import {
   TxExecutionRequest,
 } from '@aztec/circuit-types';
 import {
-  AppendOnlyTreeSnapshot,
   BlockHeader,
   CallContext,
   CompleteAddress,
@@ -45,6 +44,7 @@ import {
   siloNullifier,
 } from '@aztec/circuits.js/hash';
 import { makeHeader } from '@aztec/circuits.js/testing';
+import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
 import {
   GeneratorIndex,
   L1_TO_L2_MSG_TREE_HEIGHT,

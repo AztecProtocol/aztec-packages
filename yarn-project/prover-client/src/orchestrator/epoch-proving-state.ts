@@ -3,7 +3,7 @@ import {
   type ProofAndVerificationKey,
   type PublicInputsAndRecursiveProof,
 } from '@aztec/circuit-types';
-import { type AppendOnlyTreeSnapshot, type BlockHeader, type Fr, type GlobalVariables } from '@aztec/circuits.js';
+import { type BlockHeader, type Fr, type GlobalVariables } from '@aztec/circuits.js';
 import {
   BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
@@ -11,6 +11,7 @@ import {
   RootRollupInputs,
   type RootRollupPublicInputs,
 } from '@aztec/circuits.js/rollup';
+import { type AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
 import {
   type ARCHIVE_HEIGHT,
   type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,

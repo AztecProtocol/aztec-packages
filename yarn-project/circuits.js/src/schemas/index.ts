@@ -24,4 +24,12 @@ export const AbiDecodedSchema: ZodFor<AbiDecoded> = z.union([
   z.record(z.lazy(() => AbiDecodedSchema)),
 ]);
 
-export { type ZodFor, bufferSchema, hexSchema, hexSchemaFor, bufferSchemaFor } from '@aztec/foundation/schemas';
+export {
+  type ZodFor,
+  bufferSchema,
+  hexSchema,
+  hexSchemaFor,
+  bufferSchemaFor,
+  type ApiSchemaFor,
+  optional,
+} from '@aztec/foundation/schemas';

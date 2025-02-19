@@ -14,11 +14,10 @@ import {
   type ContractInstanceWithAddress,
   Fr,
   type FunctionSelector,
-  type NullifierLeafPreimage,
-  type PublicDataTreeLeafPreimage,
   computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
 import { computeL1ToL2MessageNullifier, computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { type NullifierLeafPreimage, type PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
 import { type L1_TO_L2_MSG_TREE_HEIGHT, type NULLIFIER_TREE_HEIGHT } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';

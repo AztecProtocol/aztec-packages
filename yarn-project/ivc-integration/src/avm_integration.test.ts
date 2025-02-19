@@ -1,11 +1,11 @@
 import { type BBSuccess, BB_RESULT, generateAvmProof, generateProof, verifyProof } from '@aztec/bb-prover';
 import {
-  type AvmCircuitInputs,
   AztecAddress,
   type ContractClassPublic,
   type ContractInstanceWithAddress,
   FunctionSelector,
 } from '@aztec/circuits.js';
+import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
 import {
   AVM_PROOF_LENGTH_IN_FIELDS,

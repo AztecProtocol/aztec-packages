@@ -4,7 +4,11 @@ import {
   type MerkleTreeWriteOperations,
   type SequentialInsertionResult,
 } from '@aztec/circuit-types';
-import { type NullifierLeafPreimage, PublicDataTreeLeaf, type PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
+import {
+  type NullifierLeafPreimage,
+  PublicDataTreeLeaf,
+  type PublicDataTreeLeafPreimage,
+} from '@aztec/circuits.js/trees';
 import {
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_SUBTREE_HEIGHT,

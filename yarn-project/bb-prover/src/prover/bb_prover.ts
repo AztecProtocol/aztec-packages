@@ -9,7 +9,6 @@ import {
 } from '@aztec/circuit-types';
 import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
-  type AvmCircuitInputs,
   type BaseParityInputs,
   Fr,
   type ParityPublicInputs,
@@ -19,6 +18,7 @@ import {
   type VerificationKeyData,
   makeRecursiveProofFromBinary,
 } from '@aztec/circuits.js';
+import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
 import {
   type BaseOrMergeRollupPublicInputs,
   type BlockMergeRollupInputs,

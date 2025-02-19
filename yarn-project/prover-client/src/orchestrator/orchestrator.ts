@@ -14,7 +14,6 @@ import {
 } from '@aztec/circuit-types/interfaces';
 import { type CircuitName } from '@aztec/circuit-types/stats';
 import {
-  type AppendOnlyTreeSnapshot,
   BaseParityInputs,
   type BlockHeader,
   Fr,
@@ -29,6 +28,7 @@ import {
   SingleTxBlockRootRollupInputs,
   TubeInputs,
 } from '@aztec/circuits.js/rollup';
+import { type AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
 import {
   AVM_PROOF_LENGTH_IN_FIELDS,
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,

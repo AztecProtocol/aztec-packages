@@ -1,6 +1,6 @@
 import { AztecAddress, Fr } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/circuits.js/abi';
-import { schemas } from '@aztec/foundation/schemas';
+import { schemas } from '@aztec/circuits.js/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 

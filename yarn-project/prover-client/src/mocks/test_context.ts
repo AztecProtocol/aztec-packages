@@ -8,15 +8,14 @@ import {
 } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/testing';
 import {
-  type AppendOnlyTreeSnapshot,
   AztecAddress,
   type BlockHeader,
   type Gas,
   type GlobalVariables,
-  PublicDataTreeLeaf,
   PublicDataWrite,
   TreeSnapshots,
 } from '@aztec/circuits.js';
+import { type AppendOnlyTreeSnapshot, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger } from '@aztec/foundation/log';

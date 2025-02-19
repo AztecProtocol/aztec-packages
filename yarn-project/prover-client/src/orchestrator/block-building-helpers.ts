@@ -8,17 +8,13 @@ import {
   getTreeHeight,
 } from '@aztec/circuit-types';
 import {
-  AppendOnlyTreeSnapshot,
   BlockHeader,
   ContentCommitment,
   Fr,
   type GlobalVariables,
-  NullifierLeafPreimage,
   type ParityPublicInputs,
   PartialStateReference,
   PublicDataHint,
-  PublicDataTreeLeaf,
-  PublicDataTreeLeafPreimage,
   StateReference,
 } from '@aztec/circuits.js';
 import {
@@ -29,6 +25,12 @@ import {
   PrivateBaseStateDiffHints,
   PublicBaseRollupHints,
 } from '@aztec/circuits.js/rollup';
+import {
+  AppendOnlyTreeSnapshot,
+  NullifierLeafPreimage,
+  PublicDataTreeLeaf,
+  PublicDataTreeLeafPreimage,
+} from '@aztec/circuits.js/trees';
 import {
   ARCHIVE_HEIGHT,
   MAX_NOTE_HASHES_PER_TX,

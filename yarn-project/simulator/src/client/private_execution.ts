@@ -1,8 +1,9 @@
 import { type AztecNode, PrivateCallExecutionResult } from '@aztec/circuit-types';
 import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
-import { type ContractInstance, Fr, PrivateCircuitPublicInputs, ScheduledValueChange } from '@aztec/circuits.js';
+import { type ContractInstance, Fr, PrivateCircuitPublicInputs } from '@aztec/circuits.js';
 import { type FunctionArtifact, type FunctionSelector, countArgumentsSize } from '@aztec/circuits.js/abi';
 import { deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
+import { ScheduledValueChange } from '@aztec/circuits.js/shared-mutable';
 import {
   PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
   PRIVATE_CONTEXT_INPUTS_LENGTH,

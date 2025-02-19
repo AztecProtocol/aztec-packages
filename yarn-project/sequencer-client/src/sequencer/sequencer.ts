@@ -12,7 +12,6 @@ import {
 import type { AllowedElement, WorldStateSynchronizerStatus } from '@aztec/circuit-types/interfaces';
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
 import {
-  AppendOnlyTreeSnapshot,
   BlockHeader,
   ContentCommitment,
   type ContractDataSource,
@@ -20,6 +19,7 @@ import {
   type GlobalVariables,
   StateReference,
 } from '@aztec/circuits.js';
+import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { omit } from '@aztec/foundation/collection';

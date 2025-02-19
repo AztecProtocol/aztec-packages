@@ -6,7 +6,6 @@ import {
   makePublicInputsAndRecursiveProof,
 } from '@aztec/circuit-types';
 import {
-  type AvmCircuitInputs,
   type BaseParityInputs,
   type ParityPublicInputs,
   type Proof,
@@ -15,6 +14,7 @@ import {
   makeEmptyRecursiveProof,
   makeRecursiveProof,
 } from '@aztec/circuits.js';
+import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
 import {
   type BaseOrMergeRollupPublicInputs,
   type BlockMergeRollupInputs,

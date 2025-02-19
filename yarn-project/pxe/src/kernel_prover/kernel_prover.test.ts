@@ -10,8 +10,6 @@ import {
   FunctionSelector,
   NoteHash,
   PrivateCircuitPublicInputs,
-  PrivateKernelCircuitPublicInputs,
-  PrivateKernelTailCircuitPublicInputs,
   PublicKeys,
   ScopedNoteHash,
   type TxRequest,
@@ -19,6 +17,7 @@ import {
   VerificationKeyAsFields,
 } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/circuits.js/abi';
+import { PrivateKernelCircuitPublicInputs, PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
 import { makeTxRequest } from '@aztec/circuits.js/testing';
 import {
   CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,

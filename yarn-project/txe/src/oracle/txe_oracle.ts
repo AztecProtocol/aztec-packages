@@ -17,7 +17,6 @@ import {
 } from '@aztec/circuit-types';
 import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
-  AppendOnlyTreeSnapshot,
   BlockHeader,
   CallContext,
   type ContractInstance,
@@ -27,11 +26,8 @@ import {
   GlobalVariables,
   IndexedTaggingSecret,
   type KeyValidationRequest,
-  type NullifierLeafPreimage,
   PrivateContextInputs,
   type PrivateLog,
-  PublicDataTreeLeaf,
-  type PublicDataTreeLeafPreimage,
   PublicDataWrite,
   type PublicLog,
   computeTaggingSecretPoint,
@@ -57,6 +53,12 @@ import {
   makeGlobalVariables,
   makeHeader,
 } from '@aztec/circuits.js/testing';
+import {
+  AppendOnlyTreeSnapshot,
+  type NullifierLeafPreimage,
+  PublicDataTreeLeaf,
+  type PublicDataTreeLeafPreimage,
+} from '@aztec/circuits.js/trees';
 import {
   type L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_NOTE_HASHES_PER_TX,

@@ -5,16 +5,8 @@ import {
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
 } from '@aztec/circuit-types';
-import {
-  BlockHeader,
-  EthAddress,
-  Fr,
-  NullifierLeaf,
-  type NullifierLeafPreimage,
-  PartialStateReference,
-  PublicDataTreeLeaf,
-  StateReference,
-} from '@aztec/circuits.js';
+import { BlockHeader, EthAddress, Fr, PartialStateReference, StateReference } from '@aztec/circuits.js';
+import { NullifierLeaf, type NullifierLeafPreimage, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';

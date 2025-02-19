@@ -13,6 +13,14 @@ import {
   AztecAddress,
   ClientIvcProof,
   Fr,
+  type PrivateLog,
+  type ScopedPrivateLogData,
+  type TxRequest,
+  VerificationKeyAsFields,
+  computeContractAddressFromInstance,
+} from '@aztec/circuits.js';
+import { hashVK } from '@aztec/circuits.js/hash';
+import {
   PrivateCallData,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelData,
@@ -20,14 +28,8 @@ import {
   PrivateKernelInnerCircuitPrivateInputs,
   PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
-  type PrivateLog,
   PrivateVerificationKeyHints,
-  type ScopedPrivateLogData,
-  type TxRequest,
-  VerificationKeyAsFields,
-  computeContractAddressFromInstance,
-} from '@aztec/circuits.js';
-import { hashVK } from '@aztec/circuits.js/hash';
+} from '@aztec/circuits.js/kernel';
 import { CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, VK_TREE_HEIGHT } from '@aztec/constants';
 import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';

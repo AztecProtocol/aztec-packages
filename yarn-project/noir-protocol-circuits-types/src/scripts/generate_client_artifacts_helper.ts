@@ -2,7 +2,7 @@ import { createConsoleLogger } from '@aztec/foundation/log';
 
 import { promises as fs } from 'fs';
 
-import { ClientProtocolArtifact } from '../artifacts/types.js';
+import { type ClientProtocolArtifact } from '../artifacts/types.js';
 import { PrivateKernelResetArtifactFileNames } from '../private_kernel_reset_types.js';
 
 const log = createConsoleLogger('autogenerate');

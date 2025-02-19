@@ -9,16 +9,13 @@ import {
   SiblingPath,
   type TreeInfo,
 } from '@aztec/circuit-types';
+import { type BlockHeader, Fr, PartialStateReference, StateReference } from '@aztec/circuits.js';
 import {
-  type BlockHeader,
-  Fr,
   NullifierLeaf,
   NullifierLeafPreimage,
-  PartialStateReference,
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
-  StateReference,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/trees';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 

@@ -34,10 +34,10 @@ import {
   type NodeInfo,
   type PrivateLog,
   type ProtocolContractAddresses,
-  type PublicDataTreeLeafPreimage,
   type PublicLog,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { type PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
 import {
   type ARCHIVE_HEIGHT,
   type L1_TO_L2_MSG_TREE_HEIGHT,

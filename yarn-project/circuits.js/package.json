@@ -24,7 +24,8 @@
     "./trees": "./dest/structs/trees/index.js",
     "./avm": "./dest/structs/avm/index.js",
     "./schemas": "./dest/schemas/index.js",
-    "./noir": "./dest/noir/index.js"
+    "./noir": "./dest/noir/index.js",
+    "./shared-mutable": "./dest/structs/shared_mutable/index.js"
   },
   "typedocOptions": {
     "entryPoints": [

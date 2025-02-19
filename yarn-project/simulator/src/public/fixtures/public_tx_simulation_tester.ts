@@ -1,12 +1,7 @@
 import { MerkleTreeId, type MerkleTreeWriteOperations, PublicExecutionRequest, type Tx } from '@aztec/circuit-types';
-import {
-  type AvmCircuitPublicInputs,
-  CallContext,
-  FunctionSelector,
-  GasFees,
-  GlobalVariables,
-} from '@aztec/circuits.js';
+import { CallContext, FunctionSelector, GasFees, GlobalVariables } from '@aztec/circuits.js';
 import { type ContractArtifact, encodeArguments } from '@aztec/circuits.js/abi';
+import { type AvmCircuitPublicInputs } from '@aztec/circuits.js/avm';
 import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,

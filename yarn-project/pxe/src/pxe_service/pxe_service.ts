@@ -39,7 +39,6 @@ import type {
   GasFees,
   NodeInfo,
   PartialAddress,
-  PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/circuits.js';
 import {
   type AbiDecoded,
@@ -52,6 +51,7 @@ import {
 } from '@aztec/circuits.js/abi';
 import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/circuits.js/contract';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
+import { PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
 import { computeAddressSecret } from '@aztec/circuits.js/keys';
 import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';

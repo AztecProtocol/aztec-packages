@@ -2,7 +2,6 @@ import { SpongeBlob } from '@aztec/blob-lib';
 import { type L2Block, type MerkleTreeId, type PublicInputsAndRecursiveProof } from '@aztec/circuit-types';
 import { type CircuitName } from '@aztec/circuit-types/stats';
 import {
-  type AppendOnlyTreeSnapshot,
   type BlockHeader,
   Fr,
   type GlobalVariables,
@@ -23,6 +22,7 @@ import {
   PreviousRollupData,
   SingleTxBlockRootRollupInputs,
 } from '@aztec/circuits.js/rollup';
+import { type AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
 import {
   type ARCHIVE_HEIGHT,
   BLOBS_PER_BLOCK,

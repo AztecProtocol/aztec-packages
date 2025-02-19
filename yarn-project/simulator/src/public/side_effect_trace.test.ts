@@ -1,23 +1,24 @@
 import {
-  AvmAppendTreeHint,
-  AvmNullifierReadTreeHint,
-  AvmNullifierWriteTreeHint,
-  AvmPublicDataReadTreeHint,
-  AvmPublicDataWriteTreeHint,
   AztecAddress,
   type ContractClassIdPreimage,
   EthAddress,
   L2ToL1Message,
   NoteHash,
   Nullifier,
-  NullifierLeafPreimage,
-  PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
   PublicLog,
   SerializableContractInstance,
   Vector,
 } from '@aztec/circuits.js';
+import {
+  AvmAppendTreeHint,
+  AvmNullifierReadTreeHint,
+  AvmNullifierWriteTreeHint,
+  AvmPublicDataReadTreeHint,
+  AvmPublicDataWriteTreeHint,
+} from '@aztec/circuits.js/avm';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
 import {
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,

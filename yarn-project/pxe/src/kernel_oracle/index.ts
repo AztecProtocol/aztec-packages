@@ -5,15 +5,17 @@ import {
   type FunctionSelector,
   type GrumpkinScalar,
   type Point,
-  ScheduledDelayChange,
-  ScheduledValueChange,
-  UpdatedClassIdHints,
   type VerificationKeyAsFields,
   computeContractClassIdPreimage,
   computeSaltedInitializationHash,
-  computeSharedMutableHashSlot,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot, deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
+import { UpdatedClassIdHints } from '@aztec/circuits.js/kernel';
+import {
+  ScheduledDelayChange,
+  ScheduledValueChange,
+  computeSharedMutableHashSlot,
+} from '@aztec/circuits.js/shared-mutable';
 import {
   type NOTE_HASH_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,

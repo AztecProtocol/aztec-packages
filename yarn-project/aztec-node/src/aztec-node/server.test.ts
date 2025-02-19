@@ -17,9 +17,9 @@ import {
   Fr,
   GasFees,
   MaxBlockNumber,
-  PublicDataTreeLeafPreimage,
   RollupValidationRequests,
 } from '@aztec/circuits.js';
+import { PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
 import { type P2P } from '@aztec/p2p';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { type GlobalVariableBuilder } from '@aztec/sequencer-client';

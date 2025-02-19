@@ -8,16 +8,8 @@ import {
   type TxValidator,
 } from '@aztec/circuit-types';
 import { mockTx } from '@aztec/circuit-types/testing';
-import {
-  AvmCircuitInputs,
-  AztecAddress,
-  Fr,
-  Gas,
-  GasFees,
-  GlobalVariables,
-  PublicDataWrite,
-  RevertCode,
-} from '@aztec/circuits.js';
+import { AztecAddress, Fr, Gas, GasFees, GlobalVariables, PublicDataWrite, RevertCode } from '@aztec/circuits.js';
+import { AvmCircuitInputs } from '@aztec/circuits.js/avm';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { timesParallel } from '@aztec/foundation/collection';
 import { sleep } from '@aztec/foundation/sleep';

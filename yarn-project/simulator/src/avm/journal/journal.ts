@@ -1,16 +1,6 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
-import {
-  AvmNullifierReadTreeHint,
-  AvmPublicDataReadTreeHint,
-  AztecAddress,
-  NullifierLeafPreimage,
-  type PublicCallRequest,
-  PublicDataTreeLeafPreimage,
-  ScheduledDelayChange,
-  ScheduledValueChange,
-  SerializableContractInstance,
-  computeSharedMutableHashSlot,
-} from '@aztec/circuits.js';
+import { AztecAddress, type PublicCallRequest, SerializableContractInstance } from '@aztec/circuits.js';
+import { AvmNullifierReadTreeHint, AvmPublicDataReadTreeHint } from '@aztec/circuits.js/avm';
 import {
   computeNoteHashNonce,
   computePublicDataTreeLeafSlot,
@@ -19,6 +9,12 @@ import {
   siloNoteHash,
   siloNullifier,
 } from '@aztec/circuits.js/hash';
+import {
+  ScheduledDelayChange,
+  ScheduledValueChange,
+  computeSharedMutableHashSlot,
+} from '@aztec/circuits.js/shared-mutable';
+import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
 import {
   CANONICAL_AUTH_REGISTRY_ADDRESS,
   DEPLOYER_CONTRACT_ADDRESS,

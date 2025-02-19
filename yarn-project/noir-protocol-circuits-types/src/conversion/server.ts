@@ -1,15 +1,8 @@
 import { BlobPublicInputs, BlockBlobPublicInputs, Poseidon2Sponge, SpongeBlob } from '@aztec/blob-lib';
 import {
-  type AvmAccumulatedData,
-  type AvmCircuitPublicInputs,
   type BaseParityInputs,
   Fr,
   ParityPublicInputs,
-  type PrivateToAvmAccumulatedData,
-  type PrivateToAvmAccumulatedDataArrayLengths,
-  type PrivateToPublicAccumulatedData,
-  type PrivateToPublicKernelCircuitPublicInputs,
-  PrivateToRollupKernelCircuitPublicInputs,
   type PublicDataHint,
   type RecursiveProof,
   RevertCode,
@@ -17,9 +10,17 @@ import {
   type RootParityInput,
   type RootParityInputs,
   type TreeSnapshots,
-  TxConstantData,
   type VkWitnessData,
 } from '@aztec/circuits.js';
+import { type AvmAccumulatedData, type AvmCircuitPublicInputs } from '@aztec/circuits.js/avm';
+import {
+  type PrivateToAvmAccumulatedData,
+  type PrivateToAvmAccumulatedDataArrayLengths,
+  type PrivateToPublicAccumulatedData,
+  type PrivateToPublicKernelCircuitPublicInputs,
+  PrivateToRollupKernelCircuitPublicInputs,
+  TxConstantData,
+} from '@aztec/circuits.js/kernel';
 import {
   type AvmProofData,
   BaseOrMergeRollupPublicInputs,
@@ -43,6 +44,7 @@ import {
   RootRollupPublicInputs,
   type SingleTxBlockRootRollupInputs,
 } from '@aztec/circuits.js/rollup';
+import type { fr } from '@aztec/circuits.js/testing';
 import {
   type AVM_PROOF_LENGTH_IN_FIELDS,
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
