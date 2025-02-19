@@ -1,3 +1,4 @@
+import { BLOCK_HEADER_LENGTH, GeneratorIndex } from '@aztec/constants';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
@@ -8,7 +9,6 @@ import { type FieldsOf } from '@aztec/foundation/types';
 import { inspect } from 'util';
 import { z } from 'zod';
 
-import { BLOCK_HEADER_LENGTH, GeneratorIndex } from '../constants.gen.js';
 import { ContentCommitment } from './content_commitment.js';
 import { GlobalVariables } from './global_variables.js';
 import { StateReference } from './state_reference.js';

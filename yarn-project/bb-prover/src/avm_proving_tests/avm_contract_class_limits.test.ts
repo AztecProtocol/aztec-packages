@@ -1,9 +1,6 @@
-import {
-  AztecAddress,
-  type ContractInstanceWithAddress,
-  MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
-} from '@aztec/circuits.js';
+import { AztecAddress, type ContractInstanceWithAddress } from '@aztec/circuits.js';
 import { makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
+import { MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS } from '@aztec/constants';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 
 import { AvmProvingTester } from './avm_proving_tester.js';
@@ -25,6 +22,7 @@ describe('AVM WitGen & Circuit – check circuit - contract class limits', () =>
         /*constructorArgs=*/ [],
         deployer,
         /*contractArtifact=*/ AvmTestContractArtifact,
+        /*skipNullifierInsertion=*/ false,
         /*seed=*/ i,
       );
       instances.push(instance);

@@ -1,30 +1,26 @@
 import {
-  type AztecNode,
-  CountedPublicExecutionRequest,
   HashedValues,
   type L1ToL2Message,
-  type L2BlockNumber,
   Note,
   PublicExecutionRequest,
   TxExecutionRequest,
   type TxScopedL2Log,
 } from '@aztec/circuit-types';
 import {
-  AppendOnlyTreeSnapshot,
+  type AztecNode,
+  CountedPublicExecutionRequest,
+  type L2BlockNumber,
+} from '@aztec/circuit-types/interfaces/client';
+import {
   BlockHeader,
   CallContext,
   CompleteAddress,
   type ContractInstance,
   GasFees,
   GasSettings,
-  GeneratorIndex,
   type GrumpkinScalar,
   IndexedTaggingSecret,
   KeyValidationRequest,
-  L1_TO_L2_MSG_TREE_HEIGHT,
-  NOTE_HASH_TREE_HEIGHT,
-  PUBLIC_DATA_TREE_HEIGHT,
-  PUBLIC_DISPATCH_SELECTOR,
   PartialStateReference,
   StateReference,
   TxContext,
@@ -35,14 +31,6 @@ import {
   getNonEmptyItems,
 } from '@aztec/circuits.js';
 import {
-  computeNoteHashNonce,
-  computeSecretHash,
-  computeVarArgsHash,
-  deriveStorageSlotInMap,
-  siloNullifier,
-} from '@aztec/circuits.js/hash';
-import { makeHeader } from '@aztec/circuits.js/testing';
-import {
   type ContractArtifact,
   type FunctionArtifact,
   FunctionSelector,
@@ -50,7 +38,23 @@ import {
   encodeArguments,
   getFunctionArtifact,
   getFunctionArtifactByName,
-} from '@aztec/foundation/abi';
+} from '@aztec/circuits.js/abi';
+import {
+  computeNoteHashNonce,
+  computeSecretHash,
+  computeVarArgsHash,
+  deriveStorageSlotInMap,
+  siloNullifier,
+} from '@aztec/circuits.js/hash';
+import { makeHeader } from '@aztec/circuits.js/testing';
+import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
+import {
+  GeneratorIndex,
+  L1_TO_L2_MSG_TREE_HEIGHT,
+  NOTE_HASH_TREE_HEIGHT,
+  PUBLIC_DATA_TREE_HEIGHT,
+  PUBLIC_DISPATCH_SELECTOR,
+} from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { times } from '@aztec/foundation/collection';

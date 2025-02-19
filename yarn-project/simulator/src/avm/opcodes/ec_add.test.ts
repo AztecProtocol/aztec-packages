@@ -1,5 +1,5 @@
 import { Fr, Point } from '@aztec/circuits.js';
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { Grumpkin } from '@aztec/foundation/crypto';
 
 import { beforeEach } from '@jest/globals';
 

@@ -1,7 +1,6 @@
+import { SCHEDULED_DELAY_CHANGE_PCKD_LEN } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
-
-import { SCHEDULED_DELAY_CHANGE_PCKD_LEN } from '../../constants.gen.js';
 
 export class ScheduledValueChange {
   constructor(public previous: Fr[], public post: Fr[], public blockOfChange: number) {

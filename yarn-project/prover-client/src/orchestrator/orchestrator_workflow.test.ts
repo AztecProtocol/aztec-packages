@@ -1,21 +1,23 @@
+import { type Tx } from '@aztec/circuit-types';
 import {
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
-  type Tx,
   makePublicInputsAndRecursiveProof,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
 import {
   type BlockHeader,
   ClientIvcProof,
   Fr,
   type GlobalVariables,
-  NESTED_RECURSIVE_PROOF_LENGTH,
-  NUM_BASE_PARITY_PER_ROOT_PARITY,
   type ParityPublicInputs,
-  RECURSIVE_PROOF_LENGTH,
   makeRecursiveProof,
 } from '@aztec/circuits.js';
 import { makeParityPublicInputs } from '@aztec/circuits.js/testing';
+import {
+  NESTED_RECURSIVE_PROOF_LENGTH,
+  NUM_BASE_PARITY_PER_ROOT_PARITY,
+  RECURSIVE_PROOF_LENGTH,
+} from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';

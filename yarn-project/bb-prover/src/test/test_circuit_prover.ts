@@ -4,23 +4,17 @@ import {
   type ServerCircuitProver,
   makeProofAndVerificationKey,
   makePublicInputsAndRecursiveProof,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
 import {
-  AVM_PROOF_LENGTH_IN_FIELDS,
-  AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  type AvmCircuitInputs,
   type BaseParityInputs,
-  NESTED_RECURSIVE_PROOF_LENGTH,
-  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   type ParityPublicInputs,
   type Proof,
-  RECURSIVE_PROOF_LENGTH,
   type RootParityInputs,
-  TUBE_PROOF_LENGTH,
   VerificationKeyData,
   makeEmptyRecursiveProof,
   makeRecursiveProof,
 } from '@aztec/circuits.js';
+import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
 import {
   type BaseOrMergeRollupPublicInputs,
   type BlockMergeRollupInputs,
@@ -35,6 +29,14 @@ import {
   type SingleTxBlockRootRollupInputs,
   type TubeInputs,
 } from '@aztec/circuits.js/rollup';
+import {
+  AVM_PROOF_LENGTH_IN_FIELDS,
+  AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  NESTED_RECURSIVE_PROOF_LENGTH,
+  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+  RECURSIVE_PROOF_LENGTH,
+  TUBE_PROOF_LENGTH,
+} from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';

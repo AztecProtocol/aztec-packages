@@ -5,7 +5,7 @@ import {
   PrivateKernelResetDimensions,
   type PrivateKernelResetDimensionsConfig,
   privateKernelResetDimensionNames,
-} from '../structs/index.js';
+} from '../structs/kernel/index.js';
 import { findPrivateKernelResetDimensions } from './find_private_kernel_reset_dimensions.js';
 
 describe('findPrivateKernelResetDimensions', () => {

@@ -46,6 +46,9 @@
       "path": "../cli-wallet"
     },
     {
+      "path": "../constants"
+    },
+    {
       "path": "../entrypoints"
     },
     {

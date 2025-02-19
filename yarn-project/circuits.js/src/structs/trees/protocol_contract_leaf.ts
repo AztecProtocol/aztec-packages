@@ -1,3 +1,4 @@
+import { MAX_PROTOCOL_CONTRACTS } from '@aztec/constants';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
@@ -5,8 +6,6 @@ import { BufferReader } from '@aztec/foundation/serialize';
 import { type IndexedTreeLeaf, type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
 import { z } from 'zod';
-
-import { MAX_PROTOCOL_CONTRACTS } from '../../constants.gen.js';
 
 /**
  * Class containing the data of a preimage of a single leaf in the protocol contract tree.

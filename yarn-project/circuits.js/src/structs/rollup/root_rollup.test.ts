@@ -1,4 +1,5 @@
-import { ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH } from '../../constants.gen.js';
+import { ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH } from '@aztec/constants';
+
 import { makeRootRollupPublicInputs } from '../../tests/factories.js';
 import { RootRollupPublicInputs } from './root_rollup.js';
 

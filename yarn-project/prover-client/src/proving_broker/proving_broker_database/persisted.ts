@@ -4,7 +4,7 @@ import {
   type ProvingJobId,
   ProvingJobSettledResult,
   getEpochFromProvingJobId,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { BatchQueue } from '@aztec/foundation/queue';

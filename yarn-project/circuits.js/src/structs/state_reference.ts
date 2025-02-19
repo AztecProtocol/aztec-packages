@@ -1,10 +1,10 @@
+import { STATE_REFERENCE_LENGTH } from '@aztec/constants';
 import { type Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
 import { z } from 'zod';
 
-import { STATE_REFERENCE_LENGTH } from '../constants.gen.js';
 import { PartialStateReference } from './partial_state_reference.js';
 import { AppendOnlyTreeSnapshot } from './trees/append_only_tree_snapshot.js';
 

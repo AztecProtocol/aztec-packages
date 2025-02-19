@@ -2,7 +2,7 @@ import {
   type PrivateKernelResetCircuitPrivateInputs,
   type PrivateKernelResetDimensions,
   privateKernelResetDimensionNames,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/kernel';
 import { pushTestData } from '@aztec/foundation/testing';
 
 import {

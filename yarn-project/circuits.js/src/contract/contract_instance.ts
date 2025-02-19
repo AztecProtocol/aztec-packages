@@ -1,14 +1,9 @@
-import {
-  type ContractArtifact,
-  type FunctionArtifact,
-  FunctionSelector,
-  getDefaultInitializer,
-} from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, numToUInt8, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
+import { type ContractArtifact, type FunctionArtifact, FunctionSelector, getDefaultInitializer } from '../abi/index.js';
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
 import { PublicKeys } from '../types/public_keys.js';
 import {

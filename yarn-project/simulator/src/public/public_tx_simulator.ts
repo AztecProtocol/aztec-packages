@@ -1,13 +1,12 @@
 import {
-  type AvmProvingRequest,
   type GasUsed,
-  type MerkleTreeReadOperations,
   NestedProcessReturnValues,
   type PublicExecutionRequest,
   type SimulationError,
   type Tx,
   TxExecutionPhase,
 } from '@aztec/circuit-types';
+import { type AvmProvingRequest, type MerkleTreeReadOperations } from '@aztec/circuit-types/interfaces/server';
 import { type AvmSimulationStats } from '@aztec/circuit-types/stats';
 import { type Fr, type Gas, type GlobalVariables, type PublicCallRequest, type RevertCode } from '@aztec/circuits.js';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -70,6 +69,8 @@ export class PublicTxSimulator {
    * @returns The result of the transaction's public execution.
    */
   public async simulate(tx: Tx): Promise<PublicTxResult> {
+    const startTime = process.hrtime.bigint();
+
     const txHash = await tx.getTxHash();
     this.log.debug(`Simulating ${tx.enqueuedPublicFunctionCalls.length} public calls for tx ${txHash}`, { txHash });
 
@@ -132,12 +133,16 @@ export class PublicTxSimulator {
       tx.filterRevertedLogs(tx.data.forPublic!.nonRevertibleAccumulatedData);
     }
 
+    const endTime = process.hrtime.bigint();
+    this.log.debug(`Public TX simulator took ${Number(endTime - startTime) / 1_000_000} ms\n`);
+
     return {
       avmProvingRequest,
       gasUsed: {
         totalGas: context.getActualGasUsed(),
         teardownGas: context.teardownGasUsed,
         publicGas: context.getActualPublicGasUsed(),
+        billedGas: context.getTotalGasUsed(),
       },
       revertCode,
       revertReason: context.revertReason,
