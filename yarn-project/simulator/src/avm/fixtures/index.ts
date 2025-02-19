@@ -14,7 +14,7 @@ import merge from 'lodash.merge';
 
 import { resolveAssertionMessageFromRevertData, traverseCauseChain } from '../../common.js';
 import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
-import { type WorldStateDB } from '../../server.js';
+import { AvmSimulator, type WorldStateDB } from '../../server.js';
 import { AvmContext } from '../avm_context.js';
 import { AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { AvmMachineState } from '../avm_machine_state.js';
@@ -35,11 +35,13 @@ export function initContext(overrides?: {
   env?: AvmExecutionEnvironment;
   machineState?: AvmMachineState;
 }): AvmContext {
-  return new AvmContext(
+  const ctx = new AvmContext(
     overrides?.persistableState || initPersistableStateManager(),
     overrides?.env || initExecutionEnvironment(),
     overrides?.machineState || initMachineState(),
   );
+  ctx.provideSimulator = AvmSimulator.build;
+  return ctx;
 }
 
 /** Creates an empty state manager with mocked host storage. */

@@ -1,4 +1,4 @@
-use crate::{traits::{Empty, Packable}, utils::arrays};
+use crate::{traits::{Empty, Packable, ToField}, utils::arrays};
 use std::cmp::min;
 
 mod test;

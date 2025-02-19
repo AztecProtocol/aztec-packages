@@ -17,12 +17,6 @@ template <typename FF_> class sha256Impl {
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4
     };
 
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
-    {
-        const auto& new_term = in;
-        return (new_term.sha256_sel).is_zero();
-    }
-
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& new_term,
