@@ -39,8 +39,8 @@ pub fn notify_nullified_note(nullifier: Field, note_hash: Field, counter: u32) {
 
 /// Notifies the simulator that a non-note nullifier has been created, so that it can be used for note nonces.
 pub fn notify_created_nullifier(nullifier: Field) {
-    /// Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to
-    /// call.
+    // Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to
+    // call.
     unsafe { notify_created_nullifier_oracle_wrapper(nullifier) };
 }
 

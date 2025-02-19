@@ -134,7 +134,9 @@ comptime fn generate_contract_library_method_compute_note_hash_and_optionally_a_
         );
 
         if max_note_packed_len > MAX_NOTE_PACKED_LEN {
-            panic(f"One of the notes has packed len {max_note_packed_len} but the maximum is {MAX_NOTE_PACKED_LEN}");
+            panic(
+                f"One of the notes has packed len {max_note_packed_len} but the maximum is {MAX_NOTE_PACKED_LEN}",
+            );
         }
 
         // Contracts that do define notes produce an if-else chain where `note_type_id` is matched against the

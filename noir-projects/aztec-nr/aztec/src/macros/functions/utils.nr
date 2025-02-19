@@ -1,10 +1,11 @@
-use crate::{macros::{
+use crate::macros::{
     functions::{abi_export::create_fn_abi_export, call_interface_stubs::stub_fn, stub_registry},
+    notes::NOTES,
     utils::{
         add_to_hasher, fn_has_noinitcheck, get_fn_visibility, is_fn_initializer, is_fn_internal,
         is_fn_private, is_fn_view, modify_fn_body, module_has_initializer, module_has_storage,
     },
-}, macros::notes::NOTES};
+};
 use protocol_types::meta::generate_serialize_to_fields;
 use std::meta::type_of;
 
