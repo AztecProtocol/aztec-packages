@@ -1,10 +1,9 @@
+import { type L2Block, MerkleTreeId } from '@aztec/circuit-types';
 import {
   type IndexedTreeId,
-  type L2Block,
-  MerkleTreeId,
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
 import { BlockHeader, EthAddress, Fr, PartialStateReference, StateReference } from '@aztec/circuits.js';
 import { NullifierLeaf, type NullifierLeafPreimage, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';

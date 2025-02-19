@@ -3,11 +3,8 @@ import {
   Body,
   L2Block,
   MerkleTreeId,
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
   Note,
   type NoteStatus,
-  NullifierMembershipWitness,
   PublicDataWitness,
   PublicExecutionRequest,
   SimulationError,
@@ -15,6 +12,11 @@ import {
   TxHash,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
+import {
+  type MerkleTreeReadOperations,
+  type MerkleTreeWriteOperations,
+  NullifierMembershipWitness,
+} from '@aztec/circuit-types/interfaces/server';
 import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
   BlockHeader,

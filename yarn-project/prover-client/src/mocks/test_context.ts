@@ -1,11 +1,6 @@
 import { type BBProverConfig } from '@aztec/bb-prover';
-import {
-  type L2Block,
-  type ProcessedTx,
-  type PublicExecutionRequest,
-  type ServerCircuitProver,
-  type Tx,
-} from '@aztec/circuit-types';
+import { type L2Block, type ProcessedTx, type PublicExecutionRequest, type Tx } from '@aztec/circuit-types';
+import { type ServerCircuitProver } from '@aztec/circuit-types/interfaces/server';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/testing';
 import {
   AztecAddress,

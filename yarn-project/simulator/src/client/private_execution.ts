@@ -1,4 +1,4 @@
-import { type AztecNode, PrivateCallExecutionResult } from '@aztec/circuit-types';
+import { type AztecNode, PrivateCallExecutionResult } from '@aztec/circuit-types/interfaces/client';
 import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import { type ContractInstance, Fr, PrivateCircuitPublicInputs } from '@aztec/circuits.js';
 import { type FunctionArtifact, type FunctionSelector, countArgumentsSize } from '@aztec/circuits.js/abi';

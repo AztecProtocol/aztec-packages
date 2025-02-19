@@ -1,4 +1,5 @@
-import { type IndexedTreeId, MerkleTreeId, type MerkleTreeReadOperations } from '@aztec/circuit-types';
+import { MerkleTreeId } from '@aztec/circuit-types';
+import { type IndexedTreeId, type MerkleTreeReadOperations } from '@aztec/circuit-types/interfaces/server';
 import { AppendOnlyTreeSnapshot, NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';

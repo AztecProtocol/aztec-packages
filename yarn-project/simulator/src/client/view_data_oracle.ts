@@ -1,13 +1,12 @@
 import {
   type AuthWitness,
-  type AztecNode,
   type Capsule,
   type CompleteAddress,
   type MerkleTreeId,
   type NoteStatus,
-  type NullifierMembershipWitness,
   type PublicDataWitness,
 } from '@aztec/circuit-types';
+import { type AztecNode, type NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/client';
 import {
   type BlockHeader,
   type ContractInstance,

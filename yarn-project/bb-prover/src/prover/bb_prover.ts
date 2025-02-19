@@ -1,12 +1,12 @@
 /* eslint-disable require-await */
+import { ProvingError } from '@aztec/circuit-types';
 import {
   type ProofAndVerificationKey,
-  ProvingError,
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
   makeProofAndVerificationKey,
   makePublicInputsAndRecursiveProof,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
 import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
   type BaseParityInputs,

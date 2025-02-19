@@ -1,4 +1,4 @@
-import { type ServerCircuitProver } from '@aztec/circuit-types';
+import { type ServerCircuitProver } from '@aztec/circuit-types/interfaces/server';
 import { NUM_BASE_PARITY_PER_ROOT_PARITY } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';

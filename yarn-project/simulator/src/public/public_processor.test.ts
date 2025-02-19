@@ -1,12 +1,9 @@
+import { type ProcessedTx, SimulationError, type Tx, type TxValidator } from '@aztec/circuit-types';
 import {
   type MerkleTreeWriteOperations,
-  type ProcessedTx,
   ProvingRequestType,
-  SimulationError,
   type TreeInfo,
-  type Tx,
-  type TxValidator,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
 import { mockTx } from '@aztec/circuit-types/testing';
 import { AztecAddress, Fr, Gas, GasFees, GlobalVariables, PublicDataWrite, RevertCode } from '@aztec/circuits.js';
 import { AvmCircuitInputs } from '@aztec/circuits.js/avm';

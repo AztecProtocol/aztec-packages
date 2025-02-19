@@ -1,11 +1,10 @@
+import { Note, PublicExecutionRequest } from '@aztec/circuit-types';
 import {
-  Note,
   NoteAndSlot,
   PrivateCallExecutionResult,
   PrivateExecutionResult,
   type PrivateKernelProver,
-  PublicExecutionRequest,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/client';
 import {
   FunctionSelector,
   NoteHash,

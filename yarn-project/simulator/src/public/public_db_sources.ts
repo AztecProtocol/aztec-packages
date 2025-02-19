@@ -1,11 +1,9 @@
+import { ContractClassTxL2Logs, MerkleTreeId, type Tx } from '@aztec/circuit-types';
 import {
-  ContractClassTxL2Logs,
-  MerkleTreeId,
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
   NullifierMembershipWitness,
-  type Tx,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
 import { type PublicDBAccessStats } from '@aztec/circuit-types/stats';
 import {
   type AztecAddress,

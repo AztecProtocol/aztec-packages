@@ -1,9 +1,9 @@
+import { type Tx } from '@aztec/circuit-types';
 import {
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
-  type Tx,
   makePublicInputsAndRecursiveProof,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
 import {
   type BlockHeader,
   ClientIvcProof,

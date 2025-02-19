@@ -1,14 +1,13 @@
+import { MerkleTreeId, SiblingPath } from '@aztec/circuit-types';
 import {
   type BatchInsertionResult,
   type IndexedTreeId,
-  MerkleTreeId,
   type MerkleTreeLeafType,
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
   type SequentialInsertionResult,
-  SiblingPath,
   type TreeInfo,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
 import { type BlockHeader, Fr, PartialStateReference, StateReference } from '@aztec/circuits.js';
 import {
   NullifierLeaf,

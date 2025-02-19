@@ -1,5 +1,4 @@
 import {
-  type AztecNode,
   EncryptedLogPayload,
   L1NotePayload,
   L2Block,
@@ -10,6 +9,7 @@ import {
   randomInBlock,
   wrapInBlock,
 } from '@aztec/circuit-types';
+import { type AztecNode } from '@aztec/circuit-types/interfaces/client';
 import { randomContractArtifact, randomContractInstanceWithAddress } from '@aztec/circuit-types/testing';
 import {
   AztecAddress,

@@ -1,4 +1,4 @@
-import { type NullifierMembershipWitness } from '@aztec/circuit-types';
+import { type NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/client';
 import {
   type Fr,
   type FunctionSelector,

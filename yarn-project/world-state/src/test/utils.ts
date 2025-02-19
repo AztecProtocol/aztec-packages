@@ -1,9 +1,5 @@
-import {
-  L2Block,
-  MerkleTreeId,
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
-} from '@aztec/circuit-types';
+import { L2Block, MerkleTreeId } from '@aztec/circuit-types';
+import { type MerkleTreeReadOperations, type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import { Fr } from '@aztec/circuits.js';
 import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
 import {

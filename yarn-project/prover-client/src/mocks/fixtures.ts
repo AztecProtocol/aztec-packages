@@ -1,4 +1,5 @@
-import { MerkleTreeId, type MerkleTreeWriteOperations, type ProcessedTx } from '@aztec/circuit-types';
+import { MerkleTreeId, type ProcessedTx } from '@aztec/circuit-types';
+import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import { AztecAddress, EthAddress, Fr, GasFees, GlobalVariables } from '@aztec/circuits.js';
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NULLIFIER_TREE_HEIGHT } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';

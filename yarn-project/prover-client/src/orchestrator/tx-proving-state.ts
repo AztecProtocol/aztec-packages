@@ -1,4 +1,5 @@
-import { type MerkleTreeId, type ProcessedTx, type ProofAndVerificationKey } from '@aztec/circuit-types';
+import { type MerkleTreeId, type ProcessedTx } from '@aztec/circuit-types';
+import { type ProofAndVerificationKey } from '@aztec/circuit-types/interfaces/server';
 import { type CircuitName } from '@aztec/circuit-types/stats';
 import { VkWitnessData } from '@aztec/circuits.js';
 import {

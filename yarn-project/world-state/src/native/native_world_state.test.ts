@@ -1,4 +1,5 @@
-import { type L2Block, MerkleTreeId, type MerkleTreeWriteOperations, type SiblingPath } from '@aztec/circuit-types';
+import { type L2Block, MerkleTreeId, type SiblingPath } from '@aztec/circuit-types';
+import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import { BlockHeader, EthAddress, Fr, PublicDataWrite } from '@aztec/circuits.js';
 import { makeContentCommitment, makeGlobalVariables } from '@aztec/circuits.js/testing';
 import { AppendOnlyTreeSnapshot, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';

@@ -8,7 +8,7 @@ import {
   collectNoteHashNullifierCounterMap,
   collectPublicTeardownFunctionCall,
   getFinalMinRevertibleSideEffectCounter,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/client';
 import {
   AztecAddress,
   ClientIvcProof,

@@ -1,5 +1,5 @@
 import { type ContractArtifact, type FunctionArtifact, loadContractArtifact } from '@aztec/aztec.js/abi';
-import { type PXE } from '@aztec/circuit-types';
+import { type PXE } from '@aztec/circuit-types/interfaces/client';
 import { FunctionType } from '@aztec/circuits.js/abi';
 import { type DeployL1Contracts, type L1ContractsConfig } from '@aztec/ethereum';
 import { type EthAddress } from '@aztec/foundation/eth-address';

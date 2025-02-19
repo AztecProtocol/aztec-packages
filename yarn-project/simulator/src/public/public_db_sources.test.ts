@@ -1,4 +1,5 @@
-import { MerkleTreeId, type MerkleTreeWriteOperations } from '@aztec/circuit-types';
+import { MerkleTreeId } from '@aztec/circuit-types';
+import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import { AztecAddress, type ContractDataSource, Fr } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';

@@ -1,12 +1,12 @@
 import {
   MerkleTreeId,
-  type MerkleTreeWriteOperations,
   SimulationError,
   type Tx,
   TxExecutionPhase,
   UnencryptedFunctionL2Logs,
   UnencryptedL2Log,
 } from '@aztec/circuit-types';
+import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import { mockTx } from '@aztec/circuit-types/testing';
 import {
   AztecAddress,

@@ -1,4 +1,4 @@
-import { type PXE } from '@aztec/circuit-types';
+import { type PXE } from '@aztec/circuit-types/interfaces/client';
 import {
   randomContractArtifact,
   randomContractInstanceWithAddress,

@@ -1,13 +1,15 @@
 import {
-  type AztecNode,
-  CountedPublicExecutionRequest,
   HashedValues,
   type L1ToL2Message,
-  type L2BlockNumber,
   Note,
   PublicExecutionRequest,
   TxExecutionRequest,
 } from '@aztec/circuit-types';
+import {
+  type AztecNode,
+  CountedPublicExecutionRequest,
+  type L2BlockNumber,
+} from '@aztec/circuit-types/interfaces/client';
 import {
   BlockHeader,
   CallContext,

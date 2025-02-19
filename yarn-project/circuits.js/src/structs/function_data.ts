@@ -1,6 +1,5 @@
 import { FUNCTION_DATA_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
-import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';

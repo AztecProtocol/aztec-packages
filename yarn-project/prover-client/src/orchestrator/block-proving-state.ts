@@ -1,5 +1,6 @@
 import { SpongeBlob } from '@aztec/blob-lib';
-import { type L2Block, type MerkleTreeId, type PublicInputsAndRecursiveProof } from '@aztec/circuit-types';
+import { type L2Block, type MerkleTreeId } from '@aztec/circuit-types';
+import { type PublicInputsAndRecursiveProof } from '@aztec/circuit-types/interfaces/server';
 import { type CircuitName } from '@aztec/circuit-types/stats';
 import {
   type BlockHeader,

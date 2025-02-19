@@ -1,13 +1,12 @@
 import {
-  type AvmProvingRequest,
   type GasUsed,
-  type MerkleTreeReadOperations,
   NestedProcessReturnValues,
   type PublicExecutionRequest,
   type SimulationError,
   type Tx,
   TxExecutionPhase,
 } from '@aztec/circuit-types';
+import { type AvmProvingRequest, type MerkleTreeReadOperations } from '@aztec/circuit-types/interfaces/server';
 import { type AvmSimulationStats } from '@aztec/circuit-types/stats';
 import { type Fr, type Gas, type GlobalVariables, type PublicCallRequest, type RevertCode } from '@aztec/circuits.js';
 import { type Logger, createLogger } from '@aztec/foundation/log';

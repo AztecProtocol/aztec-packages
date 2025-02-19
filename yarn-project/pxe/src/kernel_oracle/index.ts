@@ -1,4 +1,4 @@
-import { type AztecNode, type L2BlockNumber } from '@aztec/circuit-types';
+import { type AztecNode, type L2BlockNumber } from '@aztec/circuit-types/interfaces/client';
 import {
   type AztecAddress,
   Fr,

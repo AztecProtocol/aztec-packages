@@ -1,6 +1,5 @@
 import {
   BlockAttestation,
-  type BlockBuilder,
   BlockProposal,
   Body,
   ConsensusPayload,
@@ -8,14 +7,17 @@ import {
   L2Block,
   type L2BlockSource,
   type MerkleTreeId,
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
   type Tx,
   TxHash,
-  WorldStateRunningState,
-  type WorldStateSynchronizer,
   makeProcessedTxFromPrivateOnlyTx,
 } from '@aztec/circuit-types';
+import {
+  type BlockBuilder,
+  type MerkleTreeReadOperations,
+  type MerkleTreeWriteOperations,
+  WorldStateRunningState,
+  type WorldStateSynchronizer,
+} from '@aztec/circuit-types/interfaces/server';
 import { mockTxForRollup } from '@aztec/circuit-types/testing';
 import {
   AztecAddress,

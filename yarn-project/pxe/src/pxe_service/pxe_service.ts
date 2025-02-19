@@ -1,8 +1,6 @@
 import {
   type AuthWitness,
-  type AztecNode,
   EventMetadata,
-  type EventMetadataDefinition,
   type ExtendedNote,
   type FunctionCall,
   type GetContractClassLogsResponse,
@@ -13,11 +11,6 @@ import {
   type LogFilter,
   MerkleTreeId,
   type NotesFilter,
-  type PXE,
-  type PXEInfo,
-  type PrivateExecutionResult,
-  type PrivateKernelProver,
-  type PrivateKernelSimulateOutput,
   PrivateSimulationResult,
   type PublicSimulationOutput,
   type SiblingPath,
@@ -32,6 +25,15 @@ import {
   UniqueNote,
   getNonNullifiedL1ToL2MessageWitness,
 } from '@aztec/circuit-types';
+import {
+  type AztecNode,
+  type EventMetadataDefinition,
+  type PXE,
+  type PXEInfo,
+  type PrivateExecutionResult,
+  type PrivateKernelProver,
+  type PrivateKernelSimulateOutput,
+} from '@aztec/circuit-types/interfaces/client';
 import type {
   CompleteAddress,
   ContractClassWithId,

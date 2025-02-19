@@ -1,17 +1,11 @@
-import {
-  L2Block,
-  MerkleTreeId,
-  type ProcessedTx,
-  type ServerCircuitProver,
-  type Tx,
-  toNumBlobFields,
-} from '@aztec/circuit-types';
+import { L2Block, MerkleTreeId, type ProcessedTx, type Tx, toNumBlobFields } from '@aztec/circuit-types';
 import {
   type EpochProver,
   type ForkMerkleTreeOperations,
   type MerkleTreeWriteOperations,
   type ProofAndVerificationKey,
-} from '@aztec/circuit-types/interfaces';
+  type ServerCircuitProver,
+} from '@aztec/circuit-types/interfaces/server';
 import { type CircuitName } from '@aztec/circuit-types/stats';
 import {
   BaseParityInputs,

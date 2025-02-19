@@ -1,4 +1,5 @@
-import { CompleteAddress, type PXE } from '@aztec/circuit-types';
+import { CompleteAddress } from '@aztec/circuit-types';
+import { type PXE } from '@aztec/circuit-types/interfaces/client';
 import { type ContractInstanceWithAddress } from '@aztec/circuits.js';
 import { getContractInstanceFromDeployParams } from '@aztec/circuits.js/contract';
 import { deriveKeys } from '@aztec/circuits.js/keys';

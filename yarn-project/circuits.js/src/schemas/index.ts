@@ -1,4 +1,4 @@
-// eslint-disable-next-line import/no-unresolved
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { type ZodFor, schemas as foundationSchemas } from '@aztec/foundation/schemas';
 

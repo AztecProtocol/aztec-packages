@@ -1,14 +1,13 @@
 import { TestCircuitVerifier } from '@aztec/bb-prover';
 import {
-  type AztecNode,
   type L1ToL2MessageSource,
   type L2BlockSource,
   type L2LogsSource,
   MerkleTreeId,
-  type MerkleTreeReadOperations,
   type NullifierWithBlockSource,
-  type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
+import { type AztecNode } from '@aztec/circuit-types/interfaces/client';
+import { type MerkleTreeReadOperations, type WorldStateSynchronizer } from '@aztec/circuit-types/interfaces/server';
 import { mockTx } from '@aztec/circuit-types/testing';
 import {
   AztecAddress,

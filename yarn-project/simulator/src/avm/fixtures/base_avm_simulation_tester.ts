@@ -1,4 +1,5 @@
-import { MerkleTreeId, type MerkleTreeWriteOperations } from '@aztec/circuit-types';
+import { MerkleTreeId } from '@aztec/circuit-types';
+import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,

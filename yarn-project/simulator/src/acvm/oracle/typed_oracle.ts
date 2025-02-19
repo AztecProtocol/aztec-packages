@@ -3,10 +3,10 @@ import {
   type MerkleTreeId,
   type Note,
   type NoteStatus,
-  type NullifierMembershipWitness,
   type PublicDataWitness,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
+import { type NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/server';
 import {
   type BlockHeader,
   type ContractInstance,

@@ -1,14 +1,16 @@
 import {
-  type AvmProvingRequest,
   MerkleTreeId,
-  type MerkleTreeReadOperations,
-  ProvingRequestType,
   type PublicExecutionRequest,
   type SimulationError,
   type Tx,
   TxExecutionPhase,
   type TxHash,
 } from '@aztec/circuit-types';
+import {
+  type AvmProvingRequest,
+  type MerkleTreeReadOperations,
+  ProvingRequestType,
+} from '@aztec/circuit-types/interfaces/server';
 import {
   type AztecAddress,
   Fr,

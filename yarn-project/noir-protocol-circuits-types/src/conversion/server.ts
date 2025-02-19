@@ -44,7 +44,6 @@ import {
   RootRollupPublicInputs,
   type SingleTxBlockRootRollupInputs,
 } from '@aztec/circuits.js/rollup';
-import type { fr } from '@aztec/circuits.js/testing';
 import {
   type AVM_PROOF_LENGTH_IN_FIELDS,
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,

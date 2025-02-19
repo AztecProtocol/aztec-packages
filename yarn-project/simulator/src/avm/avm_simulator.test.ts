@@ -1,4 +1,5 @@
-import { MerkleTreeId, type MerkleTreeWriteOperations } from '@aztec/circuit-types';
+import { MerkleTreeId } from '@aztec/circuit-types';
+import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import { GasFees, PublicKeys, SerializableContractInstance } from '@aztec/circuits.js';
 import { FunctionSelector } from '@aztec/circuits.js/abi';
 import {

@@ -1,12 +1,7 @@
 import { TestCircuitProver } from '@aztec/bb-prover';
 import { Blob, SpongeBlob } from '@aztec/blob-lib';
-import {
-  MerkleTreeId,
-  type MerkleTreeWriteOperations,
-  type ProcessedTx,
-  type ServerCircuitProver,
-  toNumBlobFields,
-} from '@aztec/circuit-types';
+import { MerkleTreeId, type ProcessedTx, toNumBlobFields } from '@aztec/circuit-types';
+import { type MerkleTreeWriteOperations, type ServerCircuitProver } from '@aztec/circuit-types/interfaces/server';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/testing';
 import {
   AztecAddress,

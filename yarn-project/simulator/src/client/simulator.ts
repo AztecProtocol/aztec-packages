@@ -1,10 +1,5 @@
-import {
-  type AztecNode,
-  type FunctionCall,
-  type Note,
-  PrivateExecutionResult,
-  type TxExecutionRequest,
-} from '@aztec/circuit-types';
+import { type FunctionCall, type Note, type TxExecutionRequest } from '@aztec/circuit-types';
+import { type AztecNode, PrivateExecutionResult } from '@aztec/circuit-types/interfaces/client';
 import { CallContext } from '@aztec/circuits.js';
 import {
   type ArrayType,

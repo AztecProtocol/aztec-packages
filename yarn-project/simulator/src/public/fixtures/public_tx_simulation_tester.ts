@@ -1,4 +1,5 @@
-import { MerkleTreeId, type MerkleTreeWriteOperations, PublicExecutionRequest, type Tx } from '@aztec/circuit-types';
+import { MerkleTreeId, PublicExecutionRequest, type Tx } from '@aztec/circuit-types';
+import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import { CallContext, FunctionSelector, GasFees, GlobalVariables } from '@aztec/circuits.js';
 import { type ContractArtifact, encodeArguments } from '@aztec/circuits.js/abi';
 import { type AvmCircuitPublicInputs } from '@aztec/circuits.js/avm';

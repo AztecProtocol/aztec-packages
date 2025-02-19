@@ -1,5 +1,6 @@
 import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
-import { type ArchiverApi, type Service, getComponentsVersionsFromConfig } from '@aztec/circuit-types';
+import { getComponentsVersionsFromConfig } from '@aztec/circuit-types';
+import { type ArchiverApi, type Service } from '@aztec/circuit-types/interfaces/server';
 import {
   type ContractClassPublic,
   computePublicBytecodeCommitment,

@@ -1,4 +1,5 @@
-import { type BatchInsertionResult, type LeafUpdateWitnessData, SiblingPath } from '@aztec/circuit-types';
+import { SiblingPath } from '@aztec/circuit-types';
+import { type BatchInsertionResult, type LeafUpdateWitnessData } from '@aztec/circuit-types/interfaces/server';
 import { type TreeInsertionStats } from '@aztec/circuit-types/stats';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { type FromBuffer } from '@aztec/foundation/serialize';

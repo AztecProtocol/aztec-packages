@@ -10,7 +10,7 @@ import {
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
   makeProvingJobId,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
 import { type BaseParityInputs, type ParityPublicInputs, type RootParityInputs } from '@aztec/circuits.js';
 import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
 import {

@@ -1,22 +1,15 @@
 import { createLogger } from '@aztec/aztec.js';
 import {
-  type AztecNode,
   type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
   type InBlock,
   type L2Block,
   L2BlockHash,
-  type L2BlockNumber,
   type L2Tips,
   type LogFilter,
   MerkleTreeId,
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
-  type NullifierMembershipWitness,
-  type ProverConfig,
   type PublicDataWitness,
   type PublicSimulationOutput,
-  type SequencerConfig,
   type SiblingPath,
   type Tx,
   type TxEffect,
@@ -25,6 +18,14 @@ import {
   TxScopedL2Log,
   type TxValidationResult,
 } from '@aztec/circuit-types';
+import { type AztecNode, type L2BlockNumber } from '@aztec/circuit-types/interfaces/client';
+import {
+  type MerkleTreeReadOperations,
+  type MerkleTreeWriteOperations,
+  type NullifierMembershipWitness,
+  type ProverConfig,
+  type SequencerConfig,
+} from '@aztec/circuit-types/interfaces/server';
 import {
   type AztecAddress,
   type BlockHeader,

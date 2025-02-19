@@ -1,17 +1,11 @@
 import {
   type AuthWitness,
-  type ContractClassMetadata,
-  type ContractMetadata,
-  type EventMetadataDefinition,
   type ExtendedNote,
   type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
   type L2Block,
   type LogFilter,
   type NotesFilter,
-  type PXE,
-  type PXEInfo,
-  type PrivateExecutionResult,
   type SiblingPath,
   type Tx,
   type TxExecutionRequest,
@@ -21,6 +15,14 @@ import {
   type TxSimulationResult,
   type UniqueNote,
 } from '@aztec/circuit-types';
+import {
+  type ContractClassMetadata,
+  type ContractMetadata,
+  type EventMetadataDefinition,
+  type PXE,
+  type PXEInfo,
+  type PrivateExecutionResult,
+} from '@aztec/circuit-types/interfaces/client';
 import {
   type AztecAddress,
   type CompleteAddress,

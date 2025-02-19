@@ -1,8 +1,8 @@
+import { type MerkleTreeId } from '@aztec/circuit-types';
 import {
-  type MerkleTreeId,
   type ProofAndVerificationKey,
   type PublicInputsAndRecursiveProof,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
 import { type BlockHeader, type Fr, type GlobalVariables } from '@aztec/circuits.js';
 import {
   BlockMergeRollupInputs,

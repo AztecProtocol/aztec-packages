@@ -7,7 +7,6 @@ export * from './function_call.js';
 export * from './global_variable_builder.js';
 export * from './hashed_values.js';
 export * from './in_block.js';
-export * from './interfaces/index.js';
 export * from './l2_block.js';
 export * from './l2_block_downloader/index.js';
 export * from './l2_block_source.js';

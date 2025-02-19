@@ -1,4 +1,5 @@
-import type { FunctionCall, PrivateKernelProverProfileResult, TxExecutionRequest } from '@aztec/circuit-types';
+import type { FunctionCall, TxExecutionRequest } from '@aztec/circuit-types';
+import type { PrivateKernelProverProfileResult } from '@aztec/circuit-types/interfaces/client';
 import {
   type FunctionAbi,
   FunctionSelector,

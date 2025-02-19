@@ -1,16 +1,18 @@
 import {
   type AuthWitness,
-  type AztecNode,
   type Capsule,
-  CountedContractClassLog,
-  CountedPublicExecutionRequest,
   Note,
-  NoteAndSlot,
   type NoteStatus,
-  type PrivateCallExecutionResult,
   PublicExecutionRequest,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
+import {
+  type AztecNode,
+  CountedContractClassLog,
+  CountedPublicExecutionRequest,
+  NoteAndSlot,
+  type PrivateCallExecutionResult,
+} from '@aztec/circuit-types/interfaces/client';
 import {
   type BlockHeader,
   CallContext,

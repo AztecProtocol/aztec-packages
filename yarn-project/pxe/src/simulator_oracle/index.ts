@@ -1,19 +1,21 @@
 import {
-  type AztecNode,
   type FunctionCall,
   type InBlock,
   L1NotePayload,
   type L2Block,
-  type L2BlockNumber,
   MerkleTreeId,
   Note,
   type NoteStatus,
-  type NullifierMembershipWitness,
   type PublicDataWitness,
   TxHash,
   type TxScopedL2Log,
   getNonNullifiedL1ToL2MessageWitness,
 } from '@aztec/circuit-types';
+import {
+  type AztecNode,
+  type L2BlockNumber,
+  type NullifierMembershipWitness,
+} from '@aztec/circuit-types/interfaces/client';
 import {
   type AztecAddress,
   type BlockHeader,

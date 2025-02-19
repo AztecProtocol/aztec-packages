@@ -4,12 +4,15 @@ import {
   type L2Block,
   type L2BlockSource,
   MerkleTreeId,
-  SequencerConfigSchema,
   Tx,
   type TxHash,
-  type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
-import type { AllowedElement, WorldStateSynchronizerStatus } from '@aztec/circuit-types/interfaces';
+import {
+  type AllowedElement,
+  SequencerConfigSchema,
+  type WorldStateSynchronizer,
+  type WorldStateSynchronizerStatus,
+} from '@aztec/circuit-types/interfaces/server';
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
 import {
   BlockHeader,

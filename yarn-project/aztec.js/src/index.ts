@@ -69,7 +69,6 @@ export {
   ContractClass2BlockL2Logs,
   EncryptedLogPayload,
   EventMetadata,
-  EventType,
   ExtendedNote,
   FunctionCall,
   getTimestampRangeForEpoch,
@@ -95,8 +94,9 @@ export {
   type LogFilter,
   type PartialAddress,
   type PublicKey,
-  type PXE,
 } from '@aztec/circuit-types';
+
+export { type PXE, EventType } from '@aztec/circuit-types/interfaces/client';
 
 // TODO: These kinds of things have no place on our public api.
 // External devs will almost certainly have their own methods of doing these things.

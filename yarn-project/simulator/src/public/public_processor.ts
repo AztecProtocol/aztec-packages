@@ -1,7 +1,6 @@
 import {
   type FailedTx,
   MerkleTreeId,
-  type MerkleTreeWriteOperations,
   NestedProcessReturnValues,
   type ProcessedTx,
   Tx,
@@ -10,6 +9,7 @@ import {
   makeProcessedTxFromPrivateOnlyTx,
   makeProcessedTxFromTxWithPublicCalls,
 } from '@aztec/circuit-types';
+import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import {
   type AztecAddress,
   type ContractDataSource,

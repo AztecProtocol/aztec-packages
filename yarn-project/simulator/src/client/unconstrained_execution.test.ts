@@ -1,4 +1,5 @@
-import { type AztecNode, type FunctionCall, Note } from '@aztec/circuit-types';
+import { type FunctionCall, Note } from '@aztec/circuit-types';
+import { type AztecNode } from '@aztec/circuit-types/interfaces/client';
 import { BlockHeader, CompleteAddress, type ContractInstance } from '@aztec/circuits.js';
 import { FunctionSelector, FunctionType, encodeArguments } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';

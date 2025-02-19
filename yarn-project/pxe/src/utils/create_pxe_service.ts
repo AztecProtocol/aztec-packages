@@ -1,6 +1,6 @@
 import { BBNativePrivateKernelProver } from '@aztec/bb-prover';
 import { BBWASMBundlePrivateKernelProver } from '@aztec/bb-prover/wasm/bundle';
-import { type AztecNode, type PrivateKernelProver } from '@aztec/circuit-types';
+import { type AztecNode, type PrivateKernelProver } from '@aztec/circuit-types/interfaces/client';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';

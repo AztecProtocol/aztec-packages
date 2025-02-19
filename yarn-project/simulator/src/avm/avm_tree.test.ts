@@ -1,9 +1,9 @@
+import { MerkleTreeId } from '@aztec/circuit-types';
 import {
   type IndexedTreeId,
-  MerkleTreeId,
   type MerkleTreeWriteOperations,
   type SequentialInsertionResult,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
 import {
   type NullifierLeafPreimage,
   PublicDataTreeLeaf,

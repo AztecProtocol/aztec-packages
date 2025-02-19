@@ -1,12 +1,6 @@
 import { Blob, type SpongeBlob } from '@aztec/blob-lib';
-import {
-  Body,
-  MerkleTreeId,
-  type MerkleTreeWriteOperations,
-  type ProcessedTx,
-  TxEffect,
-  getTreeHeight,
-} from '@aztec/circuit-types';
+import { Body, MerkleTreeId, type ProcessedTx, TxEffect, getTreeHeight } from '@aztec/circuit-types';
+import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import {
   BlockHeader,
   ContentCommitment,

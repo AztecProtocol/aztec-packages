@@ -6,7 +6,6 @@ import { EthAddress } from '../eth-address/index.js';
 import { Fq, Fr } from '../fields/fields.js';
 import { Point } from '../fields/point.js';
 import { isHex, withoutHexPrefix } from '../string/index.js';
-import { type ZodFor } from './types.js';
 import { bufferSchema, hexSchema } from './utils.js';
 
 /** Validation schemas for common types. Every schema must match its toJSON. */

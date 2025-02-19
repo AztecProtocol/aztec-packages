@@ -2,26 +2,19 @@ import { createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import {
-  type AztecNode,
-  type ClientProtocolCircuitVerifier,
   type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
   type InBlock,
   type L1ToL2MessageSource,
   type L2Block,
-  type L2BlockNumber,
   type L2BlockSource,
   type L2LogsSource,
   type LogFilter,
   MerkleTreeId,
-  NullifierMembershipWitness,
   type NullifierWithBlockSource,
   P2PClientType,
-  type ProverConfig,
   PublicDataWitness,
   PublicSimulationOutput,
-  type SequencerConfig,
-  type Service,
   SiblingPath,
   type Tx,
   type TxEffect,
@@ -30,9 +23,16 @@ import {
   type TxScopedL2Log,
   TxStatus,
   type TxValidationResult,
+} from '@aztec/circuit-types';
+import { type AztecNode, type L2BlockNumber, NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/client';
+import {
+  type ClientProtocolCircuitVerifier,
+  type ProverConfig,
+  type SequencerConfig,
+  type Service,
   type WorldStateSynchronizer,
   tryStop,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
 import {
   type BlockHeader,
   type ContractClassPublic,
