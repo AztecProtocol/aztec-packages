@@ -4,7 +4,6 @@ import cKzg from 'c-kzg';
 const { loadTrustedSetup } = cKzg;
 
 export * from './blob.js';
-export * from './mocks.js';
 export * from './encoding.js';
 export * from './interface.js';
 export * from './errors.js';
