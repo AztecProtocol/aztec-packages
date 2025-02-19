@@ -55,7 +55,7 @@ total_value=$(echo "$wei_amount * $num_accounts" | bc)
 
 multicall_address="0xcA11bde05977b3631167028862bE2a173976CA11" # Sepolia Multicall3 contract
 
-TX_HASH=$(cast send "$multicall_address" \
+tx_hash=$(cast send "$multicall_address" \
   "aggregate3Value((address,bool,uint256,bytes)[])" \
   "$calls" \
   --value "$total_value" \
@@ -63,7 +63,7 @@ TX_HASH=$(cast send "$multicall_address" \
   --rpc-url "$ETHEREUM_HOST" \
   --json --gas-price "$gas_price")
 
-echo >&2 "Sent ${wei_amount} wei to ${num_accounts} addresses in tx $TX_HASH"
+echo >&2 "Sent ${wei_amount} wei to ${num_accounts} addresses in tx $tx_hash"
 
 # Remove temp file
 rm output.json

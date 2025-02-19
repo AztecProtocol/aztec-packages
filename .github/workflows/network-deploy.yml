@@ -173,6 +173,8 @@ jobs:
         if: ${{ inputs.sepolia_deployment == 'true' }}
         run: |
           REPO=$(git rev-parse --show-toplevel)
+          export FUNDING_PRIVATE_KEY=${{ secrets.SEPOLIA_FUNDING_PRIVATE_KEY }}
+          export ETHEREUM_HOST=${{ env.EXTERNAL_ETHEREUM_HOST }}
           mnemonic=$(bash $REPO/spartan/scripts/prepare_sepolia_accounts.sh ${{ env.VALUES_FILE }} 1)
           echo "::add-mask::$mnemonic"
           echo "mnemonic=$mnemonic" >> "$GITHUB_OUTPUT"
