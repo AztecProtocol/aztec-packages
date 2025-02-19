@@ -7,8 +7,11 @@ use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub, SubAssign};
 
 use crate::AcirField;
 
-// XXX: Switch out for a trait and proper implementations
-// This implementation is inefficient, can definitely remove hex usage and Iterator instances for trivial functionality
+pub trait FieldBasicOps<F: PrimeField>: Sized {
+    fn from_repr(field: F) -> Self;
+    fn into_repr(self) -> F;
+}
+
 #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FieldElement<F: PrimeField>(F);
 
@@ -119,32 +122,13 @@ impl<F: PrimeField> From<bool> for FieldElement<F> {
     }
 }
 
-impl<F: PrimeField> FieldElement<F> {
-    pub fn from_repr(field: F) -> Self {
+impl<F: PrimeField> FieldBasicOps<F> for FieldElement<F> {
+    fn from_repr(field: F) -> Self {
         Self(field)
     }
 
-    // XXX: This method is used while this field element
-    // implementation is not generic.
-    pub fn into_repr(self) -> F {
+    fn into_repr(self) -> F {
         self.0
-    }
-
-    fn fits_in_u128(&self) -> bool {
-        self.num_bits() <= 128
-    }
-
-    /// Returns None, if the string is not a canonical
-    /// representation of a field element; less than the order
-    /// or if the hex string is invalid.
-    /// This method can be used for both hex and decimal representations.
-    pub fn try_from_str(input: &str) -> Option<FieldElement<F>> {
-        if input.contains('x') {
-            return FieldElement::from_hex(input);
-        }
-
-        let fr = F::from_str(input).ok()?;
-        Some(FieldElement(fr))
     }
 }
 
@@ -258,21 +242,6 @@ impl<F: PrimeField> AcirField for FieldElement<F> {
         FieldElement(inv)
     }
 
-    fn to_hex(self) -> String {
-        let mut bytes = Vec::new();
-        self.0.serialize_uncompressed(&mut bytes).unwrap();
-        bytes.reverse();
-        hex::encode(bytes)
-    }
-    fn from_hex(hex_str: &str) -> Option<FieldElement<F>> {
-        let value = hex_str.strip_prefix("0x").unwrap_or(hex_str);
-        // Values of odd length require an additional "0" prefix
-        let sanitized_value =
-            if value.len() % 2 == 0 { value.to_string() } else { format!("0{}", value) };
-        let hex_as_bytes = hex::decode(sanitized_value).ok()?;
-        Some(FieldElement::from_be_bytes_reduce(&hex_as_bytes))
-    }
-
     fn to_be_bytes(self) -> Vec<u8> {
         // to_be_bytes! uses little endian which is why we reverse the output
         // TODO: Add a little endian equivalent, so the caller can use whichever one
@@ -303,6 +272,18 @@ impl<F: PrimeField> AcirField for FieldElement<F> {
         bytes.reverse(); // put it in big endian format. XXX(next refactor): we should be explicit about endianness.
 
         bytes[0..num_elements].to_vec()
+    }
+
+    fn to_hex(self) -> String {
+        let mut bytes = Vec::new();
+        self.0.serialize_uncompressed(&mut bytes).unwrap();
+        hex::encode(&bytes)
+    }
+
+    fn from_hex(hex_str: &str) -> Option<Self> {
+        let hex_str = hex_str.strip_prefix("0x").unwrap_or(hex_str);
+        let bytes = hex::decode(hex_str).ok()?;
+        Some(Self::from_be_bytes_reduce(&bytes))
     }
 }
 
