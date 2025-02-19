@@ -209,7 +209,7 @@ export class RequestResponseRateLimiter {
     }
     const rateLimitStatus = limiter.allow(peerId);
 
-    if (rateLimitStatus === RateLimitStatus.DeniedGlobal) {
+    if (rateLimitStatus === RateLimitStatus.DeniedPeer) {
       this.peerScoring.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
     }
     return rateLimitStatus;
