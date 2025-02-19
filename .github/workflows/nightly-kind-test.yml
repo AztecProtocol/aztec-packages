@@ -12,14 +12,13 @@ env:
   DOCKERHUB_PASSWORD: "${{ secrets.DOCKERHUB_PASSWORD }}"
   RUN_ID: ${{ github.run_id }}
   RUN_ATTEMPT: ${{ github.run_attempt }}
-  USERNAME: ${{ github.actor }}
+  USERNAME: ${{ github.event.pull_request.user.login || github.actor }}
   GITHUB_TOKEN: ${{ github.token }}
   GH_SELF_HOSTED_RUNNER_TOKEN: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-  GIT_COMMIT: ${{ github.sha }}
-  IMAGE_TAG: ${{ github.sha }}-amd64
+  GIT_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
   EXTERNAL_ETHEREUM_HOST: "https://json-rpc.${{ secrets.SEPOLIA_EXTERNAL_HOST }}?key=${{ secrets.SEPOLIA_API_KEY }}"
   EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.SEPOLIA_EXTERNAL_HOST }}"
   GCP_API_KEY_HEADER: "X-goog-api-key"
@@ -31,8 +30,33 @@ jobs:
       runner_type: builder-x86
     secrets: inherit
 
+  find-image:
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.find-tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - name: Find latest available image tag
+        id: find-tag
+        run: |
+          COMMIT=${{ env.GIT_COMMIT }}
+          MAX_ATTEMPTS=10
+
+          for ((i=0; i<MAX_ATTEMPTS; i++)); do
+            if docker pull aztecprotocol/aztec:$COMMIT-amd64 >/dev/null 2>&1; then
+              echo "tag=$COMMIT-amd64" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            # Get previous commit
+            COMMIT=$(git rev-parse "$COMMIT^")
+          done
+
+          echo "Error: Could not find a valid image tag after $MAX_ATTEMPTS attempts"
+          exit 1
+
   test:
-    needs: setup
+    needs: [setup, find-image]
     runs-on: ubuntu-20.04
     strategy:
       matrix:
@@ -50,11 +74,11 @@ jobs:
           runner_type: 16core-tester-x86
           ttl: 90
           run: |
-            docker pull aztecprotocol/aztec:${{ env.IMAGE_TAG }}
-            AZTEC_DOCKER_TAG=${{ env.IMAGE_TAG }} FORCE_COLOR=1 INSTALL_METRICS=false ./spartan/scripts/test_kind.sh "./src/spartan/${{ matrix.test }}" 16-validators.yaml
+            docker pull aztecprotocol/aztec:${{ needs.find-image.outputs.image_tag }}
+            AZTEC_DOCKER_TAG=${{ needs.find-image.outputs.image_tag }} FORCE_COLOR=1 INSTALL_METRICS=false ./spartan/scripts/test_kind.sh "./src/spartan/${{ matrix.test }}" 16-validators.yaml
 
   proving-test:
-    needs: setup
+    needs: [setup, find-image]
     runs-on: ubuntu-20.04
     timeout-minutes: 90
     steps:
@@ -68,12 +92,12 @@ jobs:
           runner_type: 128core-tester-x86
           ttl: 90
           run: |
-            docker pull aztecprotocol/aztec:${{ env.IMAGE_TAG }}
-            AZTEC_DOCKER_TAG=${{ env.IMAGE_TAG }} INSTALL_TIMEOUT=45m FORCE_COLOR=1 INSTALL_METRICS=false \
+            docker pull aztecprotocol/aztec:${{ needs.find-image.outputs.image_tag }}
+            AZTEC_DOCKER_TAG=${{ needs.find-image.outputs.image_tag }} INSTALL_TIMEOUT=45m FORCE_COLOR=1 INSTALL_METRICS=false \
               ./spartan/scripts/test_kind.sh ./src/spartan/proving.test.ts 1-validator-with-proving || true
 
   kind-sepolia-test:
-    needs: setup
+    needs: [setup, find-image]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -98,7 +122,7 @@ jobs:
             export CI=1 NO_CACHE=0
             artifact="kind-network-${{matrix.config.test}}-$(./spartan/bootstrap.sh hash)"
             if ci3/test_should_run "$artifact"; then
-              docker pull aztecprotocol/aztec:${{ env.IMAGE_TAG }}
+              docker pull aztecprotocol/aztec:${{ needs.find-image.outputs.image_tag }}
 
               # Set the sepolia run variables
               export EXTERNAL_ETHEREUM_HOST=${{ env.EXTERNAL_ETHEREUM_HOST }}
@@ -107,7 +131,7 @@ jobs:
               export EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER=${{ env.GCP_API_KEY_HEADER }}
               export L1_DEPLOYMENT_PRIVATE_KEY=${{ secrets.SEPOLIA_L1_DEPLOYMENT_PRIVATE_KEY }}
               export L1_ACCOUNTS_MNEMONIC="${{ secrets.SEPOLIA_ACCOUNTS_MNEMONIC }}"
-              AZTEC_DOCKER_TAG=${{ env.IMAGE_TAG }} SEPOLIA_RUN=true INSTALL_METRICS=false ./spartan/scripts/test_kind.sh "./src/spartan/${{ matrix.config.test }}" "${{ matrix.config.values }}"
+              AZTEC_DOCKER_TAG=${{ needs.find-image.outputs.image_tag }} SEPOLIA_RUN=true INSTALL_METRICS=false ./spartan/scripts/test_kind.sh "./src/spartan/${{ matrix.config.test }}" "${{ matrix.config.values }}"
               ci3/cache_upload_flag "$artifact"
             fi
       - name: Copy Network Logs
