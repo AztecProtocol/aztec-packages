@@ -173,8 +173,9 @@ jobs:
         if: ${{ inputs.sepolia_deployment == 'true' }}
         run: |
           REPO=$(git rev-parse --show-toplevel)
-          export MNEMONIC=$(bash $REPO/spartan/scripts/prepare_sepolia_accounts.sh ${{ env.VALUES_FILE }} 1)
-          echo "mnemonic=$MNEMONIC" >> "$GITHUB_OUTPUT"
+          mnemonic=$(bash $REPO/spartan/scripts/prepare_sepolia_accounts.sh ${{ env.VALUES_FILE }} 1)
+          echo "::add-mask::$mnemonic"
+          echo "mnemonic=$mnemonic" >> "$GITHUB_OUTPUT"
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
