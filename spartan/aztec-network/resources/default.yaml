@@ -1,8 +1,3 @@
-storage:
-  localSsd: false
-  dataStoreMapSize: "134217728" # 128 GB
-  worldStateMapSize: "134217728" # 128 GB
-
 bootNode:
   resources:
     requests:
