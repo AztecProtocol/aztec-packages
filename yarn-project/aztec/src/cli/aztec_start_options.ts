@@ -1,7 +1,7 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
 import { faucetConfigMapping } from '@aztec/aztec-faucet/config';
 import { sequencerClientConfigMappings } from '@aztec/aztec-node/config';
-import { blobSinkConfigMapping } from '@aztec/blob-sink/client';
+import { blobSinkConfigMappings } from '@aztec/blob-sink/server';
 import { botConfigMappings } from '@aztec/bot/config';
 import {
   type ConfigMapping,
@@ -213,6 +213,12 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: 'WS_BLOCK_CHECK_INTERVAL_MS',
       parseVal: val => parseInt(val, 10),
     },
+    {
+      flag: '--node.testAccounts',
+      description: 'Populate genesis state with initial fee juice for test accounts',
+      envVar: 'TEST_ACCOUNTS',
+      ...booleanConfigHelper(),
+    },
   ],
   'P2P SUBSYSTEM': [
     {
@@ -259,7 +265,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       defaultValue: undefined,
       envVar: undefined,
     },
-    ...getOptions('blobSink', blobSinkConfigMapping),
+    ...getOptions('blobSink', blobSinkConfigMappings),
   ],
   'PROVER NODE': [
     {

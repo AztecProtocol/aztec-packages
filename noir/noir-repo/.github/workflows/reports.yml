@@ -115,10 +115,10 @@ jobs:
 
           ./gates_report_brillig.sh 9223372036854775807
           jq '.programs |= map(.package_name |= (. + "_inliner_max"))' gates_report_brillig.json > ./reports/gates_report_brillig_inliner_max.json
-          
+
           ./gates_report_brillig.sh 0
           jq '.programs |= map(.package_name |= (. + "_inliner_zero"))' gates_report_brillig.json > ./reports/gates_report_brillig_inliner_zero.json
-          
+
           ./gates_report_brillig.sh -9223372036854775808
           jq '.programs |= map(.package_name |= (. + "_inliner_min"))' gates_report_brillig.json > ./reports/gates_report_brillig_inliner_min.json
 
@@ -160,14 +160,14 @@ jobs:
       - name: Generate Brillig execution report
         working-directory: ./test_programs
         run: |
-          mkdir ./reports 
-          
+          mkdir ./reports
+
           ./gates_report_brillig_execution.sh 9223372036854775807
           jq '.programs |= map(.package_name |= (. + "_inliner_max"))' gates_report_brillig_execution.json > ./reports/gates_report_brillig_execution_inliner_max.json
 
           ./gates_report_brillig_execution.sh 0
           jq '.programs |= map(.package_name |= (. + "_inliner_zero"))' gates_report_brillig_execution.json > ./reports/gates_report_brillig_execution_inliner_zero.json
-          
+
           ./gates_report_brillig_execution.sh -9223372036854775808
           jq '.programs |= map(.package_name |= (. + "_inliner_min"))' gates_report_brillig_execution.json > ./reports/gates_report_brillig_execution_inliner_min.json
 
@@ -258,7 +258,7 @@ jobs:
         run: |
           ./execution_report.sh 0 1
           mv execution_report.json ../execution_report.json
-          
+
       - name: Upload compilation report
         uses: actions/upload-artifact@v4
         with:
@@ -266,7 +266,7 @@ jobs:
           path: compilation_report.json
           retention-days: 3
           overwrite: true
-      
+
       - name: Upload execution report
         uses: actions/upload-artifact@v4
         with:
@@ -305,7 +305,7 @@ jobs:
           repository: ${{ matrix.project.repo }}
           path: test-repo
           ref: ${{ matrix.project.ref }}
-      
+
       - name: Fetch noir dependencies
         working-directory: ./test-repo/${{ matrix.project.path }}
         run: |
@@ -323,7 +323,7 @@ jobs:
           ./compilation_report.sh 1 ${{ matrix.project.num_runs }}
         env:
           FLAGS: ${{ matrix.project.flags }}
-        
+
       - name: Check compilation time limit
         run: |
           TIME=$(jq '.[0].value' ./test-repo/${{ matrix.project.path }}/compilation_report.json)
@@ -343,7 +343,7 @@ jobs:
           mv /home/runner/work/noir/noir/scripts/test_programs/execution_report.sh ./execution_report.sh
           mv /home/runner/work/noir/noir/scripts/test_programs/parse_time.sh ./parse_time.sh
           ./execution_report.sh 1 ${{ matrix.project.num_runs }}
-    
+
       - name: Check execution time limit
         if: ${{ !matrix.project.cannot_execute }}
         run: |
@@ -375,7 +375,7 @@ jobs:
           PACKAGE_NAME=$(basename $PACKAGE_NAME)
           mv ./test-repo/${{ matrix.project.path }}/execution_report.json ./execution_report_$PACKAGE_NAME.json
           echo "execution_report_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
-          
+
       - name: Upload compilation report
         uses: actions/upload-artifact@v4
         with:
@@ -411,7 +411,7 @@ jobs:
             test_programs/memory_report.sh
             test_programs/parse_memory.sh
           sparse-checkout-cone-mode: false
-      
+
       - name: Download nargo binary
         uses: ./scripts/.github/actions/download-nargo
 
@@ -437,6 +437,18 @@ jobs:
         run: |
           MEMORY=$(jq '.[0].value' ./test-repo/${{ matrix.path }}/compilation_memory_report.json)
           MEMORY_LIMIT=${{ matrix.compilation-memory-limit }}
+          if awk 'BEGIN{exit !(ARGV[1]>ARGV[2])}' "$MEMORY" "$MEMORY_LIMIT"; then
+            # Don't bump this limit without understanding why this has happened and confirming that you're not the cause.
+            echo "Failing due to compilation exceeding memory limit..."
+            echo "Limit: "$MEMORY_LIMIT"MB"
+            echo "Compilation took: "$MEMORY"MB".
+            exit 1
+          fi
+
+      - name: Check compilation memory limit
+        run: |
+          MEMORY=$(jq '.[0].value' ./test-repo/${{ matrix.project.path }}/compilation_memory_report.json)
+          MEMORY_LIMIT=6000
           if awk 'BEGIN{exit !(ARGV[1]>ARGV[2])}' "$MEMORY" "$MEMORY_LIMIT"; then
             # Don't bump this limit without understanding why this has happened and confirming that you're not the cause.
             echo "Failing due to compilation exceeding memory limit..."
@@ -511,10 +523,10 @@ jobs:
           overwrite: true
 
   upload_compilation_report:
-    name: Upload compilation report 
+    name: Upload compilation report
     needs: [generate_compilation_and_execution_report, external_repo_compilation_and_execution_report]
     # We want this job to run even if one variation of the matrix in `external_repo_compilation_and_execution_report` fails
-    if: always() 
+    if: always()
     runs-on: ubuntu-22.04
     permissions:
       pull-requests: write
@@ -562,10 +574,10 @@ jobs:
           max-items-in-chart: 50
 
   upload_compilation_memory_report:
-    name: Upload compilation memory report 
+    name: Upload compilation memory report
     needs: [generate_memory_report, external_repo_memory_report]
     # We want this job to run even if one variation of the matrix in `external_repo_memory_report` fails
-    if: always() 
+    if: always()
     runs-on: ubuntu-22.04
     permissions:
       pull-requests: write
@@ -612,10 +624,10 @@ jobs:
           max-items-in-chart: 50
 
   upload_execution_memory_report:
-    name: Upload execution memory report 
+    name: Upload execution memory report
     needs: [generate_memory_report, external_repo_memory_report]
     # We want this job to run even if one variation of the matrix in `external_repo_memory_report` fails
-    if: always() 
+    if: always()
     runs-on: ubuntu-22.04
     permissions:
       pull-requests: write
@@ -663,10 +675,10 @@ jobs:
 
 
   upload_execution_report:
-    name: Upload execution report 
+    name: Upload execution report
     needs: [generate_compilation_and_execution_report, external_repo_compilation_and_execution_report]
     # We want this job to run even if one variation of the matrix in `external_repo_compilation_and_execution_report` fails
-    if: always() 
+    if: always()
     runs-on: ubuntu-22.04
     permissions:
       pull-requests: write
@@ -724,7 +736,7 @@ jobs:
       - upload_compilation_memory_report
       - upload_execution_report
       - upload_execution_memory_report
-     
+
     steps:
         - name: Report overall success
           run: |

@@ -15,13 +15,7 @@ import { type FunctionsOf } from '@aztec/foundation/types';
 
 import { strict as assert } from 'assert';
 
-import {
-  InstructionExecutionError,
-  InvalidTagValueError,
-  MemorySliceOutOfRangeError,
-  TagCheckError,
-} from './errors.js';
-import { Addressing, AddressingMode } from './opcodes/addressing_mode.js';
+import { InvalidTagValueError, MemorySliceOutOfRangeError, TagCheckError } from './errors.js';
 
 /** MemoryValue gathers the common operations for all memory types. */
 export abstract class MemoryValue {
@@ -225,7 +219,7 @@ export enum TypeTag {
   UINT32 = MEM_TAG_U32,
   UINT64 = MEM_TAG_U64,
   UINT128 = MEM_TAG_U128,
-  INVALID,
+  INVALID = MEM_TAG_U128 + 1,
 }
 
 // Lazy interface definition for tagged memory
@@ -251,22 +245,14 @@ export class TaggedMemory implements TaggedMemoryInterface {
     return TaggedMemory.MAX_MEMORY_SIZE;
   }
 
-  /** Returns a MeteredTaggedMemory instance to track the number of reads and writes if TRACK_MEMORY_ACCESSES is set. */
-  public track(type: string = 'instruction'): TaggedMemoryInterface {
-    return TaggedMemory.TRACK_MEMORY_ACCESSES ? new MeteredTaggedMemory(this, type) : this;
-  }
-
   public get(offset: number): MemoryValue {
-    assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
-    const value = this.getAs<MemoryValue>(offset);
-    return value;
+    return this.getAs<MemoryValue>(offset);
   }
 
   public getAs<T>(offset: number): T {
-    assert(Number.isInteger(offset));
-    assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
+    assert(Number.isInteger(offset) && offset < TaggedMemory.MAX_MEMORY_SIZE);
     const word = this._mem.get(offset);
-    TaggedMemory.log.trace(`get(${offset}) = ${word}`);
+    //TaggedMemory.log.trace(`get(${offset}) = ${word}`);
     if (word === undefined) {
       TaggedMemory.log.debug(`WARNING: Memory at offset ${offset} is undefined!`);
       return new Field(0) as T;
@@ -300,10 +286,9 @@ export class TaggedMemory implements TaggedMemoryInterface {
   }
 
   public set(offset: number, v: MemoryValue) {
-    assert(Number.isInteger(offset));
-    assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
+    assert(Number.isInteger(offset) && offset < TaggedMemory.MAX_MEMORY_SIZE);
     this._mem.set(offset, v);
-    TaggedMemory.log.trace(`set(${offset}, ${v})`);
+    //TaggedMemory.log.trace(`set(${offset}, ${v})`);
   }
 
   public setSlice(offset: number, slice: MemoryValue[]) {
@@ -320,8 +305,7 @@ export class TaggedMemory implements TaggedMemoryInterface {
   }
 
   public getTag(offset: number): TypeTag {
-    assert(Number.isInteger(offset));
-    assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
+    assert(Number.isInteger(offset) && offset < TaggedMemory.MAX_MEMORY_SIZE);
     return TaggedMemory.getTag(this._mem.get(offset));
   }
 
@@ -340,25 +324,13 @@ export class TaggedMemory implements TaggedMemoryInterface {
   }
 
   public static checkIsIntegralTag(tag: TypeTag) {
-    if (
-      ![TypeTag.UINT1, TypeTag.UINT8, TypeTag.UINT16, TypeTag.UINT32, TypeTag.UINT64, TypeTag.UINT128].includes(tag)
-    ) {
+    if (!INTEGRAL_TAGS.has(tag)) {
       throw TagCheckError.forTag(TypeTag[tag], 'integral');
     }
   }
 
   public static checkIsValidTag(tagNumber: number) {
-    if (
-      ![
-        TypeTag.FIELD,
-        TypeTag.UINT1,
-        TypeTag.UINT8,
-        TypeTag.UINT16,
-        TypeTag.UINT32,
-        TypeTag.UINT64,
-        TypeTag.UINT128,
-      ].includes(tagNumber)
-    ) {
+    if (!VALID_TAGS.has(tagNumber)) {
       throw new InvalidTagValueError(tagNumber);
     }
   }
@@ -375,11 +347,9 @@ export class TaggedMemory implements TaggedMemoryInterface {
   /**
    * Check that all tags at the given offsets are the same.
    */
-  public checkTagsAreSame(...offsets: number[]) {
-    const tag = this.getTag(offsets[0]);
-    for (let i = 1; i < offsets.length; i++) {
-      this.checkTag(tag, offsets[i]);
-    }
+  public checkTagsAreSame(offset0: number, offset1: number) {
+    const tag0 = this.getTag(offset0);
+    this.checkTag(tag0, offset1);
   }
 
   /**
@@ -391,32 +361,12 @@ export class TaggedMemory implements TaggedMemoryInterface {
     }
   }
 
-  // TODO: this might be slow, but I don't want to have the types know of their tags.
-  // It might be possible to have a map<Prototype, TypeTag>.
   public static getTag(v: MemoryValue | undefined): TypeTag {
-    let tag = TypeTag.INVALID;
-
-    // Not sure why, but using instanceof here doesn't work and leads odd behavior,
-    // but using constructor.name does the job...
     if (v === undefined) {
-      tag = TypeTag.FIELD; // uninitialized memory is Field(0)
-    } else if (v.constructor.name == 'Field') {
-      tag = TypeTag.FIELD;
-    } else if (v.constructor.name == 'Uint1') {
-      tag = TypeTag.UINT1;
-    } else if (v.constructor.name == 'Uint8') {
-      tag = TypeTag.UINT8;
-    } else if (v.constructor.name == 'Uint16') {
-      tag = TypeTag.UINT16;
-    } else if (v.constructor.name == 'Uint32') {
-      tag = TypeTag.UINT32;
-    } else if (v.constructor.name == 'Uint64') {
-      tag = TypeTag.UINT64;
-    } else if (v.constructor.name == 'Uint128') {
-      tag = TypeTag.UINT128;
+      return TypeTag.FIELD; // uninitialized memory is Field(0)
+    } else {
+      return TAG_FOR_MEM_VAL.get(v.constructor.name) ?? TypeTag.INVALID;
     }
-
-    return tag;
   }
 
   // Truncates the value to fit the type.
@@ -441,123 +391,33 @@ export class TaggedMemory implements TaggedMemoryInterface {
         throw new InvalidTagValueError(tag);
     }
   }
-
-  /** No-op. Implemented here for compatibility with the MeteredTaggedMemory. */
-  public assert(_operations: Partial<MemoryOperations & { addressing: Addressing }>) {}
 }
 
-/** Tagged memory wrapper with metering for each memory read and write operation. */
-export class MeteredTaggedMemory implements TaggedMemoryInterface {
-  private reads: number = 0;
-  private writes: number = 0;
+const TAG_FOR_MEM_VAL = new Map<string, TypeTag>([
+  ['Field', TypeTag.FIELD],
+  ['Uint1', TypeTag.UINT1],
+  ['Uint8', TypeTag.UINT8],
+  ['Uint16', TypeTag.UINT16],
+  ['Uint32', TypeTag.UINT32],
+  ['Uint64', TypeTag.UINT64],
+  ['Uint128', TypeTag.UINT128],
+]);
 
-  constructor(private wrapped: TaggedMemory, private type: string = 'instruction') {}
+const VALID_TAGS = new Set([
+  TypeTag.FIELD,
+  TypeTag.UINT1,
+  TypeTag.UINT8,
+  TypeTag.UINT16,
+  TypeTag.UINT32,
+  TypeTag.UINT64,
+  TypeTag.UINT128,
+]);
 
-  /** Returns the number of reads and writes tracked so far and resets them to zero. */
-  public reset(): MemoryOperations {
-    const stats = { reads: this.reads, writes: this.writes };
-    this.reads = 0;
-    this.writes = 0;
-    return stats;
-  }
-
-  /**
-   * Asserts that the exact number of memory operations have been performed.
-   * Indirect represents the flags for indirect accesses: each bit set to one counts as an extra read.
-   */
-  public assert(operations: Partial<MemoryOperations & { addressing: Addressing }>) {
-    const {
-      reads: expectedReads,
-      writes: expectedWrites,
-      addressing,
-    } = { reads: 0, writes: 0, addressing: new Addressing([]), ...operations };
-
-    const totalExpectedReads =
-      expectedReads + addressing.count(AddressingMode.INDIRECT) + addressing.count(AddressingMode.RELATIVE);
-    const { reads: actualReads, writes: actualWrites } = this.reset();
-    if (actualReads !== totalExpectedReads) {
-      throw new InstructionExecutionError(
-        `Incorrect number of memory reads for ${this.type}: expected ${totalExpectedReads} but executed ${actualReads}`,
-      );
-    }
-    if (actualWrites !== expectedWrites) {
-      throw new InstructionExecutionError(
-        `Incorrect number of memory writes for ${this.type}: expected ${expectedWrites} but executed ${actualWrites}`,
-      );
-    }
-  }
-
-  public getMaxMemorySize(): number {
-    return this.wrapped.getMaxMemorySize();
-  }
-
-  public track(type: string = 'instruction'): MeteredTaggedMemory {
-    return new MeteredTaggedMemory(this.wrapped, type);
-  }
-
-  public get(offset: number): MemoryValue {
-    this.reads++;
-    return this.wrapped.get(offset);
-  }
-
-  public getSliceAs<T>(offset: number, size: number): T[] {
-    this.reads += size;
-    return this.wrapped.getSliceAs<T>(offset, size);
-  }
-
-  public getAs<T>(offset: number): T {
-    this.reads++;
-    return this.wrapped.getAs(offset);
-  }
-
-  public getSlice(offset: number, size: number): MemoryValue[] {
-    this.reads += size;
-    return this.wrapped.getSlice(offset, size);
-  }
-
-  public set(offset: number, v: MemoryValue): void {
-    this.writes++;
-    this.wrapped.set(offset, v);
-  }
-
-  public setSlice(offset: number, vs: MemoryValue[]): void {
-    this.writes += vs.length;
-    this.wrapped.setSlice(offset, vs);
-  }
-
-  public getSliceTags(offset: number, size: number): TypeTag[] {
-    return this.wrapped.getSliceTags(offset, size);
-  }
-
-  public getTag(offset: number): TypeTag {
-    return this.wrapped.getTag(offset);
-  }
-
-  public checkTag(tag: TypeTag, offset: number): void {
-    this.wrapped.checkTag(tag, offset);
-  }
-
-  public checkIsValidMemoryOffsetTag(offset: number): void {
-    this.wrapped.checkIsValidMemoryOffsetTag(offset);
-  }
-
-  public checkTags(tag: TypeTag, ...offsets: number[]): void {
-    this.wrapped.checkTags(tag, ...offsets);
-  }
-
-  public checkTagsAreSame(...offsets: number[]): void {
-    this.wrapped.checkTagsAreSame(...offsets);
-  }
-
-  public checkTagsRange(tag: TypeTag, startOffset: number, size: number): void {
-    this.wrapped.checkTagsRange(tag, startOffset, size);
-  }
-}
-
-/** Tracks number of memory reads and writes. */
-export type MemoryOperations = {
-  /** How many total reads are performed. Slice reads are count as one per element. */
-  reads: number;
-  /** How many total writes are performed. Slice writes are count as one per element. */
-  writes: number;
-};
+const INTEGRAL_TAGS = new Set([
+  TypeTag.UINT1,
+  TypeTag.UINT8,
+  TypeTag.UINT16,
+  TypeTag.UINT32,
+  TypeTag.UINT64,
+  TypeTag.UINT128,
+]);

@@ -1,7 +1,6 @@
 import { defineConfig, searchForWorkspaceRoot } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import { PolyfillOptions, nodePolyfills } from "vite-plugin-node-polyfills";
-import { viteStaticCopy } from "vite-plugin-static-copy";
 
 const nodeModulesPath = `${searchForWorkspaceRoot(process.cwd())}/node_modules`;
 
@@ -47,13 +46,5 @@ export default defineConfig({
   plugins: [
     react(),
     nodePolyfillsFix({ include: ["buffer", "process", "path"] }),
-    viteStaticCopy({
-      targets: [
-        {
-          src: `${nodeModulesPath}/@aztec/aztec.js/dest/*.wasm.gz`,
-          dest: "./",
-        },
-      ],
-    }),
   ],
 });

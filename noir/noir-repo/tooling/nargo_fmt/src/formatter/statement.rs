@@ -408,7 +408,7 @@ mod tests {
 
     #[test]
     fn format_let_statement_with_unsafe_comment() {
-        let src = " fn foo() { 
+        let src = " fn foo() {
         // Safety: some comment
         let  x  =  unsafe { 1 } ; } ";
         let expected = "fn foo() {
@@ -421,7 +421,7 @@ mod tests {
 
     #[test]
     fn format_let_statement_with_unsafe_doc_comment() {
-        let src = " fn foo() { 
+        let src = " fn foo() {
         /// Safety: some comment
         let  x  =  unsafe { 1 } ; } ";
         let expected = "fn foo() {
@@ -547,7 +547,7 @@ mod tests {
 
     #[test]
     fn format_unsafe_statement() {
-        let src = " fn foo() { unsafe { 
+        let src = " fn foo() { unsafe {
         1  } } ";
         let expected = "fn foo() {
     unsafe {

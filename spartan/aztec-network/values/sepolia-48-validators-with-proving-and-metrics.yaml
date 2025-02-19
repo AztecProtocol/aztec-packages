@@ -2,8 +2,6 @@ telemetry:
   enabled: true
 
 aztec:
-  slotDuration: 36
-  epochDuration: 32
   realProofs: true
 
 images:
@@ -17,7 +15,8 @@ network:
 ethereum:
   chainId: "11155111"
   deployL1ContractsPrivateKey:
-  externalHost:
+  execution:
+    externalHost:
   beacon:
     externalHost:
     apiKey: ""

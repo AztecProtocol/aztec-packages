@@ -2,7 +2,6 @@ import {
   BlockAttestation,
   BlockProposal,
   type ClientProtocolCircuitVerifier,
-  EpochProofQuote,
   type Gossipable,
   type L2BlockSource,
   MerkleTreeId,
@@ -19,8 +18,8 @@ import {
   metricsTopicStrToLabels,
 } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
-import { type EpochCache } from '@aztec/epoch-cache';
-import { createLogger } from '@aztec/foundation/log';
+import { type EpochCacheInterface } from '@aztec/epoch-cache';
+import { createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
@@ -34,8 +33,10 @@ import {
   gossipsub,
 } from '@chainsafe/libp2p-gossipsub';
 import { createPeerScoreParams, createTopicScoreParams } from '@chainsafe/libp2p-gossipsub/score';
+import { SignaturePolicy } from '@chainsafe/libp2p-gossipsub/types';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
+import { bootstrap } from '@libp2p/bootstrap';
 import { identify } from '@libp2p/identify';
 import { type Message, type PeerId, TopicValidatorResult } from '@libp2p/interface';
 import { type ConnectionManager } from '@libp2p/interface-internal';
@@ -46,7 +47,6 @@ import { createLibp2p } from 'libp2p';
 
 import { type P2PConfig } from '../../config.js';
 import { type MemPools } from '../../mem_pools/interface.js';
-import { EpochProofQuoteValidator } from '../../msg_validators/epoch_proof_quote_validator/index.js';
 import { AttestationValidator, BlockProposalValidator } from '../../msg_validators/index.js';
 import {
   DataTxValidator,
@@ -92,7 +92,6 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
   // Message validators
   private attestationValidator: AttestationValidator;
   private blockProposalValidator: BlockProposalValidator;
-  private epochProofQuoteValidator: EpochProofQuoteValidator;
 
   // Request and response sub service
   public reqresp: ReqResp;
@@ -111,7 +110,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     private peerDiscoveryService: PeerDiscoveryService,
     private mempools: MemPools<T>,
     private l2BlockSource: L2BlockSource,
-    epochCache: EpochCache,
+    epochCache: EpochCacheInterface,
     private proofVerifier: ClientProtocolCircuitVerifier,
     private worldStateSynchronizer: WorldStateSynchronizer,
     telemetry: TelemetryClient,
@@ -127,7 +126,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       peerDiscoveryService,
       config,
       telemetry,
-      logger,
+      createLogger(`${logger.module}:peer_manager`),
       peerScoring,
       this.reqresp,
     );
@@ -140,7 +139,6 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
 
     this.attestationValidator = new AttestationValidator(epochCache);
     this.blockProposalValidator = new BlockProposalValidator(epochCache);
-    this.epochProofQuoteValidator = new EpochProofQuoteValidator(epochCache);
 
     this.blockReceivedCallback = async (block: BlockProposal): Promise<BlockAttestation | undefined> => {
       this.logger.warn(
@@ -164,13 +162,14 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     peerId: PeerId,
     mempools: MemPools<T>,
     l2BlockSource: L2BlockSource,
-    epochCache: EpochCache,
+    epochCache: EpochCacheInterface,
     proofVerifier: ClientProtocolCircuitVerifier,
     worldStateSynchronizer: WorldStateSynchronizer,
     store: AztecAsyncKVStore,
     telemetry: TelemetryClient,
+    logger = createLogger('p2p:libp2p_service'),
   ) {
-    const { tcpListenAddress, tcpAnnounceAddress, minPeerCount, maxPeerCount } = config;
+    const { tcpListenAddress, tcpAnnounceAddress, maxPeerCount } = config;
     const bindAddrTcp = convertToMultiaddr(tcpListenAddress, 'tcp');
     // We know tcpAnnounceAddress cannot be null here because we set it or throw when setting up the service.
     const announceAddrTcp = convertToMultiaddr(tcpAnnounceAddress!, 'tcp');
@@ -178,6 +177,12 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     const datastore = new AztecDatastore(store);
 
     const otelMetricsAdapter = new OtelMetricsAdapter(telemetry);
+
+    // If bootstrap nodes are provided, also provide them to the p2p service
+    const peerDiscovery = [];
+    if (peerDiscoveryService.bootstrapNodes.length > 0) {
+      peerDiscovery.push(bootstrap({ list: peerDiscoveryService.bootstrapNodes }));
+    }
 
     const node = await createLibp2p({
       start: false,
@@ -200,24 +205,35 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
         }),
       ],
       datastore,
-      streamMuxers: [yamux(), mplex()],
+      peerDiscovery,
+      streamMuxers: [mplex(), yamux()],
       connectionEncryption: [noise()],
       connectionManager: {
-        minConnections: minPeerCount,
+        minConnections: 0,
         maxConnections: maxPeerCount,
+
+        maxParallelDials: 100,
+        maxPeerAddrsToDial: 5,
+        maxIncomingPendingConnections: 5,
       },
       services: {
         identify: identify({
           protocolPrefix: 'aztec',
         }),
         pubsub: gossipsub({
+          debugName: 'gossipsub',
+          globalSignaturePolicy: SignaturePolicy.StrictNoSign,
           allowPublishToZeroTopicPeers: true,
+          floodPublish: config.gossipsubFloodPublish,
           D: config.gossipsubD,
           Dlo: config.gossipsubDlo,
           Dhi: config.gossipsubDhi,
+          Dlazy: config.gossipsubDLazy,
           heartbeatInterval: config.gossipsubInterval,
           mcacheLength: config.gossipsubMcacheLength,
           mcacheGossip: config.gossipsubMcacheGossip,
+          // Increased from default 3s to give time for input lag: configuration and rationale from lodestar
+          gossipsubIWantFollowupMs: 12 * 1000,
           msgIdFn: getMsgIdFn,
           msgIdToStrFn: msgIdToStrFn,
           fastMsgIdFn: fastMsgIdFn,
@@ -226,6 +242,8 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
           metricsTopicStrToLabel: metricsTopicStrToLabels(),
           asyncValidation: true,
           scoreParams: createPeerScoreParams({
+            // IPColocation factor can be disabled for local testing - default to -5
+            IPColocationFactorWeight: config.debugDisableColocationPenalty ? 0 : -5.0,
             topics: {
               [Tx.p2pTopic]: createTopicScoreParams({
                 topicWeight: 1,
@@ -242,11 +260,6 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
                 invalidMessageDeliveriesWeight: -20,
                 invalidMessageDeliveriesDecay: 0.5,
               }),
-              [EpochProofQuote.p2pTopic]: createTopicScoreParams({
-                topicWeight: 1,
-                invalidMessageDeliveriesWeight: -20,
-                invalidMessageDeliveriesDecay: 0.5,
-              }),
             },
           }),
         }) as (components: GossipSubComponents) => GossipSub,
@@ -254,6 +267,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
           connectionManager: components.connectionManager,
         }),
       },
+      logger: createLibp2pComponentLogger(logger.module),
     });
 
     return new LibP2PService(
@@ -267,6 +281,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       proofVerifier,
       worldStateSynchronizer,
       telemetry,
+      logger,
     );
   }
 
@@ -317,10 +332,17 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       [Tx.p2pTopic]: this.validatePropagatedTxFromMessage.bind(this),
       [BlockAttestation.p2pTopic]: this.validatePropagatedAttestationFromMessage.bind(this),
       [BlockProposal.p2pTopic]: this.validatePropagatedBlockFromMessage.bind(this),
-      [EpochProofQuote.p2pTopic]: this.validatePropagatedEpochProofQuoteFromMessage.bind(this),
     };
-    for (const [topic, validator] of Object.entries(topicValidators)) {
-      this.node.services.pubsub.topicValidators.set(topic, validator);
+    // When running bandwidth benchmarks, we use send blobs of data we do not want to validate
+    // NEVER switch this off in production
+    if (!this.config.debugDisableMessageValidation) {
+      for (const [topic, validator] of Object.entries(topicValidators)) {
+        this.node.services.pubsub.topicValidators.set(topic, validator);
+      }
+    } else {
+      this.logger.warn(
+        'MESSAGE VALIDATION DISABLED - IF YOU SEE THIS LOG AND ARE NOT DEBUGGING AND ARE RUNNING IN A PRODUCTION ENVIRONMENT, PLEASE RE-ENABLE MESSAGE VALIDATION',
+      );
     }
 
     // add GossipSub listener
@@ -473,10 +495,6 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       const block = BlockProposal.fromBuffer(Buffer.from(message.data));
       await this.processBlockFromPeer(block);
     }
-    if (message.topic == EpochProofQuote.p2pTopic) {
-      const epochProofQuote = EpochProofQuote.fromBuffer(Buffer.from(message.data));
-      await this.processEpochProofQuoteFromPeer(epochProofQuote);
-    }
 
     return;
   }
@@ -558,17 +576,6 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
   }))
   private async broadcastAttestation(attestation: BlockAttestation) {
     await this.propagate(attestation);
-  }
-
-  private async processEpochProofQuoteFromPeer(epochProofQuote: EpochProofQuote) {
-    const epoch = epochProofQuote.payload.epochToProve;
-    const prover = epochProofQuote.payload.prover.toString();
-    const p2pMessageIdentifier = await epochProofQuote.p2pMessageIdentifier();
-    this.logger.verbose(
-      `Received epoch proof quote ${p2pMessageIdentifier} by prover ${prover} for epoch ${epoch} from external peer.`,
-      { quote: epochProofQuote.toInspect(), p2pMessageIdentifier },
-    );
-    this.mempools.epochProofQuotePool.addQuote(epochProofQuote);
   }
 
   /**
@@ -679,25 +686,6 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     const isValid = await this.validateBlockProposal(propagationSource, block);
     this.logger.trace(`validatePropagatedBlock: ${isValid}`, {
       [Attributes.SLOT_NUMBER]: block.payload.header.globalVariables.slotNumber.toString(),
-      [Attributes.P2P_ID]: propagationSource.toString(),
-    });
-    return isValid ? TopicValidatorResult.Accept : TopicValidatorResult.Reject;
-  }
-
-  /**
-   * Validate an epoch proof quote from a peer.
-   * @param propagationSource - The peer ID of the peer that sent the epoch proof quote.
-   * @param msg - The epoch proof quote message.
-   * @returns True if the epoch proof quote is valid, false otherwise.
-   */
-  private async validatePropagatedEpochProofQuoteFromMessage(
-    propagationSource: PeerId,
-    msg: Message,
-  ): Promise<TopicValidatorResult> {
-    const epochProofQuote = EpochProofQuote.fromBuffer(Buffer.from(msg.data));
-    const isValid = await this.validateEpochProofQuote(propagationSource, epochProofQuote);
-    this.logger.trace(`validatePropagatedEpochProofQuote: ${isValid}`, {
-      [Attributes.EPOCH_NUMBER]: epochProofQuote.payload.epochToProve.toString(),
       [Attributes.P2P_ID]: propagationSource.toString(),
     });
     return isValid ? TopicValidatorResult.Accept : TopicValidatorResult.Reject;
@@ -874,25 +862,6 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     return true;
   }
 
-  /**
-   * Validate an epoch proof quote.
-   *
-   * @param epochProofQuote - The epoch proof quote to validate.
-   * @returns True if the epoch proof quote is valid, false otherwise.
-   */
-  @trackSpan('Libp2pService.validateEpochProofQuote', (_peerId, epochProofQuote) => ({
-    [Attributes.EPOCH_NUMBER]: epochProofQuote.payload.epochToProve.toString(),
-  }))
-  public async validateEpochProofQuote(peerId: PeerId, epochProofQuote: EpochProofQuote): Promise<boolean> {
-    const severity = await this.epochProofQuoteValidator.validate(epochProofQuote);
-    if (severity) {
-      this.peerManager.penalizePeer(peerId, severity);
-      return false;
-    }
-
-    return true;
-  }
-
   public getPeerScore(peerId: PeerId): number {
     return this.node.services.pubsub.score.score(peerId.toString());
   }
@@ -904,7 +873,10 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     this.logger.trace(`Sending message ${identifier}`, { p2pMessageIdentifier: identifier });
 
     const recipientsNum = await this.publishToTopic(parent.p2pTopic, message.toBuffer());
-    this.logger.debug(`Sent message ${identifier} to ${recipientsNum} peers`, { p2pMessageIdentifier: identifier });
+    this.logger.debug(`Sent message ${identifier} to ${recipientsNum} peers`, {
+      p2pMessageIdentifier: identifier,
+      sourcePeer: this.node.peerId.toString(),
+    });
   }
 
   // Libp2p seems to hang sometimes if new peers are initiating connections.

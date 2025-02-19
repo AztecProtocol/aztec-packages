@@ -30,7 +30,7 @@ abstract class ExternalCall extends Instruction {
   }
 
   public async execute(context: AvmContext) {
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
     const operands = [this.gasOffset, this.addrOffset, this.argsOffset, this.argsSizeOffset, this.successOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [gasOffset, addrOffset, argsOffset, argsSizeOffset, successOffset] = addressing.resolve(operands, memory);
@@ -94,7 +94,6 @@ abstract class ExternalCall extends Instruction {
     } else {
       context.persistableState.reject(nestedContext.persistableState);
     }
-    memory.assert({ reads: calldataSize + 4, writes: 1, addressing });
   }
 
   public abstract override get type(): 'CALL' | 'STATICCALL';
@@ -134,7 +133,7 @@ export class Return extends Instruction {
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
 
     const operands = [this.returnOffset, this.returnSizeOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
@@ -147,7 +146,6 @@ export class Return extends Instruction {
     const output = memory.getSlice(returnOffset, returnSize).map(word => word.toFr());
 
     context.machineState.return(output);
-    memory.assert({ reads: returnSize + 1, addressing });
   }
 
   public override handlesPC(): boolean {
@@ -177,7 +175,7 @@ export class Revert extends Instruction {
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
 
     const operands = [this.returnOffset, this.retSizeOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
@@ -189,7 +187,6 @@ export class Revert extends Instruction {
     const output = memory.getSlice(returnOffset, retSize).map(word => word.toFr());
 
     context.machineState.revert(output);
-    memory.assert({ reads: retSize + 1, addressing });
   }
 
   // We don't want to increase the PC after reverting because it breaks messages.

@@ -50,7 +50,7 @@ describe('prover/bb_prover/full-rollup', () => {
           const txOpts = { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 };
           const tx = await mockTx(blockNum * 100_000 + 1000 * (i + 1), txOpts);
           tx.data.constants.historicalHeader = initialHeader;
-          tx.data.constants.vkTreeRoot = await getVKTreeRoot();
+          tx.data.constants.vkTreeRoot = getVKTreeRoot();
           return tx;
         });
 

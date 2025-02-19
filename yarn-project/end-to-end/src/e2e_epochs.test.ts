@@ -1,5 +1,5 @@
 import { type Logger, getTimestampRangeForEpoch, retryUntil, sleep } from '@aztec/aztec.js';
-import { ChainMonitor } from '@aztec/aztec.js/utils';
+import { ChainMonitor } from '@aztec/aztec.js/ethereum';
 // eslint-disable-next-line no-restricted-imports
 import { type L1RollupConstants } from '@aztec/circuit-types';
 import { Proof } from '@aztec/circuits.js';
@@ -46,7 +46,7 @@ describe('e2e_epochs', () => {
       aztecEpochDuration: EPOCH_DURATION_IN_L2_SLOTS,
       aztecSlotDuration: L1_BLOCK_TIME_IN_S * L2_SLOT_DURATION_IN_L1_SLOTS,
       ethereumSlotDuration: L1_BLOCK_TIME_IN_S,
-      aztecEpochProofClaimWindowInL2Slots: EPOCH_DURATION_IN_L2_SLOTS / 2,
+      aztecProofSubmissionWindow: EPOCH_DURATION_IN_L2_SLOTS * 2 - 1,
       minTxsPerBlock: 0,
       realProofs: false,
       startProverNode: true,
@@ -124,14 +124,14 @@ describe('e2e_epochs', () => {
   };
 
   it('does not allow submitting proof after epoch end', async () => {
-    await waitUntilEpochStarts(1);
-    const blockNumberAtEndOfEpoch0 = Number(await rollup.getBlockNumber());
-    logger.info(`Starting epoch 1 after L2 block ${blockNumberAtEndOfEpoch0}`);
-
     // Hold off prover tx until end of next epoch!
     const [epoch2Start] = getTimestampRangeForEpoch(2n, constants);
     proverDelayer.pauseNextTxUntilTimestamp(epoch2Start);
     logger.info(`Delayed prover tx until epoch 2 starts at ${epoch2Start}`);
+
+    await waitUntilEpochStarts(1);
+    const blockNumberAtEndOfEpoch0 = Number(await rollup.getBlockNumber());
+    logger.info(`Starting epoch 1 after L2 block ${blockNumberAtEndOfEpoch0}`);
 
     // Wait until the last block of epoch 1 is published and then hold off the sequencer.
     // Note that the tx below will block the sequencer until it times out
@@ -156,7 +156,7 @@ describe('e2e_epochs', () => {
     logger.info(`Test succeeded`);
   });
 
-  it('submits proof claim alone if there are no txs to build a block', async () => {
+  it('submits proof even if there are no txs to build a block', async () => {
     await context.sequencer?.updateSequencerConfig({ minTxsPerBlock: 1 });
     await waitUntilEpochStarts(1);
     // Sleep to make sure any pending blocks are published

@@ -1,7 +1,7 @@
 import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
 
 export interface TelemetryClientConfig {
-  useGcloudObservability: boolean;
+  useGcloudMetrics: boolean;
   metricsCollectorUrl?: URL;
   tracesCollectorUrl?: URL;
   logsCollectorUrl?: URL;
@@ -16,9 +16,9 @@ export interface TelemetryClientConfig {
 }
 
 export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientConfig> = {
-  useGcloudObservability: {
-    env: 'USE_GCLOUD_OBSERVABILITY',
-    description: 'Whether to use GCP observability',
+  useGcloudMetrics: {
+    env: 'USE_GCLOUD_METRICS',
+    description: 'Whether to use GCP metrics and traces',
     ...booleanConfigHelper(false),
   },
   metricsCollectorUrl: {

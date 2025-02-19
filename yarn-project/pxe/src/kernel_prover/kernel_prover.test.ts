@@ -66,6 +66,7 @@ describe('Kernel Prover', () => {
       0,
     );
     publicInputs.callContext.functionSelector = new FunctionSelector(fnName.charCodeAt(0));
+    publicInputs.callContext.contractAddress = contractAddress;
     return new PrivateCallExecutionResult(
       Buffer.alloc(0),
       VerificationKey.makeFake().toBuffer(),
@@ -141,7 +142,8 @@ describe('Kernel Prover', () => {
     oracle.getVkMembershipWitness.mockResolvedValue(MembershipWitness.random(VK_TREE_HEIGHT));
 
     oracle.getContractAddressPreimage.mockResolvedValue({
-      contractClassId: Fr.random(),
+      currentContractClassId: Fr.random(),
+      originalContractClassId: Fr.random(),
       publicKeys: await PublicKeys.random(),
       saltedInitializationHash: Fr.random(),
     });

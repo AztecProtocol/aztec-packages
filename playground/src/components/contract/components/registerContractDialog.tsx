@@ -3,8 +3,8 @@ import Dialog from "@mui/material/Dialog";
 import {
   Contract,
   AztecAddress,
-  ContractInstanceWithAddress,
-  ContractArtifact,
+  type ContractInstanceWithAddress,
+  type ContractArtifact,
 } from "@aztec/aztec.js";
 import {
   Button,

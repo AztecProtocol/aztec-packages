@@ -101,14 +101,6 @@ export class SimulatorOracle implements DBOracle {
     return witness;
   }
 
-  async popCapsule(): Promise<Fr[]> {
-    const capsule = await this.db.popCapsule();
-    if (!capsule) {
-      throw new Error(`No capsules available`);
-    }
-    return capsule;
-  }
-
   async getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus, scopes?: AztecAddress[]) {
     const noteDaos = await this.db.getNotes({
       contractAddress,
@@ -142,7 +134,7 @@ export class SimulatorOracle implements DBOracle {
     functionName: string,
   ): Promise<FunctionArtifact | undefined> {
     const instance = await this.contractDataOracle.getContractInstance(contractAddress);
-    const artifact = await this.contractDataOracle.getContractArtifact(instance.contractClassId);
+    const artifact = await this.contractDataOracle.getContractArtifact(instance.currentContractClassId);
     return artifact && getFunctionArtifact(artifact, functionName);
   }
 
@@ -783,7 +775,7 @@ export class SimulatorOracle implements DBOracle {
       receipt.blockHash!.toString(),
       uniqueNoteHashTreeIndex,
       await recipient.toAddressPoint(),
-      NoteSelector.empty(), // todo: remove
+      NoteSelector.empty(), // TODO(#12013): remove
     );
   }
 
@@ -806,10 +798,11 @@ export class SimulatorOracle implements DBOracle {
       );
     }
 
+    const selector = await FunctionSelector.fromNameAndParameters(artifact);
     const execRequest: FunctionCall = {
       name: artifact.name,
       to: contractAddress,
-      selector: await FunctionSelector.fromNameAndParameters(artifact),
+      selector,
       type: FunctionType.UNCONSTRAINED,
       isStatic: artifact.isStatic,
       args: encodeArguments(artifact, [
@@ -827,26 +820,26 @@ export class SimulatorOracle implements DBOracle {
       getAcirSimulator(this.db, this.aztecNode, this.keyStore, this.simulationProvider, this.contractDataOracle)
     ).runUnconstrained(
       execRequest,
-      artifact,
       contractAddress,
+      selector,
       [], // empty scope as this call should not require access to private information
     );
   }
 
-  dbStore(contractAddress: AztecAddress, slot: Fr, values: Fr[]): Promise<void> {
-    return this.db.dbStore(contractAddress, slot, values);
+  storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
+    return this.db.storeCapsule(contractAddress, slot, capsule);
   }
 
-  dbLoad(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
-    return this.db.dbLoad(contractAddress, slot);
+  loadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
+    return this.db.loadCapsule(contractAddress, slot);
   }
 
-  dbDelete(contractAddress: AztecAddress, slot: Fr): Promise<void> {
-    return this.db.dbDelete(contractAddress, slot);
+  deleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void> {
+    return this.db.deleteCapsule(contractAddress, slot);
   }
 
-  dbCopy(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
-    return this.db.dbCopy(contractAddress, srcSlot, dstSlot, numEntries);
+  copyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
+    return this.db.copyCapsule(contractAddress, srcSlot, dstSlot, numEntries);
   }
 }
 

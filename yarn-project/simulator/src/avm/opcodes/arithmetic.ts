@@ -13,7 +13,7 @@ import { ThreeOperandInstruction } from './instruction_impl.js';
 
 export abstract class ThreeOperandArithmeticInstruction extends ThreeOperandInstruction {
   public async execute(context: AvmContext): Promise<void> {
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
     context.machineState.consumeGas(this.gasCost());
 
     const operands = [this.aOffset, this.bOffset, this.dstOffset];
@@ -26,8 +26,6 @@ export abstract class ThreeOperandArithmeticInstruction extends ThreeOperandInst
 
     const dest = this.compute(a, b);
     memory.set(dstOffset, dest);
-
-    memory.assert({ reads: 2, writes: 1, addressing });
   }
 
   protected abstract compute(a: MemoryValue, b: MemoryValue): MemoryValue;

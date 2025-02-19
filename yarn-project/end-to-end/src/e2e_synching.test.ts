@@ -32,6 +32,7 @@
  * blockCount: 10, txCount: 9,  complexity: Spam:            {"numberOfBlocks":17, "syncTime":49.40888188171387}
  */
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { type InitialAccountData, deployFundedSchnorrAccounts } from '@aztec/accounts/testing';
 import { createArchiver } from '@aztec/archiver';
 import { AztecNodeService } from '@aztec/aztec-node';
 import {
@@ -52,11 +53,11 @@ import { type AztecAddress, EthAddress } from '@aztec/circuits.js';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
   GovernanceProposerContract,
-  L1TxUtilsWithBlobs,
   RollupContract,
   SlashingProposerContract,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
+import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { SchnorrHardcodedAccountContract } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
@@ -70,7 +71,6 @@ import * as fs from 'fs';
 import { getContract } from 'viem';
 
 import { DEFAULT_BLOB_SINK_PORT } from './fixtures/fixtures.js';
-import { addAccounts } from './fixtures/snapshot_manager.js';
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import {
   type EndToEndContext,
@@ -145,6 +145,10 @@ class TestVariant {
     this.spam = spam;
   }
 
+  setWallets(wallets: AccountWalletWithSecretKey[]) {
+    this.wallets = wallets;
+  }
+
   toString() {
     return this.description();
   }
@@ -157,23 +161,13 @@ class TestVariant {
     return `${this.blockCount}_${this.txCount}_${this.txComplexity}`;
   }
 
-  async deployWallets(numberOfAccounts: number) {
+  async deployWallets(accounts: InitialAccountData[]) {
     // Create accounts such that we can send from many to not have colliding nullifiers
-    const { accountKeys } = await addAccounts(numberOfAccounts, this.logger, false)({ pxe: this.pxe });
-
-    return await Promise.all(
-      accountKeys.map(async (ak, i) => {
-        const account = await getSchnorrAccount(this.pxe, ak[0], ak[1], 1);
-        const partialAddress = (await account.getCompleteAddress()).partialAddress;
-        await this.pxe.registerAccount(accountKeys[i][0], partialAddress);
-        const wallet = await account.getWallet();
-        this.logger.verbose(`Wallet ${i} address: ${wallet.getAddress()} registered`);
-        return wallet;
-      }),
-    );
+    const managers = await deployFundedSchnorrAccounts(this.pxe, accounts);
+    return await Promise.all(managers.map(m => m.getWallet()));
   }
 
-  async setup() {
+  async setup(accounts: InitialAccountData[] = []) {
     if (this.pxe === undefined) {
       throw new Error('Undefined PXE');
     }
@@ -181,7 +175,8 @@ class TestVariant {
     if (this.txComplexity == TxComplexity.Deployment) {
       return;
     }
-    this.wallets = await this.deployWallets(this.txCount);
+
+    this.wallets = await this.deployWallets(accounts);
 
     // Mint tokens publicly if needed
     if (this.txComplexity == TxComplexity.PublicTransfer) {
@@ -206,14 +201,13 @@ class TestVariant {
     if (this.txComplexity == TxComplexity.Deployment) {
       const txs = [];
       for (let i = 0; i < this.txCount; i++) {
+        const deployWallet = this.wallets[i % this.wallets.length];
         const accountManager = await getSchnorrAccount(this.pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
         this.contractAddresses.push(accountManager.getAddress());
-        const deployMethod = await accountManager.getDeployMethod();
-        const tx = deployMethod.send({
-          contractAddressSalt: new Fr(accountManager.salt),
+        const tx = accountManager.deploy({
+          deployWallet,
           skipClassRegistration: true,
           skipPublicDeployment: true,
-          universalDeploy: true,
         });
         txs.push(tx);
       }
@@ -328,11 +322,12 @@ describe('e2e_synching', () => {
       // The setup is in here and not at the `before` since we are doing different setups depending on what mode we are running in.
       // We require that at least 200 eth blocks have passed from the START_TIME before we see the first L2 block
       // This is to keep the setup more stable, so as long as the setup is less than 100 L1 txs, changing the setup should not break the setup
-      const { teardown, pxe, sequencer, aztecNode, wallet } = await setup(1, {
+      const { teardown, pxe, sequencer, aztecNode, wallet, initialFundedAccounts } = await setup(1, {
         salt: SALT,
         l1StartTime: START_TIME,
         l2StartTime: START_TIME + 200 * ETHEREUM_SLOT_DURATION,
         assumeProvenThrough: 10 + variant.blockCount,
+        numberOfInitialFundedAccounts: variant.txCount + 1,
       });
       variant.setPXE(pxe as PXEService);
 
@@ -348,7 +343,8 @@ describe('e2e_synching', () => {
       await sequencer?.updateSequencerConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
 
       // The setup will mint tokens (private and public)
-      await variant.setup();
+      const accountsToBeDeployed = initialFundedAccounts.slice(1); // The first one has been deployed in setup.
+      await variant.setup(accountsToBeDeployed);
 
       for (let i = 0; i < variant.blockCount; i++) {
         const txs = await variant.createAndSendTxs();
@@ -385,11 +381,13 @@ describe('e2e_synching', () => {
       watcher,
       pxe,
       blobSink,
+      initialFundedAccounts,
     } = await setup(0, {
       salt: SALT,
       l1StartTime: START_TIME,
       skipProtocolContracts: true,
       assumeProvenThrough,
+      numberOfInitialFundedAccounts: 10,
     });
 
     await (aztecNode as any).stop();
@@ -461,7 +459,7 @@ describe('e2e_synching', () => {
       await publisher.enqueueProposeL2Block(block);
     }
 
-    await alternativeSync({ deployL1ContractsValues, cheatCodes, config, logger, pxe }, variant);
+    await alternativeSync({ deployL1ContractsValues, cheatCodes, config, logger, pxe, initialFundedAccounts }, variant);
 
     await teardown();
   };
@@ -532,7 +530,7 @@ describe('e2e_synching', () => {
             const { pxe } = await setupPXEService(aztecNode!);
 
             variant.setPXE(pxe);
-            const wallet = (await variant.deployWallets(1))[0];
+            const wallet = (await variant.deployWallets(opts.initialFundedAccounts!.slice(0, 1)))[0];
 
             contracts.push(
               await TokenContract.deploy(wallet, wallet.getAddress(), 'TestToken', 'TST', 18n).send().deployed(),
@@ -575,7 +573,7 @@ describe('e2e_synching', () => {
 
           const contractClassIds = await archiver.getContractClassIds();
           for (const c of contracts) {
-            expect(contractClassIds.includes(c.instance.contractClassId)).toBeTrue;
+            expect(contractClassIds.includes(c.instance.currentContractClassId)).toBeTrue;
             expect(await archiver.getContract(c.address)).not.toBeUndefined;
           }
 
@@ -593,15 +591,15 @@ describe('e2e_synching', () => {
 
           const contractClassIdsAfter = await archiver.getContractClassIds();
 
-          expect(contractClassIdsAfter.includes(contracts[0].instance.contractClassId)).toBeTrue;
-          expect(contractClassIdsAfter.includes(contracts[1].instance.contractClassId)).toBeFalse;
+          expect(contractClassIdsAfter.includes(contracts[0].instance.currentContractClassId)).toBeTrue;
+          expect(contractClassIdsAfter.includes(contracts[1].instance.currentContractClassId)).toBeFalse;
           expect(await archiver.getContract(contracts[0].address)).not.toBeUndefined;
           expect(await archiver.getContract(contracts[1].address)).toBeUndefined;
           expect(await archiver.getContract(contracts[2].address)).toBeUndefined;
 
           // Only the hardcoded schnorr is pruned since the contract class also existed before prune.
           expect(contractClassIdsAfter).toEqual(
-            contractClassIds.filter(c => !c.equals(contracts[1].instance.contractClassId)),
+            contractClassIds.filter(c => !c.equals(contracts[1].instance.currentContractClassId)),
           );
 
           expect(await archiver.getTxEffect(txHash)).toBeUndefined;

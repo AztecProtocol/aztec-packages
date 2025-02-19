@@ -1,100 +1,195 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-TEST_FLAKES=${TEST_FLAKES:-0}
 cmd=${1:-}
+[ -n "$cmd" ] && shift
 
-hash=$(cache_content_hash \
-  ../noir/.rebuild_patterns \
-  ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
-  ../barretenberg/*/.rebuild_patterns)
+function hash {
+  cache_content_hash \
+    ../noir/.rebuild_patterns \
+    ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
+    ../barretenberg/*/.rebuild_patterns
+}
+
+function compile_project {
+  # TODO: 16 jobs is magic. Was seeing weird errors otherwise.
+  parallel -j16 --line-buffered --tag 'cd {} && ../node_modules/.bin/swc src -d dest --config-file=../.swcrc --strip-leading-paths' "$@"
+}
+
+# Returns a list of projects to compile/lint/publish.
+# Ensure exclusions are matching in both cases.
+function get_projects {
+  if [ "${1:-}" == 'topological' ]; then
+    yarn workspaces foreach --topological-dev -A \
+      --exclude @aztec/aztec3-packages \
+      --exclude @aztec/noir-bb-bench \
+      --exclude @aztec/scripts \
+      exec 'basename $(pwd)' | cat | grep -v "Done"
+  else
+    dirname */src l1-artifacts/generated | grep -vE 'noir-bb-bench'
+  fi
+}
+
+function format {
+  find ./*/src -type f -regex '.*\.\(json\|js\|mjs\|cjs\|ts\)$' | \
+    parallel -N30 ./node_modules/.bin/prettier --loglevel warn --check
+}
+
+function lint {
+  get_projects | parallel "cd {} && ../node_modules/.bin/eslint $@ --cache ./src"
+}
+
+function compile_all {
+  set -euo pipefail
+  local hash=$(hash)
+  if cache_download yarn-project-$hash.tar.gz; then
+    return
+  fi
+  # hack, after running prettier foundation may fail to resolve hash.js dependency.
+  # it is only currently foundation, presumably because hash.js looks like a js file.
+  rm -rf foundation/node_modules
+  compile_project ::: foundation circuits.js types builder ethereum l1-artifacts
+
+  # Call all projects that have a generation stage.
+  parallel --joblog joblog.txt --line-buffered --tag 'cd {} && yarn generate' ::: \
+    accounts \
+    circuit-types \
+    circuits.js \
+    ivc-integration \
+    kv-store \
+    l1-artifacts \
+    native \
+    noir-contracts.js \
+    noir-protocol-circuits-types \
+    protocol-contracts \
+    pxe \
+    types
+  cat joblog.txt
+
+  get_projects | compile_project
+
+  cmds=(format)
+  if [ "${TYPECHECK:-0}" -eq 1 ] || [ "${CI:-0}" -eq 1 ]; then
+    # Fully type check and lint.
+    cmds+=(
+      'yarn tsc -b --emitDeclarationOnly'
+      lint
+    )
+  else
+    # We just need the type declarations required for downstream consumers.
+    cmds+=('cd aztec.js && yarn tsc -b --emitDeclarationOnly')
+  fi
+  parallel --joblog joblog.txt --tag denoise ::: "${cmds[@]}"
+  cat joblog.txt
+
+  if [ "${CI:-0}" -eq 1 ]; then
+    cache_upload "yarn-project-$hash.tar.gz" $(git ls-files --others --ignored --exclude-standard | grep -v '^node_modules/')
+  fi
+}
+
+export -f compile_project format lint get_projects compile_all hash
 
 function build {
-  github_group "yarn-project build"
-
-  # Generate l1-artifacts before creating lock file
-  (cd l1-artifacts && ./scripts/generate-artifacts.sh)
-
-  # Fast build does not delete everything first.
-  # It regenerates all generated code, then performs an incremental tsc build.
-  echo -e "${blue}${bold}Attempting fast incremental build...${reset}"
-  denoise yarn install
-
-  # We append a cache busting number we can bump if need be.
-  tar_file=yarn-project-$hash.tar.gz
-
-  if ! cache_download $tar_file; then
-    case "${1:-}" in
-      "fast")
-        yarn build:fast
-        ;;
-      "full")
-        yarn build
-        ;;
-      *)
-        if ! yarn build:fast; then
-          echo -e "${yellow}${bold}Incremental build failed for some reason, attempting full build...${reset}\n"
-          yarn build
-        fi
-    esac
-
-    denoise 'cd aztec.js && yarn build:web'
-    denoise 'cd end-to-end && yarn build:web'
-
-    # Upload common patterns for artifacts: dest, fixtures, build, artifacts, generated
-    # Then one-off cases. If you've written into src, you need to update this.
-    cache_upload $tar_file */{dest,fixtures,build,artifacts,generated} \
-      circuit-types/src/test/artifacts \
-      end-to-end/src/web/{main.js,main.js.LICENSE.txt,*.wasm.gz} \
-      ivc-integration/src/types/ \
-      noir-contracts.js/{codegenCache.json,src/} \
-      noir-protocol-circuits-types/src/{private_kernel_reset_data.ts,private_kernel_reset_vks.ts,private_kernel_reset_types.ts,client_artifacts_helper.ts,types/} \
-      pxe/src/config/package_info.ts \
-      protocol-contracts/src/protocol_contract_data.ts
-    echo
-    echo -e "${green}Yarn project successfully built!${reset}"
+  echo_header "yarn-project build"
+  denoise "./bootstrap.sh clean-lite"
+  if [ "${CI:-0}" = 1 ]; then
+    # If in CI mode, retry as bcrypto can sometimes fail mysteriously and we don't expect actual yarn install errors.
+    denoise "retry yarn install"
+  else
+    denoise "yarn install"
   fi
-  github_endgroup
+  denoise "compile_all"
+  echo -e "${green}Yarn project successfully built!${reset}"
+}
+
+function test_cmds {
+  local hash=$(hash)
+  # These need isolation due to network stack usage (p2p, anvil, etc).
+  for test in {prover-node,p2p,ethereum,aztec}/src/**/*.test.ts; do
+    echo "$hash ISOLATE=1 yarn-project/scripts/run_test.sh $test"
+  done
+
+  # Exclusions:
+  # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.
+  # kv-store: Uses mocha so will need different treatment.
+  # noir-bb-bench: A slow pain. Figure out later.
+  # prover-node|p2p|ethereum|aztec: Isolated using docker above.
+  for test in !(end-to-end|kv-store|prover-node|p2p|ethereum|aztec|noir-bb-bench)/src/**/*.test.ts; do
+    echo $hash yarn-project/scripts/run_test.sh $test
+  done
+
+  # Uses mocha for browser tests, so we have to treat it differently.
+  echo "$hash cd yarn-project/kv-store && yarn test"
+  echo "$hash cd yarn-project/ivc-integration && yarn test:browser"
 }
 
 function test {
-  test_should_run yarn-project-unit-tests-$hash || return 0
+  echo_header "yarn-project test"
+  local num_cpus=$(get_num_cpus)
+  test_cmds | filter_test_cmds | parallelise $((num_cpus / 2))
+}
 
-  github_group "yarn-project test"
-  denoise yarn formatting
-  denoise yarn test
-  cache_upload_flag yarn-project-unit-tests-$hash
-  github_endgroup
+function release_packages {
+  echo "Computing packages to publish..."
+  local packages=$(get_projects topological)
+  local package_list=()
+  for package in $packages; do
+    (cd $package && deploy_npm $1 $2)
+    local package_name=$(jq -r .name "$package/package.json")
+    package_list+=("$package_name@$2")
+  done
+  # Smoke test the deployed packages.
+  local dir=$(mktemp -d)
+  cd "$dir"
+  do_or_dryrun npm init -y
+  do_or_dryrun npm i "${package_list[@]}"
+  rm -rf "$dir"
+}
+
+function release {
+  echo_header "yarn-project release"
+  # WORKTODO latest is only on master, otherwise use ref name
+  release_packages latest ${REF_NAME#v}
+}
+
+function release_commit {
+  echo_header "yarn-project release commit"
+  release_packages next "$CURRENT_VERSION-commit.$COMMIT_HASH"
 }
 
 case "$cmd" in
   "clean")
+    [ -n "${2:-}" ] && cd $2
     git clean -fdx
     ;;
-  "full")
-    build full
+  "clean-lite")
+    files=$(git ls-files --ignored --others --exclude-standard | grep -vE '(node_modules/|^\.yarn/)' || true)
+    if [ -n "$files" ]; then
+      echo "$files" | xargs rm -rf
+    fi
     ;;
-  "fast-only")
-    build fast
+  "ci")
+    build
+    test
     ;;
   ""|"fast")
     build
     ;;
-  "test")
-    test
+  "full")
+    TYPECHECK=1 build
     ;;
-  "test-cmds")
-    for test in !(end-to-end|kv-store|bb-prover|prover-client)/dest/**/*.test.js; do
-      echo yarn-project/scripts/run_test.sh $test
-    done
-    ./end-to-end/bootstrap.sh test-cmds
+  "compile")
+    if [ -n "${1:-}" ]; then
+      compile_project ::: "$@"
+    else
+      get_projects | compile_project
+    fi
     ;;
-  "ci")
-    build full
-    test
+  "lint")
+    lint "$@"
     ;;
-  "hash")
-    echo $hash
+  test|test_cmds|hash|release|release_commit|format)
+    $cmd
     ;;
   *)
     echo "Unknown command: $cmd"
