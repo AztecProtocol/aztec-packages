@@ -9,10 +9,10 @@ mod test;
 // both the current value and the smallest block number at which the value might change - this is called the
 // 'block horizon'.
 pub struct ScheduledValueChange<T> {
-    pre: T,
-    post: T,
+    pub(crate) pre: T,
+    pub(crate) post: T,
     // Block at which `post` value is used instead of `pre`
-    block_of_change: u32,
+    pub(crate) block_of_change: u32,
 }
 
 impl<T> ScheduledValueChange<T> {

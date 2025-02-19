@@ -20,13 +20,7 @@ where
 {
     let converted = SharedMutableValues::<T, TEST_INITIAL_DELAY>::unpack(original.pack());
 
-    assert_eq(original, converted); // This also tests the Eq impl
-    assert_eq(original.svc.pre, converted.svc.pre);
-    assert_eq(original.svc.post, converted.svc.post);
-    assert_eq(original.svc.block_of_change, converted.svc.block_of_change);
-    assert_eq(original.sdc.pre, converted.sdc.pre);
-    assert_eq(original.sdc.post, converted.sdc.post);
-    assert_eq(original.sdc.block_of_change, converted.sdc.block_of_change);
+    assert_eq(original, converted);
 }
 
 #[test]

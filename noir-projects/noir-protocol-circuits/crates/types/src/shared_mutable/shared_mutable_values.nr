@@ -29,14 +29,11 @@ impl<T, let INITIAL_DELAY: u32, let N: u32> SharedMutableValues<T, INITIAL_DELAY
 where
     T: Packable<N>,
 {
-    pub(crate) fn new(
-        svc: ScheduledValueChange<T>,
-        sdc: ScheduledDelayChange<INITIAL_DELAY>,
-    ) -> Self {
+    pub fn new(svc: ScheduledValueChange<T>, sdc: ScheduledDelayChange<INITIAL_DELAY>) -> Self {
         SharedMutableValues { svc, sdc }
     }
 
-    pub(crate) fn unpack_value_change(packed: [Field; 2 * N + 1]) -> ScheduledValueChange<T> {
+    pub fn unpack_value_change(packed: [Field; 2 * N + 1]) -> ScheduledValueChange<T> {
         let svc_pre_packed = arrays::subarray(packed, 1);
         let svc_post_packed = arrays::subarray(packed, N + 1);
         ScheduledValueChange::new(
@@ -46,7 +43,7 @@ where
         )
     }
 
-    pub(crate) fn unpack_delay_change(packed: Field) -> ScheduledDelayChange<INITIAL_DELAY> {
+    pub fn unpack_delay_change(packed: Field) -> ScheduledDelayChange<INITIAL_DELAY> {
         // Unpack the first field containing sdc and svc block_of_change values
         let svc_block_of_change = packed as u32;
 
