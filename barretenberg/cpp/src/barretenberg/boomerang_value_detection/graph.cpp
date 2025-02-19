@@ -917,7 +917,7 @@ void Graph_<FF>::remove_unnecessary_range_constrains_variables(bb::UltraCircuitB
 }
 
 /**
- * @brief this method removes false positive cass variables from aes plookup tables.
+ * @brief this method removes false positive cases variables from aes plookup tables.
  * AES_SBOX_MAP, AES_SPARSE_MAP, AES_SPARSE_NORMALIZE tables are used in read_from_1_to_2_table function which
  * return values C2[0], so C3[0] isn't used anymore in these cases, but this situation isn't dangerous.
  * So, we have to remove these variables.
