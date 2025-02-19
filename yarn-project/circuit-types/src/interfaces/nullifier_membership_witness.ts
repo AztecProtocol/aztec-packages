@@ -1,4 +1,5 @@
-import { Fr, NullifierLeafPreimage } from '@aztec/circuits.js';
+import { Fr } from '@aztec/circuits.js';
+import { NullifierLeafPreimage } from '@aztec/circuits.js/trees';
 import { NULLIFIER_TREE_HEIGHT } from '@aztec/constants';
 import { schemas } from '@aztec/foundation/schemas';
 

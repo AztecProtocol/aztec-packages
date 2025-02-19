@@ -1,9 +1,5 @@
-import {
-  type AvmCircuitInputs,
-  type BaseParityInputs,
-  type ParityPublicInputs,
-  type RootParityInputs,
-} from '@aztec/circuits.js';
+import { type BaseParityInputs, type ParityPublicInputs, type RootParityInputs } from '@aztec/circuits.js';
+import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
 import {
   type BaseOrMergeRollupPublicInputs,
   type BlockMergeRollupInputs,

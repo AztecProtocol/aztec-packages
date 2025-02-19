@@ -1,4 +1,3 @@
-import { PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fq, Fr, Point } from '@aztec/foundation/fields';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
@@ -13,6 +12,7 @@ import { type ContractClassIdPreimage } from '../../contract/contract_class_id.j
 import { PublicKeys } from '../../types/public_keys.js';
 import { Vector } from '../../types/shared.js';
 import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
+import { PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
 import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
 
 export class AvmEnqueuedCallHint {

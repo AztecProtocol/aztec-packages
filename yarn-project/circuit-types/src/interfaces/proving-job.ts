@@ -1,11 +1,11 @@
 import {
-  AvmCircuitInputs,
   BaseParityInputs,
   ParityPublicInputs,
   RecursiveProof,
   RootParityInputs,
   VerificationKeyData,
 } from '@aztec/circuits.js';
+import { AvmCircuitInputs } from '@aztec/circuits.js/avm';
 import {
   BaseOrMergeRollupPublicInputs,
   BlockMergeRollupInputs,

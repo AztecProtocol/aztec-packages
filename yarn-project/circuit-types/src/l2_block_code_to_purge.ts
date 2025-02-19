@@ -1,5 +1,4 @@
 import {
-  AppendOnlyTreeSnapshot,
   AztecAddress,
   BlockHeader,
   ContentCommitment,
@@ -11,6 +10,7 @@ import {
   PartialStateReference,
   StateReference,
 } from '@aztec/circuits.js';
+import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 
 /**

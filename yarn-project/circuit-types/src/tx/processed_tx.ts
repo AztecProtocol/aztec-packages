@@ -1,14 +1,13 @@
 import {
   type ClientIvcProof,
-  CombinedConstantData,
   Fr,
   Gas,
   type GlobalVariables,
-  type PrivateKernelTailCircuitPublicInputs,
   type PublicDataWrite,
   RevertCode,
 } from '@aztec/circuits.js';
 import { siloL2ToL1Message } from '@aztec/circuits.js/hash';
+import { CombinedConstantData, type PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
 
 import { type AvmProvingRequest } from '../interfaces/proving-job.js';
 import { type SimulationError } from '../simulation_error.js';

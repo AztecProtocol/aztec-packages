@@ -1,28 +1,28 @@
 import {
   AztecAddress,
+  type BlockHeader,
   CallContext,
   ClientIvcProof,
   type ContractInstanceWithAddress,
   GasFees,
   GasSettings,
   Nullifier,
-  PartialPrivateTailPublicInputsForPublic,
   PrivateCircuitPublicInputs,
-  PrivateKernelTailCircuitPublicInputs,
-  PrivateToPublicAccumulatedDataBuilder,
   SerializableContractInstance,
   computeContractAddressFromInstance,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { type BlockHeader } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
-import { makeCombinedConstantData, makeGas, makePublicCallRequest } from '@aztec/circuits.js/testing';
-import { makeHeader } from '@aztec/circuits.js/testing';
+import {
+  PartialPrivateTailPublicInputsForPublic,
+  PrivateKernelTailCircuitPublicInputs,
+  PrivateToPublicAccumulatedDataBuilder,
+} from '@aztec/circuits.js/kernel';
+import { makeCombinedConstantData, makeGas, makeHeader, makePublicCallRequest } from '@aztec/circuits.js/testing';
 import { MAX_ENQUEUED_CALLS_PER_TX } from '@aztec/constants';
 import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
 import { times } from '@aztec/foundation/collection';
-import { randomBytes } from '@aztec/foundation/crypto';
-import { Secp256k1Signer } from '@aztec/foundation/crypto';
+import { Secp256k1Signer, randomBytes } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
 import { ContractClassTxL2Logs, Note } from '../logs/index.js';

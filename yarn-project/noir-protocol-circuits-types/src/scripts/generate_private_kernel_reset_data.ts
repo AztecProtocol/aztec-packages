@@ -1,4 +1,4 @@
-import { type PrivateKernelResetDimensionsConfig, privateKernelResetDimensionNames } from '@aztec/circuits.js';
+import { type PrivateKernelResetDimensionsConfig, privateKernelResetDimensionNames } from '@aztec/circuits.js/kernel';
 import {
   MAX_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
@@ -34,7 +34,7 @@ const maxDimensions = [
 
 function generateTypeFileImports() {
   return `
-    import { PrivateKernelResetDimensions, type PrivateKernelResetDimensionsConfig } from '@aztec/circuits.js';
+    import { PrivateKernelResetDimensions, type PrivateKernelResetDimensionsConfig } from '@aztec/circuits.js/kernel';
   `;
 }
 

@@ -1,5 +1,5 @@
-import { PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
 import { fr } from '@aztec/circuits.js/testing';
+import { PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
 import { PUBLIC_DATA_TREE_HEIGHT } from '@aztec/constants';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { randomInt } from '@aztec/foundation/crypto';

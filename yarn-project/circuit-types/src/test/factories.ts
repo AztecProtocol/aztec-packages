@@ -1,7 +1,4 @@
 import {
-  AvmCircuitInputs,
-  AvmCircuitPublicInputs,
-  AvmExecutionHints,
   AztecAddress,
   type BlockHeader,
   Fr,
@@ -13,9 +10,10 @@ import {
   PublicLog,
   RevertCode,
   ScopedLogHash,
-  TxConstantData,
   mergeAccumulatedData,
 } from '@aztec/circuits.js';
+import { AvmCircuitInputs, AvmCircuitPublicInputs, AvmExecutionHints } from '@aztec/circuits.js/avm';
+import { TxConstantData } from '@aztec/circuits.js/kernel';
 import { makePrivateToPublicAccumulatedData, makePrivateToRollupAccumulatedData } from '@aztec/circuits.js/testing';
 import {
   FIXED_DA_GAS,

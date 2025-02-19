@@ -57,12 +57,8 @@ import {
   type UnconstrainedFunctionWithMembershipProof,
 } from '../contract/index.js';
 import {
-  AvmCircuitInputs,
-  AvmContractInstanceHint,
-  AvmExecutionHints,
   BaseParityInputs,
   CallContext,
-  CombinedConstantData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   Fr,
@@ -76,22 +72,15 @@ import {
   MaxBlockNumber,
   NoteHash,
   Nullifier,
-  NullifierLeafPreimage,
   ParityPublicInputs,
-  PartialPrivateTailPublicInputsForPublic,
-  PartialPrivateTailPublicInputsForRollup,
   PartialStateReference,
   Point,
   PrivateCallRequest,
   PrivateCircuitPublicInputs,
-  PrivateKernelTailCircuitPublicInputs,
-  PrivateToRollupAccumulatedData,
   Proof,
   PublicCallRequest,
   PublicDataHint,
   PublicDataRead,
-  PublicDataTreeLeaf,
-  PublicDataTreeLeafPreimage,
   PublicKeys,
   ReadRequest,
   RollupTypes,
@@ -110,6 +99,20 @@ import {
   computePublicBytecodeCommitment,
   makeRecursiveProof,
 } from '../index.js';
+import {
+  AvmAccumulatedData,
+  AvmAppendTreeHint,
+  AvmCircuitInputs,
+  AvmCircuitPublicInputs,
+  AvmContractBytecodeHints,
+  AvmContractInstanceHint,
+  AvmEnqueuedCallHint,
+  AvmExecutionHints,
+  AvmNullifierReadTreeHint,
+  AvmNullifierWriteTreeHint,
+  AvmPublicDataReadTreeHint,
+  AvmPublicDataWriteTreeHint,
+} from '../structs/avm/index.js';
 import { BlockHeader } from '../structs/block_header.js';
 import { ContentCommitment, NUM_BYTES_PER_SHA256 } from '../structs/content_commitment.js';
 import { Gas } from '../structs/gas.js';
@@ -117,29 +120,27 @@ import { GasFees } from '../structs/gas_fees.js';
 import { GasSettings } from '../structs/gas_settings.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 import {
-  AvmAccumulatedData,
-  AvmAppendTreeHint,
-  AvmCircuitPublicInputs,
-  AvmContractBytecodeHints,
-  AvmEnqueuedCallHint,
-  AvmNullifierReadTreeHint,
-  AvmNullifierWriteTreeHint,
-  AvmPublicDataReadTreeHint,
-  AvmPublicDataWriteTreeHint,
   CountedPublicCallRequest,
   PrivateLog,
   PrivateLogData,
-  PrivateToAvmAccumulatedData,
-  PrivateToAvmAccumulatedDataArrayLengths,
-  PrivateToPublicAccumulatedData,
-  PrivateToPublicKernelCircuitPublicInputs,
   PublicDataWrite,
   PublicLog,
   ScopedL2ToL1Message,
   TreeSnapshots,
-  TxConstantData,
   VkWitnessData,
 } from '../structs/index.js';
+import {
+  CombinedConstantData,
+  PartialPrivateTailPublicInputsForPublic,
+  PartialPrivateTailPublicInputsForRollup,
+  PrivateKernelTailCircuitPublicInputs,
+  PrivateToAvmAccumulatedData,
+  PrivateToAvmAccumulatedDataArrayLengths,
+  PrivateToPublicAccumulatedData,
+  PrivateToPublicKernelCircuitPublicInputs,
+  PrivateToRollupAccumulatedData,
+  TxConstantData,
+} from '../structs/kernel/index.js';
 import { PrivateToRollupKernelCircuitPublicInputs } from '../structs/kernel/private_to_rollup_kernel_circuit_public_inputs.js';
 import { AvmProofData } from '../structs/rollup/avm_proof_data.js';
 import { BaseOrMergeRollupPublicInputs } from '../structs/rollup/base_or_merge_rollup_public_inputs.js';
@@ -168,6 +169,8 @@ import { RootRollupInputs, RootRollupPublicInputs } from '../structs/rollup/root
 import { PrivateBaseStateDiffHints } from '../structs/rollup/state_diff_hints.js';
 import { RollupValidationRequests } from '../structs/rollup_validation_requests.js';
 import { AppendOnlyTreeSnapshot } from '../structs/trees/append_only_tree_snapshot.js';
+import { NullifierLeafPreimage } from '../structs/trees/nullifier_leaf.js';
+import { PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '../structs/trees/public_data_leaf.js';
 
 /**
  * Creates an arbitrary side effect object with the given seed.

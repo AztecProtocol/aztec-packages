@@ -1,4 +1,5 @@
-import { CombinedConstantData, Fr, Gas } from '@aztec/circuits.js';
+import { Fr, Gas } from '@aztec/circuits.js';
+import { CombinedConstantData } from '@aztec/circuits.js/kernel';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
 import times from 'lodash.times';
