@@ -28,7 +28,7 @@ pub fn compute_note_hash_for_read_request<Note>(
     storage_slot: Field,
 ) -> Field
 where
-    Note: NoteInterface,
+    Note: NoteHashing,
 {
     let note_hash = retrieved_note.note.compute_note_hash(storage_slot);
 

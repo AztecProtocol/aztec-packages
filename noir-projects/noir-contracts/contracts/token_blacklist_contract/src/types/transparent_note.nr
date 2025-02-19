@@ -1,5 +1,5 @@
 use dep::aztec::{
-    macros::notes::note,
+    macros::notes::note_custom_interface,
     note::utils::compute_note_hash_for_nullify,
     prelude::{NoteHashing, PrivateContext, RetrievedNote},
     protocol_types::{
@@ -16,7 +16,7 @@ use dep::std::mem::zeroed;
 // that know the preimage of the "secret_hash" (the secret). This is typically used when shielding a token balance.
 // Owner of the tokens provides a "secret_hash" as an argument to the public "shield" function and then the tokens
 // can be redeemed in private by presenting the preimage of the "secret_hash" (the secret).
-#[note]
+#[note_custom_interface]
 #[derive(Eq)]
 pub struct TransparentNote {
     amount: Field,

@@ -56,10 +56,6 @@ comptime fn derive_packable_if_not_implemented_and_get_len(s: StructDefinition) 
 ///     fn get_note_type_id() -> Field {
 ///         ...
 ///     }
-///
-///     fn compute_note_hash(self, storage_slot: Field) -> Field {
-///         ...
-///     }
 /// }
 comptime fn generate_note_interface(s: StructDefinition, note_type_id: Field) -> Quoted {
     let name = s.name();
@@ -69,10 +65,49 @@ comptime fn generate_note_interface(s: StructDefinition, note_type_id: Field) ->
             fn get_note_type_id() -> Field {
                 $note_type_id
             }
+        }
+    }
+}
 
+comptime fn generate_note_hashing(s: StructDefinition) -> Quoted {
+    let name = s.name();
+
+    quote {
+        impl aztec::note::note_interface::NoteHashing for $name {
             fn compute_note_hash(self, storage_slot: Field) -> Field {
                 let inputs = aztec::protocol_types::utils::arrays::array_concat(self.pack(), [storage_slot]);
                 aztec::protocol_types::hash::poseidon2_hash_with_separator(inputs, aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_HASH)
+            }
+
+            fn compute_nullifier(
+                self,
+                context: &mut aztec::prelude::PrivateContext,
+                note_hash_for_nullify: Field,
+            ) -> Field {
+                let owner_npk_m_hash: Field = aztec::keys::getters::get_public_keys(self.owner).npk_m.hash();
+                let secret = context.request_nsk_app(owner_npk_m_hash);
+                aztec::protocol_types::hash::poseidon2_hash_with_separator(
+                    [note_hash_for_nullify, secret],
+                    aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+                )
+            }
+
+            unconstrained fn compute_nullifier_without_context(
+                self,
+                storage_slot: Field,
+                contract_address: aztec::prelude::AztecAddress,
+                note_nonce: Field,
+            ) -> Field {
+                // We set the note_hash_counter to 0 as the note is assumed to be committed (and hence not transient).
+                let retrieved_note =
+                    aztec::prelude::RetrievedNote { note: self, contract_address, nonce: note_nonce, note_hash_counter: 0 };
+                let note_hash_for_nullify = aztec::note::utils::compute_note_hash_for_nullify(retrieved_note, storage_slot);
+                let owner_npk_m_hash: Field = aztec::keys::getters::get_public_keys(self.owner).npk_m.hash();
+                let secret = aztec::keys::getters::get_nsk_app(owner_npk_m_hash);
+                aztec::protocol_types::hash::poseidon2_hash_with_separator(
+                    [note_hash_for_nullify, secret],
+                    aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+                )
             }
         }
     }
@@ -108,9 +143,8 @@ comptime fn generate_note_interface(s: StructDefinition, note_type_id: Field) ->
 ///
 /// Since -l would be -3 (an extraordinarily large number that cannot be a valid preimage length),
 /// including the length protects against these collisions.
-comptime fn generate_note_interface_for_partial_note(
+comptime fn generate_note_hashing_for_partial_note(
     s: StructDefinition,
-    note_type_id: Field,
     indexed_fixed_fields: [(Quoted, Type, u32)],
     indexed_nullable_fields: [(Quoted, Type, u32)],
 ) -> Quoted {
@@ -136,11 +170,7 @@ comptime fn generate_note_interface_for_partial_note(
         .join(quote {,});
 
     quote {
-        impl aztec::note::note_interface::NoteInterface for $name {
-            fn get_note_type_id() -> Field {
-                $note_type_id
-            }
-
+        impl aztec::note::note_interface::NoteHashing for $name {
             fn compute_note_hash(self, storage_slot: Field) -> Field {
                 $new_aux_vars
                 let point = std::embedded_curve_ops::multi_scalar_mul(
@@ -148,6 +178,37 @@ comptime fn generate_note_interface_for_partial_note(
                     [$new_scalars]
                 );
                 point.x
+            }
+
+            fn compute_nullifier(
+                self,
+                context: &mut aztec::prelude::PrivateContext,
+                note_hash_for_nullify: Field,
+            ) -> Field {
+                let owner_npk_m_hash: Field = aztec::keys::getters::get_public_keys(self.owner).npk_m.hash();
+                let secret = context.request_nsk_app(owner_npk_m_hash);
+                aztec::protocol_types::hash::poseidon2_hash_with_separator(
+                    [note_hash_for_nullify, secret],
+                    aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+                )
+            }
+
+            unconstrained fn compute_nullifier_without_context(
+                self,
+                storage_slot: Field,
+                contract_address: aztec::prelude::AztecAddress,
+                note_nonce: Field,
+            ) -> Field {
+                // We set the note_hash_counter to 0 as the note is assumed to be committed (and hence not transient).
+                let retrieved_note =
+                    aztec::prelude::RetrievedNote { note: self, contract_address, nonce: note_nonce, note_hash_counter: 0 };
+                let note_hash_for_nullify = aztec::note::utils::compute_note_hash_for_nullify(retrieved_note, storage_slot);
+                let owner_npk_m_hash: Field = aztec::keys::getters::get_public_keys(self.owner).npk_m.hash();
+                let secret = aztec::keys::getters::get_nsk_app(owner_npk_m_hash);
+                aztec::protocol_types::hash::poseidon2_hash_with_separator(
+                    [note_hash_for_nullify, secret],
+                    aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+                )
             }
         }
     }
@@ -511,7 +572,7 @@ comptime fn generate_setup_payload(
                 }
             }
 
-            pub fn encrypt_log(self, context: &mut PrivateContext, recipient: aztec::protocol_types::address::AztecAddress, sender: aztec::protocol_types::address::AztecAddress) -> [Field; $encrypted_log_fields_length] {
+            pub fn encrypt_log(self, context: &mut aztec::prelude::PrivateContext, recipient: aztec::protocol_types::address::AztecAddress, sender: aztec::protocol_types::address::AztecAddress) -> [Field; $encrypted_log_fields_length] {
                 aztec::encrypted_logs::log_assembly_strategies::default_aes128::partial_note::compute_partial_public_log_payload(
                     context.this_address(),
                     self.log_plaintext,
@@ -924,12 +985,9 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
         generate_setup_payload(s, indexed_fixed_fields, indexed_nullable_fields);
     let (finalization_payload_impl, finalization_payload_name) =
         generate_finalization_payload(s, indexed_fixed_fields, indexed_nullable_fields);
-    let note_interface_impl = generate_note_interface_for_partial_note(
-        s,
-        note_type_id,
-        indexed_fixed_fields,
-        indexed_nullable_fields,
-    );
+    let note_interface_impl = generate_note_interface(s, note_type_id);
+    let note_hashing_impl =
+        generate_note_hashing_for_partial_note(s, indexed_fixed_fields, indexed_nullable_fields);
     let partial_note_impl =
         generate_partial_note_impl(s, setup_payload_name, finalization_payload_name);
     let (packable_impl, note_packed_len) = derive_packable_if_not_implemented_and_get_len(s);
@@ -947,6 +1005,7 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
         $setup_payload_impl
         $finalization_payload_impl
         $note_interface_impl
+        $note_hashing_impl
         $partial_note_impl
         $packable_impl
     }
@@ -966,6 +1025,7 @@ pub comptime fn note(s: StructDefinition) -> Quoted {
     let note_properties = generate_note_properties(s);
     let note_type_id = get_next_note_type_id();
     let note_interface_impl = generate_note_interface(s, note_type_id);
+    let note_hashing_impl = generate_note_hashing(s);
     let (packable_impl, note_packed_len) = derive_packable_if_not_implemented_and_get_len(s);
 
     register_note(
@@ -979,6 +1039,7 @@ pub comptime fn note(s: StructDefinition) -> Quoted {
     quote {
         $note_properties
         $note_interface_impl
+        $note_hashing_impl
         $packable_impl
     }
 }
@@ -992,7 +1053,6 @@ pub comptime fn note(s: StructDefinition) -> Quoted {
 /// For more details on the generated code, see the individual functions.
 pub comptime fn note_custom_interface(s: StructDefinition) -> Quoted {
     let (packable_impl, note_packed_len) = derive_packable_if_not_implemented_and_get_len(s);
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/12012): This is broken
     let note_type_id = get_next_note_type_id();
 
     let (indexed_fixed_fields, indexed_nullable_fields) = index_note_fields(s, &[]);
@@ -1005,9 +1065,11 @@ pub comptime fn note_custom_interface(s: StructDefinition) -> Quoted {
     );
 
     let note_properties = generate_note_properties(s);
+    let note_interface_impl = generate_note_interface(s, note_type_id);
 
     quote {
         $note_properties
+        $note_interface_impl
         $packable_impl
     }
 }

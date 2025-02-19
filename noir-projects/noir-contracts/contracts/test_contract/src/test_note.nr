@@ -2,7 +2,13 @@ use dep::aztec::{
     context::PrivateContext,
     macros::notes::note_custom_interface,
     note::note_interface::NoteHashing,
-    protocol_types::{address::AztecAddress, traits::{Deserialize, Serialize}},
+    protocol_types::{
+        address::AztecAddress,
+        constants::GENERATOR_INDEX__NOTE_HASH,
+        hash::poseidon2_hash_with_separator,
+        traits::{Deserialize, Serialize},
+        utils::arrays::array_concat,
+    },
 };
 
 // TODO(#12008): Remove the need for the manual import of `Packable` trait here. This is a bug in macros.
