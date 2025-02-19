@@ -42,7 +42,7 @@ template <typename Flavor> class TranslatorRecursiveVerifier_ {
                                                      const BF& batching_challenge_v,
                                                      const BF& accumulated_result);
 
-    PairingPoints verify_proof(const HonkProof& proof);
+    PairingPoints verify_proof(const HonkProof& proof, const BF& evaluation_input_x, const BF& batching_challenge_v);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/986): Ensure the translation is also recursively
     // verified somewhere

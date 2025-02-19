@@ -193,6 +193,13 @@ ECCVMProof ECCVMProver::construct_proof()
     return export_proof();
 }
 
+/**
+ * @brief The evaluations of the wires `op`, `Px`, `Py`, `z_1`, and `z_2` as univariate polynomials have to proved as
+ * they are used in the 'TranslatorVerifier::verify_translation' sub-protocol and its recursive counterpart. To increase
+ * the efficiency, we produce an OpeningClaim that is fed to Shplonk along with the OpeningClaim produced by Shplemini.
+ *
+ * @return ProverOpeningClaim<typename ECCVMFlavor::Curve>
+ */
 ProverOpeningClaim<typename ECCVMFlavor::Curve> ECCVMProver::reduce_translation_evaluations()
 {
     // Collect the polynomials and evaluations to be batched
@@ -225,9 +232,6 @@ ProverOpeningClaim<typename ECCVMFlavor::Curve> ECCVMProver::reduce_translation_
         batching_scalar *= translation_batching_challenge_v;
     }
 
-    OpeningClaim translation_opening_claim = { .polynomial = batched_univariate,
-                                               .opening_pair = { evaluation_challenge_x, batched_evaluation } };
-
-    return translation_opening_claim;
+    return { .polynomial = batched_univariate, .opening_pair = { evaluation_challenge_x, batched_evaluation } };
 }
 } // namespace bb

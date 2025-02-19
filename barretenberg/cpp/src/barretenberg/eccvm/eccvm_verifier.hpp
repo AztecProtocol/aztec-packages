@@ -24,9 +24,19 @@ class ECCVMVerifier {
 
     bool verify_proof(const ECCVMProof& proof);
 
+    static constexpr size_t NUM_TRANSCRIPT_WIRES = 5;
+    std::array<Commitment, NUM_TRANSCRIPT_WIRES> transcript_commitments;
+
+    OpeningClaim<typename ECCVMFlavor::Curve> reduce_verify_translation_evaluations(
+        const std::array<Commitment, NUM_TRANSCRIPT_WIRES>& transcript_commitments);
+
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Transcript> ipa_transcript;
+
+    // Translation evaluations challenges. They are propagated to the TranslatorVerifier
+    FF evaluation_challenge_x;
+    FF batching_challenge_v;
 };
 } // namespace bb

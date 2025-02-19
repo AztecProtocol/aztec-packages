@@ -57,7 +57,8 @@ void TranslatorRecursiveVerifier_<Flavor>::put_translation_data_in_relation_para
  * @brief This function verifies an TranslatorFlavor Honk proof for given program settings.
  */
 template <typename Flavor>
-std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
+std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor>::verify_proof(
+    const HonkProof& proof, const BF& evaluation_input_x, const BF& batching_challenge_v)
 {
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = typename Flavor::PCS;
@@ -79,10 +80,6 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
         throw_or_abort(
             "TranslatorRecursiveVerifier::verify_proof: proof circuit size does not match verification key!");
     }
-    // Seems odd. Should just re-use ipa_batching challenge.
-    batching_challenge_v = transcript->template receive_from_prover<BF>("Translation:batching_challenge");
-    // Is this sound?
-    evaluation_input_x = transcript->template receive_from_prover<BF>("evaluation_input_x");
 
     const BF accumulated_result = transcript->template receive_from_prover<BF>("accumulated_result");
 

@@ -99,38 +99,14 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
     const OpeningClaim multivariate_to_univariate_opening_claim =
         PCS::reduce_batch_opening_claim(sumcheck_batch_opening_claims);
 
-    const FF evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
+    // Produce the opening claim for batch opening of 'op', 'Px', 'Py', 'z1', and 'z2' wires as univariate polynomials
+    transcript_commitments = { commitments.transcript_op,
+                               commitments.transcript_Px,
+                               commitments.transcript_Py,
+                               commitments.transcript_z1,
+                               commitments.transcript_z2 };
 
-    // Construct arrays of commitments and evaluations to be batched, the evaluations being received from the prover
-    const size_t NUM_UNIVARIATES = 5;
-    std::array<Commitment, NUM_UNIVARIATES> transcript_commitments = { commitments.transcript_op,
-                                                                       commitments.transcript_Px,
-                                                                       commitments.transcript_Py,
-                                                                       commitments.transcript_z1,
-                                                                       commitments.transcript_z2 };
-    std::array<FF, NUM_UNIVARIATES> transcript_evaluations = {
-        transcript->template receive_from_prover<FF>("Translation:op"),
-        transcript->template receive_from_prover<FF>("Translation:Px"),
-        transcript->template receive_from_prover<FF>("Translation:Py"),
-        transcript->template receive_from_prover<FF>("Translation:z1"),
-        transcript->template receive_from_prover<FF>("Translation:z2")
-    };
-
-    // Get the batching challenge for commitments and evaluations
-    const FF ipa_batching_challenge = transcript->template get_challenge<FF>("Translation:ipa_batching_challenge");
-
-    // Compute the batched commitment and batched evaluation for the univariate opening claim
-    Commitment batched_commitment = transcript_commitments[0];
-    FF batched_transcript_eval = transcript_evaluations[0];
-    FF batching_scalar = ipa_batching_challenge;
-    for (size_t idx = 1; idx < NUM_UNIVARIATES; ++idx) {
-        batched_commitment = batched_commitment + transcript_commitments[idx] * batching_scalar;
-        batched_transcript_eval += batching_scalar * transcript_evaluations[idx];
-        batching_scalar *= ipa_batching_challenge;
-    }
-
-    const OpeningClaim translation_opening_claim = { { evaluation_challenge_x, batched_transcript_eval },
-                                                     batched_commitment };
+    const OpeningClaim translation_opening_claim = reduce_verify_translation_evaluations(transcript_commitments);
 
     const std::array<OpeningClaim, 2> opening_claims = { multivariate_to_univariate_opening_claim,
                                                          translation_opening_claim };
@@ -145,4 +121,42 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
     vinfo("batch opening verified?: ", batched_opening_verified);
     return sumcheck_output.verified && batched_opening_verified && consistency_checked;
 }
+
+/**
+ * @brief To link the ECCVM Transcript wires 'op', 'Px', 'Py', 'z1', and 'z2' to the accumulator computed by the
+ * translator, we verify their evaluations as univariates. For efficiency reasons, we batch these evaluations.
+ *
+ * @param transcript_commitments Commitments to  'op', 'Px', 'Py', 'z1', and 'z2'
+ * @return OpeningClaim<typename ECCVMFlavor::Curve>
+ */
+OpeningClaim<typename ECCVMFlavor::Curve> ECCVMVerifier::reduce_verify_translation_evaluations(
+    const std::array<Commitment, NUM_TRANSCRIPT_WIRES>& transcript_commitments)
+{
+    evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
+
+    // Construct arrays of commitments and evaluations to be batched, the evaluations being received from the prover
+
+    std::array<FF, NUM_TRANSCRIPT_WIRES> transcript_evaluations = {
+        transcript->template receive_from_prover<FF>("Translation:op"),
+        transcript->template receive_from_prover<FF>("Translation:Px"),
+        transcript->template receive_from_prover<FF>("Translation:Py"),
+        transcript->template receive_from_prover<FF>("Translation:z1"),
+        transcript->template receive_from_prover<FF>("Translation:z2")
+    };
+
+    // Get the batching challenge for commitments and evaluations
+    batching_challenge_v = transcript->template get_challenge<FF>("Translation:ipa_batching_challenge");
+
+    // Compute the batched commitment and batched evaluation for the univariate opening claim
+    Commitment batched_commitment = transcript_commitments[0];
+    FF batched_transcript_eval = transcript_evaluations[0];
+    FF batching_scalar = batching_challenge_v;
+    for (size_t idx = 1; idx < NUM_TRANSCRIPT_WIRES; ++idx) {
+        batched_commitment = batched_commitment + transcript_commitments[idx] * batching_scalar;
+        batched_transcript_eval += batching_scalar * transcript_evaluations[idx];
+        batching_scalar *= batching_challenge_v;
+    }
+
+    return { { evaluation_challenge_x, batched_transcript_eval }, batched_commitment };
+};
 } // namespace bb

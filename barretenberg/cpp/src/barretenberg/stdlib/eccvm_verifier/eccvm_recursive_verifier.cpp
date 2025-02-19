@@ -68,9 +68,6 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
 
     // Execute Sumcheck Verifier
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1009): probably the size of this should be fixed to the
-    // maximum possible size of an ECCVM circuit otherwise we might run into problem because the number of rounds of
-    // sumcheck is dependent on circuit size.
     const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size.get_value()));
     auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
@@ -114,40 +111,15 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
     const OpeningClaim multivariate_to_univariate_opening_claim =
         PCS::reduce_batch_opening_claim(sumcheck_batch_opening_claims);
 
-    const FF evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
-
-    // Construct the vector of commitments (needs to be vector for the batch_mul) and array of evaluations to be batched
-    std::vector<Commitment> transcript_commitments = { commitments.transcript_op,
-                                                       commitments.transcript_Px,
-                                                       commitments.transcript_Py,
-                                                       commitments.transcript_z1,
-                                                       commitments.transcript_z2 };
-
-    std::vector<FF> transcript_evaluations = { transcript->template receive_from_prover<FF>("Translation:op"),
-                                               transcript->template receive_from_prover<FF>("Translation:Px"),
-                                               transcript->template receive_from_prover<FF>("Translation:Py"),
-                                               transcript->template receive_from_prover<FF>("Translation:z1"),
-                                               transcript->template receive_from_prover<FF>("Translation:z2") };
-
-    // Get the batching challenge for commitments and evaluations
-    const FF ipa_batching_challenge = transcript->template get_challenge<FF>("Translation:ipa_batching_challenge");
-
-    // Compute the batched commitment and batched evaluation for the univariate opening claim
-    auto batched_transcript_eval = transcript_evaluations[0];
-    auto batching_scalar = ipa_batching_challenge;
-
-    std::vector<FF> batching_challenges = { FF::one() };
-    for (size_t idx = 1; idx < transcript_commitments.size(); ++idx) {
-        batched_transcript_eval += batching_scalar * transcript_evaluations[idx];
-        batching_challenges.emplace_back(batching_scalar);
-        batching_scalar *= ipa_batching_challenge;
-    }
-    const Commitment batched_commitment = Commitment::batch_mul(transcript_commitments, batching_challenges);
-
+    // Construct the vector of commitments (needs to be vector for the batch_mul)
+    const std::vector<Commitment> transcript_commitments = { commitments.transcript_op,
+                                                             commitments.transcript_Px,
+                                                             commitments.transcript_Py,
+                                                             commitments.transcript_z1,
+                                                             commitments.transcript_z2 };
+    // Reduce the univariate evaluations claims to a single claim to be batched by Shplonk
+    const OpeningClaim translation_opening_claim = reduce_verify_translation_evaluations(transcript_commitments);
     // Construct and verify the combined opening claim
-    const OpeningClaim translation_opening_claim = { { evaluation_challenge_x, batched_transcript_eval },
-                                                     batched_commitment };
-
     const std::array<OpeningClaim, 2> opening_claims = { multivariate_to_univariate_opening_claim,
                                                          translation_opening_claim };
 
@@ -156,6 +128,47 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
 
     return { batch_opening_claim, ipa_transcript };
 }
+
+/**
+ * @brief To link the ECCVM Transcript wires 'op', 'Px', 'Py', 'z1', and 'z2' to the accumulator computed by the
+ * translator, we verify their evaluations as univariates. For efficiency reasons, we batch these evaluations.
+ *
+ * @tparam Flavor ECCVMRecursiveFlavor_<UltraCircuitBuilder>
+ * @param transcript_commitments Commitments to  'op', 'Px', 'Py', 'z1', and 'z2'
+ * @return OpeningClaim<typename Flavor::Curve>
+ */
+template <typename Flavor>
+OpeningClaim<typename Flavor::Curve> ECCVMRecursiveVerifier_<Flavor>::reduce_verify_translation_evaluations(
+    const std::vector<Commitment>& transcript_commitments)
+{
+    evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
+
+    // Construct the array of evaluations to be batched, the evaluations being received from the prover
+    std::array<FF, NUM_TRANSCRIPT_WIRES> transcript_evaluations = {
+        transcript->template receive_from_prover<FF>("Translation:op"),
+        transcript->template receive_from_prover<FF>("Translation:Px"),
+        transcript->template receive_from_prover<FF>("Translation:Py"),
+        transcript->template receive_from_prover<FF>("Translation:z1"),
+        transcript->template receive_from_prover<FF>("Translation:z2")
+    };
+
+    // Get the batching challenge for commitments and evaluations
+    batching_challenge_v = transcript->template get_challenge<FF>("Translation:ipa_batching_challenge");
+
+    // Compute the batched commitment and batched evaluation for the univariate opening claim
+    auto batched_transcript_eval = transcript_evaluations[0];
+    auto batching_scalar = batching_challenge_v;
+
+    std::vector<FF> batching_challenges = { FF::one() };
+    for (size_t idx = 1; idx < NUM_TRANSCRIPT_WIRES; ++idx) {
+        batched_transcript_eval += batching_scalar * transcript_evaluations[idx];
+        batching_challenges.emplace_back(batching_scalar);
+        batching_scalar *= batching_challenge_v;
+    }
+    const Commitment batched_commitment = Commitment::batch_mul(transcript_commitments, batching_challenges);
+
+    return { { evaluation_challenge_x, batched_transcript_eval }, batched_commitment };
+};
 
 template class ECCVMRecursiveVerifier_<ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
 } // namespace bb
