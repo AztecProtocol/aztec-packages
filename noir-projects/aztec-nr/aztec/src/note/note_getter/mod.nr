@@ -2,7 +2,7 @@ use crate::context::PrivateContext;
 use crate::note::{
     constants::{GET_NOTE_ORACLE_RETURN_LENGTH, VIEW_NOTE_ORACLE_RETURN_LENGTH},
     note_getter_options::{NoteGetterOptions, NoteStatus, PropertySelector, Select, Sort, SortOrder},
-    note_interface::{NoteInterface, NullifiableNote},
+    note_interface::{NoteHashing, NoteInterface},
     note_viewer_options::NoteViewerOptions,
     retrieved_note::RetrievedNote,
     utils::compute_note_hash_for_read_request,
@@ -76,7 +76,7 @@ pub fn get_note<Note, let N: u32>(
     storage_slot: Field,
 ) -> (RetrievedNote<Note>, Field)
 where
-    Note: NoteInterface + NullifiableNote + Packable<N>,
+    Note: NoteInterface + NoteHashing + Packable<N>,
 {
     // Safety: Constraining that we got a valid note from the oracle is fairly straightforward: all we need to do
     // is check that the metadata is correct, and that the note exists.
@@ -105,7 +105,7 @@ pub fn get_notes<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
     options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>,
     ) -> (BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>)
 where
-    Note: NoteInterface + NullifiableNote + Eq + Packable<N>,
+    Note: NoteInterface + NoteHashing + Eq + Packable<N>,
 {
     // Safety: The notes are constrained below.
     let opt_notes = unsafe { get_notes_internal(storage_slot, options) };
@@ -130,7 +130,7 @@ fn constrain_get_notes_internal<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS
     options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>,
     ) -> (BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>)
 where
-    Note: NoteInterface + NullifiableNote + Eq + Packable<N>,
+    Note: NoteInterface + NoteHashing + Eq + Packable<N>,
 {
     // The filter is applied first to avoid pushing note read requests for notes we're not interested in. Note that
     // while the filter function can technically mutate the notes (as opposed to simply removing some), the private

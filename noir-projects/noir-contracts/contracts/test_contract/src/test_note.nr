@@ -1,14 +1,8 @@
 use dep::aztec::{
     context::PrivateContext,
     macros::notes::note_custom_interface,
-    note::note_interface::{NoteInterface, NullifiableNote},
-    protocol_types::{
-        address::AztecAddress,
-        constants::GENERATOR_INDEX__NOTE_HASH,
-        hash::poseidon2_hash_with_separator,
-        traits::{Deserialize, Serialize},
-        utils::arrays::array_concat,
-    },
+    note::note_interface::NoteHashing,
+    protocol_types::{address::AztecAddress, traits::{Deserialize, Serialize}},
 };
 
 // TODO(#12008): Remove the need for the manual import of `Packable` trait here. This is a bug in macros.
@@ -28,20 +22,11 @@ pub struct TestNote {
     value: Field,
 }
 
-impl NoteInterface for TestNote {
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/12012): This is broken
-    fn get_note_type_id() -> Field {
-        // id has to fit within 7 bits
-        2
-    }
-
+impl NoteHashing for TestNote {
     fn compute_note_hash(self, storage_slot: Field) -> Field {
         let inputs = array_concat(self.pack(), [storage_slot]);
         poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__NOTE_HASH)
     }
-}
-
-impl NullifiableNote for TestNote {
 
     fn compute_nullifier(
         _self: Self,

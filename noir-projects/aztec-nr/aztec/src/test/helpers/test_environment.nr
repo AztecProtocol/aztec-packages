@@ -6,7 +6,7 @@ use crate::context::{
 use crate::hash::hash_args;
 use crate::test::helpers::{cheatcodes, utils::Deployer};
 
-use crate::note::note_interface::{NoteInterface, NullifiableNote};
+use crate::note::note_interface::{NoteHashing, NoteInterface};
 use crate::oracle::{
     execution::{get_block_number, get_contract_address},
     notes::notify_created_note,
@@ -158,7 +158,7 @@ impl TestEnvironment {
         contract_address: AztecAddress,
     )
     where
-        Note: NoteInterface + NullifiableNote + Packable<N>,
+        Note: NoteInterface + NoteHashing + Packable<N>,
     {
         let original_contract_address = get_contract_address();
         cheatcodes::set_contract_address(contract_address);

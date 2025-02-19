@@ -1,6 +1,6 @@
 use crate::{
     context::PrivateContext,
-    note::{note_interface::{NoteInterface, NullifiableNote}, retrieved_note::RetrievedNote},
+    note::{note_interface::{NoteHashing, NoteInterface}, retrieved_note::RetrievedNote},
 };
 
 use dep::protocol_types::hash::{
@@ -14,7 +14,7 @@ pub fn compute_siloed_nullifier<Note>(
     context: &mut PrivateContext,
 ) -> Field
 where
-    Note: NoteInterface + NullifiableNote,
+    Note: NoteHashing,
 {
     let note_hash_for_nullify = compute_note_hash_for_nullify(retrieved_note, storage_slot);
     let inner_nullifier = retrieved_note.note.compute_nullifier(context, note_hash_for_nullify);
@@ -107,7 +107,7 @@ pub fn compute_note_hash_for_nullify<Note>(
     storage_slot: Field,
 ) -> Field
 where
-    Note: NoteInterface + NullifiableNote,
+    Note: NoteHashing,
 {
     let note_hash_for_read_request =
         compute_note_hash_for_read_request(retrieved_note, storage_slot);

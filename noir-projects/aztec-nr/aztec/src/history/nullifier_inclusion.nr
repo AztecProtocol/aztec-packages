@@ -4,7 +4,7 @@ use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 use crate::{
     context::PrivateContext,
     note::{
-        note_interface::{NoteInterface, NullifiableNote},
+        note_interface::{NoteHashing, NoteInterface},
         retrieved_note::RetrievedNote,
         utils::compute_siloed_nullifier,
     },
@@ -50,7 +50,7 @@ trait ProveNoteIsNullified {
         context: &mut PrivateContext,
     )
     where
-        Note: NoteInterface + NullifiableNote;
+        Note: NoteHashing;
 }
 
 impl ProveNoteIsNullified for BlockHeader {
@@ -62,7 +62,7 @@ impl ProveNoteIsNullified for BlockHeader {
         context: &mut PrivateContext,
     )
     where
-        Note: NoteInterface + NullifiableNote,
+        Note: NoteHashing,
     {
         let nullifier = compute_siloed_nullifier(retrieved_note, storage_slot, context);
 

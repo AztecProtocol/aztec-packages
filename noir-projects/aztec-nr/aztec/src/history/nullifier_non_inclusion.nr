@@ -1,7 +1,7 @@
 use crate::{
     context::PrivateContext,
     note::{
-        note_interface::{NoteInterface, NullifiableNote},
+        note_interface::{NoteHashing, NoteInterface},
         retrieved_note::RetrievedNote,
         utils::compute_siloed_nullifier,
     },
@@ -63,7 +63,7 @@ trait ProveNoteNotNullified {
         context: &mut PrivateContext,
     )
     where
-        Note: NoteInterface + NullifiableNote;
+        Note: NoteHashing;
 }
 
 impl ProveNoteNotNullified for BlockHeader {
@@ -75,7 +75,7 @@ impl ProveNoteNotNullified for BlockHeader {
         context: &mut PrivateContext,
     )
     where
-        Note: NoteInterface + NullifiableNote,
+        Note: NoteHashing,
     {
         let nullifier = compute_siloed_nullifier(retrieved_note, storage_slot, context);
 

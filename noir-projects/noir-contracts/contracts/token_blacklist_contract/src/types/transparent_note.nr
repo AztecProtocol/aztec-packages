@@ -1,13 +1,15 @@
 use dep::aztec::{
     macros::notes::note,
     note::utils::compute_note_hash_for_nullify,
-    prelude::{NullifiableNote, PrivateContext, RetrievedNote},
+    prelude::{NoteHashing, PrivateContext, RetrievedNote},
     protocol_types::{
-        address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        hash::poseidon2_hash_with_separator, traits::Packable,
+        address::AztecAddress,
+        constants::{GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER},
+        hash::poseidon2_hash_with_separator,
+        traits::Packable,
+        utils::arrays::array_concat,
     },
 };
-
 use dep::std::mem::zeroed;
 
 // Transparent note represents a note that is created in the clear (public execution), but can only be spent by those
@@ -21,7 +23,12 @@ pub struct TransparentNote {
     secret_hash: Field,
 }
 
-impl NullifiableNote for TransparentNote {
+impl NoteHashing for TransparentNote {
+    fn compute_note_hash(self, storage_slot: Field) -> Field {
+        let inputs = array_concat(self.pack(), [storage_slot]);
+        poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__NOTE_HASH)
+    }
+
     // Computing a nullifier in a transparent note is not guarded by making secret a part of the nullifier preimage (as
     // is common in other cases) and instead is guarded by the functionality of "redeem_shield" function. There we do
     // the following:
