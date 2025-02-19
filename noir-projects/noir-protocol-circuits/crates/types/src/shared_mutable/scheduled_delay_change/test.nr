@@ -11,7 +11,7 @@ unconstrained fn get_non_initial_delay_change(
 }
 
 unconstrained fn get_initial_delay_change() -> ScheduledDelayChange<TEST_INITIAL_DELAY> {
-    ScheduledDelayChange { pre: Option::none(), post: Option::none(), block_of_change: 0 }
+    std::mem::zeroed()
 }
 
 #[test]
