@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740005140025,
+  "lastUpdate": 1740008023106,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d8534ec6e48f7fc469a4370abfb3061427469c7c",
-          "message": "chore: skip flakey p2p (#12021)",
-          "timestamp": "2025-02-14T23:09:07Z",
-          "tree_id": "1999bbec49f8a49e69c00068711c91be496bd21a",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d8534ec6e48f7fc469a4370abfb3061427469c7c"
-        },
-        "date": 1739575177683,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18037.378052999997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15937.616101 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18567.52139400004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16178.019913 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3870.910135000031,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3073.831465 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55175.349675,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55175351000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10928.430685000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10928439000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1820938292,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1820938292 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 130705776,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 130705776 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3300,6 +3234,72 @@ window.BENCHMARK_DATA = {
             "value": 128749792,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 128749792 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cca368a7610994f4f7395c30dc346f957d0838e4",
+          "message": "chore: Do not allow changes to package json during CI yarn install (#12125)\n\nRunning `yarn install` will format the package.json for all packages in\nthe workspace. This will cause `cache_content_hash` to fail on CI due to\nchanged files, which (before #12124) caused the build to terminate\nabruptly (see\n[here](https://github.com/AztecProtocol/aztec-packages/actions/runs/13422411604/job/37497960586?pr=12096#step:7:109)\nfor an example).\n\nThis PR adds all package.json files to yarn's `immutablePatterns`, so if\nit detects that the install process changed them it, it will fail with\n`The checksum for **/package.json has been modified by this install,\nwhich is explicitly forbidden.` and a nice exit code, which should be\nvisible on the CI run. This only applies to CI runs.",
+          "timestamp": "2025-02-19T23:11:56Z",
+          "tree_id": "fb5225cc530e0d469ae4f2e9901f35d4e80e9eeb",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/cca368a7610994f4f7395c30dc346f957d0838e4"
+        },
+        "date": 1740008015863,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18090.115338000032,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15987.573651000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18616.665270000114,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16186.237868999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3950.5706100001134,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3125.853458000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54824.953991,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54824950000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9451.156151000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9451159000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1810676778,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1810676778 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 128231432,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 128231432 ns\nthreads: 1"
           }
         ]
       }
