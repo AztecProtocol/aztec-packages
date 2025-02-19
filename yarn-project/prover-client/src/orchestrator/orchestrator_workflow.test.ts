@@ -13,11 +13,7 @@ import {
   makeRecursiveProof,
 } from '@aztec/circuits.js';
 import { makeParityPublicInputs } from '@aztec/circuits.js/testing';
-import {
-  NESTED_RECURSIVE_PROOF_LENGTH,
-  NUM_BASE_PARITY_PER_ROOT_PARITY,
-  RECURSIVE_PROOF_LENGTH,
-} from '@aztec/constants';
+import { NESTED_RECURSIVE_PROOF_LENGTH, RECURSIVE_PROOF_LENGTH } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
