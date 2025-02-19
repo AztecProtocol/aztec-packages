@@ -139,9 +139,9 @@ export class WalletDB {
     return { txHash, nonce, cancellable, gasSettings: GasSettings.fromBuffer(gasBuffer) };
   }
 
-  tryRetrieveAlias(arg: string) {
+  async tryRetrieveAlias(arg: string): Promise<string> {
     try {
-      return this.retrieveAlias(arg);
+      return await this.retrieveAlias(arg);
     } catch (e) {
       return arg;
     }
@@ -201,5 +201,35 @@ export class WalletDB {
   async storeAlias(type: AliasType, key: string, value: Buffer, log: LogFn) {
     await this.#aliases.set(`${type}:${key}`, value);
     log(`Data stored in database with alias ${type}:${key}`);
+  }
+}
+
+export class WalletAliasCache {
+  private cache = new Map<string, string>();
+
+  private constructor(private db?: WalletDB) {}
+
+  static async new(db?: WalletDB): Promise<WalletAliasCache> {
+    const cache = new WalletAliasCache(db);
+    await cache.refresh();
+    return cache;
+  }
+
+  async refresh(): Promise<void> {
+    const cache = new Map();
+    for (const { key, value } of (await this.db?.listAliases()) ?? []) {
+      cache.set(key, value);
+    }
+    this.cache = cache;
+  }
+
+  retrieveAlias(arg: string): string | undefined {
+    if (Aliases.find(alias => arg.startsWith(`${alias}:`))) {
+      const [type, ...alias] = arg.split(':');
+      const data = this.cache.get(`${type}:${alias.join(':') ?? 'last'}`);
+      return data;
+    }
+
+    return undefined;
   }
 }

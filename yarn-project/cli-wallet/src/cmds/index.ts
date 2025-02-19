@@ -20,7 +20,7 @@ import { type LogFn, type Logger } from '@aztec/foundation/log';
 import { type Command, Option } from 'commander';
 import inquirer from 'inquirer';
 
-import { type WalletDB } from '../storage/wallet_db.js';
+import { WalletAliasCache, type WalletDB } from '../storage/wallet_db.js';
 import { type AccountType, addScopeToWallet, createOrRetrieveAccount, getWalletWithScopes } from '../utils/accounts.js';
 import { FeeOpts } from '../utils/options/fees.js';
 import {
@@ -44,13 +44,15 @@ import {
 } from '../utils/options/index.js';
 import { type PXEWrapper } from '../utils/pxe_wrapper.js';
 
-export function injectCommands(
+export async function injectCommands(
   program: Command,
   log: LogFn,
   debugLogger: Logger,
   db?: WalletDB,
   pxeWrapper?: PXEWrapper,
 ) {
+  const aliasCache = await WalletAliasCache.new(db);
+
   program
     .command('import-test-accounts')
     .description('Import test accounts from pxe.')
@@ -86,7 +88,7 @@ export function injectCommands(
     .addOption(pxeOption)
     .addOption(
       createSecretKeyOption('Secret key for account. Uses random by default.', false, sk =>
-        aliasedSecretKeyParser(sk, db),
+        aliasedSecretKeyParser(sk, aliasCache),
       ).conflicts('public-key'),
     )
     .addOption(createAliasOption('Alias for the account. Used for easy reference in subsequent commands.', !db))
@@ -143,7 +145,7 @@ export function injectCommands(
   const deployAccountCommand = program
     .command('deploy-account')
     .description('Deploys an already registered aztec account that can be used for sending transactions.')
-    .addOption(createAccountOption('Alias or address of the account to deploy', !db, db))
+    .addOption(createAccountOption('Alias or address of the account to deploy', !db, aliasCache))
     .addOption(pxeOption)
     .option('--json', 'Emit output as json')
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
@@ -179,11 +181,13 @@ export function injectCommands(
     )
     .option('--universal', 'Do not mix the sender address into the deployment.')
     .addOption(pxeOption)
-    .addOption(createArgsOption(true, db))
+    .addOption(createArgsOption(true, aliasCache))
     .addOption(
-      createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
+      createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, aliasCache)).conflicts(
+        'account',
+      ),
     )
-    .addOption(createAccountOption('Alias or address of the account to deploy from', !db, db))
+    .addOption(createAccountOption('Alias or address of the account to deploy from', !db, aliasCache))
     .addOption(createAliasOption('Alias for the contract. Used for easy reference subsequent commands.', !db))
     .option('--json', 'Emit output as json')
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
@@ -246,16 +250,18 @@ export function injectCommands(
     .description('Calls a function on an Aztec contract.')
     .argument('<functionName>', 'Name of function to execute')
     .addOption(pxeOption)
-    .addOption(createArgsOption(false, db))
-    .addOption(createArtifactOption(db))
-    .addOption(createContractAddressOption(db))
+    .addOption(createArgsOption(false, aliasCache))
+    .addOption(createArtifactOption(aliasCache))
+    .addOption(createContractAddressOption(aliasCache))
     .addOption(
       createAliasOption('Alias for the transaction hash. Used for easy reference in subsequent commands.', !db),
     )
     .addOption(
-      createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
+      createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, aliasCache)).conflicts(
+        'account',
+      ),
     )
-    .addOption(createAccountOption('Alias or address of the account to send the transaction from', !db, db))
+    .addOption(createAccountOption('Alias or address of the account to send the transaction from', !db, aliasCache))
     .option('--no-wait', 'Print transaction hash without waiting for it to be mined')
     .option('--no-cancel', 'Do not allow the transaction to be cancelled. This makes for cheaper transactions.');
 
@@ -276,7 +282,7 @@ export function injectCommands(
     const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
     const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
     const wallet = await getWalletWithScopes(account, db);
-    const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
+    const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, aliasCache);
 
     debugLogger.info(`Using wallet with address ${wallet.getCompleteAddress().address.toString()}`);
 
@@ -302,13 +308,15 @@ export function injectCommands(
     .description('Simulates the execution of a function on an Aztec contract.')
     .argument('<functionName>', 'Name of function to simulate')
     .addOption(pxeOption)
-    .addOption(createArgsOption(false, db))
-    .addOption(createContractAddressOption(db))
-    .addOption(createArtifactOption(db))
+    .addOption(createArgsOption(false, aliasCache))
+    .addOption(createContractAddressOption(aliasCache))
+    .addOption(createArtifactOption(aliasCache))
     .addOption(
-      createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
+      createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, aliasCache)).conflicts(
+        'account',
+      ),
     )
-    .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
+    .addOption(createAccountOption('Alias or address of the account to simulate from', !db, aliasCache))
     .addOption(createProfileOption())
     .action(async (functionName, _options, command) => {
       const { simulate } = await import('./simulate.js');
@@ -326,7 +334,7 @@ export function injectCommands(
       const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
       const wallet = await getWalletWithScopes(account, db);
-      const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
+      const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, aliasCache);
       await simulate(wallet, functionName, args, artifactPath, contractAddress, profile, log);
     });
 
@@ -335,7 +343,7 @@ export function injectCommands(
     .description('Mints L1 Fee Juice and pushes them to L2.')
     .argument('<amount>', 'The amount of Fee Juice to mint and bridge.', parseBigint)
     .argument('<recipient>', 'Aztec address of the recipient.', address =>
-      aliasedAddressParser('accounts', address, db),
+      aliasedAddressParser('accounts', address, aliasCache),
     )
     .requiredOption(
       '--l1-rpc-url <string>',
@@ -394,18 +402,18 @@ export function injectCommands(
       'The name of the variable in the storage field that contains the note. WARNING: Maps are not supported',
     )
     .requiredOption('-a, --address <string>', 'The Aztec address of the note owner.', address =>
-      aliasedAddressParser('accounts', address, db),
+      aliasedAddressParser('accounts', address, aliasCache),
     )
-    .addOption(createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)))
+    .addOption(createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, aliasCache)))
     .requiredOption('-t, --transaction-hash <string>', 'The hash of the tx containing the note.', txHash =>
-      aliasedTxHashParser(txHash, db),
+      aliasedTxHashParser(txHash, aliasCache),
     )
-    .addOption(createContractAddressOption(db))
-    .addOption(createArtifactOption(db))
+    .addOption(createContractAddressOption(aliasCache))
+    .addOption(createArtifactOption(aliasCache))
     .addOption(
       new Option('-b, --body [noteFields...]', 'The members of a Note')
         .argParser((arg, prev: string[]) => {
-          const next = db?.tryRetrieveAlias(arg) || arg;
+          const next = aliasCache.retrieveAlias(arg) ?? arg;
           prev.push(next);
           return prev;
         })
@@ -424,7 +432,7 @@ export function injectCommands(
         body,
         transactionHash,
       } = options;
-      const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
+      const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, aliasCache);
       const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
       const account = await createOrRetrieveAccount(client, address, db, undefined, secretKey);
       const wallet = await getWalletWithScopes(account, db);
@@ -449,16 +457,18 @@ export function injectCommands(
     )
     .argument('<functionName>', 'Name of function to authorize')
     .argument('<caller>', 'Account to be authorized to perform the action', address =>
-      aliasedAddressParser('accounts', address, db),
+      aliasedAddressParser('accounts', address, aliasCache),
     )
     .addOption(pxeOption)
-    .addOption(createArgsOption(false, db))
-    .addOption(createContractAddressOption(db))
-    .addOption(createArtifactOption(db))
+    .addOption(createArgsOption(false, aliasCache))
+    .addOption(createContractAddressOption(aliasCache))
+    .addOption(createArtifactOption(aliasCache))
     .addOption(
-      createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
+      createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, aliasCache)).conflicts(
+        'account',
+      ),
     )
-    .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
+    .addOption(createAccountOption('Alias or address of the account to simulate from', !db, aliasCache))
     .addOption(
       createAliasOption('Alias for the authorization witness. Used for easy reference in subsequent commands.', !db),
     )
@@ -478,7 +488,7 @@ export function injectCommands(
       const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
       const wallet = await getWalletWithScopes(account, db);
-      const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
+      const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, aliasCache);
       const witness = await createAuthwit(wallet, functionName, caller, args, artifactPath, contractAddress, log);
 
       if (db) {
@@ -493,16 +503,18 @@ export function injectCommands(
     )
     .argument('<functionName>', 'Name of function to authorize')
     .argument('<caller>', 'Account to be authorized to perform the action', address =>
-      aliasedAddressParser('accounts', address, db),
+      aliasedAddressParser('accounts', address, aliasCache),
     )
     .addOption(pxeOption)
-    .addOption(createArgsOption(false, db))
-    .addOption(createContractAddressOption(db))
-    .addOption(createArtifactOption(db))
+    .addOption(createArgsOption(false, aliasCache))
+    .addOption(createContractAddressOption(aliasCache))
+    .addOption(createArtifactOption(aliasCache))
     .addOption(
-      createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
+      createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, aliasCache)).conflicts(
+        'account',
+      ),
     )
-    .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
+    .addOption(createAccountOption('Alias or address of the account to simulate from', !db, aliasCache))
     .action(async (functionName, caller, _options, command) => {
       const { authorizeAction } = await import('./authorize_action.js');
       const options = command.optsWithGlobals();
@@ -518,7 +530,7 @@ export function injectCommands(
       const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
       const wallet = await getWalletWithScopes(account, db);
-      const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
+      const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, aliasCache);
       await authorizeAction(wallet, functionName, caller, args, artifactPath, contractAddress, log);
     });
 
@@ -527,15 +539,19 @@ export function injectCommands(
     .description(
       'Adds an authorization witness to the provided account, granting PXE access to the notes of the authorizer so that it can be verified',
     )
-    .argument('<authwit>', 'Authorization witness to add to the account', witness => aliasedAuthWitParser(witness, db))
+    .argument('<authwit>', 'Authorization witness to add to the account', witness =>
+      aliasedAuthWitParser(witness, aliasCache),
+    )
     .argument('<authorizer>', 'Account that provides the authorization to perform the action', address =>
-      aliasedAddressParser('accounts', address, db),
+      aliasedAddressParser('accounts', address, aliasCache),
     )
     .addOption(pxeOption)
     .addOption(
-      createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
+      createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, aliasCache)).conflicts(
+        'account',
+      ),
     )
-    .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
+    .addOption(createAccountOption('Alias or address of the account to simulate from', !db, aliasCache))
     .addOption(
       createAliasOption('Alias for the authorization witness. Used for easy reference in subsequent commands.', !db),
     )
@@ -554,7 +570,9 @@ export function injectCommands(
   program
     .command('get-tx')
     .description('Gets the status of the recent txs, or a detailed view if a specific transaction hash is provided')
-    .argument('[txHash]', 'A transaction hash to get the receipt for.', txHash => aliasedTxHashParser(txHash, db))
+    .argument('[txHash]', 'A transaction hash to get the receipt for.', txHash =>
+      aliasedTxHashParser(txHash, aliasCache),
+    )
     .addOption(pxeOption)
     .option('-p, --page <number>', 'The page number to display', value => integerArgParser(value, '--page', 1), 1)
     .option(
@@ -572,14 +590,14 @@ export function injectCommands(
       if (txHash) {
         await checkTx(client, txHash, false, log);
       } else if (db) {
-        const aliases = db.listAliases('transactions');
+        const aliases = await db.listAliases('transactions');
         const totalPages = Math.ceil(aliases.length / pageSize);
         page = Math.min(page - 1, totalPages - 1);
         const dataRows = await Promise.all(
           aliases.slice(page * pageSize, pageSize * (1 + page)).map(async ({ key, value }) => ({
             alias: key,
             txHash: value,
-            cancellable: db.retrieveTxData(TxHash.fromString(value)).cancellable,
+            cancellable: (await db.retrieveTxData(TxHash.fromString(value))).cancellable,
             status: await checkTx(client, TxHash.fromString(value), true, log),
           })),
         );
@@ -600,12 +618,14 @@ export function injectCommands(
   program
     .command('cancel-tx')
     .description('Cancels a pending tx by reusing its nonce with a higher fee and an empty payload')
-    .argument('<txHash>', 'A transaction hash to cancel.', txHash => aliasedTxHashParser(txHash, db))
+    .argument('<txHash>', 'A transaction hash to cancel.', txHash => aliasedTxHashParser(txHash, aliasCache))
     .addOption(pxeOption)
     .addOption(
-      createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
+      createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, aliasCache)).conflicts(
+        'account',
+      ),
     )
-    .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
+    .addOption(createAccountOption('Alias or address of the account to simulate from', !db, aliasCache))
     .addOption(FeeOpts.paymentMethodOption().default('method=fee_juice'))
     .option(
       '-i --increased-fees <da=1,l2=1>',
@@ -623,7 +643,7 @@ export function injectCommands(
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
       const wallet = await getWalletWithScopes(account, db);
 
-      const txData = db?.retrieveTxData(txHash);
+      const txData = await db?.retrieveTxData(txHash);
       if (!txData) {
         throw new Error('Transaction data not found in the database, cannot reuse nonce');
       }
@@ -639,10 +659,10 @@ export function injectCommands(
       "Registers a sender's address in the wallet, so the note synching process will look for notes sent by them",
     )
     .argument('[address]', 'The address of the sender to register', address =>
-      aliasedAddressParser('accounts', address, db),
+      aliasedAddressParser('accounts', address, aliasCache),
     )
     .addOption(pxeOption)
-    .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
+    .addOption(createAccountOption('Alias or address of the account to simulate from', !db, aliasCache))
     .addOption(createAliasOption('Alias for the sender. Used for easy reference in subsequent commands.', !db))
     .action(async (address, options) => {
       const { registerSender } = await import('./register_sender.js');
@@ -662,12 +682,12 @@ export function injectCommands(
     .command('register-contract')
     .description("Registers a contract in this wallet's PXE")
     .argument('[address]', 'The address of the contract to register', address =>
-      aliasedAddressParser('accounts', address, db),
+      aliasedAddressParser('accounts', address, aliasCache),
     )
     .argument('[artifact]', ARTIFACT_DESCRIPTION, artifactPathParser)
-    .addOption(createArgsOption(true, db))
+    .addOption(createArgsOption(true, aliasCache))
     .addOption(pxeOption)
-    .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
+    .addOption(createAccountOption('Alias or address of the account to simulate from', !db, aliasCache))
     .addOption(createAliasOption('Alias for the contact. Used for easy reference in subsequent commands.', !db))
     .action(async (address, artifactPathPromise, _options, command) => {
       const { registerContract } = await import('./register_contract.js');
