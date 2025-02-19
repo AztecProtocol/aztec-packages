@@ -197,11 +197,3 @@ export function decodeFunctionSignature(name: string, parameters: ABIParameter[]
 export function decodeFunctionSignatureWithParameterNames(name: string, parameters: ABIParameter[]) {
   return new FunctionSignatureDecoder(name, parameters, true).decode();
 }
-
-export const AbiDecodedSchema: ZodFor<AbiDecoded> = z.union([
-  schemas.BigInt,
-  z.boolean(),
-  schemas.AztecAddress,
-  z.array(z.lazy(() => AbiDecodedSchema)),
-  z.record(z.lazy(() => AbiDecodedSchema)),
-]);

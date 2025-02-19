@@ -22,7 +22,8 @@
     "./rollup": "./dest/structs/rollup/index.js",
     "./kernel": "./dest/structs/kernel/index.js",
     "./trees": "./dest/structs/trees/index.js",
-    "./avm": "./dest/structs/avm/index.js"
+    "./avm": "./dest/structs/avm/index.js",
+    "./schemas": "./dest/schemas/index.js"
   },
   "typedocOptions": {
     "entryPoints": [
