@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1739976175357,
+  "lastUpdate": 1739979196911,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "ilyas@aztecprotocol.com",
-            "name": "Ilyas Ridhuan",
-            "username": "IlyasRidhuan"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2c199d852b316775053751fc67bd5018f35cf61b",
-          "message": "feat: poseidon2 in vm2 (#11597)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\r\nline.",
-          "timestamp": "2025-02-14T12:43:05Z",
-          "tree_id": "ded1ab2d6ae35181c473083efec43b51392290f7",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2c199d852b316775053751fc67bd5018f35cf61b"
-        },
-        "date": 1739538019237,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19799.610655000037,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 17050.165887 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21561.330535000023,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19112.80939 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4075.5684900000233,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3821.244053 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 75134.517779,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 75134518000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14425.359297,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14425360000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2342022021,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2342022021 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 134049734,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 134049734 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3300,6 +3234,72 @@ window.BENCHMARK_DATA = {
             "value": 131622903,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 131622903 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "codygunton@gmail.com",
+            "name": "Cody Gunton",
+            "username": "codygunton"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6fd8b49d7bdda4995ec6b017964878faab0e905e",
+          "message": "fix: Don't consider skipping (#10598)\n\nThe relation accumulation method\n`accumulate_relation_evaluations_without_skipping` used by the verifier\nhas been erroneously allowing the verifier to use the skip mechanism via\n`/*consider_skipping=*/true`.\n\nFixing this uncovered an issue with the `EccOpQueueRelation` skip\ncondition which has been resolved.\n\n---------\n\nCo-authored-by: ledwards2225 <l.edwards.d@gmail.com>\nCo-authored-by: iakovenkos <sergey.s.yakovenko@gmail.com>\nCo-authored-by: sergei iakovenko <105737703+iakovenkos@users.noreply.github.com>",
+          "timestamp": "2025-02-19T16:07:08+01:00",
+          "tree_id": "efcc4350a872b1e5f60374e267cd73a840ed1a7e",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/6fd8b49d7bdda4995ec6b017964878faab0e905e"
+        },
+        "date": 1739979189223,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18403.262648999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16124.557427 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18563.016007999977,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16326.078087999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3954.467732000012,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3100.9277029999994 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54703.377405,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54703377000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9883.794893999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9883799000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1839515914,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1839515914 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 130210216,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 130210216 ns\nthreads: 1"
           }
         ]
       }
