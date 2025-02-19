@@ -4,8 +4,10 @@ import { createLogger } from '@aztec/foundation/log';
 export class DataTxValidator implements TxValidator<Tx> {
   #log = createLogger('p2p:tx_validator:tx_data');
 
-  validateTx(tx: Tx): Promise<TxValidationResult> {
-    return this.#hasCorrectExecutionRequests(tx);
+  async validateTx(tx: Tx): Promise<TxValidationResult> {
+    const execRequestRes = this.#hasCorrectExecutionRequests(tx);
+    // Note: If we ever skip txs here, must change this return statement to account for them.
+    return (await execRequestRes).result === 'invalid' ? execRequestRes : this.#hasCorrectContractClassLogs(tx);
   }
 
   async #hasCorrectExecutionRequests(tx: Tx): Promise<TxValidationResult> {
@@ -49,5 +51,46 @@ export class DataTxValidator implements TxValidator<Tx> {
     return { result: 'valid' };
   }
 
-  // TODO: Check logs.
+  async #hasCorrectContractClassLogs(tx: Tx): Promise<TxValidationResult> {
+    const contractClassLogsHashes = tx.data.getNonEmptyContractClassLogsHashes();
+    const hashedContractClasslogs = await Promise.all(tx.contractClassLogs.map(l => l.hash()));
+    if (contractClassLogsHashes.length !== hashedContractClasslogs.length) {
+      this.#log.warn(
+        `Rejecting tx ${Tx.getHash(tx)} because of mismatched number of contract class logs. Expected ${
+          contractClassLogsHashes.length
+        }. Got ${hashedContractClasslogs.length}.`,
+      );
+      return { result: 'invalid', reason: ['Mismatched number of contract class logs'] };
+    }
+    for (const [i, logHash] of contractClassLogsHashes.entries()) {
+      const hashedLog = hashedContractClasslogs[i];
+      if (!logHash.value.equals(hashedLog)) {
+        if (hashedContractClasslogs.some(l => logHash.value.equals(l))) {
+          const matchingLogIndex = hashedContractClasslogs.findIndex(l => logHash.value.equals(l));
+          this.#log.warn(
+            `Rejecting tx ${Tx.getHash(
+              tx,
+            )} because of mismatched contract class logs indices. Expected ${i} from the kernel's log hashes. Got ${matchingLogIndex} in the tx.`,
+          );
+          return { result: 'invalid', reason: ['Incorrectly sorted contract class logs'] };
+        } else {
+          this.#log.warn(
+            `Rejecting tx ${Tx.getHash(tx)} because of mismatched contract class logs. Expected hash ${
+              logHash.value
+            } from the kernels. Got ${hashedLog} in the tx.`,
+          );
+          return { result: 'invalid', reason: ['Mismatched contract class logs'] };
+        }
+      }
+      if (logHash.logHash.length !== tx.contractClassLogs[i].getEmittedLength()) {
+        this.#log.warn(
+          `Rejecting tx ${Tx.getHash(tx)} because of mismatched contract class logs length. Expected ${
+            logHash.logHash.length
+          } from the kernel's log hashes. Got ${tx.contractClassLogs[i].getEmittedLength()} in the tx.`,
+        );
+        return { result: 'invalid', reason: ['Mismatched contract class logs length'] };
+      }
+    }
+    return { result: 'valid' };
+  }
 }
