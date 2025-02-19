@@ -29,6 +29,7 @@ namespace bb {
 template <class Params_> struct alignas(32) field {
   public:
     using View = field;
+    using CoefficientAccumulator = field;
     using Params = Params_;
     using in_buf = const uint8_t*;
     using vec_in_buf = const uint8_t*;
@@ -707,3 +708,13 @@ template <typename B, typename Params> void write(B& buf, field<Params> const& v
 }
 
 } // namespace bb
+
+// Define hash function for field elements, e.g., so that it can be used in maps.
+// See https://en.cppreference.com/w/cpp/utility/hash .
+template <typename Params> struct std::hash<bb::field<Params>> {
+    std::size_t operator()(const bb::field<Params>& ff) const noexcept
+    {
+        return std::hash<uint64_t>()(ff.data[0]) ^ (std::hash<uint64_t>()(ff.data[1]) << 1) ^
+               (std::hash<uint64_t>()(ff.data[2]) << 2) ^ (std::hash<uint64_t>()(ff.data[3]) << 3);
+    }
+};

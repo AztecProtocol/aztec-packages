@@ -9,7 +9,10 @@
 #include <gtest/gtest.h>
 
 using namespace bb;
+<<<<<<< HEAD
 using namespace cdg;
+=======
+>>>>>>> a86b797d059502fbd402550492f9ad13bd4ede1c
 
 using byte_array = stdlib::byte_array<bb::StandardCircuitBuilder>;
 using public_witness_t = stdlib::public_witness_t<bb::StandardCircuitBuilder>;
@@ -27,6 +30,7 @@ TEST(boomerang_stdlib_blake3s, test_single_block_plookup)
     auto builder = UltraBuilder();
     std::string input = "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz01";
     std::vector<uint8_t> input_v(input.begin(), input.end());
+<<<<<<< HEAD
     byte_array_plookup input_arr(&builder, input_v);
     byte_array_plookup output = stdlib::blake3s(input_arr);
     std::vector<uint8_t> expected = blake3::blake3s(input_v);
@@ -35,6 +39,19 @@ TEST(boomerang_stdlib_blake3s, test_single_block_plookup)
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
     EXPECT_EQ(variables_in_one_gate.size(), 0);
+=======
+
+    byte_array_plookup input_arr(&builder, input_v);
+    byte_array_plookup output = stdlib::blake3s(input_arr);
+
+    std::vector<uint8_t> expected = blake3::blake3s(input_v);
+
+    EXPECT_EQ(output.get_value(), expected);
+
+    Graph graph = Graph(builder);
+    auto connected_components = graph.find_connected_components();
+    EXPECT_EQ(connected_components.size(), 1);
+>>>>>>> a86b797d059502fbd402550492f9ad13bd4ede1c
 }
 
 TEST(boomerang_stdlib_blake3s, test_double_block_plookup)
@@ -48,9 +65,17 @@ TEST(boomerang_stdlib_blake3s, test_double_block_plookup)
 
     std::vector<uint8_t> expected = blake3::blake3s(input_v);
 
+<<<<<<< HEAD
     Graph graph = Graph(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
     EXPECT_EQ(variables_in_one_gate.size(), 0);
+=======
+    EXPECT_EQ(output.get_value(), expected);
+
+    Graph graph = Graph(builder);
+    auto connected_components = graph.find_connected_components();
+    EXPECT_EQ(connected_components.size(), 1);
+>>>>>>> a86b797d059502fbd402550492f9ad13bd4ede1c
 }

@@ -5,15 +5,11 @@
 
 namespace bb {
 
-TranslatorVerifier::TranslatorVerifier(const std::shared_ptr<TranslatorVerifier::VerificationKey>& verifier_key,
+TranslatorVerifier::TranslatorVerifier(const std::shared_ptr<VerificationKey>& verifier_key,
                                        const std::shared_ptr<Transcript>& transcript)
     : key(verifier_key)
     , transcript(transcript)
 {}
-
-TranslatorVerifier::TranslatorVerifier(const std::shared_ptr<TranslatorVerifier::ProvingKey>& proving_key,
-                                       const std::shared_ptr<Transcript>& transcript)
-    : TranslatorVerifier(std::make_shared<TranslatorFlavor::VerificationKey>(proving_key), transcript){};
 
 void TranslatorVerifier::put_translation_data_in_relation_parameters(const uint256_t& evaluation_input_x,
                                                                      const BF& batching_challenge_v,
@@ -56,6 +52,8 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
     using Curve = typename Flavor::Curve;
     using PCS = typename Flavor::PCS;
     using Shplemini = ShpleminiVerifier_<Curve>;
+    using ClaimBatcher = ClaimBatcher_<Curve>;
+    using ClaimBatch = ClaimBatcher::Batch;
 
     batching_challenge_v = transcript->template get_challenge<BF>("Translation:batching_challenge");
 
@@ -97,35 +95,52 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
     const size_t log_circuit_size = numeric::get_msb(circuit_size);
     auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    std::vector<FF> gate_challenges(static_cast<size_t>(numeric::get_msb(key->circuit_size)));
+    std::vector<FF> gate_challenges(CONST_PROOF_SIZE_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    auto [multivariate_challenge, claimed_evaluations, libra_evaluations, sumcheck_verified] =
-        sumcheck.verify(relation_parameters, alpha, gate_challenges);
+    // Receive commitments to Libra masking polynomials
+    std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
+    libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
+
+    auto sumcheck_output = sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
     // If Sumcheck did not verify, return false
-    if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
+    if (!sumcheck_output.verified) {
         return false;
     }
 
+    libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
+    libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
+
+    // Execute Shplemini
+    bool consistency_checked = false;
+    ClaimBatcher claim_batcher{
+        .unshifted = ClaimBatch{ commitments.get_unshifted_without_concatenated(),
+                                 sumcheck_output.claimed_evaluations.get_unshifted_without_concatenated() },
+        .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
+    };
     const BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(circuit_size,
-                                               commitments.get_unshifted_without_concatenated(),
-                                               commitments.get_to_be_shifted(),
-                                               claimed_evaluations.get_unshifted_without_concatenated(),
-                                               claimed_evaluations.get_shifted(),
-                                               multivariate_challenge,
+                                               claim_batcher,
+                                               sumcheck_output.challenge,
                                                Commitment::one(),
                                                transcript,
+                                               Flavor::REPEATED_COMMITMENTS,
+                                               Flavor::HasZK,
+                                               &consistency_checked,
+                                               libra_commitments,
+                                               sumcheck_output.claimed_libra_evaluation,
+                                               {},
+                                               {},
                                                commitments.get_groups_to_be_concatenated(),
-                                               claimed_evaluations.get_concatenated());
+                                               sumcheck_output.claimed_evaluations.get_concatenated());
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     auto verified = key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
 
-    return verified;
+    return verified && consistency_checked;
 }
 
 bool TranslatorVerifier::verify_translation(const TranslationEvaluations& translation_evaluations)

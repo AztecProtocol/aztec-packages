@@ -1,20 +1,15 @@
-import { createStatusRouter } from '@aztec/foundation/json-rpc/server';
-import { type DebugLogger } from '@aztec/foundation/log';
+import { startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
+import { type Logger } from '@aztec/foundation/log';
 import { createTXERpcServer } from '@aztec/txe';
 
-import http from 'http';
-
-export const startTXE = (options: any, debugLogger: DebugLogger) => {
+export async function startTXE(options: any, debugLogger: Logger) {
   debugLogger.info(`Setting up TXE...`);
+
   const txeServer = createTXERpcServer(debugLogger);
-  const app = txeServer.getApp();
-  // add status route
-  const statusRouter = createStatusRouter(() => txeServer.isHealthy());
-  app.use(statusRouter.routes()).use(statusRouter.allowedMethods());
+  const { port } = await startHttpRpcServer(txeServer, {
+    port: options.port,
+    timeoutMs: 1e3 * 60 * 5,
+  });
 
-  const httpServer = http.createServer(app.callback());
-  httpServer.timeout = 1e3 * 60 * 5; // 5 minutes
-  httpServer.listen(options.port);
-
-  debugLogger.info(`TXE listening on port ${options.port}`);
-};
+  debugLogger.info(`TXE listening on port ${port}`);
+}

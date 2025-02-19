@@ -2,13 +2,13 @@ use crate::{
     abis::side_effect::{Ordered, Scoped},
     address::AztecAddress,
     constants::{READ_REQUEST_LENGTH, SCOPED_READ_REQUEST_LEN},
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, Serialize, ToField},
     utils::{arrays::array_concat, reader::Reader},
 };
 
 pub struct ReadRequest {
-    value: Field,
-    counter: u32,
+    pub value: Field,
+    pub counter: u32,
 }
 
 impl Ordered for ReadRequest {
@@ -48,8 +48,8 @@ impl ReadRequest {
 }
 
 pub struct ScopedReadRequest {
-    read_request: ReadRequest,
-    contract_address: AztecAddress,
+    pub read_request: ReadRequest,
+    pub contract_address: AztecAddress,
 }
 
 impl Scoped<ReadRequest> for ScopedReadRequest {

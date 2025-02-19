@@ -6,12 +6,13 @@ use dep::types::{
     abis::note_hash_leaf_preimage::NoteHashLeafPreimage,
     constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_TX, NOTE_HASH_TREE_HEIGHT},
     merkle_tree::MembershipWitness,
+    traits::Empty,
 };
 
 pub struct NoteHashSettledReadHint {
-    read_request_index: u32,
-    membership_witness: MembershipWitness<NOTE_HASH_TREE_HEIGHT>,
-    leaf_preimage: NoteHashLeafPreimage,
+    pub read_request_index: u32,
+    pub membership_witness: MembershipWitness<NOTE_HASH_TREE_HEIGHT>,
+    pub leaf_preimage: NoteHashLeafPreimage,
 }
 
 impl ReadValueHint for NoteHashSettledReadHint {
@@ -39,9 +40,9 @@ impl SettledReadHint<NOTE_HASH_TREE_HEIGHT, NoteHashLeafPreimage> for NoteHashSe
 }
 
 pub struct NoteHashReadRequestHints<let NUM_PENDING_HINTS: u32, let NUM_SETTLED_HINTS: u32> {
-    read_request_statuses: [ReadRequestStatus; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
-    pending_read_hints: [PendingReadHint; NUM_PENDING_HINTS],
-    settled_read_hints: [NoteHashSettledReadHint; NUM_SETTLED_HINTS],
+    pub read_request_statuses: [ReadRequestStatus; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
+    pub pending_read_hints: [PendingReadHint; NUM_PENDING_HINTS],
+    pub settled_read_hints: [NoteHashSettledReadHint; NUM_SETTLED_HINTS],
 }
 
 mod tests {
@@ -59,9 +60,9 @@ mod tests {
         address::AztecAddress,
         constants::NOTE_HASH_TREE_HEIGHT,
         hash::compute_siloed_note_hash,
-        merkle_tree::MembershipWitness,
+        merkle_tree::{leaf_preimage::LeafPreimage, MembershipWitness},
         tests::{merkle_tree_utils::NonEmptyMerkleTree, utils::assert_array_eq},
-        traits::is_empty_array,
+        traits::{Empty, FromField, is_empty_array},
     };
 
     struct TestBuilder<let READ_REQUEST_LEN: u32, let PENDING_VALUE_LEN: u32, let NUM_PENDING_READS: u32, let NUM_SETTLED_READS: u32> {
@@ -81,13 +82,14 @@ mod tests {
             let note_hashes = [10, 11, 12, 13];
             let siloed_note_hashes =
                 note_hashes.map(|n| compute_siloed_note_hash(contract_address, n));
-
+            // We don't need to hash it with a real nonce
+            let unique_note_hashes = siloed_note_hashes.map(|note_hash| note_hash + 1000);
             // Create 5 read requests. 0 and 3 are reading settled note hashes. 1, 2 and 4 are reading pending note hashes.
             let read_requests = [
-                ReadRequest { value: note_hashes[1], counter: 11 }.scope(contract_address), // settled
+                ReadRequest { value: unique_note_hashes[1], counter: 11 }.scope(contract_address), // settled
                 ReadRequest { value: note_hashes[3], counter: 13 }.scope(contract_address), // pending
                 ReadRequest { value: note_hashes[2], counter: 39 }.scope(contract_address), // pending
-                ReadRequest { value: note_hashes[0], counter: 46 }.scope(contract_address), // settled
+                ReadRequest { value: unique_note_hashes[0], counter: 46 }.scope(contract_address), // settled
                 ReadRequest { value: note_hashes[3], counter: 78 }.scope(contract_address), // pending
             ];
 
@@ -113,8 +115,8 @@ mod tests {
             ];
 
             let leaf_preimages = [
-                NoteHashLeafPreimage { value: siloed_note_hashes[0] },
-                NoteHashLeafPreimage { value: siloed_note_hashes[1] },
+                NoteHashLeafPreimage { value: unique_note_hashes[0] },
+                NoteHashLeafPreimage { value: unique_note_hashes[1] },
             ];
 
             TestBuilder {
@@ -173,6 +175,7 @@ mod tests {
 
         pub fn verify(self) {
             let (settled_hints, tree_root) = self.get_settled_read_hints();
+            // Safety: this is only used in tests.
             let unverified_read_requests = unsafe { self.get_unverified_read_requests() };
             verify_reset_read_requests(
                 self.read_requests,
@@ -189,7 +192,7 @@ mod tests {
     #[test]
     fn verify_reset_note_hash_read_requests_clears_all_succeeds() {
         let builder = TestBuilder::new();
-
+        // Safety: this is a test.
         let unverified_read_requests = unsafe { builder.get_unverified_read_requests() };
         assert(is_empty_array(unverified_read_requests));
 
@@ -204,6 +207,7 @@ mod tests {
         builder.read_request_statuses[4] = ReadRequestStatus::empty();
 
         let read_requests = builder.read_requests;
+        // Safety: this is a test.
         let unverified_read_requests = unsafe { builder.get_unverified_read_requests() };
         assert_array_eq(
             unverified_read_requests,

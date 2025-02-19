@@ -1,4 +1,4 @@
-global NULLIFIER_LEAF_PREIMAGE_LENGTH: u32 = 3;
+pub global NULLIFIER_LEAF_PREIMAGE_LENGTH: u32 = 3;
 
 use crate::{
     abis::{read_request::ScopedReadRequest, side_effect::Readable},
@@ -8,9 +8,9 @@ use crate::{
 };
 
 pub struct NullifierLeafPreimage {
-    nullifier: Field,
-    next_nullifier: Field,
-    next_index: u32,
+    pub nullifier: Field,
+    pub next_nullifier: Field,
+    pub next_index: u32,
 }
 
 impl Empty for NullifierLeafPreimage {
@@ -39,17 +39,26 @@ impl LeafPreimage for NullifierLeafPreimage {
     }
 }
 
-impl IndexedTreeLeafPreimage for NullifierLeafPreimage {
-    fn get_key(self) -> Field {
-        self.nullifier
-    }
-
+impl IndexedTreeLeafPreimage<Field> for NullifierLeafPreimage {
     fn get_next_key(self) -> Field {
         self.next_nullifier
     }
 
-    fn as_leaf(self) -> Field {
-        self.hash()
+    fn points_to_infinity(self) -> bool {
+        (self.next_nullifier == 0) & (self.next_index == 0)
+    }
+
+    fn update_pointers(self, next_key: Field, next_index: u32) -> Self {
+        Self { nullifier: self.nullifier, next_nullifier: next_key, next_index }
+    }
+
+    fn update_value(self, _nullifier: Field) -> Self {
+        assert(false, "Tried to update a nullifier");
+        Self::empty()
+    }
+
+    fn build_insertion_leaf(nullifier: Field, low_leaf: Self) -> Self {
+        Self { nullifier, next_nullifier: low_leaf.next_nullifier, next_index: low_leaf.next_index }
     }
 }
 

@@ -235,7 +235,6 @@ resource "aws_ecs_task_definition" "aztec-prover-node" {
         { name = "NODE_ENV", value = "production" },
         { name = "LOG_LEVEL", value = "verbose" },
         { name = "LOG_JSON", value = "1" },
-        { name = "DEBUG", value = "aztec:*,-json-rpc:json_proxy:*,-aztec:avm_simulator:*" },
         { name = "DEPLOY_TAG", value = var.DEPLOY_TAG },
         { name = "NETWORK_NAME", value = "${var.DEPLOY_TAG}" },
         { name = "ETHEREUM_HOST", value = "${local.eth_host}" },
@@ -275,6 +274,7 @@ resource "aws_ecs_task_definition" "aztec-prover-node" {
         { name = "OUTBOX_CONTRACT_ADDRESS", value = data.terraform_remote_state.l1_contracts.outputs.outbox_contract_address },
         { name = "REGISTRY_CONTRACT_ADDRESS", value = data.terraform_remote_state.l1_contracts.outputs.registry_contract_address },
         { name = "FEE_JUICE_CONTRACT_ADDRESS", value = data.terraform_remote_state.l1_contracts.outputs.fee_juice_contract_address },
+        { name = "STAKING_ASSET_CONTRACT_ADDRESS", value = data.terraform_remote_state.l1_contracts.outputs.staking_asset_contract_address },
         { name = "FEE_JUICE_PORTAL_CONTRACT_ADDRESS", value = data.terraform_remote_state.l1_contracts.outputs.FEE_JUICE_PORTAL_CONTRACT_ADDRESS },
 
         // P2P (disabled)
@@ -286,7 +286,6 @@ resource "aws_ecs_task_definition" "aztec-prover-node" {
         { name = "P2P_TCP_ANNOUNCE_ADDR", value = ":${var.NODE_P2P_TCP_PORT + count.index}" },
         { name = "P2P_UDP_ANNOUNCE_ADDR", value = ":${var.NODE_P2P_UDP_PORT + count.index}" },
         { name = "P2P_QUERY_FOR_IP", value = "true" },
-        { name = "P2P_MIN_PEERS", value = var.P2P_MIN_PEERS },
         { name = "P2P_MAX_PEERS", value = var.P2P_MAX_PEERS },
         { name = "P2P_BLOCK_CHECK_INTERVAL_MS", value = "1000" },
         { name = "P2P_PEER_CHECK_INTERVAL_MS", value = "2000" },

@@ -1,4 +1,3 @@
-// This will be moved to a separate Read Request Reset Circuit.
 use dep::types::{
     abis::{read_request::ScopedReadRequest, side_effect::Readable},
     merkle_tree::{assert_check_membership, LeafPreimage, MembershipWitness},
@@ -6,16 +5,17 @@ use dep::types::{
 };
 
 pub struct ReadRequestStateEnum {
-    NADA: u8,
-    PENDING: u8,
-    SETTLED: u8,
+    pub NADA: u8,
+    pub PENDING: u8,
+    pub SETTLED: u8,
 }
 
-global ReadRequestState = ReadRequestStateEnum { NADA: 0, PENDING: 1, SETTLED: 2 };
+pub global ReadRequestState: ReadRequestStateEnum =
+    ReadRequestStateEnum { NADA: 0, PENDING: 1, SETTLED: 2 };
 
 pub struct ReadRequestStatus {
-    state: u8,
-    hint_index: u32,
+    pub state: u8,
+    pub hint_index: u32,
 }
 
 impl Empty for ReadRequestStatus {
@@ -34,13 +34,13 @@ impl ReadRequestStatus {
     }
 }
 
-trait ReadValueHint {
+pub trait ReadValueHint {
     fn read_request_index(self) -> u32;
 }
 
 pub struct PendingReadHint {
-    read_request_index: u32,
-    pending_value_index: u32,
+    pub read_request_index: u32,
+    pub pending_value_index: u32,
 }
 
 impl ReadValueHint for PendingReadHint {
@@ -55,7 +55,7 @@ impl PendingReadHint {
     }
 }
 
-trait SettledReadHint<let TREE_HEIGHT: u32, LEAF_PREIMAGE>
+pub trait SettledReadHint<let TREE_HEIGHT: u32, LEAF_PREIMAGE>
 where
     LEAF_PREIMAGE: LeafPreimage,
 {
@@ -189,7 +189,7 @@ pub unconstrained fn get_unverified_read_requests<let READ_REQUEST_LEN: u32>(
             propagated_read_requests.push(read_request);
         }
     }
-    propagated_read_requests.storage
+    propagated_read_requests.storage()
 }
 
 mod tests {
@@ -203,7 +203,7 @@ mod tests {
         address::AztecAddress,
         merkle_tree::{LeafPreimage, MembershipWitness},
         tests::{merkle_tree_utils::NonEmptyMerkleTree, utils::assert_array_eq},
-        traits::{Empty, is_empty_array},
+        traits::{Empty, FromField, is_empty_array},
     };
 
     fn silo_test_value(value: Field) -> Field {
@@ -405,6 +405,7 @@ mod tests {
 
         pub fn verify_with_settled_hints(self, settled_hints: [TestSettledReadHint; 2]) {
             let tree = self.build_tree();
+            // Safety: this is only used in tests.
             let unverified = unsafe { self.get_unverified_read_requests() };
             verify_reset_read_requests(
                 self.read_requests,
@@ -419,6 +420,7 @@ mod tests {
 
         pub fn verify(self) {
             let (settled_hints, tree_root) = self.get_settled_read_hints();
+            // Safety: this is only used in tests.
             let unverified = unsafe { self.get_unverified_read_requests() };
             verify_reset_read_requests(
                 self.read_requests,
@@ -525,7 +527,7 @@ mod tests {
     #[test]
     fn verify_read_requests_clears_all_succeeds() {
         let builder = TestBuilder::new();
-
+        // Safety: this is a test.
         let unverified_read_requests = unsafe { builder.get_unverified_read_requests() };
         assert(is_empty_array(unverified_read_requests));
 
@@ -544,6 +546,7 @@ mod tests {
         settled_hints[0] = builder.get_nada_settled_read_hint();
 
         let read_requests = builder.read_requests;
+        // Safety: this is a test.
         let unverified_read_requests = unsafe { builder.get_unverified_read_requests() };
         assert_array_eq(
             unverified_read_requests,

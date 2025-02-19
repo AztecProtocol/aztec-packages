@@ -15,13 +15,14 @@ struct GoblinProof {
     using FF = MegaFlavor::FF;
 
     HonkProof merge_proof;
-    HonkProof eccvm_proof;
+    ECCVMProof eccvm_proof;
     HonkProof translator_proof;
     ECCVMProver::TranslationEvaluations translation_evaluations;
 
     size_t size() const
     {
-        return merge_proof.size() + eccvm_proof.size() + translator_proof.size() + TranslationEvaluations::size();
+        return merge_proof.size() + eccvm_proof.pre_ipa_proof.size() + eccvm_proof.ipa_proof.size() +
+               translator_proof.size() + TranslationEvaluations::size();
     };
 
     MSGPACK_FIELDS(merge_proof, eccvm_proof, translator_proof, translation_evaluations);

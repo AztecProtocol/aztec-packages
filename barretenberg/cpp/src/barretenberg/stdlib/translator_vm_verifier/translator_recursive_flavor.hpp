@@ -27,7 +27,6 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
   public:
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/990): Establish whether mini_circuit_size pattern is
     // needed
-    static constexpr size_t mini_circuit_size = 2048;
     using CircuitBuilder = BuilderType;
     using Curve = stdlib::bn254<CircuitBuilder>;
     using PCS = KZG<Curve>;
@@ -41,37 +40,10 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
     using NativeVerificationKey = NativeFlavor::VerificationKey;
 
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<NativeFlavor::Curve>;
+
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = true;
-    static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 2048;
-
-    // The size of the circuit which is filled with non-zero values for most polynomials. Most relations (everything
-    // except for Permutation and DeltaRangeConstraint) can be evaluated just on the first chunk
-    // It is also the only parameter that can be changed without updating relations or structures in the flavor
-    static constexpr size_t MINI_CIRCUIT_SIZE = mini_circuit_size;
-
     // None of this parameters can be changed
-
-    // How many mini_circuit_size polynomials are concatenated in one concatenated_*
-    static constexpr size_t CONCATENATION_GROUP_SIZE = NativeFlavor::CONCATENATION_GROUP_SIZE;
-
-    // The number of concatenated_* wires
-    static constexpr size_t NUM_CONCATENATED_WIRES = NativeFlavor::NUM_CONCATENATED_WIRES;
-
-    // Actual circuit size
-    static constexpr size_t FULL_CIRCUIT_SIZE = MINI_CIRCUIT_SIZE * CONCATENATION_GROUP_SIZE;
-
-    // Number of wires
-    static constexpr size_t NUM_WIRES = NativeFlavor::NUM_WIRES;
-
-    // The step in the DeltaRangeConstraint relation
-    static constexpr size_t SORT_STEP = NativeFlavor::SORT_STEP;
-
-    // The bitness of the range constraint
-    static constexpr size_t MICRO_LIMB_BITS = NativeFlavor::MICRO_LIMB_BITS;
-
-    // The limbs of the modulus we are emulating in the goblin translator. 4 binary 68-bit limbs and the prime one
-    static constexpr auto NEGATIVE_MODULUS_LIMBS = NativeFlavor::NEGATIVE_MODULUS_LIMBS;
 
     // Number of bits in a binary limb
     // This is not a configurable value. Relations are sepcifically designed for it to be 68
@@ -87,15 +59,17 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = NativeFlavor::NUM_WITNESS_ENTITIES;
 
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = NativeFlavor::REPEATED_COMMITMENTS;
+
     using Relations = TranslatorFlavor::Relations_<FF>;
 
-    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations, true>();
+    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
     static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
     // length = 3
-    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
+    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = NativeFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
     // define the containers for storing the contributions from each relation in Sumcheck

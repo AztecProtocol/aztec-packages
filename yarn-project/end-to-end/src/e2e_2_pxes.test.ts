@@ -1,17 +1,8 @@
-import { getUnsafeSchnorrAccount } from '@aztec/accounts/single_key';
-import { createAccounts } from '@aztec/accounts/testing';
-import {
-  type AztecAddress,
-  type AztecNode,
-  type DebugLogger,
-  type ExtendedNote,
-  Fr,
-  type PXE,
-  type Wallet,
-  retryUntil,
-  sleep,
-} from '@aztec/aztec.js';
-import { ChildContract, TestContract, TokenContract } from '@aztec/noir-contracts.js';
+import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { type InitialAccountData, deployFundedSchnorrAccount } from '@aztec/accounts/testing';
+import { type AztecAddress, type AztecNode, Fr, type Logger, type PXE, type Wallet, sleep } from '@aztec/aztec.js';
+import { ChildContract } from '@aztec/noir-contracts.js/Child';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { expect, jest } from '@jest/globals';
 
@@ -28,7 +19,8 @@ describe('e2e_2_pxes', () => {
   let pxeB: PXE;
   let walletA: Wallet;
   let walletB: Wallet;
-  let logger: DebugLogger;
+  let initialFundedAccounts: InitialAccountData[];
+  let logger: Logger;
   let teardownA: () => Promise<void>;
   let teardownB: () => Promise<void>;
 
@@ -36,17 +28,26 @@ describe('e2e_2_pxes', () => {
     ({
       aztecNode,
       pxe: pxeA,
-      wallets: [walletA],
+      initialFundedAccounts,
       logger,
       teardown: teardownA,
-    } = await setup(1));
+    } = await setup(0, { numberOfInitialFundedAccounts: 3 }));
 
+    // Deploy accountA via pxeA.
+    const accountA = await deployFundedSchnorrAccount(pxeA, initialFundedAccounts[0]);
+    walletA = await accountA.getWallet();
+
+    // Deploy accountB via pxeB.
     ({ pxe: pxeB, teardown: teardownB } = await setupPXEService(aztecNode!, {}, undefined, true));
+    const accountB = await deployFundedSchnorrAccount(pxeB, initialFundedAccounts[1]);
+    walletB = await accountB.getWallet();
 
-    [walletB] = await createAccounts(pxeB, 1);
     /*TODO(post-honk): We wait 5 seconds for a race condition in setting up two nodes.
      What is a more robust solution? */
     await sleep(5000);
+
+    await walletA.registerSender(walletB.getAddress());
+    await walletB.registerSender(walletA.getAddress());
   });
 
   afterEach(async () => {
@@ -99,20 +100,11 @@ describe('e2e_2_pxes', () => {
     return contract.instance;
   };
 
-  const awaitServerSynchronized = async (server: PXE) => {
-    const isServerSynchronized = async () => {
-      return await server.isGlobalStateSynchronized();
-    };
-    await retryUntil(isServerSynchronized, 'server sync', 10);
-  };
-
   const getChildStoredValue = (child: { address: AztecAddress }, pxe: PXE) =>
     pxe.getPublicStorageAt(child.address, new Fr(1));
 
   it('user calls a public function on a contract deployed by a different user using a different PXE', async () => {
     const childCompleteAddress = await deployChildContractViaServerA();
-
-    await awaitServerSynchronized(pxeA);
 
     // Add Child to PXE B
     await pxeB.registerContract({
@@ -124,8 +116,6 @@ describe('e2e_2_pxes', () => {
 
     const childContractWithWalletB = await ChildContract.at(childCompleteAddress.address, walletB);
     await childContractWithWalletB.methods.pub_inc_value(newValueToSet).send().wait({ interval: 0.1 });
-
-    await awaitServerSynchronized(pxeA);
 
     const storedValueOnB = await getChildStoredValue(childCompleteAddress, pxeB);
     expect(storedValueOnB).toEqual(newValueToSet);
@@ -152,30 +142,10 @@ describe('e2e_2_pxes', () => {
     await expectTokenBalance(walletB, token, walletB.getAddress(), userBBalance, logger);
 
     // CHECK THAT PRIVATE BALANCES ARE 0 WHEN ACCOUNT'S SECRET KEYS ARE NOT REGISTERED
-    // Note: Not checking if the account is synchronized because it is not registered as an account (it would throw).
-    const checkIfSynchronized = false;
     // Check that user A balance is 0 on server B
-    await expectTokenBalance(walletB, token, walletA.getAddress(), 0n, logger, checkIfSynchronized);
+    await expectTokenBalance(walletB, token, walletA.getAddress(), 0n, logger);
     // Check that user B balance is 0 on server A
-    await expectTokenBalance(walletA, token, walletB.getAddress(), 0n, logger, checkIfSynchronized);
-  });
-
-  it('permits migrating an account from one PXE to another', async () => {
-    const secretKey = Fr.random();
-    const account = getUnsafeSchnorrAccount(pxeA, secretKey, Fr.random());
-    const completeAddress = account.getCompleteAddress();
-    const wallet = await account.waitSetup();
-
-    await expect(wallet.isAccountStateSynchronized(completeAddress.address)).resolves.toBe(true);
-    const accountOnB = getUnsafeSchnorrAccount(pxeB, secretKey, account.salt);
-    const walletOnB = await accountOnB.getWallet();
-
-    // need to register first otherwise the new PXE won't know about the account
-    await expect(walletOnB.isAccountStateSynchronized(completeAddress.address)).rejects.toThrow();
-
-    await accountOnB.register();
-    // registering should wait for the account to be synchronized
-    await expect(walletOnB.isAccountStateSynchronized(completeAddress.address)).resolves.toBe(true);
+    await expectTokenBalance(walletA, token, walletB.getAddress(), 0n, logger);
   });
 
   it('permits sending funds to a user before they have registered the contract', async () => {
@@ -204,22 +174,30 @@ describe('e2e_2_pxes', () => {
     const transferAmount2 = 323n;
 
     // setup an account that is shared across PXEs
-    const sharedSecretKey = Fr.random();
-    const sharedAccountOnA = getUnsafeSchnorrAccount(pxeA, sharedSecretKey, Fr.random());
-    const sharedAccountAddress = sharedAccountOnA.getCompleteAddress();
-    const sharedWalletOnA = await sharedAccountOnA.waitSetup();
-    await expect(sharedWalletOnA.isAccountStateSynchronized(sharedAccountAddress.address)).resolves.toBe(true);
+    const sharedAccount = initialFundedAccounts[2];
+    const sharedAccountOnA = await deployFundedSchnorrAccount(pxeA, sharedAccount);
+    const sharedWalletOnA = await sharedAccountOnA.getWallet();
+    const sharedAccountAddress = sharedWalletOnA.getAddress();
+    await sharedWalletOnA.registerSender(walletA.getAddress());
 
-    const sharedAccountOnB = getUnsafeSchnorrAccount(pxeB, sharedSecretKey, sharedAccountOnA.salt);
+    // Register the shared account on pxeB.
+    const sharedAccountOnB = await getSchnorrAccount(
+      pxeB,
+      sharedAccount.secret,
+      sharedAccount.signingKey,
+      sharedAccount.salt,
+    );
     await sharedAccountOnB.register();
     const sharedWalletOnB = await sharedAccountOnB.getWallet();
+
+    await sharedWalletOnB.registerSender(sharedAccountAddress);
 
     // deploy the contract on PXE A
     const token = await deployToken(walletA, initialBalance, logger);
 
     // Transfer funds from A to Shared Wallet via PXE A
     const contractWithWalletA = await TokenContract.at(token.address, walletA);
-    await contractWithWalletA.methods.transfer(sharedAccountAddress.address, transferAmount1).send().wait();
+    await contractWithWalletA.methods.transfer(sharedAccountAddress, transferAmount1).send().wait();
 
     // Now send funds from Shared Wallet to B via PXE A
     const contractWithSharedWalletA = await TokenContract.at(token.address, sharedWalletOnA);
@@ -227,13 +205,7 @@ describe('e2e_2_pxes', () => {
 
     // check balances from PXE-A's perspective
     await expectTokenBalance(walletA, token, walletA.getAddress(), initialBalance - transferAmount1, logger);
-    await expectTokenBalance(
-      sharedWalletOnA,
-      token,
-      sharedAccountAddress.address,
-      transferAmount1 - transferAmount2,
-      logger,
-    );
+    await expectTokenBalance(sharedWalletOnA, token, sharedAccountAddress, transferAmount1 - transferAmount2, logger);
 
     // now add the contract and check balances from PXE-B's perspective.
     // The process should be:
@@ -242,61 +214,6 @@ describe('e2e_2_pxes', () => {
     // PXE-B reprocesses the deferred notes, and sees the nullifier for A -> Shared
     await pxeB.registerContract(token);
     await expectTokenBalance(walletB, token, walletB.getAddress(), transferAmount2, logger);
-    await expect(sharedWalletOnB.isAccountStateSynchronized(sharedAccountAddress.address)).resolves.toBe(true);
-    await expectTokenBalance(
-      sharedWalletOnB,
-      token,
-      sharedAccountAddress.address,
-      transferAmount1 - transferAmount2,
-      logger,
-    );
-  });
-
-  it('adds and fetches a nullified note', async () => {
-    // 1. Deploys test contract through PXE A
-    const testContract = await TestContract.deploy(walletA).send().deployed();
-
-    // 2. Create a note
-    const noteStorageSlot = 10;
-    const noteValue = 5;
-    let note: ExtendedNote;
-    {
-      const owner = walletA.getAddress();
-      const outgoingViewer = owner;
-
-      const receipt = await testContract.methods
-        .call_create_note(noteValue, owner, outgoingViewer, noteStorageSlot)
-        .send()
-        .wait({ debug: true });
-      const { visibleIncomingNotes, visibleOutgoingNotes } = receipt.debugInfo!;
-      expect(visibleIncomingNotes).toHaveLength(1);
-      note = visibleIncomingNotes![0];
-
-      // Since owner is the same as outgoing viewer the incoming and outgoing notes should be the same
-      expect(visibleOutgoingNotes).toHaveLength(1);
-      expect(visibleOutgoingNotes![0]).toEqual(note);
-    }
-
-    // 3. Nullify the note
-    {
-      const receipt = await testContract.methods.call_destroy_note(noteStorageSlot).send().wait({ debug: true });
-      // Check that we got 2 nullifiers - 1 for tx hash, 1 for the note
-      expect(receipt.debugInfo?.nullifiers).toHaveLength(2);
-    }
-
-    // 4. Adds the nullified public key note to PXE B
-    {
-      // We need to register the contract to be able to compute the note hash by calling compute_note_hash_and_optionally_a_nullifier(...)
-      await pxeB.registerContract(testContract);
-      await pxeB.addNullifiedNote(note);
-    }
-
-    // 5. Try fetching the nullified note
-    {
-      const testContractWithWalletB = await TestContract.at(testContract.address, walletB);
-      const noteValue = await testContractWithWalletB.methods.call_get_notes(noteStorageSlot, true).simulate();
-      expect(noteValue).toBe(noteValue);
-      // --> We have successfully obtained the nullified note from PXE B verifying that pxe.addNullifiedNote(...) works
-    }
+    await expectTokenBalance(sharedWalletOnB, token, sharedAccountAddress, transferAmount1 - transferAmount2, logger);
   });
 });

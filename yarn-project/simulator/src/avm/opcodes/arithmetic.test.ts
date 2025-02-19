@@ -231,7 +231,6 @@ describe('Arithmetic Instructions', () => {
     });
 
     describe.each([
-      [new Field(200n), new Field(99n), new Field(2n), TypeTag.FIELD],
       [new Uint8(200n), new Uint8(99n), new Uint8(2n), TypeTag.UINT8],
       [new Uint16(200n), new Uint16(99n), new Uint16(2n), TypeTag.UINT16],
       [new Uint32(200n), new Uint32(99n), new Uint32(2n), TypeTag.UINT32],

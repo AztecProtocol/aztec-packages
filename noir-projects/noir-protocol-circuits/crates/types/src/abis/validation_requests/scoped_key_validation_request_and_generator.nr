@@ -5,13 +5,13 @@ use crate::{
     },
     address::AztecAddress,
     constants::SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH,
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, Serialize, ToField},
     utils::{arrays::array_concat, reader::Reader},
 };
 
 pub struct ScopedKeyValidationRequestAndGenerator {
-    request: KeyValidationRequestAndGenerator,
-    contract_address: AztecAddress,
+    pub request: KeyValidationRequestAndGenerator,
+    pub contract_address: AztecAddress,
 }
 
 impl Scoped<KeyValidationRequestAndGenerator> for ScopedKeyValidationRequestAndGenerator {

@@ -1,4 +1,4 @@
-import { InboxLeaf, L2Block, LogId, LogType, TxHash } from '@aztec/circuit-types';
+import { InboxLeaf, L2Block, LogId, TxEffect, TxHash, wrapInBlock } from '@aztec/circuit-types';
 import '@aztec/circuit-types/jest';
 import {
   AztecAddress,
@@ -7,16 +7,21 @@ import {
   Fr,
   INITIAL_L2_BLOCK_NUM,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
+  MAX_NULLIFIERS_PER_TX,
+  PRIVATE_LOG_SIZE_IN_FIELDS,
+  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
+  PrivateLog,
+  PublicLog,
   SerializableContractInstance,
+  computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
 import {
   makeContractClassPublic,
   makeExecutablePrivateFunctionWithMembershipProof,
   makeUnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js/testing';
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { times } from '@aztec/foundation/collection';
-import { randomBytes, randomInt } from '@aztec/foundation/crypto';
+import { times, timesParallel } from '@aztec/foundation/collection';
+import { randomInt } from '@aztec/foundation/crypto';
 
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from './archiver_store.js';
 import { type L1Published } from './structs/published.js';
@@ -25,7 +30,10 @@ import { type L1Published } from './structs/published.js';
  * @param testName - The name of the test suite.
  * @param getStore - Returns an instance of a store that's already been initialized.
  */
-export function describeArchiverDataStore(testName: string, getStore: () => ArchiverDataStore) {
+export function describeArchiverDataStore(
+  testName: string,
+  getStore: () => ArchiverDataStore | Promise<ArchiverDataStore>,
+) {
   describe(testName, () => {
     let store: ArchiverDataStore;
     let blocks: L1Published<L2Block>[];
@@ -37,12 +45,18 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       [5, 2, () => blocks.slice(4, 6)],
     ];
 
-    beforeEach(() => {
-      store = getStore();
-      blocks = times(10, i => ({
-        data: L2Block.random(i + 1),
-        l1: { blockNumber: BigInt(i + 10), blockHash: `0x${i}`, timestamp: BigInt(i * 1000) },
-      }));
+    const makeL1Published = (block: L2Block, l1BlockNumber: number): L1Published<L2Block> => ({
+      data: block,
+      l1: {
+        blockNumber: BigInt(l1BlockNumber),
+        blockHash: `0x${l1BlockNumber}`,
+        timestamp: BigInt(l1BlockNumber * 1000),
+      },
+    });
+
+    beforeEach(async () => {
+      store = await getStore();
+      blocks = await timesParallel(10, async i => makeL1Published(await L2Block.random(i + 1), i + 10));
     });
 
     describe('addBlocks', () => {
@@ -67,6 +81,21 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
 
         expect(await store.getSynchedL2BlockNumber()).toBe(blockNumber - 1);
         expect(await store.getBlocks(blockNumber, 1)).toEqual([]);
+      });
+
+      it('can unwind multiple empty blocks', async () => {
+        const emptyBlocks = await timesParallel(10, async i => makeL1Published(await L2Block.random(i + 1, 0), i + 10));
+        await store.addBlocks(emptyBlocks);
+        expect(await store.getSynchedL2BlockNumber()).toBe(10);
+
+        await store.unwindBlocks(10, 3);
+        expect(await store.getSynchedL2BlockNumber()).toBe(7);
+        expect((await store.getBlocks(1, 10)).map(b => b.data.number)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+      });
+
+      it('refuses to unwind blocks if the tip is not the last block', async () => {
+        await store.addBlocks(blocks);
+        await expect(store.unwindBlocks(5, 1)).rejects.toThrow(/can only unwind blocks from the tip/i);
       });
     });
 
@@ -132,55 +161,41 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
     });
 
     describe('addLogs', () => {
-      it('adds encrypted & unencrypted logs', async () => {
+      it('adds private & public logs', async () => {
         const block = blocks[0].data;
         await expect(store.addLogs([block])).resolves.toEqual(true);
       });
     });
 
     describe('deleteLogs', () => {
-      it('deletes encrypted & unencrypted logs', async () => {
+      it('deletes private & public logs', async () => {
         const block = blocks[0].data;
         await store.addBlocks([blocks[0]]);
         await expect(store.addLogs([block])).resolves.toEqual(true);
 
-        expect((await store.getLogs(1, 1, LogType.NOTEENCRYPTED))[0]).toEqual(block.body.noteEncryptedLogs);
-        expect((await store.getLogs(1, 1, LogType.ENCRYPTED))[0]).toEqual(block.body.encryptedLogs);
-        expect((await store.getLogs(1, 1, LogType.UNENCRYPTED))[0]).toEqual(block.body.unencryptedLogs);
+        expect((await store.getPrivateLogs(1, 1)).length).toEqual(
+          block.body.txEffects.map(txEffect => txEffect.privateLogs).flat().length,
+        );
+        expect((await store.getPublicLogs({ fromBlock: 1 })).logs.length).toEqual(
+          block.body.txEffects.map(txEffect => txEffect.publicLogs).flat().length,
+        );
 
         // This one is a pain for memory as we would never want to just delete memory in the middle.
         await store.deleteLogs([block]);
 
-        expect((await store.getLogs(1, 1, LogType.NOTEENCRYPTED))[0]).toEqual(undefined);
-        expect((await store.getLogs(1, 1, LogType.ENCRYPTED))[0]).toEqual(undefined);
-        expect((await store.getLogs(1, 1, LogType.UNENCRYPTED))[0]).toEqual(undefined);
+        expect((await store.getPrivateLogs(1, 1)).length).toEqual(0);
+        expect((await store.getPublicLogs({ fromBlock: 1 })).logs.length).toEqual(0);
       });
     });
 
-    describe.each([
-      ['note_encrypted', LogType.NOTEENCRYPTED],
-      ['encrypted', LogType.ENCRYPTED],
-      ['unencrypted', LogType.UNENCRYPTED],
-    ])('getLogs (%s)', (_, logType) => {
-      beforeEach(async () => {
-        await store.addBlocks(blocks);
-        await store.addLogs(blocks.map(b => b.data));
-      });
+    describe('getPrivateLogs', () => {
+      it('gets added private logs', async () => {
+        const block = blocks[0].data;
+        await store.addBlocks([blocks[0]]);
+        await store.addLogs([block]);
 
-      it.each(blockTests)('retrieves previously stored logs', async (from, limit, getExpectedBlocks) => {
-        const expectedLogs = getExpectedBlocks().map(block => {
-          switch (logType) {
-            case LogType.ENCRYPTED:
-              return block.data.body.encryptedLogs;
-            case LogType.NOTEENCRYPTED:
-              return block.data.body.noteEncryptedLogs;
-            case LogType.UNENCRYPTED:
-            default:
-              return block.data.body.unencryptedLogs;
-          }
-        });
-        const actualLogs = await store.getLogs(from, limit, logType);
-        expect(actualLogs[0].txLogs[0]).toEqual(expectedLogs[0].txLogs[0]);
+        const privateLogs = await store.getPrivateLogs(1, 1);
+        expect(privateLogs).toEqual(block.body.txEffects.map(txEffect => txEffect.privateLogs).flat());
       });
     });
 
@@ -191,37 +206,37 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
 
       it.each([
-        () => blocks[0].data.body.txEffects[0],
-        () => blocks[9].data.body.txEffects[3],
-        () => blocks[3].data.body.txEffects[1],
-        () => blocks[5].data.body.txEffects[2],
-        () => blocks[1].data.body.txEffects[0],
+        () => wrapInBlock(blocks[0].data.body.txEffects[0], blocks[0].data),
+        () => wrapInBlock(blocks[9].data.body.txEffects[3], blocks[9].data),
+        () => wrapInBlock(blocks[3].data.body.txEffects[1], blocks[3].data),
+        () => wrapInBlock(blocks[5].data.body.txEffects[2], blocks[5].data),
+        () => wrapInBlock(blocks[1].data.body.txEffects[0], blocks[1].data),
       ])('retrieves a previously stored transaction', async getExpectedTx => {
-        const expectedTx = getExpectedTx();
-        const actualTx = await store.getTxEffect(expectedTx.txHash);
+        const expectedTx = await getExpectedTx();
+        const actualTx = await store.getTxEffect(expectedTx.data.txHash);
         expect(actualTx).toEqual(expectedTx);
       });
 
       it('returns undefined if tx is not found', async () => {
-        await expect(store.getTxEffect(new TxHash(Fr.random().toBuffer()))).resolves.toBeUndefined();
+        await expect(store.getTxEffect(TxHash.random())).resolves.toBeUndefined();
       });
 
       it.each([
-        () => blocks[0].data.body.txEffects[0],
-        () => blocks[9].data.body.txEffects[3],
-        () => blocks[3].data.body.txEffects[1],
-        () => blocks[5].data.body.txEffects[2],
-        () => blocks[1].data.body.txEffects[0],
+        () => wrapInBlock(blocks[0].data.body.txEffects[0], blocks[0].data),
+        () => wrapInBlock(blocks[9].data.body.txEffects[3], blocks[9].data),
+        () => wrapInBlock(blocks[3].data.body.txEffects[1], blocks[3].data),
+        () => wrapInBlock(blocks[5].data.body.txEffects[2], blocks[5].data),
+        () => wrapInBlock(blocks[1].data.body.txEffects[0], blocks[1].data),
       ])('tries to retrieves a previously stored transaction after deleted', async getExpectedTx => {
         await store.unwindBlocks(blocks.length, blocks.length);
 
-        const expectedTx = getExpectedTx();
-        const actualTx = await store.getTxEffect(expectedTx.txHash);
+        const expectedTx = await getExpectedTx();
+        const actualTx = await store.getTxEffect(expectedTx.data.txHash);
         expect(actualTx).toEqual(undefined);
       });
 
       it('returns undefined if tx is not found', async () => {
-        await expect(store.getTxEffect(new TxHash(Fr.random().toBuffer()))).resolves.toBeUndefined();
+        await expect(store.getTxEffect(TxHash.random())).resolves.toBeUndefined();
       });
     });
 
@@ -264,7 +279,12 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       const blockNum = 10;
 
       beforeEach(async () => {
-        contractInstance = { ...SerializableContractInstance.random(), address: AztecAddress.random() };
+        const classId = Fr.random();
+        const randomInstance = await SerializableContractInstance.random({
+          currentContractClassId: classId,
+          originalContractClassId: classId,
+        });
+        contractInstance = { ...randomInstance, address: await AztecAddress.random() };
         await store.addContractInstances([contractInstance], blockNum);
       });
 
@@ -273,7 +293,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
 
       it('returns undefined if contract instance is not found', async () => {
-        await expect(store.getContractInstance(AztecAddress.random())).resolves.toBeUndefined();
+        await expect(store.getContractInstance(await AztecAddress.random())).resolves.toBeUndefined();
       });
 
       it('returns undefined if previously stored contract instances was deleted', async () => {
@@ -287,8 +307,12 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       const blockNum = 10;
 
       beforeEach(async () => {
-        contractClass = makeContractClassPublic();
-        await store.addContractClasses([contractClass], blockNum);
+        contractClass = await makeContractClassPublic();
+        await store.addContractClasses(
+          [contractClass],
+          [await computePublicBytecodeCommitment(contractClass.packedBytecode)],
+          blockNum,
+        );
       });
 
       it('returns previously stored contract class', async () => {
@@ -301,7 +325,11 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
 
       it('returns contract class if later "deployment" class was deleted', async () => {
-        await store.addContractClasses([contractClass], blockNum + 1);
+        await store.addContractClasses(
+          [contractClass],
+          [await computePublicBytecodeCommitment(contractClass.packedBytecode)],
+          blockNum + 1,
+        );
         await store.deleteContractClasses([contractClass], blockNum + 1);
         await expect(store.getContractClass(contractClass.id)).resolves.toMatchObject(contractClass);
       });
@@ -342,132 +370,211 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
     });
 
     describe('getLogsByTags', () => {
-      const txsPerBlock = 4;
-      const numPrivateFunctionCalls = 3;
-      const numNoteEncryptedLogs = 2;
-      const numBlocks = 10;
+      const numBlocks = 3;
+      const numTxsPerBlock = 4;
+      const numPrivateLogsPerTx = 3;
+      const numPublicLogsPerTx = 2;
+
       let blocks: L1Published<L2Block>[];
-      let tags: { [i: number]: { [j: number]: Buffer[] } } = {};
+
+      const makeTag = (blockNumber: number, txIndex: number, logIndex: number, isPublic = false) =>
+        new Fr((blockNumber * 100 + txIndex * 10 + logIndex) * (isPublic ? 123 : 1));
+
+      // See parseLogFromPublic
+      // Search the codebase for "disgusting encoding" to see other hardcoded instances of this encoding, that you might need to change if you ever find yourself here.
+      const makeLengthsField = (publicValuesLen: number, privateValuesLen: number) => {
+        const buf = Buffer.alloc(32);
+        buf.writeUint16BE(publicValuesLen, 27);
+        buf.writeUint16BE(privateValuesLen, 30);
+        return Fr.fromBuffer(buf);
+      };
+
+      const makePrivateLog = (tag: Fr) =>
+        PrivateLog.fromFields([tag, ...times(PRIVATE_LOG_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i))]);
+
+      // The tag lives in field 1, not 0, of a public log
+      // See extractTaggedLogsFromPublic and noir-projects/aztec-nr/aztec/src/macros/notes/mod.nr -> emit_log
+      const makePublicLog = (tag: Fr) =>
+        PublicLog.fromFields([
+          AztecAddress.fromNumber(1).toField(), // log address
+          makeLengthsField(2, PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 3), // field 0
+          tag, // field 1
+          ...times(PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i)), // fields 2 to end
+        ]);
+
+      const mockPrivateLogs = (blockNumber: number, txIndex: number) => {
+        return times(numPrivateLogsPerTx, (logIndex: number) => {
+          const tag = makeTag(blockNumber, txIndex, logIndex);
+          return makePrivateLog(tag);
+        });
+      };
+
+      const mockPublicLogs = (blockNumber: number, txIndex: number) => {
+        return times(numPublicLogsPerTx, (logIndex: number) => {
+          const tag = makeTag(blockNumber, txIndex, logIndex, /* isPublic */ true);
+          return makePublicLog(tag);
+        });
+      };
+
+      const mockBlockWithLogs = async (blockNumber: number): Promise<L1Published<L2Block>> => {
+        const block = await L2Block.random(blockNumber);
+        block.header.globalVariables.blockNumber = new Fr(blockNumber);
+
+        block.body.txEffects = await timesParallel(numTxsPerBlock, async (txIndex: number) => {
+          const txEffect = await TxEffect.random();
+          txEffect.privateLogs = mockPrivateLogs(blockNumber, txIndex);
+          txEffect.publicLogs = mockPublicLogs(blockNumber, txIndex);
+          return txEffect;
+        });
+
+        return {
+          data: block,
+          l1: { blockNumber: BigInt(blockNumber), blockHash: `0x${blockNumber}`, timestamp: BigInt(blockNumber) },
+        };
+      };
 
       beforeEach(async () => {
-        blocks = times(numBlocks, (index: number) => ({
-          data: L2Block.random(index + 1, txsPerBlock, numPrivateFunctionCalls, 2, numNoteEncryptedLogs, 2),
-          l1: { blockNumber: BigInt(index), blockHash: `0x${index}`, timestamp: BigInt(index) },
-        }));
-        // Last block has the note encrypted log tags of the first tx copied from the previous block
-        blocks[numBlocks - 1].data.body.noteEncryptedLogs.txLogs[0].functionLogs.forEach((fnLogs, fnIndex) => {
-          fnLogs.logs.forEach((log, logIndex) => {
-            const previousLogData =
-              blocks[numBlocks - 2].data.body.noteEncryptedLogs.txLogs[0].functionLogs[fnIndex].logs[logIndex].data;
-            previousLogData.copy(log.data, 0, 0, 32);
-          });
-        });
-        // Last block has invalid tags in the second tx
-        const tooBig = toBufferBE(Fr.MODULUS, 32);
-        blocks[numBlocks - 1].data.body.noteEncryptedLogs.txLogs[1].functionLogs.forEach(fnLogs => {
-          fnLogs.logs.forEach(log => {
-            tooBig.copy(log.data, 0, 0, 32);
-          });
-        });
+        blocks = await timesParallel(numBlocks, (index: number) => mockBlockWithLogs(index));
 
         await store.addBlocks(blocks);
         await store.addLogs(blocks.map(b => b.data));
-
-        tags = {};
-        blocks.forEach((b, blockIndex) => {
-          if (!tags[blockIndex]) {
-            tags[blockIndex] = {};
-          }
-          b.data.body.noteEncryptedLogs.txLogs.forEach((txLogs, txIndex) => {
-            if (!tags[blockIndex][txIndex]) {
-              tags[blockIndex][txIndex] = [];
-            }
-            tags[blockIndex][txIndex].push(...txLogs.unrollLogs().map(log => log.data.subarray(0, 32)));
-          });
-        });
       });
 
-      it('is possible to batch request all logs of a tx via tags', async () => {
-        // get random tx from any block that's not the last one
-        const targetBlockIndex = randomInt(numBlocks - 2);
-        const targetTxIndex = randomInt(txsPerBlock);
+      it('is possible to batch request private logs via tags', async () => {
+        const tags = [makeTag(1, 1, 2), makeTag(0, 2, 0)];
 
-        const logsByTags = await store.getLogsByTags(
-          tags[targetBlockIndex][targetTxIndex].map(buffer => new Fr(buffer)),
-        );
+        const logsByTags = await store.getLogsByTags(tags);
 
-        const expectedResponseSize = numPrivateFunctionCalls * numNoteEncryptedLogs;
-        expect(logsByTags.length).toEqual(expectedResponseSize);
-
-        logsByTags.forEach((logsByTag, logIndex) => {
-          expect(logsByTag).toHaveLength(1);
-          const [log] = logsByTag;
-          expect(log).toEqual(
-            blocks[targetBlockIndex].data.body.noteEncryptedLogs.txLogs[targetTxIndex].unrollLogs()[logIndex],
-          );
-        });
+        expect(logsByTags).toEqual([
+          [
+            expect.objectContaining({
+              blockNumber: 1,
+              logData: makePrivateLog(tags[0]).toBuffer(),
+              isFromPublic: false,
+            }),
+          ],
+          [
+            expect.objectContaining({
+              blockNumber: 0,
+              logData: makePrivateLog(tags[1]).toBuffer(),
+              isFromPublic: false,
+            }),
+          ],
+        ]);
       });
 
-      it('is possible to batch request all logs of different blocks via tags', async () => {
-        // get first tx of first block and second tx of second block
-        const logsByTags = await store.getLogsByTags([...tags[0][0], ...tags[1][1]].map(buffer => new Fr(buffer)));
+      it('is possible to batch request all logs (private and public) via tags', async () => {
+        // Tag(0, 0, 0) is shared with the first private log and the first public log.
+        const tags = [makeTag(0, 0, 0)];
 
-        const expectedResponseSize = 2 * numPrivateFunctionCalls * numNoteEncryptedLogs;
-        expect(logsByTags.length).toEqual(expectedResponseSize);
+        const logsByTags = await store.getLogsByTags(tags);
 
-        logsByTags.forEach(logsByTag => expect(logsByTag).toHaveLength(1));
+        expect(logsByTags).toEqual([
+          [
+            expect.objectContaining({
+              blockNumber: 0,
+              logData: makePrivateLog(tags[0]).toBuffer(),
+              isFromPublic: false,
+            }),
+            expect.objectContaining({
+              blockNumber: 0,
+              logData: makePublicLog(tags[0]).toBuffer(),
+              isFromPublic: true,
+            }),
+          ],
+        ]);
       });
 
       it('is possible to batch request logs that have the same tag but different content', async () => {
-        // get first tx of last block
-        const logsByTags = await store.getLogsByTags(tags[numBlocks - 1][0].map(buffer => new Fr(buffer)));
+        const tags = [makeTag(1, 2, 1)];
 
-        const expectedResponseSize = numPrivateFunctionCalls * numNoteEncryptedLogs;
-        expect(logsByTags.length).toEqual(expectedResponseSize);
+        // Create a block containing logs that have the same tag as the blocks before.
+        const newBlockNumber = numBlocks;
+        const newBlock = await mockBlockWithLogs(newBlockNumber);
+        const newLog = newBlock.data.body.txEffects[1].privateLogs[1];
+        newLog.fields[0] = tags[0];
+        newBlock.data.body.txEffects[1].privateLogs[1] = newLog;
+        await store.addBlocks([newBlock]);
+        await store.addLogs([newBlock.data]);
 
-        logsByTags.forEach(logsByTag => {
-          expect(logsByTag).toHaveLength(2);
-          const [tag0, tag1] = logsByTag.map(log => new Fr(log.data.subarray(0, 32)));
-          expect(tag0).toEqual(tag1);
-        });
+        const logsByTags = await store.getLogsByTags(tags);
+
+        expect(logsByTags).toEqual([
+          [
+            expect.objectContaining({
+              blockNumber: 1,
+              logData: makePrivateLog(tags[0]).toBuffer(),
+              isFromPublic: false,
+            }),
+            expect.objectContaining({
+              blockNumber: newBlockNumber,
+              logData: newLog.toBuffer(),
+              isFromPublic: false,
+            }),
+          ],
+        ]);
       });
 
       it('is possible to request logs for non-existing tags and determine their position', async () => {
-        // get random tx from any block that's not the last one
-        const targetBlockIndex = randomInt(numBlocks - 2);
-        const targetTxIndex = randomInt(txsPerBlock);
+        const tags = [makeTag(99, 88, 77), makeTag(1, 1, 1)];
 
-        const logsByTags = await store.getLogsByTags([
-          Fr.random(),
-          ...tags[targetBlockIndex][targetTxIndex].slice(1).map(buffer => new Fr(buffer)),
+        const logsByTags = await store.getLogsByTags(tags);
+
+        expect(logsByTags).toEqual([
+          [
+            // No logs for the first tag.
+          ],
+          [
+            expect.objectContaining({
+              blockNumber: 1,
+              logData: makePrivateLog(tags[1]).toBuffer(),
+              isFromPublic: false,
+            }),
+          ],
         ]);
+      });
 
-        const expectedResponseSize = numPrivateFunctionCalls * numNoteEncryptedLogs;
-        expect(logsByTags.length).toEqual(expectedResponseSize);
+      it('is not possible to add public logs by tag if they are invalid', async () => {
+        const tag = makeTag(99, 88, 77);
+        const invalidLogs = [
+          PublicLog.fromFields([
+            AztecAddress.fromNumber(1).toField(),
+            makeLengthsField(2, 3), // This field claims we have 5 items, but we actually have more
+            tag,
+            ...times(PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i)),
+          ]),
+          PublicLog.fromFields([
+            AztecAddress.fromNumber(1).toField(),
+            makeLengthsField(2, PUBLIC_LOG_DATA_SIZE_IN_FIELDS), // This field claims we have more than the max items
+            tag,
+            ...times(PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i)),
+          ]),
+        ];
 
-        const [emptyLogsByTag, ...populatedLogsByTags] = logsByTags;
-        expect(emptyLogsByTag).toHaveLength(0);
+        // Create a block containing these invalid logs
+        const newBlockNumber = numBlocks;
+        const newBlock = await mockBlockWithLogs(newBlockNumber);
+        newBlock.data.body.txEffects[0].publicLogs = invalidLogs;
+        await store.addBlocks([newBlock]);
+        await store.addLogs([newBlock.data]);
 
-        populatedLogsByTags.forEach((logsByTag, logIndex) => {
-          expect(logsByTag).toHaveLength(1);
-          const [log] = logsByTag;
-          expect(log).toEqual(
-            blocks[targetBlockIndex].data.body.noteEncryptedLogs.txLogs[targetTxIndex].unrollLogs()[logIndex + 1],
-          );
-        });
+        const logsByTags = await store.getLogsByTags([tag]);
+
+        // Neither of the logs should have been added:
+        expect(logsByTags).toEqual([[]]);
       });
     });
 
-    describe('getUnencryptedLogs', () => {
+    describe('getPublicLogs', () => {
       const txsPerBlock = 4;
       const numPublicFunctionCalls = 3;
-      const numUnencryptedLogs = 2;
+      const numPublicLogs = 2;
       const numBlocks = 10;
       let blocks: L1Published<L2Block>[];
 
       beforeEach(async () => {
-        blocks = times(numBlocks, (index: number) => ({
-          data: L2Block.random(index + 1, txsPerBlock, 2, numPublicFunctionCalls, 2, numUnencryptedLogs),
+        blocks = await timesParallel(numBlocks, async (index: number) => ({
+          data: await L2Block.random(index + 1, txsPerBlock, numPublicFunctionCalls, numPublicLogs),
           l1: { blockNumber: BigInt(index), blockHash: `0x${index}`, timestamp: BigInt(index) },
         }));
 
@@ -486,7 +593,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
           store.deleteLogs(blocks.map(b => b.data)),
         ]);
 
-        const response = await store.getUnencryptedLogs({ txHash: targetTxHash });
+        const response = await store.getPublicLogs({ txHash: targetTxHash });
         const logs = response.logs;
 
         expect(response.maxLogsHit).toBeFalsy();
@@ -499,12 +606,12 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         const targetTxIndex = randomInt(txsPerBlock);
         const targetTxHash = blocks[targetBlockIndex].data.body.txEffects[targetTxIndex].txHash;
 
-        const response = await store.getUnencryptedLogs({ txHash: targetTxHash });
+        const response = await store.getPublicLogs({ txHash: targetTxHash });
         const logs = response.logs;
 
         expect(response.maxLogsHit).toBeFalsy();
 
-        const expectedNumLogs = numPublicFunctionCalls * numUnencryptedLogs;
+        const expectedNumLogs = numPublicFunctionCalls * numPublicLogs;
         expect(logs.length).toEqual(expectedNumLogs);
 
         const targeBlockNumber = targetBlockIndex + INITIAL_L2_BLOCK_NUM;
@@ -519,12 +626,12 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         const fromBlock = 3;
         const toBlock = 7;
 
-        const response = await store.getUnencryptedLogs({ fromBlock, toBlock });
+        const response = await store.getPublicLogs({ fromBlock, toBlock });
         const logs = response.logs;
 
         expect(response.maxLogsHit).toBeFalsy();
 
-        const expectedNumLogs = txsPerBlock * numPublicFunctionCalls * numUnencryptedLogs * (toBlock - fromBlock);
+        const expectedNumLogs = txsPerBlock * numPublicFunctionCalls * numPublicLogs * (toBlock - fromBlock);
         expect(logs.length).toEqual(expectedNumLogs);
 
         for (const log of logs) {
@@ -538,14 +645,11 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         // Get a random contract address from the logs
         const targetBlockIndex = randomInt(numBlocks);
         const targetTxIndex = randomInt(txsPerBlock);
-        const targetFunctionLogIndex = randomInt(numPublicFunctionCalls);
-        const targetLogIndex = randomInt(numUnencryptedLogs);
+        const targetLogIndex = randomInt(numPublicLogs * numPublicFunctionCalls);
         const targetContractAddress =
-          blocks[targetBlockIndex].data.body.txEffects[targetTxIndex].unencryptedLogs.functionLogs[
-            targetFunctionLogIndex
-          ].logs[targetLogIndex].contractAddress;
+          blocks[targetBlockIndex].data.body.txEffects[targetTxIndex].publicLogs[targetLogIndex].contractAddress;
 
-        const response = await store.getUnencryptedLogs({ contractAddress: targetContractAddress });
+        const response = await store.getPublicLogs({ contractAddress: targetContractAddress });
 
         expect(response.maxLogsHit).toBeFalsy();
 
@@ -558,11 +662,11 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         // Get a random log as reference
         const targetBlockIndex = randomInt(numBlocks);
         const targetTxIndex = randomInt(txsPerBlock);
-        const targetLogIndex = randomInt(numUnencryptedLogs);
+        const targetLogIndex = randomInt(numPublicLogs);
 
         const afterLog = new LogId(targetBlockIndex + INITIAL_L2_BLOCK_NUM, targetTxIndex, targetLogIndex);
 
-        const response = await store.getUnencryptedLogs({ afterLog });
+        const response = await store.getPublicLogs({ afterLog });
         const logs = response.logs;
 
         expect(response.maxLogsHit).toBeFalsy();
@@ -581,43 +685,43 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
 
       it('"txHash" filter param is ignored when "afterLog" is set', async () => {
         // Get random txHash
-        const txHash = new TxHash(randomBytes(TxHash.SIZE));
+        const txHash = TxHash.random();
         const afterLog = new LogId(1, 0, 0);
 
-        const response = await store.getUnencryptedLogs({ txHash, afterLog });
+        const response = await store.getPublicLogs({ txHash, afterLog });
         expect(response.logs.length).toBeGreaterThan(1);
       });
 
       it('intersecting works', async () => {
-        let logs = (await store.getUnencryptedLogs({ fromBlock: -10, toBlock: -5 })).logs;
+        let logs = (await store.getPublicLogs({ fromBlock: -10, toBlock: -5 })).logs;
         expect(logs.length).toBe(0);
 
         // "fromBlock" gets correctly trimmed to range and "toBlock" is exclusive
-        logs = (await store.getUnencryptedLogs({ fromBlock: -10, toBlock: 5 })).logs;
+        logs = (await store.getPublicLogs({ fromBlock: -10, toBlock: 5 })).logs;
         let blockNumbers = new Set(logs.map(log => log.id.blockNumber));
         expect(blockNumbers).toEqual(new Set([1, 2, 3, 4]));
 
         // "toBlock" should be exclusive
-        logs = (await store.getUnencryptedLogs({ fromBlock: 1, toBlock: 1 })).logs;
+        logs = (await store.getPublicLogs({ fromBlock: 1, toBlock: 1 })).logs;
         expect(logs.length).toBe(0);
 
-        logs = (await store.getUnencryptedLogs({ fromBlock: 10, toBlock: 5 })).logs;
+        logs = (await store.getPublicLogs({ fromBlock: 10, toBlock: 5 })).logs;
         expect(logs.length).toBe(0);
 
         // both "fromBlock" and "toBlock" get correctly capped to range and logs from all blocks are returned
-        logs = (await store.getUnencryptedLogs({ fromBlock: -100, toBlock: +100 })).logs;
+        logs = (await store.getPublicLogs({ fromBlock: -100, toBlock: +100 })).logs;
         blockNumbers = new Set(logs.map(log => log.id.blockNumber));
         expect(blockNumbers.size).toBe(numBlocks);
 
         // intersecting with "afterLog" works
-        logs = (await store.getUnencryptedLogs({ fromBlock: 2, toBlock: 5, afterLog: new LogId(4, 0, 0) })).logs;
+        logs = (await store.getPublicLogs({ fromBlock: 2, toBlock: 5, afterLog: new LogId(4, 0, 0) })).logs;
         blockNumbers = new Set(logs.map(log => log.id.blockNumber));
         expect(blockNumbers).toEqual(new Set([4]));
 
-        logs = (await store.getUnencryptedLogs({ toBlock: 5, afterLog: new LogId(5, 1, 0) })).logs;
+        logs = (await store.getPublicLogs({ toBlock: 5, afterLog: new LogId(5, 1, 0) })).logs;
         expect(logs.length).toBe(0);
 
-        logs = (await store.getUnencryptedLogs({ fromBlock: 2, toBlock: 5, afterLog: new LogId(100, 0, 0) })).logs;
+        logs = (await store.getPublicLogs({ fromBlock: 2, toBlock: 5, afterLog: new LogId(100, 0, 0) })).logs;
         expect(logs.length).toBe(0);
       });
 
@@ -625,11 +729,11 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         // Get a random log as reference
         const targetBlockIndex = randomInt(numBlocks);
         const targetTxIndex = randomInt(txsPerBlock);
-        const targetLogIndex = randomInt(numUnencryptedLogs);
+        const targetLogIndex = randomInt(numPublicLogs);
 
         const afterLog = new LogId(targetBlockIndex + INITIAL_L2_BLOCK_NUM, targetTxIndex, targetLogIndex);
 
-        const response = await store.getUnencryptedLogs({ afterLog, fromBlock: afterLog.blockNumber });
+        const response = await store.getPublicLogs({ afterLog, fromBlock: afterLog.blockNumber });
         const logs = response.logs;
 
         expect(response.maxLogsHit).toBeFalsy();
@@ -644,6 +748,59 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
             }
           }
         }
+      });
+    });
+
+    describe('findNullifiersIndexesWithBlock', () => {
+      let blocks: L2Block[];
+      const numBlocks = 10;
+      const nullifiersPerBlock = new Map<number, Fr[]>();
+
+      beforeEach(async () => {
+        blocks = await timesParallel(numBlocks, (index: number) => L2Block.random(index + 1, 1));
+
+        blocks.forEach((block, blockIndex) => {
+          nullifiersPerBlock.set(
+            blockIndex,
+            block.body.txEffects.flatMap(txEffect => txEffect.nullifiers),
+          );
+        });
+      });
+
+      it('returns wrapped nullifiers with blocks if they exist', async () => {
+        await store.addNullifiers(blocks);
+        const nullifiersToRetrieve = [...nullifiersPerBlock.get(0)!, ...nullifiersPerBlock.get(5)!, Fr.random()];
+        const blockScopedNullifiers = await store.findNullifiersIndexesWithBlock(10, nullifiersToRetrieve);
+
+        expect(blockScopedNullifiers).toHaveLength(nullifiersToRetrieve.length);
+        const [undefinedNullifier] = blockScopedNullifiers.slice(-1);
+        const realNullifiers = blockScopedNullifiers.slice(0, -1);
+        realNullifiers.forEach((blockScopedNullifier, index) => {
+          expect(blockScopedNullifier).not.toBeUndefined();
+          const { data, l2BlockNumber } = blockScopedNullifier!;
+          expect(data).toEqual(expect.any(BigInt));
+          expect(l2BlockNumber).toEqual(index < MAX_NULLIFIERS_PER_TX ? 1 : 6);
+        });
+        expect(undefinedNullifier).toBeUndefined();
+      });
+
+      it('returns wrapped nullifiers filtering by blockNumber', async () => {
+        await store.addNullifiers(blocks);
+        const nullifiersToRetrieve = [...nullifiersPerBlock.get(0)!, ...nullifiersPerBlock.get(5)!];
+        const blockScopedNullifiers = await store.findNullifiersIndexesWithBlock(5, nullifiersToRetrieve);
+
+        expect(blockScopedNullifiers).toHaveLength(nullifiersToRetrieve.length);
+        const undefinedNullifiers = blockScopedNullifiers.slice(-MAX_NULLIFIERS_PER_TX);
+        const realNullifiers = blockScopedNullifiers.slice(0, -MAX_NULLIFIERS_PER_TX);
+        realNullifiers.forEach(blockScopedNullifier => {
+          expect(blockScopedNullifier).not.toBeUndefined();
+          const { data, l2BlockNumber } = blockScopedNullifier!;
+          expect(data).toEqual(expect.any(BigInt));
+          expect(l2BlockNumber).toEqual(1);
+        });
+        undefinedNullifiers.forEach(undefinedNullifier => {
+          expect(undefinedNullifier).toBeUndefined();
+        });
       });
     });
   });

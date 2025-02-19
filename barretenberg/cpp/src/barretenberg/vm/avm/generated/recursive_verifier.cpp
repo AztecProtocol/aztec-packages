@@ -11,7 +11,7 @@
 #include <cstddef>
 #include <memory>
 
-namespace bb {
+namespace bb::avm {
 
 template <typename Flavor>
 AvmRecursiveVerifier_<Flavor>::AvmRecursiveVerifier_(
@@ -48,7 +48,7 @@ template <typename Flavor>
 AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::verify_proof(
     const HonkProof& proof, const std::vector<std::vector<bb::fr>>& public_inputs_vec_nt, AggregationObject agg_obj)
 {
-    StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
+    StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof);
 
     std::vector<std::vector<FF>> public_inputs_ct;
     public_inputs_ct.reserve(public_inputs_vec_nt.size());
@@ -75,16 +75,16 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
     using Curve = typename Flavor::Curve;
     using PCS = typename Flavor::PCS;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
-    using CommitmentLabels = typename Flavor::CommitmentLabels;
     using RelationParams = ::bb::RelationParameters<typename Flavor::FF>;
     using Transcript = typename Flavor::Transcript;
     using Shplemini = ::bb::ShpleminiVerifier_<Curve>;
+    using ClaimBatcher = ClaimBatcher_<Curve>;
+    using ClaimBatch = ClaimBatcher::Batch;
 
     transcript = std::make_shared<Transcript>(stdlib_proof);
 
     RelationParams relation_parameters;
     VerifierCommitments commitments{ key };
-    CommitmentLabels commitment_labels;
 
     const auto circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
     if (static_cast<uint32_t>(circuit_size.get_value()) != key->circuit_size) {
@@ -92,7 +92,7 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
     }
 
     // Get commitments to VM wires
-    for (auto [comm, label] : zip_view(commitments.get_wires(), commitment_labels.get_wires())) {
+    for (auto [comm, label] : zip_view(commitments.get_wires(), commitments.get_wires_labels())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
     }
 
@@ -101,7 +101,7 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
     relation_parameters.gamma = gamma;
 
     // Get commitments to inverses
-    for (auto [label, commitment] : zip_view(commitment_labels.get_derived(), commitments.get_derived())) {
+    for (auto [label, commitment] : zip_view(commitments.get_derived_labels(), commitments.get_derived())) {
         commitment = transcript->template receive_from_prover<Commitment>(label);
     }
 
@@ -118,46 +118,45 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
 
     // No need to constrain that sumcheck_verified is true as this is guaranteed by the implementation of
     // when called over a "circuit field" types.
-    auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
-        sumcheck.verify(relation_parameters, alpha, gate_challenges);
+    SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
-    vinfo("verified sumcheck: ", (sumcheck_verified.has_value() && sumcheck_verified.value()));
+    vinfo("verified sumcheck: ", (output.verified));
 
     // Public columns evaluation checks
-    std::vector<FF> mle_challenge(multivariate_challenge.begin(),
-                                  multivariate_challenge.begin() + static_cast<int>(log_circuit_size));
+    std::vector<FF> mle_challenge(output.challenge.begin(),
+                                  output.challenge.begin() + static_cast<int>(log_circuit_size));
 
     FF main_kernel_inputs_evaluation = evaluate_public_input_column(public_inputs[0], mle_challenge);
-    main_kernel_inputs_evaluation.assert_equal(claimed_evaluations.main_kernel_inputs,
+    main_kernel_inputs_evaluation.assert_equal(output.claimed_evaluations.main_kernel_inputs,
                                                "main_kernel_inputs_evaluation failed");
 
     FF main_kernel_value_out_evaluation = evaluate_public_input_column(public_inputs[1], mle_challenge);
-    main_kernel_value_out_evaluation.assert_equal(claimed_evaluations.main_kernel_value_out,
+    main_kernel_value_out_evaluation.assert_equal(output.claimed_evaluations.main_kernel_value_out,
                                                   "main_kernel_value_out_evaluation failed");
 
     FF main_kernel_side_effect_out_evaluation = evaluate_public_input_column(public_inputs[2], mle_challenge);
-    main_kernel_side_effect_out_evaluation.assert_equal(claimed_evaluations.main_kernel_side_effect_out,
+    main_kernel_side_effect_out_evaluation.assert_equal(output.claimed_evaluations.main_kernel_side_effect_out,
                                                         "main_kernel_side_effect_out_evaluation failed");
 
     FF main_kernel_metadata_out_evaluation = evaluate_public_input_column(public_inputs[3], mle_challenge);
-    main_kernel_metadata_out_evaluation.assert_equal(claimed_evaluations.main_kernel_metadata_out,
+    main_kernel_metadata_out_evaluation.assert_equal(output.claimed_evaluations.main_kernel_metadata_out,
                                                      "main_kernel_metadata_out_evaluation failed");
 
     FF main_calldata_evaluation = evaluate_public_input_column(public_inputs[4], mle_challenge);
-    main_calldata_evaluation.assert_equal(claimed_evaluations.main_calldata, "main_calldata_evaluation failed");
+    main_calldata_evaluation.assert_equal(output.claimed_evaluations.main_calldata, "main_calldata_evaluation failed");
 
     FF main_returndata_evaluation = evaluate_public_input_column(public_inputs[5], mle_challenge);
-    main_returndata_evaluation.assert_equal(claimed_evaluations.main_returndata, "main_returndata_evaluation failed");
+    main_returndata_evaluation.assert_equal(output.claimed_evaluations.main_returndata,
+                                            "main_returndata_evaluation failed");
 
     // Execute Shplemini rounds.
-    auto opening_claim = Shplemini::compute_batch_opening_claim(circuit_size,
-                                                                commitments.get_unshifted(),
-                                                                commitments.get_to_be_shifted(),
-                                                                claimed_evaluations.get_unshifted(),
-                                                                claimed_evaluations.get_shifted(),
-                                                                multivariate_challenge,
-                                                                Commitment::one(builder),
-                                                                transcript);
+    ClaimBatcher claim_batcher{
+        .unshifted = ClaimBatch{ commitments.get_unshifted(), output.claimed_evaluations.get_unshifted() },
+        .shifted = ClaimBatch{ commitments.get_to_be_shifted(), output.claimed_evaluations.get_shifted() }
+    };
+    const BatchOpeningClaim<Curve> opening_claim = Shplemini::compute_batch_opening_claim(
+        circuit_size, claim_batcher, output.challenge, Commitment::one(builder), transcript);
+
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     pairing_points[0] = pairing_points[0].normalize();
@@ -170,4 +169,5 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
 }
 
 template class AvmRecursiveVerifier_<AvmRecursiveFlavor_<UltraCircuitBuilder>>;
-} // namespace bb
+
+} // namespace bb::avm

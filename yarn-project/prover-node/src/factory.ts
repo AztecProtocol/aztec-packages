@@ -1,110 +1,99 @@
 import { type Archiver, createArchiver } from '@aztec/archiver';
-import { type ProverCoordination } from '@aztec/circuit-types';
-import { createEthereumChain } from '@aztec/ethereum';
-import { Buffer32 } from '@aztec/foundation/buffer';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { RollupAbi } from '@aztec/l1-artifacts';
+import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
+import { type ProverCoordination, type ProvingJobBroker } from '@aztec/circuit-types';
+import { type PublicDataTreeLeaf } from '@aztec/circuits.js';
+import { EpochCache } from '@aztec/epoch-cache';
+import { L1TxUtils, RollupContract, createEthereumChain, createL1Clients } from '@aztec/ethereum';
+import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { createProverClient } from '@aztec/prover-client';
-import { L1Publisher } from '@aztec/sequencer-client';
-import { createSimulationProvider } from '@aztec/simulator';
-import { type TelemetryClient } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { createAndStartProvingBroker } from '@aztec/prover-client/broker';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
-import { createPublicClient, getAddress, getContract, http } from 'viem';
-
-import { createBondManager } from './bond/factory.js';
-import { type ProverNodeConfig, type QuoteProviderConfig } from './config.js';
-import { ClaimsMonitor } from './monitors/claims-monitor.js';
+import { type ProverNodeConfig } from './config.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
 import { createProverCoordination } from './prover-coordination/factory.js';
-import { ProverNode } from './prover-node.js';
-import { HttpQuoteProvider } from './quote-provider/http.js';
-import { SimpleQuoteProvider } from './quote-provider/simple.js';
-import { QuoteSigner } from './quote-signer.js';
+import { ProverNodePublisher } from './prover-node-publisher.js';
+import { ProverNode, type ProverNodeOptions } from './prover-node.js';
 
 /** Creates a new prover node given a config. */
 export async function createProverNode(
-  config: ProverNodeConfig,
+  config: ProverNodeConfig & DataStoreConfig,
   deps: {
     telemetry?: TelemetryClient;
-    log?: DebugLogger;
+    log?: Logger;
     aztecNodeTxProvider?: ProverCoordination;
     archiver?: Archiver;
+    publisher?: ProverNodePublisher;
+    blobSinkClient?: BlobSinkClientInterface;
+    broker?: ProvingJobBroker;
+    l1TxUtils?: L1TxUtils;
+  } = {},
+  options: {
+    prefilledPublicData?: PublicDataTreeLeaf[];
   } = {},
 ) {
-  const telemetry = deps.telemetry ?? new NoopTelemetryClient();
-  const log = deps.log ?? createDebugLogger('aztec:prover');
-  const archiver = deps.archiver ?? (await createArchiver(config, telemetry, { blockUntilSync: true }));
+  const telemetry = deps.telemetry ?? getTelemetryClient();
+  const blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config);
+  const log = deps.log ?? createLogger('prover-node');
+  const archiver = deps.archiver ?? (await createArchiver(config, blobSinkClient, { blockUntilSync: true }, telemetry));
   log.verbose(`Created archiver and synced to block ${await archiver.getBlockNumber()}`);
 
-  const worldStateConfig = { ...config, worldStateProvenBlocksOnly: true };
-  const worldStateSynchronizer = await createWorldStateSynchronizer(worldStateConfig, archiver, telemetry);
+  const worldStateConfig = { ...config, worldStateProvenBlocksOnly: false };
+  const worldStateSynchronizer = await createWorldStateSynchronizer(
+    worldStateConfig,
+    archiver,
+    options.prefilledPublicData,
+    telemetry,
+  );
   await worldStateSynchronizer.start();
 
-  const simulationProvider = await createSimulationProvider(config, log);
+  const broker = deps.broker ?? (await createAndStartProvingBroker(config, telemetry));
+  const prover = await createProverClient(config, worldStateSynchronizer, broker, telemetry);
 
-  const prover = await createProverClient(config, telemetry);
+  const { l1RpcUrl: rpcUrl, l1ChainId: chainId, publisherPrivateKey } = config;
+  const chain = createEthereumChain(rpcUrl, chainId);
+  const { publicClient, walletClient } = createL1Clients(rpcUrl, publisherPrivateKey, chain.chainInfo);
 
-  // REFACTOR: Move publisher out of sequencer package and into an L1-related package
-  const publisher = new L1Publisher(config, telemetry);
+  const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
 
-  // If config.p2pEnabled is true, createProverCoordination will create a p2p client where quotes will be shared and tx's requested
+  const l1TxUtils = deps.l1TxUtils ?? new L1TxUtils(publicClient, walletClient, log, config);
+  const publisher = deps.publisher ?? new ProverNodePublisher(config, { telemetry, rollupContract, l1TxUtils });
+
+  const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config);
+
+  // If config.p2pEnabled is true, createProverCoordination will create a p2p client where txs are requested
   // If config.p2pEnabled is false, createProverCoordination request information from the AztecNode
   const proverCoordination = await createProverCoordination(config, {
     aztecNodeTxProvider: deps.aztecNodeTxProvider,
     worldStateSynchronizer,
     archiver,
+    epochCache,
     telemetry,
   });
 
-  const quoteProvider = createQuoteProvider(config);
-  const quoteSigner = createQuoteSigner(config);
-
-  const proverNodeConfig = {
+  const proverNodeConfig: ProverNodeOptions = {
     maxPendingJobs: config.proverNodeMaxPendingJobs,
     pollingIntervalMs: config.proverNodePollingIntervalMs,
+    maxParallelBlocksPerEpoch: config.proverNodeMaxParallelBlocksPerEpoch,
+    txGatheringMaxParallelRequests: config.txGatheringMaxParallelRequests,
+    txGatheringIntervalMs: config.txGatheringIntervalMs,
+    txGatheringTimeoutMs: config.txGatheringTimeoutMs,
   };
 
-  const claimsMonitor = new ClaimsMonitor(publisher, proverNodeConfig);
-  const epochMonitor = new EpochMonitor(archiver, proverNodeConfig);
-
-  const rollupContract = publisher.getRollupContract();
-  const walletClient = publisher.getClient();
-  const bondManager = await createBondManager(rollupContract, walletClient, config);
+  const epochMonitor = new EpochMonitor(archiver, proverNodeConfig, telemetry);
 
   return new ProverNode(
-    prover!,
+    prover,
     publisher,
     archiver,
     archiver,
     archiver,
     worldStateSynchronizer,
     proverCoordination,
-    simulationProvider,
-    quoteProvider,
-    quoteSigner,
-    claimsMonitor,
     epochMonitor,
-    bondManager,
-    telemetry,
     proverNodeConfig,
+    telemetry,
   );
-}
-
-function createQuoteProvider(config: QuoteProviderConfig) {
-  return config.quoteProviderUrl
-    ? new HttpQuoteProvider(config.quoteProviderUrl)
-    : new SimpleQuoteProvider(config.quoteProviderBasisPointFee, config.quoteProviderBondAmount);
-}
-
-function createQuoteSigner(config: ProverNodeConfig) {
-  // REFACTOR: We need a package that just returns an instance of a rollup contract ready to use
-  const { l1RpcUrl: rpcUrl, l1ChainId: chainId, l1Contracts } = config;
-  const chain = createEthereumChain(rpcUrl, chainId);
-  const client = createPublicClient({ chain: chain.chainInfo, transport: http(chain.rpcUrl) });
-  const address = getAddress(l1Contracts.rollupAddress.toString());
-  const rollupContract = getContract({ address, abi: RollupAbi, client });
-  const privateKey = config.publisherPrivateKey;
-  return QuoteSigner.new(Buffer32.fromString(privateKey), rollupContract);
 }

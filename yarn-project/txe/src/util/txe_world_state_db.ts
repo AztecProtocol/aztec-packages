@@ -3,20 +3,21 @@ import {
   type AztecAddress,
   type ContractDataSource,
   Fr,
-  PUBLIC_DATA_SUBTREE_HEIGHT,
-  PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
+  PublicDataWrite,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { WorldStateDB } from '@aztec/simulator';
+import { WorldStateDB } from '@aztec/simulator/server';
+
+import { type TXE } from '../oracle/txe_oracle.js';
 
 export class TXEWorldStateDB extends WorldStateDB {
-  constructor(private merkleDb: MerkleTreeWriteOperations, dataSource: ContractDataSource) {
+  constructor(private merkleDb: MerkleTreeWriteOperations, dataSource: ContractDataSource, private txe: TXE) {
     super(merkleDb, dataSource);
   }
 
   override async storageRead(contract: AztecAddress, slot: Fr): Promise<Fr> {
-    const leafSlot = computePublicDataTreeLeafSlot(contract, slot).toBigInt();
+    const leafSlot = (await computePublicDataTreeLeafSlot(contract, slot)).toBigInt();
 
     const lowLeafResult = await this.merkleDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
 
@@ -32,11 +33,10 @@ export class TXEWorldStateDB extends WorldStateDB {
   }
 
   override async storageWrite(contract: AztecAddress, slot: Fr, newValue: Fr): Promise<bigint> {
-    await this.merkleDb.batchInsert(
-      MerkleTreeId.PUBLIC_DATA_TREE,
-      [new PublicDataTreeLeaf(computePublicDataTreeLeafSlot(contract, slot), newValue).toBuffer()],
-      PUBLIC_DATA_SUBTREE_HEIGHT,
-    );
+    await this.txe.addPublicDataWrites([
+      new PublicDataWrite(await computePublicDataTreeLeafSlot(contract, slot), newValue),
+    ]);
+
     return newValue.toBigInt();
   }
 

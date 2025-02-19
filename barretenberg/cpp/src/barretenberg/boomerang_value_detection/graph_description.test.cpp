@@ -11,7 +11,11 @@
 #include <gtest/gtest.h>
 
 using namespace bb;
+<<<<<<< HEAD
 using namespace cdg;
+=======
+
+>>>>>>> a86b797d059502fbd402550492f9ad13bd4ede1c
 /**
  * @brief this test checks graph description of the circuit with arithmetic gates
     the number of connected components = the number of pair (i, j), 0<=i, j <16, i.e 256
@@ -38,8 +42,15 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_for_arithmetic_gates)
 
     Graph graph = Graph(circuit_constructor);
     auto connected_components = graph.find_connected_components();
+<<<<<<< HEAD
     [[maybe_unused]]auto variables_in_one_gate = graph.show_variables_in_one_gate(circuit_constructor);
     EXPECT_EQ(connected_components.size(), 256);
+=======
+    auto num_connected_components = connected_components.size();
+    auto variables_in_one_gate = graph.show_variables_in_one_gate(circuit_constructor);
+    bool result = num_connected_components == 256;
+    EXPECT_EQ(result, true);
+>>>>>>> a86b797d059502fbd402550492f9ad13bd4ede1c
 }
 
 /**

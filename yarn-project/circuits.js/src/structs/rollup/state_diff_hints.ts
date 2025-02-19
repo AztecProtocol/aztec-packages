@@ -8,15 +8,15 @@ import {
   NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
-  PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
+  PUBLIC_DATA_TREE_HEIGHT,
 } from '../../constants.gen.js';
 import { MembershipWitness } from '../membership_witness.js';
-import { NullifierLeafPreimage } from '../trees/index.js';
+import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '../trees/index.js';
 
 /**
- * Hints used while proving state diff validity.
+ * Hints used while proving state diff validity for the private base rollup.
  */
-export class StateDiffHints {
+export class PrivateBaseStateDiffHints {
   constructor(
     /**
      * The nullifiers which need to be updated to perform the batch insertion of the new nullifiers.
@@ -47,17 +47,26 @@ export class StateDiffHints {
      * Sibling path "pointing to" where the new nullifiers subtree should be inserted into the nullifier tree.
      */
     public nullifierSubtreeSiblingPath: Tuple<Fr, typeof NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH>,
+
     /**
-     * Sibling path "pointing to" where the new public data subtree should be inserted into the public data tree.
+     * Low leaf for the fee write in the public data tree.
      */
-    public publicDataSiblingPath: Tuple<Fr, typeof PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH>,
+    public feeWriteLowLeafPreimage: PublicDataTreeLeafPreimage,
+    /**
+     * Membership witness for the low leaf for the fee write in the public data tree.
+     */
+    public feeWriteLowLeafMembershipWitness: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>,
+    /**
+     * Sibling path "pointing to" where the fee write should be inserted into the public data tree.
+     */
+    public feeWriteSiblingPath: Tuple<Fr, typeof PUBLIC_DATA_TREE_HEIGHT>,
   ) {}
 
-  static from(fields: FieldsOf<StateDiffHints>): StateDiffHints {
-    return new StateDiffHints(...StateDiffHints.getFields(fields));
+  static from(fields: FieldsOf<PrivateBaseStateDiffHints>): PrivateBaseStateDiffHints {
+    return new PrivateBaseStateDiffHints(...PrivateBaseStateDiffHints.getFields(fields));
   }
 
-  static getFields(fields: FieldsOf<StateDiffHints>) {
+  static getFields(fields: FieldsOf<PrivateBaseStateDiffHints>) {
     return [
       fields.nullifierPredecessorPreimages,
       fields.nullifierPredecessorMembershipWitnesses,
@@ -65,7 +74,9 @@ export class StateDiffHints {
       fields.sortedNullifierIndexes,
       fields.noteHashSubtreeSiblingPath,
       fields.nullifierSubtreeSiblingPath,
-      fields.publicDataSiblingPath,
+      fields.feeWriteLowLeafPreimage,
+      fields.feeWriteLowLeafMembershipWitness,
+      fields.feeWriteSiblingPath,
     ] as const;
   }
 
@@ -74,17 +85,17 @@ export class StateDiffHints {
    * @returns A buffer of the serialized state diff hints.
    */
   toBuffer(): Buffer {
-    return serializeToBuffer(...StateDiffHints.getFields(this));
+    return serializeToBuffer(...PrivateBaseStateDiffHints.getFields(this));
   }
 
   /**
    * Deserializes the state diff hints from a buffer.
    * @param buffer - A buffer to deserialize from.
-   * @returns A new StateDiffHints instance.
+   * @returns A new PrivateBaseStateDiffHints instance.
    */
-  static fromBuffer(buffer: Buffer | BufferReader): StateDiffHints {
+  static fromBuffer(buffer: Buffer | BufferReader): PrivateBaseStateDiffHints {
     const reader = BufferReader.asReader(buffer);
-    return new StateDiffHints(
+    return new PrivateBaseStateDiffHints(
       reader.readArray(MAX_NULLIFIERS_PER_TX, NullifierLeafPreimage),
       reader.readArray(MAX_NULLIFIERS_PER_TX, {
         fromBuffer: buffer => MembershipWitness.fromBuffer(buffer, NULLIFIER_TREE_HEIGHT),
@@ -93,19 +104,23 @@ export class StateDiffHints {
       reader.readNumbers(MAX_NULLIFIERS_PER_TX),
       reader.readArray(NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, Fr),
       reader.readArray(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, Fr),
-      reader.readArray(PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, Fr),
+      reader.readObject(PublicDataTreeLeafPreimage),
+      MembershipWitness.fromBuffer(reader, PUBLIC_DATA_TREE_HEIGHT),
+      reader.readArray(PUBLIC_DATA_TREE_HEIGHT, Fr),
     );
   }
 
   static empty() {
-    return new StateDiffHints(
+    return new PrivateBaseStateDiffHints(
       makeTuple(MAX_NULLIFIERS_PER_TX, NullifierLeafPreimage.empty),
       makeTuple(MAX_NULLIFIERS_PER_TX, () => MembershipWitness.empty(NULLIFIER_TREE_HEIGHT)),
       makeTuple(MAX_NULLIFIERS_PER_TX, Fr.zero),
       makeTuple(MAX_NULLIFIERS_PER_TX, () => 0),
       makeTuple(NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, Fr.zero),
       makeTuple(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, Fr.zero),
-      makeTuple(PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, Fr.zero),
+      PublicDataTreeLeafPreimage.empty(),
+      MembershipWitness.empty(PUBLIC_DATA_TREE_HEIGHT),
+      makeTuple(PUBLIC_DATA_TREE_HEIGHT, Fr.zero),
     );
   }
 }

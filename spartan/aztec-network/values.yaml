@@ -2,12 +2,30 @@ nameOverride: ""
 fullnameOverride: ""
 
 network:
+  # If true, pods will use host networking.
+  # This is to ensure that nodes are individually addressable from the outside.
+  # Under the current configuration, this also means that there must be a unique
+  # physical node in the cluster for each pod that participates in peer-to-peer.
+  # I.e. the sum of the number of validator, boot node, and prover nodes must be
+  # less than the number of physical nodes in the cluster.
   public: false
   setupL2Contracts: true
+
+  # If true, pods are scheduled onto specific node pools using selectors
+  # This is only applicable to GKE deployments
+  gke: false
+
+storage:
+  localSsd: false
+  dataStoreMapSize: "134217728" # 128 GB
+  worldStateMapSize: "134217728" # 128 GB
 
 telemetry:
   enabled: false
   otelCollectorEndpoint:
+  useGcloudLogging: true
+  useGcloudMetrics: false
+  excludeMetrics: "system"
 
 images:
   aztec:
@@ -19,18 +37,38 @@ images:
   foundry:
     image: ghcr.io/foundry-rs/foundry@sha256:ce4b236f6760fdeb08e82267c9fa17647d29a374760bfe7ee01998fb8c0aaad7
     pullPolicy: IfNotPresent
+  reth:
+    image: ghcr.io/paradigmxyz/reth:v1.0.8
+    pullPolicy: IfNotPresent
+  lighthouse:
+    image: sigp/lighthouse:v6.0.1
+    pullPolicy: IfNotPresent
+
+aztec:
+  slotDuration: 36 # in seconds, aka L2 slot duration. Must be a multiple of {{ ethereum.blockTime }}
+  epochDuration: 32 # how many L2 slots in an epoch
+  proofSubmissionWindow: 64 # in L2 slots, from the start of the epoch to be proven
+  realProofs: false
+  l1DeploymentMnemonic: "test test test test test test test test test test test junk" # the mnemonic used when deploying contracts
+  # The derivation path of the calcualted private keys
+  # Starting from this index, the number of keys is equal to the number of replicas for the given service
+  validatorKeyIndexStart: 0
+  proverKeyIndexStart: 1000
+
+  ## The number of extra accounts to prefund
+  extraAccountsStartIndex: 2000
+  extraAccounts: 10
+  l1Salt: "" # leave empty for random salt
 
 bootNode:
-  external: false
-  externalTcpHost: ""
-  externalUdpHost: ""
+  peerIdPrivateKey: ""
+  externalHost: ""
   replicas: 1
   service:
     p2pTcpPort: 40400
     p2pUdpPort: 40400
     nodePort: 8080
-  logLevel: "debug"
-  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
+  logLevel: "debug; info: aztec:simulator, json-rpc"
   coinbaseAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   sequencer:
     maxSecondsBetweenBlocks: 0
@@ -41,8 +79,8 @@ bootNode:
     enabled: "true"
   resources:
     requests:
-      memory: "2Gi"
-      cpu: "200m"
+      memory: "5Gi"
+  maxOldSpaceSize: "4608"
   deployContracts: true # Set to false to use manual contract addresses
   startupProbe:
     periodSeconds: 10
@@ -56,28 +94,32 @@ bootNode:
     outboxAddress: ""
     feeJuiceAddress: ""
     feeJuicePortalAddress: ""
-  storage: "8Gi"
+  archiverPollingInterval: 1000
+  archiverViemPollingInterval: 1000
+  viemPollingInterval: 1000
+  stakingAssetAddress: ""
+  storageSize: "1Gi"
+  dataDir: "/data"
 
 validator:
-  external: false
-  externalTcpHost: ""
-  externalUdpHost: ""
+  # If true, the validator will use its peers to serve as the boot node.
+  # This cannot be used when the network first starts up.
+  # But it must be used if the boot node is killed, and the validator is restarted.
+  dynamicBootNode: false
   replicas: 1
-  validatorKeys:
-    - 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-  validatorAddresses:
-    - 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
   service:
     p2pTcpPort: 40400
     p2pUdpPort: 40400
     nodePort: 8080
-  logLevel: "debug"
-  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
+  logLevel: "debug; info: aztec:simulator, json-rpc"
   sequencer:
     maxSecondsBetweenBlocks: 0
     minTxsPerBlock: 1
+    maxTxsPerBlock: 4
+    enforceTimeTable: true
   validator:
     disabled: false
+    reexecute: true
   p2p:
     enabled: "true"
   startupProbe:
@@ -87,40 +129,61 @@ validator:
     failureThreshold: 120
   resources:
     requests:
-      memory: "2Gi"
-      cpu: "200m"
-  storage: "8Gi"
+      memory: "5Gi"
+  maxOldSpaceSize: "4608"
+  archiverPollingInterval: 1000
+  archiverViemPollingInterval: 1000
+  attestationPollingInterval: 1000
+  viemPollingInterval: 1000
+  storageSize: "1Gi"
+  dataDir: "/data"
+  l1GasPriceMax: 100
+  l1FixedPriorityFeePerGas: ""
+  l1GasLimitBufferPercentage: ""
 
 proverNode:
-  external: false
-  externalTcpHost: ""
-  externalUdpHost: ""
+  externalHost: ""
   replicas: 1
   p2pEnabled: true
   service:
     p2pTcpPort: 40400
     p2pUdpPort: 40400
     nodePort: 8080
-  logLevel: "debug"
-  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
-  realProofs: false
-  proverAgentEnabled: false
+  logLevel: "debug; info: aztec:simulator, json-rpc"
+  proverAgent:
+    count: 0
+    pollIntervalMs: 1000
+    proofTypes: []
+  proverBroker:
+    enabled: false
+    jobTimeoutMs: 30000
+    pollIntervalMs: 1000
+    jobMaxRetries: 3
   resources:
     requests:
-      memory: "2Gi"
-      cpu: "200m"
-  storage: "8Gi"
+      memory: "5Gi"
+  maxOldSpaceSize: "4608"
+  archiverPollingInterval: 1000
+  archiverViemPollingInterval: 1000
+  pollInterval: 1000
+  viemPollingInterval: 1000
+  dataDir: "/data"
+  storageSize: "1Gi"
+  txGathering:
+    timeoutMs: 60000
+    intervalMs: 1000
+    maxParallelRequests: 100
+  failedProofStore: "gs://aztec-develop/spartan/failed-proofs"
+  l1GasPriceMax: 100
+  l1FixedPriorityFeePerGas: ""
+  l1GasLimitBufferPercentage: ""
 
 pxe:
-  external: false
-  externalHost: ""
-  logLevel: "debug"
-  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:l2_block_stream,-aztec:world-state:database"
+  enabled: true
+  logLevel: "debug; info: aztec:simulator, json-rpc"
   replicas: 1
   service:
-    port: 8080
-    targetPort: 8080
-    nodePort: ""
+    nodePort: 8081
   readinessProbe:
     initialDelaySeconds: 5
     periodSeconds: 10
@@ -129,77 +192,150 @@ pxe:
     failureThreshold: 3
   resources:
     requests:
-      memory: "2Gi"
-      cpu: "200m"
+      memory: "4Gi"
 
 bot:
   enabled: true
-  logLevel: "debug"
-  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:l2_block_stream,-aztec:world-state:database"
+  nodeUrl: ""
+  logLevel: "debug; info: aztec:simulator, json-rpc"
   replicas: 1
   botPrivateKey: "0xcafe"
+  l1Mnemonic: "test test test test test test test test test test test junk"
   txIntervalSeconds: 24
   privateTransfersPerTx: 0
   publicTransfersPerTx: 1
   # Do not wait for transactions
   followChain: "NONE"
   botNoStart: false
-  pxeProverEnabled: false
-  proverRealProofs: false
+  feePaymentMethod: "fee_juice"
+  maxErrors: 3
+  stopIfUnhealthy: true
   service:
     type: ClusterIP
-    port: 8080
-    targetPort: 8080
-    nodePort: ""
+    nodePort: 8082
   readinessProbe:
     initialDelaySeconds: 5
     periodSeconds: 10
     timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 3
+  gke:
+    spotEnabled: true
   resources:
     requests:
-      memory: "2Gi"
-      cpu: "200m"
+      memory: "5Gi"
+  maxOldSpaceSize: "4608"
 
 ethereum:
-  external: false
-  externalHost: ""
   replicas: 1
-  chainId: 31337
+  chainId: 1337
   blockTime: 12
   # 1 billion gas limit
   # helps ensure we can deploy public contracts
   gasLimit: "1000000000"
-  forkUrl: ""
-  forkBlockNumber: ""
+  # 10 times the default of 131072
+  maxTxInputSizeBytes: "1310720"
   args: ""
-  service:
-    type: ClusterIP
-    port: 8545
-    targetPort: 8545
-    nodePort: ""
+  execution:
+    externalHost: ""
+    service:
+      port: 8545
+      targetPort: 8545
+      wsPort: 8546
+      wsTargetPort: 8546
+    resources:
+      requests:
+        memory: "4Gi"
+    storageSize: "80Gi"
+  beacon:
+    externalHost: ""
+    apiKey: ""
+    apiKeyHeader: ""
+    service:
+      port: 5052
+      targetPort: 5052
+    resources:
+      requests:
+        memory: "4Gi"
+      limits:
+        memory: "4Gi"
+    storageSize: "80Gi"
+  validator:
+    resources:
+      requests:
+        memory: "4Gi"
+    storageSize: "80Gi"
   readinessProbe:
     initialDelaySeconds: 5
     periodSeconds: 10
     timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 3
-  resources:
-    requests:
-      memory: "2Gi"
-      cpu: "200m"
-  storage: "8Gi"
+  deployL1ContractsPrivateKey:
 
 proverAgent:
+  service:
+    nodePort: 8083
   enabled: true
   replicas: 1
-  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
-  realProofs: false
-  concurrency: 1
+  pollIntervalMs: 1000
+  proofTypes: ["foo", "bar", "baz"]
+  gke:
+    spotEnabled: true
+  logLevel: "debug; info: aztec:simulator, json-rpc"
   bb:
     hardwareConcurrency: ""
+  resources:
+    requests:
+      memory: "5Gi"
+  maxOldSpaceSize: "4608"
+  pollInterval: 200
+
+proverBroker:
+  service:
+    nodePort: 8084
+  enabled: true
+  replicas: 1
+  jobTimeoutMs: 30000
+  pollIntervalMs: 1000
+  jobMaxRetries: 3
+  logLevel: "debug; info: aztec:simulator, json-rpc"
+  storageSize: "1Gi"
+  dataDir: "/data"
+  resources:
+    requests:
+      memory: "5Gi"
+  maxOldSpaceSize: "4608"
 
 jobs:
   deployL1Verifier:
     enable: false
+
+blobSink:
+  enabled: false
+  logLevel: "debug; info: aztec:simulator, json-rpc"
+  replicas: 1
+  service:
+    nodePort: 5052
+  startupProbe:
+    periodSeconds: 10
+    failureThreshold: 120
+  dataStoreConfig:
+    dataDir: "/data"
+    storageSize: "8Gi"
+    dataStoreMapSize: "134217728" # 128 GB
+  resources:
+
+faucet:
+  enabled: true
+  replicas: 1
+  service:
+    nodePort: 8085
+  apiServerPort: 8086
+  accountIndex: 0
+  l1Assets: ""
+  logLevel: ""
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"

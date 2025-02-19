@@ -56,8 +56,7 @@ template <typename Builder> struct StdlibTranscriptParams {
 
     template <typename T> static inline std::vector<Fr> convert_to_bn254_frs(const T& element)
     {
-        Builder* builder = element.get_context();
-        return bb::stdlib::field_conversion::convert_to_bn254_frs<Builder, T>(*builder, element);
+        return bb::stdlib::field_conversion::convert_to_bn254_frs<Builder, T>(element);
     }
 };
 

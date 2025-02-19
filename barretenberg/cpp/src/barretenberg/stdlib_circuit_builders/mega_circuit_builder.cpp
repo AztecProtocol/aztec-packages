@@ -18,7 +18,7 @@ template <typename FF> void MegaCircuitBuilder_<FF>::finalize_circuit(const bool
         add_mega_gates_to_ensure_all_polys_are_non_zero();
     }
     // All of the gates involved in finalization are part of the Ultra arithmetization
-    UltraCircuitBuilder_<MegaArith<FF>>::finalize_circuit(ensure_nonzero);
+    UltraCircuitBuilder_<MegaExecutionTraceBlocks>::finalize_circuit(ensure_nonzero);
 }
 
 /**
@@ -74,7 +74,7 @@ template <typename FF> void MegaCircuitBuilder_<FF>::add_mega_gates_to_ensure_al
 template <typename FF> void MegaCircuitBuilder_<FF>::add_ultra_and_mega_gates_to_ensure_all_polys_are_non_zero()
 {
     // Most polynomials are handled via the conventional Ultra method
-    UltraCircuitBuilder_<MegaArith<FF>>::add_gates_to_ensure_all_polys_are_non_zero();
+    UltraCircuitBuilder_<MegaExecutionTraceBlocks>::add_gates_to_ensure_all_polys_are_non_zero();
     add_mega_gates_to_ensure_all_polys_are_non_zero();
 }
 

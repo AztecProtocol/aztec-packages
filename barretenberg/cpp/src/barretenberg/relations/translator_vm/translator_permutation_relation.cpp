@@ -2,5 +2,5 @@
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 namespace bb {
 template class TranslatorPermutationRelationImpl<fr>;
-DEFINE_ZK_SUMCHECK_RELATION_CLASS(TranslatorPermutationRelationImpl, TranslatorFlavor);
+DEFINE_SUMCHECK_RELATION_CLASS(TranslatorPermutationRelationImpl, TranslatorFlavor);
 } // namespace bb

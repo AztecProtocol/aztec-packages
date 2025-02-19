@@ -1,24 +1,28 @@
-import { EthCheatCodes, readFieldCompressedString } from '@aztec/aztec.js';
-import { AZTEC_EPOCH_DURATION } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
-import { TokenContract } from '@aztec/noir-contracts.js';
+import { readFieldCompressedString } from '@aztec/aztec.js';
+import { RollupCheatCodes } from '@aztec/aztec.js/ethereum';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { EthCheatCodesWithState } from '@aztec/ethereum/test';
+import { createLogger } from '@aztec/foundation/log';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
-import { RollupCheatCodes } from '../../../aztec.js/src/utils/cheat_codes.js';
-import { getConfig, isK8sConfig, startPortForward } from './k8_utils.js';
-import { type TestWallets, setupTestWalletsWithTokens } from './setup_test_wallets.js';
+import { type TestWallets, deployTestWalletWithTokens, setupTestWalletsWithTokens } from './setup_test_wallets.js';
+import { isK8sConfig, setupEnvironment, startPortForward } from './utils.js';
 
-const config = getConfig(process.env);
+const config = setupEnvironment(process.env);
 
 describe('token transfer test', () => {
   jest.setTimeout(10 * 60 * 4000); // 40 minutes
 
-  const logger = createDebugLogger(`aztec:spartan:4epochs`);
+  const logger = createLogger(`e2e:spartan:4epochs`);
+  const l1Config = getL1ContractsConfigEnvVars();
+
   // We want plenty of minted tokens for a lot of slots that fill up multiple epochs
   const MINT_AMOUNT = 2000000n;
   const TEST_EPOCHS = 4;
-  const ROUNDS = BigInt(AZTEC_EPOCH_DURATION * TEST_EPOCHS);
+  const MAX_MISSED_SLOTS = 10n;
+  const ROUNDS = BigInt(l1Config.aztecEpochDuration * TEST_EPOCHS);
 
   let testWallets: TestWallets;
   let PXE_URL: string;
@@ -27,46 +31,76 @@ describe('token transfer test', () => {
   beforeAll(async () => {
     if (isK8sConfig(config)) {
       await startPortForward({
-        resource: 'svc/spartan-aztec-network-pxe',
+        resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
         namespace: config.NAMESPACE,
         containerPort: config.CONTAINER_PXE_PORT,
         hostPort: config.HOST_PXE_PORT,
       });
-      await startPortForward({
-        resource: 'svc/spartan-aztec-network-ethereum',
-        namespace: config.NAMESPACE,
-        containerPort: config.CONTAINER_ETHEREUM_PORT,
-        hostPort: config.HOST_ETHEREUM_PORT,
-      });
       PXE_URL = `http://127.0.0.1:${config.HOST_PXE_PORT}`;
-      ETHEREUM_HOST = `http://127.0.0.1:${config.HOST_ETHEREUM_PORT}`;
+
+      if (config.SEPOLIA_RUN !== 'true') {
+        await startPortForward({
+          resource: `svc/${config.INSTANCE_NAME}-aztec-network-eth-execution`,
+          namespace: config.NAMESPACE,
+          containerPort: config.CONTAINER_ETHEREUM_PORT,
+          hostPort: config.HOST_ETHEREUM_PORT,
+        });
+        ETHEREUM_HOST = `http://127.0.0.1:${config.HOST_ETHEREUM_PORT}`;
+      } else {
+        if (!config.ETHEREUM_HOST) {
+          throw new Error('ETHEREUM_HOST must be set for sepolia runs');
+        }
+        ETHEREUM_HOST = config.ETHEREUM_HOST;
+      }
+
+      await startPortForward({
+        resource: `svc/${config.INSTANCE_NAME}-aztec-network-validator`,
+        namespace: config.NAMESPACE,
+        containerPort: config.CONTAINER_SEQUENCER_PORT,
+        hostPort: config.HOST_SEQUENCER_PORT,
+      });
+      const NODE_URL = `http://127.0.0.1:${config.HOST_SEQUENCER_PORT}`;
+
+      const L1_ACCOUNT_MNEMONIC = config.L1_ACCOUNT_MNEMONIC;
+
+      testWallets = await deployTestWalletWithTokens(
+        PXE_URL,
+        NODE_URL,
+        ETHEREUM_HOST,
+        L1_ACCOUNT_MNEMONIC,
+        MINT_AMOUNT,
+        logger,
+      );
     } else {
       PXE_URL = config.PXE_URL;
       ETHEREUM_HOST = config.ETHEREUM_HOST;
+      testWallets = await setupTestWalletsWithTokens(PXE_URL, MINT_AMOUNT, logger);
     }
 
-    testWallets = await setupTestWalletsWithTokens(PXE_URL, MINT_AMOUNT, logger);
     expect(ROUNDS).toBeLessThanOrEqual(MINT_AMOUNT);
+    logger.info(`Tested wallets setup: ${ROUNDS} < ${MINT_AMOUNT}`);
   });
 
   it('can get info', async () => {
     const name = readFieldCompressedString(await testWallets.tokenAdminWallet.methods.private_get_name().simulate());
     expect(name).toBe(testWallets.tokenName);
+    logger.info(`Token name verified: ${name}`);
   });
 
   it('transfer tokens for 4 epochs', async () => {
-    const ethCheatCodes = new EthCheatCodes(ETHEREUM_HOST);
+    const ethCheatCodes = new EthCheatCodesWithState(ETHEREUM_HOST);
+    const l1ContractAddresses = await testWallets.pxe.getNodeInfo().then(n => n.l1ContractAddresses);
     // Get 4 epochs
-    const rollupCheatCodes = new RollupCheatCodes(
-      ethCheatCodes,
-      await testWallets.pxe.getNodeInfo().then(n => n.l1ContractAddresses),
-    );
+    const rollupCheatCodes = new RollupCheatCodes(ethCheatCodes, l1ContractAddresses);
+    logger.info(`Deployed L1 contract addresses: ${JSON.stringify(l1ContractAddresses)}`);
     const recipient = testWallets.recipientWallet.getAddress();
     const transferAmount = 1n;
 
-    testWallets.wallets.forEach(async w => {
+    for (const w of testWallets.wallets) {
       expect(MINT_AMOUNT).toBe(await testWallets.tokenAdminWallet.methods.balance_of_public(w.getAddress()).simulate());
-    });
+    }
+
+    logger.info('Minted tokens');
 
     expect(0n).toBe(await testWallets.tokenAdminWallet.methods.balance_of_public(recipient).simulate());
 
@@ -77,15 +111,19 @@ describe('token transfer test', () => {
         ...testWallets.wallets.map(async w =>
           (
             await TokenContract.at(testWallets.tokenAddress, w)
-          ).methods.transfer_public(w.getAddress(), recipient, transferAmount, 0),
+          ).methods.transfer_in_public(w.getAddress(), recipient, transferAmount, 0),
         ),
       ]);
 
+      logger.info(`Created interactions ${interactions.length} for round ${i} of ${ROUNDS}`);
+
       const txs = await Promise.all(interactions.map(async i => await i.prove()));
+
+      logger.info(`Proved ${txs.length} in round ${i} of ${ROUNDS}`);
 
       await Promise.all(txs.map(t => t.send().wait({ timeout: 600 })));
       const currentSlot = await rollupCheatCodes.getSlot();
-      expect(currentSlot).toBe(startSlot + i);
+      expect(currentSlot).toBeLessThanOrEqual(startSlot + i + MAX_MISSED_SLOTS);
       const startEpoch = await rollupCheatCodes.getEpoch();
       logger.debug(
         `Successfully reached slot ${currentSlot} (iteration ${
@@ -94,11 +132,11 @@ describe('token transfer test', () => {
       );
     }
 
-    testWallets.wallets.forEach(async w => {
+    for (const w of testWallets.wallets) {
       expect(MINT_AMOUNT - ROUNDS * transferAmount).toBe(
         await testWallets.tokenAdminWallet.methods.balance_of_public(w.getAddress()).simulate(),
       );
-    });
+    }
 
     expect(ROUNDS * transferAmount * BigInt(testWallets.wallets.length)).toBe(
       await testWallets.tokenAdminWallet.methods.balance_of_public(recipient).simulate(),

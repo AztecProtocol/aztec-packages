@@ -92,7 +92,7 @@ namespace mem(256);
               + sel_op_slice;
 
     // Maximum one memory operation enabled per row
-    sel_mem * (sel_mem - 1) = 0; // TODO: might be infered by the main trace
+    sel_mem * (sel_mem - 1) = 0; // TODO: might be inferred by the main trace
 
     // Enforce the memory entries to be contiguous, i.e., as soon as
     // sel_mem is disabled all subsequent rows have sel_mem disabled.
@@ -264,7 +264,17 @@ namespace mem(256);
 
     // ========= Initialize Range Check Gadget ===============================
     // We range check that the difference between two timestamps are 40 bit numbers.
-    #[PERM_RNG_MEM]
-    range_check.mem_rng_chk {range_check.clk, range_check.value}
-    is
-    sel_rng_chk {tsp, diff};
+    pol commit u16_r0;
+    pol commit u16_r1;
+    pol commit u8_r0;
+
+    diff = u16_r0 + u16_r1 * 2**16 + u8_r0 * 2**32;
+
+    #[LOOKUP_MEM_RNG_CHK_0]
+    sel_rng_chk { u16_r0 } in main.sel_rng_16 { main.clk };
+
+    #[LOOKUP_MEM_RNG_CHK_1]
+    sel_rng_chk { u16_r1 } in main.sel_rng_16 { main.clk };
+
+    #[LOOKUP_MEM_RNG_CHK_2]
+    sel_rng_chk { u8_r0 } in main.sel_rng_8 { main.clk };

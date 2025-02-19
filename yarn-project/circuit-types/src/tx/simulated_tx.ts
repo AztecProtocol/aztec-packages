@@ -1,14 +1,21 @@
-import { ClientIvcProof, PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js';
+import { ClientIvcProof, Gas, PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js';
+import { type FieldsOf } from '@aztec/foundation/types';
 
-import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, UnencryptedTxL2Logs } from '../index.js';
+import { z } from 'zod';
+
 import {
+  type PrivateKernelProverProfileResult,
+  PrivateKernelProverProfileResultSchema,
+} from '../interfaces/private_kernel_prover.js';
+import { ContractClassTxL2Logs } from '../logs/tx_l2_logs.js';
+import {
+  type PrivateCallExecutionResult,
   PrivateExecutionResult,
   collectEnqueuedPublicFunctionCalls,
   collectPublicTeardownFunctionCall,
-  collectSortedEncryptedLogs,
-  collectSortedNoteEncryptedLogs,
-  collectSortedUnencryptedLogs,
+  collectSortedContractClassLogs,
 } from '../private_execution_result.js';
+import { type GasUsed } from './gas_used.js';
 import { NestedProcessReturnValues, PublicSimulationOutput } from './public_simulation_output.js';
 import { Tx } from './tx.js';
 
@@ -23,35 +30,18 @@ export class PrivateSimulationResult {
   }
 
   toSimulatedTx(): Tx {
-    const noteEncryptedLogs = new EncryptedNoteTxL2Logs([collectSortedNoteEncryptedLogs(this.privateExecutionResult)]);
-    const unencryptedLogs = new UnencryptedTxL2Logs([collectSortedUnencryptedLogs(this.privateExecutionResult)]);
-    const encryptedLogs = new EncryptedTxL2Logs([collectSortedEncryptedLogs(this.privateExecutionResult)]);
+    const contractClassLogs = new ContractClassTxL2Logs([collectSortedContractClassLogs(this.privateExecutionResult)]);
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(this.privateExecutionResult);
     const teardownPublicFunction = collectPublicTeardownFunctionCall(this.privateExecutionResult);
 
     const tx = new Tx(
       this.publicInputs,
       ClientIvcProof.empty(),
-      noteEncryptedLogs,
-      encryptedLogs,
-      unencryptedLogs,
+      contractClassLogs,
       enqueuedPublicFunctions,
       teardownPublicFunction,
     );
     return tx;
-  }
-
-  public toJSON() {
-    return {
-      privateExecutionResult: this.privateExecutionResult.toJSON(),
-      publicInputs: this.publicInputs.toBuffer().toString('hex'),
-    };
-  }
-
-  public static fromJSON(obj: any) {
-    const privateExecutionResult = PrivateExecutionResult.fromJSON(obj.privateExecutionResult);
-    const publicInputs = PrivateKernelTailCircuitPublicInputs.fromBuffer(Buffer.from(obj.publicInputs, 'hex'));
-    return new PrivateSimulationResult(privateExecutionResult, publicInputs);
   }
 }
 
@@ -60,8 +50,39 @@ export class TxSimulationResult extends PrivateSimulationResult {
     privateExecutionResult: PrivateExecutionResult,
     publicInputs: PrivateKernelTailCircuitPublicInputs,
     public publicOutput?: PublicSimulationOutput,
+    public profileResult?: PrivateKernelProverProfileResult,
   ) {
     super(privateExecutionResult, publicInputs);
+  }
+
+  get gasUsed(): GasUsed {
+    return (
+      this.publicOutput?.gasUsed ?? {
+        totalGas: this.publicInputs.gasUsed,
+        teardownGas: Gas.empty(),
+        publicGas: Gas.empty(),
+      }
+    );
+  }
+
+  static get schema() {
+    return z
+      .object({
+        privateExecutionResult: PrivateExecutionResult.schema,
+        publicInputs: PrivateKernelTailCircuitPublicInputs.schema,
+        publicOutput: PublicSimulationOutput.schema.optional(),
+        profileResult: PrivateKernelProverProfileResultSchema.optional(),
+      })
+      .transform(TxSimulationResult.from);
+  }
+
+  static from(fields: Omit<FieldsOf<TxSimulationResult>, 'gasUsed'>) {
+    return new TxSimulationResult(
+      fields.privateExecutionResult,
+      fields.publicInputs,
+      fields.publicOutput,
+      fields.profileResult,
+    );
   }
 
   getPublicReturnValues() {
@@ -71,27 +92,22 @@ export class TxSimulationResult extends PrivateSimulationResult {
   static fromPrivateSimulationResultAndPublicOutput(
     privateSimulationResult: PrivateSimulationResult,
     publicOutput?: PublicSimulationOutput,
+    profileResult?: PrivateKernelProverProfileResult,
   ) {
     return new TxSimulationResult(
       privateSimulationResult.privateExecutionResult,
       privateSimulationResult.publicInputs,
       publicOutput,
+      profileResult,
     );
   }
 
-  public override toJSON() {
-    return {
-      privateExecutionResult: this.privateExecutionResult.toJSON(),
-      publicInputs: this.publicInputs.toBuffer().toString('hex'),
-      publicOutput: this.publicOutput ? this.publicOutput.toJSON() : undefined,
-    };
-  }
-
-  public static override fromJSON(obj: any) {
-    const privateExecutionResult = PrivateExecutionResult.fromJSON(obj.privateExecutionResult);
-    const publicInputs = PrivateKernelTailCircuitPublicInputs.fromBuffer(Buffer.from(obj.publicInputs, 'hex'));
-    const publicOuput = obj.publicOutput ? PublicSimulationOutput.fromJSON(obj.publicOutput) : undefined;
-    return new TxSimulationResult(privateExecutionResult, publicInputs, publicOuput);
+  static async random() {
+    return new TxSimulationResult(
+      await PrivateExecutionResult.random(),
+      PrivateKernelTailCircuitPublicInputs.empty(),
+      await PublicSimulationOutput.random(),
+    );
   }
 }
 
@@ -103,37 +119,40 @@ export class TxProvingResult {
   ) {}
 
   toTx(): Tx {
-    const noteEncryptedLogs = new EncryptedNoteTxL2Logs([collectSortedNoteEncryptedLogs(this.privateExecutionResult)]);
-    const unencryptedLogs = new UnencryptedTxL2Logs([collectSortedUnencryptedLogs(this.privateExecutionResult)]);
-    const encryptedLogs = new EncryptedTxL2Logs([collectSortedEncryptedLogs(this.privateExecutionResult)]);
+    const contractClassLogs = new ContractClassTxL2Logs([collectSortedContractClassLogs(this.privateExecutionResult)]);
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(this.privateExecutionResult);
     const teardownPublicFunction = collectPublicTeardownFunctionCall(this.privateExecutionResult);
 
     const tx = new Tx(
       this.publicInputs,
       this.clientIvcProof,
-      noteEncryptedLogs,
-      encryptedLogs,
-      unencryptedLogs,
+      contractClassLogs,
       enqueuedPublicFunctions,
       teardownPublicFunction,
     );
     return tx;
   }
 
-  public toJSON() {
-    return {
-      privateExecutionResult: this.privateExecutionResult.toJSON(),
-      publicInputs: this.publicInputs.toBuffer().toString('hex'),
-      clientIvcProof: this.clientIvcProof.toBuffer().toString('hex'),
-    };
+  static get schema() {
+    return z
+      .object({
+        privateExecutionResult: PrivateExecutionResult.schema,
+        publicInputs: PrivateKernelTailCircuitPublicInputs.schema,
+        clientIvcProof: ClientIvcProof.schema,
+      })
+      .transform(TxProvingResult.from);
   }
 
-  public static fromJSON(obj: any) {
-    const privateExecutionResult = PrivateExecutionResult.fromJSON(obj.privateExecutionResult);
-    const publicInputs = PrivateKernelTailCircuitPublicInputs.fromBuffer(Buffer.from(obj.publicInputs, 'hex'));
-    const clientIvcProof = ClientIvcProof.fromBuffer(Buffer.from(obj.clientIvcProof, 'hex'));
-    return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof);
+  static from(fields: FieldsOf<TxProvingResult>) {
+    return new TxProvingResult(fields.privateExecutionResult, fields.publicInputs, fields.clientIvcProof);
+  }
+
+  static async random() {
+    return new TxProvingResult(
+      await PrivateExecutionResult.random(),
+      PrivateKernelTailCircuitPublicInputs.empty(),
+      ClientIvcProof.empty(),
+    );
   }
 }
 
@@ -144,7 +163,14 @@ export class TxProvingResult {
  * @returns
  */
 export function accumulatePrivateReturnValues(executionResult: PrivateExecutionResult): NestedProcessReturnValues {
-  const acc = new NestedProcessReturnValues(executionResult.returnValues);
-  acc.nested = executionResult.nestedExecutions.map(nestedExecution => accumulatePrivateReturnValues(nestedExecution));
-  return acc;
+  const collectPrivateReturnValuesRecursive = (
+    executionResult: PrivateCallExecutionResult,
+  ): NestedProcessReturnValues => {
+    const acc = new NestedProcessReturnValues(executionResult.returnValues);
+    acc.nested = executionResult.nestedExecutions.map(nestedExecution =>
+      collectPrivateReturnValuesRecursive(nestedExecution),
+    );
+    return acc;
+  };
+  return collectPrivateReturnValuesRecursive(executionResult.entrypoint);
 }

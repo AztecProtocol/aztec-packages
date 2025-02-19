@@ -54,6 +54,9 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     using NativeFlavor = UltraFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
 
+    // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
+    static constexpr bool USE_SHORT_MONOMIALS = UltraFlavor::USE_SHORT_MONOMIALS;
+
     // Note(luke): Eventually this may not be needed at all
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<NativeFlavor::Curve>;
     // Indicates that this flavor runs with non-ZK Sumcheck.
@@ -68,6 +71,8 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = UltraFlavor::NUM_PRECOMPUTED_ENTITIES;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = UltraFlavor::NUM_WITNESS_ENTITIES;
+
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = UltraFlavor::REPEATED_COMMITMENTS;
 
     // define the tuple of Relations that comprise the Sumcheck relation
     using Relations = UltraFlavor::Relations_<FF>;
@@ -123,8 +128,9 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = native_key->num_public_inputs;
             this->pub_inputs_offset = native_key->pub_inputs_offset;
-            this->contains_recursive_proof = native_key->contains_recursive_proof;
-            this->recursive_proof_public_input_indices = native_key->recursive_proof_public_input_indices;
+            this->contains_pairing_point_accumulator = native_key->contains_pairing_point_accumulator;
+            this->pairing_point_accumulator_public_input_indices =
+                native_key->pairing_point_accumulator_public_input_indices;
 
             // Generate stdlib commitments (biggroup) from the native counterparts
             for (auto [commitment, native_commitment] : zip_view(this->get_all(), native_key->get_all())) {
@@ -147,10 +153,10 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
             this->circuit_size = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
             this->num_public_inputs = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
             this->pub_inputs_offset = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
-            this->contains_recursive_proof =
+            this->contains_pairing_point_accumulator =
                 bool(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
 
-            for (uint32_t& idx : this->recursive_proof_public_input_indices) {
+            for (uint32_t& idx : this->pairing_point_accumulator_public_input_indices) {
                 idx = uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
             }
 

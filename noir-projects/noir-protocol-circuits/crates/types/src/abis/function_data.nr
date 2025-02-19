@@ -1,12 +1,12 @@
 use crate::{
     abis::function_selector::FunctionSelector,
     constants::FUNCTION_DATA_LENGTH,
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, FromField, Serialize, ToField},
 };
 
 pub struct FunctionData {
-    selector: FunctionSelector,
-    is_private: bool,
+    pub selector: FunctionSelector,
+    pub is_private: bool,
 }
 
 impl Eq for FunctionData {

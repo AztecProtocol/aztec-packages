@@ -6,7 +6,7 @@
 #include "barretenberg/vm/avm/trace/gadgets/range_check.hpp"
 #include <cstdint>
 
-enum class CmpOp { EQ, GT };
+enum class CmpOp { EQ, GT, GT_NON_FF };
 
 namespace bb::avm_trace {
 class AvmCmpBuilder {
@@ -26,6 +26,7 @@ class AvmCmpBuilder {
         FF result;
         FF op_eq_diff_inv;
         bool is_gt;
+        bool is_gt_non_ff;
         bool is_eq;
         std::tuple<FF, FF> a_limbs;
         std::tuple<FF, FF> b_limbs;
@@ -42,6 +43,9 @@ class AvmCmpBuilder {
         FF op_eq_diff_inv;
         FF op_gt;
         FF op_eq;
+        FF op_non_ff_gt;
+        FF non_ff_gt_diff_inv;
+        FF diff;
         FF a_lo;
         FF a_hi;
         FF b_lo;
@@ -69,6 +73,8 @@ class AvmCmpBuilder {
     bool constrained_eq(FF a, FF b, uint64_t clk, EventEmitter e);
     // Constrains a > b
     bool constrained_gt(FF a, FF b, uint64_t clk, EventEmitter e);
+    // Constrains a > b when a and b are at most 128 bits
+    bool constrained_non_ff_gt(uint128_t a, uint128_t b, uint64_t clk, EventEmitter e);
 
     uint32_t get_cmp_trace_size() const;
 
@@ -83,7 +89,10 @@ class AvmCmpBuilder {
         row.cmp_result = entry.result;
         row.cmp_op_eq_diff_inv = entry.op_eq_diff_inv;
         row.cmp_op_gt = entry.op_gt;
+        row.cmp_op_non_ff_gt = entry.op_non_ff_gt;
         row.cmp_op_eq = entry.op_eq;
+
+        row.cmp_diff = entry.diff;
 
         row.cmp_a_lo = entry.a_lo;
         row.cmp_a_hi = entry.a_hi;

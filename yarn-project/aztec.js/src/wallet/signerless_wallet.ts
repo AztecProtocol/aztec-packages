@@ -42,4 +42,8 @@ export class SignerlessWallet extends BaseWallet {
   createAuthWit(_intent: Fr | Buffer | IntentInnerHash | IntentAction): Promise<AuthWitness> {
     throw new Error('SignerlessWallet: Method createAuthWit not implemented.');
   }
+
+  override isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
+    return this.pxe.isL1ToL2MessageSynced(l1ToL2Message);
+  }
 }

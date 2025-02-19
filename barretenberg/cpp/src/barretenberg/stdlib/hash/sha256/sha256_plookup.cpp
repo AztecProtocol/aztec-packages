@@ -279,7 +279,6 @@ std::array<field_t<Builder>, 8> sha256_block(const std::array<field_t<Builder>, 
     sparse_value<Builder> a = sparse_value<Builder>(h_init[0]);
     auto b = map_into_maj_sparse_form(h_init[1]);
     auto c = map_into_maj_sparse_form(h_init[2]);
-    // auto d = sparse_value<Builder>(h_init[3]);
     sparse_value<Builder> d = sparse_value<Builder>(h_init[3]);
     sparse_value<Builder> e = sparse_value<Builder>(h_init[4]);
     auto f = map_into_choose_sparse_form(h_init[5]);

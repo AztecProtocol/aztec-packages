@@ -1,8 +1,13 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256, makeEthSignDigest } from '@aztec/foundation/crypto';
 
+export enum SignatureDomainSeparator {
+  blockProposal = 0,
+  blockAttestation = 1,
+}
+
 export interface Signable {
-  getPayloadToSign(): Buffer;
+  getPayloadToSign(domainSeparator: SignatureDomainSeparator): Promise<Buffer>;
 }
 
 /**
@@ -10,8 +15,11 @@ export interface Signable {
  * @param s - The `Signable` to sign
  * @returns The hashed payload for the signature of the `Signable`
  */
-export function getHashedSignaturePayload(s: Signable): Buffer32 {
-  return Buffer32.fromBuffer(keccak256(s.getPayloadToSign()));
+export async function getHashedSignaturePayload(
+  s: Signable,
+  domainSeparator: SignatureDomainSeparator,
+): Promise<Buffer32> {
+  return Buffer32.fromBuffer(keccak256(await s.getPayloadToSign(domainSeparator)));
 }
 
 /**
@@ -19,7 +27,10 @@ export function getHashedSignaturePayload(s: Signable): Buffer32 {
  * @param s - the `Signable` to sign
  * @returns The hashed payload for the signature of the `Signable` as an Ethereum signed message
  */
-export function getHashedSignaturePayloadEthSignedMessage(s: Signable): Buffer32 {
-  const payload = getHashedSignaturePayload(s);
+export async function getHashedSignaturePayloadEthSignedMessage(
+  s: Signable,
+  domainSeparator: SignatureDomainSeparator,
+): Promise<Buffer32> {
+  const payload = await getHashedSignaturePayload(s, domainSeparator);
   return makeEthSignDigest(payload);
 }

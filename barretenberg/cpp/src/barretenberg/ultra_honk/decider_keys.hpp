@@ -69,6 +69,22 @@ template <typename Flavor_, size_t NUM_ = 2> struct DeciderProvingKeys_ {
         return results;
     }
 
+    typename Flavor::template ProverUnivariates<2> row_to_short_univariates(size_t row_idx) const
+    {
+        auto prover_polynomials_views = get_polynomials_views();
+        typename Flavor::template ProverUnivariates<2> results;
+        // Set the size corresponding to the number of rows in the execution trace
+        // Iterate over the prover polynomials' views corresponding to each proving key
+        for (size_t dpk_idx = 0; const auto& view : prover_polynomials_views) {
+            // Iterate over all columns in the trace execution of a proving key and extract their value at row_idx.
+            for (auto [result, poly_ptr] : zip_view(results.get_all(), view)) {
+                result.evaluations[dpk_idx] = poly_ptr[row_idx];
+            }
+            dpk_idx++;
+        }
+        return results;
+    }
+
   private:
     // Returns a vector containing pointer views to the prover polynomials corresponding to each proving key.
     auto get_polynomials_views() const
@@ -107,6 +123,21 @@ template <typename Flavor_, size_t NUM_ = 2> struct DeciderVerificationKeys_ {
             _data[idx] = std::move(data[idx]);
         }
     };
+
+    /**
+     * @brief Get the max log circuit size from the set of decider verification keys
+     *
+     * @return size_t
+     */
+    size_t get_max_log_circuit_size() const
+    {
+        size_t max_log_circuit_size{ 0 };
+        for (auto key : _data) {
+            max_log_circuit_size =
+                std::max(max_log_circuit_size, static_cast<size_t>(key->verification_key->log_circuit_size));
+        }
+        return max_log_circuit_size;
+    }
 
     /**
      * @brief Get the precomputed commitments grouped by commitment index

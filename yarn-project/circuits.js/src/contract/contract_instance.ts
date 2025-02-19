@@ -10,7 +10,6 @@ import { BufferReader, numToUInt8, serializeToBuffer } from '@aztec/foundation/s
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
-import { computeContractClassId } from '../contract/contract_class_id.js';
 import { PublicKeys } from '../types/public_keys.js';
 import {
   computeContractAddressFromInstance,
@@ -25,7 +24,8 @@ export class SerializableContractInstance {
   public readonly version = VERSION;
   public readonly salt: Fr;
   public readonly deployer: AztecAddress;
-  public readonly contractClassId: Fr;
+  public readonly currentContractClassId: Fr;
+  public readonly originalContractClassId: Fr;
   public readonly initializationHash: Fr;
   public readonly publicKeys: PublicKeys;
 
@@ -35,7 +35,8 @@ export class SerializableContractInstance {
     }
     this.salt = instance.salt;
     this.deployer = instance.deployer;
-    this.contractClassId = instance.contractClassId;
+    this.currentContractClassId = instance.currentContractClassId;
+    this.originalContractClassId = instance.originalContractClassId;
     this.initializationHash = instance.initializationHash;
     this.publicKeys = instance.publicKeys;
   }
@@ -45,7 +46,8 @@ export class SerializableContractInstance {
       numToUInt8(this.version),
       this.salt,
       this.deployer,
-      this.contractClassId,
+      this.currentContractClassId,
+      this.originalContractClassId,
       this.initializationHash,
       this.publicKeys,
     );
@@ -62,20 +64,22 @@ export class SerializableContractInstance {
       version: reader.readUInt8() as typeof VERSION,
       salt: reader.readObject(Fr),
       deployer: reader.readObject(AztecAddress),
-      contractClassId: reader.readObject(Fr),
+      currentContractClassId: reader.readObject(Fr),
+      originalContractClassId: reader.readObject(Fr),
       initializationHash: reader.readObject(Fr),
       publicKeys: reader.readObject(PublicKeys),
     });
   }
 
-  static random(opts: Partial<FieldsOf<ContractInstance>> = {}) {
+  static async random(opts: Partial<FieldsOf<ContractInstance>> = {}) {
     return new SerializableContractInstance({
       version: VERSION,
       salt: Fr.random(),
-      deployer: AztecAddress.random(),
-      contractClassId: Fr.random(),
+      deployer: await AztecAddress.random(),
+      currentContractClassId: Fr.random(),
+      originalContractClassId: Fr.random(),
       initializationHash: Fr.random(),
-      publicKeys: PublicKeys.random(),
+      publicKeys: await PublicKeys.random(),
       ...opts,
     });
   }
@@ -85,7 +89,8 @@ export class SerializableContractInstance {
       version: VERSION,
       salt: Fr.zero(),
       deployer: AztecAddress.zero(),
-      contractClassId: Fr.zero(),
+      currentContractClassId: Fr.zero(),
+      originalContractClassId: Fr.zero(),
       initializationHash: Fr.zero(),
       publicKeys: PublicKeys.default(),
     });
@@ -98,7 +103,7 @@ export class SerializableContractInstance {
  * @param opts - Options for the deployment.
  * @returns - The contract instance
  */
-export function getContractInstanceFromDeployParams(
+export async function getContractInstanceFromDeployParams(
   artifact: ContractArtifact,
   opts: {
     constructorArtifact?: FunctionArtifact | string;
@@ -108,24 +113,24 @@ export function getContractInstanceFromDeployParams(
     publicKeys?: PublicKeys;
     deployer?: AztecAddress;
   },
-): ContractInstanceWithAddress {
+): Promise<ContractInstanceWithAddress> {
   const args = opts.constructorArgs ?? [];
   const salt = opts.salt ?? Fr.random();
   const constructorArtifact = getConstructorArtifact(artifact, opts.constructorArtifact);
   const deployer = opts.deployer ?? AztecAddress.ZERO;
-  const contractClass = getContractClassFromArtifact(artifact);
-  const contractClassId = computeContractClassId(contractClass);
+  const contractClass = await getContractClassFromArtifact(artifact);
   const initializationHash =
     constructorArtifact && opts?.skipArgsDecoding
-      ? computeInitializationHashFromEncodedArgs(
-          FunctionSelector.fromNameAndParameters(constructorArtifact?.name, constructorArtifact?.parameters),
+      ? await computeInitializationHashFromEncodedArgs(
+          await FunctionSelector.fromNameAndParameters(constructorArtifact?.name, constructorArtifact?.parameters),
           args,
         )
-      : computeInitializationHash(constructorArtifact, args);
+      : await computeInitializationHash(constructorArtifact, args);
   const publicKeys = opts.publicKeys ?? PublicKeys.default();
 
   const instance: ContractInstance = {
-    contractClassId,
+    currentContractClassId: contractClass.id,
+    originalContractClassId: contractClass.id,
     initializationHash,
     publicKeys,
     salt,
@@ -133,7 +138,7 @@ export function getContractInstanceFromDeployParams(
     version: 1,
   };
 
-  return { ...instance, address: computeContractAddressFromInstance(instance) };
+  return { ...instance, address: await computeContractAddressFromInstance(instance) };
 }
 
 function getConstructorArtifact(

@@ -4,7 +4,7 @@ use crate::{
 };
 
 pub struct RecursiveProof {
-    fields: [Field; RECURSIVE_PROOF_LENGTH],
+    pub fields: [Field; RECURSIVE_PROOF_LENGTH],
 }
 
 impl Serialize<RECURSIVE_PROOF_LENGTH> for RecursiveProof {
@@ -26,7 +26,7 @@ impl Empty for RecursiveProof {
 }
 
 pub struct NestedRecursiveProof {
-    fields: [Field; NESTED_RECURSIVE_PROOF_LENGTH],
+    pub fields: [Field; NESTED_RECURSIVE_PROOF_LENGTH],
 }
 
 impl Serialize<NESTED_RECURSIVE_PROOF_LENGTH> for NestedRecursiveProof {

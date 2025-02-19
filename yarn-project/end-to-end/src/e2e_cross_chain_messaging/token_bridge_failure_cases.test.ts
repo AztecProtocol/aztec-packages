@@ -50,24 +50,25 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
     await crossChainTestHarness.makeMessageConsumable(claim.messageHash);
 
     // Wrong message hash
-    const content = sha256ToField([
-      Buffer.from(toFunctionSelector('mint_private(bytes32,uint256)').substring(2), 'hex'),
-      claim.claimSecretHash,
-      new Fr(bridgeAmount),
+    const wrongBridgeAmount = bridgeAmount + 1n;
+    const wrongMessageContent = sha256ToField([
+      Buffer.from(toFunctionSelector('mint_to_private(uint256)').substring(2), 'hex'),
+      new Fr(wrongBridgeAmount),
     ]);
 
     const wrongMessage = new L1ToL2Message(
       new L1Actor(crossChainTestHarness.tokenPortalAddress, crossChainTestHarness.publicClient.chain.id),
       new L2Actor(l2Bridge.address, 1),
-      content,
+      wrongMessageContent,
       claim.claimSecretHash,
       new Fr(claim.messageLeafIndex),
     );
 
+    // Sending wrong secret hashes should fail:
     await expect(
       l2Bridge
         .withWallet(user2Wallet)
-        .methods.claim_private(claim.claimSecretHash, bridgeAmount, claim.claimSecret, claim.messageLeafIndex)
+        .methods.claim_private(ownerAddress, wrongBridgeAmount, claim.claimSecret, claim.messageLeafIndex)
         .prove(),
     ).rejects.toThrow(`No L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
   }, 60_000);

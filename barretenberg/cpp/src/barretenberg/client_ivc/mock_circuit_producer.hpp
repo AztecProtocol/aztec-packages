@@ -96,7 +96,13 @@ class PrivateFunctionExecutionMockCircuitProducer {
 
     MockDatabusProducer mock_databus;
 
+    bool large_first_app = true; // if true, first app is 2^19, else 2^17
+
   public:
+    PrivateFunctionExecutionMockCircuitProducer(bool large_first_app = true)
+        : large_first_app(large_first_app)
+    {}
+
     /**
      * @brief Create the next circuit (app/kernel) in a mocked private function execution stack
      */
@@ -113,7 +119,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
             mock_databus.populate_kernel_databus(circuit);              // populate databus inputs/outputs
             ivc.complete_kernel_circuit_logic(circuit);                 // complete with recursive verifiers etc
         } else {
-            bool use_large_circuit = (circuit_counter == 1);                            // first circuit is size 2^19
+            bool use_large_circuit = large_first_app && (circuit_counter == 1);         // first circuit is size 2^19
             GoblinMockCircuits::construct_mock_app_circuit(circuit, use_large_circuit); // construct mock app
             mock_databus.populate_app_databus(circuit);                                 // populate databus outputs
         }
@@ -135,10 +141,9 @@ class PrivateFunctionExecutionMockCircuitProducer {
      * @param trace_structure Trace structuring must be known in advance because it effects the VKs
      * @return set of num_circuits-many verification keys
      */
-    auto precompute_verification_keys(const size_t num_circuits, TraceStructure trace_structure)
+    auto precompute_verification_keys(const size_t num_circuits, TraceSettings trace_settings)
     {
-        ClientIVC ivc; // temporary IVC instance needed to produce the complete kernel circuits
-        ivc.trace_structure = trace_structure;
+        ClientIVC ivc{ trace_settings }; // temporary IVC instance needed to produce the complete kernel circuits
 
         std::vector<std::shared_ptr<VerificationKey>> vkeys;
 

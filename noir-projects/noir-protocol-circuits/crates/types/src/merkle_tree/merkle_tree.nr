@@ -1,8 +1,8 @@
 use crate::{hash::merkle_hash, traits::Empty};
 
 pub struct MerkleTree<let N: u32> {
-    leaves: [Field; N],
-    nodes: [Field; N],
+    pub leaves: [Field; N],
+    pub nodes: [Field; N],
 }
 
 impl<let N: u32> Empty for MerkleTree<N> {
@@ -32,7 +32,7 @@ impl<let N: u32> MerkleTree<N> {
         MerkleTree { leaves, nodes }
     }
 
-    fn get_root(self) -> Field {
+    pub fn get_root(self) -> Field {
         self.nodes[N - 2]
     }
 
@@ -44,7 +44,7 @@ impl<let N: u32> MerkleTree<N> {
         }
     }
 
-    fn get_sibling_path<let K: u32>(self, leaf_index: u32) -> [Field; K] {
+    pub fn get_sibling_path<let K: u32>(self, leaf_index: u32) -> [Field; K] {
         assert_eq(2.pow_32(K as Field), N as Field, "Invalid path length");
 
         let mut path = [0; K];

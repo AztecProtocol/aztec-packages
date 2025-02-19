@@ -19,6 +19,7 @@ void ProtogalaxyVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_each_in
     const std::vector<FF>& proof)
 {
     transcript = std::make_shared<Transcript>(proof);
+    transcript->enable_manifest();
     size_t index = 0;
     auto key = keys_to_fold[0];
     auto domain_separator = std::to_string(index);
@@ -106,6 +107,11 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
     auto next_accumulator = std::make_shared<DeciderVK>();
     next_accumulator->verification_key = std::make_shared<VerificationKey>(*accumulator->verification_key);
     next_accumulator->is_accumulator = true;
+
+    // Set the accumulator circuit size data based on the max of the keys being accumulated
+    const size_t accumulator_log_circuit_size = keys_to_fold.get_max_log_circuit_size();
+    next_accumulator->verification_key->log_circuit_size = accumulator_log_circuit_size;
+    next_accumulator->verification_key->circuit_size = 1 << accumulator_log_circuit_size;
 
     // Compute next folding parameters
     const auto [vanishing_polynomial_at_challenge, lagranges] =

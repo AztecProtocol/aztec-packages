@@ -166,6 +166,7 @@ pub(crate) fn process_workspace_for_noir_document(
                 crate_graph: context.crate_graph,
                 node_interner: context.def_interner,
                 def_maps: context.def_maps,
+                usage_tracker: context.usage_tracker,
             },
         );
 
@@ -299,7 +300,7 @@ fn secondary_to_related_information(
     let secondary_file = secondary.file.unwrap_or(file_id);
     let path = fm.path(secondary_file)?;
     let uri = Url::from_file_path(path).ok()?;
-    let range = byte_span_to_range(files, file_id, secondary.span.into())?;
+    let range = byte_span_to_range(files, secondary_file, secondary.span.into())?;
     let message = secondary.message;
     Some(DiagnosticRelatedInformation { location: lsp_types::Location { uri, range }, message })
 }

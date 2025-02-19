@@ -240,9 +240,7 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
             verified = this->vk()->pairing_check(result[0], result[1]);
         } else {
             // Execute Verifier protocol with vk
-            result = PCS::reduce_verify(this->vk(), verifier_opening_claim, verifier_transcript);
-
-            verified = result;
+            verified = PCS::reduce_verify(this->vk(), verifier_opening_claim, verifier_transcript);
         }
 
         // The prover and verifier manifests should agree
@@ -297,9 +295,7 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
             verified = this->vk()->pairing_check(result[0], result[1]);
         } else {
             // Execute Verifier protocol with vk
-            result = PCS::reduce_verify(this->vk(), verifier_opening_claim, verifier_transcript);
-
-            verified = result;
+            verified = PCS::reduce_verify(this->vk(), verifier_opening_claim, verifier_transcript);
         }
 
         // The prover and verifier manifests should agree

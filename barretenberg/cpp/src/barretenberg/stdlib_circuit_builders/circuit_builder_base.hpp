@@ -2,7 +2,7 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/gate_data.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include <msgpack/sbuffer_decl.hpp>
 #include <utility>
@@ -18,6 +18,8 @@ template <typename FF_> class CircuitBuilderBase {
     using EmbeddedCurve = std::conditional_t<std::same_as<FF, bb::g1::coordinate_field>, curve::BN254, curve::Grumpkin>;
 
     size_t num_gates = 0;
+    // true if we have dummy witnesses (in the write_vk case)
+    bool has_dummy_witnesses = false;
 
     std::vector<uint32_t> public_inputs;
     std::vector<FF> variables;
@@ -37,11 +39,15 @@ template <typename FF_> class CircuitBuilderBase {
     std::map<uint32_t, uint32_t> tau;
 
     // Public input indices which contain recursive proof information
-    AggregationObjectPubInputIndices recursive_proof_public_input_indices;
-    bool contains_recursive_proof = false;
+    PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;
+    bool contains_pairing_point_accumulator = false;
 
-    // We only know from the circuit description whether a circuit should use a prover which produces
-    // proofs that are friendly to verify in a circuit themselves. However, a verifier does not need a full circuit
+    // Public input indices which contain the output IPA opening claim
+    IPAClaimPubInputIndices ipa_claim_public_input_indices;
+    bool contains_ipa_claim = false;
+
+    // We know from the CLI arguments during proving whether a circuit should use a prover which produces
+    // proofs that are friendly to verify in a circuit themselves. A verifier does not need a full circuit
     // description and should be able to verify a proof with just the verification key and the proof.
     // This field exists to later set the same field in the verification key, and make sure
     // that we are using the correct prover/verifier.
@@ -52,7 +58,7 @@ template <typename FF_> class CircuitBuilderBase {
     static constexpr uint32_t REAL_VARIABLE = UINT32_MAX - 1;
     static constexpr uint32_t FIRST_VARIABLE_IN_CLASS = UINT32_MAX - 2;
 
-    CircuitBuilderBase(size_t size_hint = 0);
+    CircuitBuilderBase(size_t size_hint = 0, bool has_dummy_witnesses = false);
 
     CircuitBuilderBase(const CircuitBuilderBase& other) = default;
     CircuitBuilderBase(CircuitBuilderBase&& other) noexcept = default;
@@ -206,17 +212,9 @@ template <typename FF_> class CircuitBuilderBase {
      * @param proof_output_witness_indices Witness indices that need to become public and stored as recurisve proof
      * specific
      */
-    void add_recursive_proof(const AggregationObjectIndices& proof_output_witness_indices);
+    void add_pairing_point_accumulator(const PairingPointAccumulatorIndices& pairing_point_accum_witness_indices);
 
-    /**
-     * TODO: We can remove this and use `add_recursive_proof` once my question has been addressed
-     * TODO: using `add_recursive_proof` also means that we will need to remove the cde which is
-     * TODO: adding the public_inputs
-     * @brief Update recursive_proof_public_input_indices with existing public inputs that represent a recursive proof
-     *
-     * @param proof_output_witness_indices
-     */
-    void set_recursive_proof(const AggregationObjectIndices& proof_output_witness_indices);
+    void add_ipa_claim(const IPAClaimIndices& ipa_claim_witness_indices);
 
     bool failed() const;
     const std::string& err() const;
@@ -255,6 +253,7 @@ template <typename FF> struct CircuitSchemaInternal {
     std::vector<std::vector<std::vector<FF>>> lookup_tables;
     std::vector<uint32_t> real_variable_tags;
     std::unordered_map<uint32_t, uint64_t> range_tags;
+    bool circuit_finalized;
     MSGPACK_FIELDS(modulus,
                    public_inps,
                    vars_of_interest,
@@ -385,7 +384,7 @@ template <typename FF> struct CircuitSchemaInternal {
  * ComposerBase naming conventions:
  *   - n = 5 gates (4 gates plus the 'zero' gate).
  *   - variables <-- A.k.a. "witnesses". Indices of this variables vector are referred to as `witness_indices`.
- * Example of varibales in this example (a 3,4,5 triangle):
+ * Example of variables in this example (a 3,4,5 triangle):
  *   - variables      = [  0,   3,   4,   5,   9,  16,  25,  25]
  *   - public_inputs  = [6] <-- points to variables[6].
  *

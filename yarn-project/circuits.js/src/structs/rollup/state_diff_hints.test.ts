@@ -1,11 +1,11 @@
-import { makeStateDiffHints } from '../../tests/factories.js';
-import { StateDiffHints } from './state_diff_hints.js';
+import { makePrivateBaseStateDiffHints } from '../../tests/factories.js';
+import { PrivateBaseStateDiffHints } from './state_diff_hints.js';
 
 describe('StateDiffHints', () => {
-  it('serializes to buffer and deserializes it back', () => {
-    const expected = makeStateDiffHints();
+  it('serializes private hints to buffer and deserializes it back', () => {
+    const expected = makePrivateBaseStateDiffHints();
     const buffer = expected.toBuffer();
-    const res = StateDiffHints.fromBuffer(buffer);
+    const res = PrivateBaseStateDiffHints.fromBuffer(buffer);
     expect(res).toEqual(expected);
   });
 });

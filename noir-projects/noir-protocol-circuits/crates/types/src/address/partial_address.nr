@@ -10,7 +10,7 @@ global PARTIAL_ADDRESS_LENGTH: u32 = 1;
 
 // Partial address
 pub struct PartialAddress {
-    inner: Field,
+    pub inner: Field,
 }
 
 impl ToField for PartialAddress {

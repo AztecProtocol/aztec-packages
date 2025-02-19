@@ -6,7 +6,7 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract Benchmarking {
+pub contract Benchmarking {
     use dep::aztec::prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable};
     use dep::value_note::{utils::increment, value_note::ValueNote};
 
@@ -20,15 +20,9 @@ contract Benchmarking {
 
     // Creates a new value note for the target owner. Use this method to seed an initial set of notes.
     #[private]
-    fn create_note(owner: AztecAddress, outgoing_viewer: AztecAddress, value: Field) {
+    fn create_note(owner: AztecAddress, sender: AztecAddress, value: Field) {
         // docs:start:increment_valuenote
-        increment(
-            storage.notes.at(owner),
-            value,
-            owner,
-            outgoing_viewer,
-            outgoing_viewer,
-        );
+        increment(storage.notes.at(owner), value, owner, sender);
         // docs:end:increment_valuenote
     }
     // Deletes a note at a specific index in the set and creates a new one with the same value.
@@ -37,18 +31,12 @@ contract Benchmarking {
     // See https://discourse.aztec.network/t/utxo-concurrency-issues-for-private-state/635
     // by @rahul-kothari for a full explanation on why this is needed.
     #[private]
-    fn recreate_note(owner: AztecAddress, outgoing_viewer: AztecAddress, index: u32) {
+    fn recreate_note(owner: AztecAddress, sender: AztecAddress, index: u32) {
         let owner_notes = storage.notes.at(owner);
         let mut getter_options = NoteGetterOptions::new();
         let notes = owner_notes.pop_notes(getter_options.set_limit(1).set_offset(index));
         let note = notes.get(0);
-        increment(
-            owner_notes,
-            note.value,
-            owner,
-            outgoing_viewer,
-            outgoing_viewer,
-        );
+        increment(owner_notes, note.value, owner, sender);
     }
 
     // Reads and writes to public storage and enqueues a call to another public function.
@@ -62,6 +50,12 @@ contract Benchmarking {
     // Emits a public log.
     #[public]
     fn broadcast(owner: AztecAddress) {
-        context.emit_unencrypted_log(storage.balances.at(owner).read());
+        context.emit_public_log(storage.balances.at(owner).read());
+    }
+
+    // Does a bunch of heavy compute
+    #[public]
+    fn sha256_hash_2048(data: [u8; 2048]) -> [u8; 32] {
+        std::hash::sha256(data)
     }
 }

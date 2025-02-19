@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
-set -eu
+source $(git rev-parse --show-toplevel)/ci3/source
 
-cd "$(dirname "$0")"
+# To run bb we need a crs.
+# Download ignition up front to ensure no race conditions at runtime.
+[ -n "${SKIP_BB_CRS:-}" ] || ./scripts/download_bb_crs.sh
 
-(cd cpp && ./bootstrap.sh $@)
-(cd ts && ./bootstrap.sh $@)
+./cpp/bootstrap.sh $@
+./ts/bootstrap.sh $@
+./acir_tests/bootstrap.sh $@

@@ -35,7 +35,7 @@ We avoid using any Circle CI specific features. They are very general purpose, a
 
 The build system leverages image names and tags in the docker image registry to keep track of it's historical success or failure in terms of builds, tests, and deployments. It's otherwise stateless, meaning it only needs a container registry to track state.
 
-We work in terms of _contest hashes_, not commit hashes or branches. Content hashes are like commit hashes, but are scoped to files matching the rebuild patterns.
+We work in terms of _content hashes_, not commit hashes or branches. Content hashes are like commit hashes, but are scoped to files matching the rebuild patterns.
 
 There is a `build_manifest.yml` that describes various settings for each project (dependencies, rebuild patterns, etc). The dependencies as listed in the build manifest represent the graph such that if project A changes, all projects that depend on A will also be rebuilt. This likely closely mirrors the workflow graph as defined in Circle CI's `config.yml`. In the future we can generate a target CI platforms configuration from this build manifest.
 

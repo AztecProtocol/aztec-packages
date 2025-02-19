@@ -5,7 +5,7 @@
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include <cstdint>
 
-enum class EventEmitter { ALU, MEMORY, GAS_L2, GAS_DA, CMP_LO, CMP_HI };
+enum class EventEmitter { ALU, MEMORY, GAS_L2, GAS_DA, CMP_LO, CMP_HI, NON_FF_GT };
 
 namespace bb::avm_trace {
 class AvmRangeCheckBuilder {
@@ -38,6 +38,7 @@ class AvmRangeCheckBuilder {
         bool is_gas_da_sel;
         bool is_cmp_lo;
         bool is_cmp_hi;
+        bool is_cmp_non_ff;
 
         // Need this for sorting
         bool operator<(RangeCheckEntry const& other) const { return clk < other.clk; }
@@ -92,11 +93,11 @@ class AvmRangeCheckBuilder {
         row.range_check_u16_r7 = entry.dynamic_slice_register;
 
         row.range_check_alu_rng_chk = entry.is_alu_sel;
-        row.range_check_mem_rng_chk = entry.is_mem_sel;
         row.range_check_gas_l2_rng_chk = entry.is_gas_l2_sel;
         row.range_check_gas_da_rng_chk = entry.is_gas_da_sel;
         row.range_check_cmp_lo_bits_rng_chk = entry.is_cmp_lo;
         row.range_check_cmp_hi_bits_rng_chk = entry.is_cmp_hi;
+        row.range_check_cmp_non_ff_rng_chk = entry.is_cmp_non_ff;
     }
 
   private:

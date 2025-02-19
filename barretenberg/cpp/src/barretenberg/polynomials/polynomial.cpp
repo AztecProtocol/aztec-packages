@@ -62,8 +62,21 @@ void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size, s
  */
 template <typename Fr> Polynomial<Fr>::Polynomial(size_t size, size_t virtual_size, size_t start_index)
 {
+    PROFILE_THIS_NAME("polynomial allocation with zeroing");
+
     allocate_backing_memory(size, virtual_size, start_index);
-    memset(static_cast<void*>(coefficients_.backing_memory_.get()), 0, sizeof(Fr) * size);
+
+    size_t num_threads = calculate_num_threads(size);
+    size_t range_per_thread = size / num_threads;
+    size_t leftovers = size - (range_per_thread * num_threads);
+
+    parallel_for(num_threads, [&](size_t j) {
+        size_t offset = j * range_per_thread;
+        size_t range = (j == num_threads - 1) ? range_per_thread + leftovers : range_per_thread;
+        ASSERT(offset < size || size == 0);
+        ASSERT((offset + range) <= size);
+        memset(static_cast<void*>(coefficients_.backing_memory_.get() + offset), 0, sizeof(Fr) * range);
+    });
 }
 
 /**
@@ -76,6 +89,7 @@ template <typename Fr> Polynomial<Fr>::Polynomial(size_t size, size_t virtual_si
 template <typename Fr>
 Polynomial<Fr>::Polynomial(size_t size, size_t virtual_size, size_t start_index, [[maybe_unused]] DontZeroMemory flag)
 {
+    PROFILE_THIS_NAME("polynomial allocation without zeroing");
     allocate_backing_memory(size, virtual_size, start_index);
 }
 
@@ -273,6 +287,13 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator*=(const Fr scali
     return *this;
 }
 
+template <typename Fr> Polynomial<Fr> Polynomial<Fr>::create_non_parallel_zero_init(size_t size, size_t virtual_size)
+{
+    Polynomial p(size, virtual_size, Polynomial<Fr>::DontZeroMemory::FLAG);
+    memset(static_cast<void*>(p.coefficients_.backing_memory_.get()), 0, sizeof(Fr) * size);
+    return p;
+}
+
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1113): Optimizing based on actual sizes would involve using
 // expand, but it is currently unused.
 template <typename Fr>
@@ -321,6 +342,17 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
     result.coefficients_ = coefficients_;
     result.coefficients_.start_ -= 1;
     result.coefficients_.end_ -= 1;
+    return result;
+}
+
+template <typename Fr> Polynomial<Fr> Polynomial<Fr>::right_shifted(const size_t magnitude) const
+{
+    // ensure that at least the last magnitude-many coefficients are virtual 0's
+    ASSERT((coefficients_.end_ + magnitude) <= virtual_size());
+    Polynomial result;
+    result.coefficients_ = coefficients_;
+    result.coefficients_.start_ += magnitude;
+    result.coefficients_.end_ += magnitude;
     return result;
 }
 

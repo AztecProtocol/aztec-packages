@@ -143,6 +143,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         result.y.assert_is_in_field();
         return result;
     }
+    element scalar_mul(const Fr& scalar, const size_t max_num_bits = 0) const;
 
     element reduce() const
     {
@@ -289,6 +290,18 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
     bool_ct is_point_at_infinity() const { return _is_infinity; }
     void set_point_at_infinity(const bool_ct& is_infinity) { _is_infinity = is_infinity; }
     element get_standard_form() const;
+
+    void set_origin_tag(OriginTag tag) const
+    {
+        x.set_origin_tag(tag);
+        y.set_origin_tag(tag);
+        _is_infinity.set_origin_tag(tag);
+    }
+
+    OriginTag get_origin_tag() const
+    {
+        return OriginTag(x.get_origin_tag(), y.get_origin_tag(), _is_infinity.get_origin_tag());
+    }
 
     Fq x;
     Fq y;
@@ -513,7 +526,10 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
             num_fives = num_points / 5;
             num_sixes = 0;
             // size-6 table is expensive and only benefits us if creating them reduces the number of total tables
-            if (num_fives * 5 == (num_points - 1)) {
+            if (num_points == 1) {
+                num_fives = 0;
+                num_sixes = 0;
+            } else if (num_fives * 5 == (num_points - 1)) {
                 num_fives -= 1;
                 num_sixes = 1;
             } else if (num_fives * 5 == (num_points - 2) && num_fives >= 2) {

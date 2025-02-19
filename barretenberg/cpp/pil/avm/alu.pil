@@ -84,17 +84,21 @@ namespace alu(256);
     pol commit cmp_gadget_input_b;
     pol commit cmp_gadget_result;
     pol commit cmp_gadget_gt;
+    pol commit cmp_gadget_non_ff_gt;
 
     // We use the comparison gadget to test GT for the following operations
-    cmp_gadget_gt = op_lt + op_lte + op_div + op_shr + op_shl;
+    pol CMP_GADGET_GT = op_lt + op_lte + op_div + op_shr + op_shl;
+    cmp_gadget_gt = CMP_GADGET_GT * ff_tag;
+    cmp_gadget_non_ff_gt = CMP_GADGET_GT * (1 - ff_tag);
+
     // The cmp gadget is on when we are either testing GT or EQ
-    cmp_gadget_sel - (cmp_gadget_gt + op_eq) = 0;
+    cmp_gadget_sel - (cmp_gadget_gt + op_eq + cmp_gadget_non_ff_gt) = 0;
 
     // Permutation to the Comparison Gadget
     #[PERM_CMP_ALU]
-    cmp.sel_cmp {cmp.clk, cmp.input_a, cmp.input_b, cmp.result, cmp.op_eq, cmp.op_gt}
+    cmp.sel_cmp {cmp.clk, cmp.input_a, cmp.input_b, cmp.result, cmp.op_eq, cmp.op_gt, cmp.op_non_ff_gt}
     is
-    cmp_gadget_sel {clk, cmp_gadget_input_a, cmp_gadget_input_b, cmp_gadget_result, op_eq, cmp_gadget_gt };
+    cmp_gadget_sel {clk, cmp_gadget_input_a, cmp_gadget_input_b, cmp_gadget_result, op_eq, cmp_gadget_gt, cmp_gadget_non_ff_gt };
 
 
     // =============== HELPER POLYNOMIAL RELATIONS ================================================= 
@@ -143,6 +147,7 @@ namespace alu(256);
 
     // This holds the product over the integers
     // (u1 multiplication only cares about a_lo and b_lo)
+    // TODO(9937): The following is not well constrained as this expression overflows the field.
     pol PRODUCT = a_lo * b_lo + (1 - u1_tag) * (LIMB_BITS_POW * partial_prod_lo + MAX_BITS_POW * (partial_prod_hi + a_hi * b_hi));
 
     // =============== ADDITION/SUBTRACTION Operation Constraints ================================================= 

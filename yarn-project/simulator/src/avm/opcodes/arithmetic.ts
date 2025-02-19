@@ -1,30 +1,37 @@
 import type { AvmContext } from '../avm_context.js';
-import { type Field, type MemoryValue } from '../avm_memory_types.js';
+import {
+  type Field,
+  type MemoryValue,
+  TaggedMemory,
+  type TaggedMemoryInterface,
+  TypeTag,
+} from '../avm_memory_types.js';
+import { ArithmeticError } from '../errors.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { ThreeOperandInstruction } from './instruction_impl.js';
 
 export abstract class ThreeOperandArithmeticInstruction extends ThreeOperandInstruction {
   public async execute(context: AvmContext): Promise<void> {
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
     context.machineState.consumeGas(this.gasCost());
 
     const operands = [this.aOffset, this.bOffset, this.dstOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [aOffset, bOffset, dstOffset] = addressing.resolve(operands, memory);
-    memory.checkTagsAreSame(aOffset, bOffset);
+    this.checkTags(memory, aOffset, bOffset);
 
     const a = memory.get(aOffset);
     const b = memory.get(bOffset);
 
     const dest = this.compute(a, b);
     memory.set(dstOffset, dest);
-
-    memory.assert({ reads: 2, writes: 1, addressing });
-    context.machineState.incrementPc();
   }
 
   protected abstract compute(a: MemoryValue, b: MemoryValue): MemoryValue;
+  protected checkTags(memory: TaggedMemoryInterface, aOffset: number, bOffset: number) {
+    memory.checkTagsAreSame(aOffset, bOffset);
+  }
 }
 
 export class Add extends ThreeOperandArithmeticInstruction {
@@ -59,11 +66,19 @@ export class Div extends ThreeOperandArithmeticInstruction {
   static readonly opcode = Opcode.DIV_8; // FIXME: needed for gas.
 
   protected compute(a: MemoryValue, b: MemoryValue): MemoryValue {
+    if (b.toBigInt() === 0n) {
+      throw new ArithmeticError('Division by zero');
+    }
+
     return a.div(b);
+  }
+
+  protected override checkTags(memory: TaggedMemoryInterface, aOffset: number, bOffset: number) {
+    memory.checkTagsAreSame(aOffset, bOffset);
+    TaggedMemory.checkIsIntegralTag(memory.getTag(aOffset)); // Follows that bOffset tag is also of integral type
   }
 }
 
-// TODO: This class now temporarily has a tag, until all tags are removed.
 export class FieldDiv extends ThreeOperandArithmeticInstruction {
   static type: string = 'FDIV';
   static readonly opcode = Opcode.FDIV_8; // FIXME: needed for gas.
@@ -71,5 +86,10 @@ export class FieldDiv extends ThreeOperandArithmeticInstruction {
   protected compute(a: Field, b: Field): Field {
     // return (a as Field).fdiv(b as Field);
     return a.fdiv(b);
+  }
+
+  protected override checkTags(memory: TaggedMemoryInterface, aOffset: number, bOffset: number) {
+    memory.checkTagsAreSame(aOffset, bOffset);
+    memory.checkTag(TypeTag.FIELD, aOffset); // Follows that bOffset has also tag of type Field
   }
 }

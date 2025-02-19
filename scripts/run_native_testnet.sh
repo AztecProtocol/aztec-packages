@@ -31,9 +31,16 @@ TEST_SCRIPT="./test-transfer.sh"
 PROVER_SCRIPT="\"./prover-node.sh 8078 false\""
 NUM_VALIDATORS=3
 INTERLEAVED=false
+METRICS=false
+DISABLE_BLOB_SINK=false
+LOG_LEVEL="info"
+ETHEREUM_HOST=
+L1_CONSENSUS_HOST_URL=
+
+OTEL_COLLECTOR_ENDPOINT=${OTEL_COLLECTOR_ENDPOINT:-"http://localhost:4318"}
 
 # Function to display help message
-display_help() {
+function display_help {
     echo "Usage: $0 [options]"
     echo
     echo "Options:"
@@ -44,6 +51,11 @@ display_help() {
     echo "  -v     Set logging level to verbose"
     echo "  -vv    Set logging level to debug"
     echo "  -i     Run interleaved (default: $INTERLEAVED)"
+    echo "  -m     Run with metrics (default: $METRICS) will use $OTEL_COLLECTOR_ENDPOINT as default otel endpoint"
+    echo "  -c     Specify the otel collector endpoint (default: $OTEL_COLLECTOR_ENDPOINT)"
+    echo "  -b     Disable the blob sink (default: false)"
+    echo "  -e     Specify the ethereum host url (default: $ETHEREUM_HOST)"
+    echo "  -cl    Specify the l1 consensus host url (default: $L1_CONSENSUS_HOST_URL)"
     echo
     echo "Example:"
     echo "  $0 -t ./test-4epochs.sh -val 5 -v"
@@ -84,6 +96,26 @@ while [[ $# -gt 0 ]]; do
       LOG_LEVEL="debug"
       shift
       ;;
+    -m)
+      METRICS=true
+      shift
+      ;;
+    -c)
+      OTEL_COLLECTOR_ENDPOINT="$2"
+      shift 2
+      ;;
+    -e)
+      ETHEREUM_HOST="$2"
+      shift 2
+      ;;
+    -cl)
+      L1_CONSENSUS_HOST_URL="$2"
+      shift 2
+      ;;
+    -b)
+      DISABLE_BLOB_SINK=true
+      shift
+      ;;
     *)
       echo "Invalid option: $1" >&2
       display_help
@@ -95,20 +127,50 @@ done
 ## Set log level for all child commands
 export LOG_LEVEL
 
+if $METRICS; then
+  export OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=$OTEL_COLLECTOR_ENDPOINT/v1/logs
+  export OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=$OTEL_COLLECTOR_ENDPOINT/v1/metrics
+  export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=$OTEL_COLLECTOR_ENDPOINT/v1/traces
+  export LOG_JSON=1
+fi
+
+# If an ethereum rpc url is provided, use it
+if [ -n "$ETHEREUM_HOST" ]; then
+  export ETHEREUM_HOST
+fi
+if [ -n "$L1_CONSENSUS_HOST_URL" ]; then
+  export L1_CONSENSUS_HOST_URL
+fi
+
+# If an ethereum url has been provided, do not run the ethereum.sh script
+if [ -n "$ETHEREUM_HOST" ]; then
+  ETHEREUM_SCRIPT=""
+else
+  ETHEREUM_SCRIPT="./ethereum.sh"
+fi
+
+# If the blob sink is disabled, do not run the blob-sink.sh script
+if $DISABLE_BLOB_SINK; then
+  BLOB_SINK_SCRIPT=""
+else
+  BLOB_SINK_SCRIPT="./blob-sink.sh"
+fi
+
 # Go to repo root
 cd $(git rev-parse --show-toplevel)
 
 # Base command
 BASE_CMD="INTERLEAVED=$INTERLEAVED ./yarn-project/end-to-end/scripts/native_network_test.sh \
-        $TEST_SCRIPT \
-        ./deploy-l1-contracts.sh \
-        ./deploy-l2-contracts.sh \
-        ./boot-node.sh \
-        ./ethereum.sh \
-        \"./validators.sh $NUM_VALIDATORS\" \
-        $PROVER_SCRIPT \
-        ./pxe.sh \
-        ./transaction-bot.sh"
+  $TEST_SCRIPT \
+  \"./deploy-l1-contracts.sh $NUM_VALIDATORS\" \
+  ./deploy-l2-contracts.sh \
+  ./boot-node.sh \
+  $ETHEREUM_SCRIPT \
+  \"./validators.sh $NUM_VALIDATORS\" \
+  $PROVER_SCRIPT \
+  ./pxe.sh \
+  ./transaction-bot.sh \
+  $BLOB_SINK_SCRIPT"
 
 # Execute the command
 eval $BASE_CMD

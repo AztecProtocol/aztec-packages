@@ -1,4 +1,4 @@
-import { type ContractArtifact, type FunctionSelector } from '@aztec/foundation/abi';
+import { type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
 
@@ -26,6 +26,14 @@ export interface ContractDataSource {
    */
   getContractClass(id: Fr): Promise<ContractClassPublic | undefined>;
 
+  getBytecodeCommitment(id: Fr): Promise<Fr | undefined>;
+
+  /**
+   * Adds a contract class to the database.
+   * TODO(#10007): Remove this method
+   */
+  addContractClass(contractClass: ContractClassPublic): Promise<void>;
+
   /**
    * Returns a publicly deployed contract instance given its address.
    * @param address - Address of the deployed contract.
@@ -37,6 +45,8 @@ export interface ContractDataSource {
    */
   getContractClassIds(): Promise<Fr[]>;
 
-  getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined>;
-  addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void>;
+  /** Returns a function's name */
+  getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
+  /** Registers a function names. Useful for debugging. */
+  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void>;
 }

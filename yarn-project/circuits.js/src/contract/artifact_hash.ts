@@ -1,7 +1,7 @@
 import { type ContractArtifact, type FunctionArtifact, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { sha256 } from '@aztec/foundation/crypto';
 import { Fr, reduceFn } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { numToUInt8 } from '@aztec/foundation/serialize';
 
 import { type MerkleTree } from '../merkle/merkle_tree.js';
@@ -36,87 +36,71 @@ const sha256Fr = reduceFn(sha256, Fr);
  * ```
  * @param artifact - Artifact to calculate the hash for.
  */
-export function computeArtifactHash(
+export async function computeArtifactHash(
   artifact: ContractArtifact | { privateFunctionRoot: Fr; unconstrainedFunctionRoot: Fr; metadataHash: Fr },
-): Fr {
+): Promise<Fr> {
   if ('privateFunctionRoot' in artifact && 'unconstrainedFunctionRoot' in artifact && 'metadataHash' in artifact) {
     const { privateFunctionRoot, unconstrainedFunctionRoot, metadataHash } = artifact;
     const preimage = [privateFunctionRoot, unconstrainedFunctionRoot, metadataHash].map(x => x.toBuffer());
     return sha256Fr(Buffer.concat([numToUInt8(VERSION), ...preimage]));
   }
 
-  const preimage = computeArtifactHashPreimage(artifact);
-  const artifactHash = computeArtifactHash(computeArtifactHashPreimage(artifact));
-  getLogger().debug('Computed artifact hash', { artifactHash, ...preimage });
+  const preimage = await computeArtifactHashPreimage(artifact);
+  const artifactHash = computeArtifactHash(preimage);
+  getLogger().trace('Computed artifact hash', { artifactHash, ...preimage });
   return artifactHash;
 }
 
-export function computeArtifactHashPreimage(artifact: ContractArtifact) {
-  const privateFunctionRoot = computeArtifactFunctionTreeRoot(artifact, FunctionType.PRIVATE);
-  const unconstrainedFunctionRoot = computeArtifactFunctionTreeRoot(artifact, FunctionType.UNCONSTRAINED);
+export async function computeArtifactHashPreimage(artifact: ContractArtifact) {
+  const privateFunctionRoot = await computeArtifactFunctionTreeRoot(artifact, FunctionType.PRIVATE);
+  const unconstrainedFunctionRoot = await computeArtifactFunctionTreeRoot(artifact, FunctionType.UNCONSTRAINED);
   const metadataHash = computeArtifactMetadataHash(artifact);
   return { privateFunctionRoot, unconstrainedFunctionRoot, metadataHash };
 }
 
 export function computeArtifactMetadataHash(artifact: ContractArtifact) {
-  // TODO: #6021 We need to make sure the artifact is deterministic from any specific compiler run. This relates to selectors not being sorted and being
-  // apparently random in the order they appear after compiled w/ nargo. We can try to sort this upon loading an artifact.
-  // TODO: #6021: Should we use the sorted event selectors instead? They'd need to be unique for that.
-  // Response - The output selectors need to be sorted, because if not noir makes no guarantees on the order of outputs for some reason
-
-  const metadata = { name: artifact.name, outputs: artifact.outputs };
-
-  const exceptions: string[] = [
-    'AuthRegistry',
-    'FeeJuice',
-    'ContractInstanceDeployer',
-    'ContractClassRegisterer',
-    'Router',
-  ];
-
-  // This is a temporary workaround for the canonical contracts to have deterministic deployments.
-  if (exceptions.includes(artifact.name)) {
-    return sha256Fr(Buffer.from(JSON.stringify({ name: artifact.name }), 'utf-8'));
-  }
-
-  return sha256Fr(Buffer.from(JSON.stringify(metadata), 'utf-8'));
+  return sha256Fr(Buffer.from(JSON.stringify({ name: artifact.name, outputs: artifact.outputs }), 'utf-8'));
 }
 
-export function computeArtifactFunctionTreeRoot(artifact: ContractArtifact, fnType: FunctionType) {
-  const root = computeArtifactFunctionTree(artifact, fnType)?.root;
-  return root ? Fr.fromBuffer(root) : Fr.ZERO;
+export async function computeArtifactFunctionTreeRoot(artifact: ContractArtifact, fnType: FunctionType) {
+  const tree = await computeArtifactFunctionTree(artifact, fnType);
+  return tree?.root ? Fr.fromBuffer(tree.root) : Fr.ZERO;
 }
 
-export function computeArtifactFunctionTree(artifact: ContractArtifact, fnType: FunctionType): MerkleTree | undefined {
-  const leaves = computeFunctionLeaves(artifact, fnType);
+export async function computeArtifactFunctionTree(
+  artifact: ContractArtifact,
+  fnType: FunctionType,
+): Promise<MerkleTree | undefined> {
+  const leaves = await computeFunctionLeaves(artifact, fnType);
   // TODO(@spalladino) Consider implementing a null-object for empty trees
   if (leaves.length === 0) {
     return undefined;
   }
   const height = Math.ceil(Math.log2(leaves.length));
-  const calculator = new MerkleTreeCalculator(height, Buffer.alloc(32), getArtifactMerkleTreeHasher());
+  const calculator = await MerkleTreeCalculator.create(height, Buffer.alloc(32), getArtifactMerkleTreeHasher());
   return calculator.computeTree(leaves.map(x => x.toBuffer()));
 }
 
-function computeFunctionLeaves(artifact: ContractArtifact, fnType: FunctionType) {
-  return artifact.functions
-    .filter(f => f.functionType === fnType)
-    .map(f => ({ ...f, selector: FunctionSelector.fromNameAndParameters(f.name, f.parameters) }))
-    .sort((a, b) => a.selector.value - b.selector.value)
-    .map(computeFunctionArtifactHash);
+async function computeFunctionLeaves(artifact: ContractArtifact, fnType: FunctionType) {
+  const selectors = await Promise.all(
+    artifact.functions
+      .filter(f => f.functionType === fnType)
+      .map(async f => ({ ...f, selector: await FunctionSelector.fromNameAndParameters(f.name, f.parameters) })),
+  );
+  selectors.sort((a, b) => a.selector.value - b.selector.value);
+  return await Promise.all(selectors.map(computeFunctionArtifactHash));
 }
 
-export function computeFunctionArtifactHash(
+export async function computeFunctionArtifactHash(
   fn:
     | FunctionArtifact
     | (Pick<FunctionArtifact, 'bytecode'> & { functionMetadataHash: Fr; selector: FunctionSelector }),
 ) {
-  const selector = 'selector' in fn ? fn.selector : FunctionSelector.fromNameAndParameters(fn);
-  // TODO(#5860): make bytecode part of artifact hash preimage again
-  // const bytecodeHash = sha256Fr(fn.bytecode).toBuffer();
-  // const metadataHash = 'functionMetadataHash' in fn ? fn.functionMetadataHash : computeFunctionMetadataHash(fn);
-  // return sha256Fr(Buffer.concat([numToUInt8(VERSION), selector.toBuffer(), metadataHash.toBuffer(), bytecodeHash]));
-  return sha256Fr(Buffer.concat([numToUInt8(VERSION), selector.toBuffer()]));
+  const selector = 'selector' in fn ? fn.selector : await FunctionSelector.fromNameAndParameters(fn);
+
+  const bytecodeHash = sha256Fr(fn.bytecode).toBuffer();
+  const metadataHash = 'functionMetadataHash' in fn ? fn.functionMetadataHash : computeFunctionMetadataHash(fn);
+  return sha256Fr(Buffer.concat([numToUInt8(VERSION), selector.toBuffer(), metadataHash.toBuffer(), bytecodeHash]));
 }
 
 export function computeFunctionMetadataHash(fn: FunctionArtifact) {
@@ -124,9 +108,9 @@ export function computeFunctionMetadataHash(fn: FunctionArtifact) {
 }
 
 function getLogger() {
-  return createDebugLogger('aztec:circuits:artifact_hash');
+  return createLogger('circuits:artifact_hash');
 }
 
 export function getArtifactMerkleTreeHasher() {
-  return (l: Buffer, r: Buffer) => sha256Fr(Buffer.concat([l, r])).toBuffer();
+  return (l: Buffer, r: Buffer) => Promise.resolve(sha256Fr(Buffer.concat([l, r])).toBuffer());
 }

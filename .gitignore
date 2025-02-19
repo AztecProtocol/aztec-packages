@@ -18,16 +18,18 @@ terraform.tfstate*
 .graphite*
 .DS_Store
 
-**/*.dockerignore
-
 # Earthly
 .arg
 .secret
 .bb_tmp
 
-# Terraform
-*.tfvars
 
 # tmux
 tmux-client-*.log
 .supermavenignore
+
+# parallel
+joblog.txt
+
+docs/.yarn/install-state.gz
+docs/docs/protocol-specs/public-vm/gen/

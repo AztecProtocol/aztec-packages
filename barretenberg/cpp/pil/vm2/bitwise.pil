@@ -1,0 +1,135 @@
+namespace bitwise;
+
+// Trace example for a AND b == c of type u32
+// a = 0x52488425
+// b = 0xC684486C (We omit acc_ib and ic_byte as it follows the very same behavior as for a and c)
+// c = 0x42000024
+//
+//   ctr   sel   start   last       acc_ia     acc_ic     ia_byte     ic_byte
+//    4     1      1      0       0x52488425  0x42000024    0x25        0x24
+//    3     1      0      0       0x524884    0x420000      0x84        0x00
+//    2     1      0      0       0x5248      0x4200        0x48        0x00
+//    1     1      0      1       0x52        0x42          0x52        0x42
+
+// Selector for Bitwise Operation
+pol commit sel;
+sel * (1 - sel) = 0;
+
+// No relations will be checked if this identity is satisfied.
+#[skippable_if]
+sel + last = 0; // They are both boolean so it corresponds to sel == 0 AND last == 0.
+
+pol commit start; // Identifies when we want to capture the output to the main trace.
+// Must be constrained as a boolean as any selector used in a lookup/permutation.
+start * (1 - start) = 0;
+
+// To support dynamically sized memory operands we use a counter against a lookup
+// This decrementing counter goes from [TAG_LEN, 0] where TAG_LEN is the number of bytes in the
+// corresponding integer. i.e. TAG_LEN is between 1 (U1/U8) and 16 (U128).
+// Consistency can be achieved with a lookup table between the tag and precomputed.integral_tag_length
+pol commit ctr;
+
+// last is a boolean which serves to mark the end of the computation (end of latch)
+pol commit last;
+last * (1 - last) = 0;
+
+// This is the tag {1,2,3,4,5,6} (restricted to not be a field)
+// Operations over FF are not supported, it is assumed this exclusion is handled
+// outside of this subtrace.
+// Constraints come from equiv to main_trace
+pol commit tag;
+
+// Byte recomposition column, the value in these columns are part of the equivalence
+// check to main wherever Start is set to 1.
+pol commit acc_ia;
+pol commit acc_ib;
+pol commit acc_ic;
+
+// Little Endian bitwise decomposition of accumulators (which are processed top-down),
+// constrained to be U8 given by the lookup to the byte_lookup
+pol commit ia_byte;
+pol commit ib_byte;
+pol commit ic_byte;
+
+// Selectors for bitwise operations, correctness checked by permutation to the main trace.
+// Op Id is restricted to be the same during the same computation (i.e. between Starts)
+pol commit op_id;
+
+#[BITW_OP_ID_REL]
+(op_id' - op_id) * (1 - last) = 0;
+
+#[BITW_CTR_DECREMENT]
+// Note: sel factor is required for an empty row to satisfy this relation
+sel * (ctr' - ctr + 1) * (1 - last) = 0;
+
+// sel is set to 1 if and only if ctr != 0. (and sel == 0 <==> ctr == 0)
+// sel is a boolean that is set to 1 if ctr != 0.
+// This is checked by following relation and utilising inverse of ctr: ctr_inv
+pol commit ctr_inv;
+
+#[BITW_SEL_CTR_NON_ZERO]
+ctr * ((1 - sel) * (1 - ctr_inv) + ctr_inv) - sel = 0;
+
+// Similarly, we prove that last == 1 <==> ctr - 1 == 0 <==> ctr == 1
+// Note: sel factor is required for an empty row to satisfy this relation
+pol commit ctr_min_one_inv;
+#[BITW_LAST_FOR_CTR_ONE]
+sel * ((ctr - 1) * (last * (1 - ctr_min_one_inv) + ctr_min_one_inv) + last - 1) = 0;
+
+// Forces accumulator to initialize with ia_byte, ib_byte, and ic_byte
+#[BITW_INIT_A]
+last * (acc_ia - ia_byte) = 0;
+#[BITW_INIT_B]
+last * (acc_ib - ib_byte) = 0;
+#[BITW_INIT_C]
+last * (acc_ic - ic_byte) = 0;
+
+#[BITW_ACC_REL_A]
+(acc_ia - ia_byte - 256 * acc_ia') * (1 - last) = 0;
+#[BITW_ACC_REL_B]
+(acc_ib - ib_byte - 256 * acc_ib') * (1 - last) = 0;
+#[BITW_ACC_REL_C]
+(acc_ic - ic_byte - 256 * acc_ic') * (1 - last) = 0;
+
+#[LOOKUP_BITW_BYTE_LENGTHS]
+start {tag, ctr}
+in
+precomputed.sel_integral_tag {precomputed.clk, precomputed.integral_tag_length};
+
+#[LOOKUP_BITW_BYTE_OPERATIONS]
+sel {op_id, ia_byte, ib_byte, ic_byte}
+in
+precomputed.sel_bitwise {precomputed.bitwise_op_id, precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output};
+
+// TODOs: See two following paragraphs
+
+// ################################################
+// Alternative implementation as potential speed-up
+// ################################################
+//
+// In vm1, we had an approach which requires one extra row per bitwise operation but 
+// had 2 less columns and #[BITW_CTR_DECREMENT] would have degree 0 and the degree 4 relation
+// #[BITW_LAST_FOR_CTR_ONE] is not present.
+// The main difference is that we decrement ctr down to zero (extra line) and impose an initialization
+// condition for acc_ia, acc_ib, acc_ic to be zero on this last row.
+// Column last can be removed and sel is used instead of (1 - last).
+// Note that sel == 0 on last row of each operation, but the skippable condition
+// remains valid as the last row will be empty with our witness generator.
+//
+// It might be worth to measure the difference among both approaches.
+
+
+// ################################################
+// Recycling of bitwise operations of prefixes
+// ################################################
+//
+// Observation: If two inputs are prefixes of other inputs which are already present in the
+//              trace, then we could retrieve the result as a truncated trace of the larger.
+//
+// For instance, re-using example at the top, we consider the U16 and computation over
+// a = 0x5248 
+// b = 0xC684
+// c = 0x4200
+// Then, we should activate the start selector where ctr == 2, and the following rows
+// represent a valid trace for this computation.
+// It is not clear if this would lead to some speed-up in practice.

@@ -1,17 +1,98 @@
-# Enable and configure Grafana
-# https://artifacthub.io/packages/helm/grafana/grafana
-grafana:
-  service:
-    type: LoadBalancer
-  persistence:
-    type: pvc
-    enabled: true
-    size: "10Gi"
-
 opentelemetry-collector:
+  replicaCount: 1
+  resources:
+    requests:
+      memory: 12Gi
+      cpu: "2"
+  nodeSelector:
+    node-type: infra
+    #   pool: spot
+    # tolerations:
+    #   - key: "cloud.google.com/gke-spot"
+    #     operator: "Equal"
+    #     value: "true"
+    #     effect: "NoSchedule"
   ports:
     jaeger-compact:
       enabled: false
   service:
     enabled: true
     type: LoadBalancer
+  config:
+    exporters:
+      prometheus:
+        endpoint: ${env:MY_POD_IP}:8889
+        metric_expiration: 5m
+        resource_to_telemetry_conversion:
+          enabled: true
+    service:
+      pipelines:
+        metrics:
+          receivers:
+            - otlp
+          processors:
+            - batch
+          exporters:
+            - prometheus
+            # - debug
+
+prometheus:
+  server:
+    resources:
+      requests:
+        memory: 40Gi
+        cpu: "3.5"
+    nodeSelector:
+      node-type: infra
+    #   pool: spot
+    # tolerations:
+    #   - key: "cloud.google.com/gke-spot"
+    #     operator: "Equal"
+    #     value: "true"
+    #     effect: "NoSchedule"
+
+    persistentVolume:
+      enabled: true
+      size: 100Gi
+    replicaCount: 1
+    statefulSet:
+      enabled: true
+  alertmanager:
+    nodeSelector:
+      node-type: infra
+  nodeExporter:
+    nodeSelector:
+      node-type: infra
+  pushgateway:
+    nodeSelector:
+      node-type: infra
+
+loki:
+  enabled: false
+
+tempo:
+  enabled: false
+
+# https://artifacthub.io/packages/helm/grafana/grafana
+grafana:
+  resources:
+    requests:
+      memory: 4Gi
+      cpu: "1.5"
+  nodeSelector:
+    node-type: infra
+  service:
+    type: LoadBalancer
+  persistence:
+    type: pvc
+    enabled: true
+    size: "128Gi"
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          uid: spartan-metrics-prometheus
+          isDefault: true
+          url: http://metrics-prometheus-server.metrics:80

@@ -68,7 +68,7 @@ if [ -d $ROOT_PATH/$PROJECT_DIR/terraform ]; then
   popd
 fi
 
-# For each dependency, substitute references to the dependency in dockerfile, with the relevent built image uri.
+# For each dependency, substitute references to the dependency in dockerfile, with the relevant built image uri.
 # This is necessary vs pulling and retagging the image, as that doesn't work with buildx.
 # We have to perform a bit of probing to determine which actual image we want to use.
 # When we used buildx to create a multiarch image, there will be no images with "-$ARCH" suffixes (normalise this?).
@@ -91,7 +91,7 @@ for PARENT_REPO in $(query_manifest dependencies $REPOSITORY); do
     fi
   fi
 
-  # Substitute references to parent repo, with the relevent built image uri.
+  # Substitute references to parent repo, with the relevant built image uri.
   DEPLOY_URI=aztecprotocol/$PARENT_REPO
   PARENT_IMAGE_URI=$ECR_URL/$PARENT_REPO:$PARENT_IMAGE_TAG
   sed -i "s#^FROM \\(.*\\)${DEPLOY_URI}\\( \|$\\)#FROM \\1${PARENT_IMAGE_URI}\\2#" $DOCKERFILE

@@ -5,7 +5,7 @@ use crate::{
 use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote};
 use std::test::OracleMock;
 
-global storage_slot = 17;
+global storage_slot: Field = 17;
 
 unconstrained fn setup() -> TestEnvironment {
     let mut env = TestEnvironment::new();
@@ -31,13 +31,11 @@ unconstrained fn test_initialize_or_replace_without_nullifier() {
     let state_var = in_private(&mut env);
 
     let value = 42;
-    let mut note = MockNote::new(value)
-        .contract_address(get_contract_address())
-        .storage_slot(storage_slot)
-        .build();
+    let retrieved_note =
+        MockNote::new(value).contract_address(get_contract_address()).build_retrieved_note();
 
     let _ = OracleMock::mock("checkNullifierExists").returns(0);
-    state_var.initialize_or_replace(&mut note).discard();
+    state_var.initialize_or_replace(retrieved_note.note).discard();
 
     // Since we reported there was no nullifier, we should initialize and see the following side-effects:
     // - a new note being created

@@ -1,6 +1,9 @@
-import { type EpochProofQuote } from '../prover_coordination/index.js';
-import { type Tx } from '../tx/tx.js';
-import { type TxHash } from '../tx/tx_hash.js';
+import { type ApiSchemaFor } from '@aztec/foundation/schemas';
+
+import { z } from 'zod';
+
+import { Tx } from '../tx/tx.js';
+import { TxHash } from '../tx/tx_hash.js';
 
 /** Provides basic operations for ProverNodes to interact with other nodes in the network. */
 export interface ProverCoordination {
@@ -12,13 +15,14 @@ export interface ProverCoordination {
   getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
 
   /**
-   * Receives a quote for an epoch proof and stores it in its EpochProofQuotePool
-   * @param quote - The quote to store
+   * Returns a set of transactions given their hashes if available.
+   * @param txHashes - The hashes of the transactions, used as an ID.
+   * @returns The transactions, if found, 'undefined' otherwise.
    */
-  addEpochProofQuote(quote: EpochProofQuote): Promise<void>;
-
-  /**
-   * Stops the coordination service.
-   */
-  stop(): Promise<void>;
+  getTxsByHash(txHashes: TxHash[]): Promise<Tx[]>;
 }
+
+export const ProverCoordinationApiSchema: ApiSchemaFor<ProverCoordination> = {
+  getTxByHash: z.function().args(TxHash.schema).returns(Tx.schema.optional()),
+  getTxsByHash: z.function().args(z.array(TxHash.schema)).returns(z.array(Tx.schema)),
+};

@@ -11,9 +11,11 @@ import {
   CompleteAddress,
   type ContractInstanceWithAddress,
   EthAddress,
+  GasFees,
   type NodeInfo,
+  getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { type L1ContractAddresses } from '@aztec/ethereum';
+import { type L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { type AbiDecoded, type ContractArtifact, FunctionType } from '@aztec/foundation/abi';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -40,24 +42,13 @@ describe('Contract Class', () => {
     inboxAddress: EthAddress.random(),
     outboxAddress: EthAddress.random(),
     feeJuiceAddress: EthAddress.random(),
+    stakingAssetAddress: EthAddress.random(),
     feeJuicePortalAddress: EthAddress.random(),
-    apellaAddress: EthAddress.random(),
-    nomismatokopioAddress: EthAddress.random(),
-    sysstiaAddress: EthAddress.random(),
-    gerousiaAddress: EthAddress.random(),
-  };
-  const mockNodeInfo: NodeInfo = {
-    nodeVersion: 'vx.x.x',
-    l1ChainId: 1,
-    protocolVersion: 2,
-    l1ContractAddresses: l1Addresses,
-    enr: undefined,
-    protocolContractAddresses: {
-      classRegisterer: AztecAddress.random(),
-      feeJuice: AztecAddress.random(),
-      instanceDeployer: AztecAddress.random(),
-      multiCallEntrypoint: AztecAddress.random(),
-    },
+    governanceAddress: EthAddress.random(),
+    coinIssuerAddress: EthAddress.random(),
+    rewardDistributorAddress: EthAddress.random(),
+    governanceProposerAddress: EthAddress.random(),
+    slashFactoryAddress: EthAddress.random(),
   };
 
   const defaultArtifact: ContractArtifact = {
@@ -87,16 +78,27 @@ describe('Contract Class', () => {
           },
         ],
         returnTypes: [],
+        errorTypes: {},
         bytecode: Buffer.alloc(8, 0xfa),
+        verificationKey: 'fake-verification-key',
       },
       {
-        name: 'baz',
+        name: 'public_dispatch',
         isInitializer: false,
         isStatic: false,
         functionType: FunctionType.PUBLIC,
         isInternal: false,
-        parameters: [],
+        parameters: [
+          {
+            name: 'selector',
+            type: {
+              kind: 'field',
+            },
+            visibility: 'public',
+          },
+        ],
         returnTypes: [],
+        errorTypes: {},
         bytecode: Buffer.alloc(8, 0xfb),
         debugSymbols: '',
       },
@@ -124,6 +126,7 @@ describe('Contract Class', () => {
         ],
         bytecode: Buffer.alloc(8, 0xfc),
         debugSymbols: '',
+        errorTypes: {},
       },
     ],
     outputs: {
@@ -135,21 +138,45 @@ describe('Contract Class', () => {
     notes: {},
   };
 
-  beforeEach(() => {
-    contractAddress = AztecAddress.random();
-    account = CompleteAddress.random();
-    contractInstance = { address: contractAddress } as ContractInstanceWithAddress;
+  beforeEach(async () => {
+    contractAddress = await AztecAddress.random();
+    account = await CompleteAddress.random();
+    const contractClass = await getContractClassFromArtifact(defaultArtifact);
+    contractInstance = {
+      address: contractAddress,
+      currentContractClassId: contractClass.id,
+      originalContractClassId: contractClass.id,
+    } as ContractInstanceWithAddress;
+
+    const mockNodeInfo: NodeInfo = {
+      nodeVersion: 'vx.x.x',
+      l1ChainId: 1,
+      protocolVersion: 2,
+      l1ContractAddresses: l1Addresses,
+      enr: undefined,
+      protocolContractAddresses: {
+        classRegisterer: await AztecAddress.random(),
+        feeJuice: await AztecAddress.random(),
+        instanceDeployer: await AztecAddress.random(),
+        multiCallEntrypoint: await AztecAddress.random(),
+      },
+    };
 
     wallet = mock<Wallet>();
     wallet.simulateTx.mockResolvedValue(mockTxSimulationResult);
     wallet.createTxExecutionRequest.mockResolvedValue(mockTxRequest);
-    wallet.getContractInstance.mockResolvedValue(contractInstance);
+    wallet.getContractMetadata.mockResolvedValue({
+      contractInstance,
+      isContractInitialized: true,
+      isContractPubliclyDeployed: true,
+    });
     wallet.sendTx.mockResolvedValue(mockTxHash);
     wallet.simulateUnconstrained.mockResolvedValue(mockUnconstrainedResultValue as any as AbiDecoded);
     wallet.getTxReceipt.mockResolvedValue(mockTxReceipt);
     wallet.getNodeInfo.mockResolvedValue(mockNodeInfo);
     wallet.proveTx.mockResolvedValue(mockTxProvingResult);
     wallet.getRegisteredAccounts.mockResolvedValue([account]);
+    wallet.getCurrentBaseFees.mockResolvedValue(new GasFees(100, 100));
   });
 
   it('should create and send a contract method tx', async () => {

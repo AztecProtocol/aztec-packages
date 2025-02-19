@@ -9,7 +9,6 @@ export class PublicDataHint {
   constructor(
     public leafSlot: Fr,
     public value: Fr,
-    public overrideCounter: number,
     public membershipWitness: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>,
     public leafPreimage: PublicDataTreeLeafPreimage,
   ) {}
@@ -18,7 +17,6 @@ export class PublicDataHint {
     return new PublicDataHint(
       Fr.ZERO,
       Fr.ZERO,
-      0,
       MembershipWitness.empty(PUBLIC_DATA_TREE_HEIGHT),
       PublicDataTreeLeafPreimage.empty(),
     );
@@ -29,19 +27,12 @@ export class PublicDataHint {
     return new PublicDataHint(
       reader.readObject(Fr),
       reader.readObject(Fr),
-      reader.readNumber(),
       MembershipWitness.fromBuffer(reader, PUBLIC_DATA_TREE_HEIGHT),
       reader.readObject(PublicDataTreeLeafPreimage),
     );
   }
 
   toBuffer() {
-    return serializeToBuffer(
-      this.leafSlot,
-      this.value,
-      this.overrideCounter,
-      this.membershipWitness,
-      this.leafPreimage,
-    );
+    return serializeToBuffer(this.leafSlot, this.value, this.membershipWitness, this.leafPreimage);
   }
 }

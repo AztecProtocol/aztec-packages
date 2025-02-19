@@ -1,15 +1,16 @@
 import {
   type AztecAddress,
   type AztecNode,
-  type DebugLogger,
   EthAddress,
   L1FeeJuicePortalManager,
   type L1TokenManager,
   type L2AmountClaim,
+  type Logger,
   type PXE,
   type Wallet,
+  retryUntil,
 } from '@aztec/aztec.js';
-import { FeeJuiceContract } from '@aztec/noir-contracts.js';
+import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import { type Account, type Chain, type HttpTransport, type PublicClient, type WalletClient } from 'viem';
@@ -28,7 +29,7 @@ export interface FeeJuicePortalTestingHarnessFactoryConfig {
   publicClient: PublicClient<HttpTransport, Chain>;
   walletClient: WalletClient<HttpTransport, Chain, Account>;
   wallet: Wallet;
-  logger: DebugLogger;
+  logger: Logger;
   mockL1?: boolean;
 }
 
@@ -83,7 +84,7 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
     /** Private eXecution Environment (PXE). */
     public pxeService: PXE,
     /** Logger. */
-    public logger: DebugLogger,
+    public logger: Logger,
 
     /** L2 Token/Bridge contract. */
     public feeJuice: FeeJuiceContract,
@@ -143,9 +144,9 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
   async prepareTokensOnL1(bridgeAmount: bigint, owner: AztecAddress) {
     const claim = await this.sendTokensToPortalPublic(bridgeAmount, owner, true);
 
-    // Perform an unrelated transactions on L2 to progress the rollup by 2 blocks.
-    await this.feeJuice.methods.check_balance(0).send().wait();
-    await this.feeJuice.methods.check_balance(0).send().wait();
+    // Progress by 2 L2 blocks so that the l1ToL2Message added above will be available to use on L2.
+    await this.advanceL2Block();
+    await this.advanceL2Block();
 
     return claim;
   }
@@ -157,6 +158,12 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
     // Consume L1 -> L2 message and claim tokens privately on L2
     await this.consumeMessageOnAztecAndClaimPrivately(owner, claim);
     await this.expectPublicBalanceOnL2(owner, bridgeAmount);
+  }
+
+  private async advanceL2Block() {
+    const initialBlockNumber = await this.aztecNode.getBlockNumber();
+    await this.aztecNode.flushTxs();
+    await retryUntil(async () => (await this.aztecNode.getBlockNumber()) >= initialBlockNumber + 1);
   }
 }
 // docs:end:cross_chain_test_harness

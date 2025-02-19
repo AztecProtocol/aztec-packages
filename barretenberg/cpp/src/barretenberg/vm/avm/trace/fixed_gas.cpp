@@ -83,7 +83,7 @@ const std::unordered_map<OpCode, FixedGasTable::GasRow> GAS_COST_TABLE = {
     { OpCode::RETURN, make_cost(AVM_RETURN_BASE_L2_GAS, 0, AVM_RETURN_DYN_L2_GAS, 0) },
     { OpCode::REVERT_8, make_cost(AVM_REVERT_BASE_L2_GAS, 0, AVM_REVERT_DYN_L2_GAS, 0) },
     { OpCode::REVERT_16, make_cost(AVM_REVERT_BASE_L2_GAS, 0, AVM_REVERT_DYN_L2_GAS, 0) },
-    { OpCode::DEBUGLOG, make_cost(AVM_DEBUGLOG_BASE_L2_GAS, 0, 0, 0) },
+    { OpCode::DEBUGLOG, make_cost(AVM_DEBUGLOG_BASE_L2_GAS, 0, AVM_DEBUGLOG_DYN_L2_GAS, 0) },
     { OpCode::POSEIDON2PERM, make_cost(AVM_POSEIDON2_BASE_L2_GAS, 0, 0, 0) },
     { OpCode::SHA256COMPRESSION, make_cost(AVM_SHA256COMPRESSION_BASE_L2_GAS, 0, 0, 0) },
     { OpCode::KECCAKF1600, make_cost(AVM_KECCAKF1600_BASE_L2_GAS, 0, 0, 0) },

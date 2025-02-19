@@ -1,6 +1,0 @@
-UpdateGerousiaTest
-├── when caller is not apella
-│   └── it revert
-└── when caller is apella
-    ├── it updates the gerousia
-    └── it emit the {GerousiaUpdated} event

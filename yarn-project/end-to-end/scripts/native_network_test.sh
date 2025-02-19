@@ -38,7 +38,7 @@ function run_parallel() {
   if [ "${INTERLEAVED:-false}" = "false" ] ; then
     command -v tmux >/dev/null || (echo "We need 'tmux' installed to be able to manage terminal sessions" && exit 1)
     # Run in tmux for local debugging
-    "$REPO"/scripts/tmux_split_args.sh native_network_test_session "$@"
+    "$REPO"/ci3/tmux_split native_network_test_session "$@"
   else
     # Run interleaved for CI
     "$REPO"/scripts/run_interleaved.sh "$@"

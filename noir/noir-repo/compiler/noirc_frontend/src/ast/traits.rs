@@ -24,6 +24,7 @@ pub struct NoirTrait {
     pub items: Vec<Documented<TraitItem>>,
     pub attributes: Vec<SecondaryAttribute>,
     pub visibility: ItemVisibility,
+    pub is_alias: bool,
 }
 
 /// Any declaration inside the body of a trait that a user is required to
@@ -68,15 +69,16 @@ pub struct TypeImpl {
 pub struct NoirTraitImpl {
     pub impl_generics: UnresolvedGenerics,
 
-    pub trait_name: Path,
-
-    pub trait_generics: GenericTypeArgs,
+    pub r#trait: UnresolvedType,
 
     pub object_type: UnresolvedType,
 
     pub where_clause: Vec<UnresolvedTraitConstraint>,
 
     pub items: Vec<Documented<TraitImplItem>>,
+
+    /// true if generated at compile-time, e.g. from a trait alias
+    pub is_synthetic: bool,
 }
 
 /// Represents a simple trait constraint such as `where Foo: TraitY<U, V>`
@@ -130,12 +132,19 @@ impl Display for TypeImpl {
     }
 }
 
+// TODO: display where clauses (follow-up issue)
 impl Display for NoirTrait {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let generics = vecmap(&self.generics, |generic| generic.to_string());
         let generics = if generics.is_empty() { "".into() } else { generics.join(", ") };
 
         write!(f, "trait {}{}", self.name, generics)?;
+
+        if self.is_alias {
+            let bounds = vecmap(&self.bounds, |bound| bound.to_string()).join(" + ");
+            return write!(f, " = {};", bounds);
+        }
+
         if !self.bounds.is_empty() {
             let bounds = vecmap(&self.bounds, |bound| bound.to_string()).join(" + ");
             write!(f, ": {}", bounds)?;
@@ -222,6 +231,11 @@ impl Display for TraitBound {
 
 impl Display for NoirTraitImpl {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Synthetic NoirTraitImpl's don't get printed
+        if self.is_synthetic {
+            return Ok(());
+        }
+
         write!(f, "impl")?;
         if !self.impl_generics.is_empty() {
             write!(
@@ -231,7 +245,7 @@ impl Display for NoirTraitImpl {
             )?;
         }
 
-        write!(f, " {}{} for {}", self.trait_name, self.trait_generics, self.object_type)?;
+        write!(f, " {} for {}", self.r#trait, self.object_type)?;
         if !self.where_clause.is_empty() {
             write!(
                 f,

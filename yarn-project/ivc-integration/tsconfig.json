@@ -20,7 +20,19 @@
       "path": "../bb-prover"
     },
     {
+      "path": "../kv-store"
+    },
+    {
+      "path": "../noir-contracts.js"
+    },
+    {
       "path": "../simulator"
+    },
+    {
+      "path": "../telemetry-client"
+    },
+    {
+      "path": "../world-state"
     }
   ],
   "include": ["src", "artifacts/*.d.json.ts", "artifacts/**/*.d.json.ts"]

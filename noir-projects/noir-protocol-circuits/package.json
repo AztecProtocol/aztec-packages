@@ -4,5 +4,6 @@
   "main": "index.js",
   "dependencies": {
     "@iarna/toml": "^2.2.5"
-  }
+  },
+  "packageManager": "yarn@4.5.2"
 }

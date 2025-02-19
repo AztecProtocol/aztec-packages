@@ -1,33 +1,30 @@
 use crate::{
-    abis::function_selector::FunctionSelector,
     address::{
-        partial_address::PartialAddress, public_keys_hash::PublicKeysHash,
-        salted_initialization_hash::SaltedInitializationHash,
+        partial_address::PartialAddress, salted_initialization_hash::SaltedInitializationHash,
     },
     constants::{
-        AZTEC_ADDRESS_LENGTH, FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__CONTRACT_ADDRESS_V1,
-        GENERATOR_INDEX__PUBLIC_KEYS_HASH, MAX_FIELD_VALUE,
+        AZTEC_ADDRESS_LENGTH, GENERATOR_INDEX__CONTRACT_ADDRESS_V1, MAX_FIELD_VALUE,
+        MAX_PROTOCOL_CONTRACTS,
     },
     contract_class_id::ContractClassId,
-    hash::{poseidon2_hash_with_separator, private_functions_root_from_siblings},
-    merkle_tree::membership::MembershipWitness,
+    hash::poseidon2_hash_with_separator,
     public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, ToPoint, TpkM},
-    traits::{Deserialize, Empty, FromField, Serialize, ToField},
-    utils,
+    traits::{Deserialize, Empty, FromField, Packable, Serialize, ToField},
 };
 
 // We do below because `use crate::point::Point;` does not work
 use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
 
 use crate::public_keys::AddressPoint;
+use ec::{pow, sqrt};
 use std::{
-    ec::{pow, sqrt},
     embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key},
+    ops::Add,
 };
 
 // Aztec address
 pub struct AztecAddress {
-    inner: Field,
+    pub inner: Field,
 }
 
 impl Eq for AztecAddress {
@@ -63,6 +60,18 @@ impl Serialize<AZTEC_ADDRESS_LENGTH> for AztecAddress {
 impl Deserialize<AZTEC_ADDRESS_LENGTH> for AztecAddress {
     fn deserialize(fields: [Field; AZTEC_ADDRESS_LENGTH]) -> Self {
         FromField::from_field(fields[0])
+    }
+}
+
+/// We implement the Packable trait for AztecAddress because it can be stored in contract's storage (and there
+/// the implementation of Packable is required).
+impl Packable<AZTEC_ADDRESS_LENGTH> for AztecAddress {
+    fn pack(self) -> [Field; AZTEC_ADDRESS_LENGTH] {
+        self.serialize()
+    }
+
+    fn unpack(fields: [Field; AZTEC_ADDRESS_LENGTH]) -> Self {
+        Self::deserialize(fields)
     }
 }
 
@@ -113,29 +122,11 @@ impl AztecAddress {
         AztecAddress::from_field(address_point.x)
     }
 
-    pub fn compute_from_private_function(
-        function_selector: FunctionSelector,
-        functino_vk_hash: Field,
-        function_leaf_membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
-        contract_class_artifact_hash: Field,
-        contract_class_public_bytecode_commitment: Field,
+    pub fn compute_from_class_id(
+        contract_class_id: ContractClassId,
         salted_initialization_hash: SaltedInitializationHash,
         public_keys: PublicKeys,
     ) -> Self {
-        let private_functions_root = private_functions_root_from_siblings(
-            function_selector,
-            functino_vk_hash,
-            function_leaf_membership_witness.leaf_index,
-            function_leaf_membership_witness.sibling_path,
-        );
-
-        let contract_class_id = ContractClassId::compute(
-            contract_class_artifact_hash,
-            private_functions_root,
-            contract_class_public_bytecode_commitment,
-        );
-
-        // Compute contract address using the preimage which includes the class_id.
         let partial_address = PartialAddress::compute_from_salted_initialization_hash(
             contract_class_id,
             salted_initialization_hash,
@@ -144,17 +135,16 @@ impl AztecAddress {
         AztecAddress::compute(public_keys, partial_address)
     }
 
+    pub fn is_protocol_contract(self) -> bool {
+        self.inner.lt(MAX_PROTOCOL_CONTRACTS as Field)
+    }
+
     pub fn is_zero(self) -> bool {
         self.inner == 0
     }
 
     pub fn assert_is_zero(self) {
         assert(self.to_field() == 0);
-    }
-
-    pub fn conditional_assign(predicate: bool, lhs: Self, rhs: Self) -> Self {
-        let result = utils::conditional_assign(predicate, rhs.to_field(), lhs.to_field());
-        Self { inner: result }
     }
 }
 
@@ -202,6 +192,14 @@ fn compute_address_from_partial_and_pub_keys() {
     let expected_computed_address_from_partial_and_pubkeys =
         0x24e4646f58b9fbe7d38e317db8d5636c423fbbdfbe119fc190fe9c64747e0c62;
     assert(address.to_field() == expected_computed_address_from_partial_and_pubkeys);
+}
+
+#[test]
+fn compute_preaddress_from_partial_and_pub_keys() {
+    let pre_address = poseidon2_hash_with_separator([1, 2], GENERATOR_INDEX__CONTRACT_ADDRESS_V1);
+    let expected_computed_preaddress_from_partial_and_pubkey =
+        0x23ce9be3fa3c846b0f9245cc796902e731d04f086e8a42473bb29e405fc98075;
+    assert(pre_address == expected_computed_preaddress_from_partial_and_pubkey);
 }
 
 #[test]

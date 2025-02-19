@@ -22,7 +22,8 @@ impl<let N: u32> Reader<N> {
         self.read() as bool
     }
 
-    pub fn read_array<let K: u32>(&mut self, mut result: [Field; K]) -> [Field; K] {
+    pub fn read_array<let K: u32>(&mut self) -> [Field; K] {
+        let mut result = [0; K];
         for i in 0..K {
             result[i] = self.data[self.offset + i];
         }
@@ -30,9 +31,8 @@ impl<let N: u32> Reader<N> {
         result
     }
 
-    // TODO(#4394)
     pub fn read_struct<T, let K: u32>(&mut self, deserialise: fn([Field; K]) -> T) -> T {
-        let result = deserialise(self.read_array([0; K]));
+        let result = deserialise(self.read_array());
         result
     }
 

@@ -1,3 +1,4 @@
+import { type ComponentsVersions } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import {
   type ConfigMappingsType,
@@ -7,9 +8,14 @@ import {
   numberConfigHelper,
   optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
+import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
-const botFollowChain = ['NONE', 'PENDING', 'PROVEN'] as const;
-type BotFollowChain = (typeof botFollowChain)[number];
+import { z } from 'zod';
+
+const BotFollowChain = ['NONE', 'PENDING', 'PROVEN'] as const;
+type BotFollowChain = (typeof BotFollowChain)[number];
 
 export enum SupportedTokenContracts {
   TokenContract = 'TokenContract',
@@ -21,8 +27,14 @@ export type BotConfig = {
   nodeUrl: string | undefined;
   /** URL to the PXE for sending txs, or undefined if an in-proc PXE is used. */
   pxeUrl: string | undefined;
+  /** Url of the ethereum host. */
+  l1RpcUrl: string | undefined;
+  /** The mnemonic for the account to bridge fee juice from L1. */
+  l1Mnemonic: string | undefined;
+  /** The private key for the account to bridge fee juice from L1. */
+  l1PrivateKey: string | undefined;
   /** Signing private key for the sender account. */
-  senderPrivateKey: Fr;
+  senderPrivateKey: Fr | undefined;
   /** Encryption secret for a recipient account. */
   recipientEncryptionSecret: Fr;
   /** Salt for the token contract deployment. */
@@ -34,7 +46,7 @@ export type BotConfig = {
   /** How many public token transfers are executed per tx. */
   publicTransfersPerTx: number;
   /** How to handle fee payments. */
-  feePaymentMethod: 'fee_juice' | 'none';
+  feePaymentMethod: 'fee_juice';
   /** True to not automatically setup or start the bot on initialization. */
   noStart: boolean;
   /** How long to wait for a tx to be mined before reporting an error. */
@@ -59,6 +71,44 @@ export type BotConfig = {
   stopWhenUnhealthy: boolean;
 };
 
+export const BotConfigSchema = z
+  .object({
+    nodeUrl: z.string().optional(),
+    pxeUrl: z.string().optional(),
+    l1RpcUrl: z.string().optional(),
+    l1Mnemonic: z.string().optional(),
+    l1PrivateKey: z.string().optional(),
+    senderPrivateKey: schemas.Fr.optional(),
+    recipientEncryptionSecret: schemas.Fr,
+    tokenSalt: schemas.Fr,
+    txIntervalSeconds: z.number(),
+    privateTransfersPerTx: z.number(),
+    publicTransfersPerTx: z.number(),
+    feePaymentMethod: z.literal('fee_juice'),
+    noStart: z.boolean(),
+    txMinedWaitSeconds: z.number(),
+    followChain: z.enum(BotFollowChain),
+    maxPendingTxs: z.number(),
+    flushSetupTransactions: z.boolean(),
+    skipPublicSimulation: z.boolean(),
+    l2GasLimit: z.number().optional(),
+    daGasLimit: z.number().optional(),
+    contract: z.nativeEnum(SupportedTokenContracts),
+    maxConsecutiveErrors: z.number(),
+    stopWhenUnhealthy: z.boolean(),
+  })
+  .transform(config => ({
+    nodeUrl: undefined,
+    pxeUrl: undefined,
+    l1RpcUrl: undefined,
+    l1Mnemonic: undefined,
+    l1PrivateKey: undefined,
+    senderPrivateKey: undefined,
+    l2GasLimit: undefined,
+    daGasLimit: undefined,
+    ...config,
+  })) satisfies ZodFor<BotConfig>;
+
 export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   nodeUrl: {
     env: 'AZTEC_NODE_URL',
@@ -68,23 +118,34 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
     env: 'BOT_PXE_URL',
     description: 'URL to the PXE for sending txs, or undefined if an in-proc PXE is used.',
   },
+  l1RpcUrl: {
+    env: 'ETHEREUM_HOST',
+    description: 'URL of the ethereum host.',
+  },
+  l1Mnemonic: {
+    env: 'BOT_L1_MNEMONIC',
+    description: 'The mnemonic for the account to bridge fee juice from L1.',
+  },
+  l1PrivateKey: {
+    env: 'BOT_L1_PRIVATE_KEY',
+    description: 'The private key for the account to bridge fee juice from L1.',
+  },
   senderPrivateKey: {
     env: 'BOT_PRIVATE_KEY',
     description: 'Signing private key for the sender account.',
-    parseEnv: (val: string) => Fr.fromString(val),
-    defaultValue: Fr.random(),
+    parseEnv: (val: string) => (val ? Fr.fromHexString(val) : undefined),
   },
   recipientEncryptionSecret: {
     env: 'BOT_RECIPIENT_ENCRYPTION_SECRET',
     description: 'Encryption secret for a recipient account.',
-    parseEnv: (val: string) => Fr.fromString(val),
-    defaultValue: Fr.fromString('0xcafecafe'),
+    parseEnv: (val: string) => Fr.fromHexString(val),
+    defaultValue: Fr.fromHexString('0xcafecafe'),
   },
   tokenSalt: {
     env: 'BOT_TOKEN_SALT',
     description: 'Salt for the token contract deployment.',
-    parseEnv: (val: string) => Fr.fromString(val),
-    defaultValue: Fr.fromString('1'),
+    parseEnv: (val: string) => Fr.fromHexString(val),
+    defaultValue: Fr.fromHexString('1'),
   },
   txIntervalSeconds: {
     env: 'BOT_TX_INTERVAL_SECONDS',
@@ -103,9 +164,9 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   },
   feePaymentMethod: {
     env: 'BOT_FEE_PAYMENT_METHOD',
-    description: 'How to handle fee payments. (Options: fee_juice, none)',
-    parseEnv: val => (val as 'fee_juice' | 'none') || undefined,
-    defaultValue: 'none',
+    description: 'How to handle fee payments. (Options: fee_juice)',
+    parseEnv: val => (val as 'fee_juice') || undefined,
+    defaultValue: 'fee_juice',
   },
   noStart: {
     env: 'BOT_NO_START',
@@ -122,7 +183,7 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
     description: 'Which chain the bot follows',
     defaultValue: 'NONE',
     parseEnv(val) {
-      if (!(botFollowChain as readonly string[]).includes(val.toUpperCase())) {
+      if (!(BotFollowChain as readonly string[]).includes(val.toUpperCase())) {
         throw new Error(`Invalid value for BOT_FOLLOW_CHAIN: ${val}`);
       }
       return val as BotFollowChain;
@@ -186,4 +247,11 @@ export function getBotConfigFromEnv(): BotConfig {
 
 export function getBotDefaultConfig(): BotConfig {
   return getDefaultConfig<BotConfig>(botConfigMappings);
+}
+
+export function getVersions(): Partial<ComponentsVersions> {
+  return {
+    l2ProtocolContractsTreeRoot: protocolContractTreeRoot.toString(),
+    l2CircuitsVkTreeRoot: getVKTreeRoot().toString(),
+  };
 }

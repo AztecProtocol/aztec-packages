@@ -59,6 +59,7 @@ class AvmAluTraceBuilder {
         FF cmp_input_b{};
         FF cmp_result{};
         bool cmp_op_is_gt = false;
+        bool cmp_op_is_gt_non_ff = false;
         bool cmp_op_is_eq = false;
     };
 

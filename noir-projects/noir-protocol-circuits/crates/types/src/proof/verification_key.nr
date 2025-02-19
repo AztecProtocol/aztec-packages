@@ -1,14 +1,14 @@
 use crate::{
     constants::{
         AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-        HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+        HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
     },
     traits::{Deserialize, Empty, Serialize},
 };
 
 pub struct VerificationKey<let N: u32> {
-    key: [Field; N],
-    hash: Field,
+    pub key: [Field; N],
+    pub hash: Field,
 }
 
 impl<let N: u32> VerificationKey<N> {
@@ -51,9 +51,10 @@ impl<let N: u32> Eq for VerificationKey<N> {
     }
 }
 
+pub type RollupHonkVerificationKey = VerificationKey<ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS>;
 pub type HonkVerificationKey = VerificationKey<HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS>;
 pub type ClientIVCVerificationKey = VerificationKey<CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS>;
-pub type AVMVerificationKey = VerificationKey<AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS>;
+pub type AvmVerificationKey = VerificationKey<AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS>;
 
 #[test]
 fn serialization_of_empty() {

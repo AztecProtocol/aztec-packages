@@ -47,6 +47,17 @@ fn main() {
 
 The bit size determines the maximum and minimum range of value the integer type can store. For example, an `i8` variable can store a value in the range of -128 to 127 (i.e. $\\-2^{7}\\$ to $\\2^{7}-1\\$).
 
+
+```rust
+fn main(x: i16, y: i16) {
+    // modulo
+    let c = x % y;
+    let c = x % -13;
+}
+```
+
+Modulo operation is defined for negative integers thanks to integer division, so that the equality `x = (x/y)*y + (x%y)` holds.
+
 ## 128 bits Unsigned Integers
 
 The built-in structure `U128` allows you to use 128-bit unsigned integers almost like a native integer type. However, there are some differences to keep in mind:
@@ -68,7 +79,7 @@ fn main() {
 You can construct a U128 from its limbs:
 ```rust
 fn main(x: u64, y: u64) {
-    let x = U128::from_u64s_be(x,y);
+    let z = U128::from_u64s_be(x,y);
     assert(z.hi == x as Field);
     assert(z.lo == y as Field);
 }
@@ -100,8 +111,9 @@ fn main(x: U128, y: U128) {
 Computations that exceed the type boundaries will result in overflow errors. This happens with both signed and unsigned integers. For example, attempting to prove:
 
 ```rust
-fn main(x: u8, y: u8) {
+fn main(x: u8, y: u8) -> pub u8 {
     let z = x + y;
+    z
 }
 ```
 
@@ -129,10 +141,20 @@ error: Assertion failed: 'attempt to add with overflow'
 A similar error would happen with signed integers:
 
 ```rust
-fn main() {
+fn main() -> i8 {
     let x: i8 = -118;
     let y: i8 = -11;
     let z = x + y;
+    z
+}
+```
+
+Note that if a computation ends up being unused the compiler might remove it and it won't end up producing an overflow:
+
+```rust
+fn main() {
+    // "255 + 1" would overflow, but `z` is unused so no computation happens
+    let z: u8 = 255 + 1;
 }
 ```
 

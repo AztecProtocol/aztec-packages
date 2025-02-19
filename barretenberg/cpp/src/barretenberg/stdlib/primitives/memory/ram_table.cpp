@@ -1,6 +1,9 @@
 #include "ram_table.hpp"
 
 #include "../circuit_builders/circuit_builders.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
+#include <vector>
 
 namespace bb::stdlib {
 
@@ -52,6 +55,12 @@ template <typename Builder> ram_table<Builder>::ram_table(const std::vector<fiel
     // if this is the case we might not have a valid pointer to a Builder
     // We get around this, by initializing the table when `read` or `write` operator is called
     // with a non-const field element.
+
+    // Store tags
+    _tags.resize(_length);
+    for (size_t i = 0; i < _length; i++) {
+        _tags[i] = table_entries[i].get_origin_tag();
+    }
 }
 
 /**
@@ -69,7 +78,6 @@ template <typename Builder> void ram_table<Builder>::initialize_table() const
         return;
     }
     ASSERT(_context != nullptr);
-
     _ram_id = _context->create_RAM_array(_length);
 
     if (_raw_entries.size() > 0) {
@@ -88,6 +96,13 @@ template <typename Builder> void ram_table<Builder>::initialize_table() const
         }
     }
 
+    // Store the tags of the original entries
+    _tags.resize(_length);
+    if (_raw_entries.size() > 0) {
+        for (size_t i = 0; i < _length; i++) {
+            _tags[i] = _raw_entries[i].get_origin_tag();
+        }
+    }
     _ram_table_generated_in_builder = true;
 }
 
@@ -100,6 +115,7 @@ template <typename Builder> void ram_table<Builder>::initialize_table() const
 template <typename Builder>
 ram_table<Builder>::ram_table(const ram_table& other)
     : _raw_entries(other._raw_entries)
+    , _tags(other._tags)
     , _index_initialized(other._index_initialized)
     , _length(other._length)
     , _ram_id(other._ram_id)
@@ -117,6 +133,7 @@ ram_table<Builder>::ram_table(const ram_table& other)
 template <typename Builder>
 ram_table<Builder>::ram_table(ram_table&& other)
     : _raw_entries(other._raw_entries)
+    , _tags(other._tags)
     , _index_initialized(other._index_initialized)
     , _length(other._length)
     , _ram_id(other._ram_id)
@@ -135,6 +152,7 @@ ram_table<Builder>::ram_table(ram_table&& other)
 template <typename Builder> ram_table<Builder>& ram_table<Builder>::operator=(const ram_table& other)
 {
     _raw_entries = other._raw_entries;
+    _tags = other._tags;
     _length = other._length;
     _ram_id = other._ram_id;
     _index_initialized = other._index_initialized;
@@ -161,6 +179,7 @@ template <typename Builder> ram_table<Builder>& ram_table<Builder>::operator=(ra
     _ram_table_generated_in_builder = other._ram_table_generated_in_builder;
     _all_entries_written_to_with_constant_index = other._all_entries_written_to_with_constant_index;
     _context = other._context;
+    _tags = other._tags;
     return *this;
 }
 
@@ -176,8 +195,8 @@ template <typename Builder> field_t<Builder> ram_table<Builder>::read(const fiel
     if (_context == nullptr) {
         _context = index.get_context();
     }
-
-    if (uint256_t(index.get_value()) >= _length) {
+    const auto native_index = uint256_t(index.get_value());
+    if (native_index >= _length) {
         // TODO: what's best practise here? We are assuming that this action will generate failing constraints,
         // and we set failure message here so that it better describes the point of failure.
         // However, we are not *ensuring* that failing constraints are generated at the point that `failure()` is
@@ -197,8 +216,15 @@ template <typename Builder> field_t<Builder> ram_table<Builder>::read(const fiel
         index_wire = field_pt::from_witness_index(_context, _context->put_constant_variable(index.get_value()));
     }
 
-    uint32_t output_idx = _context->read_RAM_array(_ram_id, index_wire.normalize().get_witness_index());
-    return field_pt::from_witness_index(_context, output_idx);
+    uint32_t output_idx = _context->read_RAM_array(_ram_id, index_wire.get_normalized_witness_index());
+    auto element = field_pt::from_witness_index(_context, output_idx);
+
+    const size_t cast_index = static_cast<size_t>(static_cast<uint64_t>(native_index));
+    // If the index is legitimate, restore the tag
+    if (native_index < _length) {
+        element.set_origin_tag(_tags[cast_index]);
+    }
+    return element;
 }
 
 /**
@@ -224,7 +250,7 @@ template <typename Builder> void ram_table<Builder>::write(const field_pt& index
 
     initialize_table();
     field_pt index_wire = index;
-    auto native_index = index.get_value();
+    const auto native_index = uint256_t(index.get_value());
     if (index.is_constant()) {
         // need to write every array element at a constant index before doing reads/writes at prover-defined indices
         index_wire = field_pt::from_witness_index(_context, _context->put_constant_variable(native_index));
@@ -247,7 +273,13 @@ template <typename Builder> void ram_table<Builder>::write(const field_pt& index
 
         _index_initialized[cast_index] = true;
     } else {
-        _context->write_RAM_array(_ram_id, index_wire.normalize().get_witness_index(), value_wire.get_witness_index());
+        _context->write_RAM_array(
+            _ram_id, index_wire.get_normalized_witness_index(), value_wire.get_normalized_witness_index());
+    }
+    // Update the value of the stored tag, if index is legitimate
+
+    if (native_index < _length) {
+        _tags[cast_index] = value.get_origin_tag();
     }
 }
 

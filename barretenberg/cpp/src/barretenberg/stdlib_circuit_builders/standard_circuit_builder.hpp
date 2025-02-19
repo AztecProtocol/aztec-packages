@@ -1,11 +1,11 @@
 #pragma once
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/execution_trace/execution_trace.hpp"
-#include "barretenberg/plonk_honk_shared/arithmetization/standard_arithmetization.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/standard_execution_trace.hpp"
 #include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/merkle_hash_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/pedersen_commitment_type.hpp"
+#include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
 #include "circuit_builder_base.hpp"
 #include <array>
 
@@ -13,15 +13,15 @@ namespace bb {
 
 template <typename FF> class StandardCircuitBuilder_ : public CircuitBuilderBase<FF> {
   public:
-    using Arithmetization = StandardArith<FF>;
-    using GateBlocks = typename Arithmetization::TraceBlocks;
-    static constexpr size_t NUM_WIRES = Arithmetization::NUM_WIRES;
+    using ExecutionTrace = StandardExecutionTrace<FF>;
+    using GateBlocks = typename ExecutionTrace::TraceBlocks;
+    static constexpr size_t NUM_WIRES = ExecutionTrace::NUM_WIRES;
     // Keeping NUM_WIRES, at least temporarily, for backward compatibility
-    static constexpr size_t program_width = Arithmetization::NUM_WIRES;
-    static constexpr size_t num_selectors = Arithmetization::NUM_SELECTORS;
-    std::vector<std::string> selector_names = Arithmetization::selector_names;
+    static constexpr size_t program_width = ExecutionTrace::NUM_WIRES;
+    static constexpr size_t num_selectors = ExecutionTrace::NUM_SELECTORS;
+    std::vector<std::string> selector_names = ExecutionTrace::selector_names;
 
-    static constexpr std::string_view NAME_STRING = "StandardArithmetization";
+    static constexpr std::string_view NAME_STRING = "StandardExecutionTrace";
     static constexpr CircuitType CIRCUIT_TYPE = CircuitType::STANDARD;
     static constexpr merkle::HashType merkle_hash_type = merkle::HashType::FIXED_BASE_PEDERSEN;
     static constexpr pedersen::CommitmentType commitment_type = pedersen::CommitmentType::FIXED_BASE_PEDERSEN;

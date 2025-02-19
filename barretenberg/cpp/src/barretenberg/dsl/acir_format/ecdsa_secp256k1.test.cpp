@@ -18,7 +18,7 @@ using Composer = plonk::UltraComposer;
 
 class ECDSASecp256k1 : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 };
 
 size_t generate_ecdsa_constraint(EcdsaSecp256k1Constraint& ecdsa_constraint, WitnessVector& witness_values)
@@ -94,14 +94,13 @@ TEST_F(ECDSASecp256k1, TestECDSAConstraintSucceed)
     size_t num_variables = generate_ecdsa_constraint(ecdsa_k1_constraint, witness_values);
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
-        .recursive = false,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
         .aes128_constraints = {},
         .sha256_compression = {},
-        .schnorr_constraints = {},
+
         .ecdsa_k1_constraints = { ecdsa_k1_constraint },
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
@@ -126,7 +125,7 @@ TEST_F(ECDSASecp256k1, TestECDSAConstraintSucceed)
     };
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness_values);
+    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness_values);
 
     EXPECT_EQ(builder.get_variable(ecdsa_k1_constraint.result), 1);
 
@@ -148,14 +147,13 @@ TEST_F(ECDSASecp256k1, TestECDSACompilesForVerifier)
     size_t num_variables = generate_ecdsa_constraint(ecdsa_k1_constraint, witness_values);
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
-        .recursive = false,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
         .aes128_constraints = {},
         .sha256_compression = {},
-        .schnorr_constraints = {},
+
         .ecdsa_k1_constraints = { ecdsa_k1_constraint },
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
@@ -180,7 +178,7 @@ TEST_F(ECDSASecp256k1, TestECDSACompilesForVerifier)
     };
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system);
+    auto builder = create_circuit(constraint_system, /*recursive*/ false);
 }
 
 TEST_F(ECDSASecp256k1, TestECDSAConstraintFail)
@@ -197,14 +195,13 @@ TEST_F(ECDSASecp256k1, TestECDSAConstraintFail)
 
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
-        .recursive = false,
         .num_acir_opcodes = 1,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
         .aes128_constraints = {},
         .sha256_compression = {},
-        .schnorr_constraints = {},
+
         .ecdsa_k1_constraints = { ecdsa_k1_constraint },
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
@@ -229,7 +226,7 @@ TEST_F(ECDSASecp256k1, TestECDSAConstraintFail)
     };
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness_values);
+    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness_values);
     EXPECT_EQ(builder.get_variable(ecdsa_k1_constraint.result), 0);
 
     auto composer = Composer();

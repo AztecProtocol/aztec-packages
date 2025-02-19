@@ -4,13 +4,12 @@ export default defineConfig({
   testDir: './tests',
   testMatch: '**.spec.ts',
   fullyParallel: true,
-  retries: 3,
   workers: process.env.CI ? 1 : 3,
   reporter: 'list',
   use: {
     baseURL: 'http://127.0.0.1:5173',
     trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
+    screenshot: 'off',
     video: 'on-first-retry',
   },
   expect: {

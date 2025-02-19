@@ -2,10 +2,13 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract StatefulTest {
-    use dep::aztec::{
-        initializer::assert_is_initialized_private,
-        macros::{functions::{initializer, noinitcheck, private, public, view}, storage::storage},
+pub contract StatefulTest {
+    use dep::aztec::macros::{
+        functions::{
+            initialization_utils::assert_is_initialized_private, initializer, noinitcheck, private,
+            public, view,
+        },
+        storage::storage,
     };
     use dep::aztec::prelude::{AztecAddress, FunctionSelector, Map, PrivateSet, PublicMutable};
     use dep::value_note::{balance_utils, utils::{decrement, increment}, value_note::ValueNote};
@@ -18,9 +21,9 @@ contract StatefulTest {
 
     #[private]
     #[initializer]
-    fn constructor(owner: AztecAddress, outgoing_viewer: AztecAddress, value: Field) {
+    fn constructor(owner: AztecAddress, sender: AztecAddress, value: Field) {
         StatefulTest::at(context.this_address())
-            .create_note_no_init_check(owner, outgoing_viewer, value)
+            .create_note_no_init_check(owner, sender, value)
             .call(&mut context);
     }
 
@@ -42,19 +45,19 @@ contract StatefulTest {
     }
 
     #[private]
-    fn create_note(owner: AztecAddress, outgoing_viewer: AztecAddress, value: Field) {
+    fn create_note(owner: AztecAddress, sender: AztecAddress, value: Field) {
         if (value != 0) {
             let loc = storage.notes.at(owner);
-            increment(loc, value, owner, outgoing_viewer, context.msg_sender());
+            increment(loc, value, owner, sender);
         }
     }
 
     #[private]
     #[noinitcheck]
-    fn create_note_no_init_check(owner: AztecAddress, outgoing_viewer: AztecAddress, value: Field) {
+    fn create_note_no_init_check(owner: AztecAddress, sender: AztecAddress, value: Field) {
         if (value != 0) {
             let loc = storage.notes.at(owner);
-            increment(loc, value, owner, outgoing_viewer, context.msg_sender());
+            increment(loc, value, owner, sender);
         }
     }
 
@@ -64,10 +67,10 @@ contract StatefulTest {
         let sender = context.msg_sender();
 
         let sender_notes = storage.notes.at(sender);
-        decrement(sender_notes, amount, sender, sender, sender);
+        decrement(sender_notes, amount, sender, sender);
 
         let recipient_notes = storage.notes.at(recipient);
-        increment(recipient_notes, amount, recipient, sender, sender);
+        increment(recipient_notes, amount, recipient, sender);
     }
 
     #[private]
@@ -76,10 +79,10 @@ contract StatefulTest {
         let sender = context.msg_sender();
 
         let sender_notes = storage.notes.at(sender);
-        decrement(sender_notes, amount, sender, sender, sender);
+        decrement(sender_notes, amount, sender, sender);
 
         let recipient_notes = storage.notes.at(recipient);
-        increment(recipient_notes, amount, recipient, sender, sender);
+        increment(recipient_notes, amount, recipient, sender);
     }
 
     #[public]

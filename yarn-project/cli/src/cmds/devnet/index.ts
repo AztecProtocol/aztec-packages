@@ -1,10 +1,10 @@
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 
 import { type Command } from 'commander';
 
 import { ETHEREUM_HOST, l1ChainIdOption, parseEthereumAddress, pxeOption } from '../../utils/commands.js';
 
-export function injectCommands(program: Command, log: LogFn, debugLogger: DebugLogger) {
+export function injectCommands(program: Command, log: LogFn, debugLogger: Logger) {
   program
     .command('bootstrap-network')
     .description('Bootstrap a new network')
@@ -21,6 +21,12 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       'The mnemonic to use in deployment',
       'test test test test test test test test test test test junk',
     )
+    .option(
+      '-ai, --address-index <number>',
+      'The address index to use when calculating an address',
+      arg => BigInt(arg),
+      0n,
+    )
     .option('--json', 'Output the result as JSON')
     .action(async options => {
       const { bootstrapNetwork } = await import('./bootstrap_network.js');
@@ -30,6 +36,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         options[l1ChainIdOption.attributeName()],
         options.l1PrivateKey,
         options.mnemonic,
+        options.addressIndex,
         options.json,
         log,
         debugLogger,

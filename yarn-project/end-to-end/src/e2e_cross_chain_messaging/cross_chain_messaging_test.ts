@@ -1,18 +1,19 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { getSchnorrWallet } from '@aztec/accounts/schnorr';
 import { type AztecNodeConfig } from '@aztec/aztec-node';
 import {
   type AccountWallet,
   AztecAddress,
   type AztecNode,
   type CompleteAddress,
-  type DebugLogger,
   EthAddress,
+  type Logger,
   type PXE,
-  createDebugLogger,
+  createLogger,
 } from '@aztec/aztec.js';
 import { createL1Clients } from '@aztec/ethereum';
 import { InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts.js';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 
 import { type Chain, type HttpTransport, type PublicClient, getContract } from 'viem';
 
@@ -20,8 +21,8 @@ import { MNEMONIC } from '../fixtures/fixtures.js';
 import {
   type ISnapshotManager,
   type SubsystemsContext,
-  addAccounts,
   createSnapshotManager,
+  deployAccounts,
   publicDeployAccounts,
 } from '../fixtures/snapshot_manager.js';
 import { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
@@ -30,7 +31,7 @@ const { E2E_DATA_PATH: dataPath } = process.env;
 
 export class CrossChainMessagingTest {
   private snapshotManager: ISnapshotManager;
-  logger: DebugLogger;
+  logger: Logger;
   wallets: AccountWallet[] = [];
   accounts: CompleteAddress[] = [];
   aztecNode!: AztecNode;
@@ -52,7 +53,7 @@ export class CrossChainMessagingTest {
   outbox!: any; // GetContractReturnType<typeof OutboxAbi> | undefined;
 
   constructor(testName: string) {
-    this.logger = createDebugLogger(`aztec:e2e_cross_chain_messaging:${testName}`);
+    this.logger = createLogger(`e2e:e2e_cross_chain_messaging:${testName}`);
     this.snapshotManager = createSnapshotManager(`e2e_cross_chain_messaging/${testName}`, dataPath);
   }
 
@@ -83,12 +84,11 @@ export class CrossChainMessagingTest {
 
     await this.snapshotManager.snapshot(
       '3_accounts',
-      addAccounts(3, this.logger),
-      async ({ accountKeys }, { pxe, aztecNodeConfig, aztecNode, deployL1ContractsValues }) => {
-        const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
-        this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
+      deployAccounts(3, this.logger),
+      async ({ deployedAccounts }, { pxe, aztecNodeConfig, aztecNode, deployL1ContractsValues }) => {
+        this.wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
+        this.accounts = this.wallets.map(w => w.getCompleteAddress());
         this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
-        this.accounts = await pxe.getRegisteredAccounts();
 
         this.rollup = getContract({
           address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),

@@ -16,7 +16,7 @@ class StandardComposer {
     using Flavor = plonk::flavor::Standard;
 
     using CircuitBuilder = StandardCircuitBuilder;
-    using Trace = ExecutionTrace_<Flavor>;
+    using Trace = TraceToPolynomials<Flavor>;
 
     static constexpr std::string_view NAME_STRING = "StandardPlonk";
     static constexpr size_t NUM_RESERVED_GATES = 4; // equal to the number of evaluations leaked

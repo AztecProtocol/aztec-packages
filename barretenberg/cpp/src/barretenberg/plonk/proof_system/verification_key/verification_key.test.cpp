@@ -139,8 +139,8 @@ TEST(VerificationKey, HashEqualityDifferentContainsRecursiveProof)
 {
     verification_key_data vk0_data = rand_vk_data();
     verification_key_data vk1_data = vk0_data;
-    vk0_data.contains_recursive_proof = false;
-    vk1_data.contains_recursive_proof = true;
+    vk0_data.contains_pairing_point_accumulator = false;
+    vk1_data.contains_pairing_point_accumulator = true;
     expect_hashes_eq(vk0_data, vk1_data);
 }
 
@@ -148,6 +148,6 @@ TEST(VerificationKey, HashEqualityDifferentRecursiveProofPublicInputIndices)
 {
     verification_key_data vk0_data = rand_vk_data();
     verification_key_data vk1_data = vk0_data;
-    vk1_data.recursive_proof_public_input_indices[0] = 42;
+    vk1_data.pairing_point_accumulator_public_input_indices[0] = 42;
     expect_hashes_eq(vk0_data, vk1_data);
 }

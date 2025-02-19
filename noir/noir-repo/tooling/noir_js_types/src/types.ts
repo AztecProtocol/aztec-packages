@@ -1,5 +1,5 @@
 export type Field = string | number | boolean;
-export type InputValue = Field | InputMap | (Field | InputMap)[];
+export type InputValue = Field | InputMap | InputValue[];
 export type InputMap = { [key: string]: InputValue };
 
 export type Visibility = 'public' | 'private' | 'databus';
@@ -20,6 +20,7 @@ export type AbiParameter = {
 };
 
 export type AbiErrorType =
+  | { error_kind: 'string'; string: string }
   | {
       error_kind: 'fmtstring';
       length: number;

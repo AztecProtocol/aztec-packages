@@ -137,11 +137,11 @@ resource "aws_ecs_task_definition" "p2p-bootstrap" {
       },
       {
         "name": "DEBUG",
-        "value": "aztec:*,discv5:*"
+        "value": "discv5:*"
       },
       {
-        "name": "P2P_MIN_PEERS",
-        "value": "${var.P2P_MIN_PEERS}"
+        "name": "LOG_LEVEL",
+        "value": "debug"
       },
       {
         "name": "P2P_MAX_PEERS",

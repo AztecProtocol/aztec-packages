@@ -1,8 +1,10 @@
-import { type PXE } from '@aztec/circuit-types';
-import { type DebugLogger } from '@aztec/foundation/log';
+import { type ComponentsVersions, type PXE } from '@aztec/circuit-types';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { NoRetryError, makeBackoff, retry } from '@aztec/foundation/retry';
 
-import axios, { type AxiosError, type AxiosResponse } from 'axios';
+import { Axios, type AxiosError } from 'axios';
+import { inspect } from 'util';
 
 import { createPXEClient } from '../pxe_client.js';
 
@@ -15,40 +17,29 @@ import { createPXEClient } from '../pxe_client.js';
  * @returns The response data.
  */
 async function axiosFetch(host: string, rpcMethod: string, body: any, useApiEndpoints: boolean) {
-  let resp: AxiosResponse;
-  if (useApiEndpoints) {
-    resp = await axios
-      .post(`${host}/${rpcMethod}`, body, {
-        headers: { 'content-type': 'application/json' },
-      })
-      .catch((error: AxiosError) => {
-        if (error.response) {
-          return error.response;
-        }
-        throw error;
-      });
-  } else {
-    resp = await axios
-      .post(
-        host,
-        { ...body, method: rpcMethod },
-        {
-          headers: { 'content-type': 'application/json' },
-        },
-      )
-      .catch((error: AxiosError) => {
-        if (error.response) {
-          return error.response;
-        }
-        throw error;
-      });
-  }
+  const request = new Axios({
+    headers: { 'content-type': 'application/json' },
+    transformRequest: [(data: any) => jsonStringify(data)],
+    transformResponse: [(data: any) => JSON.parse(data)],
+  });
+  const [url, content] = useApiEndpoints ? [`${host}/${rpcMethod}`, body] : [host, { ...body, method: rpcMethod }];
+  const resp = await request.post(url, content).catch((error: AxiosError) => {
+    if (error.response) {
+      return error.response;
+    }
+    const errorMessage = `Error fetching from host ${host} with method ${rpcMethod}: ${inspect(error)}`;
+    throw new Error(errorMessage);
+  });
 
   const isOK = resp.status >= 200 && resp.status < 300;
   if (isOK) {
-    return resp.data;
+    const headers = {
+      get: (header: string) =>
+        typeof resp.headers.get === 'function' ? resp.headers.get(header)?.toString() : undefined,
+    };
+    return { response: resp.data, headers };
   } else {
-    const errorMessage = `(JSON-RPC PROPAGATED) (host ${host}) (method ${rpcMethod}) (code ${resp.status}) ${resp.data.error.message}`;
+    const errorMessage = `Error ${resp.status} from json-rpc server ${host} on ${rpcMethod}: ${resp.data.error.message}`;
     if (resp.status >= 400 && resp.status < 500) {
       throw new NoRetryError(errorMessage);
     } else {
@@ -64,7 +55,11 @@ async function axiosFetch(host: string, rpcMethod: string, body: any, useApiEndp
  * @param _logger - Debug logger to warn version incompatibilities.
  * @returns A PXE client.
  */
-export function createCompatibleClient(rpcUrl: string, logger: DebugLogger): Promise<PXE> {
+export function createCompatibleClient(
+  rpcUrl: string,
+  logger: Logger = createLogger('aztecjs:pxe_client'),
+  versions: Partial<ComponentsVersions> = {},
+): Promise<PXE> {
   // Use axios due to timeout issues with fetch when proving TXs.
   const fetch = async (host: string, rpcMethod: string, body: any, useApiEndpoints: boolean) => {
     return await retry(
@@ -75,7 +70,7 @@ export function createCompatibleClient(rpcUrl: string, logger: DebugLogger): Pro
       false,
     );
   };
-  const pxe = createPXEClient(rpcUrl, fetch);
+  const pxe = createPXEClient(rpcUrl, versions, fetch);
 
   return Promise.resolve(pxe);
 }

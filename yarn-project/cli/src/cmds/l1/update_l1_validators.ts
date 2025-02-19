@@ -1,8 +1,13 @@
-import { EthCheatCodes } from '@aztec/aztec.js';
-import { ETHEREUM_SLOT_DURATION, type EthAddress } from '@aztec/circuits.js';
-import { createEthereumChain } from '@aztec/ethereum';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
-import { RollupAbi } from '@aztec/l1-artifacts';
+import { type EthAddress } from '@aztec/circuits.js';
+import {
+  EthCheatCodes,
+  createEthereumChain,
+  getExpectedAddress,
+  getL1ContractsConfigEnvVars,
+  isAnvilTestChain,
+} from '@aztec/ethereum';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
+import { ForwarderAbi, ForwarderBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
 import { createPublicClient, createWalletClient, getContract, http } from 'viem';
 import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
@@ -13,11 +18,12 @@ export interface RollupCommandArgs {
   privateKey?: string;
   mnemonic?: string;
   rollupAddress: EthAddress;
+  withdrawerAddress?: EthAddress;
 }
 
 export interface LoggerArgs {
   log: LogFn;
-  debugLogger: DebugLogger;
+  debugLogger: Logger;
 }
 
 export function generateL1Account() {
@@ -37,9 +43,11 @@ export async function addL1Validator({
   mnemonic,
   validatorAddress,
   rollupAddress,
+  withdrawerAddress,
   log,
   debugLogger,
 }: RollupCommandArgs & LoggerArgs & { validatorAddress: EthAddress }) {
+  const config = getL1ContractsConfigEnvVars();
   const dualLog = makeDualLog(log, debugLogger);
   const publicClient = getPublicClient(rpcUrl, chainId);
   const walletClient = getWalletClient(rpcUrl, chainId, privateKey, mnemonic);
@@ -49,13 +57,42 @@ export async function addL1Validator({
     client: walletClient,
   });
 
+  const stakingAsset = getContract({
+    address: await rollup.read.getStakingAsset(),
+    abi: TestERC20Abi,
+    client: walletClient,
+  });
+
+  await Promise.all(
+    [
+      await stakingAsset.write.mint([walletClient.account.address, config.minimumStake], {} as any),
+      await stakingAsset.write.approve([rollupAddress.toString(), config.minimumStake], {} as any),
+    ].map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })),
+  );
+
   dualLog(`Adding validator ${validatorAddress.toString()} to rollup ${rollupAddress.toString()}`);
-  const txHash = await rollup.write.addValidator([validatorAddress.toString()]);
+  const txHash = await rollup.write.deposit([
+    validatorAddress.toString(),
+    // TODO(#11451): custom forwarders
+    getExpectedAddress(ForwarderAbi, ForwarderBytecode, [validatorAddress.toString()], validatorAddress.toString())
+      .address,
+    withdrawerAddress?.toString() ?? validatorAddress.toString(),
+    config.minimumStake,
+  ]);
   dualLog(`Transaction hash: ${txHash}`);
   await publicClient.waitForTransactionReceipt({ hash: txHash });
-  dualLog(`Funding validator on L1`);
-  const cheatCodes = new EthCheatCodes(rpcUrl, debugLogger);
-  await cheatCodes.setBalance(validatorAddress, 10n ** 20n);
+  if (isAnvilTestChain(chainId)) {
+    dualLog(`Funding validator on L1`);
+    const cheatCodes = new EthCheatCodes(rpcUrl, debugLogger);
+    await cheatCodes.setBalance(validatorAddress, 10n ** 20n);
+  } else {
+    const balance = await publicClient.getBalance({ address: validatorAddress.toString() });
+    const balanceInEth = Number(balance) / 10 ** 18;
+    dualLog(`Validator balance: ${balanceInEth.toFixed(6)} ETH`);
+    if (balanceInEth === 0) {
+      dualLog(`WARNING: Validator has no balance. Remember to fund it!`);
+    }
+  }
 }
 
 export async function removeL1Validator({
@@ -78,7 +115,7 @@ export async function removeL1Validator({
   });
 
   dualLog(`Removing validator ${validatorAddress.toString()} from rollup ${rollupAddress.toString()}`);
-  const txHash = await rollup.write.removeValidator([validatorAddress.toString()]);
+  const txHash = await rollup.write.initiateWithdraw([validatorAddress.toString(), validatorAddress.toString()]);
   dualLog(`Transaction hash: ${txHash}`);
   await publicClient.waitForTransactionReceipt({ hash: txHash });
 }
@@ -125,7 +162,7 @@ export async function fastForwardEpochs({
 
   const cheatCodes = new EthCheatCodes(rpcUrl, debugLogger);
   const currentSlot = await rollup.read.getCurrentSlot();
-  const l2SlotsInEpoch = await rollup.read.EPOCH_DURATION();
+  const l2SlotsInEpoch = await rollup.read.getEpochDuration();
   const timestamp = await rollup.read.getTimestampForSlot([currentSlot + l2SlotsInEpoch * numEpochs]);
   dualLog(`Fast forwarding ${numEpochs} epochs to ${timestamp}`);
   try {
@@ -142,6 +179,7 @@ export async function fastForwardEpochs({
 }
 
 export async function debugRollup({ rpcUrl, chainId, rollupAddress, log }: RollupCommandArgs & LoggerArgs) {
+  const config = getL1ContractsConfigEnvVars();
   const publicClient = getPublicClient(rpcUrl, chainId);
   const rollup = getContract({
     address: rollupAddress.toString(),
@@ -153,7 +191,7 @@ export async function debugRollup({ rpcUrl, chainId, rollupAddress, log }: Rollu
   log(`Pending block num: ${pendingNum}`);
   const provenNum = await rollup.read.getProvenBlockNumber();
   log(`Proven block num: ${provenNum}`);
-  const validators = await rollup.read.getValidators();
+  const validators = await rollup.read.getAttesters();
   log(`Validators: ${validators.map(v => v.toString()).join(', ')}`);
   const committee = await rollup.read.getCurrentEpochCommittee();
   log(`Committee: ${committee.map(v => v.toString()).join(', ')}`);
@@ -161,18 +199,16 @@ export async function debugRollup({ rpcUrl, chainId, rollupAddress, log }: Rollu
   log(`Archive: ${archive}`);
   const epochNum = await rollup.read.getCurrentEpoch();
   log(`Current epoch: ${epochNum}`);
-  const epoch = await rollup.read.epochs([epochNum]);
-  log(`Epoch Sample Seed: ${epoch[0].toString()}, Next Seed: ${epoch[1].toString()}`);
   const slot = await rollup.read.getCurrentSlot();
   log(`Current slot: ${slot}`);
   const proposerDuringPrevL1Block = await rollup.read.getCurrentProposer();
   log(`Proposer during previous L1 block: ${proposerDuringPrevL1Block}`);
-  const nextBlockTS = BigInt((await publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
+  const nextBlockTS = BigInt((await publicClient.getBlock()).timestamp + BigInt(config.ethereumSlotDuration));
   const proposer = await rollup.read.getProposerAt([nextBlockTS]);
   log(`Proposer NOW: ${proposer.toString()}`);
 }
 
-function makeDualLog(log: LogFn, debugLogger: DebugLogger) {
+function makeDualLog(log: LogFn, debugLogger: Logger) {
   return (msg: string) => {
     log(msg);
     debugLogger.info(msg);

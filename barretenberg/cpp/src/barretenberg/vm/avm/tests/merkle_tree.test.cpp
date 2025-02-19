@@ -14,7 +14,7 @@
 
 namespace tests_avm {
 using namespace bb;
-using namespace bb::Avm_vm;
+using namespace bb::avm;
 
 TEST(AvmMerkleTree, shouldCheckMembership)
 {
@@ -76,7 +76,7 @@ TEST(AvmMerkleTree, shouldCheckMembership)
     std::cerr << "Done computing polynomials..." << std::endl;
 
     std::cerr << "Accumulating relations..." << std::endl;
-    using AllRelations = std::tuple<Avm_vm::merkle_tree<FF>, Avm_vm::poseidon2_full<FF>, Avm_vm::poseidon2<FF>>;
+    using AllRelations = std::tuple<avm::merkle_tree<FF>, avm::poseidon2_full<FF>, avm::poseidon2<FF>>;
 
     bb::constexpr_for<0, std::tuple_size_v<AllRelations>, 1>([&]<size_t i>() {
         using Relation = std::tuple_element_t<i, AllRelations>;
@@ -87,7 +87,7 @@ TEST(AvmMerkleTree, shouldCheckMembership)
 
         // We set the conditions up there.
         for (size_t r = 0; r < num_rows; ++r) {
-            Relation::accumulate(result, polys.get_row(r), {}, 1);
+            Relation::accumulate(result, polys.get_standard_row(r), {}, 1);
         }
 
         for (size_t j = 0; j < result.size(); ++j) {
@@ -109,7 +109,7 @@ TEST(AvmMerkleTree, shouldCheckMembership)
     using PermRelations = perm_merkle_poseidon2_relation<FF>;
 
     // Check the logderivative relation
-    bb::compute_logderivative_inverse<AvmFlavor, PermRelations>(polys, params, num_rows);
+    bb::compute_logderivative_inverse<FF, PermRelations>(polys, params, num_rows);
 
     typename PermRelations::SumcheckArrayOfValuesOverSubrelations lookup_result;
 

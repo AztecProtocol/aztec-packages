@@ -1,14 +1,8 @@
 import { type GlobalVariableBuilder as GlobalVariableBuilderInterface } from '@aztec/circuit-types';
-import {
-  type AztecAddress,
-  ETHEREUM_SLOT_DURATION,
-  type EthAddress,
-  GasFees,
-  GlobalVariables,
-} from '@aztec/circuits.js';
-import { type L1ReaderConfig, createEthereumChain } from '@aztec/ethereum';
+import { type AztecAddress, type EthAddress, GasFees, GlobalVariables } from '@aztec/circuits.js';
+import { type L1ContractsConfig, type L1ReaderConfig, createEthereumChain } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
 import {
@@ -26,15 +20,18 @@ import type * as chains from 'viem/chains';
  * Simple global variables builder.
  */
 export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
-  private log = createDebugLogger('aztec:sequencer:global_variable_builder');
+  private log = createLogger('sequencer:global_variable_builder');
 
   private rollupContract: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, chains.Chain>>;
   private publicClient: PublicClient<HttpTransport, chains.Chain>;
+  private ethereumSlotDuration: number;
 
-  constructor(config: L1ReaderConfig) {
+  constructor(config: L1ReaderConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>) {
     const { l1RpcUrl, l1ChainId: chainId, l1Contracts } = config;
 
     const chain = createEthereumChain(l1RpcUrl, chainId);
+
+    this.ethereumSlotDuration = config.ethereumSlotDuration;
 
     this.publicClient = createPublicClient({
       chain: chain.chainInfo,
@@ -47,6 +44,23 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
       abi: RollupAbi,
       client: this.publicClient,
     });
+  }
+
+  /**
+   * Computes the "current" base fees, e.g., the price that you currently should pay to get include in the next block
+   * @returns Base fees for the expected next block
+   */
+  public async getCurrentBaseFees(): Promise<GasFees> {
+    // Since this might be called in the middle of a slot where a block might have been published,
+    // we need to fetch the last block written, and estimate the earliest timestamp for the next block.
+    // The timestamp of that last block will act as a lower bound for the next block.
+
+    const lastBlock = await this.rollupContract.read.getBlock([await this.rollupContract.read.getPendingBlockNumber()]);
+    const earliestTimestamp = await this.rollupContract.read.getTimestampForSlot([lastBlock.slotNumber + 1n]);
+    const nextEthTimestamp = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(this.ethereumSlotDuration));
+    const timestamp = earliestTimestamp > nextEthTimestamp ? earliestTimestamp : nextEthTimestamp;
+
+    return new GasFees(Fr.ZERO, new Fr(await this.rollupContract.read.getManaBaseFeeAt([timestamp, true])));
   }
 
   /**
@@ -67,7 +81,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     const chainId = new Fr(this.publicClient.chain.id);
 
     if (slotNumber === undefined) {
-      const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
+      const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(this.ethereumSlotDuration));
       slotNumber = await this.rollupContract.read.getSlotAt([ts]);
     }
 
@@ -76,7 +90,9 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     const slotFr = new Fr(slotNumber);
     const timestampFr = new Fr(timestamp);
 
-    const gasFees = GasFees.default();
+    // We can skip much of the logic in getCurrentBaseFees since it we already check that we are not within a slot elsewhere.
+    const gasFees = new GasFees(Fr.ZERO, new Fr(await this.rollupContract.read.getManaBaseFeeAt([timestamp, true])));
+
     const globalVariables = new GlobalVariables(
       chainId,
       version,
@@ -87,7 +103,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
       feeRecipient,
       gasFees,
     );
-    this.log.debug(`Built global variables for block ${blockNumber}`, globalVariables.toJSON());
+
     return globalVariables;
   }
 }

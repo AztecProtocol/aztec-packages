@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2023 Aztec Labs.
+// Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
+import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 
 /**
@@ -23,7 +23,13 @@ library DataStructures {
   }
   // docs:end:registry_snapshot
 
+  struct ProposeConfiguration {
+    Timestamp lockDelay;
+    uint256 lockAmount;
+  }
+
   struct Configuration {
+    ProposeConfiguration proposeConfig;
     Timestamp votingDelay;
     Timestamp votingDuration;
     Timestamp executionDelay;
@@ -53,7 +59,7 @@ library DataStructures {
     Configuration config;
     ProposalState state;
     IPayload payload;
-    address creator;
+    address governanceProposer;
     Timestamp creation;
     Ballot summedBallot;
   }

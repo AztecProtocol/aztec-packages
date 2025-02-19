@@ -1,5 +1,5 @@
 import { type CompleteAddress } from '@aztec/circuit-types';
-import { type NodeInfo } from '@aztec/circuits.js';
+import { type Fr, type NodeInfo, deriveKeys, getContractInstanceFromDeployParams } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 
 import { type AccountInterface, type AuthWitnessProvider } from './interface.js';
@@ -18,7 +18,7 @@ export interface AccountContract {
   /**
    * Returns the deployment arguments for this instance, or undefined if this contract does not require deployment.
    */
-  getDeploymentArgs(): any[] | undefined;
+  getDeploymentArgs(): Promise<any[] | undefined>;
 
   /**
    * Returns the account interface for this account contract given a deployment at the provided address.
@@ -37,3 +37,17 @@ export interface AccountContract {
   getAuthWitnessProvider(address: CompleteAddress): AuthWitnessProvider;
 }
 // docs:end:account-contract-interface
+
+/**
+ * Compute the address of an account contract from secret and salt.
+ */
+export async function getAccountContractAddress(accountContract: AccountContract, secret: Fr, salt: Fr) {
+  const { publicKeys } = await deriveKeys(secret);
+  const constructorArgs = await accountContract.getDeploymentArgs();
+  const instance = await getContractInstanceFromDeployParams(accountContract.getContractArtifact(), {
+    constructorArgs,
+    salt,
+    publicKeys,
+  });
+  return instance.address;
+}

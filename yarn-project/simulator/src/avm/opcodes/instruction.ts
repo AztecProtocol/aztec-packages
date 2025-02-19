@@ -23,6 +23,13 @@ export abstract class Instruction {
   public abstract execute(context: AvmContext): Promise<void>;
 
   /**
+   * Whether the instruction will modify the PC itself.
+   */
+  public handlesPC(): boolean {
+    return false;
+  }
+
+  /**
    * Generate a string representation of the instruction including
    * the instruction sub-class name all of its flags and operands.
    * @returns Thee string representation.

@@ -36,13 +36,15 @@ template <typename Fr> struct PolynomialSpan {
         ASSERT(index >= start_index && index < end_index());
         return span[index - start_index];
     }
-    PolynomialSpan subspan(size_t offset)
+    PolynomialSpan subspan(size_t offset, size_t length)
     {
         if (offset > span.size()) { // Return a null span
             return { 0, span.subspan(span.size()) };
         }
-        return { start_index + offset, span.subspan(offset) };
+        size_t new_length = std::min(length, span.size() - offset);
+        return { start_index + offset, span.subspan(offset, new_length) };
     }
+    operator PolynomialSpan<const Fr>() const { return PolynomialSpan<const Fr>(start_index, span); }
 };
 
 /**
@@ -68,10 +70,8 @@ template <typename Fr> class Polynomial {
     Polynomial(size_t size, size_t virtual_size, size_t start_index = 0);
     // Intended just for plonk, where size == virtual_size always
     Polynomial(size_t size)
-        : Polynomial(size, size)
-    {
-        PROFILE_THIS();
-    }
+        : Polynomial(size, size){};
+
     // Constructor that does not initialize values, use with caution to save time.
     Polynomial(size_t size, size_t virtual_size, size_t start_index, DontZeroMemory flag);
     Polynomial(size_t size, size_t virtual_size, DontZeroMemory flag)
@@ -165,6 +165,12 @@ template <typename Fr> class Polynomial {
     Polynomial shifted() const;
 
     /**
+     * @brief Returns a Polynomial equal to the right-shift-by-magnitude of self.
+     * @note Resulting Polynomial shares the memory of that used to generate it
+     */
+    Polynomial right_shifted(const size_t magnitude) const;
+
+    /**
      * @brief evaluate multi-linear extension p(X_0,…,X_{n-1}) = \sum_i a_i*L_i(X_0,…,X_{n-1}) at u =
      * (u_0,…,u_{n-1}) If the polynomial is embedded into a lower dimension k<n, i.e, start_index + size <= 2^k, we
      * evaluate it in a more efficient way. Note that a_j == 0 for any j >= 2^k. We fold over k dimensions and then
@@ -251,6 +257,7 @@ template <typename Fr> class Polynomial {
 
     std::size_t size() const { return coefficients_.size(); }
     std::size_t virtual_size() const { return coefficients_.virtual_size(); }
+    void increase_virtual_size(const size_t size_in) { coefficients_.increase_virtual_size(size_in); };
 
     Fr* data() { return coefficients_.data(); }
     const Fr* data() const { return coefficients_.data(); }
@@ -285,6 +292,14 @@ template <typename Fr> class Polynomial {
             thread_heuristics::ALWAYS_MULTITHREAD);
         return p;
     }
+
+    /**
+     * @brief A factory to construct a polynomial where parallel initialization is
+     *        not possible (e.g. AVM code).
+     *
+     * @return a polynomial initialized with zero on the range defined by size
+     */
+    static Polynomial create_non_parallel_zero_init(size_t size, size_t virtual_size);
 
     /**
      * @brief Expands the polynomial with new start_index and end_index
@@ -380,10 +395,6 @@ template <typename Fr> class Polynomial {
 
     // safety check for in place operations
     bool in_place_operation_viable(size_t domain_size) { return (size() >= domain_size); }
-
-    // When a polynomial is instantiated from a size alone, the memory allocated corresponds to
-    // input size + MAXIMUM_COEFFICIENT_SHIFT to support 'shifted' coefficients efficiently.
-    const static size_t MAXIMUM_COEFFICIENT_SHIFT = 1;
 
     // The underlying memory, with a bespoke (but minimal) shared array struct that fits our needs.
     // Namely, it supports polynomial shifts and 'virtual' zeroes past a size up until a 'virtual' size.

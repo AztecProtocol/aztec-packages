@@ -21,8 +21,8 @@ describe('SafeJsonRpcServer', () => {
   const send = (body: any) => request(server.getApp().callback()).post('/').send(body);
 
   const expectError = (response: request.Response, httpCode: number, message: string) => {
-    expect(response.status).toBe(httpCode);
     expect(JSON.parse(response.text)).toMatchObject({ error: { message } });
+    expect(response.status).toBe(httpCode);
   };
 
   describe('single', () => {
@@ -38,7 +38,7 @@ describe('SafeJsonRpcServer', () => {
 
     it('calls an RPC function with incorrect parameter type', async () => {
       const response = await send({ method: 'getNote', params: [{ index: 1 }] });
-      expectError(response, 400, 'Expected number, received object');
+      expectError(response, 400, expect.stringContaining('Expected number, received object'));
     });
 
     it('calls an RPC function with a primitive return type', async () => {
@@ -75,7 +75,7 @@ describe('SafeJsonRpcServer', () => {
 
     it('fails if sends invalid JSON', async () => {
       const response = await send('{');
-      expectError(response, 400, 'Parse error: Unexpected end of JSON input');
+      expectError(response, 400, expect.stringContaining('Parse error'));
     });
 
     it('fails if calls non-existing method in handler', async () => {

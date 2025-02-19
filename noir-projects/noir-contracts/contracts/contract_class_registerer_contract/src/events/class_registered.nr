@@ -3,10 +3,8 @@ use dep::aztec::protocol_types::{
         MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
     },
     contract_class_id::ContractClassId,
-    traits::Serialize,
 };
 
-// #[event]
 pub struct ContractClassRegistered {
     contract_class_id: ContractClassId,
     version: Field,
@@ -15,9 +13,12 @@ pub struct ContractClassRegistered {
     packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS],
 }
 
-impl Serialize<MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS + 5> for ContractClassRegistered {
-    fn serialize(self: Self) -> [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS + 5] {
+impl ContractClassRegistered {
+    fn serialize_non_standard(
+        self: Self,
+    ) -> [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS + 5] {
         let mut packed = [0; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS + 5];
+        // Since we are not yet emitting selectors we'll use this magic value to identify events emitted by the ClassRegisterer.
         packed[0] = REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE;
         packed[1] = self.contract_class_id.to_field();
         packed[2] = self.version;

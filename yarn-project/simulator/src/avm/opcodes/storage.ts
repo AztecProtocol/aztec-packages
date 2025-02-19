@@ -32,7 +32,7 @@ export class SStore extends BaseStorageInstruction {
       throw new StaticCallAlterationError();
     }
 
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
     context.machineState.consumeGas(this.gasCost());
 
     const operands = [this.aOffset, this.bOffset];
@@ -43,10 +43,7 @@ export class SStore extends BaseStorageInstruction {
 
     const slot = memory.get(slotOffset).toFr();
     const value = memory.get(srcOffset).toFr();
-    context.persistableState.writeStorage(context.environment.address, slot, value);
-
-    memory.assert({ reads: 2, addressing });
-    context.machineState.incrementPc();
+    await context.persistableState.writeStorage(context.environment.address, slot, value);
   }
 }
 
@@ -59,7 +56,7 @@ export class SLoad extends BaseStorageInstruction {
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
     context.machineState.consumeGas(this.gasCost());
 
     const operands = [this.aOffset, this.bOffset];
@@ -70,8 +67,5 @@ export class SLoad extends BaseStorageInstruction {
     const slot = memory.get(slotOffset).toFr();
     const value = await context.persistableState.readStorage(context.environment.address, slot);
     memory.set(dstOffset, new Field(value));
-
-    context.machineState.incrementPc();
-    memory.assert({ writes: 1, reads: 1, addressing });
   }
 }

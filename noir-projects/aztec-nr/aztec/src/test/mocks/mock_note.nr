@@ -1,24 +1,23 @@
 use crate::{
     context::PrivateContext,
-    generators::Ga1 as G_val,
     note::{
-        note_header::NoteHeader, note_interface::NoteInterface,
+        note_interface::NoteInterface, retrieved_note::RetrievedNote,
         utils::compute_note_hash_for_nullify,
     },
 };
 
 use crate::note::note_interface::NullifiableNote;
 use dep::protocol_types::{
-    address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
+    address::AztecAddress,
+    constants::{GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER},
     hash::poseidon2_hash_with_separator,
+    traits::Packable,
+    utils::arrays::array_concat,
 };
-use dep::std::{embedded_curve_ops::multi_scalar_mul, hash::from_field_unsafe};
 
-global MOCK_NOTE_LENGTH: u32 = 1;
-
+#[derive(Eq, Packable)]
 pub(crate) struct MockNote {
-    header: NoteHeader,
-    value: Field,
+    pub(crate) value: Field,
 }
 
 impl NullifiableNote for MockNote {
@@ -35,10 +34,18 @@ impl NullifiableNote for MockNote {
         )
     }
 
-    unconstrained fn compute_nullifier_without_context(self) -> Field {
+    unconstrained fn compute_nullifier_without_context(
+        self,
+        storage_slot: Field,
+        contract_address: AztecAddress,
+        note_nonce: Field,
+    ) -> Field {
+        // We set the note_hash_counter to 0 as the note is assumed to be committed (and hence not transient).
+        let retrieved_note =
+            RetrievedNote { note: self, contract_address, nonce: note_nonce, note_hash_counter: 0 };
         // We don't use any kind of secret here since this is only a mock note and having it here would make tests
         // more cumbersome
-        let note_hash_for_nullify = compute_note_hash_for_nullify(self);
+        let note_hash_for_nullify = compute_note_hash_for_nullify(retrieved_note, storage_slot);
         poseidon2_hash_with_separator(
             [note_hash_for_nullify],
             GENERATOR_INDEX__NOTE_NULLIFIER as Field,
@@ -46,105 +53,52 @@ impl NullifiableNote for MockNote {
     }
 }
 
-impl NoteInterface<MOCK_NOTE_LENGTH> for MockNote {
-    fn serialize_content(self) -> [Field; MOCK_NOTE_LENGTH] {
-        [self.value]
-    }
-
-    fn deserialize_content(fields: [Field; MOCK_NOTE_LENGTH]) -> Self {
-        Self { value: fields[0], header: NoteHeader::empty() }
-    }
-
-    fn get_header(self) -> NoteHeader {
-        self.header
-    }
-
-    fn set_header(&mut self, header: NoteHeader) -> () {
-        self.header = header;
-    }
-
+impl NoteInterface for MockNote {
     fn get_note_type_id() -> Field {
-        // randomly chose note type id
-        4135
+        // randomly chosen note type id --> has to fit within 7 bits
+        76
     }
 
-    fn to_be_bytes(self, storage_slot: Field) -> [u8; MOCK_NOTE_LENGTH * 32 + 64] {
-        let serialized_note = self.serialize_content();
-
-        let mut buffer: [u8; MOCK_NOTE_LENGTH * 32 + 64] = [0; MOCK_NOTE_LENGTH * 32 + 64];
-
-        let storage_slot_bytes: [u8; 32] = storage_slot.to_be_bytes();
-        let note_type_id_bytes: [u8; 32] = MockNote::get_note_type_id().to_be_bytes();
-
-        for i in 0..32 {
-            buffer[i] = storage_slot_bytes[i];
-            buffer[32 + i] = note_type_id_bytes[i];
-        }
-
-        for i in 0..serialized_note.len() {
-            let bytes: [u8; 32] = serialized_note[i].to_be_bytes();
-            for j in 0..32 {
-                buffer[64 + i * 32 + j] = bytes[j];
-            }
-        }
-        buffer
-    }
-
-    fn compute_note_hash(self: Self) -> Field {
-        assert(
-            self.header.storage_slot != 0,
-            "Storage slot must be set before computing note hash",
-        );
-        // We use the unsafe version because the multi_scalar_mul will constrain the scalars.
-        let value_scalar = from_field_unsafe(self.value);
-        multi_scalar_mul([G_val], [value_scalar]).x
+    fn compute_note_hash(self: Self, storage_slot: Field) -> Field {
+        // We use Poseidon2 instead of multi-scalar multiplication (MSM) here since this is not a partial note
+        // and therefore does not require MSM's additive homomorphism property. Additionally, Poseidon2 uses fewer
+        // constraints.
+        let input = array_concat(self.pack(), [storage_slot]);
+        poseidon2_hash_with_separator(input, GENERATOR_INDEX__NOTE_HASH)
     }
 }
 
-impl Eq for MockNote {
-    fn eq(self, other: Self) -> bool {
-        (self.header == other.header) & (self.value == other.value)
-    }
-}
-
-pub struct MockNoteBuilder {
+pub(crate) struct MockNoteBuilder {
     value: Field,
     contract_address: Option<AztecAddress>,
-    storage_slot: Option<Field>,
 }
 
 impl MockNoteBuilder {
-    fn new(value: Field) -> Self {
-        MockNoteBuilder { value, contract_address: Option::none(), storage_slot: Option::none() }
+    pub(crate) fn new(value: Field) -> Self {
+        MockNoteBuilder { value, contract_address: Option::none() }
     }
 
-    fn contract_address(&mut self, contract_address: AztecAddress) -> &mut Self {
+    pub(crate) fn contract_address(&mut self, contract_address: AztecAddress) -> &mut Self {
         self.contract_address = Option::some(contract_address);
         self
     }
 
-    fn storage_slot(&mut self, storage_slot: Field) -> &mut Self {
-        self.storage_slot = Option::some(storage_slot);
-        self
+    pub(crate) fn build_note(self) -> MockNote {
+        MockNote { value: self.value }
     }
 
-    fn build(self) -> MockNote {
-        let mut header = NoteHeader::empty();
-
-        if self.contract_address.is_some() {
-            header.contract_address = self.contract_address.unwrap();
+    pub(crate) fn build_retrieved_note(self) -> RetrievedNote<MockNote> {
+        RetrievedNote {
+            note: MockNote { value: self.value },
+            contract_address: self.contract_address.unwrap_or(AztecAddress::zero()),
+            nonce: 0,
+            note_hash_counter: 0,
         }
-
-        if self.storage_slot.is_some() {
-            header.storage_slot = self.storage_slot.unwrap();
-        }
-
-        MockNote { value: self.value, header }
     }
 }
 
 impl MockNote {
-    pub fn new(value: Field) -> MockNoteBuilder {
+    pub(crate) fn new(value: Field) -> MockNoteBuilder {
         MockNoteBuilder::new(value)
     }
 }

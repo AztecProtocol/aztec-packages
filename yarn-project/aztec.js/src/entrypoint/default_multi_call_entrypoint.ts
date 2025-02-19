@@ -1,8 +1,9 @@
-import { type EntrypointInterface, EntrypointPayload, type ExecutionRequestInit } from '@aztec/aztec.js/entrypoint';
-import { PackedValues, TxExecutionRequest } from '@aztec/circuit-types';
-import { type AztecAddress, GasSettings, TxContext } from '@aztec/circuits.js';
+import { HashedValues, TxExecutionRequest } from '@aztec/circuit-types';
+import { type AztecAddress, TxContext } from '@aztec/circuits.js';
 import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+
+import { type EntrypointInterface, EntrypointPayload, type ExecutionRequestInit } from './entrypoint.js';
 
 /**
  * Implementation for an entrypoint interface that can execute multiple function calls in a single transaction
@@ -14,20 +15,20 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
     private address: AztecAddress = ProtocolContractAddress.MultiCallEntrypoint,
   ) {}
 
-  createTxExecutionRequest(executions: ExecutionRequestInit): Promise<TxExecutionRequest> {
-    const { calls, authWitnesses = [], packedArguments = [] } = executions;
-    const payload = EntrypointPayload.fromAppExecution(calls);
+  async createTxExecutionRequest(executions: ExecutionRequestInit): Promise<TxExecutionRequest> {
+    const { fee, calls, authWitnesses = [], hashedArguments = [], capsules = [] } = executions;
+    const payload = await EntrypointPayload.fromAppExecution(calls);
     const abi = this.getEntrypointAbi();
-    const entrypointPackedArgs = PackedValues.fromValues(encodeArguments(abi, [payload]));
-    const gasSettings = executions.fee?.gasSettings ?? GasSettings.default();
+    const entrypointHashedArgs = await HashedValues.fromValues(encodeArguments(abi, [payload]));
 
     const txRequest = TxExecutionRequest.from({
-      firstCallArgsHash: entrypointPackedArgs.hash,
+      firstCallArgsHash: entrypointHashedArgs.hash,
       origin: this.address,
-      functionSelector: FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
-      txContext: new TxContext(this.chainId, this.version, gasSettings),
-      argsOfCalls: [...payload.packedArguments, ...packedArguments, entrypointPackedArgs],
+      functionSelector: await FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
+      txContext: new TxContext(this.chainId, this.version, fee.gasSettings),
+      argsOfCalls: [...payload.hashedArguments, ...hashedArguments, entrypointHashedArgs],
       authWitnesses,
+      capsules,
     });
 
     return Promise.resolve(txRequest);
@@ -86,6 +87,7 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
         },
       ],
       returnTypes: [],
+      errorTypes: {},
     } as FunctionAbi;
   }
 }

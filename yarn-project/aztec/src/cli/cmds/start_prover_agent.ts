@@ -1,51 +1,68 @@
-import { BBNativeRollupProver, TestCircuitProver } from '@aztec/bb-prover';
-import { type ServerCircuitProver } from '@aztec/circuit-types';
-import { type ProverClientConfig, proverClientConfigMappings } from '@aztec/prover-client';
+import { times } from '@aztec/foundation/collection';
+import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
+import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
+import { type LogFn } from '@aztec/foundation/log';
+import { buildServerCircuitProver } from '@aztec/prover-client';
 import {
-  ProverAgent,
-  createProverAgentRpcServer,
-  createProvingJobSourceClient,
-} from '@aztec/prover-client/prover-agent';
-import {
-  type TelemetryClientConfig,
-  createAndStartTelemetryClient,
-  telemetryClientConfigMappings,
-} from '@aztec/telemetry-client/start';
+  InlineProofStore,
+  type ProverAgentConfig,
+  ProvingAgent,
+  createProvingJobBrokerClient,
+  proverAgentConfigMappings,
+} from '@aztec/prover-client/broker';
+import { getProverNodeAgentConfigFromEnv } from '@aztec/prover-node';
+import { initTelemetryClient, makeTracedFetch, telemetryClientConfigMappings } from '@aztec/telemetry-client';
 
-import { type ServiceStarter, extractRelevantOptions } from '../util.js';
+import { extractRelevantOptions } from '../util.js';
+import { getVersions } from '../versioning.js';
 
-export const startProverAgent: ServiceStarter = async (options, signalHandlers, logger) => {
-  const proverConfig = extractRelevantOptions<ProverClientConfig>(options, proverClientConfigMappings, 'prover');
-  const proverJobSourceUrl = proverConfig.proverJobSourceUrl ?? proverConfig.nodeUrl;
-  if (!proverJobSourceUrl) {
-    throw new Error('Starting prover without PROVER_JOB_PROVIDER_URL is not supported');
+export async function startProverAgent(
+  options: any,
+  signalHandlers: (() => Promise<void>)[],
+  services: NamespacedApiHandlers,
+  userLog: LogFn,
+) {
+  if (options.node || options.sequencer || options.pxe || options.p2pBootstrap || options.txe) {
+    userLog(`Starting a prover agent with --node, --sequencer, --pxe, --p2p-bootstrap, or --txe is not supported.`);
+    process.exit(1);
   }
 
-  logger(`Connecting to prover at ${proverJobSourceUrl}`);
-  const source = createProvingJobSourceClient(proverJobSourceUrl, 'provingJobSource');
+  const config = {
+    ...getProverNodeAgentConfigFromEnv(), // get default config from env
+    ...extractRelevantOptions<ProverAgentConfig>(options, proverAgentConfigMappings, 'proverAgent'), // override with command line options
+  };
 
-  const telemetryConfig = extractRelevantOptions<TelemetryClientConfig>(options, telemetryClientConfigMappings, 'tel');
-  const telemetry = await createAndStartTelemetryClient(telemetryConfig);
-
-  let circuitProver: ServerCircuitProver;
-  if (proverConfig.realProofs) {
-    if (!proverConfig.acvmBinaryPath || !proverConfig.bbBinaryPath) {
-      throw new Error('Cannot start prover without simulation or native prover options');
-    }
-    circuitProver = await BBNativeRollupProver.new(proverConfig, telemetry);
-  } else {
-    circuitProver = new TestCircuitProver(telemetry, undefined, proverConfig);
+  if (config.realProofs && (!config.bbBinaryPath || !config.acvmBinaryPath)) {
+    process.exit(1);
   }
 
-  const agent = new ProverAgent(
-    circuitProver,
-    proverConfig.proverAgentConcurrency,
-    proverConfig.proverAgentPollInterval,
+  if (!config.proverBrokerUrl) {
+    process.exit(1);
+  }
+
+  const fetch = makeTracedFetch([1, 2, 3], false, makeUndiciFetch(new Agent({ connections: 10 })));
+  const broker = createProvingJobBrokerClient(config.proverBrokerUrl, getVersions(), fetch);
+
+  const telemetry = initTelemetryClient(extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'));
+  const prover = await buildServerCircuitProver(config, telemetry);
+  const proofStore = new InlineProofStore();
+  const agents = times(
+    config.proverAgentCount,
+    () =>
+      new ProvingAgent(
+        broker,
+        proofStore,
+        prover,
+        config.proverAgentProofTypes,
+        config.proverAgentPollIntervalMs,
+        telemetry,
+      ),
   );
-  agent.start(source);
-  logger(`Started prover agent with concurrency limit of ${proverConfig.proverAgentConcurrency}`);
 
-  signalHandlers.push(() => agent.stop());
+  await Promise.all(agents.map(agent => agent.start()));
 
-  return [{ prover: createProverAgentRpcServer(agent) }];
-};
+  signalHandlers.push(async () => {
+    await Promise.all(agents.map(agent => agent.stop()));
+    await telemetry.stop();
+  });
+}

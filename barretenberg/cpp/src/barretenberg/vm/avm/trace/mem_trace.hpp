@@ -109,6 +109,11 @@ class AvmMemTraceBuilder {
     FF unconstrained_read(uint8_t space_id, uint32_t addr) { return memory[space_id][addr].val; }
     AvmMemoryTag unconstrained_get_memory_tag(uint8_t space_id, uint32_t addr) { return memory[space_id][addr].tag; }
 
+    // Counters for memory diff range checks
+    std::unordered_map<uint16_t, uint32_t> mem_rng_chk_u16_0_counts;
+    std::unordered_map<uint16_t, uint32_t> mem_rng_chk_u16_1_counts;
+    std::unordered_map<uint8_t, uint32_t> mem_rng_chk_u8_counts;
+
   private:
     std::vector<MemoryTraceEntry> mem_trace; // Entries will be sorted by m_clk, m_sub_clk after finalize().
 

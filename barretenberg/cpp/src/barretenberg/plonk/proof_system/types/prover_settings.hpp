@@ -1,5 +1,5 @@
 #pragma once
-#include "barretenberg/plonk_honk_shared/arithmetization/standard_arithmetization.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/standard_execution_trace.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 namespace bb::plonk {
 class settings_base {
@@ -12,7 +12,7 @@ class settings_base {
 
 class standard_settings : public settings_base {
   public:
-    using Arithmetization = StandardArith<bb::fr>;
+    using ExecutionTrace = StandardExecutionTrace<bb::fr>;
     using Flavor = plonk::flavor::Standard;
     static constexpr size_t num_challenge_bytes = 16;
     static constexpr transcript::HashType hash_type = transcript::HashType::PedersenBlake3s;

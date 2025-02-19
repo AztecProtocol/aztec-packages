@@ -2,6 +2,7 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
+#include <execution>
 
 namespace bb::plonk {
 struct SelectorProperties {
@@ -105,7 +106,7 @@ std::array<typename Flavor::Polynomial, 4> construct_sorted_list_polynomials(typ
             }
         }
 
-#ifdef NO_TBB
+#ifdef NO_PAR_ALGOS
         std::sort(lookup_gates.begin(), lookup_gates.end());
 #else
         std::sort(std::execution::par_unseq, lookup_gates.begin(), lookup_gates.end());

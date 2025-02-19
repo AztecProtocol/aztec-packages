@@ -1,23 +1,23 @@
 use crate::note::constants::MAX_NOTES_PER_PAGE;
 use crate::note::note_getter_options::{NoteStatus, PropertySelector, Select, Sort};
 use crate::note::note_interface::NoteInterface;
-use dep::protocol_types::traits::ToField;
+use dep::protocol_types::traits::{Packable, ToField};
 use std::option::Option;
 
 // docs:start:NoteViewerOptions
 pub struct NoteViewerOptions<Note, let N: u32> {
-    selects: BoundedVec<Option<Select>, N>,
-    sorts: BoundedVec<Option<Sort>, N>,
-    limit: u32,
-    offset: u32,
-    status: u8,
+    pub selects: BoundedVec<Option<Select>, N>,
+    pub sorts: BoundedVec<Option<Sort>, N>,
+    pub limit: u32,
+    pub offset: u32,
+    pub status: u8,
 }
 // docs:end:NoteViewerOptions
 
 impl<Note, let N: u32> NoteViewerOptions<Note, N> {
     pub fn new() -> NoteViewerOptions<Note, N>
     where
-        Note: NoteInterface<N>,
+        Note: NoteInterface + Packable<N>,
     {
         NoteViewerOptions {
             selects: BoundedVec::new(),

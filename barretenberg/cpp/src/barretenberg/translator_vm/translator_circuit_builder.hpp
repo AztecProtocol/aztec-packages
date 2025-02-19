@@ -11,16 +11,16 @@
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/plonk_honk_shared/arithmetization/arithmetization.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/execution_trace_block.hpp"
 #include "barretenberg/stdlib_circuit_builders/circuit_builder_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 
 namespace bb {
 /**
  * @brief TranslatorCircuitBuilder creates a circuit that evaluates the correctness of the evaluation of
- * EccOpQueue in Fq while operating in the Fr scalar field (r is the modulus of Fr and p is the modulus of Fp)
+ * EccOpQueue in Fq while operating in the Fr scalar field (r is the modulus of Fr and q is the modulus of Fq)
  *
- * @details Translator Circuit Builder builds a circuit the purpose of which is to calculate the batched
+ * @details Translator Circuit Builder builds a circuit whose purpose is to calculate the batched
  * evaluation of 5 polynomials in non-native field represented through coefficients in 4 native polynomials (op,
  * x_lo_y_hi, x_hi_z_1, y_lo_z_2):
  *
@@ -33,11 +33,11 @@ namespace bb {
  *
  * Translator calculates the result of evaluation of a polynomial op + P.x⋅v +P.y⋅v² + z1 ⋅ v³ + z2⋅v⁴ at the
  * given challenge x (evaluation_input_x). For this it uses logic similar to the stdlib bigfield class. We operate in Fr
- * while trying to calculate values in Fq. To show that a⋅b=c mod p, we:
+ * while trying to calculate values in Fq. To show that a⋅b=c mod q, we:
  * 1) Compute a⋅b in integers
- * 2) Compute quotient=a⋅b/p
- * 3) Show that a⋅b - quotient⋅p - c = 0 mod 2²⁷²
- * 4) Show that a⋅b - quotient⋅p - c = 0 mod r (scalar field modulus)
+ * 2) Compute quotient=a⋅b/q
+ * 3) Show that a⋅b - quotient⋅q - c = 0 mod 2²⁷²
+ * 4) Show that a⋅b - quotient⋅q - c = 0 mod r (scalar field modulus)
  * This ensures that the logic is sound modulo 2²⁷²⋅r, which means it's correct in integers, if all the values are
  * sufficiently constrained (there is no way to undeflow or overflow)
  *
@@ -73,6 +73,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     // We don't need templating for Goblin
     using Fr = bb::fr;
     using Fq = bb::fq;
+    using ECCVMOperation = ECCOpQueue::ECCVMOperation;
 
   public:
     static constexpr size_t NUM_WIRES = 81;
@@ -96,53 +97,58 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         X_LOW_Y_HI,
         X_HIGH_Z_1,
         Y_LOW_Z_2,
-        P_X_LOW_LIMBS,                    // P.xₗₒ split into 2 68 bit limbs
+        P_X_LOW_LIMBS,               // P.xₗₒ split into 2 68 bit limbs
+        P_X_HIGH_LIMBS,              // P.xₕᵢ split into a 68 and a 50 bit limb
+        P_Y_LOW_LIMBS,               // P.yₗₒ split into 2 68 bit limbs
+        P_Y_HIGH_LIMBS,              // P.yₕᵢ split into a 68 and a 50 bit limb
+        Z_LOW_LIMBS,                 // Low limbs of z_1 and z_2 (68 bits each)
+        Z_HIGH_LIMBS,                // High Limbs of z_1 and z_2 (60 bits each)
+        ACCUMULATORS_BINARY_LIMBS_0, // Contain 68-bit limbs of current and previous accumulator (previous at higher
+                                     // indices because of the nuances of KZG commitment).
+        ACCUMULATORS_BINARY_LIMBS_1,
+        ACCUMULATORS_BINARY_LIMBS_2,
+        ACCUMULATORS_BINARY_LIMBS_3, // Highest limb is 50 bits (254 mod 68)    P_X_LOW_LIMBS_RANGE_CONSTRAINT_0, // Low
+                                     // limbs split further into smaller chunks for range constraints
+        QUOTIENT_LOW_BINARY_LIMBS,   // Quotient limbs
+        QUOTIENT_HIGH_BINARY_LIMBS,
+        RELATION_WIDE_LIMBS,              // Limbs for checking the correctness of  mod 2²⁷² relations.
         P_X_LOW_LIMBS_RANGE_CONSTRAINT_0, // Low limbs split further into smaller chunks for range constraints
         P_X_LOW_LIMBS_RANGE_CONSTRAINT_1,
         P_X_LOW_LIMBS_RANGE_CONSTRAINT_2,
         P_X_LOW_LIMBS_RANGE_CONSTRAINT_3,
         P_X_LOW_LIMBS_RANGE_CONSTRAINT_4,
         P_X_LOW_LIMBS_RANGE_CONSTRAINT_TAIL,
-        P_X_HIGH_LIMBS,                    // P.xₕᵢ split into a 68 and a 50 bit limb
         P_X_HIGH_LIMBS_RANGE_CONSTRAINT_0, // High limbs split into chunks for range constraints
         P_X_HIGH_LIMBS_RANGE_CONSTRAINT_1,
         P_X_HIGH_LIMBS_RANGE_CONSTRAINT_2,
         P_X_HIGH_LIMBS_RANGE_CONSTRAINT_3,
         P_X_HIGH_LIMBS_RANGE_CONSTRAINT_4,
         P_X_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL,
-        P_Y_LOW_LIMBS,                    // P.yₗₒ split into 2 68 bit limbs
         P_Y_LOW_LIMBS_RANGE_CONSTRAINT_0, // Low limbs split into chunks for range constraints
         P_Y_LOW_LIMBS_RANGE_CONSTRAINT_1,
         P_Y_LOW_LIMBS_RANGE_CONSTRAINT_2,
         P_Y_LOW_LIMBS_RANGE_CONSTRAINT_3,
         P_Y_LOW_LIMBS_RANGE_CONSTRAINT_4,
         P_Y_LOW_LIMBS_RANGE_CONSTRAINT_TAIL,
-        P_Y_HIGH_LIMBS,                    // P.yₕᵢ split into a 68 and a 50 bit limb
         P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_0, // High limbs split into chunks for range constraints
         P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_1,
         P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_2,
         P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_3,
         P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_4,
         P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL,
-        Z_LOW_LIMBS,                    // Low limbs of z_1 and z_2 (68 bits each)
         Z_LOW_LIMBS_RANGE_CONSTRAINT_0, // Range constraints for low limbs of z_1 and z_2
         Z_LOW_LIMBS_RANGE_CONSTRAINT_1,
         Z_LOW_LIMBS_RANGE_CONSTRAINT_2,
         Z_LOW_LIMBS_RANGE_CONSTRAINT_3,
         Z_LOW_LIMBS_RANGE_CONSTRAINT_4,
         Z_LOW_LIMBS_RANGE_CONSTRAINT_TAIL,
-        Z_HIGH_LIMBS,                    // High Limbs of z_1 and z_2 (60 bits each)
         Z_HIGH_LIMBS_RANGE_CONSTRAINT_0, // Range constraints for high limbs of z_1 and z_2
         Z_HIGH_LIMBS_RANGE_CONSTRAINT_1,
         Z_HIGH_LIMBS_RANGE_CONSTRAINT_2,
         Z_HIGH_LIMBS_RANGE_CONSTRAINT_3,
         Z_HIGH_LIMBS_RANGE_CONSTRAINT_4,
         Z_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL,
-        ACCUMULATORS_BINARY_LIMBS_0, // Contain 68-bit limbs of current and previous accumulator (previous at higher
-                                     // indices because of the nuances of KZG commitment).
-        ACCUMULATORS_BINARY_LIMBS_1,
-        ACCUMULATORS_BINARY_LIMBS_2,
-        ACCUMULATORS_BINARY_LIMBS_3,              // Highest limb is 50 bits (254 mod 68)
+
         ACCUMULATOR_LOW_LIMBS_RANGE_CONSTRAINT_0, // Range constraints for the current accumulator limbs (no need to
                                                   // redo previous accumulator)
         ACCUMULATOR_LOW_LIMBS_RANGE_CONSTRAINT_1,
@@ -156,8 +162,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_3,
         ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_4,
         ACCUMULATOR_HIGH_LIMBS_RANGE_CONSTRAINT_TAIL,
-        QUOTIENT_LOW_BINARY_LIMBS, // Quotient limbs
-        QUOTIENT_HIGH_BINARY_LIMBS,
+
         QUOTIENT_LOW_LIMBS_RANGE_CONSTRAIN_0, // Range constraints for quotient
         QUOTIENT_LOW_LIMBS_RANGE_CONSTRAIN_1,
         QUOTIENT_LOW_LIMBS_RANGE_CONSTRAIN_2,
@@ -170,7 +175,6 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAIN_3,
         QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAIN_4,
         QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAIN_TAIL,
-        RELATION_WIDE_LIMBS, // Limbs for checking the correctness of  mod 2²⁷² relations.
         RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_0,
         RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_1,
         RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2,
@@ -269,7 +273,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
      * @brief The accumulation input structure contains all the necessary values to initalize an accumulation gate as
      * well as additional values for checking its correctness
      *
-     * @details For example, we don't really nead the prime limbs, but they serve to check the correctness of over
+     * @details For example, we don't really need the prime limbs, but they serve to check the correctness of over
      * values. We also don't need the values of x's and v's limbs during circuit construction, since they are added to
      * relations directly, but this allows us to check correctness of the computed accumulator
      */
@@ -314,7 +318,8 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         std::array<Fr, NUM_BINARY_LIMBS> v_cubed_limbs = { 0 };
         std::array<Fr, NUM_BINARY_LIMBS> v_quarted_limbs = { 0 };
     };
-    static constexpr std::string_view NAME_STRING = "TranslatorArithmetization";
+
+    static constexpr std::string_view NAME_STRING = "TranslatorCircuitBuilder";
 
     // The challenge that is used for batching together evaluations of several polynomials
     Fq batching_challenge_v;
@@ -444,7 +449,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
      *
      * @param ecc_op_queue The queue
      */
-    void feed_ecc_op_queue_into_circuit(std::shared_ptr<ECCOpQueue> ecc_op_queue);
+    void feed_ecc_op_queue_into_circuit(const std::shared_ptr<ECCOpQueue> ecc_op_queue);
 
     /**
      * @brief Check the witness satisifies the circuit
@@ -455,16 +460,20 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
      * @return false
      */
     bool check_circuit();
+    static AccumulationInput generate_witness_values(const Fr op_code,
+                                                     const Fr p_x_lo,
+                                                     const Fr p_x_hi,
+                                                     const Fr p_y_lo,
+                                                     const Fr p_y_hi,
+                                                     const Fr z1,
+                                                     const Fr z2,
+                                                     const Fq previous_accumulator,
+                                                     const Fq batching_challenge_v,
+                                                     const Fq evaluation_input_x);
+    static AccumulationInput compute_witness_values_for_one_ecc_op(const ECCVMOperation& ecc_op,
+                                                                   const Fq previous_accumulator,
+                                                                   const Fq batching_challenge_v,
+                                                                   const Fq evaluation_input_x);
 };
-template <typename Fq, typename Fr>
-TranslatorCircuitBuilder::AccumulationInput generate_witness_values(Fr op_code,
-                                                                    Fr p_x_lo,
-                                                                    Fr p_x_hi,
-                                                                    Fr p_y_lo,
-                                                                    Fr p_y_hi,
-                                                                    Fr z1,
-                                                                    Fr z2,
-                                                                    Fq previous_accumulator,
-                                                                    Fq batching_challenge_v,
-                                                                    Fq evaluation_input_x);
+
 } // namespace bb

@@ -1,9 +1,4 @@
-import {
-  NestedProcessReturnValues,
-  type PublicExecutionRequest,
-  type SimulationError,
-  type UnencryptedFunctionL2Logs,
-} from '@aztec/circuit-types';
+import { type PublicExecutionRequest, type SimulationError } from '@aztec/circuit-types';
 import {
   type AvmExecutionHints,
   type ContractStorageRead,
@@ -11,21 +6,67 @@ import {
   type Fr,
   Gas,
   type L2ToL1Message,
-  type LogHash,
   type NoteHash,
   type Nullifier,
   PublicCallStackItemCompressed,
+  type PublicDataUpdateRequest,
   PublicInnerCallRequest,
+  type PublicLog,
   type ReadRequest,
   RevertCode,
+  type ScopedL2ToL1Message,
   type TreeLeafReadRequest,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 
+export interface PublicSideEffects {
+  /** The contract storage update requests performed. */
+  publicDataWrites: PublicDataUpdateRequest[];
+  /** The new note hashes to be inserted into the note hashes tree. */
+  noteHashes: NoteHash[];
+  /** The new nullifiers to be inserted into the nullifier tree. */
+  nullifiers: Nullifier[];
+  /** The new l2 to l1 messages generated to be inserted into the messages tree. */
+  l2ToL1Messages: ScopedL2ToL1Message[];
+  /** Public logs emitted during execution. */
+  publicLogs: PublicLog[];
+}
+
+export interface EnqueuedPublicCallExecutionResult {
+  /** How much gas was left after this public execution. */
+  endGasLeft: Gas;
+  /** The side effect counter after execution */
+  endSideEffectCounter: Fr;
+
+  /** The return values of the function. */
+  returnValues: Fr[];
+  /** Whether the execution reverted. */
+  reverted: boolean;
+  /** The revert reason if the execution reverted. */
+  revertReason?: SimulationError;
+}
+
+export interface EnqueuedPublicCallExecutionResultWithSideEffects {
+  /** How much gas was left after this public execution. */
+  endGasLeft: Gas;
+  /** The side effect counter after execution */
+  endSideEffectCounter: Fr;
+
+  /** The return values of the function. */
+  returnValues: Fr[];
+  /** Whether the execution reverted. */
+  reverted: boolean;
+  /** The revert reason if the execution reverted. */
+  revertReason?: SimulationError;
+
+  /** The public side effects of the function. */
+  sideEffects: PublicSideEffects;
+}
+
 /**
  * The public function execution result.
  */
-export interface PublicExecutionResult {
+export interface PublicFunctionCallResult {
   /** The execution request that triggered this result. */
   executionRequest: PublicExecutionRequest;
 
@@ -70,21 +111,10 @@ export interface PublicExecutionResult {
   /** L1 to L2 message read requests emitted in this call. */
   l1ToL2MsgReadRequests: TreeLeafReadRequest[];
   /**
-   * The hashed logs with side effect counter.
-   * Note: required as we don't track the counter anywhere else.
+   * The public logs emitted in this call.
+   * Note: PublicLog has no counter - unsure if this is needed bc this struct is unused
    */
-  unencryptedLogsHashes: LogHash[];
-  /**
-   * Unencrypted logs emitted during execution of this function call.
-   * Note: These are preimages to `unencryptedLogsHashes`.
-   */
-  unencryptedLogs: UnencryptedFunctionL2Logs;
-  /**
-   * Unencrypted logs emitted during this call AND any nested calls.
-   * Useful for maintaining correct ordering in ts.
-   */
-  allUnencryptedLogs: UnencryptedFunctionL2Logs;
-
+  publicLogs: PublicLog[];
   /** The requests to call public functions made by this call. */
   publicCallRequests: PublicInnerCallRequest[];
   /** The results of nested calls. */
@@ -97,52 +127,13 @@ export interface PublicExecutionResult {
   functionName: string;
 }
 
-/**
- * Recursively accummulate the return values of a call result and its nested executions,
- * so they can be retrieved in order.
- * @param executionResult
- * @returns
- */
-export function accumulatePublicReturnValues(executionResult: PublicExecutionResult): NestedProcessReturnValues {
-  const acc = new NestedProcessReturnValues(executionResult.returnValues);
-  acc.nested = executionResult.nestedExecutions.map(nestedExecution => accumulatePublicReturnValues(nestedExecution));
-  return acc;
-}
-
-export function collectExecutionResults(result: PublicExecutionResult): PublicExecutionResult[] {
-  return [result, ...result.nestedExecutions.map(collectExecutionResults)].flat();
-}
-
-/**
- * Checks whether the child execution result is valid for a static call (no state modifications).
- * @param executionResult - The execution result of a public function
- */
-
-export function checkValidStaticCall(
-  noteHashes: NoteHash[],
-  nullifiers: Nullifier[],
-  contractStorageUpdateRequests: ContractStorageUpdateRequest[],
-  l2ToL1Messages: L2ToL1Message[],
-  unencryptedLogs: UnencryptedFunctionL2Logs,
-) {
-  if (
-    contractStorageUpdateRequests.length > 0 ||
-    noteHashes.length > 0 ||
-    nullifiers.length > 0 ||
-    l2ToL1Messages.length > 0 ||
-    unencryptedLogs.logs.length > 0
-  ) {
-    throw new Error('Static call cannot update the state, emit L2->L1 messages or generate logs');
-  }
-}
-
-export function resultToPublicCallRequest(result: PublicExecutionResult) {
+export async function resultToPublicCallRequest(result: PublicFunctionCallResult) {
   const request = result.executionRequest;
   const item = new PublicCallStackItemCompressed(
     request.callContext.contractAddress,
     request.callContext,
-    computeVarArgsHash(request.args),
-    computeVarArgsHash(result.returnValues),
+    await computeVarArgsHash(request.args),
+    await computeVarArgsHash(result.returnValues),
     // TODO(@just-mitch): need better mapping from simulator to revert code.
     result.reverted ? RevertCode.APP_LOGIC_REVERTED : RevertCode.OK,
     Gas.from(result.startGasLeft),

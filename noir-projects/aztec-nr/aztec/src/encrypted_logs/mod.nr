@@ -1,4 +1,3 @@
-mod header;
-mod payload;
-mod encrypted_note_emission;
-mod encrypted_event_emission;
+pub mod encrypt;
+pub mod log_assembly_strategies;
+

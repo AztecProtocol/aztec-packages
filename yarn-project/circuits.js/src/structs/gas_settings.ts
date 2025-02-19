@@ -1,15 +1,10 @@
-import { compact } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import {
-  DEFAULT_GAS_LIMIT,
-  DEFAULT_INCLUSION_FEE,
-  DEFAULT_MAX_FEE_PER_GAS,
-  DEFAULT_TEARDOWN_GAS_LIMIT,
-  GAS_SETTINGS_LENGTH,
-} from '../constants.gen.js';
+import { z } from 'zod';
+
+import { DEFAULT_GAS_LIMIT, DEFAULT_TEARDOWN_GAS_LIMIT, GAS_SETTINGS_LENGTH } from '../constants.gen.js';
 import { Gas, GasDimensions } from './gas.js';
 import { GasFees } from './gas_fees.js';
 
@@ -19,8 +14,19 @@ export class GasSettings {
     public readonly gasLimits: Gas,
     public readonly teardownGasLimits: Gas,
     public readonly maxFeesPerGas: GasFees,
-    public readonly inclusionFee: Fr,
+    public readonly maxPriorityFeesPerGas: GasFees,
   ) {}
+
+  static get schema() {
+    return z
+      .object({
+        gasLimits: Gas.schema,
+        teardownGasLimits: Gas.schema,
+        maxFeesPerGas: GasFees.schema,
+        maxPriorityFeesPerGas: GasFees.schema,
+      })
+      .transform(GasSettings.from);
+  }
 
   getSize(): number {
     return this.toBuffer().length;
@@ -30,13 +36,13 @@ export class GasSettings {
     gasLimits: FieldsOf<Gas>;
     teardownGasLimits: FieldsOf<Gas>;
     maxFeesPerGas: FieldsOf<GasFees>;
-    inclusionFee: Fr;
+    maxPriorityFeesPerGas: FieldsOf<GasFees>;
   }) {
     return new GasSettings(
       Gas.from(args.gasLimits),
       Gas.from(args.teardownGasLimits),
       GasFees.from(args.maxFeesPerGas),
-      args.inclusionFee,
+      GasFees.from(args.maxPriorityFeesPerGas),
     );
   }
 
@@ -45,7 +51,7 @@ export class GasSettings {
       this.gasLimits.clone(),
       this.teardownGasLimits.clone(),
       this.maxFeesPerGas.clone(),
-      this.inclusionFee,
+      this.maxPriorityFeesPerGas.clone(),
     );
   }
 
@@ -58,33 +64,30 @@ export class GasSettings {
           .mul(new Fr(this.gasLimits.get(dimension)))
           .add(acc),
       Fr.ZERO,
-    ).add(this.inclusionFee);
+    );
   }
 
   /** Zero-value gas settings. */
   static empty() {
-    return new GasSettings(Gas.empty(), Gas.empty(), GasFees.empty(), Fr.ZERO);
+    return new GasSettings(Gas.empty(), Gas.empty(), GasFees.empty(), GasFees.empty());
   }
 
-  /** Default gas settings to use when user has not provided them. */
-  static default(overrides: Partial<FieldsOf<GasSettings>> = {}) {
+  /** Default gas settings to use when user has not provided them. Requires explicit max fees per gas. */
+  static default(overrides: {
+    gasLimits?: Gas;
+    teardownGasLimits?: Gas;
+    maxFeesPerGas: GasFees;
+    maxPriorityFeesPerGas?: GasFees;
+  }) {
     return GasSettings.from({
-      gasLimits: { l2Gas: DEFAULT_GAS_LIMIT, daGas: DEFAULT_GAS_LIMIT },
-      teardownGasLimits: { l2Gas: DEFAULT_TEARDOWN_GAS_LIMIT, daGas: DEFAULT_TEARDOWN_GAS_LIMIT },
-      maxFeesPerGas: { feePerL2Gas: new Fr(DEFAULT_MAX_FEE_PER_GAS), feePerDaGas: new Fr(DEFAULT_MAX_FEE_PER_GAS) },
-      inclusionFee: new Fr(DEFAULT_INCLUSION_FEE),
-      ...compact(overrides),
+      gasLimits: overrides.gasLimits ?? { l2Gas: DEFAULT_GAS_LIMIT, daGas: DEFAULT_GAS_LIMIT },
+      teardownGasLimits: overrides.teardownGasLimits ?? {
+        l2Gas: DEFAULT_TEARDOWN_GAS_LIMIT,
+        daGas: DEFAULT_TEARDOWN_GAS_LIMIT,
+      },
+      maxFeesPerGas: overrides.maxFeesPerGas,
+      maxPriorityFeesPerGas: overrides.maxPriorityFeesPerGas ?? GasFees.empty(),
     });
-  }
-
-  /** Default gas settings with no teardown */
-  static teardownless() {
-    return GasSettings.default({ teardownGasLimits: Gas.from({ l2Gas: 0, daGas: 0 }) });
-  }
-
-  /** Gas settings to use for simulating a contract call. */
-  static simulation() {
-    return GasSettings.default();
   }
 
   isEmpty() {
@@ -92,7 +95,7 @@ export class GasSettings {
       this.gasLimits.isEmpty() &&
       this.teardownGasLimits.isEmpty() &&
       this.maxFeesPerGas.isEmpty() &&
-      this.inclusionFee.isZero()
+      this.maxPriorityFeesPerGas.isEmpty()
     );
   }
 
@@ -101,7 +104,7 @@ export class GasSettings {
       this.gasLimits.equals(other.gasLimits) &&
       this.teardownGasLimits.equals(other.teardownGasLimits) &&
       this.maxFeesPerGas.equals(other.maxFeesPerGas) &&
-      this.inclusionFee.equals(other.inclusionFee)
+      this.maxPriorityFeesPerGas.equals(other.maxPriorityFeesPerGas)
     );
   }
 
@@ -111,7 +114,7 @@ export class GasSettings {
       reader.readObject(Gas),
       reader.readObject(Gas),
       reader.readObject(GasFees),
-      reader.readObject(Fr),
+      reader.readObject(GasFees),
     );
   }
 
@@ -125,7 +128,7 @@ export class GasSettings {
       reader.readObject(Gas),
       reader.readObject(Gas),
       reader.readObject(GasFees),
-      reader.readField(),
+      reader.readObject(GasFees),
     );
   }
 
@@ -140,21 +143,6 @@ export class GasSettings {
   }
 
   static getFields(fields: FieldsOf<GasSettings>) {
-    return [fields.gasLimits, fields.teardownGasLimits, fields.maxFeesPerGas, fields.inclusionFee] as const;
-  }
-
-  /** Returns total gas limits. */
-  getLimits(): Gas {
-    return this.gasLimits;
-  }
-
-  /** Returns how much gas is available for execution of setup and app phases (ie total limit minus teardown). */
-  getInitialAvailable(): Gas {
-    return this.gasLimits.sub(this.teardownGasLimits);
-  }
-
-  /** Returns how much gas is available for execution of teardown phase. */
-  getTeardownLimits(): Gas {
-    return this.teardownGasLimits;
+    return [fields.gasLimits, fields.teardownGasLimits, fields.maxFeesPerGas, fields.maxPriorityFeesPerGas] as const;
   }
 }

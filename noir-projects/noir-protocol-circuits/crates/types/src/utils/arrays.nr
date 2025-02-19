@@ -1,33 +1,27 @@
-mod assert_array_appended;
-mod assert_array_prepended;
-mod assert_combined_array;
-mod assert_combined_sorted_transformed_value_array;
-mod assert_combined_transformed_array;
-mod assert_deduped_array;
-mod assert_exposed_sorted_transformed_value_array;
-mod assert_sorted_array;
-mod assert_sorted_transformed_value_array;
-mod assert_split_sorted_transformed_value_arrays;
-mod assert_split_transformed_value_arrays;
-mod get_sorted_result;
-mod get_sorted_tuple;
-mod sort_by;
-mod sort_by_counter;
+pub mod assert_array_appended;
+pub mod assert_array_prepended;
+pub mod assert_combined_array;
+pub mod assert_combined_transformed_array;
+pub mod assert_exposed_sorted_transformed_value_array;
+pub mod assert_sorted_array;
+pub mod assert_sorted_transformed_value_array;
+pub mod assert_split_sorted_transformed_value_arrays;
+pub mod assert_split_transformed_value_arrays;
+pub mod get_sorted_result;
+pub mod get_sorted_tuple;
+pub mod sort_by;
+pub mod sort_by_counter;
 
 // Re-exports.
 pub use assert_array_appended::{
-    assert_array_appended, assert_array_appended_reversed, assert_array_appended_scoped,
+    assert_array_appended, assert_array_appended_and_scoped, assert_array_appended_reversed,
+    assert_array_appended_scoped,
 };
 pub use assert_array_prepended::assert_array_prepended;
 pub use assert_combined_array::{assert_combined_array, combine_arrays};
-pub use assert_combined_sorted_transformed_value_array::{
-    assert_combined_sorted_transformed_value_array_asc,
-    get_combined_order_hints::{CombinedOrderHint, get_combined_order_hints_asc},
-};
 pub use assert_combined_transformed_array::{
     assert_combined_transformed_array, combine_and_transform_arrays,
 };
-pub use assert_deduped_array::{assert_deduped_array, dedupe_array};
 pub use assert_exposed_sorted_transformed_value_array::{
     assert_exposed_sorted_transformed_value_array,
     get_order_hints::{get_order_hints_asc, get_order_hints_desc, OrderHint},
@@ -47,26 +41,39 @@ pub use sort_by_counter::{sort_by_counter_asc, sort_by_counter_desc};
 
 use crate::traits::{Empty, is_empty};
 
-pub fn array_to_bounded_vec<T, let N: u32>(array: [T; N]) -> BoundedVec<T, N>
+pub fn subarray<let SRC_LEN: u32, let DST_LEN: u32>(
+    src: [Field; SRC_LEN],
+    offset: u32,
+) -> [Field; DST_LEN] {
+    assert(offset + DST_LEN <= SRC_LEN, "offset too large");
+
+    let mut dst: [Field; DST_LEN] = std::mem::zeroed();
+    for i in 0..DST_LEN {
+        dst[i] = src[i + offset];
+    }
+
+    dst
+}
+
+// Helper function to convert a validated array to BoundedVec.
+// Important: Only use it for validated arrays: validate_array(array) should be true.
+pub unconstrained fn array_to_bounded_vec<T, let N: u32>(array: [T; N]) -> BoundedVec<T, N>
 where
     T: Empty + Eq,
 {
-    let mut len = 0;
-    for elem in array {
-        if !is_empty(elem) {
-            len += 1;
-        }
-    }
-
-    BoundedVec { storage: array, len }
+    let len = array_length(array);
+    BoundedVec::from_parts_unchecked(array, len)
 }
 
+// Helper function to find the index of the first element in an array that satisfies a given predicate. If the element
+// is not found, the function returns N as the index.
 pub unconstrained fn find_index_hint<T, let N: u32, Env>(
     array: [T; N],
     find: fn[Env](T) -> bool,
 ) -> u32 {
     let mut index = N;
     for i in 0..N {
+        // We check `index == N` to ensure that we only update the index if we haven't found a match yet.
         if (index == N) & find(array[i]) {
             index = i;
         }
@@ -95,11 +102,19 @@ where
 }
 
 // Helper function to count the number of non-empty elements in a validated array.
-// Important: Only use it for validated arrays: validate_array(array) should be true.
+// Important: Only use it for validated arrays where validate_array(array) returns true,
+// which ensures that:
+// 1. All elements before the first empty element are non-empty
+// 2. All elements after and including the first empty element are empty
+// 3. The array forms a contiguous sequence of non-empty elements followed by empty elements
 pub fn array_length<T, let N: u32>(array: [T; N]) -> u32
 where
     T: Empty + Eq,
 {
+    // We get the length by checking the index of the first empty element.
+
+    // Safety: This is safe because we have validated the array (see function doc above) and the emptiness
+    // of the element and non-emptiness of the previous element is checked below.
     let length = unsafe { find_index_hint(array, |elem: T| is_empty(elem)) };
     if length != 0 {
         assert(!is_empty(array[length - 1]));
@@ -120,8 +135,29 @@ pub fn array_concat<T, let N: u32, let M: u32>(array1: [T; N], array2: [T; M]) -
     }
     result
 }
-
+/// This function assumes that `array1` and `array2` contain no more than N non-empty elements between them,
+/// if this is not the case then elements from the end of `array2` will be dropped.
 pub fn array_merge<T, let N: u32>(array1: [T; N], array2: [T; N]) -> [T; N]
+where
+    T: Empty + Eq,
+{
+    // Safety: we constrain this array below
+    let result = unsafe { array_merge_helper(array1, array2) };
+    // We assume arrays have been validated. The only use cases so far are with previously validated arrays.
+    let array1_len = array_length(array1);
+    let mut add_from_left = true;
+    for i in 0..N {
+        add_from_left &= i != array1_len;
+        if add_from_left {
+            assert_eq(result[i], array1[i]);
+        } else {
+            assert_eq(result[i], array2[i - array1_len]);
+        }
+    }
+    result
+}
+
+unconstrained fn array_merge_helper<T, let N: u32>(array1: [T; N], array2: [T; N]) -> [T; N]
 where
     T: Empty + Eq,
 {
@@ -138,6 +174,19 @@ where
             result[i] = elem;
             i += 1;
         }
+    }
+    result
+}
+
+// Helper fn to create a subarray from a given array
+pub fn array_splice<T, let N: u32, let M: u32>(array: [T; N], offset: u32) -> [T; M]
+where
+    T: Empty,
+{
+    assert(M + offset <= N, "Subarray length larger than array length");
+    let mut result: [T; M] = [T::empty(); M];
+    for i in 0..M {
+        result[i] = array[offset + i];
     }
     result
 }
@@ -223,18 +272,18 @@ fn test_array_length_invalid_arrays() {
 }
 
 #[test]
-fn find_index_greater_than_min() {
+unconstrained fn find_index_greater_than_min() {
     let values = [10, 20, 30, 40];
     let min = 22;
-    let index = unsafe { find_index_hint(values, |v: Field| min.lt(v)) };
+    let index = find_index_hint(values, |v: Field| min.lt(v));
     assert_eq(index, 2);
 }
 
 #[test]
-fn find_index_not_found() {
+unconstrained fn find_index_not_found() {
     let values = [10, 20, 30, 40];
     let min = 100;
-    let index = unsafe { find_index_hint(values, |v: Field| min.lt(v)) };
+    let index = find_index_hint(values, |v: Field| min.lt(v));
     assert_eq(index, 4);
 }
 
@@ -242,8 +291,8 @@ fn find_index_not_found() {
 fn test_array_concat() {
     let array0 = [1, 2, 3];
     let array1 = [4, 5];
-    let concated = array_concat(array0, array1);
-    assert_eq(concated, [1, 2, 3, 4, 5]);
+    let concatenated = array_concat(array0, array1);
+    assert_eq(concatenated, [1, 2, 3, 4, 5]);
 }
 
 #[test]

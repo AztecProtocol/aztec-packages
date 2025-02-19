@@ -1,9 +1,15 @@
 import { AztecAddress, Fr, FunctionData, FunctionSelector, TxContext, TxRequest, Vector } from '@aztec/circuits.js';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
+import { inspect } from 'util';
+import { z } from 'zod';
+
 import { AuthWitness } from './auth_witness.js';
-import { PackedValues } from './packed_values.js';
+import { Capsule } from './capsule.js';
+import { HashedValues } from './hashed_values.js';
 
 /**
  * Request to execute a transaction. Similar to TxRequest, but has the full args.
@@ -32,13 +38,31 @@ export class TxExecutionRequest {
      * @dev These arguments are accessed in Noir via oracle and constrained against the args hash. The length of
      * the array is equal to the number of function calls in the transaction (1 args per 1 call).
      */
-    public argsOfCalls: PackedValues[],
+    public argsOfCalls: HashedValues[],
     /**
      * Transient authorization witnesses for authorizing the execution of one or more actions during this tx.
      * These witnesses are not expected to be stored in the local witnesses database of the PXE.
      */
     public authWitnesses: AuthWitness[],
+    /**
+     * Read-only data passed through the oracle calls during this tx execution.
+     */
+    public capsules: Capsule[],
   ) {}
+
+  static get schema() {
+    return z
+      .object({
+        origin: schemas.AztecAddress,
+        functionSelector: schemas.FunctionSelector,
+        firstCallArgsHash: schemas.Fr,
+        txContext: TxContext.schema,
+        argsOfCalls: z.array(HashedValues.schema),
+        authWitnesses: z.array(AuthWitness.schema),
+        capsules: z.array(Capsule.schema),
+      })
+      .transform(TxExecutionRequest.from);
+  }
 
   toTxRequest(): TxRequest {
     return new TxRequest(
@@ -58,6 +82,7 @@ export class TxExecutionRequest {
       fields.txContext,
       fields.argsOfCalls,
       fields.authWitnesses,
+      fields.capsules,
     ] as const;
   }
 
@@ -77,6 +102,7 @@ export class TxExecutionRequest {
       this.txContext,
       new Vector(this.argsOfCalls),
       new Vector(this.authWitnesses),
+      new Vector(this.capsules),
     );
   }
 
@@ -85,7 +111,7 @@ export class TxExecutionRequest {
    * @returns The string.
    */
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -100,8 +126,9 @@ export class TxExecutionRequest {
       reader.readObject(FunctionSelector),
       Fr.fromBuffer(reader),
       reader.readObject(TxContext),
-      reader.readVector(PackedValues),
+      reader.readVector(HashedValues),
       reader.readVector(AuthWitness),
+      reader.readVector(Capsule),
     );
   }
 
@@ -111,6 +138,25 @@ export class TxExecutionRequest {
    * @returns The deserialized TxRequest object.
    */
   static fromString(str: string): TxExecutionRequest {
-    return TxExecutionRequest.fromBuffer(Buffer.from(str, 'hex'));
+    return TxExecutionRequest.fromBuffer(hexToBuffer(str));
+  }
+
+  static async random() {
+    return new TxExecutionRequest(
+      await AztecAddress.random(),
+      FunctionSelector.random(),
+      Fr.random(),
+      TxContext.empty(),
+      [await HashedValues.random()],
+      [AuthWitness.random()],
+      [
+        new Capsule(await AztecAddress.random(), Fr.random(), [Fr.random(), Fr.random()]),
+        new Capsule(await AztecAddress.random(), Fr.random(), [Fr.random()]),
+      ],
+    );
+  }
+
+  [inspect.custom]() {
+    return `TxExecutionRequest(${this.origin} called ${this.functionSelector})`;
   }
 }

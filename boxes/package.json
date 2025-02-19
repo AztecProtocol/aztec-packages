@@ -1,11 +1,11 @@
 {
   "name": "aztec-app",
-  "packageManager": "yarn@4.0.2",
+  "packageManager": "yarn@4.5.2",
   "version": "0.5.0",
   "type": "module",
   "scripts": {
-    "compile": "yarn workspaces foreach -A -v run compile",
-    "build": "yarn workspaces foreach -A -v run build",
+    "compile": "yarn workspaces foreach -A -p -v run compile",
+    "build": "yarn workspaces foreach -A -p -v run build",
     "install-browsers": "playwright install --with-deps",
     "publish": "yarn npm publish",
     "test": "vitest bin.test.js",
@@ -18,11 +18,16 @@
   "resolutions": {
     "@aztec/accounts": "link:../yarn-project/accounts",
     "@aztec/aztec.js": "link:../yarn-project/aztec.js",
+    "@aztec/bb-prover": "link:../yarn-project/bb-prover",
     "@aztec/circuits.js": "link:../yarn-project/circuits.js",
     "@aztec/entrypoints": "link:../yarn-project/entrypoints",
     "@aztec/foundation": "link:../yarn-project/foundation",
     "@aztec/bb.js": "link:../barretenberg/ts",
     "@aztec/circuit-types": "link:../yarn-project/circuit-types",
+    "@aztec/key-store": "link:../yarn-project/key-store",
+    "@aztec/kv-store": "link:../yarn-project/kv-store",
+    "@aztec/pxe": "link:../yarn-project/pxe",
+    "@aztec/simulator": "link:../yarn-project/simulator",
     "@aztec/ethereum": "link:../yarn-project/ethereum",
     "@aztec/protocol-contracts": "link:../yarn-project/protocol-contracts",
     "@aztec/types": "link:../yarn-project/types"
@@ -41,6 +46,6 @@
     "vitest": "^2.0.5"
   },
   "devDependencies": {
-    "@playwright/test": "1.46.1"
+    "@playwright/test": "1.49.0"
   }
 }

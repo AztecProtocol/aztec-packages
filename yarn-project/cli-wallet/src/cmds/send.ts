@@ -42,7 +42,7 @@ export async function send(
       log(` Tx fee: ${receipt.transactionFee}`);
       log(` Status: ${receipt.status}`);
       log(` Block number: ${receipt.blockNumber}`);
-      log(` Block hash: ${receipt.blockHash?.toString('hex')}`);
+      log(` Block hash: ${receipt.blockHash?.toString()}`);
     } catch (err: any) {
       log(`Transaction failed\n ${err.message}`);
     }
@@ -50,9 +50,8 @@ export async function send(
     log('Transaction pending. Check status with check-tx');
   }
   const gasSettings = GasSettings.from({
+    ...feeOpts.gasSettings,
     ...gasLimits,
-    maxFeesPerGas: feeOpts.gasSettings.maxFeesPerGas,
-    inclusionFee: feeOpts.gasSettings.inclusionFee,
   });
   return {
     txHash,

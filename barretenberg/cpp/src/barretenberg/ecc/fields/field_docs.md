@@ -1,6 +1,6 @@
 Prime field documentation    {#field_docs}
 ===
-Barretenberg has its own implementation of finite field arithmetic. The implementation targets 254 (bn254, grumpkin) and 256-bit (secp256k1, secp256r1) fields. Internally the field is representate as a little-endian C-array of 4 uint64_t limbs.
+Barretenberg has its own implementation of finite field arithmetic. The implementation targets 254 (bn254, grumpkin) and 256-bit (secp256k1, secp256r1) fields. Internally the field is represented as a little-endian C-array of 4 uint64_t limbs.
 
 ## Field arithmetic
 ### Introduction to Montgomery form {#field_docs_montgomery_explainer}
@@ -11,14 +11,14 @@ We use Montgomery reduction to speed up field multiplication. For an original el
 The goal of using Montgomery form is to avoid heavy division modulo \f$p\f$. To compute a representative of element $$c = a⋅b\ mod\ p$$ we compute $$c⋅R = (a⋅R)⋅(b⋅R) / R\ mod\ p$$, but we use an efficient division trick to avoid straight modular division. Let's look into the standard 4⋅64 case:
 1. First, we compute the value $$c_r=c⋅R⋅R = aR⋅bR$$ in integers and get a value with 8 64-bit limbs
 2. Then we take the lowest limb of \f$c_r\f$ (\f$c_r[0]\f$) and multiply it by a special value $$r_{inv} = -1 ⋅ p^{-1}\ mod\  2^{64}$$ As a result we get $$k = r_{inv}⋅ c_r[0]\ mod\ 2^{64}$$
-3. Next we update \f$c_r\f$ in integers by adding a value \f$k⋅p\f$: $$c_r += k⋅p$$ You might notice that the value of \f$c_r\ mod\ p\f$ hasn't changed, since we've added a multiple of the modulus. A the same time, if we look at the expression modulo \f$2^{64}\f$: $$c_r + k⋅p = c_r + c_r⋅r_{inv}⋅p = c_r + c_r⋅ (-1)⋅p^{-1}⋅p = c_r - c_r = 0\ mod\ 2^{64}$$ The result is equivalent modulo \f$p\f$, but we zeroed out the lowest limb
+3. Next we update \f$c_r\f$ in integers by adding a value \f$k⋅p\f$: $$c_r += k⋅p$$ You might notice that the value of \f$c_r\ mod\ p\f$ hasn't changed, since we've added a multiple of the modulus. At the same time, if we look at the expression modulo \f$2^{64}\f$: $$c_r + k⋅p = c_r + c_r⋅r_{inv}⋅p = c_r + c_r⋅ (-1)⋅p^{-1}⋅p = c_r - c_r = 0\ mod\ 2^{64}$$ The result is equivalent modulo \f$p\f$, but we zeroed out the lowest limb
 4. We perform the same operation for \f$c_r[1]\f$, but instead of adding \f$k⋅p\f$, we add \f$2^{64}⋅k⋅p\f$. In the implementation, instead of adding \f$k⋅ p\f$ to limbs of \f$c_r\f$ starting with zero, we just start with limb 1. This ensures that \f$c_r[1]=0\f$. We then perform the same operation for 2 more limbs.
 5. At this stage we are left with a version of \f$c_r\f$ where the first 4 limbs of the total 8 limbs are zero. So if we treat the 4 high limbs as a separate integer \f$c_{r.high}\f$, $$c_r = c_{r.high}⋅2^{256}=c_{r.high}⋅R\ mod\ p \Rightarrow c_{r.high} = c\cdot R\ mod\ p$$ and we can get the evaluation simply by taking the 4 high limbs of \f$c_r\f$.
 6. The previous step has reduced the intermediate value of \f$cR\f$ to range \f$[0,2p)\f$, so we must check if it is more than \f$p\f$ and subtract the modulus once if it overflows.
 
 Why does this work? Originally both \f$aR\f$ and \f$bR\f$ are less than the modulus \f$p\f$ in integers, so $$aR\cdot bR <= (p-1)^2$$ During each of the \f$k\cdot p\f$ addition rounds we can add at most \f$(2^{64}-1)p\f$ to corresponding digits, so at most we add \f$(2^{256}-1)p\f$ and the total is $$aR\cdot bR + k_{0,1,2,3}p \le (p-1)^2+(2^{256}-1)p < 2\cdot 2^{256}p \Rightarrow c_{r.high} = \frac{aR\cdot bR + k_{0,1,2,3}p}{2^{256}} < 2p$$.
 
-For bn254 scalar and base fields we can do even better by employing a simple trick. The moduli of both fields are 254 bits, while 4 64-bit limbs allow 256 bits of storage. We relax the internal representation to use values in range \f$[0,2p)\f$. The addition, negation and subtraction operation logic doesn't change, we simply replace the modulus \f$p\f$ with \f$2p\f$, but the mutliplication becomes more efficient. The multiplicands are in range \f$[0,2p)\f$, but we add multiples of modulus \f$p\f$ to reduce limbs, not \f$2p\f$. If we revisit the \f$c_r\f$ formula:
+For bn254 scalar and base fields we can do even better by employing a simple trick. The moduli of both fields are 254 bits, while 4 64-bit limbs allow 256 bits of storage. We relax the internal representation to use values in range \f$[0,2p)\f$. The addition, negation and subtraction operation logic doesn't change, we simply replace the modulus \f$p\f$ with \f$2p\f$, but the multiplication becomes more efficient. The multiplicands are in range \f$[0,2p)\f$, but we add multiples of modulus \f$p\f$ to reduce limbs, not \f$2p\f$. If we revisit the \f$c_r\f$ formula:
 $$aR\cdot bR + k_{0,1,2,3}p \le (2p-1)^2+(2^{256}-1)p = 2^{256}p+4p^2-5p+1 \Rightarrow$$ $$\Rightarrow c_{r.high} = \frac{aR\cdot bR + k_{0,1,2,3}p}{2^{256}} \le \frac{2^{256}p+4p^2-5p+1}{2^{256}}=p +\frac{4p^2 - 5p +1}{2^{256}}, 4p < 2^{256} \Rightarrow$$ $$\Rightarrow p +\frac{4p^2 - 5p +1}{2^{256}} < 2p$$ So we ended in the same range and we don't have to perform additional reductions.
 
 **N.B.** In the code we refer to this form as coarse
@@ -42,7 +42,7 @@ You could say that for each multiplication or squaring primitive there are 3 imp
 3. Implementation targeting WASM
 
 The generic implementation has 2 purposes:
-1. Building barretenberg on platforms we haven't targetted in the past (new ARM-based Macs, for example)
+1. Building barretenberg on platforms we haven't targeted in the past (new ARM-based Macs, for example)
 2. Compile-time computation of constant expressions, since we can't use the assembly implementation for those.
 
 The assembly implementation for x86_64 is optimised. There are 2 versions:
@@ -174,7 +174,7 @@ def parse_field_params(s):
     assert(parameter_dictionary['cube_root']*r_wasm_divided_by_r_regular%modulus==parameter_dictionary['cube_root_wasm'])
     assert(pow(parameter_dictionary['cube_root']*pow(2,-256,modulus),3,modulus)==1) # Check cubic root
     assert(pow(parameter_dictionary['cube_root_wasm']*pow(2,-29*9,modulus),3,modulus)==1) # Check cubic root for wasm
-    assert(parameter_dictionary['primitive_root']*r_wasm_divided_by_r_regular%modulus==parameter_dictionary['primitive_root_wasm']) # Check pritimitve roots are equivalent
+    assert(parameter_dictionary['primitive_root']*r_wasm_divided_by_r_regular%modulus==parameter_dictionary['primitive_root_wasm']) # Check primitive roots are equivalent
     for i in range(8):
         regular_coset_generator=reconstruct_field_from_4_parts([parameter_dictionary[f'coset_generators_{j}'][i] for j in range(4)])
         wasm_coset_generator=reconstruct_field_from_4_parts([parameter_dictionary[f'coset_generators_wasm_{j}'][i] for j in range(4)])

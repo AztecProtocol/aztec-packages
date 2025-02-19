@@ -1,9 +1,13 @@
 import { AztecAddress } from '@aztec/circuits.js';
 import { randomBytes, sha256Trunc } from '@aztec/foundation/crypto';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, prefixBufferWithLength, toHumanReadable } from '@aztec/foundation/serialize';
+
+import { z } from 'zod';
 
 /**
  * Represents an individual unencrypted log entry.
+ * TODO(#8945): Currently only used for contract class logs. When these are fields, delete this class.
  */
 export class UnencryptedL2Log {
   constructor(
@@ -43,17 +47,10 @@ export class UnencryptedL2Log {
     return `UnencryptedL2Log(contractAddress: ${this.contractAddress.toString()}, data: ${payload})`;
   }
 
-  /** Returns a JSON-friendly representation of the log. */
-  public toJSON(): object {
-    return {
-      contractAddress: this.contractAddress.toString(),
-      data: this.data.toString('hex'),
-    };
-  }
-
-  /** Converts a plain JSON object into an instance. */
-  public static fromJSON(obj: any) {
-    return new UnencryptedL2Log(AztecAddress.fromString(obj.contractAddress), Buffer.from(obj.data, 'hex'));
+  static get schema() {
+    return z
+      .object({ contractAddress: schemas.AztecAddress, data: schemas.Buffer })
+      .transform(({ contractAddress, data }) => new UnencryptedL2Log(contractAddress, data));
   }
 
   /**
@@ -92,8 +89,8 @@ export class UnencryptedL2Log {
    * Crates a random log.
    * @returns A random log.
    */
-  public static random(): UnencryptedL2Log {
-    const contractAddress = AztecAddress.random();
+  public static async random(): Promise<UnencryptedL2Log> {
+    const contractAddress = await AztecAddress.random();
     const dataLength = randomBytes(1)[0];
     const data = randomBytes(dataLength);
     return new UnencryptedL2Log(contractAddress, data);

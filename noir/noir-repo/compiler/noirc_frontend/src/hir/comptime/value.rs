@@ -1,6 +1,6 @@
 use std::{borrow::Cow, rc::Rc, vec};
 
-use acvm::{AcirField, FieldElement};
+use acvm::FieldElement;
 use im::Vector;
 use iter_extended::{try_vecmap, vecmap};
 use noirc_errors::{Location, Span};
@@ -12,12 +12,13 @@ use crate::{
         IntegerBitSize, LValue, Literal, Path, Pattern, Signedness, Statement, StatementKind,
         UnresolvedType, UnresolvedTypeData,
     },
+    elaborator::Elaborator,
     hir::{def_map::ModuleId, type_check::generics::TraitGenerics},
     hir_def::expr::{
-        HirArrayLiteral, HirConstructorExpression, HirExpression, HirIdent, HirLambda, HirLiteral,
-        ImplKind,
+        HirArrayLiteral, HirConstructorExpression, HirEnumConstructorExpression, HirExpression,
+        HirIdent, HirLambda, HirLiteral, ImplKind,
     },
-    node_interner::{ExprId, FuncId, NodeInterner, StmtId, StructId, TraitId, TraitImplId},
+    node_interner::{ExprId, FuncId, NodeInterner, StmtId, TraitId, TraitImplId, TypeId},
     parser::{Item, Parser},
     token::{SpannedToken, Token, Tokens},
     Kind, QuotedType, Shared, Type, TypeBindings,
@@ -50,10 +51,11 @@ pub enum Value {
 
     // Closures also store their original scope (function & module)
     // in case they use functions such as `Quoted::as_type` which require them.
-    Closure(HirLambda, Vec<Value>, Type, Option<FuncId>, ModuleId),
+    Closure(Box<Closure>),
 
     Tuple(Vec<Value>),
     Struct(HashMap<Rc<String>, Value>, Type),
+    Enum(/*tag*/ usize, /*args*/ Vec<Value>, Type),
     Pointer(Shared<Value>, /* auto_deref */ bool),
     Array(Vector<Value>, Type),
     Slice(Vector<Value>, Type),
@@ -61,7 +63,7 @@ pub enum Value {
     /// tokens can cause larger spans to be before lesser spans, causing an assert. They may also
     /// be inserted into separate files entirely.
     Quoted(Rc<Vec<Token>>),
-    StructDefinition(StructId),
+    StructDefinition(TypeId),
     TraitConstraint(TraitId, TraitGenerics),
     TraitDefinition(TraitId),
     TraitImpl(TraitImplId),
@@ -69,9 +71,18 @@ pub enum Value {
     ModuleDefinition(ModuleId),
     Type(Type),
     Zeroed(Type),
-    Expr(ExprValue),
+    Expr(Box<ExprValue>),
     TypedExpr(TypedExpr),
     UnresolvedType(UnresolvedTypeData),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Closure {
+    pub lambda: HirLambda,
+    pub env: Vec<Value>,
+    pub typ: Type,
+    pub function_scope: Option<FuncId>,
+    pub module_scope: ModuleId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Display)]
@@ -90,19 +101,19 @@ pub enum TypedExpr {
 
 impl Value {
     pub(crate) fn expression(expr: ExpressionKind) -> Self {
-        Value::Expr(ExprValue::Expression(expr))
+        Value::Expr(Box::new(ExprValue::Expression(expr)))
     }
 
     pub(crate) fn statement(statement: StatementKind) -> Self {
-        Value::Expr(ExprValue::Statement(statement))
+        Value::Expr(Box::new(ExprValue::Statement(statement)))
     }
 
     pub(crate) fn lvalue(lvaue: LValue) -> Self {
-        Value::Expr(ExprValue::LValue(lvaue))
+        Value::Expr(Box::new(ExprValue::LValue(lvaue)))
     }
 
     pub(crate) fn pattern(pattern: Pattern) -> Self {
-        Value::Expr(ExprValue::Pattern(pattern))
+        Value::Expr(Box::new(ExprValue::Pattern(pattern)))
     }
 
     pub(crate) fn get_type(&self) -> Cow<Type> {
@@ -125,11 +136,12 @@ impl Value {
             }
             Value::FormatString(_, typ) => return Cow::Borrowed(typ),
             Value::Function(_, typ, _) => return Cow::Borrowed(typ),
-            Value::Closure(_, _, typ, ..) => return Cow::Borrowed(typ),
+            Value::Closure(closure) => return Cow::Borrowed(&closure.typ),
             Value::Tuple(fields) => {
                 Type::Tuple(vecmap(fields, |field| field.get_type().into_owned()))
             }
             Value::Struct(_, typ) => return Cow::Borrowed(typ),
+            Value::Enum(_, _, typ) => return Cow::Borrowed(typ),
             Value::Array(_, typ) => return Cow::Borrowed(typ),
             Value::Slice(_, typ) => return Cow::Borrowed(typ),
             Value::Quoted(_) => Type::Quoted(QuotedType::Quoted),
@@ -158,7 +170,7 @@ impl Value {
 
     pub(crate) fn into_expression(
         self,
-        interner: &mut NodeInterner,
+        elaborator: &mut Elaborator,
         location: Location,
     ) -> IResult<Expression> {
         let kind = match self {
@@ -212,27 +224,28 @@ impl Value {
                 ExpressionKind::Literal(Literal::Str(unwrap_rc(value)))
             }
             Value::Function(id, typ, bindings) => {
-                let id = interner.function_definition_id(id);
+                let id = elaborator.interner.function_definition_id(id);
                 let impl_kind = ImplKind::NotATraitMethod;
                 let ident = HirIdent { location, id, impl_kind };
-                let expr_id = interner.push_expr(HirExpression::Ident(ident, None));
-                interner.push_expr_location(expr_id, location.span, location.file);
-                interner.push_expr_type(expr_id, typ);
-                interner.store_instantiation_bindings(expr_id, unwrap_rc(bindings));
+                let expr_id = elaborator.interner.push_expr(HirExpression::Ident(ident, None));
+                elaborator.interner.push_expr_location(expr_id, location.span, location.file);
+                elaborator.interner.push_expr_type(expr_id, typ);
+                elaborator.interner.store_instantiation_bindings(expr_id, unwrap_rc(bindings));
                 ExpressionKind::Resolved(expr_id)
             }
             Value::Tuple(fields) => {
-                let fields = try_vecmap(fields, |field| field.into_expression(interner, location))?;
+                let fields =
+                    try_vecmap(fields, |field| field.into_expression(elaborator, location))?;
                 ExpressionKind::Tuple(fields)
             }
             Value::Struct(fields, typ) => {
                 let fields = try_vecmap(fields, |(name, field)| {
-                    let field = field.into_expression(interner, location)?;
+                    let field = field.into_expression(elaborator, location)?;
                     Ok((Ident::new(unwrap_rc(name), location.span), field))
                 })?;
 
-                let struct_type = match typ.follow_bindings() {
-                    Type::Struct(def, _) => Some(def.borrow().id),
+                let struct_type = match typ.follow_bindings_shallow().as_ref() {
+                    Type::DataType(def, _) => Some(def.borrow().id),
                     _ => return Err(InterpreterError::NonStructInConstructor { typ, location }),
                 };
 
@@ -244,14 +257,18 @@ impl Value {
                     struct_type,
                 }))
             }
+            value @ Value::Enum(..) => {
+                let hir = value.into_hir_expression(elaborator.interner, location)?;
+                ExpressionKind::Resolved(hir)
+            }
             Value::Array(elements, _) => {
                 let elements =
-                    try_vecmap(elements, |element| element.into_expression(interner, location))?;
+                    try_vecmap(elements, |element| element.into_expression(elaborator, location))?;
                 ExpressionKind::Literal(Literal::Array(ArrayLiteral::Standard(elements)))
             }
             Value::Slice(elements, _) => {
                 let elements =
-                    try_vecmap(elements, |element| element.into_expression(interner, location))?;
+                    try_vecmap(elements, |element| element.into_expression(elaborator, location))?;
                 ExpressionKind::Literal(Literal::Slice(ArrayLiteral::Standard(elements)))
             }
             Value::Quoted(tokens) => {
@@ -262,25 +279,48 @@ impl Value {
 
                 let parser = Parser::for_tokens(tokens_to_parse);
                 return match parser.parse_result(Parser::parse_expression_or_error) {
-                    Ok(expr) => Ok(expr),
+                    Ok((expr, warnings)) => {
+                        for warning in warnings {
+                            elaborator.errors.push((warning.into(), location.file));
+                        }
+
+                        Ok(expr)
+                    }
                     Err(mut errors) => {
-                        let error = errors.swap_remove(0);
+                        let error = Box::new(errors.swap_remove(0));
                         let file = location.file;
                         let rule = "an expression";
-                        let tokens = tokens_to_string(tokens, interner);
+                        let tokens = tokens_to_string(tokens, elaborator.interner);
                         Err(InterpreterError::FailedToParseMacro { error, file, tokens, rule })
                     }
                 };
             }
-            Value::Expr(ExprValue::Expression(expr)) => expr,
-            Value::Expr(ExprValue::Statement(statement)) => {
-                ExpressionKind::Block(BlockExpression {
-                    statements: vec![Statement { kind: statement, span: location.span }],
-                })
+
+            Value::Expr(ref expr) => {
+                // We need to do some shenanigans to get around the borrow checker here due to using a boxed value.
+
+                // We first do whatever needs a reference to `expr` to avoid partially moving `self`.
+                if matches!(expr.as_ref(), ExprValue::Pattern(_)) {
+                    let typ = Type::Quoted(QuotedType::Expr);
+                    let value = self.display(elaborator.interner).to_string();
+                    return Err(InterpreterError::CannotInlineMacro { typ, value, location });
+                }
+
+                // Now drop this references and move `expr` out of `self` so we don't have to clone it.
+                let Value::Expr(expr) = self else {
+                    unreachable!("Ensured by outer match statement")
+                };
+
+                match *expr {
+                    ExprValue::Expression(expr) => expr,
+                    ExprValue::Statement(statement) => ExpressionKind::Block(BlockExpression {
+                        statements: vec![Statement { kind: statement, span: location.span }],
+                    }),
+                    ExprValue::LValue(lvalue) => lvalue.as_expression().kind,
+                    ExprValue::Pattern(_) => unreachable!("this case is handled above"),
+                }
             }
-            Value::Expr(ExprValue::LValue(lvalue)) => lvalue.as_expression().kind,
-            Value::Expr(ExprValue::Pattern(_))
-            | Value::TypedExpr(..)
+            Value::TypedExpr(..)
             | Value::Pointer(..)
             | Value::StructDefinition(_)
             | Value::TraitConstraint(..)
@@ -293,7 +333,7 @@ impl Value {
             | Value::Closure(..)
             | Value::ModuleDefinition(_) => {
                 let typ = self.get_type().into_owned();
-                let value = self.display(interner).to_string();
+                let value = self.display(elaborator.interner).to_string();
                 return Err(InterpreterError::CannotInlineMacro { typ, value, location });
             }
         };
@@ -380,7 +420,7 @@ impl Value {
                 })?;
 
                 let (r#type, struct_generics) = match typ.follow_bindings() {
-                    Type::Struct(def, generics) => (def, generics),
+                    Type::DataType(def, generics) => (def, generics),
                     _ => return Err(InterpreterError::NonStructInConstructor { typ, location }),
                 };
 
@@ -388,6 +428,22 @@ impl Value {
                     r#type,
                     struct_generics,
                     fields,
+                })
+            }
+            Value::Enum(variant_index, args, typ) => {
+                // Enum constants can have generic types but aren't functions
+                let r#type = match typ.unwrap_forall().1.follow_bindings() {
+                    Type::DataType(def, _) => def,
+                    _ => return Err(InterpreterError::NonEnumInConstructor { typ, location }),
+                };
+
+                let arguments =
+                    try_vecmap(args, |arg| arg.into_hir_expression(interner, location))?;
+
+                HirExpression::EnumConstructor(HirEnumConstructorExpression {
+                    r#type,
+                    variant_index,
+                    arguments,
                 })
             }
             Value::Array(elements, _) => {
@@ -409,6 +465,7 @@ impl Value {
             Value::Pointer(element, true) => {
                 return element.unwrap_or_clone().into_hir_expression(interner, location);
             }
+            Value::Closure(closure) => HirExpression::Lambda(closure.lambda.clone()),
             Value::TypedExpr(TypedExpr::StmtId(..))
             | Value::Expr(..)
             | Value::Pointer(..)
@@ -420,7 +477,6 @@ impl Value {
             | Value::Zeroed(_)
             | Value::Type(_)
             | Value::UnresolvedType(_)
-            | Value::Closure(..)
             | Value::ModuleDefinition(_) => {
                 let typ = self.get_type().into_owned();
                 let value = self.display(interner).to_string();
@@ -445,24 +501,30 @@ impl Value {
             }
             Value::Quoted(tokens) => return Ok(unwrap_rc(tokens)),
             Value::Type(typ) => Token::QuotedType(interner.push_quoted_type(typ)),
-            Value::Expr(ExprValue::Expression(expr)) => {
-                Token::InternedExpr(interner.push_expression_kind(expr))
-            }
-            Value::Expr(ExprValue::Statement(StatementKind::Expression(expr))) => {
-                Token::InternedExpr(interner.push_expression_kind(expr.kind))
-            }
-            Value::Expr(ExprValue::Statement(statement)) => {
-                Token::InternedStatement(interner.push_statement_kind(statement))
-            }
-            Value::Expr(ExprValue::LValue(lvalue)) => {
-                Token::InternedLValue(interner.push_lvalue(lvalue))
-            }
-            Value::Expr(ExprValue::Pattern(pattern)) => {
-                Token::InternedPattern(interner.push_pattern(pattern))
-            }
+            Value::Expr(expr) => match *expr {
+                ExprValue::Expression(expr) => {
+                    Token::InternedExpr(interner.push_expression_kind(expr))
+                }
+                ExprValue::Statement(StatementKind::Expression(expr)) => {
+                    Token::InternedExpr(interner.push_expression_kind(expr.kind))
+                }
+                ExprValue::Statement(statement) => {
+                    Token::InternedStatement(interner.push_statement_kind(statement))
+                }
+                ExprValue::LValue(lvalue) => Token::InternedLValue(interner.push_lvalue(lvalue)),
+                ExprValue::Pattern(pattern) => {
+                    Token::InternedPattern(interner.push_pattern(pattern))
+                }
+            },
             Value::UnresolvedType(typ) => {
                 Token::InternedUnresolvedTypeData(interner.push_unresolved_type_data(typ))
             }
+            Value::TraitConstraint(trait_id, generics) => {
+                let name = Rc::new(interner.get_trait(trait_id).name.0.contents.clone());
+                let typ = Type::TraitAsType(trait_id, name, generics);
+                Token::QuotedType(interner.push_quoted_type(typ))
+            }
+            Value::TypedExpr(TypedExpr::ExprId(expr_id)) => Token::UnquoteMarker(expr_id),
             Value::U1(bool) => Token::Bool(bool),
             Value::U8(value) => Token::Int((value as u128).into()),
             Value::U16(value) => Token::Int((value as u128).into()),
@@ -502,19 +564,32 @@ impl Value {
         Ok(vec![token])
     }
 
-    /// Converts any unsigned `Value` into a `u128`.
-    /// Returns `None` for negative integers.
-    pub(crate) fn to_u128(&self) -> Option<u128> {
+    /// Returns false for non-integral `Value`s.
+    pub(crate) fn is_integral(&self) -> bool {
+        use Value::*;
+        matches!(
+            self,
+            Field(_) | I8(_) | I16(_) | I32(_) | I64(_) | U8(_) | U16(_) | U32(_) | U64(_)
+        )
+    }
+
+    pub(crate) fn is_closure(&self) -> bool {
+        matches!(self, Value::Closure(..))
+    }
+
+    /// Converts any non-negative `Value` into a `FieldElement`.
+    /// Returns `None` for negative integers and non-integral `Value`s.
+    pub(crate) fn to_field_element(&self) -> Option<FieldElement> {
         match self {
-            Self::Field(value) => Some(value.to_u128()),
-            Self::I8(value) => (*value >= 0).then_some(*value as u128),
-            Self::I16(value) => (*value >= 0).then_some(*value as u128),
-            Self::I32(value) => (*value >= 0).then_some(*value as u128),
-            Self::I64(value) => (*value >= 0).then_some(*value as u128),
-            Self::U8(value) => Some(*value as u128),
-            Self::U16(value) => Some(*value as u128),
-            Self::U32(value) => Some(*value as u128),
-            Self::U64(value) => Some(*value as u128),
+            Self::Field(value) => Some(*value),
+            Self::I8(value) => (*value >= 0).then_some((*value as u128).into()),
+            Self::I16(value) => (*value >= 0).then_some((*value as u128).into()),
+            Self::I32(value) => (*value >= 0).then_some((*value as u128).into()),
+            Self::I64(value) => (*value >= 0).then_some((*value as u128).into()),
+            Self::U8(value) => Some((*value as u128).into()),
+            Self::U16(value) => Some((*value as u128).into()),
+            Self::U32(value) => Some((*value as u128).into()),
+            Self::U64(value) => Some((*value as u128).into()),
             _ => None,
         }
     }
@@ -522,16 +597,16 @@ impl Value {
     pub(crate) fn into_top_level_items(
         self,
         location: Location,
-        interner: &NodeInterner,
+        elaborator: &mut Elaborator,
     ) -> IResult<Vec<Item>> {
         let parser = Parser::parse_top_level_items;
         match self {
             Value::Quoted(tokens) => {
-                parse_tokens(tokens, interner, parser, location, "top-level item")
+                parse_tokens(tokens, elaborator, parser, location, "top-level item")
             }
             _ => {
                 let typ = self.get_type().into_owned();
-                let value = self.display(interner).to_string();
+                let value = self.display(elaborator.interner).to_string();
                 Err(InterpreterError::CannotInlineMacro { value, typ, location })
             }
         }
@@ -545,7 +620,7 @@ pub(crate) fn unwrap_rc<T: Clone>(rc: Rc<T>) -> T {
 
 fn parse_tokens<'a, T, F>(
     tokens: Rc<Vec<Token>>,
-    interner: &NodeInterner,
+    elaborator: &mut Elaborator,
     parsing_function: F,
     location: Location,
     rule: &'static str,
@@ -555,11 +630,16 @@ where
 {
     let parser = Parser::for_tokens(add_token_spans(tokens.clone(), location.span));
     match parser.parse_result(parsing_function) {
-        Ok(expr) => Ok(expr),
+        Ok((expr, warnings)) => {
+            for warning in warnings {
+                elaborator.errors.push((warning.into(), location.file));
+            }
+            Ok(expr)
+        }
         Err(mut errors) => {
-            let error = errors.swap_remove(0);
+            let error = Box::new(errors.swap_remove(0));
             let file = location.file;
-            let tokens = tokens_to_string(tokens, interner);
+            let tokens = tokens_to_string(tokens, elaborator.interner);
             Err(InterpreterError::FailedToParseMacro { error, file, tokens, rule })
         }
     }

@@ -4,17 +4,17 @@ use noirc_errors::{Span, Spanned};
 use crate::ast::{
     ArrayLiteral, AssignStatement, BlockExpression, CallExpression, CastExpression, ConstrainKind,
     ConstructorExpression, ExpressionKind, ForLoopStatement, ForRange, GenericTypeArgs, Ident,
-    IfExpression, IndexExpression, InfixExpression, LValue, Lambda, Literal,
-    MemberAccessExpression, MethodCallExpression, Path, PathSegment, Pattern, PrefixExpression,
-    UnresolvedType, UnresolvedTypeData, UnresolvedTypeExpression,
+    IfExpression, IndexExpression, InfixExpression, LValue, Lambda, Literal, MatchExpression,
+    MemberAccessExpression, MethodCallExpression, Path, PathKind, PathSegment, Pattern,
+    PrefixExpression, UnresolvedType, UnresolvedTypeData, UnresolvedTypeExpression, WhileStatement,
 };
-use crate::ast::{ConstrainStatement, Expression, Statement, StatementKind};
+use crate::ast::{ConstrainExpression, Expression, Statement, StatementKind};
 use crate::hir_def::expr::{
-    HirArrayLiteral, HirBlockExpression, HirExpression, HirIdent, HirLiteral,
+    Constructor, HirArrayLiteral, HirBlockExpression, HirExpression, HirIdent, HirLiteral, HirMatch,
 };
 use crate::hir_def::stmt::{HirLValue, HirPattern, HirStatement};
 use crate::hir_def::types::{Type, TypeBinding};
-use crate::node_interner::{ExprId, NodeInterner, StmtId};
+use crate::node_interner::{DefinitionId, ExprId, NodeInterner, StmtId};
 
 // TODO:
 // - Full path for idents & types
@@ -32,20 +32,6 @@ impl HirStatement {
                 let expression = let_stmt.expression.to_display_ast(interner);
                 StatementKind::new_let(pattern, r#type, expression, let_stmt.attributes.clone())
             }
-            HirStatement::Constrain(constrain) => {
-                let expr = constrain.0.to_display_ast(interner);
-                let mut arguments = vec![expr];
-                if let Some(message) = constrain.2 {
-                    arguments.push(message.to_display_ast(interner));
-                }
-
-                // TODO: Find difference in usage between Assert & AssertEq
-                StatementKind::Constrain(ConstrainStatement {
-                    kind: ConstrainKind::Assert,
-                    arguments,
-                    span,
-                })
-            }
             HirStatement::Assign(assign) => StatementKind::Assign(AssignStatement {
                 lvalue: assign.lvalue.to_display_ast(interner),
                 expression: assign.expression.to_display_ast(interner),
@@ -58,6 +44,12 @@ impl HirStatement {
                 ),
                 block: for_stmt.block.to_display_ast(interner),
                 span,
+            }),
+            HirStatement::Loop(block) => StatementKind::Loop(block.to_display_ast(interner), span),
+            HirStatement::While(condition, block) => StatementKind::While(WhileStatement {
+                condition: condition.to_display_ast(interner),
+                body: block.to_display_ast(interner),
+                while_keyword_span: span,
             }),
             HirStatement::Break => StatementKind::Break,
             HirStatement::Continue => StatementKind::Continue,
@@ -90,19 +82,7 @@ impl HirExpression {
     pub fn to_display_ast(&self, interner: &NodeInterner, span: Span) -> Expression {
         let kind = match self {
             HirExpression::Ident(ident, generics) => {
-                let ident = ident.to_display_ast(interner);
-                let segment = PathSegment {
-                    ident,
-                    generics: generics.as_ref().map(|option| {
-                        option.iter().map(|generic| generic.to_display_ast()).collect()
-                    }),
-                    span,
-                };
-
-                let path =
-                    Path { segments: vec![segment], kind: crate::ast::PathKind::Plain, span };
-
-                ExpressionKind::Variable(path)
+                ident.to_display_expr(interner, generics, span)
             }
             HirExpression::Literal(HirLiteral::Array(array)) => {
                 let array = array.to_display_ast(interner, span);
@@ -121,9 +101,9 @@ impl HirExpression {
             HirExpression::Literal(HirLiteral::Str(string)) => {
                 ExpressionKind::Literal(Literal::Str(string.clone()))
             }
-            HirExpression::Literal(HirLiteral::FmtStr(string, _exprs)) => {
+            HirExpression::Literal(HirLiteral::FmtStr(fragments, _exprs, length)) => {
                 // TODO: Is throwing away the exprs here valid?
-                ExpressionKind::Literal(Literal::FmtStr(string.clone()))
+                ExpressionKind::Literal(Literal::FmtStr(fragments.clone(), *length))
             }
             HirExpression::Literal(HirLiteral::Unit) => ExpressionKind::Literal(Literal::Unit),
             HirExpression::Block(expr) => ExpressionKind::Block(expr.to_display_ast(interner)),
@@ -179,6 +159,20 @@ impl HirExpression {
                     is_macro_call: false,
                 }))
             }
+            HirExpression::Constrain(constrain) => {
+                let expr = constrain.0.to_display_ast(interner);
+                let mut arguments = vec![expr];
+                if let Some(message) = constrain.2 {
+                    arguments.push(message.to_display_ast(interner));
+                }
+
+                // TODO: Find difference in usage between Assert & AssertEq
+                ExpressionKind::Constrain(ConstrainExpression {
+                    kind: ConstrainKind::Assert,
+                    arguments,
+                    span,
+                })
+            }
             HirExpression::Cast(cast) => {
                 let lhs = cast.lhs.to_display_ast(interner);
                 let r#type = cast.r#type.to_display_ast();
@@ -189,6 +183,7 @@ impl HirExpression {
                 consequence: if_expr.consequence.to_display_ast(interner),
                 alternative: if_expr.alternative.map(|expr| expr.to_display_ast(interner)),
             })),
+            HirExpression::Match(match_expr) => match_expr.to_display_ast(interner, span),
             HirExpression::Tuple(fields) => {
                 ExpressionKind::Tuple(vecmap(fields, |field| field.to_display_ast(interner)))
             }
@@ -211,9 +206,111 @@ impl HirExpression {
 
             // A macro was evaluated here: return the quoted result
             HirExpression::Unquote(block) => ExpressionKind::Quote(block.clone()),
+
+            // Convert this back into a function call `Enum::Foo(args)`
+            HirExpression::EnumConstructor(constructor) => {
+                let typ = constructor.r#type.borrow();
+                let variant = &typ.variant_at(constructor.variant_index);
+                let segment1 = PathSegment { ident: typ.name.clone(), span, generics: None };
+                let segment2 = PathSegment { ident: variant.name.clone(), span, generics: None };
+                let path = Path { segments: vec![segment1, segment2], kind: PathKind::Plain, span };
+                let func = Box::new(Expression::new(ExpressionKind::Variable(path), span));
+                let arguments = vecmap(&constructor.arguments, |arg| arg.to_display_ast(interner));
+                let call = CallExpression { func, arguments, is_macro_call: false };
+                ExpressionKind::Call(Box::new(call))
+            }
         };
 
         Expression::new(kind, span)
+    }
+}
+
+impl HirMatch {
+    fn to_display_ast(&self, interner: &NodeInterner, span: Span) -> ExpressionKind {
+        match self {
+            HirMatch::Success(expr) => expr.to_display_ast(interner).kind,
+            HirMatch::Failure => ExpressionKind::Error,
+            HirMatch::Guard { cond, body, otherwise } => {
+                let condition = cond.to_display_ast(interner);
+                let consequence = body.to_display_ast(interner);
+                let alternative =
+                    Some(Expression::new(otherwise.to_display_ast(interner, span), span));
+
+                ExpressionKind::If(Box::new(IfExpression { condition, consequence, alternative }))
+            }
+            HirMatch::Switch(variable, cases, default) => {
+                let location = interner.definition(*variable).location;
+                let ident = HirIdent::non_trait_method(*variable, location);
+                let expression = ident.to_display_expr(interner, &None, location.span);
+                let expression = Expression::new(expression, location.span);
+
+                let mut rules = vecmap(cases, |case| {
+                    let args = vecmap(&case.arguments, |arg| arg.to_display_ast(interner));
+                    let constructor = case.constructor.to_display_ast(args);
+                    let constructor = Expression::new(constructor, span);
+                    let branch = case.body.to_display_ast(interner, span);
+                    (constructor, Expression::new(branch, span))
+                });
+
+                if let Some(case) = default {
+                    let kind = ExpressionKind::Variable(Path::from_single("_".to_string(), span));
+                    let pattern = Expression::new(kind, span);
+                    let branch = Expression::new(case.to_display_ast(interner, span), span);
+                    rules.push((pattern, branch));
+                }
+
+                ExpressionKind::Match(Box::new(MatchExpression { expression, rules }))
+            }
+        }
+    }
+}
+
+impl DefinitionId {
+    fn to_display_ast(self, interner: &NodeInterner) -> Expression {
+        let location = interner.definition(self).location;
+        let kind = HirIdent::non_trait_method(self, location).to_display_expr(
+            interner,
+            &None,
+            location.span,
+        );
+        Expression::new(kind, location.span)
+    }
+}
+
+impl Constructor {
+    fn to_display_ast(&self, arguments: Vec<Expression>) -> ExpressionKind {
+        match self {
+            Constructor::True => ExpressionKind::Literal(Literal::Bool(true)),
+            Constructor::False => ExpressionKind::Literal(Literal::Bool(false)),
+            Constructor::Unit => ExpressionKind::Literal(Literal::Unit),
+            Constructor::Int(value) => {
+                ExpressionKind::Literal(Literal::Integer(value.field, value.is_negative))
+            }
+            Constructor::Tuple(_) => ExpressionKind::Tuple(arguments),
+            Constructor::Variant(typ, index) => {
+                let typ = typ.follow_bindings_shallow();
+                let Type::DataType(def, _) = typ.as_ref() else {
+                    return ExpressionKind::Error;
+                };
+
+                let Some(variants) = def.borrow().get_variants_as_written() else {
+                    return ExpressionKind::Error;
+                };
+
+                let Some(name) = variants.get(*index).map(|variant| variant.name.clone()) else {
+                    return ExpressionKind::Error;
+                };
+
+                let span = name.span();
+                let name = ExpressionKind::Variable(Path::from_ident(name));
+                let func = Box::new(Expression::new(name, span));
+                let is_macro_call = false;
+                ExpressionKind::Call(Box::new(CallExpression { func, arguments, is_macro_call }))
+            }
+            Constructor::Range(_start, _end) => {
+                unreachable!("Range is unimplemented")
+            }
+        }
     }
 }
 
@@ -245,7 +342,7 @@ impl HirPattern {
                     (name.clone(), pattern.to_display_ast(interner))
                 });
                 let name = match typ.follow_bindings() {
-                    Type::Struct(struct_def, _) => {
+                    Type::DataType(struct_def, _) => {
                         let struct_def = struct_def.borrow();
                         struct_def.name.0.contents.clone()
                     }
@@ -267,6 +364,26 @@ impl HirIdent {
     fn to_display_ast(&self, interner: &NodeInterner) -> Ident {
         let name = interner.definition_name(self.id).to_owned();
         Ident(Spanned::from(self.location.span, name))
+    }
+
+    fn to_display_expr(
+        &self,
+        interner: &NodeInterner,
+        generics: &Option<Vec<Type>>,
+        span: Span,
+    ) -> ExpressionKind {
+        let ident = self.to_display_ast(interner);
+        let segment = PathSegment {
+            ident,
+            generics: generics
+                .as_ref()
+                .map(|option| option.iter().map(|generic| generic.to_display_ast()).collect()),
+            span,
+        };
+
+        let path = Path { segments: vec![segment], kind: crate::ast::PathKind::Plain, span };
+
+        ExpressionKind::Variable(path)
     }
 }
 
@@ -300,7 +417,7 @@ impl Type {
                 let fields = vecmap(fields, |field| field.to_display_ast());
                 UnresolvedTypeData::Tuple(fields)
             }
-            Type::Struct(def, generics) => {
+            Type::DataType(def, generics) => {
                 let struct_def = def.borrow();
                 let ordered_args = vecmap(generics, |generic| generic.to_display_ast());
                 let generics =
@@ -340,6 +457,7 @@ impl Type {
                 let name = Path::from_single(name.as_ref().clone(), Span::default());
                 UnresolvedTypeData::Named(name, GenericTypeArgs::default(), true)
             }
+            Type::CheckedCast { to, .. } => to.to_display_ast().typ,
             Type::Function(args, ret, env, unconstrained) => {
                 let args = vecmap(args, |arg| arg.to_display_ast());
                 let ret = Box::new(ret.to_display_ast());
@@ -358,7 +476,7 @@ impl Type {
             Type::Constant(..) => panic!("Type::Constant where a type was expected: {self:?}"),
             Type::Quoted(quoted_type) => UnresolvedTypeData::Quoted(*quoted_type),
             Type::Error => UnresolvedTypeData::Error,
-            Type::InfixExpr(lhs, op, rhs) => {
+            Type::InfixExpr(lhs, op, rhs, _) => {
                 let lhs = Box::new(lhs.to_type_expression());
                 let rhs = Box::new(rhs.to_type_expression());
                 let span = Span::default();

@@ -198,10 +198,11 @@ export class Ec2Instance {
           {
             DeviceName: "/dev/sda1",
             Ebs: {
-              VolumeSize: 64,
+              // TODO(ci3) this can be reduced once no longer using earthly
+              VolumeSize: this.config.ec2InstanceTags.includes("Builder") ? 256 : 64,
               VolumeType: 'gp3',
-              Throughput: 1000,
-              Iops: 5000
+              Throughput: 125,
+              Iops: 3000
             },
           },
         ],
@@ -224,11 +225,10 @@ export class Ec2Instance {
     return launchTemplateName;
   }
 
-  async requestMachine(useOnDemand: boolean): Promise<string> {
+  async requestMachine(tryNumber: number, useOnDemand: boolean): Promise<string> {
     // Note advice re max bid: "If you specify a maximum price, your instances will be interrupted more frequently than if you do not specify this parameter."
     const launchTemplateName = await this.getLaunchTemplate();
     // Launch template name already in use
-    const availabilityZone = await this.getSubnetAz();
     const fleetLaunchConfig: FleetLaunchTemplateConfigRequest = {
       LaunchTemplateSpecification: {
         Version: "$Latest",
@@ -236,11 +236,12 @@ export class Ec2Instance {
       },
       Overrides: this.config.ec2InstanceType.map((instanceType) => ({
         InstanceType: instanceType,
-        AvailabilityZone: this.config.githubActionRunnerConcurrency > 0 ? availabilityZone : undefined,
+        // No longer support attaching EBS
+        AvailabilityZone: undefined,
         SubnetId: this.config.githubActionRunnerConcurrency > 0 ? this.config.ec2SubnetId : undefined,
       })),
     };
-    const clientToken = this.config.clientToken ?this.config.clientToken + ",spot=" + useOnDemand : undefined;
+    const clientToken = this.config.clientToken ?this.config.clientToken + ",spot=" + useOnDemand +",try=" + tryNumber: undefined;
     const createFleetRequest: CreateFleetRequest = {
       Type: "instant",
       LaunchTemplateConfigs: [fleetLaunchConfig],
@@ -311,7 +312,7 @@ export class Ec2Instance {
   }
 
   async getInstancesForTags(
-    instanceStatus?: string
+    instanceStatuses: string[]
   ): Promise<AWS.EC2.Instance[]> {
     const client = await this.getEc2Client();
     const filters: FilterInterface[] = [
@@ -332,10 +333,10 @@ export class Ec2Instance {
       ).Reservations || []) {
         instances = instances.concat(reservation.Instances || []);
       }
-      if (instanceStatus) {
-        // Filter instances that are stopped
-        instances = instances.filter(
-          (instance) => instance?.State?.Name === instanceStatus
+      if (instanceStatuses.length > 0) {
+        // Filter instances by given types
+        instances = instances.filter((instance) =>
+          instanceStatuses.includes(instance?.State?.Name || "")
         );
       }
       return instances;

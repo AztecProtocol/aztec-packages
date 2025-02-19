@@ -98,6 +98,29 @@ class PrecomputedEntitiesBase {
     uint64_t log_circuit_size;
     uint64_t num_public_inputs;
 };
+// Specifies the regions of the execution trace containing non-trivial wire values
+struct ActiveRegionData {
+    void add_range(const size_t start, const size_t end)
+    {
+        ASSERT(start >= current_end); // ranges should be non-overlapping and increasing
+        ranges.emplace_back(start, end);
+        for (size_t i = start; i < end; ++i) {
+            idxs.push_back(i);
+        }
+        current_end = end;
+    }
+
+    std::vector<std::pair<size_t, size_t>> get_ranges() const { return ranges; }
+    size_t get_idx(const size_t idx) const { return idxs[idx]; }
+    std::pair<size_t, size_t> get_range(const size_t idx) const { return ranges.at(idx); }
+    size_t size() const { return idxs.size(); }
+    size_t num_ranges() const { return ranges.size(); }
+
+  private:
+    std::vector<std::pair<size_t, size_t>> ranges; // active ranges [start_i, end_i) of the execution trace
+    std::vector<size_t> idxs;                      // full set of poly indices corresposponding to active ranges
+    size_t current_end{ 0 };                       // end of last range; for ensuring monotonicity of ranges
+};
 
 /**
  * @brief Base proving key class.
@@ -109,8 +132,8 @@ class PrecomputedEntitiesBase {
 template <typename FF, typename CommitmentKey_> class ProvingKey_ {
   public:
     size_t circuit_size;
-    bool contains_recursive_proof;
-    AggregationObjectPubInputIndices recursive_proof_public_input_indices;
+    bool contains_pairing_point_accumulator;
+    PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;
     bb::EvaluationDomain<FF> evaluation_domain;
     std::shared_ptr<CommitmentKey_> commitment_key;
     size_t num_public_inputs;
@@ -123,8 +146,7 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
     // folded element by element.
     std::vector<FF> public_inputs;
 
-    // Ranges over which the execution trace is "active"
-    std::vector<std::pair<size_t, size_t>> active_block_ranges;
+    ActiveRegionData active_region_data; // specifies active regions of execution trace
 
     ProvingKey_() = default;
     ProvingKey_(const size_t dyadic_circuit_size,
@@ -151,8 +173,8 @@ class VerificationKey_ : public PrecomputedCommitments {
     using FF = typename VerifierCommitmentKey::Curve::ScalarField;
     using Commitment = typename VerifierCommitmentKey::Commitment;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
-    bool contains_recursive_proof = false;
-    AggregationObjectPubInputIndices recursive_proof_public_input_indices = {};
+    bool contains_pairing_point_accumulator = false;
+    PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices = {};
     uint64_t pub_inputs_offset = 0;
 
     bool operator==(const VerificationKey_&) const = default;
@@ -183,8 +205,8 @@ class VerificationKey_ : public PrecomputedCommitments {
         serialize_to_field_buffer(this->circuit_size, elements);
         serialize_to_field_buffer(this->num_public_inputs, elements);
         serialize_to_field_buffer(this->pub_inputs_offset, elements);
-        serialize_to_field_buffer(this->contains_recursive_proof, elements);
-        serialize_to_field_buffer(this->recursive_proof_public_input_indices, elements);
+        serialize_to_field_buffer(this->contains_pairing_point_accumulator, elements);
+        serialize_to_field_buffer(this->pairing_point_accumulator_public_input_indices, elements);
 
         for (const Commitment& commitment : this->get_all()) {
             serialize_to_field_buffer(commitment, elements);
@@ -220,15 +242,11 @@ auto get_unshifted_then_shifted(const auto& all_entities)
  * @details The "partial length" of a relation is 1 + the degree of the relation, where any challenges used in the
  * relation are as constants, not as variables..
  */
-template <typename Tuple, bool ZK = false> constexpr size_t compute_max_partial_relation_length()
+template <typename Tuple> constexpr size_t compute_max_partial_relation_length()
 {
     constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
     return []<std::size_t... Is>(std::index_sequence<Is...>) {
-        if constexpr (ZK) {
-            return std::max({ std::tuple_element_t<Is, Tuple>::ZK_RELATION_LENGTH... });
-        } else {
-            return std::max({ std::tuple_element_t<Is, Tuple>::RELATION_LENGTH... });
-        }
+        return std::max({ std::tuple_element_t<Is, Tuple>::RELATION_LENGTH... });
     }(seq);
 }
 
@@ -237,15 +255,11 @@ template <typename Tuple, bool ZK = false> constexpr size_t compute_max_partial_
  * @details The "total length" of a relation is 1 + the degree of the relation, where any challenges used in the
  * relation are regarded as variables.
  */
-template <typename Tuple, bool ZK = false> constexpr size_t compute_max_total_relation_length()
+template <typename Tuple> constexpr size_t compute_max_total_relation_length()
 {
     constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
     return []<std::size_t... Is>(std::index_sequence<Is...>) {
-        if constexpr (ZK) {
-            return std::max({ std::tuple_element_t<Is, Tuple>::ZK_TOTAL_RELATION_LENGTH... });
-        } else {
-            return std::max({ std::tuple_element_t<Is, Tuple>::TOTAL_RELATION_LENGTH... });
-        }
+        return std::max({ std::tuple_element_t<Is, Tuple>::TOTAL_RELATION_LENGTH... });
     }(seq);
 }
 
@@ -322,14 +336,21 @@ template <typename Tuple> constexpr auto create_tuple_of_arrays_of_values()
 // Forward declare honk flavors
 namespace bb {
 class UltraFlavor;
-class UltraFlavorWithZK;
+class UltraZKFlavor;
+class UltraRollupFlavor;
 class ECCVMFlavor;
 class UltraKeccakFlavor;
+class UltraKeccakZKFlavor;
 class MegaFlavor;
+class MegaZKFlavor;
 class TranslatorFlavor;
+namespace avm {
 class AvmFlavor;
+}
 template <typename BuilderType> class UltraRecursiveFlavor_;
+template <typename BuilderType> class UltraRollupRecursiveFlavor_;
 template <typename BuilderType> class MegaRecursiveFlavor_;
+template <typename BuilderType> class MegaZKRecursiveFlavor_;
 template <typename BuilderType> class TranslatorRecursiveFlavor_;
 template <typename BuilderType> class ECCVMRecursiveFlavor_;
 template <typename BuilderType> class AvmRecursiveFlavor_;
@@ -355,55 +376,64 @@ template <typename T>
 concept IsPlonkFlavor = IsAnyOf<T, plonk::flavor::Standard, plonk::flavor::Ultra>;
 
 template <typename T>
-concept IsUltraPlonkFlavor = IsAnyOf<T, plonk::flavor::Ultra, UltraKeccakFlavor>;
+concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra, UltraFlavor, UltraKeccakFlavor,UltraKeccakZKFlavor, UltraZKFlavor, UltraRollupFlavor, MegaFlavor, MegaZKFlavor>;
 
 template <typename T>
-concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor>;
+concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor,UltraKeccakZKFlavor, UltraZKFlavor, UltraRollupFlavor, MegaFlavor, MegaZKFlavor>;
 
 template <typename T>
-concept IsHonkFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor>;
-
-template <typename T>
-concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor>;
-
-template <typename T>
-concept IsGoblinFlavor = IsAnyOf<T, MegaFlavor,
+concept IsMegaFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor,
                                     MegaRecursiveFlavor_<UltraCircuitBuilder>,
-                                    MegaRecursiveFlavor_<MegaCircuitBuilder>, MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
+                                    MegaRecursiveFlavor_<MegaCircuitBuilder>,
+                                    MegaRecursiveFlavor_<CircuitSimulatorBN254>,
+                                    MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
+                                    MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 
 template <typename T>
-concept HasDataBus = IsGoblinFlavor<T>;
+concept HasDataBus = IsMegaFlavor<T>;
+
+template <typename T>
+concept HasIPAAccumulator = IsAnyOf<T, UltraRollupFlavor, UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>;
 
 template <typename T>
 concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                        UltraRecursiveFlavor_<MegaCircuitBuilder>,
                                        UltraRecursiveFlavor_<CircuitSimulatorBN254>,
+                                       UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
                                        MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                        MegaRecursiveFlavor_<MegaCircuitBuilder>,
-MegaRecursiveFlavor_<CircuitSimulatorBN254>,
-TranslatorRecursiveFlavor_<UltraCircuitBuilder>,
-TranslatorRecursiveFlavor_<MegaCircuitBuilder>,
-TranslatorRecursiveFlavor_<CircuitSimulatorBN254>,
-ECCVMRecursiveFlavor_<UltraCircuitBuilder>,
-AvmRecursiveFlavor_<UltraCircuitBuilder>>;
+                                        MegaRecursiveFlavor_<CircuitSimulatorBN254>,
+                                        MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
+                                        MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
+                                        TranslatorRecursiveFlavor_<UltraCircuitBuilder>,
+                                        TranslatorRecursiveFlavor_<MegaCircuitBuilder>,
+                                        TranslatorRecursiveFlavor_<CircuitSimulatorBN254>,
+                                        ECCVMRecursiveFlavor_<UltraCircuitBuilder>,
+                                        AvmRecursiveFlavor_<UltraCircuitBuilder>>;
 
+// These concepts are relevant for Sumcheck, where the logic is different for BN254 and Grumpkin Flavors
+template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor, ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
 template <typename T> concept IsECCVMRecursiveFlavor = IsAnyOf<T, ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
 
 
-template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor>;
 
 template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
                                                            // Note(md): must be here to use oink prover
                                                            UltraKeccakFlavor,
-                                                           UltraFlavorWithZK,
+                                                           UltraKeccakZKFlavor,
+                                                           UltraRollupFlavor,
+                                                           UltraZKFlavor,
                                                            MegaFlavor,
+                                                           MegaZKFlavor,
                                                            UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                                            UltraRecursiveFlavor_<MegaCircuitBuilder>,
                                                            UltraRecursiveFlavor_<CircuitSimulatorBN254>,
+                                                           UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
                                                            MegaRecursiveFlavor_<UltraCircuitBuilder>,
-                                                           MegaRecursiveFlavor_<MegaCircuitBuilder>, MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
-template <typename T>
-concept FlavorHasZK =  T::HasZK;
+                                                           MegaRecursiveFlavor_<MegaCircuitBuilder>,
+                                                            MegaRecursiveFlavor_<CircuitSimulatorBN254>,
+                                                            MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
+                                                            MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 
 template <typename Container, typename Element>
 inline std::string flavor_get_label(Container&& container, const Element& element) {

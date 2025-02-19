@@ -1,8 +1,9 @@
 #pragma once
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/srs/global_crs.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+#include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/ultra_honk/decider_verification_key.hpp"
 
 namespace bb {
@@ -31,7 +32,6 @@ template <typename Flavor> class DeciderVerifier_ {
     bool verify_proof(const DeciderProof&); // used when a decider proof is known explicitly
     bool verify();                          // used when transcript that has been initialized with a proof
     std::shared_ptr<VerificationKey> key;
-    std::map<std::string, Commitment> commitments;
     std::shared_ptr<DeciderVerificationKey> accumulator;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
     std::shared_ptr<Transcript> transcript;
@@ -39,5 +39,6 @@ template <typename Flavor> class DeciderVerifier_ {
 
 using UltraDeciderVerifier = DeciderVerifier_<UltraFlavor>;
 using MegaDeciderVerifier = DeciderVerifier_<MegaFlavor>;
+using MegaZKDeciderVerifier = DeciderVerifier_<MegaZKFlavor>;
 
 } // namespace bb

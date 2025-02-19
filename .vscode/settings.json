@@ -170,7 +170,10 @@
     "**/noir/noir-repo/docs/versioned_docs/**": true
   },
   "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
   "cmake.sourceDirectory": "${workspaceFolder}/barretenberg/cpp",
   "typescript.tsserver.maxTsServerMemory": 4096,
-  "markdown.extension.toc.levels": "2..6"
+  "typescript.tsdk": "yarn-project/node_modules/typescript/lib",
+  "markdown.extension.toc.levels": "2..6",
+  "noir.nargoPath": "${workspaceFolder}/noir/noir-repo/target/release/nargo"
 }

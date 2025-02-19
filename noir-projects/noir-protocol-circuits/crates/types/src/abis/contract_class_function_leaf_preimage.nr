@@ -1,11 +1,11 @@
 use crate::abis::function_selector::FunctionSelector;
 use crate::constants::GENERATOR_INDEX__FUNCTION_LEAF;
 use crate::hash::poseidon2_hash_with_separator;
-use crate::traits::Hash;
+use crate::traits::{Hash, ToField};
 
 pub struct ContractClassFunctionLeafPreimage {
-    selector: FunctionSelector,
-    vk_hash: Field,
+    pub selector: FunctionSelector,
+    pub vk_hash: Field,
 }
 
 impl Hash for ContractClassFunctionLeafPreimage {

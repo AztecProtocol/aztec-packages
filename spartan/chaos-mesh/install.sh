@@ -1,7 +1,8 @@
 #!/bin/bash
 
-SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(dirname $(realpath -s "${BASH_SOURCE[0]}"))"
 cd "$SCRIPT_DIR"
+echo "Installing chaos mesh"
 
 # check if chaos-mesh is already installed
 if helm ls --namespace chaos-mesh | grep -q chaos; then

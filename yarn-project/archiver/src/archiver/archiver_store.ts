@@ -1,25 +1,26 @@
 import {
-  type EncryptedL2NoteLog,
-  type FromLogType,
-  type GetUnencryptedLogsResponse,
+  type GetContractClassLogsResponse,
+  type GetPublicLogsResponse,
+  type InBlock,
   type InboxLeaf,
   type L2Block,
-  type L2BlockL2Logs,
   type LogFilter,
-  type LogType,
   type TxEffect,
   type TxHash,
   type TxReceipt,
+  type TxScopedL2Log,
 } from '@aztec/circuit-types';
 import {
+  type BlockHeader,
   type ContractClassPublic,
+  type ContractInstanceUpdateWithAddress,
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
   type Fr,
-  type Header,
+  type PrivateLog,
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 
 import { type DataRetrieval } from './structs/data_retrieval.js';
@@ -72,14 +73,14 @@ export interface ArchiverDataStore {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 block headers.
    */
-  getBlockHeaders(from: number, limit: number): Promise<Header[]>;
+  getBlockHeaders(from: number, limit: number): Promise<BlockHeader[]>;
 
   /**
    * Gets a tx effect.
    * @param txHash - The txHash of the tx corresponding to the tx effect.
    * @returns The requested tx effect (or undefined if not found).
    */
-  getTxEffect(txHash: TxHash): Promise<TxEffect | undefined>;
+  getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined>;
 
   /**
    * Gets a receipt of a settled tx.
@@ -95,6 +96,23 @@ export interface ArchiverDataStore {
    */
   addLogs(blocks: L2Block[]): Promise<boolean>;
   deleteLogs(blocks: L2Block[]): Promise<boolean>;
+
+  /**
+   * Append new nullifiers to the store's list.
+   * @param blocks - The blocks for which to add the nullifiers.
+   * @returns True if the operation is successful.
+   */
+  addNullifiers(blocks: L2Block[]): Promise<boolean>;
+  deleteNullifiers(blocks: L2Block[]): Promise<boolean>;
+
+  /**
+   * Returns the provided nullifier indexes scoped to the block
+   * they were first included in, or undefined if they're not present in the tree
+   * @param blockNumber Max block number to search for the nullifiers
+   * @param nullifiers Nullifiers to get
+   * @returns The block scoped indexes of the provided nullifiers, or undefined if the nullifier doesn't exist in the tree
+   */
+  findNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]): Promise<(InBlock<bigint> | undefined)[]>;
 
   /**
    * Append L1 to L2 messages to the store.
@@ -124,17 +142,12 @@ export interface ArchiverDataStore {
   getTotalL1ToL2MessageCount(): Promise<bigint>;
 
   /**
-   * Gets up to `limit` amount of logs starting from `from`.
-   * @param from - Number of the L2 block to which corresponds the first logs to be returned.
-   * @param limit - The number of logs to return.
-   * @param logType - Specifies whether to return encrypted or unencrypted logs.
-   * @returns The requested logs.
+   * Retrieves all private logs from up to `limit` blocks, starting from the block number `from`.
+   * @param from - The block number from which to begin retrieving logs.
+   * @param limit - The maximum number of blocks to retrieve logs from.
+   * @returns An array of private logs from the specified range of blocks.
    */
-  getLogs<TLogType extends LogType>(
-    from: number,
-    limit: number,
-    logType: TLogType,
-  ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]>;
+  getPrivateLogs(from: number, limit: number): Promise<PrivateLog[]>;
 
   /**
    * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
@@ -142,14 +155,21 @@ export interface ArchiverDataStore {
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]>;
+  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]>;
 
   /**
-   * Gets unencrypted logs based on the provided filter.
+   * Gets public logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
+  getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse>;
+
+  /**
+   * Gets contract class logs based on the provided filter.
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   */
+  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse>;
 
   /**
    * Gets the number of the latest L2 block processed.
@@ -204,9 +224,11 @@ export interface ArchiverDataStore {
    * @param blockNumber - Number of the L2 block the contracts were registered in.
    * @returns True if the operation is successful.
    */
-  addContractClasses(data: ContractClassPublic[], blockNumber: number): Promise<boolean>;
+  addContractClasses(data: ContractClassPublic[], bytecodeCommitments: Fr[], blockNumber: number): Promise<boolean>;
 
   deleteContractClasses(data: ContractClassPublic[], blockNumber: number): Promise<boolean>;
+
+  getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined>;
 
   /**
    * Returns a contract class given its id, or undefined if not exists.
@@ -224,6 +246,14 @@ export interface ArchiverDataStore {
   deleteContractInstances(data: ContractInstanceWithAddress[], blockNumber: number): Promise<boolean>;
 
   /**
+   * Add new contract instance updates
+   * @param data - List of contract updates to be added.
+   * @param blockNumber - Number of the L2 block the updates were scheduled in.
+   * @returns True if the operation is successful.
+   */
+  addContractInstanceUpdates(data: ContractInstanceUpdateWithAddress[], blockNumber: number): Promise<boolean>;
+  deleteContractInstanceUpdates(data: ContractInstanceUpdateWithAddress[], blockNumber: number): Promise<boolean>;
+  /**
    * Adds private functions to a contract class.
    */
   addFunctions(
@@ -233,7 +263,7 @@ export interface ArchiverDataStore {
   ): Promise<boolean>;
 
   /**
-   * Returns a contract instance given its address, or undefined if not exists.
+   * Returns a contract instance given its address and the given block number, or undefined if not exists.
    * @param address - Address of the contract.
    */
   getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>;
@@ -241,6 +271,14 @@ export interface ArchiverDataStore {
   /** Returns the list of all class ids known by the archiver. */
   getContractClassIds(): Promise<Fr[]>;
 
-  addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void>;
-  getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined>;
+  // TODO:  These function names are in memory only as they are for development/debugging. They require the full contract
+  //        artifact supplied to the node out of band. This should be reviewed and potentially removed as part of
+  //        the node api cleanup process.
+  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void>;
+  getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
+
+  /**
+   * Estimates the size of the store in bytes.
+   */
+  estimateSize(): Promise<{ mappingSize: number; actualSize: number; numItems: number }>;
 }

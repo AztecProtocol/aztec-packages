@@ -37,7 +37,7 @@ A simple example would be Gnosis Safe (see [_Account Abstraction is NOT coming_]
 
 Ethereum is currently following this approach via [EIP4337](https://eips.ethereum.org/EIPS/eip-4337), an evolution of the [GSN](https://opengsn.org/). This EIP defines a standard method for relaying meta-transactions in a decentralized way, including options for delegating payment to other agents (called paymasters). See [this chart](https://x.com/koeppelmann/status/1632257610455089154) on how 4337 relates to other smart contract wallet efforts.
 
-Implementing AA at the application layer has the main drawback that it's more complex than doing so at the protocol layer. It also leads to duplicated efforts in both layers (eg the wrapper transaction in a meta-transactions still needs to be checked for its ECDSA signature, and then the smart contract wallet needs to verify another set of signatures).
+Implementing AA at the application layer has the main drawback that it's more complex than doing so at the protocol layer. It also leads to duplicated efforts in both layers (e.g. the wrapper transaction in a meta-transactions still needs to be checked for its ECDSA signature, and then the smart contract wallet needs to verify another set of signatures).
 
 Now, there have also been multiple proposals for getting AA implemented at the _protocol_ level in Ethereum. This usually implies introducing a new transaction type or set of opcodes where signature verification and fee payment is handled by the EVM. See EIPs [2803](https://eips.ethereum.org/EIPS/eip-2803), [2938](https://eips.ethereum.org/EIPS/eip-2938), or [3074](https://eips.ethereum.org/EIPS/eip-3074). None of these have gained traction due to the efforts involved in implementing while keeping backwards compatibility.
 
@@ -72,11 +72,11 @@ def entryPoint(payload):
         enqueueCall(to, data, value, gasLimit);
 ```
 
-Read more about how to write an account contract [here](../../../tutorials/codealong/contract_tutorials/write_accounts_contract.md).
+Read more about how to write an account contract [here](../../../developers/tutorials/codealong/contract_tutorials/write_accounts_contract.md).
 
 ### Account contracts and wallets
 
-Account contracts are tightly coupled to the wallet software that users use to interact with the protocol. Dapps submit to the wallet software one or more function calls to be executed (eg "call swap in X contract"), and the wallet encodes and authenticates the request as a valid payload for the user's account contract. The account contract then validates the request encoded and authenticated by the wallet, and executes the function calls requested by the dapp.
+Account contracts are tightly coupled to the wallet software that users use to interact with the protocol. Dapps submit to the wallet software one or more function calls to be executed (e.g. "call swap in X contract"), and the wallet encodes and authenticates the request as a valid payload for the user's account contract. The account contract then validates the request encoded and authenticated by the wallet, and executes the function calls requested by the dapp.
 
 ### Execution requests
 
@@ -107,10 +107,11 @@ Notice that the Signerless wallet doesn't invoke an entrypoint function of an ac
 
 :::info
 Entrypoints for the following cases:
+
 - if no contract entrypoint is used `msg_sender` is set to `Field.max`.
 - in a private to public entrypoint, `msg_sender` is the contract making the private to public call
 - when calling the entrypoint on an account contract, `msg_sender` is set to the account contract address
-:::
+  :::
 
 ### Account initialization
 
@@ -127,18 +128,26 @@ Users will need to pay transaction fees in order to deploy their account contrac
 Account contracts are also expected, though not required by the protocol, to implement a set of methods for authorizing actions on behalf of the user. During a transaction, a contract may call into the account contract and request the user authorization for a given action, identified by a hash. This pattern is used, for instance, for transferring tokens from an account that is not the caller.
 
 When executing a private function, this authorization is checked by requesting an _auth witness_ from the execution oracle, which is usually a signed message.
-The PXE is responsible for storing these auth witnesses and returning them to the requesting account contract.
+The user's Private eXecution Environment (PXE) is responsible for storing these auth witnesses and returning them to the requesting account contract.
 Auth witnesses can belong to the current user executing the local transaction, or to another user who shared it out-of-band.
 
 However, during a public function execution, it is not possible to retrieve a value from the local oracle. To support authorizations in public functions, account contracts should save in contract storage what actions have been pre-authorized by their owner.
 
-These two patterns combined allow an account contract to answer whether an action `is_valid` for a given user both in private and public contexts.
+These two patterns combined allow an account contract to answer whether an action `is_valid_impl` for a given user both in private and public contexts.
+
+You can read more about authorizing actions with authorization witnesses on [this page](../advanced/authwit.md).
+
+:::info
+
+Transaction simulations in the PXE are not currently simulated, this is future work described [here](https://github.com/AztecProtocol/aztec-packages/issues/9133). This means that any transaction simulations that call into a function requiring an authwit will require the user to provide an authwit. Without simulating simulations, the PXE can't anticipate what authwits a transaction may need, so developers will need to manually request these authwits from users. In the future, transactions requiring authwits will be smart enough to ask the user for the correct authwits automatically.
+
+:::
 
 ### Encryption and nullifying keys
 
 Aztec requires users to define [encryption and nullifying keys](./keys.md) that are needed for receiving and spending private notes. Unlike transaction signing, encryption and nullifying is enshrined at the protocol. This means that there is a single scheme used for encryption and nullifying. These keys are derived from a master public key. This master public key, in turn, is used when deterministically deriving the account's address.
 
-A side effect of committing to a master public key as part of the address is that _this key cannot be rotated_. While an account contract implementation could include methods for rotating the signing key, this is unfortunately not possible for encryption and nullifying keys (note that rotating nullifying keys also creates other challenges such as preventing double spends). We are exploring usage of [`SharedMutable`](../../../reference/developer_references/smart_contract_reference/storage/shared_state.md#sharedmutable) to enable rotating these keys.
+A side effect of committing to a master public key as part of the address is that _this key cannot be rotated_. While an account contract implementation could include methods for rotating the signing key, this is unfortunately not possible for encryption and nullifying keys (note that rotating nullifying keys also creates other challenges such as preventing double spends). We are exploring usage of [`SharedMutable`](../../../developers/reference/smart_contract_reference/storage/shared_state.md) to enable rotating these keys.
 
 NOTE: While we entertained the idea of abstracting note encryption, where account contracts would define an `encrypt` method that would use a user-defined scheme, there are two main reasons we decided against this. First is that this entailed that, in order to receive funds, a user had to first deploy their account contract, which is a major UX issue. Second, users could define malicious `encrypt` methods that failed in certain circumstances, breaking application flows that required them to receive a private note. While this issue already exists in Ethereum when transferring ETH (see the [king of the hill](https://coinsbench.com/27-king-ethernaut-da5021cd4aa6)), its impact is made worse in Aztec since any execution failure in a private function makes the entire transaction unprovable (ie it is not possible to catch errors in calls to other private functions), and furthermore because encryption is required for any private state (not just for transferring ETH). Nevertheless, both of these problems are solvable. Initialization can be worked around by embedding a commitment to the bytecode in the address and removing the need for actually deploying contracts before interacting with them, and the king of the hill issue can be mitigated by introducing a full private VM that allows catching reverts. As such, we may be able to abstract encryption in the future as well.
 
@@ -147,5 +156,3 @@ NOTE: While we entertained the idea of abstracting note encryption, where accoun
 In order to be considered valid, an account must prove that it has locked enough funds to pay for itself. However, this does not mandate where those funds come from. This fee abstraction allows for easy implementation of paymasters or payment-in-kind via on-the-fly swaps.
 
 However, there is one major consideration around public execution reverts. In the current design, if one of the public function executions enqueued in a transaction fails, then the entire transaction is reverted. But reverting the whole transaction would also revert the fee payment, and leave the sequencer with their hands empty after running the public execution. This means we will need to enshrine an initial verification and fee payment phase that is _not_ reverted if public execution fails.
-
-You can read the latest information about fees in the [protocol specs](../../../protocol-specs/gas-and-fees/index.md).

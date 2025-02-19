@@ -1,39 +1,16 @@
 #include "barretenberg/common/thread.hpp"
-#include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
+#include "barretenberg/plonk_honk_shared/relation_checker.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
+#include "barretenberg/translator_vm/translator_proving_key.hpp"
 
 #include <gtest/gtest.h>
 #include <unordered_set>
 using namespace bb;
 
-/**
- * @brief Check that a given relation is satified for a set of polynomials
- *
- * @tparam relation_idx Index into a tuple of provided relations
- * @tparam Flavor
- */
-template <typename Flavor, typename Relation> void check_relation(auto circuit_size, auto& polynomials, auto params)
-{
-    for (size_t i = 0; i < circuit_size; i++) {
-        // Define the appropriate SumcheckArrayOfValuesOverSubrelations type for this relation and initialize to zero
-        using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
-        SumcheckArrayOfValuesOverSubrelations result;
-        for (auto& element : result) {
-            element = 0;
-        }
-
-        // Evaluate each constraint in the relation and check that each is satisfied
-        Relation::accumulate(result, polynomials.get_row(i), params, 1);
-        for (auto& element : result) {
-            ASSERT_EQ(element, 0);
-        }
-    }
-}
-
 class TranslatorRelationCorrectnessTests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 };
 
 /**
@@ -45,8 +22,6 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
     using Flavor = TranslatorFlavor;
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
-    using ProvingKey = typename Flavor::ProvingKey;
-    using Polynomial = bb::Polynomial<FF>;
     auto& engine = numeric::get_debug_randomness();
     const size_t mini_circuit_size = 2048;
     auto full_circuit_size = mini_circuit_size * Flavor::CONCATENATION_GROUP_SIZE;
@@ -59,19 +34,8 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
     params.gamma = gamma;
 
     // Create storage for polynomials
-    auto proving_key = std::make_shared<ProvingKey>();
-
-    ProverPolynomials& prover_polynomials = proving_key->polynomials;
-    // ensure we can shift these
-    for (Polynomial& prover_poly : prover_polynomials.get_to_be_shifted()) {
-        prover_poly = Polynomial::shiftable(full_circuit_size);
-    }
-
-    for (Polynomial& prover_poly : prover_polynomials.get_all()) {
-        if (prover_poly.is_empty()) {
-            prover_poly = Polynomial{ full_circuit_size };
-        }
-    }
+    TranslatorProvingKey key{ mini_circuit_size };
+    ProverPolynomials& prover_polynomials = key.proving_key->polynomials;
 
     // Fill in lagrange polynomials used in the permutation relation
     prover_polynomials.lagrange_first.at(0) = 1;
@@ -79,92 +43,32 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
 
     // Put random values in all the non-concatenated constraint polynomials used to range constrain the values
     auto fill_polynomial_with_random_14_bit_values = [&](auto& polynomial) {
-        for (size_t i = polynomial.start_index(); i < mini_circuit_size; i++) {
+        for (size_t i = polynomial.start_index(); i < polynomial.size(); i++) {
             polynomial.at(i) = engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
         }
     };
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_low_limbs_range_constraint_0);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_low_limbs_range_constraint_1);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_low_limbs_range_constraint_2);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_low_limbs_range_constraint_3);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_low_limbs_range_constraint_4);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_low_limbs_range_constraint_tail);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_high_limbs_range_constraint_0);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_high_limbs_range_constraint_1);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_high_limbs_range_constraint_2);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_high_limbs_range_constraint_3);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_high_limbs_range_constraint_4);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_x_high_limbs_range_constraint_tail);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_low_limbs_range_constraint_0);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_low_limbs_range_constraint_1);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_low_limbs_range_constraint_2);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_low_limbs_range_constraint_3);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_low_limbs_range_constraint_4);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_low_limbs_range_constraint_tail);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_high_limbs_range_constraint_0);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_high_limbs_range_constraint_1);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_high_limbs_range_constraint_2);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_high_limbs_range_constraint_3);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_high_limbs_range_constraint_4);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.p_y_high_limbs_range_constraint_tail);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_low_limbs_range_constraint_0);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_low_limbs_range_constraint_1);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_low_limbs_range_constraint_2);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_low_limbs_range_constraint_3);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_low_limbs_range_constraint_4);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_low_limbs_range_constraint_tail);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_high_limbs_range_constraint_0);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_high_limbs_range_constraint_1);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_high_limbs_range_constraint_2);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_high_limbs_range_constraint_3);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_high_limbs_range_constraint_4);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.z_high_limbs_range_constraint_tail);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_low_limbs_range_constraint_0);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_low_limbs_range_constraint_1);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_low_limbs_range_constraint_2);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_low_limbs_range_constraint_3);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_low_limbs_range_constraint_4);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_low_limbs_range_constraint_tail);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_high_limbs_range_constraint_0);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_high_limbs_range_constraint_1);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_high_limbs_range_constraint_2);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_high_limbs_range_constraint_3);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_high_limbs_range_constraint_4);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.accumulator_high_limbs_range_constraint_tail);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_low_limbs_range_constraint_0);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_low_limbs_range_constraint_1);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_low_limbs_range_constraint_2);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_low_limbs_range_constraint_3);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_low_limbs_range_constraint_4);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_low_limbs_range_constraint_tail);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_high_limbs_range_constraint_0);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_high_limbs_range_constraint_1);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_high_limbs_range_constraint_2);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_high_limbs_range_constraint_3);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_high_limbs_range_constraint_4);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.quotient_high_limbs_range_constraint_tail);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.relation_wide_limbs_range_constraint_0);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.relation_wide_limbs_range_constraint_1);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.relation_wide_limbs_range_constraint_2);
-    fill_polynomial_with_random_14_bit_values(prover_polynomials.relation_wide_limbs_range_constraint_3);
+
+    for (const auto& group : prover_polynomials.get_groups_to_be_concatenated()) {
+        for (auto& poly : group) {
+            fill_polynomial_with_random_14_bit_values(poly);
+        }
+    }
+    // Compute concatenated polynomials (4 polynomials produced from other constraint polynomials by concatenation)
+    key.compute_concatenated_polynomials();
 
     // Compute ordered range constraint polynomials that go in the denominator of the grand product polynomial
-    compute_translator_range_constraint_ordered_polynomials<Flavor>(prover_polynomials, mini_circuit_size);
+    key.compute_translator_range_constraint_ordered_polynomials();
 
     // Compute the fixed numerator (part of verification key)
-    proving_key->compute_extra_range_constraint_numerator();
-
-    // Compute concatenated polynomials (4 polynomials produced from other constraint polynomials by concatenation)
-    compute_concatenated_polynomials<Flavor>(prover_polynomials);
+    key.compute_extra_range_constraint_numerator();
 
     // Compute the grand product polynomial
     compute_grand_product<Flavor, bb::TranslatorPermutationRelation<FF>>(prover_polynomials, params);
     prover_polynomials.z_perm_shift = prover_polynomials.z_perm.shifted();
 
-    using Relations = typename Flavor::Relations;
-
     // Check that permutation relation is satisfied across each row of the prover polynomials
-    check_relation<Flavor, std::tuple_element_t<0, Relations>>(full_circuit_size, prover_polynomials, params);
+    RelationChecker<Flavor>::check<TranslatorPermutationRelation<FF>>(
+        prover_polynomials, params, "TranslatorPermutationRelation");
 }
 
 TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
@@ -172,7 +76,6 @@ TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
     using Flavor = TranslatorFlavor;
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
-    using Polynomial = bb::Polynomial<FF>;
     auto& engine = numeric::get_debug_randomness();
     const size_t mini_circuit_size = 2048;
     const auto circuit_size = Flavor::CONCATENATION_GROUP_SIZE * mini_circuit_size;
@@ -182,16 +85,7 @@ TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
     // No relation parameters are used in this relation
     RelationParameters<FF> params;
 
-    ProverPolynomials prover_polynomials;
-    // Allocate polynomials
-    for (Polynomial& prover_poly : prover_polynomials.get_to_be_shifted()) {
-        prover_poly = Polynomial::shiftable(circuit_size);
-    }
-    for (Polynomial& prover_poly : prover_polynomials.get_all()) {
-        if (prover_poly.is_empty()) {
-            prover_poly = Polynomial{ circuit_size };
-        }
-    }
+    ProverPolynomials prover_polynomials(mini_circuit_size);
 
     // Construct lagrange polynomials that are needed for Translator's DeltaRangeConstraint Relation
     prover_polynomials.lagrange_first.at(0) = 0;
@@ -234,17 +128,9 @@ TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
                   polynomial_pointers[i + 1]->coeffs().begin());
     });
 
-    // Get shifted polynomials
-    prover_polynomials.ordered_range_constraints_0_shift = prover_polynomials.ordered_range_constraints_0.shifted();
-    prover_polynomials.ordered_range_constraints_1_shift = prover_polynomials.ordered_range_constraints_1.shifted();
-    prover_polynomials.ordered_range_constraints_2_shift = prover_polynomials.ordered_range_constraints_2.shifted();
-    prover_polynomials.ordered_range_constraints_3_shift = prover_polynomials.ordered_range_constraints_3.shifted();
-    prover_polynomials.ordered_range_constraints_4_shift = prover_polynomials.ordered_range_constraints_4.shifted();
-
-    using Relations = typename Flavor::Relations;
-
     // Check that DeltaRangeConstraint relation is satisfied across each row of the prover polynomials
-    check_relation<Flavor, std::tuple_element_t<1, Relations>>(circuit_size, prover_polynomials, params);
+    RelationChecker<Flavor>::check<TranslatorDeltaRangeConstraintRelation<FF>>(
+        prover_polynomials, params, "TranslatorDeltaRangeConstraintRelation");
 }
 
 /**
@@ -257,13 +143,10 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
     using Flavor = TranslatorFlavor;
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
-    using ProverPolynomialIds = typename Flavor::ProverPolynomialIds;
-    using Polynomial = bb::Polynomial<FF>;
 
     auto& engine = numeric::get_debug_randomness();
 
     const size_t mini_circuit_size = 2048;
-    const auto circuit_size = Flavor::CONCATENATION_GROUP_SIZE * mini_circuit_size;
 
     // We only use accumulated_result from relation parameters in this relation
     RelationParameters<FF> params;
@@ -272,46 +155,7 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
     };
 
     // Create storage for polynomials
-    ProverPolynomials prover_polynomials;
-    // We use polynomial ids to make shifting the polynomials easier
-    ProverPolynomialIds prover_polynomial_ids;
-    auto polynomial_id_get_all = prover_polynomial_ids.get_all();
-    std::vector<Polynomial> polynomial_container;
-    std::vector<size_t> polynomial_ids;
-    for (size_t i = 0; i < polynomial_id_get_all.size(); i++) {
-        // Allocate polynomials
-        polynomial_container.emplace_back(circuit_size);
-        // Push sequential ids to polynomial ids
-        polynomial_ids.push_back(i);
-        polynomial_id_get_all[i] = polynomial_ids[i];
-    }
-    // Get ids of shifted polynomials and put them in a set
-    auto shifted_ids = prover_polynomial_ids.get_shifted();
-    auto to_be_shifted_ids = prover_polynomial_ids.get_to_be_shifted();
-    std::unordered_set<size_t> shifted_id_set;
-    for (auto& id : shifted_ids) {
-        shifted_id_set.emplace(id);
-    }
-    for (auto& id : to_be_shifted_ids) {
-        // allow shifting
-        polynomial_container[id] = Polynomial{ circuit_size - 1, circuit_size, 1 };
-    }
-    // Assign to non-shifted prover polynomials
-    auto polynomial_get_all = prover_polynomials.get_all();
-    for (size_t i = 0; i < polynomial_get_all.size(); i++) {
-        if (!shifted_id_set.contains(i)) {
-            polynomial_get_all[i] = polynomial_container[i].share();
-        }
-    }
-
-    // Assign to shifted prover polynomials using ids
-    for (size_t i = 0; i < shifted_ids.size(); i++) {
-        auto shifted_id = shifted_ids[i];
-        auto to_be_shifted_id = to_be_shifted_ids[i];
-        // Ensure we can shift this
-        polynomial_get_all[shifted_id] = polynomial_container[to_be_shifted_id].shifted();
-    }
-
+    ProverPolynomials prover_polynomials(mini_circuit_size);
     // Fill in lagrange even polynomial
     for (size_t i = 1; i < mini_circuit_size - 1; i += 2) {
         prover_polynomials.lagrange_odd_in_minicircuit.at(i) = 1;
@@ -326,22 +170,6 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
             possible_opcode_values[static_cast<size_t>(engine.get_random_uint8() % NUMBER_OF_POSSIBLE_OPCODES)];
     }
 
-    std::unordered_set<size_t> range_constraint_polynomial_ids;
-    for (auto& concatenation_group : prover_polynomial_ids.get_groups_to_be_concatenated()) {
-        for (auto& id : concatenation_group) {
-            range_constraint_polynomial_ids.insert(id);
-        }
-    }
-
-    // Assign random values to the mini-circuit part of the range constraint polynomials
-    for (const auto& range_constraint_polynomial_id : range_constraint_polynomial_ids) {
-        parallel_for_range(mini_circuit_size - 2, [&](size_t start, size_t end) {
-            // We want to iterate from 1 to mini_circuit_size - 2 (inclusive)
-            for (size_t i = start + 1; i < end + 1; i++) {
-                polynomial_container[range_constraint_polynomial_id].at(i) = fr::random_element();
-            }
-        });
-    }
     // Initialize used lagrange polynomials
     prover_polynomials.lagrange_second.at(1) = 1;
     prover_polynomials.lagrange_second_to_last_in_minicircuit.at(mini_circuit_size - 2) = 1;
@@ -364,16 +192,17 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
     prover_polynomials.accumulators_binary_limbs_2.at(1) = params.accumulated_result[2];
     prover_polynomials.accumulators_binary_limbs_3.at(1) = params.accumulated_result[3];
 
-    using Relations = typename Flavor::Relations;
-
     // Check that Opcode Constraint relation is satisfied across each row of the prover polynomials
-    check_relation<Flavor, std::tuple_element_t<2, Relations>>(circuit_size, prover_polynomials, params);
+    RelationChecker<Flavor>::check<TranslatorOpcodeConstraintRelation<FF>>(
+        prover_polynomials, params, "TranslatorOpcodeConstraintRelation");
 
     // Check that Accumulator Transfer relation is satisfied across each row of the prover polynomials
-    check_relation<Flavor, std::tuple_element_t<3, Relations>>(circuit_size, prover_polynomials, params);
+    RelationChecker<Flavor>::check<TranslatorAccumulatorTransferRelation<FF>>(
+        prover_polynomials, params, "TranslatorAccumulatorTransferRelation");
 
     // Check that Zero Constraint relation is satisfied across each row of the prover polynomials
-    check_relation<Flavor, std::tuple_element_t<6, Relations>>(circuit_size, prover_polynomials, params);
+    RelationChecker<Flavor>::check<TranslatorZeroConstraintsRelation<FF>>(
+        prover_polynomials, params, "TranslatorZeroConstraintsRelation");
 }
 /**
  * @brief Test the correctness of TranslatorFlavor's Decomposition Relation
@@ -385,57 +214,15 @@ TEST_F(TranslatorRelationCorrectnessTests, Decomposition)
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
-    using ProverPolynomialIds = typename Flavor::ProverPolynomialIds;
-    using Polynomial = bb::Polynomial<FF>;
     auto& engine = numeric::get_debug_randomness();
 
     constexpr size_t mini_circuit_size = 2048;
-    const auto circuit_size = Flavor::CONCATENATION_GROUP_SIZE * mini_circuit_size;
 
     // Decomposition relation doesn't use any relation parameters
     RelationParameters<FF> params;
 
     // Create storage for polynomials
-    ProverPolynomials prover_polynomials;
-    // We use polynomial ids to make shifting the polynomials easier
-    ProverPolynomialIds prover_polynomial_ids;
-    std::vector<Polynomial> polynomial_container;
-    std::vector<size_t> polynomial_ids;
-    auto polynomial_id_get_all = prover_polynomial_ids.get_all();
-    auto polynomial_get_all = prover_polynomials.get_all();
-    for (size_t i = 0; i < polynomial_id_get_all.size(); i++) {
-        Polynomial temporary_polynomial(circuit_size);
-        // Allocate polynomials
-        polynomial_container.push_back(temporary_polynomial);
-        // Push sequential ids to polynomial ids
-        polynomial_ids.push_back(i);
-        polynomial_id_get_all[i] = polynomial_ids[i];
-    }
-    // Get ids of shifted polynomials and put them in a set
-    auto shifted_ids = prover_polynomial_ids.get_shifted();
-    auto to_be_shifted_ids = prover_polynomial_ids.get_to_be_shifted();
-    std::unordered_set<size_t> shifted_id_set;
-    for (auto& id : shifted_ids) {
-        shifted_id_set.emplace(id);
-    }
-    for (auto& id : to_be_shifted_ids) {
-        // allow shifting
-        polynomial_container[id] = Polynomial{ circuit_size - 1, circuit_size, 1 };
-    }
-    // Assign spans to non-shifted prover polynomials
-    for (size_t i = 0; i < polynomial_get_all.size(); i++) {
-        if (!shifted_id_set.contains(i)) {
-            polynomial_get_all[i] = polynomial_container[i].share();
-        }
-    }
-
-    // Assign shifted spans to shifted prover polynomials using ids
-    for (size_t i = 0; i < shifted_ids.size(); i++) {
-        auto shifted_id = shifted_ids[i];
-        auto to_be_shifted_id = to_be_shifted_ids[i];
-        // Ensure we can shift this
-        polynomial_get_all[shifted_id] = polynomial_container[to_be_shifted_id].shifted();
-    }
+    ProverPolynomials prover_polynomials(mini_circuit_size);
 
     // Fill in lagrange odd polynomial (the only non-witness one we are using)
     for (size_t i = 1; i < mini_circuit_size - 1; i += 2) {
@@ -755,9 +542,9 @@ TEST_F(TranslatorRelationCorrectnessTests, Decomposition)
                                 prover_polynomials.quotient_high_limbs_range_constraint_tail.at(i + 1));
     }
 
-    using Relations = Flavor::Relations;
     // Check that Decomposition relation is satisfied across each row of the prover polynomials
-    check_relation<Flavor, std::tuple_element_t<4, Relations>>(circuit_size, prover_polynomials, params);
+    RelationChecker<Flavor>::check<TranslatorDecompositionRelation<FF>>(
+        prover_polynomials, params, "TranslatorDecompositionRelation");
 }
 
 /**
@@ -770,13 +557,10 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
-    using ProverPolynomialIds = typename Flavor::ProverPolynomialIds;
     using GroupElement = typename Flavor::GroupElement;
-    using Polynomial = bb::Polynomial<FF>;
 
     constexpr size_t NUM_LIMB_BITS = Flavor::NUM_LIMB_BITS;
     constexpr auto mini_circuit_size = 2048;
-    constexpr auto circuit_size = Flavor::CONCATENATION_GROUP_SIZE * mini_circuit_size;
 
     auto& engine = numeric::get_debug_randomness();
 
@@ -825,46 +609,7 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
                                   uint_input_x };
 
     // Create storage for polynomials
-    ProverPolynomials prover_polynomials;
-    // We use polynomial ids to make shifting the polynomials easier
-    ProverPolynomialIds prover_polynomial_ids;
-    std::vector<Polynomial> polynomial_container;
-    std::vector<size_t> polynomial_ids;
-    auto polynomial_get_all = prover_polynomials.get_all();
-    auto polynomial_id_get_all = prover_polynomial_ids.get_all();
-    for (size_t i = 0; i < polynomial_get_all.size(); i++) {
-        Polynomial temporary_polynomial(circuit_size);
-        // Allocate polynomials
-        polynomial_container.push_back(temporary_polynomial);
-        // Push sequential ids to polynomial ids
-        polynomial_ids.push_back(i);
-        polynomial_id_get_all[i] = polynomial_ids[i];
-    }
-    // Get ids of shifted polynomials and put them in a set
-    auto shifted_ids = prover_polynomial_ids.get_shifted();
-    auto to_be_shifted_ids = prover_polynomial_ids.get_to_be_shifted();
-    std::unordered_set<size_t> shifted_id_set;
-    for (auto& id : shifted_ids) {
-        shifted_id_set.emplace(id);
-    }
-    for (auto& id : to_be_shifted_ids) {
-        // allow shifting
-        polynomial_container[id] = Polynomial{ circuit_size - 1, circuit_size, 1 };
-    }
-    // Assign to non-shifted prover polynomials
-    for (size_t i = 0; i < polynomial_get_all.size(); i++) {
-        if (!shifted_id_set.contains(i)) {
-            polynomial_get_all[i] = polynomial_container[i].share();
-        }
-    }
-
-    // Assign to shifted prover polynomials using ids
-    for (size_t i = 0; i < shifted_ids.size(); i++) {
-        auto shifted_id = shifted_ids[i];
-        auto to_be_shifted_id = to_be_shifted_ids[i];
-        // Ensure we can shift this
-        polynomial_get_all[shifted_id] = polynomial_container[to_be_shifted_id].shifted();
-    }
+    ProverPolynomials prover_polynomials = TranslatorFlavor::ProverPolynomials(mini_circuit_size);
 
     // Copy values of wires used in the non-native field relation from the circuit builder
     for (size_t i = 1; i < circuit_builder.get_estimated_num_finalized_gates(); i++) {
@@ -902,7 +647,7 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
         prover_polynomials.lagrange_odd_in_minicircuit.at(i) = 1;
     }
 
-    using Relations = Flavor::Relations;
     // Check that Non-Native Field relation is satisfied across each row of the prover polynomials
-    check_relation<Flavor, std::tuple_element_t<5, Relations>>(circuit_size, prover_polynomials, params);
+    RelationChecker<Flavor>::check<TranslatorNonNativeFieldRelation<FF>>(
+        prover_polynomials, params, "TranslatorNonNativeFieldRelation");
 }

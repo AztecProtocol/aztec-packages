@@ -1,6 +1,5 @@
 #!/usr/bin/env -S node --no-warnings
-import { createDebugLogger } from '@aztec/foundation/log';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { createLogger } from '@aztec/foundation/log';
 
 import http from 'http';
 
@@ -8,7 +7,7 @@ import { type AztecNodeConfig, AztecNodeService, createAztecNodeRpcServer, getCo
 
 const { AZTEC_NODE_PORT = 8081, API_PREFIX = '' } = process.env;
 
-const logger = createDebugLogger('aztec:node');
+const logger = createLogger('node');
 
 /**
  * Creates the node from provided config
@@ -16,7 +15,7 @@ const logger = createDebugLogger('aztec:node');
 async function createAndDeployAztecNode() {
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars() };
 
-  return await AztecNodeService.createAndSync(aztecNodeConfig, new NoopTelemetryClient());
+  return await AztecNodeService.createAndSync(aztecNodeConfig);
 }
 
 /**
@@ -33,12 +32,15 @@ async function main() {
     process.exit(0);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   process.once('SIGINT', shutdown);
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   process.once('SIGTERM', shutdown);
 
   const rpcServer = createAztecNodeRpcServer(aztecNode);
   const app = rpcServer.getApp(API_PREFIX);
 
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   const httpServer = http.createServer(app.callback());
   httpServer.listen(+AZTEC_NODE_PORT);
   logger.info(`Aztec Node JSON-RPC Server listening on port ${AZTEC_NODE_PORT}`);

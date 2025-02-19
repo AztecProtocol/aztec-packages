@@ -1,12 +1,13 @@
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/common/test.hpp"
-#include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
-#include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
+#include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
+#include "ultra_verification_keys_comparator.hpp"
 
 namespace bb::stdlib::recursion::honk {
 
@@ -33,7 +34,10 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
 
     // Defines types for the outer circuit, i.e. the circuit of the recursive verifier
     using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
-    using OuterFlavor = std::conditional_t<IsMegaBuilder<OuterBuilder>, MegaFlavor, UltraFlavor>;
+    using OuterFlavor =
+        std::conditional_t<IsMegaBuilder<OuterBuilder>,
+                           MegaFlavor,
+                           std::conditional_t<HasIPAAccumulator<RecursiveFlavor>, UltraRollupFlavor, UltraFlavor>>;
     using OuterProver = UltraProver_<OuterFlavor>;
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
     using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
@@ -41,6 +45,8 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
     using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
 
+    using AggState = aggregation_state<typename RecursiveFlavor::Curve>;
+    using VerifierOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<RecursiveFlavor>;
     /**
      * @brief Create a non-trivial arbitrary inner circuit, the proof of which will be recursively verified
      *
@@ -69,13 +75,26 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
 
             builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
         }
-        AggregationObjectIndices agg_obj_indices = stdlib::recursion::init_default_agg_obj_indices(builder);
-        builder.add_recursive_proof(agg_obj_indices);
+        PairingPointAccumulatorIndices agg_obj_indices = stdlib::recursion::init_default_agg_obj_indices(builder);
+        builder.add_pairing_point_accumulator(agg_obj_indices);
+
+        if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
+            auto [stdlib_opening_claim, ipa_proof] =
+                IPA<grumpkin<InnerBuilder>>::create_fake_ipa_claim_and_proof(builder);
+            builder.add_ipa_claim(stdlib_opening_claim.get_witness_indices());
+            builder.ipa_proof = ipa_proof;
+        }
         return builder;
     };
 
   public:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite()
+    {
+        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+        if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
+            bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+        }
+    }
 
     /**
      * @brief Create inner circuit and call check_circuit on it
@@ -119,15 +138,15 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
 
     /**
      * @brief  Ensures that the recursive verifier circuit for two inner circuits of different size is the same as the
-     * proofs are currently constant. This is done by taking each trace block in part and checking all it's selector
+     * proofs are currently constant. This is done by taking each trace block in part and checking all its selector
      * values.
      *
      */
     static void test_independent_vk_hash()
     {
         // Retrieves the trace blocks (each consisting of a specific gate) from the recursive verifier circuit
-        auto get_blocks = [](size_t inner_size)
-            -> std::tuple<typename OuterBuilder::GateBlocks, std::shared_ptr<typename OuterFlavor::VerificationKey>> {
+        auto get_blocks = [](size_t inner_size) -> std::tuple<typename OuterBuilder::ExecutionTrace,
+                                                              std::shared_ptr<typename OuterFlavor::VerificationKey>> {
             // Create an arbitrary inner circuit
             auto inner_circuit = create_inner_circuit(inner_size);
 
@@ -142,9 +161,14 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             // Create a recursive verification circuit for the proof of the inner circuit
             OuterBuilder outer_circuit;
             RecursiveVerifier verifier{ &outer_circuit, verification_key };
-            [[maybe_unused]] auto pairing_points = verifier.verify_proof(
+
+            typename RecursiveVerifier::Output verifier_output = verifier.verify_proof(
                 inner_proof,
                 init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit));
+            if constexpr (HasIPAAccumulator<OuterFlavor>) {
+                outer_circuit.add_ipa_claim(verifier_output.ipa_opening_claim.get_witness_indices());
+                outer_circuit.ipa_proof = convert_stdlib_proof_to_native(verifier_output.ipa_proof);
+            }
 
             auto outer_proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
             auto outer_verification_key =
@@ -153,44 +177,11 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             return { outer_circuit.blocks, outer_verification_key };
         };
 
-        bool broke(false);
-        auto check_eq = [&broke](auto& p1, auto& p2) {
-            EXPECT_TRUE(p1.size() == p2.size());
-            for (size_t idx = 0; idx < p1.size(); idx++) {
-                if (p1[idx] != p2[idx]) {
-                    broke = true;
-                    break;
-                }
-            }
-        };
-
         auto [blocks_10, verification_key_10] = get_blocks(10);
         auto [blocks_11, verification_key_11] = get_blocks(11);
 
-        size_t block_idx = 0;
-        for (auto [b_10, b_11] : zip_view(blocks_10.get(), blocks_11.get())) {
-            info("block index: ", block_idx);
-            EXPECT_TRUE(b_10.selectors.size() == 13);
-            EXPECT_TRUE(b_11.selectors.size() == 13);
-            for (auto [p_10, p_11] : zip_view(b_10.selectors, b_11.selectors)) {
-                check_eq(p_10, p_11);
-            }
-            block_idx++;
-        }
-
-        typename OuterFlavor::CommitmentLabels labels;
-        for (auto [vk_10, vk_11, label] :
-             zip_view(verification_key_10->get_all(), verification_key_11->get_all(), labels.get_precomputed())) {
-            if (vk_10 != vk_11) {
-                broke = true;
-                info("Mismatch verification key label: ", label, " left: ", vk_10, " right: ", vk_11);
-            }
-        }
-
-        EXPECT_TRUE(verification_key_10->circuit_size == verification_key_11->circuit_size);
-        EXPECT_TRUE(verification_key_10->num_public_inputs == verification_key_11->num_public_inputs);
-
-        EXPECT_FALSE(broke);
+        compare_ultra_blocks_and_verification_keys<OuterFlavor>({ blocks_10, blocks_11 },
+                                                                { verification_key_10, verification_key_11 });
     }
 
     /**
@@ -212,9 +203,13 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         OuterBuilder outer_circuit;
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
 
-        aggregation_state<typename RecursiveFlavor::Curve> agg_obj =
-            init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit);
-        auto pairing_points = verifier.verify_proof(inner_proof, agg_obj);
+        AggState agg_obj = init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit);
+        VerifierOutput output = verifier.verify_proof(inner_proof, agg_obj);
+        AggState pairing_points = output.agg_obj;
+        if constexpr (HasIPAAccumulator<OuterFlavor>) {
+            outer_circuit.add_ipa_claim(output.ipa_opening_claim.get_witness_indices());
+            outer_circuit.ipa_proof = convert_stdlib_proof_to_native(output.ipa_proof);
+        }
         info("Recursive Verifier: num gates = ", outer_circuit.get_estimated_num_finalized_gates());
 
         // Check for a failure flag in the recursive verifier circuit
@@ -222,10 +217,16 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
 
         // Check 1: Perform native verification then perform the pairing on the outputs of the recursive
         // verifier and check that the result agrees.
+        bool native_result;
         InnerVerifier native_verifier(verification_key);
-        auto native_result = native_verifier.verify_proof(inner_proof);
-        using VerifierCommitmentKey = typename InnerFlavor::VerifierCommitmentKey;
-        auto pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
+        if constexpr (HasIPAAccumulator<OuterFlavor>) {
+            native_verifier.ipa_verification_key =
+                std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+            native_result = native_verifier.verify_proof(inner_proof, convert_stdlib_proof_to_native(output.ipa_proof));
+        } else {
+            native_result = native_verifier.verify_proof(inner_proof);
+        }
+        auto pcs_verification_key = std::make_shared<typename InnerFlavor::VerifierCommitmentKey>();
         bool result = pcs_verification_key->pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
         info("input pairing points result: ", result);
         auto recursive_result = native_verifier.verification_key->verification_key->pcs_verification_key->pairing_check(
@@ -245,11 +246,16 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             auto proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
             OuterProver prover(proving_key);
             auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
-            OuterVerifier verifier(verification_key);
             auto proof = prover.construct_proof();
-            bool verified = verifier.verify_proof(proof);
-
-            ASSERT(verified);
+            if constexpr (HasIPAAccumulator<OuterFlavor>) {
+                auto ipa_verification_key =
+                    std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+                OuterVerifier verifier(verification_key, ipa_verification_key);
+                ASSERT(verifier.verify_proof(proof, proving_key->proving_key.ipa_proof));
+            } else {
+                OuterVerifier verifier(verification_key);
+                ASSERT(verifier.verify_proof(proof));
+            }
         }
     }
 
@@ -294,8 +300,11 @@ using Flavors = testing::Types<MegaRecursiveFlavor_<MegaCircuitBuilder>,
                                MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                UltraRecursiveFlavor_<MegaCircuitBuilder>,
+                               UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
                                UltraRecursiveFlavor_<CircuitSimulatorBN254>,
-                               MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
+                               MegaRecursiveFlavor_<CircuitSimulatorBN254>,
+                               MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
+                               MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 
 TYPED_TEST_SUITE(RecursiveVerifierTest, Flavors);
 
@@ -316,7 +325,10 @@ HEAVY_TYPED_TEST(RecursiveVerifierTest, SingleRecursiveVerification)
 
 HEAVY_TYPED_TEST(RecursiveVerifierTest, IndependentVKHash)
 {
-    if constexpr (std::same_as<TypeParam, UltraRecursiveFlavor_<UltraCircuitBuilder>>) {
+    if constexpr (IsAnyOf<TypeParam,
+                          UltraRecursiveFlavor_<UltraCircuitBuilder>,
+                          UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
+                          MegaZKRecursiveFlavor_<UltraCircuitBuilder>>) {
         TestFixture::test_independent_vk_hash();
     } else {
         GTEST_SKIP() << "Not built for this parameter";

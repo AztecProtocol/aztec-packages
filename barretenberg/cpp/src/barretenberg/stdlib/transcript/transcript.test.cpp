@@ -6,6 +6,7 @@
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -111,7 +112,7 @@ TEST(RecursiveHonkTranscript, InterfacesMatch)
     EXPECT_EQ(prover_transcript.get_manifest(), native_transcript.get_manifest());
 
     // Instantiate a stdlib Transcript and perform the same operations
-    StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(&builder, proof_data);
+    StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(&builder, proof_data);
     StdlibTranscript transcript{ stdlib_proof };
     perform_mock_verifier_transcript_operations<UltraRecursiveFlavor, LENGTH>(transcript);
 
@@ -164,7 +165,7 @@ TEST(RecursiveHonkTranscript, ReturnValuesMatch)
     auto [native_alpha, native_beta] = native_transcript.template get_challenges<FF>("alpha", "beta");
 
     // Perform the same operations with the stdlib verifier transcript
-    StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(&builder, proof_data);
+    StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(&builder, proof_data);
     StdlibTranscript stdlib_transcript{ stdlib_proof };
     auto stdlib_scalar = stdlib_transcript.template receive_from_prover<field_ct>("scalar");
     auto stdlib_commitment = stdlib_transcript.template receive_from_prover<element_ct>("commitment");
@@ -210,7 +211,7 @@ TEST(RecursiveTranscript, InfinityConsistencyGrumpkin)
     verifier_transcript.receive_from_prover<NativeCommitment>("infinity");
     auto verifier_challenge = verifier_transcript.get_challenge<NativeFF>("challenge");
 
-    StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(&builder, proof_data);
+    StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(&builder, proof_data);
     StdlibTranscript stdlib_transcript{ stdlib_proof };
     auto stdlib_infinity = stdlib_transcript.receive_from_prover<Commitment>("infinity");
     EXPECT_TRUE(stdlib_infinity.is_point_at_infinity().get_value());
@@ -248,7 +249,7 @@ TEST(RecursiveTranscript, InfinityConsistencyBN254)
     verifier_transcript.receive_from_prover<NativeCommitment>("infinity");
     auto verifier_challenge = verifier_transcript.get_challenge<NativeFF>("challenge");
 
-    StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(&builder, proof_data);
+    StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(&builder, proof_data);
     StdlibTranscript stdlib_transcript{ stdlib_proof };
     auto stdlib_commitment = stdlib_transcript.receive_from_prover<Commitment>("infinity");
     EXPECT_TRUE(stdlib_commitment.is_point_at_infinity().get_value());

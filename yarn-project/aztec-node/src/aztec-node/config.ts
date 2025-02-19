@@ -1,16 +1,17 @@
-import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver';
+import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
 import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
-import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p';
-import { type ProverClientConfig, proverClientConfigMappings } from '@aztec/prover-client';
-import { type SequencerClientConfig, sequencerClientConfigMappings } from '@aztec/sequencer-client';
-import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client';
-import { type WorldStateConfig, worldStateConfigMappings } from '@aztec/world-state';
+import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
+import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
+import { type ProverClientConfig, proverClientConfigMappings } from '@aztec/prover-client/config';
+import { type SequencerClientConfig, sequencerClientConfigMappings } from '@aztec/sequencer-client/config';
+import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client/config';
+import { type WorldStateConfig, worldStateConfigMappings } from '@aztec/world-state/config';
 
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
-export { sequencerClientConfigMappings, SequencerClientConfig };
+export { sequencerClientConfigMappings, type SequencerClientConfig };
 
 /**
  * The configuration the aztec node.
@@ -21,9 +22,12 @@ export type AztecNodeConfig = ArchiverConfig &
   ProverClientConfig &
   WorldStateConfig &
   Pick<ProverClientConfig, 'bbBinaryPath' | 'bbWorkingDirectory' | 'realProofs'> &
-  P2PConfig & {
+  P2PConfig &
+  DataStoreConfig & {
     /** Whether the validator is disabled for this node */
     disableValidator: boolean;
+    /** Whether to populate the genesis state with initial fee juice for the test accounts */
+    testAccounts: boolean;
   };
 
 export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
@@ -33,9 +37,15 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
   ...proverClientConfigMappings,
   ...worldStateConfigMappings,
   ...p2pConfigMappings,
+  ...dataConfigMappings,
   disableValidator: {
     env: 'VALIDATOR_DISABLED',
     description: 'Whether the validator is disabled for this node.',
+    ...booleanConfigHelper(),
+  },
+  testAccounts: {
+    env: 'TEST_ACCOUNTS',
+    description: 'Whether to populate the genesis state with initial fee juice for the test accounts.',
     ...booleanConfigHelper(),
   },
 };

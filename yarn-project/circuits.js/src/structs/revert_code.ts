@@ -2,8 +2,9 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
+import { z } from 'zod';
 
-enum RevertCodeEnum {
+export enum RevertCodeEnum {
   OK = 0,
   APP_LOGIC_REVERTED = 1,
   TEARDOWN_REVERTED = 2,
@@ -32,6 +33,10 @@ export class RevertCode {
   static readonly TEARDOWN_REVERTED: RevertCode = new RevertCode(RevertCodeEnum.TEARDOWN_REVERTED);
   static readonly BOTH_REVERTED: RevertCode = new RevertCode(RevertCodeEnum.BOTH_REVERTED);
 
+  public getCode(): RevertCodeEnum {
+    return this.code;
+  }
+
   public equals(other: RevertCode): boolean {
     return this.code === other.code;
   }
@@ -53,6 +58,14 @@ export class RevertCode {
       default:
         return `Unknown RevertCode: ${this.code}`;
     }
+  }
+
+  public toJSON() {
+    return this.code;
+  }
+
+  static get schema() {
+    return z.nativeEnum(RevertCodeEnum).transform(value => new RevertCode(value));
   }
 
   /**

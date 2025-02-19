@@ -10,15 +10,22 @@ import {
 } from '@aztec/circuits.js';
 
 import { type WitnessMap } from '@noir-lang/acvm_js';
+import { z } from 'zod';
+
+export const PrivateKernelProverProfileResultSchema = z.object({
+  gateCounts: z.array(z.object({ circuitName: z.string(), gateCount: z.number() })),
+});
+
+export type PrivateKernelProverProfileResult = z.infer<typeof PrivateKernelProverProfileResultSchema>;
 
 /**
  * Represents the output of the proof creation process for init and inner private kernel circuit.
  * Contains the public inputs required for the init and inner private kernel circuit and the generated proof.
  */
-export type PrivateKernelSimulateOutput<PublicInputsType> = {
-  /**
-   * The public inputs required for the proof generation process.
-   */
+export type PrivateKernelSimulateOutput<
+  PublicInputsType extends PrivateKernelCircuitPublicInputs | PrivateKernelTailCircuitPublicInputs,
+> = {
+  /** The public inputs required for the proof generation process. */
   publicInputs: PublicInputsType;
 
   clientIvcProof?: ClientIvcProof;
@@ -28,6 +35,8 @@ export type PrivateKernelSimulateOutput<PublicInputsType> = {
   outputWitness: WitnessMap;
 
   bytecode: Buffer;
+
+  profileResult?: PrivateKernelProverProfileResult;
 };
 
 /**
@@ -48,7 +57,17 @@ export interface PrivateKernelProver {
    * @param privateKernelInputsInit - The private data structure for the initial iteration.
    * @returns A Promise resolving to a ProofOutput object containing public inputs and the kernel proof.
    */
-  simulateProofInit(
+  generateInitOutput(
+    privateKernelInputsInit: PrivateKernelInitCircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>>;
+
+  /**
+   * Executes the first kernel iteration without generating a proof.
+   *
+   * @param privateKernelInputsInit - The private data structure for the initial iteration.
+   * @returns A Promise resolving to a ProofOutput object containing public inputs and an empty kernel proof.
+   */
+  simulateInit(
     privateKernelInputsInit: PrivateKernelInitCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>>;
 
@@ -58,7 +77,17 @@ export interface PrivateKernelProver {
    * @param privateKernelInputsInner - The private input data structure for the inner iteration.
    * @returns A Promise resolving to a ProofOutput object containing public inputs and the kernel proof.
    */
-  simulateProofInner(
+  generateInnerOutput(
+    privateKernelInputsInner: PrivateKernelInnerCircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>>;
+
+  /**
+   * Executes an inner kernel iteration without generating a proof.
+   *
+   * @param privateKernelInputsInit - The private data structure for the initial iteration.
+   * @returns A Promise resolving to a ProofOutput object containing public inputs and an empty kernel proof.
+   */
+  simulateInner(
     privateKernelInputsInner: PrivateKernelInnerCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>>;
 
@@ -68,7 +97,17 @@ export interface PrivateKernelProver {
    * @param privateKernelInputsTail - The private input data structure for the reset circuit.
    * @returns A Promise resolving to a ProofOutput object containing public inputs and the kernel proof.
    */
-  simulateProofReset(
+  generateResetOutput(
+    privateKernelInputsReset: PrivateKernelResetCircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>>;
+
+  /**
+   * Executes the reset circuit without generating a proof
+   *
+   * @param privateKernelInputsTail - The private input data structure for the reset circuit.
+   * @returns A Promise resolving to a ProofOutput object containing public inputs an empty kernel proof.
+   */
+  simulateReset(
     privateKernelInputsReset: PrivateKernelResetCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>>;
 
@@ -78,7 +117,17 @@ export interface PrivateKernelProver {
    * @param privateKernelInputsTail - The private input data structure for the final ordering iteration.
    * @returns A Promise resolving to a ProofOutput object containing public inputs and the kernel proof.
    */
-  simulateProofTail(
+  generateTailOutput(
+    privateKernelInputsTail: PrivateKernelTailCircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>>;
+
+  /**
+   * Executes the final ordering iteration circuit.
+   *
+   * @param privateKernelInputsTail - The private input data structure for the final ordering iteration.
+   * @returns A Promise resolving to a ProofOutput object containing public inputs an empty kernel proof.
+   */
+  simulateTail(
     privateKernelInputsTail: PrivateKernelTailCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>>;
 
@@ -90,12 +139,10 @@ export interface PrivateKernelProver {
   createClientIvcProof(acirs: Buffer[], witnessStack: WitnessMap[]): Promise<ClientIvcProof>;
 
   /**
-   * Creates a proof for an app circuit.
-   *
-   * @param partialWitness - The witness produced via circuit simulation
+   * Compute the gate count for a given circuit.
    * @param bytecode - The circuit bytecode in gzipped bincode format
-   * @param appCircuitName - Optionally specify the name of the app circuit
-   * @returns A Promise resolving to a Proof object
+   * @param circuitName - The name of the circuit
+   * @returns A Promise resolving to the gate count
    */
-  computeAppCircuitVerificationKey(bytecode: Buffer, appCircuitName?: string): Promise<AppCircuitSimulateOutput>;
+  computeGateCountForCircuit(bytecode: Buffer, circuitName: string): Promise<number>;
 }

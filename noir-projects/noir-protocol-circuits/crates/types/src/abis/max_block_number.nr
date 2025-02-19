@@ -18,14 +18,18 @@ impl Eq for MaxBlockNumber {
 
 impl Serialize<MAX_BLOCK_NUMBER_LENGTH> for MaxBlockNumber {
     fn serialize(self) -> [Field; MAX_BLOCK_NUMBER_LENGTH] {
-        [self._opt._is_some as Field, self._opt._value as Field]
+        [self._opt.is_some() as Field, self._opt.unwrap_unchecked() as Field]
     }
 }
 
 impl Deserialize<MAX_BLOCK_NUMBER_LENGTH> for MaxBlockNumber {
     fn deserialize(serialized: [Field; MAX_BLOCK_NUMBER_LENGTH]) -> MaxBlockNumber {
         MaxBlockNumber {
-            _opt: Option { _is_some: serialized[0] as bool, _value: serialized[1] as u32 },
+            _opt: if serialized[0] as bool {
+                Option::some(serialized[1] as u32)
+            } else {
+                Option::none()
+            },
         }
     }
 }

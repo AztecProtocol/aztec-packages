@@ -52,7 +52,7 @@ Suppose there is a Fee Payment Contract (FPC) that has been deployed by another 
    - Alice performs an arbitrary computation in public, potentially consuming DA and L2 gas.
 5. Public teardown:
    - The FPC looks at `transaction_fee` to compute Alice's corresponding refund of BananaCoin.
-   - The FPC transfers the refund to Alice via a pending shield.
+   - The FPC transfers the refund to Alice via a partial note.
 6. Base rollup:
    - The Base rollup kernel circuit injects a public data write that levies the transaction fee on the `fee_payer`.
 

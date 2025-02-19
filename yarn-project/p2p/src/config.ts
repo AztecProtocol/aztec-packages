@@ -1,3 +1,4 @@
+import { type ChainConfig, chainConfigMappings } from '@aztec/circuit-types/config';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
@@ -6,13 +7,14 @@ import {
   numberConfigHelper,
   pickConfigMappings,
 } from '@aztec/foundation/config';
+import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 
-import { type P2PReqRespConfig, p2pReqRespConfigMappings } from './service/reqresp/config.js';
+import { type P2PReqRespConfig, p2pReqRespConfigMappings } from './services/reqresp/config.js';
 
 /**
  * P2P client configuration values.
  */
-export interface P2PConfig extends P2PReqRespConfig {
+export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   /**
    * A flag dictating whether the P2P subsystem should be enabled.
    */
@@ -27,6 +29,16 @@ export interface P2PConfig extends P2PReqRespConfig {
    * The number of blocks to fetch in a single batch.
    */
   blockRequestBatchSize: number;
+
+  /**
+   * DEBUG: Disable message validation - for testing purposes only
+   */
+  debugDisableMessageValidation: boolean;
+
+  /**
+   * DEBUG: Disable colocation penalty - for testing purposes only
+   */
+  debugDisableColocationPenalty: boolean;
 
   /**
    * The frequency in which to check for new peers.
@@ -68,25 +80,18 @@ export interface P2PConfig extends P2PReqRespConfig {
    */
   bootstrapNodes: string[];
 
+  /** Whether to execute the version check in the bootstrap node ENR. */
+  bootstrapNodeEnrVersionCheck: boolean;
+
   /**
    * Protocol identifier for transaction gossiping.
    */
   transactionProtocol: string;
 
   /**
-   * The minimum number of peers (a peer count below this will cause the node to look for more peers)
-   */
-  minPeerCount: number;
-
-  /**
    * The maximum number of peers (a peer count above this will cause the node to refuse connection attempts)
    */
   maxPeerCount: number;
-
-  /**
-   * Data directory for peer & tx databases.
-   */
-  dataDirectory?: string;
 
   /**
    * If announceUdpAddress or announceTcpAddress are not provided, query for the IP address of the machine. Default is false.
@@ -95,6 +100,9 @@ export interface P2PConfig extends P2PReqRespConfig {
 
   /** How many blocks have to pass after a block is proven before its txs are deleted (zero to delete immediately once proven) */
   keepProvenTxsInPoolFor: number;
+
+  /** How many slots to keep attestations for. */
+  keepAttestationsInPoolFor: number;
 
   /**
    * The interval of the gossipsub heartbeat to perform maintenance tasks.
@@ -115,6 +123,16 @@ export interface P2PConfig extends P2PReqRespConfig {
    * The Dhi parameter for the gossipsub protocol.
    */
   gossipsubDhi: number;
+
+  /**
+   * The Dlazy parameter for the gossipsub protocol.
+   */
+  gossipsubDLazy: number;
+
+  /**
+   * Whether to flood publish messages. - For testing purposes only
+   */
+  gossipsubFloodPublish: boolean;
 
   /**
    * The number of gossipsub interval message cache windows to keep.
@@ -151,10 +169,8 @@ export interface P2PConfig extends P2PReqRespConfig {
    */
   peerPenaltyValues: number[];
 
-  /**
-   * The chain id of the L1 chain.
-   */
-  l1ChainId: number;
+  /** Limit of transactions to archive in the tx pool. Once the archived tx limit is reached, the oldest archived txs will be purged. */
+  archivedTxLimit: number;
 }
 
 export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
@@ -168,10 +184,20 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'The frequency in which to check for new L2 blocks.',
     ...numberConfigHelper(100),
   },
+  debugDisableMessageValidation: {
+    env: 'DEBUG_P2P_DISABLE_MESSAGE_VALIDATION',
+    description: 'DEBUG: Disable message validation - NEVER set to true in production',
+    ...booleanConfigHelper(false),
+  },
+  debugDisableColocationPenalty: {
+    env: 'DEBUG_P2P_DISABLE_COLOCATION_PENALTY',
+    description: 'DEBUG: Disable colocation penalty - NEVER set to true in production',
+    ...booleanConfigHelper(false),
+  },
   peerCheckIntervalMS: {
     env: 'P2P_PEER_CHECK_INTERVAL_MS',
     description: 'The frequency in which to check for new peers.',
-    ...numberConfigHelper(1_000),
+    ...numberConfigHelper(30_000),
   },
   l2QueueSize: {
     env: 'P2P_L2_QUEUE_SIZE',
@@ -207,24 +233,20 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     parseEnv: (val: string) => val.split(','),
     description: 'A list of bootstrap peer ENRs to connect to. Separated by commas.',
   },
+  bootstrapNodeEnrVersionCheck: {
+    env: 'P2P_BOOTSTRAP_NODE_ENR_VERSION_CHECK',
+    description: 'Whether to check the version of the bootstrap node ENR.',
+    ...booleanConfigHelper(),
+  },
   transactionProtocol: {
     env: 'P2P_TX_PROTOCOL',
     description: 'Protocol identifier for transaction gossiping.',
     defaultValue: '/aztec/0.1.0',
   },
-  minPeerCount: {
-    env: 'P2P_MIN_PEERS',
-    description: 'The minimum number of peers to connect to.',
-    ...numberConfigHelper(10),
-  },
   maxPeerCount: {
     env: 'P2P_MAX_PEERS',
     description: 'The maximum number of peers to connect to.',
     ...numberConfigHelper(100),
-  },
-  dataDirectory: {
-    env: 'DATA_DIRECTORY',
-    description: 'Data directory for peer & tx databases. Will use temporary location if not set.',
   },
   queryForIp: {
     env: 'P2P_QUERY_FOR_IP',
@@ -238,10 +260,15 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
       'How many blocks have to pass after a block is proven before its txs are deleted (zero to delete immediately once proven)',
     ...numberConfigHelper(0),
   },
+  keepAttestationsInPoolFor: {
+    env: 'P2P_ATTESTATION_POOL_KEEP_FOR',
+    description: 'How many slots to keep attestations for.',
+    ...numberConfigHelper(96),
+  },
   gossipsubInterval: {
     env: 'P2P_GOSSIPSUB_INTERVAL_MS',
     description: 'The interval of the gossipsub heartbeat to perform maintenance tasks.',
-    ...numberConfigHelper(1_000),
+    ...numberConfigHelper(700),
   },
   gossipsubD: {
     env: 'P2P_GOSSIPSUB_D',
@@ -258,10 +285,20 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'The Dhi parameter for the gossipsub protocol.',
     ...numberConfigHelper(12),
   },
+  gossipsubDLazy: {
+    env: 'P2P_GOSSIPSUB_DLAZY',
+    description: 'The Dlazy parameter for the gossipsub protocol.',
+    ...numberConfigHelper(6),
+  },
+  gossipsubFloodPublish: {
+    env: 'P2P_GOSSIPSUB_FLOOD_PUBLISH',
+    description: 'Whether to flood publish messages. - For testing purposes only',
+    ...booleanConfigHelper(true),
+  },
   gossipsubMcacheLength: {
     env: 'P2P_GOSSIPSUB_MCACHE_LENGTH',
     description: 'The number of gossipsub interval message cache windows to keep.',
-    ...numberConfigHelper(5),
+    ...numberConfigHelper(6),
   },
   gossipsubMcacheGossip: {
     env: 'P2P_GOSSIPSUB_MCACHE_GOSSIP',
@@ -295,17 +332,19 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'The "age" (in L2 blocks) of a tx after which we heavily penalize a peer for sending it.',
     ...numberConfigHelper(30),
   },
-  l1ChainId: {
-    env: 'L1_CHAIN_ID',
-    description: 'The chain id of the L1 chain.',
-    ...numberConfigHelper(31337),
-  },
   blockRequestBatchSize: {
     env: 'P2P_BLOCK_REQUEST_BATCH_SIZE',
     description: 'The number of blocks to fetch in a single batch.',
     ...numberConfigHelper(20),
   },
+  archivedTxLimit: {
+    env: 'P2P_ARCHIVED_TX_LIMIT',
+    description:
+      'The number of transactions that will be archived. If the limit is set to 0 then archiving will be disabled.',
+    ...numberConfigHelper(0),
+  },
   ...p2pReqRespConfigMappings,
+  ...chainConfigMappings,
 };
 
 /**
@@ -323,18 +362,21 @@ export function getP2PDefaultConfig(): P2PConfig {
 /**
  * Required P2P config values for a bootstrap node.
  */
-export type BootnodeConfig = Pick<
-  P2PConfig,
-  'udpAnnounceAddress' | 'peerIdPrivateKey' | 'minPeerCount' | 'maxPeerCount'
-> &
-  Required<Pick<P2PConfig, 'udpListenAddress'>>;
+export type BootnodeConfig = Pick<P2PConfig, 'udpAnnounceAddress' | 'peerIdPrivateKey' | 'maxPeerCount'> &
+  Required<Pick<P2PConfig, 'udpListenAddress'>> &
+  Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKB'> &
+  ChainConfig;
 
 const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
   'udpAnnounceAddress',
   'peerIdPrivateKey',
-  'minPeerCount',
   'maxPeerCount',
   'udpListenAddress',
+  'dataDirectory',
+  'dataStoreMapSizeKB',
 ];
 
-export const bootnodeConfigMappings = pickConfigMappings(p2pConfigMappings, bootnodeConfigKeys);
+export const bootnodeConfigMappings = pickConfigMappings(
+  { ...p2pConfigMappings, ...dataConfigMappings },
+  bootnodeConfigKeys,
+);

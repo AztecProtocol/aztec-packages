@@ -10,7 +10,7 @@ Alternatively you can use docker instead, it will handle installations and run t
 
 ## Structure
 
-The `src` folder contain contracts that is to be used by the local developer testnet. It is grouped into 3 catagories:
+The `src` folder contain contracts that is to be used by the local developer testnet. It is grouped into 3 categories:
 
 - `core` contains the required contracts, the bare minimum
 - `mock` contains stubs, for now an always true verifier.
@@ -89,6 +89,23 @@ To run the linter, simply run:
 
 ```bash
 yarn lint
+```
+
+If the output is something to the tune of:
+
+```bash
+$ solhint --config ./.solhint.json "src/**/*.sol"
+[solhint] Warning: Rule 'custom-errors' doesn't exist
+[solhint] Warning: Rule 'private-func-leading-underscore' doesn't exist
+[solhint] Warning: Rule 'private-vars-no-leading-underscore' doesn't exist
+[solhint] Warning: Rule 'func-param-name-leading-underscore' doesn't exist
+[solhint] Warning: Rule 'strict-override' doesn't exist
+```
+
+It is likely that it is a old cached version of the linter that is being used, you can update it as:
+
+```bash
+yarn add https://github.com/LHerskind/solhint\#master
 ```
 
 ---

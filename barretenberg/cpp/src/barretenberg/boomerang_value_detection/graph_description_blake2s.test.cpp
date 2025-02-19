@@ -10,7 +10,10 @@
 
 using namespace bb;
 using namespace bb::stdlib;
+<<<<<<< HEAD
 using namespace cdg;
+=======
+>>>>>>> a86b797d059502fbd402550492f9ad13bd4ede1c
 
 using Builder = UltraCircuitBuilder;
 
@@ -22,7 +25,11 @@ using public_witness_t = public_witness_t<Builder>;
 
 /**
  * @brief this tests check graph description of circuit for blake2s for one and two blocks.
+<<<<<<< HEAD
  * all graphs must have one connected component and 0 variables in one gate.
+=======
+ * all graphs must have one connected component.
+>>>>>>> a86b797d059502fbd402550492f9ad13bd4ede1c
  */
 
 TEST(boomerang_stdlib_blake2s, test_graph_for_blake2s_single_block_plookup)
@@ -37,8 +44,11 @@ TEST(boomerang_stdlib_blake2s, test_graph_for_blake2s_single_block_plookup)
     Graph graph = Graph(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
+<<<<<<< HEAD
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
     EXPECT_EQ(variables_in_one_gate.size(), 0);
+=======
+>>>>>>> a86b797d059502fbd402550492f9ad13bd4ede1c
 }
 
 TEST(boomerang_stdlib_blake2s, test_graph_for_blake2s_double_block_plookup)
@@ -57,6 +67,9 @@ TEST(boomerang_stdlib_blake2s, test_graph_for_blake2s_double_block_plookup)
     Graph graph = Graph(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
+<<<<<<< HEAD
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
     EXPECT_EQ(variables_in_one_gate.size(), 0);
+=======
+>>>>>>> a86b797d059502fbd402550492f9ad13bd4ede1c
 }

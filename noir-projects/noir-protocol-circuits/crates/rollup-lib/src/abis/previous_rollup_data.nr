@@ -1,28 +1,34 @@
 use crate::abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs;
 use dep::types::{
-    constants::VK_TREE_HEIGHT,
+    constants::{PROOF_TYPE_ROLLUP_HONK, VK_TREE_HEIGHT},
     merkle_tree::{membership::assert_check_membership, MembershipWitness},
     proof::{
-        recursive_proof::NestedRecursiveProof,
+        rollup_recursive_proof::NestedRecursiveProof,
         traits::Verifiable,
-        verification_key::{HonkVerificationKey, VerificationKey},
+        verification_key::{RollupHonkVerificationKey, VerificationKey},
     },
-    traits::Empty,
+    traits::{Empty, Serialize},
     utils::arrays::find_index_hint,
 };
 
 pub struct PreviousRollupData {
-    base_or_merge_rollup_public_inputs: BaseOrMergeRollupPublicInputs,
-    proof: NestedRecursiveProof,
-    vk: HonkVerificationKey,
-    vk_witness: MembershipWitness<VK_TREE_HEIGHT>,
+    pub base_or_merge_rollup_public_inputs: BaseOrMergeRollupPublicInputs,
+    pub proof: NestedRecursiveProof,
+    pub vk: RollupHonkVerificationKey,
+    pub vk_witness: MembershipWitness<VK_TREE_HEIGHT>,
 }
 
 impl Verifiable for PreviousRollupData {
     fn verify(self) {
         let inputs =
             BaseOrMergeRollupPublicInputs::serialize(self.base_or_merge_rollup_public_inputs);
-        std::verify_proof(self.vk.key, self.proof.fields, inputs, self.vk.hash);
+        std::verify_proof_with_type(
+            self.vk.key,
+            self.proof.fields,
+            inputs,
+            self.vk.hash,
+            PROOF_TYPE_ROLLUP_HONK,
+        );
     }
 }
 
@@ -38,10 +44,11 @@ impl Empty for PreviousRollupData {
 }
 
 impl PreviousRollupData {
-    fn validate_in_vk_tree<let N: u32>(self, allowed_indices: [u32; N]) {
+    pub fn validate_in_vk_tree<let N: u32>(self, allowed_indices: [u32; N]) {
         self.vk.check_hash();
 
         let leaf_index = self.vk_witness.leaf_index as u32;
+        // Safety: This is a hint which is constrained by the asserts below.
         let index_hint =
             unsafe { find_index_hint(allowed_indices, |index: u32| index == leaf_index) };
         assert(index_hint < N, "Invalid vk index");

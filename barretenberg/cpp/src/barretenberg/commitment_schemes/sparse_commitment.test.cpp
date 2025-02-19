@@ -54,18 +54,17 @@ template <typename Curve> class CommitmentKeyTest : public ::testing::Test {
                 polynomial.at(idx) = Fr::random_element();
             }
             start_idx += fixed_size;
-            if (non_zero_complement) { // fill complement with random constant value
+        }
+
+        // If non_zero_complement, populate the space between active regions with a random constant value
+        if (non_zero_complement) {
+            for (size_t i = 0; i < active_range_endpoints.size() - 1; ++i) {
+                const size_t start = active_range_endpoints[i].second;
+                const size_t end = active_range_endpoints[i + 1].first;
                 Fr const_val = Fr::random_element();
-                for (size_t idx = end_idx; idx < start_idx; ++idx) {
+                for (size_t idx = start; idx < end; ++idx) {
                     polynomial.at(idx) = const_val;
                 }
-            }
-        }
-        // fill complement region between end of last fixed block and end of polynomial
-        if (non_zero_complement) {
-            Fr const_val = polynomial[active_range_endpoints.back().second];
-            for (size_t i = active_range_endpoints.back().second; i < polynomial.end_index(); ++i) {
-                polynomial.at(i) = const_val;
             }
         }
 
@@ -78,7 +77,7 @@ template <>
 std::shared_ptr<CommitmentKey<curve::BN254>> CommitmentKeyTest<curve::BN254>::create_commitment_key<
     CommitmentKey<curve::BN254>>(const size_t num_points)
 {
-    srs::init_crs_factory("../srs_db/ignition");
+    srs::init_crs_factory(bb::srs::get_ignition_crs_path());
     return std::make_shared<CommitmentKey<curve::BN254>>(num_points);
 }
 
@@ -87,7 +86,7 @@ template <>
 std::shared_ptr<CommitmentKey<curve::Grumpkin>> CommitmentKeyTest<curve::Grumpkin>::create_commitment_key<
     CommitmentKey<curve::Grumpkin>>(const size_t num_points)
 {
-    srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+    srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
     return std::make_shared<CommitmentKey<curve::Grumpkin>>(num_points);
 }
 

@@ -2,6 +2,7 @@ import { makeTuple } from '@aztec/foundation/array';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { type Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { inspect } from 'util';
 
@@ -69,7 +70,7 @@ export class PrivateValidationRequests {
   }
 
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   static fromFields(fields: Fr[] | FieldReader) {
@@ -105,7 +106,7 @@ export class PrivateValidationRequests {
    * @returns Deserialized object.
    */
   static fromString(str: string) {
-    return PrivateValidationRequests.fromBuffer(Buffer.from(str, 'hex'));
+    return PrivateValidationRequests.fromBuffer(hexToBuffer(str));
   }
 
   static empty() {

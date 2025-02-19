@@ -27,7 +27,7 @@ export class ScopedKeyValidationRequestAndGenerator {
   }
 
   toFields(): Fr[] {
-    const fields = [...this.request.toFields(), this.contractAddress];
+    const fields = [...this.request.toFields(), this.contractAddress.toField()];
     if (fields.length !== SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH) {
       throw new Error(
         `Invalid number of fields for ScopedKeyValidationRequestAndGenerator. Expected ${SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH}, got ${fields.length}`,

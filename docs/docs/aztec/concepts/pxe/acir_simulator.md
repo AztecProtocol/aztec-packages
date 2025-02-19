@@ -20,7 +20,7 @@ Private functions can call other private functions and can request to call a pub
 
 ### Public Functions
 
-Public functions are simulated and proved on the [sequencer](../../network/sequencer/index.md) side, and verified by the [public kernel circuit](../../concepts/circuits/kernels/public_kernel.md).
+Public functions are simulated and proved on the sequencer side, and verified by the [public kernel circuit](../../concepts/advanced/circuits/kernels/public_kernel.md).
 
 They are run with the assistance of an oracle that provides any value read from the public state tree.
 
@@ -28,7 +28,7 @@ Public functions can call other public functions as well as private functions. P
 
 ### Unconstrained Functions
 
-Unconstrained functions are used to extract useful data for users, such as the user balance. They are not proved, and are simulated client-side.
+Unconstrained functions are used to extract useful data for users, such as the user balance. They are not proven, and are simulated client-side.
 
 They are run with the assistance of a DB oracle that provides any private data requested by the function.
 

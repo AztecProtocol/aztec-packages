@@ -6,7 +6,7 @@ import {RegistryBase} from "./Base.t.sol";
 import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 
 contract GetCurrentSnapshotTest is RegistryBase {
-  function test_GivenOneListedRollup() external {
+  function test_GivenOneListedRollup() external view {
     // it should return the newest
     DataStructures.RegistrySnapshot memory snapshot = registry.getCurrentSnapshot();
     assertEq(snapshot.blockNumber, block.number);

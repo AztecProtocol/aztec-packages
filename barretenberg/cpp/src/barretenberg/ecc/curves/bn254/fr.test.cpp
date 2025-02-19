@@ -357,10 +357,7 @@ TEST(fr, BatchInvert)
     }
 
     for (size_t i = 0; i < n; ++i) {
-        EXPECT_EQ(coeffs[i].data[0], 0UL);
-        EXPECT_EQ(coeffs[i].data[1], 0UL);
-        EXPECT_EQ(coeffs[i].data[2], 0UL);
-        EXPECT_EQ(coeffs[i].data[3], 0UL);
+        EXPECT_TRUE(coeffs[i].is_zero());
     }
 }
 

@@ -1,21 +1,26 @@
 import { type AztecAddress } from '@aztec/aztec.js';
 import { createCompatibleClient } from '@aztec/aztec.js';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 
 export async function getContractData(
   rpcUrl: string,
   contractAddress: AztecAddress,
   includeBytecode: boolean,
-  debugLogger: DebugLogger,
+  debugLogger: Logger,
   log: LogFn,
 ) {
   const client = await createCompatibleClient(rpcUrl, debugLogger);
-  const instance = await client.getContractInstance(contractAddress);
-  const contractClass = includeBytecode && instance && (await client.getContractClass(instance?.contractClassId));
+  const {
+    contractInstance: instance,
+    isContractInitialized: isInitialized,
+    isContractPubliclyDeployed: isPubliclyDeployed,
+  } = await client.getContractMetadata(contractAddress);
+  const contractClass =
+    includeBytecode &&
+    instance &&
+    (await client.getContractClassMetadata(instance?.currentContractClassId)).contractClass;
 
   const isPrivatelyDeployed = !!instance;
-  const isPubliclyDeployed = await client.isContractPubliclyDeployed(contractAddress);
-  const isInitialized = await client.isContractInitialized(contractAddress);
   const initStr = isInitialized ? 'initialized' : 'not initialized';
   const addrStr = contractAddress.toString();
 

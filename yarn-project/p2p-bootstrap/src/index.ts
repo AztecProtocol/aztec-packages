@@ -1,18 +1,26 @@
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
+import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { type BootnodeConfig, BootstrapNode } from '@aztec/p2p';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import Koa from 'koa';
 import Router from 'koa-router';
 
-const debugLogger = createDebugLogger('aztec:bootstrap_node');
+const debugLogger = createLogger('p2p-bootstrap:bootstrap_node');
 
 const { HTTP_PORT } = process.env;
 
 /**
  * The application entry point.
  */
-async function main(config: BootnodeConfig, logger = debugLogger) {
-  const bootstrapNode = new BootstrapNode(logger);
+async function main(
+  config: BootnodeConfig,
+  telemetryClient: TelemetryClient = getTelemetryClient(),
+  logger = debugLogger,
+) {
+  const store = await createStore('p2p-bootstrap', config, logger);
+
+  const bootstrapNode = new BootstrapNode(store, telemetryClient, logger);
   await bootstrapNode.start(config);
   logger.info('DiscV5 Bootnode started');
 
@@ -33,7 +41,9 @@ async function main(config: BootnodeConfig, logger = debugLogger) {
     logger.info('Node stopped');
     process.exit(0);
   };
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   process.on('SIGTERM', stop);
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   process.on('SIGINT', stop);
 }
 

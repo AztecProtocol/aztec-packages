@@ -22,6 +22,62 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
  */
 library SampleLib {
   /**
+   * @notice  Computing a committee the most direct way.
+   *          This is horribly inefficient as we are throwing plenty of things away, but it is useful
+   *          for testing and just showcasing the simplest case.
+   *
+   * @param _committeeSize - The size of the committee
+   * @param _indexCount - The total number of indices
+   * @param _seed - The seed to use for shuffling
+   *
+   * @return indices - The indices of the committee
+   */
+  function computeCommitteeStupid(uint256 _committeeSize, uint256 _indexCount, uint256 _seed)
+    internal
+    pure
+    returns (uint256[] memory)
+  {
+    uint256[] memory indices = new uint256[](_committeeSize);
+
+    for (uint256 index = 0; index < _indexCount; index++) {
+      uint256 sampledIndex = computeShuffledIndex(index, _indexCount, _seed);
+      if (sampledIndex < _committeeSize) {
+        indices[sampledIndex] = index;
+      }
+    }
+
+    return indices;
+  }
+
+  /**
+   * @notice  Computing a committee slightly more cleverly.
+   *          Only computes for the committee size, and does not sample the full set.
+   *          This is more efficient than the stupid way, but still not optimal.
+   *          To be more clever, we can compute the `shuffeRounds` and `pivots` separately
+   *          such that they get shared accross multiple indices.
+   *
+   * @param _committeeSize - The size of the committee
+   * @param _indexCount - The total number of indices
+   * @param _seed - The seed to use for shuffling
+   *
+   * @return indices - The indices of the committee
+   */
+  function computeCommitteeClever(uint256 _committeeSize, uint256 _indexCount, uint256 _seed)
+    internal
+    pure
+    returns (uint256[] memory)
+  {
+    uint256[] memory indices = new uint256[](_committeeSize);
+
+    for (uint256 index = 0; index < _committeeSize; index++) {
+      uint256 originalIndex = computeOriginalIndex(index, _indexCount, _seed);
+      indices[index] = originalIndex;
+    }
+
+    return indices;
+  }
+
+  /**
    * @notice  Computes the shuffled index
    *
    * @param _index - The index to shuffle
@@ -76,62 +132,6 @@ library SampleLib {
     }
 
     return index;
-  }
-
-  /**
-   * @notice  Computing a committee the most direct way.
-   *          This is horribly inefficient as we are throwing plenty of things away, but it is useful
-   *          for testing and just showcasing the simplest case.
-   *
-   * @param _committeeSize - The size of the committee
-   * @param _indexCount - The total number of indices
-   * @param _seed - The seed to use for shuffling
-   *
-   * @return indices - The indices of the committee
-   */
-  function computeCommitteeStupid(uint256 _committeeSize, uint256 _indexCount, uint256 _seed)
-    internal
-    pure
-    returns (uint256[] memory)
-  {
-    uint256[] memory indices = new uint256[](_committeeSize);
-
-    for (uint256 index = 0; index < _indexCount; index++) {
-      uint256 sampledIndex = computeShuffledIndex(index, _indexCount, _seed);
-      if (sampledIndex < _committeeSize) {
-        indices[sampledIndex] = index;
-      }
-    }
-
-    return indices;
-  }
-
-  /**
-   * @notice  Computing a committee slightly more cleverly.
-   *          Only computes for the committee size, and does not sample the full set.
-   *          This is more efficient than the stupid way, but still not optimal.
-   *          To be more clever, we can compute the `shuffeRounds` and `pivots` separately
-   *          such that they get shared accross multiple indices.
-   *
-   * @param _committeeSize - The size of the committee
-   * @param _indexCount - The total number of indices
-   * @param _seed - The seed to use for shuffling
-   *
-   * @return indices - The indices of the committee
-   */
-  function computeCommitteeClever(uint256 _committeeSize, uint256 _indexCount, uint256 _seed)
-    internal
-    pure
-    returns (uint256[] memory)
-  {
-    uint256[] memory indices = new uint256[](_committeeSize);
-
-    for (uint256 index = 0; index < _committeeSize; index++) {
-      uint256 originalIndex = computeOriginalIndex(index, _indexCount, _seed);
-      indices[index] = originalIndex;
-    }
-
-    return indices;
   }
 
   /**
@@ -195,24 +195,24 @@ library SampleLib {
   /**
    * @notice  Computes the log2 of a uint256 number
    *
-   * @param x - The number to compute the log2 of
+   * @param _x - The number to compute the log2 of
    *
    * @return y - The log2 of the number
    */
-  function log2(uint256 x) private pure returns (uint256 y) {
+  function log2(uint256 _x) private pure returns (uint256 y) {
     // https://graphics.stanford.edu/~seander/bithacks.html#IntegerLogDeBruijn
     assembly {
-      let arg := x
-      x := sub(x, 1)
-      x := or(x, div(x, 0x02))
-      x := or(x, div(x, 0x04))
-      x := or(x, div(x, 0x10))
-      x := or(x, div(x, 0x100))
-      x := or(x, div(x, 0x10000))
-      x := or(x, div(x, 0x100000000))
-      x := or(x, div(x, 0x10000000000000000))
-      x := or(x, div(x, 0x100000000000000000000000000000000))
-      x := add(x, 1)
+      let arg := _x
+      _x := sub(_x, 1)
+      _x := or(_x, div(_x, 0x02))
+      _x := or(_x, div(_x, 0x04))
+      _x := or(_x, div(_x, 0x10))
+      _x := or(_x, div(_x, 0x100))
+      _x := or(_x, div(_x, 0x10000))
+      _x := or(_x, div(_x, 0x100000000))
+      _x := or(_x, div(_x, 0x10000000000000000))
+      _x := or(_x, div(_x, 0x100000000000000000000000000000000))
+      _x := add(_x, 1)
       let m := mload(0x40)
       mstore(m, 0xf8f9cbfae6cc78fbefe7cdc3a1793dfcf4f0e8bbd8cec470b6a28a7a5a3e1efd)
       mstore(add(m, 0x20), 0xf5ecf1b3e9debc68e1d9cfabc5997135bfb7a7a3938b7b606b5b4b3f2f1f0ffe)
@@ -225,7 +225,7 @@ library SampleLib {
       mstore(0x40, add(m, 0x100))
       let magic := 0x818283848586878898a8b8c8d8e8f929395969799a9b9d9e9faaeb6bedeeff
       let shift := 0x100000000000000000000000000000000000000000000000000000000000000
-      let a := div(mul(x, magic), shift)
+      let a := div(mul(_x, magic), shift)
       y := div(mload(add(m, sub(255, a))), shift)
       y :=
         add(y, mul(256, gt(arg, 0x8000000000000000000000000000000000000000000000000000000000000000)))

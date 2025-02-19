@@ -1,19 +1,21 @@
 import { Fr, computeSecretHash, fileURLToPath } from '@aztec/aztec.js';
-import { type LogFn, createConsoleLogger, createDebugLogger } from '@aztec/foundation/log';
+import { LOCALHOST } from '@aztec/cli/cli-utils';
+import { type LogFn, createConsoleLogger, createLogger } from '@aztec/foundation/log';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 
-import { Argument, Command } from 'commander';
-import { readFileSync } from 'fs';
-import { dirname, resolve } from 'path';
+import { Argument, Command, Option } from 'commander';
+import { mkdirSync, readFileSync } from 'fs';
+import { dirname, join, resolve } from 'path';
 
 import { injectCommands } from '../cmds/index.js';
 import { Aliases, WalletDB } from '../storage/wallet_db.js';
 import { createAliasOption } from '../utils/options/index.js';
+import { PXEWrapper } from '../utils/pxe_wrapper.js';
 
 const userLog = createConsoleLogger();
-const debugLogger = createDebugLogger('aztec:wallet');
+const debugLogger = createLogger('wallet');
 
-const { WALLET_DATA_DIRECTORY } = process.env;
+const { WALLET_DATA_DIRECTORY = '~/.aztec/wallet', PXE_PROVER = 'none' } = process.env;
 
 function injectInternalCommands(program: Command, log: LogFn, db: WalletDB) {
   program
@@ -66,18 +68,48 @@ async function main() {
   const walletVersion: string = JSON.parse(readFileSync(packageJsonPath).toString()).version;
 
   const db = WalletDB.getInstance();
+  const pxeWrapper = new PXEWrapper();
 
   const program = new Command('wallet');
   program
     .description('Aztec wallet')
     .version(walletVersion)
     .option('-d, --data-dir <string>', 'Storage directory for wallet data', WALLET_DATA_DIRECTORY)
-    .hook('preSubcommand', command => {
-      const dataDir = command.optsWithGlobals().dataDir;
+    .option('-p, --prover <string>', 'wasm|native|none', PXE_PROVER)
+    .addOption(
+      new Option('--remote-pxe', 'Connect to an external PXE RPC server, instead of the local one')
+        .env('REMOTE_PXE')
+        .default(false)
+        .conflicts('rpc-url'),
+    )
+    .addOption(
+      new Option('-n, --node-url <string>', 'URL of the Aztec node to connect to')
+        .env('AZTEC_NODE_URL')
+        .default(`http://${LOCALHOST}:8080`),
+    )
+    .hook('preSubcommand', async command => {
+      const { dataDir, remotePxe, nodeUrl, prover } = command.optsWithGlobals();
+
+      if (!remotePxe) {
+        debugLogger.info('Using local PXE service');
+
+        const bbBinaryPath =
+          prover === 'native'
+            ? resolve(dirname(fileURLToPath(import.meta.url)), '../../../../barretenberg/cpp/build/bin/bb')
+            : undefined;
+        const bbWorkingDirectory = dataDir + '/bb';
+        const proverEnabled = prover !== 'none';
+
+        mkdirSync(bbWorkingDirectory, { recursive: true });
+
+        await pxeWrapper.init(nodeUrl, join(dataDir, 'pxe'), {
+          ...(proverEnabled && { proverEnabled, bbBinaryPath, bbWorkingDirectory }), // only override if we're profiling
+        });
+      }
       db.init(AztecLmdbStore.open(dataDir));
     });
 
-  injectCommands(program, userLog, debugLogger, db);
+  injectCommands(program, userLog, debugLogger, db, pxeWrapper);
   injectInternalCommands(program, userLog, db);
   await program.parseAsync(process.argv);
 }

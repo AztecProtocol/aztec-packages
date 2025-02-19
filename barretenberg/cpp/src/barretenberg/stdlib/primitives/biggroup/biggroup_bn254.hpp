@@ -9,6 +9,7 @@
  **/
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 namespace bb::stdlib::element_default {
 
 /**
@@ -225,7 +226,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul(const std::vec
                                                                   const std::vector<Fr>& small_scalars,
                                                                   const size_t max_num_small_bits)
 {
-    ASSERT(max_num_small_bits >= 128);
+
+    ASSERT(max_num_small_bits % 2 == 0);
+
     const size_t num_big_points = big_points.size();
     const size_t num_small_points = small_points.size();
     C* ctx = nullptr;
@@ -267,6 +270,10 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul(const std::vec
         Fr scalar_k1 = Fr::from_witness(ctx, k1.to_montgomery_form());
         Fr scalar_k2 = Fr::from_witness(ctx, k2.to_montgomery_form());
 
+        // Propagate tags
+        scalar_k1.set_origin_tag(scalar.get_origin_tag());
+        scalar_k2.set_origin_tag(scalar.get_origin_tag());
+
         // Add copy constraint that validates k1 = scalar_k1 - scalar_k2 * \lambda
         scalar.assert_equal(scalar_k1 - scalar_k2 * lambda);
         scalars.push_back(scalar_k1);
@@ -288,6 +295,15 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul(const std::vec
     std::copy(endo_points.begin(), endo_points.end(), std::back_inserter(points));
     std::copy(endo_scalars.begin(), endo_scalars.end(), std::back_inserter(scalars));
 
+    // Compute the tag of the result
+    OriginTag union_tag{};
+    for (size_t i = 0; i < points.size(); i++) {
+        union_tag = OriginTag(union_tag, OriginTag(points[i].get_origin_tag(), scalars[i].get_origin_tag()));
+
+        // Remove tags so they don't interfere during computation
+        points[i].set_origin_tag(OriginTag());
+        scalars[i].set_origin_tag(OriginTag());
+    }
     ASSERT(big_scalars.size() == num_big_points);
     ASSERT(small_scalars.size() == num_small_points);
 
@@ -422,6 +438,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul(const std::vec
     // Remove the offset generator point!
     accumulator = accumulator - offset_generators.second;
 
+    accumulator.set_origin_tag(union_tag);
     // Return our scalar mul output
     return accumulator;
 }

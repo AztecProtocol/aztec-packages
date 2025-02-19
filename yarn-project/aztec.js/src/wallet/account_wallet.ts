@@ -34,6 +34,10 @@ export class AccountWallet extends BaseWallet {
     return this.account.getVersion();
   }
 
+  override isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
+    return this.pxe.isL1ToL2MessageSynced(l1ToL2Message);
+  }
+
   /**
    * Computes an authentication witness from either a message hash or an intent.
    *
@@ -51,7 +55,7 @@ export class AccountWallet extends BaseWallet {
     } else if (messageHashOrIntent instanceof Fr) {
       messageHash = messageHashOrIntent;
     } else {
-      messageHash = this.getMessageHash(messageHashOrIntent);
+      messageHash = await this.getMessageHash(messageHashOrIntent);
     }
 
     const witness = await this.account.createAuthWit(messageHash);
@@ -68,17 +72,17 @@ export class AccountWallet extends BaseWallet {
    * @param authorized - True to authorize, false to revoke authorization.
    * @returns - A function interaction.
    */
-  public setPublicAuthWit(
+  public async setPublicAuthWit(
     messageHashOrIntent: Fr | Buffer | IntentInnerHash | IntentAction,
     authorized: boolean,
-  ): ContractFunctionInteraction {
+  ): Promise<ContractFunctionInteraction> {
     let messageHash: Fr;
     if (Buffer.isBuffer(messageHashOrIntent)) {
       messageHash = Fr.fromBuffer(messageHashOrIntent);
     } else if (messageHashOrIntent instanceof Fr) {
       messageHash = messageHashOrIntent;
     } else {
-      messageHash = this.getMessageHash(messageHashOrIntent);
+      messageHash = await this.getMessageHash(messageHashOrIntent);
     }
 
     return new ContractFunctionInteraction(this, ProtocolContractAddress.AuthRegistry, this.getSetAuthorizedAbi(), [
@@ -87,16 +91,17 @@ export class AccountWallet extends BaseWallet {
     ]);
   }
 
-  private getInnerHashAndConsumer(intent: IntentInnerHash | IntentAction): {
+  private async getInnerHashAndConsumer(intent: IntentInnerHash | IntentAction): Promise<{
     /** The inner hash */
     innerHash: Fr;
     /** The consumer of the authwit */
     consumer: AztecAddress;
-  } {
+  }> {
     if ('caller' in intent && 'action' in intent) {
-      const action = intent.action instanceof ContractFunctionInteraction ? intent.action.request() : intent.action;
+      const action =
+        intent.action instanceof ContractFunctionInteraction ? await intent.action.request() : intent.action;
       return {
-        innerHash: computeInnerAuthWitHashFromAction(intent.caller, action),
+        innerHash: await computeInnerAuthWitHashFromAction(intent.caller, action),
         consumer: action.to,
       };
     } else if (Buffer.isBuffer(intent.innerHash)) {
@@ -111,7 +116,7 @@ export class AccountWallet extends BaseWallet {
    * @param intent - A tuple of (consumer and inner hash) or (caller and action)
    * @returns The message hash
    */
-  private getMessageHash(intent: IntentInnerHash | IntentAction): Fr {
+  private getMessageHash(intent: IntentInnerHash | IntentAction): Promise<Fr> {
     const chainId = this.getChainId();
     const version = this.getVersion();
     return computeAuthWitMessageHash(intent, { chainId, version });
@@ -136,9 +141,9 @@ export class AccountWallet extends BaseWallet {
     /** boolean flag indicating if the authwit is valid in public context */
     isValidInPublic: boolean;
   }> {
-    const { innerHash, consumer } = this.getInnerHashAndConsumer(intent);
+    const { innerHash, consumer } = await this.getInnerHashAndConsumer(intent);
 
-    const messageHash = this.getMessageHash(intent);
+    const messageHash = await this.getMessageHash(intent);
     const results = { isValidInPrivate: false, isValidInPublic: false };
 
     // Check private
@@ -191,6 +196,7 @@ export class AccountWallet extends BaseWallet {
         },
       ],
       returnTypes: [],
+      errorTypes: {},
     };
   }
 
@@ -203,6 +209,7 @@ export class AccountWallet extends BaseWallet {
       isStatic: false,
       parameters: [{ name: 'message_hash', type: { kind: 'field' }, visibility: 'private' as ABIParameterVisibility }],
       returnTypes: [{ kind: 'boolean' }],
+      errorTypes: {},
     };
   }
 
@@ -226,6 +233,7 @@ export class AccountWallet extends BaseWallet {
         { name: 'message_hash', type: { kind: 'field' }, visibility: 'private' as ABIParameterVisibility },
       ],
       returnTypes: [{ kind: 'boolean' }],
+      errorTypes: {},
     };
   }
 }

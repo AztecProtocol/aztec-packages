@@ -1,5 +1,6 @@
 // Test suite for testing proper ordering of side effects
 import { Fr, type FunctionSelector, type PXE, type Wallet, toBigIntBE } from '@aztec/aztec.js';
+import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { ChildContract } from '@aztec/noir-contracts.js/Child';
 import { ParentContract } from '@aztec/noir-contracts.js/Parent';
 
@@ -18,13 +19,18 @@ describe('e2e_ordering', () => {
   let teardown: () => Promise<void>;
 
   const expectLogsFromLastBlockToBe = async (logMessages: bigint[]) => {
+    // docs:start:get_logs
     const fromBlock = await pxe.getBlockNumber();
     const logFilter = {
       fromBlock,
       toBlock: fromBlock + 1,
     };
-    const unencryptedLogs = (await pxe.getUnencryptedLogs(logFilter)).logs;
-    const bigintLogs = unencryptedLogs.map(extendedLog => toBigIntBE(extendedLog.log.data));
+    const publicLogs = (await pxe.getPublicLogs(logFilter)).logs;
+    // docs:end:get_logs
+
+    const bigintLogs = publicLogs.map(extendedLog =>
+      toBigIntBE(serializeToBuffer(extendedLog.log.log.filter(elt => !elt.isZero()))),
+    );
 
     expect(bigintLogs).toStrictEqual(logMessages);
   };
@@ -43,7 +49,7 @@ describe('e2e_ordering', () => {
     beforeEach(async () => {
       parent = await ParentContract.deploy(wallet).send().deployed();
       child = await ChildContract.deploy(wallet).send().deployed();
-      pubSetValueSelector = child.methods.pub_set_value.selector;
+      pubSetValueSelector = await child.methods.pub_set_value.selector();
     }, TIMEOUT);
 
     describe('enqueued public calls ordering', () => {
@@ -69,8 +75,13 @@ describe('e2e_ordering', () => {
           expect(enqueuedPublicCalls.length).toEqual(2);
 
           // The call stack items in the output of the kernel proof match the tx enqueuedPublicFunctionCalls
-          enqueuedPublicCalls.forEach((c, i) => {
-            expect(c.isForCallRequest(tx.data.forPublic!.end.publicCallStack[i])).toBe(true);
+          const areForCallRequests = await Promise.all(
+            enqueuedPublicCalls.map((c, i) =>
+              c.isForCallRequest(tx.data.forPublic!.revertibleAccumulatedData.publicCallRequests[i]),
+            ),
+          );
+          areForCallRequests.forEach(isForCallRequest => {
+            expect(isForCallRequest).toBe(true);
           });
 
           // The enqueued public calls are in the expected order based on the argument they set (stack is reversed!)
@@ -115,7 +126,7 @@ describe('e2e_ordering', () => {
         'set_value_twice_with_nested_first',
         'set_value_twice_with_nested_last',
         'set_value_with_two_nested_calls',
-      ] as const)('orders unencrypted logs in %s', async method => {
+      ] as const)('orders public logs in %s', async method => {
         const expectedOrder = expectedOrders[method];
 
         await child.methods[method]().send().wait();

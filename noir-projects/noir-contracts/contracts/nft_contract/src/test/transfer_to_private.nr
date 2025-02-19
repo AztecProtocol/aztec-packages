@@ -1,12 +1,11 @@
 use crate::{NFT, test::utils, types::nft_note::NFTNote};
 use dep::aztec::{
-    oracle::random::random,
-    prelude::{AztecAddress, NoteHeader},
+    oracle::random::random, prelude::AztecAddress,
     protocol_types::storage::map::derive_storage_slot_in_map,
 };
 use std::test::OracleMock;
 
-/// Internal orchestration means that the calls to `prepare_transfer_to_private`
+/// Internal orchestration means that the calls to `prepare_private_balance_increase`
 /// and `finalize_transfer_to_private` are done by the NFT contract itself.
 /// In this test's case this is done by the `NFT::transfer_to_private(...)` function called
 /// in `utils::setup_mint_and_transfer_to_private`.
@@ -40,7 +39,7 @@ unconstrained fn transfer_to_private_external_orchestration() {
 
     // We prepare the transfer
     let hiding_point_slot: Field = NFT::at(nft_contract_address)
-        .prepare_transfer_to_private(recipient)
+        .prepare_private_balance_increase(recipient)
         .call(&mut env.private());
 
     // Finalize the transfer of the NFT (message sender owns the NFT in public)
@@ -48,21 +47,7 @@ unconstrained fn transfer_to_private_external_orchestration() {
         &mut env.public(),
     );
 
-    // TODO(#8771): We need to manually add the note because in the partial notes flow `notify_created_note_oracle`
-    // is not called and we don't have a `NoteProcessor` in TXE.
-    let private_nfts_recipient_slot =
-        derive_storage_slot_in_map(NFT::storage_layout().private_nfts.slot, recipient);
-
-    env.add_note(
-        &mut NFTNote {
-            token_id,
-            owner: recipient,
-            randomness: note_randomness,
-            header: NoteHeader::empty(),
-        },
-        private_nfts_recipient_slot,
-        nft_contract_address,
-    );
+    env.advance_block_by(1);
 
     // Recipient should have the note in their private nfts
     utils::assert_owns_private_nft(nft_contract_address, recipient, token_id);
@@ -96,7 +81,7 @@ unconstrained fn transfer_to_private_failure_not_an_owner() {
     // as the NFT owner check is before we use the value but that would made the test less robust against changes
     // in the contract.)
     let hiding_point_slot: Field = NFT::at(nft_contract_address)
-        .prepare_transfer_to_private(not_owner)
+        .prepare_private_balance_increase(not_owner)
         .call(&mut env.private());
 
     // Try transferring someone else's public NFT

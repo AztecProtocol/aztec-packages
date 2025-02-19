@@ -34,7 +34,7 @@ Barretenberg (or `bb` for short) is an optimized elliptic curve library for the 
     - [WASM](#wasm)
     - [How to run](#how-to-run)
   - [Debugging](#debugging)
-    - [Debugging Verifification Failures](#debugging-verifification-failures)
+    - [Debugging Verification Failures](#debugging-verifification-failures)
     - [Improving LLDB Debugging](#improving-lldb-debugging)
     - [Using Tracy to Profile Memory/CPU](#using-tracy-to-profile-memorycpu)
 
@@ -133,6 +133,11 @@ When running MacOS Sonoma 14.2.1 the following steps are necessary:
 - update bash with `brew install bash`
 - update [cmake](https://cmake.org/download)
 
+It is recommended to use homebrew llvm on macOS to enable std::execution parallel algorithms. To do so:
+
+- Install llvm with `brew install llvm`
+- Add it to the path with `export PATH="/opt/homebrew/opt/llvm/bin:$PATH"` in your shell or profile file.
+
 <details>
 <summary><h3>Installing openMP (Linux)</h3></summary>
 
@@ -186,9 +191,7 @@ CMake can be passed various build options on its command line:
 - `-DBENCHMARK=ON | OFF`: Enable/disable building of benchmarks.
 - `-DFUZZING=ON | OFF`: Enable building various fuzzers.
 
-If you are cross-compiling, you can use a preconfigured toolchain file:
-
-- `-DCMAKE_TOOLCHAIN_FILE=<filename in ./cmake/toolchains>`: Use one of the preconfigured toolchains.
+Various presets are defined in CMakePresets.json for scenarios such as instrumentation, cross-compiling and targets such as WASM.
 
 #### WASM build
 
@@ -273,7 +276,9 @@ Code is formatted using `clang-format` and the `./cpp/format.sh` script which is
 
 ### Testing
 
-Each module has its own tests. e.g. To build and run `ecc` tests:
+Each module has its own tests. See `./cpp/scripts/bb-tests.sh` for an exhaustive list of test module names.
+
+e.g. To build and run `ecc` tests:
 
 ```bash
 # Replace the `default` preset with whichever preset you want to use
@@ -393,7 +398,7 @@ cmake --build --preset default --target run_ecc_bench
 
 #### Debugging Verifification Failures
 
-The CicuitChecker::check_circuit function is used to get the gate index and block information about a failing circuit constraint.
+The CircuitChecker::check_circuit function is used to get the gate index and block information about a failing circuit constraint.
 If you are in a scenario where you have a failing call to check_circuit and wish to get more information out of it than just the gate index, you can use this feature to get a stack trace, see example below.
 
 Usage instructions:

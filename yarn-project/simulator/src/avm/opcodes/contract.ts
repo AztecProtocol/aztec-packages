@@ -18,24 +18,24 @@ export class GetContractInstance extends Instruction {
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8, // opcode
     OperandType.UINT8, // indirect bits
-    OperandType.UINT8, // member enum (immediate)
     OperandType.UINT16, // addressOffset
     OperandType.UINT16, // dstOffset
     OperandType.UINT16, // existsOfsset
+    OperandType.UINT8, // member enum (immediate)
   ];
 
   constructor(
     private indirect: number,
-    private memberEnum: number,
     private addressOffset: number,
     private dstOffset: number,
     private existsOffset: number,
+    private memberEnum: number,
   ) {
     super();
   }
 
   async execute(context: AvmContext): Promise<void> {
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
     context.machineState.consumeGas(this.gasCost());
 
     if (!(this.memberEnum in ContractInstanceMember)) {
@@ -47,7 +47,7 @@ export class GetContractInstance extends Instruction {
     const [addressOffset, dstOffset, existsOffset] = addressing.resolve(operands, memory);
     memory.checkTag(TypeTag.FIELD, addressOffset);
 
-    const address = memory.get(addressOffset).toFr();
+    const address = memory.get(addressOffset).toAztecAddress();
     const instance = await context.persistableState.getContractInstance(address);
     const exists = instance !== undefined;
 
@@ -58,7 +58,7 @@ export class GetContractInstance extends Instruction {
           memberValue = new Field(instance.deployer.toField());
           break;
         case ContractInstanceMember.CLASS_ID:
-          memberValue = new Field(instance.contractClassId.toField());
+          memberValue = new Field(instance.currentContractClassId.toField());
           break;
         case ContractInstanceMember.INIT_HASH:
           memberValue = new Field(instance.initializationHash);
@@ -68,8 +68,5 @@ export class GetContractInstance extends Instruction {
 
     memory.set(existsOffset, new Uint1(exists ? 1 : 0));
     memory.set(dstOffset, memberValue);
-
-    memory.assert({ reads: 1, writes: 2, addressing });
-    context.machineState.incrementPc();
   }
 }

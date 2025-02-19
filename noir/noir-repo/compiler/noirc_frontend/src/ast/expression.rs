@@ -4,19 +4,19 @@ use std::fmt::Display;
 use thiserror::Error;
 
 use crate::ast::{
-    Ident, ItemVisibility, Path, Pattern, Recoverable, Statement, StatementKind,
-    UnresolvedTraitConstraint, UnresolvedType, UnresolvedTypeData, Visibility,
+    Ident, ItemVisibility, Path, Pattern, Statement, StatementKind, UnresolvedTraitConstraint,
+    UnresolvedType, UnresolvedTypeData, Visibility,
 };
 use crate::node_interner::{
-    ExprId, InternedExpressionKind, InternedStatementKind, QuotedTypeId, StructId,
+    ExprId, InternedExpressionKind, InternedStatementKind, QuotedTypeId, TypeId,
 };
-use crate::token::{Attributes, FunctionAttribute, Token, Tokens};
+use crate::token::{Attributes, FmtStrFragment, FunctionAttribute, Token, Tokens};
 use crate::{Kind, Type};
 use acvm::{acir::AcirField, FieldElement};
 use iter_extended::vecmap;
 use noirc_errors::{Span, Spanned};
 
-use super::{AsTraitPath, TypePath, UnaryRhsMemberAccess};
+use super::{AsTraitPath, TypePath};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ExpressionKind {
@@ -26,11 +26,13 @@ pub enum ExpressionKind {
     Index(Box<IndexExpression>),
     Call(Box<CallExpression>),
     MethodCall(Box<MethodCallExpression>),
+    Constrain(ConstrainExpression),
     Constructor(Box<ConstructorExpression>),
     MemberAccess(Box<MemberAccessExpression>),
     Cast(Box<CastExpression>),
     Infix(Box<InfixExpression>),
     If(Box<IfExpression>),
+    Match(Box<MatchExpression>),
     Variable(Path),
     Tuple(Vec<Expression>),
     Lambda(Box<Lambda>),
@@ -98,7 +100,7 @@ impl UnresolvedGeneric {
             UnresolvedGeneric::Variable(_) => Ok(Kind::Normal),
             UnresolvedGeneric::Numeric { typ, .. } => {
                 let typ = self.resolve_numeric_kind_type(typ)?;
-                Ok(Kind::Numeric(Box::new(typ)))
+                Ok(Kind::numeric(typ))
             }
             UnresolvedGeneric::Resolved(..) => {
                 panic!("Don't know the kind of a resolved generic here")
@@ -210,8 +212,8 @@ impl ExpressionKind {
         ExpressionKind::Literal(Literal::RawStr(contents, hashes))
     }
 
-    pub fn format_string(contents: String) -> ExpressionKind {
-        ExpressionKind::Literal(Literal::FmtStr(contents))
+    pub fn format_string(fragments: Vec<FmtStrFragment>, length: u32) -> ExpressionKind {
+        ExpressionKind::Literal(Literal::FmtStr(fragments, length))
     }
 
     pub fn constructor(
@@ -222,24 +224,6 @@ impl ExpressionKind {
             fields,
             struct_type: None,
         }))
-    }
-}
-
-impl Recoverable for ExpressionKind {
-    fn error(_: Span) -> Self {
-        ExpressionKind::Error
-    }
-}
-
-impl Recoverable for Expression {
-    fn error(span: Span) -> Self {
-        Expression::new(ExpressionKind::Error, span)
-    }
-}
-
-impl Recoverable for Option<Expression> {
-    fn error(span: Span) -> Self {
-        Some(Expression::new(ExpressionKind::Error, span))
     }
 }
 
@@ -260,49 +244,6 @@ impl PartialEq<Expression> for Expression {
 impl Expression {
     pub fn new(kind: ExpressionKind, span: Span) -> Expression {
         Expression { kind, span }
-    }
-
-    pub fn member_access_or_method_call(
-        lhs: Expression,
-        rhs: UnaryRhsMemberAccess,
-        span: Span,
-    ) -> Expression {
-        let kind = match rhs.method_call {
-            None => {
-                let rhs = rhs.method_or_field;
-                ExpressionKind::MemberAccess(Box::new(MemberAccessExpression { lhs, rhs }))
-            }
-            Some(method_call) => ExpressionKind::MethodCall(Box::new(MethodCallExpression {
-                object: lhs,
-                method_name: rhs.method_or_field,
-                generics: method_call.turbofish,
-                arguments: method_call.args,
-                is_macro_call: method_call.macro_call,
-            })),
-        };
-        Expression::new(kind, span)
-    }
-
-    pub fn index(collection: Expression, index: Expression, span: Span) -> Expression {
-        let kind = ExpressionKind::Index(Box::new(IndexExpression { collection, index }));
-        Expression::new(kind, span)
-    }
-
-    pub fn cast(lhs: Expression, r#type: UnresolvedType, span: Span) -> Expression {
-        let kind = ExpressionKind::Cast(Box::new(CastExpression { lhs, r#type }));
-        Expression::new(kind, span)
-    }
-
-    pub fn call(
-        lhs: Expression,
-        is_macro_call: bool,
-        arguments: Vec<Expression>,
-        span: Span,
-    ) -> Expression {
-        let func = Box::new(lhs);
-        let kind =
-            ExpressionKind::Call(Box::new(CallExpression { func, is_macro_call, arguments }));
-        Expression::new(kind, span)
     }
 }
 
@@ -434,7 +375,7 @@ pub enum Literal {
     Integer(FieldElement, /*sign*/ bool), // false for positive integer and true for negative
     Str(String),
     RawStr(String, u8),
-    FmtStr(String),
+    FmtStr(Vec<FmtStrFragment>, u32 /* length */),
     Unit,
 }
 
@@ -463,6 +404,12 @@ pub struct IfExpression {
     pub condition: Expression,
     pub consequence: Expression,
     pub alternative: Option<Expression>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct MatchExpression {
+    pub expression: Expression,
+    pub rules: Vec<(/*pattern*/ Expression, /*branch*/ Expression)>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -504,7 +451,7 @@ impl FunctionDefinition {
     }
 
     pub fn is_test(&self) -> bool {
-        if let Some(attribute) = &self.attributes.function {
+        if let Some(attribute) = self.attributes.function() {
             matches!(attribute, FunctionAttribute::Test(..))
         } else {
             false
@@ -559,7 +506,7 @@ pub struct ConstructorExpression {
     /// This may be filled out during macro expansion
     /// so that we can skip re-resolving the type name since it
     /// would be lost at that point.
-    pub struct_type: Option<StructId>,
+    pub struct_type: Option<TypeId>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -593,6 +540,55 @@ impl BlockExpression {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct ConstrainExpression {
+    pub kind: ConstrainKind,
+    pub arguments: Vec<Expression>,
+    pub span: Span,
+}
+
+impl Display for ConstrainExpression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.kind {
+            ConstrainKind::Assert | ConstrainKind::AssertEq => write!(
+                f,
+                "{}({})",
+                self.kind,
+                vecmap(&self.arguments, |arg| arg.to_string()).join(", ")
+            ),
+            ConstrainKind::Constrain => {
+                write!(f, "constrain {}", &self.arguments[0])
+            }
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum ConstrainKind {
+    Assert,
+    AssertEq,
+    Constrain,
+}
+
+impl ConstrainKind {
+    pub fn required_arguments_count(&self) -> usize {
+        match self {
+            ConstrainKind::Assert | ConstrainKind::Constrain => 1,
+            ConstrainKind::AssertEq => 2,
+        }
+    }
+}
+
+impl Display for ConstrainKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ConstrainKind::Assert => write!(f, "assert"),
+            ConstrainKind::AssertEq => write!(f, "assert_eq"),
+            ConstrainKind::Constrain => write!(f, "constrain"),
+        }
+    }
+}
+
 impl Display for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.kind.fmt(f)
@@ -609,9 +605,11 @@ impl Display for ExpressionKind {
             Index(index) => index.fmt(f),
             Call(call) => call.fmt(f),
             MethodCall(call) => call.fmt(f),
+            Constrain(constrain) => constrain.fmt(f),
             Cast(cast) => cast.fmt(f),
             Infix(infix) => infix.fmt(f),
             If(if_expr) => if_expr.fmt(f),
+            Match(match_expr) => match_expr.fmt(f),
             Variable(path) => path.fmt(f),
             Constructor(constructor) => constructor.fmt(f),
             MemberAccess(access) => access.fmt(f),
@@ -669,7 +667,13 @@ impl Display for Literal {
                     std::iter::once('#').cycle().take(*num_hashes as usize).collect();
                 write!(f, "r{hashes}\"{string}\"{hashes}")
             }
-            Literal::FmtStr(string) => write!(f, "f\"{string}\""),
+            Literal::FmtStr(fragments, _length) => {
+                write!(f, "f\"")?;
+                for fragment in fragments {
+                    fragment.fmt(f)?;
+                }
+                write!(f, "\"")
+            }
             Literal::Unit => write!(f, "()"),
         }
     }
@@ -733,8 +737,7 @@ impl Display for CastExpression {
 
 impl Display for ConstructorExpression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let fields =
-            self.fields.iter().map(|(ident, expr)| format!("{ident}: {expr}")).collect::<Vec<_>>();
+        let fields = vecmap(&self.fields, |(ident, expr)| format!("{ident}: {expr}"));
 
         write!(f, "({} {{ {} }})", self.typ, fields.join(", "))
     }
@@ -785,6 +788,16 @@ impl Display for IfExpression {
     }
 }
 
+impl Display for MatchExpression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "match {} {{", self.expression)?;
+        for (pattern, branch) in &self.rules {
+            writeln!(f, "    {pattern} -> {branch},")?;
+        }
+        write!(f, "}}")
+    }
+}
+
 impl Display for Lambda {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let parameters = vecmap(&self.parameters, |(name, r#type)| format!("{name}: {type}"));
@@ -802,8 +815,8 @@ impl Display for AsTraitPath {
 impl Display for TypePath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}::{}", self.typ, self.item)?;
-        if !self.turbofish.is_empty() {
-            write!(f, "::{}", self.turbofish)?;
+        if let Some(turbofish) = &self.turbofish {
+            write!(f, "::{}", turbofish)?;
         }
         Ok(())
     }
@@ -815,8 +828,8 @@ impl FunctionDefinition {
         is_unconstrained: bool,
         generics: &UnresolvedGenerics,
         parameters: &[(Ident, UnresolvedType)],
-        body: &BlockExpression,
-        where_clause: &[UnresolvedTraitConstraint],
+        body: BlockExpression,
+        where_clause: Vec<UnresolvedTraitConstraint>,
         return_type: &FunctionReturnType,
     ) -> FunctionDefinition {
         let p = parameters
@@ -837,9 +850,9 @@ impl FunctionDefinition {
             visibility: ItemVisibility::Private,
             generics: generics.clone(),
             parameters: p,
-            body: body.clone(),
+            body,
             span: name.span(),
-            where_clause: where_clause.to_vec(),
+            where_clause,
             return_type: return_type.clone(),
             return_visibility: Visibility::Private,
         }

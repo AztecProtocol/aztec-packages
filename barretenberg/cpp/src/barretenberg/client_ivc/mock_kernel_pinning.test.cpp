@@ -18,13 +18,12 @@ class MockKernelTest : public ::testing::Test {
     using MockCircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
 
   protected:
-    static void SetUpTestSuite() { srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 };
 
 TEST_F(MockKernelTest, PinFoldingKernelSizes)
 {
-    ClientIVC ivc;
-    ivc.trace_structure = TraceStructure::CLIENT_IVC_BENCH;
+    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
 
     MockCircuitProducer circuit_producer;
 

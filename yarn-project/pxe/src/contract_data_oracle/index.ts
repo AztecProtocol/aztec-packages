@@ -7,7 +7,7 @@ import {
   getFunctionDebugMetadata,
 } from '@aztec/foundation/abi';
 import { type Fr } from '@aztec/foundation/fields';
-import { ContractClassNotFoundError, ContractNotFoundError } from '@aztec/simulator';
+import { ContractClassNotFoundError, ContractNotFoundError } from '@aztec/simulator/client';
 
 import { type ContractArtifactDatabase } from '../database/contracts/contract_artifact_db.js';
 import { type ContractInstanceDatabase } from '../database/contracts/contract_instance_db.js';
@@ -23,21 +23,16 @@ import { PrivateFunctionsTree } from './private_functions_tree.js';
 export class ContractDataOracle {
   /** Map from contract class id to private function tree. */
   private contractClasses: Map<string, PrivateFunctionsTree> = new Map();
-  /** Map from address to contract instance. */
-  private contractInstances: Map<string, ContractInstance> = new Map();
 
   constructor(private db: ContractArtifactDatabase & ContractInstanceDatabase) {}
 
   /** Returns a contract instance for a given address. Throws if not found. */
   public async getContractInstance(contractAddress: AztecAddress): Promise<ContractInstance> {
-    if (!this.contractInstances.has(contractAddress.toString())) {
-      const instance = await this.db.getContractInstance(contractAddress);
-      if (!instance) {
-        throw new ContractNotFoundError(contractAddress.toString());
-      }
-      this.contractInstances.set(contractAddress.toString(), instance);
+    const instance = await this.db.getContractInstance(contractAddress);
+    if (!instance) {
+      throw new ContractNotFoundError(contractAddress.toString());
     }
-    return this.contractInstances.get(contractAddress.toString())!;
+    return instance;
   }
 
   /** Returns a contract class for a given class id. Throws if not found. */
@@ -97,7 +92,7 @@ export class ContractDataOracle {
     selector: FunctionSelector,
   ): Promise<FunctionDebugMetadata | undefined> {
     const tree = await this.getTreeForAddress(contractAddress);
-    const artifact = tree.getFunctionArtifact(selector);
+    const artifact = await tree.getFunctionArtifact(selector);
     return getFunctionDebugMetadata(tree.getArtifact(), artifact);
   }
 
@@ -117,23 +112,28 @@ export class ContractDataOracle {
   }
 
   /**
-   * Retrieve the function membership witness for the given contract address and function selector.
+   * Retrieve the function membership witness for the given contract class and function selector.
    * The function membership witness represents a proof that the function belongs to the specified contract.
    * Throws an error if the contract address or function selector is unknown.
    *
-   * @param contractAddress - The contract address.
+   * @param contractClassId - The id of the class.
    * @param selector - The function selector.
    * @returns A promise that resolves with the MembershipWitness instance for the specified contract's function.
    */
-  public async getFunctionMembershipWitness(contractAddress: AztecAddress, selector: FunctionSelector) {
-    const tree = await this.getTreeForAddress(contractAddress);
+  public async getFunctionMembershipWitness(contractClassId: Fr, selector: FunctionSelector) {
+    const tree = await this.getTreeForClassId(contractClassId);
     return tree.getFunctionMembershipWitness(selector);
+  }
+
+  public async getDebugContractName(contractAddress: AztecAddress) {
+    const tree = await this.getTreeForAddress(contractAddress);
+    return tree.getArtifact().name;
   }
 
   public async getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector) {
     const tree = await this.getTreeForAddress(contractAddress);
     const { name: contractName } = tree.getArtifact();
-    const { name: functionName } = tree.getFunctionArtifact(selector);
+    const { name: functionName } = await tree.getFunctionArtifact(selector);
     return `${contractName}:${functionName}`;
   }
 
@@ -153,7 +153,7 @@ export class ContractDataOracle {
       if (!artifact) {
         throw new ContractClassNotFoundError(classId.toString());
       }
-      const tree = new PrivateFunctionsTree(artifact);
+      const tree = await PrivateFunctionsTree.create(artifact);
       this.contractClasses.set(classId.toString(), tree);
     }
     return this.contractClasses.get(classId.toString())!;
@@ -171,6 +171,6 @@ export class ContractDataOracle {
    */
   private async getTreeForAddress(contractAddress: AztecAddress): Promise<PrivateFunctionsTree> {
     const instance = await this.getContractInstance(contractAddress);
-    return this.getTreeForClassId(instance.contractClassId);
+    return this.getTreeForClassId(instance.currentContractClassId);
   }
 }

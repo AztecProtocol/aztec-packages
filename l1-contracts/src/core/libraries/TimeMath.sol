@@ -2,8 +2,6 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-
 type Timestamp is uint256;
 
 type Slot is uint256;
@@ -11,140 +9,118 @@ type Slot is uint256;
 type Epoch is uint256;
 
 library SlotLib {
-  function toTimestamp(Slot a) internal pure returns (Timestamp) {
-    return Timestamp.wrap(Slot.unwrap(a) * Constants.AZTEC_SLOT_DURATION);
-  }
-
-  function fromTimestamp(Timestamp a) internal pure returns (Slot) {
-    return Slot.wrap(Timestamp.unwrap(a) / Constants.AZTEC_SLOT_DURATION);
-  }
-
-  function positionInEpoch(Slot a) internal pure returns (uint256) {
-    return Slot.unwrap(a) % Constants.AZTEC_EPOCH_DURATION;
-  }
-
-  function unwrap(Slot a) internal pure returns (uint256) {
-    return Slot.unwrap(a);
+  function unwrap(Slot _a) internal pure returns (uint256) {
+    return Slot.unwrap(_a);
   }
 }
 
 library EpochLib {
-  function toSlots(Epoch a) internal pure returns (Slot) {
-    return Slot.wrap(Epoch.unwrap(a) * Constants.AZTEC_EPOCH_DURATION);
-  }
-
-  function toTimestamp(Epoch a) internal pure returns (Timestamp) {
-    return SlotLib.toTimestamp(toSlots(a));
-  }
-
-  function fromTimestamp(Timestamp a) internal pure returns (Epoch) {
-    return Epoch.wrap(
-      Timestamp.unwrap(a) / (Constants.AZTEC_EPOCH_DURATION * Constants.AZTEC_SLOT_DURATION)
-    );
-  }
-
-  function unwrap(Epoch a) internal pure returns (uint256) {
-    return Epoch.unwrap(a);
+  function unwrap(Epoch _a) internal pure returns (uint256) {
+    return Epoch.unwrap(_a);
   }
 }
 
 using SlotLib for Slot;
 using EpochLib for Epoch;
 
-function addTimestamp(Timestamp a, Timestamp b) pure returns (Timestamp) {
-  return Timestamp.wrap(Timestamp.unwrap(a) + Timestamp.unwrap(b));
+function addTimestamp(Timestamp _a, Timestamp _b) pure returns (Timestamp) {
+  return Timestamp.wrap(Timestamp.unwrap(_a) + Timestamp.unwrap(_b));
 }
 
-function subTimestamp(Timestamp a, Timestamp b) pure returns (Timestamp) {
-  return Timestamp.wrap(Timestamp.unwrap(a) - Timestamp.unwrap(b));
+function subTimestamp(Timestamp _a, Timestamp _b) pure returns (Timestamp) {
+  return Timestamp.wrap(Timestamp.unwrap(_a) - Timestamp.unwrap(_b));
 }
 
-function ltTimestamp(Timestamp a, Timestamp b) pure returns (bool) {
-  return Timestamp.unwrap(a) < Timestamp.unwrap(b);
+function ltTimestamp(Timestamp _a, Timestamp _b) pure returns (bool) {
+  return Timestamp.unwrap(_a) < Timestamp.unwrap(_b);
 }
 
-function lteTimestamp(Timestamp a, Timestamp b) pure returns (bool) {
-  return Timestamp.unwrap(a) <= Timestamp.unwrap(b);
+function lteTimestamp(Timestamp _a, Timestamp _b) pure returns (bool) {
+  return Timestamp.unwrap(_a) <= Timestamp.unwrap(_b);
 }
 
-function gtTimestamp(Timestamp a, Timestamp b) pure returns (bool) {
-  return Timestamp.unwrap(a) > Timestamp.unwrap(b);
+function gtTimestamp(Timestamp _a, Timestamp _b) pure returns (bool) {
+  return Timestamp.unwrap(_a) > Timestamp.unwrap(_b);
 }
 
-function gteTimestamp(Timestamp a, Timestamp b) pure returns (bool) {
-  return Timestamp.unwrap(a) >= Timestamp.unwrap(b);
+function gteTimestamp(Timestamp _a, Timestamp _b) pure returns (bool) {
+  return Timestamp.unwrap(_a) >= Timestamp.unwrap(_b);
 }
 
-function neqTimestamp(Timestamp a, Timestamp b) pure returns (bool) {
-  return Timestamp.unwrap(a) != Timestamp.unwrap(b);
+function neqTimestamp(Timestamp _a, Timestamp _b) pure returns (bool) {
+  return Timestamp.unwrap(_a) != Timestamp.unwrap(_b);
 }
 
-function eqTimestamp(Timestamp a, Timestamp b) pure returns (bool) {
-  return Timestamp.unwrap(a) == Timestamp.unwrap(b);
+function eqTimestamp(Timestamp _a, Timestamp _b) pure returns (bool) {
+  return Timestamp.unwrap(_a) == Timestamp.unwrap(_b);
 }
 
 // Slot
 
-function addSlot(Slot a, Slot b) pure returns (Slot) {
-  return Slot.wrap(Slot.unwrap(a) + Slot.unwrap(b));
+function addSlot(Slot _a, Slot _b) pure returns (Slot) {
+  return Slot.wrap(Slot.unwrap(_a) + Slot.unwrap(_b));
 }
 
-function eqSlot(Slot a, Slot b) pure returns (bool) {
-  return Slot.unwrap(a) == Slot.unwrap(b);
+function subSlot(Slot _a, Slot _b) pure returns (Slot) {
+  return Slot.wrap(Slot.unwrap(_a) - Slot.unwrap(_b));
 }
 
-function neqSlot(Slot a, Slot b) pure returns (bool) {
-  return Slot.unwrap(a) != Slot.unwrap(b);
+function eqSlot(Slot _a, Slot _b) pure returns (bool) {
+  return Slot.unwrap(_a) == Slot.unwrap(_b);
 }
 
-function ltSlot(Slot a, Slot b) pure returns (bool) {
-  return Slot.unwrap(a) < Slot.unwrap(b);
+function neqSlot(Slot _a, Slot _b) pure returns (bool) {
+  return Slot.unwrap(_a) != Slot.unwrap(_b);
 }
 
-function lteSlot(Slot a, Slot b) pure returns (bool) {
-  return Slot.unwrap(a) <= Slot.unwrap(b);
+function ltSlot(Slot _a, Slot _b) pure returns (bool) {
+  return Slot.unwrap(_a) < Slot.unwrap(_b);
 }
 
-function gtSlot(Slot a, Slot b) pure returns (bool) {
-  return Slot.unwrap(a) > Slot.unwrap(b);
+function lteSlot(Slot _a, Slot _b) pure returns (bool) {
+  return Slot.unwrap(_a) <= Slot.unwrap(_b);
 }
 
-function gteSlot(Slot a, Slot b) pure returns (bool) {
-  return Slot.unwrap(a) >= Slot.unwrap(b);
+function gtSlot(Slot _a, Slot _b) pure returns (bool) {
+  return Slot.unwrap(_a) > Slot.unwrap(_b);
+}
+
+function gteSlot(Slot _a, Slot _b) pure returns (bool) {
+  return Slot.unwrap(_a) >= Slot.unwrap(_b);
 }
 
 // Epoch
 
-function eqEpoch(Epoch a, Epoch b) pure returns (bool) {
-  return Epoch.unwrap(a) == Epoch.unwrap(b);
+function eqEpoch(Epoch _a, Epoch _b) pure returns (bool) {
+  return Epoch.unwrap(_a) == Epoch.unwrap(_b);
 }
 
-function neqEpoch(Epoch a, Epoch b) pure returns (bool) {
-  return Epoch.unwrap(a) != Epoch.unwrap(b);
+function neqEpoch(Epoch _a, Epoch _b) pure returns (bool) {
+  return Epoch.unwrap(_a) != Epoch.unwrap(_b);
 }
 
-function subEpoch(Epoch a, Epoch b) pure returns (Epoch) {
-  return Epoch.wrap(Epoch.unwrap(a) - Epoch.unwrap(b));
+function subEpoch(Epoch _a, Epoch _b) pure returns (Epoch) {
+  return Epoch.wrap(Epoch.unwrap(_a) - Epoch.unwrap(_b));
 }
 
-function addEpoch(Epoch a, Epoch b) pure returns (Epoch) {
-  return Epoch.wrap(Epoch.unwrap(a) + Epoch.unwrap(b));
+function addEpoch(Epoch _a, Epoch _b) pure returns (Epoch) {
+  return Epoch.wrap(Epoch.unwrap(_a) + Epoch.unwrap(_b));
 }
 
-function gteEpoch(Epoch a, Epoch b) pure returns (bool) {
-  return Epoch.unwrap(a) >= Epoch.unwrap(b);
+function gteEpoch(Epoch _a, Epoch _b) pure returns (bool) {
+  return Epoch.unwrap(_a) >= Epoch.unwrap(_b);
 }
 
-function gtEpoch(Epoch a, Epoch b) pure returns (bool) {
-  return Epoch.unwrap(a) > Epoch.unwrap(b);
+function gtEpoch(Epoch _a, Epoch _b) pure returns (bool) {
+  return Epoch.unwrap(_a) > Epoch.unwrap(_b);
 }
 
-function lteEpoch(Epoch a, Epoch b) pure returns (bool) {
-  return Epoch.unwrap(a) <= Epoch.unwrap(b);
+function lteEpoch(Epoch _a, Epoch _b) pure returns (bool) {
+  return Epoch.unwrap(_a) <= Epoch.unwrap(_b);
 }
 
-function ltEpoch(Epoch a, Epoch b) pure returns (bool) {
-  return Epoch.unwrap(a) < Epoch.unwrap(b);
+function ltEpoch(Epoch _a, Epoch _b) pure returns (bool) {
+  return Epoch.unwrap(_a) < Epoch.unwrap(_b);
 }
 
 using {
@@ -176,5 +152,6 @@ using {
   gtSlot as >,
   lteSlot as <=,
   ltSlot as <,
-  addSlot as +
+  addSlot as +,
+  subSlot as -
 } for Slot global;

@@ -1,6 +1,9 @@
 import { type Fr } from '@aztec/foundation/fields';
-import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
+import { type FieldsOf } from '@aztec/foundation/types';
 
+import { ROLLUP_VALIDATION_REQUESTS_LENGTH } from '../constants.gen.js';
 import { MaxBlockNumber } from './max_block_number.js';
 
 /**
@@ -23,12 +26,26 @@ export class RollupValidationRequests {
   }
 
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
+  }
+
+  static getFields(fields: FieldsOf<RollupValidationRequests>) {
+    return [fields.maxBlockNumber] as const;
   }
 
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
     return new RollupValidationRequests(MaxBlockNumber.fromFields(reader));
+  }
+
+  toFields(): Fr[] {
+    const fields = serializeToFields(...RollupValidationRequests.getFields(this));
+    if (fields.length !== ROLLUP_VALIDATION_REQUESTS_LENGTH) {
+      throw new Error(
+        `Invalid number of fields for RollupValidationRequests. Expected ${ROLLUP_VALIDATION_REQUESTS_LENGTH}, got ${fields.length}`,
+      );
+    }
+    return fields;
   }
 
   /**
@@ -47,7 +64,7 @@ export class RollupValidationRequests {
    * @returns Deserialized object.
    */
   static fromString(str: string) {
-    return RollupValidationRequests.fromBuffer(Buffer.from(str, 'hex'));
+    return RollupValidationRequests.fromBuffer(hexToBuffer(str));
   }
 
   static empty() {

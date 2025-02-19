@@ -1,16 +1,15 @@
 import { type PXE, createCompatibleClient } from '@aztec/aztec.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
 import { createPublicClient, getAddress, getContract, http } from 'viem';
 import { foundry } from 'viem/chains';
 
-import { getConfig, isK8sConfig, startPortForward } from './k8_utils.js';
+import { isK8sConfig, setupEnvironment, startPortForward } from './utils.js';
 
-const config = getConfig(process.env);
+const config = setupEnvironment(process.env);
 
-const debugLogger = createDebugLogger('aztec:spartan-test:smoke');
-// const userLog = createConsoleLogger();
+const debugLogger = createLogger('e2e:spartan-test:smoke');
 
 describe('smoke test', () => {
   let pxe: PXE;
@@ -18,7 +17,7 @@ describe('smoke test', () => {
     let PXE_URL;
     if (isK8sConfig(config)) {
       await startPortForward({
-        resource: 'svc/spartan-aztec-network-pxe',
+        resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
         namespace: config.NAMESPACE,
         containerPort: config.CONTAINER_PXE_PORT,
         hostPort: config.HOST_PXE_PORT,
@@ -29,6 +28,7 @@ describe('smoke test', () => {
     }
     pxe = await createCompatibleClient(PXE_URL, debugLogger);
   });
+
   it('should be able to get node enr', async () => {
     const info = await pxe.getNodeInfo();
     expect(info).toBeDefined();
@@ -38,7 +38,7 @@ describe('smoke test', () => {
 
   // Leaving this test skipped commented out because it requires the ethereum node
   // to be running and forwarded, e.g.
-  // kubectl port-forward -n smoke service/spartan-aztec-network-ethereum 8545:8545
+  // kubectl port-forward -n smoke service/spartan-aztec-network-eth-execution 8545:8545
   // also because it assumes foundry.
 
   it.skip('should be able to get rollup info', async () => {

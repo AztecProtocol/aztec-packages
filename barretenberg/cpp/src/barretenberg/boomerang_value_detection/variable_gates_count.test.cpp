@@ -114,7 +114,7 @@ TEST(ultra_circuit_constructor, test_decompose_with_boolean_gates)
     EXPECT_EQ(variables_in_one_gate.size(), 22);
 }
 
-TEST(ultra_circuit_constructor, test_decompose_for_6_bit_number)
+TEST(boomerang_ultra_circuit_constructor, test_decompose_for_6_bit_number)
 {
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
     auto c = fr::random_element();

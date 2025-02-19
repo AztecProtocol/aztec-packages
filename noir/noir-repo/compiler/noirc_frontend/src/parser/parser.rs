@@ -5,7 +5,7 @@ use noirc_errors::Span;
 use crate::{
     ast::{Ident, ItemVisibility},
     lexer::{Lexer, SpannedTokenResult},
-    token::{IntType, Keyword, SpannedToken, Token, TokenKind, Tokens},
+    token::{FmtStrFragment, IntType, Keyword, SpannedToken, Token, TokenKind, Tokens},
 };
 
 use super::{labels::ParsingRuleLabel, ParsedModule, ParserError, ParserErrorReason};
@@ -13,6 +13,7 @@ use super::{labels::ParsingRuleLabel, ParsedModule, ParserError, ParserErrorReas
 mod arguments;
 mod attributes;
 mod doc_comments;
+mod enums;
 mod expression;
 mod function;
 mod generics;
@@ -83,11 +84,26 @@ pub struct Parser<'a> {
     next_token: SpannedToken,
     current_token_span: Span,
     previous_token_span: Span,
+
+    // We also keep track of comments that appear right before a token,
+    // because `unsafe { }` requires one before it.
+    current_token_comments: String,
+    next_token_comments: String,
+
+    /// The current statement's comments.
+    /// This is used to eventually know if an `unsafe { ... }` expression is commented
+    /// in its containing statement. For example:
+    ///
+    /// ```noir
+    /// // Safety: test
+    /// let x = unsafe { call() };
+    /// ```
+    statement_comments: Option<String>,
 }
 
 impl<'a> Parser<'a> {
     pub fn for_lexer(lexer: Lexer<'a>) -> Self {
-        Self::new(TokenStream::Lexer(lexer))
+        Self::new(TokenStream::Lexer(lexer.skip_comments(false)))
     }
 
     pub fn for_tokens(mut tokens: Tokens) -> Self {
@@ -107,6 +123,9 @@ impl<'a> Parser<'a> {
             next_token: eof_spanned_token(),
             current_token_span: Default::default(),
             previous_token_span: Default::default(),
+            current_token_comments: String::new(),
+            next_token_comments: String::new(),
+            statement_comments: None,
         };
         parser.read_two_first_tokens();
         parser
@@ -128,9 +147,12 @@ impl<'a> Parser<'a> {
     }
 
     /// Invokes `parsing_function` (`parsing_function` must be some `parse_*` method of the parser)
-    /// and returns the result if the parser has no errors, and if the parser consumed all tokens.
+    /// and returns the result (and any warnings) if the parser has no errors, and if the parser consumed all tokens.
     /// Otherwise returns the list of errors.
-    pub fn parse_result<T, F>(mut self, parsing_function: F) -> Result<T, Vec<ParserError>>
+    pub fn parse_result<T, F>(
+        mut self,
+        parsing_function: F,
+    ) -> Result<(T, Vec<ParserError>), Vec<ParserError>>
     where
         F: FnOnce(&mut Parser<'a>) -> T,
     {
@@ -140,52 +162,56 @@ impl<'a> Parser<'a> {
             return Err(self.errors);
         }
 
-        if self.errors.is_empty() {
-            Ok(item)
+        let all_warnings = self.errors.iter().all(|error| error.is_warning());
+        if all_warnings {
+            Ok((item, self.errors))
         } else {
             Err(self.errors)
-        }
-    }
-
-    /// Invokes `parsing_function` (`parsing_function` must be some `parse_*` method of the parser)
-    /// and returns the result if the parser has no errors, and if the parser consumed all tokens.
-    /// Otherwise returns None.
-    pub fn parse_option<T, F>(self, parsing_function: F) -> Option<T>
-    where
-        F: FnOnce(&mut Parser<'a>) -> Option<T>,
-    {
-        match self.parse_result(parsing_function) {
-            Ok(item) => item,
-            Err(_) => None,
         }
     }
 
     /// Bumps this parser by one token. Returns the token that was previously the "current" token.
     fn bump(&mut self) -> SpannedToken {
         self.previous_token_span = self.current_token_span;
-        let next_next_token = self.read_token_internal();
+        let (next_next_token, next_next_token_comments) = self.read_token_internal();
         let next_token = std::mem::replace(&mut self.next_token, next_next_token);
         let token = std::mem::replace(&mut self.token, next_token);
+
+        let next_comments =
+            std::mem::replace(&mut self.next_token_comments, next_next_token_comments);
+        let _ = std::mem::replace(&mut self.current_token_comments, next_comments);
+
         self.current_token_span = self.token.to_span();
         token
     }
 
     fn read_two_first_tokens(&mut self) {
-        self.token = self.read_token_internal();
+        let (token, comments) = self.read_token_internal();
+        self.token = token;
+        self.current_token_comments = comments;
         self.current_token_span = self.token.to_span();
-        self.next_token = self.read_token_internal();
+
+        let (token, comments) = self.read_token_internal();
+        self.next_token = token;
+        self.next_token_comments = comments;
     }
 
-    fn read_token_internal(&mut self) -> SpannedToken {
+    fn read_token_internal(&mut self) -> (SpannedToken, String) {
+        let mut last_comments = String::new();
+
         loop {
-            let token = self.tokens.next();
-            if let Some(token) = token {
-                match token {
-                    Ok(token) => return token,
-                    Err(lexer_error) => self.errors.push(lexer_error.into()),
-                }
-            } else {
-                return eof_spanned_token();
+            match self.tokens.next() {
+                Some(Ok(token)) => match token.token() {
+                    Token::LineComment(comment, None) | Token::BlockComment(comment, None) => {
+                        last_comments.push_str(comment);
+                        continue;
+                    }
+                    _ => {
+                        return (token, last_comments);
+                    }
+                },
+                Some(Err(lexer_error)) => self.errors.push(lexer_error.into()),
+                None => return (eof_spanned_token(), last_comments),
             }
         }
     }
@@ -294,11 +320,11 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn eat_fmt_str(&mut self) -> Option<String> {
+    fn eat_fmt_str(&mut self) -> Option<(Vec<FmtStrFragment>, u32)> {
         if matches!(self.token.token(), Token::FmtStr(..)) {
             let token = self.bump();
             match token.into_token() {
-                Token::FmtStr(string) => Some(string),
+                Token::FmtStr(fragments, length) => Some((fragments, length)),
                 _ => unreachable!(),
             }
         } else {
@@ -311,6 +337,30 @@ impl<'a> Parser<'a> {
             let token = self.bump();
             match token.into_token() {
                 Token::Quote(tokens) => Some(tokens),
+                _ => unreachable!(),
+            }
+        } else {
+            None
+        }
+    }
+
+    fn eat_attribute_start(&mut self) -> Option<bool> {
+        if matches!(self.token.token(), Token::AttributeStart { is_inner: false, .. }) {
+            let token = self.bump();
+            match token.into_token() {
+                Token::AttributeStart { is_tag, .. } => Some(is_tag),
+                _ => unreachable!(),
+            }
+        } else {
+            None
+        }
+    }
+
+    fn eat_inner_attribute_start(&mut self) -> Option<bool> {
+        if matches!(self.token.token(), Token::AttributeStart { is_inner: true, .. }) {
+            let token = self.bump();
+            match token.into_token() {
+                Token::AttributeStart { is_tag, .. } => Some(is_tag),
                 _ => unreachable!(),
             }
         } else {
@@ -472,6 +522,13 @@ impl<'a> Parser<'a> {
 
     fn expected_token_separating_items(&mut self, token: Token, items: &'static str, span: Span) {
         self.push_error(ParserErrorReason::ExpectedTokenSeparatingTwoItems { token, items }, span);
+    }
+
+    fn expected_mut_after_ampersand(&mut self) {
+        self.push_error(
+            ParserErrorReason::ExpectedMutAfterAmpersand { found: self.token.token().clone() },
+            self.current_token_span,
+        );
     }
 
     fn modifiers_not_followed_by_an_item(&mut self, modifiers: Modifiers) {

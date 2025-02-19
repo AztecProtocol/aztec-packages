@@ -15,7 +15,7 @@ Private functions are executed locally by the user, so that the user can ensure 
 
 Given this natural flow from private-land to public-land, private functions can enqueue calls to public functions. But the opposite direction is not true. We'll see [below](#public-to-private-messaging) that public functions cannot "call" private functions, but rather they must pass messages.
 
-Since private functions execute first, they cannot 'wait' on the results of any of their calls to public functions.
+Since private functions execute first, they cannot 'wait' on the results of their calls to public functions.
 
 By way of example, suppose a function makes a call to a public function, and then to a private function. The public function will not be executed immediately, but will instead be enqueued for the sequencer to execute later.
 
