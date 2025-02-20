@@ -179,7 +179,7 @@ function bench {
   if [ "$CI_FULL" -eq 0 ] || [ $(arch) == arm64 ]; then
     return
   fi
-  denoise "barretenberg/cpp/bootstrap.sh bench"
+  denoise "barretenberg/bootstrap.sh bench"
   denoise "yarn-project/end-to-end/bootstrap.sh bench"
 }
 

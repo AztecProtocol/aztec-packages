@@ -141,6 +141,8 @@ function ultra_honk_wasm_memory {
 function bench {
   # TODO: Move to scripts dir along with run_test.sh.
   LOG_FILE=bench-acir.jsonl ./bench_acir_tests.sh
+  
+  export HARDWARE_CONCURRENCY=16
 
   rm -rf bench-out && mkdir -p bench-out
   export -f ultra_honk_wasm_memory

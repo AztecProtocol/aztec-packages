@@ -9,6 +9,7 @@ source $(git rev-parse --show-toplevel)/ci3/source
 ./ts/bootstrap.sh $@
 ./acir_tests/bootstrap.sh $@
 
+cmd=${1:-}
 if [ $cmd == "bench" ]; then
     rm -rf bench-out && mkdir -p bench-out
     ./scripts/combine_benchmarks.py \
@@ -21,6 +22,6 @@ if [ $cmd == "bench" ]; then
     "" ./cpp/bench-out/client_ivc_op_count_time.json \
     wasm ./acir_tests/bench-out/ultra_honk_wasm_memory.txt \
     > ./bench-out/bb-bench.json
-    
+
   cache_upload barretenberg-bench-results-$COMMIT_HASH.tar.gz ./bench-out/bb-bench.json
 fi 
