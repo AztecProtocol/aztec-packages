@@ -6,7 +6,7 @@ import initACVM, { type ExecutionError, executeCircuit } from '@noir-lang/acvm_j
 import initAbi from '@noir-lang/noirc_abi';
 import { type WitnessMap } from '@noir-lang/types';
 
-import { type ACIRCallback, acvm } from '../acvm/acvm.js';
+import { type ACIRCallback, type ACIRExecutionResult, acvm } from '../acvm/acvm.js';
 import { type ACVMWitness } from '../acvm/acvm_types.js';
 import { type SimulationProvider, parseErrorPayload } from '../common/simulation_provider.js';
 
@@ -41,7 +41,7 @@ export class WASMSimulator implements SimulationProvider {
       this.log.debug('execution successful', { hash: compiledCircuit.hash });
       return _witnessMap;
     } catch (err) {
-      // Typescript types catched errors as unknown or any, so we need to narrow its type to check if it has raw assertion payload.
+      // Typescript types caught errors as unknown or any, so we need to narrow its type to check if it has raw assertion payload.
       if (typeof err === 'object' && err !== null && 'rawAssertionPayload' in err) {
         const parsed = parseErrorPayload(compiledCircuit.abi, err as ExecutionError);
         this.log.debug('execution failed', {
@@ -56,7 +56,11 @@ export class WASMSimulator implements SimulationProvider {
     }
   }
 
-  async executeUserCircuit(acir: Buffer, initialWitness: ACVMWitness, callback: ACIRCallback) {
+  async executeUserCircuit(
+    acir: Buffer,
+    initialWitness: ACVMWitness,
+    callback: ACIRCallback,
+  ): Promise<ACIRExecutionResult> {
     await this.init();
     return acvm(acir, initialWitness, callback);
   }
