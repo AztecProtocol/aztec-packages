@@ -357,7 +357,8 @@ void ClientIVCAPI::write_vk(const Flags& flags,
     } else if (flags.input_type == "runtime_stack") {
         write_vk_for_stack(bytecode_path, output_path);
     } else {
-        throw_or_abort("Catching compiletime_stack's that should be updated");
+        const std::string msg = std::string("Can't write vk for input type ") + flags.input_type;
+        throw_or_abort(msg);
     }
 }
 

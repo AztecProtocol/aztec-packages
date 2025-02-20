@@ -143,7 +143,8 @@ int main(int argc, char* argv[])
                 ->add_option("--input_type",
                              flags.input_type,
                              "Is the input a single circuit, a compile-time stack or a run-time stack?")
-                ->check(CLI::IsMember({ "single_circuit", "compiletime_stack", "runtime_stack" }).name("is_member"));
+                ->check(CLI::IsMember({ "single_circuit", "compiletime_stack", "runtime_stack" }).name("is_member"))
+                ->default_val("single_circuit");
         return input_type_option;
     };
 
