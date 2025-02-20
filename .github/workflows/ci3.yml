@@ -49,6 +49,10 @@ jobs:
           # Check out the actual commit.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
+      - name: Fail If Draft
+        if: github.event.pull_request.draft && (github.event.action != 'labeled' || github.event.label.name != 'trigger-workflow')
+        run: echo "CI is not run on drafts." && exit 1
+
       - name: External Contributor Labels and Target
         # Run only for external PRs (pull_request_target, != github.repository)
         # And then check if we have incorrect labels OR an incorrect base_ref.
@@ -72,10 +76,6 @@ jobs:
           fi
           # Remove any ci-external-once labels.
           GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} gh pr edit ${{ github.event.pull_request.number }} --remove-label "ci-external-once"
-
-      - name: Fail If Draft
-        if: github.event.pull_request.draft && (github.event.action != 'labeled' || github.event.label.name != 'trigger-workflow')
-        run: echo "CI is not run on drafts." && exit 1
 
       - name: CI Full Override
         if: |
