@@ -93,8 +93,10 @@ function build {
   echo_header "yarn-project build"
   denoise "./bootstrap.sh clean-lite"
   if [ "${CI:-0}" = 1 ]; then
-    # If in CI mode, retry as bcrypto can sometimes fail mysteriously and we don't expect actual yarn install errors.
-    denoise "retry yarn install"
+    # If in CI mode, retry as bcrypto can sometimes fail mysteriously.
+    # We set immutable since we don't expect the yarn.lock to change. Note that we have also added all package.json
+    # files to yarn immutablePatterns, so if they are also changed, this step will fail.
+    denoise "retry yarn install --immutable"
   else
     denoise "yarn install"
   fi
