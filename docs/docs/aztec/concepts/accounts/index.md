@@ -141,7 +141,7 @@ Beyond the authentication logic abstraction, there are nonce abstraction and fee
 
 ### Nonce abstraction
 
-Nonce is a sequentially increasing number (transaction-over-transaction) and it is utilized for replay protection (i.e. preventing users from executing a transaction more than once and unauthorized reordering).
+Nonce is a unique number and it is utilized for replay protection (i.e. preventing users from executing a transaction more than once and unauthorized reordering).
 
 In particular, nonce management defines what it means for a transaction to be canceled, the rules of transaction ordering, and replay protection. In Ethereum, nonce is enshrined into the protocol. For example, to cancel a transaction, its sender should send another transaction with the same nonce but with a higher transaction fee.
 
