@@ -220,7 +220,7 @@ ProverOpeningClaim<typename ECCVMFlavor::Curve> ECCVMProver::reduce_translation_
     }
 
     // Get another challenge to batch the evaluations of the transcript polynomials
-    translation_batching_challenge_v = transcript->template get_challenge<FF>("Translation:ipa_batching_challenge");
+    translation_batching_challenge_v = transcript->template get_challenge<FF>("Translation:batching_challenge_v");
 
     // Construct the batched polynomial and batched evaluation to produce the batched opening claim
     Polynomial batched_univariate{ key->circuit_size };

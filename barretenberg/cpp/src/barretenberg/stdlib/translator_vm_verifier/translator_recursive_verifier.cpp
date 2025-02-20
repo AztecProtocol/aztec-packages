@@ -154,9 +154,7 @@ bool TranslatorRecursiveVerifier_<Flavor>::verify_translation(
         typename Flavor::FF>& translation_evaluations)
 {
     const auto reconstruct_from_array = [&](const auto& arr) {
-        const BF reconstructed = BF::construct_from_limbs(arr[0], arr[1], arr[2], arr[3]);
-
-        return reconstructed;
+        return BF::construct_from_limbs(arr[0], arr[1], arr[2], arr[3]);
     };
 
     const auto& reconstruct_value_from_eccvm_evaluations = [&](const TranslationEvaluations& translation_evaluations,

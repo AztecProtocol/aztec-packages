@@ -145,7 +145,7 @@ OpeningClaim<typename ECCVMFlavor::Curve> ECCVMVerifier::reduce_verify_translati
     };
 
     // Get the batching challenge for commitments and evaluations
-    batching_challenge_v = transcript->template get_challenge<FF>("Translation:ipa_batching_challenge");
+    batching_challenge_v = transcript->template get_challenge<FF>("Translation:batching_challenge_v");
 
     // Compute the batched commitment and batched evaluation for the univariate opening claim
     Commitment batched_commitment = transcript_commitments[0];

@@ -47,10 +47,10 @@ TEST_F(TranslatorTests, Basic)
     auto prover_transcript = std::make_shared<Transcript>();
     prover_transcript->send_to_verifier("init", Fq::random_element());
     prover_transcript->export_proof();
-    Fq translation_batching_challenge = Fq::random_element();
-    Fq translation_evaluation_challenge = Fq::random_element();
+    Fq batching_challenge_v = Fq::random_element();
+    Fq evaluation_challenge_x = Fq::random_element();
 
-    auto circuit_builder = CircuitBuilder(translation_batching_challenge, translation_evaluation_challenge, op_queue);
+    auto circuit_builder = CircuitBuilder(batching_challenge_v, evaluation_challenge_x, op_queue);
     EXPECT_TRUE(circuit_builder.check_circuit());
     auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
     TranslatorProver prover{ proving_key, prover_transcript };
@@ -60,6 +60,6 @@ TEST_F(TranslatorTests, Basic)
     verifier_transcript->template receive_from_prover<Fq>("init");
     auto verification_key = std::make_shared<TranslatorFlavor::VerificationKey>(proving_key->proving_key);
     TranslatorVerifier verifier(verification_key, verifier_transcript);
-    bool verified = verifier.verify_proof(proof);
+    bool verified = verifier.verify_proof(proof, evaluation_challenge_x, batching_challenge_v);
     EXPECT_TRUE(verified);
 }

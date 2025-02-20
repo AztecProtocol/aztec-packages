@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/goblin/translation_evaluations.hpp"
+#include "barretenberg/goblin/types.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib/translator_vm_verifier/translator_recursive_flavor.hpp"
@@ -23,9 +24,6 @@ template <typename Flavor> class TranslatorRecursiveVerifier_ {
     using TranslationEvaluations = TranslationEvaluations_<BF, FF>;
     using Transcript = typename Flavor::Transcript;
     using RelationParams = ::bb::RelationParameters<FF>;
-
-    BF evaluation_input_x = 0;
-    BF batching_challenge_v = 0;
 
     std::shared_ptr<VerificationKey> key;
     std::shared_ptr<Transcript> transcript;
