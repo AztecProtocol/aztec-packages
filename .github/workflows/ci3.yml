@@ -63,7 +63,7 @@ jobs:
         run: echo "External PRs need the 'ci-external' or 'ci-external-once' labels to run." && exit 1
 
       - name: External Contributor Changes
-        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
+        if: github.event_name == 'pull_request_target'
         run: |
           set -o pipefail
           git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1
