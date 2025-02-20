@@ -5,6 +5,9 @@ on:
   # For external devs. Workflow file edits won't take effect in the PR.
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
+    branches:
+      - master
+      - ad/fix/ci3-workflow
 
 concurrency:
   # Only allow one run per <forked-repo>/<branch>.
