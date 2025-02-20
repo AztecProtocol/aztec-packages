@@ -47,10 +47,6 @@ jobs:
             echo "Error: External PRs can't contain CI changes (forbidden files: $forbidden_changes)."
             exit 1
           fi
-          if [ ${{ github.event.pull_request.base.ref }} != "master" ]; then
-            echo "Error: External PRs can only target master, targeted: ${{ github.event.pull_request.base.ref }}."
-            exit 1
-          fi
           labeled="${{contains(github.event.pull_request.labels.*.name, 'ci-external') || contains(github.event.pull_request.labels.*.name, 'ci-external-once')}}""
           if [ "$labeled" == 'false' ]; then
             echo "External PRs need the 'ci-external' or 'ci-external-once' labels to run."
