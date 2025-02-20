@@ -9,7 +9,7 @@ import {
   type ProvingJobSettledResult,
   type ProvingJobStatus,
   ProvingRequestType,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
 import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { PriorityMemoryQueue } from '@aztec/foundation/queue';
@@ -237,10 +237,11 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     if (this.jobsCache.has(job.id)) {
       const existing = this.jobsCache.get(job.id);
       assert.deepStrictEqual(job, existing, 'Duplicate proving job ID');
-      this.logger.debug(`Duplicate proving job id=${job.id} epochNumber=${job.epochNumber}. Ignoring`, {
+      this.logger.warn(`Cached proving job id=${job.id} epochNumber=${job.epochNumber}. Not enqueuing again`, {
         provingJobId: job.id,
       });
-      return Promise.resolve(jobStatus);
+      this.instrumentation.incCachedJobs(job.type);
+      return jobStatus;
     }
 
     if (this.isJobStale(job)) {
@@ -256,6 +257,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
       this.jobsCache.set(job.id, job);
       await this.database.addProvingJob(job);
       this.enqueueJobInternal(job);
+      this.instrumentation.incTotalJobs(job.type);
     } catch (err) {
       this.logger.error(`Failed to save proving job id=${job.id}: ${err}`, err, { provingJobId: job.id });
       this.jobsCache.delete(job.id);

@@ -1,4 +1,22 @@
 import {
+  type AztecAddress,
+  type ContractClassIdPreimage,
+  EthAddress,
+  type Gas,
+  type GasSettings,
+  type GlobalVariables,
+  L2ToL1Message,
+  NoteHash,
+  Nullifier,
+  PublicCallRequest,
+  PublicDataUpdateRequest,
+  PublicDataWrite,
+  PublicLog,
+  ScopedL2ToL1Message,
+  SerializableContractInstance,
+  type TreeSnapshots,
+} from '@aztec/circuits.js';
+import {
   AvmAccumulatedData,
   AvmAppendTreeHint,
   AvmCircuitPublicInputs,
@@ -10,14 +28,12 @@ import {
   AvmNullifierWriteTreeHint,
   AvmPublicDataReadTreeHint,
   AvmPublicDataWriteTreeHint,
-  type AztecAddress,
-  type ContractClassIdPreimage,
-  EthAddress,
-  type Gas,
-  type GasSettings,
-  type GlobalVariables,
+} from '@aztec/circuits.js/avm';
+import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { PrivateToAvmAccumulatedData, PrivateToAvmAccumulatedDataArrayLengths } from '@aztec/circuits.js/kernel';
+import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
+import {
   L1_TO_L2_MSG_TREE_HEIGHT,
-  L2ToL1Message,
   MAX_ENQUEUED_CALLS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
@@ -28,24 +44,10 @@ import {
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
-  NoteHash,
-  Nullifier,
-  NullifierLeafPreimage,
   PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
   PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
-  PrivateToAvmAccumulatedData,
-  PrivateToAvmAccumulatedDataArrayLengths,
-  PublicCallRequest,
-  PublicDataTreeLeafPreimage,
-  PublicDataUpdateRequest,
-  PublicDataWrite,
-  PublicLog,
-  ScopedL2ToL1Message,
-  SerializableContractInstance,
-  type TreeSnapshots,
-} from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+} from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';

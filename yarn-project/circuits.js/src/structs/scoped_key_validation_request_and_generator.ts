@@ -1,8 +1,8 @@
+import { SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH } from '@aztec/constants';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH } from '../constants.gen.js';
 import { KeyValidationRequestAndGenerator } from './key_validation_request_and_generator.js';
 
 /**

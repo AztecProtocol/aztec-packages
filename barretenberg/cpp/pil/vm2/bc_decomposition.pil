@@ -238,6 +238,30 @@ bytes_pc_plus_33 = sel_pc_plus_33 * bytes_pc_plus_32';
 bytes_pc_plus_34 = sel_pc_plus_34 * bytes_pc_plus_33';
 bytes_pc_plus_35 = sel_pc_plus_35 * bytes_pc_plus_34';
 
+// For bytecode hashing, we need to re-pack 31 bytes at some PCs into a field.
+// We will have a selector for the PCs that are packed. This only needs to happen
+// for PCs 0, 31, 62, ...
+// The "sequencer" can choose which PCs to pack, but the bytecode hashing trace
+// will use this selector (as 1) in the lookup tuple. Therefore, if the sequencer
+// does not choose at least the minimum amount of rows, the lookup will fail.
+// NOTE: The bytecode hashing trace will constrain itself that every 31st pc is packed.
+pol commit sel_packed;
+sel_packed * (1 - sel_packed) = 0;
+
+// Important: this "field" is not 32 bytes (or 254 bits) long. It is 31 bytes long.
+pol commit packed_field;
+// TODO: Once we manually optimize the generated files, this subrelation can benefit from short-circuit multiplication.
+#[BC_DECOMPOSITION_REPACKING]
+sel_packed * (
+       2**0   * bytes_pc_plus_30 + 2**8   * bytes_pc_plus_29 + 2**16  * bytes_pc_plus_28 + 2**24  * bytes_pc_plus_27 + 2**32  * bytes_pc_plus_26 +
+       2**40  * bytes_pc_plus_25 + 2**48  * bytes_pc_plus_24 + 2**56  * bytes_pc_plus_23 + 2**64  * bytes_pc_plus_22 + 2**72  * bytes_pc_plus_21 +
+       2**80  * bytes_pc_plus_20 + 2**88  * bytes_pc_plus_19 + 2**96  * bytes_pc_plus_18 + 2**104 * bytes_pc_plus_17 + 2**112 * bytes_pc_plus_16 +
+       2**120 * bytes_pc_plus_15 + 2**128 * bytes_pc_plus_14 + 2**136 * bytes_pc_plus_13 + 2**144 * bytes_pc_plus_12 + 2**152 * bytes_pc_plus_11 +
+       2**160 * bytes_pc_plus_10 + 2**168 * bytes_pc_plus_9  + 2**176 * bytes_pc_plus_8  + 2**184 * bytes_pc_plus_7  + 2**192 * bytes_pc_plus_6  +
+       2**200 * bytes_pc_plus_5  + 2**208 * bytes_pc_plus_4  + 2**216 * bytes_pc_plus_3  + 2**224 * bytes_pc_plus_2  + 2**232 * bytes_pc_plus_1  +
+       2**240 * bytes
+       - packed_field
+) = 0;
 
 // TODO: After instruction fetching and hashing, we might consider removing all the
 //       bytes_pc_plus_XXX selectors if they are not required. We believe that it is

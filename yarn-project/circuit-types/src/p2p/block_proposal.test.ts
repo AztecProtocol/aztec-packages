@@ -1,8 +1,8 @@
 // Serde test for the block proposal type
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 
+import { makeBlockProposal } from '../test/mocks.js';
 import { BlockProposal } from './block_proposal.js';
-import { makeBlockProposal } from './mocks.js';
 
 describe('Block Proposal serialization / deserialization', () => {
   const checkEquivalence = (serialized: BlockProposal, deserialized: BlockProposal) => {

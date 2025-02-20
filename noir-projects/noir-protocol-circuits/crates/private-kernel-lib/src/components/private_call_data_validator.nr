@@ -258,7 +258,7 @@ impl PrivateCallDataValidator {
         // function. This check for that function guarantees that the counter won't fall into one of its nested calls.
         // In this case, we can simply use 0 and make the following check pass.
         let min_revertible_side_effect_counter = public_inputs.min_revertible_side_effect_counter;
-        /// Safety: the index is constrained in validate_split_ranges below.
+        // Safety: the index is constrained in validate_split_ranges below.
         let first_revertible_index = unsafe {
             find_first_revertible_item_index(
                 public_inputs.min_revertible_side_effect_counter,
@@ -377,7 +377,7 @@ impl PrivateCallDataValidator {
         for i in 0..logs.len() {
             let log = logs[i];
             if log.note_hash_counter != 0 {
-                /// Safety: the index is constrained by the checks below.
+                // Safety: the index is constrained by the checks below.
                 let note_index = unsafe {
                     find_index_hint(
                         accumulated_note_hashes,

@@ -1,5 +1,5 @@
-import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { fr } from '@aztec/circuits.js/testing';
+import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { range } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';

@@ -6,7 +6,7 @@ import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { inspect } from 'util';
 import { z } from 'zod';
 
-import { type UInt32 } from '../shared.js';
+import { type UInt32 } from '../../types/shared.js';
 
 /**
  * Snapshot of an append only tree.

@@ -8,8 +8,8 @@ import {
   type ScopedNoteHash,
   type ScopedNullifier,
   ScopedReadRequest,
-  TransientDataIndexHint,
 } from '../structs/index.js';
+import { TransientDataIndexHint } from '../structs/transient_data_index_hint.js';
 import { buildTransientDataHints } from './build_transient_data_hints.js';
 
 describe('buildTransientDataHints', () => {
