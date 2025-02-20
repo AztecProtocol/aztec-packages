@@ -87,7 +87,7 @@ describe('e2e_blacklist_token_contract mint', () => {
         const receipt = await asset.methods.mint_private(amount, secretHash).send().wait();
         txHash = receipt.txHash;
 
-        await t.addPendingShieldNoteToPXE(0, amount, secretHash, txHash);
+        await t.addPendingShieldNoteToPXE(asset, wallets[0], amount, secretHash, txHash);
 
         const receiptClaim = await asset.methods
           .redeem_shield(wallets[0].getAddress(), amount, secret)
@@ -106,7 +106,7 @@ describe('e2e_blacklist_token_contract mint', () => {
 
     describe('failure cases', () => {
       it('try to redeem as recipient (double-spend) [REVERTS]', async () => {
-        await expect(t.addPendingShieldNoteToPXE(0, amount, secretHash, txHash)).rejects.toThrow(
+        await expect(t.addPendingShieldNoteToPXE(asset, wallets[0], amount, secretHash, txHash)).rejects.toThrow(
           'The note has been destroyed.',
         );
         await expect(asset.methods.redeem_shield(wallets[0].getAddress(), amount, secret).prove()).rejects.toThrow(
