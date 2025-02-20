@@ -1,14 +1,13 @@
 import {
   type ClientIvcProof,
-  CombinedConstantData,
-  type Fr,
+  Fr,
   Gas,
   type GlobalVariables,
-  type PrivateKernelTailCircuitPublicInputs,
   type PublicDataWrite,
   RevertCode,
 } from '@aztec/circuits.js';
 import { siloL2ToL1Message } from '@aztec/circuits.js/hash';
+import { CombinedConstantData, type PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
 
 import { type AvmProvingRequest } from '../interfaces/proving-job.js';
 import { type SimulationError } from '../simulation_error.js';
@@ -101,7 +100,9 @@ export async function makeProcessedTxFromPrivateOnlyTx(
   );
 
   const gasUsed = {
+    // Billed gas is the same as total gas since there is no teardown execution
     totalGas: tx.data.gasUsed,
+    billedGas: tx.data.gasUsed,
     teardownGas: Gas.empty(),
     publicGas: Gas.empty(),
   } satisfies GasUsed;

@@ -1,11 +1,11 @@
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { GeneratorIndex, PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH } from '@aztec/constants';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { type Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import { GeneratorIndex, PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH } from '../../constants.gen.js';
+import { AztecAddress } from '../../aztec-address/index.js';
 import { Gas } from '../gas.js';
 import { PublicCallRequest } from '../public_call_request.js';
 import { RollupValidationRequests } from '../rollup_validation_requests.js';

@@ -1,18 +1,20 @@
+import { MerkleTreeId } from '@aztec/circuit-types';
 import {
   type IndexedTreeId,
-  MerkleTreeId,
   type MerkleTreeWriteOperations,
   type SequentialInsertionResult,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
+import {
+  type NullifierLeafPreimage,
+  PublicDataTreeLeaf,
+  type PublicDataTreeLeafPreimage,
+} from '@aztec/circuits.js/trees';
 import {
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_SUBTREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
-  type NullifierLeafPreimage,
   PUBLIC_DATA_TREE_HEIGHT,
-  PublicDataTreeLeaf,
-  type PublicDataTreeLeafPreimage,
-} from '@aztec/circuits.js';
+} from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';

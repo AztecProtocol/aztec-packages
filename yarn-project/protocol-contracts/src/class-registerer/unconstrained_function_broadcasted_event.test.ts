@@ -1,5 +1,5 @@
 import { ContractClassLog } from '@aztec/circuits.js';
-import { FunctionSelector } from '@aztec/foundation/abi';
+import { FunctionSelector } from '@aztec/circuits.js/abi';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type Tuple } from '@aztec/foundation/serialize';

@@ -15,7 +15,7 @@ use dep::types::{
     contract_class_id::ContractClassId,
     shared_mutable::{
         compute_shared_mutable_block_horizon, scheduled_delay_change::ScheduledDelayChange,
-        scheduled_value_change::ScheduledValueChange,
+        scheduled_value_change::ScheduledValueChange, SharedMutableValues,
     },
     traits::{is_empty, Packable},
     transaction::tx_request::TxRequest,
@@ -377,15 +377,14 @@ impl PrivateKernelCircuitOutputValidator {
         max_block_number: MaxBlockNumber,
     ) -> MaxBlockNumber {
         if !private_call.public_inputs.call_context.contract_address.is_protocol_contract() {
+            let shared_mutable_values: SharedMutableValues<ContractClassId, DEFAULT_UPDATE_DELAY> = Packable::unpack(
+                private_call.verification_key_hints.updated_class_id_shared_mutable_values,
+            );
+
             MaxBlockNumber::min(
                 max_block_number,
                 MaxBlockNumber::new(compute_shared_mutable_block_horizon(
-                    ScheduledValueChange::<ContractClassId>::unpack(
-                        private_call.verification_key_hints.updated_class_id_value_change,
-                    ),
-                    ScheduledDelayChange::<DEFAULT_UPDATE_DELAY>::unpack(
-                        private_call.verification_key_hints.updated_class_id_delay_change,
-                    ),
+                    shared_mutable_values,
                     private_call.public_inputs.historical_header.global_variables.block_number
                          as u32,
                     )),

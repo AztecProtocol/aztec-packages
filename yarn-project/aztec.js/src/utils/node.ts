@@ -1,4 +1,4 @@
-import { type AztecNode } from '@aztec/circuit-types';
+import { type AztecNode } from '@aztec/circuit-types/interfaces/client';
 import { type Logger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 
@@ -16,4 +16,4 @@ export const waitForNode = async (node: AztecNode, logger?: Logger) => {
   }, 'RPC Get Node Info');
 };
 
-export { createAztecNodeClient, type AztecNode } from '@aztec/circuit-types';
+export { createAztecNodeClient, type AztecNode } from '@aztec/circuit-types/interfaces/client';

@@ -1,7 +1,6 @@
+import { PUBLIC_LOG_DATA_SIZE_IN_FIELDS, PUBLIC_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { schemas } from '@aztec/foundation/schemas';
 import {
   BufferReader,
   FieldReader,
@@ -13,7 +12,8 @@ import {
 import { inspect } from 'util';
 import { z } from 'zod';
 
-import { PUBLIC_LOG_DATA_SIZE_IN_FIELDS, PUBLIC_LOG_SIZE_IN_FIELDS } from '../constants.gen.js';
+import { AztecAddress } from '../aztec-address/index.js';
+import { schemas } from '../schemas/index.js';
 
 export class PublicLog {
   static SIZE_IN_BYTES = Fr.SIZE_IN_BYTES * PUBLIC_LOG_SIZE_IN_FIELDS;

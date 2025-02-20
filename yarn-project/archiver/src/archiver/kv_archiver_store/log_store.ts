@@ -13,7 +13,7 @@ import {
   INITIAL_L2_BLOCK_NUM,
   MAX_NOTE_HASHES_PER_TX,
   PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
-} from '@aztec/circuits.js/constants';
+} from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader, numToUInt32BE } from '@aztec/foundation/serialize';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';

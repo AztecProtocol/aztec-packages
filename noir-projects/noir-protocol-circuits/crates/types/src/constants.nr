@@ -782,10 +782,7 @@ pub global MINIMUM_UPDATE_DELAY: u32 = 25;
 
 // Updates hold contract class id, which fit in 1 field.
 pub global UPDATES_VALUE_SIZE: u32 = 1;
-pub global UPDATES_SCHEDULED_VALUE_CHANGE_LEN: u32 = 2 * UPDATES_VALUE_SIZE + 1;
-pub global SCHEDULED_DELAY_CHANGE_PCKD_LEN: u32 = 1;
-pub global UPDATES_SHARED_MUTABLE_VALUES_LEN: u32 =
-    UPDATES_SCHEDULED_VALUE_CHANGE_LEN + SCHEDULED_DELAY_CHANGE_PCKD_LEN;
+pub global UPDATES_SHARED_MUTABLE_VALUES_LEN: u32 = 2 * UPDATES_VALUE_SIZE + 1;
 
 mod test {
     use crate::constants::{

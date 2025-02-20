@@ -100,7 +100,7 @@ function install_hooks {
   echo "(cd barretenberg/cpp && ./format.sh staged)" >$hooks_dir/pre-commit
   echo "./yarn-project/precommit.sh" >>$hooks_dir/pre-commit
   echo "./noir-projects/precommit.sh" >>$hooks_dir/pre-commit
-  echo "./yarn-project/circuits.js/precommit.sh" >>$hooks_dir/pre-commit
+  echo "./yarn-project/constants/precommit.sh" >>$hooks_dir/pre-commit
   chmod +x $hooks_dir/pre-commit
 }
 
@@ -151,6 +151,9 @@ function build {
   denoise "git submodule update --init --recursive"
 
   check_toolchains
+
+  # Ensure we have yarn set up.
+  corepack enable
 
   projects=(
     noir
@@ -299,6 +302,7 @@ case "$cmd" in
     echo "Toolchains look good! 🎉"
   ;;
   ""|"fast"|"full")
+    install_hooks
     build $cmd
   ;;
   "ci")

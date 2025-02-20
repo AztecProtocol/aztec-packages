@@ -1,17 +1,16 @@
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { padArrayEnd } from '@aztec/foundation/collection';
-import { type Fr } from '@aztec/foundation/fields';
-import { type Tuple } from '@aztec/foundation/serialize';
-import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
-
 import {
   type MAX_NULLIFIERS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   type NULLIFIER_TREE_HEIGHT,
-} from '../constants.gen.js';
+} from '@aztec/constants';
+import { padArrayEnd } from '@aztec/foundation/collection';
+import { type Fr } from '@aztec/foundation/fields';
+import { type Tuple } from '@aztec/foundation/serialize';
+import { type IndexedTreeLeafPreimage, MembershipWitness } from '@aztec/foundation/trees';
+
+import { AztecAddress } from '../aztec-address/index.js';
 import { siloNullifier } from '../hash/hash.js';
 import {
-  type MembershipWitness,
   Nullifier,
   NullifierReadRequestHintsBuilder,
   PendingReadHint,

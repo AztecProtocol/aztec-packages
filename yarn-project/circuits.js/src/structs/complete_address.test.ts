@@ -1,6 +1,6 @@
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 
+import { AztecAddress } from '../aztec-address/index.js';
 import { PublicKeys } from '../types/public_keys.js';
 import { CompleteAddress } from './complete_address.js';
 

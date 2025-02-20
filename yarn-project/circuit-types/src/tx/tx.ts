@@ -1,13 +1,5 @@
-import {
-  ClientIvcProof,
-  ContractClassLog,
-  Fr,
-  type GasSettings,
-  PrivateKernelTailCircuitPublicInputs,
-  PrivateLog,
-  ScopedLogHash,
-} from '@aztec/circuits.js';
-import { siloContractClassLog } from '@aztec/circuits.js/hash';
+import { ClientIvcProof, ContractClassLog, Fr, type GasSettings, PrivateLog, ScopedLogHash } from '@aztec/circuits.js';
+import { PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { BufferReader, serializeArrayOfBufferableToVector, serializeToBuffer } from '@aztec/foundation/serialize';

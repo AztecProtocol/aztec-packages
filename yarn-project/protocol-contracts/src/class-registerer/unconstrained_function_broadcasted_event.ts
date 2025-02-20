@@ -1,11 +1,9 @@
+import { ContractClassLog, type UnconstrainedFunction, type UnconstrainedFunctionWithMembershipProof } from '@aztec/circuits.js';
+import { FunctionSelector, bufferFromFields } from '@aztec/circuits.js/abi';
 import {
   ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
-  type ContractClassLog,
   MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS,
-  type UnconstrainedFunction,
-  type UnconstrainedFunctionWithMembershipProof,
-} from '@aztec/circuits.js';
-import { FunctionSelector, bufferFromFields } from '@aztec/foundation/abi';
+} from '@aztec/constants';
 import { removeArrayPaddingEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { FieldReader, type Tuple } from '@aztec/foundation/serialize';

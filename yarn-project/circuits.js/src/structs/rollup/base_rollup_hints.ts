@@ -1,16 +1,16 @@
-import { makeTuple } from '@aztec/foundation/array';
-import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { SpongeBlob } from '@aztec/blob-lib';
+import { ARCHIVE_HEIGHT, MAX_CONTRACT_CLASS_LOGS_PER_TX } from '@aztec/constants';
+import { BufferReader, serializeToBuffer, type Tuple } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
+import { MembershipWitness } from '@aztec/foundation/trees';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import { ARCHIVE_HEIGHT, MAX_CONTRACT_CLASS_LOGS_PER_TX } from '../../constants.gen.js';
-import { SpongeBlob } from '../blobs/sponge_blob.js';
-import { ContractClassLog } from '../contract_class_log.js';
-import { MembershipWitness } from '../membership_witness.js';
 import { PartialStateReference } from '../partial_state_reference.js';
 import { PublicDataHint } from '../public_data_hint.js';
 import { ConstantRollupData } from './constant_rollup_data.js';
 import { PrivateBaseStateDiffHints } from './state_diff_hints.js';
+import { ContractClassLog } from '../contract_class_log.js';
+import { makeTuple } from '@aztec/foundation/array';
 
 export type BaseRollupHints = PrivateBaseRollupHints | PublicBaseRollupHints;
 

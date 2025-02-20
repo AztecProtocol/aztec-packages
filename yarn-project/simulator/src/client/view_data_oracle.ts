@@ -1,22 +1,22 @@
 import {
   type AuthWitness,
-  type AztecNode,
   type Capsule,
   type CompleteAddress,
   type MerkleTreeId,
   type NoteStatus,
-  type NullifierMembershipWitness,
   type PublicDataWitness,
 } from '@aztec/circuit-types';
+import { type AztecNode, type NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/client';
 import {
   type BlockHeader,
   type ContractInstance,
   type IndexedTaggingSecret,
   type KeyValidationRequest,
 } from '@aztec/circuits.js';
-import { Aes128 } from '@aztec/circuits.js/barretenberg';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { siloNullifier } from '@aztec/circuits.js/hash';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { LogWithTxData } from '@aztec/circuits.js/logs';
+import { Aes128 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
 
@@ -320,6 +320,10 @@ export class ViewDataOracle extends TypedOracle {
     }
 
     await this.db.deliverNote(contractAddress, storageSlot, nonce, content, noteHash, nullifier, txHash, recipient);
+  }
+
+  public override getLogByTag(tag: Fr): Promise<LogWithTxData | null> {
+    return this.db.getLogByTag(tag);
   }
 
   public override storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {

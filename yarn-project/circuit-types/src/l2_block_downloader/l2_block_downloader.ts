@@ -1,4 +1,4 @@
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { FifoMemoryQueue, Semaphore, SerialQueue } from '@aztec/foundation/queue';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';

@@ -84,7 +84,7 @@ class lookup_sha256_round_constant_relation
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.sha256_sel.is_zero() && in.precomputed_sel_sha256_compression.is_zero();
+        return in.lookup_sha256_round_constant_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)

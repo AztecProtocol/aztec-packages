@@ -55,6 +55,7 @@ Instruction TxBytecodeManager::read_instruction(BytecodeId bytecode_id, uint32_t
     // TODO: catch errors etc.
     Instruction instruction = decode_instruction(bytecode, pc);
 
+    // The event will be deduplicated internally.
     fetching_events.emit(
         { .bytecode_id = bytecode_id, .pc = pc, .instruction = instruction, .bytecode = bytecode_ptr });
 

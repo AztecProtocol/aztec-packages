@@ -1,7 +1,7 @@
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { schemas } from '@aztec/foundation/schemas';
-
 import { z } from 'zod';
+
+import { type AztecAddress } from '../../aztec-address/index.js';
+import { schemas } from '../../schemas/index.js';
 
 export const ProtocolContractsNames = [
   'classRegisterer',

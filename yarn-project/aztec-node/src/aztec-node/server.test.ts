@@ -1,15 +1,14 @@
 import { TestCircuitVerifier } from '@aztec/bb-prover';
 import {
-  type AztecNode,
   type L1ToL2MessageSource,
   type L2BlockSource,
   type L2LogsSource,
   MerkleTreeId,
-  type MerkleTreeReadOperations,
   type NullifierWithBlockSource,
-  type WorldStateSynchronizer,
-  mockTx,
 } from '@aztec/circuit-types';
+import { type AztecNode } from '@aztec/circuit-types/interfaces/client';
+import { type MerkleTreeReadOperations, type WorldStateSynchronizer } from '@aztec/circuit-types/interfaces/server';
+import { mockTx } from '@aztec/circuit-types/testing';
 import {
   AztecAddress,
   type ContractDataSource,
@@ -17,9 +16,9 @@ import {
   Fr,
   GasFees,
   MaxBlockNumber,
-  PublicDataTreeLeafPreimage,
   RollupValidationRequests,
 } from '@aztec/circuits.js';
+import { PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
 import { type P2P } from '@aztec/p2p';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { type GlobalVariableBuilder } from '@aztec/sequencer-client';

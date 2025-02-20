@@ -1,41 +1,17 @@
-import { Blob } from '@aztec/blob-lib';
+import { Blob, type SpongeBlob } from '@aztec/blob-lib';
+import { Body, MerkleTreeId, type ProcessedTx, TxEffect, getTreeHeight } from '@aztec/circuit-types';
+import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import {
-  Body,
-  MerkleTreeId,
-  type MerkleTreeWriteOperations,
-  type ProcessedTx,
-  TxEffect,
-  getTreeHeight,
-} from '@aztec/circuit-types';
-import {
-  ARCHIVE_HEIGHT,
-  AppendOnlyTreeSnapshot,
   BlockHeader,
   ContentCommitment,
   ContractClassLog,
   Fr,
   type GlobalVariables,
-  MAX_CONTRACT_CLASS_LOGS_PER_TX,
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  MembershipWitness,
-  MerkleTreeCalculator,
-  NOTE_HASH_SUBTREE_HEIGHT,
-  NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
-  NULLIFIER_SUBTREE_HEIGHT,
-  NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
-  NULLIFIER_TREE_HEIGHT,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  NullifierLeafPreimage,
-  PUBLIC_DATA_TREE_HEIGHT,
   type ParityPublicInputs,
   PartialStateReference,
   PublicDataHint,
-  PublicDataTreeLeaf,
-  PublicDataTreeLeafPreimage,
   StateReference,
 } from '@aztec/circuits.js';
-import { type SpongeBlob } from '@aztec/circuits.js/blobs';
 import {
   type BaseOrMergeRollupPublicInputs,
   type BlockRootOrBlockMergePublicInputs,
@@ -44,12 +20,31 @@ import {
   PrivateBaseStateDiffHints,
   PublicBaseRollupHints,
 } from '@aztec/circuits.js/rollup';
+import {
+  AppendOnlyTreeSnapshot,
+  NullifierLeafPreimage,
+  PublicDataTreeLeaf,
+  PublicDataTreeLeafPreimage,
+} from '@aztec/circuits.js/trees';
+import {
+  ARCHIVE_HEIGHT,
+  MAX_CONTRACT_CLASS_LOGS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+  NOTE_HASH_SUBTREE_HEIGHT,
+  NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
+  NULLIFIER_SUBTREE_HEIGHT,
+  NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
+  NULLIFIER_TREE_HEIGHT,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  PUBLIC_DATA_TREE_HEIGHT,
+} from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
 import { type Logger } from '@aztec/foundation/log';
 import { type Tuple, assertLength, serializeToBuffer, toFriendlyJSON } from '@aztec/foundation/serialize';
-import { computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
+import { MembershipWitness, MerkleTreeCalculator, computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
@@ -353,7 +348,7 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
     const contentCommitment = new ContentCommitment(new Fr(numTxs), blobsHash, parityShaRoot, outHash);
 
     const fees = body.txEffects.reduce((acc, tx) => acc.add(tx.transactionFee), Fr.ZERO);
-    const manaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.totalGas.l2Gas)), Fr.ZERO);
+    const manaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.billedGas.l2Gas)), Fr.ZERO);
 
     const header = new BlockHeader(previousArchive, contentCommitment, stateReference, globalVariables, fees, manaUsed);
 

@@ -1,5 +1,5 @@
 import { type ACVMConfig, type BBConfig } from '@aztec/bb-prover';
-import { type ProverConfig, proverConfigMappings } from '@aztec/circuit-types';
+import { type ProverConfig, proverConfigMappings } from '@aztec/circuit-types/interfaces/server';
 import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
 
 import {

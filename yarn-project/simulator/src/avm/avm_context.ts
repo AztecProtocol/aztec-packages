@@ -4,6 +4,7 @@ import { type Fr } from '@aztec/foundation/fields';
 import { type AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { type Gas, gasToGasLeft } from './avm_gas.js';
 import { AvmMachineState } from './avm_machine_state.js';
+import type { AvmSimulator } from './avm_simulator.js';
 import { type AvmPersistableStateManager } from './journal/journal.js';
 
 /**
@@ -23,6 +24,10 @@ export class AvmContext {
     public environment: AvmExecutionEnvironment,
     public machineState: AvmMachineState,
   ) {}
+
+  // This is needed to break a dependency cycle created by the CALL opcode,
+  // which needs to create a new simulator but cannot depend directly on AvmSimulator.
+  public provideSimulator?: (ctx: this) => Promise<AvmSimulator>;
 
   /**
    * Prepare a new AVM context that will be ready for an external/nested call

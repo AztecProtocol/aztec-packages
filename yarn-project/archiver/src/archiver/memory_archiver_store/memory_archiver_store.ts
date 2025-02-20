@@ -24,17 +24,19 @@ import {
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
   Fr,
+  type PrivateLog,
+  type PublicLog,
+  type UnconstrainedFunctionWithMembershipProof,
+} from '@aztec/circuits.js';
+import { FunctionSelector } from '@aztec/circuits.js/abi';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import {
   INITIAL_L2_BLOCK_NUM,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
-  type PrivateLog,
-  type PublicLog,
   REGISTERER_CONTRACT_ADDRESS,
-  type UnconstrainedFunctionWithMembershipProof,
-} from '@aztec/circuits.js';
-import { FunctionSelector } from '@aztec/foundation/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+} from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import {
   REGISTERER_CONTRACT_CLASS_REGISTERED_TAG,

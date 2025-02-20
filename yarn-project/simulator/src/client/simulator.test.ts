@@ -1,7 +1,8 @@
-import { type AztecNode, CompleteAddress, Note } from '@aztec/circuit-types';
+import { CompleteAddress, Note } from '@aztec/circuit-types';
+import { type AztecNode } from '@aztec/circuit-types/interfaces/client';
 import { KeyValidationRequest, computeAppNullifierSecretKey, deriveKeys } from '@aztec/circuits.js';
-import { type FunctionArtifact, getFunctionArtifactByName } from '@aztec/foundation/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { type FunctionArtifact, getFunctionArtifactByName } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { Fr, type Point } from '@aztec/foundation/fields';
 import { TokenBlacklistContractArtifact } from '@aztec/noir-contracts.js/TokenBlacklist';
 
@@ -46,7 +47,7 @@ describe('Simulator', () => {
     simulator = new AcirSimulator(oracle, node, simulationProvider);
   });
 
-  describe('computeNoteHashAndOptionallyANullifier', () => {
+  describe('compute_note_hash_and_optionally_a_nullifier', () => {
     const artifact = getFunctionArtifactByName(
       TokenBlacklistContractArtifact,
       'compute_note_hash_and_optionally_a_nullifier',
@@ -64,7 +65,7 @@ describe('Simulator', () => {
 
       const note = await createNote();
       await expect(
-        simulator.computeNoteHashAndOptionallyANullifier(contractAddress, nonce, storageSlot, noteTypeId, true, note),
+        simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, note),
       ).rejects.toThrow(/Mandatory implementation of "compute_note_hash_and_optionally_a_nullifier" missing/);
     });
 
@@ -78,42 +79,10 @@ describe('Simulator', () => {
       oracle.getFunctionArtifactByName.mockResolvedValue(modifiedArtifact);
 
       await expect(
-        simulator.computeNoteHashAndOptionallyANullifier(contractAddress, nonce, storageSlot, noteTypeId, true, note),
+        simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, note),
       ).rejects.toThrow(
         new RegExp(
           `Expected 6 parameters in mandatory implementation of "compute_note_hash_and_optionally_a_nullifier", but found 5 in noir contract ${contractAddress}.`,
-        ),
-      );
-    });
-
-    it('throw if a note has more fields than "compute_note_hash_and_optionally_a_nullifier" can process', async () => {
-      const note = await createNote();
-      const wrongPreimageLength = note.length - 1;
-
-      const modifiedArtifact: FunctionArtifact = {
-        ...artifact,
-        parameters: [
-          ...artifact.parameters.slice(0, -1),
-          {
-            name: 'note',
-            type: {
-              kind: 'array',
-              length: wrongPreimageLength,
-              type: {
-                kind: 'field',
-              },
-            },
-            visibility: 'private',
-          },
-        ],
-      };
-      oracle.getFunctionArtifactByName.mockResolvedValue(modifiedArtifact);
-
-      await expect(
-        simulator.computeNoteHashAndOptionallyANullifier(contractAddress, nonce, storageSlot, noteTypeId, true, note),
-      ).rejects.toThrow(
-        new RegExp(
-          `"compute_note_hash_and_optionally_a_nullifier" can only handle a maximum of ${wrongPreimageLength} fields`,
         ),
       );
     });

@@ -1,12 +1,12 @@
+import { MAX_ENQUEUED_CALLS_PER_TX } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { inspect } from 'util';
 
-import { MAX_ENQUEUED_CALLS_PER_TX } from '../../constants.gen.js';
+import { AztecAddress } from '../../aztec-address/index.js';
 import { Gas } from '../gas.js';
 import { GasSettings } from '../gas_settings.js';
 import { GlobalVariables } from '../global_variables.js';

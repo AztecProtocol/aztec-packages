@@ -1,4 +1,5 @@
-import { ClientIvcProof, Gas, PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js';
+import { ClientIvcProof, Gas } from '@aztec/circuits.js';
+import { PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
@@ -58,6 +59,7 @@ export class TxSimulationResult extends PrivateSimulationResult {
     return (
       this.publicOutput?.gasUsed ?? {
         totalGas: this.publicInputs.gasUsed,
+        billedGas: this.publicInputs.gasUsed,
         teardownGas: Gas.empty(),
         publicGas: Gas.empty(),
       }

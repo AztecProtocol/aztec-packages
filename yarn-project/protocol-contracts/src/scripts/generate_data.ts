@@ -1,23 +1,21 @@
+import { AztecAddress, Fr, getContractInstanceFromDeployParams } from '@aztec/circuits.js';
+import { loadContractArtifact } from '@aztec/circuits.js/abi';
+import { type NoirCompiledContract } from '@aztec/circuits.js/noir';
 import {
-  AztecAddress,
   CANONICAL_AUTH_REGISTRY_ADDRESS,
   DEPLOYER_CONTRACT_ADDRESS,
   DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
   DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE,
   FEE_JUICE_ADDRESS,
-  Fr,
   MULTI_CALL_ENTRYPOINT_ADDRESS,
   REGISTERER_CONTRACT_ADDRESS,
   REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
   REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE,
   REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE,
   ROUTER_ADDRESS,
-  getContractInstanceFromDeployParams,
-} from '@aztec/circuits.js';
+} from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { createConsoleLogger } from '@aztec/foundation/log';
-import { loadContractArtifact } from '@aztec/types/abi';
-import { type NoirCompiledContract } from '@aztec/types/noir';
 
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -81,7 +79,7 @@ async function computeRoot(names: string[], leaves: Fr[]) {
 
 async function generateDeclarationFile(destName: string) {
   const content = `
-    import { type NoirCompiledContract } from '@aztec/types/noir';
+    import { type NoirCompiledContract } from '@aztec/circuits.js/noir';
     const circuit: NoirCompiledContract;
     export = circuit;
   `;
@@ -156,7 +154,8 @@ async function generateLogTags() {
 async function generateOutputFile(names: string[], leaves: Fr[]) {
   const content = `
     // GENERATED FILE - DO NOT EDIT. RUN \`yarn generate\` or \`yarn generate:data\`
-    import { AztecAddress, Fr } from '@aztec/circuits.js';
+    import { Fr } from '@aztec/foundation/fields';
+    import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 
     ${generateNames(names)}
 

@@ -1,18 +1,18 @@
 import { MerkleTreeId, SimulationError } from '@aztec/circuit-types';
 import {
   type ContractInstanceWithAddress,
-  DEPLOYER_CONTRACT_ADDRESS,
   Fr,
   FunctionSelector,
   PublicDataWrite,
   computePartialAddress,
 } from '@aztec/circuits.js';
+import { type ContractArtifact, NoteSelector } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
-import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
 import { type Logger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { protocolContractNames } from '@aztec/protocol-contracts';
 import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
 import { enrichPublicSimulationError } from '@aztec/pxe';
@@ -39,7 +39,7 @@ export class TXEService {
   constructor(private logger: Logger, private typedOracle: TypedOracle) {}
 
   static async init(logger: Logger) {
-    const store = openTmpStore(true);
+    const store = await openTmpStore('test');
     const executionCache = new HashedValuesCache();
     const nativeWorldStateService = await NativeWorldStateService.tmp();
     const baseFork = await nativeWorldStateService.fork();

@@ -1,26 +1,28 @@
 import {
-  ARCHIVE_HEIGHT,
   BlockHeader,
   type ContractClassPublic,
   ContractClassPublicSchema,
   type ContractInstanceWithAddress,
   ContractInstanceWithAddressSchema,
   GasFees,
-  L1_TO_L2_MSG_TREE_HEIGHT,
-  NOTE_HASH_TREE_HEIGHT,
-  NULLIFIER_TREE_HEIGHT,
   type NodeInfo,
   NodeInfoSchema,
-  PUBLIC_DATA_TREE_HEIGHT,
   PrivateLog,
   type ProtocolContractAddresses,
   ProtocolContractAddressesSchema,
 } from '@aztec/circuits.js';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type ApiSchemaFor, optional, schemas } from '@aztec/circuits.js/schemas';
+import {
+  ARCHIVE_HEIGHT,
+  L1_TO_L2_MSG_TREE_HEIGHT,
+  NOTE_HASH_TREE_HEIGHT,
+  NULLIFIER_TREE_HEIGHT,
+  PUBLIC_DATA_TREE_HEIGHT,
+} from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum/l1-contract-addresses';
-import type { AztecAddress } from '@aztec/foundation/aztec-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
-import { type ApiSchemaFor, optional, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
