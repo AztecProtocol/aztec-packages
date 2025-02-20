@@ -1,4 +1,4 @@
-import { createColors } from 'colorette';
+import { createColors, isColorSupported } from 'colorette';
 import isNode from 'detect-node';
 import { pino, symbols } from 'pino';
 import { type Writable } from 'stream';
@@ -83,19 +83,19 @@ function isLevelEnabled(logger: pino.Logger<'verbose', boolean>, level: LogLevel
 
 // Load log levels from environment variables.
 const defaultLogLevel = process.env.NODE_ENV === 'test' ? 'silent' : 'info';
-const [logLevel, logFilters] = parseEnv(process.env.LOG_LEVEL, defaultLogLevel);
+export const [logLevel, logFilters] = parseEnv(process.env.LOG_LEVEL, defaultLogLevel);
 
 // Define custom logging levels for pino.
 const customLevels = { verbose: 25 };
 
 // Global pino options, tweaked for google cloud if running there.
-const useGcloudObservability = parseBooleanEnv(process.env['USE_GCLOUD_OBSERVABILITY' satisfies EnvVar]);
+const useGcloudLogging = parseBooleanEnv(process.env['USE_GCLOUD_LOGGING' satisfies EnvVar]);
 const pinoOpts: pino.LoggerOptions<keyof typeof customLevels> = {
   customLevels,
   messageKey: 'msg',
   useOnlyCustomLevels: false,
   level: logLevel,
-  ...(useGcloudObservability ? GoogleCloudLoggerConfig : {}),
+  ...(useGcloudLogging ? GoogleCloudLoggerConfig : {}),
 };
 
 export const levels = {
@@ -104,7 +104,8 @@ export const levels = {
 };
 
 // Transport options for pretty logging to stderr via pino-pretty.
-const useColor = true;
+const colorEnv = process.env['FORCE_COLOR' satisfies EnvVar];
+const useColor = colorEnv === undefined ? isColorSupported : parseBooleanEnv(colorEnv);
 const { bold, reset } = createColors({ useColor });
 export const pinoPrettyOpts = {
   destination: 2,
@@ -138,7 +139,7 @@ const stdioTransport: pino.TransportTargetOptions = {
 // this transport configured. Note that the target is defined as the export in the telemetry-client,
 // since pino will load this transport separately on a worker thread, to minimize disruption to the main loop.
 const otlpEndpoint = process.env['OTEL_EXPORTER_OTLP_LOGS_ENDPOINT' satisfies EnvVar];
-const otlpEnabled = !!otlpEndpoint && !useGcloudObservability;
+const otlpEnabled = !!otlpEndpoint && !useGcloudLogging;
 const otelOpts = { levels };
 const otelTransport: pino.TransportTargetOptions = {
   target: '@aztec/telemetry-client/otel-pino-stream',
@@ -149,7 +150,10 @@ function makeLogger() {
   if (!isNode) {
     // We are on the browser.
     return pino({ ...pinoOpts, browser: { asObject: false } });
-  } else if (process.env.JEST_WORKER_ID) {
+  }
+  // If running in a child process then cancel this if statement section by uncommenting below
+  // else if (false) {
+  else if (process.env.JEST_WORKER_ID) {
     // We are on jest, so we need sync logging and stream to stderr.
     // We expect jest/setup.mjs to kick in later and replace set up a pretty logger,
     // but if for some reason it doesn't, at least we're covered with a default logger.
@@ -165,7 +169,7 @@ function makeLogger() {
   }
 }
 
-const logger = makeLogger();
+export const logger = makeLogger();
 
 // Log the logger configuration.
 logger.verbose(

@@ -13,13 +13,14 @@ import {
 import {
   type BlockHeader,
   type ContractClassPublic,
+  type ContractInstanceUpdateWithAddress,
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
   type Fr,
   type PrivateLog,
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
-import { type FunctionSelector } from '@aztec/foundation/abi';
+import { type FunctionSelector } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 
 import { type DataRetrieval } from './structs/data_retrieval.js';
@@ -245,6 +246,14 @@ export interface ArchiverDataStore {
   deleteContractInstances(data: ContractInstanceWithAddress[], blockNumber: number): Promise<boolean>;
 
   /**
+   * Add new contract instance updates
+   * @param data - List of contract updates to be added.
+   * @param blockNumber - Number of the L2 block the updates were scheduled in.
+   * @returns True if the operation is successful.
+   */
+  addContractInstanceUpdates(data: ContractInstanceUpdateWithAddress[], blockNumber: number): Promise<boolean>;
+  deleteContractInstanceUpdates(data: ContractInstanceUpdateWithAddress[], blockNumber: number): Promise<boolean>;
+  /**
    * Adds private functions to a contract class.
    */
   addFunctions(
@@ -254,7 +263,7 @@ export interface ArchiverDataStore {
   ): Promise<boolean>;
 
   /**
-   * Returns a contract instance given its address, or undefined if not exists.
+   * Returns a contract instance given its address and the given block number, or undefined if not exists.
    * @param address - Address of the contract.
    */
   getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>;
@@ -271,5 +280,5 @@ export interface ArchiverDataStore {
   /**
    * Estimates the size of the store in bytes.
    */
-  estimateSize(): { mappingSize: number; actualSize: number; numItems: number };
+  estimateSize(): Promise<{ mappingSize: number; actualSize: number; numItems: number }>;
 }

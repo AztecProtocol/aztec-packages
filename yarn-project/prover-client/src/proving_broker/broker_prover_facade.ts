@@ -10,18 +10,9 @@ import {
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
   makeProvingJobId,
-} from '@aztec/circuit-types';
-import {
-  type AVM_PROOF_LENGTH_IN_FIELDS,
-  type AvmCircuitInputs,
-  type BaseParityInputs,
-  type NESTED_RECURSIVE_PROOF_LENGTH,
-  type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-  type ParityPublicInputs,
-  type RECURSIVE_PROOF_LENGTH,
-  type RootParityInputs,
-  type TUBE_PROOF_LENGTH,
-} from '@aztec/circuits.js';
+} from '@aztec/circuit-types/interfaces/server';
+import { type BaseParityInputs, type ParityPublicInputs, type RootParityInputs } from '@aztec/circuits.js';
+import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
 import {
   type BaseOrMergeRollupPublicInputs,
   type BlockMergeRollupInputs,
@@ -36,10 +27,16 @@ import {
   type SingleTxBlockRootRollupInputs,
   type TubeInputs,
 } from '@aztec/circuits.js/rollup';
+import {
+  type AVM_PROOF_LENGTH_IN_FIELDS,
+  type NESTED_RECURSIVE_PROOF_LENGTH,
+  type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+  type RECURSIVE_PROOF_LENGTH,
+  type TUBE_PROOF_LENGTH,
+} from '@aztec/constants';
 import { sha256 } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
-import { RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
-import { SerialQueue } from '@aztec/foundation/queue';
+import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { truncate } from '@aztec/foundation/string';
 
 import { InlineProofStore, type ProofStore } from './proof_store/index.js';
@@ -52,10 +49,10 @@ const SNAPSHOT_SYNC_CHECK_MAX_REQUEST_SIZE = 1000;
 
 type ProvingJob = {
   id: ProvingJobId;
+  inputsUri?: ProofUri;
   type: ProvingRequestType;
-  inputsUri: ProofUri;
-  promise: PromiseWithResolvers<any>;
-  abortFn?: () => Promise<void>;
+  deferred: PromiseWithResolvers<any>;
+  abortFn: () => void;
   signal?: AbortSignal;
 };
 
@@ -63,7 +60,6 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
   private jobs: Map<ProvingJobId, ProvingJob> = new Map();
   private runningPromise?: RunningPromise;
   private timeOfLastSnapshotSync = Date.now();
-  private queue: SerialQueue = new SerialQueue();
   private jobsToRetrieve: Set<ProvingJobId> = new Set();
 
   constructor(
@@ -74,112 +70,120 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     private log = createLogger('prover-client:broker-circuit-prover-facade'),
   ) {}
 
-  private enqueueJob<T extends ProvingRequestType>(
+  /**
+   * This is a critical section. This function can not be async since it writes
+   * to the jobs map which acts as a mutex, ensuring a job is only ever created once.
+   *
+   * This could be called in a SerialQueue if it needs to become async.
+   */
+  private getOrCreateProvingJob<T extends ProvingRequestType>(
+    id: ProvingJobId,
+    type: T,
+    signal?: AbortSignal,
+  ): { job: ProvingJob; isEnqueued: boolean } {
+    // Check if there is already a promise for this job
+    const existingJob = this.jobs.get(id);
+    if (existingJob) {
+      this.log.verbose(`Job already found in facade id=${id} type=${ProvingRequestType[type]}`, {
+        provingJobId: id,
+        provingJobType: ProvingRequestType[type],
+      });
+      return { job: existingJob, isEnqueued: true };
+    }
+
+    // Create a promise for this job id, regardless of whether it was enqueued at the broker
+    // The running promise will monitor for the job to be completed and resolve it either way
+    const promise = promiseWithResolvers<ProvingJobResultsMap[T]>();
+    const abortFn = () => {
+      signal?.removeEventListener('abort', abortFn);
+      void this.broker.cancelProvingJob(id).catch(err => this.log.warn(`Error cancelling job id=${id}`, err));
+    };
+    const job: ProvingJob = {
+      id,
+      type,
+      deferred: promise,
+      abortFn,
+      signal,
+    };
+
+    this.jobs.set(id, job);
+    return { job, isEnqueued: false };
+  }
+
+  private async enqueueJob<T extends ProvingRequestType>(
     id: ProvingJobId,
     type: T,
     inputs: ProvingJobInputsMap[T],
     epochNumber = 0,
     signal?: AbortSignal,
   ): Promise<ProvingJobResultsMap[T]> {
-    if (!this.queue) {
-      throw new Error('BrokerCircuitProverFacade not started');
+    const { job: job, isEnqueued } = this.getOrCreateProvingJob(id, type, signal);
+    if (isEnqueued) {
+      return job.deferred.promise;
     }
-    return this.queue!.put(() => this._enqueueJob(id, type, inputs, epochNumber, signal)).then(
-      ({ enqueuedPromise }) => enqueuedPromise,
-    );
-  }
 
-  private async _enqueueJob<T extends ProvingRequestType>(
-    id: ProvingJobId,
-    type: T,
-    inputs: ProvingJobInputsMap[T],
-    epochNumber = 0,
-    signal?: AbortSignal,
-  ): Promise<{ enqueuedPromise: Promise<ProvingJobResultsMap[T]> }> {
-    // Check if there is already a promise for this job
-    const existingPromise = this.jobs.get(id);
-    if (existingPromise) {
-      this.log.verbose(`Job already found in facade id=${id} type=${ProvingRequestType[type]}`, {
-        provingJobId: id,
-        provingJobType: ProvingRequestType[type],
+    try {
+      const inputsUri = await this.proofStore.saveProofInput(id, type, inputs);
+      job.inputsUri = inputsUri;
+      const jobStatus = await this.broker.enqueueProvingJob({
+        id,
+        type,
+        inputsUri,
         epochNumber,
       });
-      return { enqueuedPromise: existingPromise.promise.promise as Promise<ProvingJobResultsMap[T]> };
+
+      // If we are here then the job was successfully accepted by the broker
+      // the returned status is for before any action was performed
+      if (jobStatus.status === 'fulfilled' || jobStatus.status === 'rejected') {
+        // Job was already completed by the broker
+        // No need to notify the broker on aborted job
+        this.log.verbose(
+          `Job already completed when sent to broker id=${id} type=${ProvingRequestType[type]} epochNumber=${epochNumber}`,
+          {
+            provingJobId: id,
+            provingJobType: ProvingRequestType[type],
+            epochNumber,
+            inputsUri: truncate(inputsUri),
+          },
+        );
+
+        // Job was not enqueued. It must be completed already, add to our set of already completed jobs
+        this.jobsToRetrieve.add(id);
+      } else {
+        // notify the broker if job is aborted
+        signal?.addEventListener('abort', job.abortFn);
+
+        // Job added for the first time
+        if (jobStatus.status === 'not-found') {
+          this.log.verbose(
+            `Job enqueued with broker id=${id} type=${ProvingRequestType[type]} epochNumber=${epochNumber}`,
+            {
+              provingJobId: id,
+              provingJobType: ProvingRequestType[type],
+              epochNumber,
+              inputsUri: truncate(inputsUri),
+              numOutstandingJobs: this.jobs.size,
+            },
+          );
+        } else {
+          // Job was previously sent to the broker but is not completed
+          this.log.verbose(
+            `Job already in queue or in progress when sent to broker id=${id} type=${ProvingRequestType[type]} epochNumber=${epochNumber}`,
+            {
+              provingJobId: id,
+              provingJobType: ProvingRequestType[type],
+              epochNumber,
+              inputsUri: truncate(inputsUri),
+            },
+          );
+        }
+      }
+    } catch (err) {
+      this.jobs.delete(job.id);
+      job.deferred.reject(err);
     }
-    const inputsUri = await this.proofStore.saveProofInput(id, type, inputs);
-    const jobStatus = await this.broker.enqueueProvingJob({
-      id,
-      type,
-      inputsUri,
-      epochNumber,
-    });
 
-    // Create a promise for this job id, regardless of whether it was enqueued at the broker
-    // The running promise will monitor for the job to be completed and resolve it either way
-    const promise = promiseWithResolvers<ProvingJobResultsMap[T]>();
-    const abortFn = async () => {
-      signal?.removeEventListener('abort', abortFn);
-      await this.broker.cancelProvingJob(id);
-    };
-    const job: ProvingJob = {
-      id,
-      type,
-      inputsUri,
-      promise,
-      abortFn,
-      signal,
-    };
-    this.jobs.set(id, job);
-
-    // If we are here then the job was successfully accepted by the broker
-    // the returned status is for before any action was performed
-    if (jobStatus.status === 'not-found') {
-      // Job added for the first time
-      // notify the broker if job is aborted
-      signal?.addEventListener('abort', abortFn);
-
-      this.log.verbose(
-        `Job enqueued with broker id=${id} type=${ProvingRequestType[type]} epochNumber=${epochNumber}`,
-        {
-          provingJobId: id,
-          provingJobType: ProvingRequestType[type],
-          epochNumber,
-          inputsUri: truncate(inputsUri),
-          numOutstandingJobs: this.jobs.size,
-        },
-      );
-    } else if (jobStatus.status === 'fulfilled' || jobStatus.status === 'rejected') {
-      // Job was already completed by the broker
-      // No need to notify the broker on aborted job
-      job.abortFn = undefined;
-      this.log.verbose(
-        `Job already completed when sent to broker id=${id} type=${ProvingRequestType[type]} epochNumber=${epochNumber}`,
-        {
-          provingJobId: id,
-          provingJobType: ProvingRequestType[type],
-          epochNumber,
-          inputsUri: truncate(inputsUri),
-        },
-      );
-
-      // Job was not enqueued. It must be completed already, add to our set of already completed jobs
-      this.jobsToRetrieve.add(id);
-    } else {
-      // Job was previously sent to the broker but is not completed
-      // notify the broker if job is aborted
-      signal?.addEventListener('abort', abortFn);
-      this.log.verbose(
-        `Job already in queue or in progress when sent to broker id=${id} type=${ProvingRequestType[type]} epochNumber=${epochNumber}`,
-        {
-          provingJobId: id,
-          provingJobType: ProvingRequestType[type],
-          epochNumber,
-          inputsUri: truncate(inputsUri),
-        },
-      );
-    }
-    const typedPromise = promise.promise as Promise<ProvingJobResultsMap[T]>;
-    return { enqueuedPromise: typedPromise };
+    return job.deferred.promise as Promise<ProvingJobResultsMap[T]>;
   }
 
   public start() {
@@ -191,9 +195,6 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
 
     this.runningPromise = new RunningPromise(() => this.monitorForCompletedJobs(), this.log, this.pollIntervalMs);
     this.runningPromise.start();
-
-    this.queue = new SerialQueue();
-    this.queue.start();
   }
 
   public async stop(): Promise<void> {
@@ -203,14 +204,9 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     this.log.verbose('Stopping BrokerCircuitProverFacade');
     await this.runningPromise.stop();
 
-    if (this.queue) {
-      await this.queue.cancel();
-      await this.queue.end();
-    }
-
     // Reject any outstanding promises as stopped
     for (const [_, v] of this.jobs) {
-      v.promise.reject(new Error('Broker facade stopped'));
+      v.deferred.reject(new Error('Broker facade stopped'));
     }
     this.jobs.clear();
   }
@@ -246,7 +242,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
       return allCompleted;
     };
 
-    const snapshotSyncIds = [];
+    const snapshotSyncIds: string[] = [];
     const currentTime = Date.now();
     const secondsSinceLastSnapshotSync = currentTime - this.timeOfLastSnapshotSync;
     if (secondsSinceLastSnapshotSync > SNAPSHOT_SYNC_INTERVAL_MS) {
@@ -254,7 +250,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
       snapshotSyncIds.push(...this.jobs.keys());
       this.log.trace(`Performing full snapshot sync of completed jobs with ${snapshotSyncIds.length} job(s)`);
     } else {
-      this.log.trace(`Performing incremental sync of completed jobs`);
+      this.log.trace(`Performing incremental sync of completed jobs`, { snapshotSyncIds });
     }
 
     // Now request the notifications from the broker
@@ -329,7 +325,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
 
       if (result.success) {
         this.log.verbose(`Resolved proving job id=${job.id} type=${ProvingRequestType[job.type]}`);
-        job.promise.resolve(result.result);
+        job.deferred.resolve(result.result);
       } else {
         this.log.error(
           `Resolving proving job with error id=${job.id} type=${ProvingRequestType[job.type]}`,
@@ -338,7 +334,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
         if (result.reason !== 'Aborted') {
           void this.backupFailedProofInputs(job);
         }
-        job.promise.reject(new Error(result.reason));
+        job.deferred.reject(new Error(result.reason));
       }
 
       if (job.abortFn && job.signal) {
@@ -370,7 +366,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
 
   private async backupFailedProofInputs(job: ProvingJob) {
     try {
-      if (!this.failedProofStore) {
+      if (!this.failedProofStore || !job.inputsUri) {
         return;
       }
       const inputs = await this.proofStore.getProofInput(job.inputsUri);

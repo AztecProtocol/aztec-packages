@@ -1,4 +1,4 @@
-import { type NoirCompiledCircuit } from '@aztec/types/noir';
+import { type NoirCompiledCircuit } from '@aztec/circuits.js/noir';
 
 import { type ExecutionError } from '@noir-lang/acvm_js';
 import { abiDecodeError } from '@noir-lang/noirc_abi';

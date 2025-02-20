@@ -1,13 +1,14 @@
+import { Blob, BlobDeserializationError } from '@aztec/blob-lib';
 import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { Body, InboxLeaf, L2Block } from '@aztec/circuit-types';
-import { AppendOnlyTreeSnapshot, BlockHeader, Fr, Proof } from '@aztec/circuits.js';
+import { BlockHeader, Fr, Proof } from '@aztec/circuits.js';
+import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
 import { asyncPool } from '@aztec/foundation/async-pool';
-import { Blob } from '@aztec/foundation/blob';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type ViemSignature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
-import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { ForwarderAbi, type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 
 import {
   type Chain,
@@ -98,10 +99,19 @@ export async function processL2BlockProposedLogs(
     const l2BlockNumber = log.args.blockNumber!;
     const archive = log.args.archive!;
     const archiveFromChain = await rollup.read.archiveAt([l2BlockNumber]);
+    const blobHashes = log.args.versionedBlobHashes!.map(blobHash => Buffer.from(blobHash.slice(2), 'hex'));
 
     // The value from the event and contract will match only if the block is in the chain.
     if (archive === archiveFromChain) {
-      const block = await getBlockFromRollupTx(publicClient, blobSinkClient, log.transactionHash!, l2BlockNumber);
+      const block = await getBlockFromRollupTx(
+        publicClient,
+        blobSinkClient,
+        log.transactionHash!,
+        blobHashes,
+        l2BlockNumber,
+        rollup.address,
+        logger,
+      );
 
       const l1: L1PublishedData = {
         blockNumber: log.blockNumber,
@@ -127,6 +137,57 @@ export async function getL1BlockTime(publicClient: PublicClient, blockNumber: bi
 }
 
 /**
+ * Extracts the first 'propose' method calldata from a forwarder transaction's data.
+ * @param forwarderData - The forwarder transaction input data
+ * @param rollupAddress - The address of the rollup contract
+ * @returns The calldata for the first 'propose' method call to the rollup contract
+ */
+function extractRollupProposeCalldata(forwarderData: Hex, rollupAddress: Hex): Hex {
+  // TODO(#11451): custom forwarders
+  const { functionName: forwarderFunctionName, args: forwarderArgs } = decodeFunctionData({
+    abi: ForwarderAbi,
+    data: forwarderData,
+  });
+
+  if (forwarderFunctionName !== 'forward') {
+    throw new Error(`Unexpected forwarder method called ${forwarderFunctionName}`);
+  }
+
+  if (forwarderArgs.length !== 2) {
+    throw new Error(`Unexpected number of arguments for forwarder`);
+  }
+
+  const [to, data] = forwarderArgs;
+
+  // Find all rollup calls
+  const rollupAddressLower = rollupAddress.toLowerCase();
+
+  for (let i = 0; i < to.length; i++) {
+    const addr = to[i];
+    if (addr.toLowerCase() !== rollupAddressLower) {
+      continue;
+    }
+    const callData = data[i];
+
+    try {
+      const { functionName: rollupFunctionName } = decodeFunctionData({
+        abi: RollupAbi,
+        data: callData,
+      });
+
+      if (rollupFunctionName === 'propose') {
+        return callData;
+      }
+    } catch (err) {
+      // Skip invalid function data
+      continue;
+    }
+  }
+
+  throw new Error(`Rollup address not found in forwarder args`);
+}
+
+/**
  * Gets block from the calldata of an L1 transaction.
  * Assumes that the block was published from an EOA.
  * TODO: Add retries and error management.
@@ -139,25 +200,30 @@ async function getBlockFromRollupTx(
   publicClient: PublicClient,
   blobSinkClient: BlobSinkClientInterface,
   txHash: `0x${string}`,
+  blobHashes: Buffer[], // WORKTODO(md): buffer32?
   l2BlockNum: bigint,
+  rollupAddress: Hex,
+  logger: Logger,
 ): Promise<L2Block> {
-  const { input: data, blockHash } = await publicClient.getTransaction({ hash: txHash });
+  const { input: forwarderData, blockHash } = await publicClient.getTransaction({ hash: txHash });
 
-  const { functionName, args } = decodeFunctionData({ abi: RollupAbi, data });
+  const rollupData = extractRollupProposeCalldata(forwarderData, rollupAddress);
+  const { functionName: rollupFunctionName, args: rollupArgs } = decodeFunctionData({
+    abi: RollupAbi,
+    data: rollupData,
+  });
 
-  const allowedMethods = ['propose', 'proposeAndClaim'];
-
-  if (!allowedMethods.includes(functionName)) {
-    throw new Error(`Unexpected method called ${functionName}`);
+  if (rollupFunctionName !== 'propose') {
+    throw new Error(`Unexpected rollup method called ${rollupFunctionName}`);
   }
+
   // TODO(#9101): 'bodyHex' will be removed from below
-  const [decodedArgs, , bodyHex, blobInputs] = args! as readonly [
+  const [decodedArgs, , bodyHex, blobInputs] = rollupArgs! as readonly [
     {
       header: Hex;
       archive: Hex;
       blockHash: Hex;
       oracleInput: {
-        provingCostModifier: bigint;
         feeAssetPriceModifier: bigint;
       };
       txHashes: Hex[];
@@ -168,13 +234,25 @@ async function getBlockFromRollupTx(
   ];
 
   const header = BlockHeader.fromBuffer(Buffer.from(hexToBytes(decodedArgs.header)));
-
-  const blobBodies = await blobSinkClient.getBlobSidecar(blockHash);
+  const blobBodies = await blobSinkClient.getBlobSidecar(blockHash, blobHashes);
   if (blobBodies.length === 0) {
     throw new NoBlobBodiesFoundError(Number(l2BlockNum));
   }
 
-  const blockFields = blobBodies.flatMap(b => b.toEncodedFields());
+  // TODO(#9101): Once calldata is removed, we can remove this field encoding and update
+  // Body.fromBlobFields to accept blob buffers directly
+  let blockFields: Fr[];
+  try {
+    blockFields = Blob.toEncodedFields(blobBodies);
+  } catch (err: any) {
+    if (err instanceof BlobDeserializationError) {
+      logger.fatal(err.message);
+    } else {
+      logger.fatal('Unable to sync: failed to decode fetched blob, this blob was likely not created by us');
+    }
+    throw err;
+  }
+
   // TODO(#9101): Retreiving the block body from calldata is a temporary soln before we have
   // either a beacon chain client or link to some blob store. Web2 is ok because we will
   // verify the block body vs the blob as below.
@@ -339,7 +417,8 @@ export async function getProofFromSubmitProofTx(
   if (functionName === 'submitEpochRootProof') {
     const [decodedArgs] = args as readonly [
       {
-        epochSize: bigint;
+        start: bigint;
+        end: bigint;
         args: readonly [Hex, Hex, Hex, Hex, Hex, Hex, Hex];
         fees: readonly Hex[];
         aggregationObject: Hex;

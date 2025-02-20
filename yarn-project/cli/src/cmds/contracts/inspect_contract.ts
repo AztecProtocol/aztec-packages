@@ -4,7 +4,7 @@ import {
   FunctionSelector,
   decodeFunctionSignature,
   decodeFunctionSignatureWithParameterNames,
-} from '@aztec/foundation/abi';
+} from '@aztec/circuits.js/abi';
 import { sha256 } from '@aztec/foundation/crypto';
 import { type LogFn, type Logger } from '@aztec/foundation/log';
 
@@ -29,7 +29,7 @@ export async function inspectContract(contractArtifactFile: string, debugLogger:
   const externalFunctions = contractFns.filter(f => !f.isInternal);
   if (externalFunctions.length > 0) {
     log(`\nExternal functions:`);
-    externalFunctions.forEach(f => logFunction(f, log));
+    await Promise.all(externalFunctions.map(f => logFunction(f, log)));
   }
 
   const internalFunctions = contractFns.filter(f => f.isInternal);

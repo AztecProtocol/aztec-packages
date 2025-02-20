@@ -38,6 +38,10 @@ export type L1PublishStats = {
   blobDataGas: bigint;
   /** Amount of blob gas used. */
   blobGasUsed: bigint;
+  /** Number of blobs in the tx */
+  blobCount?: number;
+  /** Number of L1 blocks between tx submission and inclusion */
+  inclusionBlocks?: number;
 };
 
 /** Stats logged for each L1 rollup publish tx.*/
@@ -221,7 +225,7 @@ export type TxStats = {
   /** Serialized size of contract class logs. */
   contractClassLogSize: number;
   /** How this tx pays for its fee */
-  feePaymentMethod: 'none' | 'fee_juice' | 'fpc_public' | 'fpc_private';
+  feePaymentMethod: 'fee_juice' | 'fpc_public' | 'fpc_private';
 };
 
 /**

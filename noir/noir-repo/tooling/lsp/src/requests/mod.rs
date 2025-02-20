@@ -1,5 +1,5 @@
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::{collections::HashMap, future::Future};
 
 use crate::{insert_all_files_for_workspace_into_file_manager, parse_diff, PackageCacheData};
@@ -90,6 +90,9 @@ pub(crate) struct InlayHintsOptions {
 
     #[serde(rename = "closingBraceHints", default = "default_closing_brace_hints")]
     pub(crate) closing_brace_hints: ClosingBraceHintsOptions,
+
+    #[serde(rename = "ChainingHints", default = "default_chaining_hints")]
+    pub(crate) chaining_hints: ChainingHintsOptions,
 }
 
 #[derive(Debug, Deserialize, Serialize, Copy, Clone)]
@@ -113,6 +116,12 @@ pub(crate) struct ClosingBraceHintsOptions {
     pub(crate) min_lines: u32,
 }
 
+#[derive(Debug, Deserialize, Serialize, Copy, Clone)]
+pub(crate) struct ChainingHintsOptions {
+    #[serde(rename = "enabled", default = "default_chaining_hints_enabled")]
+    pub(crate) enabled: bool,
+}
+
 fn default_enable_code_lens() -> bool {
     true
 }
@@ -126,6 +135,7 @@ fn default_inlay_hints() -> InlayHintsOptions {
         type_hints: default_type_hints(),
         parameter_hints: default_parameter_hints(),
         closing_brace_hints: default_closing_brace_hints(),
+        chaining_hints: default_chaining_hints(),
     }
 }
 
@@ -158,6 +168,14 @@ fn default_closing_brace_hints_enabled() -> bool {
 
 fn default_closing_brace_min_lines() -> u32 {
     25
+}
+
+fn default_chaining_hints() -> ChainingHintsOptions {
+    ChainingHintsOptions { enabled: default_chaining_hints_enabled() }
+}
+
+fn default_chaining_hints_enabled() -> bool {
+    true
 }
 
 impl Default for LspInitializationOptions {
@@ -283,6 +301,10 @@ fn on_formatting_inner(
     state: &LspState,
     params: lsp_types::DocumentFormattingParams,
 ) -> Result<Option<Vec<lsp_types::TextEdit>>, ResponseError> {
+    // The file_path might be Err/None if the action runs against an unsaved file
+    let file_path = params.text_document.uri.to_file_path().ok();
+    let directory_path = file_path.as_ref().and_then(|path| path.parent());
+
     let path = params.text_document.uri.to_string();
 
     if let Some(source) = state.input_files.get(&path) {
@@ -292,7 +314,8 @@ fn on_formatting_inner(
             return Ok(None);
         }
 
-        let new_text = nargo_fmt::format(source, module, &Config::default());
+        let config = read_format_config(directory_path);
+        let new_text = nargo_fmt::format(source, module, &config);
 
         let start_position = Position { line: 0, character: 0 };
         let end_position = Position {
@@ -306,6 +329,19 @@ fn on_formatting_inner(
         }]))
     } else {
         Ok(None)
+    }
+}
+
+fn read_format_config(file_path: Option<&Path>) -> Config {
+    match file_path {
+        Some(file_path) => match Config::read(file_path) {
+            Ok(config) => config,
+            Err(err) => {
+                eprintln!("{}", err);
+                Config::default()
+            }
+        },
+        None => Config::default(),
     }
 }
 
@@ -580,7 +616,7 @@ pub(crate) fn find_all_references_in_workspace(
             ));
         }
 
-        // The LSP client usually removes duplicate loctions, but we do it here just in case they don't
+        // The LSP client usually removes duplicate locations, but we do it here just in case they don't
         locations.sort_by_key(|location| {
             (
                 location.uri.to_string(),
@@ -621,9 +657,9 @@ pub(crate) fn find_all_references(
 }
 
 /// Represents a trait reexported from a given module with a name.
-pub(crate) struct TraitReexport<'a> {
-    pub(super) module_id: &'a ModuleId,
-    pub(super) name: &'a Ident,
+pub(crate) struct TraitReexport {
+    pub(super) module_id: ModuleId,
+    pub(super) name: Ident,
 }
 
 #[cfg(test)]

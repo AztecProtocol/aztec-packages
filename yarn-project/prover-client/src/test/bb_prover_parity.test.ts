@@ -2,16 +2,18 @@ import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
 import {
   BaseParityInputs,
   Fr,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  NUM_BASE_PARITY_PER_ROOT_PARITY,
   ParityPublicInputs,
-  RECURSIVE_PROOF_LENGTH,
   RootParityInput,
   RootParityInputs,
   VerificationKeyAsFields,
   makeRecursiveProof,
 } from '@aztec/circuits.js';
-import { makeTuple, makeTupleAsync } from '@aztec/foundation/array';
+import {
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  NUM_BASE_PARITY_PER_ROOT_PARITY,
+  RECURSIVE_PROOF_LENGTH,
+} from '@aztec/constants';
+import { makeTuple } from '@aztec/foundation/array';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import {
@@ -47,8 +49,8 @@ describe('prover/bb_prover/parity', () => {
       NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
       Fr.random,
     );
-    const baseParityInputs = await makeTupleAsync(NUM_BASE_PARITY_PER_ROOT_PARITY, async i =>
-      BaseParityInputs.fromSlice(l1ToL2Messages, i, await getVKTreeRoot()),
+    const baseParityInputs = makeTuple(NUM_BASE_PARITY_PER_ROOT_PARITY, i =>
+      BaseParityInputs.fromSlice(l1ToL2Messages, i, getVKTreeRoot()),
     );
 
     // Generate the base parity proofs
@@ -56,12 +58,12 @@ describe('prover/bb_prover/parity', () => {
       baseParityInputs.map(baseInputs => context.prover.getBaseParityProof(baseInputs)),
     );
 
-    const rootInputs = await makeTupleAsync(NUM_BASE_PARITY_PER_ROOT_PARITY, async i => {
+    const rootInputs = makeTuple(NUM_BASE_PARITY_PER_ROOT_PARITY, i => {
       const { proof, inputs, verificationKey } = baseParityProofsAndPublicInputs[i];
       return new RootParityInput(
         proof,
         verificationKey.keyAsFields,
-        await getVKSiblingPath(ProtocolCircuitVkIndexes.BaseParityArtifact),
+        getVKSiblingPath(ProtocolCircuitVkIndexes.BaseParityArtifact),
         inputs,
       );
     });
@@ -93,7 +95,7 @@ describe('prover/bb_prover/parity', () => {
     // In each case either the proof should fail to generate or verify
 
     const validVk = rootParityInputs.children[0].verificationKey;
-    const baseParityVkPath = await getVKSiblingPath(ProtocolCircuitVkIndexes.BaseParityArtifact);
+    const baseParityVkPath = getVKSiblingPath(ProtocolCircuitVkIndexes.BaseParityArtifact);
     const validPublicInputs = rootParityInputs.children[0].publicInputs;
     const validProof = rootParityInputs.children[0].proof;
 
@@ -111,7 +113,7 @@ describe('prover/bb_prover/parity', () => {
       validProof,
       validVk,
       baseParityVkPath,
-      new ParityPublicInputs(Fr.fromBuffer(shaRoot), Fr.random(), await getVKTreeRoot()),
+      new ParityPublicInputs(Fr.fromBuffer(shaRoot), Fr.random(), getVKTreeRoot()),
     );
 
     const defectiveVerificationKey = new RootParityInput(

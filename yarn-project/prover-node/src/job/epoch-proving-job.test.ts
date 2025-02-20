@@ -1,31 +1,27 @@
+import { type L1ToL2MessageSource, L2Block, type L2BlockSource, type ProcessedTx, type Tx } from '@aztec/circuit-types';
 import {
   type EpochProver,
-  type L1ToL2MessageSource,
-  L2Block,
-  type L2BlockSource,
   type MerkleTreeWriteOperations,
-  type ProcessedTx,
-  type Tx,
   type WorldStateSynchronizer,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
 import { BlockHeader, Proof } from '@aztec/circuits.js';
 import { RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { toArray } from '@aztec/foundation/iterable';
 import { sleep } from '@aztec/foundation/sleep';
-import { type L1Publisher } from '@aztec/sequencer-client';
 import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator/server';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { ProverNodeMetrics } from '../metrics.js';
+import { type ProverNodePublisher } from '../prover-node-publisher.js';
 import { EpochProvingJob } from './epoch-proving-job.js';
 
 describe('epoch-proving-job', () => {
   // Dependencies
   let prover: MockProxy<EpochProver>;
-  let publisher: MockProxy<L1Publisher>;
+  let publisher: MockProxy<ProverNodePublisher>;
   let l2BlockSource: MockProxy<L2BlockSource>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let worldState: MockProxy<WorldStateSynchronizer>;
@@ -68,7 +64,7 @@ describe('epoch-proving-job', () => {
 
   beforeEach(async () => {
     prover = mock<EpochProver>();
-    publisher = mock<L1Publisher>();
+    publisher = mock<ProverNodePublisher>();
     l2BlockSource = mock<L2BlockSource>();
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     worldState = mock<WorldStateSynchronizer>();

@@ -1,34 +1,34 @@
 import {
-  AvmCircuitInputs,
-  AvmCircuitPublicInputs,
-  AvmExecutionHints,
+  AztecAddress,
   type BlockHeader,
-  FIXED_DA_GAS,
-  FIXED_L2_GAS,
   Fr,
   Gas,
   GasFees,
   GasSettings,
   GlobalVariables,
-  MAX_NULLIFIERS_PER_TX,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  PublicCircuitPublicInputs,
   PublicDataWrite,
   PublicLog,
   RevertCode,
   ScopedLogHash,
-  TxConstantData,
   mergeAccumulatedData,
 } from '@aztec/circuits.js';
+import { AvmCircuitInputs, AvmCircuitPublicInputs, AvmExecutionHints } from '@aztec/circuits.js/avm';
+import { TxConstantData } from '@aztec/circuits.js/kernel';
 import { makePrivateToPublicAccumulatedData, makePrivateToRollupAccumulatedData } from '@aztec/circuits.js/testing';
+import {
+  FIXED_DA_GAS,
+  FIXED_L2_GAS,
+  MAX_NULLIFIERS_PER_TX,
+  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+} from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 
 import { type MerkleTreeReadOperations } from '../interfaces/merkle_tree_operations.js';
 import { ProvingRequestType } from '../interfaces/proving-job.js';
 import { makeHeader } from '../l2_block_code_to_purge.js';
-import { mockTx } from '../mocks.js';
 import { type GasUsed } from '../tx/gas_used.js';
 import { makeProcessedTxFromPrivateOnlyTx, makeProcessedTxFromTxWithPublicCalls } from '../tx/processed_tx.js';
+import { mockTx } from './mocks.js';
 
 /** Makes a bloated processed tx for testing purposes. */
 export async function makeBloatedProcessedTx({
@@ -41,6 +41,8 @@ export async function makeBloatedProcessedTx({
   vkTreeRoot = Fr.ZERO,
   protocolContractTreeRoot = Fr.ZERO,
   globalVariables = GlobalVariables.empty(),
+  feePayer,
+  feePaymentPublicDataWrite,
   privateOnly = false,
 }: {
   seed?: number;
@@ -52,10 +54,13 @@ export async function makeBloatedProcessedTx({
   vkTreeRoot?: Fr;
   globalVariables?: GlobalVariables;
   protocolContractTreeRoot?: Fr;
+  feePayer?: AztecAddress;
+  feePaymentPublicDataWrite?: PublicDataWrite;
   privateOnly?: boolean;
 } = {}) {
   seed *= 0x1000; // Avoid clashing with the previous mock values if seed only increases by 1.
   header ??= db?.getInitialHeader() ?? makeHeader(seed);
+  feePayer ??= await AztecAddress.random();
 
   const txConstantData = TxConstantData.empty();
   txConstantData.historicalHeader = header;
@@ -66,8 +71,12 @@ export async function makeBloatedProcessedTx({
   txConstantData.protocolContractTreeRoot = protocolContractTreeRoot;
 
   const tx = !privateOnly
-    ? await mockTx(seed)
-    : await mockTx(seed, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 });
+    ? await mockTx(seed, { feePayer })
+    : await mockTx(seed, {
+        numberOfNonRevertiblePublicCallRequests: 0,
+        numberOfRevertiblePublicCallRequests: 0,
+        feePayer,
+      });
   tx.data.constants = txConstantData;
 
   // No side effects were created in mockTx. The default gasUsed is the tx overhead.
@@ -77,17 +86,13 @@ export async function makeBloatedProcessedTx({
     const data = makePrivateToRollupAccumulatedData(seed + 0x1000);
 
     const transactionFee = tx.data.gasUsed.computeFee(globalVariables.gasFees);
+    feePaymentPublicDataWrite ??= new PublicDataWrite(Fr.random(), Fr.random());
 
     clearLogs(data);
 
     tx.data.forRollup!.end = data;
 
-    return makeProcessedTxFromPrivateOnlyTx(
-      tx,
-      transactionFee,
-      undefined /* feePaymentPublicDataWrite */,
-      globalVariables,
-    );
+    return makeProcessedTxFromPrivateOnlyTx(tx, transactionFee, feePaymentPublicDataWrite, globalVariables);
   } else {
     const nonRevertibleData = tx.data.forPublic!.nonRevertibleAccumulatedData;
     const revertibleData = makePrivateToPublicAccumulatedData(seed + 0x1000);
@@ -113,18 +118,13 @@ export async function makeBloatedProcessedTx({
       seed + 0x2000,
     );
 
-    const avmCircuitInputs = new AvmCircuitInputs(
-      '',
-      [],
-      PublicCircuitPublicInputs.empty(),
-      AvmExecutionHints.empty(),
-      avmOutput,
-    );
+    const avmCircuitInputs = new AvmCircuitInputs('', [], AvmExecutionHints.empty(), avmOutput);
 
     const gasUsed = {
       totalGas: Gas.empty(),
       teardownGas: Gas.empty(),
       publicGas: Gas.empty(),
+      billedGas: Gas.empty(),
     } satisfies GasUsed;
 
     return makeProcessedTxFromTxWithPublicCalls(

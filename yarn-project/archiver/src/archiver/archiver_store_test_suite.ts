@@ -5,11 +5,6 @@ import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
   Fr,
-  INITIAL_L2_BLOCK_NUM,
-  L1_TO_L2_MSG_SUBTREE_HEIGHT,
-  MAX_NULLIFIERS_PER_TX,
-  PRIVATE_LOG_SIZE_IN_FIELDS,
-  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
   PrivateLog,
   PublicLog,
   SerializableContractInstance,
@@ -20,6 +15,13 @@ import {
   makeExecutablePrivateFunctionWithMembershipProof,
   makeUnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js/testing';
+import {
+  INITIAL_L2_BLOCK_NUM,
+  L1_TO_L2_MSG_SUBTREE_HEIGHT,
+  MAX_NULLIFIERS_PER_TX,
+  PRIVATE_LOG_SIZE_IN_FIELDS,
+  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
+} from '@aztec/constants';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 
@@ -30,7 +32,10 @@ import { type L1Published } from './structs/published.js';
  * @param testName - The name of the test suite.
  * @param getStore - Returns an instance of a store that's already been initialized.
  */
-export function describeArchiverDataStore(testName: string, getStore: () => ArchiverDataStore) {
+export function describeArchiverDataStore(
+  testName: string,
+  getStore: () => ArchiverDataStore | Promise<ArchiverDataStore>,
+) {
   describe(testName, () => {
     let store: ArchiverDataStore;
     let blocks: L1Published<L2Block>[];
@@ -52,7 +57,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
     });
 
     beforeEach(async () => {
-      store = getStore();
+      store = await getStore();
       blocks = await timesParallel(10, async i => makeL1Published(await L2Block.random(i + 1), i + 10));
     });
 
@@ -276,7 +281,11 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       const blockNum = 10;
 
       beforeEach(async () => {
-        const randomInstance = await SerializableContractInstance.random();
+        const classId = Fr.random();
+        const randomInstance = await SerializableContractInstance.random({
+          currentContractClassId: classId,
+          originalContractClassId: classId,
+        });
         contractInstance = { ...randomInstance, address: await AztecAddress.random() };
         await store.addContractInstances([contractInstance], blockNum);
       });

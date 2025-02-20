@@ -9,12 +9,13 @@ import {
   RollupAbi,
 } from '@aztec/l1-artifacts';
 
+import { jest } from '@jest/globals';
 import fs from 'fs';
 import { getAddress, getContract } from 'viem';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
-import { P2PNetworkTest } from './p2p_network.js';
+import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG } from './p2p_network.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
@@ -22,7 +23,9 @@ const NUM_NODES = 4;
 // interfere with each other.
 const BOOT_NODE_UDP_PORT = 45000;
 
-const DATA_DIR = './data/gossip';
+const DATA_DIR = './data/upgrade_governance_proposer';
+
+jest.setTimeout(1000 * 60 * 10);
 
 /**
  * This tests emulate the same test as in l1-contracts/test/governance/scenario/UpgradeGovernanceProposerTest.t.sol
@@ -39,14 +42,17 @@ describe('e2e_p2p_governance_proposer', () => {
       basePort: BOOT_NODE_UDP_PORT,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up`
       metricsPort: shouldCollectMetrics(),
+      initialConfig: {
+        ...SHORTENED_BLOCK_TIME_CONFIG,
+      },
     });
     await t.applyBaseSnapshots();
     await t.setup();
   });
 
   afterEach(async () => {
-    await t.teardown();
     await t.stopNodes(nodes);
+    await t.teardown();
     for (let i = 0; i < NUM_NODES; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true });
     }
@@ -134,6 +140,7 @@ describe('e2e_p2p_governance_proposer', () => {
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
+      t.prefilledPublicData,
       DATA_DIR,
       shouldCollectMetrics(),
     );
@@ -158,15 +165,18 @@ describe('e2e_p2p_governance_proposer', () => {
     const nextRoundTimestamp2 = await rollup.read.getTimestampForSlot([
       ((await rollup.read.getCurrentSlot()) / 10n) * 10n + 10n,
     ]);
+    t.logger.info(`Warpping to ${nextRoundTimestamp2}`);
     await t.ctx.cheatCodes.eth.warp(Number(nextRoundTimestamp2));
 
     await waitL1Block();
 
+    t.logger.info(`Executing proposal ${govData.round}`);
     const txHash = await governanceProposer.write.executeProposal([govData.round], {
       account: emperor,
       gas: 1_000_000n,
     });
     await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: txHash });
+    t.logger.info(`Executed proposal ${govData.round}`);
 
     const token = getContract({
       address: t.ctx.deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress.toString(),
@@ -174,38 +184,48 @@ describe('e2e_p2p_governance_proposer', () => {
       client: t.ctx.deployL1ContractsValues.walletClient,
     });
 
+    t.logger.info(`Minting tokens`);
+
     await token.write.mint([emperor.address, 10000n * 10n ** 18n], { account: emperor });
     await token.write.approve([governance.address, 10000n * 10n ** 18n], { account: emperor });
     const depositTx = await governance.write.deposit([emperor.address, 10000n * 10n ** 18n], { account: emperor });
     await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: depositTx });
+    t.logger.info(`Deposited tokens`);
 
     const proposal = await governance.read.getProposal([0n]);
 
     const timeToActive = proposal.creation + proposal.config.votingDelay;
+    t.logger.info(`Warping to ${timeToActive + 1n}`);
     await t.ctx.cheatCodes.eth.warp(Number(timeToActive + 1n));
-
+    t.logger.info(`Warped to ${timeToActive + 1n}`);
     await waitL1Block();
 
+    t.logger.info(`Voting`);
     const voteTx = await governance.write.vote([0n, 10000n * 10n ** 18n, true], { account: emperor });
     await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: voteTx });
+    t.logger.info(`Voted`);
 
     const timeToExecutable = timeToActive + proposal.config.votingDuration + proposal.config.executionDelay + 1n;
+    t.logger.info(`Warping to ${timeToExecutable}`);
     await t.ctx.cheatCodes.eth.warp(Number(timeToExecutable));
-
+    t.logger.info(`Warped to ${timeToExecutable}`);
     await waitL1Block();
 
+    t.logger.info(`Checking governance proposer`);
     expect(await governance.read.governanceProposer()).toEqual(
       getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceProposerAddress.toString()),
     );
+    t.logger.info(`Governance proposer is correct`);
 
+    t.logger.info(`Executing proposal`);
     const executeTx = await governance.write.execute([0n], { account: emperor });
     await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: executeTx });
-
+    t.logger.info(`Executed proposal`);
     const newGovernanceProposer = await governance.read.governanceProposer();
     expect(newGovernanceProposer).not.toEqual(
       getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceProposerAddress.toString()),
     );
-
     expect(await governance.read.getProposalState([0n])).toEqual(5);
+    t.logger.info(`Governance proposer is correct`);
   }, 1_000_000);
 });

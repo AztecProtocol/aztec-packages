@@ -1,4 +1,5 @@
-import { type AztecAddress, Fr, type GlobalVariables, MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/circuits.js';
+import { type AztecAddress, Fr, type GlobalVariables } from '@aztec/circuits.js';
+import { MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/constants';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { strict as assert } from 'assert';
@@ -18,6 +19,7 @@ import {
   revertReasonFromExplicitRevert,
 } from './errors.js';
 import { type AvmPersistableStateManager } from './journal/journal.js';
+import { type Instruction } from './opcodes/instruction.js';
 import {
   INSTRUCTION_SET,
   type InstructionSet,
@@ -28,31 +30,34 @@ type OpcodeTally = {
   count: number;
   gas: Gas;
 };
-type PcTally = {
-  opcode: string;
-  count: number;
-  gas: Gas;
-};
 
 export class AvmSimulator {
   private log: Logger;
   private bytecode: Buffer | undefined;
   private opcodeTallies: Map<string, OpcodeTally> = new Map();
-  private pcTallies: Map<number, PcTally> = new Map();
+  // maps pc to [instr, bytesRead]
+  private deserializedInstructionsCache: Map<number, [Instruction, number]> = new Map();
 
   private tallyPrintFunction = () => {};
-  private tallyInstructionFunction = (_a: number, _b: string, _c: Gas) => {};
+  private tallyInstructionFunction = (_b: string, _c: Gas) => {};
 
   // Test Purposes only: Logger will not have the proper function name. Use this constructor for testing purposes
   // only. Otherwise, use build() below.
-  constructor(private context: AvmContext, private instructionSet: InstructionSet = INSTRUCTION_SET()) {
+  constructor(
+    private context: AvmContext,
+    private instructionSet: InstructionSet = INSTRUCTION_SET,
+    enableTallying = false,
+  ) {
+    // This will be used by the CALL opcode to create a new simulator. It is required to
+    // avoid a dependency cycle.
+    context.provideSimulator = AvmSimulator.build;
     assert(
       context.machineState.gasLeft.l2Gas <= MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
       `Cannot allocate more than ${MAX_L2_GAS_PER_TX_PUBLIC_PORTION} to the AVM for execution.`,
     );
     this.log = createLogger(`simulator:avm(calldata[0]: ${context.environment.calldata[0]})`);
-    // TODO(palla/log): Should tallies be printed on debug, or only on trace?
-    if (this.log.isLevelEnabled('debug')) {
+    // Turn on tallying if explicitly enabled or if trace logging
+    if (enableTallying || this.log.isLevelEnabled('trace')) {
       this.tallyPrintFunction = this.printOpcodeTallies;
       this.tallyInstructionFunction = this.tallyInstruction;
     }
@@ -131,6 +136,7 @@ export class AvmSimulator {
    * This method is useful for testing and debugging.
    */
   public async executeBytecode(bytecode: Buffer): Promise<AvmContractCallResult> {
+    const startTotalTime = performance.now();
     assert(isAvmBytecode(bytecode), "AVM simulator can't execute non-AVM bytecode");
     assert(bytecode.length > 0, "AVM simulator can't execute empty bytecode");
 
@@ -143,20 +149,32 @@ export class AvmSimulator {
       // continuing until the machine state signifies a halt
       let instrCounter = 0;
       while (!machineState.getHalted()) {
-        const [instruction, bytesRead] = decodeInstructionFromBytecode(bytecode, machineState.pc, this.instructionSet);
-        const instrStartGas = machineState.gasLeft; // Save gas before executing instruction (for profiling)
-        const instrPc = machineState.pc; // Save PC before executing instruction (for profiling)
+        // Get the instruction from cache, or deserialize for the first time
+        let cachedInstruction = this.deserializedInstructionsCache.get(machineState.pc);
 
-        this.log.trace(
-          `[PC:${machineState.pc}] [IC:${instrCounter++}] ${instruction.toString()} (gasLeft l2=${
-            machineState.l2GasLeft
-          } da=${machineState.daGasLeft})`,
-        );
+        if (cachedInstruction === undefined) {
+          cachedInstruction = decodeInstructionFromBytecode(bytecode, machineState.pc, this.instructionSet);
+          this.deserializedInstructionsCache.set(machineState.pc, cachedInstruction);
+        }
+        const [instruction, bytesRead] = cachedInstruction;
+
+        const instrStartGas = machineState.gasLeft; // Save gas before executing instruction (for profiling)
+
+        if (this.log.isLevelEnabled('trace')) {
+          // Skip this entirely to avoid toStringing etc if trace is not enabled
+          this.log.trace(
+            `[PC:${machineState.pc}] [IC:${instrCounter}] ${instruction.toString()} (gasLeft l2=${
+              machineState.l2GasLeft
+            } da=${machineState.daGasLeft})`,
+          );
+        }
+        instrCounter++;
+
+        machineState.nextPc = machineState.pc + bytesRead;
+
         // Execute the instruction.
         // Normal returns and reverts will return normally here.
         // "Exceptional halts" will throw.
-        machineState.nextPc = machineState.pc + bytesRead;
-
         await instruction.execute(this.context);
         if (!instruction.handlesPC()) {
           // Increment PC if the instruction doesn't handle it itself
@@ -168,7 +186,7 @@ export class AvmSimulator {
           l2Gas: instrStartGas.l2Gas - machineState.l2GasLeft,
           daGas: instrStartGas.daGas - machineState.daGasLeft,
         };
-        this.tallyInstructionFunction(instrPc, instruction.constructor.name, gasUsed);
+        this.tallyInstructionFunction(instruction.constructor.name, gasUsed);
 
         if (machineState.pc >= bytecode.length) {
           this.log.warn('Passed end of program');
@@ -188,6 +206,11 @@ export class AvmSimulator {
       this.log.debug(`Executed ${instrCounter} instructions and consumed ${totalGasUsed.l2Gas} L2 Gas`);
 
       this.tallyPrintFunction();
+
+      const endTotalTime = performance.now();
+      const totalTime = endTotalTime - startTotalTime;
+      this.log.debug(`Core AVM simulation took ${totalTime}ms`);
+
       // Return results for processing by calling context
       return results;
     } catch (err: any) {
@@ -239,18 +262,12 @@ export class AvmSimulator {
     );
   }
 
-  private tallyInstruction(pc: number, opcode: string, gasUsed: Gas) {
+  private tallyInstruction(opcode: string, gasUsed: Gas) {
     const opcodeTally = this.opcodeTallies.get(opcode) || ({ count: 0, gas: { l2Gas: 0, daGas: 0 } } as OpcodeTally);
     opcodeTally.count++;
     opcodeTally.gas.l2Gas += gasUsed.l2Gas;
     opcodeTally.gas.daGas += gasUsed.daGas;
     this.opcodeTallies.set(opcode, opcodeTally);
-
-    const pcTally = this.pcTallies.get(pc) || ({ opcode: opcode, count: 0, gas: { l2Gas: 0, daGas: 0 } } as PcTally);
-    pcTally.count++;
-    pcTally.gas.l2Gas += gasUsed.l2Gas;
-    pcTally.gas.daGas += gasUsed.daGas;
-    this.pcTallies.set(pc, pcTally);
   }
 
   private printOpcodeTallies() {
@@ -260,17 +277,6 @@ export class AvmSimulator {
     for (const [opcode, tally] of sortedOpcodes) {
       // NOTE: don't care to clutter the logs with DA gas for now
       this.log.debug(`${opcode} executed ${tally.count} times consuming a total of ${tally.gas.l2Gas} L2 gas`);
-    }
-
-    this.log.debug(`Printing tallies per PC sorted by #times each PC was executed...`);
-    const sortedPcs = Array.from(this.pcTallies.entries())
-      .sort((a, b) => b[1].count - a[1].count)
-      .filter((_, i) => i < 20);
-    for (const [pc, tally] of sortedPcs) {
-      // NOTE: don't care to clutter the logs with DA gas for now
-      this.log.debug(
-        `PC:${pc} containing opcode ${tally.opcode} executed ${tally.count} times consuming a total of ${tally.gas.l2Gas} L2 gas`,
-      );
     }
   }
 }

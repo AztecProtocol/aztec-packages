@@ -3,11 +3,11 @@ import {
   Fr,
   type GrumpkinScalar,
   NotOnCurveError,
-  PRIVATE_LOG_SIZE_IN_FIELDS,
   Point,
   PrivateLog,
   derivePublicKeyFromSecretKey,
 } from '@aztec/circuits.js';
+import { PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { BufferReader, type Tuple, numToUInt16BE, serializeToBuffer } from '@aztec/foundation/serialize';
 

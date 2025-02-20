@@ -98,6 +98,12 @@ pub enum ResolverError {
     DependencyCycle { span: Span, item: String, cycle: String },
     #[error("break/continue are only allowed in unconstrained functions")]
     JumpInConstrainedFn { is_break: bool, span: Span },
+    #[error("`loop` is only allowed in unconstrained functions")]
+    LoopInConstrainedFn { span: Span },
+    #[error("`loop` must have at least one `break` in it")]
+    LoopWithoutBreak { span: Span },
+    #[error("`while` is only allowed in unconstrained functions")]
+    WhileInConstrainedFn { span: Span },
     #[error("break/continue are only allowed within loops")]
     JumpOutsideLoop { is_break: bool, span: Span },
     #[error("Only `comptime` globals can be mutable")]
@@ -112,8 +118,8 @@ pub enum ResolverError {
     NonIntegralGlobalType { span: Span, global_value: Value },
     #[error("Global value `{global_value}` is larger than its kind's maximum value")]
     GlobalLargerThanKind { span: Span, global_value: FieldElement, kind: Kind },
-    #[error("Self-referential structs are not supported")]
-    SelfReferentialStruct { span: Span },
+    #[error("Self-referential types are not supported")]
+    SelfReferentialType { span: Span },
     #[error("#[no_predicates] attribute is only allowed on constrained functions")]
     NoPredicatesAttributeOnUnconstrained { ident: Ident },
     #[error("#[fold] attribute is only allowed on constrained functions")]
@@ -124,6 +130,8 @@ pub enum ResolverError {
     ArrayLengthInterpreter { error: InterpreterError },
     #[error("The unquote operator '$' can only be used within a quote expression")]
     UnquoteUsedOutsideQuote { span: Span },
+    #[error("\"as trait path\" not yet implemented")]
+    AsTraitPathNotYetImplemented { span: Span },
     #[error("Invalid syntax in macro call")]
     InvalidSyntaxInMacroCall { span: Span },
     #[error("Macros must be comptime functions")]
@@ -172,6 +180,8 @@ pub enum ResolverError {
     },
     #[error("`loop` statements are not yet implemented")]
     LoopNotYetSupported { span: Span },
+    #[error("Expected a trait but found {found}")]
+    ExpectedTrait { found: String, span: Span },
 }
 
 impl ResolverError {
@@ -409,7 +419,7 @@ impl<'a> From<&'a ResolverError> for Diagnostic {
                 "Usage of the `#[foreign]` or `#[builtin]` function attributes are not allowed outside of the Noir standard library".into(),
                 ident.span(),
             ),
-            ResolverError::OracleMarkedAsConstrained { ident } => Diagnostic::simple_warning(
+            ResolverError::OracleMarkedAsConstrained { ident } => Diagnostic::simple_error(
                 error.to_string(),
                 "Oracle functions must have the `unconstrained` keyword applied".into(),
                 ident.span(),
@@ -430,6 +440,27 @@ impl<'a> From<&'a ResolverError> for Diagnostic {
                 let item = if *is_break { "break" } else { "continue" };
                 Diagnostic::simple_error(
                     format!("{item} is only allowed in unconstrained functions"),
+                    "Constrained code must always have a known number of loop iterations".into(),
+                    *span,
+                )
+            },
+            ResolverError::LoopInConstrainedFn { span } => {
+                Diagnostic::simple_error(
+                    "`loop` is only allowed in unconstrained functions".into(),
+                    "Constrained code must always have a known number of loop iterations".into(),
+                    *span,
+                )
+            },
+            ResolverError::LoopWithoutBreak { span } => {
+                Diagnostic::simple_error(
+                    "`loop` must have at least one `break` in it".into(),
+                    "Infinite loops are disallowed".into(),
+                    *span,
+                )
+            },
+            ResolverError::WhileInConstrainedFn { span } => {
+                Diagnostic::simple_error(
+                    "`while` is only allowed in unconstrained functions".into(),
                     "Constrained code must always have a known number of loop iterations".into(),
                     *span,
                 )
@@ -484,9 +515,9 @@ impl<'a> From<&'a ResolverError> for Diagnostic {
                     *span,
                 )
             }
-            ResolverError::SelfReferentialStruct { span } => {
+            ResolverError::SelfReferentialType { span } => {
                 Diagnostic::simple_error(
-                    "Self-referential structs are not supported".into(),
+                    "Self-referential types are not supported".into(),
                     "".into(),
                     *span,
                 )
@@ -526,6 +557,13 @@ impl<'a> From<&'a ResolverError> for Diagnostic {
             ResolverError::UnquoteUsedOutsideQuote { span } => {
                 Diagnostic::simple_error(
                     "The unquote operator '$' can only be used within a quote expression".into(),
+                    "".into(),
+                    *span,
+                )
+            },
+            ResolverError::AsTraitPathNotYetImplemented { span } => {
+                Diagnostic::simple_error(
+                    "\"as trait path\" not yet implemented".into(),
                     "".into(),
                     *span,
                 )
@@ -645,8 +683,12 @@ impl<'a> From<&'a ResolverError> for Diagnostic {
                 diagnostic
             },
             ResolverError::LoopNotYetSupported { span  } => {
+                let msg = "`loop` statements are not yet implemented".to_string();
+                Diagnostic::simple_error(msg, String::new(), *span)
+            }
+            ResolverError::ExpectedTrait { found, span  } => {
                 Diagnostic::simple_error(
-                    "`loop` statements are not yet implemented".to_string(), 
+                    format!("Expected a trait, found {found}"), 
                     String::new(),
                     *span)
 

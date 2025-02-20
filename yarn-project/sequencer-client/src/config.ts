@@ -1,4 +1,9 @@
-import { type AllowedElement, type SequencerConfig } from '@aztec/circuit-types/config';
+import {
+  type AllowedElement,
+  type ChainConfig,
+  type SequencerConfig,
+  chainConfigMappings,
+} from '@aztec/circuit-types/config';
 import { AztecAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
 import {
   type L1ContractsConfig,
@@ -11,8 +16,8 @@ import {
   booleanConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
+  pickConfigMappings,
 } from '@aztec/foundation/config';
-import { pickConfigMappings } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 import {
@@ -23,15 +28,7 @@ import {
 } from './publisher/config.js';
 
 export * from './publisher/config.js';
-export { SequencerConfig };
-
-/** Chain configuration. */
-type ChainConfig = {
-  /** The chain id of the ethereum host. */
-  l1ChainId: number;
-  /** The version of the rollup. */
-  version: number;
-};
+export type { SequencerConfig };
 
 /**
  * Configuration settings for the SequencerClient.
@@ -41,7 +38,7 @@ export type SequencerClientConfig = PublisherConfig &
   SequencerConfig &
   L1ReaderConfig &
   ChainConfig &
-  Pick<L1ContractsConfig, 'ethereumSlotDuration'>;
+  Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration' | 'aztecEpochDuration'>;
 
 export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   transactionPollingIntervalMS: {
@@ -99,11 +96,6 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'Max block size',
     ...numberConfigHelper(1024 * 1024),
   },
-  enforceFees: {
-    env: 'ENFORCE_FEES',
-    description: 'Whether to require every tx to have a fee payer',
-    ...booleanConfigHelper(),
-  },
   enforceTimeTable: {
     env: 'SEQ_ENFORCE_TIME_TABLE',
     description: 'Whether to enforce the time table when building blocks',
@@ -123,22 +115,13 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   },
 };
 
-export const chainConfigMappings: ConfigMappingsType<ChainConfig> = {
-  l1ChainId: l1ReaderConfigMappings.l1ChainId,
-  version: {
-    env: 'VERSION',
-    description: 'The version of the rollup.',
-    ...numberConfigHelper(1),
-  },
-};
-
 export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientConfig> = {
   ...sequencerConfigMappings,
   ...l1ReaderConfigMappings,
   ...getTxSenderConfigMappings('SEQ'),
   ...getPublisherConfigMappings('SEQ'),
   ...chainConfigMappings,
-  ...pickConfigMappings(l1ContractsConfigMappings, ['ethereumSlotDuration']),
+  ...pickConfigMappings(l1ContractsConfigMappings, ['ethereumSlotDuration', 'aztecSlotDuration', 'aztecEpochDuration']),
 };
 
 /**

@@ -1,6 +1,6 @@
 import { type FunctionCall } from '@aztec/circuit-types';
 import { type GasSettings } from '@aztec/circuits.js';
-import { FunctionSelector, FunctionType, U128 } from '@aztec/foundation/abi';
+import { FunctionSelector, FunctionType, U128 } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -94,9 +94,9 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
     await this.wallet.createAuthWit({
       caller: this.paymentContract,
       action: {
-        name: 'setup_refund',
-        args: [this.wallet.getAddress().toField(), ...maxFee.toFields(), nonce],
-        selector: await FunctionSelector.fromSignature('setup_refund((Field),(Field,Field),Field)'),
+        name: 'transfer_to_public',
+        args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), ...maxFee.toFields(), nonce],
+        selector: await FunctionSelector.fromSignature('transfer_to_public((Field),(Field),(Field,Field),Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
         to: await this.getAsset(),

@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 import { AVM_HINTS_FILENAME, AVM_PUBLIC_INPUTS_FILENAME } from '@aztec/bb-prover';
-import { type ProofUri, ProvingJobInputs, ProvingRequestType } from '@aztec/circuit-types';
+import { type ProofUri, ProvingJobInputs, ProvingRequestType } from '@aztec/circuit-types/interfaces/server';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
 
@@ -42,7 +42,7 @@ async function main() {
 function writeProofInputs(input: ProvingJobInputs, outDir: string) {
   switch (input.type) {
     case ProvingRequestType.PUBLIC_VM: {
-      writeFileSync(`${outDir}/${AVM_PUBLIC_INPUTS_FILENAME}`, input.inputs.output.toBuffer());
+      writeFileSync(`${outDir}/${AVM_PUBLIC_INPUTS_FILENAME}`, input.inputs.publicInputs.toBuffer());
       logger.info(`Wrote AVM public inputs to ${AVM_PUBLIC_INPUTS_FILENAME}`);
       writeFileSync(`${outDir}/${AVM_HINTS_FILENAME}`, input.inputs.avmHints.toBuffer());
       logger.info(`Wrote AVM hints to ${AVM_HINTS_FILENAME}`);

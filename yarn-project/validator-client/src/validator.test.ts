@@ -1,7 +1,8 @@
 /**
  * Validation logic unit tests
  */
-import { TxHash, mockTx } from '@aztec/circuit-types';
+import { TxHash } from '@aztec/circuit-types';
+import { makeBlockAttestation, makeBlockProposal, mockTx } from '@aztec/circuit-types/testing';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
@@ -14,7 +15,6 @@ import { describe, expect, it } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { type PrivateKeyAccount, generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
-import { makeBlockAttestation, makeBlockProposal } from '../../circuit-types/src/p2p/mocks.js';
 import { type ValidatorClientConfig } from './config.js';
 import {
   AttestationTimeoutError,
@@ -89,7 +89,7 @@ describe('ValidationService', () => {
     const proposal = await makeBlockProposal();
 
     // mock the p2pClient.getTxStatus to return undefined for all transactions
-    p2pClient.getTxStatus.mockImplementation(() => undefined);
+    p2pClient.getTxStatus.mockResolvedValue(undefined);
     // Mock the p2pClient.requestTxs to return undefined for all transactions
     p2pClient.requestTxs.mockImplementation(() => Promise.resolve([undefined]));
 
@@ -102,14 +102,14 @@ describe('ValidationService', () => {
     const proposal = await makeBlockProposal();
 
     // mock the p2pClient.getTxStatus to return undefined for all transactions
-    p2pClient.getTxStatus.mockImplementation(() => undefined);
+    p2pClient.getTxStatus.mockResolvedValue(undefined);
     epochCache.getProposerInCurrentOrNextSlot.mockImplementation(async () => ({
       currentProposer: await proposal.getSender(),
       nextProposer: await proposal.getSender(),
       currentSlot: proposal.slotNumber.toBigInt(),
       nextSlot: proposal.slotNumber.toBigInt() + 1n,
     }));
-    epochCache.isInCommittee.mockImplementation(() => Promise.resolve(true));
+    epochCache.isInCommittee.mockResolvedValue(true);
 
     const val = ValidatorClient.new(config, epochCache, p2pClient);
     val.registerBlockBuilder(() => {

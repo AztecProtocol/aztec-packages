@@ -1,10 +1,6 @@
-import {
-  type AztecNode,
-  L2BlockStream,
-  type L2BlockStreamEvent,
-  type L2BlockStreamEventHandler,
-} from '@aztec/circuit-types';
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
+import { L2BlockStream, type L2BlockStreamEvent, type L2BlockStreamEventHandler } from '@aztec/circuit-types';
+import { type AztecNode } from '@aztec/circuit-types/interfaces/client';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type L2TipsStore } from '@aztec/kv-store/stores';
 
@@ -27,9 +23,12 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     private db: PxeDatabase,
     private l2TipsStore: L2TipsStore,
     config: Partial<Pick<PXEConfig, 'l2StartingBlock'>> = {},
-    logSuffix?: string,
+    loggerOrSuffix?: string | Logger,
   ) {
-    this.log = createLogger(logSuffix ? `pxe:synchronizer:${logSuffix}` : 'pxe:synchronizer');
+    this.log =
+      !loggerOrSuffix || typeof loggerOrSuffix === 'string'
+        ? createLogger(loggerOrSuffix ? `pxe:synchronizer:${loggerOrSuffix}` : `pxe:synchronizer`)
+        : loggerOrSuffix;
     this.blockStream = this.createBlockStream(config);
   }
 

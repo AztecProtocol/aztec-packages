@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+//
 import { injectCommands as injectBuilderCommands } from '@aztec/builder';
 import { injectCommands as injectWalletCommands } from '@aztec/cli-wallet';
 import { injectCommands as injectContractCommands } from '@aztec/cli/contracts';
@@ -21,6 +22,12 @@ const debugLogger = createLogger('cli');
 
 /** CLI & full node main entrypoint */
 async function main() {
+  const shutdown = () => {
+    process.exit(0);
+  };
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
+
   const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../package.json');
   const cliVersion: string = JSON.parse(readFileSync(packageJsonPath).toString()).version;
   let program = new Command('aztec');
@@ -33,7 +40,7 @@ async function main() {
   program = injectPXECommands(program, userLog, debugLogger);
   program = injectMiscCommands(program, userLog);
   program = injectDevnetCommands(program, userLog, debugLogger);
-  program = injectWalletCommands(program, userLog, debugLogger);
+  program = await injectWalletCommands(program, userLog, debugLogger);
 
   await program.parseAsync(process.argv);
 }

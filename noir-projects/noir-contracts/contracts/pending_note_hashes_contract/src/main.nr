@@ -5,7 +5,7 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract PendingNoteHashes {
+pub contract PendingNoteHashes {
     // Libs
     use dep::aztec::encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note;
     use dep::aztec::macros::{functions::private, storage::storage};
@@ -37,10 +37,10 @@ contract PendingNoteHashes {
     ) -> Field {
         let owner_balance = storage.balances.at(owner);
 
-        let mut note = ValueNote::new(amount, owner);
+        let note = ValueNote::new(amount, owner);
 
         // Insert note
-        owner_balance.insert(&mut note).emit(encode_and_encrypt_note(&mut context, owner, sender));
+        owner_balance.insert(note).emit(encode_and_encrypt_note(&mut context, owner, sender));
 
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
         // get note inserted above
@@ -65,8 +65,8 @@ contract PendingNoteHashes {
         assert(notes.len() == 0);
 
         // Insert note
-        let mut note = ValueNote::new(amount, owner);
-        owner_balance.insert(&mut note).discard();
+        let note = ValueNote::new(amount, owner);
+        owner_balance.insert(note).discard();
 
         0
     }
@@ -80,10 +80,10 @@ contract PendingNoteHashes {
     fn insert_note(amount: Field, owner: AztecAddress, sender: AztecAddress) {
         let owner_balance = storage.balances.at(owner);
 
-        let mut note = ValueNote::new(amount, owner);
+        let note = ValueNote::new(amount, owner);
 
         // Insert note
-        owner_balance.insert(&mut note).emit(encode_and_encrypt_note(&mut context, owner, sender));
+        owner_balance.insert(note).emit(encode_and_encrypt_note(&mut context, owner, sender));
     }
 
     // Nested/inner function to create and insert a note
@@ -91,25 +91,25 @@ contract PendingNoteHashes {
     // the same note hash are dealt with correctly
     #[private]
     fn insert_note_static_randomness(amount: Field, owner: AztecAddress, sender: AztecAddress) {
-        let mut owner_balance = storage.balances.at(owner);
+        let owner_balance = storage.balances.at(owner);
 
         let mut note = ValueNote::new(amount, owner);
         note.randomness = 2;
 
         // Insert note
-        owner_balance.insert(&mut note).emit(encode_and_encrypt_note(&mut context, owner, sender));
+        owner_balance.insert(note).emit(encode_and_encrypt_note(&mut context, owner, sender));
     }
 
     // Nested/inner function to create and insert a note
     // then emit another note log for the same note
     #[private]
     fn insert_note_extra_emit(amount: Field, owner: AztecAddress, sender: AztecAddress) {
-        let mut owner_balance = storage.balances.at(owner);
+        let owner_balance = storage.balances.at(owner);
 
-        let mut note = ValueNote::new(amount, owner);
+        let note = ValueNote::new(amount, owner);
 
         // Insert note
-        let emission = owner_balance.insert(&mut note);
+        let emission = owner_balance.insert(note);
 
         emission.emit(encode_and_encrypt_note(&mut context, owner, sender));
 
@@ -326,22 +326,21 @@ contract PendingNoteHashes {
     fn test_emit_bad_note_log(owner: AztecAddress, sender: AztecAddress) {
         let owner_balance = storage.balances.at(owner);
 
-        let mut good_note = ValueNote::new(10, owner);
+        let good_note = ValueNote::new(10, owner);
         // Insert good note with real log
-        owner_balance.insert(&mut good_note).emit(encode_and_encrypt_note(
-            &mut context,
-            owner,
-            sender,
-        ));
+        let good_note_emission = owner_balance.insert(good_note);
+        good_note_emission.emit(encode_and_encrypt_note(&mut context, owner, sender));
 
         // We will emit a note log with an incorrect preimage to ensure the pxe throws
         // This note has not been inserted...
-        let mut bad_note = ValueNote::new(5, owner);
-        // ...but we need a 'good' note header to get the context to add the note log
-        let existing_note_header = good_note.get_header();
-        bad_note.set_header(existing_note_header);
+        // ...but we need a 'good' note's storage slot and note hash counter to get the context to add the note log
+        let bad_note_emission = NoteEmission::new(
+            ValueNote::new(5, owner),
+            good_note_emission.storage_slot,
+            good_note_emission.note_hash_counter,
+        );
 
-        NoteEmission::new(bad_note).emit(encode_and_encrypt_note(&mut context, owner, sender));
+        bad_note_emission.emit(encode_and_encrypt_note(&mut context, owner, sender));
     }
 
     #[contract_library_method]
@@ -354,8 +353,8 @@ contract PendingNoteHashes {
         let owner_balance = storage.balances.at(owner);
 
         for i in 0..max_notes_per_call() {
-            let mut note = ValueNote::new(i as Field, owner);
-            owner_balance.insert(&mut note).emit(encode_and_encrypt_note(context, owner, sender));
+            let note = ValueNote::new(i as Field, owner);
+            owner_balance.insert(note).emit(encode_and_encrypt_note(context, owner, sender));
         }
     }
 

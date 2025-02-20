@@ -9,7 +9,7 @@ namespace {
 
 using testing::ElementsAre;
 
-TEST(AvmSimulationRangeCheckTest, AssertRange)
+TEST(RangeCheckSimulationTest, AssertRange)
 {
     EventEmitter<RangeCheckEvent> emitter;
     RangeCheck range_check(emitter);

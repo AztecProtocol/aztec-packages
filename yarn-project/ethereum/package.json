@@ -4,9 +4,13 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
+    "./eth-cheatcodes": "./dest/eth_cheat_codes.js",
     "./test": "./dest/test/index.js",
     "./contracts": "./dest/contracts/index.js",
-    "./l1-contract-addresses": "./dest/l1_contract_addresses.js"
+    "./deploy-l1-contracts": "./dest/deploy_l1_contracts.js",
+    "./l1-contract-addresses": "./dest/l1_contract_addresses.js",
+    "./l1-tx-utils-with-blobs": "./dest/l1_tx_utils_with_blobs.js",
+    "./utils": "./dest/utils.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -23,12 +27,13 @@
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "start:dev": "tsc-watch -p tsconfig.json --onSuccess 'yarn start'",
     "start": "node ./dest/index.js",
-    "test": "HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16} RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "inherits": [
     "../package.common.json"
   ],
   "dependencies": {
+    "@aztec/blob-lib": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
     "@viem/anvil": "^0.0.10",
@@ -81,7 +86,7 @@
     "reporters": [
       "default"
     ],
-    "testTimeout": 30000,
+    "testTimeout": 120000,
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
     ]

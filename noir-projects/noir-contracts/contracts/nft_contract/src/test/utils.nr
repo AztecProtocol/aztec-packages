@@ -5,7 +5,7 @@ use dep::aztec::{
         random::random,
         storage::storage_read,
     },
-    prelude::{AztecAddress, NoteHeader},
+    prelude::AztecAddress,
     protocol_types::storage::map::derive_storage_slot_in_map,
     test::helpers::{cheatcodes, test_environment::TestEnvironment},
 };
@@ -21,8 +21,8 @@ pub unconstrained fn setup(
         let recipient = env.create_account_contract(2);
         (owner, recipient)
     } else {
-        let owner = env.create_account();
-        let recipient = env.create_account();
+        let owner = env.create_account(1);
+        let recipient = env.create_account(2);
         (owner, recipient)
     };
 
@@ -50,6 +50,7 @@ pub unconstrained fn setup_and_mint(
     let minted_token_id = 615;
 
     NFT::at(nft_contract_address).mint(owner, minted_token_id).call(&mut env.public());
+    env.advance_block_by(1);
 
     (env, nft_contract_address, owner, recipient, minted_token_id)
 }

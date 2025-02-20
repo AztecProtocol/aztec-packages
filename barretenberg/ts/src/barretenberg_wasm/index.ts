@@ -5,17 +5,20 @@ import { getRemoteBarretenbergWasm, getSharedMemoryAvailable } from './helpers/n
 import { BarretenbergWasmMain, BarretenbergWasmMainWorker } from './barretenberg_wasm_main/index.js';
 import { fetchCode } from './fetch_code/index.js';
 
-const debug = createDebug('bb.js:wasm');
+const fetchDebug = createDebug('bb.js:fetch_mat');
 
-export async function fetchModuleAndThreads(desiredThreads = 32) {
+export async function fetchModuleAndThreads(desiredThreads = 32, wasmPath?: string) {
   const shared = getSharedMemoryAvailable();
 
   const availableThreads = shared ? await getAvailableThreads() : 1;
   // We limit the number of threads to 32 as we do not benefit from greater numbers.
   const limitedThreads = Math.min(desiredThreads, availableThreads, 32);
 
-  const code = await fetchCode(shared);
+  fetchDebug('Fetching wasm...');
+  const code = await fetchCode(shared, wasmPath);
+  fetchDebug(`Compiling wasm of ${code.byteLength} bytes...`);
   const module = await WebAssembly.compile(code);
+  fetchDebug('Done.');
   return { module, threads: limitedThreads };
 }
 
@@ -27,7 +30,7 @@ async function getAvailableThreads(): Promise<number> {
       const os = await import('os');
       return os.cpus().length;
     } catch (e) {
-      debug(`Could not detect environment. Falling back to one thread.: {e}`);
+      fetchDebug(`Could not detect environment. Falling back to one thread.: {e}`);
       return 1;
     }
   }
@@ -38,11 +41,11 @@ export class BarretenbergWasm extends BarretenbergWasmMain {
    * Construct and initialize BarretenbergWasm within a Worker. Return both the worker and the wasm proxy.
    * Used when running in the browser, because we can't block the main thread.
    */
-  public static async new(desiredThreads?: number) {
+  public static async new(desiredThreads?: number, wasmPath?: string) {
     const worker = createMainWorker();
     const wasm = getRemoteBarretenbergWasm<BarretenbergWasmMainWorker>(worker);
-    const { module, threads } = await fetchModuleAndThreads(desiredThreads);
-    await wasm.init(module, threads, proxy(debug));
+    const { module, threads } = await fetchModuleAndThreads(desiredThreads, wasmPath);
+    await wasm.init(module, threads, proxy(createDebug('bb.js:bb_wasm_main')));
     return { worker, wasm };
   }
 }

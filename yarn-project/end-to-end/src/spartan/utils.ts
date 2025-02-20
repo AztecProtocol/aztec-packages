@@ -1,12 +1,13 @@
-import { createLogger, sleep } from '@aztec/aztec.js';
+import { createAztecNodeClient, createLogger, sleep } from '@aztec/aztec.js';
+import { type RollupCheatCodes } from '@aztec/aztec.js/ethereum';
 import type { Logger } from '@aztec/foundation/log';
+import type { SequencerConfig } from '@aztec/sequencer-client';
 
 import { exec, execSync, spawn } from 'child_process';
 import path from 'path';
 import { promisify } from 'util';
 import { z } from 'zod';
 
-import type { RollupCheatCodes } from '../../../aztec.js/src/utils/cheat_codes.js';
 import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
 
 const execAsync = promisify(exec);
@@ -16,6 +17,12 @@ const logger = createLogger('e2e:k8s-utils');
 const k8sLocalConfigSchema = z.object({
   INSTANCE_NAME: z.string().min(1, 'INSTANCE_NAME env variable must be set'),
   NAMESPACE: z.string().min(1, 'NAMESPACE env variable must be set'),
+  HOST_NODE_PORT: z.coerce.number().min(1, 'HOST_NODE_PORT env variable must be set'),
+  CONTAINER_NODE_PORT: z.coerce.number().default(8080),
+  HOST_SEQUENCER_PORT: z.coerce.number().min(1, 'HOST_SEQUENCER_PORT env variable must be set'),
+  CONTAINER_SEQUENCER_PORT: z.coerce.number().default(8080),
+  HOST_PROVER_NODE_PORT: z.coerce.number().min(1, 'HOST_PROVER_NODE_PORT env variable must be set'),
+  CONTAINER_PROVER_NODE_PORT: z.coerce.number().default(8080),
   HOST_PXE_PORT: z.coerce.number().min(1, 'HOST_PXE_PORT env variable must be set'),
   CONTAINER_PXE_PORT: z.coerce.number().default(8080),
   HOST_ETHEREUM_PORT: z.coerce.number().min(1, 'HOST_ETHEREUM_PORT env variable must be set'),
@@ -25,6 +32,9 @@ const k8sLocalConfigSchema = z.object({
   GRAFANA_PASSWORD: z.string().optional(),
   METRICS_API_PATH: z.string().default('/api/datasources/proxy/uid/spartan-metrics-prometheus/api/v1'),
   SPARTAN_DIR: z.string().min(1, 'SPARTAN_DIR env variable must be set'),
+  ETHEREUM_HOST: z.string().url('ETHEREUM_HOST must be a valid URL').optional(),
+  L1_ACCOUNT_MNEMONIC: z.string().default('test test test test test test test test test test test junk'),
+  SEPOLIA_RUN: z.string().default('false'),
   K8S: z.literal('local'),
 });
 
@@ -36,6 +46,7 @@ const k8sGCloudConfigSchema = k8sLocalConfigSchema.extend({
 
 const directConfigSchema = z.object({
   PXE_URL: z.string().url('PXE_URL must be a valid URL'),
+  NODE_URL: z.string().url('NODE_URL must be a valid URL'),
   ETHEREUM_HOST: z.string().url('ETHEREUM_HOST must be a valid URL'),
   K8S: z.literal('false'),
 });
@@ -101,7 +112,7 @@ export async function startPortForward({
     if (str.includes('Starting port forward')) {
       logger.info(str);
     } else {
-      logger.debug(str);
+      logger.silent(str);
     }
   });
   process.stderr?.on('data', data => {
@@ -301,6 +312,25 @@ export function applyProverFailure({
   });
 }
 
+export function applyProverKill({
+  namespace,
+  spartanDir,
+  logger,
+}: {
+  namespace: string;
+  spartanDir: string;
+  logger: Logger;
+}) {
+  return installChaosMeshChart({
+    instanceName: 'prover-kill',
+    targetNamespace: namespace,
+    valuesFile: 'prover-kill.yaml',
+    helmChartDir: getChartDir(spartanDir, 'aztec-chaos-scenarios'),
+    clean: true,
+    logger,
+  });
+}
+
 export function applyBootNodeFailure({
   namespace,
   spartanDir,
@@ -422,5 +452,50 @@ export async function runAlertCheck(config: EnvConfig, alerts: AlertConfig[], lo
     await alertChecker.runAlertCheck(alerts);
   } else {
     logger.info('Not running alert check in non-k8s environment');
+  }
+}
+
+export async function updateSequencerConfig(url: string, config: Partial<SequencerConfig>) {
+  const node = createAztecNodeClient(url);
+  await node.setConfig(config);
+}
+
+export async function getSequencers(namespace: string) {
+  const command = `kubectl get pods -l app=validator -n ${namespace} -o jsonpath='{.items[*].metadata.name}'`;
+  const { stdout } = await execAsync(command);
+  return stdout.split(' ');
+}
+
+export async function updateK8sSequencersConfig(args: {
+  containerPort: number;
+  hostPort: number;
+  namespace: string;
+  config: Partial<SequencerConfig>;
+}) {
+  const { containerPort, hostPort, namespace, config } = args;
+  const sequencers = await getSequencers(namespace);
+  for (const sequencer of sequencers) {
+    await startPortForward({
+      resource: `pod/${sequencer}`,
+      namespace,
+      containerPort,
+      hostPort,
+    });
+
+    const url = `http://localhost:${hostPort}`;
+    await updateSequencerConfig(url, config);
+  }
+}
+
+export async function updateSequencersConfig(env: EnvConfig, config: Partial<SequencerConfig>) {
+  if (isK8sConfig(env)) {
+    await updateK8sSequencersConfig({
+      containerPort: env.CONTAINER_NODE_PORT,
+      hostPort: env.HOST_NODE_PORT,
+      namespace: env.NAMESPACE,
+      config,
+    });
+  } else {
+    await updateSequencerConfig(env.NODE_URL, config);
   }
 }

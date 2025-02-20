@@ -1,4 +1,4 @@
-import { Vector } from '@aztec/circuits.js';
+import { Vector } from '@aztec/circuits.js/types';
 import { Fr } from '@aztec/foundation/fields';
 import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';

@@ -1,4 +1,5 @@
-import { type PeerErrorSeverity, type PeerInfo } from '@aztec/circuit-types';
+import { type PeerErrorSeverity } from '@aztec/circuit-types';
+import { type PeerInfo } from '@aztec/circuit-types/interfaces/server';
 import { createLogger } from '@aztec/foundation/log';
 import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
@@ -42,6 +43,7 @@ export class PeerManager {
   private timedOutPeers: Map<string, TimedOutPeer> = new Map();
 
   private metrics: PeerManagerMetrics;
+  private discoveredPeerHandler;
 
   constructor(
     private libP2PNode: PubSubLibp2p,
@@ -60,7 +62,10 @@ export class PeerManager {
     this.libP2PNode.addEventListener(PeerEvent.DISCONNECTED, this.handleDisconnectedPeerEvent.bind(this));
 
     // Handle Discovered peers
-    this.peerDiscoveryService.on(PeerEvent.DISCOVERED, this.handleDiscoveredPeer.bind(this));
+    this.discoveredPeerHandler = (enr: ENR) =>
+      this.handleDiscoveredPeer(enr).catch(e => this.logger.error('Error handling discovered peer', e));
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
+    this.peerDiscoveryService.on(PeerEvent.DISCOVERED, this.discoveredPeerHandler);
 
     // Display peer counts every 60 seconds
     this.displayPeerCountsPeerHeartbeat = Math.floor(60_000 / this.config.peerCheckIntervalMS);
@@ -411,7 +416,8 @@ export class PeerManager {
    * Removing all event listeners.
    */
   public async stop() {
-    this.peerDiscoveryService.off(PeerEvent.DISCOVERED, this.handleDiscoveredPeer);
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
+    this.peerDiscoveryService.off(PeerEvent.DISCOVERED, this.discoveredPeerHandler);
 
     // Send goodbyes to all peers
     await Promise.all(

@@ -1,4 +1,4 @@
-import { ProvingRequestType } from '@aztec/circuit-types';
+import { ProvingRequestType } from '@aztec/circuit-types/interfaces/server';
 import { type ConfigMappingsType, booleanConfigHelper, numberConfigHelper } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 
@@ -15,6 +15,10 @@ export const ProverBrokerConfig = z.object({
   dataDirectory: z.string().optional(),
   /** The size of the data store map */
   dataStoreMapSizeKB: z.number(),
+  /** The prover broker may batch jobs together before writing to the database */
+  proverBrokerBatchSize: z.number(),
+  /** How often the job batches get flushed */
+  proverBrokerBatchIntervalMs: z.number(),
 });
 
 export type ProverBrokerConfig = z.infer<typeof ProverBrokerConfig> &
@@ -36,6 +40,16 @@ export const proverBrokerConfigMappings: ConfigMappingsType<ProverBrokerConfig> 
     description: 'If starting a prover broker locally, the max number of retries per proving job',
     ...numberConfigHelper(3),
   },
+  proverBrokerBatchSize: {
+    env: 'PROVER_BROKER_BATCH_SIZE',
+    description: 'The prover broker writes jobs to disk in batches',
+    ...numberConfigHelper(100),
+  },
+  proverBrokerBatchIntervalMs: {
+    env: 'PROVER_BROKER_BATCH_INTERVAL_MS',
+    description: 'How often to flush batches to disk',
+    ...numberConfigHelper(50),
+  },
   ...dataConfigMappings,
 };
 
@@ -50,8 +64,12 @@ export const ProverAgentConfig = z.object({
   proverBrokerUrl: z.string().optional(),
   /** Whether to construct real proofs */
   realProofs: z.boolean(),
-  /** Artificial delay to introduce to all operations to the test prover. */
+  /** The type of artificial delay to introduce */
+  proverTestDelayType: z.enum(['fixed', 'realistic']),
+  /** If using fixed delay, the time each operation takes. */
   proverTestDelayMs: z.number(),
+  /** If using realistic delays, what percentage of realistic times to apply. */
+  proverTestDelayFactor: z.number(),
 });
 
 export type ProverAgentConfig = z.infer<typeof ProverAgentConfig>;
@@ -85,9 +103,19 @@ export const proverAgentConfigMappings: ConfigMappingsType<ProverAgentConfig> = 
     description: 'Whether to construct real proofs',
     ...booleanConfigHelper(false),
   },
+  proverTestDelayType: {
+    env: 'PROVER_TEST_DELAY_TYPE',
+    description: 'The type of artificial delay to introduce',
+    defaultValue: 'fixed',
+  },
   proverTestDelayMs: {
     env: 'PROVER_TEST_DELAY_MS',
     description: 'Artificial delay to introduce to all operations to the test prover.',
     ...numberConfigHelper(0),
+  },
+  proverTestDelayFactor: {
+    env: 'PROVER_TEST_DELAY_FACTOR',
+    description: 'If using realistic delays, what percentage of realistic times to apply.',
+    ...numberConfigHelper(1),
   },
 };

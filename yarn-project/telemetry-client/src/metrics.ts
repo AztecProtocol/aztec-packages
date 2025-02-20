@@ -35,9 +35,6 @@ export const DB_USED_SIZE = 'aztec.db.used_size';
 export const MEMPOOL_ATTESTATIONS_COUNT = 'aztec.mempool.attestations_count';
 export const MEMPOOL_ATTESTATIONS_SIZE = 'aztec.mempool.attestations_size';
 
-export const MEMPOOL_PROVER_QUOTE_COUNT = 'aztec.mempool.prover_quote_count';
-export const MEMPOOL_PROVER_QUOTE_SIZE = 'aztec.mempool.prover_quote_size';
-
 export const ARCHIVER_SYNC_DURATION = 'aztec.archiver.sync_duration';
 export const ARCHIVER_L1_BLOCKS_SYNCED = 'aztec.archiver.l1_blocks_synced';
 export const ARCHIVER_BLOCK_HEIGHT = 'aztec.archiver.block_height';
@@ -67,6 +64,10 @@ export const L1_PUBLISHER_TX_CALLDATA_SIZE = 'aztec.l1_publisher.tx_calldata_siz
 export const L1_PUBLISHER_TX_CALLDATA_GAS = 'aztec.l1_publisher.tx_calldata_gas';
 export const L1_PUBLISHER_TX_BLOBDATA_GAS_USED = 'aztec.l1_publisher.tx_blobdata_gas_used';
 export const L1_PUBLISHER_TX_BLOBDATA_GAS_COST = 'aztec.l1_publisher.tx_blobdata_gas_cost';
+export const L1_PUBLISHER_BLOB_COUNT = 'aztec.l1_publisher.blob_count';
+export const L1_PUBLISHER_BLOB_INCLUSION_BLOCKS = 'aztec.l1_publisher.blob_inclusion_blocks';
+export const L1_PUBLISHER_BLOB_TX_SUCCESS = 'aztec.l1_publisher.blob_tx_success';
+export const L1_PUBLISHER_BLOB_TX_FAILURE = 'aztec.l1_publisher.blob_tx_failure';
 
 export const PEER_MANAGER_GOODBYES_SENT = 'aztec.peer_manager.goodbyes_sent';
 export const PEER_MANAGER_GOODBYES_RECEIVED = 'aztec.peer_manager.goodbyes_received';
@@ -99,6 +100,8 @@ export const PROVING_ORCHESTRATOR_BASE_ROLLUP_INPUTS_DURATION =
 
 export const PROVING_QUEUE_JOB_SIZE = 'aztec.proving_queue.job_size';
 export const PROVING_QUEUE_SIZE = 'aztec.proving_queue.size';
+export const PROVING_QUEUE_TOTAL_JOBS = 'aztec.proving_queue.total_jobs';
+export const PROVING_QUEUE_CACHED_JOBS = 'aztec.proving_queue.cached_jobs';
 export const PROVING_QUEUE_ACTIVE_JOBS = 'aztec.proving_queue.active_jobs';
 export const PROVING_QUEUE_RESOLVED_JOBS = 'aztec.proving_queue.resolved_jobs';
 export const PROVING_QUEUE_REJECTED_JOBS = 'aztec.proving_queue.rejected_jobs';

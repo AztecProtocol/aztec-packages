@@ -46,6 +46,9 @@
       "path": "../cli-wallet"
     },
     {
+      "path": "../constants"
+    },
+    {
       "path": "../entrypoints"
     },
     {
@@ -91,7 +94,7 @@
       "path": "../txe"
     },
     {
-      "path": "../types"
+      "path": "../world-state"
     }
   ],
   "include": ["src"]

@@ -17,7 +17,7 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: prover-agent
     spec:
-      {{- if .Values.proverAgent.gke.spotEnabled }}
+      {{- if and .Values.proverAgent.gke.spotEnabled .Values.network.gke }}
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -31,10 +31,11 @@ spec:
         value: "true"
         effect: "NoSchedule"
       {{- end }}
-      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       {{- if .Values.network.public }}
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       {{- end }}
       volumes:
         - name: config
@@ -99,12 +100,20 @@ spec:
               value: "1"
             - name: PROVER_AGENT_POLL_INTERVAL_MS
               value: "{{ .Values.proverAgent.pollIntervalMs }}"
+            - name: PROVER_TEST_DELAY_TYPE
+              value: "{{ .Values.proverAgent.testDelayType }}"
+            - name: PROVER_TEST_DELAY_MS
+              value: "{{ .Values.proverAgent.testDelayMs }}"
+            - name: PROVER_TEST_DELAY_FACTOR
+              value: "{{ .Values.proverAgent.testDelayFactor }}"
             - name: PROVER_AGENT_PROOF_TYPES
               value: {{ join "," .Values.proverAgent.proofTypes | quote }}
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
-            - name: USE_GCLOUD_OBSERVABILITY
-              value: "{{ .Values.telemetry.useGcloudObservability }}"
+            - name: USE_GCLOUD_LOGGING
+              value: "{{ .Values.telemetry.useGcloudLogging }}"
+            - name: USE_GCLOUD_METRICS
+              value: "{{ .Values.telemetry.useGcloudMetrics }}"
             - name: OTEL_EXCLUDE_METRICS
               value: "{{ .Values.telemetry.excludeMetrics }}"
           resources:

@@ -1,5 +1,5 @@
 import { type FunctionCall, type TxExecutionRequest } from '@aztec/circuit-types';
-import { FunctionType, decodeFromAbi } from '@aztec/foundation/abi';
+import { FunctionType, decodeFromAbi } from '@aztec/circuits.js/abi';
 
 import { type Wallet } from '../account/index.js';
 import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';
@@ -19,8 +19,9 @@ export class BatchCall extends BaseContractInteraction {
    */
   public async create(opts?: SendMethodOptions): Promise<TxExecutionRequest> {
     const calls = this.calls;
-    const fee = await this.getFeeOptions({ calls, ...opts });
-    return await this.wallet.createTxExecutionRequest({ calls, ...opts, fee });
+    const capsules = this.getCapsules();
+    const fee = await this.getFeeOptions({ calls, capsules, ...opts });
+    return await this.wallet.createTxExecutionRequest({ calls, capsules, ...opts, fee });
   }
 
   /**
@@ -59,8 +60,9 @@ export class BatchCall extends BaseContractInteraction {
     );
 
     const calls = indexedCalls.map(([call]) => call);
-    const fee = await this.getFeeOptions({ calls, ...options });
-    const txRequest = await this.wallet.createTxExecutionRequest({ calls, ...options, fee });
+    const capsules = this.getCapsules();
+    const fee = await this.getFeeOptions({ calls, capsules, ...options });
+    const txRequest = await this.wallet.createTxExecutionRequest({ calls, capsules, ...options, fee });
 
     const unconstrainedCalls = unconstrained.map(
       async ([call, index]) =>

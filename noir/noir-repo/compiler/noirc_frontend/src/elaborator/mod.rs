@@ -11,31 +11,32 @@ use crate::{
     },
     graph::CrateId,
     hir::{
-        def_collector::dc_crate::{
-            filter_literal_globals, CompilationError, ImplMap, UnresolvedFunctions,
-            UnresolvedGlobal, UnresolvedStruct, UnresolvedTraitImpl, UnresolvedTypeAlias,
+        def_collector::{
+            dc_crate::{
+                filter_literal_globals, CollectedItems, CompilationError, ImplMap, UnresolvedEnum,
+                UnresolvedFunctions, UnresolvedGlobal, UnresolvedStruct, UnresolvedTraitImpl,
+                UnresolvedTypeAlias,
+            },
+            errors::DefCollectorErrorKind,
         },
-        def_collector::{dc_crate::CollectedItems, errors::DefCollectorErrorKind},
-        def_map::{DefMaps, ModuleData},
-        def_map::{LocalModuleId, ModuleId, MAIN_FUNCTION},
+        def_map::{DefMaps, LocalModuleId, ModuleData, ModuleId, MAIN_FUNCTION},
         resolution::errors::ResolverError,
         scope::ScopeForest as GenericScopeForest,
         type_check::{generics::TraitGenerics, TypeCheckError},
         Context,
     },
-    hir_def::traits::TraitImpl,
     hir_def::{
         expr::{HirCapturedVar, HirIdent},
         function::{FuncMeta, FunctionBody, HirFunction},
-        traits::TraitConstraint,
+        traits::{TraitConstraint, TraitImpl},
         types::{Generics, Kind, ResolvedGeneric},
     },
     node_interner::{
         DefinitionKind, DependencyId, ExprId, FuncId, FunctionModifiers, GlobalId, NodeInterner,
-        ReferenceId, StructId, TraitId, TraitImplId, TypeAliasId,
+        ReferenceId, TraitId, TraitImplId, TypeAliasId, TypeId,
     },
     token::SecondaryAttribute,
-    Shared, Type, TypeVariable,
+    EnumVariant, Shared, Type, TypeVariable,
 };
 use crate::{
     ast::{ItemVisibility, UnresolvedType},
@@ -43,10 +44,11 @@ use crate::{
     hir_def::traits::ResolvedTraitBound,
     node_interner::GlobalValue,
     usage_tracker::UsageTracker,
-    StructField, StructType, TypeBindings,
+    DataType, StructField, TypeBindings,
 };
 
 mod comptime;
+mod enums;
 mod expressions;
 mod lints;
 mod path_resolution;
@@ -61,6 +63,7 @@ mod unquote;
 use fm::FileId;
 use iter_extended::vecmap;
 use noirc_errors::{Location, Span, Spanned};
+pub use path_resolution::Turbofish;
 use path_resolution::{PathResolution, PathResolutionItem};
 use types::bind_ordered_generics;
 
@@ -93,6 +96,11 @@ enum UnsafeBlockStatus {
     InUnsafeBlockWithConstrainedCalls,
 }
 
+pub struct Loop {
+    pub is_for: bool,
+    pub has_break: bool,
+}
+
 pub struct Elaborator<'context> {
     scopes: ScopeForest,
 
@@ -106,7 +114,7 @@ pub struct Elaborator<'context> {
     pub(crate) file: FileId,
 
     unsafe_block_status: UnsafeBlockStatus,
-    nested_loops: usize,
+    current_loop: Option<Loop>,
 
     /// Contains a mapping of the current struct or functions's generics to
     /// unique type variables if we're resolving a struct. Empty otherwise.
@@ -146,7 +154,7 @@ pub struct Elaborator<'context> {
     /// struct Wrapped {
     /// }
     /// ```
-    resolving_ids: BTreeSet<StructId>,
+    resolving_ids: BTreeSet<TypeId>,
 
     /// Each constraint in the `where` clause of the function currently being resolved.
     trait_bounds: Vec<TraitConstraint>,
@@ -229,7 +237,7 @@ impl<'context> Elaborator<'context> {
             crate_graph,
             file: FileId::dummy(),
             unsafe_block_status: UnsafeBlockStatus::NotInUnsafeBlock,
-            nested_loops: 0,
+            current_loop: None,
             generics: Vec::new(),
             lambda_stack: Vec::new(),
             self_type: None,
@@ -318,8 +326,9 @@ impl<'context> Elaborator<'context> {
             self.define_type_alias(alias_id, alias);
         }
 
-        // Must resolve structs before we resolve globals.
-        self.collect_struct_definitions(&items.types);
+        // Must resolve types before we resolve globals.
+        self.collect_struct_definitions(&items.structs);
+        self.collect_enum_definitions(&items.enums);
 
         self.define_function_metas(&mut items.functions, &mut items.impls, &mut items.trait_impls);
 
@@ -349,7 +358,7 @@ impl<'context> Elaborator<'context> {
         // since the generated items are checked beforehand as well.
         self.run_attributes(
             &items.traits,
-            &items.types,
+            &items.structs,
             &items.functions,
             &items.module_attributes,
         );
@@ -492,7 +501,8 @@ impl<'context> Elaborator<'context> {
             | FunctionKind::Oracle
             | FunctionKind::TraitFunctionWithoutBody => (HirFunction::empty(), Type::Error),
             FunctionKind::Normal => {
-                let (block, body_type) = self.elaborate_block(body);
+                let return_type = func_meta.return_type();
+                let (block, body_type) = self.elaborate_block(body, Some(return_type));
                 let expr_id = self.intern_expr(block, body_span);
                 self.interner.push_expr_type(expr_id, body_type.clone());
                 (HirFunction::unchecked_from_expr(expr_id), body_type)
@@ -976,7 +986,7 @@ impl<'context> Elaborator<'context> {
         let statements = std::mem::take(&mut func.def.body.statements);
         let body = BlockExpression { statements };
 
-        let struct_id = if let Some(Type::Struct(struct_type, _)) = &self.self_type {
+        let struct_id = if let Some(Type::DataType(struct_type, _)) = &self.self_type {
             Some(struct_type.borrow().id)
         } else {
             None
@@ -992,9 +1002,10 @@ impl<'context> Elaborator<'context> {
             typ,
             direct_generics,
             all_generics: self.generics.clone(),
-            struct_id,
+            type_id: struct_id,
             trait_id,
             trait_impl: self.current_trait_impl,
+            enum_variant_index: None,
             parameters: parameters.into(),
             parameter_idents,
             return_type: func.def.return_type.clone(),
@@ -1024,13 +1035,21 @@ impl<'context> Elaborator<'context> {
                     self.mark_type_as_used(typ);
                 }
             }
-            Type::Struct(struct_type, generics) => {
-                self.mark_struct_as_constructed(struct_type.clone());
+            Type::DataType(datatype, generics) => {
+                self.mark_struct_as_constructed(datatype.clone());
                 for generic in generics {
                     self.mark_type_as_used(generic);
                 }
-                for (_, typ) in struct_type.borrow().get_fields(generics) {
-                    self.mark_type_as_used(&typ);
+                if let Some(fields) = datatype.borrow().get_fields(generics) {
+                    for (_, typ) in fields {
+                        self.mark_type_as_used(&typ);
+                    }
+                } else if let Some(variants) = datatype.borrow().get_variants(generics) {
+                    for (_, variant_types) in variants {
+                        for typ in variant_types {
+                            self.mark_type_as_used(&typ);
+                        }
+                    }
                 }
             }
             Type::Alias(alias_type, generics) => {
@@ -1043,7 +1062,7 @@ impl<'context> Elaborator<'context> {
             Type::MutableReference(typ) => {
                 self.mark_type_as_used(typ);
             }
-            Type::InfixExpr(left, _op, right) => {
+            Type::InfixExpr(left, _op, right, _) => {
                 self.mark_type_as_used(left);
                 self.mark_type_as_used(right);
             }
@@ -1440,9 +1459,26 @@ impl<'context> Elaborator<'context> {
             }
 
             let trait_generics = trait_impl.resolved_trait_generics.clone();
+            let ident = match &trait_impl.r#trait.typ {
+                UnresolvedTypeData::Named(trait_path, _, _) => trait_path.last_ident(),
+                UnresolvedTypeData::Resolved(quoted_type_id) => {
+                    let typ = self.interner.get_quoted_type(*quoted_type_id);
+                    let name = if let Type::TraitAsType(_, name, _) = typ {
+                        name.to_string()
+                    } else {
+                        typ.to_string()
+                    };
+                    Ident::new(name, trait_impl.r#trait.span)
+                }
+                _ => {
+                    // We don't error in this case because an error will be produced later on when
+                    // solving the trait impl trait type
+                    Ident::new(trait_impl.r#trait.to_string(), trait_impl.r#trait.span)
+                }
+            };
 
             let resolved_trait_impl = Shared::new(TraitImpl {
-                ident: trait_impl.trait_path.last_ident(),
+                ident,
                 typ: self_type.clone(),
                 trait_id,
                 trait_generics,
@@ -1501,7 +1537,7 @@ impl<'context> Elaborator<'context> {
 
         let function_ids = functions.function_ids();
 
-        if let Type::Struct(struct_type, _) = &self_type {
+        if let Type::DataType(struct_type, _) = &self_type {
             let struct_ref = struct_type.borrow();
 
             // `impl`s are only allowed on types defined within the current crate
@@ -1596,7 +1632,7 @@ impl<'context> Elaborator<'context> {
     }
 
     /// Find the struct in the parent module so we can know its visibility
-    fn find_struct_visibility(&self, struct_type: &StructType) -> Option<ItemVisibility> {
+    fn find_struct_visibility(&self, struct_type: &DataType) -> Option<ItemVisibility> {
         let parent_module_id = struct_type.id.parent_module_id(self.def_maps);
         let parent_module_data = self.get_module(parent_module_id);
         let per_ns = parent_module_data.find_name(&struct_type.name);
@@ -1618,8 +1654,8 @@ impl<'context> Elaborator<'context> {
             return false;
         }
         // Public struct functions should not expose private types.
-        if let Some(struct_visibility) = func_meta.struct_id.and_then(|id| {
-            let struct_def = self.get_struct(id);
+        if let Some(struct_visibility) = func_meta.type_id.and_then(|id| {
+            let struct_def = self.get_type(id);
             let struct_def = struct_def.borrow();
             self.find_struct_visibility(&struct_def)
         }) {
@@ -1638,7 +1674,7 @@ impl<'context> Elaborator<'context> {
         span: Span,
     ) {
         match typ {
-            Type::Struct(struct_type, generics) => {
+            Type::DataType(struct_type, generics) => {
                 let struct_type = struct_type.borrow();
                 let struct_module_id = struct_type.id.module_id();
 
@@ -1688,7 +1724,7 @@ impl<'context> Elaborator<'context> {
             Type::MutableReference(typ) | Type::Array(_, typ) | Type::Slice(typ) => {
                 self.check_type_is_not_more_private_then_item(name, visibility, typ, span);
             }
-            Type::InfixExpr(left, _op, right) => {
+            Type::InfixExpr(left, _op, right, _) => {
                 self.check_type_is_not_more_private_then_item(name, visibility, left, span);
                 self.check_type_is_not_more_private_then_item(name, visibility, right, span);
             }
@@ -1708,7 +1744,7 @@ impl<'context> Elaborator<'context> {
         }
     }
 
-    fn collect_struct_definitions(&mut self, structs: &BTreeMap<StructId, UnresolvedStruct>) {
+    fn collect_struct_definitions(&mut self, structs: &BTreeMap<TypeId, UnresolvedStruct>) {
         // This is necessary to avoid cloning the entire struct map
         // when adding checks after each struct field is resolved.
         let struct_ids = structs.keys().copied().collect::<Vec<_>>();
@@ -1743,29 +1779,29 @@ impl<'context> Elaborator<'context> {
                 }
             }
 
-            let fields_len = fields.len();
-            self.interner.update_struct(*type_id, |struct_def| {
+            if self.interner.is_in_lsp_mode() {
+                for (field_index, field) in fields.iter().enumerate() {
+                    let location = Location::new(field.name.span(), self.file);
+                    let reference_id = ReferenceId::StructMember(*type_id, field_index);
+                    self.interner.add_definition_location(reference_id, location, None);
+                }
+            }
+
+            self.interner.update_type(*type_id, |struct_def| {
                 struct_def.set_fields(fields);
             });
-
-            for field_index in 0..fields_len {
-                self.interner.add_definition_location(
-                    ReferenceId::StructMember(*type_id, field_index),
-                    None,
-                );
-            }
         }
 
         // Check whether the struct fields have nested slices
         // We need to check after all structs are resolved to
         // make sure every struct's fields is accurately set.
         for id in struct_ids {
-            let struct_type = self.interner.get_struct(id);
+            let struct_type = self.interner.get_type(id);
 
             // Only handle structs without generics as any generics args will be checked
             // after monomorphization when performing SSA codegen
             if struct_type.borrow().generics.is_empty() {
-                let fields = struct_type.borrow().get_fields(&[]);
+                let fields = struct_type.borrow().get_fields(&[]).unwrap();
                 for (_, field_type) in fields.iter() {
                     if field_type.is_nested_slice() {
                         let location = struct_type.borrow().location;
@@ -1780,14 +1816,14 @@ impl<'context> Elaborator<'context> {
     pub fn resolve_struct_fields(
         &mut self,
         unresolved: &NoirStruct,
-        struct_id: StructId,
+        struct_id: TypeId,
     ) -> Vec<StructField> {
         self.recover_generics(|this| {
             this.current_item = Some(DependencyId::Struct(struct_id));
 
             this.resolving_ids.insert(struct_id);
 
-            let struct_def = this.interner.get_struct(struct_id);
+            let struct_def = this.interner.get_type(struct_id);
             this.add_existing_generics(&unresolved.generics, &struct_def.borrow().generics);
 
             let fields = vecmap(&unresolved.fields, |field| {
@@ -1801,6 +1837,54 @@ impl<'context> Elaborator<'context> {
 
             fields
         })
+    }
+
+    fn collect_enum_definitions(&mut self, enums: &BTreeMap<TypeId, UnresolvedEnum>) {
+        for (type_id, typ) in enums {
+            self.file = typ.file_id;
+            self.local_module = typ.module_id;
+            self.generics.clear();
+
+            let datatype = self.interner.get_type(*type_id);
+            let generics = datatype.borrow().generic_types();
+            self.add_existing_generics(&typ.enum_def.generics, &datatype.borrow().generics);
+
+            let self_type = Type::DataType(datatype.clone(), generics);
+            let self_type_id = self.interner.push_quoted_type(self_type.clone());
+            let unresolved = UnresolvedType {
+                typ: UnresolvedTypeData::Resolved(self_type_id),
+                span: typ.enum_def.span,
+            };
+
+            datatype.borrow_mut().init_variants();
+            let module_id = ModuleId { krate: self.crate_id, local_id: typ.module_id };
+
+            for (i, variant) in typ.enum_def.variants.iter().enumerate() {
+                let parameters = variant.item.parameters.as_ref();
+                let types =
+                    parameters.map(|params| vecmap(params, |typ| self.resolve_type(typ.clone())));
+                let name = variant.item.name.clone();
+
+                let is_function = types.is_some();
+                let params = types.clone().unwrap_or_default();
+                datatype.borrow_mut().push_variant(EnumVariant::new(name, params, is_function));
+
+                self.define_enum_variant_constructor(
+                    &typ.enum_def,
+                    *type_id,
+                    &variant.item,
+                    types,
+                    i,
+                    &datatype,
+                    &self_type,
+                    unresolved.clone(),
+                );
+
+                let reference_id = ReferenceId::EnumVariant(*type_id, i);
+                let location = Location::new(variant.item.name.span(), self.file);
+                self.interner.add_definition_location(reference_id, location, Some(module_id));
+            }
+        }
     }
 
     fn elaborate_global(&mut self, global: UnresolvedGlobal) {
@@ -1818,15 +1902,15 @@ impl<'context> Elaborator<'context> {
             None
         };
 
+        let span = let_stmt.pattern.span();
+
         if !self.in_contract()
             && let_stmt.attributes.iter().any(|attr| matches!(attr, SecondaryAttribute::Abi(_)))
         {
-            let span = let_stmt.pattern.span();
             self.push_err(ResolverError::AbiAttributeOutsideContract { span });
         }
 
         if !let_stmt.comptime && matches!(let_stmt.pattern, Pattern::Mutable(..)) {
-            let span = let_stmt.pattern.span();
             self.push_err(ResolverError::MutableGlobal { span });
         }
 
@@ -1839,7 +1923,14 @@ impl<'context> Elaborator<'context> {
         self.elaborate_comptime_global(global_id);
 
         if let Some(name) = name {
-            self.interner.register_global(global_id, name, global.visibility, self.module_id());
+            let location = Location::new(span, self.file);
+            self.interner.register_global(
+                global_id,
+                name,
+                location,
+                global.visibility,
+                self.module_id(),
+            );
         }
 
         self.local_module = old_module;
@@ -1910,7 +2001,49 @@ impl<'context> Elaborator<'context> {
             self.file = trait_impl.file_id;
             self.local_module = trait_impl.module_id;
 
-            let trait_id = self.resolve_trait_by_path(trait_impl.trait_path.clone());
+            let (trait_id, mut trait_generics, path_span) = match &trait_impl.r#trait.typ {
+                UnresolvedTypeData::Named(trait_path, trait_generics, _) => {
+                    let trait_id = self.resolve_trait_by_path(trait_path.clone());
+                    (trait_id, trait_generics.clone(), trait_path.span)
+                }
+                UnresolvedTypeData::Resolved(quoted_type_id) => {
+                    let typ = self.interner.get_quoted_type(*quoted_type_id);
+                    let span = trait_impl.r#trait.span;
+                    let Type::TraitAsType(trait_id, _, trait_generics) = typ else {
+                        let found = typ.to_string();
+                        self.push_err(ResolverError::ExpectedTrait { span, found });
+                        continue;
+                    };
+
+                    // In order to take associated types into account we turn these resolved generics
+                    // into unresolved ones, but ones that point to solved types.
+                    let trait_id = *trait_id;
+                    let trait_generics = trait_generics.clone();
+                    let trait_generics = GenericTypeArgs {
+                        ordered_args: vecmap(&trait_generics.ordered, |typ| {
+                            let quoted_type_id = self.interner.push_quoted_type(typ.clone());
+                            let typ = UnresolvedTypeData::Resolved(quoted_type_id);
+                            UnresolvedType { typ, span }
+                        }),
+                        named_args: vecmap(&trait_generics.named, |named_type| {
+                            let quoted_type_id =
+                                self.interner.push_quoted_type(named_type.typ.clone());
+                            let typ = UnresolvedTypeData::Resolved(quoted_type_id);
+                            (named_type.name.clone(), UnresolvedType { typ, span })
+                        }),
+                        kinds: Vec::new(),
+                    };
+
+                    (Some(trait_id), trait_generics, span)
+                }
+                _ => {
+                    let span = trait_impl.r#trait.span;
+                    let found = trait_impl.r#trait.typ.to_string();
+                    self.push_err(ResolverError::ExpectedTrait { span, found });
+                    continue;
+                }
+            };
+
             trait_impl.trait_id = trait_id;
             let unresolved_type = trait_impl.object_type.clone();
 
@@ -1933,14 +2066,12 @@ impl<'context> Elaborator<'context> {
                 method.def.where_clause.append(&mut trait_impl.where_clause.clone());
             }
 
-            // Add each associated type to the list of named type arguments
-            let mut trait_generics = trait_impl.trait_generics.clone();
-            trait_generics.named_args.extend(self.take_unresolved_associated_types(trait_impl));
-
             let impl_id = self.interner.next_trait_impl_id();
             self.current_trait_impl = Some(impl_id);
 
-            let path_span = trait_impl.trait_path.span;
+            // Add each associated type to the list of named type arguments
+            trait_generics.named_args.extend(self.take_unresolved_associated_types(trait_impl));
+
             let (ordered_generics, named_generics) = trait_impl
                 .trait_id
                 .map(|trait_id| {
@@ -1965,12 +2096,15 @@ impl<'context> Elaborator<'context> {
             self.generics.clear();
 
             if let Some(trait_id) = trait_id {
-                let trait_name = trait_impl.trait_path.last_ident();
-                self.interner.add_trait_reference(
-                    trait_id,
-                    Location::new(trait_name.span(), trait_impl.file_id),
-                    trait_name.is_self_type_name(),
-                );
+                let (span, is_self_type_name) = match &trait_impl.r#trait.typ {
+                    UnresolvedTypeData::Named(trait_path, _, _) => {
+                        let trait_name = trait_path.last_ident();
+                        (trait_name.span(), trait_name.is_self_type_name())
+                    }
+                    _ => (trait_impl.r#trait.span, false),
+                };
+                let location = Location::new(span, trait_impl.file_id);
+                self.interner.add_trait_reference(trait_id, location, is_self_type_name);
             }
         }
     }

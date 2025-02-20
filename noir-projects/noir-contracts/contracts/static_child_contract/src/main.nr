@@ -2,7 +2,7 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract StaticChild {
+pub contract StaticChild {
     use dep::aztec::prelude::{AztecAddress, PrivateSet, PublicMutable};
 
     use dep::aztec::{
@@ -44,8 +44,8 @@ contract StaticChild {
     #[private]
     #[view]
     fn private_illegal_set_value(new_value: Field, owner: AztecAddress) -> Field {
-        let mut note = ValueNote::new(new_value, owner);
-        storage.a_private_value.insert(&mut note).emit(encode_and_encrypt_note(
+        let note = ValueNote::new(new_value, owner);
+        storage.a_private_value.insert(note).emit(encode_and_encrypt_note(
             &mut context,
             owner,
             context.msg_sender(),
@@ -56,9 +56,9 @@ contract StaticChild {
     // Modify a note
     #[private]
     fn private_set_value(new_value: Field, owner: AztecAddress, sender: AztecAddress) -> Field {
-        let mut note = ValueNote::new(new_value, owner);
+        let note = ValueNote::new(new_value, owner);
 
-        storage.a_private_value.insert(&mut note).emit(encode_and_encrypt_note(
+        storage.a_private_value.insert(note).emit(encode_and_encrypt_note(
             &mut context,
             owner,
             sender,
@@ -75,8 +75,8 @@ contract StaticChild {
             .select(ValueNote::properties().value, Comparator.EQ, amount)
             .select(ValueNote::properties().owner, Comparator.EQ, owner)
             .set_limit(1);
-        let notes = storage.a_private_value.get_notes(options);
-        notes.get(0).value
+        let retrieved_notes = storage.a_private_value.get_notes(options);
+        retrieved_notes.get(0).note.value
     }
 
     // Increments `current_value` by `new_value`

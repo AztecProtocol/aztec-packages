@@ -1,19 +1,19 @@
-import { Note, TxHash, randomTxHash } from '@aztec/circuit-types';
+import { Note, TxHash } from '@aztec/circuit-types';
 import { AztecAddress, Fr, Point, type PublicKey } from '@aztec/circuits.js';
-import { NoteSelector } from '@aztec/foundation/abi';
+import { NoteSelector } from '@aztec/circuits.js/abi';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type NoteData } from '@aztec/simulator/client';
 
 /**
- * A Note Data Access Object, representing a note that was comitted to the note hash tree, holding all of the
+ * A Note Data Access Object, representing a note that was committed to the note hash tree, holding all of the
  * information required to use it during execution and manage its state.
  */
 export class NoteDao implements NoteData {
   constructor(
     // Note information
 
-    /** The serialized content of the note, as will be returned in the getNotes oracle. */
+    /** The packed content of the note, as will be returned in the getNotes oracle. */
     public note: Note,
     /** The address of the contract that created the note (i.e. the address used by the kernel during siloing). */
     public contractAddress: AztecAddress,
@@ -27,7 +27,7 @@ export class NoteDao implements NoteData {
 
     // Computed values
     /**
-     * The inner hash (non-unique, non-siloed) of the note. Each contract determines how the note content is hashed. Can
+     * The inner hash (non-unique, non-siloed) of the note. Each contract determines how the note is hashed. Can
      * be used alongside contractAddress and nonce to compute the uniqueNoteHash and the siloedNoteHash.
      */
     public noteHash: Fr,
@@ -50,11 +50,11 @@ export class NoteDao implements NoteData {
     public l2BlockHash: string,
     /** The index of the leaf in the global note hash tree the note is stored at */
     public index: bigint,
-    /** The public key with which the note content was encrypted during delivery. */
+    /** The public key with which the note log was encrypted during delivery. */
     public addressPoint: PublicKey,
 
     /** The note type identifier for the contract.
-     * TODO: remove
+     * TODO(#12013): remove
      */
     public noteTypeId: NoteSelector,
   ) {}
@@ -134,7 +134,7 @@ export class NoteDao implements NoteData {
     nonce = Fr.random(),
     noteHash = Fr.random(),
     siloedNullifier = Fr.random(),
-    txHash = randomTxHash(),
+    txHash = TxHash.random(),
     l2BlockNumber = Math.floor(Math.random() * 1000),
     l2BlockHash = Fr.random().toString(),
     index = Fr.random().toBigInt(),

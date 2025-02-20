@@ -1,45 +1,223 @@
+# CI for Aztec. At a high-level, runs ./bootstrap.sh ci in root. See root README.md for more details.
 name: CI3
 
 on:
   workflow_dispatch:
-  # push:
-  #   branches:
-  #     - master
-  # pull_request:
-  #   types:
-  #     - opened
-  #     - synchronize
-  #     - reopened
-  #     - labeled
+  push:
+    branches:
+      - master
+    tags:
+      - "v*"
+  # For internal devs.
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+  # For external devs. Workflow file edits won't take effect in the PR.
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
 
 concurrency:
-  # force parallelism in master
-  group: ci3-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}
+  # On master (handled by push event) the group id is the unique run_id so we get parallel runs.
+  # On PR's the group id is the ref_name so only 1 can run at a time.
+  group: ci3-${{ github.event_name == 'push' && github.run_id || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  ci:
     runs-on: ubuntu-latest
-    if: >
-      (github.event.action != 'labeled' && github.event.pull_request.draft == false) ||
-      (github.event.action == 'labeled' && github.event.label.name == 'trigger-workflow')
+    # Always allow 'push' and 'workflow_dispatch' jobs. Otherwise, only run pull_request events on internal PRs and pull_request_target on external PRs.
+    if: |
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository)
+    strategy:
+      fail-fast: false
+      matrix:
+        # Only run arm64 build with arm64-ci label.
+        # Thhe way to do conditions here is to parse full strings as JSON.
+        settings:  >-
+          ${{ fromJson(contains(github.event.pull_request.labels.*.name, 'arm64-ci') &&
+            '[{"arch":"amd64"},{"arch":"arm64"}]' ||
+            '[{"arch":"amd64"}]') }}
     steps:
+      #############
+      # Prepare Env
+      #############
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
-          # Ensure it is not an artificial merge commit
+          # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Fail If Draft
+        if: github.event.pull_request.draft && (github.event.action != 'labeled' || github.event.label.name != 'trigger-workflow')
+        run: echo "CI is not run on drafts." && exit 1
+
+      - name: External Contributor Labels and Target
+        # Run only for external PRs (pull_request_target, != github.repository)
+        # And then check if we have incorrect labels OR an incorrect base_ref.
+        if: |
+          github.event_name == 'pull_request_target' &&
+          github.event.pull_request.head.repo.full_name != github.repository &&
+          (
+            (contains(github.event.pull_request.labels.*.name, 'ci-external') == false &&
+             contains(github.event.pull_request.labels.*.name, 'ci-external-once') == false)
+          )
+        run: echo "External PRs need the 'ci-external' or 'ci-external-once' labels to run." && exit 1
+
+      - name: External Contributor Changes
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
+        run: |
+          set -o pipefail
+          git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1
+          if git diff --name-only origin/${{ github.event.pull_request.base.ref }} HEAD -- ci3 .github ci.sh | grep -q .; then
+            echo "Error: External PRs can't contain CI changes." && exit 1
+          fi
+          if [ ${{ github.event.pull_request.base.ref }} != "master" ]; then
+            echo "Error: External PRs can only target master, targeted: ${{ github.event.pull_request.base.ref }}." && exit 1
+          fi
+          # Remove any ci-external-once labels.
+          GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} gh pr edit ${{ github.event.pull_request.number }} --remove-label "ci-external-once"
+
+      - name: CI Full Override
+        # TODO consolidate legacy labels to just ci-full.
+        if: |
+          contains(github.event.pull_request.labels.*.name, 'e2e-all') ||
+          contains(github.event.pull_request.labels.*.name, 'network-all') ||
+          contains(github.event.pull_request.labels.*.name, 'ci-full')
+        run: echo "CI_FULL=1" >> $GITHUB_ENV
+
       - name: Setup
         run: |
-          # Ensure we can SSH into the spot instances we request
+          # Ensure we can SSH into the spot instances we request.
           mkdir -p ~/.ssh
           echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
-          echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
+
+      #############
+      # Run
+      #############
       - name: Run
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GITHUB_LOG: 1
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          ARCH: ${{ matrix.settings.arch }}
+          LOG_ID: ${{ github.run_id }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
         run: |
-          BRANCH=${{ github.event.pull_request.head.ref || github.ref_name }} ./ci.sh ec2
+          ./ci.sh ec2
+
+      - name: Download benchmarks
+        if: matrix.settings.arch == 'amd64' && github.ref_name == 'master'
+        run: |
+          ./ci3/cache_download barretenberg-bench-results-$(git rev-parse HEAD).tar.gz
+          ./ci3/cache_download yarn-project-bench-results-$(git rev-parse HEAD).tar.gz
+
+      - name: Store barretenberg benchmark result
+        if: matrix.settings.arch == 'amd64' && github.ref_name == 'master'
+        continue-on-error: true
+        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+        with:
+          name: C++ Benchmark
+          tool: "googlecpp"
+          output-file-path: ./bench-out/bb-bench.json
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          auto-push: true
+          alert-threshold: "105%"
+          comment-on-alert: true
+          fail-on-alert: false
+          alert-comment-cc-users: "@ludamad @codygunton"
+          max-items-in-chart: 50
+
+      - name: Store yarn project benchmark result
+        if: matrix.settings.arch == 'amd64' && github.ref_name == 'master'
+        continue-on-error: true
+        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+        with:
+          name: "End-to-end Benchmark"
+          benchmark-data-dir-path: "dev/e2e-bench"
+          tool: "customSmallerIsBetter"
+          output-file-path: ./bench-out/yp-bench.json
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          auto-push: true
+          alert-threshold: "150%"
+          comment-on-alert: true
+          fail-on-alert: false
+          alert-comment-cc-users: "@philwindle @spalladino"
+          max-items-in-chart: 50
+
+  ci-grind:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/') && github.repository.fork == false
+    strategy:
+      matrix:
+        number: [1, 2, 3, 4, 5]
+      fail-fast: false
+    steps:
+      #############
+      # Prepare Env
+      #############
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Setup
+        run: |
+          # Ensure we can SSH into the spot instances we request.
+          mkdir -p ~/.ssh
+          echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
+          chmod 600 ~/.ssh/build_instance_key
+      #############
+      # Run
+      #############
+      - name: Run
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          ARCH: amd64
+          LOG_ID: ${{ github.run_id }}
+          INSTANCE_POSTFIX: ${{ matrix.number }}
+          DRY_RUN: 1
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          ./ci.sh ec2-test
+
+  notify:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && failure() && github.repository.fork == false
+    needs:
+      - ci
+      - ci-grind
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Get Context
+        id: get_context
+        run: |
+          authors=$(git log -1 --pretty=format:'%an <%ae>')
+          echo "authors=${authors}" >> $GITHUB_OUTPUT
+          title=$(git log -1 --pretty=format:'%s')
+          echo "commit_title=${title}" >> $GITHUB_OUTPUT
+          failed_jobs=""
+          [ "${{ needs.ci-grind.result }}" = "failure" ] && failed_jobs+="ci-grind"
+          [ "${{ needs.ci.result }}" = "failure" ] && failed_jobs+="ci"
+          echo "failed_jobs=${failed_jobs}" >> $GITHUB_OUTPUT
+          cat $GITHUB_OUTPUT
+
+      - name: Send Notification
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "text": "Failure on ${{ github.ref_name }}\nCommit: ${{ steps.get_context.outputs.commit_title }}",
+              "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+              "authors": "${{ steps.get_context.outputs.authors }}",
+              "failed_jobs": "${{ steps.get_context.outputs.failed_jobs }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NOTIFY_WORKFLOW_TRIGGER_URL2 }}

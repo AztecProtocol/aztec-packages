@@ -13,9 +13,10 @@ import {
   EthAddress,
   GasFees,
   type NodeInfo,
+  getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { type L1ContractAddresses } from '@aztec/ethereum';
-import { type AbiDecoded, type ContractArtifact, FunctionType } from '@aztec/foundation/abi';
+import { type AbiDecoded, type ContractArtifact, FunctionType } from '@aztec/circuits.js/abi';
+import { type L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -79,14 +80,23 @@ describe('Contract Class', () => {
         returnTypes: [],
         errorTypes: {},
         bytecode: Buffer.alloc(8, 0xfa),
+        verificationKey: 'fake-verification-key',
       },
       {
-        name: 'baz',
+        name: 'public_dispatch',
         isInitializer: false,
         isStatic: false,
         functionType: FunctionType.PUBLIC,
         isInternal: false,
-        parameters: [],
+        parameters: [
+          {
+            name: 'selector',
+            type: {
+              kind: 'field',
+            },
+            visibility: 'public',
+          },
+        ],
         returnTypes: [],
         errorTypes: {},
         bytecode: Buffer.alloc(8, 0xfb),
@@ -131,7 +141,12 @@ describe('Contract Class', () => {
   beforeEach(async () => {
     contractAddress = await AztecAddress.random();
     account = await CompleteAddress.random();
-    contractInstance = { address: contractAddress } as ContractInstanceWithAddress;
+    const contractClass = await getContractClassFromArtifact(defaultArtifact);
+    contractInstance = {
+      address: contractAddress,
+      currentContractClassId: contractClass.id,
+      originalContractClassId: contractClass.id,
+    } as ContractInstanceWithAddress;
 
     const mockNodeInfo: NodeInfo = {
       nodeVersion: 'vx.x.x',
@@ -150,7 +165,11 @@ describe('Contract Class', () => {
     wallet = mock<Wallet>();
     wallet.simulateTx.mockResolvedValue(mockTxSimulationResult);
     wallet.createTxExecutionRequest.mockResolvedValue(mockTxRequest);
-    wallet.getContractInstance.mockResolvedValue(contractInstance);
+    wallet.getContractMetadata.mockResolvedValue({
+      contractInstance,
+      isContractInitialized: true,
+      isContractPubliclyDeployed: true,
+    });
     wallet.sendTx.mockResolvedValue(mockTxHash);
     wallet.simulateUnconstrained.mockResolvedValue(mockUnconstrainedResultValue as any as AbiDecoded);
     wallet.getTxReceipt.mockResolvedValue(mockTxReceipt);

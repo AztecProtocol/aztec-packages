@@ -1,92 +1,25 @@
 use crate::{
     blob_public_inputs::{BlobCommitment, BlobPublicInputs, BlockBlobPublicInputs},
     config::{D_INV, F, LOG_FIELDS_PER_BLOB, ROOTS},
-    unconstrained_config::compute_roots_of_unity,
 };
 
 use bigint::{BigNum, BigNumTrait};
-// Fixed hash method:
-use types::hash::poseidon2_hash_subarray;
-// Variable hash method:
-// use types::hash::poseidon2_cheaper_variable_hash;
 use std::ops::{Mul, Neg};
 use types::{
     abis::sponge_blob::SpongeBlob,
     constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB, TWO_POW_64},
+    hash::poseidon2_hash_subarray,
+    traits::Empty,
     utils::arrays::array_splice,
 };
 
 global LIMB_MAX: Field = 0x1000000000000000000000000000000; // 2^120
 global TWO_POW_56: u64 = 0x100000000000000; // u64 to aid integer only modulo in __field_to_bignum_limbs
 
-unconstrained fn __batch_invert_impl<let N: u32>(mut x: [F; N]) -> [F; N] {
-    let mut accumulator: F = BigNum::one();
-
-    let mut temporaries: [F; N] = std::mem::zeroed();
-    for i in 0..N {
-        temporaries[i] = accumulator;
-        if (x[i].__is_zero() == false) {
-            accumulator = accumulator.__mul(x[i]);
-        }
-    }
-
-    accumulator = accumulator.__invmod();
-    let mut T0: F = BigNum::new();
-    for i in 0..N {
-        let idx = N - 1 - i;
-        if (x[idx].__is_zero() == false) {
-            T0 = accumulator.__mul(temporaries[idx]);
-            accumulator = accumulator.__mul(x[idx]);
-            x[idx] = T0;
-        }
-    }
-    x
-}
-
-// Taken from https://github.com/iAmMichaelConnor/blob-lib/blob/main/noir-circuits/blob/src/main.nr
-unconstrained fn __field_to_bignum_limbs(x: Field) -> [Field; 3] {
-    // Here we're taking advantage of truncating 64 bit limbs from the input field
-    // and then subtracting them from the input such that the field division is equivalent to integer division.
-    let low_120_lower_64 = (x as u64) as Field;
-    let x_shifted_64 = (x - low_120_lower_64) / TWO_POW_64;
-    let low_120_upper_56 = ((x_shifted_64 as u64) % TWO_POW_56) as Field;
-    let low_120 = low_120_lower_64 + TWO_POW_64 * low_120_upper_56;
-
-    let x_shifted_120 = (x_shifted_64 - low_120_upper_56) / (TWO_POW_56 as Field);
-
-    let mid_120_lower_64 = (x_shifted_120 as u64) as Field;
-    let x_shifted_184 = (x_shifted_120 - mid_120_lower_64) / TWO_POW_64;
-    let mid_120_upper_56 = ((x_shifted_184 as u64) % TWO_POW_56) as Field;
-    let mid_120 = mid_120_lower_64 + TWO_POW_64 * mid_120_upper_56;
-
-    let x_shifted_240 = (x_shifted_184 - mid_120_upper_56) / (TWO_POW_56 as Field);
-
-    let hi_120_lower_64 = (x_shifted_240 as u64) as Field;
-    // We don't need to go further, as we've reached 304 bits, and a Field is 254 bits.
-    let hi_120 = hi_120_lower_64;
-
-    [low_120, mid_120, hi_120]
-}
-
-// Only works for bignums with modulus larger than the BN Fr size (which is true
-// for the bls12-381 Fr field).
-fn field_to_bignum(x: Field) -> F {
-    let __x_limbs = unsafe { __field_to_bignum_limbs(x) };
-
-    let mut check = __x_limbs[3 - 1];
-    for i in 1..3 {
-        check *= LIMB_MAX;
-        check += __x_limbs[3 - i - 1];
-    }
-    assert(check == x);
-
-    BigNum { limbs: __x_limbs }
-}
-
 fn convert_blob_fields(blob_as_fields: [Field; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB] {
-    let mut blob: [F; FIELDS_PER_BLOB] = [BigNum::new(); FIELDS_PER_BLOB];
+    let mut blob: [F; FIELDS_PER_BLOB] = [BigNum::zero(); FIELDS_PER_BLOB];
     for i in 0..FIELDS_PER_BLOB {
-        blob[i] = field_to_bignum(blob_as_fields[i]);
+        blob[i] = F::from(blob_as_fields[i]);
     }
     blob
 }
@@ -128,7 +61,7 @@ fn evaluate_blob(
     hashed_blobs_fields: Field,
 ) -> BlobPublicInputs {
     let challenge_z: Field = compute_challenge(hashed_blobs_fields, kzg_commitment);
-    let challenge_z_as_bignum: F = field_to_bignum(challenge_z);
+    let challenge_z_as_bignum = F::from(challenge_z);
     let blob = convert_blob_fields(blob_as_fields);
 
     let y: F = barycentric_evaluate_blob_at_z(challenge_z_as_bignum, blob);
@@ -184,9 +117,6 @@ pub fn evaluate_blobs(
  * @return y = p(z)
  */
 fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
-    // TODO(#9982): Delete below and go back to using config.nr - calculating ROOTS in unconstrained is insecure.
-    let UNCONSTRAINED_ROOTS = unsafe { compute_roots_of_unity() };
-
     // Note: it's more efficient (saving 30k constraints) to compute:
     //    ___d-1
     //    \     /    y_i    \
@@ -205,28 +135,29 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     //    i=0
     //
     // perhaps because all the omega^i terms are constant witnesses?
-    let fracs = compute_fracs(z, ys, UNCONSTRAINED_ROOTS);
+    let fracs = compute_fracs(z, ys);
 
-    // OK so...we can add multiple product terms into a sum...but I am not sure how many!
-    // we are computing 254 * 254 bit products and we need to ensure each product limb doesn't overflow
-    // each limb is 120 bits => 120 * 120 = 240 bits.
-    // however when computing a mul we add up to 5 product terms into a single field element => 243 bits (ish)
-    // when we do a modular reduction we validate that a field element >> 120 bits is less than 2^{126} which implies we have 246 bits to play with
-    // which implies...we can accommodate up to EIGHT additions of product terms before we risk overflowing
-    // (this is really messy! I never considered the case of giant linear sequences of products)
+    let sum = if !std::runtime::is_unconstrained() {
+        // OK so...we can add multiple product terms into a sum...but I am not sure how many!
+        // we are computing 254 * 254 bit products and we need to ensure each product limb doesn't overflow
+        // each limb is 120 bits => 120 * 120 = 240 bits.
+        // however when computing a mul we add up to 5 product terms into a single field element => 243 bits (ish)
+        // when we do a modular reduction we validate that a field element >> 120 bits is less than 2^{126} which implies we have 246 bits to play with
+        // which implies...we can accommodate up to EIGHT additions of product terms before we risk overflowing
+        // (this is really messy! I never considered the case of giant linear sequences of products)
 
-    // Seeking:
-    //                    ___d-1
-    //                    \            omega^i
-    //              sum = /   y_i . ---------
-    //                   /____       z - omega^i
-    //                    i=0
-    let NUM_PARTIAL_SUMS = FIELDS_PER_BLOB / 8;
-    /// Safety: This sum is checked by the following `BigNum::evaluate_quadratic_expression` calls.
-    let partial_sums: [F; FIELDS_PER_BLOB / 8] =
-        unsafe { __compute_partial_sums(fracs, UNCONSTRAINED_ROOTS) };
+        // Seeking:
+        //                    ___d-1
+        //                    \            omega^i
+        //              sum = /   y_i . ---------
+        //                   /____       z - omega^i
+        //                    i=0
 
-    if !std::runtime::is_unconstrained() {
+        let NUM_PARTIAL_SUMS = FIELDS_PER_BLOB / 8;
+        // Safety: This sum is checked by the following `BigNum::evaluate_quadratic_expression` calls.
+        let partial_sums: [F; FIELDS_PER_BLOB / 8] =
+            unsafe { __compute_partial_sums(fracs, ROOTS) };
+
         // We split off the first term to check the initial sum
 
         //    partial_sums[0] <- (lhs[0] * rhs[0] + ... + lhs[7] * rhs[7])
@@ -300,10 +231,20 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
                 [false, true],
             );
         }
-    }
+
+        // The final term in `partial_sums` is then the full sum.
+        partial_sums[FIELDS_PER_BLOB / 8 - 1]
+    } else {
+        // There's no need to jump through hoops to check partial sums if we don't need to constrain the result.
+        // We can just calculate the final sum.
+
+        // Safety: We're running under the condition that `std::runtime::is_unconstrained()` is true.
+        unsafe {
+            __compute_sum(fracs, ROOTS)
+        }
+    };
 
     let factor = compute_factor(z);
-    let sum = partial_sums[FIELDS_PER_BLOB / 8 - 1];
     factor.mul(sum)
 }
 
@@ -322,8 +263,8 @@ fn compute_factor(z: F) -> F {
 
     let z_pow_d = t;
 
-    /// Safety: We immediately check that this result is correct in the following
-    /// `BigNum::evaluate_quadratic_expression` call.
+    // Safety: We immediately check that this result is correct in the following
+    // `BigNum::evaluate_quadratic_expression` call.
     let factor = unsafe { __compute_factor_helper(z_pow_d) };
 
     // (z_pow_d - one) * (D_INV) - factor = 0
@@ -357,12 +298,11 @@ unconstrained fn __compute_fracs(
     ys: [F; FIELDS_PER_BLOB],
     unconstrained_roots: [F; FIELDS_PER_BLOB],
 ) -> [F; FIELDS_PER_BLOB] {
-    let mut denoms = [BigNum::new(); FIELDS_PER_BLOB];
+    let mut denoms = [BigNum::zero(); FIELDS_PER_BLOB];
     for i in 0..FIELDS_PER_BLOB {
         denoms[i] = z.__sub(unconstrained_roots[i]); // (z - omega^i)
     }
-    let inv_denoms = __batch_invert_impl(denoms); // 1 / (z - omega^i), for all i
-
+    let inv_denoms: [F; FIELDS_PER_BLOB] = F::__batch_invert(denoms); // 1 / (z - omega^i), for all i
     // We're now done with `denoms` so we can reuse the allocated array to build `fracs`.
     let mut fracs: [F; FIELDS_PER_BLOB] = denoms; // y_i / (z - omega^i), for all i
     for i in 0..FIELDS_PER_BLOB {
@@ -374,14 +314,10 @@ unconstrained fn __compute_fracs(
     fracs
 }
 
-fn compute_fracs(
-    z: F,
-    ys: [F; FIELDS_PER_BLOB],
-    unconstrained_roots: [F; FIELDS_PER_BLOB],
-) -> [F; FIELDS_PER_BLOB] {
-    /// Safety: We immediately constrain these `fracs` to be correct in the following call
-    /// to `BigNum::evaluate_quadratic_expression`.
-    let mut fracs: [F; FIELDS_PER_BLOB] = unsafe { __compute_fracs(z, ys, unconstrained_roots) };
+fn compute_fracs(z: F, ys: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB] {
+    // Safety: We immediately constrain these `fracs` to be correct in the following call
+    // to `BigNum::evaluate_quadratic_expression`.
+    let mut fracs: [F; FIELDS_PER_BLOB] = unsafe { __compute_fracs(z, ys, ROOTS) };
 
     if !std::runtime::is_unconstrained() {
         for i in 0..FIELDS_PER_BLOB {
@@ -416,7 +352,7 @@ unconstrained fn __compute_partial_sums(
     //                    k=i*8 + 0
 
     // Need to split off the first iteration.
-    let mut partial_sum: F = BigNum::new();
+    let mut partial_sum: F = BigNum::zero();
     for i in 0..8 {
         // y_k * ( omega^k / (z - omega^k) )
         let summand = unconstrained_roots[i].__mul(fracs[i]);
@@ -448,24 +384,48 @@ unconstrained fn __compute_partial_sums(
     partial_sums
 }
 
+unconstrained fn __compute_sum(
+    fracs: [F; FIELDS_PER_BLOB],
+    unconstrained_roots: [F; FIELDS_PER_BLOB],
+) -> F {
+    // Seeking:
+    //                    ___d-1
+    //                    \            omega^i
+    //              sum = /   y_i . ---------
+    //                   /____       z - omega^i
+    //                    i=0
+
+    let mut sum: F = BigNum::zero();
+    for i in 0..FIELDS_PER_BLOB {
+        // y_k * ( omega^k / (z - omega^k) )
+        let summand = unconstrained_roots[i].__mul(fracs[i]);
+
+        // partial_sum + ( y_k * ( omega^k / (z - omega^k) ) -> partial_sum
+        sum = sum.__add(summand);
+    }
+    sum
+}
+
 mod tests {
     // TODO(#9982): Replace unconstrained_config with config and import ROOTS - calculating ROOTS in unconstrained is insecure.
     use crate::{
         blob::{
             barycentric_evaluate_blob_at_z, check_block_blob_sponge, evaluate_blob, evaluate_blobs,
-            field_to_bignum,
         },
         blob_public_inputs::BlobCommitment,
-        config::{D, D_INV, F},
+        config::{D, D_INV, F, ROOTS},
     };
-    use bigint::{BigNum, fields::bls12_381Fr::BLS12_381_Fr_Params};
-    use bigint::bignum::BigNumTrait;
+    use super::{__compute_partial_sums, __compute_sum};
+    use bigint::{
+        BigNum, bignum::BigNumTrait, fields::bls12_381Fr::BLS12_381_Fr_Params,
+        params::BigNumParamsGetter,
+    };
     use types::{
         abis::sponge_blob::SpongeBlob,
         constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
         tests::{fixture_builder::FixtureBuilder, utils::pad_end},
+        traits::Serialize,
     };
-    use types::traits::Serialize;
 
     #[test]
     unconstrained fn test_one_note() {
@@ -483,7 +443,7 @@ mod tests {
         let padded_blob_fields = pad_end(blob, 0);
         let hashed_blob = check_block_blob_sponge(padded_blob_fields, sponge_blob);
         let output = evaluate_blob(blob, kzg_commitment_in, hashed_blob);
-        let challenge_z = field_to_bignum(output.z);
+        let challenge_z = F::from(output.z);
         let y = output.y;
         // Our blob is all 0s, apart from one commitment of value 1 at position 0
         // It's in eval form => our barycentric formula to find p(z) becomes:
@@ -499,7 +459,7 @@ mod tests {
         //*                    d
         //
         let rhs = super::compute_factor(challenge_z);
-        let z_minus_1 = unsafe { challenge_z.__sub(BigNum::one()) };
+        let z_minus_1 = challenge_z.__sub(BigNum::one());
         let lhs = y.__mul(z_minus_1);
         assert_eq(lhs, rhs);
     }
@@ -641,7 +601,7 @@ mod tests {
         let z: F = BigNum { limbs: [2, 0, 0] };
 
         // many y's form a blob:
-        let mut ys: [F; FIELDS_PER_BLOB] = [BigNum::new(); FIELDS_PER_BLOB];
+        let mut ys: [F; FIELDS_PER_BLOB] = [BigNum::zero(); FIELDS_PER_BLOB];
 
         ys[0] = BigNum { limbs: [0x1234, 0, 0] };
         ys[1] = BigNum { limbs: [0xabcd, 0, 0] };
@@ -691,6 +651,21 @@ mod tests {
     unconstrained fn test_compute_d_inv() {
         let d_inversed = D.__invmod();
         assert_eq(d_inversed, D_INV);
+    }
+
+    #[test]
+    fn compute_sum_and_compute_partial_sums_agree() {
+        let mut fields = [BigNum::zero(); FIELDS_PER_BLOB];
+        for i in 0..FIELDS_PER_BLOB {
+            fields[i] = F::from(i as Field);
+        }
+        // Safety: this is a test
+        unsafe {
+            let partial_sums = __compute_partial_sums(fields, ROOTS);
+            let sum = __compute_sum(fields, ROOTS);
+
+            assert_eq(partial_sums[FIELDS_PER_BLOB / 8 - 1], sum);
+        }
     }
 }
 

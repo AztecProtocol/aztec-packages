@@ -1,22 +1,24 @@
 import {
-  ARCHIVE_HEIGHT,
   BlockHeader,
   type ContractClassPublic,
   ContractClassPublicSchema,
   type ContractInstanceWithAddress,
   ContractInstanceWithAddressSchema,
   GasFees,
-  L1_TO_L2_MSG_TREE_HEIGHT,
-  NOTE_HASH_TREE_HEIGHT,
-  NULLIFIER_TREE_HEIGHT,
   type NodeInfo,
   NodeInfoSchema,
-  PUBLIC_DATA_TREE_HEIGHT,
   PrivateLog,
   type ProtocolContractAddresses,
   ProtocolContractAddressesSchema,
 } from '@aztec/circuits.js';
-import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum';
+import {
+  ARCHIVE_HEIGHT,
+  L1_TO_L2_MSG_TREE_HEIGHT,
+  NOTE_HASH_TREE_HEIGHT,
+  NULLIFIER_TREE_HEIGHT,
+  PUBLIC_DATA_TREE_HEIGHT,
+} from '@aztec/constants';
+import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum/l1-contract-addresses';
 import type { AztecAddress } from '@aztec/foundation/aztec-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
@@ -37,7 +39,6 @@ import {
   TxScopedL2Log,
 } from '../logs/index.js';
 import { MerkleTreeId } from '../merkle_tree_id.js';
-import { EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
 import { PublicDataWitness } from '../public_data_witness.js';
 import { SiblingPath } from '../sibling_path/index.js';
 import {
@@ -49,11 +50,12 @@ import {
   TxValidationResultSchema,
 } from '../tx/index.js';
 import { TxEffect } from '../tx_effect.js';
+import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning.js';
 import { type SequencerConfig, SequencerConfigSchema } from './configs.js';
 import { type L2BlockNumber, L2BlockNumberSchema } from './l2_block_number.js';
 import { NullifierMembershipWitness } from './nullifier_membership_witness.js';
 import { type ProverConfig, ProverConfigSchema } from './prover-client.js';
-import { type ProverCoordination, ProverCoordinationApiSchema } from './prover-coordination.js';
+import { type ProverCoordination } from './prover-coordination.js';
 
 /**
  * The aztec node.
@@ -372,6 +374,13 @@ export interface AztecNode
   getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
 
   /**
+   * Method to retrieve multiple pending txs.
+   * @param txHash - The transaction hashes to return.
+   * @returns The pending txs if exist.
+   */
+  getTxsByHash(txHashes: TxHash[]): Promise<Tx[]>;
+
+  /**
    * Gets the storage value at the given contract storage slot.
    *
    * @remarks The storage slot here refers to the slot as it is defined in Noir not the index in the merkle tree.
@@ -395,7 +404,7 @@ export interface AztecNode
    * This currently just checks that the transaction execution succeeds.
    * @param tx - The transaction to simulate.
    **/
-  simulatePublicCalls(tx: Tx, enforceFeePayment?: boolean): Promise<PublicSimulationOutput>;
+  simulatePublicCalls(tx: Tx, skipFeeEnforcement?: boolean): Promise<PublicSimulationOutput>;
 
   /**
    * Returns true if the transaction is valid for inclusion at the current state. Valid transactions can be
@@ -403,8 +412,9 @@ export interface AztecNode
    * due to e.g. the max_block_number property.
    * @param tx - The transaction to validate for correctness.
    * @param isSimulation - True if the transaction is a simulated one without generated proofs. (Optional)
+   * @param skipFeeEnforcement - True if the validation of the fee should be skipped. Useful when the simulation is for estimating fee (Optional)
    */
-  isValidTx(tx: Tx, isSimulation?: boolean): Promise<TxValidationResult>;
+  isValidTx(tx: Tx, options?: { isSimulation?: boolean; skipFeeEnforcement?: boolean }): Promise<TxValidationResult>;
 
   /**
    * Updates the configuration of this node.
@@ -433,18 +443,6 @@ export interface AztecNode
   getEncodedEnr(): Promise<string | undefined>;
 
   /**
-   * Receives a quote for an epoch proof and stores it in its EpochProofQuotePool
-   * @param quote - The quote to store
-   */
-  addEpochProofQuote(quote: EpochProofQuote): Promise<void>;
-
-  /**
-   * Returns the received quotes for a given epoch
-   * @param epoch - The epoch for which to get the quotes
-   */
-  getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]>;
-
-  /**
    * Adds a contract class bypassing the registerer.
    * TODO(#10007): Remove this method.
    * @param contractClass - The class to register.
@@ -453,9 +451,8 @@ export interface AztecNode
 }
 
 export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
-  ...ProverCoordinationApiSchema,
-
   getL2Tips: z.function().args().returns(L2TipsSchema),
+
   findLeavesIndexes: z
     .function()
     .args(L2BlockNumberSchema, z.nativeEnum(MerkleTreeId), z.array(schemas.Fr))
@@ -567,13 +564,21 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getTxByHash: z.function().args(TxHash.schema).returns(Tx.schema.optional()),
 
+  getTxsByHash: z.function().args(z.array(TxHash.schema)).returns(z.array(Tx.schema)),
+
   getPublicStorageAt: z.function().args(schemas.AztecAddress, schemas.Fr, L2BlockNumberSchema).returns(schemas.Fr),
 
   getBlockHeader: z.function().args(optional(L2BlockNumberSchema)).returns(BlockHeader.schema),
 
   simulatePublicCalls: z.function().args(Tx.schema, optional(z.boolean())).returns(PublicSimulationOutput.schema),
 
-  isValidTx: z.function().args(Tx.schema, optional(z.boolean())).returns(TxValidationResultSchema),
+  isValidTx: z
+    .function()
+    .args(
+      Tx.schema,
+      optional(z.object({ isSimulation: optional(z.boolean()), skipFeeEnforcement: optional(z.boolean()) })),
+    )
+    .returns(TxValidationResultSchema),
 
   setConfig: z.function().args(SequencerConfigSchema.merge(ProverConfigSchema).partial()).returns(z.void()),
 
@@ -585,14 +590,18 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getEncodedEnr: z.function().returns(z.string().optional()),
 
-  addEpochProofQuote: z.function().args(EpochProofQuote.schema).returns(z.void()),
-
-  getEpochProofQuotes: z.function().args(schemas.BigInt).returns(z.array(EpochProofQuote.schema)),
-
   // TODO(#10007): Remove this method
   addContractClass: z.function().args(ContractClassPublicSchema).returns(z.void()),
 };
 
-export function createAztecNodeClient(url: string, fetch = defaultFetch): AztecNode {
-  return createSafeJsonRpcClient<AztecNode>(url, AztecNodeApiSchema, false, 'node', fetch);
+export function createAztecNodeClient(
+  url: string,
+  versions: Partial<ComponentsVersions> = {},
+  fetch = defaultFetch,
+): AztecNode {
+  return createSafeJsonRpcClient<AztecNode>(url, AztecNodeApiSchema, {
+    namespaceMethods: 'node',
+    fetch,
+    onResponse: getVersioningResponseHandler(versions),
+  });
 }

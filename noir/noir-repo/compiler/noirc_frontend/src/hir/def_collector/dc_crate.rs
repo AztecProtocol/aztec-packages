@@ -3,7 +3,7 @@ use super::errors::{DefCollectorErrorKind, DuplicateType};
 use crate::elaborator::Elaborator;
 use crate::graph::CrateId;
 use crate::hir::comptime::InterpreterError;
-use crate::hir::def_map::{CrateDefMap, LocalModuleId, ModuleDefId, ModuleId};
+use crate::hir::def_map::{CrateDefMap, LocalModuleId, ModuleId};
 use crate::hir::resolution::errors::ResolverError;
 use crate::hir::type_check::TypeCheckError;
 use crate::locations::ReferencesTracker;
@@ -14,15 +14,15 @@ use crate::{Generics, Type};
 use crate::hir::resolution::import::{resolve_import, ImportDirective};
 use crate::hir::Context;
 
-use crate::ast::Expression;
+use crate::ast::{Expression, NoirEnumeration};
 use crate::node_interner::{
-    FuncId, GlobalId, ModuleAttributes, NodeInterner, ReferenceId, StructId, TraitId, TraitImplId,
-    TypeAliasId,
+    FuncId, GlobalId, ModuleAttributes, NodeInterner, ReferenceId, TraitId, TraitImplId,
+    TypeAliasId, TypeId,
 };
 
 use crate::ast::{
-    ExpressionKind, GenericTypeArgs, Ident, ItemVisibility, LetStatement, Literal, NoirFunction,
-    NoirStruct, NoirTrait, NoirTypeAlias, Path, PathKind, PathSegment, UnresolvedGenerics,
+    ExpressionKind, Ident, ItemVisibility, LetStatement, Literal, NoirFunction, NoirStruct,
+    NoirTrait, NoirTypeAlias, Path, PathKind, PathSegment, UnresolvedGenerics,
     UnresolvedTraitConstraint, UnresolvedType, UnsupportedNumericGenericType,
 };
 
@@ -64,6 +64,12 @@ pub struct UnresolvedStruct {
     pub struct_def: NoirStruct,
 }
 
+pub struct UnresolvedEnum {
+    pub file_id: FileId,
+    pub module_id: LocalModuleId,
+    pub enum_def: NoirEnumeration,
+}
+
 #[derive(Clone)]
 pub struct UnresolvedTrait {
     pub file_id: FileId,
@@ -77,8 +83,7 @@ pub struct UnresolvedTrait {
 pub struct UnresolvedTraitImpl {
     pub file_id: FileId,
     pub module_id: LocalModuleId,
-    pub trait_generics: GenericTypeArgs,
-    pub trait_path: Path,
+    pub r#trait: UnresolvedType,
     pub object_type: UnresolvedType,
     pub methods: UnresolvedFunctions,
     pub generics: UnresolvedGenerics,
@@ -141,7 +146,8 @@ pub struct DefCollector {
 #[derive(Default)]
 pub struct CollectedItems {
     pub functions: Vec<UnresolvedFunctions>,
-    pub(crate) types: BTreeMap<StructId, UnresolvedStruct>,
+    pub(crate) structs: BTreeMap<TypeId, UnresolvedStruct>,
+    pub(crate) enums: BTreeMap<TypeId, UnresolvedEnum>,
     pub(crate) type_aliases: BTreeMap<TypeAliasId, UnresolvedTypeAlias>,
     pub(crate) traits: BTreeMap<TraitId, UnresolvedTrait>,
     pub globals: Vec<UnresolvedGlobal>,
@@ -153,7 +159,8 @@ pub struct CollectedItems {
 impl CollectedItems {
     pub fn is_empty(&self) -> bool {
         self.functions.is_empty()
-            && self.types.is_empty()
+            && self.structs.is_empty()
+            && self.enums.is_empty()
             && self.type_aliases.is_empty()
             && self.traits.is_empty()
             && self.globals.is_empty()
@@ -254,7 +261,8 @@ impl DefCollector {
             imports: vec![],
             items: CollectedItems {
                 functions: vec![],
-                types: BTreeMap::new(),
+                structs: BTreeMap::new(),
+                enums: BTreeMap::new(),
                 type_aliases: BTreeMap::new(),
                 traits: BTreeMap::new(),
                 impls: HashMap::default(),
@@ -422,14 +430,12 @@ impl DefCollector {
                                     Some(defining_module),
                                 );
 
-                                if let ModuleDefId::TraitId(trait_id) = module_def_id {
-                                    context.def_interner.add_trait_reexport(
-                                        trait_id,
-                                        defining_module,
-                                        name.clone(),
-                                        visibility,
-                                    );
-                                }
+                                context.def_interner.add_reexport(
+                                    module_def_id,
+                                    defining_module,
+                                    name.clone(),
+                                    visibility,
+                                );
                             }
                         }
 

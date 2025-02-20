@@ -40,16 +40,22 @@ void TranslatorProver::execute_preamble_round()
 }
 
 /**
- * @brief Compute commitments to the first three wires
+ * @brief Compute commitments to wires and ordered range constraints.
  *
  */
 void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
 {
-    // Commit to all wire polynomials and ordered range constraint polynomials
-    auto wire_polys = key->proving_key->polynomials.get_wires_and_ordered_range_constraints();
-    auto labels = commitment_labels.get_wires_and_ordered_range_constraints();
-    for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
-        transcript->send_to_verifier(labels[idx], key->proving_key->commitment_key->commit(wire_polys[idx]));
+
+    for (const auto& [wire, label] :
+         zip_view(key->proving_key->polynomials.get_wires(), commitment_labels.get_wires())) {
+
+        transcript->send_to_verifier(label, key->proving_key->commitment_key->commit(wire));
+    }
+
+    // The ordered range constraints are of full circuit size.
+    for (const auto& [ordered_range_constraint, label] : zip_view(
+             key->proving_key->polynomials.get_ordered_constraints(), commitment_labels.get_ordered_constraints())) {
+        transcript->send_to_verifier(label, key->proving_key->commitment_key->commit(ordered_range_constraint));
     }
 }
 
@@ -135,10 +141,9 @@ void TranslatorProver::execute_relation_check_rounds()
 void TranslatorProver::execute_pcs_rounds()
 {
     using Curve = typename Flavor::Curve;
-
     using OpeningClaim = ProverOpeningClaim<Curve>;
-
     using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
+    using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
     SmallSubgroupIPA small_subgroup_ipa_prover(zk_sumcheck_data,
                                                sumcheck_output.challenge,
@@ -146,10 +151,13 @@ void TranslatorProver::execute_pcs_rounds()
                                                transcript,
                                                key->proving_key->commitment_key);
 
+    PolynomialBatcher polynomial_batcher(key->proving_key->circuit_size);
+    polynomial_batcher.set_unshifted(key->proving_key->polynomials.get_unshifted_without_concatenated());
+    polynomial_batcher.set_to_be_shifted_by_one(key->proving_key->polynomials.get_to_be_shifted());
+
     const OpeningClaim prover_opening_claim =
         ShpleminiProver_<Curve>::prove(key->proving_key->circuit_size,
-                                       key->proving_key->polynomials.get_unshifted_without_concatenated(),
-                                       key->proving_key->polynomials.get_to_be_shifted(),
+                                       polynomial_batcher,
                                        sumcheck_output.challenge,
                                        key->proving_key->commitment_key,
                                        transcript,

@@ -1,18 +1,13 @@
 import {
   type ContractClassIdPreimage,
-  type Gas,
-  type NullifierLeafPreimage,
   type PublicCallRequest,
-  type PublicDataTreeLeafPreimage,
   type PublicLog,
   type SerializableContractInstance,
 } from '@aztec/circuits.js';
+import { type AvmNullifierReadTreeHint, type AvmPublicDataReadTreeHint } from '@aztec/circuits.js/avm';
+import { type NullifierLeafPreimage, type PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
-
-import { type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
-import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
-import { type EnqueuedPublicCallExecutionResultWithSideEffects, type PublicFunctionCallResult } from './execution.js';
 
 export interface PublicSideEffectTraceInterface {
   fork(): PublicSideEffectTraceInterface;
@@ -68,9 +63,9 @@ export interface PublicSideEffectTraceInterface {
     contractAddress: AztecAddress,
     exists: boolean,
     instance?: SerializableContractInstance,
-    lowLeafPreimage?: NullifierLeafPreimage,
-    lowLeafIndex?: Fr,
-    lowLeafPath?: Fr[],
+    nullifierMembershipHint?: AvmNullifierReadTreeHint,
+    updateMembershipHint?: AvmPublicDataReadTreeHint,
+    updatePreimage?: Fr[],
   ): void;
   traceGetBytecode(
     contractAddress: AztecAddress,
@@ -78,9 +73,9 @@ export interface PublicSideEffectTraceInterface {
     bytecode?: Buffer,
     contractInstance?: SerializableContractInstance,
     contractClass?: ContractClassIdPreimage,
-    lowLeafPreimage?: NullifierLeafPreimage,
-    lowLeafIndex?: Fr,
-    lowLeafPath?: Fr[],
+    nullifierMembershipHint?: AvmNullifierReadTreeHint,
+    updateMembershipHint?: AvmPublicDataReadTreeHint,
+    updatePreimage?: Fr[],
   ): void;
   traceEnqueuedCall(
     /** The call request from private that enqueued this call. */
@@ -90,21 +85,5 @@ export interface PublicSideEffectTraceInterface {
     /** Did the call revert? */
     reverted: boolean,
   ): void;
-  toPublicEnqueuedCallExecutionResult(
-    /** The call's results */
-    avmCallResults: AvmFinalizedCallResult,
-  ): EnqueuedPublicCallExecutionResultWithSideEffects;
-  toPublicFunctionCallResult(
-    /** The execution environment of the nested call. */
-    avmEnvironment: AvmExecutionEnvironment,
-    /** How much gas was available for this public execution. */
-    startGasLeft: Gas,
-    /** Bytecode used for this execution. */
-    bytecode: Buffer,
-    /** The call's results */
-    avmCallResults: AvmFinalizedCallResult,
-    /** Function name for logging */
-    functionName: string,
-  ): PublicFunctionCallResult;
   getPublicLogs(): PublicLog[];
 }

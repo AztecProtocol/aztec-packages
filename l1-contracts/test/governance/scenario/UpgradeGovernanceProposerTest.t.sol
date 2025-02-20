@@ -11,9 +11,8 @@ import {Registry} from "@aztec/governance/Registry.sol";
 import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
-import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
-import {Slot} from "@aztec/core/libraries/TimeMath.sol";
+import {Timestamp, Slot} from "@aztec/core/libraries/TimeLib.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {NewGovernanceProposerPayload} from "./NewGovernanceProposerPayload.sol";
@@ -69,7 +68,14 @@ contract UpgradeGovernanceProposerTest is TestBase {
 
     RewardDistributor rewardDistributor = new RewardDistributor(token, registry, address(this));
     rollup = new Rollup(
-      new MockFeeJuicePortal(), rewardDistributor, token, bytes32(0), bytes32(0), address(this)
+      new MockFeeJuicePortal(),
+      rewardDistributor,
+      token,
+      bytes32(0),
+      bytes32(0),
+      bytes32(0),
+      bytes32(0),
+      address(this)
     );
 
     token.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE * VALIDATOR_COUNT);

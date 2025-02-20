@@ -1,3 +1,4 @@
+import { type ComponentsVersions, getVersioningResponseHandler } from '@aztec/circuit-types';
 import {
   type GetProvingJobResponse,
   ProofUri,
@@ -8,7 +9,7 @@ import {
   type ProvingJobProducer,
   ProvingJobStatus,
   ProvingRequestType,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
 import { createSafeJsonRpcClient } from '@aztec/foundation/json-rpc/client';
 import { type SafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
 import { type ApiSchemaFor, optional } from '@aztec/foundation/schemas';
@@ -34,12 +35,18 @@ export const ProvingJobProducerSchema: ApiSchemaFor<ProvingJobProducer> = {
 
 export const ProvingJobConsumerSchema: ApiSchemaFor<ProvingJobConsumer> = {
   getProvingJob: z.function().args(optional(ProvingJobFilterSchema)).returns(GetProvingJobResponse.optional()),
-  reportProvingJobError: z.function().args(ProvingJobId, z.string(), optional(z.boolean())).returns(z.void()),
+  reportProvingJobError: z
+    .function()
+    .args(ProvingJobId, z.string(), optional(z.boolean()), optional(ProvingJobFilterSchema))
+    .returns(GetProvingJobResponse.optional()),
   reportProvingJobProgress: z
     .function()
     .args(ProvingJobId, z.number(), optional(ProvingJobFilterSchema))
     .returns(GetProvingJobResponse.optional()),
-  reportProvingJobSuccess: z.function().args(ProvingJobId, ProofUri).returns(z.void()),
+  reportProvingJobSuccess: z
+    .function()
+    .args(ProvingJobId, ProofUri, optional(ProvingJobFilterSchema))
+    .returns(GetProvingJobResponse.optional()),
 };
 
 export const ProvingJobBrokerSchema: ApiSchemaFor<ProvingJobBroker> = {
@@ -51,20 +58,38 @@ export function createProvingBrokerServer(broker: ProvingJobBroker): SafeJsonRpc
   return createTracedJsonRpcServer(broker, ProvingJobBrokerSchema);
 }
 
-export function createProvingJobBrokerClient(url: string, fetch = makeTracedFetch([1, 2, 3], false)): ProvingJobBroker {
-  return createSafeJsonRpcClient(url, ProvingJobBrokerSchema, false, 'proverBroker', fetch);
+export function createProvingJobBrokerClient(
+  url: string,
+  versions: Partial<ComponentsVersions>,
+  fetch = makeTracedFetch([1, 2, 3], false),
+): ProvingJobBroker {
+  return createSafeJsonRpcClient(url, ProvingJobBrokerSchema, {
+    namespaceMethods: 'proverBroker',
+    fetch,
+    onResponse: getVersioningResponseHandler(versions),
+  });
 }
 
 export function createProvingJobProducerClient(
   url: string,
+  versions: Partial<ComponentsVersions>,
   fetch = makeTracedFetch([1, 2, 3], false),
 ): ProvingJobProducer {
-  return createSafeJsonRpcClient(url, ProvingJobProducerSchema, false, 'provingJobProducer', fetch);
+  return createSafeJsonRpcClient(url, ProvingJobProducerSchema, {
+    namespaceMethods: 'provingJobProducer',
+    fetch,
+    onResponse: getVersioningResponseHandler(versions),
+  });
 }
 
 export function createProvingJobConsumerClient(
   url: string,
+  versions: Partial<ComponentsVersions>,
   fetch = makeTracedFetch([1, 2, 3], false),
 ): ProvingJobConsumer {
-  return createSafeJsonRpcClient(url, ProvingJobConsumerSchema, false, 'provingJobConsumer', fetch);
+  return createSafeJsonRpcClient(url, ProvingJobConsumerSchema, {
+    namespaceMethods: 'provingJobConsumer',
+    fetch,
+    onResponse: getVersioningResponseHandler(versions),
+  });
 }

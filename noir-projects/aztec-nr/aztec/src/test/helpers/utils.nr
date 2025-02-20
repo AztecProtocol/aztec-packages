@@ -1,9 +1,14 @@
 use dep::protocol_types::{
     address::AztecAddress,
     contract_instance::ContractInstance,
-    public_keys::{PUBLIC_KEYS_LENGTH, PublicKeys},
+    public_keys::PublicKeys,
     traits::{Deserialize, Serialize},
 };
+use std::meta::derive;
+
+// The following 2 lines have been added here because derivation of Serialize and Deserialize does not handle imports
+use dep::protocol_types::public_keys::{IvpkM, NpkM, OvpkM, TpkM};
+use std::embedded_curve_ops::EmbeddedCurvePoint;
 
 use crate::context::call_interfaces::CallInterface;
 use crate::context::{PrivateContext, PublicContext};
@@ -17,7 +22,7 @@ use crate::oracle::execution_cache;
 pub struct Deployer<let N: u32, let M: u32> {
     pub path: str<N>,
     pub name: str<M>,
-    pub public_keys_hash: Field,
+    pub secret: Field,
 }
 
 impl<let N: u32, let M: u32> Deployer<N, M> {
@@ -33,7 +38,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
             self.name,
             call_interface.get_name(),
             call_interface.get_args(),
-            self.public_keys_hash,
+            self.secret,
         );
         cheatcodes::advance_blocks_by(1);
         let inputs = cheatcodes::get_private_context_inputs(get_block_number() - 1);
@@ -63,7 +68,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
             self.name,
             call_interface.get_name(),
             call_interface.get_args(),
-            self.public_keys_hash,
+            self.secret,
         );
         cheatcodes::advance_blocks_by(1);
 
@@ -93,7 +98,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
             self.name,
             call_interface.get_name(),
             call_interface.get_args(),
-            self.public_keys_hash,
+            self.secret,
         );
         cheatcodes::advance_blocks_by(1);
 
@@ -110,40 +115,12 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
     }
 
     pub unconstrained fn without_initializer(self) -> ContractInstance {
-        cheatcodes::deploy(self.path, self.name, "", &[], self.public_keys_hash)
+        cheatcodes::deploy(self.path, self.name, "", &[], self.secret)
     }
 }
 
-// Keys length + address
-global TEST_ACCOUNT_LENGTH: u32 = PUBLIC_KEYS_LENGTH + 1;
-
+#[derive(Deserialize, Serialize)]
 pub struct TestAccount {
     pub address: AztecAddress,
     pub keys: PublicKeys,
-}
-
-impl Serialize<TEST_ACCOUNT_LENGTH> for TestAccount {
-    fn serialize(self) -> [Field; TEST_ACCOUNT_LENGTH] {
-        let mut output = [0; TEST_ACCOUNT_LENGTH];
-
-        output[0] = self.address.to_field();
-
-        for i in 0..PUBLIC_KEYS_LENGTH {
-            output[i + 1] = self.keys.serialize()[i];
-        }
-        output
-    }
-}
-
-impl Deserialize<TEST_ACCOUNT_LENGTH> for TestAccount {
-    fn deserialize(input: [Field; TEST_ACCOUNT_LENGTH]) -> Self {
-        let address = AztecAddress::from_field(input[0]);
-        let mut key_buffer = [0; PUBLIC_KEYS_LENGTH];
-        for i in 0..PUBLIC_KEYS_LENGTH {
-            key_buffer[i] = input[i + 1];
-        }
-        let keys = PublicKeys::deserialize(key_buffer);
-
-        Self { address, keys }
-    }
 }

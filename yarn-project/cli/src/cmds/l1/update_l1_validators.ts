@@ -1,8 +1,13 @@
-import { EthCheatCodes } from '@aztec/aztec.js';
 import { type EthAddress } from '@aztec/circuits.js';
-import { createEthereumChain, getL1ContractsConfigEnvVars, isAnvilTestChain } from '@aztec/ethereum';
+import {
+  EthCheatCodes,
+  createEthereumChain,
+  getExpectedAddress,
+  getL1ContractsConfigEnvVars,
+  isAnvilTestChain,
+} from '@aztec/ethereum';
 import { type LogFn, type Logger } from '@aztec/foundation/log';
-import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
+import { ForwarderAbi, ForwarderBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
 import { createPublicClient, createWalletClient, getContract, http } from 'viem';
 import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
@@ -53,7 +58,7 @@ export async function addL1Validator({
   });
 
   const stakingAsset = getContract({
-    address: await rollup.read.STAKING_ASSET(),
+    address: await rollup.read.getStakingAsset(),
     abi: TestERC20Abi,
     client: walletClient,
   });
@@ -68,7 +73,9 @@ export async function addL1Validator({
   dualLog(`Adding validator ${validatorAddress.toString()} to rollup ${rollupAddress.toString()}`);
   const txHash = await rollup.write.deposit([
     validatorAddress.toString(),
-    validatorAddress.toString(),
+    // TODO(#11451): custom forwarders
+    getExpectedAddress(ForwarderAbi, ForwarderBytecode, [validatorAddress.toString()], validatorAddress.toString())
+      .address,
     withdrawerAddress?.toString() ?? validatorAddress.toString(),
     config.minimumStake,
   ]);
@@ -155,7 +162,7 @@ export async function fastForwardEpochs({
 
   const cheatCodes = new EthCheatCodes(rpcUrl, debugLogger);
   const currentSlot = await rollup.read.getCurrentSlot();
-  const l2SlotsInEpoch = await rollup.read.EPOCH_DURATION();
+  const l2SlotsInEpoch = await rollup.read.getEpochDuration();
   const timestamp = await rollup.read.getTimestampForSlot([currentSlot + l2SlotsInEpoch * numEpochs]);
   dualLog(`Fast forwarding ${numEpochs} epochs to ${timestamp}`);
   try {

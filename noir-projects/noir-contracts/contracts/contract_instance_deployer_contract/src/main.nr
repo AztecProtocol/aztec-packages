@@ -1,14 +1,19 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract ContractInstanceDeployer {
-    use dep::aztec::macros::{events::event, functions::private};
+pub contract ContractInstanceDeployer {
+    use dep::aztec::macros::{events::event, functions::{private, public, view}, storage::storage};
+    use dep::aztec::prelude::{Map, SharedMutable};
     use dep::aztec::protocol_types::{
         address::{AztecAddress, PartialAddress},
-        constants::{DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE, REGISTERER_CONTRACT_ADDRESS},
+        constants::{
+            DEFAULT_UPDATE_DELAY, DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
+            DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE, MINIMUM_UPDATE_DELAY,
+            REGISTERER_CONTRACT_ADDRESS,
+        },
         contract_class_id::ContractClassId,
         public_keys::PublicKeys,
-        traits::Serialize,
+        traits::{Serialize, ToField},
         utils::arrays::array_concat,
     };
     use dep::contract_class_registerer::ContractClassRegisterer;
@@ -56,8 +61,8 @@ contract ContractInstanceDeployer {
     //   kind: 'point'
     // }
 
-    impl Serialize<15> for ContractInstanceDeployed {
-        fn serialize(self) -> [Field; 15] {
+    impl ContractInstanceDeployed {
+        fn serialize_non_standard(self) -> [Field; 15] {
             [
                 self.DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
                 self.address.to_field(),
@@ -76,6 +81,21 @@ contract ContractInstanceDeployer {
                 self.deployer.to_field(),
             ]
         }
+    }
+
+    #[derive(Serialize)]
+    #[event]
+    struct ContractInstanceUpdated {
+        DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE: Field,
+        address: AztecAddress,
+        prev_contract_class_id: ContractClassId,
+        new_contract_class_id: ContractClassId,
+        block_of_change: u32,
+    }
+
+    #[storage]
+    struct Storage<Context> {
+        updated_class_ids: Map<AztecAddress, SharedMutable<ContractClassId, DEFAULT_UPDATE_DELAY, Context>, Context>,
     }
 
     #[private]
@@ -117,13 +137,61 @@ contract ContractInstanceDeployer {
             version: 1,
         };
 
-        // This is a hack to get around there being two implementations of `Serialize`.
-        // Can be replaced with the below once fixed
-        // let payload = event.serialize();
-        let payload = Serialize::<15>::serialize(event);
+        let payload = event.serialize_non_standard();
         dep::aztec::oracle::debug_log::debug_log_format("ContractInstanceDeployed: {}", payload);
 
         let padded_log = array_concat(payload, [0; 3]);
         context.emit_private_log(padded_log);
+    }
+
+    #[public]
+    fn update(new_contract_class_id: ContractClassId) {
+        let address = context.msg_sender();
+
+        assert(
+            context.nullifier_exists(address.to_field(), context.this_address()),
+            "msg.sender is not deployed",
+        );
+
+        assert(
+            context.nullifier_exists(new_contract_class_id.to_field(), REGISTERER_CONTRACT_ADDRESS),
+            "New contract class is not registered",
+        );
+
+        let scheduled_value_update = storage
+            .updated_class_ids
+            .at(address)
+            .schedule_and_return_value_change(new_contract_class_id);
+        let (prev_contract_class_id, block_of_change) = scheduled_value_update.get_previous();
+
+        let event = ContractInstanceUpdated {
+            DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE,
+            address,
+            prev_contract_class_id,
+            new_contract_class_id,
+            block_of_change,
+        };
+
+        context.emit_public_log(event);
+    }
+
+    #[public]
+    fn set_update_delay(new_update_delay: u32) {
+        let address = context.msg_sender();
+
+        assert(
+            context.nullifier_exists(address.to_field(), context.this_address()),
+            "msg.sender is not deployed",
+        );
+
+        assert(new_update_delay >= MINIMUM_UPDATE_DELAY, "New update delay is too low");
+
+        storage.updated_class_ids.at(address).schedule_delay_change(new_update_delay);
+    }
+
+    #[public]
+    #[view]
+    fn get_update_delay() -> u32 {
+        storage.updated_class_ids.at(context.msg_sender()).get_current_delay()
     }
 }

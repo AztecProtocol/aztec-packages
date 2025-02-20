@@ -5,8 +5,12 @@ include "bc_hashing.pil";
 include "bc_retrieval.pil";
 include "instr_fetching.pil";
 include "range_check.pil";
+include "bitwise.pil";
 include "precomputed.pil";
 include "sha256.pil";
+include "ecc.pil";
+include "poseidon2_hash.pil";
+include "poseidon2_perm.pil";
 
 namespace execution;
 

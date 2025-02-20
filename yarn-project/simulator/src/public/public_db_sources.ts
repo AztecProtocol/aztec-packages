@@ -1,10 +1,9 @@
+import { ContractClassTxL2Logs, MerkleTreeId, type Tx } from '@aztec/circuit-types';
 import {
-  MerkleTreeId,
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
   NullifierMembershipWitness,
-  type Tx,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
 import { type PublicDBAccessStats } from '@aztec/circuit-types/stats';
 import {
   type AztecAddress,
@@ -13,13 +12,11 @@ import {
   type ContractInstanceWithAddress,
   Fr,
   type FunctionSelector,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-  type NULLIFIER_TREE_HEIGHT,
-  type NullifierLeafPreimage,
-  type PublicDataTreeLeafPreimage,
   computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
 import { computeL1ToL2MessageNullifier, computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { type NullifierLeafPreimage, type PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
+import { type L1_TO_L2_MSG_TREE_HEIGHT, type NULLIFIER_TREE_HEIGHT } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
@@ -73,13 +70,21 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
   /**
    * Removes new contracts added from transactions
    * @param tx - The tx's contracts to be removed
+   * @param onlyRevertible - Whether to only remove contracts added from revertible contract class logs
    */
-  public removeNewContracts(tx: Tx): Promise<void> {
+  public removeNewContracts(tx: Tx, onlyRevertible: boolean = false): Promise<void> {
     // TODO(@spalladino): Can this inadvertently delete a valid contract added by another tx?
     // Let's say we have two txs adding the same contract on the same block. If the 2nd one reverts,
     // wouldn't that accidentally remove the contract added on the first one?
-    const logs = tx.contractClassLogs.unrollLogs();
-    logs
+    const contractClassLogs = onlyRevertible
+      ? tx.contractClassLogs
+          .filterScoped(
+            tx.data.forPublic!.revertibleAccumulatedData.contractClassLogsHashes,
+            ContractClassTxL2Logs.empty(),
+          )
+          .unrollLogs()
+      : tx.contractClassLogs.unrollLogs();
+    contractClassLogs
       .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log.data))
       .forEach(log => {
         const event = ContractClassRegisteredEvent.fromLog(log.data);
@@ -87,8 +92,10 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
       });
 
     // We store the contract instance deployed event log in private logs, contract_instance_deployer_contract/src/main.nr
-    const contractInstanceEvents = tx.data
-      .getNonEmptyPrivateLogs()
+    const privateLogs = onlyRevertible
+      ? tx.data.forPublic!.revertibleAccumulatedData.privateLogs.filter(l => !l.isEmpty())
+      : tx.data.getNonEmptyPrivateLogs();
+    const contractInstanceEvents = privateLogs
       .filter(log => ContractInstanceDeployedEvent.isContractInstanceDeployedEvent(log))
       .map(ContractInstanceDeployedEvent.fromLog);
     contractInstanceEvents.forEach(e => this.instanceCache.delete(e.address.toString()));
@@ -134,9 +141,11 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
     if (!instance) {
       throw new Error(`Contract ${address.toString()} not found`);
     }
-    const contractClass = await this.getContractClass(instance.contractClassId);
+    const contractClass = await this.getContractClass(instance.currentContractClassId);
     if (!contractClass) {
-      throw new Error(`Contract class ${instance.contractClassId.toString()} for ${address.toString()} not found`);
+      throw new Error(
+        `Contract class ${instance.currentContractClassId.toString()} for ${address.toString()} not found`,
+      );
     }
     return contractClass.publicFunctions.find(f => f.selector.equals(selector))?.bytecode;
   }

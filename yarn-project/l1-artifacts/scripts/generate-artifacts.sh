@@ -5,7 +5,7 @@ set -euo pipefail
 cd $(git rev-parse --show-toplevel)/yarn-project/l1-artifacts
 
 # Contracts name list (all assumed to be in l1-contracts).
-# This script writes into the generated/ folder:
+# This script writes into the src/ folder:
 # - index.ts: entrypoint
 # - {name}Abi.ts: contains the ABI
 # - {name}Bytecode.ts: contains the bytecode and link references
@@ -22,20 +22,20 @@ contracts=(
   "FeeJuicePortal"
   "MockVerifier"
   "IVerifier"
-  "IProofCommitmentEscrow"
-  "ProofCommitmentEscrow"
   "CoinIssuer"
   "RewardDistributor"
   "GovernanceProposer"
   "Governance"
   "NewGovernanceProposerPayload"
-  "LeonidasLib"
+  "ValidatorSelectionLib"
   "ExtRollupLib"
   "SlashingProposer"
   "Slasher"
   "EmpireBase"
   "SlashFactory"
+  "Forwarder"
   "HonkVerifier"
+  "StakingLib"
 )
 
 # Combine error ABIs once, removing duplicates by {type, name}.
@@ -49,9 +49,9 @@ combined_errors_abi=$(
 )
 
 # Start from clean.
-rm -rf generated && mkdir generated
+rm -rf src && mkdir src
 
-echo "// Auto-generated module" >"generated/index.ts"
+echo "// Auto-generated module" >"src/index.ts"
 
 # Generate ErrorsAbi.ts
 (
@@ -61,12 +61,18 @@ echo "// Auto-generated module" >"generated/index.ts"
   echo -n "export const ErrorsAbi = "
   echo -n "$combined_errors_abi"
   echo " as const;"
-) >"generated/ErrorsAbi.ts"
+) >"src/ErrorsAbi.ts"
 
 # Add Errors export to index.ts
-echo "export * from './ErrorsAbi.js';" >>"generated/index.ts"
+echo "export * from './ErrorsAbi.js';" >>"src/index.ts"
+
+# Collect all compressed abis
+abis=""
 
 for contract_name in "${contracts[@]}"; do
+  # Append compressed abi to abis collection
+  abis="$abis:$(jq -c '.abi' "../../l1-contracts/out/${contract_name}.sol/${contract_name}.json")"
+
   # Generate <ContractName>Abi.ts
   (
     echo "/**"
@@ -81,7 +87,7 @@ for contract_name in "${contracts[@]}"; do
     ' \
       "../../l1-contracts/out/${contract_name}.sol/${contract_name}.json"
     echo " as const;"
-  ) >"generated/${contract_name}Abi.ts"
+  ) >"src/${contract_name}Abi.ts"
 
   # Generate <ContractName>Bytecode.ts
   (
@@ -100,11 +106,29 @@ for contract_name in "${contracts[@]}"; do
     jq -j '.bytecode.linkReferences' \
       "../../l1-contracts/out/${contract_name}.sol/${contract_name}.json"
     echo " as const;"
-  ) >"generated/${contract_name}Bytecode.ts"
+  ) >"src/${contract_name}Bytecode.ts"
 
   # Update index.ts exports
-  echo "export * from './${contract_name}Abi.js';" >>"generated/index.ts"
-  echo "export * from './${contract_name}Bytecode.js';" >>"generated/index.ts"
+  echo "export * from './${contract_name}Abi.js';" >>"src/index.ts"
+  echo "export * from './${contract_name}Bytecode.js';" >>"src/index.ts"
 done
 
-echo "Successfully generated TS artifacts!"
+# Generate RollupStorage.ts
+(
+  echo "/**"
+  echo " * Rollup storage."
+  echo " */"
+  echo -n "export const RollupStorage = "
+  jq -j '.storage' "../../l1-contracts/out/Rollup.sol/storage.json"
+  echo " as const;"
+) >"src/RollupStorage.ts"
+
+# Update index.ts exports
+echo "export * from './RollupStorage.js';" >>"src/index.ts"
+
+# Write abis hash. Consider excluding some contracts from this hash if
+# we don't want to consider them as breaking for the interfaces.
+echo "export const AbisChecksum = \"$(echo -n "$abis" | sha256sum | cut -d' ' -f1)\";" >"src/checksum.ts"
+echo "export * from './checksum.js';" >>"src/index.ts"
+
+echo "Successfully generated TS artifacts"

@@ -1,7 +1,6 @@
 #include "barretenberg/world_state/world_state.hpp"
 #include "barretenberg/crypto/merkle_tree/fixtures.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_read_transaction.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
@@ -191,6 +190,71 @@ TEST_F(WorldStateTest, GetInitialTreeInfoForAllTrees)
                           MerkleTreeId::ARCHIVE,
                           0,
                           fr("0x2da55666630fdf8594065c377958c827dc1c130dac91f17c6699b53dce60ef75"));
+    }
+}
+
+TEST_F(WorldStateTest, GetInitialTreeInfoWithPrefilledPublicData)
+{
+    std::string data_dir_prefilled = random_temp_directory();
+    std::filesystem::create_directories(data_dir_prefilled);
+
+    std::vector<PublicDataLeafValue> prefilled_values = { PublicDataLeafValue(1000, 2000),
+                                                          PublicDataLeafValue(3000, 4000) };
+
+    WorldState ws_prefilled(thread_pool_size,
+                            data_dir_prefilled,
+                            map_size,
+                            tree_heights,
+                            tree_prefill,
+                            prefilled_values,
+                            initial_header_generator_point);
+
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+
+    {
+        auto prefilled = ws_prefilled.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::NULLIFIER_TREE);
+        auto info = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::NULLIFIER_TREE);
+        EXPECT_EQ(prefilled.meta.size, info.meta.size);
+        EXPECT_EQ(prefilled.meta.depth, info.meta.depth);
+        EXPECT_EQ(prefilled.meta.root, info.meta.root);
+    }
+
+    {
+        auto prefilled = ws_prefilled.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::NOTE_HASH_TREE);
+        auto info = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::NOTE_HASH_TREE);
+        EXPECT_EQ(prefilled.meta.size, info.meta.size);
+        EXPECT_EQ(prefilled.meta.depth, info.meta.depth);
+        EXPECT_EQ(prefilled.meta.root, info.meta.root);
+    }
+
+    {
+        auto prefilled = ws_prefilled.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::PUBLIC_DATA_TREE);
+        auto info = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::PUBLIC_DATA_TREE);
+        EXPECT_EQ(prefilled.meta.size, info.meta.size);
+        EXPECT_EQ(prefilled.meta.depth, info.meta.depth);
+        // Public data tree roots are different.
+        EXPECT_NE(prefilled.meta.root, info.meta.root);
+
+        // Prefilled values are appended at the end.
+        {
+            auto leaf = ws_prefilled.get_indexed_leaf<PublicDataLeafValue>(
+                WorldStateRevision::uncommitted(), MerkleTreeId::PUBLIC_DATA_TREE, prefilled.meta.size - 2);
+            EXPECT_EQ(leaf.value().value, prefilled_values[0]);
+        }
+        {
+            auto leaf = ws_prefilled.get_indexed_leaf<PublicDataLeafValue>(
+                WorldStateRevision::uncommitted(), MerkleTreeId::PUBLIC_DATA_TREE, prefilled.meta.size - 1);
+            EXPECT_EQ(leaf.value().value, prefilled_values[1]);
+        }
+    }
+
+    {
+        auto prefilled = ws_prefilled.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE);
+        auto info = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE);
+        EXPECT_EQ(prefilled.meta.size, info.meta.size);
+        EXPECT_EQ(prefilled.meta.depth, info.meta.depth);
+        // Archive tree roots are different.
+        EXPECT_NE(prefilled.meta.root, info.meta.root);
     }
 }
 

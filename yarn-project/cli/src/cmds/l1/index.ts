@@ -32,9 +32,11 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
       'The mnemonic to use in deployment',
       'test test test test test test test test test test test junk',
     )
+    .option('-i, --mnemonic-index <number>', 'The index of the mnemonic to use in deployment', arg => parseInt(arg), 0)
     .addOption(l1ChainIdOption)
     .option('--salt <number>', 'The optional salt to use in deployment', arg => parseInt(arg))
     .option('--json', 'Output the contract addresses in JSON format')
+    .option('--test-accounts', 'Populate genesis state with initial fee juice for test accounts')
     .action(async options => {
       const { deployL1Contracts } = await import('./deploy_l1_contracts.js');
 
@@ -45,7 +47,9 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         options.l1ChainId,
         options.privateKey,
         options.mnemonic,
+        options.mnemonicIndex,
         options.salt,
+        options.testAccounts,
         options.json,
         initialValidators,
         log,

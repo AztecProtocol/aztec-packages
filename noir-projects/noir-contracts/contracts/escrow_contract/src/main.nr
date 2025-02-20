@@ -1,8 +1,10 @@
 // Sample escrow contract that stores a balance of a private token on behalf of an owner.
 use dep::aztec::macros::aztec;
 
+mod test;
+
 #[aztec]
-contract Escrow {
+pub contract Escrow {
     use dep::aztec::{
         encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
         macros::{functions::{initializer, private}, storage::storage},
@@ -24,9 +26,9 @@ contract Escrow {
     #[initializer]
     fn constructor(owner: AztecAddress) {
         // docs:start:addressnote_new
-        let mut note = AddressNote::new(owner, owner);
+        let note = AddressNote::new(owner, owner);
         // docs:end:addressnote_new
-        storage.owner.initialize(&mut note).emit(encode_and_encrypt_note(
+        storage.owner.initialize(note).emit(encode_and_encrypt_note(
             &mut context,
             owner,
             context.msg_sender(),

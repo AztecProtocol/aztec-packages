@@ -1,4 +1,4 @@
-use dep::aztec::prelude::{NoteGetterOptions, NoteViewerOptions, PrivateContext};
+use dep::aztec::prelude::{NoteGetterOptions, NoteViewerOptions, PrivateContext, RetrievedNote};
 
 use dep::aztec::{
     context::UnconstrainedContext,
@@ -13,7 +13,9 @@ use dep::aztec::{
     state_vars::PrivateSet,
 };
 use dep::value_note::value_note::ValueNote;
+use std::meta::derive;
 
+#[derive(Serialize)]
 pub struct Card {
     // We use u32s since u16s are unsupported
     strength: u32,
@@ -32,12 +34,6 @@ impl FromField for Card {
 impl ToField for Card {
     fn to_field(self) -> Field {
         self.strength as Field + (self.points as Field) * 65536
-    }
-}
-
-impl Serialize<2> for Card {
-    fn serialize(self) -> [Field; 2] {
-        [self.strength as Field, self.points as Field]
     }
 }
 
@@ -75,22 +71,22 @@ pub struct Deck<Context> {
 }
 
 pub fn filter_cards<let N: u32>(
-    notes: [Option<ValueNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    retrieved_notes: [Option<RetrievedNote<ValueNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     desired_cards: [Card; N],
-) -> [Option<ValueNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
+) -> [Option<RetrievedNote<ValueNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
     let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
 
     let mut found = [false; N];
 
-    for i in 0..notes.len() {
-        let note = notes[i];
-        if note.is_some() {
-            let card_note = CardNote::from_note(note.unwrap_unchecked());
+    for i in 0..retrieved_notes.len() {
+        let retrieved_note = retrieved_notes[i];
+        if retrieved_note.is_some() {
+            let card_note = CardNote::from_note(retrieved_note.unwrap_unchecked().note);
             for j in 0..N {
                 if !found[j]
                     & (card_note.card.strength == desired_cards[j].strength)
                     & (card_note.card.points == desired_cards[j].points) {
-                    selected[i] = note;
+                    selected[i] = retrieved_note;
                     found[j] = true;
                 }
             }
@@ -111,8 +107,8 @@ impl Deck<&mut PrivateContext> {
     pub fn add_cards<let N: u32>(&mut self, cards: [Card; N], owner: AztecAddress) -> [CardNote] {
         let mut inserted_cards = &[];
         for card in cards {
-            let mut card_note = CardNote::from_card(card, owner);
-            self.set.insert(&mut card_note.note).emit(encode_and_encrypt_note(
+            let card_note = CardNote::from_card(card, owner);
+            self.set.insert(card_note.note).emit(encode_and_encrypt_note(
                 self.set.context,
                 owner,
                 self.set.context.msg_sender(),
@@ -160,7 +156,7 @@ pub fn get_pack_cards(
     let secret = context.request_nsk_app(owner_npk_m_hash);
     let mix = secret + seed;
     let mix_bytes: [u8; 32] = mix.to_le_bytes();
-    let random_bytes = std::hash::sha256(mix_bytes);
+    let random_bytes = sha256::digest(mix_bytes);
 
     let mut cards = [Card::from_field(0); PACK_CARDS];
     // we generate PACK_CARDS cards

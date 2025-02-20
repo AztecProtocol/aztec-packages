@@ -11,11 +11,11 @@
     "./package.local.json"
   ],
   "scripts": {
-    "build": "yarn clean && yarn generate && yarn build:app",
+    "build": "yarn clean && yarn generate && yarn build:ts",
     "clean": "rm -rf ./dest .tsbuildinfo src/types artifacts",
     "generate": "yarn generate:artifacts && yarn generate:code",
     "generate:artifacts": "mkdir -p artifacts/keys && ls circuits | xargs -n 1 ./generate_artifacts.sh",
-    "generate:code": "node --no-warnings --loader ts-node/esm src/scripts/generate_declaration_files.ts && node --no-warnings --loader ts-node/esm src/scripts/generate_ts_from_abi.ts && run -T prettier -w ./src/types",
+    "generate:code": "node --no-warnings --loader @swc-node/register/esm src/scripts/generate_declaration_files.ts && node --no-warnings --loader @swc-node/register/esm src/scripts/generate_ts_from_abi.ts",
     "build:ts": "tsc -b",
     "build:app": "tsc -b && rm -rf dest && webpack && cp ../../barretenberg/favicon.ico dest",
     "build:dev": "tsc -b --watch",
@@ -23,7 +23,7 @@
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "formatting:fix:types": "NODE_OPTIONS='--max-old-space-size=8096' run -T eslint --fix ./src/types && run -T prettier -w ./src/types",
-    "test": "HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16} RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "dependencies": {
     "@aztec/bb.js": "../../ts",
@@ -36,7 +36,6 @@
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
     "@types/node": "^22.8.1",
-    "copy-webpack-plugin": "^12.0.2",
     "debug": "^4.3.4",
     "favicon-emoji": "2.3.1",
     "html-webpack-plugin": "^5.6.0",
@@ -48,7 +47,7 @@
     "typescript": "^5.0.4",
     "webpack": "^5.90.3",
     "webpack-cli": "^5.1.4",
-    "webpack-dev-server": "^5.0.3"
+    "webpack-dev-server": "^5.2.0"
   },
   "files": [
     "dest",
@@ -86,7 +85,7 @@
     "reporters": [
       "default"
     ],
-    "testTimeout": 30000,
+    "testTimeout": 120000,
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
     "rootDir": "./src",
     "setupFiles": [

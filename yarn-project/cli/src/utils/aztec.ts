@@ -1,8 +1,9 @@
 import { type ContractArtifact, type FunctionArtifact, loadContractArtifact } from '@aztec/aztec.js/abi';
-import { type PXE } from '@aztec/circuit-types';
+import { type PXE } from '@aztec/circuit-types/interfaces/client';
+import { FunctionType } from '@aztec/circuits.js/abi';
 import { type DeployL1Contracts, type L1ContractsConfig } from '@aztec/ethereum';
-import { FunctionType } from '@aztec/foundation/abi';
 import { type EthAddress } from '@aztec/foundation/eth-address';
+import { type Fr } from '@aztec/foundation/fields';
 import { type LogFn, type Logger } from '@aztec/foundation/log';
 import { type NoirPackageConfig } from '@aztec/foundation/noir';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
@@ -49,8 +50,11 @@ export async function deployAztecContracts(
   chainId: number,
   privateKey: string | undefined,
   mnemonic: string,
+  mnemonicIndex: number,
   salt: number | undefined,
   initialValidators: EthAddress[],
+  genesisArchiveRoot: Fr,
+  genesisBlockHash: Fr,
   config: L1ContractsConfig,
   debugLogger: Logger,
 ): Promise<DeployL1Contracts> {
@@ -58,20 +62,29 @@ export async function deployAztecContracts(
   const { mnemonicToAccount, privateKeyToAccount } = await import('viem/accounts');
 
   const account = !privateKey
-    ? mnemonicToAccount(mnemonic!)
+    ? mnemonicToAccount(mnemonic!, { addressIndex: mnemonicIndex })
     : privateKeyToAccount(`${privateKey.startsWith('0x') ? '' : '0x'}${privateKey}` as `0x${string}`);
   const chain = createEthereumChain(rpcUrl, chainId);
 
   const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types/vks');
 
-  return await deployL1Contracts(chain.rpcUrl, account, chain.chainInfo, debugLogger, {
-    l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
-    vkTreeRoot: await getVKTreeRoot(),
-    protocolContractTreeRoot,
-    salt,
-    initialValidators,
-    ...config,
-  });
+  return await deployL1Contracts(
+    chain.rpcUrl,
+    account,
+    chain.chainInfo,
+    debugLogger,
+    {
+      l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
+      vkTreeRoot: getVKTreeRoot(),
+      protocolContractTreeRoot,
+      genesisArchiveRoot,
+      genesisBlockHash,
+      salt,
+      initialValidators,
+      ...config,
+    },
+    config,
+  );
 }
 
 /** Sets the assumed proven block number on the rollup contract on L1 */

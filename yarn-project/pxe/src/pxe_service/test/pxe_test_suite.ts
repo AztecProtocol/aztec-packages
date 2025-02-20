@@ -1,10 +1,11 @@
+import { type PXE } from '@aztec/circuit-types/interfaces/client';
 import {
-  type PXE,
   randomContractArtifact,
   randomContractInstanceWithAddress,
   randomDeployedContract,
-} from '@aztec/circuit-types';
-import { AztecAddress, Fr, INITIAL_L2_BLOCK_NUM, getContractClassFromArtifact } from '@aztec/circuits.js';
+} from '@aztec/circuit-types/testing';
+import { AztecAddress, Fr, getContractClassFromArtifact } from '@aztec/circuits.js';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 
 import omit from 'lodash.omit';
 
@@ -52,12 +53,12 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
       const instance = await randomContractInstanceWithAddress({ contractClassId });
 
       await pxe.registerContractClass(artifact);
-      expect(await pxe.getContractClass(contractClassId)).toMatchObject(
+      expect((await pxe.getContractClassMetadata(contractClassId)).contractClass).toMatchObject(
         omit(contractClass, 'privateFunctionsRoot', 'publicBytecodeCommitment'),
       );
 
       await pxe.registerContract({ instance });
-      expect(await pxe.getContractInstance(instance.address)).toEqual(instance);
+      expect((await pxe.getContractMetadata(instance.address)).contractInstance).toEqual(instance);
     });
 
     it('refuses to register a class with a mismatched address', async () => {

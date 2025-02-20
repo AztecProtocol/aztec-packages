@@ -1,7 +1,7 @@
-import { P2PBootstrapApiSchema } from '@aztec/circuit-types';
+import { P2PBootstrapApiSchema } from '@aztec/circuit-types/interfaces/server';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type LogFn, createLogger } from '@aztec/foundation/log';
-import { createStore } from '@aztec/kv-store/lmdb';
+import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { type BootnodeConfig, BootstrapNode, bootnodeConfigMappings } from '@aztec/p2p';
 import { getConfigEnvVars as getTelemetryClientConfig, initTelemetryClient } from '@aztec/telemetry-client';
 
@@ -22,4 +22,5 @@ export async function startP2PBootstrap(
   signalHandlers.push(() => node.stop());
   services.bootstrap = [node, P2PBootstrapApiSchema];
   userLog(`P2P bootstrap node started on ${config.udpListenAddress}`);
+  return { config };
 }

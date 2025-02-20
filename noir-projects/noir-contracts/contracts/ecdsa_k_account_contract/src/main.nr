@@ -3,7 +3,7 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract EcdsaKAccount {
+pub contract EcdsaKAccount {
     use dep::aztec::{
         encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
         macros::{functions::{initializer, noinitcheck, private, view}, storage::storage},
@@ -28,9 +28,9 @@ contract EcdsaKAccount {
     #[initializer]
     fn constructor(signing_pub_key_x: [u8; 32], signing_pub_key_y: [u8; 32]) {
         let this = context.this_address();
-        let mut pub_key_note = EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
+        let pub_key_note = EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
 
-        storage.public_key.initialize(&mut pub_key_note).emit(encode_and_encrypt_note(
+        storage.public_key.initialize(pub_key_note).emit(encode_and_encrypt_note(
             &mut context,
             this,
             this,
@@ -59,8 +59,8 @@ contract EcdsaKAccount {
         let public_key = storage.public_key.get_note();
 
         // Load auth witness
-        /// Safety: The witness is only used as a "magical value" that makes the signature verification below pass.
-        /// Hence it's safe.
+        // Safety: The witness is only used as a "magical value" that makes the signature verification below pass.
+        // Hence it's safe.
         let witness: [Field; 64] = unsafe { get_auth_witness(outer_hash) };
         let mut signature: [u8; 64] = [0; 64];
         for i in 0..64 {
@@ -70,7 +70,7 @@ contract EcdsaKAccount {
         // Verify payload signature using Ethereum's signing scheme
         // Note that noir expects the hash of the message/challenge as input to the ECDSA verification.
         let outer_hash_bytes: [u8; 32] = outer_hash.to_be_bytes();
-        let hashed_message: [u8; 32] = std::hash::sha256(outer_hash_bytes);
+        let hashed_message: [u8; 32] = sha256::digest(outer_hash_bytes);
         std::ecdsa_secp256k1::verify_signature(
             public_key.x,
             public_key.y,

@@ -1,12 +1,13 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { type InitialAccountData, deployFundedSchnorrAccount } from '@aztec/accounts/testing';
 import { type AztecNodeService } from '@aztec/aztec-node';
 import {
+  type AccountWallet,
+  AccountWalletWithSecretKey,
   type AztecAddress,
   type AztecNode,
   type CheatCodes,
   ContractDeployer,
   ContractFunctionInteraction,
-  Fq,
   Fr,
   type GlobalVariables,
   L1EventPayload,
@@ -15,12 +16,12 @@ import {
   type PXE,
   TxStatus,
   type Wallet,
-  deriveKeys,
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
-import { type MerkleTreeWriteOperations, type Tx } from '@aztec/circuit-types';
+import { type Tx } from '@aztec/circuit-types';
+import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times, unique } from '@aztec/foundation/collection';
@@ -58,7 +59,7 @@ describe('e2e_block_building', () => {
   let cheatCodes: CheatCodes;
   let teardown: () => Promise<void>;
 
-  const { aztecEpochProofClaimWindowInL2Slots } = getL1ContractsConfigEnvVars();
+  const { aztecProofSubmissionWindow } = getL1ContractsConfigEnvVars();
 
   afterEach(() => {
     jest.restoreAllMocks();
@@ -126,7 +127,8 @@ describe('e2e_block_building', () => {
       expect(receipts.map(r => r.blockNumber)).toEqual(times(TX_COUNT, () => receipts[0].blockNumber));
 
       // Assert all contracts got deployed
-      const isContractDeployed = async (address: AztecAddress) => !!(await pxe.getContractInstance(address));
+      const isContractDeployed = async (address: AztecAddress) =>
+        !!(await pxe.getContractMetadata(address)).contractInstance;
       const areDeployed = await Promise.all(receipts.map(r => isContractDeployed(r.contract.address)));
       expect(areDeployed).toEqual(times(TX_COUNT, () => true));
     });
@@ -396,26 +398,29 @@ describe('e2e_block_building', () => {
     // This test was originally written for e2e_nested, but it was refactored
     // to not use TestContract.
     let testContract: TestContract;
+    let ownerWallet: AccountWallet;
+    let owner: InitialAccountData;
 
-    beforeEach(async () => {
-      ({ teardown, pxe, logger, wallet: owner } = await setup(1));
+    beforeAll(async () => {
+      ({
+        teardown,
+        pxe,
+        logger,
+        wallet: ownerWallet,
+        initialFundedAccounts: [owner],
+      } = await setup(1));
       logger.info(`Deploying test contract`);
-      testContract = await TestContract.deploy(owner).send().deployed();
+      testContract = await TestContract.deploy(ownerWallet).send().deployed();
     }, 60_000);
 
-    afterEach(() => teardown());
+    afterAll(() => teardown());
 
     it('calls a method with nested note encrypted logs', async () => {
-      // account setup
-      const privateKey = new Fr(7n);
-      const keys = await deriveKeys(privateKey);
-      const account = await getSchnorrAccount(pxe, privateKey, keys.masterIncomingViewingSecretKey);
-      await account.deploy().wait();
-      const thisWallet = await account.getWallet();
-      const sender = thisWallet.getAddress();
+      const thisWallet = new AccountWalletWithSecretKey(pxe, ownerWallet, owner.secret, owner.salt);
+      const address = owner.address;
 
       // call test contract
-      const action = testContract.methods.emit_encrypted_logs_nested(10, thisWallet.getAddress(), sender);
+      const action = testContract.methods.emit_encrypted_logs_nested(10, address, address);
       const tx = await action.prove();
       const rct = await tx.send().wait();
 
@@ -434,18 +439,13 @@ describe('e2e_block_building', () => {
     }, 30_000);
 
     it('calls a method with nested encrypted logs', async () => {
-      // account setup
-      const privateKey = new Fr(7n);
-      const keys = await deriveKeys(privateKey);
-      const account = await getSchnorrAccount(pxe, privateKey, keys.masterIncomingViewingSecretKey);
-      await account.deploy().wait();
-      const thisWallet = await account.getWallet();
-      const sender = thisWallet.getAddress();
+      const thisWallet = new AccountWalletWithSecretKey(pxe, ownerWallet, owner.secret, owner.salt);
+      const address = owner.address;
 
       // call test contract
       const values = [new Fr(5), new Fr(4), new Fr(3), new Fr(2), new Fr(1)];
       const nestedValues = [new Fr(0), new Fr(0), new Fr(0), new Fr(0), new Fr(0)];
-      const action = testContract.methods.emit_array_as_encrypted_log(values, thisWallet.getAddress(), sender, true);
+      const action = testContract.methods.emit_array_as_encrypted_log(values, address, address, true);
       const tx = await action.prove();
       const rct = await tx.send().wait();
 
@@ -487,14 +487,15 @@ describe('e2e_block_building', () => {
 
     // Regression for https://github.com/AztecProtocol/aztec-packages/issues/7537
     it('sends a tx on the first block', async () => {
-      ({ teardown, pxe, logger, aztecNode } = await setup(0, {
+      const context = await setup(0, {
         minTxsPerBlock: 0,
         skipProtocolContracts: true,
-      }));
+        numberOfInitialFundedAccounts: 1,
+      });
+      ({ teardown, pxe, logger, aztecNode } = context);
       await sleep(1000);
 
-      const account = await getSchnorrAccount(pxe, Fr.random(), Fq.random(), Fr.random());
-      await account.waitSetup();
+      await deployFundedSchnorrAccount(pxe, context.initialFundedAccounts[0]);
     });
 
     it('can simulate public txs while building a block', async () => {
@@ -507,6 +508,7 @@ describe('e2e_block_building', () => {
       } = await setup(1, {
         minTxsPerBlock: 1,
         skipProtocolContracts: true,
+        ethereumSlotDuration: 6,
       }));
 
       logger.info('Deploying token contract');
@@ -572,10 +574,9 @@ describe('e2e_block_building', () => {
       expect(tx2.blockNumber).toEqual(initialBlockNumber + 2);
       expect(await contract.methods.summed_values(ownerAddress).simulate()).toEqual(51n);
 
-      // Now move to a new epoch and past the proof claim window to cause a reorg
-      logger.info('Advancing past the proof claim window');
+      logger.info('Advancing past the proof submission window');
       await cheatCodes.rollup.advanceToNextEpoch();
-      await cheatCodes.rollup.advanceSlots(aztecEpochProofClaimWindowInL2Slots + 1); // off-by-one?
+      await cheatCodes.rollup.advanceSlots(aztecProofSubmissionWindow + 1);
 
       // Wait until the sequencer kicks out tx1
       logger.info(`Waiting for node to prune tx1`);
@@ -636,7 +637,7 @@ class TestPublicProcessorFactory extends PublicProcessorFactory {
     worldStateDB: WorldStateDB,
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean,
-    enforceFeePayment: boolean,
+    skipFeeEnforcement: boolean,
     telemetryClient?: TelemetryClient,
   ): PublicTxSimulator {
     return new TestPublicTxSimulator(
@@ -644,7 +645,7 @@ class TestPublicProcessorFactory extends PublicProcessorFactory {
       worldStateDB,
       globalVariables,
       doMerkleOperations,
-      enforceFeePayment,
+      skipFeeEnforcement,
       telemetryClient,
     );
   }

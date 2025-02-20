@@ -1,4 +1,3 @@
-import { PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fq, Fr, Point } from '@aztec/foundation/fields';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
@@ -11,9 +10,9 @@ import { Encoder, addExtension } from 'msgpackr';
 
 import { type ContractClassIdPreimage } from '../../contract/contract_class_id.js';
 import { PublicKeys } from '../../types/public_keys.js';
-import { PublicCircuitPublicInputs } from '../public_circuit_public_inputs.js';
-import { Vector } from '../shared.js';
+import { Vector } from '../../types/shared.js';
 import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
+import { PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
 import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
 
 export class AvmEnqueuedCallHint {
@@ -87,16 +86,23 @@ export class AvmEnqueuedCallHint {
 }
 
 export class AvmContractInstanceHint {
+  public readonly updatePreimage: Vector<Fr>;
+
   constructor(
     public readonly address: AztecAddress,
     public readonly exists: boolean,
     public readonly salt: Fr,
     public readonly deployer: AztecAddress,
-    public readonly contractClassId: Fr,
+    public readonly currentContractClassId: Fr,
+    public readonly originalContractClassId: Fr,
     public readonly initializationHash: Fr,
     public readonly publicKeys: PublicKeys,
-    public readonly membershipHint: AvmNullifierReadTreeHint = AvmNullifierReadTreeHint.empty(),
-  ) {}
+    public readonly initializationMembershipHint: AvmNullifierReadTreeHint = AvmNullifierReadTreeHint.empty(),
+    public readonly updateMembershipHint: AvmPublicDataReadTreeHint = AvmPublicDataReadTreeHint.empty(),
+    updatePreimage: Fr[],
+  ) {
+    this.updatePreimage = new Vector(updatePreimage);
+  }
   /**
    * Serializes the inputs to a buffer.
    * @returns - The inputs serialized to a buffer.
@@ -123,20 +129,14 @@ export class AvmContractInstanceHint {
       !this.exists &&
       this.salt.isZero() &&
       this.deployer.isZero() &&
-      this.contractClassId.isZero() &&
+      this.currentContractClassId.isZero() &&
+      this.originalContractClassId.isZero() &&
       this.initializationHash.isZero() &&
       this.publicKeys.isEmpty() &&
-      this.membershipHint.isEmpty()
+      this.initializationMembershipHint.isEmpty() &&
+      this.updateMembershipHint.isEmpty() &&
+      this.updatePreimage.items.length == 0
     );
-  }
-
-  /**
-   * Creates a new instance from fields.
-   * @param fields - Fields to create the instance from.
-   * @returns A new AvmHint instance.
-   */
-  static from(fields: FieldsOf<AvmContractInstanceHint>): AvmContractInstanceHint {
-    return new AvmContractInstanceHint(...AvmContractInstanceHint.getFields(fields));
   }
 
   /**
@@ -150,10 +150,13 @@ export class AvmContractInstanceHint {
       fields.exists,
       fields.salt,
       fields.deployer,
-      fields.contractClassId,
+      fields.currentContractClassId,
+      fields.originalContractClassId,
       fields.initializationHash,
       fields.publicKeys,
-      fields.membershipHint,
+      fields.initializationMembershipHint,
+      fields.updateMembershipHint,
+      fields.updatePreimage,
     ] as const;
   }
 
@@ -171,8 +174,11 @@ export class AvmContractInstanceHint {
       AztecAddress.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
       PublicKeys.fromBuffer(reader),
       AvmNullifierReadTreeHint.fromBuffer(reader),
+      AvmPublicDataReadTreeHint.fromBuffer(reader),
+      reader.readVector(Fr),
     );
   }
 
@@ -540,6 +546,10 @@ export class AvmPublicDataReadTreeHint {
     return this.toBuffer().toString('hex');
   }
 
+  static empty(): AvmPublicDataReadTreeHint {
+    return new AvmPublicDataReadTreeHint(PublicDataTreeLeafPreimage.empty(), Fr.ZERO, []);
+  }
+
   /**
    * Is the struct empty?
    * @returns whether all members are empty.
@@ -847,9 +857,8 @@ export class AvmCircuitInputs {
   constructor(
     public readonly functionName: string, // only informational
     public readonly calldata: Fr[],
-    public readonly publicInputs: PublicCircuitPublicInputs,
     public readonly avmHints: AvmExecutionHints,
-    public output: AvmCircuitPublicInputs, // This should replace the above `publicInputs` eventually.
+    public publicInputs: AvmCircuitPublicInputs, // This should replace the above `publicInputs` eventually.
   ) {}
 
   /**
@@ -863,9 +872,8 @@ export class AvmCircuitInputs {
       functionNameBuffer,
       this.calldata.length,
       this.calldata,
-      this.publicInputs.toBuffer(),
       this.avmHints.toBuffer(),
-      this.output,
+      this.publicInputs,
     );
   }
 
@@ -878,13 +886,7 @@ export class AvmCircuitInputs {
   }
 
   static empty(): AvmCircuitInputs {
-    return new AvmCircuitInputs(
-      '',
-      [],
-      PublicCircuitPublicInputs.empty(),
-      AvmExecutionHints.empty(),
-      AvmCircuitPublicInputs.empty(),
-    );
+    return new AvmCircuitInputs('', [], AvmExecutionHints.empty(), AvmCircuitPublicInputs.empty());
   }
 
   /**
@@ -902,7 +904,7 @@ export class AvmCircuitInputs {
    * @returns An array of fields.
    */
   static getFields(fields: FieldsOf<AvmCircuitInputs>) {
-    return [fields.functionName, fields.calldata, fields.publicInputs, fields.avmHints, fields.output] as const;
+    return [fields.functionName, fields.calldata, fields.avmHints, fields.publicInputs] as const;
   }
 
   /**
@@ -915,7 +917,6 @@ export class AvmCircuitInputs {
     return new AvmCircuitInputs(
       /*functionName=*/ reader.readBuffer().toString(),
       /*calldata=*/ reader.readVector(Fr),
-      PublicCircuitPublicInputs.fromBuffer(reader),
       AvmExecutionHints.fromBuffer(reader),
       AvmCircuitPublicInputs.fromBuffer(reader),
     );
@@ -956,10 +957,10 @@ export class AvmCircuitInputs {
       contractInstances: [] as any[],
       contractClasses: [] as any[],
       initialTreeRoots: {
-        publicDataTree: this.output.startTreeSnapshots.publicDataTree.root,
-        nullifierTree: this.output.startTreeSnapshots.nullifierTree.root,
-        noteHashTree: this.output.startTreeSnapshots.noteHashTree.root,
-        l1ToL2MessageTree: this.output.startTreeSnapshots.l1ToL2MessageTree.root,
+        publicDataTree: this.publicInputs.startTreeSnapshots.publicDataTree.root,
+        nullifierTree: this.publicInputs.startTreeSnapshots.nullifierTree.root,
+        noteHashTree: this.publicInputs.startTreeSnapshots.noteHashTree.root,
+        l1ToL2MessageTree: this.publicInputs.startTreeSnapshots.l1ToL2MessageTree.root,
       },
     };
     const inputs = {

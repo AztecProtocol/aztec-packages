@@ -1,13 +1,7 @@
-import { MerkleTreeId, type MerkleTreeWriteOperations } from '@aztec/circuit-types';
-import {
-  DEPLOYER_CONTRACT_ADDRESS,
-  GasFees,
-  MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
-  PublicDataTreeLeafPreimage,
-  PublicKeys,
-  SerializableContractInstance,
-} from '@aztec/circuits.js';
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { MerkleTreeId } from '@aztec/circuit-types';
+import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
+import { GasFees, PublicKeys, SerializableContractInstance } from '@aztec/circuits.js';
+import { FunctionSelector } from '@aztec/circuits.js/abi';
 import {
   computeNoteHashNonce,
   computePublicDataTreeLeafSlot,
@@ -17,21 +11,27 @@ import {
   siloNullifier,
 } from '@aztec/circuits.js/hash';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
-import { FunctionSelector } from '@aztec/foundation/abi';
+import { PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
+import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { keccak256, keccakf1600, pedersenCommit, pedersenHash, poseidon2Hash, sha256 } from '@aztec/foundation/crypto';
+import {
+  Grumpkin,
+  keccak256,
+  keccakf1600,
+  pedersenCommit,
+  pedersenHash,
+  poseidon2Hash,
+  sha256,
+} from '@aztec/foundation/crypto';
 import { Fq, Fr, Point } from '@aztec/foundation/fields';
 import { type Fieldable } from '@aztec/foundation/serialize';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
-import { getTelemetryClient } from '@aztec/telemetry-client';
-import { MerkleTrees } from '@aztec/world-state';
+import { NativeWorldStateService } from '@aztec/world-state';
 
 import { randomInt } from 'crypto';
 import { mock } from 'jest-mock-extended';
 
-import { PublicEnqueuedCallSideEffectTrace } from '../public/enqueued_call_side_effect_trace.js';
-import { MockedAvmTestContractDataSource, simulateAvmTestContractCall } from '../public/fixtures/index.js';
 import { type WorldStateDB } from '../public/public_db_sources.js';
+import { SideEffectTrace } from '../public/side_effect_trace.js';
 import { type PublicSideEffectTraceInterface } from '../public/side_effect_trace_interface.js';
 import { type AvmContext } from './avm_context.js';
 import { type AvmExecutionEnvironment } from './avm_execution_environment.js';
@@ -40,6 +40,7 @@ import { AvmSimulator } from './avm_simulator.js';
 import { AvmEphemeralForest } from './avm_tree.js';
 import { isAvmBytecode, markBytecodeAsAvm } from './bytecode_utils.js';
 import {
+  getAvmGadgetsTestContractBytecode,
   getAvmTestContractArtifact,
   getAvmTestContractBytecode,
   initContext,
@@ -149,44 +150,6 @@ describe('AVM simulator: injected bytecode', () => {
 });
 
 describe('AVM simulator: transpiled Noir contracts', () => {
-  it('bulk testing', async () => {
-    const args = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
-    await simulateAvmTestContractCall('bulk_testing', args, /*expectRevert=*/ false);
-  });
-
-  it('call max unique contract classes', async () => {
-    const contractDataSource = await MockedAvmTestContractDataSource.create();
-    // args is initialized to MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS contract addresses with unique class IDs
-    const args = Array.from(contractDataSource.contractInstances.values())
-      .map(instance => instance.address.toField())
-      .slice(0, MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS);
-    // include the first contract again again at the end to ensure that we can call it even after the limit is reached
-    args.push(args[0]);
-    // include another contract address that reuses a class ID to ensure that we can call it even after the limit is reached
-    args.push(contractDataSource.instanceSameClassAsFirstContract.address.toField());
-    await simulateAvmTestContractCall(
-      'nested_call_to_add_n_times_different_addresses',
-      args,
-      /*expectRevert=*/ false,
-      contractDataSource,
-    );
-  });
-
-  it('call too many unique contract classes fails', async () => {
-    const contractDataSource = await MockedAvmTestContractDataSource.create();
-    // args is initialized to MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS+1 contract addresses with unique class IDs
-    // should fail because we are trying to call MAX+1 unique class IDs
-    const args = Array.from(contractDataSource.contractInstances.values()).map(instance => instance.address.toField());
-    // push an empty one (just padding to match function calldata size of MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS+2)
-    args.push(new Fr(0));
-    await simulateAvmTestContractCall(
-      'nested_call_to_add_n_times_different_addresses',
-      args,
-      /*expectRevert=*/ true,
-      contractDataSource,
-    );
-  });
-
   it('execution of a non-existent contract immediately reverts and consumes all allocated gas', async () => {
     const context = initContext();
     const results = await new AvmSimulator(context).execute();
@@ -426,19 +389,43 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     });
   });
 
+  /*
+   * Can run these as follows to measure sha256 instruction execution counts:
+   * for i in 10 20 30 40 50 60 70 80 90 100 255 256 511 512 2048; do
+   *   echo sha-ing $i...;
+   *   LOG_LEVEL=debug yarn test src/avm/avm_simulator.test.ts -t "sha256_hash_$i " &> sha$i.log;
+   * done
+   * for i in 10 20 30 40 50 60 70 80 90 100 255 256 511 512 2048; do
+   *   echo sha256 of $i bytes $(grep -Eo 'Executed .* instructions.* Gas' sha$i.log);
+   * done
+   */
   describe.each([
-    ['sha256_hash', /*input=*/ randomMemoryBytes(10), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_10', /*input=*/ randomMemoryBytes(10), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_20', /*input=*/ randomMemoryBytes(20), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_30', /*input=*/ randomMemoryBytes(30), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_40', /*input=*/ randomMemoryBytes(40), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_50', /*input=*/ randomMemoryBytes(50), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_60', /*input=*/ randomMemoryBytes(60), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_70', /*input=*/ randomMemoryBytes(70), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_80', /*input=*/ randomMemoryBytes(80), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_90', /*input=*/ randomMemoryBytes(90), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_100', /*input=*/ randomMemoryBytes(100), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_255', /*input=*/ randomMemoryBytes(255), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_256', /*input=*/ randomMemoryBytes(256), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_511', /*input=*/ randomMemoryBytes(511), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_512', /*input=*/ randomMemoryBytes(512), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_2048', /*input=*/ randomMemoryBytes(2048), /*output=*/ sha256FromMemoryBytes],
     ['keccak_hash', /*input=*/ randomMemoryBytes(10), /*output=*/ keccak256FromMemoryBytes],
     ['keccak_f1600', /*input=*/ randomMemoryUint64s(25), /*output=*/ keccakF1600FromMemoryUint64s],
     ['poseidon2_hash', /*input=*/ randomMemoryFields(10), /*output=*/ poseidon2FromMemoryFields],
     ['pedersen_hash', /*input=*/ randomMemoryFields(10), /*output=*/ pedersenFromMemoryFields],
     ['pedersen_hash_with_index', /*input=*/ randomMemoryFields(10), /*output=*/ indexedPedersenFromMemoryFields],
   ])('Hashes in noir contracts', (name: string, input: MemoryValue[], output: (msg: any[]) => Promise<Fr[]>) => {
-    it(`Should execute contract function that performs ${name}`, async () => {
+    it(`Should execute contract function that performs ${name} on input of length ${input.length}`, async () => {
       const calldata = input.map(e => e.toFr());
 
       const context = initContext({ env: initExecutionEnvironment({ calldata }) });
-      const bytecode = getAvmTestContractBytecode(name);
+      const bytecode = getAvmGadgetsTestContractBytecode(name);
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
       expect(results.reverted).toBe(false);
@@ -881,7 +868,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           version: 1 as const,
           salt: new Fr(0x123),
           deployer: AztecAddress.fromBigInt(0x456n),
-          contractClassId: new Fr(0x789),
+          currentContractClassId: new Fr(0x789),
+          originalContractClassId: new Fr(0x789),
           initializationHash: new Fr(0x101112),
           publicKeys: new PublicKeys(
             new Point(new Fr(0x131415), new Fr(0x161718), false),
@@ -1078,7 +1066,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     });
 
     describe('Side effect trace errors on overflow', () => {
-      const trace = new PublicEnqueuedCallSideEffectTrace();
+      const trace = new SideEffectTrace();
       const persistableState = initPersistableStateManager({ worldStateDB, trace });
 
       it.each([
@@ -1141,9 +1129,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       trace = mock<PublicSideEffectTraceInterface>();
 
       worldStateDB = mock<WorldStateDB>();
-      const tmp = openTmpStore();
-      const telemetryClient = getTelemetryClient();
-      merkleTrees = await (await MerkleTrees.new(tmp, telemetryClient)).fork();
+      merkleTrees = await (await NativeWorldStateService.tmp()).fork();
       (worldStateDB as jest.Mocked<WorldStateDB>).getMerkleInterface.mockReturnValue(merkleTrees);
       ephemeralForest = await AvmEphemeralForest.create(worldStateDB.getMerkleInterface());
 

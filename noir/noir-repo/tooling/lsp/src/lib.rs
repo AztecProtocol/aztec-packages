@@ -215,7 +215,7 @@ fn get_package_tests_in_crate(
     let fm = &context.file_manager;
     let files = fm.as_file_map();
     let tests =
-        context.get_all_test_functions_in_crate_matching(crate_id, FunctionNameMatch::Anything);
+        context.get_all_test_functions_in_crate_matching(crate_id, &FunctionNameMatch::Anything);
 
     let package_tests: Vec<_> = tests
         .into_iter()
@@ -316,6 +316,7 @@ pub(crate) fn resolve_workspace_for_source_path(file_path: &Path) -> Result<Work
         members: vec![assumed_package],
         selected_package_index: Some(0),
         is_assumed: true,
+        target_dir: None,
     };
     Ok(workspace)
 }

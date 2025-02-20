@@ -1,10 +1,9 @@
-use noirc_errors::{Location, Span, Spanned};
+use noirc_errors::{Location, Span};
 
 use crate::{
     ast::{
-        AssignStatement, BinaryOpKind, ConstrainKind, ConstrainStatement, Expression,
-        ExpressionKind, ForLoopStatement, ForRange, Ident, InfixExpression, ItemVisibility, LValue,
-        LetStatement, Path, Statement, StatementKind,
+        AssignStatement, Expression, ForLoopStatement, ForRange, Ident, ItemVisibility, LValue,
+        LetStatement, Path, Statement, StatementKind, WhileStatement,
     },
     hir::{
         resolution::{
@@ -15,30 +14,35 @@ use crate::{
     },
     hir_def::{
         expr::HirIdent,
-        stmt::{
-            HirAssignStatement, HirConstrainStatement, HirForStatement, HirLValue, HirLetStatement,
-            HirStatement,
-        },
+        stmt::{HirAssignStatement, HirForStatement, HirLValue, HirLetStatement, HirStatement},
     },
     node_interner::{DefinitionId, DefinitionKind, GlobalId, StmtId},
-    StructType, Type,
+    DataType, Type,
 };
 
-use super::{lints, Elaborator};
+use super::{lints, Elaborator, Loop};
 
 impl<'context> Elaborator<'context> {
     fn elaborate_statement_value(&mut self, statement: Statement) -> (HirStatement, Type) {
+        self.elaborate_statement_value_with_target_type(statement, None)
+    }
+
+    fn elaborate_statement_value_with_target_type(
+        &mut self,
+        statement: Statement,
+        target_type: Option<&Type>,
+    ) -> (HirStatement, Type) {
         match statement.kind {
             StatementKind::Let(let_stmt) => self.elaborate_local_let(let_stmt),
-            StatementKind::Constrain(constrain) => self.elaborate_constrain(constrain),
             StatementKind::Assign(assign) => self.elaborate_assign(assign),
             StatementKind::For(for_stmt) => self.elaborate_for(for_stmt),
-            StatementKind::Loop(block) => self.elaborate_loop(block, statement.span),
+            StatementKind::Loop(block, span) => self.elaborate_loop(block, span),
+            StatementKind::While(while_) => self.elaborate_while(while_),
             StatementKind::Break => self.elaborate_jump(true, statement.span),
             StatementKind::Continue => self.elaborate_jump(false, statement.span),
             StatementKind::Comptime(statement) => self.elaborate_comptime_statement(*statement),
             StatementKind::Expression(expr) => {
-                let (expr, typ) = self.elaborate_expression(expr);
+                let (expr, typ) = self.elaborate_expression_with_target_type(expr, target_type);
                 (HirStatement::Expression(expr), typ)
             }
             StatementKind::Semi(expr) => {
@@ -48,15 +52,24 @@ impl<'context> Elaborator<'context> {
             StatementKind::Interned(id) => {
                 let kind = self.interner.get_statement_kind(id);
                 let statement = Statement { kind: kind.clone(), span: statement.span };
-                self.elaborate_statement_value(statement)
+                self.elaborate_statement_value_with_target_type(statement, target_type)
             }
             StatementKind::Error => (HirStatement::Error, Type::Error),
         }
     }
 
     pub(crate) fn elaborate_statement(&mut self, statement: Statement) -> (StmtId, Type) {
+        self.elaborate_statement_with_target_type(statement, None)
+    }
+
+    pub(crate) fn elaborate_statement_with_target_type(
+        &mut self,
+        statement: Statement,
+        target_type: Option<&Type>,
+    ) -> (StmtId, Type) {
         let span = statement.span;
-        let (hir_statement, typ) = self.elaborate_statement_value(statement);
+        let (hir_statement, typ) =
+            self.elaborate_statement_value_with_target_type(statement, target_type);
         let id = self.interner.push_stmt(hir_statement);
         self.interner.push_stmt_location(id, span, self.file);
         (id, typ)
@@ -75,11 +88,12 @@ impl<'context> Elaborator<'context> {
         let_stmt: LetStatement,
         global_id: Option<GlobalId>,
     ) -> (HirStatement, Type) {
-        let expr_span = let_stmt.expression.span;
-        let (expression, expr_type) = self.elaborate_expression(let_stmt.expression);
-
         let type_contains_unspecified = let_stmt.r#type.contains_unspecified();
         let annotated_type = self.resolve_inferred_type(let_stmt.r#type);
+
+        let expr_span = let_stmt.expression.span;
+        let (expression, expr_type) =
+            self.elaborate_expression_with_target_type(let_stmt.expression, Some(&annotated_type));
 
         // Require the top-level of a global's type to be fully-specified
         if type_contains_unspecified && global_id.is_some() {
@@ -131,61 +145,6 @@ impl<'context> Elaborator<'context> {
         (HirStatement::Let(let_), Type::Unit)
     }
 
-    pub(super) fn elaborate_constrain(
-        &mut self,
-        mut stmt: ConstrainStatement,
-    ) -> (HirStatement, Type) {
-        let span = stmt.span;
-        let min_args_count = stmt.kind.required_arguments_count();
-        let max_args_count = min_args_count + 1;
-        let actual_args_count = stmt.arguments.len();
-
-        let (message, expr) = if !(min_args_count..=max_args_count).contains(&actual_args_count) {
-            self.push_err(TypeCheckError::AssertionParameterCountMismatch {
-                kind: stmt.kind,
-                found: actual_args_count,
-                span,
-            });
-
-            // Given that we already produced an error, let's make this an `assert(true)` so
-            // we don't get further errors.
-            let message = None;
-            let kind = ExpressionKind::Literal(crate::ast::Literal::Bool(true));
-            let expr = Expression { kind, span };
-            (message, expr)
-        } else {
-            let message =
-                (actual_args_count != min_args_count).then(|| stmt.arguments.pop().unwrap());
-            let expr = match stmt.kind {
-                ConstrainKind::Assert | ConstrainKind::Constrain => stmt.arguments.pop().unwrap(),
-                ConstrainKind::AssertEq => {
-                    let rhs = stmt.arguments.pop().unwrap();
-                    let lhs = stmt.arguments.pop().unwrap();
-                    let span = Span::from(lhs.span.start()..rhs.span.end());
-                    let operator = Spanned::from(span, BinaryOpKind::Equal);
-                    let kind =
-                        ExpressionKind::Infix(Box::new(InfixExpression { lhs, operator, rhs }));
-                    Expression { kind, span }
-                }
-            };
-            (message, expr)
-        };
-
-        let expr_span = expr.span;
-        let (expr_id, expr_type) = self.elaborate_expression(expr);
-
-        // Must type check the assertion message expression so that we instantiate bindings
-        let msg = message.map(|assert_msg_expr| self.elaborate_expression(assert_msg_expr).0);
-
-        self.unify(&expr_type, &Type::Bool, || TypeCheckError::TypeMismatch {
-            expr_typ: expr_type.to_string(),
-            expected_typ: Type::Bool.to_string(),
-            expr_span,
-        });
-
-        (HirStatement::Constrain(HirConstrainStatement(expr_id, self.file, msg)), Type::Unit)
-    }
-
     pub(super) fn elaborate_assign(&mut self, assign: AssignStatement) -> (HirStatement, Type) {
         let expr_span = assign.expression.span;
         let (expression, expr_type) = self.elaborate_expression(assign.expression);
@@ -227,7 +186,9 @@ impl<'context> Elaborator<'context> {
         let (end_range, end_range_type) = self.elaborate_expression(end);
         let (identifier, block) = (for_loop.identifier, for_loop.block);
 
-        self.nested_loops += 1;
+        let old_loop = std::mem::take(&mut self.current_loop);
+
+        self.current_loop = Some(Loop { is_for: true, has_break: false });
         self.push_scope();
 
         // TODO: For loop variables are currently mutable by default since we haven't
@@ -258,10 +219,17 @@ impl<'context> Elaborator<'context> {
 
         self.interner.push_definition_type(identifier.id, start_range_type);
 
-        let (block, _block_type) = self.elaborate_expression(block);
+        let block_span = block.type_span();
+        let (block, block_type) = self.elaborate_expression(block);
+
+        self.unify(&block_type, &Type::Unit, || TypeCheckError::TypeMismatch {
+            expected_typ: Type::Unit.to_string(),
+            expr_typ: block_type.to_string(),
+            expr_span: block_span,
+        });
 
         self.pop_scope();
-        self.nested_loops -= 1;
+        self.current_loop = old_loop;
 
         let statement =
             HirStatement::For(HirForStatement { start_range, end_range, block, identifier });
@@ -271,11 +239,75 @@ impl<'context> Elaborator<'context> {
 
     pub(super) fn elaborate_loop(
         &mut self,
-        _block: Expression,
+        block: Expression,
         span: noirc_errors::Span,
     ) -> (HirStatement, Type) {
-        self.push_err(ResolverError::LoopNotYetSupported { span });
-        (HirStatement::Error, Type::Unit)
+        let in_constrained_function = self.in_constrained_function();
+        if in_constrained_function {
+            self.push_err(ResolverError::LoopInConstrainedFn { span });
+        }
+
+        let old_loop = std::mem::take(&mut self.current_loop);
+        self.current_loop = Some(Loop { is_for: false, has_break: false });
+        self.push_scope();
+
+        let block_span = block.type_span();
+        let (block, block_type) = self.elaborate_expression(block);
+
+        self.unify(&block_type, &Type::Unit, || TypeCheckError::TypeMismatch {
+            expected_typ: Type::Unit.to_string(),
+            expr_typ: block_type.to_string(),
+            expr_span: block_span,
+        });
+
+        self.pop_scope();
+
+        let last_loop =
+            std::mem::replace(&mut self.current_loop, old_loop).expect("Expected a loop");
+        if !last_loop.has_break {
+            self.push_err(ResolverError::LoopWithoutBreak { span });
+        }
+
+        let statement = HirStatement::Loop(block);
+
+        (statement, Type::Unit)
+    }
+
+    pub(super) fn elaborate_while(&mut self, while_: WhileStatement) -> (HirStatement, Type) {
+        let in_constrained_function = self.in_constrained_function();
+        if in_constrained_function {
+            self.push_err(ResolverError::WhileInConstrainedFn { span: while_.while_keyword_span });
+        }
+
+        let old_loop = std::mem::take(&mut self.current_loop);
+        self.current_loop = Some(Loop { is_for: false, has_break: false });
+        self.push_scope();
+
+        let condition_span = while_.condition.type_span();
+        let (condition, cond_type) = self.elaborate_expression(while_.condition);
+
+        self.unify(&cond_type, &Type::Bool, || TypeCheckError::TypeMismatch {
+            expected_typ: Type::Bool.to_string(),
+            expr_typ: cond_type.to_string(),
+            expr_span: condition_span,
+        });
+
+        let block_span = while_.body.type_span();
+        let (block, block_type) = self.elaborate_expression(while_.body);
+
+        self.unify(&block_type, &Type::Unit, || TypeCheckError::TypeMismatch {
+            expected_typ: Type::Unit.to_string(),
+            expr_typ: block_type.to_string(),
+            expr_span: block_span,
+        });
+
+        self.pop_scope();
+
+        std::mem::replace(&mut self.current_loop, old_loop).expect("Expected a loop");
+
+        let statement = HirStatement::While(condition, block);
+
+        (statement, Type::Unit)
     }
 
     fn elaborate_jump(&mut self, is_break: bool, span: noirc_errors::Span) -> (HirStatement, Type) {
@@ -284,7 +316,12 @@ impl<'context> Elaborator<'context> {
         if in_constrained_function {
             self.push_err(ResolverError::JumpInConstrainedFn { is_break, span });
         }
-        if self.nested_loops == 0 {
+
+        if let Some(current_loop) = &mut self.current_loop {
+            if is_break {
+                current_loop.has_break = true;
+            }
+        } else {
             self.push_err(ResolverError::JumpOutsideLoop { is_break, span });
         }
 
@@ -464,7 +501,7 @@ impl<'context> Elaborator<'context> {
         let lhs_type = lhs_type.follow_bindings();
 
         match &lhs_type {
-            Type::Struct(s, args) => {
+            Type::DataType(s, args) => {
                 let s = s.borrow();
                 if let Some((field, visibility, index)) = s.get_field(field_name, args) {
                     let reference_location = Location::new(span, self.file);
@@ -528,7 +565,7 @@ impl<'context> Elaborator<'context> {
 
     pub(super) fn check_struct_field_visibility(
         &mut self,
-        struct_type: &StructType,
+        struct_type: &DataType,
         field_name: &str,
         visibility: ItemVisibility,
         span: Span,

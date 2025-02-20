@@ -21,7 +21,7 @@ pub struct PrivateImmutable<Note, Context> {
 }
 // docs:end:struct
 
-impl<T, Context, let N: u32> Storage<T, N> for PrivateImmutable<T, Context>
+impl<T, Context, let N: u32> Storage<N> for PrivateImmutable<T, Context>
 where
     T: Packable<N>,
 {
@@ -54,9 +54,9 @@ impl<Note, Context> PrivateImmutable<Note, Context> {
 
 impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     // docs:start:initialize
-    pub fn initialize<let N: u32>(self, note: &mut Note) -> NoteEmission<Note>
+    pub fn initialize<let N: u32>(self, note: Note) -> NoteEmission<Note>
     where
-        Note: NoteInterface<N> + NullifiableNote,
+        Note: NoteInterface + NullifiableNote + Packable<N>,
     {
         // Nullify the storage slot.
         let nullifier = self.compute_initialization_nullifier();
@@ -69,10 +69,15 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     // docs:start:get_note
     pub fn get_note<let N: u32>(self) -> Note
     where
-        Note: NoteInterface<N> + NullifiableNote,
+        Note: NoteInterface + NullifiableNote + Packable<N>,
     {
         let storage_slot = self.storage_slot;
-        get_note(self.context, storage_slot).0
+        let retrieved_note = get_note(self.context, storage_slot).0;
+
+        // Because the notes obtained from PrivateImmutable are not meant to be nullified and get_note(...) function
+        // has already constrained the note (by pushing a read request to the context), we can return just the note
+        // and skip the additional data in RetrievedNote.
+        retrieved_note.note
     }
     // docs:end:get_note
 }
@@ -89,7 +94,7 @@ impl<Note> PrivateImmutable<Note, UnconstrainedContext> {
     // docs:start:view_note
     pub unconstrained fn view_note<let N: u32>(self) -> Note
     where
-        Note: NoteInterface<N> + NullifiableNote,
+        Note: NoteInterface + NullifiableNote + Packable<N>,
     {
         let mut options = NoteViewerOptions::new();
         view_notes(self.storage_slot, options.set_limit(1)).get(0)

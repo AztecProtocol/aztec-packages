@@ -1,31 +1,9 @@
 use dep::aztec::protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}};
+use std::meta::derive;
 
 // Shows how to create a custom struct in Public
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct Leader {
     account: AztecAddress,
     points: u8,
-}
-
-global LEADER_SERIALIZED_LEN: u32 = 2;
-
-impl Deserialize<LEADER_SERIALIZED_LEN> for Leader {
-    fn deserialize(fields: [Field; LEADER_SERIALIZED_LEN]) -> Self {
-        Leader { account: AztecAddress::from_field(fields[0]), points: fields[1] as u8 }
-    }
-}
-
-impl Serialize<LEADER_SERIALIZED_LEN> for Leader {
-    fn serialize(self) -> [Field; LEADER_SERIALIZED_LEN] {
-        [self.account.to_field(), self.points as Field]
-    }
-}
-
-impl Packable<LEADER_SERIALIZED_LEN> for Leader {
-    fn pack(self) -> [Field; LEADER_SERIALIZED_LEN] {
-        self.serialize()
-    }
-
-    fn unpack(fields: [Field; LEADER_SERIALIZED_LEN]) -> Self {
-        Self::deserialize(fields)
-    }
 }

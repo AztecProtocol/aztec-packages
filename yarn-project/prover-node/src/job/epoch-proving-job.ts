@@ -1,25 +1,27 @@
 import {
-  type EpochProver,
-  type EpochProvingJobState,
-  EpochProvingJobTerminalState,
-  type ForkMerkleTreeOperations,
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockSource,
   type ProcessedTx,
   type Tx,
 } from '@aztec/circuit-types';
+import {
+  type EpochProver,
+  type EpochProvingJobState,
+  EpochProvingJobTerminalState,
+  type ForkMerkleTreeOperations,
+} from '@aztec/circuit-types/interfaces/server';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
-import { type L1Publisher } from '@aztec/sequencer-client';
 import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator/server';
 import { Attributes, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import * as crypto from 'node:crypto';
 
 import { type ProverNodeMetrics } from '../metrics.js';
+import { type ProverNodePublisher } from '../prover-node-publisher.js';
 
 /**
  * Job that grabs a range of blocks from the unfinalised chain from L1, gets their txs given their hashes,
@@ -43,7 +45,7 @@ export class EpochProvingJob implements Traceable {
     private txs: Tx[],
     private prover: EpochProver,
     private publicProcessorFactory: PublicProcessorFactory,
-    private publisher: L1Publisher,
+    private publisher: ProverNodePublisher,
     private l2BlockSource: L2BlockSource,
     private l1ToL2MessageSource: L1ToL2MessageSource,
     private metrics: ProverNodeMetrics,
@@ -61,6 +63,10 @@ export class EpochProvingJob implements Traceable {
 
   public getState(): EpochProvingJobState {
     return this.state;
+  }
+
+  public getEpochNumber(): bigint {
+    return this.epochNumber;
   }
 
   /**
@@ -144,7 +150,10 @@ export class EpochProvingJob implements Traceable {
         throw new Error('Failed to submit epoch proof to L1');
       }
 
-      this.log.info(`Submitted proof for epoch`, { epochNumber, uuid: this.uuid });
+      this.log.info(`Submitted proof for epoch ${epochNumber} (blocks ${fromBlock} to ${toBlock})`, {
+        epochNumber,
+        uuid: this.uuid,
+      });
       this.state = 'completed';
       this.metrics.recordProvingJob(executionTime, timer.ms(), epochSizeBlocks, epochSizeTxs);
     } catch (err: any) {
