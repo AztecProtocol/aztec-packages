@@ -197,7 +197,7 @@ void UltraHonkAPI::write_vk(const Flags& flags,
 void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,
                          [[maybe_unused]] const std::filesystem::path& bytecode_path)
 {
-    ASSERT("API function not implemented");
+    throw_or_abort("API function not implemented");
 }
 
 void UltraHonkAPI::write_contract(const Flags& flags,
