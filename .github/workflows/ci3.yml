@@ -8,6 +8,7 @@ on:
       - master
     tags:
       - "v*"
+  # For internal devs.
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
   # For external devs. Workflow file edits won't take effect in the PR.
@@ -21,61 +22,102 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ci-amd64:
+  ci:
     runs-on: ubuntu-latest
-    # condition:
-    #   - Always allow 'push' and 'workflow_dispatch' jobs.
-    #   - Otherwise, only run pull_request events on internal PRs and pull_request_target on external PRs.
-    if: >
+    # Always allow 'push' and 'workflow_dispatch' jobs. Otherwise, only run pull_request events on internal PRs and pull_request_target on external PRs.
+    if: |
       github.event_name == 'push' ||
       github.event_name == 'workflow_dispatch' ||
-      (
-        (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
-        (github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository)
-      )
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository)
+    strategy:
+      fail-fast: false
+      matrix:
+        # Only run arm64 build with arm64-ci label.
+        # Thhe way to do conditions here is to parse full strings as JSON.
+        settings:  >-
+          ${{ fromJson(contains(github.event.pull_request.labels.*.name, 'arm64-ci') &&
+            '[{"arch":"amd64"},{"arch":"arm64"}]' ||
+            '[{"arch":"amd64"}]') }}
     steps:
+      #############
+      # Prepare Env
+      #############
       - name: Checkout
         uses: actions/checkout@v4
         with:
           # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - name: Validate External Changes
-        if: github.event_name == 'pull_request_target'
-        run: |
-          git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1
-          git diff --name-only ${{ github.event.pull_request.base.ref }} HEAD ci3 ci.sh | grep -q . && { echo "Error: External PRs can't contain CI changes."; exit 1; }
+
       - name: Fail If Draft
         if: github.event.pull_request.draft && (github.event.action != 'labeled' || github.event.label.name != 'trigger-workflow')
         run: echo "CI is not run on drafts." && exit 1
+
+      - name: External Contributor Labels and Target
+        # Run only for external PRs (pull_request_target, != github.repository)
+        # And then check if we have incorrect labels OR an incorrect base_ref.
+        if: |
+          github.event_name == 'pull_request_target' &&
+          github.event.pull_request.head.repo.full_name != github.repository &&
+          (
+            (contains(github.event.pull_request.labels.*.name, 'ci-external') == false &&
+             contains(github.event.pull_request.labels.*.name, 'ci-external-once') == false)
+          )
+        run: echo "External PRs need the 'ci-external' or 'ci-external-once' labels to run." && exit 1
+
+      - name: External Contributor Changes
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
+        run: |
+          set -o pipefail
+          git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1
+          if git diff --name-only origin/${{ github.event.pull_request.base.ref }} HEAD -- ci3 .github ci.sh | grep -q .; then
+            echo "Error: External PRs can't contain CI changes." && exit 1
+          fi
+          if [ ${{ github.event.pull_request.base.ref }} != "master" ]; then
+            echo "Error: External PRs can only target master, targeted: ${{ github.event.pull_request.base.ref }}." && exit 1
+          fi
+          # Remove any ci-external-once labels.
+          GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} gh pr edit ${{ github.event.pull_request.number }} --remove-label "ci-external-once"
+
       - name: CI Full Override
         # TODO consolidate legacy labels to just ci-full.
-        if: contains(github.event.pull_request.labels.*.name, 'e2e-all') || contains(github.event.pull_request.labels.*.name, 'network-all') || contains(github.event.pull_request.labels.*.name, 'ci-full')
+        if: |
+          contains(github.event.pull_request.labels.*.name, 'e2e-all') ||
+          contains(github.event.pull_request.labels.*.name, 'network-all') ||
+          contains(github.event.pull_request.labels.*.name, 'ci-full')
         run: echo "CI_FULL=1" >> $GITHUB_ENV
+
       - name: Setup
         run: |
           # Ensure we can SSH into the spot instances we request.
           mkdir -p ~/.ssh
           echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
+
+      #############
+      # Run
+      #############
       - name: Run
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          ARCH: amd64
+          ARCH: ${{ matrix.settings.arch }}
           LOG_ID: ${{ github.run_id }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
         run: |
           ./ci.sh ec2
+
       - name: Download benchmarks
-        if: github.ref_name == 'master'
+        if: matrix.settings.arch == 'amd64' && github.ref_name == 'master'
         run: |
           ./ci3/cache_download barretenberg-bench-results-$(git rev-parse HEAD).tar.gz
           ./ci3/cache_download yarn-project-bench-results-$(git rev-parse HEAD).tar.gz
+
       - name: Store barretenberg benchmark result
-        if: github.ref_name == 'master'
+        if: matrix.settings.arch == 'amd64' && github.ref_name == 'master'
         continue-on-error: true
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
@@ -89,8 +131,9 @@ jobs:
           fail-on-alert: false
           alert-comment-cc-users: "@ludamad @codygunton"
           max-items-in-chart: 50
+
       - name: Store yarn project benchmark result
-        if: github.ref_name == 'master'
+        if: matrix.settings.arch == 'amd64' && github.ref_name == 'master'
         continue-on-error: true
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
@@ -106,67 +149,17 @@ jobs:
           alert-comment-cc-users: "@philwindle @spalladino"
           max-items-in-chart: 50
 
-  ci-arm64:
-    runs-on: ubuntu-latest
-    # condition:
-    #   - Always allow 'push' and 'workflow_dispatch' jobs.
-    #   - Otherwise, only run pull_request events on internal PRs and pull_request_target on external PRs.
-    #     Then, **unlike ci-amd64**, if we aren't labeled 'arm64-ci', do nothing.
-    if: >
-      github.event_name == 'push' ||
-      github.event_name == 'workflow_dispatch' ||
-      (
-        (
-          (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
-          (github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository)
-        ) &&
-        contains(github.event.pull_request.labels.*.name, 'arm64-ci')
-      )
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - name: Validate External Changes
-        if: github.event_name == 'pull_request_target'
-        run: |
-          git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1
-          git diff --name-only ${{ github.event.pull_request.base.ref }} HEAD ci3 ci.sh | grep -q . && { echo "Error: External PRs can't contain CI changes."; exit 1; }
-      - name: Fail If Draft
-        if: github.event.pull_request.draft && (github.event.action != 'labeled' || github.event.label.name != 'trigger-workflow')
-        run: echo "CI is not run on drafts." && exit 1
-      - name: CI Full Override
-        # TODO consolidate legacy labels to just ci-full.
-        if: contains(github.event.pull_request.labels.*.name, 'e2e-all') || contains(github.event.pull_request.labels.*.name, 'network-all') || contains(github.event.pull_request.labels.*.name, 'ci-full')
-        run: echo "CI_FULL=1" >> $GITHUB_ENV
-      - name: Setup
-        run: |
-          # Ensure we can SSH into the spot instances we request.
-          mkdir -p ~/.ssh
-          echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
-          chmod 600 ~/.ssh/build_instance_key
-      - name: Run
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          ARCH: arm64
-          LOG_ID: ${{ github.run_id }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
-        run: |
-          ./ci.sh ec2
-
   ci-grind:
     runs-on: ubuntu-latest
-    needs: ci-amd64
-    if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')
+    if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/') && github.repository.fork == false
     strategy:
-      fail-fast: false
       matrix:
         number: [1, 2, 3, 4, 5]
+      fail-fast: false
     steps:
+      #############
+      # Prepare Env
+      #############
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -178,6 +171,9 @@ jobs:
           mkdir -p ~/.ssh
           echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
+      #############
+      # Run
+      #############
       - name: Run
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -192,13 +188,12 @@ jobs:
 
   notify:
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && failure()
+    if: github.event_name == 'push' && failure() && github.repository.fork == false
     needs:
+      - ci
       - ci-grind
-      - ci-arm64
-      - ci-amd64
     steps:
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Get Context
@@ -210,12 +205,11 @@ jobs:
           echo "commit_title=${title}" >> $GITHUB_OUTPUT
           failed_jobs=""
           [ "${{ needs.ci-grind.result }}" = "failure" ] && failed_jobs+="ci-grind"
-          [ "${{ needs.ci-arm64.result }}" = "failure" ] && failed_jobs+="ci-arm64"
-          [ "${{ needs.ci-amd64.result }}" = "failure" ] && failed_jobs+="ci-amd64"
+          [ "${{ needs.ci.result }}" = "failure" ] && failed_jobs+="ci"
           echo "failed_jobs=${failed_jobs}" >> $GITHUB_OUTPUT
           cat $GITHUB_OUTPUT
 
-      - name: Send notification to aztec3-ci channel if workflow failed on master
+      - name: Send Notification
         uses: slackapi/slack-github-action@v1.25.0
         with:
           payload: |
