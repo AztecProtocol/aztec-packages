@@ -253,7 +253,6 @@ pub(crate) comptime fn is_note(typ: Type) -> bool {
         def.has_named_attribute("note")
             | def.has_named_attribute("partial_note")
             | def.has_named_attribute("custom_note")
-            | def.has_named_attribute("partial_custom_note")
     })
 }
 
