@@ -154,6 +154,7 @@ jobs:
         run: |
           ./ci.sh ec2-test
 
+  # Necessary as github actions won't allow checks on matrix builds.
   merge-check:
     runs-on: ubuntu-20.04
     needs: ci
