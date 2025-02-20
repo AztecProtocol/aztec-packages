@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740045183162,
+  "lastUpdate": 1740046177039,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mara@aztecprotocol.com",
-            "name": "maramihali",
-            "username": "maramihali"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6f771b9f55fdc568944e78b5ae05eeff25033b1e",
-          "message": "chore: structured polys in Translator (#12003)\n\nIn this PR:\r\n* renamed the `MINIMUM_MINI_CIRCUIT_SIZE`. Initially, the variable was\r\n2048 existed to determine the lower bound of the translator vm. In the\r\nfixed size VM work it became the upper_bound of the translator. Renamed\r\nthe variable to `FIXED_TRANSLATOR_VM_SIZE` and enforced statically that\r\nthis never gets set under 2048.\r\n* make the prover polynomials structured, so now the majority of\r\npolynomials in translator only have space allocated up to the mini\r\ncircuit size",
-          "timestamp": "2025-02-15T21:58:04+01:00",
-          "tree_id": "6df4557a6531f72aa2b31a51d7784bec8b804e0f",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/6f771b9f55fdc568944e78b5ae05eeff25033b1e"
-        },
-        "date": 1739655254316,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18189.39530600005,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15915.337828 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18706.344808000038,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16251.708061000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3939.2020780001076,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3162.6268669999995 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55094.560113,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55094560000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10357.982311,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10357984000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1824159654,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1824159654 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 129649571,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 129649571 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3300,6 +3234,72 @@ window.BENCHMARK_DATA = {
             "value": 138309319,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 138309319 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "gregojquiros@gmail.com",
+            "name": "Gregorio Juliana",
+            "username": "Thunkar"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1c3bc4aa8cc006773221b2d4937fbe72219d14f2",
+          "message": "fix: vite box with fees (#12131)\n\nFixes vite test by using the test accounts in the sandbox\n\n---------\n\nCo-authored-by: thunkar <gregjquiros@gmail.com>",
+          "timestamp": "2025-02-20T10:56:02+01:00",
+          "tree_id": "0930a32febc533b3521cd29affb6e2d97e0b1f6c",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1c3bc4aa8cc006773221b2d4937fbe72219d14f2"
+        },
+        "date": 1740046169117,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18029.530293999982,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15835.231758 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18646.42721300004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16097.994311999997 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3857.2563290000517,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3052.622598 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55012.67099400001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55012671000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11932.824677999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11932831000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1824479044,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1824479044 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 128323209,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 128323209 ns\nthreads: 1"
           }
         ]
       }
