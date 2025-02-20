@@ -75,7 +75,7 @@ export interface NoirCompiledContract {
 }
 
 /**
- * The compilation result of an Aztec.nr contract.
+ * The compilation result of a protocol (non-contract) circuit.
  */
 export interface NoirCompiledCircuit {
   /** The hash of the circuit. */
