@@ -47,7 +47,6 @@
     "@aztec/prover-client": "workspace:^",
     "@aztec/simulator": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
-    "@aztec/types": "workspace:^",
     "@aztec/validator-client": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "@noir-lang/acvm_js": "portal:../../noir/packages/acvm_js",

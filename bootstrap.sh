@@ -152,6 +152,9 @@ function build {
 
   check_toolchains
 
+  # Ensure we have yarn set up.
+  corepack enable
+
   projects=(
     noir
     barretenberg
@@ -299,6 +302,7 @@ case "$cmd" in
     echo "Toolchains look good! 🎉"
   ;;
   ""|"fast"|"full")
+    install_hooks
     build $cmd
   ;;
   "ci")

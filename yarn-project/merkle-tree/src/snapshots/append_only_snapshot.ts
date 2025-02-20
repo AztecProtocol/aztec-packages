@@ -1,7 +1,7 @@
 import { SiblingPath } from '@aztec/circuit-types';
+import { type Hasher } from '@aztec/circuits.js/interfaces';
 import { type Bufferable, type FromBuffer, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
-import { type Hasher } from '@aztec/types/interfaces';
 
 import { type AppendOnlyTree } from '../interfaces/append_only_tree.js';
 import { type TreeBase } from '../tree_base.js';

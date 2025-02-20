@@ -171,6 +171,12 @@
   },
   "files.trimTrailingWhitespace": true,
   "files.insertFinalNewline": true,
+  "[rust]": {
+    "files.trimTrailingWhitespace": false
+  },
+  "[noir]": {
+    "files.trimTrailingWhitespace": false
+  },
   "cmake.sourceDirectory": "${workspaceFolder}/barretenberg/cpp",
   "typescript.tsserver.maxTsServerMemory": 4096,
   "typescript.tsdk": "yarn-project/node_modules/typescript/lib",

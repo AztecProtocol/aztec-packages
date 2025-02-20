@@ -38,8 +38,8 @@ import {
   isValidPrivateFunctionMembershipProof,
   isValidUnconstrainedFunctionMembershipProof,
 } from '@aztec/circuits.js';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { createEthereumChain } from '@aztec/ethereum';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';

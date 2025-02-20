@@ -1,9 +1,9 @@
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
 
+import { type AztecAddress } from '../aztec-address/index.js';
 import { computePublicDataTreeLeafSlot } from '../hash/hash.js';
 import { type ContractStorageUpdateRequest } from './contract_storage_update_request.js';
 

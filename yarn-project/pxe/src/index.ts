@@ -9,7 +9,7 @@ export { Tx, TxHash } from '@aztec/circuit-types';
 export { TxRequest } from '@aztec/circuits.js';
 export * from '@aztec/foundation/fields';
 export * from '@aztec/foundation/eth-address';
-export * from '@aztec/foundation/aztec-address';
+export * from '@aztec/circuits.js/aztec-address';
 export * from '@aztec/key-store';
 export * from './database/index.js';
 export { ContractDataOracle } from './contract_data_oracle/index.js';

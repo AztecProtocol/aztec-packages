@@ -25,7 +25,7 @@ if git diff --cached --name-only | grep -Fxq "$FILE_TO_WATCH"; then
     echo ""
     echo "Depending on the constants you've changed, these might include: constants.gen.ts, ConstantsGen.sol, constants_gen.pil, aztec_constants.hpp."
     echo ""
-    echo -e "You can regenerate these by running: '\033[33myarn remake-constants\033[0m' from the 'yarn-project/circuits.js' dir. If you have changed tree sizes, also run ./yarn-project/update-snapshots.sh."
+    echo -e "You can regenerate these by running: '\033[33myarn remake-constants\033[0m' from the 'yarn-project/constants' dir. If you have changed tree sizes, also run ./yarn-project/update-snapshots.sh."
     echo ""
     echo "We don't automatically regenerate them for you in this git hook, because you'll likely need to also re-build components of the repo. End."
     echo ""

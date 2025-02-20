@@ -1,7 +1,7 @@
 import { UPDATED_CLASS_IDS_SLOT } from '@aztec/constants';
-import type { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
+import type { AztecAddress } from '../../aztec-address/index.js';
 import { deriveStorageSlotInMap } from '../../hash/map_slot.js';
 import { ScheduledDelayChange } from './scheduled_delay_change.js';
 import { ScheduledValueChange } from './scheduled_value_change.js';

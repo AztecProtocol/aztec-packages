@@ -1,7 +1,8 @@
 import { CONTRACT_STORAGE_READ_LENGTH } from '@aztec/constants';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
+
+import { type AztecAddress } from '../aztec-address/index.js';
 
 /**
  * Contract storage read operation on a specific contract.

@@ -25,9 +25,6 @@
       "path": "../l1-artifacts"
     },
     {
-      "path": "../types"
-    },
-    {
       "path": "../world-state"
     },
     {

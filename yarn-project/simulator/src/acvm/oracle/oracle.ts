@@ -1,11 +1,12 @@
 import { MerkleTreeId, UnencryptedL2Log } from '@aztec/circuit-types';
 import { FunctionSelector, NoteSelector } from '@aztec/circuits.js/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { LogWithTxData } from '@aztec/circuits.js/logs';
 import { Fr } from '@aztec/foundation/fields';
 
 import { type ACVMField } from '../acvm_types.js';
 import { frToBoolean, frToNumber, fromACVMField, fromBoundedVec } from '../deserialize.js';
-import { toACVMField } from '../serialize.js';
+import { toACVMField, toACVMFieldSingleOrArray } from '../serialize.js';
 import { type TypedOracle } from './typed_oracle.js';
 
 /**
@@ -394,6 +395,16 @@ export class Oracle {
     );
 
     return toACVMField(true);
+  }
+
+  async getLogByTag([tag]: ACVMField[]): Promise<(ACVMField | ACVMField[])[]> {
+    const log = await this.typedOracle.getLogByTag(fromACVMField(tag));
+
+    if (log == null) {
+      return [toACVMField(0), ...LogWithTxData.noirSerializationOfEmpty().map(toACVMFieldSingleOrArray)];
+    } else {
+      return [toACVMField(1), ...log.toNoirSerialization().map(toACVMFieldSingleOrArray)];
+    }
   }
 
   async storeCapsule([contractAddress]: ACVMField[], [slot]: ACVMField[], capsule: ACVMField[]) {

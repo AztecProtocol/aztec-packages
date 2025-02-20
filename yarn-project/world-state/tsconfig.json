@@ -34,9 +34,6 @@
       "path": "../telemetry-client"
     },
     {
-      "path": "../types"
-    },
-    {
       "path": "../archiver"
     }
   ],

@@ -44,6 +44,10 @@ struct InstructionFetchingEvent {
     // TODO: Do we want to have a dep on Instruction here or do we redefine what we need?
     Instruction instruction;
     std::shared_ptr<std::vector<uint8_t>> bytecode;
+
+    // To be used with deduplicating event emitters.
+    using Key = std::tuple<BytecodeId, uint32_t>;
+    Key get_key() const { return { bytecode_id, pc }; }
 };
 
 } // namespace bb::avm2::simulation

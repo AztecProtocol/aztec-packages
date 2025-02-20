@@ -22,9 +22,9 @@ import {
   type GlobalVariables,
   StateReference,
 } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { omit } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';

@@ -94,9 +94,6 @@
       "path": "../telemetry-client"
     },
     {
-      "path": "../types"
-    },
-    {
       "path": "../validator-client"
     },
     {

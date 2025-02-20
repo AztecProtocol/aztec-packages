@@ -1,5 +1,4 @@
 pub mod constants;
-pub mod discovery;
 pub mod lifecycle;
 pub mod note_getter;
 pub mod note_getter_options;

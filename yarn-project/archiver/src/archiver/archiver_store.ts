@@ -21,7 +21,7 @@ import {
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
 import { type FunctionSelector } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 
 import { type DataRetrieval } from './structs/data_retrieval.js';
 import { type L1Published } from './structs/published.js';

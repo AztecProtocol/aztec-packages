@@ -1,5 +1,6 @@
-import type { AztecAddress } from '@aztec/foundation/aztec-address';
 import type { Fr } from '@aztec/foundation/fields';
+
+import type { AztecAddress } from '../aztec-address/index.js';
 
 export class ScopedValueCache<T extends { value: Fr; contractAddress: AztecAddress }> {
   private cache: Map<bigint, T[]> = new Map();

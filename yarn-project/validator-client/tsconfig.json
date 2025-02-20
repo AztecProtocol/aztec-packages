@@ -26,9 +26,6 @@
     },
     {
       "path": "../telemetry-client"
-    },
-    {
-      "path": "../types"
     }
   ],
   "include": ["src"]

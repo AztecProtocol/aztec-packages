@@ -42,6 +42,7 @@ import {
   type NoteSelector,
   countArgumentsSize,
 } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
   computeNoteHashNonce,
   computePublicDataTreeLeafSlot,
@@ -49,6 +50,7 @@ import {
   siloNoteHash,
   siloNullifier,
 } from '@aztec/circuits.js/hash';
+import { LogWithTxData } from '@aztec/circuits.js/logs';
 import {
   makeAppendOnlyTreeSnapshot,
   makeContentCommitment,
@@ -72,7 +74,6 @@ import {
   type PUBLIC_DATA_TREE_HEIGHT,
   PUBLIC_DISPATCH_SELECTOR,
 } from '@aztec/constants';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Schnorr, poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
@@ -1085,6 +1086,10 @@ export class TXE implements TypedOracle {
     _recipient: AztecAddress,
   ): Promise<void> {
     throw new Error('deliverNote');
+  }
+
+  async getLogByTag(tag: Fr): Promise<LogWithTxData | null> {
+    return await this.simulatorOracle.getLogByTag(tag);
   }
 
   // AVM oracles

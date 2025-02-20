@@ -16,9 +16,6 @@
       "path": "../kv-store"
     },
     {
-      "path": "../types"
-    },
-    {
       "path": "../circuits.js"
     }
   ],

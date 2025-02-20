@@ -1,8 +1,9 @@
 import { CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH } from '@aztec/constants';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
+
+import { type AztecAddress } from '../aztec-address/index.js';
 
 /**
  * Contract storage update request for a slot on a specific contract.

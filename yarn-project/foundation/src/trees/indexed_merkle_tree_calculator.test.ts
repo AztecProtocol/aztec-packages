@@ -1,4 +1,3 @@
-import { AztecAddress } from '../aztec-address/index.js';
 import { toBigIntBE } from '../bigint-buffer/index.js';
 import { poseidon2Hash } from '../crypto/poseidon/index.js';
 import { Fr } from '../fields/fields.js';
@@ -191,9 +190,9 @@ describe('indexed merkle tree root calculator', () => {
   it('should correctly get a membership witness for addresses', async () => {
     const hasher = new TestHasher();
     const calculator = await IndexedMerkleTreeCalculator.create(3, hasher, TestLeafPreimage);
-    let values: AztecAddress[] = await Promise.all(Array.from({ length: 7 }).map(() => AztecAddress.random()));
+    let values: Fr[] = await Promise.all(Array.from({ length: 7 }).map(() => Fr.random()));
     // Manually add the zero leaf here, so the below recalcs are easier.
-    values = [AztecAddress.ZERO, ...values];
+    values = [Fr.ZERO, ...values];
     const tree = await calculator.computeTree(values.map(a => a.toBuffer()));
 
     // Pick some value to find a witness for...
@@ -201,7 +200,7 @@ describe('indexed merkle tree root calculator', () => {
     const testValue = values[testIndex];
     const sortedValues = [...values].sort((a, b) => Number(a.toBigInt() - b.toBigInt()));
     // ...and find its next value.
-    const nextValue = sortedValues[sortedValues.indexOf(testValue) + 1] || AztecAddress.ZERO;
+    const nextValue = sortedValues[sortedValues.indexOf(testValue) + 1] || Fr.ZERO;
 
     // Reconstruct its leaf preimage.
     const testLeafPreimage = new TestLeafPreimage(
@@ -224,13 +223,13 @@ describe('indexed merkle tree root calculator', () => {
   it('should correctly get a non membership witness for addresses', async () => {
     const hasher = new TestHasher();
     const calculator = await IndexedMerkleTreeCalculator.create(3, hasher, TestLeafPreimage);
-    let values: AztecAddress[] = await Promise.all(Array.from({ length: 7 }).map(() => AztecAddress.random()));
+    let values: Fr[] = await Promise.all(Array.from({ length: 7 }).map(() => Fr.random()));
     // Manually add the zero leaf here, so the below recalcs are easier.
-    values = [AztecAddress.ZERO, ...values];
+    values = [Fr.ZERO, ...values];
     const tree = await calculator.computeTree(values.map(a => a.toBuffer()));
 
     // Pick some value to find a low leaf for...
-    const testValue = await AztecAddress.random();
+    const testValue = Fr.random();
     const sortedValues = [...values].sort((a, b) => Number(a.toBigInt() - b.toBigInt()));
     // ...and find its 'sandwich' values.
     const previousIndex = sortedValues.findIndex(
@@ -238,10 +237,7 @@ describe('indexed merkle tree root calculator', () => {
         a.toBigInt() <= testValue.toBigInt() &&
         (i == sortedValues.length - 1 || sortedValues[i + 1].toBigInt() > testValue.toBigInt()),
     );
-    const [previousValue, nextValue] = [
-      sortedValues[previousIndex],
-      sortedValues[previousIndex + 1] || AztecAddress.ZERO,
-    ];
+    const [previousValue, nextValue] = [sortedValues[previousIndex], sortedValues[previousIndex + 1] || Fr.ZERO];
 
     // Reconstruct the low leaf preimage.
     const expectedLowLeaf = new TestLeafPreimage(

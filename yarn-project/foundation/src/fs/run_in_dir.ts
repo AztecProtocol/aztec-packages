@@ -20,7 +20,11 @@ export async function runInDirectory<T>(
     throw err;
   } finally {
     if (!skipCleanup) {
-      await fs.rm(workingDirectory, { recursive: true, force: true });
+      try {
+        await fs.rm(workingDirectory, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+      } catch {
+        // ignore cleanup errors
+      }
     }
   }
 }

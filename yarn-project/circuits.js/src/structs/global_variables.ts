@@ -1,15 +1,15 @@
 import { GLOBAL_VARIABLES_LENGTH } from '@aztec/constants';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
-import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
 import { z } from 'zod';
 
+import { AztecAddress } from '../aztec-address/index.js';
+import { schemas } from '../schemas/index.js';
 import { GasFees } from './gas_fees.js';
 
 /**

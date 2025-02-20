@@ -61,7 +61,6 @@
     "rollup-provider",
     "sequencer-client",
     "scripts",
-    "types",
     "txe",
     "world-state",
     "telemetry-client"

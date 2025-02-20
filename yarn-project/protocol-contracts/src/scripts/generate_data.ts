@@ -145,7 +145,7 @@ async function generateOutputFile(names: string[], leaves: Fr[]) {
   const content = `
     // GENERATED FILE - DO NOT EDIT. RUN \`yarn generate\` or \`yarn generate:data\`
     import { Fr } from '@aztec/foundation/fields';
-    import { AztecAddress } from '@aztec/foundation/aztec-address';
+    import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 
     ${generateNames(names)}
 

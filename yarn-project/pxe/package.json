@@ -79,7 +79,6 @@
     "@aztec/noir-protocol-circuits-types": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/simulator": "workspace:^",
-    "@aztec/types": "workspace:^",
     "@msgpack/msgpack": "^3.0.0-beta2",
     "@noir-lang/types": "workspace:*",
     "koa": "^2.14.2",

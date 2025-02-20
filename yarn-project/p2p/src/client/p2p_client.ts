@@ -372,13 +372,13 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   }
 
   @trackSpan('p2pClient.broadcastProposal', async proposal => ({
-    [Attributes.BLOCK_NUMBER]: proposal.payload.header.globalVariables.blockNumber.toNumber(),
-    [Attributes.SLOT_NUMBER]: proposal.payload.header.globalVariables.slotNumber.toNumber(),
+    [Attributes.BLOCK_NUMBER]: proposal.blockNumber.toNumber(),
+    [Attributes.SLOT_NUMBER]: proposal.slotNumber.toNumber(),
     [Attributes.BLOCK_ARCHIVE]: proposal.archive.toString(),
     [Attributes.P2P_ID]: (await proposal.p2pMessageIdentifier()).toString(),
   }))
   public broadcastProposal(proposal: BlockProposal): void {
-    this.log.verbose(`Broadcasting proposal ${proposal.p2pMessageIdentifier()} to peers`);
+    this.log.verbose(`Broadcasting proposal for slot ${proposal.slotNumber.toNumber()} to peers`);
     return this.p2pService.propagate(proposal);
   }
 

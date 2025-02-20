@@ -1,4 +1,3 @@
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -34,7 +33,7 @@ describe('Forwarder', () => {
 
   let vkTreeRoot: Fr;
   let protocolContractTreeRoot: Fr;
-  let l2FeeJuiceAddress: AztecAddress;
+  let l2FeeJuiceAddress: Fr;
   let walletClient: L1Clients['walletClient'];
   let publicClient: L1Clients['publicClient'];
   let forwarder: ForwarderContract;
@@ -48,7 +47,8 @@ describe('Forwarder', () => {
     privateKey = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
     vkTreeRoot = Fr.random();
     protocolContractTreeRoot = Fr.random();
-    l2FeeJuiceAddress = await AztecAddress.random();
+    // Valid AztecAddress represented by its xCoord as a Fr
+    l2FeeJuiceAddress = Fr.fromHexString('0x302dbc2f9b50a73283d5fb2f35bc01eae8935615817a0b4219a057b2ba8a5a3f');
 
     ({ anvil, rpcUrl } = await startAnvil());
 

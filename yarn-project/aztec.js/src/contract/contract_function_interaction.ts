@@ -7,7 +7,7 @@ import {
   decodeFromAbi,
   encodeArguments,
 } from '@aztec/circuits.js/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 
 import { type Wallet } from '../account/wallet.js';
 import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';

@@ -53,7 +53,7 @@ export class WalletDB {
 
   async popBridgedFeeJuice(recipient: AztecAddress, log: LogFn) {
     let stackPointer = (await this.#bridgedFeeJuice.getAsync(`${recipient.toString()}:stackPointer`))?.readInt8() || 0;
-    const result = this.#bridgedFeeJuice.getAsync(`${recipient.toString()}:${stackPointer}`);
+    const result = await this.#bridgedFeeJuice.getAsync(`${recipient.toString()}:${stackPointer}`);
     if (!result) {
       throw new Error(
         `No stored fee juice available for recipient ${recipient.toString()}. Please provide claim amount and secret. Stack pointer ${stackPointer}`,

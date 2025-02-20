@@ -16,6 +16,7 @@ import {
   VerificationKeyAsFields,
 } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { PrivateKernelCircuitPublicInputs, PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
 import { makeTxRequest } from '@aztec/circuits.js/testing';
 import {
@@ -25,7 +26,6 @@ import {
   VK_TREE_HEIGHT,
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { MembershipWitness } from '@aztec/foundation/trees';
 

@@ -64,7 +64,6 @@
     "@aztec/circuits.js": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
-    "@aztec/types": "workspace:^",
     "@noir-lang/noir_codegen": "portal:../../noir/packages/noir_codegen",
     "@noir-lang/noir_js": "file:../../noir/packages/noir_js",
     "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi",

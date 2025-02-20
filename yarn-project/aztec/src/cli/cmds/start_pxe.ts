@@ -6,6 +6,7 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/aztec.js';
 import { type AztecNode, PXESchema, createAztecNodeClient } from '@aztec/circuit-types/interfaces/client';
+import { L2BasicContractsMap, Network } from '@aztec/circuits.js/network';
 import { getContractArtifact } from '@aztec/cli/cli-utils';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
@@ -18,7 +19,6 @@ import {
   createPXEService,
 } from '@aztec/pxe';
 import { makeTracedFetch } from '@aztec/telemetry-client';
-import { L2BasicContractsMap, Network } from '@aztec/types/network';
 
 import { extractRelevantOptions } from '../util.js';
 import { getVersions } from '../versioning.js';

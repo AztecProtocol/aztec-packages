@@ -1,4 +1,3 @@
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fq, Fr, Point } from '@aztec/foundation/fields';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -8,6 +7,7 @@ import { type FieldsOf } from '@aztec/foundation/types';
 import { strict as assert } from 'assert';
 import { Encoder, addExtension } from 'msgpackr';
 
+import { AztecAddress } from '../../aztec-address/index.js';
 import { type ContractClassIdPreimage } from '../../contract/contract_class_id.js';
 import { PublicKeys } from '../../types/public_keys.js';
 import { Vector } from '../../types/shared.js';

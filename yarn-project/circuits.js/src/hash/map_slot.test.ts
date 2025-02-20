@@ -1,7 +1,7 @@
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
+import { AztecAddress } from '../aztec-address/index.js';
 import { deriveStorageSlotInMap } from './index.js';
 
 describe('Map slot', () => {

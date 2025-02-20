@@ -1,8 +1,10 @@
-import { AztecAddress, Fr, Point, PublicKeys } from '@aztec/circuits.js';
 import { randomInt } from '@aztec/foundation/crypto';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { readTestData, writeTestData } from '@aztec/foundation/testing/files';
 
+import { AztecAddress } from '../../aztec-address/index.js';
 import { makeAvmCircuitInputs } from '../../tests/factories.js';
+import { PublicKeys } from '../../types/public_keys.js';
 import { AvmCircuitInputs, serializeWithMessagePack } from './avm.js';
 
 describe('Avm circuit inputs', () => {

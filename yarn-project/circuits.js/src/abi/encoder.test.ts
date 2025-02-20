@@ -1,8 +1,8 @@
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
-import { schemas } from '@aztec/foundation/schemas';
 
+import { AztecAddress } from '../aztec-address/index.js';
+import { schemas } from '../schemas/index.js';
 import { type FunctionAbi, FunctionType } from './abi.js';
 import { encodeArguments } from './encoder.js';
 

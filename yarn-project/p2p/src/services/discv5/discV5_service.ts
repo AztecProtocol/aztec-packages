@@ -203,22 +203,31 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   }
 
   private validateEnr(enr: ENR): boolean {
+    // Check if the peer is actually a bootnode and we have disabled the version check
+    if (
+      !this.config.bootstrapNodeEnrVersionCheck &&
+      this.bootstrapNodes.some(enrTxt => ENR.decodeTxt(enrTxt).nodeId === enr.nodeId)
+    ) {
+      this.logger.trace(`Skipping version check for bootnode ${enr.nodeId}`);
+      return true;
+    }
+
     // Check the peer is an aztec peer
     const value = enr.kvs.get(AZTEC_ENR_KEY);
     if (!value) {
-      this.logger.warn(`Peer ${enr.nodeId} does not have aztec key in ENR`);
+      this.logger.warn(`Peer node ${enr.nodeId} does not have aztec key in ENR`);
       return false;
     }
 
+    // And check it has the correct version
     let compressedVersion;
     try {
-      // And check it has the correct version
       compressedVersion = Buffer.from(value).toString();
       checkCompressedComponentVersion(compressedVersion, this.versions);
       return true;
     } catch (err: any) {
       if (err.name === 'ComponentsVersionsError') {
-        this.logger.warn(`Peer ${enr.nodeId} has incorrect version: ${err.message}`, {
+        this.logger.warn(`Peer node ${enr.nodeId} has incorrect version: ${err.message}`, {
           compressedVersion,
           expected: this.versions,
         });

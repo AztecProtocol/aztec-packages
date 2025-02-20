@@ -1,6 +1,6 @@
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
+import { AztecAddress } from '../aztec-address/index.js';
 import { type ABIParameter, type ABIVariable, type AbiType } from './abi.js';
 import { U128 } from './u128.js';
 import { isAztecAddressStruct, isU128Struct, parseSignedInt } from './utils.js';

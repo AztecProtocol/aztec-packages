@@ -1,4 +1,4 @@
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';

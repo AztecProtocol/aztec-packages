@@ -16,14 +16,14 @@ use crate::utils::array;
 /// let baz: BoundedVec<_, 10> = subbvec(foo, 3); // fails - we can't return 10 elements since only 7 remain
 /// ```
 pub fn subbvec<T, let SRC_MAX_LEN: u32, let DST_MAX_LEN: u32>(
-    vec: BoundedVec<T, SRC_MAX_LEN>,
+    bvec: BoundedVec<T, SRC_MAX_LEN>,
     offset: u32,
 ) -> BoundedVec<T, DST_MAX_LEN> {
     // from_parts_unchecked does not verify that the elements past len are zeroed, but that is not an issue in our case
     // because we're constructing the new storage array as a subarray of the original one (which should have zeroed
     // storage past len), guaranteeing correctness. This is because `subarray` does not allow extending arrays past
     // their original length.
-    BoundedVec::from_parts_unchecked(array::subarray(vec.storage(), offset), vec.len() - offset)
+    BoundedVec::from_parts_unchecked(array::subarray(bvec.storage(), offset), bvec.len() - offset)
 }
 
 mod test {

@@ -1,3 +1,4 @@
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
   MEM_TAG_FF,
   MEM_TAG_U1,
@@ -7,7 +8,6 @@ import {
   MEM_TAG_U64,
   MEM_TAG_U128,
 } from '@aztec/constants';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';

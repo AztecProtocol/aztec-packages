@@ -39,11 +39,13 @@ namespace {
 // Configuration for full simulation (for proving).
 struct ProvingSettings {
     template <typename E> using DefaultEventEmitter = EventEmitter<E>;
+    template <typename E> using DefaultDeduplicatingEventEmitter = DeduplicatingEventEmitter<E>;
 };
 
 // Configuration for fast simulation.
 struct FastSettings {
     template <typename E> using DefaultEventEmitter = NoopEventEmitter<E>;
+    template <typename E> using DefaultDeduplicatingEventEmitter = NoopEventEmitter<E>;
 };
 
 } // namespace
@@ -58,7 +60,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<BytecodeRetrievalEvent> bytecode_retrieval_emitter;
     typename S::template DefaultEventEmitter<BytecodeHashingEvent> bytecode_hashing_emitter;
     typename S::template DefaultEventEmitter<BytecodeDecompositionEvent> bytecode_decomposition_emitter;
-    typename S::template DefaultEventEmitter<InstructionFetchingEvent> instruction_fetching_emitter;
+    typename S::template DefaultDeduplicatingEventEmitter<InstructionFetchingEvent> instruction_fetching_emitter;
     typename S::template DefaultEventEmitter<AddressDerivationEvent> address_derivation_emitter;
     typename S::template DefaultEventEmitter<ClassIdDerivationEvent> class_id_derivation_emitter;
     typename S::template DefaultEventEmitter<SiloingEvent> siloing_emitter;
