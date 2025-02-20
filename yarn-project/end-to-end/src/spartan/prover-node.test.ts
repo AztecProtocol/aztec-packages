@@ -1,4 +1,4 @@
-import { retryUntil, sleep } from '@aztec/aztec.js';
+import { retryUntil } from '@aztec/aztec.js';
 import { createLogger } from '@aztec/foundation/log';
 
 import { type AlertConfig, AlertTriggeredError } from '../quality_of_service/alert_checker.js';
