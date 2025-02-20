@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740008023106,
+  "lastUpdate": 1740042830370,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "de7882ccb72d371f66f07c66d3e762374aac909b",
-          "message": "feat: new op queue logic (#11999)\n\nNew class EccOpsTable to support the new concatenate-via-relations\napproach to the Merge protocol.\n\nBackground: The \"Merge\" protocol is essentially a protocol for\nestablishing that a large table was constructed as the concatenation of\nsmaller ones (subtables). In the original version of the protocol, the\nlarger table was obtained by successively appending subtables (one from\neach circuit). The new version requires that subtables be PRE-pended.\nThis results in a simpler protocol overall (and, importantly, one that's\neasier to make ZK) but its a bit more annoying from a data management\nstandpoint since in general we don't want to pre-pend things in memory.\nThis PR introduces a class `EccOpsTable` which stores individual\nsubtables which can be virtually \"prepended\" to construct the entries of\nthe corresponding aggregate table as needed.",
-          "timestamp": "2025-02-15T12:53:49-07:00",
-          "tree_id": "f199c0cf9d7d55e48000439b9b22ad5df8cc133d",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/de7882ccb72d371f66f07c66d3e762374aac909b"
-        },
-        "date": 1739650856324,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18218.27088200007,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16090.161274000004 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18711.115801000007,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16408.70379 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4010.99242999976,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3131.0757529999996 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55306.514611,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55306515000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10391.696799000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10391700000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1823023468,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1823023468 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 127892281,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 127892281 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3300,6 +3234,72 @@ window.BENCHMARK_DATA = {
             "value": 128231432,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 128231432 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "janbenes1234@gmail.com",
+            "name": "Jan Beneš",
+            "username": "benesjan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5a9322152e97e419d7726c6db4acc20efb1e1b32",
+          "message": "feat: optimizing `SharedMutable` storage slots (#11817)",
+          "timestamp": "2025-02-20T08:44:45Z",
+          "tree_id": "444f6c638b31edddfd2b8247063c202094fe7abd",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5a9322152e97e419d7726c6db4acc20efb1e1b32"
+        },
+        "date": 1740042821986,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18529.253922999942,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16254.867530999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18807.33665499997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16534.111365 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3992.270499999904,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3148.7602030000003 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55266.786405000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55266786000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10482.915822,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10482922000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1829998598,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1829998598 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 130694072,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 130694072 ns\nthreads: 1"
           }
         ]
       }
