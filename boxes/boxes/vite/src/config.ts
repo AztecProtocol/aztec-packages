@@ -1,4 +1,5 @@
-import { getDeployedTestAccountsWallets } from "@aztec/accounts/testing";
+import { getInitialTestAccounts } from "@aztec/accounts/testing";
+import { getSchnorrAccount } from "@aztec/accounts/schnorr";
 import { createAztecNodeClient, createLogger } from "@aztec/aztec.js";
 import { BBWASMLazyPrivateKernelProver } from "@aztec/bb-prover/wasm/lazy";
 import { KeyStore } from "@aztec/key-store";
@@ -11,7 +12,7 @@ import { WASMSimulator } from "@aztec/simulator/client";
 import { BoxReactContractArtifact } from "../artifacts/BoxReact";
 
 export class PrivateEnv {
-  pxe;
+  pxe: PXEService;
 
   constructor() {}
 
@@ -56,13 +57,14 @@ export class PrivateEnv {
   }
 
   async getWallet() {
-    const wallet = (await getDeployedTestAccountsWallets(this.pxe))[0];
-    if (!wallet) {
-      console.error(
-        "Wallet not found. Please connect the app to a testing environment with deployed and funded test accounts.",
-      );
-    }
-    return wallet;
+    const [accountData] = await getInitialTestAccounts();
+    const account = await getSchnorrAccount(
+      this.pxe,
+      accountData.secret,
+      accountData.signingKey,
+      accountData.salt,
+    );
+    return account.getWallet();
   }
 }
 
@@ -71,6 +73,7 @@ export const deployerEnv = new PrivateEnv();
 const IGNORE_FUNCTIONS = [
   "constructor",
   "compute_note_hash_and_optionally_a_nullifier",
+  "process_log",
   "sync_notes",
 ];
 export const filteredInterface = BoxReactContractArtifact.functions.filter(
