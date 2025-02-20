@@ -94,8 +94,8 @@ int main(int argc, char* argv[])
                 "The type of proof to be constructed. This can specify a proving system, an accumulation scheme, or a "
                 "particular type of circuit to be constructed and proven for some implicit scheme.")
             ->envname("BB_SCHEME")
-            ->check(CLI::IsMember({ "client_ivc", "avm", "tube", "ultra_honk", "ultra_keccak_honk", "ultra_plonk" })
-                        .name("is_member"));
+            ->default_val("ultra_honk")
+            ->check(CLI::IsMember({ "client_ivc", "avm", "ultra_honk" }).name("is_member"));
     };
 
     const auto add_crs_path_option = [&](CLI::App* subcommand) {
@@ -586,25 +586,27 @@ int main(int argc, char* argv[])
 #endif
 
     /***************************************************************************************************************
-     * Subcommand: OLD_API prove_tube
+     * Subcommand: prove_tube
      ***************************************************************************************************************/
-    CLI ::App* OLD_API_prove_tube = OLD_API->add_subcommand("prove_tube", "");
-    add_verbose_flag(OLD_API_prove_tube);
-    add_debug_flag(OLD_API_prove_tube);
-    add_crs_path_option(OLD_API_prove_tube);
+    CLI ::App* prove_tube_command = app.add_subcommand("prove_tube", "");
+    prove_tube_command->group(""); // hide from list of subcommands
+    add_verbose_flag(prove_tube_command);
+    add_debug_flag(prove_tube_command);
+    add_crs_path_option(prove_tube_command);
     std::string prove_tube_output_path{ "./target" };
-    add_output_path_option(OLD_API_prove_tube, prove_tube_output_path);
+    add_output_path_option(prove_tube_command, prove_tube_output_path);
 
     /***************************************************************************************************************
-     * Subcommand: OLD_API verify_tube
+     * Subcommand: verify_tube
      ***************************************************************************************************************/
-    CLI::App* OLD_API_verify_tube = OLD_API->add_subcommand("verify_tube", "");
-    add_verbose_flag(OLD_API_verify_tube);
-    add_debug_flag(OLD_API_verify_tube);
-    add_crs_path_option(OLD_API_verify_tube);
+    CLI::App* verify_tube_command = app.add_subcommand("verify_tube", "");
+    verify_tube_command->group(""); // hide from list of subcommands
+    add_verbose_flag(verify_tube_command);
+    add_debug_flag(verify_tube_command);
+    add_crs_path_option(verify_tube_command);
     // doesn't make sense that this is set by -o but that's how it was
     std::string tube_proof_and_vk_path{ "./target" };
-    add_output_path_option(OLD_API_verify_tube, tube_proof_and_vk_path);
+    add_output_path_option(verify_tube_command, tube_proof_and_vk_path);
 
     /***************************************************************************************************************
      * Build the CLI11 App
@@ -655,31 +657,6 @@ int main(int argc, char* argv[])
             std::cout << BB_VERSION_PLACEHOLDER << std::endl;
             return 0;
         }
-        // CLIENT IVC
-        else if (flags.scheme == "client_ivc") {
-            ClientIVCAPI api;
-            return execute_command(api);
-        } else if (OLD_API_gates_for_ivc->parsed()) {
-            gate_count_for_ivc(bytecode_path);
-        } else if (OLD_API_gates_mega_honk->parsed()) {
-            gate_count<MegaCircuitBuilder>(bytecode_path, flags.recursive, flags.honk_recursion);
-        } else if (OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file->parsed()) {
-            write_arbitrary_valid_client_ivc_proof_and_vk_to_file(arbitrary_valid_proof_path);
-            return 0;
-        }
-        // ULTRA HONK
-        else if (flags.scheme == "ultra_honk") {
-            UltraHonkAPI api;
-            return execute_command(api);
-        } else if (OLD_API_write_recursion_inputs_ultra_honk->parsed()) {
-            if (flags.ipa_accumulation) {
-                write_recursion_inputs_ultra_honk<UltraRollupFlavor>(
-                    bytecode_path, witness_path, recursion_inputs_output_path);
-            } else {
-                write_recursion_inputs_ultra_honk<UltraFlavor>(
-                    bytecode_path, witness_path, recursion_inputs_output_path);
-            }
-        }
         // ULTRA PLONK
         else if (OLD_API_gates->parsed()) {
             gate_count<UltraCircuitBuilder>(bytecode_path, flags.recursive, flags.honk_recursion);
@@ -722,13 +699,40 @@ int main(int argc, char* argv[])
         }
 #endif
         // TUBE
-        else if (OLD_API_prove_tube->parsed()) {
+        else if (prove_tube_command->parsed()) {
             prove_tube(prove_tube_output_path);
-        } else if (OLD_API_verify_tube->parsed()) {
+        } else if (verify_tube_command->parsed()) {
             auto tube_proof_path = tube_proof_and_vk_path + "/proof";
             auto tube_vk_path = tube_proof_and_vk_path + "/vk";
             UltraHonkAPI api;
             return api.verify({ .ipa_accumulation = true }, tube_proof_path, tube_vk_path) ? 0 : 1;
+        }
+        // CLIENT IVC EXTRA COMMAND
+        else if (OLD_API_gates_for_ivc->parsed()) {
+            gate_count_for_ivc(bytecode_path);
+        } else if (OLD_API_gates_mega_honk->parsed()) {
+            gate_count<MegaCircuitBuilder>(bytecode_path, flags.recursive, flags.honk_recursion);
+        } else if (OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file->parsed()) {
+            write_arbitrary_valid_client_ivc_proof_and_vk_to_file(arbitrary_valid_proof_path);
+            return 0;
+        }
+        // ULTRA HONK EXTRA COMMANDS
+        else if (OLD_API_write_recursion_inputs_ultra_honk->parsed()) {
+            if (flags.ipa_accumulation) {
+                write_recursion_inputs_ultra_honk<UltraRollupFlavor>(
+                    bytecode_path, witness_path, recursion_inputs_output_path);
+            } else {
+                write_recursion_inputs_ultra_honk<UltraFlavor>(
+                    bytecode_path, witness_path, recursion_inputs_output_path);
+            }
+        }
+        // NEW STANDARD API
+        else if (flags.scheme == "client_ivc") {
+            ClientIVCAPI api;
+            return execute_command(api);
+        } else if (flags.scheme == "ultra_honk") {
+            UltraHonkAPI api;
+            return execute_command(api);
         } else {
             throw_or_abort("No match for API command");
             return 1;
