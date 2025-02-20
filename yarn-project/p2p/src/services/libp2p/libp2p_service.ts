@@ -236,8 +236,6 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
           heartbeatInterval: config.gossipsubInterval,
           mcacheLength: config.gossipsubMcacheLength,
           mcacheGossip: config.gossipsubMcacheGossip,
-          // Increased from default 3s to give time for input lag: configuration and rationale from lodestar
-          // gossipsubIWantFollowupMs: 12 * 1000,
           msgIdFn: getMsgIdFn,
           msgIdToStrFn: msgIdToStrFn,
           fastMsgIdFn: fastMsgIdFn,
@@ -245,16 +243,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
           metricsRegister: otelMetricsAdapter,
           metricsTopicStrToLabel: metricsTopicStrToLabels(),
           asyncValidation: true,
-
-          // In ms - update this manually
-          // config.seconds_per_slot * slots_per_epoch * 2 * 1000
-          // seenTTL: 2 * 48 * 32_000,
-
-          // TODO: set in config - allow to be false
-          // awaitRpcMessageHandler: true
-          // awaitRpcHandler: true
-
-          // scoreThresholds: gossipScoreThresholds,
+          scoreThresholds: gossipScoreThresholds,
           scoreParams: createPeerScoreParams({
             // IPColocation factor can be disabled for local testing - default to -5
             IPColocationFactorWeight: config.debugDisableColocationPenalty ? 0 : -5.0,
@@ -263,19 +252,16 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
                 topicWeight: 1,
                 invalidMessageDeliveriesWeight: -20,
                 invalidMessageDeliveriesDecay: 0.5,
-                // meshMessageDeliveriesWindow: 10_000,
               }),
               [BlockAttestation.p2pTopic]: createTopicScoreParams({
                 topicWeight: 1,
                 invalidMessageDeliveriesWeight: -20,
                 invalidMessageDeliveriesDecay: 0.5,
-                // meshMessageDeliveriesWindow: 10_000,
               }),
               [BlockProposal.p2pTopic]: createTopicScoreParams({
                 topicWeight: 1,
                 invalidMessageDeliveriesWeight: -20,
                 invalidMessageDeliveriesDecay: 0.5,
-                // meshMessageDeliveriesWindow: 10_000,
               }),
             },
           }),
