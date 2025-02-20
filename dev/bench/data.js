@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740060102627,
+  "lastUpdate": 1740062664073,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "sirasistant@gmail.com",
-            "name": "Álvaro Rodríguez",
-            "username": "sirasistant"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "be273e536d27ed101201f108f3f1971bb99cfab4",
-          "message": "feat: Contract updates (#11514)\n\nImplements\r\nhttps://hackmd.io/McJEZq0DRlSU0xZjg41QqQ?view#Contract-upgradeability\r\nCloses https://github.com/AztecProtocol/aztec-packages/issues/8979\r\n\r\n---------\r\n\r\nCo-authored-by: Leila Wang <leizciw@gmail.com>\r\nCo-authored-by: Alex Gherghisan <alexghr@users.noreply.github.com>",
-          "timestamp": "2025-02-17T10:06:27+01:00",
-          "tree_id": "fe3fb014fb1173741bc534dbd5e219a751b0ca32",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/be273e536d27ed101201f108f3f1971bb99cfab4"
-        },
-        "date": 1739783812593,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18155.77185000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16089.490837 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18552.418585,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16249.258402000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3845.72835299997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3052.679883999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55031.879607999996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55031880000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10577.461694,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10577464000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1793077066,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1793077066 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 128968515,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 128968515 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3300,6 +3234,72 @@ window.BENCHMARK_DATA = {
             "value": 131763707,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 131763707 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "gregojquiros@gmail.com",
+            "name": "Gregorio Juliana",
+            "username": "Thunkar"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3257a973a5645725d3cb52c375012c901e66c5db",
+          "message": "chore: @aztec/stdlib pt.2 -> remove @aztec/types (#12133)\n\nWith granular exports and circular dependencies removed it's not longer\nnecessary!\n\nRemaining types were moved to `circuits.js` (soon to be stdlib), but the\nhasher will probably get pruned since it's only used by the old merkle\ntree implementation\n\n---------\n\nCo-authored-by: thunkar <gregjquiros@gmail.com>",
+          "timestamp": "2025-02-20T15:19:27+01:00",
+          "tree_id": "57c67c018a5a459796338fe97842d91fce777d00",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3257a973a5645725d3cb52c375012c901e66c5db"
+        },
+        "date": 1740062656648,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18253.801918999896,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16096.685931 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18723.16895599988,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16363.835618 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3867.063815999927,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3114.7848810000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55023.702245,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55023700000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10338.371763000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10338375000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1826486356,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1826486356 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 131246661,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 131246661 ns\nthreads: 1"
           }
         ]
       }
