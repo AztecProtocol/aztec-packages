@@ -3,3 +3,8 @@ variable "project_id" {
   type        = string
   default     = "testnet-440309"
 }
+
+variable "account_id" {
+  description = "The account ID"
+  type        = string
+}

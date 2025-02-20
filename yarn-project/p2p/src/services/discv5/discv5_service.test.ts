@@ -38,10 +38,10 @@ describe('Discv5Service', () => {
   const baseConfig: BootnodeConfig = {
     udpAnnounceAddress: `127.0.0.1:${basePort + 100}`,
     udpListenAddress: `0.0.0.0:${basePort + 100}`,
-    minPeerCount: 1,
-    maxPeerCount: 100,
     dataDirectory: undefined,
     dataStoreMapSizeKB: 0,
+    aztecNetworkId: 'devnet',
+    bootstrapNodes: [],
   };
 
   beforeEach(async () => {

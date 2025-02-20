@@ -235,10 +235,10 @@ export function createBootstrapNodeConfig(privateKey: string, port: number): Boo
     udpListenAddress: `0.0.0.0:${port}`,
     udpAnnounceAddress: `127.0.0.1:${port}`,
     peerIdPrivateKey: privateKey,
-    minPeerCount: 10,
-    maxPeerCount: 100,
     dataDirectory: undefined,
     dataStoreMapSizeKB: 0,
+    aztecNetworkId: 'devnet',
+    bootstrapNodes: [],
   };
 }
 

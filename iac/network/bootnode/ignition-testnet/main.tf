@@ -5,7 +5,7 @@ locals {
 terraform {
   backend "gcs" {
     bucket = "aztec-terraform"
-    prefix = "bootnodes/ignition"
+    prefix = "bootnodes/ignition-testnet"
   }
 }
 provider "google" {

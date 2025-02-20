@@ -9,9 +9,9 @@ import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
 import EventEmitter from 'events';
 
 import type { P2PConfig } from '../../config.js';
+import { AZTEC_ENR_KEY, AztecENR, Discv5Event, PeerEvent } from '../../types/index.js';
 import { convertToMultiaddr } from '../../util.js';
 import { type PeerDiscoveryService, PeerDiscoveryState } from '../service.js';
-import { AZTEC_ENR_KEY, AZTEC_NET, Discv5Event, PeerEvent } from '../types.js';
 
 const delayBeforeStart = 2000; // 2sec
 
@@ -37,7 +37,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
 
   constructor(
     private peerId: PeerId,
-    config: P2PConfig,
+    private config: P2PConfig,
     telemetry: TelemetryClient = getTelemetryClient(),
     private logger = createLogger('p2p:discv5_service'),
   ) {
@@ -47,7 +47,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     // create ENR from PeerId
     this.enr = SignableENR.createFromPeerId(peerId);
     // Add aztec identification to ENR
-    this.enr.set(AZTEC_ENR_KEY, Uint8Array.from([AZTEC_NET]));
+    this.enr.set(AZTEC_ENR_KEY, Uint8Array.from([AztecENR[config.aztecNetworkId]]));
 
     if (!tcpAnnounceAddress) {
       throw new Error('You need to provide at least a TCP announce address.');
@@ -174,7 +174,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     if (value) {
       const network = value[0];
       // check if the peer is on the same network
-      if (network === AZTEC_NET) {
+      if (network === AztecENR[this.config.aztecNetworkId]) {
         this.emit(PeerEvent.DISCOVERED, enr);
       }
     }

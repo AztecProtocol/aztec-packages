@@ -4,12 +4,12 @@ import { type AztecAsyncKVStore } from '@aztec/kv-store';
 import { OtelMetricsAdapter, type TelemetryClient } from '@aztec/telemetry-client';
 
 import { Discv5, type Discv5EventEmitter } from '@chainsafe/discv5';
-import { type ENR, SignableENR } from '@chainsafe/enr';
+import { ENR, type SignableENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
 import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
 
 import type { BootnodeConfig } from '../config.js';
-import { AZTEC_ENR_KEY, AZTEC_NET } from '../services/types.js';
+import { createBootnodeENR } from '../enr/generate-enr.js';
 import { convertToMultiaddr, createLibP2PPeerIdFromPrivateKey, getPeerIdPrivateKey } from '../util.js';
 
 /**
@@ -32,21 +32,17 @@ export class BootstrapNode implements P2PBootstrapApi {
    */
   public async start(config: BootnodeConfig) {
     const { udpListenAddress, udpAnnounceAddress } = config;
-
-    const peerIdPrivateKey = await getPeerIdPrivateKey(config, this.store);
-    const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey);
-    this.peerId = peerId;
-    const enr = SignableENR.createFromPeerId(peerId);
-
     const listenAddrUdp = multiaddr(convertToMultiaddr(udpListenAddress, 'udp'));
 
     if (!udpAnnounceAddress) {
       throw new Error('You need to provide a UDP announce address.');
     }
 
-    const publicAddr = multiaddr(convertToMultiaddr(udpAnnounceAddress, 'udp'));
-    enr.setLocationMultiaddr(publicAddr);
-    enr.set(AZTEC_ENR_KEY, Uint8Array.from([AZTEC_NET]));
+    const peerIdPrivateKey = await getPeerIdPrivateKey(config, this.store);
+    const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey);
+    this.peerId = peerId;
+
+    const enr = await createBootnodeENR(peerIdPrivateKey, udpAnnounceAddress, config.aztecNetworkId);
 
     this.logger.debug(`Starting bootstrap node ${peerId} listening on ${listenAddrUdp.toString()}`);
 
@@ -75,6 +71,20 @@ export class BootstrapNode implements P2PBootstrapApi {
       this.logger.info('Bootstrap node started', { peerId, enr: enr.encodeTxt(), addr: listenAddrUdp.toString() });
     } catch (e) {
       this.logger.error('Error starting Discv5', e);
+    }
+
+    // Add bootnode ENRs if provided, making sure we filter our own
+    if (config.bootstrapNodes?.length) {
+      const decoded = await Promise.all(config.bootstrapNodes.map(enr => ENR.decodeTxt(enr).peerId()));
+      const bootstrapNodePeerIds = decoded.filter(peerId => peerId !== this.peerId);
+      this.logger.info(`Adding bootstrap nodes ENRs: ${config.bootstrapNodes.join(', ')}`);
+      try {
+        bootstrapNodePeerIds.forEach(enr => {
+          this.node.addEnr(enr);
+        });
+      } catch (e) {
+        this.logger.error(`Error adding bootnode ENRs: ${e}`);
+      }
     }
   }
 

@@ -1,4 +1,5 @@
 import { type LogFn } from '@aztec/foundation/log';
+import { AztecENR } from '@aztec/p2p/types';
 
 import { type Command } from 'commander';
 
@@ -27,6 +28,24 @@ export function injectCommands(program: Command, log: LogFn) {
     .action(async () => {
       const { generateP2PPrivateKey } = await import('./generate_p2p_private_key.js');
       await generateP2PPrivateKey(log);
+    });
+
+  program
+    .command('generate-bootnode-enr')
+    .summary('Generates the encoded ENR record for a bootnode.')
+    .description('Generates the encoded ENR record for a bootnode.')
+    .argument('<privateKey>', 'The peer id private key of the bootnode')
+    .argument('<udpAnnounceAddress>', 'The bootnode UDP announce address')
+    .argument('<network>', `The network name, must be one of ${Object.keys(AztecENR).filter(k => isNaN(Number(k)))}`)
+    .action(async (privateKey: string, udpAnnounceAddress: string, network: string) => {
+      const keys = Object.keys(AztecENR).filter(k => isNaN(Number(k)));
+      if (!keys.includes(network)) {
+        log(`Invalid network: ${network}`);
+        return;
+      }
+      const valid = network as keyof typeof AztecENR;
+      const { generateEncodedBootnodeENR } = await import('./generate_bootnode_enr.js');
+      await generateEncodedBootnodeENR(privateKey, udpAnnounceAddress, valid, log);
     });
 
   program

@@ -1,6 +1,6 @@
 resource "google_service_account" "vm_sa" {
-  account_id   = "bootnode-sa"
-  display_name = "Service Account for Boot Nodes"
+  account_id   = var.account_id
+  display_name = "Service Account"
 }
 
 resource "google_project_iam_member" "logging_role" {

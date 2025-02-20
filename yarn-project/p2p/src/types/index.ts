@@ -35,10 +35,7 @@ export enum GossipSubEvent {
 export const AZTEC_ENR_KEY = 'aztec_network';
 
 export enum AztecENR {
-  devnet = 0x01,
-  testnet = 0x02,
-  mainnet = 0x03,
+  'devnet' = 0x01,
+  'ignition-testnet' = 0x02,
+  'alpha-testnet' = 0x03,
 }
-
-// TODO: Make this an env var
-export const AZTEC_NET = AztecENR.devnet;

@@ -9,6 +9,7 @@ import {
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 
 import { type P2PReqRespConfig, p2pReqRespConfigMappings } from './services/reqresp/config.js';
+import { type AztecENR } from './types/index.js';
 
 /**
  * P2P client configuration values.
@@ -157,6 +158,11 @@ export interface P2PConfig extends P2PReqRespConfig {
 
   /** Limit of transactions to archive in the tx pool. Once the archived tx limit is reached, the oldest archived txs will be purged. */
   archivedTxLimit: number;
+
+  /**
+   * The aztec network identifier.
+   */
+  aztecNetworkId: keyof typeof AztecENR;
 }
 
 export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
@@ -314,6 +320,10 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
       'The number of transactions that will be archived. If the limit is set to 0 then archiving will be disabled.',
     ...numberConfigHelper(0),
   },
+  aztecNetworkId: {
+    env: 'AZTEC_NETWORK_ID',
+    description: 'The aztec network identifier.',
+  },
   ...p2pReqRespConfigMappings,
 };
 
@@ -334,7 +344,7 @@ export function getP2PDefaultConfig(): P2PConfig {
  */
 export type BootnodeConfig = Pick<
   P2PConfig,
-  'udpAnnounceAddress' | 'peerIdPrivateKey' | 'minPeerCount' | 'maxPeerCount'
+  'udpAnnounceAddress' | 'peerIdPrivateKey' | 'aztecNetworkId' | 'bootstrapNodes'
 > &
   Required<Pick<P2PConfig, 'udpListenAddress'>> &
   Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKB'>;
@@ -342,11 +352,11 @@ export type BootnodeConfig = Pick<
 const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
   'udpAnnounceAddress',
   'peerIdPrivateKey',
-  'minPeerCount',
-  'maxPeerCount',
   'udpListenAddress',
   'dataDirectory',
   'dataStoreMapSizeKB',
+  'aztecNetworkId',
+  'bootstrapNodes',
 ];
 
 export const bootnodeConfigMappings = pickConfigMappings(

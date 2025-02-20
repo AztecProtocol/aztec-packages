@@ -8,12 +8,12 @@ import { type Multiaddr } from '@multiformats/multiaddr';
 import { inspect } from 'util';
 
 import { type P2PConfig } from '../../config.js';
+import { PeerEvent } from '../../types/index.js';
 import { type PubSubLibp2p } from '../../util.js';
 import { ReqRespSubProtocol } from '../reqresp/interface.js';
 import { GoodByeReason, prettyGoodbyeReason } from '../reqresp/protocols/goodbye.js';
 import { type ReqResp } from '../reqresp/reqresp.js';
 import { type PeerDiscoveryService } from '../service.js';
-import { PeerEvent } from '../types.js';
 import { PeerManagerMetrics } from './metrics.js';
 import { PeerScoreState, type PeerScoring } from './peer_scoring.js';
 
