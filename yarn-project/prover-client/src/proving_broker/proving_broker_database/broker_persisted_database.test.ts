@@ -1,4 +1,9 @@
-import { type ProofUri, type ProvingJob, type ProvingJobSettledResult, ProvingRequestType } from '@aztec/circuit-types';
+import {
+  type ProofUri,
+  type ProvingJob,
+  type ProvingJobSettledResult,
+  ProvingRequestType,
+} from '@aztec/circuit-types/interfaces/server';
 import { toArray } from '@aztec/foundation/iterable';
 
 import { jest } from '@jest/globals';

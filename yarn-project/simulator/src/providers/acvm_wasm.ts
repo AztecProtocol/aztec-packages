@@ -1,6 +1,6 @@
+import { type NoirCompiledCircuit } from '@aztec/circuits.js/noir';
 import { createLogger } from '@aztec/foundation/log';
 import { foreignCallHandler } from '@aztec/noir-protocol-circuits-types/client';
-import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import initACVM, { type ExecutionError, executeCircuit } from '@noir-lang/acvm_js';
 import initAbi from '@noir-lang/noirc_abi';

@@ -1,6 +1,6 @@
-import { type AccountManager, FeeJuicePaymentMethod, type WaitOpts } from '@aztec/aztec.js';
-import { type PXE } from '@aztec/circuit-types';
-import { Fr, deriveSigningKey } from '@aztec/circuits.js';
+import { type AccountManager, FeeJuicePaymentMethod, type PXE, type WaitOpts } from '@aztec/aztec.js';
+import { deriveSigningKey } from '@aztec/circuits.js/keys';
+import { Fr } from '@aztec/foundation/fields';
 
 import { getSchnorrAccountContractAddress } from '../schnorr/account_contract.js';
 import { getSchnorrAccount } from '../schnorr/index.js';
@@ -80,12 +80,15 @@ export async function deployFundedSchnorrAccounts(
     skipClassRegistration?: boolean;
   } = { interval: 0.1, skipClassRegistration: false },
 ): Promise<AccountManager[]> {
-  return await Promise.all(
-    accounts.map((account, i) =>
-      deployFundedSchnorrAccount(pxe, account, {
+  const accountManagers: AccountManager[] = [];
+  // Serial due to https://github.com/AztecProtocol/aztec-packages/issues/12045
+  for (let i = 0; i < accounts.length; i++) {
+    accountManagers.push(
+      await deployFundedSchnorrAccount(pxe, accounts[i], {
         ...opts,
         skipClassRegistration: i !== 0 || opts.skipClassRegistration, // Register the contract class at most once.
       }),
-    ),
-  );
+    );
+  }
+  return accountManagers;
 }

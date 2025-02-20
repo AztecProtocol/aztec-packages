@@ -1,5 +1,5 @@
 import { AztecAddress, Fr, FunctionData, FunctionSelector, TxContext, TxRequest, Vector } from '@aztec/circuits.js';
-import { schemas } from '@aztec/foundation/schemas';
+import { schemas } from '@aztec/circuits.js/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';

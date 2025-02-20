@@ -4,23 +4,26 @@ import {
   type L2Block,
   type L2BlockSource,
   MerkleTreeId,
-  SequencerConfigSchema,
   Tx,
   type TxHash,
-  type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
-import type { AllowedElement, WorldStateSynchronizerStatus } from '@aztec/circuit-types/interfaces';
+import {
+  type AllowedElement,
+  SequencerConfigSchema,
+  type WorldStateSynchronizer,
+  type WorldStateSynchronizerStatus,
+} from '@aztec/circuit-types/interfaces/server';
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
 import {
-  AppendOnlyTreeSnapshot,
   BlockHeader,
   ContentCommitment,
   type ContractDataSource,
   Gas,
   type GlobalVariables,
-  INITIAL_L2_BLOCK_NUM,
   StateReference,
 } from '@aztec/circuits.js';
+import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { omit } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';

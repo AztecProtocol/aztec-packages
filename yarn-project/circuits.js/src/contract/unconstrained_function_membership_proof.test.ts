@@ -1,6 +1,6 @@
-import { type ContractArtifact, type FunctionArtifact, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 
+import { type ContractArtifact, type FunctionArtifact, FunctionSelector, FunctionType } from '../abi/index.js';
 import { getTestContractArtifact } from '../tests/fixtures.js';
 import { getContractClassFromArtifact } from './contract_class.js';
 import { type ContractClassIdPreimage } from './contract_class_id.js';
@@ -14,7 +14,7 @@ describe('unconstrained_function_membership_proof', () => {
   let artifact: ContractArtifact;
   let contractClass: ContractClass & ContractClassIdPreimage;
   let unconstrainedFunction: FunctionArtifact;
-  let vkHash: Fr;
+  const vkHash: Fr = Fr.random();
   let selector: FunctionSelector;
 
   beforeEach(async () => {

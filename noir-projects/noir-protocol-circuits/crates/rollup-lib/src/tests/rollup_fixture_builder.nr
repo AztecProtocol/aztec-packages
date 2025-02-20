@@ -276,7 +276,7 @@ impl RollupFixtureBuilder {
     }
 
     pub fn mock_evaluate_blobs(_self: Self) {
-        /// Safety: Mock the oracle call when the blob data is not relevant to the test.
+        // Safety: Mock the oracle call when the blob data is not relevant to the test.
         unsafe {
             let _ = OracleMock::mock("evaluateBlobs").returns(BlockBlobPublicInputs::empty());
         }

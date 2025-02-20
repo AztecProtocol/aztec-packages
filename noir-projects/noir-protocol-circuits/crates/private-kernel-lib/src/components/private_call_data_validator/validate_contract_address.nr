@@ -9,7 +9,6 @@ use dep::types::{
     hash::private_functions_root_from_siblings,
     merkle_tree::conditionally_assert_check_membership,
     shared_mutable::{
-        scheduled_delay_change::ScheduledDelayChange, scheduled_value_change::ScheduledValueChange,
         shared_mutable_values::SharedMutableValues, with_hash::validate_with_hash_hints,
     },
     storage::map::derive_storage_slot_in_map,
@@ -46,22 +45,20 @@ pub fn validate_contract_address(
         hints.public_keys,
     );
 
-    let value_change: ScheduledValueChange<ContractClassId> =
-        Packable::unpack(hints.updated_class_id_value_change);
-    let delay_change: ScheduledDelayChange<DEFAULT_UPDATE_DELAY> =
-        Packable::unpack(hints.updated_class_id_delay_change);
+    let shared_mutable_values: SharedMutableValues<ContractClassId, DEFAULT_UPDATE_DELAY> =
+        Packable::unpack(hints.updated_class_id_shared_mutable_values);
 
     // A block horizon for this shared mutable should be set separately when generating/validating kernel output
     validate_with_hash_hints(
         private_call_data.public_inputs.historical_header,
         derive_storage_slot_in_map(UPDATED_CLASS_IDS_SLOT as Field, contract_address),
         DEPLOYER_CONTRACT_ADDRESS,
-        SharedMutableValues::new(value_change, delay_change),
+        shared_mutable_values,
         hints.updated_class_id_witness,
         hints.updated_class_id_leaf,
     );
 
-    let updated_contract_class_id = value_change.get_current_at(
+    let updated_contract_class_id = shared_mutable_values.svc.get_current_at(
         private_call_data.public_inputs.historical_header.global_variables.block_number as u32,
     );
 

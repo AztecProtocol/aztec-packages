@@ -122,6 +122,10 @@ case "$cmd" in
   "test-kind-transfer-blob-with-sink")
     OVERRIDES="blobSink.enabled=true" ./bootstrap.sh test-kind-transfer
     ;;
+  "test-kind-chaos-prover")
+    chaos-mesh/install.sh
+    OVERRIDES="proverAgent.testDelayMs=1000" NAMESPACE=chaos-prover FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=true ./scripts/test_kind.sh src/spartan/prover-node.test.ts ci.yaml
+    ;;
   "test-local")
     # Isolate network stack in docker.
     docker_isolate ../scripts/run_native_testnet.sh -i -val 3

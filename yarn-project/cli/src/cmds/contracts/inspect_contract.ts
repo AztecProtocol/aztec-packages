@@ -4,7 +4,7 @@ import {
   FunctionSelector,
   decodeFunctionSignature,
   decodeFunctionSignatureWithParameterNames,
-} from '@aztec/foundation/abi';
+} from '@aztec/circuits.js/abi';
 import { sha256 } from '@aztec/foundation/crypto';
 import { type LogFn, type Logger } from '@aztec/foundation/log';
 

@@ -1,4 +1,4 @@
-import { type AbiDecoded, type FunctionArtifact, type FunctionSelector, decodeFromAbi } from '@aztec/foundation/abi';
+import { type AbiDecoded, type FunctionArtifact, type FunctionSelector, decodeFromAbi } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';

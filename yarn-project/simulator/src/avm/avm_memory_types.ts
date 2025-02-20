@@ -6,7 +6,7 @@ import {
   MEM_TAG_U32,
   MEM_TAG_U64,
   MEM_TAG_U128,
-} from '@aztec/circuits.js';
+} from '@aztec/constants';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';

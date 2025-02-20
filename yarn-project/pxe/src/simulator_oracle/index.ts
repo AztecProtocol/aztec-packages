@@ -1,19 +1,21 @@
 import {
-  type AztecNode,
   type FunctionCall,
   type InBlock,
   L1NotePayload,
   type L2Block,
-  type L2BlockNumber,
   MerkleTreeId,
   Note,
   type NoteStatus,
-  type NullifierMembershipWitness,
   type PublicDataWitness,
   TxHash,
   type TxScopedL2Log,
   getNonNullifiedL1ToL2MessageWitness,
 } from '@aztec/circuit-types';
+import {
+  type AztecNode,
+  type L2BlockNumber,
+  type NullifierMembershipWitness,
+} from '@aztec/circuit-types/interfaces/client';
 import {
   type AztecAddress,
   type BlockHeader,
@@ -23,22 +25,20 @@ import {
   FunctionSelector,
   IndexedTaggingSecret,
   type KeyValidationRequest,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-  MAX_NOTE_HASHES_PER_TX,
-  PRIVATE_LOG_SIZE_IN_FIELDS,
   PrivateLog,
   PublicLog,
   computeAddressSecret,
   computeTaggingSecretPoint,
 } from '@aztec/circuits.js';
-import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
 import {
   type FunctionArtifact,
   FunctionType,
   NoteSelector,
   encodeArguments,
   getFunctionArtifact,
-} from '@aztec/foundation/abi';
+} from '@aztec/circuits.js/abi';
+import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
+import { type L1_TO_L2_MSG_TREE_HEIGHT, MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
@@ -775,7 +775,7 @@ export class SimulatorOracle implements DBOracle {
       receipt.blockHash!.toString(),
       uniqueNoteHashTreeIndex,
       await recipient.toAddressPoint(),
-      NoteSelector.empty(), // todo: remove
+      NoteSelector.empty(), // TODO(#12013): remove
     );
   }
 
