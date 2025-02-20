@@ -1,12 +1,10 @@
-import { type PXE, RollupCheatCodes, createPXEClient, retryUntil } from '@aztec/aztec.js';
-import { EthCheatCodesWithState } from '@aztec/ethereum/test';
+import { retryUntil } from '@aztec/aztec.js';
 import { createLogger } from '@aztec/foundation/log';
 
 import { AlertTriggeredError } from '../quality_of_service/alert_checker.js';
 import {
   applyProverBrokerKill,
   applyProverKill,
-  awaitProvenChainAdvance,
   isK8sConfig,
   runAlertCheck,
   setupEnvironment,
@@ -38,41 +36,30 @@ const cachedProvingJobs = {
   annotations: {},
 };
 
-const completedProvingJobs = {
-  alert: 'ResolvedProvingJobRate',
+const enqueuedBlockRollupJobs = {
+  alert: 'EnqueuedBlockRootRollup',
   expr: `rate(aztec_proving_queue_enqueued_jobs_count{aztec_proving_job_type=~"BLOCK_ROOT_ROLLUP|SINGLE_TX_BLOCK_ROOT_ROLLUP"}[${interval}])>0`,
   labels: { severity: 'error' },
   for: interval,
   annotations: {},
 };
 
+const enqueuedRootRollupJobs = {
+  alert: 'EnqueuedRootRollup',
+  expr: `rate(aztec_proving_queue_enqueued_jobs_count{aztec_proving_job_type="ROOT_ROLLUP"}[${interval}])>0`,
+  labels: { severity: 'error' },
+  for: interval,
+  annotations: {},
+};
+
 describe('prover node recovery', () => {
-  let PXE_URL: string;
-  let ETHEREUM_HOST: string;
-  let pxe: PXE;
   beforeAll(async () => {
-    await startPortForward({
-      resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
-      namespace: config.NAMESPACE,
-      containerPort: config.CONTAINER_PXE_PORT,
-      hostPort: config.HOST_PXE_PORT,
-    });
-    await startPortForward({
-      resource: `svc/${config.INSTANCE_NAME}-aztec-network-ethereum`,
-      namespace: config.NAMESPACE,
-      containerPort: config.CONTAINER_ETHEREUM_PORT,
-      hostPort: config.HOST_ETHEREUM_PORT,
-    });
-    PXE_URL = `http://127.0.0.1:${config.HOST_PXE_PORT}`;
-    ETHEREUM_HOST = `http://127.0.0.1:${config.HOST_ETHEREUM_PORT}`;
     await startPortForward({
       resource: `svc/metrics-grafana`,
       namespace: 'metrics',
       containerPort: config.CONTAINER_METRICS_PORT,
       hostPort: config.HOST_METRICS_PORT,
     });
-
-    pxe = createPXEClient(PXE_URL);
   });
 
   it('should recover after a crash', async () => {
@@ -82,7 +69,7 @@ describe('prover node recovery', () => {
     await retryUntil(
       async () => {
         try {
-          await runAlertCheck(config, [completedProvingJobs], logger);
+          await runAlertCheck(config, [enqueuedBlockRollupJobs], logger);
         } catch (err) {
           return err && err instanceof AlertTriggeredError;
         }
@@ -122,23 +109,23 @@ describe('prover node recovery', () => {
   }, 1_800_000);
 
   it('should recover after a broker crash', async () => {
-    logger.info(`Waiting for base rollups to be submitted`);
+    logger.info(`Waiting for epoch proving job to start`);
 
     // use the alert checker to wait until grafana picks up a proof has started
     await retryUntil(
       async () => {
         try {
-          await runAlertCheck(config, [completedProvingJobs], logger);
+          await runAlertCheck(config, [enqueuedBlockRollupJobs], logger);
         } catch {
           return true;
         }
       },
-      'wait for base rollups',
+      'wait for epoch',
       600,
       5,
     );
 
-    logger.info(`Detected base rollups. Killing the broker`);
+    logger.info(`Detected epoch proving job. Killing the broker`);
 
     await applyProverBrokerKill({
       namespace: config.NAMESPACE,
@@ -146,11 +133,23 @@ describe('prover node recovery', () => {
       logger,
     });
 
-    const rollupCheatCodes = new RollupCheatCodes(
-      new EthCheatCodesWithState(ETHEREUM_HOST),
-      await pxe.getNodeInfo().then(n => n.l1ContractAddresses),
+    // wait for the broker to come back online and for proving to continue
+    const result = await retryUntil(
+      async () => {
+        try {
+          await runAlertCheck(config, [enqueuedRootRollupJobs], logger);
+        } catch (err) {
+          if (err && err instanceof AlertTriggeredError) {
+            return true;
+          }
+        }
+        return false;
+      },
+      'wait for root rollup',
+      600,
+      5,
     );
 
-    await expect(awaitProvenChainAdvance(rollupCheatCodes, 1800, logger)).resolves.toEqual(true);
-  });
+    expect(result).toBeTrue();
+  }, 1_800_000);
 });
