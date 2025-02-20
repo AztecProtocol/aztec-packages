@@ -59,7 +59,7 @@ jobs:
 
       - name: Fail If Draft
         if: github.event.pull_request.draft && (github.event.action != 'labeled' || github.event.label.name != 'trigger-workflow')
-        run: echo "CI is not run on drafts (unless ./ci.sh trigger-workflow is used)." && exit 1
+        run: echo "CI is not run on drafts (unless ./ci.sh trigger is used)." && exit 1
 
       - name: External Contributor Checks
         # Run only if a pull request event type and we have a forked repository origin.
