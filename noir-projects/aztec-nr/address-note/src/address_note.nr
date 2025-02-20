@@ -11,7 +11,7 @@ use aztec::protocol_types::traits::Packable;
 // docs:start:address_note_struct
 // Stores an address
 #[note]
-#[derive(Eq, Serialize)]
+#[derive(Eq)]
 pub struct AddressNote {
     address: AztecAddress,
     owner: AztecAddress,
