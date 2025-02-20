@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740065964973,
+  "lastUpdate": 1740067871097,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "sirasistant@gmail.com",
-            "name": "Álvaro Rodríguez",
-            "username": "sirasistant"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "24e02d32f43d692582231605df90208aa3afb10e",
-          "message": "fix: Basic install test (#12049)\n\nChanging the test to use one of the prefilled accounts for now.\r\nPossible other options:\r\n- Bridge from l1 in the test: The ugly thing about this is showing the\r\nuser that he has to send garbage txs to make the sandbox chain advance\r\nso the l1l2 message gets included. Would be nice to show them the\r\nbridging though.\r\n- Create a free for all FPC: Using the fpc is maybe too complicated for\r\na getting started guide?\r\n- Use the bananacoin FPC: I think it's too complicated for getting\r\nstarted, but should be nice as a second tutorial\r\n \r\nHaven't changed the tutorial (getting_started.md) yet until I get some\r\ninput on the options\r\n \r\n@Thunkar I think the cli-wallet tests aren't running in CI, because they\r\nare assuming no fees",
-          "timestamp": "2025-02-17T18:27:28+01:00",
-          "tree_id": "86a2372b712014150b72b032db34225256967f41",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/24e02d32f43d692582231605df90208aa3afb10e"
-        },
-        "date": 1739813874354,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18125.37029600003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15906.914583999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18683.836364999992,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16217.380595999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3918.816131999961,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3082.05831 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54826.743786,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54826743000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10864.299625,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10864306000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1804453099,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1804453099 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 130484083,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 130484083 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3300,6 +3234,72 @@ window.BENCHMARK_DATA = {
             "value": 128771741,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 128771741 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bdef653a86af82a28fe48e01a62694b9dc213d6d",
+          "message": "chore(ci3): refactor ci3.yml, fix external PR flow (#12037)\n\n- Refactor amd64 and arm64 to be a single ci task with a matrix\n- Fix the logic around external PRs, control this with a ci-external\nlabel",
+          "timestamp": "2025-02-20T23:49:57+08:00",
+          "tree_id": "a97f91220f779b6b1794b535ce15f5e9e6bb8bb1",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/bdef653a86af82a28fe48e01a62694b9dc213d6d"
+        },
+        "date": 1740067863458,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18078.547531000142,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15940.900983 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18741.183973000036,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16511.859543 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3880.408550999846,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3078.2916720000003 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54890.65631,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54890657000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11393.961265,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11393964000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1831022034,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1831022034 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 128666967,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 128666967 ns\nthreads: 1"
           }
         ]
       }
