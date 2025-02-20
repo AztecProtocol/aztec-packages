@@ -189,8 +189,11 @@ export class AcirSimulator {
       );
     }
 
+    // This constant is not exposed anywhere (because it doesn't have to - it's internal to aztec-nr). It's only here as
+    // a temporary stopgap until we delete this function fully.
     const MAX_NOTE_PACKED_LEN = 16;
     const maxNoteFields = MAX_NOTE_PACKED_LEN;
+
     if (maxNoteFields < note.items.length) {
       throw new Error(
         `The note being processed has ${note.items.length} fields, while "compute_note_hash_and_optionally_a_nullifier" can only handle a maximum of ${maxNoteFields} fields. Please reduce the number of fields in your note.`,
