@@ -1,6 +1,5 @@
 import {
   BlockAttestation,
-  type BlockBuilder,
   BlockProposal,
   Body,
   ConsensusPayload,
@@ -8,15 +7,18 @@ import {
   L2Block,
   type L2BlockSource,
   type MerkleTreeId,
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
   type Tx,
   TxHash,
+  makeProcessedTxFromPrivateOnlyTx,
+} from '@aztec/circuit-types';
+import {
+  type BlockBuilder,
+  type MerkleTreeReadOperations,
+  type MerkleTreeWriteOperations,
   WorldStateRunningState,
   type WorldStateSynchronizer,
-  makeProcessedTxFromPrivateOnlyTx,
-  mockTxForRollup,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
+import { mockTxForRollup } from '@aztec/circuit-types/testing';
 import {
   AztecAddress,
   BlockHeader,
@@ -26,10 +28,10 @@ import {
   type Gas,
   GasFees,
   GlobalVariables,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PublicDataWrite,
 } from '@aztec/circuits.js';
 import { makeAppendOnlyTreeSnapshot } from '@aztec/circuits.js/testing';
+import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times, timesParallel } from '@aztec/foundation/collection';

@@ -1,5 +1,6 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
-import { L2Block, P2PClientType, mockTx } from '@aztec/circuit-types';
+import { L2Block, P2PClientType } from '@aztec/circuit-types';
+import { mockTx } from '@aztec/circuit-types/testing';
 import { Fr } from '@aztec/circuits.js';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';

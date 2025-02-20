@@ -1,6 +1,6 @@
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
-import { mockTx } from '../mocks.js';
+import { mockTx } from '../test/mocks.js';
 import { Tx } from './tx.js';
 
 describe('Tx', () => {

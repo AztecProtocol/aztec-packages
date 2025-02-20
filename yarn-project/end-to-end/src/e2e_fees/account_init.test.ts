@@ -13,7 +13,8 @@ import {
   type Wallet,
   deriveKeys,
 } from '@aztec/aztec.js';
-import { type AztecAddress, type CompleteAddress, FEE_FUNDING_FOR_TESTER_ACCOUNT, Fq } from '@aztec/circuits.js';
+import { type AztecAddress, type CompleteAddress, Fq } from '@aztec/circuits.js';
+import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import { type FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { SchnorrAccountContract } from '@aztec/noir-contracts.js/SchnorrAccount';
 import { type TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';

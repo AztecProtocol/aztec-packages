@@ -1,8 +1,8 @@
+import { loadContractArtifact } from '@aztec/circuits.js/abi';
 import { computePublicDataTreeLeafSlot, deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
+import { type NoirCompiledContract } from '@aztec/circuits.js/noir';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
-import { loadContractArtifact } from '@aztec/types/abi';
-import { type NoirCompiledContract } from '@aztec/types/noir';
 
 import FeeJuiceJson from '../../artifacts/FeeJuice.json' assert { type: 'json' };
 import { makeProtocolContract } from '../make_protocol_contract.js';

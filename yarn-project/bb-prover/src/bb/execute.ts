@@ -1,4 +1,4 @@
-import { type AvmCircuitInputs, serializeWithMessagePack } from '@aztec/circuits.js';
+import { type AvmCircuitInputs, serializeWithMessagePack } from '@aztec/circuits.js/avm';
 import { sha256 } from '@aztec/foundation/crypto';
 import { type LogFn, type Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';

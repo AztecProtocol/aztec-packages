@@ -1,5 +1,5 @@
 import { InboxLeaf } from '@aztec/circuit-types';
-import { INITIAL_L2_BLOCK_NUM, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
+import { INITIAL_L2_BLOCK_NUM, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 
 import { L1ToL2MessageStore } from './l1_to_l2_message_store.js';

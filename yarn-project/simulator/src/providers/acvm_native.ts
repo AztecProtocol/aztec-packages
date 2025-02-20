@@ -1,7 +1,7 @@
+import { type NoirCompiledCircuit } from '@aztec/circuits.js/noir';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import { type WitnessMap } from '@noir-lang/types';
 import * as proc from 'child_process';

@@ -1,6 +1,5 @@
 import {
   AztecAddress,
-  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type ContractClass,
   type ContractInstance,
   FunctionSelector,
@@ -14,6 +13,7 @@ import {
   computeSaltedInitializationHash,
 } from '@aztec/circuits.js';
 import { hashVK } from '@aztec/circuits.js/hash';
+import { CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 

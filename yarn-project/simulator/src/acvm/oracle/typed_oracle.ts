@@ -3,18 +3,18 @@ import {
   type MerkleTreeId,
   type Note,
   type NoteStatus,
-  type NullifierMembershipWitness,
   type PublicDataWitness,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
+import { type NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/server';
 import {
   type BlockHeader,
   type ContractInstance,
   type IndexedTaggingSecret,
   type KeyValidationRequest,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { type FunctionSelector, type NoteSelector } from '@aztec/foundation/abi';
+import { type FunctionSelector, type NoteSelector } from '@aztec/circuits.js/abi';
+import { type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 

@@ -2,26 +2,19 @@ import { createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import {
-  type AztecNode,
-  type ClientProtocolCircuitVerifier,
   type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
   type InBlock,
   type L1ToL2MessageSource,
   type L2Block,
-  type L2BlockNumber,
   type L2BlockSource,
   type L2LogsSource,
   type LogFilter,
   MerkleTreeId,
-  NullifierMembershipWitness,
   type NullifierWithBlockSource,
   P2PClientType,
-  type ProverConfig,
   PublicDataWitness,
   PublicSimulationOutput,
-  type SequencerConfig,
-  type Service,
   SiblingPath,
   type Tx,
   type TxEffect,
@@ -30,11 +23,17 @@ import {
   type TxScopedL2Log,
   TxStatus,
   type TxValidationResult,
+} from '@aztec/circuit-types';
+import { type AztecNode, type L2BlockNumber, NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/client';
+import {
+  type ClientProtocolCircuitVerifier,
+  type ProverConfig,
+  type SequencerConfig,
+  type Service,
   type WorldStateSynchronizer,
   tryStop,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
 import {
-  type ARCHIVE_HEIGHT,
   type BlockHeader,
   type ContractClassPublic,
   type ContractDataSource,
@@ -42,20 +41,25 @@ import {
   EthAddress,
   Fr,
   type GasFees,
+  type NodeInfo,
+  type PrivateLog,
+  type ProtocolContractAddresses,
+} from '@aztec/circuits.js';
+import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
+import {
+  type NullifierLeafPreimage,
+  type PublicDataTreeLeaf,
+  type PublicDataTreeLeafPreimage,
+} from '@aztec/circuits.js/trees';
+import {
+  type ARCHIVE_HEIGHT,
   INITIAL_L2_BLOCK_NUM,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type NOTE_HASH_TREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
-  type NodeInfo,
-  type NullifierLeafPreimage,
   type PUBLIC_DATA_TREE_HEIGHT,
-  type PrivateLog,
-  type ProtocolContractAddresses,
-  type PublicDataTreeLeaf,
-  type PublicDataTreeLeafPreimage,
   REGISTERER_CONTRACT_ADDRESS,
-} from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
+} from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';

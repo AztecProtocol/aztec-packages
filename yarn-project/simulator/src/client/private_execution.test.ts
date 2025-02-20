@@ -1,29 +1,25 @@
 import {
-  type AztecNode,
-  CountedPublicExecutionRequest,
   HashedValues,
   type L1ToL2Message,
-  type L2BlockNumber,
   Note,
   PublicExecutionRequest,
   TxExecutionRequest,
 } from '@aztec/circuit-types';
 import {
-  AppendOnlyTreeSnapshot,
+  type AztecNode,
+  CountedPublicExecutionRequest,
+  type L2BlockNumber,
+} from '@aztec/circuit-types/interfaces/client';
+import {
   BlockHeader,
   CallContext,
   CompleteAddress,
   type ContractInstance,
   GasFees,
   GasSettings,
-  GeneratorIndex,
   type GrumpkinScalar,
   IndexedTaggingSecret,
   KeyValidationRequest,
-  L1_TO_L2_MSG_TREE_HEIGHT,
-  NOTE_HASH_TREE_HEIGHT,
-  PUBLIC_DATA_TREE_HEIGHT,
-  PUBLIC_DISPATCH_SELECTOR,
   PartialStateReference,
   StateReference,
   TxContext,
@@ -34,14 +30,6 @@ import {
   getNonEmptyItems,
 } from '@aztec/circuits.js';
 import {
-  computeNoteHashNonce,
-  computeSecretHash,
-  computeVarArgsHash,
-  deriveStorageSlotInMap,
-  siloNullifier,
-} from '@aztec/circuits.js/hash';
-import { makeHeader } from '@aztec/circuits.js/testing';
-import {
   type ContractArtifact,
   type FunctionArtifact,
   FunctionSelector,
@@ -49,7 +37,23 @@ import {
   encodeArguments,
   getFunctionArtifact,
   getFunctionArtifactByName,
-} from '@aztec/foundation/abi';
+} from '@aztec/circuits.js/abi';
+import {
+  computeNoteHashNonce,
+  computeSecretHash,
+  computeVarArgsHash,
+  deriveStorageSlotInMap,
+  siloNullifier,
+} from '@aztec/circuits.js/hash';
+import { makeHeader } from '@aztec/circuits.js/testing';
+import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
+import {
+  GeneratorIndex,
+  L1_TO_L2_MSG_TREE_HEIGHT,
+  NOTE_HASH_TREE_HEIGHT,
+  PUBLIC_DATA_TREE_HEIGHT,
+  PUBLIC_DISPATCH_SELECTOR,
+} from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { times } from '@aztec/foundation/collection';
@@ -388,7 +392,15 @@ describe('Private Execution test suite', () => {
       const noteHashes = getNonEmptyItems(result.publicInputs.noteHashes);
       expect(noteHashes).toHaveLength(1);
       expect(noteHashes[0].value).toEqual(
-        await acirSimulator.computeNoteHash(contractAddress, newNote.storageSlot, newNote.noteTypeId, newNote.note),
+        (
+          await acirSimulator.computeNoteHashAndNullifier(
+            contractAddress,
+            Fr.ZERO,
+            newNote.storageSlot,
+            newNote.noteTypeId,
+            newNote.note,
+          )
+        ).noteHash,
       );
 
       const privateLogs = getNonEmptyItems(result.publicInputs.privateLogs);
@@ -410,7 +422,15 @@ describe('Private Execution test suite', () => {
       const noteHashes = getNonEmptyItems(result.publicInputs.noteHashes);
       expect(noteHashes).toHaveLength(1);
       expect(noteHashes[0].value).toEqual(
-        await acirSimulator.computeNoteHash(contractAddress, newNote.storageSlot, newNote.noteTypeId, newNote.note),
+        (
+          await acirSimulator.computeNoteHashAndNullifier(
+            contractAddress,
+            Fr.ZERO,
+            newNote.storageSlot,
+            newNote.noteTypeId,
+            newNote.note,
+          )
+        ).noteHash,
       );
 
       const privateLogs = getNonEmptyItems(result.publicInputs.privateLogs);
@@ -435,14 +455,7 @@ describe('Private Execution test suite', () => {
       oracle.getNotes.mockResolvedValue(notes);
 
       const consumedNotes = await asyncMap(notes, ({ nonce, note }) =>
-        acirSimulator.computeNoteHashAndOptionallyANullifier(
-          contractAddress,
-          nonce,
-          storageSlot,
-          valueNoteTypeId,
-          true,
-          note,
-        ),
+        acirSimulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, valueNoteTypeId, note),
       );
       await insertLeaves(consumedNotes.map(n => n.uniqueNoteHash));
 
@@ -474,8 +487,24 @@ describe('Private Execution test suite', () => {
       expect(noteHashes).toHaveLength(2);
       const [changeNoteHash, recipientNoteHash] = noteHashes;
       const [siloedChangeNoteHash, siloedRecipientNoteHash] = [
-        await acirSimulator.computeNoteHash(contractAddress, storageSlot, valueNoteTypeId, changeNote.note),
-        await acirSimulator.computeNoteHash(contractAddress, recipientStorageSlot, valueNoteTypeId, recipientNote.note),
+        (
+          await acirSimulator.computeNoteHashAndNullifier(
+            contractAddress,
+            Fr.ZERO,
+            storageSlot,
+            valueNoteTypeId,
+            changeNote.note,
+          )
+        ).noteHash,
+        (
+          await acirSimulator.computeNoteHashAndNullifier(
+            contractAddress,
+            Fr.ZERO,
+            recipientStorageSlot,
+            valueNoteTypeId,
+            recipientNote.note,
+          )
+        ).noteHash,
       ];
       expect(changeNoteHash.value).toEqual(siloedChangeNoteHash);
       expect(recipientNoteHash.value).toEqual(siloedRecipientNoteHash);
@@ -503,14 +532,7 @@ describe('Private Execution test suite', () => {
       oracle.getNotes.mockResolvedValue(notes);
 
       const consumedNotes = await asyncMap(notes, ({ nonce, note }) =>
-        acirSimulator.computeNoteHashAndOptionallyANullifier(
-          contractAddress,
-          nonce,
-          storageSlot,
-          valueNoteTypeId,
-          true,
-          note,
-        ),
+        acirSimulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, valueNoteTypeId, note),
       );
       await insertLeaves(consumedNotes.map(n => n.uniqueNoteHash));
 
@@ -1002,8 +1024,9 @@ describe('Private Execution test suite', () => {
         owner,
       );
 
-      const derivedNoteHash = await acirSimulator.computeNoteHash(
+      const { noteHash: derivedNoteHash } = await acirSimulator.computeNoteHashAndNullifier(
         contractAddress,
+        Fr.ZERO,
         storageSlot,
         valueNoteTypeId,
         noteAndSlot.note,
@@ -1079,8 +1102,9 @@ describe('Private Execution test suite', () => {
       const noteHashes = getNonEmptyItems(execInsert.publicInputs.noteHashes);
       expect(noteHashes).toHaveLength(1);
 
-      const derivedNoteHash = await acirSimulator.computeNoteHash(
+      const { noteHash: derivedNoteHash } = await acirSimulator.computeNoteHashAndNullifier(
         contractAddress,
+        Fr.ZERO,
         noteAndSlot.storageSlot,
         noteAndSlot.noteTypeId,
         noteAndSlot.note,

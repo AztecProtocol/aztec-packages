@@ -1,5 +1,6 @@
 import { type ContractArtifact } from '@aztec/aztec.js';
-import { type ExtendedNote, NoteStatus, type PXE, type TxHash } from '@aztec/circuit-types';
+import { type ExtendedNote, NoteStatus, type TxHash } from '@aztec/circuit-types';
+import { type PXE } from '@aztec/circuit-types/interfaces/client';
 import { type AztecAddress, type Fr } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { type LogFn } from '@aztec/foundation/log';

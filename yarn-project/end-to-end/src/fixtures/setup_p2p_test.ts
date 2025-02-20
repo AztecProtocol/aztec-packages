@@ -3,7 +3,7 @@
  */
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { type SentTx } from '@aztec/aztec.js';
-import { type PublicDataTreeLeaf } from '@aztec/circuits.js';
+import { type PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { addLogNameHandler, removeLogNameHandler } from '@aztec/foundation/log';
 import { type DateProvider } from '@aztec/foundation/timer';
 import { type PXEService } from '@aztec/pxe';

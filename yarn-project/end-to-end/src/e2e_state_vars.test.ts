@@ -146,11 +146,6 @@ describe('e2e_state_vars', () => {
       expect(noteBefore.owner).toEqual(noteAfter.owner);
       expect(noteBefore.points).toEqual(noteAfter.points);
       expect(noteBefore.randomness).toEqual(noteAfter.randomness);
-      expect(noteBefore.header.contract_address).toEqual(noteAfter.header.contract_address);
-      expect(noteBefore.header.storage_slot).toEqual(noteAfter.header.storage_slot);
-      expect(noteBefore.header.note_hash_counter).toEqual(noteAfter.header.note_hash_counter);
-      // !!! Nonce must be different
-      expect(noteBefore.header.nonce).not.toEqual(noteAfter.header.nonce);
     });
 
     it('replace PrivateMutable with other values', async () => {

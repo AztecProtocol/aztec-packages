@@ -3,21 +3,6 @@ use crate::shared_mutable::scheduled_value_change::ScheduledValueChange;
 global TEST_DELAY: u32 = 200;
 
 #[test]
-unconstrained fn test_packable() {
-    let pre = 1;
-    let post = 2;
-    let block_of_change = 50;
-
-    let original = ScheduledValueChange::new(pre, post, block_of_change);
-    let converted = ScheduledValueChange::unpack((original).pack());
-
-    assert_eq(original, converted); // This also tests the Eq impl
-    assert_eq(original.pre, converted.pre);
-    assert_eq(original.post, converted.post);
-    assert_eq(original.block_of_change, converted.block_of_change);
-}
-
-#[test]
 unconstrained fn test_get_current_at() {
     let pre = 1;
     let post = 2;

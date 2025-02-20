@@ -5,7 +5,7 @@ import {
   type SourceCodeLocation,
 } from '@aztec/circuit-types';
 import { type Fr } from '@aztec/circuits.js';
-import type { BrilligFunctionId, FunctionAbi, FunctionDebugMetadata, OpcodeLocation } from '@aztec/foundation/abi';
+import type { BrilligFunctionId, FunctionAbi, FunctionDebugMetadata, OpcodeLocation } from '@aztec/circuits.js/abi';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
 import { type RawAssertionPayload } from '@noir-lang/acvm_js';

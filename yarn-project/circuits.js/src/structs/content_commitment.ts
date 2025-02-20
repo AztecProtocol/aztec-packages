@@ -1,11 +1,10 @@
+import { CONTENT_COMMITMENT_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex } from '@aztec/foundation/string';
 
 import { z } from 'zod';
-
-import { CONTENT_COMMITMENT_LENGTH } from '../constants.gen.js';
 
 export const NUM_BYTES_PER_SHA256 = 32;
 

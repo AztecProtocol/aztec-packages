@@ -1,5 +1,7 @@
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types';
-import { type AvmCircuitInputs, AztecAddress, VerificationKeyData } from '@aztec/circuits.js';
+import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
+import { VerificationKeyData } from '@aztec/circuits.js';
+import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { PublicTxSimulationTester, type TestEnqueuedCall } from '@aztec/simulator/public/fixtures';
 import { WorldStateDB } from '@aztec/simulator/server';
 import { NativeWorldStateService } from '@aztec/world-state';
@@ -29,25 +31,17 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     worldStateDB: WorldStateDB,
     contractDataSource: SimpleContractDataSource,
     merkleTrees: MerkleTreeWriteOperations,
-    skipContractDeployments: boolean,
   ) {
-    super(worldStateDB, contractDataSource, merkleTrees, skipContractDeployments);
+    super(worldStateDB, contractDataSource, merkleTrees);
   }
 
-  static override async create(checkCircuitOnly: boolean = false, skipContractDeployments: boolean = false) {
+  static override async create(checkCircuitOnly: boolean = false) {
     const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
 
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
     const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
-    return new AvmProvingTester(
-      bbWorkingDirectory,
-      checkCircuitOnly,
-      worldStateDB,
-      contractDataSource,
-      merkleTrees,
-      skipContractDeployments,
-    );
+    return new AvmProvingTester(bbWorkingDirectory, checkCircuitOnly, worldStateDB, contractDataSource, merkleTrees);
   }
 
   async prove(avmCircuitInputs: AvmCircuitInputs): Promise<BBResult> {
@@ -117,24 +111,17 @@ export class AvmProvingTesterV2 extends PublicTxSimulationTester {
     worldStateDB: WorldStateDB,
     contractDataSource: SimpleContractDataSource,
     merkleTrees: MerkleTreeWriteOperations,
-    skipContractDeployments: boolean,
   ) {
-    super(worldStateDB, contractDataSource, merkleTrees, skipContractDeployments);
+    super(worldStateDB, contractDataSource, merkleTrees);
   }
 
-  static override async create(skipContractDeployments: boolean = false) {
+  static override async create() {
     const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
 
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
     const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
-    return new AvmProvingTesterV2(
-      bbWorkingDirectory,
-      worldStateDB,
-      contractDataSource,
-      merkleTrees,
-      skipContractDeployments,
-    );
+    return new AvmProvingTesterV2(bbWorkingDirectory, worldStateDB, contractDataSource, merkleTrees);
   }
 
   async proveV2(avmCircuitInputs: AvmCircuitInputs): Promise<BBResult> {

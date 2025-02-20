@@ -6,7 +6,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { type PeerScoring } from '../../peer-manager/peer_scoring.js';
 import { ReqRespSubProtocol, type ReqRespSubProtocolRateLimits } from '../interface.js';
-import { RequestResponseRateLimiter } from './rate_limiter.js';
+import { RateLimitStatus, RequestResponseRateLimiter } from './rate_limiter.js';
 
 class MockPeerId {
   private id: string;
@@ -57,24 +57,24 @@ describe('rate limiter', () => {
     const peerId = makePeer('peer1');
     // Expect to allow a burst of 5, then not allow
     for (let i = 0; i < 5; i++) {
-      expect(rateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(true);
+      expect(rateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(RateLimitStatus.Allowed);
     }
-    expect(rateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(false);
+    expect(rateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(RateLimitStatus.DeniedPeer);
 
     // Smooth requests
     for (let i = 0; i < 5; i++) {
       jest.advanceTimersByTime(200);
-      expect(rateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(true);
+      expect(rateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(RateLimitStatus.Allowed);
     }
-    expect(rateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(false);
+    expect(rateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(RateLimitStatus.DeniedPeer);
 
     // Reset after quota has passed
     jest.advanceTimersByTime(1000);
     // Second burst
     for (let i = 0; i < 5; i++) {
-      expect(rateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(true);
+      expect(rateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(RateLimitStatus.Allowed);
     }
-    expect(rateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(false);
+    expect(rateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(RateLimitStatus.DeniedPeer);
 
     // Spy on the peer manager and check that penalizePeer is called
     expect(peerScoring.penalizePeer).toHaveBeenCalledWith(peerId, PeerErrorSeverity.HighToleranceError);
@@ -84,34 +84,34 @@ describe('rate limiter', () => {
     // Initial burst
     const falingPeer = makePeer('nolettoinno');
     for (let i = 0; i < 10; i++) {
-      expect(rateLimiter.allow(ReqRespSubProtocol.TX, makePeer(`peer${i}`))).toBe(true);
+      expect(rateLimiter.allow(ReqRespSubProtocol.TX, makePeer(`peer${i}`))).toBe(RateLimitStatus.Allowed);
     }
-    expect(rateLimiter.allow(ReqRespSubProtocol.TX, falingPeer)).toBe(false);
+    expect(rateLimiter.allow(ReqRespSubProtocol.TX, falingPeer)).toBe(RateLimitStatus.DeniedGlobal);
 
     // Smooth requests
     for (let i = 0; i < 10; i++) {
       jest.advanceTimersByTime(100);
-      expect(rateLimiter.allow(ReqRespSubProtocol.TX, makePeer(`peer${i}`))).toBe(true);
+      expect(rateLimiter.allow(ReqRespSubProtocol.TX, makePeer(`peer${i}`))).toBe(RateLimitStatus.Allowed);
     }
-    expect(rateLimiter.allow(ReqRespSubProtocol.TX, falingPeer)).toBe(false);
+    expect(rateLimiter.allow(ReqRespSubProtocol.TX, falingPeer)).toBe(RateLimitStatus.DeniedGlobal);
 
     // Reset after quota has passed
     jest.advanceTimersByTime(1000);
     // Second burst
     for (let i = 0; i < 10; i++) {
-      expect(rateLimiter.allow(ReqRespSubProtocol.TX, makePeer(`peer${i}`))).toBe(true);
+      expect(rateLimiter.allow(ReqRespSubProtocol.TX, makePeer(`peer${i}`))).toBe(RateLimitStatus.Allowed);
     }
-    expect(rateLimiter.allow(ReqRespSubProtocol.TX, falingPeer)).toBe(false);
+    expect(rateLimiter.allow(ReqRespSubProtocol.TX, falingPeer)).toBe(RateLimitStatus.DeniedGlobal);
   });
 
   it('Should reset after quota has passed', () => {
     const peerId = makePeer('peer1');
     for (let i = 0; i < 5; i++) {
-      expect(rateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(true);
+      expect(rateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(RateLimitStatus.Allowed);
     }
-    expect(rateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(false);
+    expect(rateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(RateLimitStatus.DeniedPeer);
     jest.advanceTimersByTime(1000);
-    expect(rateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(true);
+    expect(rateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(RateLimitStatus.Allowed);
   });
 
   it('Should handle multiple protocols separately', () => {
@@ -143,22 +143,22 @@ describe('rate limiter', () => {
 
     // Protocol 1
     for (let i = 0; i < 5; i++) {
-      expect(multiProtocolRateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(true);
+      expect(multiProtocolRateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(RateLimitStatus.Allowed);
     }
-    expect(multiProtocolRateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(false);
+    expect(multiProtocolRateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(RateLimitStatus.DeniedPeer);
 
     // Protocol 2
     for (let i = 0; i < 2; i++) {
-      expect(multiProtocolRateLimiter.allow(ReqRespSubProtocol.PING, peerId)).toBe(true);
+      expect(multiProtocolRateLimiter.allow(ReqRespSubProtocol.PING, peerId)).toBe(RateLimitStatus.Allowed);
     }
-    expect(multiProtocolRateLimiter.allow(ReqRespSubProtocol.PING, peerId)).toBe(false);
+    expect(multiProtocolRateLimiter.allow(ReqRespSubProtocol.PING, peerId)).toBe(RateLimitStatus.DeniedPeer);
 
     multiProtocolRateLimiter.stop();
   });
 
   it('Should allow requests if no rate limiter is configured', () => {
     const rateLimiter = new RequestResponseRateLimiter(peerScoring, {} as ReqRespSubProtocolRateLimits);
-    expect(rateLimiter.allow(ReqRespSubProtocol.TX, makePeer('peer1'))).toBe(true);
+    expect(rateLimiter.allow(ReqRespSubProtocol.TX, makePeer('peer1'))).toBe(RateLimitStatus.Allowed);
   });
 
   it('Should smooth out spam', () => {

@@ -12,6 +12,7 @@ import type { AztecAsyncMap, AztecAsyncMultiMap } from '../interfaces/map.js';
 import type { AztecAsyncSet } from '../interfaces/set.js';
 import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
 import type { AztecAsyncKVStore } from '../interfaces/store.js';
+import { LMDBArray } from './array.js';
 import { LMDBMap, LMDBMultiMap } from './map.js';
 import {
   Database,
@@ -103,8 +104,8 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     return new LMDBSingleValue(this, name);
   }
 
-  openArray<T>(_name: string): AztecAsyncArray<T> {
-    throw new Error('Not implemented');
+  openArray<T>(name: string): AztecAsyncArray<T> {
+    return new LMDBArray(this, name);
   }
 
   openSet<K extends Key>(_name: string): AztecAsyncSet<K> {

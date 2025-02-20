@@ -100,6 +100,8 @@ export const PROVING_ORCHESTRATOR_BASE_ROLLUP_INPUTS_DURATION =
 
 export const PROVING_QUEUE_JOB_SIZE = 'aztec.proving_queue.job_size';
 export const PROVING_QUEUE_SIZE = 'aztec.proving_queue.size';
+export const PROVING_QUEUE_TOTAL_JOBS = 'aztec.proving_queue.total_jobs';
+export const PROVING_QUEUE_CACHED_JOBS = 'aztec.proving_queue.cached_jobs';
 export const PROVING_QUEUE_ACTIVE_JOBS = 'aztec.proving_queue.active_jobs';
 export const PROVING_QUEUE_RESOLVED_JOBS = 'aztec.proving_queue.resolved_jobs';
 export const PROVING_QUEUE_REJECTED_JOBS = 'aztec.proving_queue.rejected_jobs';

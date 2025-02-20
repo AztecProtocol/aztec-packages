@@ -1,4 +1,4 @@
-import { type NoirCompiledCircuit } from '@aztec/types/noir';
+import { type NoirCompiledCircuit } from '@aztec/circuits.js/noir';
 
 import BaseParityJson from '../../artifacts/parity_base.json' assert { type: 'json' };
 import RootParityJson from '../../artifacts/parity_root.json' assert { type: 'json' };

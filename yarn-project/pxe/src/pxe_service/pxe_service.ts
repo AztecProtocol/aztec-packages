@@ -1,8 +1,6 @@
 import {
   type AuthWitness,
-  type AztecNode,
   EventMetadata,
-  type EventMetadataDefinition,
   type ExtendedNote,
   type FunctionCall,
   type GetContractClassLogsResponse,
@@ -13,11 +11,6 @@ import {
   type LogFilter,
   MerkleTreeId,
   type NotesFilter,
-  type PXE,
-  type PXEInfo,
-  type PrivateExecutionResult,
-  type PrivateKernelProver,
-  type PrivateKernelSimulateOutput,
   PrivateSimulationResult,
   type PublicSimulationOutput,
   type SiblingPath,
@@ -32,19 +25,23 @@ import {
   UniqueNote,
   getNonNullifiedL1ToL2MessageWitness,
 } from '@aztec/circuit-types';
+import {
+  type AztecNode,
+  type EventMetadataDefinition,
+  type PXE,
+  type PXEInfo,
+  type PrivateExecutionResult,
+  type PrivateKernelProver,
+  type PrivateKernelSimulateOutput,
+} from '@aztec/circuit-types/interfaces/client';
 import type {
   CompleteAddress,
   ContractClassWithId,
   ContractInstanceWithAddress,
   GasFees,
-  L1_TO_L2_MSG_TREE_HEIGHT,
   NodeInfo,
   PartialAddress,
-  PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/circuits.js';
-import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/circuits.js/contract';
-import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
-import { computeAddressSecret } from '@aztec/circuits.js/keys';
 import {
   type AbiDecoded,
   type ContractArtifact,
@@ -53,7 +50,12 @@ import {
   FunctionType,
   decodeFunctionSignature,
   encodeArguments,
-} from '@aztec/foundation/abi';
+} from '@aztec/circuits.js/abi';
+import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/circuits.js/contract';
+import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
+import { PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
+import { computeAddressSecret } from '@aztec/circuits.js/keys';
+import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, type Point } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -382,12 +384,11 @@ export class PXEService implements PXE {
     }
 
     for (const nonce of nonces) {
-      const { noteHash, uniqueNoteHash, innerNullifier } = await this.simulator.computeNoteHashAndOptionallyANullifier(
+      const { noteHash, uniqueNoteHash, innerNullifier } = await this.simulator.computeNoteHashAndNullifier(
         note.contractAddress,
         nonce,
         note.storageSlot,
         note.noteTypeId,
-        true,
         note.note,
       );
 
@@ -424,50 +425,6 @@ export class PXEService implements PXE {
     }
   }
 
-  public async addNullifiedNote(note: ExtendedNote) {
-    const { data: nonces, l2BlockHash, l2BlockNumber } = await this.#getNoteNonces(note);
-    if (nonces.length === 0) {
-      throw new Error(`Cannot find the note in tx: ${note.txHash}.`);
-    }
-
-    for (const nonce of nonces) {
-      const { noteHash, uniqueNoteHash, innerNullifier } = await this.simulator.computeNoteHashAndOptionallyANullifier(
-        note.contractAddress,
-        nonce,
-        note.storageSlot,
-        note.noteTypeId,
-        false,
-        note.note,
-      );
-
-      if (!innerNullifier.equals(Fr.ZERO)) {
-        throw new Error('Unexpectedly received non-zero nullifier.');
-      }
-
-      const [index] = await this.node.findLeavesIndexes('latest', MerkleTreeId.NOTE_HASH_TREE, [uniqueNoteHash]);
-      if (index === undefined) {
-        throw new Error('Note does not exist.');
-      }
-
-      await this.db.addNullifiedNote(
-        new NoteDao(
-          note.note,
-          note.contractAddress,
-          note.storageSlot,
-          nonce,
-          noteHash,
-          Fr.ZERO, // We are not able to derive
-          note.txHash,
-          l2BlockNumber,
-          l2BlockHash,
-          index,
-          await note.owner.toAddressPoint(),
-          note.noteTypeId,
-        ),
-      );
-    }
-  }
-
   /**
    * Finds the nonce(s) for a given note.
    * @param note - The note to find the nonces for.
@@ -490,12 +447,11 @@ export class PXEService implements PXE {
       }
 
       const nonce = await computeNoteHashNonce(firstNullifier, i);
-      const { uniqueNoteHash } = await this.simulator.computeNoteHashAndOptionallyANullifier(
+      const { uniqueNoteHash } = await this.simulator.computeNoteHashAndNullifier(
         note.contractAddress,
         nonce,
         note.storageSlot,
         note.noteTypeId,
-        false,
         note.note,
       );
       if (hash.equals(uniqueNoteHash)) {
