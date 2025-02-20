@@ -218,44 +218,6 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
     }
 }
 
-comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
-    // For historical reasons we keep this function returning four fields (even though the caller should likely perform
-    // note hash siloing on their own and not trust this). The contract library method `_compute_note_hash...` is
-    // affected by this.
-    // TODO(#11638): In the future we might remove these things as we rely less and less on this function, and then
-    // change the `_compute_note_hash...` contract library method to be of type
-    // `aztec::discovery::ComputeNoteHashAndNullifier`, simplifying other macros by removing the need to create
-    // intermediate lambdas that adapt their interfaces.
-
-    if NOTES.entries().len() > 0 {
-        quote {
-            unconstrained fn compute_note_hash_and_optionally_a_nullifier(
-                contract_address: aztec::protocol_types::address::AztecAddress,
-                nonce: Field,
-                storage_slot: Field,
-                note_type_id: Field,
-                compute_nullifier: bool,
-                packed_note: BoundedVec<Field, aztec::discovery::MAX_NOTE_PACKED_LEN>,
-            ) -> pub [Field; 4] {
-                _compute_note_hash_and_optionally_a_nullifier(contract_address, nonce, storage_slot, note_type_id, compute_nullifier, packed_note)
-            }
-        }
-    } else {
-        quote {
-            unconstrained fn compute_note_hash_and_optionally_a_nullifier(
-                _contract_address: aztec::protocol_types::address::AztecAddress,
-                _nonce: Field,
-                _storage_slot: Field,
-                _note_type_id: Field,
-                _compute_nullifier: bool,
-                _packed_note: BoundedVec<Field, aztec::discovery::MAX_NOTE_PACKED_LEN>,
-            ) -> pub [Field; 4] {
-                panic(f"No notes defined")
-            }
-        }
-    }
-}
-
 comptime fn generate_process_log() -> Quoted {
     // This mandatory function processes a log emitted by the contract. This is currently used to process private logs
     // and perform note discovery of either private notes or partial notes.
@@ -292,7 +254,7 @@ comptime fn generate_process_log() -> Quoted {
                     first_nullifier_in_tx,
                     recipient,
                     |packed_note_content: BoundedVec<Field, _>, contract_address: aztec::protocol_types::address::AztecAddress, nonce: Field, storage_slot: Field, note_type_id: Field| {
-                        let hashes = _compute_note_hash_and_optionally_a_nullifier(contract_address, nonce, storage_slot, note_type_id, true, packed_note_content);
+                        let hashes = _compute_note_hash_and_nullifier(contract_address, nonce, storage_slot, note_type_id, true, packed_note_content);
 
                         Option::some(
                             aztec::discovery::NoteHashAndNullifier {
