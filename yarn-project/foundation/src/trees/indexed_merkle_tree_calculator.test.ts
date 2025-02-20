@@ -229,7 +229,7 @@ describe('indexed merkle tree root calculator', () => {
     const tree = await calculator.computeTree(values.map(a => a.toBuffer()));
 
     // Pick some value to find a low leaf for...
-    const testValue = await Fr.random();
+    const testValue = Fr.random();
     const sortedValues = [...values].sort((a, b) => Number(a.toBigInt() - b.toBigInt()));
     // ...and find its 'sandwich' values.
     const previousIndex = sortedValues.findIndex(

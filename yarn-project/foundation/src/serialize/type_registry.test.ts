@@ -31,7 +31,7 @@ describe('TypeRegistry', () => {
     expect(parsed.fr).toEqual({ type: 'Fr', value: data.fr.toString() });
   });
 
-  it('deserializes registered types in objects', async () => {
+  it('deserializes registered types in objects', () => {
     const data = {
       fr: Fr.random(),
       fq: Fq.random(),
@@ -47,7 +47,7 @@ describe('TypeRegistry', () => {
     expect(parsed.ethAddress).toBeInstanceOf(EthAddress);
   });
 
-  it('deserializes registered types in arrays', async () => {
+  it('deserializes registered types in arrays', () => {
     const data = [Fr.random(), Fq.random(), EthAddress.random()];
 
     const json = JSON.stringify(data, resolver);
