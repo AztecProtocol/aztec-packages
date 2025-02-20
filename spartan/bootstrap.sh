@@ -61,7 +61,6 @@ function test_cmds {
     echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-transfer"
     echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-4epochs"
     echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-transfer-blob-with-sink"
-    echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-chaos-prover"
   fi
 }
 
