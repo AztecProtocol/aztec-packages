@@ -29,8 +29,7 @@
     "@aztec/pxe": "link:../yarn-project/pxe",
     "@aztec/simulator": "link:../yarn-project/simulator",
     "@aztec/ethereum": "link:../yarn-project/ethereum",
-    "@aztec/protocol-contracts": "link:../yarn-project/protocol-contracts",
-    "@aztec/types": "link:../yarn-project/types"
+    "@aztec/protocol-contracts": "link:../yarn-project/protocol-contracts"
   },
   "dependencies": {
     "@iarna/toml": "^2.2.5",

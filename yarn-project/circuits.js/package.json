@@ -15,6 +15,7 @@
     "./testing": "./dest/tests/index.js",
     "./testing/fixtures": "./dest/tests/fixtures.js",
     "./interfaces": "./dest/interfaces/index.js",
+    "./network": "./dest/network/index.js",
     "./utils": "./dest/utils/index.js",
     "./types": "./dest/types/index.js",
     "./contract": "./dest/contract/index.js",

@@ -40,9 +40,6 @@
       "path": "../simulator"
     },
     {
-      "path": "../types"
-    },
-    {
       "path": "../world-state"
     }
   ],
