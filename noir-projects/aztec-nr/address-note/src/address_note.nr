@@ -8,8 +8,6 @@ use dep::aztec::{
 use aztec::protocol_types::traits::Packable;
 
 // docs:start:address_note_def
-// docs:start:address_note_struct
-// Stores an address
 #[note]
 #[derive(Eq)]
 pub struct AddressNote {
@@ -17,7 +15,6 @@ pub struct AddressNote {
     owner: AztecAddress,
     randomness: Field,
 }
-// docs:end:address_note_struct
 
 impl AddressNote {
     pub fn new(address: AztecAddress, owner: AztecAddress) -> Self {
@@ -28,5 +25,5 @@ impl AddressNote {
         let randomness = unsafe { random() };
         AddressNote { address, owner, randomness }
     }
-    // docs:end:address_note_def
 }
+// docs:end:address_note_def

@@ -8,9 +8,9 @@ It also holds `owner` and `randomness`, similar to other note types.
 
 ## AddressNote
 
-This is the AddressNote struct:
+This is the AddressNote:
 
-#include_code address_note_struct noir-projects/aztec-nr/address-note/src/address_note.nr rust
+#include_code address_note_def noir-projects/aztec-nr/address-note/src/address_note.nr rust
 
 ## Importing AddressNote
 
