@@ -3,7 +3,8 @@ title: Using Address Note in Aztec.nr
 tags: [contracts, notes]
 ---
 
-Address notes hold one main property of the type `AztecAddress`. It also holds `npk_m_hash` and `randomness`, similar to other note types.
+Address notes hold one main property of the type `AztecAddress`.
+It also holds `owner` and `randomness`, similar to other note types.
 
 ## AddressNote
 
@@ -39,5 +40,5 @@ In this example, `owner` is the `address` and the `npk_m_hash` of the donor was 
 ## Learn more
 
 - [Keys, including nullifier keys and outgoing viewer](../../../../../aztec/concepts/accounts/keys.md)
-- [How to write a custom note](./custom_note.md)
+- [How to write a custom note](./implementing_note.md)
 - [AddressNote reference](../../../../reference/smart_contract_reference/aztec-nr/address-note/address_note.md)

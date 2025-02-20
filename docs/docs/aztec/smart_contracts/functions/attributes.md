@@ -178,16 +178,14 @@ This macro inserts a check at the beginning of the function to ensure that the c
 assert(context.msg_sender() == context.this_address(), "Function can only be called internally");
 ```
 
-## Custom notes #[note]
+## Implementing notes #[note]
 
 The `#[note]` attribute is used to define custom note types in Aztec contracts. Learn more about notes [here](../../concepts/storage/index.md).
 
 When a struct is annotated with `#[note]`, the Aztec macro applies a series of transformations and generates implementations to turn it into a note that can be used in contracts to store private data.
 
-1. **NoteInterface Implementation**: The macro automatically implements most methods of the `NoteInterface` trait for the annotated struct. This includes:
+1. **NoteInterface Implementation**: The macro automatically implements the `NoteInterface`, `NoteHashing` and `Packable<N>` traits for the annotated struct. This includes:
 
-   - `pack_content` and `unpack_content`
-   - `get_header` and `set_header`
    - `get_note_type_id`
    - `compute_note_hiding_point`
    - `to_be_bytes`
