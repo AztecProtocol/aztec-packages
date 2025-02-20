@@ -16,7 +16,7 @@ on:
       - 'ci3/**'
       - '.github/**'
       - 'ci.sh'
-  # For all cases where ci files not touched. Workflow file edits won't take effect in the PR.
+  # For all cases where ci files not touched. We run additional checks for forked repository origins.
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
     paths-ignore:
@@ -59,7 +59,7 @@ jobs:
 
       - name: Fail If Draft
         if: github.event.pull_request.draft && (github.event.action != 'labeled' || github.event.label.name != 'trigger-workflow')
-        run: echo "CI is not run on drafts (unless ./ci.sh trigger-workflow is used)." && exit 1
+        run: echo "CI is not run on drafts (unless ./ci.sh trigger is used)." && exit 1
 
       - name: External Contributor Checks
         # Run only if a pull request event type and we have a forked repository origin.
@@ -77,7 +77,7 @@ jobs:
             echo "Error: External PRs can only target master, targeted: ${{ github.event.pull_request.base.ref }}."
             exit 1
           fi
-          labeled="${{ contains(github.event.pull_request.labels.*.name, 'ci-external') || contains(github.event.pull_request.labels.*.name, 'ci-external-once')}}""
+          labeled="${{contains(github.event.pull_request.labels.*.name, 'ci-external') || contains(github.event.pull_request.labels.*.name, 'ci-external-once')}}""
           if [ "$labeled" == 'false' ]; then
             echo "External PRs need the 'ci-external' or 'ci-external-once' labels to run."
             exit 1
