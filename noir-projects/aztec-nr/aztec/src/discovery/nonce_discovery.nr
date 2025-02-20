@@ -1,4 +1,4 @@
-use crate::{discovery::{MAX_NOTE_PACKED_LEN, NoteHashAndNullifier}, utils::array};
+use crate::{discovery::{ComputeNoteHashAndNullifier, MAX_NOTE_PACKED_LEN}, utils::array};
 
 use dep::protocol_types::{
     address::AztecAddress,
@@ -26,7 +26,7 @@ pub struct DiscoveredNoteInfo {
 pub unconstrained fn attempt_note_nonce_discovery<Env>(
     unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
     first_nullifier_in_tx: Field,
-    compute_note_hash_and_nullifier: unconstrained fn[Env](BoundedVec<Field, MAX_NOTE_PACKED_LEN>, Field, Field, AztecAddress, Field) -> Option<NoteHashAndNullifier>,
+    compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
     contract_address: AztecAddress,
     storage_slot: Field,
     note_type_id: Field,
