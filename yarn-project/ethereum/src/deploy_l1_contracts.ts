@@ -75,11 +75,11 @@ export type DeployL1Contracts = {
   /**
    * Wallet Client Type.
    */
-  walletClient: WalletClient<HttpTransport, Chain, Account>;
+  walletClient: L1Clients['walletClient'];
   /**
    * Public Client Type.
    */
-  publicClient: PublicClient<HttpTransport, Chain>;
+  publicClient: L1Clients['publicClient'];
   /**
    * The currently deployed l1 contract addresses
    */
@@ -214,18 +214,20 @@ export interface DeployL1ContractsArgs extends L1ContractsConfig {
  * @param rpcUrl - RPC URL to connect to L1.
  * @param mnemonicOrPrivateKeyOrHdAccount - Mnemonic or account for the wallet client.
  * @param chain - Optional chain spec (defaults to local foundry).
+ * @param addressIndex - Optional index of the address to use from the mnemonic.
  * @returns - A wallet and a public client.
  */
 export function createL1Clients(
   rpcUrl: string,
   mnemonicOrPrivateKeyOrHdAccount: string | `0x${string}` | HDAccount | PrivateKeyAccount,
   chain: Chain = foundry,
+  addressIndex?: number,
 ): L1Clients {
   const hdAccount =
     typeof mnemonicOrPrivateKeyOrHdAccount === 'string'
       ? mnemonicOrPrivateKeyOrHdAccount.startsWith('0x')
         ? privateKeyToAccount(mnemonicOrPrivateKeyOrHdAccount as `0x${string}`)
-        : mnemonicToAccount(mnemonicOrPrivateKeyOrHdAccount)
+        : mnemonicToAccount(mnemonicOrPrivateKeyOrHdAccount, { addressIndex })
       : mnemonicOrPrivateKeyOrHdAccount;
 
   // From what I can see, this is the difference between the HDAccount and the PrivateKeyAccount
@@ -254,15 +256,15 @@ export const deployRollupAndPeriphery = async (
   chain: Chain,
   account: HDAccount | PrivateKeyAccount,
   args: DeployL1ContractsArgs,
-  addresses: Pick<
-    L1ContractAddresses,
-    'registryAddress' | 'feeJuicePortalAddress' | 'rewardDistributorAddress' | 'stakingAssetAddress'
-  >,
+  registryAddress: EthAddress,
   logger: Logger,
   txUtilsConfig: L1TxUtilsConfig,
 ) => {
   const { walletClient, publicClient } = createL1Clients(rpcUrl, account, chain);
+
   const deployer = new L1Deployer(walletClient, publicClient, args.salt, logger, txUtilsConfig);
+
+  const addresses = await RegistryContract.collectAddresses(publicClient, registryAddress, 'canonical');
 
   const rollup = await deployRollup(walletClient, publicClient, deployer, args, addresses, logger);
   const payloadAddress = await deployUpgradePayload(deployer, {
