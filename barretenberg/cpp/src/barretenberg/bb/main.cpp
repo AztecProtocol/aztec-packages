@@ -16,13 +16,13 @@ const char* BB_VERSION_PLACEHOLDER = "00000000.00000000.00000000";
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1258): Improve defaults.
 
 // Helper function to recursively print active subcommands for CLI11 app debugging
-void print_active_subcommands(const CLI::App& app, const std::string& prefix = "command: ")
+void print_active_subcommands(const CLI::App& app, const std::string& prefix = "bb command: ")
 {
     // get_subcommands() returns a vector of pointers to subcommands
     for (auto subcmd : app.get_subcommands()) {
         // Check if this subcommand was activated (nonzero count)
         if (subcmd->count() > 0) {
-            info(prefix, subcmd->get_name());
+            vinfo(prefix, subcmd->get_name());
             // Recursively print any subcommands of this subcommand
             print_active_subcommands(*subcmd, prefix + "  ");
         }
