@@ -33,6 +33,8 @@ pub fn poseidon2_encrypt<let L: u32>(
     // TODO: assert(nonce < 2^128), assert(L < 2^120);
     let mut s = [0, shared_secret.x, shared_secret.y, nonce + (L as Field) * TWO_POW_128];
 
+    // We wish to compute NUM_MISSING_ELEMENTS, which is how many elements we must add as padding so
+    // that the message length becomes a multiple of 3.
     let CEIL = (L + 3 - 1) / 3; // ceil(L / 3)
     let L_UPPER_BOUND = CEIL * 3;
     let NUM_MISSING_ELEMENTS = L_UPPER_BOUND - L;
