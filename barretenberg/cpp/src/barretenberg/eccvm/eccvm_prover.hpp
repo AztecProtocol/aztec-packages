@@ -68,7 +68,7 @@ class ECCVMProver {
     ZKData zk_sumcheck_data;
 
     FF evaluation_challenge_x;
-    FF translation_batching_challenge_v; // to be rederived by the translator verifier
+    FF translation_batching_challenge_v;
 
     SumcheckOutput<Flavor> sumcheck_output;
 };

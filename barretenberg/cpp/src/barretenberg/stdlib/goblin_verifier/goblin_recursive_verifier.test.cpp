@@ -2,6 +2,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/goblin/goblin.hpp"
+#include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -41,12 +42,11 @@ class GoblinRecursiveVerifierTests : public testing::Test {
      *
      * @return ProverOutput
      */
-    ProverOutput create_goblin_prover_output()
+    ProverOutput create_goblin_prover_output(const size_t NUM_CIRCUITS = 3)
     {
         GoblinProver goblin;
 
         // Construct and accumulate multiple circuits
-        size_t NUM_CIRCUITS = 3;
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             auto circuit = construct_mock_circuit(goblin.op_queue);
             goblin.merge(circuit); // appends a recurisve merge verifier if a merge proof exists
@@ -101,6 +101,35 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
 
         ASSERT(verified);
     }
+}
+
+TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
+{
+    // Retrieves the trace blocks (each consisting of a specific gate) from the recursive verifier circuit
+    auto get_blocks = [this](size_t inner_size)
+        -> std::tuple<typename Builder::ExecutionTrace, std::shared_ptr<OuterFlavor::VerificationKey>> {
+        auto [proof, verifier_input] = create_goblin_prover_output(inner_size);
+
+        Builder builder;
+        GoblinRecursiveVerifier verifier{ &builder, verifier_input };
+        verifier.verify(proof);
+
+        info("Recursive Verifier: num gates = ", builder.num_gates);
+
+        // Construct and verify a proof for the Goblin Recursive Verifier circuit
+
+        auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
+        OuterProver prover(proving_key);
+        auto outer_verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
+        OuterVerifier outer_verifier(outer_verification_key);
+        return { builder.blocks, outer_verification_key };
+    };
+
+    auto [blocks_2, verification_key_2] = get_blocks(2);
+    auto [blocks_4, verification_key_4] = get_blocks(4);
+
+    compare_ultra_blocks_and_verification_keys<OuterFlavor>({ blocks_2, blocks_4 },
+                                                            { verification_key_2, verification_key_4 });
 }
 
 /**

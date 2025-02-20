@@ -19,10 +19,8 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof&
                                             verification_keys.translator_verification_key,
                                             eccvm_verifier.transcript };
 
-    auto evaluation_challenge_x = TranslatorBF::from_witness(builder, proof.evaluation_challenge_x);
-    auto batching_challenge_v = TranslatorBF::from_witness(builder, proof.batching_challenge_v);
-
-    translator_verifier.verify_proof(proof.translator_proof, evaluation_challenge_x, batching_challenge_v);
+    translator_verifier.verify_proof(
+        proof.translator_proof, eccvm_verifier.evaluation_challenge_x, eccvm_verifier.batching_challenge_v);
 
     // Verify the consistency between the ECCVM and Translator transcript polynomial evaluations
     // In reality the Goblin Proof is going to already be a stdlib proof and this conversion is not going to happen here
