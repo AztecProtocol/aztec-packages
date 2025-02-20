@@ -64,13 +64,13 @@ impl Alias {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub(crate) struct AssemblyLabel {
+pub(crate) struct Label {
     inner: String,
 }
 
-impl AssemblyLabel {
+impl Label {
     fn new(inner: String) -> Self {
-        AssemblyLabel { inner }
+        Label { inner }
     }
 }
 
@@ -79,7 +79,7 @@ pub(crate) enum Symbol {
     Direct(usize),
     Indirect(usize),
     Reserved(usize),
-    Label(AssemblyLabel),
+    Label(Label),
 }
 
 #[derive(Debug, Clone)]
@@ -93,7 +93,7 @@ pub(crate) struct ParsedOpcode {
     pub(crate) alias: Alias,
     pub(crate) operands: Vec<Operand>,
     pub(crate) tag: Option<AvmTypeTag>,
-    pub(crate) label: Option<AssemblyLabel>,
+    pub(crate) label: Option<Label>,
 }
 
 pub(crate) type Assembly = Vec<ParsedOpcode>;
@@ -120,7 +120,7 @@ pub(crate) fn parse(assembly: &str) -> Result<Assembly, String> {
                 return Err(format!("Line `{}` is invalid", line));
             };
 
-            let label = caps.name("label").map(|m| AssemblyLabel::new(m.as_str().to_string()));
+            let label = caps.name("label").map(|m| Label::new(m.as_str().to_string()));
 
             let alias = Alias::lookup(
                 caps.name("alias")
@@ -163,7 +163,7 @@ fn parse_operands(operands: &str) -> Result<Vec<Operand>, String> {
             } else if let Some(immediate) = caps.name("immediate") {
                 Ok(Operand::Immediate(immediate.as_str().parse().unwrap()))
             } else if let Some(label) = caps.name("label") {
-                Ok(Operand::Symbol(Symbol::Label(AssemblyLabel::new(label.as_str().to_string()))))
+                Ok(Operand::Symbol(Symbol::Label(Label::new(label.as_str().to_string()))))
             } else {
                 unreachable!("Regex should have matched one of the groups")
             }

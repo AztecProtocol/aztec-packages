@@ -10,22 +10,22 @@ use crate::{
 use fxhash::FxHashMap as HashMap;
 use operand_collector::OperandCollector;
 
-use super::parser::{Alias, Assembly, AssemblyLabel, ParsedOpcode};
+use super::parser::{Alias, Assembly, Label, ParsedOpcode};
 
 pub(crate) use operand_collector::SCRATCH_SPACE_START;
 
 pub(crate) struct CompiledProcedure {
     pub instructions: Vec<AvmInstruction>,
     // Map of instruction label to local avm pc
-    pub locations: HashMap<AssemblyLabel, usize>,
+    pub locations: HashMap<Label, usize>,
     // Map of instruction index to jumped to label
-    pub unresolved_jumps: HashMap<usize, AssemblyLabel>,
+    pub unresolved_jumps: HashMap<usize, Label>,
 
     pub instructions_size: usize,
 }
 
 impl CompiledProcedure {
-    fn add_instruction(&mut self, instruction: AvmInstruction, label: Option<AssemblyLabel>) {
+    fn add_instruction(&mut self, instruction: AvmInstruction, label: Option<Label>) {
         if let Some(label) = label {
             self.locations.insert(label, self.instructions_size);
         }
@@ -33,7 +33,7 @@ impl CompiledProcedure {
         self.instructions.push(instruction);
     }
 
-    fn add_unresolved_jump(&mut self, target: AssemblyLabel) {
+    fn add_unresolved_jump(&mut self, target: Label) {
         self.unresolved_jumps.insert(self.instructions.len(), target);
     }
 }
@@ -279,7 +279,7 @@ fn compile_opcode(
 
 fn compile_binary_instruction(
     alias: Alias,
-    label: Option<AssemblyLabel>,
+    label: Option<Label>,
     mut collector: OperandCollector,
     result: &mut CompiledProcedure,
 ) -> Result<(), String> {

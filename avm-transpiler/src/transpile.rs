@@ -13,7 +13,7 @@ use crate::bit_traits::{bits_needed_for, BitsQueryable};
 use crate::instructions::{AddressingModeBuilder, AvmInstruction, AvmOperand, AvmTypeTag};
 use crate::opcodes::AvmOpcode;
 use crate::procedures::{
-    compile_procedure, AssemblyLabel as ProcedureLocalLabel, Procedure, SCRATCH_SPACE_START,
+    compile_procedure, Label as ProcedureLocalLabel, Procedure, SCRATCH_SPACE_START,
 };
 use crate::utils::{dbg_print_avm_program, dbg_print_brillig_program, make_operand};
 

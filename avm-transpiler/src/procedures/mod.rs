@@ -3,7 +3,7 @@ use msm::MSM_ASSEMBLY;
 use parser::parse;
 
 pub(crate) use compiler::SCRATCH_SPACE_START;
-pub(crate) use parser::AssemblyLabel;
+pub(crate) use parser::Label;
 
 mod compiler;
 mod msm;
