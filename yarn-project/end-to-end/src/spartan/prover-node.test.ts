@@ -18,26 +18,20 @@ const logger = createLogger('e2e:spartan-test:prover-node');
  * This would be the prover node coming back online and starting the proving process over.
  * Because the proving jobs are cached their results will be available immediately.
  *
- * The system naturally has some duplicate proving jobs. These are handled automatically by the broker and no work is
- * wasted (e.g. a block wiht no L1 to L2 messages would enqueue four identical empty base parity proofs.)
- *
- * We'll target specifically the base rollup proofs to check that everything works correctly. The base rollups take
- * unique inputs for each txs so jobs will only get cached after crash recovery.
- * We could also use the tube proof for this, but in a simulated network, all tube proof jobs take the same input proof: the empty private kernel proof.
+ * We'll wait for an epoch to be partially proven (at least one BLOCK_ROOT_ROLLUP has been submitted) so that the next time the prover starts it'll hit the cache.
  */
-const PROOF_TYPE = '"PUBLIC_BASE_ROLLUP"'; // note: double quotes!
 const interval = '1m';
-const cachedBaseRollupJobs = {
-  alert: 'CachedBaseRollupRate',
-  expr: `rate(aztec_proving_queue_cached_jobs{aztec_proving_job_type=${PROOF_TYPE}}[${interval}])>0`,
+const cachedProvingJobs = {
+  alert: 'CachedProvingJobRate',
+  expr: `increase(sum(last_over_time(aztec_proving_queue_cached_jobs[${interval}]) or vector(0))[${interval}:])`,
   labels: { severity: 'error' },
   for: interval,
   annotations: {},
 };
 
-const newBaseRollupJobs: AlertConfig = {
-  alert: 'NewBaseRollupJobs',
-  expr: `rate(aztec_proving_queue_total_jobs{aztec_proving_job_type=${PROOF_TYPE}}[${interval}])>0`,
+const completedProvingJobs: AlertConfig = {
+  alert: 'ResolvedProvingJobRate',
+  expr: `rate(aztec_proving_queue_total_jobs{aztec_proving_job_type=~"BLOCK_ROOT_ROLLUP|SINGLE_TX_BLOCK_ROOT_ROLLUP"}[${interval}])>0`,
   labels: { severity: 'error' },
   for: interval,
   annotations: {},
@@ -61,23 +55,23 @@ describe('prover node recovery', () => {
   });
 
   it('should start proving', async () => {
-    logger.info(`Waiting for base rollups to be submitted`);
+    logger.info(`Waiting for epoch to be partially proven`);
 
     // use the alert checker to wait until grafana picks up a proof has started
     await retryUntil(
       async () => {
         try {
-          await runAlertCheck(config, [newBaseRollupJobs], logger);
+          await runAlertCheck(config, [completedProvingJobs], logger);
         } catch (err) {
           return err && err instanceof AlertTriggeredError;
         }
       },
-      'wait for base rollups',
+      'wait for proofs',
       600,
       5,
     );
 
-    logger.info(`Detected base rollups. Killing the prover node`);
+    logger.info(`Detected partial epoch proven. Killing the prover node`);
 
     await applyProverKill({
       namespace: config.NAMESPACE,
@@ -85,10 +79,24 @@ describe('prover node recovery', () => {
       logger,
     });
 
-    // give the node a chance to come back online
-    await sleep(60_000);
+    // wait for the node to start proving again and
+    // validate it hits the cache
+    const result = await retryUntil(
+      async () => {
+        try {
+          await runAlertCheck(config, [cachedProvingJobs], logger);
+        } catch (err) {
+          if (err && err instanceof AlertTriggeredError) {
+            return true;
+          }
+        }
+        return false;
+      },
+      'wait for cached proving jobs',
+      600,
+      5,
+    );
 
-    // assert that jobs have been cached
-    await expect(runAlertCheck(config, [cachedBaseRollupJobs], logger)).rejects.toBeInstanceOf(AlertTriggeredError);
+    expect(result).toBeTrue();
   }, 1_800_000);
 });

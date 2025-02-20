@@ -61,6 +61,7 @@ function test_cmds {
     echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-transfer"
     echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-4epochs"
     echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-transfer-blob-with-sink"
+    echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-chaos-prover"
   fi
 }
 
@@ -121,6 +122,10 @@ case "$cmd" in
     ;;
   "test-kind-transfer-blob-with-sink")
     OVERRIDES="blobSink.enabled=true" ./bootstrap.sh test-kind-transfer
+    ;;
+  "test-kind-chaos-prover")
+    chaos-mesh/install.sh
+    OVERRIDES="proverAgent.testDelayMs=1000" NAMESPACE=chaos-prover FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=true ./scripts/test_kind.sh src/spartan/prover-node.test.ts ci.yaml
     ;;
   "test-local")
     # Isolate network stack in docker.
