@@ -250,7 +250,7 @@ cycle_group<Builder> cycle_group<Builder>::dbl() const
     cycle_group result(witness_t(context, x3), witness_t(context, y3), is_point_at_infinity());
     context->create_ecc_dbl_gate(bb::ecc_dbl_gate_<FF>{
         .x1 = x.get_witness_index(),
-        .y1 = modified_y.normalize().get_witness_index(),
+        .y1 = modified_y.get_normalized_witness_index(),
         .x3 = result.x.get_witness_index(),
         .y3 = result.y.get_witness_index(),
     });
@@ -919,7 +919,7 @@ cycle_group<Builder>::straus_scalar_slice::straus_scalar_slice(Builder* context,
         }
         if constexpr (IS_ULTRA) {
             const auto slice_indices =
-                context->decompose_into_default_range(scalar.normalize().get_witness_index(),
+                context->decompose_into_default_range(scalar.get_normalized_witness_index(),
                                                       num_bits,
                                                       table_bits,
                                                       "straus_scalar_slice decompose_into_default_range");
