@@ -1,8 +1,5 @@
 use dep::aztec::{macros::notes::note, protocol_types::{address::AztecAddress, traits::Serialize}};
 
-// TODO(#12008): Remove the need for the manual import of `Packable` trait here. This is a bug in macros.
-use aztec::protocol_types::traits::Packable;
-
 // docs:start:state_vars-CardNote
 // We derive the Serialize trait because this struct is returned from a contract function. When returned,
 // the struct is serialized using the Serialize trait and added to a hasher via the `add_to_hasher` utility.

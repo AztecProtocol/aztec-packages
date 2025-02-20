@@ -1,8 +1,5 @@
 use aztec::{macros::notes::partial_note, oracle::random::random, prelude::AztecAddress};
 
-// TODO(#12008): Remove the need for the manual import of `Packable` trait here. This is a bug in macros.
-use aztec::protocol_types::traits::Packable;
-
 // docs:start:nft_note
 #[partial_note(quote { token_id})]
 #[derive(Eq)]
