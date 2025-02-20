@@ -190,14 +190,15 @@ export class PeerManager {
   private discover() {
     const connections = this.libP2PNode.getConnections();
 
-    const healthyConnections = this.pruneUnhealthyPeers(connections);
+    const uniqueConnections = this.pruneDuplicatePeers(connections);
+    const healthyConnections = this.pruneUnhealthyPeers(uniqueConnections);
 
     // Calculate how many connections we're looking to make
     const peersToConnect = this.config.maxPeerCount - healthyConnections.length;
 
     const logLevel = this.heartbeatCounter % this.displayPeerCountsPeerHeartbeat === 0 ? 'info' : 'debug';
-    this.logger[logLevel](`Connected to ${connections.length} peers`, {
-      connections: connections.length,
+    this.logger[logLevel](`Connected to ${healthyConnections.length} peers`, {
+      connections: healthyConnections.length,
       maxPeerCount: this.config.maxPeerCount,
       cachedPeers: this.cachedPeers.size,
       ...this.peerScoring.getStats(),
@@ -266,6 +267,49 @@ export class PeerManager {
     }
 
     return connectedHealthyPeers;
+  }
+
+  /**
+   * If multiple connections to the same peer are found, the oldest connection is kept and the duplicates are pruned.
+   *
+   * This is necessary to resolve a race condition where multiple connections to the same peer are established if
+   * they are discovered at the same time.
+   *
+   * @param connections - The list of connections to prune duplicate peers from.
+   * @returns The pruned list of connections.
+   */
+  private pruneDuplicatePeers(connections: Connection[]): Connection[] {
+    const peerConnections = new Map<string, Connection[]>();
+
+    for (const conn of connections) {
+      const peerId = conn.remotePeer.toString();
+      const existingConns = peerConnections.get(peerId) || [];
+      existingConns.push(conn);
+      peerConnections.set(peerId, existingConns);
+    }
+
+    // Keep the oldest connection for each peer
+    const uniqueConnections: Connection[] = [];
+    for (const [peerId, conns] of peerConnections.entries()) {
+      if (conns.length > 1) {
+        const sortedConns = [...conns].sort((a, b) => a.timeline.open - b.timeline.open);
+        const [conn, ...duplicates] = sortedConns;
+
+        this.logger.debug(
+          `Found ${duplicates.length} duplicate connection(s) to peer ${peerId}, keeping oldest connection`,
+        );
+
+        for (const conn of duplicates) {
+          void conn.close();
+        }
+
+        uniqueConnections.push(conn);
+      } else {
+        uniqueConnections.push(conns[0]);
+      }
+    }
+
+    return uniqueConnections;
   }
 
   private async goodbyeAndDisconnectPeer(peer: PeerId, reason: GoodByeReason) {
