@@ -10,7 +10,7 @@ import {
   deriveKeys,
 } from '@aztec/aztec.js';
 import { GasSettings, TxContext, computePartialAddress } from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
 import { CrowdfundingContract } from '@aztec/noir-contracts.js/Crowdfunding';
 import { InclusionProofsContract } from '@aztec/noir-contracts.js/InclusionProofs';
@@ -128,19 +128,17 @@ describe('e2e_crowdfunding_and_claim', () => {
   // Processes unique note such that it can be passed to a claim function of Claim contract
   const processUniqueNote = (uniqueNote: UniqueNote) => {
     return {
-      header: {
-        // eslint-disable-next-line camelcase
-        contract_address: uniqueNote.contractAddress,
-        // eslint-disable-next-line camelcase
-        storage_slot: uniqueNote.storageSlot,
-        // eslint-disable-next-line camelcase
-        note_hash_counter: 0, // set as 0 as note is not transient
-        nonce: uniqueNote.nonce,
+      note: {
+        value: uniqueNote.note.items[0].toBigInt(), // We convert to bigint as Fr is not serializable to U128
+        owner: AztecAddress.fromField(uniqueNote.note.items[1]),
+        randomness: uniqueNote.note.items[2],
       },
-      value: uniqueNote.note.items[0].toBigInt(), // We convert to bigint as Fr is not serializable to U128
       // eslint-disable-next-line camelcase
-      owner: AztecAddress.fromField(uniqueNote.note.items[1]),
-      randomness: uniqueNote.note.items[2],
+      contract_address: uniqueNote.contractAddress,
+      // eslint-disable-next-line camelcase
+      nonce: uniqueNote.nonce,
+      // eslint-disable-next-line camelcase
+      note_hash_counter: 0, // set as 0 as note is not transient
     };
   };
 
@@ -332,6 +330,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       entrypointHashedValues.hash,
       new TxContext(donorWallets[1].getChainId(), donorWallets[1].getVersion(), GasSettings.default({ maxFeesPerGas })),
       [entrypointHashedValues],
+      [],
       [],
     );
     // NB: Removing the msg_sender assertion from private_init will still result in a throw, as we are using

@@ -1,4 +1,5 @@
-import type { BlockAttestation, BlockProposal, Gossipable, PeerInfo, TxHash } from '@aztec/circuit-types';
+import type { BlockAttestation, BlockProposal, Gossipable, TxHash } from '@aztec/circuit-types';
+import type { PeerInfo } from '@aztec/circuit-types/interfaces/server';
 
 import type { PeerId } from '@libp2p/interface';
 import EventEmitter from 'events';
@@ -88,6 +89,8 @@ export class DummyP2PService implements P2PService {
  */
 export class DummyPeerDiscoveryService extends EventEmitter implements PeerDiscoveryService {
   private currentState = PeerDiscoveryState.STOPPED;
+  public bootstrapNodes: string[] = [];
+
   /**
    * Starts the dummy implementation.
    * @returns A resolved promise.

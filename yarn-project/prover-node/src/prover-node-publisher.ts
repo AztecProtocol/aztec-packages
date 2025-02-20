@@ -1,6 +1,7 @@
 import { type L1PublishProofStats } from '@aztec/circuit-types/stats';
-import { AGGREGATION_OBJECT_LENGTH, AZTEC_MAX_EPOCH_DURATION, type Proof } from '@aztec/circuits.js';
+import { type Proof } from '@aztec/circuits.js';
 import { type FeeRecipient, type RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
+import { AGGREGATION_OBJECT_LENGTH, AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
 import { type L1TxUtils, type RollupContract } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
 import { areArraysEqual, times } from '@aztec/foundation/collection';
@@ -83,10 +84,6 @@ export class ProverNodePublisher {
 
   public getSenderAddress() {
     return EthAddress.fromString(this.l1TxUtils.getSenderAddress());
-  }
-
-  public getProofClaim() {
-    return this.rollupContract.getProofClaim();
   }
 
   public async submitEpochProof(args: {
@@ -205,11 +202,12 @@ export class ProverNodePublisher {
 
     const txArgs = [
       {
-        epochSize: argsArray[0],
-        args: argsArray[1],
-        fees: argsArray[2],
-        blobPublicInputs: argsArray[3],
-        aggregationObject: argsArray[4],
+        start: argsArray[0],
+        end: argsArray[1],
+        args: argsArray[2],
+        fees: argsArray[3],
+        blobPublicInputs: argsArray[4],
+        aggregationObject: argsArray[5],
         proof: proofHex,
       },
     ] as const;
@@ -252,7 +250,8 @@ export class ProverNodePublisher {
     proof: Proof;
   }) {
     return [
-      BigInt(args.toBlock - args.fromBlock + 1),
+      BigInt(args.fromBlock),
+      BigInt(args.toBlock),
       [
         args.publicInputs.previousArchive.root.toString(),
         args.publicInputs.endArchive.root.toString(),

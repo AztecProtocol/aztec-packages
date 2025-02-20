@@ -6,8 +6,8 @@ pub unconstrained fn setup(
 ) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress) {
     // Setup env, generate keys
     let mut env = TestEnvironment::new();
-    let owner = env.create_account();
-    let sender = env.create_account();
+    let owner = env.create_account(1);
+    let sender = env.create_account(2);
     env.impersonate(owner);
     // Deploy contract and initialize
     let initializer = Counter::interface().initialize(initial_value as u64, owner);

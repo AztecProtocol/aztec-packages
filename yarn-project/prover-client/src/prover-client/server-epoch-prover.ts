@@ -1,4 +1,5 @@
-import { type EpochProver, type L2Block, type ProcessedTx, type Tx } from '@aztec/circuit-types';
+import { type L2Block, type ProcessedTx, type Tx } from '@aztec/circuit-types';
+import { type EpochProver } from '@aztec/circuit-types/interfaces/server';
 import { type BlockHeader, type Fr, type GlobalVariables, type Proof } from '@aztec/circuits.js';
 import { type RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 

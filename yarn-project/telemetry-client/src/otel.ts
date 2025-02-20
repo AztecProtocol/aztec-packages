@@ -287,7 +287,7 @@ export class OpenTelemetryClient implements TelemetryClient {
 
   public static createAndStart(config: TelemetryClientConfig, log: Logger): OpenTelemetryClient {
     const resource = getOtelResource();
-    const factory = config.useGcloudObservability
+    const factory = config.useGcloudMetrics
       ? OpenTelemetryClient.getGcloudClientFactory(config)
       : OpenTelemetryClient.getCustomClientFactory(config);
 

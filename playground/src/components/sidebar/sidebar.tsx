@@ -2,10 +2,16 @@ import { css } from "@emotion/react";
 import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import FormControl from "@mui/material/FormControl";
-import Select, { SelectChangeEvent } from "@mui/material/Select";
+import Select, { type SelectChangeEvent } from "@mui/material/Select";
 import { AztecEnv, AztecContext, WebLogger } from "../../aztecEnv";
 import { createStore } from "@aztec/kv-store/indexeddb";
-import { AccountWalletWithSecretKey, Fr, AztecAddress } from "@aztec/aztec.js";
+import {
+  AccountWalletWithSecretKey,
+  Fr,
+  AztecAddress,
+  AccountManager,
+} from "@aztec/aztec.js";
+import { getInitialTestAccounts } from "@aztec/accounts/testing";
 import { NetworkDB, WalletDB } from "../../utils/storage";
 import { useContext, useEffect, useState } from "react";
 import { CreateAccountDialog } from "./components/createAccountDialog";
@@ -87,6 +93,37 @@ export function SidebarComponent() {
   const getAccountsAndSenders = async () => {
     const aliasedBuffers = await walletDB.listAliases("accounts");
     const aliasedAccounts = parseAliasedBuffersAsString(aliasedBuffers);
+    const testAccountData = await getInitialTestAccounts();
+    let i = 0;
+    for (const accountData of testAccountData) {
+      const account: AccountManager = await getSchnorrAccount(
+        pxe,
+        accountData.secret,
+        accountData.signingKey,
+        accountData.salt
+      );
+      if (
+        !aliasedAccounts.find(({ value }) =>
+          account.getAddress().equals(AztecAddress.fromString(value))
+        )
+      ) {
+        await account.register();
+        const instance = account.getInstance();
+        const wallet = await account.getWallet();
+        const alias = `test${i}`;
+        await walletDB.storeAccount(instance.address, {
+          type: "schnorr",
+          secretKey: wallet.getSecretKey(),
+          alias,
+          salt: account.getInstance().salt,
+        });
+        aliasedAccounts.push({
+          key: `accounts:${alias}`,
+          value: instance.address.toString(),
+        });
+      }
+      i++;
+    }
     const pxeAccounts = await pxe.getRegisteredAccounts();
     const ourAccounts = [];
     const senders = [];

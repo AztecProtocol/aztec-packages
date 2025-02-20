@@ -1,3 +1,4 @@
+import { type Hasher } from '@aztec/circuits.js/interfaces';
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
@@ -8,7 +9,6 @@ import {
   serializeArrayOfBufferableToVector,
 } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
-import { type Hasher } from '@aztec/types/interfaces';
 
 /**
  * Contains functionality to compute and serialize/deserialize a sibling path.

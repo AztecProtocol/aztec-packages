@@ -1,4 +1,5 @@
 import {
+  type GetProvingJobResponse,
   type ProofUri,
   type ProvingJob,
   type ProvingJobConsumer,
@@ -8,10 +9,10 @@ import {
   type ProvingJobSettledResult,
   type ProvingJobStatus,
   ProvingRequestType,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
 import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
-import { PriorityMemoryQueue, SerialQueue } from '@aztec/foundation/queue';
+import { PriorityMemoryQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
 import {
   type TelemetryClient,
@@ -109,7 +110,6 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
   private epochHeight = 0;
   private maxEpochsToKeepResultsFor = 1;
 
-  private requestQueue: SerialQueue = new SerialQueue();
   private started = false;
 
   public constructor(
@@ -172,8 +172,6 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
 
     this.cleanupPromise.start();
 
-    this.requestQueue.start();
-
     this.instrumentation.monitorQueueDepth(this.measureQueueDepth);
     this.instrumentation.monitorActiveJobs(this.countActiveJobs);
 
@@ -185,36 +183,44 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
       this.logger.warn('ProvingBroker not started');
       return Promise.resolve();
     }
-    await this.requestQueue.cancel();
     await this.cleanupPromise.stop();
   }
 
   public enqueueProvingJob(job: ProvingJob): Promise<ProvingJobStatus> {
-    return this.requestQueue.put(() => this.#enqueueProvingJob(job));
+    return this.#enqueueProvingJob(job);
   }
 
   public cancelProvingJob(id: ProvingJobId): Promise<void> {
-    return this.requestQueue.put(() => this.#cancelProvingJob(id));
+    return this.#cancelProvingJob(id);
   }
 
   public getProvingJobStatus(id: ProvingJobId): Promise<ProvingJobStatus> {
-    return this.requestQueue.put(() => this.#getProvingJobStatus(id));
+    return Promise.resolve(this.#getProvingJobStatus(id));
   }
 
   public getCompletedJobs(ids: ProvingJobId[]): Promise<ProvingJobId[]> {
-    return this.requestQueue.put(() => this.#getCompletedJobs(ids));
+    return this.#getCompletedJobs(ids);
   }
 
-  public getProvingJob(filter?: ProvingJobFilter): Promise<{ job: ProvingJob; time: number } | undefined> {
-    return this.requestQueue.put(() => this.#getProvingJob(filter));
+  public getProvingJob(filter?: ProvingJobFilter): Promise<GetProvingJobResponse | undefined> {
+    return Promise.resolve(this.#getProvingJob(filter));
   }
 
-  public reportProvingJobSuccess(id: ProvingJobId, value: ProofUri): Promise<void> {
-    return this.requestQueue.put(() => this.#reportProvingJobSuccess(id, value));
+  public reportProvingJobSuccess(
+    id: ProvingJobId,
+    value: ProofUri,
+    filter?: ProvingJobFilter,
+  ): Promise<GetProvingJobResponse | undefined> {
+    return this.#reportProvingJobSuccess(id, value, filter);
   }
 
-  public reportProvingJobError(id: ProvingJobId, err: string, retry = false): Promise<void> {
-    return this.requestQueue.put(() => this.#reportProvingJobError(id, err, retry));
+  public reportProvingJobError(
+    id: ProvingJobId,
+    err: string,
+    retry = false,
+    filter?: ProvingJobFilter,
+  ): Promise<GetProvingJobResponse | undefined> {
+    return this.#reportProvingJobError(id, err, retry, filter);
   }
 
   public reportProvingJobProgress(
@@ -222,18 +228,19 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     startedAt: number,
     filter?: ProvingJobFilter,
   ): Promise<{ job: ProvingJob; time: number } | undefined> {
-    return this.requestQueue.put(() => this.#reportProvingJobProgress(id, startedAt, filter));
+    return Promise.resolve(this.#reportProvingJobProgress(id, startedAt, filter));
   }
 
   async #enqueueProvingJob(job: ProvingJob): Promise<ProvingJobStatus> {
     // We return the job status at the start of this call
-    const jobStatus = await this.#getProvingJobStatus(job.id);
+    const jobStatus = this.#getProvingJobStatus(job.id);
     if (this.jobsCache.has(job.id)) {
       const existing = this.jobsCache.get(job.id);
       assert.deepStrictEqual(job, existing, 'Duplicate proving job ID');
-      this.logger.debug(`Duplicate proving job id=${job.id} epochNumber=${job.epochNumber}. Ignoring`, {
+      this.logger.warn(`Cached proving job id=${job.id} epochNumber=${job.epochNumber}. Not enqueuing again`, {
         provingJobId: job.id,
       });
+      this.instrumentation.incCachedJobs(job.type);
       return jobStatus;
     }
 
@@ -250,6 +257,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
       this.jobsCache.set(job.id, job);
       await this.database.addProvingJob(job);
       this.enqueueJobInternal(job);
+      this.instrumentation.incTotalJobs(job.type);
     } catch (err) {
       this.logger.error(`Failed to save proving job id=${job.id}: ${err}`, err, { provingJobId: job.id });
       this.jobsCache.delete(job.id);
@@ -281,19 +289,19 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     }
   }
 
-  #getProvingJobStatus(id: ProvingJobId): Promise<ProvingJobStatus> {
+  #getProvingJobStatus(id: ProvingJobId): ProvingJobStatus {
     const result = this.resultsCache.get(id);
     if (result) {
-      return Promise.resolve(result);
+      return result;
     } else {
       // no result yet, check if we know the item
       const item = this.jobsCache.get(id);
 
       if (!item) {
-        return Promise.resolve({ status: 'not-found' });
+        return { status: 'not-found' };
       }
 
-      return Promise.resolve({ status: this.inProgress.has(id) ? 'in-progress' : 'in-queue' });
+      return { status: this.inProgress.has(id) ? 'in-progress' : 'in-queue' };
     }
   }
 
@@ -305,9 +313,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
   }
 
   // eslint-disable-next-line require-await
-  async #getProvingJob(
-    filter: ProvingJobFilter = { allowList: [] },
-  ): Promise<{ job: ProvingJob; time: number } | undefined> {
+  #getProvingJob(filter: ProvingJobFilter = { allowList: [] }): { job: ProvingJob; time: number } | undefined {
     const allowedProofs: ProvingRequestType[] =
       Array.isArray(filter.allowList) && filter.allowList.length > 0
         ? [...filter.allowList]
@@ -343,7 +349,12 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     return undefined;
   }
 
-  async #reportProvingJobError(id: ProvingJobId, err: string, retry = false): Promise<void> {
+  async #reportProvingJobError(
+    id: ProvingJobId,
+    err: string,
+    retry = false,
+    filter?: ProvingJobFilter,
+  ): Promise<GetProvingJobResponse | undefined> {
     const info = this.inProgress.get(id);
     const item = this.jobsCache.get(id);
     const retries = this.retries.get(id) ?? 0;
@@ -365,7 +376,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
       this.logger.warn(`Proving job id=${id} is already settled, ignoring err=${err}`, {
         provingJobId: id,
       });
-      return;
+      return this.#getProvingJob(filter);
     }
 
     if (retry && retries + 1 < this.maxRetries && !this.isJobStale(item)) {
@@ -375,10 +386,16 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
           provingJobId: id,
         },
       );
+
+      // assign another job to this agent
+      // do this first, before we put the failed job back in the queue
+      const maybeAnotherJob = this.#getProvingJob(filter);
+
       this.retries.set(id, retries + 1);
       this.enqueueJobInternal(item);
       this.instrumentation.incRetriedJobs(item.type);
-      return;
+
+      return maybeAnotherJob;
     }
 
     this.logger.info(
@@ -412,22 +429,24 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
 
       throw saveErr;
     }
+
+    return this.#getProvingJob(filter);
   }
 
   #reportProvingJobProgress(
     id: ProvingJobId,
     startedAt: number,
     filter?: ProvingJobFilter,
-  ): Promise<{ job: ProvingJob; time: number } | undefined> {
+  ): { job: ProvingJob; time: number } | undefined {
     const job = this.jobsCache.get(id);
     if (!job) {
       this.logger.warn(`Proving job id=${id} does not exist`, { provingJobId: id });
-      return filter ? this.#getProvingJob(filter) : Promise.resolve(undefined);
+      return this.#getProvingJob(filter);
     }
 
     if (this.resultsCache.has(id)) {
       this.logger.warn(`Proving job id=${id} has already been completed`, { provingJobId: id });
-      return filter ? this.#getProvingJob(filter) : Promise.resolve(undefined);
+      return this.#getProvingJob(filter);
     }
 
     const metadata = this.inProgress.get(id);
@@ -445,7 +464,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
         startedAt,
         lastUpdatedAt: this.msTimeSource(),
       });
-      return Promise.resolve(undefined);
+      return undefined;
     } else if (startedAt <= metadata.startedAt) {
       if (startedAt < metadata.startedAt) {
         this.logger.info(
@@ -457,21 +476,24 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
       }
       metadata.startedAt = startedAt;
       metadata.lastUpdatedAt = now;
-      return Promise.resolve(undefined);
-    } else if (filter) {
-      this.logger.warn(
-        `Proving job id=${id} type=${
-          ProvingRequestType[job.type]
-        } already being worked on by another agent. Sending new one`,
-        { provingJobId: id },
-      );
-      return this.#getProvingJob(filter);
-    } else {
-      return Promise.resolve(undefined);
+      return undefined;
     }
+
+    this.logger.warn(
+      `Proving job id=${id} type=${
+        ProvingRequestType[job.type]
+      } already being worked on by another agent. Sending new one`,
+      { provingJobId: id },
+    );
+
+    return this.#getProvingJob(filter);
   }
 
-  async #reportProvingJobSuccess(id: ProvingJobId, value: ProofUri): Promise<void> {
+  async #reportProvingJobSuccess(
+    id: ProvingJobId,
+    value: ProofUri,
+    filter?: ProvingJobFilter,
+  ): Promise<GetProvingJobResponse | undefined> {
     const info = this.inProgress.get(id);
     const item = this.jobsCache.get(id);
     const retries = this.retries.get(id) ?? 0;
@@ -521,6 +543,8 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
 
       throw saveErr;
     }
+
+    return this.#getProvingJob(filter);
   }
 
   @trackSpan('ProvingBroker.cleanupPass')
@@ -529,7 +553,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     this.reEnqueueExpiredJobs();
     const oldestEpochToKeep = this.oldestEpochToKeep();
     if (oldestEpochToKeep > 0) {
-      await this.requestQueue.put(() => this.database.deleteAllProvingJobsOlderThanEpoch(oldestEpochToKeep));
+      await this.database.deleteAllProvingJobsOlderThanEpoch(oldestEpochToKeep);
       this.logger.trace(`Deleted all epochs older than ${oldestEpochToKeep}`);
     }
   }

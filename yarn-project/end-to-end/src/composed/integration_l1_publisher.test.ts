@@ -1,33 +1,25 @@
 import { type ArchiveSource } from '@aztec/archiver';
 import { getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, Fr, GlobalVariables, type L2Block, createLogger } from '@aztec/aztec.js';
+import { Blob, BlockBlobPublicInputs } from '@aztec/blob-lib';
 // eslint-disable-next-line no-restricted-imports
 import { type L2Tips, type ProcessedTx } from '@aztec/circuit-types';
-import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
-import {
-  type BlockHeader,
-  EthAddress,
-  GENESIS_ARCHIVE_ROOT,
-  GasFees,
-  GasSettings,
-  MAX_NULLIFIERS_PER_TX,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-} from '@aztec/circuits.js';
-import { BlockBlobPublicInputs } from '@aztec/circuits.js/blobs';
+import { makeBloatedProcessedTx } from '@aztec/circuit-types/testing';
+import { type BlockHeader, EthAddress, GasFees, GasSettings } from '@aztec/circuits.js';
 import { fr } from '@aztec/circuits.js/testing';
+import { GENESIS_ARCHIVE_ROOT, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
   GovernanceProposerContract,
   type L1ContractAddresses,
-  L1TxUtilsWithBlobs,
   RollupContract,
   SlashingProposerContract,
   createEthereumChain,
   createL1Clients,
 } from '@aztec/ethereum';
+import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { range } from '@aztec/foundation/array';
-import { Blob } from '@aztec/foundation/blob';
 import { timesParallel } from '@aztec/foundation/collection';
 import { sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { TestDateProvider } from '@aztec/foundation/timer';
@@ -251,12 +243,12 @@ describe('L1Publisher integration', () => {
     await worldStateSynchronizer.stop();
   });
 
-  const makeProcessedTx = async (seed = 0x1): Promise<ProcessedTx> =>
+  const makeProcessedTx = (seed = 0x1): Promise<ProcessedTx> =>
     makeBloatedProcessedTx({
       header: prevHeader,
       chainId: fr(chainId),
       version: fr(config.version),
-      vkTreeRoot: await getVKTreeRoot(),
+      vkTreeRoot: getVKTreeRoot(),
       gasSettings: GasSettings.default({ maxFeesPerGas: baseFee }),
       protocolContractTreeRoot,
       seed,
@@ -493,7 +485,6 @@ describe('L1Publisher integration', () => {
               archive: `0x${block.archive.root.toBuffer().toString('hex')}`,
               blockHash: `0x${(await block.header.hash()).toBuffer().toString('hex')}`,
               oracleInput: {
-                provingCostModifier: 0n,
                 feeAssetPriceModifier: 0n,
               },
               txHashes: [],

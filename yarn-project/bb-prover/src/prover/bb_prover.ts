@@ -1,31 +1,24 @@
 /* eslint-disable require-await */
+import { ProvingError } from '@aztec/circuit-types';
 import {
   type ProofAndVerificationKey,
-  ProvingError,
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
   makeProofAndVerificationKey,
   makePublicInputsAndRecursiveProof,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
 import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
-  AGGREGATION_OBJECT_LENGTH,
-  AVM_PROOF_LENGTH_IN_FIELDS,
-  type AvmCircuitInputs,
   type BaseParityInputs,
   Fr,
-  IPA_CLAIM_LENGTH,
-  NESTED_RECURSIVE_PROOF_LENGTH,
-  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   type ParityPublicInputs,
   Proof,
-  RECURSIVE_PROOF_LENGTH,
   RecursiveProof,
   type RootParityInputs,
-  TUBE_PROOF_LENGTH,
   type VerificationKeyData,
   makeRecursiveProofFromBinary,
 } from '@aztec/circuits.js';
+import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
 import {
   type BaseOrMergeRollupPublicInputs,
   type BlockMergeRollupInputs,
@@ -40,6 +33,15 @@ import {
   type SingleTxBlockRootRollupInputs,
   type TubeInputs,
 } from '@aztec/circuits.js/rollup';
+import {
+  AGGREGATION_OBJECT_LENGTH,
+  AVM_PROOF_LENGTH_IN_FIELDS,
+  IPA_CLAIM_LENGTH,
+  NESTED_RECURSIVE_PROOF_LENGTH,
+  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+  RECURSIVE_PROOF_LENGTH,
+  TUBE_PROOF_LENGTH,
+} from '@aztec/constants';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
@@ -90,7 +92,6 @@ import {
   generateTubeProof,
   verifyAvmProof,
   verifyProof,
-  writeProofAsFields,
 } from '../bb/execute.js';
 import type { ACVMConfig, BBConfig } from '../config.js';
 import { type UltraHonkFlavor, getUltraHonkFlavorForCircuit } from '../honk.js';
@@ -708,69 +709,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     };
 
     await this.runInDirectory(operation);
-  }
-
-  /**
-   * Will check a recursive proof argument for validity of it's 'fields' format of proof and convert if required
-   * @param proof - The input proof that may need converting
-   * @returns - The valid proof
-   */
-  public async ensureValidProof(
-    proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>, // WORKTODO
-    circuit: ServerProtocolArtifact,
-    vk: VerificationKeyData,
-  ) {
-    // If the 'fields' proof is already valid then simply return
-    // This will be false for proofs coming from clients
-    if (proof.fieldsValid) {
-      return proof;
-    }
-
-    const operation = async (bbWorkingDirectory: string) => {
-      const numPublicInputs = vk.numPublicInputs - AGGREGATION_OBJECT_LENGTH - IPA_CLAIM_LENGTH;
-      const proofFullFilename = path.join(bbWorkingDirectory, PROOF_FILENAME);
-      const vkFullFilename = path.join(bbWorkingDirectory, VK_FILENAME);
-
-      logger.debug(
-        `Converting proof to fields format for circuit ${circuit}, directory ${bbWorkingDirectory}, num public inputs: ${vk.numPublicInputs}, proof length ${proof.binaryProof.buffer.length}, vk length ${vk.keyAsBytes.length}`,
-      );
-
-      await fs.writeFile(proofFullFilename, proof.binaryProof.buffer);
-      await fs.writeFile(vkFullFilename, vk.keyAsBytes);
-
-      const logFunction = (message: string) => {
-        logger.debug(`${circuit} BB out - ${message}`);
-      };
-
-      const result = await writeProofAsFields(
-        this.config.bbBinaryPath,
-        bbWorkingDirectory,
-        PROOF_FILENAME,
-        vkFullFilename,
-        logFunction,
-      );
-
-      if (result.status === BB_RESULT.FAILURE) {
-        const errorMessage = `Failed to convert ${circuit} proof to fields, ${result.reason}`;
-        throw new ProvingError(errorMessage, result, result.retry);
-      }
-
-      const proofString = await fs.readFile(path.join(bbWorkingDirectory, PROOF_FIELDS_FILENAME), {
-        encoding: 'utf-8',
-      });
-      const json = JSON.parse(proofString);
-      const fields = json
-        .slice(0, 3)
-        .map(Fr.fromHexString)
-        .concat(json.slice(3 + numPublicInputs).map(Fr.fromHexString));
-      return new RecursiveProof(
-        fields,
-        new Proof(proof.binaryProof.buffer, vk.numPublicInputs),
-        true,
-        NESTED_RECURSIVE_PROOF_LENGTH, // WORKTODO
-      );
-    };
-    return await this.runInDirectory(operation);
   }
 
   /**

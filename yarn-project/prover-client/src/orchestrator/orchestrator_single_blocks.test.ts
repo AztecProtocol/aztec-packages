@@ -1,5 +1,5 @@
-import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { fr } from '@aztec/circuits.js/testing';
+import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { range } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
@@ -31,7 +31,7 @@ describe('prover/orchestrator/blocks', () => {
 
     it('builds a block with 1 transaction', async () => {
       const txs = [await context.makeProcessedTx(1)];
-      await context.setEndTreeRoots(txs);
+      await context.setTreeRoots(txs);
 
       // This will need to be a 2 tx block
       context.orchestrator.startNewEpoch(1, 1, 1);
@@ -46,7 +46,7 @@ describe('prover/orchestrator/blocks', () => {
 
     it('builds a block concurrently with transaction simulation', async () => {
       const txs = await timesParallel(4, i => context.makeProcessedTx(i + 1));
-      await context.setEndTreeRoots(txs);
+      await context.setTreeRoots(txs);
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
       context.orchestrator.startNewEpoch(1, 1, 1);

@@ -1,6 +1,6 @@
 import { HashedValues, TxExecutionRequest } from '@aztec/circuit-types';
 import { TxContext } from '@aztec/circuits.js';
-import { FunctionType } from '@aztec/foundation/abi';
+import { FunctionType } from '@aztec/circuits.js/abi';
 
 import { type EntrypointInterface, type ExecutionRequestInit } from './entrypoint.js';
 
@@ -11,7 +11,7 @@ export class DefaultEntrypoint implements EntrypointInterface {
   constructor(private chainId: number, private protocolVersion: number) {}
 
   async createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest> {
-    const { fee, calls, authWitnesses = [], hashedArguments = [] } = exec;
+    const { fee, calls, authWitnesses = [], hashedArguments = [], capsules = [] } = exec;
 
     if (calls.length > 1) {
       throw new Error(`Expected a single call, got ${calls.length}`);
@@ -33,6 +33,7 @@ export class DefaultEntrypoint implements EntrypointInterface {
         txContext,
         [...hashedArguments, entrypointHashedValues],
         authWitnesses,
+        capsules,
       ),
     );
   }

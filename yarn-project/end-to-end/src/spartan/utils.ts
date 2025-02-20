@@ -1,4 +1,5 @@
 import { createAztecNodeClient, createLogger, sleep } from '@aztec/aztec.js';
+import { type RollupCheatCodes } from '@aztec/aztec.js/ethereum';
 import type { Logger } from '@aztec/foundation/log';
 import type { SequencerConfig } from '@aztec/sequencer-client';
 
@@ -7,7 +8,6 @@ import path from 'path';
 import { promisify } from 'util';
 import { z } from 'zod';
 
-import type { RollupCheatCodes } from '../../../aztec.js/src/utils/cheat_codes.js';
 import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
 
 const execAsync = promisify(exec);
@@ -19,6 +19,10 @@ const k8sLocalConfigSchema = z.object({
   NAMESPACE: z.string().min(1, 'NAMESPACE env variable must be set'),
   HOST_NODE_PORT: z.coerce.number().min(1, 'HOST_NODE_PORT env variable must be set'),
   CONTAINER_NODE_PORT: z.coerce.number().default(8080),
+  HOST_SEQUENCER_PORT: z.coerce.number().min(1, 'HOST_SEQUENCER_PORT env variable must be set'),
+  CONTAINER_SEQUENCER_PORT: z.coerce.number().default(8080),
+  HOST_PROVER_NODE_PORT: z.coerce.number().min(1, 'HOST_PROVER_NODE_PORT env variable must be set'),
+  CONTAINER_PROVER_NODE_PORT: z.coerce.number().default(8080),
   HOST_PXE_PORT: z.coerce.number().min(1, 'HOST_PXE_PORT env variable must be set'),
   CONTAINER_PXE_PORT: z.coerce.number().default(8080),
   HOST_ETHEREUM_PORT: z.coerce.number().min(1, 'HOST_ETHEREUM_PORT env variable must be set'),
@@ -28,6 +32,9 @@ const k8sLocalConfigSchema = z.object({
   GRAFANA_PASSWORD: z.string().optional(),
   METRICS_API_PATH: z.string().default('/api/datasources/proxy/uid/spartan-metrics-prometheus/api/v1'),
   SPARTAN_DIR: z.string().min(1, 'SPARTAN_DIR env variable must be set'),
+  ETHEREUM_HOST: z.string().url('ETHEREUM_HOST must be a valid URL').optional(),
+  L1_ACCOUNT_MNEMONIC: z.string().default('test test test test test test test test test test test junk'),
+  SEPOLIA_RUN: z.string().default('false'),
   K8S: z.literal('local'),
 });
 
@@ -105,7 +112,7 @@ export async function startPortForward({
     if (str.includes('Starting port forward')) {
       logger.info(str);
     } else {
-      logger.debug(str);
+      logger.silent(str);
     }
   });
   process.stderr?.on('data', data => {
@@ -301,6 +308,44 @@ export function applyProverFailure({
     values: {
       'proverFailure.duration': `${durationSeconds}s`,
     },
+    logger,
+  });
+}
+
+export function applyProverKill({
+  namespace,
+  spartanDir,
+  logger,
+}: {
+  namespace: string;
+  spartanDir: string;
+  logger: Logger;
+}) {
+  return installChaosMeshChart({
+    instanceName: 'prover-kill',
+    targetNamespace: namespace,
+    valuesFile: 'prover-kill.yaml',
+    helmChartDir: getChartDir(spartanDir, 'aztec-chaos-scenarios'),
+    clean: true,
+    logger,
+  });
+}
+
+export function applyProverBrokerKill({
+  namespace,
+  spartanDir,
+  logger,
+}: {
+  namespace: string;
+  spartanDir: string;
+  logger: Logger;
+}) {
+  return installChaosMeshChart({
+    instanceName: 'prover-broker-kill',
+    targetNamespace: namespace,
+    valuesFile: 'prover-broker-kill.yaml',
+    helmChartDir: getChartDir(spartanDir, 'aztec-chaos-scenarios'),
+    clean: true,
     logger,
   });
 }

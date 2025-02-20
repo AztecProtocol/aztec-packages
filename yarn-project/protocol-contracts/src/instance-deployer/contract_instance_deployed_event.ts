@@ -1,5 +1,5 @@
 import { type ContractInstanceWithAddress, type PrivateLog, PublicKeys } from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
 
@@ -51,7 +51,8 @@ export class ContractInstanceDeployedEvent {
     return {
       address: this.address,
       version: this.version,
-      contractClassId: this.contractClassId,
+      currentContractClassId: this.contractClassId,
+      originalContractClassId: this.contractClassId,
       initializationHash: this.initializationHash,
       publicKeys: this.publicKeys,
       salt: this.salt,

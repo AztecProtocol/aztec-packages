@@ -1,20 +1,9 @@
+import { type MerkleTreeId } from '@aztec/circuit-types';
 import {
-  type MerkleTreeId,
   type ProofAndVerificationKey,
   type PublicInputsAndRecursiveProof,
-} from '@aztec/circuit-types';
-import {
-  type ARCHIVE_HEIGHT,
-  type AppendOnlyTreeSnapshot,
-  type BlockHeader,
-  type Fr,
-  type GlobalVariables,
-  type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-  MembershipWitness,
-  type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-  type TUBE_PROOF_LENGTH,
-  VK_TREE_HEIGHT,
-} from '@aztec/circuits.js';
+} from '@aztec/circuit-types/interfaces/server';
+import { type BlockHeader, type Fr, type GlobalVariables } from '@aztec/circuits.js';
 import {
   BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
@@ -22,8 +11,16 @@ import {
   RootRollupInputs,
   type RootRollupPublicInputs,
 } from '@aztec/circuits.js/rollup';
+import { type AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
+import {
+  type ARCHIVE_HEIGHT,
+  type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+  type TUBE_PROOF_LENGTH,
+  VK_TREE_HEIGHT,
+} from '@aztec/constants';
 import { type Tuple } from '@aztec/foundation/serialize';
-import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
+import { MembershipWitness, type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vks';
 
 import { BlockProvingState } from './block-proving-state.js';
@@ -150,26 +147,23 @@ export class EpochProvingState {
     return this.blockRootOrMergeProvingOutputs.getParentLocation(location);
   }
 
-  public async getBlockMergeRollupInputs(mergeLocation: TreeNodeLocation) {
+  public getBlockMergeRollupInputs(mergeLocation: TreeNodeLocation) {
     const [left, right] = this.blockRootOrMergeProvingOutputs.getChildren(mergeLocation);
     if (!left || !right) {
       throw new Error('At lease one child is not ready.');
     }
 
-    return new BlockMergeRollupInputs([
-      await this.#getPreviousRollupData(left),
-      await this.#getPreviousRollupData(right),
-    ]);
+    return new BlockMergeRollupInputs([this.#getPreviousRollupData(left), this.#getPreviousRollupData(right)]);
   }
 
-  public async getRootRollupInputs(proverId: Fr) {
+  public getRootRollupInputs(proverId: Fr) {
     const [left, right] = this.#getChildProofsForRoot();
     if (!left || !right) {
       throw new Error('At lease one child is not ready.');
     }
 
     return RootRollupInputs.from({
-      previousRollupData: [await this.#getPreviousRollupData(left), await this.#getPreviousRollupData(right)],
+      previousRollupData: [this.#getPreviousRollupData(left), this.#getPreviousRollupData(right)],
       proverId,
     });
   }
@@ -241,7 +235,7 @@ export class EpochProvingState {
       : this.blockRootOrMergeProvingOutputs.getChildren(rootLocation);
   }
 
-  async #getPreviousRollupData({
+  #getPreviousRollupData({
     inputs,
     proof,
     verificationKey,
@@ -249,12 +243,12 @@ export class EpochProvingState {
     BlockRootOrBlockMergePublicInputs,
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
   >) {
-    const leafIndex = await getVKIndex(verificationKey.keyAsFields);
+    const leafIndex = getVKIndex(verificationKey.keyAsFields);
     return new PreviousRollupBlockData(
       inputs,
       proof,
       verificationKey.keyAsFields,
-      new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), await getVKSiblingPath(leafIndex)),
+      new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), getVKSiblingPath(leafIndex)),
     );
   }
 }

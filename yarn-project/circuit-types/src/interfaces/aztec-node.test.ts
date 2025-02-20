@@ -1,5 +1,4 @@
 import {
-  ARCHIVE_HEIGHT,
   AztecAddress,
   BlockHeader,
   type ContractClassPublic,
@@ -7,23 +6,26 @@ import {
   EthAddress,
   Fr,
   GasFees,
-  L1_TO_L2_MSG_TREE_HEIGHT,
-  NOTE_HASH_TREE_HEIGHT,
-  NULLIFIER_TREE_HEIGHT,
   type NodeInfo,
-  PUBLIC_DATA_TREE_HEIGHT,
   PrivateLog,
   type ProtocolContractAddresses,
   ProtocolContractsNames,
   PublicKeys,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
+import { type ContractArtifact } from '@aztec/circuits.js/abi';
+import { loadContractArtifact } from '@aztec/circuits.js/abi';
+import {
+  ARCHIVE_HEIGHT,
+  L1_TO_L2_MSG_TREE_HEIGHT,
+  NOTE_HASH_TREE_HEIGHT,
+  NULLIFIER_TREE_HEIGHT,
+  PUBLIC_DATA_TREE_HEIGHT,
+} from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
-import { type ContractArtifact } from '@aztec/foundation/abi';
 import { memoize } from '@aztec/foundation/decorators';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 import { fileURLToPath } from '@aztec/foundation/url';
-import { loadContractArtifact } from '@aztec/types/abi';
 
 import { readFileSync } from 'fs';
 import omit from 'lodash.omit';
@@ -41,7 +43,6 @@ import {
 } from '../logs/get_logs_response.js';
 import { type LogFilter } from '../logs/log_filter.js';
 import { MerkleTreeId } from '../merkle_tree_id.js';
-import { EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
 import { PublicDataWitness } from '../public_data_witness.js';
 import { SiblingPath } from '../sibling_path/sibling_path.js';
 import { type TxValidationResult } from '../tx/index.js';
@@ -302,7 +303,7 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('isValidTx(valid)', async () => {
-    const response = await context.client.isValidTx(await Tx.random(), true);
+    const response = await context.client.isValidTx(await Tx.random(), { isSimulation: true });
     expect(response).toEqual({ result: 'valid' });
   });
 
@@ -329,7 +330,8 @@ describe('AztecNodeApiSchema', () => {
     const response = await context.client.getContract(await AztecAddress.random());
     expect(response).toEqual({
       address: expect.any(AztecAddress),
-      contractClassId: expect.any(Fr),
+      currentContractClassId: expect.any(Fr),
+      originalContractClassId: expect.any(Fr),
       deployer: expect.any(AztecAddress),
       initializationHash: expect.any(Fr),
       publicKeys: expect.any(PublicKeys),
@@ -345,15 +347,6 @@ describe('AztecNodeApiSchema', () => {
   it('getEncodedEnr', async () => {
     const response = await context.client.getEncodedEnr();
     expect(response).toBe('enr:-');
-  });
-
-  it('addEpochProofQuote', async () => {
-    await context.client.addEpochProofQuote(EpochProofQuote.random());
-  });
-
-  it('getEpochProofQuotes', async () => {
-    const response = await context.client.getEpochProofQuotes(1n);
-    expect(response).toEqual([expect.any(EpochProofQuote)]);
   });
 
   it('addContractClass', async () => {
@@ -580,7 +573,7 @@ class MockAztecNode implements AztecNode {
     expect(tx).toBeInstanceOf(Tx);
     return Promise.resolve(PublicSimulationOutput.random());
   }
-  isValidTx(tx: Tx, isSimulation?: boolean | undefined): Promise<TxValidationResult> {
+  isValidTx(tx: Tx, { isSimulation }: { isSimulation?: boolean } | undefined = {}): Promise<TxValidationResult> {
     expect(tx).toBeInstanceOf(Tx);
     return Promise.resolve(isSimulation ? { result: 'valid' } : { result: 'invalid', reason: ['Invalid'] });
   }
@@ -597,7 +590,8 @@ class MockAztecNode implements AztecNode {
     expect(address).toBeInstanceOf(AztecAddress);
     const instance = {
       version: 1 as const,
-      contractClassId: Fr.random(),
+      currentContractClassId: Fr.random(),
+      originalContractClassId: Fr.random(),
       deployer: await AztecAddress.random(),
       initializationHash: Fr.random(),
       publicKeys: await PublicKeys.random(),
@@ -611,14 +605,6 @@ class MockAztecNode implements AztecNode {
   }
   getEncodedEnr(): Promise<string | undefined> {
     return Promise.resolve('enr:-');
-  }
-  addEpochProofQuote(quote: EpochProofQuote): Promise<void> {
-    expect(quote).toBeInstanceOf(EpochProofQuote);
-    return Promise.resolve();
-  }
-  getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]> {
-    expect(epoch).toEqual(1n);
-    return Promise.resolve([EpochProofQuote.random()]);
   }
   addContractClass(_contractClass: ContractClassPublic): Promise<void> {
     return Promise.resolve();

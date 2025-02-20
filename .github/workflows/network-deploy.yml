@@ -116,7 +116,7 @@ jobs:
       TF_STATE_BUCKET: aztec-terraform
       GKE_CLUSTER_CONTEXT: "gke_testnet-440309_us-west1-a_${{ inputs.cluster }}"
       GCP_API_KEY_HEADER: "X-goog-api-key"
-      EXTERNAL_ETHEREUM_HOST: "https://json-rpc.${{ secrets.SEPOLIA_EXTERNAL_HOST }}"
+      EXTERNAL_ETHEREUM_HOST: "https://json-rpc.${{ secrets.SEPOLIA_EXTERNAL_HOST }}?key=${{ secrets.SEPOLIA_API_KEY }}"
       EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.SEPOLIA_EXTERNAL_HOST }}"
 
     steps:
@@ -187,16 +187,16 @@ jobs:
         continue-on-error: true
         run: |
           if ${{ inputs.sepolia_deployment == 'true' }}; then
+            export L1_DEPLOYMENT_MNEMONIC="${{ secrets.SEPOLIA_ACCOUNTS_MNEMONIC }}"
             terraform destroy -auto-approve \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
               -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
               -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
               -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
               -var="L1_DEPLOYMENT_PRIVATE_KEY=${{ secrets.SEPOLIA_L1_DEPLOYMENT_PRIVATE_KEY }}" \
-              -var="VALIDATOR_KEYS=${{ secrets.SEPOLIA_VALIDATOR_KEYS }}" \
-              -var="BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY=${{ secrets.SEPOLIA_BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY }}" \
-              -var="PROVER_PUBLISHER_PRIVATE_KEY=${{ secrets.SEPOLIA_PROVER_PUBLISHER_PRIVATE_KEY }}" \
-              -var="EXTERNAL_ETHEREUM_HOST=${{ env.EXTERNAL_ETHEREUM_HOST }}?key=${{ secrets.SEPOLIA_API_KEY }}" \
+              -var="L1_DEPLOYMENT_MNEMONIC=$L1_DEPLOYMENT_MNEMONIC" \
+              -var="BOT_L1_MNEMONIC=$L1_DEPLOYMENT_MNEMONIC" \
+              -var="EXTERNAL_ETHEREUM_HOST=${{ env.EXTERNAL_ETHEREUM_HOST }}" \
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST=${{ env.EXTERNAL_ETHEREUM_CONSENSUS_HOST }}" \
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${{ secrets.SEPOLIA_API_KEY }}" \
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER=${{ env.GCP_API_KEY_HEADER }}" \
@@ -208,6 +208,7 @@ jobs:
               -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
               -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
               -var="L1_DEPLOYMENT_MNEMONIC=${{ steps.get-mnemonic.outputs.mnemonic }}" \
+              -var="BOT_L1_MNEMONIC=$L1_DEPLOYMENT_MNEMONIC" \
               -lock=${{ inputs.respect_tf_lock }}
           fi
 
@@ -215,17 +216,17 @@ jobs:
         working-directory: ./spartan/terraform/deploy-release
         run: |
           if ${{ inputs.sepolia_deployment == 'true' }}; then
+            export L1_DEPLOYMENT_MNEMONIC="${{ secrets.SEPOLIA_ACCOUNTS_MNEMONIC }}"
             terraform plan \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
               -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
               -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
               -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
               -var="L1_DEPLOYMENT_PRIVATE_KEY=${{ secrets.SEPOLIA_L1_DEPLOYMENT_PRIVATE_KEY }}" \
+              -var="L1_DEPLOYMENT_MNEMONIC=$L1_DEPLOYMENT_MNEMONIC" \
+              -var="BOT_L1_MNEMONIC=$L1_DEPLOYMENT_MNEMONIC" \
               -var="L1_DEPLOYMENT_SALT=${DEPLOYMENT_SALT:-$RANDOM}" \
-              -var="VALIDATOR_KEYS=${{ secrets.SEPOLIA_VALIDATOR_KEYS }}" \
-              -var="BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY=${{ secrets.SEPOLIA_BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY }}" \
-              -var="PROVER_PUBLISHER_PRIVATE_KEY=${{ secrets.SEPOLIA_PROVER_PUBLISHER_PRIVATE_KEY }}" \
-              -var="EXTERNAL_ETHEREUM_HOST=${{ env.EXTERNAL_ETHEREUM_HOST }}?key=${{ secrets.SEPOLIA_API_KEY }}" \
+              -var="EXTERNAL_ETHEREUM_HOST=${{ env.EXTERNAL_ETHEREUM_HOST }}" \
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST=${{ env.EXTERNAL_ETHEREUM_CONSENSUS_HOST }}" \
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${{ secrets.SEPOLIA_API_KEY }}" \
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER=${{ env.GCP_API_KEY_HEADER }}" \
@@ -239,6 +240,7 @@ jobs:
               -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
               -var="L1_DEPLOYMENT_MNEMONIC=${{ steps.get-mnemonic.outputs.mnemonic }}" \
               -var="L1_DEPLOYMENT_SALT=${DEPLOYMENT_SALT:-$RANDOM}" \
+              -var="BOT_L1_MNEMONIC=$L1_DEPLOYMENT_MNEMONIC" \
               -out=tfplan \
               -lock=${{ inputs.respect_tf_lock }}
           fi

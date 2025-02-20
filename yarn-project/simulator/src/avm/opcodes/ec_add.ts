@@ -1,4 +1,4 @@
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { Grumpkin } from '@aztec/foundation/crypto';
 import { Point } from '@aztec/foundation/fields';
 
 import { type AvmContext } from '../avm_context.js';
@@ -38,7 +38,7 @@ export class EcAdd extends Instruction {
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
     context.machineState.consumeGas(this.gasCost());
 
     const operands = [
@@ -89,7 +89,5 @@ export class EcAdd extends Instruction {
     memory.setSlice(dstOffset, [new Field(dest.x), new Field(dest.y)]);
     // Check representation of infinity for grumpkin
     memory.setSlice(dstOffset + 2, [new Uint1(dest.equals(Point.ZERO) ? 1 : 0)]);
-
-    memory.assert({ reads: 6, writes: 3, addressing });
   }
 }

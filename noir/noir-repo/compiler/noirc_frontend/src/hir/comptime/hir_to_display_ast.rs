@@ -406,6 +406,95 @@ impl Constructor {
     }
 }
 
+impl HirMatch {
+    fn to_display_ast(&self, interner: &NodeInterner, span: Span) -> ExpressionKind {
+        match self {
+            HirMatch::Success(expr) => expr.to_display_ast(interner).kind,
+            HirMatch::Failure => ExpressionKind::Error,
+            HirMatch::Guard { cond, body, otherwise } => {
+                let condition = cond.to_display_ast(interner);
+                let consequence = body.to_display_ast(interner);
+                let alternative =
+                    Some(Expression::new(otherwise.to_display_ast(interner, span), span));
+
+                ExpressionKind::If(Box::new(IfExpression { condition, consequence, alternative }))
+            }
+            HirMatch::Switch(variable, cases, default) => {
+                let location = interner.definition(*variable).location;
+                let ident = HirIdent::non_trait_method(*variable, location);
+                let expression = ident.to_display_expr(interner, &None, location.span);
+                let expression = Expression::new(expression, location.span);
+
+                let mut rules = vecmap(cases, |case| {
+                    let args = vecmap(&case.arguments, |arg| arg.to_display_ast(interner));
+                    let constructor = case.constructor.to_display_ast(args);
+                    let constructor = Expression::new(constructor, span);
+                    let branch = case.body.to_display_ast(interner, span);
+                    (constructor, Expression::new(branch, span))
+                });
+
+                if let Some(case) = default {
+                    let kind = ExpressionKind::Variable(Path::from_single("_".to_string(), span));
+                    let pattern = Expression::new(kind, span);
+                    let branch = Expression::new(case.to_display_ast(interner, span), span);
+                    rules.push((pattern, branch));
+                }
+
+                ExpressionKind::Match(Box::new(MatchExpression { expression, rules }))
+            }
+        }
+    }
+}
+
+impl DefinitionId {
+    fn to_display_ast(self, interner: &NodeInterner) -> Expression {
+        let location = interner.definition(self).location;
+        let kind = HirIdent::non_trait_method(self, location).to_display_expr(
+            interner,
+            &None,
+            location.span,
+        );
+        Expression::new(kind, location.span)
+    }
+}
+
+impl Constructor {
+    fn to_display_ast(&self, arguments: Vec<Expression>) -> ExpressionKind {
+        match self {
+            Constructor::True => ExpressionKind::Literal(Literal::Bool(true)),
+            Constructor::False => ExpressionKind::Literal(Literal::Bool(false)),
+            Constructor::Unit => ExpressionKind::Literal(Literal::Unit),
+            Constructor::Int(value) => {
+                ExpressionKind::Literal(Literal::Integer(value.field, value.is_negative))
+            }
+            Constructor::Tuple(_) => ExpressionKind::Tuple(arguments),
+            Constructor::Variant(typ, index) => {
+                let typ = typ.follow_bindings_shallow();
+                let Type::DataType(def, _) = typ.as_ref() else {
+                    return ExpressionKind::Error;
+                };
+
+                let Some(variants) = def.borrow().get_variants_as_written() else {
+                    return ExpressionKind::Error;
+                };
+
+                let Some(name) = variants.get(*index).map(|variant| variant.name.clone()) else {
+                    return ExpressionKind::Error;
+                };
+
+                let span = name.span();
+                let name = ExpressionKind::Variable(Path::from_ident(name));
+                let func = Box::new(Expression::new(name, span));
+                let is_macro_call = false;
+                ExpressionKind::Call(Box::new(CallExpression { func, arguments, is_macro_call }))
+            }
+            Constructor::Range(_start, _end) => {
+                unreachable!("Range is unimplemented")
+            }
+        }
+    }
+}
+
 impl ExprId {
     /// Convert to AST for display (some details lost)
     pub fn to_display_ast(self, interner: &NodeInterner) -> Expression {
@@ -474,6 +563,26 @@ impl HirIdent {
         };
 
         let path = Path { segments: vec![segment], kind: crate::ast::PathKind::Plain, location };
+
+        ExpressionKind::Variable(path)
+    }
+
+    fn to_display_expr(
+        &self,
+        interner: &NodeInterner,
+        generics: &Option<Vec<Type>>,
+        span: Span,
+    ) -> ExpressionKind {
+        let ident = self.to_display_ast(interner);
+        let segment = PathSegment {
+            ident,
+            generics: generics
+                .as_ref()
+                .map(|option| option.iter().map(|generic| generic.to_display_ast()).collect()),
+            span,
+        };
+
+        let path = Path { segments: vec![segment], kind: crate::ast::PathKind::Plain, span };
 
         ExpressionKind::Variable(path)
     }

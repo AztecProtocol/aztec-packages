@@ -1,3 +1,4 @@
+import { type ComponentsVersions, checkCompressedComponentVersion } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { OtelMetricsAdapter, type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
@@ -10,8 +11,9 @@ import EventEmitter from 'events';
 
 import type { P2PConfig } from '../../config.js';
 import { convertToMultiaddr } from '../../util.js';
+import { setAztecEnrKey } from '../../versioning.js';
 import { type PeerDiscoveryService, PeerDiscoveryState } from '../service.js';
-import { AZTEC_ENR_KEY, AZTEC_NET, Discv5Event, PeerEvent } from '../types.js';
+import { AZTEC_ENR_KEY, Discv5Event, PeerEvent } from '../types.js';
 
 const delayBeforeStart = 2000; // 2sec
 
@@ -25,29 +27,32 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   /** This instance's ENR */
   private enr: SignableENR;
 
+  /** Version identifiers. */
+  private versions: ComponentsVersions;
+
   /** UDP listen addr */
   private listenMultiAddrUdp: Multiaddr;
 
   private currentState = PeerDiscoveryState.STOPPED;
 
-  private bootstrapNodes: string[];
+  public readonly bootstrapNodes: string[] = [];
   private bootstrapNodePeerIds: PeerId[] = [];
 
   private startTime = 0;
 
   constructor(
     private peerId: PeerId,
-    config: P2PConfig,
+    private config: P2PConfig,
     telemetry: TelemetryClient = getTelemetryClient(),
     private logger = createLogger('p2p:discv5_service'),
   ) {
     super();
     const { tcpAnnounceAddress, udpAnnounceAddress, udpListenAddress, bootstrapNodes } = config;
-    this.bootstrapNodes = bootstrapNodes;
+    this.bootstrapNodes = bootstrapNodes ?? [];
     // create ENR from PeerId
     this.enr = SignableENR.createFromPeerId(peerId);
     // Add aztec identification to ENR
-    this.enr.set(AZTEC_ENR_KEY, Uint8Array.from([AZTEC_NET]));
+    this.versions = setAztecEnrKey(this.enr, config);
 
     if (!tcpAnnounceAddress) {
       throw new Error('You need to provide at least a TCP announce address.');
@@ -78,6 +83,20 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
       metricsRegistry,
     });
 
+    // Hook onto the onEstablished method to check the peer's version from the ENR,
+    // so we don't add it to our dht if it doesn't have the correct version.
+    // In addition, we'll hook onto onDiscovered to to repeat the same check there,
+    // just in case. Note that not adding the peer to the dht could lead to it
+    // being "readded" constantly, we'll need to keep an eye on whether this
+    // turns out to be a problem or not.
+    const origOnEstablished = this.discv5.onEstablished.bind(this.discv5);
+    this.discv5.onEstablished = (...args: unknown[]) => {
+      const enr = args[1] as ENR;
+      if (this.validateEnr(enr)) {
+        return origOnEstablished(...args);
+      }
+    };
+
     this.discv5.on(Discv5Event.DISCOVERED, this.onDiscovered.bind(this));
     this.discv5.on(Discv5Event.ENR_ADDED, this.onEnrAdded.bind(this));
   }
@@ -95,20 +114,29 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
       peerId: this.peerId,
       enrUdp: await this.enr.getFullMultiaddr('udp'),
       enrTcp: await this.enr.getFullMultiaddr('tcp'),
+      versions: this.versions,
     });
     this.currentState = PeerDiscoveryState.RUNNING;
 
     // Add bootnode ENR if provided
     if (this.bootstrapNodes?.length) {
       // Do this conversion once since it involves an async function call
-      this.bootstrapNodePeerIds = await Promise.all(this.bootstrapNodes.map(enr => ENR.decodeTxt(enr).peerId()));
-      this.logger.info(`Adding bootstrap nodes ENRs: ${this.bootstrapNodes.join(', ')}`);
-      try {
-        this.bootstrapNodes.forEach(enr => {
+      const bootstrapNodesEnrs = this.bootstrapNodes.map(enr => ENR.decodeTxt(enr));
+      this.bootstrapNodePeerIds = await Promise.all(bootstrapNodesEnrs.map(enr => enr.peerId()));
+      this.logger.info(`Adding ${this.bootstrapNodes} bootstrap nodes ENRs: ${this.bootstrapNodes.join(', ')}`);
+      for (const enr of bootstrapNodesEnrs) {
+        try {
+          if (this.config.bootstrapNodeEnrVersionCheck) {
+            const value = enr.kvs.get(AZTEC_ENR_KEY);
+            if (!value) {
+              throw new Error('ENR does not contain aztec key');
+            }
+            checkCompressedComponentVersion(Buffer.from(value).toString(), this.versions);
+          }
           this.discv5.addEnr(enr);
-        });
-      } catch (e) {
-        this.logger.error(`Error adding bootnode ENRs: ${e}`);
+        } catch (e) {
+          this.logger.error(`Error adding bootratrap node ${enr.encodeTxt()}`, e);
+        }
       }
     }
   }
@@ -169,14 +197,44 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   }
 
   private onDiscovered(enr: ENR) {
-    // check the peer is an aztec peer
+    if (this.validateEnr(enr)) {
+      this.emit(PeerEvent.DISCOVERED, enr);
+    }
+  }
+
+  private validateEnr(enr: ENR): boolean {
+    // Check if the peer is actually a bootnode and we have disabled the version check
+    if (
+      !this.config.bootstrapNodeEnrVersionCheck &&
+      this.bootstrapNodes.some(enrTxt => ENR.decodeTxt(enrTxt).nodeId === enr.nodeId)
+    ) {
+      this.logger.trace(`Skipping version check for bootnode ${enr.nodeId}`);
+      return true;
+    }
+
+    // Check the peer is an aztec peer
     const value = enr.kvs.get(AZTEC_ENR_KEY);
-    if (value) {
-      const network = value[0];
-      // check if the peer is on the same network
-      if (network === AZTEC_NET) {
-        this.emit(PeerEvent.DISCOVERED, enr);
+    if (!value) {
+      this.logger.warn(`Peer node ${enr.nodeId} does not have aztec key in ENR`);
+      return false;
+    }
+
+    // And check it has the correct version
+    let compressedVersion;
+    try {
+      compressedVersion = Buffer.from(value).toString();
+      checkCompressedComponentVersion(compressedVersion, this.versions);
+      return true;
+    } catch (err: any) {
+      if (err.name === 'ComponentsVersionsError') {
+        this.logger.warn(`Peer node ${enr.nodeId} has incorrect version: ${err.message}`, {
+          compressedVersion,
+          expected: this.versions,
+        });
+      } else {
+        this.logger.error(`Error checking peer version`, err);
       }
     }
+    return false;
   }
 }

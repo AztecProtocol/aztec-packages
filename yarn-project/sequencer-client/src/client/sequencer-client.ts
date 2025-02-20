@@ -1,17 +1,18 @@
 import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
-import { type L1ToL2MessageSource, type L2BlockSource, type WorldStateSynchronizer } from '@aztec/circuit-types';
+import { type L1ToL2MessageSource, type L2BlockSource } from '@aztec/circuit-types';
+import { type WorldStateSynchronizer } from '@aztec/circuit-types/interfaces/server';
 import { type AztecAddress, type ContractDataSource } from '@aztec/circuits.js';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
   ForwarderContract,
   GovernanceProposerContract,
-  L1TxUtilsWithBlobs,
   RollupContract,
   SlashingProposerContract,
   createEthereumChain,
   createL1Clients,
   isAnvilTestChain,
 } from '@aztec/ethereum';
+import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { type DateProvider } from '@aztec/foundation/timer';

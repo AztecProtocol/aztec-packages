@@ -1,33 +1,33 @@
+import { Note, PublicExecutionRequest } from '@aztec/circuit-types';
 import {
-  Note,
   NoteAndSlot,
   PrivateCallExecutionResult,
   PrivateExecutionResult,
   type PrivateKernelProver,
-  PublicExecutionRequest,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/client';
 import {
-  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   FunctionSelector,
-  MAX_NOTE_HASHES_PER_CALL,
-  MAX_NOTE_HASHES_PER_TX,
-  MembershipWitness,
   NoteHash,
   PrivateCircuitPublicInputs,
-  PrivateKernelCircuitPublicInputs,
-  PrivateKernelTailCircuitPublicInputs,
   PublicKeys,
   ScopedNoteHash,
   type TxRequest,
-  VK_TREE_HEIGHT,
   VerificationKey,
   VerificationKeyAsFields,
 } from '@aztec/circuits.js';
+import { NoteSelector } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { PrivateKernelCircuitPublicInputs, PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
 import { makeTxRequest } from '@aztec/circuits.js/testing';
-import { NoteSelector } from '@aztec/foundation/abi';
+import {
+  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  MAX_NOTE_HASHES_PER_CALL,
+  MAX_NOTE_HASHES_PER_TX,
+  VK_TREE_HEIGHT,
+} from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
+import { MembershipWitness } from '@aztec/foundation/trees';
 
 import { mock } from 'jest-mock-extended';
 
@@ -66,6 +66,7 @@ describe('Kernel Prover', () => {
       0,
     );
     publicInputs.callContext.functionSelector = new FunctionSelector(fnName.charCodeAt(0));
+    publicInputs.callContext.contractAddress = contractAddress;
     return new PrivateCallExecutionResult(
       Buffer.alloc(0),
       VerificationKey.makeFake().toBuffer(),
@@ -141,7 +142,8 @@ describe('Kernel Prover', () => {
     oracle.getVkMembershipWitness.mockResolvedValue(MembershipWitness.random(VK_TREE_HEIGHT));
 
     oracle.getContractAddressPreimage.mockResolvedValue({
-      contractClassId: Fr.random(),
+      currentContractClassId: Fr.random(),
+      originalContractClassId: Fr.random(),
       publicKeys: await PublicKeys.random(),
       saltedInitializationHash: Fr.random(),
     });

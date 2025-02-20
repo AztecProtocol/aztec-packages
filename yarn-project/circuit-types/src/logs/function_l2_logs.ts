@@ -1,4 +1,4 @@
-import { MAX_CONTRACT_CLASS_LOGS_PER_CALL } from '@aztec/circuits.js';
+import { MAX_CONTRACT_CLASS_LOGS_PER_CALL } from '@aztec/constants';
 import { sha256Trunc } from '@aztec/foundation/crypto';
 import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
 

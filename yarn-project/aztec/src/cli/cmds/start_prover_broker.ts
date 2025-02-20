@@ -1,4 +1,4 @@
-import { type ProvingJobBroker } from '@aztec/circuit-types';
+import { type ProvingJobBroker } from '@aztec/circuit-types/interfaces/server';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
 import {
@@ -17,7 +17,7 @@ export async function startProverBroker(
   signalHandlers: (() => Promise<void>)[],
   services: NamespacedApiHandlers,
   userLog: LogFn,
-): Promise<ProvingJobBroker> {
+): Promise<{ broker: ProvingJobBroker; config: ProverBrokerConfig }> {
   if (options.node || options.sequencer || options.pxe || options.p2pBootstrap || options.txe) {
     userLog(`Starting a prover broker with --node, --sequencer, --pxe, --p2p-bootstrap, or --txe is not supported.`);
     process.exit(1);
@@ -33,5 +33,5 @@ export async function startProverBroker(
   services.proverBroker = [broker, ProvingJobBrokerSchema];
   signalHandlers.push(() => broker.stop());
 
-  return broker;
+  return { broker, config };
 }

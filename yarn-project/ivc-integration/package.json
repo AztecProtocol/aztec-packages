@@ -17,7 +17,7 @@
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "formatting:fix:types": "NODE_OPTIONS='--max-old-space-size=8096' run -T eslint --fix ./src/types && run -T prettier -w ./src/types",
     "generate": "yarn generate:noir-circuits",
-    "generate:noir-circuits": "mkdir -p ./artifacts && cp -r ../../noir-projects/mock-protocol-circuits/target/* ./artifacts && node --no-warnings --loader ts-node/esm src/scripts/generate_declaration_files.ts && node --no-warnings --loader ts-node/esm src/scripts/generate_ts_from_abi.ts && run -T prettier -w ./src/types",
+    "generate:noir-circuits": "mkdir -p ./artifacts && cp -r ../../noir-projects/mock-protocol-circuits/target/* ./artifacts && node --no-warnings --loader @swc-node/register/esm src/scripts/generate_declaration_files.ts && node --no-warnings --loader @swc-node/register/esm src/scripts/generate_ts_from_abi.ts",
     "test:non-browser": "RAYON_NUM_THREADS=4 NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testPathIgnorePatterns=browser --passWithNoTests ",
     "test:browser": "./run_browser_tests.sh",
     "test": "yarn test:non-browser",
@@ -54,7 +54,7 @@
     "reporters": [
       "default"
     ],
-    "testTimeout": 30000,
+    "testTimeout": 120000,
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
     ]
@@ -62,8 +62,8 @@
   "dependencies": {
     "@aztec/bb.js": "../../ts",
     "@aztec/circuits.js": "workspace:^",
+    "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
-    "@aztec/types": "workspace:^",
     "@noir-lang/noir_codegen": "portal:../../noir/packages/noir_codegen",
     "@noir-lang/noir_js": "file:../../noir/packages/noir_js",
     "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi",
@@ -102,7 +102,7 @@
     "typescript": "^5.0.4",
     "webpack": "^5.90.3",
     "webpack-cli": "^5.1.4",
-    "webpack-dev-server": "^5.0.3"
+    "webpack-dev-server": "^5.2.0"
   },
   "files": [
     "dest",

@@ -6,7 +6,6 @@
     ".": "./dest/index.js",
     "./block-builder": "./dest/block_builder/index.js",
     "./broker": "./dest/proving_broker/index.js",
-    "./prover-agent": "./dest/prover-agent/index.js",
     "./orchestrator": "./dest/orchestrator/index.js",
     "./helpers": "./dest/orchestrator/block-building-helpers.js",
     "./config": "./dest/config.js"
@@ -61,15 +60,17 @@
     "reporters": [
       "default"
     ],
-    "testTimeout": 30000,
+    "testTimeout": 120000,
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {
     "@aztec/bb-prover": "workspace:^",
+    "@aztec/blob-lib": "workspace:^",
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
+    "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
@@ -78,6 +79,7 @@
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "@google-cloud/storage": "^7.15.0",
+    "@iarna/toml": "^2.2.5",
     "@noir-lang/types": "portal:../../noir/packages/types",
     "commander": "^12.1.0",
     "lodash.chunk": "^4.2.0",
@@ -86,6 +88,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@aztec/noir-contracts.js": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
     "@types/memdown": "^3.0.0",

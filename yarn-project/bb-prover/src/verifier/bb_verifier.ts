@@ -1,4 +1,5 @@
-import { type ClientProtocolCircuitVerifier, Tx } from '@aztec/circuit-types';
+import { Tx } from '@aztec/circuit-types';
+import { type ClientProtocolCircuitVerifier } from '@aztec/circuit-types/interfaces/server';
 import { type CircuitVerificationStats } from '@aztec/circuit-types/stats';
 import { type Proof, type VerificationKeyData } from '@aztec/circuits.js';
 import { runInDirectory } from '@aztec/foundation/fs';
@@ -83,7 +84,12 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
         };
 
         await writeToOutputDirectory(tx.clientIvcProof, bbWorkingDirectory);
-        const result = await verifyClientIvcProof(this.config.bbBinaryPath, bbWorkingDirectory, logFunction);
+        const result = await verifyClientIvcProof(
+          this.config.bbBinaryPath,
+          bbWorkingDirectory.concat('/proof'),
+          bbWorkingDirectory.concat('/vk'),
+          logFunction,
+        );
 
         if (result.status === BB_RESULT.FAILURE) {
           const errorMessage = `Failed to verify ${circuit} proof!`;

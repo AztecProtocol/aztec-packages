@@ -22,7 +22,7 @@ ContractInstance HintedRawDataDB::get_contract_instance(const AztecAddress& addr
         .address = contract_instance_hint.address,
         .salt = contract_instance_hint.salt,
         .deployer_addr = contract_instance_hint.deployer,
-        .contract_class_id = contract_instance_hint.contractClassId,
+        .contract_class_id = contract_instance_hint.originalContractClassId,
         .initialisation_hash = contract_instance_hint.initializationHash,
         .public_keys =
             PublicKeys{

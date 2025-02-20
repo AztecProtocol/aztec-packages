@@ -1,45 +1,12 @@
-import { type FieldsOf, makeHalfFullTuple, makeTuple } from '@aztec/foundation/array';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { compact } from '@aztec/foundation/collection';
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
-import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Bufferable } from '@aztec/foundation/serialize';
-
-import { SchnorrSignature } from '../barretenberg/index.js';
-import {
-  type ContractClassPublic,
-  type ContractInstanceWithAddress,
-  type ExecutablePrivateFunctionWithMembershipProof,
-  type PrivateFunction,
-  type PublicFunction,
-  SerializableContractInstance,
-  type UnconstrainedFunctionWithMembershipProof,
-} from '../contract/index.js';
+import { makeBlockBlobPublicInputs, makeSpongeBlob } from '@aztec/blob-lib/testing';
 import {
   ARCHIVE_HEIGHT,
   AVM_PROOF_LENGTH_IN_FIELDS,
   AZTEC_MAX_EPOCH_DURATION,
-  AvmCircuitInputs,
-  AvmContractInstanceHint,
-  AvmExecutionHints,
   BLOBS_PER_BLOCK,
-  BaseParityInputs,
-  CallContext,
-  CombinedConstantData,
-  ContractStorageRead,
-  ContractStorageUpdateRequest,
   FIELDS_PER_BLOB,
-  Fr,
-  FunctionData,
-  FunctionSelector,
   GeneratorIndex,
-  GrumpkinScalar,
-  KeyValidationRequest,
-  KeyValidationRequestAndGenerator,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-  L2ToL1Message,
-  LogHash,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_ENQUEUED_CALLS_PER_CALL,
   MAX_ENQUEUED_CALLS_PER_TX,
@@ -57,8 +24,6 @@ import {
   MAX_PRIVATE_LOGS_PER_TX,
   MAX_PUBLIC_LOGS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MaxBlockNumber,
-  MembershipWitness,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
@@ -66,39 +31,65 @@ import {
   NULLIFIER_TREE_HEIGHT,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   NUM_MSGS_PER_BASE_PARITY,
-  NoteHash,
-  Nullifier,
-  NullifierLeafPreimage,
   PRIVATE_LOG_SIZE_IN_FIELDS,
   PUBLIC_DATA_TREE_HEIGHT,
   PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
+  RECURSIVE_PROOF_LENGTH,
+  TUBE_PROOF_LENGTH,
+  VK_TREE_HEIGHT,
+} from '@aztec/constants';
+import { type FieldsOf, makeHalfFullTuple, makeTuple } from '@aztec/foundation/array';
+import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { compact } from '@aztec/foundation/collection';
+import { SchnorrSignature, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { type Bufferable } from '@aztec/foundation/serialize';
+import { MembershipWitness } from '@aztec/foundation/trees';
+
+import { AztecAddress } from '../aztec-address/index.js';
+import {
+  type ContractClassPublic,
+  type ContractInstanceWithAddress,
+  type ExecutablePrivateFunctionWithMembershipProof,
+  type PrivateFunction,
+  type PublicFunction,
+  SerializableContractInstance,
+  type UnconstrainedFunctionWithMembershipProof,
+} from '../contract/index.js';
+import {
+  BaseParityInputs,
+  CallContext,
+  ContractStorageRead,
+  ContractStorageUpdateRequest,
+  Fr,
+  FunctionData,
+  FunctionSelector,
+  GrumpkinScalar,
+  KeyValidationRequest,
+  KeyValidationRequestAndGenerator,
+  L2ToL1Message,
+  LogHash,
+  MaxBlockNumber,
+  NoteHash,
+  Nullifier,
   ParityPublicInputs,
-  PartialPrivateTailPublicInputsForPublic,
-  PartialPrivateTailPublicInputsForRollup,
   PartialStateReference,
   Point,
   PrivateCallRequest,
   PrivateCircuitPublicInputs,
-  PrivateKernelTailCircuitPublicInputs,
-  PrivateToRollupAccumulatedData,
   Proof,
   PublicCallRequest,
   PublicDataHint,
   PublicDataRead,
-  PublicDataTreeLeaf,
-  PublicDataTreeLeafPreimage,
   PublicKeys,
-  RECURSIVE_PROOF_LENGTH,
   ReadRequest,
   RollupTypes,
   RootParityInput,
   RootParityInputs,
   ScopedLogHash,
   StateReference,
-  TUBE_PROOF_LENGTH,
   TxContext,
   TxRequest,
-  VK_TREE_HEIGHT,
   Vector,
   VerificationKey,
   VerificationKeyAsFields,
@@ -108,8 +99,20 @@ import {
   computePublicBytecodeCommitment,
   makeRecursiveProof,
 } from '../index.js';
-import { BlobPublicInputs, BlockBlobPublicInputs } from '../structs/blobs/blob_public_inputs.js';
-import { Poseidon2Sponge, SpongeBlob } from '../structs/blobs/sponge_blob.js';
+import {
+  AvmAccumulatedData,
+  AvmAppendTreeHint,
+  AvmCircuitInputs,
+  AvmCircuitPublicInputs,
+  AvmContractBytecodeHints,
+  AvmContractInstanceHint,
+  AvmEnqueuedCallHint,
+  AvmExecutionHints,
+  AvmNullifierReadTreeHint,
+  AvmNullifierWriteTreeHint,
+  AvmPublicDataReadTreeHint,
+  AvmPublicDataWriteTreeHint,
+} from '../structs/avm/index.js';
 import { BlockHeader } from '../structs/block_header.js';
 import { ContentCommitment, NUM_BYTES_PER_SHA256 } from '../structs/content_commitment.js';
 import { Gas } from '../structs/gas.js';
@@ -117,29 +120,27 @@ import { GasFees } from '../structs/gas_fees.js';
 import { GasSettings } from '../structs/gas_settings.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 import {
-  AvmAccumulatedData,
-  AvmAppendTreeHint,
-  AvmCircuitPublicInputs,
-  AvmContractBytecodeHints,
-  AvmEnqueuedCallHint,
-  AvmNullifierReadTreeHint,
-  AvmNullifierWriteTreeHint,
-  AvmPublicDataReadTreeHint,
-  AvmPublicDataWriteTreeHint,
   CountedPublicCallRequest,
   PrivateLog,
   PrivateLogData,
-  PrivateToAvmAccumulatedData,
-  PrivateToAvmAccumulatedDataArrayLengths,
-  PrivateToPublicAccumulatedData,
-  PrivateToPublicKernelCircuitPublicInputs,
   PublicDataWrite,
   PublicLog,
   ScopedL2ToL1Message,
   TreeSnapshots,
-  TxConstantData,
   VkWitnessData,
 } from '../structs/index.js';
+import {
+  CombinedConstantData,
+  PartialPrivateTailPublicInputsForPublic,
+  PartialPrivateTailPublicInputsForRollup,
+  PrivateKernelTailCircuitPublicInputs,
+  PrivateToAvmAccumulatedData,
+  PrivateToAvmAccumulatedDataArrayLengths,
+  PrivateToPublicAccumulatedData,
+  PrivateToPublicKernelCircuitPublicInputs,
+  PrivateToRollupAccumulatedData,
+  TxConstantData,
+} from '../structs/kernel/index.js';
 import { PrivateToRollupKernelCircuitPublicInputs } from '../structs/kernel/private_to_rollup_kernel_circuit_public_inputs.js';
 import { AvmProofData } from '../structs/rollup/avm_proof_data.js';
 import { BaseOrMergeRollupPublicInputs } from '../structs/rollup/base_or_merge_rollup_public_inputs.js';
@@ -165,9 +166,11 @@ import { PrivateTubeData } from '../structs/rollup/private_tube_data.js';
 import { PublicBaseRollupInputs } from '../structs/rollup/public_base_rollup_inputs.js';
 import { PublicTubeData } from '../structs/rollup/public_tube_data.js';
 import { RootRollupInputs, RootRollupPublicInputs } from '../structs/rollup/root_rollup.js';
-import { PrivateBaseStateDiffHints, PublicBaseStateDiffHints } from '../structs/rollup/state_diff_hints.js';
+import { PrivateBaseStateDiffHints } from '../structs/rollup/state_diff_hints.js';
 import { RollupValidationRequests } from '../structs/rollup_validation_requests.js';
 import { AppendOnlyTreeSnapshot } from '../structs/trees/append_only_tree_snapshot.js';
+import { NullifierLeafPreimage } from '../structs/trees/nullifier_leaf.js';
+import { PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '../structs/trees/public_data_leaf.js';
 
 /**
  * Creates an arbitrary side effect object with the given seed.
@@ -636,36 +639,6 @@ export function makeAppendOnlyTreeSnapshot(seed = 1): AppendOnlyTreeSnapshot {
 }
 
 /**
- * Makes arbitrary poseidon sponge for blob inputs.
- * Note: will not verify inside the circuit.
- * @param seed - The seed to use for generating the sponge.
- * @returns A sponge blob instance.
- */
-export function makeSpongeBlob(seed = 1): SpongeBlob {
-  return new SpongeBlob(new Poseidon2Sponge(makeTuple(3, fr), makeTuple(4, fr), 1, false), seed, seed + 1);
-}
-
-/**
- * Makes arbitrary blob public inputs.
- * Note: will not verify inside the circuit.
- * @param seed - The seed to use for generating the blob inputs.
- * @returns A blob public inputs instance.
- */
-export function makeBlobPublicInputs(seed = 1): BlobPublicInputs {
-  return new BlobPublicInputs(fr(seed), BigInt(seed + 1), makeTuple(2, fr));
-}
-
-/**
- * Makes arbitrary block blob public inputs.
- * Note: will not verify inside the circuit.
- * @param seed - The seed to use for generating the blob inputs.
- * @returns A block blob public inputs instance.
- */
-export function makeBlockBlobPublicInputs(seed = 1): BlockBlobPublicInputs {
-  return new BlockBlobPublicInputs(makeTuple(BLOBS_PER_BLOCK, () => makeBlobPublicInputs(seed)));
-}
-
-/**
  * Makes arbitrary eth address.
  * @param seed - The seed to use for generating the eth address.
  * @returns An eth address.
@@ -1076,63 +1049,6 @@ export function makePrivateBaseStateDiffHints(seed = 1): PrivateBaseStateDiffHin
   );
 }
 
-/**
- * Creates an instance of PublicBaseStateDiffHints with arbitrary values based on the provided seed.
- * @param seed - The seed to use for generating the hints.
- * @returns A PublicBaseStateDiffHints object.
- */
-export function makePublicBaseStateDiffHints(seed = 1): PublicBaseStateDiffHints {
-  const nullifierPredecessorPreimages = makeTuple(
-    MAX_NULLIFIERS_PER_TX,
-    x => new NullifierLeafPreimage(fr(x), fr(x + 0x100), BigInt(x + 0x200)),
-    seed + 0x1000,
-  );
-
-  const nullifierPredecessorMembershipWitnesses = makeTuple(
-    MAX_NULLIFIERS_PER_TX,
-    x => makeMembershipWitness(NULLIFIER_TREE_HEIGHT, x),
-    seed + 0x2000,
-  );
-
-  const sortedNullifiers = makeTuple(MAX_NULLIFIERS_PER_TX, fr, seed + 0x3000);
-
-  const sortedNullifierIndexes = makeTuple(MAX_NULLIFIERS_PER_TX, i => i, seed + 0x4000);
-
-  const noteHashSubtreeSiblingPath = makeTuple(NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x5000);
-
-  const nullifierSubtreeSiblingPath = makeTuple(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, fr, seed + 0x6000);
-
-  const lowPublicDataWritesPreimages = makeTuple(
-    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    makePublicDataTreeLeafPreimage,
-    seed + 0x7000,
-  );
-
-  const lowPublicDataWritesMembershipWitnesses = makeTuple(
-    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    i => makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, i),
-    seed + 0x8000,
-  );
-
-  const publicDataTreeSiblingPaths = makeTuple(
-    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    i => makeTuple(PUBLIC_DATA_TREE_HEIGHT, fr, i),
-    seed + 0x9000,
-  );
-
-  return new PublicBaseStateDiffHints(
-    nullifierPredecessorPreimages,
-    nullifierPredecessorMembershipWitnesses,
-    sortedNullifiers,
-    sortedNullifierIndexes,
-    noteHashSubtreeSiblingPath,
-    nullifierSubtreeSiblingPath,
-    lowPublicDataWritesPreimages,
-    lowPublicDataWritesMembershipWitnesses,
-    publicDataTreeSiblingPaths,
-  );
-}
-
 function makeVkWitnessData(seed = 1) {
   return new VkWitnessData(VerificationKeyData.makeFakeHonk(), seed, makeTuple(VK_TREE_HEIGHT, fr, seed + 0x100));
 }
@@ -1169,20 +1085,14 @@ function makePrivateBaseRollupHints(seed = 1) {
 }
 
 function makePublicBaseRollupHints(seed = 1) {
-  const start = makePartialStateReference(seed + 0x100);
-
   const startSpongeBlob = makeSpongeBlob(seed + 0x200);
-
-  const stateDiffHints = makePublicBaseStateDiffHints(seed + 0x600);
 
   const archiveRootMembershipWitness = makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x9000);
 
   const constants = makeConstantRollupData(0x100);
 
   return PublicBaseRollupHints.from({
-    start,
     startSpongeBlob,
-    stateDiffHints,
     archiveRootMembershipWitness,
     constants,
   });
@@ -1326,6 +1236,15 @@ export async function makeMapAsync<T extends Bufferable>(
   return new Map(await makeArrayAsync(size, i => fn(i + offset)));
 }
 
+export function makePublicKeys(seed = 0): PublicKeys {
+  return new PublicKeys(
+    new Point(new Fr(seed + 0), new Fr(seed + 1), false),
+    new Point(new Fr(seed + 2), new Fr(seed + 3), false),
+    new Point(new Fr(seed + 4), new Fr(seed + 5), false),
+    new Point(new Fr(seed + 6), new Fr(seed + 7), false),
+  );
+}
+
 export async function makeContractInstanceFromClassId(
   classId: Fr,
   seed = 0,
@@ -1333,12 +1252,13 @@ export async function makeContractInstanceFromClassId(
     deployer?: AztecAddress;
     initializationHash?: Fr;
     publicKeys?: PublicKeys;
+    currentClassId?: Fr;
   },
 ): Promise<ContractInstanceWithAddress> {
   const salt = new Fr(seed);
   const initializationHash = overrides?.initializationHash ?? new Fr(seed + 1);
   const deployer = overrides?.deployer ?? new AztecAddress(new Fr(seed + 2));
-  const publicKeys = overrides?.publicKeys ?? (await PublicKeys.random());
+  const publicKeys = overrides?.publicKeys ?? makePublicKeys(seed + 3);
 
   const saltedInitializationHash = await poseidon2HashWithSeparator(
     [salt, initializationHash, deployer],
@@ -1353,7 +1273,8 @@ export async function makeContractInstanceFromClassId(
     version: 1,
     salt,
     deployer,
-    contractClassId: classId,
+    currentContractClassId: overrides?.currentClassId ?? classId,
+    originalContractClassId: classId,
     initializationHash,
     publicKeys,
   }).withAddress(address);
@@ -1368,10 +1289,13 @@ export async function makeAvmBytecodeHints(seed = 0): Promise<AvmContractBytecod
     true,
     instance.salt,
     instance.deployer,
-    instance.contractClassId,
+    instance.currentContractClassId,
+    instance.originalContractClassId,
     instance.initializationHash,
     instance.publicKeys,
     makeAvmNullifierReadTreeHints(seed + 0x2000),
+    makeAvmPublicDataReadTreeHints(seed + 0x3000),
+    makeArray(4, i => new Fr(i), seed + 0x4000),
   );
 
   const publicBytecodeCommitment = await computePublicBytecodeCommitment(packedBytecode);
@@ -1395,6 +1319,14 @@ export function makeAvmNullifierReadTreeHints(seed = 0): AvmNullifierReadTreeHin
   const lowNullifierPreimage = new NullifierLeafPreimage(new Fr(seed), new Fr(seed + 1), BigInt(seed + 2));
   return new AvmNullifierReadTreeHint(
     lowNullifierPreimage,
+    new Fr(seed + 1),
+    makeArray(10, i => new Fr(i), seed + 0x1000),
+  );
+}
+
+export function makeAvmPublicDataReadTreeHints(seed = 0): AvmPublicDataReadTreeHint {
+  return new AvmPublicDataReadTreeHint(
+    new PublicDataTreeLeafPreimage(new Fr(seed), new Fr(seed + 1), new Fr(seed + 2), BigInt(seed + 3)),
     new Fr(seed + 1),
     makeArray(10, i => new Fr(i), seed + 0x1000),
   );
@@ -1436,13 +1368,16 @@ export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
     new AztecAddress(new Fr(seed + 0x3)),
     new Fr(seed + 0x4),
     new Fr(seed + 0x5),
+    new Fr(seed + 0x6),
     new PublicKeys(
-      new Point(new Fr(seed + 0x6), new Fr(seed + 0x7), false),
-      new Point(new Fr(seed + 0x8), new Fr(seed + 0x9), false),
-      new Point(new Fr(seed + 0x10), new Fr(seed + 0x11), false),
-      new Point(new Fr(seed + 0x12), new Fr(seed + 0x13), false),
+      new Point(new Fr(seed + 0x7), new Fr(seed + 0x8), false),
+      new Point(new Fr(seed + 0x9), new Fr(seed + 0x10), false),
+      new Point(new Fr(seed + 0x11), new Fr(seed + 0x12), false),
+      new Point(new Fr(seed + 0x13), new Fr(seed + 0x14), false),
     ),
     makeAvmNullifierReadTreeHints(seed + 0x1000),
+    makeAvmPublicDataReadTreeHints(seed + 0x2000),
+    makeArray(4, i => new Fr(i), seed + 0x3000),
   );
 }
 

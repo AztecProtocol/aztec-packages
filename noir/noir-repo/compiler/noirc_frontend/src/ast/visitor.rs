@@ -869,6 +869,9 @@ impl Expression {
             ExpressionKind::Constrain(constrain) => {
                 constrain.accept(visitor);
             }
+            ExpressionKind::Constrain(constrain) => {
+                constrain.accept(visitor);
+            }
             ExpressionKind::Constructor(constructor_expression) => {
                 constructor_expression.accept(span, visitor);
             }

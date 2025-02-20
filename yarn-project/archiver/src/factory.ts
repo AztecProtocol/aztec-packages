@@ -1,18 +1,20 @@
 import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
-import { type ArchiverApi, type Service } from '@aztec/circuit-types';
+import { getComponentsVersionsFromConfig } from '@aztec/circuit-types';
+import { type ArchiverApi, type Service } from '@aztec/circuit-types/interfaces/server';
 import {
   type ContractClassPublic,
   computePublicBytecodeCommitment,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { FunctionType, decodeFunctionSignature } from '@aztec/foundation/abi';
+import { FunctionType, decodeFunctionSignature } from '@aztec/circuits.js/abi';
 import { createLogger } from '@aztec/foundation/log';
 import { type Maybe } from '@aztec/foundation/types';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContractArtifact } from '@aztec/noir-contracts.js/TokenBridge';
-import { protocolContractNames } from '@aztec/protocol-contracts';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
+import { protocolContractNames, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -34,7 +36,10 @@ export async function createArchiver(
     await registerCommonContracts(archiverStore);
     return Archiver.createAndSync(config, archiverStore, { telemetry, blobSinkClient }, opts.blockUntilSync);
   } else {
-    return createArchiverClient(config.archiverUrl);
+    return createArchiverClient(
+      config.archiverUrl,
+      getComponentsVersionsFromConfig(config, protocolContractTreeRoot, getVKTreeRoot()),
+    );
   }
 }
 

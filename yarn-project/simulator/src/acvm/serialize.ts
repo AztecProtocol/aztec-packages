@@ -1,4 +1,4 @@
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -37,6 +37,13 @@ export function toACVMField(
     buffer = value.toBuffer();
   }
   return `0x${adaptBufferSize(buffer).toString('hex')}`;
+}
+
+/**
+ * Converts a single value or an array of single values into the equivalent ACVM field representation.
+ */
+export function toACVMFieldSingleOrArray(value: Fr | Fr[]) {
+  return Array.isArray(value) ? value.map(toACVMField) : toACVMField(value);
 }
 
 /**

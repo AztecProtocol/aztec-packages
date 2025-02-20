@@ -367,6 +367,31 @@ impl<'a> Parser<'a> {
         Some(WhileStatement { condition, body: block, while_keyword_span: start_span })
     }
 
+    /// WhileStatement = 'while' ExpressionExceptConstructor Block
+    fn parse_while(&mut self) -> Option<WhileStatement> {
+        let start_span = self.current_token_span;
+        if !self.eat_keyword(Keyword::While) {
+            return None;
+        }
+
+        self.push_error(ParserErrorReason::ExperimentalFeature("while loops"), start_span);
+
+        let condition = self.parse_expression_except_constructor_or_error();
+
+        let block_start_span = self.current_token_span;
+        let block = if let Some(block) = self.parse_block() {
+            Expression {
+                kind: ExpressionKind::Block(block),
+                span: self.span_since(block_start_span),
+            }
+        } else {
+            self.expected_token(Token::LeftBrace);
+            Expression { kind: ExpressionKind::Error, span: self.span_since(block_start_span) }
+        };
+
+        Some(WhileStatement { condition, body: block, while_keyword_span: start_span })
+    }
+
     /// ForRange
     ///     = ExpressionExceptConstructor
     ///     | ExpressionExceptConstructor '..' ExpressionExceptConstructor

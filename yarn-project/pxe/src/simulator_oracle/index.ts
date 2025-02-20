@@ -1,19 +1,21 @@
 import {
-  type AztecNode,
   type FunctionCall,
   type InBlock,
   L1NotePayload,
   type L2Block,
-  type L2BlockNumber,
   MerkleTreeId,
   Note,
   type NoteStatus,
-  type NullifierMembershipWitness,
   type PublicDataWitness,
   TxHash,
   type TxScopedL2Log,
   getNonNullifiedL1ToL2MessageWitness,
 } from '@aztec/circuit-types';
+import {
+  type AztecNode,
+  type L2BlockNumber,
+  type NullifierMembershipWitness,
+} from '@aztec/circuit-types/interfaces/client';
 import {
   type AztecAddress,
   type BlockHeader,
@@ -23,25 +25,30 @@ import {
   FunctionSelector,
   IndexedTaggingSecret,
   type KeyValidationRequest,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-  MAX_NOTE_HASHES_PER_TX,
-  PRIVATE_LOG_SIZE_IN_FIELDS,
   PrivateLog,
   PublicLog,
   computeAddressSecret,
   computeTaggingSecretPoint,
 } from '@aztec/circuits.js';
-import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
 import {
   type FunctionArtifact,
   FunctionType,
   NoteSelector,
   encodeArguments,
   getFunctionArtifact,
-} from '@aztec/foundation/abi';
+} from '@aztec/circuits.js/abi';
+import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
+import { LogWithTxData } from '@aztec/circuits.js/logs';
+import {
+  type L1_TO_L2_MSG_TREE_HEIGHT,
+  MAX_NOTE_HASHES_PER_TX,
+  PRIVATE_LOG_SIZE_IN_FIELDS,
+  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
+} from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
+import { BufferReader } from '@aztec/foundation/serialize';
 import { type KeyStore } from '@aztec/key-store';
 import {
   type AcirSimulator,
@@ -101,14 +108,6 @@ export class SimulatorOracle implements DBOracle {
     return witness;
   }
 
-  async popCapsule(): Promise<Fr[]> {
-    const capsule = await this.db.popCapsule();
-    if (!capsule) {
-      throw new Error(`No capsules available`);
-    }
-    return capsule;
-  }
-
   async getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus, scopes?: AztecAddress[]) {
     const noteDaos = await this.db.getNotes({
       contractAddress,
@@ -142,7 +141,7 @@ export class SimulatorOracle implements DBOracle {
     functionName: string,
   ): Promise<FunctionArtifact | undefined> {
     const instance = await this.contractDataOracle.getContractInstance(contractAddress);
-    const artifact = await this.contractDataOracle.getContractArtifact(instance.contractClassId);
+    const artifact = await this.contractDataOracle.getContractArtifact(instance.currentContractClassId);
     return artifact && getFunctionArtifact(artifact, functionName);
   }
 
@@ -707,8 +706,45 @@ export class SimulatorOracle implements DBOracle {
     });
   }
 
+  public async getLogByTag(tag: Fr): Promise<LogWithTxData | null> {
+    const logs = await this.aztecNode.getLogsByTags([tag]);
+    const logsForTag = logs[0];
+
+    this.log.debug(`Got ${logsForTag.length} logs for tag ${tag}`);
+
+    if (logsForTag.length == 0) {
+      return null;
+    } else if (logsForTag.length > 1) {
+      // TODO(#11627): handle this case
+      throw new Error(
+        `Got ${logsForTag.length} logs for tag ${tag}. getLogByTag currently only supports a single log per tag`,
+      );
+    }
+
+    const log = logsForTag[0];
+
+    // getLogsByTag doesn't have all of the information that we need (notably note hashes and the first nullifier), so
+    // we need to make a second call to the node for `getTxEffect`.
+    // TODO(#9789): bundle this information in the `getLogsByTag` call.
+    const txEffect = await this.aztecNode.getTxEffect(log.txHash);
+    if (txEffect == undefined) {
+      throw new Error(`Unexpected: failed to retrieve tx effects for tx ${log.txHash} which is known to exist`);
+    }
+
+    const reader = BufferReader.asReader(log.logData);
+    const logArray = reader.readArray(PUBLIC_LOG_DATA_SIZE_IN_FIELDS, Fr);
+
+    // Public logs always take up all available fields by padding with zeroes, and the length of the originally emitted
+    // log is lost. Until this is improved, we simply remove all of the zero elements (which are expected to be at the
+    // end).
+    // TODO(#11636): use the actual log length.
+    const trimmedLog = logArray.filter(x => !x.isZero());
+
+    return new LogWithTxData(trimmedLog, log.txHash.hash, txEffect.data.noteHashes, txEffect.data.nullifiers[0]);
+  }
+
   public async removeNullifiedNotes(contractAddress: AztecAddress) {
-    this.log.verbose('Removing nullified notes', { contract: contractAddress });
+    this.log.verbose('Searching for nullifiers of known notes', { contract: contractAddress });
 
     for (const recipient of await this.keyStore.getAccounts()) {
       const currentNotesForRecipient = await this.db.getNotes({ contractAddress, owner: recipient });
@@ -783,7 +819,7 @@ export class SimulatorOracle implements DBOracle {
       receipt.blockHash!.toString(),
       uniqueNoteHashTreeIndex,
       await recipient.toAddressPoint(),
-      NoteSelector.empty(), // todo: remove
+      NoteSelector.empty(), // TODO(#12013): remove
     );
   }
 
@@ -806,10 +842,11 @@ export class SimulatorOracle implements DBOracle {
       );
     }
 
+    const selector = await FunctionSelector.fromNameAndParameters(artifact);
     const execRequest: FunctionCall = {
       name: artifact.name,
       to: contractAddress,
-      selector: await FunctionSelector.fromNameAndParameters(artifact),
+      selector,
       type: FunctionType.UNCONSTRAINED,
       isStatic: artifact.isStatic,
       args: encodeArguments(artifact, [
@@ -827,26 +864,26 @@ export class SimulatorOracle implements DBOracle {
       getAcirSimulator(this.db, this.aztecNode, this.keyStore, this.simulationProvider, this.contractDataOracle)
     ).runUnconstrained(
       execRequest,
-      artifact,
       contractAddress,
+      selector,
       [], // empty scope as this call should not require access to private information
     );
   }
 
-  dbStore(contractAddress: AztecAddress, slot: Fr, values: Fr[]): Promise<void> {
-    return this.db.dbStore(contractAddress, slot, values);
+  storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
+    return this.db.storeCapsule(contractAddress, slot, capsule);
   }
 
-  dbLoad(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
-    return this.db.dbLoad(contractAddress, slot);
+  loadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
+    return this.db.loadCapsule(contractAddress, slot);
   }
 
-  dbDelete(contractAddress: AztecAddress, slot: Fr): Promise<void> {
-    return this.db.dbDelete(contractAddress, slot);
+  deleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void> {
+    return this.db.deleteCapsule(contractAddress, slot);
   }
 
-  dbCopy(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
-    return this.db.dbCopy(contractAddress, srcSlot, dstSlot, numEntries);
+  copyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
+    return this.db.copyCapsule(contractAddress, srcSlot, dstSlot, numEntries);
   }
 }
 
