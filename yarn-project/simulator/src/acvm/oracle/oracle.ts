@@ -1,4 +1,5 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
+import { ContractClassLog } from '@aztec/circuits.js';
 import { FunctionSelector, NoteSelector } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { LogWithTxData } from '@aztec/circuits.js/logs';
@@ -8,7 +9,6 @@ import { type ACVMField } from '../acvm_types.js';
 import { frToBoolean, frToNumber, fromACVMField, fromBoundedVec } from '../deserialize.js';
 import { toACVMField, toACVMFieldSingleOrArray } from '../serialize.js';
 import { type TypedOracle } from './typed_oracle.js';
-import { ContractClassLog } from '@aztec/circuits.js';
 
 /**
  * A data source that has all the apis required by Aztec.nr.

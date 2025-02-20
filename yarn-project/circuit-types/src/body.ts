@@ -1,4 +1,5 @@
-import { BLOBS_PER_BLOCK, FIELDS_PER_BLOB, type Fr } from '@aztec/circuits.js';
+import { type Fr } from '@aztec/circuits.js';
+import { BLOBS_PER_BLOCK, FIELDS_PER_BLOB } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { type ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';

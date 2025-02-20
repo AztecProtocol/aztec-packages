@@ -2,8 +2,8 @@ import { GeneratorIndex } from '@aztec/constants';
 import { poseidon2Hash, poseidon2HashWithSeparator, sha256Trunc } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
-import { type ContractClassLog } from '../index.js';
 import { type AztecAddress } from '../aztec-address/index.js';
+import { type ContractClassLog } from '../index.js';
 import { type ScopedL2ToL1Message } from '../structs/l2_to_l1_message.js';
 
 /**

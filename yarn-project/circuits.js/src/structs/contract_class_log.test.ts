@@ -1,6 +1,6 @@
+import { CONTRACT_CLASS_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 
-import { CONTRACT_CLASS_LOG_SIZE_IN_FIELDS } from '../constants.gen.js';
 import { ContractClassLog } from './contract_class_log.js';
 
 describe('PublicLog', () => {

@@ -1,4 +1,8 @@
-import { ContractClassLog, type ExecutablePrivateFunctionWithMembershipProof, type PrivateFunction } from '@aztec/circuits.js';
+import {
+  ContractClassLog,
+  type ExecutablePrivateFunctionWithMembershipProof,
+  type PrivateFunction,
+} from '@aztec/circuits.js';
 import { FunctionSelector, bufferFromFields } from '@aztec/circuits.js/abi';
 import {
   ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
@@ -7,8 +11,6 @@ import {
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { FieldReader, type Tuple } from '@aztec/foundation/serialize';
-
-import chunk from 'lodash.chunk';
 
 import { REGISTERER_PRIVATE_FUNCTION_BROADCASTED_TAG } from '../protocol_contract_data.js';
 

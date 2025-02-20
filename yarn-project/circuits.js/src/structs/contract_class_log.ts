@@ -1,3 +1,4 @@
+import { CONTRACT_CLASS_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
@@ -5,8 +6,6 @@ import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/
 
 import { inspect } from 'util';
 import { z } from 'zod';
-
-import { CONTRACT_CLASS_LOG_SIZE_IN_FIELDS } from '../constants.gen.js';
 
 export class ContractClassLog {
   static SIZE_IN_BYTES = Fr.SIZE_IN_BYTES * CONTRACT_CLASS_LOG_SIZE_IN_FIELDS;

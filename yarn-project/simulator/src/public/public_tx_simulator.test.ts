@@ -1,9 +1,4 @@
-import {
-  MerkleTreeId,
-  SimulationError,
-  type Tx,
-  TxExecutionPhase,
-} from '@aztec/circuit-types';
+import { MerkleTreeId, SimulationError, type Tx, TxExecutionPhase } from '@aztec/circuit-types';
 import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import { mockTx } from '@aztec/circuit-types/testing';
 import {
@@ -27,7 +22,13 @@ import { bufferAsFields } from '@aztec/circuits.js/abi';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { fr, makeContractClassPublic } from '@aztec/circuits.js/testing';
 import { AppendOnlyTreeSnapshot, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
-import { CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, REGISTERER_CONTRACT_ADDRESS, REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE } from '@aztec/constants';
+import {
+  CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
+  NULLIFIER_SUBTREE_HEIGHT,
+  PUBLIC_DATA_TREE_HEIGHT,
+  REGISTERER_CONTRACT_ADDRESS,
+  REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
+} from '@aztec/constants';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
