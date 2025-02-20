@@ -1,12 +1,12 @@
 import { SiblingPath } from '@aztec/circuit-types';
 import { type BatchInsertionResult, type LeafUpdateWitnessData } from '@aztec/circuit-types/interfaces/server';
 import { type TreeInsertionStats } from '@aztec/circuit-types/stats';
+import { type Hasher } from '@aztec/circuits.js/interfaces';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { type FromBuffer } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
 import { type IndexedTreeLeaf, type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
-import { type Hasher } from '@aztec/types/interfaces';
 
 import { type IndexedTree, type PreimageFactory } from '../interfaces/indexed_tree.js';
 import { IndexedTreeSnapshotBuilder } from '../snapshots/indexed_tree_snapshot.js';
