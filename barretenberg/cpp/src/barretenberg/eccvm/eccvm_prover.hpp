@@ -54,7 +54,7 @@ class ECCVMProver {
 
     TranslationEvaluations translation_evaluations;
 
-    static constexpr std::array<std::string, 5> translation_labels = {
+    std::array<std::string, 5> translation_labels = {
         "Translation:op", "Translation:Px", "Translation:Py", "Translation:z1", "Translation:z2"
     };
 
