@@ -30,12 +30,12 @@ jobs:
       matrix:
         # Only run arm64 build with arm64-ci label.
         # Thhe way to do conditions here is to parse full strings as JSON.
-        settings: |
-          ${{ fromJson(
-           contains(github.event.pull_request.labels.*.name, 'arm64-ci') &&
-            '[{"arch": "amd64"}, {"arch": "arm64"}]' ||
-            '[{"arch": "amd64"}]'
-          ) }}
+        settings: ${{ fromJson('[{"arch":"amd64"}]') }}
+          # ${{ fromJson(
+          #  contains(github.event.pull_request.labels.*.name, 'arm64-ci') &&
+          #   '[{"arch": "amd64"}, {"arch": "arm64"}]' ||
+          #   '[{"arch": "amd64"}]'
+          # ) }}
     steps:
       #############
       # Prepare Env
