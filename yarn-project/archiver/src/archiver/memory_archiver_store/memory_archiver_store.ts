@@ -29,7 +29,7 @@ import {
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
 import { FunctionSelector } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
   INITIAL_L2_BLOCK_NUM,
   MAX_NOTE_HASHES_PER_TX,

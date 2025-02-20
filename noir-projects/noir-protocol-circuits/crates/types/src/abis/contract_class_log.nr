@@ -1,7 +1,7 @@
 use crate::{
     abis::{log::Log, log_hash::ScopedLogHash},
     constants::CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
-    hash::{poseidon2_hash, silo_contract_class_log},
+    hash::{poseidon2_hash_subarray_variable, silo_contract_class_log},
     traits::is_empty,
     utils::arrays::validate_trailing_zeroes,
 };
@@ -20,7 +20,7 @@ pub fn validate_and_silo_contract_class_log(
         assert(is_empty(log_hash), "mismatched contract class log hash");
     } else {
         // Validate hash
-        let hashed_log = poseidon2_hash(log.fields);
+        let hashed_log = poseidon2_hash_subarray_variable(log.fields, length);
         assert_eq(log_hash.log_hash.value, hashed_log, "mismatched contract class log hash");
     }
 

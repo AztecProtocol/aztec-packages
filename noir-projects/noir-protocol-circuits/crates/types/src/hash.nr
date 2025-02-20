@@ -243,6 +243,12 @@ pub fn poseidon2_hash_subarray<let N: u32>(input: [Field; N], in_len: u32) -> Fi
     sponge.squeeze()
 }
 
+#[no_predicates]
+pub fn poseidon2_hash_subarray_variable<let N: u32>(input: [Field; N], in_len: u32) -> Field {
+    let mut sponge = poseidon2_absorb_chunks(input, in_len, true);
+    sponge.squeeze()
+}
+
 // NB the below is the same as std::hash::poseidon2::Poseidon2::hash(), but replacing a range check with a bit check,
 // and absorbing in chunks of 3 below.
 #[no_predicates]
