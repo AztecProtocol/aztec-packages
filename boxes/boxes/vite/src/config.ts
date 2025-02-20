@@ -67,7 +67,7 @@ export class PrivateEnv {
       accountData.salt,
     );
     await account.register();
-    this.wallet = account.getWallet();
+    this.wallet = await account.getWallet();
   }
 
   async getWallet() {
