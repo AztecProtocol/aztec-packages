@@ -138,9 +138,6 @@ export abstract class BaseWallet implements Wallet {
   getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any> {
     return this.pxe.getPublicStorageAt(contract, storageSlot);
   }
-  addNote(note: ExtendedNote): Promise<void> {
-    return this.pxe.addNote(note, this.getAddress());
-  }
   getBlock(number: number): Promise<L2Block | undefined> {
     return this.pxe.getBlock(number);
   }

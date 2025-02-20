@@ -74,7 +74,7 @@ function test_cmds {
   echo "$prefix simple e2e_nested_contract/manual_public"
 
   echo "$prefix simple e2e_nft"
-  echo "$prefix simple e2e_non_contract_account"
+  echo "$prefix simple e2e_offchain_note_delivery"
   echo "$prefix simple e2e_note_getter"
   echo "$prefix simple e2e_ordering"
   echo "$prefix simple e2e_outbox"

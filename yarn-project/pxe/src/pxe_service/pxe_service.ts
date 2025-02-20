@@ -1,7 +1,6 @@
 import {
   type AuthWitness,
   EventMetadata,
-  type ExtendedNote,
   type FunctionCall,
   type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
@@ -9,7 +8,6 @@ import {
   L1EventPayload,
   type L2Block,
   type LogFilter,
-  MerkleTreeId,
   type NotesFilter,
   PrivateSimulationResult,
   type PublicSimulationOutput,
@@ -52,7 +50,7 @@ import {
   encodeArguments,
 } from '@aztec/circuits.js/abi';
 import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/circuits.js/contract';
-import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
+import { siloNullifier } from '@aztec/circuits.js/hash';
 import { PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
 import { computeAddressSecret } from '@aztec/circuits.js/keys';
 import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
@@ -72,7 +70,6 @@ import { type PXEServiceConfig } from '../config/index.js';
 import { getPackageInfo } from '../config/package_info.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { type PxeDatabase } from '../database/index.js';
-import { NoteDao } from '../database/note_dao.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver, type ProvingConfig } from '../kernel_prover/kernel_prover.js';
 import { getAcirSimulator } from '../simulator/index.js';
@@ -370,96 +367,6 @@ export class PXEService implements PXE {
 
   public getL2ToL1MembershipWitness(blockNumber: number, l2Tol1Message: Fr): Promise<[bigint, SiblingPath<number>]> {
     return this.node.getL2ToL1MessageMembershipWitness(blockNumber, l2Tol1Message);
-  }
-
-  public async addNote(note: ExtendedNote, scope?: AztecAddress) {
-    const owner = await this.db.getCompleteAddress(note.owner);
-    if (!owner) {
-      throw new Error(`Unknown account: ${note.owner.toString()}`);
-    }
-
-    const { data: nonces, l2BlockNumber, l2BlockHash } = await this.#getNoteNonces(note);
-    if (nonces.length === 0) {
-      throw new Error(`Cannot find the note in tx: ${note.txHash}.`);
-    }
-
-    for (const nonce of nonces) {
-      const { noteHash, uniqueNoteHash, innerNullifier } = await this.simulator.computeNoteHashAndNullifier(
-        note.contractAddress,
-        nonce,
-        note.storageSlot,
-        note.noteTypeId,
-        note.note,
-      );
-
-      const [index] = await this.node.findLeavesIndexes('latest', MerkleTreeId.NOTE_HASH_TREE, [uniqueNoteHash]);
-      if (index === undefined) {
-        throw new Error('Note does not exist.');
-      }
-
-      const siloedNullifier = await siloNullifier(note.contractAddress, innerNullifier!);
-      const [nullifierIndex] = await this.node.findLeavesIndexes('latest', MerkleTreeId.NULLIFIER_TREE, [
-        siloedNullifier,
-      ]);
-      if (nullifierIndex !== undefined) {
-        throw new Error('The note has been destroyed.');
-      }
-
-      await this.db.addNote(
-        new NoteDao(
-          note.note,
-          note.contractAddress,
-          note.storageSlot,
-          nonce,
-          noteHash,
-          siloedNullifier,
-          note.txHash,
-          l2BlockNumber,
-          l2BlockHash,
-          index,
-          await owner.address.toAddressPoint(),
-          note.noteTypeId,
-        ),
-        scope,
-      );
-    }
-  }
-
-  /**
-   * Finds the nonce(s) for a given note.
-   * @param note - The note to find the nonces for.
-   * @returns The nonces of the note.
-   * @remarks More than a single nonce may be returned since there might be more than one nonce for a given note.
-   */
-  async #getNoteNonces(note: ExtendedNote): Promise<InBlock<Fr[]>> {
-    const tx = await this.node.getTxEffect(note.txHash);
-    if (!tx) {
-      throw new Error(`Unknown tx: ${note.txHash}`);
-    }
-
-    const nonces: Fr[] = [];
-    const firstNullifier = tx.data.nullifiers[0];
-    const hashes = tx.data.noteHashes;
-    for (let i = 0; i < hashes.length; ++i) {
-      const hash = hashes[i];
-      if (hash.equals(Fr.ZERO)) {
-        break;
-      }
-
-      const nonce = await computeNoteHashNonce(firstNullifier, i);
-      const { uniqueNoteHash } = await this.simulator.computeNoteHashAndNullifier(
-        note.contractAddress,
-        nonce,
-        note.storageSlot,
-        note.noteTypeId,
-        note.note,
-      );
-      if (hash.equals(uniqueNoteHash)) {
-        nonces.push(nonce);
-      }
-    }
-
-    return { l2BlockHash: tx.l2BlockHash, l2BlockNumber: tx.l2BlockNumber, data: nonces };
   }
 
   public async getBlock(blockNumber: number): Promise<L2Block | undefined> {

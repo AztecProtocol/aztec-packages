@@ -232,10 +232,6 @@ describe('PXESchema', () => {
     expect(result).toEqual([expect.any(BigInt), expect.any(SiblingPath)]);
   });
 
-  it('addNote', async () => {
-    await context.client.addNote(await ExtendedNote.random(), address);
-  });
-
   it('getBlock', async () => {
     const result = await context.client.getBlock(1);
     expect(result).toBeInstanceOf(L2Block);
@@ -453,11 +449,6 @@ class MockPXE implements PXE {
     expect(typeof blockNumber).toEqual('number');
     expect(l2Tol1Message).toBeInstanceOf(Fr);
     return Promise.resolve([1n, SiblingPath.random<number>(4)]);
-  }
-  addNote(note: ExtendedNote, scope?: AztecAddress | undefined): Promise<void> {
-    expect(note).toBeInstanceOf(ExtendedNote);
-    expect(scope).toEqual(this.address);
-    return Promise.resolve();
   }
   getBlock(number: number): Promise<L2Block | undefined> {
     return Promise.resolve(L2Block.random(number));

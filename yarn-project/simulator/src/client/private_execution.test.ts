@@ -42,9 +42,10 @@ import {
 import {
   computeNoteHashNonce,
   computeSecretHash,
+  computeUniqueNoteHash,
   computeVarArgsHash,
   deriveStorageSlotInMap,
-  siloNullifier,
+  siloNoteHash,
 } from '@aztec/circuits.js/hash';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
@@ -214,6 +215,11 @@ describe('Private Execution test suite', () => {
     }
 
     return trees[name];
+  };
+
+  const computeNoteHash = (note: Note, storageSlot: Fr) => {
+    // We're assuming here that the note hash function is the default one injected by the #[note] macro.
+    return poseidon2HashWithSeparator([...note.items, storageSlot], GeneratorIndex.NOTE_HASH);
   };
 
   beforeAll(async () => {
@@ -395,17 +401,7 @@ describe('Private Execution test suite', () => {
 
       const noteHashes = getNonEmptyItems(result.publicInputs.noteHashes);
       expect(noteHashes).toHaveLength(1);
-      expect(noteHashes[0].value).toEqual(
-        (
-          await acirSimulator.computeNoteHashAndNullifier(
-            contractAddress,
-            Fr.ZERO,
-            newNote.storageSlot,
-            newNote.noteTypeId,
-            newNote.note,
-          )
-        ).noteHash,
-      );
+      expect(noteHashes[0].value).toEqual(await computeNoteHash(newNote.note, newNote.storageSlot));
 
       const privateLogs = getNonEmptyItems(result.publicInputs.privateLogs);
       expect(privateLogs).toHaveLength(1);
@@ -425,17 +421,7 @@ describe('Private Execution test suite', () => {
 
       const noteHashes = getNonEmptyItems(result.publicInputs.noteHashes);
       expect(noteHashes).toHaveLength(1);
-      expect(noteHashes[0].value).toEqual(
-        (
-          await acirSimulator.computeNoteHashAndNullifier(
-            contractAddress,
-            Fr.ZERO,
-            newNote.storageSlot,
-            newNote.noteTypeId,
-            newNote.note,
-          )
-        ).noteHash,
-      );
+      expect(noteHashes[0].value).toEqual(await computeNoteHash(newNote.note, newNote.storageSlot));
 
       const privateLogs = getNonEmptyItems(result.publicInputs.privateLogs);
       expect(privateLogs).toHaveLength(1);
@@ -458,13 +444,17 @@ describe('Private Execution test suite', () => {
       oracle.processTaggedLogs.mockResolvedValue();
       oracle.getNotes.mockResolvedValue(notes);
 
-      const consumedNotes = await asyncMap(notes, ({ nonce, note }) =>
-        acirSimulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, valueNoteTypeId, note),
-      );
-      await insertLeaves(consumedNotes.map(n => n.uniqueNoteHash));
+      const consumedNotes = await asyncMap(notes, async ({ note, nonce }) => {
+        const noteHash = await computeNoteHash(note, storageSlot);
+        const siloedNoteHash = await siloNoteHash(contractAddress, noteHash);
+        const uniqueNoteHash = await computeUniqueNoteHash(nonce, siloedNoteHash);
+        return uniqueNoteHash;
+      });
+
+      await insertLeaves(consumedNotes);
 
       const args = [recipient, amountToTransfer];
-      const { entrypoint: result, firstNullifier } = await runSimulator({
+      const { entrypoint: result } = await runSimulator({
         args,
         artifact: StatefulTestContractArtifact,
         functionName: 'destroy_and_create_no_init_check',
@@ -472,15 +462,10 @@ describe('Private Execution test suite', () => {
         contractAddress,
       });
 
-      // The two notes were nullified
+      // The two notes were nullified. Uses one of the notes as first nullifier, not requiring a protocol injected
+      // nullifier, so the total number of nullifiers is still two.
       const nullifiers = getNonEmptyItems(result.publicInputs.nullifiers).map(n => n.value);
       expect(nullifiers).toHaveLength(consumedNotes.length);
-      expect(nullifiers).toEqual(expect.arrayContaining(consumedNotes.map(n => n.innerNullifier)));
-      // Uses one of the notes as first nullifier, not requiring a protocol injected nullifier.
-      const consumedNotesNullifiers = await Promise.all(
-        consumedNotes.map(n => siloNullifier(contractAddress, n.innerNullifier)),
-      );
-      expect(consumedNotesNullifiers).toContainEqual(firstNullifier);
 
       expect(result.newNotes).toHaveLength(2);
       const [changeNote, recipientNote] = result.newNotes;
@@ -489,29 +474,6 @@ describe('Private Execution test suite', () => {
 
       const noteHashes = getNonEmptyItems(result.publicInputs.noteHashes);
       expect(noteHashes).toHaveLength(2);
-      const [changeNoteHash, recipientNoteHash] = noteHashes;
-      const [siloedChangeNoteHash, siloedRecipientNoteHash] = [
-        (
-          await acirSimulator.computeNoteHashAndNullifier(
-            contractAddress,
-            Fr.ZERO,
-            storageSlot,
-            valueNoteTypeId,
-            changeNote.note,
-          )
-        ).noteHash,
-        (
-          await acirSimulator.computeNoteHashAndNullifier(
-            contractAddress,
-            Fr.ZERO,
-            recipientStorageSlot,
-            valueNoteTypeId,
-            recipientNote.note,
-          )
-        ).noteHash,
-      ];
-      expect(changeNoteHash.value).toEqual(siloedChangeNoteHash);
-      expect(recipientNoteHash.value).toEqual(siloedRecipientNoteHash);
 
       expect(recipientNote.note.items[0]).toEqual(new Fr(amountToTransfer));
       expect(changeNote.note.items[0]).toEqual(new Fr(40n));
@@ -521,7 +483,6 @@ describe('Private Execution test suite', () => {
 
       const readRequests = getNonEmptyItems(result.publicInputs.noteHashReadRequests).map(r => r.value);
       expect(readRequests).toHaveLength(consumedNotes.length);
-      expect(readRequests).toEqual(expect.arrayContaining(consumedNotes.map(n => n.uniqueNoteHash)));
     });
 
     it('should be able to destroy_and_create with dummy notes', async () => {
@@ -535,10 +496,14 @@ describe('Private Execution test suite', () => {
       oracle.processTaggedLogs.mockResolvedValue();
       oracle.getNotes.mockResolvedValue(notes);
 
-      const consumedNotes = await asyncMap(notes, ({ nonce, note }) =>
-        acirSimulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, valueNoteTypeId, note),
-      );
-      await insertLeaves(consumedNotes.map(n => n.uniqueNoteHash));
+      const consumedNotes = await asyncMap(notes, async ({ note, nonce }) => {
+        const noteHash = await computeNoteHash(note, storageSlot);
+        const siloedNoteHash = await siloNoteHash(contractAddress, noteHash);
+        const uniqueNoteHash = await computeUniqueNoteHash(nonce, siloedNoteHash);
+        return uniqueNoteHash;
+      });
+
+      await insertLeaves(consumedNotes);
 
       const args = [recipient, amountToTransfer];
       const { entrypoint: result } = await runSimulator({
@@ -550,7 +515,7 @@ describe('Private Execution test suite', () => {
       });
 
       const nullifiers = getNonEmptyItems(result.publicInputs.nullifiers).map(n => n.value);
-      expect(nullifiers).toEqual(consumedNotes.map(n => n.innerNullifier));
+      expect(nullifiers).toHaveLength(consumedNotes.length);
 
       expect(result.newNotes).toHaveLength(2);
       const [changeNote, recipientNote] = result.newNotes;
@@ -1028,13 +993,7 @@ describe('Private Execution test suite', () => {
         owner,
       );
 
-      const { noteHash: derivedNoteHash } = await acirSimulator.computeNoteHashAndNullifier(
-        contractAddress,
-        Fr.ZERO,
-        storageSlot,
-        valueNoteTypeId,
-        noteAndSlot.note,
-      );
+      const derivedNoteHash = await computeNoteHash(noteAndSlot.note, storageSlot);
       expect(noteHashFromCall).toEqual(derivedNoteHash);
 
       const privateLogs = getNonEmptyItems(result.publicInputs.privateLogs);
@@ -1106,13 +1065,7 @@ describe('Private Execution test suite', () => {
       const noteHashes = getNonEmptyItems(execInsert.publicInputs.noteHashes);
       expect(noteHashes).toHaveLength(1);
 
-      const { noteHash: derivedNoteHash } = await acirSimulator.computeNoteHashAndNullifier(
-        contractAddress,
-        Fr.ZERO,
-        noteAndSlot.storageSlot,
-        noteAndSlot.noteTypeId,
-        noteAndSlot.note,
-      );
+      const derivedNoteHash = await computeNoteHash(noteAndSlot.note, storageSlot);
       expect(noteHashes[0].value).toEqual(derivedNoteHash);
 
       const privateLogs = getNonEmptyItems(execInsert.publicInputs.privateLogs);

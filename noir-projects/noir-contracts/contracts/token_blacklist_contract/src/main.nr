@@ -18,11 +18,13 @@ use dep::aztec::macros::aztec;
 pub contract TokenBlacklist {
     // Libs
     use dep::aztec::{
+        discovery::private_logs::do_process_log,
         encrypted_logs::log_assembly_strategies::default_aes128::note::{
             encode_and_encrypt_note, encode_and_encrypt_note_unconstrained,
         },
         hash::compute_secret_hash,
         macros::{functions::{initializer, internal, private, public, view}, storage::storage},
+        note::note_interface::NoteInterface,
         prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable, SharedMutable},
         utils::comparison::Comparator,
     };
@@ -34,6 +36,9 @@ pub contract TokenBlacklist {
     use crate::types::{
         balances_map::BalancesMap, roles::UserFlags, token_note::TokenNote,
         transparent_note::TransparentNote,
+    };
+    use aztec::protocol_types::{
+        constants::MAX_NOTE_HASHES_PER_TX, traits::Packable, utils::arrays::array_concat,
     };
 
     // Changing an address' roles has a certain block delay before it goes into effect.
@@ -299,5 +304,55 @@ pub contract TokenBlacklist {
     /// Unconstrained ///
     unconstrained fn balance_of_private(owner: AztecAddress) -> pub Field {
         storage.balances.balance_of(owner).to_field()
+    }
+
+    // docs:start:deliver_note_contract_method
+    unconstrained fn deliver_transparent_note(
+        contract_address: AztecAddress,
+        amount: Field,
+        secret_hash: Field,
+        tx_hash: Field,
+        unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
+        first_nullifier_in_tx: Field,
+        recipient: AztecAddress,
+    ) {
+        // docs:end:deliver_note_contract_method
+        
+        // do_process_log expects a standard aztec-nr encoded note, which has the following shape:
+        // [ storage_slot, note_type_id, ...packed_note ]
+        let note = TransparentNote::new(amount, secret_hash);
+        let log_plaintext = BoundedVec::from_array(array_concat(
+            [
+                TokenBlacklist::storage_layout().pending_shields.slot,
+                TransparentNote::get_note_type_id(),
+            ],
+            note.pack(),
+        ));
+
+        do_process_log(
+            contract_address,
+            log_plaintext,
+            tx_hash,
+            unique_note_hashes_in_tx,
+            first_nullifier_in_tx,
+            recipient,
+            |packed_note_content: BoundedVec<Field, _>, contract_address: aztec::protocol_types::address::AztecAddress, nonce: Field, storage_slot: Field, note_type_id: Field| {
+                let hashes = _compute_note_hash_and_optionally_a_nullifier(
+                    contract_address,
+                    nonce,
+                    storage_slot,
+                    note_type_id,
+                    true,
+                    packed_note_content,
+                );
+
+                Option::some(
+                    aztec::discovery::NoteHashAndNullifier {
+                        note_hash: hashes[0],
+                        inner_nullifier: hashes[3],
+                    },
+                )
+            },
+        );
     }
 }
