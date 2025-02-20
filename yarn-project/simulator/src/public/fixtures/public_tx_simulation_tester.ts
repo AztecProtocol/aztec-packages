@@ -3,9 +3,7 @@ import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/
 import { CallContext, FunctionSelector, GasFees, GlobalVariables } from '@aztec/circuits.js';
 import { type ContractArtifact, encodeArguments } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
-import {
-  PUBLIC_DISPATCH_SELECTOR,
-} from '@aztec/constants';
+import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 import { NativeWorldStateService } from '@aztec/world-state';
