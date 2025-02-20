@@ -317,7 +317,7 @@ pub contract TokenBlacklist {
         recipient: AztecAddress,
     ) {
         // docs:end:deliver_note_contract_method
-        
+
         // do_process_log expects a standard aztec-nr encoded note, which has the following shape:
         // [ storage_slot, note_type_id, ...packed_note ]
         let note = TransparentNote::new(amount, secret_hash);

@@ -26,10 +26,8 @@ pub comptime fn aztec(m: Module) -> Quoted {
         transform_unconstrained(f);
     }
 
-    let contract_library_method_compute_note_hash_and_optionally_a_nullifier =
-        generate_contract_library_method_compute_note_hash_and_optionally_a_nullifier();
-    let compute_note_hash_and_optionally_a_nullifier =
-        generate_compute_note_hash_and_optionally_a_nullifier();
+    let contract_library_method_compute_note_hash_and_nullifier =
+        generate_contract_library_method_compute_note_hash_and_nullifier();
     let process_log = generate_process_log();
     let note_exports = generate_note_exports();
     let public_dispatch = generate_public_dispatch(m);
@@ -38,8 +36,7 @@ pub comptime fn aztec(m: Module) -> Quoted {
     quote {
         $note_exports
         $interface
-        $contract_library_method_compute_note_hash_and_optionally_a_nullifier
-        $compute_note_hash_and_optionally_a_nullifier
+        $contract_library_method_compute_note_hash_and_nullifier
         $process_log
         $public_dispatch
         $sync_notes
@@ -114,10 +111,10 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
     }
 }
 
-/// Generates a contract library method called `_compute_note_hash_and_optionally_a_nullifier` which is used for note
+/// Generates a contract library method called `_compute_note_hash_and_nullifier` which is used for note
 /// discovery (to create the `aztec::discovery::ComputeNoteHashAndNullifier` function) and to implement the
 /// `compute_note_hash_and_nullifier` unconstrained contract function.
-comptime fn generate_contract_library_method_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
+comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -> Quoted {
     let notes = NOTES.entries();
 
     let mut max_note_packed_len: u32 = 0;
@@ -188,7 +185,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_optionally_a_
 
         quote {
             #[contract_library_method]
-            unconstrained fn _compute_note_hash_and_optionally_a_nullifier(
+            unconstrained fn _compute_note_hash_and_nullifier(
                 contract_address: aztec::protocol_types::address::AztecAddress,
                 nonce: Field,
                 storage_slot: Field,
@@ -207,7 +204,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_optionally_a_
         // simply throws immediately.
         quote {
             #[contract_library_method]
-            unconstrained fn _compute_note_hash_and_optionally_a_nullifier(
+            unconstrained fn _compute_note_hash_and_nullifier(
                 _contract_address: aztec::protocol_types::address::AztecAddress,
                 _nonce: Field,
                 _storage_slot: Field,

@@ -38,8 +38,8 @@ pub contract Test {
         note::{
             lifecycle::{create_note, destroy_note_unsafe},
             note_getter::{get_notes, view_notes},
-            note_interface::NoteInterface,
             note_getter_options::NoteStatus,
+            note_interface::NoteInterface,
             retrieved_note::RetrievedNote,
         },
         test::mocks::mock_struct::MockStruct,
@@ -449,7 +449,10 @@ pub contract Test {
         // do_process_log expects a standard aztec-nr encoded note, which has the following shape:
         // [ storage_slot, note_type_id, ...packed_note ]
         let note = TestNote::new(value);
-        let log_plaintext = BoundedVec::from_array(array_concat([Test::storage_layout().example_constant.slot, TestNote::get_note_type_id()], note.pack()));
+        let log_plaintext = BoundedVec::from_array(array_concat(
+            [Test::storage_layout().example_constant.slot, TestNote::get_note_type_id()],
+            note.pack(),
+        ));
 
         do_process_log(
             contract_address,
