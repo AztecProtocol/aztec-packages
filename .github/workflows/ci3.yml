@@ -93,8 +93,6 @@ jobs:
         run: echo "CI_FULL=1" >> $GITHUB_ENV
 
       - name: Setup
-        env:
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
           # Ensure we can SSH into the spot instances we request.
           mkdir -p ~/.ssh
