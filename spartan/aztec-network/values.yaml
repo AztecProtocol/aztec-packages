@@ -54,6 +54,8 @@ aztec:
   # Starting from this index, the number of keys is equal to the number of replicas for the given service
   validatorKeyIndexStart: 0
   proverKeyIndexStart: 1000
+  # Needs to be set for sepolia deployments
+  botKeyIndexStart: ""
 
   ## The number of extra accounts to prefund
   extraAccountsStartIndex: 2000

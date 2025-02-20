@@ -5,6 +5,7 @@ aztec:
   l1DeploymentMnemonic: ""
   validatorKeyIndexStart: 0
   proverKeyIndexStart: 3
+  botKeyIndexStart: 4
 
 network:
   setupL2Contracts: false

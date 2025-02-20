@@ -9,7 +9,8 @@ value_yamls="../aztec-network/values/$values_file ../aztec-network/values.yaml"
 
 num_validators=$(./read_value.sh "validator.replicas" $value_yamls)
 num_provers=$(./read_value.sh "proverNode.replicas" $value_yamls)
-num_accounts=$((num_validators + num_provers))
+num_bots=$(./read_value.sh "bot.replicas" $value_yamls)
+num_accounts=$((num_validators + num_provers + num_bots))
 
 # Install bc if needed
 if ! command -v bc &>/dev/null; then
