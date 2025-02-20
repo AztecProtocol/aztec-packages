@@ -902,6 +902,7 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath,
                                           const std::string& witnessPath,
                                           const bool recursive)
 {
+    PROFILE_THIS_NAME("compute_valid_prover");
     using Builder = Flavor::CircuitBuilder;
     using Prover = UltraProver_<Flavor>;
 
@@ -935,11 +936,18 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath,
             required_crs_size = curve::BN254::SUBGROUP_SIZE * 2;
         }
     }
-    init_bn254_crs(required_crs_size);
+    plookup::MULTI_TABLES.reset();
+    {
+        PROFILE_THIS_NAME("init_bn254_crs");
+        init_bn254_crs(required_crs_size);
+    }
 
     // output the vk
-    typename Flavor::VerificationKey vk(prover.proving_key->proving_key);
-    debug(vk.to_field_elements());
+    {
+        PROFILE_THIS_NAME("creating vk");
+        typename Flavor::VerificationKey vk(prover.proving_key->proving_key);
+        debug(vk.to_field_elements());
+    }
     return std::move(prover);
 }
 
@@ -960,6 +968,8 @@ void prove_honk(const std::string& bytecodePath,
                 const std::string& outputPath,
                 const bool recursive)
 {
+    PROFILE_THIS_NAME("prove_honk");
+
     using Prover = UltraProver_<Flavor>;
 
     // Construct Honk proof

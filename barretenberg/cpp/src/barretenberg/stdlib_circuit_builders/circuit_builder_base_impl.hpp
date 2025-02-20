@@ -7,12 +7,19 @@ template <typename FF_>
 CircuitBuilderBase<FF_>::CircuitBuilderBase(size_t size_hint, bool has_dummy_witnesses)
     : has_dummy_witnesses(has_dummy_witnesses)
 {
-    variables.reserve(size_hint * 3);
-    variable_names.reserve(size_hint * 3);
-    next_var_index.reserve(size_hint * 3);
-    prev_var_index.reserve(size_hint * 3);
-    real_variable_index.reserve(size_hint * 3);
-    real_variable_tags.reserve(size_hint * 3);
+    info("in CircuitBuilderBase constructor: start, size_hint is ", size_hint);
+    variables.reserve(size_hint * 4);
+    info("in CircuitBuilderBase constructor: after variables.reserve");
+    variable_names.reserve(size_hint * 4);
+    info("in CircuitBuilderBase constructor: after variable_names.reserve");
+    next_var_index.reserve(size_hint * 4);
+    info("in CircuitBuilderBase constructor: after next_var_index.reserve");
+    prev_var_index.reserve(size_hint * 4);
+    info("in CircuitBuilderBase constructor: after prev_var_index.reserve");
+    real_variable_index.reserve(size_hint * 4);
+    info("in CircuitBuilderBase constructor: after real_variable_index.reserve");
+    real_variable_tags.reserve(size_hint * 4);
+    info("in CircuitBuilderBase constructor: end");
 }
 
 template <typename FF_> size_t CircuitBuilderBase<FF_>::get_num_finalized_gates() const

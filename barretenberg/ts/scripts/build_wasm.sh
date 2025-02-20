@@ -6,7 +6,7 @@ set -e
 cd $(dirname $0)/..
 
 if [ -z "$SKIP_CPP_BUILD" ] && [ "${CI:-0}" -eq 0 ]; then
-  parallel --line-buffered --tag 'denoise "../cpp/bootstrap.sh {}"' ::: build_wasm build_wasm_threads
+  parallel --line-buffered --tag 'denoise "../cpp/bootstrap.sh {}"' ::: build_wasm_threads
 fi
 
 # Copy the wasm to its home in the bb.js dest folder.

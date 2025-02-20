@@ -100,14 +100,17 @@ template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::export_proof()
 
 template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::construct_proof()
 {
+    info("in DeciderProver::construct_proof");
     PROFILE_THIS_NAME("Decider::construct_proof");
 
     // Run sumcheck subprotocol.
     execute_relation_check_rounds();
+    info("in DeciderProver::construct_proof: after execute_relation_check_rounds");
 
     // Fiat-Shamir: rho, y, x, z
     // Execute Shplemini PCS
     execute_pcs_rounds();
+    info("in DeciderProver::construct_proof: after execute_pcs_rounds");
 
     return export_proof();
 }

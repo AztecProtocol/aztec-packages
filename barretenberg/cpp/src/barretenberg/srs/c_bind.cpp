@@ -14,13 +14,17 @@ using namespace bb;
  */
 WASM_EXPORT void srs_init_srs(uint8_t const* points_buf, uint32_t const* num_points_buf, uint8_t const* g2_point_buf)
 {
+    info("in srs_init_srs: start");
     auto num_points = ntohl(*num_points_buf);
     auto g1_points = std::vector<g1::affine_element>(num_points);
+    info("in srs_init_srs: after init g1_points");
     for (size_t i = 0; i < num_points; ++i) {
         g1_points[i] = from_buffer<bb::g1::affine_element>(points_buf, i * 64);
     }
+    info("in srs_init_srs: after populating g1_points");
     auto g2_point = from_buffer<g2::affine_element>(g2_point_buf);
     bb::srs::init_crs_factory(g1_points, g2_point);
+    info("in srs_init_srs: end");
 }
 
 /**

@@ -15,6 +15,8 @@ namespace bb::srs {
 // Initializes the crs using the memory buffers
 void init_crs_factory(std::vector<g1::affine_element> const& points, g2::affine_element const g2_point)
 {
+    PROFILE_THIS_NAME("init_crs_factory(points, g2_point)");
+    info("in init_crs_factory: start");
     crs_factory = std::make_shared<factories::MemBn254CrsFactory>(points, g2_point);
 }
 

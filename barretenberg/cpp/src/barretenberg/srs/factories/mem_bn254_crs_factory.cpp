@@ -45,6 +45,7 @@ MemBn254CrsFactory::MemBn254CrsFactory(std::vector<g1::affine_element> const& po
                                        g2::affine_element const& g2_point)
     : prover_crs_(std::make_shared<MemProverCrs<curve::BN254>>(points))
 {
+    info("in MemBn254CrsFactory: start");
     auto g1_identity = g1::affine_element();
     if (!points.empty()) {
         g1_identity = points[0];

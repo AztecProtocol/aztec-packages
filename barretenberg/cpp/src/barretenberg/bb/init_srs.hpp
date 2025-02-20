@@ -1,3 +1,4 @@
+#include "barretenberg/srs/global_crs.hpp"
 #include "get_bn254_crs.hpp"
 #include "get_grumpkin_crs.hpp"
 
@@ -17,6 +18,7 @@ std::string CRS_PATH = getHomeDir() + "/.bb-crs";
  */
 void init_bn254_crs(size_t dyadic_circuit_size)
 {
+    PROFILE_THIS_NAME("init_bn254_crs");
     // Must +1 for Plonk only!
     auto bn254_g1_data = get_bn254_g1_data(CRS_PATH, dyadic_circuit_size + 1);
     auto bn254_g2_data = get_bn254_g2_data(CRS_PATH);

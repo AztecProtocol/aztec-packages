@@ -17,15 +17,21 @@
 WASM_EXPORT void acir_get_circuit_sizes(
     uint8_t const* acir_vec, bool const* recursive, bool const* honk_recursion, uint32_t* total, uint32_t* subgroup)
 {
+    info("in acir_get_circuit_sizes: start");
     const acir_format::ProgramMetadata metadata{ .recursive = *recursive,
                                                  .honk_recursion = *honk_recursion,
                                                  .size_hint = 1 << 19 };
+    info("in acir_get_circuit_sizes: after initing metadata");
     acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
         from_buffer<std::vector<uint8_t>>(acir_vec), *honk_recursion) };
+    info("in acir_get_circuit_sizes: after initing program");
     auto builder = acir_format::create_circuit(program, metadata);
+    info("in acir_get_circuit_sizes: after create_circuit");
     builder.finalize_circuit(/*ensure_nonzero=*/true);
+    info("in acir_get_circuit_sizes: after finalize_circuit");
     *total = htonl((uint32_t)builder.get_finalized_total_circuit_size());
     *subgroup = htonl((uint32_t)builder.get_circuit_subgroup_size(builder.get_finalized_total_circuit_size()));
+    info("in acir_get_circuit_sizes: end");
 }
 
 WASM_EXPORT void acir_new_acir_composer(uint32_t const* size_hint, out_ptr out)
@@ -311,6 +317,14 @@ WASM_EXPORT void acir_verify_aztec_client(uint8_t const* proof_buf, uint8_t cons
     *result = ClientIVC::verify(proof, vk);
 }
 
+UltraProver construct_prover(acir_format::AcirProgram& program, const acir_format::ProgramMetadata& metadata)
+{
+    auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
+
+    UltraProver prover{ builder };
+    return prover;
+}
+
 WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec,
                                        bool const* recursive,
                                        uint8_t const* witness_vec,
@@ -327,6 +341,7 @@ WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec,
 
         return UltraProver(builder);
     }();
+    plookup::MULTI_TABLES.reset();
 
     auto proof = prover.construct_proof();
     *out = to_heap_buffer(to_buffer</*include_size=*/true>(proof));

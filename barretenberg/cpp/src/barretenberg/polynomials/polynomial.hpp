@@ -404,6 +404,7 @@ template <typename Fr> class Polynomial {
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
 template <typename Fr> std::shared_ptr<Fr[]> _allocate_aligned_memory(size_t n_elements)
 {
+    PROFILE_THIS_NAME("_allocate_aligned_memory");
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
     return std::static_pointer_cast<Fr[]>(get_mem_slab(sizeof(Fr) * n_elements));
 }

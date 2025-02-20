@@ -376,6 +376,7 @@ class UltraFlavor {
                 proving_key.pairing_point_accumulator_public_input_indices;
 
             if (proving_key.commitment_key == nullptr) {
+                PROFILE_THIS_NAME("allocating commitment key");
                 proving_key.commitment_key = std::make_shared<CommitmentKey>(proving_key.circuit_size);
             }
             for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
