@@ -1,6 +1,6 @@
-import { type FunctionCall, Note } from '@aztec/circuit-types';
+import { type FunctionCall, Note, type TxScopedL2Log } from '@aztec/circuit-types';
 import { type AztecNode } from '@aztec/circuit-types/interfaces/client';
-import { BlockHeader, CompleteAddress, type ContractInstance, type TxScopedL2Log } from '@aztec/circuits.js';
+import { BlockHeader, CompleteAddress, type ContractInstance } from '@aztec/circuits.js';
 import { FunctionSelector, FunctionType, encodeArguments } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -81,7 +81,7 @@ describe('Unconstrained Execution test suite', () => {
       );
 
       oracle.syncTaggedLogs.mockImplementation((_, __, ___) => Promise.resolve(new Map<string, TxScopedL2Log[]>()));
-      oracle.dbLoad.mockImplementation((_, __) => Promise.resolve(null));
+      oracle.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
       const execRequest: FunctionCall = {
         name: artifact.name,

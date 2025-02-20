@@ -305,7 +305,7 @@ describe('Private Execution test suite', () => {
     });
 
     oracle.syncTaggedLogs.mockImplementation((_, __, ___) => Promise.resolve(new Map<string, TxScopedL2Log[]>()));
-    oracle.dbLoad.mockImplementation((_, __) => Promise.resolve(null));
+    oracle.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
     node = mock<AztecNode>();
     node.getPublicStorageAt.mockImplementation(
