@@ -4,8 +4,7 @@ use crate::{
     bit_traits::bits_needed_for,
     instructions::{AvmInstruction, AvmOperand},
     opcodes::AvmOpcode,
-    transpile::UNRESOLVED_PC,
-    utils::make_operand,
+    utils::{make_operand, make_unresolved_pc},
 };
 use fxhash::FxHashMap as HashMap;
 use operand_collector::OperandCollector;
@@ -116,7 +115,7 @@ fn compile_opcode(
             result.add_instruction(
                 AvmInstruction {
                     opcode: AvmOpcode::JUMP_32,
-                    immediates: vec![AvmOperand::U32 { value: UNRESOLVED_PC }],
+                    immediates: vec![make_unresolved_pc()],
                     ..Default::default()
                 },
                 label,
@@ -132,7 +131,7 @@ fn compile_opcode(
                     opcode: AvmOpcode::JUMPI_32,
                     indirect: Some(build_addressing_mode(collection.indirect)),
                     operands: vec![make_operand(16, &collection.operands[0])],
-                    immediates: vec![AvmOperand::U32 { value: UNRESOLVED_PC }],
+                    immediates: vec![make_unresolved_pc()],
                     ..Default::default()
                 },
                 label,

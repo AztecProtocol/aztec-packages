@@ -15,9 +15,11 @@ use crate::opcodes::AvmOpcode;
 use crate::procedures::{
     compile_procedure, Label as ProcedureLocalLabel, Procedure, SCRATCH_SPACE_START,
 };
-use crate::utils::{dbg_print_avm_program, dbg_print_brillig_program, make_operand};
+use crate::utils::{
+    dbg_print_avm_program, dbg_print_brillig_program, make_operand, make_unresolved_pc,
+    UNRESOLVED_PC,
+};
 
-pub(crate) const UNRESOLVED_PC: u32 = 0xdeadbeef;
 enum Label {
     BrilligPC { pc: u32 },
     Procedure { label: ProcedureLabel },
@@ -273,7 +275,7 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                     .insert(avm_instrs.len(), Label::BrilligPC { pc: *location as u32 });
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::JUMP_32,
-                    immediates: vec![AvmOperand::U32 { value: UNRESOLVED_PC }],
+                    immediates: vec![make_unresolved_pc()],
                     ..Default::default()
                 });
             }
@@ -288,7 +290,7 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                         AddressingModeBuilder::default().direct_operand(condition).build(),
                     ),
                     operands: vec![make_operand(16, &condition.to_usize())],
-                    immediates: vec![AvmOperand::U32 { value: UNRESOLVED_PC }],
+                    immediates: vec![make_unresolved_pc()],
                     ..Default::default()
                 });
             }
@@ -341,7 +343,7 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
 
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::INTERNALCALL,
-                    immediates: vec![AvmOperand::U32 { value: UNRESOLVED_PC }],
+                    immediates: vec![make_unresolved_pc()],
                     ..Default::default()
                 });
             }
@@ -393,11 +395,15 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
         brillig_pcs_to_avm_pcs.push(current_avm_pc);
     }
 
+    // Now we compile and append to the bytecode all procedures that we identified as used during compilation
+    // We are going to accumulate their locations, and add their unresolved jumps to the unresolved jumps map.
+    // We also prefix the labels with the procedure name to avoid collisions between labels.
     let mut procedure_locations = HashMap::default();
     for procedure in procedures_used.into_iter() {
         let compiled_procedure = compile_procedure(procedure).unwrap_or_else(|err| {
             panic!("Failed to compile procedure {:?} with error: {:?}", procedure, err)
         });
+        // Insert the entry point label so the transpiled program can jump to the first opcode
         procedure_locations.insert(ProcedureLabel::entrypoint(procedure), current_avm_pc);
 
         procedure_locations.extend(compiled_procedure.locations.into_iter().map(
@@ -423,6 +429,8 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
     // Now that we have the general structure of the AVM program, we need to resolve the
     // now unresolved jump locations.
     for (instruction_index, label) in unresolved_jumps.into_iter() {
+        // We can have two types of unresolved jumps. Either unresolved jumps that come from brillig bytecode, where the target is a brillig pc
+        // or unresolved jumps that come from procedures, where the target is a procedure label (basically a string prefixed with the id of the procedure).
         let resolved_location = match label {
             Label::BrilligPC { pc: brillig_pc } => {
                 let avm_pc = brillig_pcs_to_avm_pcs[brillig_pc as usize];
@@ -1100,7 +1108,7 @@ fn generate_procedure_call(
     );
     AvmInstruction {
         opcode: AvmOpcode::INTERNALCALL,
-        immediates: vec![AvmOperand::U32 { value: UNRESOLVED_PC }],
+        immediates: vec![make_unresolved_pc()],
         ..Default::default()
     }
 }

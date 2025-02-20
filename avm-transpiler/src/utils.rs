@@ -76,3 +76,9 @@ pub fn make_operand<T: Into<FieldElement> + Clone>(bits: usize, value: &T) -> Av
         _ => panic!("Invalid operand size for bits: {}", bits),
     }
 }
+
+pub(crate) const UNRESOLVED_PC: u32 = 0xdeadbeef;
+
+pub(crate) fn make_unresolved_pc() -> AvmOperand {
+    AvmOperand::U32 { value: UNRESOLVED_PC }
+}
