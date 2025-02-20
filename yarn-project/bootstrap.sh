@@ -48,7 +48,7 @@ function compile_all {
   # hack, after running prettier foundation may fail to resolve hash.js dependency.
   # it is only currently foundation, presumably because hash.js looks like a js file.
   rm -rf foundation/node_modules
-  compile_project ::: constants foundation circuits.js types builder ethereum l1-artifacts
+  compile_project ::: constants foundation circuits.js builder ethereum l1-artifacts
 
   # Call all projects that have a generation stage.
   parallel --joblog joblog.txt --line-buffered --tag 'cd {} && yarn generate' ::: \
@@ -61,8 +61,7 @@ function compile_all {
     noir-contracts.js \
     noir-protocol-circuits-types \
     protocol-contracts \
-    pxe \
-    types
+    pxe
   cat joblog.txt
 
   get_projects | compile_project
