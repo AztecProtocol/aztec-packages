@@ -1,6 +1,6 @@
-use regex::Regex;
-
 use crate::instructions::AvmTypeTag;
+use once_cell::sync::Lazy;
+use regex::Regex;
 
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, Copy)]
@@ -90,20 +90,22 @@ pub(crate) type Assembly = Vec<ParsedOpcode>;
 // Simple regex parser
 pub(crate) fn parse(assembly: &str) -> Result<Assembly, String> {
     // Strip out comments, then remove empty lines
-    let comment_regex = Regex::new(r";.*|\/\*.*?\*\/").unwrap();
+    static COMMENT_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r";.*|\/\*.*?\*\/").unwrap());
 
     let assembly: Vec<_> = assembly
         .lines()
-        .map(|line| comment_regex.replace_all(line, "").trim().to_string())
+        .map(|line| COMMENT_REGEX.replace_all(line, "").trim().to_string())
         .filter(|line| !line.is_empty())
         .collect();
 
-    let line_regex = Regex::new(r"^(?:(?<label>\w+):\s+)?(?<alias>\w+)(?:\s+(?<operands>.+?))?(?:\s+(?<tag>u1|u8|u16|u32|u64|u128|ff))?$").unwrap();
+    static LINE_REGEX: Lazy<Regex> = Lazy::new(|| {
+        Regex::new(r"^(?:(?<label>\w+):\s+)?(?<alias>\w+)(?:\s+(?<operands>.+?))?(?:\s+(?<tag>u1|u8|u16|u32|u64|u128|ff))?$").unwrap()
+    });
 
     assembly
         .into_iter()
         .map(|line: String| {
-            let Some(caps) = line_regex.captures(&line) else {
+            let Some(caps) = LINE_REGEX.captures(&line) else {
                 return Err(format!("Line `{}` is invalid", line));
             };
 
@@ -129,14 +131,16 @@ pub(crate) fn parse(assembly: &str) -> Result<Assembly, String> {
 }
 
 fn parse_operands(operands: &str) -> Result<Vec<Operand>, String> {
-    let operand_regex = Regex::new(r"^\$(?<reserved>\d+)|^d(?<direct>\d+)|^i(?<indirect>\d+)|^(?<immediate>\d+)|^(?<label>\w*)$").unwrap();
+    static OPERAND_REGEX: Lazy<Regex> = Lazy::new(|| {
+        Regex::new(r"^\$(?<reserved>\d+)|^d(?<direct>\d+)|^i(?<indirect>\d+)|^(?<immediate>\d+)|^(?<label>\w*)$").unwrap()
+    });
     // Split by comma, then trim whitespace
     operands
         .split(',')
         .map(|operand| operand.trim())
         .filter(|operand| !operand.is_empty())
         .map(|operand| {
-            let Some(caps) = operand_regex.captures(operand) else {
+            let Some(caps) = OPERAND_REGEX.captures(operand) else {
                 return Err(format!("Operand `{}` is invalid", operand));
             };
             if let Some(reserved) = caps.name("reserved") {

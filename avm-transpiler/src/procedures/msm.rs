@@ -4,7 +4,7 @@ pub(crate) const MSM_ASSEMBLY: &str = "
                 ; d1 points to the scalars. Scalars are represented by (lo: Field, hi: Field) both range checked to 128 bits.
                 ; d2 contains the length of the points array. This will be the number of points * 3, since each point is represented by 3 fields.
                 ; d3 points to the result. The result is a point.
-                ADD d3, $2, d4; Compute the pointer to the result y. $2 is the reserved register 'one_usize'
+                ADD d3, /*the reserved register 'one_usize'*/ $2, d4; Compute the pointer to the result y.
                 ADD d4, $2, d5; Compute the pointer to the result is_infinite
                 ; Initialize the msm result: point at infinity
                 SET i3, 0 ff
@@ -38,9 +38,9 @@ OUTER_BODY:     MUL d6, d14, d16; Compute the pointer to the point
                 ; Allocate a 254 bit array
                 MOV $1, d19; Move the free memory pointer to d19, where we'll store the bits
                 ADD $1, d9, $1; Increase the free memory pointer by 254
-                TORADIXBE i18, d13, d7, d11, i19; Get the most significant bits of the full scalar
+                TORADIXBE /*hi*/ i18, /*radix=2*/ d13, /*num_limbs=126*/ d7, /*output_bits=true*/ d11, /*start of bit array*/ i19; Get the most significant bits of the full scalar
                 ADD d19, d7, d20; Create a pointer to the low significance part of the 254 bit array
-                TORADIXBE i17, d13, d10, d11, i20; Get the least significant bits of the full scalar
+                TORADIXBE /*lo*/ i17, /*radix=2*/ d13, /*num_limbs=128*/ d10, /*output_bits=true*/ d11, /*middle of bit array*/ i20; Get the least significant bits of the full scalar
                 ; Now we have a pointer (i19) to the bits of the scalar in BE
                 ADD d19, d9, d21; Initialize the end pointer of the bits, will be used later
 
@@ -70,10 +70,10 @@ FIND_MSB_END:   MOV i16, d22; x
 INNER_HEAD:     LT d19, d21, d28; Check if we are done with the loop
                 JUMPI d28, INNER_BODY
                 JUMP INNER_END
-INNER_BODY:     ECADD d22, d23, d24, d22, d23, d24, d22; Double the current result. Note the output is not a pointer, so the result is stored in the same addresses
+INNER_BODY:     ECADD d22, d23, d24, d22, d23, d24, /*not a pointer, so the result is stored in d22, d23, d24*/ d22; Double the current result.
                 EQ i19, d12, d28; Check if the current bit is zero
                 JUMPI d28, INNER_INC; If the current bit is zero, continue
-                ECADD d25, d26, d27, d22, d23, d24, d22; Add the original point to the result
+                ECADD d25, d26, d27, d22, d23, d24, /*not a pointer, so the result is stored in d22, d23, d24*/ d22; Add the original point to the result
 INNER_INC:      ADD d19, $2, d19; Increment the pointer
                 JUMP INNER_HEAD
 
