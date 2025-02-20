@@ -1,11 +1,12 @@
 use iter_extended::vecmap;
-use noirc_errors::Span;
+use noirc_errors::Location;
 
 use crate::{
     ast::{
-        ArrayLiteral, BlockExpression, CallExpression, CastExpression, ConstructorExpression,
-        Expression, ExpressionKind, Ident, IfExpression, IndexExpression, Literal, MatchExpression,
-        MemberAccessExpression, MethodCallExpression, Statement, TypePath, UnaryOp, UnresolvedType,
+        ArrayLiteral, BlockExpression, CallExpression, CastExpression, ConstrainExpression,
+        ConstrainKind, ConstructorExpression, Expression, ExpressionKind, Ident, IfExpression,
+        IndexExpression, Literal, MatchExpression, MemberAccessExpression, MethodCallExpression,
+        Statement, TypePath, UnaryOp, UnresolvedType,
     },
     parser::{labels::ParsingRuleLabel, parser::parse_many::separated_by_comma, ParserErrorReason},
     token::{Keyword, Token, TokenKind},
@@ -46,7 +47,10 @@ impl<'a> Parser<'a> {
             expr
         } else {
             self.push_expected_expression();
-            Expression { kind: ExpressionKind::Error, span: self.span_at_previous_token_end() }
+            Expression {
+                kind: ExpressionKind::Error,
+                location: self.location_at_previous_token_end(),
+            }
         }
     }
 
@@ -58,7 +62,7 @@ impl<'a> Parser<'a> {
     ///    = UnaryOp Term
     ///    | AtomOrUnaryRightExpression
     pub(super) fn parse_term(&mut self, allow_constructors: bool) -> Option<Expression> {
-        let start_span = self.current_token_span;
+        let start_location = self.current_token_location;
 
         if let Some(operator) = self.parse_unary_op() {
             let Some(rhs) = self.parse_term(allow_constructors) else {
@@ -66,8 +70,8 @@ impl<'a> Parser<'a> {
                 return None;
             };
             let kind = ExpressionKind::prefix(operator, rhs);
-            let span = self.span_since(start_span);
-            return Some(Expression { kind, span });
+            let location = self.location_since(start_location);
+            return Some(Expression { kind, location });
         }
 
         self.parse_atom_or_unary_right(allow_constructors)
@@ -93,12 +97,12 @@ impl<'a> Parser<'a> {
     /// AtomOrUnaryRightExpression
     ///     = Atom UnaryRightExpression*
     fn parse_atom_or_unary_right(&mut self, allow_constructors: bool) -> Option<Expression> {
-        let start_span = self.current_token_span;
+        let start_location = self.current_token_location;
         let mut atom = self.parse_atom(allow_constructors)?;
         let mut parsed;
 
         loop {
-            (atom, parsed) = self.parse_unary_right(atom, start_span);
+            (atom, parsed) = self.parse_unary_right(atom, start_location);
             if parsed {
                 continue;
             } else {
@@ -114,37 +118,41 @@ impl<'a> Parser<'a> {
     ///     | MemberAccessOrMethodCallExpression
     ///     | CastExpression
     ///     | IndexExpression
-    fn parse_unary_right(&mut self, mut atom: Expression, start_span: Span) -> (Expression, bool) {
+    fn parse_unary_right(
+        &mut self,
+        mut atom: Expression,
+        start_location: Location,
+    ) -> (Expression, bool) {
         let mut parsed;
 
-        (atom, parsed) = self.parse_call(atom, start_span);
+        (atom, parsed) = self.parse_call(atom, start_location);
         if parsed {
             return (atom, parsed);
         }
 
-        (atom, parsed) = self.parse_member_access_or_method_call(atom, start_span);
+        (atom, parsed) = self.parse_member_access_or_method_call(atom, start_location);
         if parsed {
             return (atom, parsed);
         }
 
-        (atom, parsed) = self.parse_cast(atom, start_span);
+        (atom, parsed) = self.parse_cast(atom, start_location);
         if parsed {
             return (atom, parsed);
         }
 
-        self.parse_index(atom, start_span)
+        self.parse_index(atom, start_location)
     }
 
     /// CallExpression = Atom CallArguments
-    fn parse_call(&mut self, atom: Expression, start_span: Span) -> (Expression, bool) {
+    fn parse_call(&mut self, atom: Expression, start_location: Location) -> (Expression, bool) {
         if let Some(call_arguments) = self.parse_call_arguments() {
             let kind = ExpressionKind::Call(Box::new(CallExpression {
                 func: Box::new(atom),
                 arguments: call_arguments.arguments,
                 is_macro_call: call_arguments.is_macro_call,
             }));
-            let span = self.span_since(start_span);
-            let atom = Expression { kind, span };
+            let location = self.location_since(start_location);
+            let atom = Expression { kind, location };
             (atom, true)
         } else {
             (atom, false)
@@ -161,7 +169,7 @@ impl<'a> Parser<'a> {
     fn parse_member_access_or_method_call(
         &mut self,
         atom: Expression,
-        start_span: Span,
+        start_location: Location,
     ) -> (Expression, bool) {
         if !self.eat_dot() {
             return (atom, false);
@@ -186,8 +194,8 @@ impl<'a> Parser<'a> {
             }))
         };
 
-        let span = self.span_since(start_span);
-        let atom = Expression { kind, span };
+        let location = self.location_since(start_location);
+        let atom = Expression { kind, location };
         (atom, true)
     }
 
@@ -195,31 +203,31 @@ impl<'a> Parser<'a> {
         if let Some(ident) = self.eat_ident() {
             Some(ident)
         } else if let Some(int) = self.eat_int() {
-            Some(Ident::new(int.to_string(), self.previous_token_span))
+            Some(Ident::new(int.to_string(), self.previous_token_location))
         } else {
             self.push_error(
                 ParserErrorReason::ExpectedFieldName(self.token.token().clone()),
-                self.current_token_span,
+                self.current_token_location,
             );
             None
         }
     }
 
     /// CastExpression = Atom 'as' Type
-    fn parse_cast(&mut self, atom: Expression, start_span: Span) -> (Expression, bool) {
+    fn parse_cast(&mut self, atom: Expression, start_location: Location) -> (Expression, bool) {
         if !self.eat_keyword(Keyword::As) {
             return (atom, false);
         }
 
         let typ = self.parse_type_or_error();
         let kind = ExpressionKind::Cast(Box::new(CastExpression { lhs: atom, r#type: typ }));
-        let span = self.span_since(start_span);
-        let atom = Expression { kind, span };
+        let location = self.location_since(start_location);
+        let atom = Expression { kind, location };
         (atom, true)
     }
 
     /// IndexExpression = Atom '[' Expression ']'
-    fn parse_index(&mut self, atom: Expression, start_span: Span) -> (Expression, bool) {
+    fn parse_index(&mut self, atom: Expression, start_location: Location) -> (Expression, bool) {
         if !self.eat_left_bracket() {
             return (atom, false);
         }
@@ -227,8 +235,8 @@ impl<'a> Parser<'a> {
         let index = self.parse_expression_or_error();
         self.eat_or_error(Token::RightBracket);
         let kind = ExpressionKind::Index(Box::new(IndexExpression { collection: atom, index }));
-        let span = self.span_since(start_span);
-        let atom = Expression { kind, span };
+        let location = self.location_since(start_location);
+        let atom = Expression { kind, location };
         (atom, true)
     }
 
@@ -260,25 +268,17 @@ impl<'a> Parser<'a> {
     ///     | InternedExpression
     ///     | InternedStatementExpression
     fn parse_atom(&mut self, allow_constructors: bool) -> Option<Expression> {
-        let start_span = self.current_token_span;
+        let start_location = self.current_token_location;
         let kind = self.parse_atom_kind(allow_constructors)?;
-        Some(Expression { kind, span: self.span_since(start_span) })
+        Some(Expression { kind, location: self.location_since(start_location) })
     }
 
     fn parse_atom_kind(&mut self, allow_constructors: bool) -> Option<ExpressionKind> {
-        let span_before_doc_comments = self.current_token_span;
-        let doc_comments = self.parse_outer_doc_comments();
-        let has_doc_comments = !doc_comments.is_empty();
+        // Like in Rust, we allow parsing doc comments on top of an expression but they always produce a warning.
+        self.warn_on_outer_doc_comments();
 
-        if let Some(kind) = self.parse_unsafe_expr(&doc_comments, span_before_doc_comments) {
+        if let Some(kind) = self.parse_unsafe_expr() {
             return Some(kind);
-        }
-
-        if has_doc_comments {
-            self.push_error(
-                ParserErrorReason::DocCommentDoesNotDocumentAnything,
-                self.span_since(span_before_doc_comments),
-            );
         }
 
         if let Some(literal) = self.parse_literal() {
@@ -299,10 +299,10 @@ impl<'a> Parser<'a> {
             Token::InternedUnresolvedTypeData(..) | Token::QuotedType(..)
         ) && self.next_is(Token::LeftBrace)
         {
-            let span = self.current_token_span;
+            let location = self.current_token_location;
             let typ = self.parse_interned_type().or_else(|| self.parse_resolved_type()).unwrap();
             self.eat_or_error(Token::LeftBrace);
-            let typ = UnresolvedType { typ, span };
+            let typ = UnresolvedType { typ, location };
             return Some(self.parse_constructor(typ));
         }
 
@@ -386,45 +386,27 @@ impl<'a> Parser<'a> {
     }
 
     /// UnsafeExpression = 'unsafe' Block
-    fn parse_unsafe_expr(
-        &mut self,
-        doc_comments: &[String],
-        span_before_doc_comments: Span,
-    ) -> Option<ExpressionKind> {
-        let start_span = self.current_token_span;
+    fn parse_unsafe_expr(&mut self) -> Option<ExpressionKind> {
+        let start_location = self.current_token_location;
 
         if !self.eat_keyword(Keyword::Unsafe) {
             return None;
         }
 
-        if doc_comments.is_empty() {
-            if let Some(statement_doc_comments) = &mut self.statement_doc_comments {
-                statement_doc_comments.read = true;
-
-                let doc_comments = &statement_doc_comments.doc_comments;
-                let span_before_doc_comments = statement_doc_comments.start_span;
-                let span_after_doc_comments = statement_doc_comments.end_span;
-
-                if !doc_comments[0].trim().to_lowercase().starts_with("safety:") {
-                    self.push_error(
-                        ParserErrorReason::UnsafeDocCommentDoesNotStartWithSafety,
-                        Span::from(
-                            span_before_doc_comments.start()..span_after_doc_comments.start(),
-                        ),
-                    );
+        if self.current_token_comments.is_empty() {
+            if let Some(statement_comments) = &mut self.statement_comments {
+                if !statement_comments.trim().to_lowercase().starts_with("safety:") {
+                    self.push_error(ParserErrorReason::MissingSafetyComment, start_location);
                 }
             } else {
-                self.push_error(ParserErrorReason::MissingSafetyComment, start_span);
+                self.push_error(ParserErrorReason::MissingSafetyComment, start_location);
             }
-        } else if !doc_comments[0].trim().to_lowercase().starts_with("safety:") {
-            self.push_error(
-                ParserErrorReason::UnsafeDocCommentDoesNotStartWithSafety,
-                self.span_since(span_before_doc_comments),
-            );
+        } else if !self.current_token_comments.trim().to_lowercase().starts_with("safety:") {
+            self.push_error(ParserErrorReason::MissingSafetyComment, start_location);
         }
 
         if let Some(block) = self.parse_block() {
-            Some(ExpressionKind::Unsafe(block, self.span_since(start_span)))
+            Some(ExpressionKind::Unsafe(block, self.location_since(start_location)))
         } else {
             Some(ExpressionKind::Error)
         }
@@ -490,26 +472,26 @@ impl<'a> Parser<'a> {
 
         let condition = self.parse_expression_except_constructor_or_error();
 
-        let start_span = self.current_token_span;
+        let start_location = self.current_token_location;
         let Some(consequence) = self.parse_block() else {
             self.expected_token(Token::LeftBrace);
-            let span = self.span_at_previous_token_end();
+            let location = self.location_at_previous_token_end();
             return Some(ExpressionKind::If(Box::new(IfExpression {
                 condition,
-                consequence: Expression { kind: ExpressionKind::Error, span },
+                consequence: Expression { kind: ExpressionKind::Error, location },
                 alternative: None,
             })));
         };
-        let span = self.span_since(start_span);
-        let consequence = Expression { kind: ExpressionKind::Block(consequence), span };
+        let location = self.location_since(start_location);
+        let consequence = Expression { kind: ExpressionKind::Block(consequence), location };
 
         let alternative = if self.eat_keyword(Keyword::Else) {
-            let start_span = self.current_token_span;
+            let start_location = self.current_token_location;
             if let Some(block) = self.parse_block() {
-                let span = self.span_since(start_span);
-                Some(Expression { kind: ExpressionKind::Block(block), span })
+                let location = self.location_since(start_location);
+                Some(Expression { kind: ExpressionKind::Block(block), location })
             } else if let Some(if_expr) = self.parse_if_expr() {
-                Some(Expression { kind: if_expr, span: self.span_since(start_span) })
+                Some(Expression { kind: if_expr, location: self.location_since(start_location) })
             } else {
                 self.expected_token(Token::LeftBrace);
                 None
@@ -523,7 +505,7 @@ impl<'a> Parser<'a> {
 
     /// MatchExpression = 'match' ExpressionExceptConstructor '{' MatchRule* '}'
     pub(super) fn parse_match_expr(&mut self) -> Option<ExpressionKind> {
-        let start_span = self.current_token_span;
+        let start_location = self.current_token_location;
         if !self.eat_keyword(Keyword::Match) {
             return None;
         }
@@ -538,7 +520,10 @@ impl<'a> Parser<'a> {
             Self::parse_match_rule,
         );
 
-        self.push_error(ParserErrorReason::ExperimentalFeature("Match expressions"), start_span);
+        self.push_error(
+            ParserErrorReason::ExperimentalFeature("Match expressions"),
+            start_location,
+        );
         Some(ExpressionKind::Match(Box::new(MatchExpression { expression, rules })))
     }
 
@@ -547,11 +532,11 @@ impl<'a> Parser<'a> {
         let pattern = self.parse_expression()?;
         self.eat_or_error(Token::FatArrow);
 
-        let start_span = self.current_token_span;
+        let start_location = self.current_token_location;
         let branch = match self.parse_block() {
             Some(block) => {
-                let span = self.span_since(start_span);
-                let block = Expression::new(ExpressionKind::Block(block), span);
+                let location = self.location_since(start_location);
+                let block = Expression::new(ExpressionKind::Block(block), location);
                 self.eat_comma(); // comma is optional if we have a block
                 block
             }
@@ -570,21 +555,21 @@ impl<'a> Parser<'a> {
             return None;
         }
 
-        let start_span = self.current_token_span;
+        let start_location = self.current_token_location;
 
         let Some(block) = self.parse_block() else {
             self.expected_token(Token::LeftBrace);
             return None;
         };
 
-        Some(ExpressionKind::Comptime(block, self.span_since(start_span)))
+        Some(ExpressionKind::Comptime(block, self.location_since(start_location)))
     }
 
     /// UnquoteExpression
     ///     = '$' identifier
     ///     | '$' '(' Expression ')'
     fn parse_unquote_expr(&mut self) -> Option<ExpressionKind> {
-        let start_span = self.current_token_span;
+        let start_location = self.current_token_location;
 
         if !self.eat(Token::DollarSign) {
             return None;
@@ -593,25 +578,25 @@ impl<'a> Parser<'a> {
         if let Some(path) = self.parse_path() {
             let expr = Expression {
                 kind: ExpressionKind::Variable(path),
-                span: self.span_since(start_span),
+                location: self.location_since(start_location),
             };
             return Some(ExpressionKind::Unquote(Box::new(expr)));
         }
 
-        let span_at_left_paren = self.current_token_span;
+        let location_at_left_paren = self.current_token_location;
         if self.eat_left_paren() {
             let expr = self.parse_expression_or_error();
             self.eat_or_error(Token::RightParen);
             let expr = Expression {
                 kind: ExpressionKind::Parenthesized(Box::new(expr)),
-                span: self.span_since(span_at_left_paren),
+                location: self.location_since(location_at_left_paren),
             };
             return Some(ExpressionKind::Unquote(Box::new(expr)));
         }
 
         self.push_error(
             ParserErrorReason::ExpectedIdentifierOrLeftParenAfterDollar,
-            self.current_token_span,
+            self.current_token_location,
         );
 
         None
@@ -619,9 +604,9 @@ impl<'a> Parser<'a> {
 
     /// TypePathExpression = PrimitiveType '::' identifier ( '::' GenericTypeArgs )?
     fn parse_type_path_expr(&mut self) -> Option<ExpressionKind> {
-        let start_span = self.current_token_span;
+        let start_location = self.current_token_location;
         let typ = self.parse_primitive_type()?;
-        let typ = UnresolvedType { typ, span: self.span_since(start_span) };
+        let typ = UnresolvedType { typ, location: self.location_since(start_location) };
 
         self.eat_or_error(Token::DoubleColon);
 
@@ -629,7 +614,7 @@ impl<'a> Parser<'a> {
             ident
         } else {
             self.expected_identifier();
-            Ident::new(String::new(), self.span_at_previous_token_end())
+            Ident::new(String::new(), self.location_at_previous_token_end())
         };
 
         let turbofish = self.eat_double_colon().then(|| {
@@ -653,6 +638,7 @@ impl<'a> Parser<'a> {
     ///     | ArrayExpression
     ///     | SliceExpression
     ///     | BlockExpression
+    ///     | ConstrainExpression
     ///
     /// QuoteExpression = 'quote' '{' token* '}'
     ///
@@ -696,6 +682,10 @@ impl<'a> Parser<'a> {
             return Some(ExpressionKind::Block(kind));
         }
 
+        if let Some(constrain) = self.parse_constrain_expression() {
+            return Some(ExpressionKind::Constrain(constrain));
+        }
+
         None
     }
 
@@ -732,7 +722,7 @@ impl<'a> Parser<'a> {
         }
 
         let comma_after_first_expr = self.eat_comma();
-        let second_expr_span = self.current_token_span;
+        let second_expr_location = self.current_token_location;
 
         let mut exprs = self.parse_many(
             "expressions",
@@ -741,7 +731,7 @@ impl<'a> Parser<'a> {
         );
 
         if !exprs.is_empty() && !comma_after_first_expr {
-            self.expected_token_separating_items(Token::Comma, "expressions", second_expr_span);
+            self.expected_token_separating_items(Token::Comma, "expressions", second_expr_location);
         }
 
         exprs.insert(0, first_expr);
@@ -800,6 +790,56 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// ConstrainExpression
+    ///     = 'constrain' Expression
+    ///     | 'assert' Arguments
+    ///     | 'assert_eq' Arguments
+    pub(super) fn parse_constrain_expression(&mut self) -> Option<ConstrainExpression> {
+        let start_location = self.current_token_location;
+        let kind = self.parse_constrain_kind()?;
+
+        Some(match kind {
+            ConstrainKind::Assert | ConstrainKind::AssertEq => {
+                let arguments = self.parse_arguments();
+                if arguments.is_none() {
+                    self.expected_token(Token::LeftParen);
+                }
+                let arguments = arguments.unwrap_or_default();
+
+                ConstrainExpression {
+                    kind,
+                    arguments,
+                    location: self.location_since(start_location),
+                }
+            }
+            ConstrainKind::Constrain => {
+                self.push_error(
+                    ParserErrorReason::ConstrainDeprecated,
+                    self.previous_token_location,
+                );
+
+                let expression = self.parse_expression_or_error();
+                ConstrainExpression {
+                    kind,
+                    arguments: vec![expression],
+                    location: self.location_since(start_location),
+                }
+            }
+        })
+    }
+
+    fn parse_constrain_kind(&mut self) -> Option<ConstrainKind> {
+        if self.eat_keyword(Keyword::Assert) {
+            Some(ConstrainKind::Assert)
+        } else if self.eat_keyword(Keyword::AssertEq) {
+            Some(ConstrainKind::AssertEq)
+        } else if self.eat_keyword(Keyword::Constrain) {
+            Some(ConstrainKind::Constrain)
+        } else {
+            None
+        }
+    }
+
     /// Block = '{' Statement* '}'
     pub(super) fn parse_block(&mut self) -> Option<BlockExpression> {
         if !self.eat_left_brace() {
@@ -817,7 +857,7 @@ impl<'a> Parser<'a> {
         Some(BlockExpression { statements })
     }
 
-    fn parse_statement_in_block(&mut self) -> Option<(Statement, (Option<Token>, Span))> {
+    fn parse_statement_in_block(&mut self) -> Option<(Statement, (Option<Token>, Location))> {
         if let Some(statement) = self.parse_statement() {
             Some(statement)
         } else {
@@ -828,13 +868,13 @@ impl<'a> Parser<'a> {
 
     fn check_statements_require_semicolon(
         &mut self,
-        statements: Vec<(Statement, (Option<Token>, Span))>,
+        statements: Vec<(Statement, (Option<Token>, Location))>,
     ) -> Vec<Statement> {
         let last = statements.len().saturating_sub(1);
         let iter = statements.into_iter().enumerate();
-        vecmap(iter, |(i, (statement, (semicolon, span)))| {
+        vecmap(iter, |(i, (statement, (semicolon, location)))| {
             statement
-                .add_semicolon(semicolon, span, i == last, &mut |error| self.errors.push(error))
+                .add_semicolon(semicolon, location, i == last, &mut |error| self.errors.push(error))
         })
     }
 
@@ -849,8 +889,8 @@ mod tests {
 
     use crate::{
         ast::{
-            ArrayLiteral, BinaryOpKind, Expression, ExpressionKind, Literal, StatementKind,
-            UnaryOp, UnresolvedTypeData,
+            ArrayLiteral, BinaryOpKind, ConstrainKind, Expression, ExpressionKind, Literal,
+            StatementKind, UnaryOp, UnresolvedTypeData,
         },
         parser::{
             parser::tests::{
@@ -863,9 +903,9 @@ mod tests {
     };
 
     fn parse_expression_no_errors(src: &str) -> Expression {
-        let mut parser = Parser::for_str(src);
+        let mut parser = Parser::for_str_with_dummy_file(src);
         let expr = parser.parse_expression_or_error();
-        assert_eq!(expr.span.end() as usize, src.len());
+        assert_eq!(expr.location.span.end() as usize, src.len());
         expect_no_errors(&parser.errors);
         expr
     }
@@ -1027,9 +1067,9 @@ mod tests {
             2
             3
         }";
-        let mut parser = Parser::for_str(src);
+        let mut parser = Parser::for_str_with_dummy_file(src);
         let expr = parser.parse_expression_or_error();
-        assert_eq!(expr.span.end() as usize, src.len());
+        assert_eq!(expr.location.span.end() as usize, src.len());
         assert_eq!(parser.errors.len(), 2);
         assert!(matches!(
             parser.errors[0].reason(),
@@ -1048,7 +1088,7 @@ mod tests {
     #[test]
     fn parses_unsafe_expression() {
         let src = "
-        /// Safety: test
+        // Safety: test
         unsafe { 1 }";
         let expr = parse_expression_no_errors(src);
         let ExpressionKind::Unsafe(block, _) = expr.kind else {
@@ -1062,7 +1102,9 @@ mod tests {
         let src = "
         /// Safety: test
         unsafe { 1 }";
-        let expr = parse_expression_no_errors(src);
+
+        let mut parser = Parser::for_str_with_dummy_file(src);
+        let expr = parser.parse_expression().unwrap();
         let ExpressionKind::Unsafe(block, _) = expr.kind else {
             panic!("Expected unsafe expression");
         };
@@ -1076,7 +1118,7 @@ mod tests {
         ^
         ";
         let (src, span) = get_source_with_error_span(src);
-        let mut parser = Parser::for_str(&src);
+        let mut parser = Parser::for_str_with_dummy_file(&src);
         parser.parse_expression();
         let error = get_single_error(&parser.errors, span);
         assert_eq!(error.to_string(), "Expected an expression but found end of input");
@@ -1089,7 +1131,7 @@ mod tests {
            ^
         ";
         let (src, span) = get_source_with_error_span(src);
-        let mut parser = Parser::for_str(&src);
+        let mut parser = Parser::for_str_with_dummy_file(&src);
         parser.parse_expression();
         let reason = get_single_error_reason(&parser.errors, span);
         let ParserErrorReason::ExpectedTokenSeparatingTwoItems { token, items } = reason else {
@@ -1142,9 +1184,9 @@ mod tests {
            ^
         ";
         let (src, span) = get_source_with_error_span(src);
-        let mut parser = Parser::for_str(&src);
+        let mut parser = Parser::for_str_with_dummy_file(&src);
         let expr = parser.parse_expression_or_error();
-        assert_eq!(expr.span.end() as usize, src.len());
+        assert_eq!(expr.location.span.end() as usize, src.len());
 
         let reason = get_single_error_reason(&parser.errors, span);
         let ParserErrorReason::ExpectedTokenSeparatingTwoItems { token, items } = reason else {
@@ -1303,9 +1345,9 @@ mod tests {
               ^
         ";
         let (src, span) = get_source_with_error_span(src);
-        let mut parser = Parser::for_str(&src);
+        let mut parser = Parser::for_str_with_dummy_file(&src);
         let expr = parser.parse_expression_or_error();
-        assert_eq!(expr.span.end() as usize, src.len());
+        assert_eq!(expr.location.span.end() as usize, src.len());
         let reason = get_single_error_reason(&parser.errors, span);
         let ParserErrorReason::ExpectedTokenSeparatingTwoItems { token, items } = reason else {
             panic!("Expected a different error");
@@ -1324,7 +1366,7 @@ mod tests {
     #[test]
     fn parses_call_with_wrong_expression() {
         let src = "foo(]) ";
-        let mut parser = Parser::for_str(src);
+        let mut parser = Parser::for_str_with_dummy_file(src);
         parser.parse_expression_or_error();
         assert!(!parser.errors.is_empty());
     }
@@ -1447,7 +1489,7 @@ mod tests {
                 ^
         ";
         let (src, span) = get_source_with_error_span(src);
-        let mut parser = Parser::for_str(&src);
+        let mut parser = Parser::for_str_with_dummy_file(&src);
         let expr = parser.parse_expression_or_error();
 
         let error = get_single_error(&parser.errors, span);
@@ -1475,7 +1517,7 @@ mod tests {
                      ^^
         ";
         let (src, span) = get_source_with_error_span(src);
-        let mut parser = Parser::for_str(&src);
+        let mut parser = Parser::for_str_with_dummy_file(&src);
         let expr = parser.parse_expression_or_error();
 
         let error = get_single_error(&parser.errors, span);
@@ -1564,7 +1606,7 @@ mod tests {
            ^
         ";
         let (src, span) = get_source_with_error_span(src);
-        let mut parser = Parser::for_str(&src);
+        let mut parser = Parser::for_str_with_dummy_file(&src);
         parser.parse_expression();
         let error = get_single_error(&parser.errors, span);
         assert_eq!(error.to_string(), "Expected a type but found end of input");
@@ -1585,9 +1627,9 @@ mod tests {
     fn parses_operators() {
         for operator in BinaryOpKind::iter() {
             let src = format!("1 {operator} 2");
-            let mut parser = Parser::for_str(&src);
+            let mut parser = Parser::for_str_with_dummy_file(&src);
             let expr = parser.parse_expression_or_error();
-            assert_eq!(expr.span.end() as usize, src.len());
+            assert_eq!(expr.location.span.end() as usize, src.len());
             assert!(parser.errors.is_empty(), "Expected no errors for {operator}");
             let ExpressionKind::Infix(infix_expr) = expr.kind else {
                 panic!("Expected infix for {operator}");
@@ -1748,5 +1790,46 @@ mod tests {
             panic!("Expected unquote");
         };
         assert_eq!(expr.kind.to_string(), "((1 + 2))");
+    }
+
+    #[test]
+    fn parses_assert() {
+        let src = "assert(true, \"good\")";
+        let expression = parse_expression_no_errors(src);
+        let ExpressionKind::Constrain(constrain) = expression.kind else {
+            panic!("Expected constrain expression");
+        };
+        assert_eq!(constrain.kind, ConstrainKind::Assert);
+        assert_eq!(constrain.arguments.len(), 2);
+    }
+
+    #[test]
+    fn parses_assert_eq() {
+        let src = "assert_eq(1, 2, \"bad\")";
+        let expression = parse_expression_no_errors(src);
+        let ExpressionKind::Constrain(constrain) = expression.kind else {
+            panic!("Expected constrain expression");
+        };
+        assert_eq!(constrain.kind, ConstrainKind::AssertEq);
+        assert_eq!(constrain.arguments.len(), 3);
+    }
+
+    #[test]
+    fn parses_constrain() {
+        let src = "
+        constrain 1
+        ^^^^^^^^^
+        ";
+        let (src, span) = get_source_with_error_span(src);
+        let mut parser = Parser::for_str_with_dummy_file(&src);
+        let expression = parser.parse_expression_or_error();
+        let ExpressionKind::Constrain(constrain) = expression.kind else {
+            panic!("Expected constrain expression");
+        };
+        assert_eq!(constrain.kind, ConstrainKind::Constrain);
+        assert_eq!(constrain.arguments.len(), 1);
+
+        let reason = get_single_error_reason(&parser.errors, span);
+        assert!(matches!(reason, ParserErrorReason::ConstrainDeprecated));
     }
 }
