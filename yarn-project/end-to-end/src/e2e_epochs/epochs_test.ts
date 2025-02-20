@@ -17,9 +17,10 @@ import { type Hex, type PublicClient } from 'viem';
 
 import { type EndToEndContext, createAndSyncProverNode, getPrivateKeyFromIndex, setup } from '../fixtures/utils.js';
 
+// This can be lowered to as much as 2s in non-CI
+export const L1_BLOCK_TIME_IN_S = process.env.L1_BLOCK_TIME ? parseInt(process.env.L1_BLOCK_TIME) : 8;
 export const EPOCH_DURATION_IN_L2_SLOTS = 4;
 export const L2_SLOT_DURATION_IN_L1_SLOTS = 2;
-export const L1_BLOCK_TIME_IN_S = process.env.L1_BLOCK_TIME ? parseInt(process.env.L1_BLOCK_TIME) : 8;
 export const WORLD_STATE_BLOCK_HISTORY = 2;
 export const WORLD_STATE_BLOCK_CHECK_INTERVAL = 50;
 export const ARCHIVER_POLL_INTERVAL = 50;
