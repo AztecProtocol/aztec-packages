@@ -1,6 +1,10 @@
 import { getInitialTestAccounts } from "@aztec/accounts/testing";
 import { getSchnorrAccount } from "@aztec/accounts/schnorr";
-import { createAztecNodeClient, createLogger } from "@aztec/aztec.js";
+import {
+  AccountWalletWithSecretKey,
+  createAztecNodeClient,
+  createLogger,
+} from "@aztec/aztec.js";
 import { BBWASMLazyPrivateKernelProver } from "@aztec/bb-prover/wasm/lazy";
 import { KeyStore } from "@aztec/key-store";
 import { createStore } from "@aztec/kv-store/indexeddb";
@@ -13,6 +17,7 @@ import { BoxReactContractArtifact } from "../artifacts/BoxReact";
 
 export class PrivateEnv {
   pxe: PXEService;
+  wallet: AccountWalletWithSecretKey;
 
   constructor() {}
 
@@ -54,9 +59,6 @@ export class PrivateEnv {
       config,
     );
     await this.pxe.init();
-  }
-
-  async getWallet() {
     const [accountData] = await getInitialTestAccounts();
     const account = await getSchnorrAccount(
       this.pxe,
@@ -64,7 +66,12 @@ export class PrivateEnv {
       accountData.signingKey,
       accountData.salt,
     );
-    return account.getWallet();
+    await account.register();
+    this.wallet = account.getWallet();
+  }
+
+  async getWallet() {
+    return this.wallet;
   }
 }
 
