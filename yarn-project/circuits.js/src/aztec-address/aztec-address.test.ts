@@ -1,4 +1,5 @@
-import { Fr } from '../fields/fields.js';
+import { Fr } from '@aztec/foundation/fields';
+
 import { AztecAddress } from './index.js';
 
 describe('aztec-address', () => {

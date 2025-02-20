@@ -51,12 +51,12 @@ import {
   decodeFunctionSignature,
   encodeArguments,
 } from '@aztec/circuits.js/abi';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/circuits.js/contract';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import { PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
 import { computeAddressSecret } from '@aztec/circuits.js/keys';
 import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, type Point } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';

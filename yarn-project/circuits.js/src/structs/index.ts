@@ -55,5 +55,5 @@ export * from './verification_key.js';
 export * from './vk_witness_data.js';
 
 export { EventSelector, FunctionSelector } from '../abi/index.js';
-export * from '@aztec/foundation/aztec-address';
+export * from '../aztec-address/index.js';
 export * from '@aztec/foundation/fields';
