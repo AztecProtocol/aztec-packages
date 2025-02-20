@@ -1,4 +1,3 @@
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -22,7 +21,7 @@ describe('deploy_l1_contracts', () => {
   let genesisArchiveRoot: Fr;
   let genesisBlockHash: Fr;
   let initialValidators: EthAddress[];
-  let l2FeeJuiceAddress: AztecAddress;
+  let l2FeeJuiceAddress: Fr;
 
   // Use these environment variables to run against a live node. Eg to test against spartan's eth-devnet:
   // BLOCK_TIME=1 spartan/aztec-network/eth-devnet/run-locally.sh
@@ -39,7 +38,7 @@ describe('deploy_l1_contracts', () => {
     genesisArchiveRoot = Fr.random();
     genesisBlockHash = Fr.random();
     initialValidators = times(3, EthAddress.random);
-    l2FeeJuiceAddress = await AztecAddress.random();
+    l2FeeJuiceAddress = await Fr.random();
 
     if (!rpcUrl) {
       ({ stop, rpcUrl } = await startAnvil());

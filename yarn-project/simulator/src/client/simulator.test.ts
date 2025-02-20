@@ -2,7 +2,7 @@ import { CompleteAddress, Note } from '@aztec/circuit-types';
 import { type AztecNode } from '@aztec/circuit-types/interfaces/client';
 import { KeyValidationRequest, computeAppNullifierSecretKey, deriveKeys } from '@aztec/circuits.js';
 import { type FunctionArtifact, getFunctionArtifactByName } from '@aztec/circuits.js/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { Fr, type Point } from '@aztec/foundation/fields';
 import { TokenBlacklistContractArtifact } from '@aztec/noir-contracts.js/TokenBlacklist';
 

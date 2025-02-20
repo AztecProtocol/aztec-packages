@@ -14,7 +14,7 @@ import {
   type KeyValidationRequest,
 } from '@aztec/circuits.js';
 import { type FunctionArtifact, type FunctionSelector } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { type NoteData } from '../acvm/index.js';
