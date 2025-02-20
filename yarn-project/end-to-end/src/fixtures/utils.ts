@@ -78,18 +78,7 @@ import getPort from 'get-port';
 import { tmpdir } from 'os';
 import * as path from 'path';
 import { inspect } from 'util';
-import {
-  type Account,
-  type Chain,
-  type HDAccount,
-  type Hex,
-  type HttpTransport,
-  type PrivateKeyAccount,
-  createPublicClient,
-  createWalletClient,
-  getContract,
-  http,
-} from 'viem';
+import { type Chain, type HDAccount, type Hex, type PrivateKeyAccount, getContract } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
@@ -210,7 +199,7 @@ export async function setupPXEService(
  * @returns Private eXecution Environment (PXE) client, viem wallets, contract addresses etc.
  */
 async function setupWithRemoteEnvironment(
-  account: Account,
+  account: HDAccount | PrivateKeyAccount,
   config: AztecNodeConfig,
   logger: Logger,
   numberOfAccounts: number,
@@ -226,15 +215,8 @@ async function setupWithRemoteEnvironment(
   logger.verbose(`Retrieving contract addresses from ${PXE_URL}`);
   const l1Contracts = (await pxeClient.getNodeInfo()).l1ContractAddresses;
 
-  const walletClient = createWalletClient<HttpTransport, Chain, HDAccount>({
-    account,
-    chain: foundry,
-    transport: http(config.l1RpcUrl),
-  });
-  const publicClient = createPublicClient({
-    chain: foundry,
-    transport: http(config.l1RpcUrl),
-  });
+  const { walletClient, publicClient } = createL1Clients(config.l1RpcUrl, account, foundry);
+
   const deployL1ContractsValues: DeployL1Contracts = {
     l1ContractAddresses: l1Contracts,
     walletClient,
@@ -597,21 +579,21 @@ export async function setup(
 
   return {
     aztecNode,
+    blobSink,
+    cheatCodes,
+    config,
+    dateProvider,
+    deployL1ContractsValues,
+    initialFundedAccounts,
+    logger,
     proverNode,
     pxe,
-    deployL1ContractsValues,
-    config,
-    initialFundedAccounts,
+    sequencer,
+    teardown,
+    telemetryClient: telemetry,
     wallet: wallets[0],
     wallets,
-    logger,
-    cheatCodes,
-    sequencer,
     watcher,
-    dateProvider,
-    blobSink,
-    telemetryClient: telemetry,
-    teardown,
   };
 }
 

@@ -78,11 +78,11 @@ export type DeployL1Contracts = {
   /**
    * Wallet Client Type.
    */
-  walletClient: WalletClient<HttpTransport, Chain, Account>;
+  walletClient: L1Clients['walletClient'];
   /**
    * Public Client Type.
    */
-  publicClient: PublicClient<HttpTransport, Chain>;
+  publicClient: L1Clients['publicClient'];
   /**
    * The currently deployed l1 contract addresses
    */
@@ -259,13 +259,13 @@ export const deployRollupAndUpgradePayload = async (
   chain: Chain,
   account: HDAccount | PrivateKeyAccount,
   args: DeployL1ContractsArgs,
-  addresses: Pick<
-    L1ContractAddresses,
-    'registryAddress' | 'feeJuicePortalAddress' | 'rewardDistributorAddress' | 'stakingAssetAddress'
-  >,
+  registryAddress: EthAddress,
   logger: Logger,
   txUtilsConfig: L1TxUtilsConfig,
 ) => {
+  const { publicClient } = createL1Clients(rpcUrl, account, chain);
+  const addresses = await RegistryContract.collectAddresses(publicClient, registryAddress, 'canonical');
+
   const rollup = await deployRollup(rpcUrl, chain, account, args, addresses, logger, txUtilsConfig);
   const payloadAddress = await deployUpgradePayload(
     rpcUrl,
@@ -454,8 +454,7 @@ export const deployL1Contracts = async (
 
   logger.verbose(`Deploying contracts from ${account.address.toString()}`);
 
-  const walletClient = createWalletClient({ account, chain, transport: http(rpcUrl) });
-  const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
+  const { walletClient, publicClient } = createL1Clients(rpcUrl, account, chain);
   // Governance stuff
   const govDeployer = new L1Deployer(walletClient, publicClient, args.salt, logger, txUtilsConfig);
 

@@ -1,6 +1,6 @@
 import { type ContractArtifact, type FunctionArtifact, loadContractArtifact } from '@aztec/aztec.js/abi';
 import { type PXE } from '@aztec/circuit-types';
-import { type DeployL1Contracts, type L1ContractsConfig } from '@aztec/ethereum';
+import { type DeployL1Contracts, type L1ContractsConfig, type RollupContract } from '@aztec/ethereum';
 import { FunctionType } from '@aztec/foundation/abi';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type Fr } from '@aztec/foundation/fields';
@@ -85,6 +85,51 @@ export async function deployAztecContracts(
     },
     config,
   );
+}
+
+export async function deployNewRollupContracts(
+  registryAddress: EthAddress,
+  rpcUrl: string,
+  chainId: number,
+  privateKey: string | undefined,
+  mnemonic: string,
+  mnemonicIndex: number,
+  salt: number | undefined,
+  initialValidators: EthAddress[],
+  genesisArchiveRoot: Fr,
+  genesisBlockHash: Fr,
+  config: L1ContractsConfig,
+  logger: Logger,
+): Promise<{ payloadAddress: EthAddress; rollup: RollupContract }> {
+  const { createEthereumChain, deployRollupAndUpgradePayload } = await import('@aztec/ethereum');
+  const { mnemonicToAccount, privateKeyToAccount } = await import('viem/accounts');
+  const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types/vks');
+
+  const account = !privateKey
+    ? mnemonicToAccount(mnemonic!, { addressIndex: mnemonicIndex })
+    : privateKeyToAccount(`${privateKey.startsWith('0x') ? '' : '0x'}${privateKey}` as `0x${string}`);
+  const chain = createEthereumChain(rpcUrl, chainId);
+
+  const { payloadAddress, rollup } = await deployRollupAndUpgradePayload(
+    chain.rpcUrl,
+    chain.chainInfo,
+    account,
+    {
+      salt,
+      vkTreeRoot: getVKTreeRoot(),
+      protocolContractTreeRoot,
+      l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
+      genesisArchiveRoot,
+      genesisBlockHash,
+      initialValidators,
+      ...config,
+    },
+    registryAddress,
+    logger,
+    config,
+  );
+
+  return { payloadAddress, rollup };
 }
 
 /** Sets the assumed proven block number on the rollup contract on L1 */

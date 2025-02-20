@@ -58,6 +58,48 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     });
 
   program
+    .command('deploy-new-rollup')
+    .description('Deploys a new rollup contract and a payload to upgrade the registry with it.')
+    .requiredOption('-r, --registry-address <string>', 'The address of the registry contract', parseEthereumAddress)
+    .requiredOption(
+      '-u, --rpc-url <string>',
+      'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
+      ETHEREUM_HOST,
+    )
+    .option('-pk, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
+    .option('--validators <string>', 'Comma separated list of validators')
+    .option(
+      '-m, --mnemonic <string>',
+      'The mnemonic to use in deployment',
+      'test test test test test test test test test test test junk',
+    )
+    .option('-i, --mnemonic-index <number>', 'The index of the mnemonic to use in deployment', arg => parseInt(arg), 0)
+    .addOption(l1ChainIdOption)
+    .option('--salt <number>', 'The optional salt to use in deployment', arg => parseInt(arg))
+    .option('--json', 'Output the contract addresses in JSON format')
+    .option('--test-accounts', 'Populate genesis state with initial fee juice for test accounts')
+    .action(async options => {
+      const { deployNewRollup } = await import('./deploy_new_rollup.js');
+
+      const initialValidators =
+        options.validators?.split(',').map((validator: string) => EthAddress.fromString(validator)) || [];
+      await deployNewRollup(
+        options.registryAddress,
+        options.rpcUrl,
+        options.l1ChainId,
+        options.privateKey,
+        options.mnemonic,
+        options.mnemonicIndex,
+        options.salt,
+        options.testAccounts,
+        options.json,
+        initialValidators,
+        log,
+        debugLogger,
+      );
+    });
+
+  program
     .command('generate-l1-account')
     .description('Generates a new private key for an account on L1.')
     .option('--json', 'Output the private key in JSON format')

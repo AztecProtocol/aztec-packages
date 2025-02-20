@@ -4,6 +4,7 @@ import { type Chain, type HttpTransport, type PublicClient } from 'viem';
 
 import { type L1ContractsConfig } from './config.js';
 import { GovernanceContract } from './contracts/governance.js';
+import { RegistryContract } from './contracts/registry.js';
 import { RollupContract } from './contracts/rollup.js';
 import { type L1ContractAddresses } from './l1_contract_addresses.js';
 
@@ -11,17 +12,11 @@ import { type L1ContractAddresses } from './l1_contract_addresses.js';
 export async function getL1ContractsAddresses(
   publicClient: PublicClient<HttpTransport, Chain>,
   governanceAddress: EthAddress,
-): Promise<Omit<L1ContractAddresses, 'slashFactoryAddress' | 'coinIssuerAddress'>> {
+): Promise<L1ContractAddresses> {
   const governance = new GovernanceContract(publicClient, governanceAddress.toString());
-  const governanceAddresses = await governance.getGovernanceAddresses();
-
-  const rollup = new RollupContract(publicClient, governanceAddresses.rollupAddress.toString());
-  const rollupAddresses = await rollup.getRollupAddresses();
-
-  return {
-    ...governanceAddresses,
-    ...rollupAddresses,
-  };
+  const proposer = await governance.getProposer();
+  const registry = await proposer.getRegistryAddress();
+  return RegistryContract.collectAddresses(publicClient, registry, 'canonical');
 }
 
 /** Reads the L1ContractsConfig from L1 contracts. */

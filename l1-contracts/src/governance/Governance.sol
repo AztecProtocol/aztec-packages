@@ -48,13 +48,13 @@ contract Governance is IGovernance {
 
     configuration = DataStructures.Configuration({
       proposeConfig: DataStructures.ProposeConfiguration({
-        lockDelay: Timestamp.wrap(3600),
+        lockDelay: Timestamp.wrap(360),
         lockAmount: 1000e18
       }),
-      votingDelay: Timestamp.wrap(3600),
-      votingDuration: Timestamp.wrap(3600),
-      executionDelay: Timestamp.wrap(3600),
-      gracePeriod: Timestamp.wrap(3600),
+      votingDelay: Timestamp.wrap(360),
+      votingDuration: Timestamp.wrap(360),
+      executionDelay: Timestamp.wrap(360),
+      gracePeriod: Timestamp.wrap(360),
       quorum: 0.1e18,
       voteDifferential: 0.04e18,
       minimumVotes: 1000e18
