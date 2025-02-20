@@ -21,10 +21,17 @@ describe('Gossipsub', () => {
   let processes: ChildProcess[];
 
   let p2pBaseConfig: P2PConfig;
+  const testChainConfig: ChainConfig = {
+    l1ChainId: 31337,
+    version: 1,
+    l1Contracts: {
+      rollupAddress: EthAddress.random(),
+    },
+  };
 
   beforeEach(() => {
     processes = [];
-    p2pBaseConfig = { ...emptyChainConfig, ...getP2PDefaultConfig() };
+    p2pBaseConfig = { ...getP2PDefaultConfig(), ...testChainConfig };
   });
 
   afterEach(async () => {
@@ -52,9 +59,9 @@ describe('Gossipsub', () => {
     const peerIdPrivateKeys = generatePeerIdPrivateKeys(numberOfClients);
     const ports = await getPorts(numberOfClients);
     const peerEnrs = await makeEnrs(peerIdPrivateKeys, ports, p2pBaseConfig);
-    const rollupAddress = EthAddress.random();
 
     processes = [];
+    let readySignals = [];
     for (let i = 0; i < numberOfClients; i++) {
       logger.info(`\n\n\n\n\n\n\nCreating client ${i}\n\n\n\n\n\n\n`);
       const addr = `127.0.0.1:${ports[i]}`;
@@ -64,10 +71,7 @@ describe('Gossipsub', () => {
       const otherNodes = peerEnrs.filter((_, ind) => ind < Math.min(i, 10));
 
       const config: P2PConfig & Partial<ChainConfig> = {
-        ...getP2PDefaultConfig(),
-        l1Contracts: {
-          rollupAddress,
-        },
+        ...p2pBaseConfig,
         p2pEnabled: true,
         peerIdPrivateKey: peerIdPrivateKeys[i],
         tcpListenAddress: listenAddr,
@@ -82,21 +86,26 @@ describe('Gossipsub', () => {
       childProcess.send({ type: 'START', config, clientIndex: i });
 
       // Wait for ready signal
-      await new Promise((resolve, reject) => {
-        childProcess.once('message', (msg: any) => {
-          if (msg.type === 'READY') {
-            resolve(undefined);
-          }
-          if (msg.type === 'ERROR') {
-            reject(new Error(msg.error));
-          }
-        });
-      });
+      readySignals.push(
+        new Promise((resolve, reject) => {
+          childProcess.once('message', (msg: any) => {
+            if (msg.type === 'READY') {
+              resolve(undefined);
+            }
+            if (msg.type === 'ERROR') {
+              reject(new Error(msg.error));
+            }
+          });
+        }),
+      );
 
       processes.push(childProcess);
     }
     // Wait for peers to all connect with each other
     await sleep(4000);
+
+    // Wait for all peers to be booted up
+    await Promise.all(readySignals);
 
     return peerEnrs;
   }
@@ -124,6 +133,10 @@ describe('Gossipsub', () => {
     };
 
     await makeWorkerClients(numberOfClients, testConfig);
+
+    // wait a bit longer for all peers to be ready
+    await sleep(5000);
+    logger.info(`\n\n\n\n\n\n\Workers Ready\n\n\n\n\n\n\n`);
 
     // Track gossip message counts from all processes
     const gossipCounts = new Map<number, number>();
