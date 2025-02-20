@@ -58,11 +58,8 @@ jobs:
         # And then check if we have incorrect labels OR an incorrect base_ref.
         if: |
           github.event_name == 'pull_request_target' &&
-          github.event.pull_request.head.repo.full_name != github.repository &&
-          (
-            (contains(github.event.pull_request.labels.*.name, 'ci-external') == false &&
-             contains(github.event.pull_request.labels.*.name, 'ci-external-once') == false)
-          )
+          contains(github.event.pull_request.labels.*.name, 'ci-external') == false &&
+          contains(github.event.pull_request.labels.*.name, 'ci-external-once') == false
         run: echo "External PRs need the 'ci-external' or 'ci-external-once' labels to run." && exit 1
 
       - name: External Contributor Changes
