@@ -1,6 +1,6 @@
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
-import { mockSimulatedTx } from '../mocks.js';
+import { mockSimulatedTx } from '../test/mocks.js';
 import { TxProvingResult, TxSimulationResult } from './simulated_tx.js';
 
 describe('simulated_tx', () => {

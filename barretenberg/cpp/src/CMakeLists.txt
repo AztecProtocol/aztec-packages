@@ -26,7 +26,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 18)
         # We target clang18 and need this, eventually warning should be fixed or this will be unconditional.
         add_compile_options(-Wno-vla-cxx-extension)
-        # This gets in the way of a valid designated initializer pattern (i.e. MyClass my_class{ .my_member = init_value })
+        # This gets in the way of a partial object initialization (i.e. MyClass my_class{ .my_member = init_value })
         add_compile_options(-Wno-missing-field-initializers)
     endif()
 endif()
@@ -45,7 +45,7 @@ if(WASM)
     add_link_options(-Wl,--export-memory,--import-memory,--stack-first,-z,stack-size=1048576,--max-memory=4294967296)
 endif()
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${MSGPACK_INCLUDE} ${TRACY_INCLUDE} ${LMDB_INCLUDE})
+include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${MSGPACK_INCLUDE} ${TRACY_INCLUDE} ${LMDB_INCLUDE} ${LIBDEFLATE_INCLUDE})
 
 # I feel this should be limited to ecc, however it's currently used in headers that go across libraries,
 # and there currently isn't an easy way to inherit the DDISABLE_ASM parameter.
@@ -63,6 +63,7 @@ if (ENABLE_PIC AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_subdirectory(barretenberg/nodejs_module)
 endif()
 
+add_subdirectory(barretenberg/api)
 add_subdirectory(barretenberg/bb)
 add_subdirectory(barretenberg/boomerang_value_detection)
 add_subdirectory(barretenberg/circuit_checker)
@@ -182,6 +183,7 @@ if(NOT WASM)
     # enable merkle trees and lmdb
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:crypto_merkle_tree_objects>)
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:lmdblib_objects>)
+    list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:api_objects>)
 endif()
 
 add_library(
@@ -191,26 +193,58 @@ add_library(
 )
 
 if(WASM)
-    # With binaryen installed, it seems its wasm backend optimizer gets invoked automatically.
-    # Due to either a bug in the optimizer, or non-standards compliant c++ in crypto/aes, tests start failing with
-    # -O3 level optimizations. We force down to -O2 for current workaround.
-    # TODO: Time has passed, check if this is still needed.
-    # UPDATE: Uninstall binaryen and any need downstream.
-    set(CMAKE_CXX_FLAGS_RELEASE "-O2")
-
     # When building this wasm "executable", we include the wasi module but exclude the env module.
     # That's because we expect this wasm to be run as a wasi "reactor" and for the host environment
     # to implement the functions in env.
     add_executable(
-        barretenberg.wasm
+        barretenberg-debug.wasm
         ${BARRETENBERG_TARGET_OBJECTS}
         $<TARGET_OBJECTS:wasi_objects>
     )
 
     target_link_options(
-        barretenberg.wasm
+        barretenberg-debug.wasm
         PRIVATE
         -nostartfiles -Wl,--no-entry,--export-dynamic
+    )
+
+    # Strip debug info to create the release version.
+    add_custom_command(
+        OUTPUT ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm
+        COMMAND ${CMAKE_STRIP} ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm -o ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm
+        DEPENDS ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm
+        COMMENT "Stripping debug info to create release version."
+    )
+
+    add_custom_target(
+        barretenberg.wasm ALL
+        DEPENDS ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm
+    )
+
+    # Create a gzipped version of barretenberg-debug.wasm
+    add_custom_command(
+        OUTPUT ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm.gz
+        COMMAND gzip -c ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm > ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm.gz
+        DEPENDS ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm
+        COMMENT "Creating gzipped version of barretenberg-debug.wasm"
+    )
+
+    add_custom_target(
+        barretenberg-debug.wasm.gz ALL
+        DEPENDS ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm.gz
+    )
+
+    # Create a gzipped version of barretenberg.wasm
+    add_custom_command(
+        OUTPUT ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm.gz
+        COMMAND gzip -c ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm > ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm.gz
+        DEPENDS ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm
+        COMMENT "Creating gzipped version of barretenberg.wasm"
+    )
+
+    add_custom_target(
+        barretenberg.wasm.gz ALL
+        DEPENDS ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm.gz
     )
 
     if(CHECK_CIRCUIT_STACKTRACES)

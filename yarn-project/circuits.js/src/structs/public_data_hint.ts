@@ -1,8 +1,8 @@
+import { PUBLIC_DATA_TREE_HEIGHT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { MembershipWitness } from '@aztec/foundation/trees';
 
-import { PUBLIC_DATA_TREE_HEIGHT } from '../constants.gen.js';
-import { MembershipWitness } from './membership_witness.js';
 import { PublicDataTreeLeafPreimage } from './trees/index.js';
 
 export class PublicDataHint {

@@ -1,4 +1,5 @@
-import { type GetPublicLogsResponse, type PXE, type TxHash, type TxReceipt, TxStatus } from '@aztec/circuit-types';
+import { type GetPublicLogsResponse, type TxHash, type TxReceipt, TxStatus } from '@aztec/circuit-types';
+import { type PXE } from '@aztec/circuit-types/interfaces/client';
 import { retryUntil } from '@aztec/foundation/retry';
 import { type FieldsOf } from '@aztec/foundation/types';
 

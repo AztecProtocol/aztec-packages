@@ -1,13 +1,12 @@
+import { type ClientIvcProof, type VerificationKeyAsFields } from '@aztec/circuits.js';
 import {
-  type ClientIvcProof,
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
   type PrivateKernelInnerCircuitPrivateInputs,
   type PrivateKernelResetCircuitPrivateInputs,
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
-  type VerificationKeyAsFields,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/kernel';
 
 import { type WitnessMap } from '@noir-lang/acvm_js';
 import { z } from 'zod';

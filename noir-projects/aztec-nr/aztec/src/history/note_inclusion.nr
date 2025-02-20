@@ -2,24 +2,32 @@ use dep::protocol_types::block_header::BlockHeader;
 use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 
 use crate::{
-    note::{note_interface::{NoteInterface, NullifiableNote}, utils::compute_note_hash_for_nullify},
+    note::{
+        note_interface::{NoteInterface, NullifiableNote},
+        retrieved_note::RetrievedNote,
+        utils::compute_note_hash_for_nullify,
+    },
     oracle::get_membership_witness::get_note_hash_membership_witness,
 };
 
 trait ProveNoteInclusion {
-    fn prove_note_inclusion<Note, let N: u32>(header: BlockHeader, note: Note)
+    fn prove_note_inclusion<Note>(
+        header: BlockHeader,
+        retrieved_note: RetrievedNote<Note>,
+        storage_slot: Field,
+    )
     where
-        Note: NoteInterface<N> + NullifiableNote;
+        Note: NoteInterface + NullifiableNote;
 }
 
 impl ProveNoteInclusion for BlockHeader {
-    fn prove_note_inclusion<Note, let N: u32>(self, note: Note)
+    fn prove_note_inclusion<Note>(self, retrieved_note: RetrievedNote<Note>, storage_slot: Field)
     where
-        Note: NoteInterface<N> + NullifiableNote,
+        Note: NoteInterface + NullifiableNote,
     {
-        let note_hash = compute_note_hash_for_nullify(note);
+        let note_hash = compute_note_hash_for_nullify(retrieved_note, storage_slot);
 
-        /// Safety: The witness is only used as a "magical value" that makes the merkle proof below pass. Hence it's safe.
+        // Safety: The witness is only used as a "magical value" that makes the merkle proof below pass. Hence it's safe.
         let witness = unsafe {
             get_note_hash_membership_witness(self.global_variables.block_number as u32, note_hash)
         };

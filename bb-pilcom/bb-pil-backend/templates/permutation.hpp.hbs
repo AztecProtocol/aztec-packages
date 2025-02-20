@@ -16,6 +16,7 @@ namespace bb::{{snakeCase root_name}} {
 class {{perm_name}}_permutation_settings {
   public:
     static constexpr std::string_view NAME = "{{shoutySnakeCase perm_name}}";
+    static constexpr std::string_view RELATION_NAME = "{{relation_name}}";
 
     // This constant defines how many columns are bundled together to form each set.
     constexpr static size_t COLUMNS_PER_SET = {{columns_per_set}};
@@ -51,15 +52,26 @@ class {{perm_name}}_permutation_settings {
 
 template <typename FF_> class {{perm_name}}_relation : public GenericPermutationRelation<{{perm_name}}_permutation_settings, FF_> {
     public:
+        using Settings = {{perm_name}}_permutation_settings;
         static constexpr std::string_view NAME = {{perm_name}}_permutation_settings::NAME;
+        static constexpr std::string_view RELATION_NAME = {{perm_name}}_permutation_settings::RELATION_NAME;
 
         {{! TODO: This is a safe skippable condition, but there might be a better one. --}}
         template <typename AllEntities> inline static bool skip(const AllEntities& in)
         {
-            return in.{{lhs_selector}}.is_zero() && in.{{rhs_selector}}.is_zero();
+            return in.{{inverses_col}}.is_zero();
+        }
+
+        static std::string get_subrelation_label(size_t index) {
+            {{! from generic_permutation_relation.hpp }}
+            if (index == 0) {
+                return "INVERSES_ARE_CORRECT";
+            } else if (index == 1) {
+                return "ACCUMULATION_IS_CORRECT";
+            }
+            return std::to_string(index);
         }
 };
-template <typename FF_> using {{perm_name}} = GenericPermutation<{{perm_name}}_permutation_settings, FF_>;
 
 {{/with}}{{/each}}
 } // namespace bb::{{snakeCase root_name}}

@@ -1,27 +1,44 @@
-import { type AztecAddress, Fr, type MerkleTree, PROTOCOL_CONTRACT_TREE_HEIGHT } from '@aztec/circuits.js';
-import { assertLength } from '@aztec/foundation/serialize';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { ProtocolContractLeafPreimage } from '@aztec/circuits.js/trees';
+import { type PROTOCOL_CONTRACT_TREE_HEIGHT } from '@aztec/constants';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { type IndexedMerkleTree } from '@aztec/foundation/trees';
 
 import { buildProtocolContractTree } from './build_protocol_contract_tree.js';
-import { ProtocolContractAddress, ProtocolContractLeaf, protocolContractNames } from './protocol_contract_data.js';
+import { isProtocolContract } from './protocol_contract.js';
+import { ProtocolContractAddress, ProtocolContractLeaves, protocolContractNames } from './protocol_contract_data.js';
 
-let protocolContractTree: MerkleTree | undefined;
+let protocolContractTree:
+  | IndexedMerkleTree<ProtocolContractLeafPreimage, typeof PROTOCOL_CONTRACT_TREE_HEIGHT>
+  | undefined;
 
 async function getTree() {
   if (!protocolContractTree) {
     const leaves = protocolContractNames.map(name => ({
       address: ProtocolContractAddress[name],
-      leaf: ProtocolContractLeaf[name],
+      leaf: ProtocolContractLeaves[name],
     }));
     protocolContractTree = await buildProtocolContractTree(leaves);
   }
   return protocolContractTree;
 }
 
-export async function getProtocolContractSiblingPath(address: AztecAddress) {
+// Computed address can be different from contract address due to upgrades
+export async function getProtocolContractLeafAndMembershipWitness(
+  contractAddress: AztecAddress,
+  computedAddress: AztecAddress,
+) {
   const tree = await getTree();
-  const index = address.toField().toNumber();
-  return assertLength<Fr, typeof PROTOCOL_CONTRACT_TREE_HEIGHT>(
-    tree.getSiblingPath(index).map(buf => new Fr(buf)),
-    PROTOCOL_CONTRACT_TREE_HEIGHT,
-  );
+  let lowLeaf;
+  let witness;
+  if (isProtocolContract(contractAddress)) {
+    const index = contractAddress.toField().toNumber();
+    lowLeaf = tree.leafPreimages[index];
+    witness = tree.getMembershipWitness(index);
+  } else {
+    lowLeaf = tree.getLowLeaf(computedAddress.toBigInt());
+    const hashed = (await poseidon2Hash(lowLeaf.toHashInputs())).toBuffer();
+    witness = tree.getMembershipWitness(hashed);
+  }
+  return { lowLeaf, witness };
 }

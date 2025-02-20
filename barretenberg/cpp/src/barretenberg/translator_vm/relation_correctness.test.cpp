@@ -34,9 +34,8 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
     params.gamma = gamma;
 
     // Create storage for polynomials
-    auto proving_key = std::make_shared<Flavor::ProvingKey>(full_circuit_size);
-    TranslatorProvingKey key{ proving_key, mini_circuit_size };
-    ProverPolynomials& prover_polynomials = proving_key->polynomials;
+    TranslatorProvingKey key{ mini_circuit_size };
+    ProverPolynomials& prover_polynomials = key.proving_key->polynomials;
 
     // Fill in lagrange polynomials used in the permutation relation
     prover_polynomials.lagrange_first.at(0) = 1;
@@ -44,7 +43,7 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
 
     // Put random values in all the non-concatenated constraint polynomials used to range constrain the values
     auto fill_polynomial_with_random_14_bit_values = [&](auto& polynomial) {
-        for (size_t i = polynomial.start_index(); i < mini_circuit_size; i++) {
+        for (size_t i = polynomial.start_index(); i < polynomial.size(); i++) {
             polynomial.at(i) = engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
         }
     };
@@ -86,7 +85,7 @@ TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
     // No relation parameters are used in this relation
     RelationParameters<FF> params;
 
-    ProverPolynomials prover_polynomials(circuit_size);
+    ProverPolynomials prover_polynomials(mini_circuit_size);
 
     // Construct lagrange polynomials that are needed for Translator's DeltaRangeConstraint Relation
     prover_polynomials.lagrange_first.at(0) = 0;
@@ -148,7 +147,6 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
     auto& engine = numeric::get_debug_randomness();
 
     const size_t mini_circuit_size = 2048;
-    const auto circuit_size = Flavor::CONCATENATION_GROUP_SIZE * mini_circuit_size;
 
     // We only use accumulated_result from relation parameters in this relation
     RelationParameters<FF> params;
@@ -157,7 +155,7 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
     };
 
     // Create storage for polynomials
-    ProverPolynomials prover_polynomials(circuit_size);
+    ProverPolynomials prover_polynomials(mini_circuit_size);
     // Fill in lagrange even polynomial
     for (size_t i = 1; i < mini_circuit_size - 1; i += 2) {
         prover_polynomials.lagrange_odd_in_minicircuit.at(i) = 1;
@@ -219,13 +217,12 @@ TEST_F(TranslatorRelationCorrectnessTests, Decomposition)
     auto& engine = numeric::get_debug_randomness();
 
     constexpr size_t mini_circuit_size = 2048;
-    const auto circuit_size = Flavor::CONCATENATION_GROUP_SIZE * mini_circuit_size;
 
     // Decomposition relation doesn't use any relation parameters
     RelationParameters<FF> params;
 
     // Create storage for polynomials
-    ProverPolynomials prover_polynomials(circuit_size);
+    ProverPolynomials prover_polynomials(mini_circuit_size);
 
     // Fill in lagrange odd polynomial (the only non-witness one we are using)
     for (size_t i = 1; i < mini_circuit_size - 1; i += 2) {
@@ -564,7 +561,6 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
 
     constexpr size_t NUM_LIMB_BITS = Flavor::NUM_LIMB_BITS;
     constexpr auto mini_circuit_size = 2048;
-    constexpr auto circuit_size = Flavor::CONCATENATION_GROUP_SIZE * mini_circuit_size;
 
     auto& engine = numeric::get_debug_randomness();
 
@@ -613,7 +609,7 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
                                   uint_input_x };
 
     // Create storage for polynomials
-    ProverPolynomials prover_polynomials = TranslatorFlavor::ProverPolynomials(circuit_size);
+    ProverPolynomials prover_polynomials = TranslatorFlavor::ProverPolynomials(mini_circuit_size);
 
     // Copy values of wires used in the non-native field relation from the circuit builder
     for (size_t i = 1; i < circuit_builder.get_estimated_num_finalized_gates(); i++) {

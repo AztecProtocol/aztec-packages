@@ -1,11 +1,9 @@
+import { ContractClassTxL2Logs, MerkleTreeId, type Tx } from '@aztec/circuit-types';
 import {
-  ContractClassTxL2Logs,
-  MerkleTreeId,
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
   NullifierMembershipWitness,
-  type Tx,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
 import { type PublicDBAccessStats } from '@aztec/circuit-types/stats';
 import {
   type AztecAddress,
@@ -14,13 +12,11 @@ import {
   type ContractInstanceWithAddress,
   Fr,
   type FunctionSelector,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-  type NULLIFIER_TREE_HEIGHT,
-  type NullifierLeafPreimage,
-  type PublicDataTreeLeafPreimage,
   computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
 import { computeL1ToL2MessageNullifier, computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { type NullifierLeafPreimage, type PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
+import { type L1_TO_L2_MSG_TREE_HEIGHT, type NULLIFIER_TREE_HEIGHT } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
@@ -145,9 +141,11 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
     if (!instance) {
       throw new Error(`Contract ${address.toString()} not found`);
     }
-    const contractClass = await this.getContractClass(instance.contractClassId);
+    const contractClass = await this.getContractClass(instance.currentContractClassId);
     if (!contractClass) {
-      throw new Error(`Contract class ${instance.contractClassId.toString()} for ${address.toString()} not found`);
+      throw new Error(
+        `Contract class ${instance.currentContractClassId.toString()} for ${address.toString()} not found`,
+      );
     }
     return contractClass.publicFunctions.find(f => f.selector.equals(selector))?.bytecode;
   }

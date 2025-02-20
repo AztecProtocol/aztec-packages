@@ -1,18 +1,18 @@
 import { MerkleTreeId, SimulationError } from '@aztec/circuit-types';
 import {
   type ContractInstanceWithAddress,
-  DEPLOYER_CONTRACT_ADDRESS,
   Fr,
   FunctionSelector,
   PublicDataWrite,
   computePartialAddress,
 } from '@aztec/circuits.js';
+import { type ContractArtifact, NoteSelector } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
-import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
 import { type Logger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { protocolContractNames } from '@aztec/protocol-contracts';
 import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
 import { enrichPublicSimulationError } from '@aztec/pxe';
@@ -27,6 +27,7 @@ import {
   addressFromSingle,
   fromArray,
   fromSingle,
+  fromUintArray,
   toArray,
   toForeignCallResult,
   toSingle,
@@ -38,7 +39,7 @@ export class TXEService {
   constructor(private logger: Logger, private typedOracle: TypedOracle) {}
 
   static async init(logger: Logger) {
-    const store = openTmpStore(true);
+    const store = await openTmpStore('test');
     const executionCache = new HashedValuesCache();
     const nativeWorldStateService = await NativeWorldStateService.tmp();
     const baseFork = await nativeWorldStateService.fork();
@@ -98,7 +99,7 @@ export class TXEService {
       await this.addAccount(artifact, instance, secret);
     } else {
       await (this.typedOracle as TXE).addContractInstance(instance);
-      await (this.typedOracle as TXE).addContractArtifact(instance.contractClassId, artifact);
+      await (this.typedOracle as TXE).addContractArtifact(instance.currentContractClassId, artifact);
       this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
     }
 
@@ -106,7 +107,7 @@ export class TXEService {
       toArray([
         instance.salt,
         instance.deployer.toField(),
-        instance.contractClassId,
+        instance.currentContractClassId,
         instance.initializationHash,
         ...instance.publicKeys.toFields(),
       ]),
@@ -152,7 +153,7 @@ export class TXEService {
   async addAccount(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: ForeignCallSingle) {
     this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
     await (this.typedOracle as TXE).addContractInstance(instance);
-    await (this.typedOracle as TXE).addContractArtifact(instance.contractClassId, artifact);
+    await (this.typedOracle as TXE).addContractArtifact(instance.currentContractClassId, artifact);
 
     const keyStore = (this.typedOracle as TXE).getKeyStore();
     const completeAddress = await keyStore.addAccount(fromSingle(secret), await computePartialAddress(instance));
@@ -391,7 +392,7 @@ export class TXEService {
       toArray([
         instance.salt,
         instance.deployer.toField(),
-        instance.contractClassId,
+        instance.currentContractClassId,
         instance.initializationHash,
         ...instance.publicKeys.toFields(),
       ]),
@@ -580,6 +581,22 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
+  // TODO: I forgot to add a corresponding function here, when I introduced an oracle method to txe_oracle.ts. The compiler didn't throw an error, so it took me a while to learn of the existence of this file, and that I need to implement this function here. Isn't there a way to programmatically identify that this is missing, given the existence of a txe_oracle method?
+  async aes128Decrypt(ciphertext: ForeignCallArray, iv: ForeignCallArray, symKey: ForeignCallArray) {
+    const ciphertextBuffer = fromUintArray(ciphertext, 8);
+    const ivBuffer = fromUintArray(iv, 8);
+    const symKeyBuffer = fromUintArray(symKey, 8);
+
+    // TODO(AD): this is a hack to shut up linter - this shouldn't be async!
+    const paddedPlaintext = await Promise.resolve(
+      this.typedOracle.aes128Decrypt(ciphertextBuffer, ivBuffer, symKeyBuffer),
+    );
+
+    // We convert each byte of the buffer to its own Field, so that the Noir
+    // function correctly receives [u8; N].
+    return toForeignCallResult([toArray(Array.from(paddedPlaintext).map(byte => new Fr(byte)))]);
+  }
+
   // AVM opcodes
 
   avmOpcodeEmitUnencryptedLog(_message: ForeignCallArray) {
@@ -609,7 +626,7 @@ export class TXEService {
   async avmOpcodeGetContractInstanceClassId(address: ForeignCallSingle) {
     const instance = await this.typedOracle.getContractInstance(addressFromSingle(address));
     return toForeignCallResult([
-      toSingle(instance.contractClassId),
+      toSingle(instance.currentContractClassId),
       // AVM requires an extra boolean indicating the instance was found
       toSingle(new Fr(1)),
     ]);

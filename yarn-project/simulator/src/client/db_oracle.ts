@@ -2,10 +2,10 @@ import {
   type L2Block,
   type MerkleTreeId,
   type NoteStatus,
-  type NullifierMembershipWitness,
   type PublicDataWitness,
   type TxScopedL2Log,
 } from '@aztec/circuit-types';
+import { type NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/client';
 import {
   type BlockHeader,
   type CompleteAddress,
@@ -13,8 +13,9 @@ import {
   type IndexedTaggingSecret,
   type KeyValidationRequest,
 } from '@aztec/circuits.js';
-import { type FunctionArtifact, type FunctionSelector } from '@aztec/foundation/abi';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { type FunctionArtifact, type FunctionSelector } from '@aztec/circuits.js/abi';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { LogWithTxData } from '@aztec/circuits.js/logs';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { type NoteData } from '../acvm/index.js';
@@ -249,6 +250,14 @@ export interface DBOracle extends CommitmentsDB {
     txHash: Fr,
     recipient: AztecAddress,
   ): Promise<void>;
+
+  /**
+   * Searches for a log with the corresponding `tag` and returns it along with contextual transaction information.
+   * Returns null if no such log exists, and throws if more than one exists.
+   *
+   * @param tag - The log tag to search for.
+   */
+  getLogByTag(tag: Fr): Promise<LogWithTxData | null>;
 
   /**
    * Removes all of a contract's notes that have been nullified from the note database.

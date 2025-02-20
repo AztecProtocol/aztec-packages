@@ -17,6 +17,7 @@ services:
       - "${PWD}/out/jwt-secret.hex:/genesis/jwt-secret.hex"
     environment:
       - HTTP_PORT=8545
+      - WS_PORT=8546
       - MAX_TX_INPUT_SIZE_BYTES=1310720
 
   eth_beacon:

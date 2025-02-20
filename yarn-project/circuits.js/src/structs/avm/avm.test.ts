@@ -1,8 +1,10 @@
-import { AztecAddress, Fr, Point, PublicKeys } from '@aztec/circuits.js';
 import { randomInt } from '@aztec/foundation/crypto';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { readTestData, writeTestData } from '@aztec/foundation/testing/files';
 
+import { AztecAddress } from '../../aztec-address/index.js';
 import { makeAvmCircuitInputs } from '../../tests/factories.js';
+import { PublicKeys } from '../../types/public_keys.js';
 import { AvmCircuitInputs, serializeWithMessagePack } from './avm.js';
 
 describe('Avm circuit inputs', () => {
@@ -21,7 +23,8 @@ describe('Avm circuit inputs', () => {
           exists: true,
           salt: new Fr(0xdeadbeefn),
           deployer: AztecAddress.fromBigInt(0x000010n),
-          contractClassId: new Fr(0x41181337n),
+          currentContractClassId: new Fr(0x41181337n),
+          originalContractClassId: new Fr(0x41181337n),
           initializationHash: new Fr(0x111111n),
           publicKeys: new PublicKeys(
             new Point(
@@ -52,7 +55,8 @@ describe('Avm circuit inputs', () => {
           exists: false,
           salt: new Fr(0xdead0000n),
           deployer: AztecAddress.fromBigInt(0x000020n),
-          contractClassId: new Fr(0x51181337n),
+          currentContractClassId: new Fr(0x51181337n),
+          originalContractClassId: new Fr(0x51181337n),
           initializationHash: new Fr(0x222222n),
           publicKeys: new PublicKeys(
             new Point(

@@ -3,25 +3,28 @@ import {
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockSource,
-  SequencerConfigSchema,
+  MerkleTreeId,
   Tx,
   type TxHash,
-  type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
-import type { AllowedElement, WorldStateSynchronizerStatus } from '@aztec/circuit-types/interfaces';
+import {
+  type AllowedElement,
+  SequencerConfigSchema,
+  type WorldStateSynchronizer,
+  type WorldStateSynchronizerStatus,
+} from '@aztec/circuit-types/interfaces/server';
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
 import {
-  AppendOnlyTreeSnapshot,
   BlockHeader,
   ContentCommitment,
   type ContractDataSource,
-  GENESIS_ARCHIVE_ROOT,
   Gas,
   type GlobalVariables,
-  INITIAL_L2_BLOCK_NUM,
   StateReference,
 } from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { omit } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
@@ -452,7 +455,6 @@ export class Sequencer {
         publicProcessorFork,
         this.contractDataSource,
         newGlobalVariables,
-        !!this.config.enforceFees,
         this.allowedInSetup,
       );
 
@@ -727,7 +729,8 @@ export class Sequencer {
 
       return { blockNumber: block.number, archive: block.archive.root };
     } else {
-      return { blockNumber: INITIAL_L2_BLOCK_NUM - 1, archive: new Fr(GENESIS_ARCHIVE_ROOT) };
+      const archive = new Fr((await this.worldState.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE)).root);
+      return { blockNumber: INITIAL_L2_BLOCK_NUM - 1, archive };
     }
   }
 

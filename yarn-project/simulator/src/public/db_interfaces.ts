@@ -1,10 +1,7 @@
-import { type NullifierMembershipWitness } from '@aztec/circuit-types';
-import {
-  type ContractInstanceWithAddress,
-  type FunctionSelector,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-} from '@aztec/circuits.js';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { type NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/server';
+import { type ContractInstanceWithAddress, type FunctionSelector } from '@aztec/circuits.js';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { type MessageLoadOracleInputs } from '../common/message_load_oracle_inputs.js';

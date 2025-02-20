@@ -1,6 +1,6 @@
+import { CONTENT_COMMITMENT_LENGTH } from '@aztec/constants';
 import { randomInt } from '@aztec/foundation/crypto';
 
-import { CONTENT_COMMITMENT_LENGTH } from '../constants.gen.js';
 import { makeContentCommitment } from '../tests/factories.js';
 import { ContentCommitment } from './content_commitment.js';
 

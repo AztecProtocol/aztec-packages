@@ -1,6 +1,6 @@
-import { type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/circuits.js';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { computeL1ToL2MessageNullifier } from '@aztec/circuits.js/hash';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';

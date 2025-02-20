@@ -1,3 +1,8 @@
+import {
+  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+} from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { type Fr } from '@aztec/foundation/fields';
@@ -6,11 +11,6 @@ import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { inspect } from 'util';
 
-import {
-  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-} from '../constants.gen.js';
 import { OptionalNumber } from './optional_number.js';
 import { ScopedReadRequest } from './read_request.js';
 import { RollupValidationRequests } from './rollup_validation_requests.js';

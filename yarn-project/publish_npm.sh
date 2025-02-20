@@ -50,12 +50,14 @@ function deploy_package() {
 
   # Update the package version in package.json.
   TMP=$(mktemp)
-  jq --arg v $VERSION '.version = $v' package.json >$TMP && mv $TMP package.json
+  jq --arg v $VERSION '.version = $v' package.json >$TMP
+  mv $TMP package.json
 
   if [ -z "${STANDALONE:-}" ]; then
     # Update each dependent @aztec package version in package.json.
     for PKG in $(jq --raw-output ".dependencies | keys[] | select(contains(\"@aztec/\"))" package.json); do
-      jq --arg v $VERSION ".dependencies[\"$PKG\"] = \$v" package.json >$TMP && mv $TMP package.json
+      jq --arg v $VERSION ".dependencies[\"$PKG\"] = \$v" package.json >$TMP
+      mv $TMP package.json
     done
 
     # TODO: Remove this after @noir-lang package resolution is fixed
@@ -84,10 +86,10 @@ function deploy_package() {
 }
 
 # New packages here should be added after the last package that they depend on
+deploy_package constants
 deploy_package foundation
 deploy_package blob-lib
 deploy_package native
-deploy_package types
 deploy_package circuits.js
 deploy_package circuit-types
 deploy_package telemetry-client

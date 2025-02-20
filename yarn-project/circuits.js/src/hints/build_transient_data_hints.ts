@@ -1,15 +1,11 @@
-import {
-  type ScopedNoteHash,
-  type ScopedNullifier,
-  type ScopedReadRequest,
-  TransientDataIndexHint,
-  countAccumulatedItems,
-  isValidNoteHashReadRequest,
-  isValidNullifierReadRequest,
-} from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Tuple } from '@aztec/foundation/serialize';
 
+import { type ScopedNoteHash, type ScopedNullifier, type ScopedReadRequest } from '../structs/index.js';
+import { TransientDataIndexHint } from '../structs/transient_data_index_hint.js';
+import { countAccumulatedItems } from '../utils/index.js';
+import { isValidNoteHashReadRequest } from './build_note_hash_read_request_hints.js';
+import { isValidNullifierReadRequest } from './build_nullifier_read_request_hints.js';
 import { ScopedValueCache } from './scoped_value_cache.js';
 
 export function buildTransientDataHints<NOTE_HASHES_LEN extends number, NULLIFIERS_LEN extends number>(

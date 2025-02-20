@@ -1,26 +1,20 @@
 import { type BBSuccess, BB_RESULT, generateAvmProof, generateProof, verifyProof } from '@aztec/bb-prover';
-import {
-  type AvmCircuitInputs,
-  AztecAddress,
-  type ContractClassPublic,
-  type ContractInstanceWithAddress,
-  FunctionSelector,
-} from '@aztec/circuits.js';
+import { type ContractInstanceWithAddress } from '@aztec/circuits.js';
+import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
   AVM_PROOF_LENGTH_IN_FIELDS,
   AVM_PUBLIC_COLUMN_MAX_SIZE,
   AVM_PUBLIC_INPUTS_FLATTENED_SIZE,
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-  PUBLIC_DISPATCH_SELECTOR,
-} from '@aztec/circuits.js/constants';
-import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
+} from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 import { type FixedLengthArray } from '@aztec/noir-protocol-circuits-types/types';
-import { PublicTxSimulationTester, getAvmTestContractPublicDispatchBytecode } from '@aztec/simulator/public/fixtures';
+import { PublicTxSimulationTester } from '@aztec/simulator/public/fixtures';
 
 import { promises as fs } from 'fs';
 import { tmpdir } from 'node:os';
@@ -39,9 +33,6 @@ describe('AVM Integration', () => {
   let bbWorkingDirectory: string;
   let bbBinaryPath: string;
 
-  const avmTestContractClassSeed = 0;
-  const avmTestContractBytecode = getAvmTestContractPublicDispatchBytecode();
-  let avmTestContractClass: ContractClassPublic;
   let avmTestContractInstance: ContractInstanceWithAddress;
   let avmTestContractAddress: AztecAddress;
 
@@ -52,22 +43,12 @@ describe('AVM Integration', () => {
     bbWorkingDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-avm-integration-'));
     bbBinaryPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../barretenberg/cpp/build/bin', 'bb');
 
-    avmTestContractClass = await makeContractClassPublic(
-      /*seed=*/ avmTestContractClassSeed,
-      /*publicDispatchFunction=*/ {
-        bytecode: avmTestContractBytecode,
-        selector: new FunctionSelector(PUBLIC_DISPATCH_SELECTOR),
-      },
-    );
-    avmTestContractInstance = await makeContractInstanceFromClassId(
-      avmTestContractClass.id,
-      /*seed=*/ avmTestContractClassSeed,
-    );
-    avmTestContractAddress = avmTestContractInstance.address;
-
     simTester = await PublicTxSimulationTester.create();
-    await simTester.addContractClass(avmTestContractClass, AvmTestContractArtifact);
-    await simTester.addContractInstance(avmTestContractInstance);
+    avmTestContractInstance = await simTester.registerAndDeployContract(
+      /*constructorArgs=*/ [],
+      /*deployer=*/ AztecAddress.fromNumber(420),
+      AvmTestContractArtifact,
+    );
   });
 
   async function createHonkProof(witness: Uint8Array, bytecode: string): Promise<BBSuccess> {
@@ -101,7 +82,7 @@ describe('AVM Integration', () => {
       ...argsU8,
       /*getInstanceForAddress=*/ expectContractInstance.address.toField(),
       /*expectedDeployer=*/ expectContractInstance.deployer.toField(),
-      /*expectedClassId=*/ expectContractInstance.contractClassId.toField(),
+      /*expectedClassId=*/ expectContractInstance.currentContractClassId.toField(),
       /*expectedInitializationHash=*/ expectContractInstance.initializationHash.toField(),
     ].map(x => new Fr(x));
     const simRes = await simTester.simulateTx(

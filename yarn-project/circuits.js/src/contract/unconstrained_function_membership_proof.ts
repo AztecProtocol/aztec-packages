@@ -1,8 +1,8 @@
-import { type ContractArtifact, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
+import { computeRootFromSiblingPath } from '@aztec/foundation/trees';
 
-import { computeRootFromSiblingPath } from '../merkle/index.js';
+import { type ContractArtifact, FunctionSelector, FunctionType } from '../abi/index.js';
 import {
   computeArtifactFunctionTree,
   computeArtifactHash,
