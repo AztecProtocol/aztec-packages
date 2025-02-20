@@ -1,9 +1,9 @@
+import { PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH } from '@aztec/constants';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import { PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH } from '../constants.gen.js';
 import { CallContext } from './call_context.js';
 import { Gas } from './gas.js';
 import { RevertCode } from './revert_code.js';

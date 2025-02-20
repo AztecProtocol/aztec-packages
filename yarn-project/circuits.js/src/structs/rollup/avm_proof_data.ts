@@ -1,6 +1,6 @@
+import { AVM_PROOF_LENGTH_IN_FIELDS } from '@aztec/constants';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { AVM_PROOF_LENGTH_IN_FIELDS } from '../../constants.gen.js';
 import { AvmCircuitPublicInputs } from '../avm/avm_circuit_public_inputs.js';
 import { RecursiveProof, makeEmptyRecursiveProof } from '../recursive_proof.js';
 import { VkWitnessData } from '../vk_witness_data.js';

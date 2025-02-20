@@ -1,19 +1,21 @@
 import {
-  type EpochProverManager,
-  EpochProvingJobTerminalState,
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockSource,
   type P2PClientType,
+  type Tx,
+  type TxHash,
+  getTimestampRangeForEpoch,
+} from '@aztec/circuit-types';
+import {
+  type EpochProverManager,
+  EpochProvingJobTerminalState,
   type ProverCoordination,
   type ProverNodeApi,
   type Service,
-  type Tx,
-  type TxHash,
   type WorldStateSynchronizer,
-  getTimestampRangeForEpoch,
   tryStop,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
 import { type ContractDataSource } from '@aztec/circuits.js';
 import { compact } from '@aztec/foundation/collection';
 import { memoize } from '@aztec/foundation/decorators';

@@ -7,7 +7,6 @@ import {
   ContractInstanceWithAddressSchema,
   type Fr,
   GasFees,
-  L1_TO_L2_MSG_TREE_HEIGHT,
   type NodeInfo,
   NodeInfoSchema,
   type PartialAddress,
@@ -22,8 +21,10 @@ import {
   type ContractArtifact,
   ContractArtifactSchema,
   type EventSelector,
-} from '@aztec/foundation/abi';
-import { AbiDecodedSchema, type ApiSchemaFor, type ZodFor, optional, schemas } from '@aztec/foundation/schemas';
+} from '@aztec/circuits.js/abi';
+import { AbiDecodedSchema, schemas } from '@aztec/circuits.js/schemas';
+import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
+import { type ApiSchemaFor, type ZodFor, optional } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 

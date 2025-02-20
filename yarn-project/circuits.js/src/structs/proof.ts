@@ -1,8 +1,7 @@
+import { AGGREGATION_OBJECT_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
-
-import { AGGREGATION_OBJECT_LENGTH } from '../constants.gen.js';
 
 const EMPTY_PROOF_SIZE = 42;
 

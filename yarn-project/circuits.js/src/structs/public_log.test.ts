@@ -1,4 +1,5 @@
-import { PUBLIC_LOG_SIZE_IN_FIELDS } from '../constants.gen.js';
+import { PUBLIC_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
+
 import { PublicLog } from './public_log.js';
 
 describe('PublicLog', () => {

@@ -72,7 +72,7 @@ class perm_dummy_dynamic_relation : public GenericPermutationRelation<perm_dummy
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.execution_sel.is_zero() && in.execution_sel.is_zero();
+        return in.perm_dummy_dynamic_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)

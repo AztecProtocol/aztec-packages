@@ -1,8 +1,8 @@
+import { TX_CONTEXT_LENGTH } from '@aztec/constants';
 import { randomInt } from '@aztec/foundation/crypto';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 
-import { TX_CONTEXT_LENGTH } from '../constants.gen.js';
 import { makeTxContext } from '../tests/factories.js';
 import { TxContext } from './tx_context.js';
 
