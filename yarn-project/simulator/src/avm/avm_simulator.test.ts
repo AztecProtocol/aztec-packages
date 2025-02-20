@@ -1,12 +1,7 @@
-import { MerkleTreeId, type MerkleTreeWriteOperations } from '@aztec/circuit-types';
-import {
-  DEPLOYER_CONTRACT_ADDRESS,
-  GasFees,
-  PublicDataTreeLeafPreimage,
-  PublicKeys,
-  SerializableContractInstance,
-} from '@aztec/circuits.js';
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { MerkleTreeId } from '@aztec/circuit-types';
+import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
+import { GasFees, PublicKeys, SerializableContractInstance } from '@aztec/circuits.js';
+import { FunctionSelector } from '@aztec/circuits.js/abi';
 import {
   computeNoteHashNonce,
   computePublicDataTreeLeafSlot,
@@ -16,9 +11,18 @@ import {
   siloNullifier,
 } from '@aztec/circuits.js/hash';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
-import { FunctionSelector } from '@aztec/foundation/abi';
+import { PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
+import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { keccak256, keccakf1600, pedersenCommit, pedersenHash, poseidon2Hash, sha256 } from '@aztec/foundation/crypto';
+import {
+  Grumpkin,
+  keccak256,
+  keccakf1600,
+  pedersenCommit,
+  pedersenHash,
+  poseidon2Hash,
+  sha256,
+} from '@aztec/foundation/crypto';
 import { Fq, Fr, Point } from '@aztec/foundation/fields';
 import { type Fieldable } from '@aztec/foundation/serialize';
 import { NativeWorldStateService } from '@aztec/world-state';
@@ -864,7 +868,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           version: 1 as const,
           salt: new Fr(0x123),
           deployer: AztecAddress.fromBigInt(0x456n),
-          contractClassId: new Fr(0x789),
+          currentContractClassId: new Fr(0x789),
+          originalContractClassId: new Fr(0x789),
           initializationHash: new Fr(0x101112),
           publicKeys: new PublicKeys(
             new Point(new Fr(0x131415), new Fr(0x161718), false),

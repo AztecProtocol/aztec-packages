@@ -15,7 +15,7 @@ describe('e2e_avm_simulator', () => {
   let teardown: () => Promise<void>;
 
   beforeAll(async () => {
-    ({ teardown, wallet } = await setup(undefined, {
+    ({ teardown, wallet } = await setup(1, {
       assumeProvenThrough: Number.MAX_SAFE_INTEGER,
     }));
     await ensureAccountsPubliclyDeployed(wallet, [wallet]);
@@ -118,7 +118,7 @@ describe('e2e_avm_simulator', () => {
           .test_get_contract_instance_matches(
             avmContract.address,
             avmContract.instance.deployer,
-            avmContract.instance.contractClassId,
+            avmContract.instance.currentContractClassId,
             avmContract.instance.initializationHash,
           )
           .send()

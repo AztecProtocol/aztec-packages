@@ -1,25 +1,16 @@
-import { type L2Block, type MerkleTreeId, type PublicInputsAndRecursiveProof } from '@aztec/circuit-types';
+import { SpongeBlob } from '@aztec/blob-lib';
+import { type L2Block, type MerkleTreeId } from '@aztec/circuit-types';
+import { type PublicInputsAndRecursiveProof } from '@aztec/circuit-types/interfaces/server';
 import { type CircuitName } from '@aztec/circuit-types/stats';
 import {
-  type ARCHIVE_HEIGHT,
-  type AppendOnlyTreeSnapshot,
-  BLOBS_PER_BLOCK,
   type BlockHeader,
-  FIELDS_PER_BLOB,
   Fr,
   type GlobalVariables,
-  type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-  MembershipWitness,
-  type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-  NUM_BASE_PARITY_PER_ROOT_PARITY,
   type ParityPublicInputs,
-  type RECURSIVE_PROOF_LENGTH,
   RootParityInput,
   RootParityInputs,
   StateReference,
-  VK_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { SpongeBlob } from '@aztec/circuits.js/blobs';
 import {
   type BaseOrMergeRollupPublicInputs,
   type BlockRootOrBlockMergePublicInputs,
@@ -32,10 +23,21 @@ import {
   PreviousRollupData,
   SingleTxBlockRootRollupInputs,
 } from '@aztec/circuits.js/rollup';
+import { type AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
+import {
+  type ARCHIVE_HEIGHT,
+  BLOBS_PER_BLOCK,
+  FIELDS_PER_BLOB,
+  type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+  NUM_BASE_PARITY_PER_ROOT_PARITY,
+  type RECURSIVE_PROOF_LENGTH,
+  VK_TREE_HEIGHT,
+} from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Logger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
-import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
+import { MembershipWitness, type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 

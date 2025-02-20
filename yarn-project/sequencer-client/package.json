@@ -34,6 +34,7 @@
     "@aztec/blob-sink": "workspace:^",
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
+    "@aztec/constants": "workspace:^",
     "@aztec/epoch-cache": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",

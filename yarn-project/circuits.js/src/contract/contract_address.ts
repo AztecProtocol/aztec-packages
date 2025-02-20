@@ -1,9 +1,9 @@
-import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
+import { GeneratorIndex } from '@aztec/constants';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
-import { GeneratorIndex } from '../constants.gen.js';
+import { type FunctionAbi, FunctionSelector, encodeArguments } from '../abi/index.js';
 import { computeVarArgsHash } from '../hash/hash.js';
 import { computeAddress } from '../keys/index.js';
 import { type ContractInstance } from './interfaces/contract_instance.js';
@@ -22,7 +22,7 @@ import { type ContractInstance } from './interfaces/contract_instance.js';
 export async function computeContractAddressFromInstance(
   instance:
     | ContractInstance
-    | ({ contractClassId: Fr; saltedInitializationHash: Fr } & Pick<ContractInstance, 'publicKeys'>),
+    | ({ originalContractClassId: Fr; saltedInitializationHash: Fr } & Pick<ContractInstance, 'publicKeys'>),
 ): Promise<AztecAddress> {
   const partialAddress = await computePartialAddress(instance);
   return computeAddress(instance.publicKeys, partialAddress);
@@ -34,8 +34,8 @@ export async function computeContractAddressFromInstance(
  */
 export async function computePartialAddress(
   instance:
-    | Pick<ContractInstance, 'contractClassId' | 'initializationHash' | 'salt' | 'deployer'>
-    | { contractClassId: Fr; saltedInitializationHash: Fr },
+    | Pick<ContractInstance, 'originalContractClassId' | 'initializationHash' | 'salt' | 'deployer'>
+    | { originalContractClassId: Fr; saltedInitializationHash: Fr },
 ): Promise<Fr> {
   const saltedInitializationHash =
     'saltedInitializationHash' in instance
@@ -43,7 +43,7 @@ export async function computePartialAddress(
       : await computeSaltedInitializationHash(instance);
 
   return poseidon2HashWithSeparator(
-    [instance.contractClassId, saltedInitializationHash],
+    [instance.originalContractClassId, saltedInitializationHash],
     GeneratorIndex.PARTIAL_ADDRESS,
   );
 }

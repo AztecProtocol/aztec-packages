@@ -1,7 +1,7 @@
+import { NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH, VK_TREE_HEIGHT } from '@aztec/constants';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { MembershipWitness } from '@aztec/foundation/trees';
 
-import { NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH, VK_TREE_HEIGHT } from '../../constants.gen.js';
-import { MembershipWitness } from '../membership_witness.js';
 import { RecursiveProof } from '../recursive_proof.js';
 import { VerificationKeyAsFields } from '../verification_key.js';
 import { BlockRootOrBlockMergePublicInputs } from './block_root_or_block_merge_public_inputs.js';

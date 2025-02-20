@@ -1,4 +1,4 @@
-import { FunctionSelector } from '@aztec/foundation/abi';
+import { CALL_CONTEXT_LENGTH } from '@aztec/constants';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
@@ -8,7 +8,7 @@ import { type FieldsOf } from '@aztec/foundation/types';
 import { inspect } from 'util';
 import { z } from 'zod';
 
-import { CALL_CONTEXT_LENGTH } from '../constants.gen.js';
+import { FunctionSelector } from '../abi/index.js';
 
 /**
  * Call context.
@@ -55,7 +55,7 @@ export class CallContext {
       .object({
         msgSender: schemas.AztecAddress,
         contractAddress: schemas.AztecAddress,
-        functionSelector: schemas.FunctionSelector,
+        functionSelector: FunctionSelector.schema,
         isStaticCall: z.boolean(),
       })
       .transform(CallContext.from);

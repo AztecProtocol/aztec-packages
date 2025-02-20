@@ -1,4 +1,5 @@
-import { GeneratorIndex } from '../constants.gen.js';
+import { GeneratorIndex } from '@aztec/constants';
+
 import { type KeyGenerator, type KeyPrefix } from './key_types.js';
 
 export function getKeyGenerator(prefix: KeyPrefix): KeyGenerator {

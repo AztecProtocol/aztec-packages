@@ -1,4 +1,4 @@
-import { type P2PBootstrapApi } from '@aztec/circuit-types/interfaces';
+import { type P2PBootstrapApi } from '@aztec/circuit-types/interfaces/server';
 import { createLogger } from '@aztec/foundation/log';
 import { type AztecAsyncKVStore } from '@aztec/kv-store';
 import { OtelMetricsAdapter, type TelemetryClient } from '@aztec/telemetry-client';

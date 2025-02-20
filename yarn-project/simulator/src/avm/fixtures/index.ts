@@ -1,6 +1,7 @@
 import { isNoirCallStackUnresolved } from '@aztec/circuit-types';
-import { GasFees, GlobalVariables, MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/circuits.js';
-import { type ContractArtifact, type FunctionArtifact, FunctionSelector } from '@aztec/foundation/abi';
+import { GasFees, GlobalVariables } from '@aztec/circuits.js';
+import { type ContractArtifact, type FunctionArtifact, FunctionSelector } from '@aztec/circuits.js/abi';
+import { MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/constants';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -13,7 +14,7 @@ import merge from 'lodash.merge';
 
 import { resolveAssertionMessageFromRevertData, traverseCauseChain } from '../../common.js';
 import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
-import { type WorldStateDB } from '../../server.js';
+import { AvmSimulator, type WorldStateDB } from '../../server.js';
 import { AvmContext } from '../avm_context.js';
 import { AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { AvmMachineState } from '../avm_machine_state.js';
@@ -34,11 +35,13 @@ export function initContext(overrides?: {
   env?: AvmExecutionEnvironment;
   machineState?: AvmMachineState;
 }): AvmContext {
-  return new AvmContext(
+  const ctx = new AvmContext(
     overrides?.persistableState || initPersistableStateManager(),
     overrides?.env || initExecutionEnvironment(),
     overrides?.machineState || initMachineState(),
   );
+  ctx.provideSimulator = AvmSimulator.build;
+  return ctx;
 }
 
 /** Creates an empty state manager with mocked host storage. */

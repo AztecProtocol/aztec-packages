@@ -1,8 +1,9 @@
 import { type Tx, TxExecutionPhase, type TxValidationResult, type TxValidator } from '@aztec/circuit-types';
 import { type AztecAddress, Fr, FunctionSelector, type GasFees } from '@aztec/circuits.js';
-import { U128 } from '@aztec/foundation/abi';
+import { U128 } from '@aztec/circuits.js/abi';
 import { createLogger } from '@aztec/foundation/log';
-import { computeFeePayerBalanceStorageSlot, getExecutionRequestsByPhase } from '@aztec/simulator/server';
+import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
+import { getExecutionRequestsByPhase } from '@aztec/simulator/server';
 
 /** Provides a view into public contract state */
 export interface PublicStateSource {
@@ -13,18 +14,11 @@ export class GasTxValidator implements TxValidator<Tx> {
   #log = createLogger('sequencer:tx_validator:tx_gas');
   #publicDataSource: PublicStateSource;
   #feeJuiceAddress: AztecAddress;
-  #enforceFees: boolean;
   #gasFees: GasFees;
 
-  constructor(
-    publicDataSource: PublicStateSource,
-    feeJuiceAddress: AztecAddress,
-    enforceFees: boolean,
-    gasFees: GasFees,
-  ) {
+  constructor(publicDataSource: PublicStateSource, feeJuiceAddress: AztecAddress, gasFees: GasFees) {
     this.#publicDataSource = publicDataSource;
     this.#feeJuiceAddress = feeJuiceAddress;
-    this.#enforceFees = enforceFees;
     this.#gasFees = gasFees;
   }
 
@@ -58,15 +52,6 @@ export class GasTxValidator implements TxValidator<Tx> {
 
   async #validateTxFee(tx: Tx): Promise<TxValidationResult> {
     const feePayer = tx.data.feePayer;
-    // TODO(@spalladino) Eventually remove the is_zero condition as we should always charge fees to every tx
-    if (feePayer.isZero()) {
-      if (this.#enforceFees) {
-        this.#log.warn(`Rejecting transaction ${tx.getTxHash()} due to missing fee payer`);
-        return { result: 'invalid', reason: ['Missing fee payer'] };
-      } else {
-        return { result: 'valid' };
-      }
-    }
 
     // Compute the maximum fee that this tx may pay, based on its gasLimits and maxFeePerGas
     const feeLimit = tx.data.constants.txContext.gasSettings.getFeeLimit();

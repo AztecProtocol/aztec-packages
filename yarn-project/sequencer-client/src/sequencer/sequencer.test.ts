@@ -1,6 +1,5 @@
 import {
   BlockAttestation,
-  type BlockBuilder,
   BlockProposal,
   Body,
   ConsensusPayload,
@@ -8,15 +7,18 @@ import {
   L2Block,
   type L2BlockSource,
   type MerkleTreeId,
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
   type Tx,
   TxHash,
+  makeProcessedTxFromPrivateOnlyTx,
+} from '@aztec/circuit-types';
+import {
+  type BlockBuilder,
+  type MerkleTreeReadOperations,
+  type MerkleTreeWriteOperations,
   WorldStateRunningState,
   type WorldStateSynchronizer,
-  makeProcessedTxFromPrivateOnlyTx,
-  mockTxForRollup,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
+import { mockTxForRollup } from '@aztec/circuit-types/testing';
 import {
   AztecAddress,
   BlockHeader,
@@ -26,9 +28,10 @@ import {
   type Gas,
   GasFees,
   GlobalVariables,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  PublicDataWrite,
 } from '@aztec/circuits.js';
 import { makeAppendOnlyTreeSnapshot } from '@aztec/circuits.js/testing';
+import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times, timesParallel } from '@aztec/foundation/collection';
@@ -102,7 +105,11 @@ describe('sequencer', () => {
   };
 
   const processTxs = async (txs: Tx[]) => {
-    return await Promise.all(txs.map(tx => makeProcessedTxFromPrivateOnlyTx(tx, Fr.ZERO, undefined, globalVariables)));
+    return await Promise.all(
+      txs.map(tx =>
+        makeProcessedTxFromPrivateOnlyTx(tx, Fr.ZERO, new PublicDataWrite(Fr.random(), Fr.random()), globalVariables),
+      ),
+    );
   };
 
   const mockTxIterator = async function* (txs: Promise<Tx[]>): AsyncIterableIterator<Tx> {
@@ -179,6 +186,9 @@ describe('sequencer', () => {
     merkleTreeOps = mock<MerkleTreeReadOperations>();
     merkleTreeOps.findLeafIndices.mockImplementation((_treeId: MerkleTreeId, _value: any[]) => {
       return Promise.resolve([undefined]);
+    });
+    merkleTreeOps.getTreeInfo.mockImplementation((treeId: MerkleTreeId) => {
+      return Promise.resolve({ treeId, root: Fr.random().toBuffer(), size: 99n, depth: 5 });
     });
 
     p2p = mock<P2P>({

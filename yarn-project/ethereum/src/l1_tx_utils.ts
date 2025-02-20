@@ -30,7 +30,7 @@ import {
   hexToBytes,
 } from 'viem';
 
-import { type L1Clients } from './deploy_l1_contracts.js';
+import { type L1Clients } from './types.js';
 import { formatViemError } from './utils.js';
 
 // 1_000_000_000 Gwei = 1 ETH

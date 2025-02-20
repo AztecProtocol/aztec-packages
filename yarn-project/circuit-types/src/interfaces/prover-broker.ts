@@ -1,10 +1,4 @@
-import {
-  type ProofUri,
-  type ProvingJob,
-  type ProvingJobId,
-  type ProvingJobStatus,
-  type ProvingRequestType,
-} from '@aztec/circuit-types';
+import type { ProofUri, ProvingJob, ProvingJobId, ProvingJobStatus, ProvingRequestType } from './proving-job.js';
 
 /**
  * An interface for the proving orchestrator. The producer uses this to enqueue jobs for agents

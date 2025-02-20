@@ -1,6 +1,5 @@
 import { type PublicExecutionRequest, type SimulationError } from '@aztec/circuit-types';
 import {
-  type AvmExecutionHints,
   type ContractStorageRead,
   type ContractStorageUpdateRequest,
   type Fr,
@@ -17,6 +16,7 @@ import {
   type ScopedL2ToL1Message,
   type TreeLeafReadRequest,
 } from '@aztec/circuits.js';
+import { type AvmExecutionHints } from '@aztec/circuits.js/avm';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 
 export interface PublicSideEffects {

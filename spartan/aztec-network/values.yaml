@@ -72,7 +72,7 @@ bootNode:
   coinbaseAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   sequencer:
     maxSecondsBetweenBlocks: 0
-    minTxsPerBlock: 1
+    minTxsPerBlock: 0
   validator:
     disabled: true
   p2p:
@@ -114,10 +114,9 @@ validator:
   logLevel: "debug; info: aztec:simulator, json-rpc"
   sequencer:
     maxSecondsBetweenBlocks: 0
-    minTxsPerBlock: 1
+    minTxsPerBlock: 0
     maxTxsPerBlock: 4
     enforceTimeTable: true
-    enforceFees: false
   validator:
     disabled: false
     reexecute: true
@@ -201,13 +200,14 @@ bot:
   logLevel: "debug; info: aztec:simulator, json-rpc"
   replicas: 1
   botPrivateKey: "0xcafe"
+  l1Mnemonic: "test test test test test test test test test test test junk"
   txIntervalSeconds: 24
   privateTransfersPerTx: 0
   publicTransfersPerTx: 1
   # Do not wait for transactions
   followChain: "NONE"
   botNoStart: false
-  feePaymentMethod: "none"
+  feePaymentMethod: "fee_juice"
   maxErrors: 3
   stopIfUnhealthy: true
   service:
@@ -279,7 +279,10 @@ proverAgent:
   enabled: true
   replicas: 1
   pollIntervalMs: 1000
-  proofTypes: ["foo", "bar", "baz"]
+  proofTypes: []
+  testDelayType: "fixed"
+  testDelayMs: 100 # each fake proof takes 100ms
+  testDelayFactor: 1
   gke:
     spotEnabled: true
   logLevel: "debug; info: aztec:simulator, json-rpc"

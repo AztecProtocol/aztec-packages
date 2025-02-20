@@ -109,6 +109,8 @@ spec:
               value: "1"
             - name: LOG_LEVEL
               value: "{{ .Values.bot.logLevel }}"
+            - name: BOT_L1_MNEMONIC
+              value: "{{ .Values.bot.l1Mnemonic }}"
             - name: BOT_PRIVATE_KEY
               value: "{{ .Values.bot.botPrivateKey }}"
             - name: BOT_TX_INTERVAL_SECONDS
