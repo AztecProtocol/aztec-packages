@@ -1,22 +1,6 @@
 /// Decrypts a ciphertext, using AES128.
 ///
-/// Returns a padded plaintext, of the same size as the input ciphertext.
-/// Note that between 1-16 bytes at the end of the returned plaintext will be pkcs#7 padding.
-///
-/// A reminder on pkcs#7 padding:
-/// PKCS#7 padding standard says to pad a plaintext to the next multiple of 16 bytes
-/// with repeated bytes of the length of the padding.
-///
-///     If the plaintext is 0 bytes:  Pad with 0x10 (16) sixteen times.
-///     If the plaintext is 1 byte:   Pad with 0x0f (15) fifteen times.
-///     If the plaintext is 2 bytes:  Pad with 0x0e (14) fourteen times.
-///     ...
-///     If the plaintext is 15 bytes: Pad with 0x01 one time.
-///
-/// So the final byte always tells you how long the padding is.
-///
-/// It's up to the calling function to identify and remove that padding.
-/// See the tests below for an example of how.
+/// Returns a BoundedVec containing the plaintext.
 ///
 /// It's up to the calling function to determine whether decryption succeeded or failed.
 /// See the tests below for an example of how.
@@ -30,7 +14,7 @@ pub unconstrained fn aes128_decrypt_oracle<let N: u32>(
 mod test {
     use crate::{
         encrypted_logs::encrypt::aes128::derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256,
-        utils::{array::{subarray::subarray, subbvec::subbvec}, point::point_from_x_coord},
+        utils::{array::subarray::subarray, point::point_from_x_coord},
     };
     use super::aes128_decrypt_oracle;
     use std::aes128::aes128_encrypt;
