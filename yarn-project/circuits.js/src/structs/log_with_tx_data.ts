@@ -1,6 +1,5 @@
-import { Fr } from '@aztec/foundation/fields';
-
 import { MAX_NOTE_HASHES_PER_TX, PUBLIC_LOG_DATA_SIZE_IN_FIELDS } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 
 // TypeScript representation of the Noir protocol_types::log_with_tx_data::LogWithTxData struct.
 export class LogWithTxData {

@@ -308,6 +308,8 @@ comptime fn generate_process_log() -> Quoted {
             }
         }
     } else {
+        // Contracts with no notes still implement this function to avoid having special-casing, the implementation
+        // simply throws immediately.
         quote {
             unconstrained fn process_log(
                 _log_plaintext: BoundedVec<Field, dep::aztec::protocol_types::constants::PRIVATE_LOG_SIZE_IN_FIELDS>,
@@ -316,9 +318,7 @@ comptime fn generate_process_log() -> Quoted {
                 _first_nullifier_in_tx: Field,
                 _recipient: aztec::protocol_types::address::AztecAddress,
             ) {
-                // Contracts with no notes still implement this function to avoid having special-casing, the implementation
-                // simply throws immediately.
-                quote { panic(f"This contract does not use private notes") }
+                panic(f"This contract does not use private notes")
             }
         }
     }

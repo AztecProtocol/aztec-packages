@@ -198,7 +198,10 @@ export class AcirSimulator {
       );
     }
 
-    const noteItemsBoundedVec = { len: note.items.length, storage: note.items.concat(Array(maxNoteFields - note.items.length).fill(Fr.ZERO)) };
+    const noteItemsBoundedVec = {
+      len: note.items.length,
+      storage: note.items.concat(Array(maxNoteFields - note.items.length).fill(Fr.ZERO)),
+    };
     const selector = await FunctionSelector.fromNameAndParameters(artifact);
     const execRequest: FunctionCall = {
       name: artifact.name,
