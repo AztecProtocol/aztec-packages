@@ -11,6 +11,7 @@ class TranslatorProvingKey {
     using BF = typename Flavor::BF;
     using ProvingKey = typename Flavor::ProvingKey;
     using Polynomial = typename Flavor::Polynomial;
+    using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentKey = typename Flavor::CommitmentKey;
 
     size_t mini_circuit_dyadic_size;
@@ -22,13 +23,13 @@ class TranslatorProvingKey {
 
     TranslatorProvingKey() = default;
 
-    TranslatorProvingKey(std::shared_ptr<ProvingKey>& proving_key, size_t mini_circuit_dyadic_size)
+    TranslatorProvingKey(size_t mini_circuit_dyadic_size)
         : mini_circuit_dyadic_size(mini_circuit_dyadic_size)
-        , dyadic_circuit_size(proving_key->circuit_size)
-        , proving_key(proving_key)
+        , dyadic_circuit_size(mini_circuit_dyadic_size * Flavor::CONCATENATION_GROUP_SIZE)
+        , proving_key(std::make_shared<ProvingKey>(dyadic_circuit_size))
 
     {
-        ASSERT(mini_circuit_dyadic_size * Flavor::CONCATENATION_GROUP_SIZE == dyadic_circuit_size);
+        proving_key->polynomials = Flavor::ProverPolynomials(mini_circuit_dyadic_size);
     }
 
     TranslatorProvingKey(const Circuit& circuit, std::shared_ptr<CommitmentKey> commitment_key = nullptr)
@@ -40,6 +41,7 @@ class TranslatorProvingKey {
         compute_mini_circuit_dyadic_size(circuit);
         compute_dyadic_circuit_size();
         proving_key = std::make_shared<ProvingKey>(dyadic_circuit_size, std::move(commitment_key));
+        proving_key->polynomials = Flavor::ProverPolynomials(mini_circuit_dyadic_size);
 
         // Populate the wire polynomials from the wire vectors in the circuit constructor. Note: In goblin translator
         // wires
@@ -94,13 +96,11 @@ class TranslatorProvingKey {
     {
         // Check that the Translator Circuit does not exceed the fixed upper bound, the current value 8192 corresponds
         // to 10 rounds of folding (i.e. 20 circuits)
-        if (circuit.num_gates > Flavor::MINIMUM_MINI_CIRCUIT_SIZE) {
+        if (circuit.num_gates > Flavor::TRANSLATOR_VM_FIXED_SIZE) {
             info("The Translator circuit size has exceeded the fixed upper bound");
             ASSERT(false);
         }
-        const size_t total_num_gates = std::max(circuit.num_gates, Flavor::MINIMUM_MINI_CIRCUIT_SIZE);
-        // Next power of 2
-        mini_circuit_dyadic_size = circuit.get_circuit_subgroup_size(total_num_gates);
+        mini_circuit_dyadic_size = Flavor::TRANSLATOR_VM_FIXED_SIZE;
     }
 
     void compute_lagrange_polynomials();
@@ -110,5 +110,8 @@ class TranslatorProvingKey {
     void compute_concatenated_polynomials();
 
     void compute_translator_range_constraint_ordered_polynomials();
+
+    void compute_concatenated_polynomials_by_interleaving();
+    static void interleave(const RefVector<Polynomial>&, Polynomial&);
 };
 } // namespace bb

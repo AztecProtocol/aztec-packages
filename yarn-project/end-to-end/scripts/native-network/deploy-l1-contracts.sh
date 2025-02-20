@@ -42,7 +42,8 @@ COMMAND="node --no-warnings $(git rev-parse --show-toplevel)/yarn-project/aztec/
   deploy-l1-contracts \
   --l1-rpc-urls $ETHEREUM_HOSTS \
   --l1-chain-id $L1_CHAIN_ID \
-  --salt $SALT"
+  --salt $SALT \
+  --test-accounts"
 
 # Add validators if specified
 [ "$INIT_VALIDATORS" = "true" ] && COMMAND="$COMMAND --validators $VALIDATOR_ADDRESSES"

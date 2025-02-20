@@ -26,7 +26,7 @@ source "$REPO"/yarn-project/end-to-end/scripts/native-network/utils/get-chain-id
 export L1_CHAIN_ID=${L1_CHAIN_ID:-31337}
 
 # TODO(AD): Add option for prover-enabled mode
-ARGS="--skipProofWait --l1-chain-id $L1_CHAIN_ID"
+ARGS="--skipProofWait --testAccounts"
 
 # Deploy L2 contracts
 export AZTEC_NODE_URL="http://127.0.0.1:8080"

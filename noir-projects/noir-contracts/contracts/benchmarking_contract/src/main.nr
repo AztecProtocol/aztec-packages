@@ -52,4 +52,10 @@ pub contract Benchmarking {
     fn broadcast(owner: AztecAddress) {
         context.emit_public_log(storage.balances.at(owner).read());
     }
+
+    // Does a bunch of heavy compute
+    #[public]
+    fn sha256_hash_2048(data: [u8; 2048]) -> [u8; 32] {
+        sha256::sha256_var(data, data.len() as u64)
+    }
 }

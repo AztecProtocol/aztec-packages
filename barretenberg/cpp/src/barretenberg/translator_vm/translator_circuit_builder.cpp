@@ -672,7 +672,7 @@ bool TranslatorCircuitBuilder::check_circuit()
      * @brief Reconstruct the value of one regular limb used in relation computation from micro chunks used to
      * create range constraints
      *
-     * @details We might ant to skip several items at the end, since those will be shifted or used
+     * @details We might want to skip several items at the end, since those will be shifted or used
      * for another decomposition
      *
      */

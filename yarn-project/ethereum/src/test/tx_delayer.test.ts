@@ -45,7 +45,7 @@ describe('tx_delayer', () => {
   const ETHEREUM_SLOT_DURATION = 2;
 
   beforeAll(async () => {
-    ({ anvil, rpcUrl } = await startAnvil(ETHEREUM_SLOT_DURATION));
+    ({ anvil, rpcUrl } = await startAnvil({ l1BlockTime: ETHEREUM_SLOT_DURATION }));
     logger = createLogger('ethereum:test:tx_delayer');
   });
 
@@ -120,6 +120,6 @@ describe('tx_delayer', () => {
   }, 20000);
 
   afterAll(async () => {
-    await anvil.stop();
+    await anvil.stop().catch(err => createLogger('cleanup').error(err));
   });
 });

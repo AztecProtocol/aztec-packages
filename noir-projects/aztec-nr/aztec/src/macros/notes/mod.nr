@@ -1,12 +1,10 @@
-use crate::{note::{note_getter_options::PropertySelector, note_header::NoteHeader}, prelude::Point};
-use protocol_types::meta::{generate_deserialize_from_fields, generate_serialize_to_fields};
+use crate::{note::note_getter_options::PropertySelector, prelude::Point};
+use protocol_types::meta::{derive_packable_and_get_packed_len, generate_serialize_to_fields};
 use std::{
     collections::umap::UHashMap,
     hash::{BuildHasherDefault, derive_generators, poseidon2::Poseidon2Hasher},
-    meta::{typ::fresh_type_variable, type_of, unquote},
+    meta::{type_of, unquote},
 };
-
-comptime global NOTE_HEADER_TYPE: Type = type_of(NoteHeader::empty());
 
 /// A map from note type to (note_struct_definition, note_packed_len, note_type_id, fields).
 /// `fields` is an array of tuples where each tuple contains the name of the field/struct member (e.g. `amount`
@@ -30,34 +28,73 @@ comptime fn get_next_note_type_id() -> Field {
     note_type_id
 }
 
-/// Generates default `NoteInterface` implementation for a given note struct `s` and returns it as quote along with
-/// the length of the packed note.
+/// Generates a quote that implements `Packable` for a given struct `s`.
+/// If the note struct already implements `Packable`, we return an empty quote.
+comptime fn derive_packable_if_not_implemented_and_get_len(s: StructDefinition) -> (Quoted, u32) {
+    // We try to get the packed length of the note struct. If it does not implement `Packable`, we get Option::none()
+    let packed_len_typ = std::meta::typ::fresh_type_variable();
+    // We don't care about the result of the implements check. We just want the get the packed length.
+    let _ = s.as_type().implements(
+        quote { crate::protocol_types::traits::Packable<$packed_len_typ> }.as_trait_constraint(),
+    );
+    let maybe_packed_length = packed_len_typ.as_constant();
+
+    if maybe_packed_length.is_some() {
+        // We got some packed length meaning that the note struct implements `Packable`. For this reason we return
+        // an empty quote for the implementation and the packed length.
+        (quote {}, maybe_packed_length.unwrap())
+    } else {
+        // We didn't manage to get the packed length which means the note struct doesn't implement `Packable`
+        // so we derive it and return it along with the packed length.
+        derive_packable_and_get_packed_len(s)
+    }
+}
+
+/// Generates default `NoteInterface` implementation for a given note struct `s` and returns it as a quote.
 ///
-/// impl NoteInterface<N> for NoteStruct {
-///     fn pack_content(self) -> [Field; N] {
-///         ...
-///     }
-///
-///     fn unpack_content(packed_content: [Field; N]) -> Self {
-///         ...
-///     }
-///
+/// impl NoteInterface for NoteStruct {
 ///     fn get_note_type_id() -> Field {
 ///         ...
 ///     }
 ///
-///     fn set_header(&mut self, header: NoteHeader) {
-///         ...
-///     }
-///
-///     fn get_header(self) -> NoteHeader {
-///         ...
-///     }
-///
-///     fn compute_note_hash(self) -> Field {
+///     fn compute_note_hash(self, storage_slot: Field) -> Field {
 ///         ...
 ///     }
 /// }
+comptime fn generate_note_interface(s: StructDefinition, note_type_id: Field) -> Quoted {
+    let name = s.name();
+
+    quote {
+        impl aztec::note::note_interface::NoteInterface for $name {
+            fn get_note_type_id() -> Field {
+                $note_type_id
+            }
+
+            fn compute_note_hash(self, storage_slot: Field) -> Field {
+                let inputs = aztec::protocol_types::utils::arrays::array_concat(self.pack(), [storage_slot]);
+                aztec::protocol_types::hash::poseidon2_hash_with_separator(inputs, aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_HASH)
+            }
+        }
+    }
+}
+
+/// Generates default `NoteInterface` implementation for a given partial note struct `s` and returns it as a quote.
+///
+/// impl NoteInterface for NoteStruct {
+///     fn get_note_type_id() -> Field {
+///         ...
+///     }
+///
+///     fn compute_note_hash(self, storage_slot: Field) -> Field {
+///         ...
+///     }
+/// }
+///
+/// # On differences from `generate_note_interface`
+/// We use multi-scalar multiplication (MSM) instead of Poseidon2 here since this is a partial note and therefore
+/// does require MSM's additive homomorphism property (the property is used to add to the commitment in public).
+/// We don't use this implementation for standard notes as well because Poseidon2 is significantly cheaper
+/// constraints-wise.
 ///
 /// # On including length in note hash preimage
 /// For a given commitment C = a*G1 + b*G2 + c*G3 we take an x-coordinate of C.x and use it as the hash.
@@ -71,44 +108,15 @@ comptime fn get_next_note_type_id() -> Field {
 ///
 /// Since -l would be -3 (an extraordinarily large number that cannot be a valid preimage length),
 /// including the length protects against these collisions.
-comptime fn generate_note_interface(
+comptime fn generate_note_interface_for_partial_note(
     s: StructDefinition,
     note_type_id: Field,
     indexed_fixed_fields: [(Quoted, Type, u32)],
     indexed_nullable_fields: [(Quoted, Type, u32)],
-) -> (Quoted, u32) {
+) -> Quoted {
     let name = s.name();
-    let typ = s.as_type();
 
-    // In notes we care about DA costs so we enable packing
-    let packing_enabled = true;
-
-    // First we compute note content serialization. We do that by passing the whole note struct
-    // to the `generate_serialize_to_fields(...)` and omitting the header.
-    let (content_fields_list, content_aux_vars_list) =
-        generate_serialize_to_fields(quote { self }, typ, &[quote {self.header}], packing_enabled);
-
-    // If there are `aux_vars` we need to join them with `;` and add a trailing `;` to the joined string.
-    let content_aux_vars = if content_aux_vars_list.len() > 0 {
-        let joint = content_aux_vars_list.join(quote {;});
-        quote { $joint; }
-    } else {
-        quote {}
-    };
-    let content_fields = content_fields_list.join(quote {,});
-    let content_len = content_fields_list.len();
-
-    let (unpacked_content, _) = generate_deserialize_from_fields(
-        quote {},
-        typ,
-        quote { packed_content }, // "packed_content" is argument of NoteInterface::unpack_content
-        0,
-        quote {header},
-        quote { aztec::note::note_header::NoteHeader::empty() },
-        packing_enabled,
-    );
-
-    // Second we compute quotes for MSM
+    // First we compute quotes for MSM
     // `compute_note_hash()` is computed over all the fields so we need to merge fixed and nullable.
     let merged_fields = indexed_fixed_fields.append(indexed_nullable_fields);
     // Now we prefix each of the merged fields with `self.` since they refer to the struct members here.
@@ -123,35 +131,17 @@ comptime fn generate_note_interface(
 
     let merged_fields_len = merged_fields.len() + 1; // +1 for the storage slot appended below
     let new_scalars = new_scalars_list
-        .push_back(quote { std::hash::from_field_unsafe(self.header.storage_slot) })
+        .push_back(quote { std::hash::from_field_unsafe(storage_slot) })
         .push_back(quote { std::hash::from_field_unsafe($merged_fields_len) })
         .join(quote {,});
 
-    (
-        quote {
-        impl aztec::note::note_interface::NoteInterface<$content_len> for $name {
-            fn pack_content(self) -> [Field; $content_len] {
-                $content_aux_vars
-                [$content_fields]
-            }
-
-            fn unpack_content(packed_content: [Field; $content_len]) -> Self {
-                $unpacked_content
-            }
-
+    quote {
+        impl aztec::note::note_interface::NoteInterface for $name {
             fn get_note_type_id() -> Field {
                 $note_type_id
             }
 
-            fn set_header(&mut self, header: $NOTE_HEADER_TYPE) {
-                self.header = header;
-            }
-
-            fn get_header(self) -> $NOTE_HEADER_TYPE {
-                self.header
-            }
-
-            fn compute_note_hash(self) -> Field {
+            fn compute_note_hash(self, storage_slot: Field) -> Field {
                 $new_aux_vars
                 let point = std::embedded_curve_ops::multi_scalar_mul(
                     [$new_generators],
@@ -160,9 +150,7 @@ comptime fn generate_note_interface(
                 point.x
             }
         }
-    },
-        content_len,
-    )
+    }
 }
 
 /// Generates note properties struct for a given note struct `s`.
@@ -191,19 +179,17 @@ comptime fn generate_note_properties(s: StructDefinition) -> Quoted {
     let struct_name = f"{name}Properties".quoted_contents();
 
     let property_selector_type = type_of(PropertySelector { index: 0, offset: 0, length: 0 });
-    let note_header_type: Type = type_of(NoteHeader::empty());
 
-    let non_header_fields =
-        s.fields_as_written().filter(|(_, typ): (Quoted, Type)| typ != note_header_type);
+    let note_fields = s.fields_as_written();
 
-    let properties_types = non_header_fields
+    let properties_types = note_fields
         .map(|(name, _): (Quoted, Type)| quote { pub $name: $property_selector_type })
         .join(quote {,});
 
     // TODO #8694: Properly handle non-field types https://github.com/AztecProtocol/aztec-packages/issues/8694
     let mut properties_list = &[];
-    for i in 0..non_header_fields.len() {
-        let (name, _) = non_header_fields[i];
+    for i in 0..note_fields.len() {
+        let (name, _) = note_fields[i];
         properties_list = properties_list.push_back(
             quote { $name: aztec::note::note_getter_options::PropertySelector { index: $i, offset: 0, length: 32 } },
         );
@@ -427,10 +413,10 @@ comptime fn generate_multi_scalar_mul(
 ///             log_plaintext[32 + i] = note_type_id_bytes[i];
 ///         }
 ///
-///         let packed_note_content = [npk_m_hash as Field, randomness as Field];
+///         let packed_note = [npk_m_hash as Field, randomness as Field];
 ///
-///         for i in 0..packed_note_content.len() {
-///             let bytes: [u8; 32] = packed_note_content[i].to_be_bytes();
+///         for i in 0..packed_note.len() {
+///             let bytes: [u8; 32] = packed_note[i].to_be_bytes();
 ///             for j in 0..32 {
 ///                 log_plaintext[64 + i * 32 + j] = bytes[j];
 ///             }
@@ -548,7 +534,7 @@ comptime fn generate_setup_payload(
 /// Generates setup log plaintext for a given note struct `s`. The setup log plaintext is computed by serializing
 /// storage slot from target function arguments, note type id from the note struct `s` and the fixed fields. The fixed
 /// fields are obtained by passing the whole note struct to the `generate_serialize_to_fields(...)` function but omitting the
-/// `NoteHeader` and the nullable fields.
+/// nullable fields.
 comptime fn get_setup_log_plaintext_body(
     s: StructDefinition,
     log_plaintext_length: u32,
@@ -557,10 +543,8 @@ comptime fn get_setup_log_plaintext_body(
     let name = s.name();
 
     // Now we compute serialization of the fixed fields. We do that by passing the whole note struct
-    // to the generate_serialize_to_fields function but we omit the NoteHeader and the nullable fields.
-    let to_omit = indexed_nullable_fields.map(|(name, _, _): (Quoted, Type, u32)| name).push_back(
-        quote { header },
-    );
+    // to the generate_serialize_to_fields function but we omit the nullable fields.
+    let to_omit = indexed_nullable_fields.map(|(name, _, _): (Quoted, Type, u32)| name);
     let (fields_list, aux_vars) =
         generate_serialize_to_fields(quote { }, s.as_type(), to_omit, true);
 
@@ -585,10 +569,10 @@ comptime fn get_setup_log_plaintext_body(
         }
 
         $aux_vars_for_serialization
-        let packed_note_content = [$fields];
+        let packed_note = [$fields];
 
-        for i in 0..packed_note_content.len() {
-            let bytes: [u8; 32] = packed_note_content[i].to_be_bytes();
+        for i in 0..packed_note.len() {
+            let bytes: [u8; 32] = packed_note[i].to_be_bytes();
             for j in 0..32 {
                 log_plaintext[64 + i * 32 + j] = bytes[j];
             }
@@ -678,11 +662,8 @@ comptime fn generate_finalization_payload(
     let finalization_payload_name = f"{name}FinalizationPayload".quoted_contents();
 
     // We compute serialization of the nullable fields which are to be emitted as a public log. We do that by
-    // passing the whole note struct to the `generate_serialize_to_fields(...)` function but we omit the `NoteHeader` and
-    // the fixed fields.
-    let to_omit = indexed_fixed_fields.map(|(name, _, _): (Quoted, Type, u32)| name).push_back(
-        quote { header },
-    );
+    // passing the whole note struct to the `generate_serialize_to_fields(...)` function but we omit the fixed fields.
+    let to_omit = indexed_fixed_fields.map(|(name, _, _): (Quoted, Type, u32)| name);
     let (nullable_fields_list, aux_vars) =
         generate_serialize_to_fields(quote { }, s.as_type(), to_omit, true);
 
@@ -904,12 +885,10 @@ comptime fn index_note_fields(
     let mut counter: u32 = 0;
     for field in s.fields_as_written() {
         let (name, typ) = field;
-        if (typ != NOTE_HEADER_TYPE) {
-            if nullable_fields.all(|field| field != name) {
-                indexed_fixed_fields = indexed_fixed_fields.push_back((name, typ, counter));
-            } else {
-                indexed_nullable_fields = indexed_nullable_fields.push_back((name, typ, counter));
-            }
+        if nullable_fields.all(|field| field != name) {
+            indexed_fixed_fields = indexed_fixed_fields.push_back((name, typ, counter));
+        } else {
+            indexed_nullable_fields = indexed_nullable_fields.push_back((name, typ, counter));
         }
         let (serialization_fields, _) = generate_serialize_to_fields(name, typ, &[], true);
         // Each struct member can occupy multiple fields so we need to increment the counter accordingly
@@ -918,24 +897,16 @@ comptime fn index_note_fields(
     (indexed_fixed_fields, indexed_nullable_fields)
 }
 
-/// Injects `NoteHeader` to the note struct if not present.
-comptime fn inject_note_header(s: StructDefinition) {
-    let filtered_header =
-        s.fields_as_written().filter(|(_, typ): (Quoted, Type)| typ == NOTE_HEADER_TYPE);
-    if (filtered_header.len() == 0) {
-        let new_fields = s.fields_as_written().push_back((quote { header }, NOTE_HEADER_TYPE));
-        s.set_fields(new_fields);
-    }
-}
-
-/// Injects `NoteHeader` to the note struct `s` if not present and generates the following:
+/// Generates the following:
 /// - NoteTypeProperties
 /// - SetupPayload
 /// - FinalizationPayload
 /// - PartialNote trait implementation
 /// - NoteExport
 /// - NoteInterface trait implementation
-/// - Registers the note in the global `NOTES` map.
+/// - Packable implementation
+///
+/// Registers the note in the global `NOTES` map.
 ///
 /// For more details on the generated code, see the individual functions.
 ///
@@ -947,16 +918,13 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
     // member in the packed note array.
     let (indexed_fixed_fields, indexed_nullable_fields) = index_note_fields(s, nullable_fields);
 
-    // We inject NoteHeader if it's not present in the note struct.
-    inject_note_header(s);
-
     let note_properties = generate_note_properties(s);
     let note_type_id = get_next_note_type_id();
     let (setup_payload_impl, setup_payload_name) =
         generate_setup_payload(s, indexed_fixed_fields, indexed_nullable_fields);
     let (finalization_payload_impl, finalization_payload_name) =
         generate_finalization_payload(s, indexed_fixed_fields, indexed_nullable_fields);
-    let (note_interface_impl, note_packed_len) = generate_note_interface(
+    let note_interface_impl = generate_note_interface_for_partial_note(
         s,
         note_type_id,
         indexed_fixed_fields,
@@ -964,6 +932,8 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
     );
     let partial_note_impl =
         generate_partial_note_impl(s, setup_payload_name, finalization_payload_name);
+    let (packable_impl, note_packed_len) = derive_packable_if_not_implemented_and_get_len(s);
+
     register_note(
         s,
         note_packed_len,
@@ -978,29 +948,26 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
         $finalization_payload_impl
         $note_interface_impl
         $partial_note_impl
+        $packable_impl
     }
 }
 
-/// Injects `NoteHeader` to the note struct if not present and generates the following:
+/// Generates the following:
 /// - NoteTypeProperties
 /// - NoteInterface trait implementation
-/// - Registers the note in the global `NOTES` map.
+/// - Packable implementation
+///
+/// Registers the note in the global `NOTES` map.
 ///
 /// For more details on the generated code, see the individual functions.
 pub comptime fn note(s: StructDefinition) -> Quoted {
     let (indexed_fixed_fields, indexed_nullable_fields) = index_note_fields(s, &[]);
 
-    // We inject NoteHeader if it's not present in the note struct.
-    inject_note_header(s);
-
     let note_properties = generate_note_properties(s);
     let note_type_id = get_next_note_type_id();
-    let (note_interface_impl, note_packed_len) = generate_note_interface(
-        s,
-        note_type_id,
-        indexed_fixed_fields,
-        indexed_nullable_fields,
-    );
+    let note_interface_impl = generate_note_interface(s, note_type_id);
+    let (packable_impl, note_packed_len) = derive_packable_if_not_implemented_and_get_len(s);
+
     register_note(
         s,
         note_packed_len,
@@ -1012,31 +979,21 @@ pub comptime fn note(s: StructDefinition) -> Quoted {
     quote {
         $note_properties
         $note_interface_impl
+        $packable_impl
     }
 }
 
-/// Injects `NoteHeader` to the note struct if not present and generates the following:
+/// Generates the following:
 /// - NoteTypeProperties
+/// - Packable implementation
+///
+/// Registers the note in the global `NOTES` map.
 ///
 /// For more details on the generated code, see the individual functions.
 pub comptime fn note_custom_interface(s: StructDefinition) -> Quoted {
-    // We inject NoteHeader if it's not present in the note struct.
-    inject_note_header(s);
-
-    let note_properties = generate_note_properties(s);
+    let (packable_impl, note_packed_len) = derive_packable_if_not_implemented_and_get_len(s);
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/12012): This is broken
     let note_type_id = get_next_note_type_id();
-    let serialized_len_type = fresh_type_variable();
-    let note_interface_impl = s.as_type().get_trait_impl(
-        quote { crate::note::note_interface::NoteInterface<$serialized_len_type> }
-            .as_trait_constraint(),
-    );
-    let name = s.name();
-
-    let note_packed_len = note_interface_impl
-        .expect(f"Note {name} must implement NoteInterface trait")
-        .trait_generic_args()[0]
-        .as_constant()
-        .unwrap();
 
     let (indexed_fixed_fields, indexed_nullable_fields) = index_note_fields(s, &[]);
     register_note(
@@ -1047,7 +1004,10 @@ pub comptime fn note_custom_interface(s: StructDefinition) -> Quoted {
         indexed_nullable_fields,
     );
 
+    let note_properties = generate_note_properties(s);
+
     quote {
         $note_properties
+        $packable_impl
     }
 }

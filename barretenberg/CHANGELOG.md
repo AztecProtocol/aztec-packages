@@ -1,5 +1,43 @@
 # Changelog
 
+## [0.76.4](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.76.3...barretenberg-v0.76.4) (2025-02-13)
+
+
+### Features
+
+* Aes decryption oracle ([#11907](https://github.com/AztecProtocol/aztec-packages/issues/11907)) ([c4ce913](https://github.com/AztecProtocol/aztec-packages/commit/c4ce9132e240cd3ac7953f9d3ddbd0317ca86817))
+* **avm:** Constrained ec_add ([#11525](https://github.com/AztecProtocol/aztec-packages/issues/11525)) ([f8fe602](https://github.com/AztecProtocol/aztec-packages/commit/f8fe602fe978fcd9f61a6476d24c03eb552d5341))
+* **avm:** Interaction testing ([#11947](https://github.com/AztecProtocol/aztec-packages/issues/11947)) ([fc647eb](https://github.com/AztecProtocol/aztec-packages/commit/fc647eb547ab5262e81f6400ad451f10b79b4439))
+* **avm:** Relation microbenchmarks ([#11974](https://github.com/AztecProtocol/aztec-packages/issues/11974)) ([95b581d](https://github.com/AztecProtocol/aztec-packages/commit/95b581de29df183c7ee443c990fef11a3f9a301e))
+
+
+### Miscellaneous
+
+* **avm:** Tracegen interactions assertion ([#11972](https://github.com/AztecProtocol/aztec-packages/issues/11972)) ([b865ccc](https://github.com/AztecProtocol/aztec-packages/commit/b865cccad1e5ff4b1cc175acd2095f0d2c1d423d))
+* Unify webpack dev server versions ([#11965](https://github.com/AztecProtocol/aztec-packages/issues/11965)) ([921d2cd](https://github.com/AztecProtocol/aztec-packages/commit/921d2cd9de54a9fd7cc49e4951c9fa65ab1526ef))
+
+## [0.76.3](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.76.2...barretenberg-v0.76.3) (2025-02-13)
+
+
+### Features
+
+* **avm:** Sequential lookup resolution ([#11769](https://github.com/AztecProtocol/aztec-packages/issues/11769)) ([3980f6c](https://github.com/AztecProtocol/aztec-packages/commit/3980f6cb58f51723296c1db3e6228c242377c935))
+* Native world state now supports checkpointing  ([#11739](https://github.com/AztecProtocol/aztec-packages/issues/11739)) ([6464059](https://github.com/AztecProtocol/aztec-packages/commit/6464059047f5e563b4a2207c72ea57d84f1b43cc))
+
+
+### Bug Fixes
+
+* Empty blocks can now be unwound ([#11920](https://github.com/AztecProtocol/aztec-packages/issues/11920)) ([fdc2042](https://github.com/AztecProtocol/aztec-packages/commit/fdc2042d318eb00082c1f014066d4f177c5f72a1))
+* Lmdb cmake race condition ([#11959](https://github.com/AztecProtocol/aztec-packages/issues/11959)) ([031200d](https://github.com/AztecProtocol/aztec-packages/commit/031200db80fcb77fcf4d04ca9bd6c535dbbbd92c))
+* Memory fragmentation fixes to cut UltraHonk memory usage by 26% ([#11895](https://github.com/AztecProtocol/aztec-packages/issues/11895)) ([b4e2264](https://github.com/AztecProtocol/aztec-packages/commit/b4e2264a9a7df027f5266f1f88b014bd72af76f0))
+
+
+### Miscellaneous
+
+* Only take FF (and not Flavor) in compute_logderivative_inverse ([#11938](https://github.com/AztecProtocol/aztec-packages/issues/11938)) ([bbbded3](https://github.com/AztecProtocol/aztec-packages/commit/bbbded313eef8d7dd8c42a658d7076d1ead4d761))
+* Op queue cleanup ([#11925](https://github.com/AztecProtocol/aztec-packages/issues/11925)) ([082ed66](https://github.com/AztecProtocol/aztec-packages/commit/082ed66bee121c29621e73540e930c6162ff9e8c))
+* Use RelationChecker in relation correctness tests and add Translator interleaving test ([#11878](https://github.com/AztecProtocol/aztec-packages/issues/11878)) ([ed215e8](https://github.com/AztecProtocol/aztec-packages/commit/ed215e8d86eb9cc441bc60be090d0225d03e1fb3))
+
 ## [0.76.2](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.76.1...barretenberg-v0.76.2) (2025-02-11)
 
 

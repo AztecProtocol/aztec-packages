@@ -3,7 +3,7 @@ import { type AuthWitnessProvider } from '@aztec/aztec.js/account';
 import { type EntrypointInterface, EntrypointPayload, type ExecutionRequestInit } from '@aztec/aztec.js/entrypoint';
 import { HashedValues, TxExecutionRequest } from '@aztec/circuit-types';
 import { type AztecAddress, Fr, TxContext } from '@aztec/circuits.js';
-import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
+import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/circuits.js/abi';
 
 import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from './constants.js';
 
@@ -21,7 +21,7 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
   ) {}
 
   async createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest> {
-    const { calls, fee } = exec;
+    const { calls, fee, capsules = [] } = exec;
     if (calls.length !== 1) {
       throw new Error(`Expected exactly 1 function call, got ${calls.length}`);
     }
@@ -51,6 +51,7 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
       txContext: new TxContext(this.chainId, this.version, fee.gasSettings),
       argsOfCalls: [...payload.hashedArguments, entrypointHashedArgs],
       authWitnesses: [authWitness],
+      capsules,
     });
 
     return txRequest;

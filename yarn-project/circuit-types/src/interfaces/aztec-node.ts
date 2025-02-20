@@ -1,21 +1,23 @@
 import {
-  ARCHIVE_HEIGHT,
   BlockHeader,
   type ContractClassPublic,
   ContractClassPublicSchema,
   type ContractInstanceWithAddress,
   ContractInstanceWithAddressSchema,
   GasFees,
-  L1_TO_L2_MSG_TREE_HEIGHT,
-  NOTE_HASH_TREE_HEIGHT,
-  NULLIFIER_TREE_HEIGHT,
   type NodeInfo,
   NodeInfoSchema,
-  PUBLIC_DATA_TREE_HEIGHT,
   PrivateLog,
   type ProtocolContractAddresses,
   ProtocolContractAddressesSchema,
 } from '@aztec/circuits.js';
+import {
+  ARCHIVE_HEIGHT,
+  L1_TO_L2_MSG_TREE_HEIGHT,
+  NOTE_HASH_TREE_HEIGHT,
+  NULLIFIER_TREE_HEIGHT,
+  PUBLIC_DATA_TREE_HEIGHT,
+} from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum/l1-contract-addresses';
 import type { AztecAddress } from '@aztec/foundation/aztec-address';
 import type { Fr } from '@aztec/foundation/fields';
@@ -402,7 +404,7 @@ export interface AztecNode
    * This currently just checks that the transaction execution succeeds.
    * @param tx - The transaction to simulate.
    **/
-  simulatePublicCalls(tx: Tx, enforceFeePayment?: boolean): Promise<PublicSimulationOutput>;
+  simulatePublicCalls(tx: Tx, skipFeeEnforcement?: boolean): Promise<PublicSimulationOutput>;
 
   /**
    * Returns true if the transaction is valid for inclusion at the current state. Valid transactions can be
@@ -410,8 +412,9 @@ export interface AztecNode
    * due to e.g. the max_block_number property.
    * @param tx - The transaction to validate for correctness.
    * @param isSimulation - True if the transaction is a simulated one without generated proofs. (Optional)
+   * @param skipFeeEnforcement - True if the validation of the fee should be skipped. Useful when the simulation is for estimating fee (Optional)
    */
-  isValidTx(tx: Tx, isSimulation?: boolean): Promise<TxValidationResult>;
+  isValidTx(tx: Tx, options?: { isSimulation?: boolean; skipFeeEnforcement?: boolean }): Promise<TxValidationResult>;
 
   /**
    * Updates the configuration of this node.
@@ -569,7 +572,13 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   simulatePublicCalls: z.function().args(Tx.schema, optional(z.boolean())).returns(PublicSimulationOutput.schema),
 
-  isValidTx: z.function().args(Tx.schema, optional(z.boolean())).returns(TxValidationResultSchema),
+  isValidTx: z
+    .function()
+    .args(
+      Tx.schema,
+      optional(z.object({ isSimulation: optional(z.boolean()), skipFeeEnforcement: optional(z.boolean()) })),
+    )
+    .returns(TxValidationResultSchema),
 
   setConfig: z.function().args(SequencerConfigSchema.merge(ProverConfigSchema).partial()).returns(z.void()),
 

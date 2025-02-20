@@ -37,6 +37,7 @@ allow_list=(
   "e2e_ordering"
   "e2e_pruned_blocks"
   "e2e_static_calls"
+  "e2e_token_bridge_tutorial_test"
   "integration_l1_publisher"
   "e2e_cheat_codes"
   "e2e_prover_fake_proofs"

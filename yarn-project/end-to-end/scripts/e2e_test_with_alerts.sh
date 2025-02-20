@@ -34,6 +34,7 @@ if [ $timeout -eq 0 ]; then
     exit 1
 fi
 
+# TODO: not ported in
 ## Pass through run the existing e2e test
 docker run \
     --network host \

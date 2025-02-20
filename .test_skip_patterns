@@ -1,0 +1,144 @@
+# This file provides a centralized location to track all disabled tests, usually because they're flakey.
+# Be careful editing this file!
+# Validate you get expected results with diffs or e.g: ./bootstrap.sh test-cmds | wc -l
+# Blank lines, and lines starting with # are filtered.
+
+# barretenberg
+#
+# Rare. But I saw it happen twice in 10 CI runs. Then twice in 10000 mainframe runs. Today I can't reproduce.
+# Grind with: seq 1 10000 | parallel --bar "barretenberg/cpp/scripts/run_test.sh join_split_example_tests join_split_tests.test_defi_deposit_second_bridge_output_in_use_and_same_virtual_bridge_output_asset_ids >/dev/null"
+# Logic failed: field_t::range_constraint
+# /home/aztec-dev/aztec-packages/barretenberg/cpp/src/barretenberg/examples/join_split/join_split.test.cpp:1735: Failure
+# Value of: result.valid
+#   Actual: false
+# Expected: true
+join_split_example_tests
+
+# noir
+# Something to do with how I run the tests now. Think these are fine in nextest.
+noir_lsp-.* notifications::notification_tests::test_caches_open_files
+noir_lsp-.* requests::
+# Sometimes see this on ARM. But not when run on it's own...
+# FAILED 6a60c4e796ac0aef: noir/scripts/run_test.sh debug-21ff1948430ded06 tests::debug_ram_blowup_regression (code: 101)
+#                                                                                                                                                                                running 1 test
+# test tests::debug_ram_blowup_regression has been running for over 60 seconds                                                                                                   test tests::debug_ram_blowup_regression ... FAILED
+#                                                                                                                                                                                failures:
+#                                                                                                                                                                                ---- tests::debug_ram_blowup_regression stdout ----
+# thread 'tests::debug_ram_blowup_regression' panicked at tooling/debugger/tests/debug.rs:27:14:                                                                                 Could not start debugger: Timeout { expected: "Regex: \".*\Starting debugger.*\"", got: "`^`[?2004l`\r``\r``\n`
+# Waiting for lock on Nargo.toml...`\r``\n`                                                                                                                                      ", timeout: 30s }
+# note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+#                                                                                                                                                                                failures:
+#     tests::debug_ram_blowup_regression
+# test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 232 filtered out; finished in 60.34s
+tests::debug_ram_blowup_regression
+
+# Seen this error on all the below.
+# e.g. to grind: seq 1 16 | parallel --bar --tag --halt now,fail=1 ci3/dump_fail "NAME_POSTFIX=_{} yarn-project/end-to-end/scripts/run_test.sh simple e2e_p2p/gossip_network >/dev/null"
+# FAIL  e2e_p2p/reqresp.test.ts
+#  ● e2e_p2p_reqresp_tx › should produce an attestation by requesting tx data over the p2p network
+
+#    TypeError: Cannot read properties of null (reading 'address')
+
+#      19 |
+#      20 |   get(): T | undefined {
+#    > 21 |     return this.#db.get(this.#slot);
+#         |                     ^
+#      22 |   }
+#      23 |
+#      24 |   getAsync(): Promise<T | undefined> {
+
+#      at LMDBStore.getBinaryFast (../../node_modules/lmdb/read.js:90:9)
+#      at LMDBStore.get (../../node_modules/lmdb/read.js:334:22)
+#      at LmdbAztecSingleton.get (../../kv-store/src/lmdb/singleton.ts:21:21)
+#      at initStoreForRollup (../../kv-store/src/utils.ts:26:82)
+#      at createStore (../../kv-store/src/lmdb/index.ts:25:12)
+#      at createArchiver (../../archiver/src/factory.ts:30:25)
+#      at Function.createAndSync (../../aztec-node/src/aztec-node/server.ts:157:28)
+#      at createAndSync (fixtures/setup_p2p_test.ts:72:33)
+#          at async Promise.all (index 0)
+#      at Object.<anonymous> (e2e_p2p/reqresp.test.ts:66:13)
+simple e2e_p2p/gossip_network
+simple e2e_p2p/rediscovery
+simple e2e_p2p/reqresp
+simple e2e_p2p/reex
+simple e2e_p2p/slashing
+simple e2e_p2p/upgrade_governance_proposer
+
+# Started failing with some AVM proof error...
+e2e_prover/full fake
+
+# FAIL  ./flakey_e2e_inclusion_proofs_contract.test.ts
+# ● e2e_inclusion_proofs_contract › contract inclusion › proves public deployment of a contract
+#
+#   Undefined argument value of type field
+#
+#     41 |   private encodeArgument(abiType: AbiType, arg: any, name?: string) {
+#     42 |     if (arg === undefined || arg == null) {
+#   > 43 |       throw new Error(`Undefined argument ${name ?? 'unnamed'} of type ${abiType.kind}`);
+#        |             ^
+#     44 |     }
+#     45 |     switch (abiType.kind) {
+#     46 |       case 'field':
+#
+#     at ArgumentEncoder.encodeArgument (../../foundation/src/abi/encoder.ts:43:13)
+#     at ArgumentEncoder.encode (../../foundation/src/abi/encoder.ts:137:12)
+#     at encodeArguments (../../foundation/src/abi/encoder.ts:150:41)
+#     at computeInitializationHash (../../circuits.js/src/contract/contract_address.ts:75:20)
+#     at getContractInstanceFromDeployParams (../../circuits.js/src/contract/contract_instance.ts:124:9)
+#     at Object.getContractInstanceFromDeployParams (flakey_e2e_inclusion_proofs_contract.test.ts:275:24)
+simple flakey_e2e_inclusion_proofs_contract
+
+# FAIL prover-coordination/e2e_prover_coordination.test.ts (302.744 s)
+#   ● e2e_prover_coordination › Can claim proving rights after a prune
+#
+#     expect(received).not.toEqual(expected) // deep equality
+#
+#     Expected: not "0x28ddfbc5e8fcf013d263fe4977086379ee406c118ab9a083fbde70396cb81988"
+#
+#       436 |     expect(tx2AfterReorg.status).toEqual(TxStatus.SUCCESS);
+#       437 |     expect(tx2AfterReorg.blockNumber).toEqual(tx2BeforeReorg.blockNumber);
+#     > 438 |     expect(tx2AfterReorg.blockHash).not.toEqual(tx2BeforeReorg.blockHash);
+#           |                                         ^
+#       439 |
+#       440 |     // the tx from epoch 3 is not valid anymore, since it was built against a reorged block
+#       441 |     // should be dropped
+#
+#       at Object.toEqual (prover-coordination/e2e_prover_coordination.test.ts:438:41)
+simple e2e_prover_coordination
+
+# FAIL  src/orchestrator/orchestrator_workflow.test.ts (17.926 s)
+#  prover/orchestrator
+#    workflow
+#      with mock prover
+#        ✕ calls root parity circuit only when ready (488 ms)
+#      with simulated prover
+#        ✓ waits for block to be completed before enqueueing block root proof (7702 ms)
+#        ✓ can start tube proofs before adding processed txs (7547 ms)
+#
+#  ● prover/orchestrator › workflow › with mock prover › calls root parity circuit only when ready
+src/orchestrator/orchestrator_workflow.test.ts
+
+# FAIL  src/test/bb_prover_parity.test.ts (34.059 s)
+#  prover/bb_prover/parity
+#    ✕ proves the parity circuits (30003 ms)
+#
+#  ● prover/bb_prover/parity › proves the parity circuits
+#
+#    thrown: "Exceeded timeout of 30000 ms for a test.
+#    Add a timeout value to this test to increase the timeout, if this is a long-running test. See https://jestjs.io/docs/api#testname-fn-timeout."
+prover-client/src/test/bb_prover_parity.test.ts
+
+
+# yarn-project tests
+p2p/src/services/reqresp/reqresp.test.ts
+prover-client/src/proving_broker/broker_prover_facade.test.ts
+prover-client/src/orchestrator/orchestrator_errors.test.ts
+sequencer-client/src/slasher/slasher_client.test.ts
+# Terrible test. Tiny sleeps everywhere. Total flake. Probably delete.
+foundation/src/promise/running-promise.test.ts
+# This has recently started to hit p2p drop issues.
+spartan/bootstrap.sh test-kind-4epochs
+# Hit issues, see https://github.com/AztecProtocol/aztec-packages/actions/runs/13316358796
+# Note, we don't currently think this is special to blob with sink, but reducing error surface error is important.
+spartan/bootstrap.sh test-kind-transfer-blob-with-sink
+spartan/bootstrap.sh test-local

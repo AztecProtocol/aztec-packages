@@ -1,8 +1,9 @@
 import { type ContractArtifact, type FunctionArtifact, loadContractArtifact } from '@aztec/aztec.js/abi';
-import { type PXE } from '@aztec/circuit-types';
+import { type PXE } from '@aztec/circuit-types/interfaces/client';
+import { FunctionType } from '@aztec/circuits.js/abi';
 import { type DeployL1ContractsReturnType, type L1ContractsConfig, type ViemWalletClient } from '@aztec/ethereum';
-import { FunctionType } from '@aztec/foundation/abi';
 import { type EthAddress } from '@aztec/foundation/eth-address';
+import { type Fr } from '@aztec/foundation/fields';
 import { type LogFn, type Logger } from '@aztec/foundation/log';
 import { type NoirPackageConfig } from '@aztec/foundation/noir';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
@@ -44,6 +45,8 @@ export async function deployAztecContracts(
   mnemonicIndex: number,
   salt: number | undefined,
   initialValidators: EthAddress[],
+  genesisArchiveRoot: Fr,
+  genesisBlockHash: Fr,
   config: L1ContractsConfig,
   debugLogger: Logger,
 ): Promise<DeployL1ContractsReturnType> {
@@ -66,6 +69,8 @@ export async function deployAztecContracts(
       l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
       vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
+      genesisArchiveRoot,
+      genesisBlockHash,
       salt,
       initialValidators,
       ...config,

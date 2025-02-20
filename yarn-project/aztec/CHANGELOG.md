@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.76.4](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.76.3...aztec-package-v0.76.4) (2025-02-13)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.76.3](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.76.2...aztec-package-v0.76.3) (2025-02-13)
+
+
+### Features
+
+* Add undici ([#11818](https://github.com/AztecProtocol/aztec-packages/issues/11818)) ([8503c7a](https://github.com/AztecProtocol/aztec-packages/commit/8503c7a068da820d532fb78e3633379e1b86fbb1))
+* Initial multi-proof test ([#11779](https://github.com/AztecProtocol/aztec-packages/issues/11779)) ([f54db75](https://github.com/AztecProtocol/aztec-packages/commit/f54db75ad6fdac774ad141093622a4f6c64e3f6b))
+
 ## [0.76.2](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.76.1...aztec-package-v0.76.2) (2025-02-11)
 
 

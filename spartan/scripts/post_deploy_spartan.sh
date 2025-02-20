@@ -32,7 +32,7 @@ echo "PXE_URL: $PXE_URL"
 echo "ETHEREUM_HOSTS: $ETHEREUM_HOSTS"
 
 echo "Bootstrapping contracts for test network. NOTE: This took one hour last run."
-# hack to ensure L2 contracts are considered deployed
+
 docker run aztecprotocol/aztec:$TAG bootstrap-network \
   --rpc-url $BOOTNODE_URL \
   --l1-rpc-urls $ETHEREUM_HOSTS \

@@ -214,6 +214,12 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: 'WS_BLOCK_CHECK_INTERVAL_MS',
       parseVal: val => parseInt(val, 10),
     },
+    {
+      flag: '--node.testAccounts',
+      description: 'Populate genesis state with initial fee juice for test accounts',
+      envVar: 'TEST_ACCOUNTS',
+      ...booleanConfigHelper(),
+    },
   ],
   'P2P SUBSYSTEM': [
     {

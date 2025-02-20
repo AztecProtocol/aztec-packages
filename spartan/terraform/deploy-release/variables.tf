@@ -26,6 +26,11 @@ variable "L1_DEPLOYMENT_MNEMONIC" {
   default     = ""
 }
 
+variable "BOT_L1_MNEMONIC" {
+  type    = string
+  default = "test test test test test test test test test test test junk"
+}
+
 variable "L1_DEPLOYMENT_PRIVATE_KEY" {
   description = "Private key to use for the L1 contract deployments"
   type        = string

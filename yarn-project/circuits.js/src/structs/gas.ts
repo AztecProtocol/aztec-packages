@@ -6,8 +6,8 @@ import { type FieldsOf } from '@aztec/foundation/types';
 import { inspect } from 'util';
 import { z } from 'zod';
 
+import { type UInt32 } from '../types/shared.js';
 import { type GasFees } from './gas_fees.js';
-import { type UInt32 } from './shared.js';
 
 export const GasDimensions = ['da', 'l2'] as const;
 export type GasDimensions = (typeof GasDimensions)[number];

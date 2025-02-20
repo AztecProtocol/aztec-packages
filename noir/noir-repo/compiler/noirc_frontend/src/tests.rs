@@ -903,6 +903,7 @@ fn find_lambda_captures(stmts: &[StmtId], interner: &NodeInterner, result: &mut 
             HirStatement::Semi(semi_expr) => semi_expr,
             HirStatement::For(for_loop) => for_loop.block,
             HirStatement::Loop(block) => block,
+            HirStatement::While(_, block) => block,
             HirStatement::Error => panic!("Invalid HirStatement!"),
             HirStatement::Break => panic!("Unexpected break"),
             HirStatement::Continue => panic!("Unexpected continue"),
@@ -3904,7 +3905,7 @@ fn errors_on_cyclic_globals() {
 fn warns_on_unneeded_unsafe() {
     let src = r#"
     fn main() {
-        /// Safety: test
+        // Safety: test
         unsafe {
             foo()
         }
@@ -3924,9 +3925,9 @@ fn warns_on_unneeded_unsafe() {
 fn warns_on_nested_unsafe() {
     let src = r#"
     fn main() {
-        /// Safety: test
+        // Safety: test
         unsafe {
-            /// Safety: test
+            // Safety: test
             unsafe {
                 foo()
             }
@@ -4253,7 +4254,7 @@ fn error_with_duplicate_enum_variant() {
 fn errors_on_empty_loop_no_break() {
     let src = r#"
     fn main() {
-        /// Safety: test
+        // Safety: test
         unsafe {
             foo()
         }
@@ -4275,7 +4276,7 @@ fn errors_on_empty_loop_no_break() {
 fn errors_on_loop_without_break() {
     let src = r#"
     fn main() {
-        /// Safety: test
+        // Safety: test
         unsafe {
             foo()
         }
@@ -4303,7 +4304,7 @@ fn errors_on_loop_without_break() {
 fn errors_on_loop_without_break_with_nested_loop() {
     let src = r#"
     fn main() {
-        /// Safety: test
+        // Safety: test
         unsafe {
             foo()
         }
@@ -4351,8 +4352,8 @@ fn call_function_alias_type() {
 fn errors_on_if_without_else_type_mismatch() {
     let src = r#"
     fn main() {
-        if true { 
-            1 
+        if true {
+            1
         }
     }
     "#;
@@ -4369,4 +4370,57 @@ fn errors_on_if_without_else_type_mismatch() {
 fn does_not_stack_overflow_on_many_comments_in_a_row() {
     let src = "//\n".repeat(10_000);
     assert_no_errors(&src);
+}
+
+#[test]
+fn errors_if_for_body_type_is_not_unit() {
+    let src = r#"
+    fn main() {
+        for _ in 0..1 {
+            1
+        }
+    }
+    "#;
+    let errors = get_program_errors(src);
+    assert_eq!(errors.len(), 1);
+
+    let CompilationError::TypeError(TypeCheckError::TypeMismatch { .. }) = &errors[0].0 else {
+        panic!("Expected a TypeMismatch error");
+    };
+}
+
+#[test]
+fn errors_if_loop_body_type_is_not_unit() {
+    let src = r#"
+    unconstrained fn main() {
+        loop {
+            if false { break; }
+
+            1
+        }
+    }
+    "#;
+    let errors = get_program_errors(src);
+    assert_eq!(errors.len(), 1);
+
+    let CompilationError::TypeError(TypeCheckError::TypeMismatch { .. }) = &errors[0].0 else {
+        panic!("Expected a TypeMismatch error");
+    };
+}
+
+#[test]
+fn errors_if_while_body_type_is_not_unit() {
+    let src = r#"
+    unconstrained fn main() {
+        while 1 == 1 {
+            1
+        }
+    }
+    "#;
+    let errors = get_program_errors(src);
+    assert_eq!(errors.len(), 1);
+
+    let CompilationError::TypeError(TypeCheckError::TypeMismatch { .. }) = &errors[0].0 else {
+        panic!("Expected a TypeMismatch error");
+    };
 }

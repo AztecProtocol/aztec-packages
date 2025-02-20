@@ -1,4 +1,5 @@
-import { type TxSimulationResult, mockSimulatedTx, mockTxForRollup } from '@aztec/circuit-types';
+import { type TxSimulationResult } from '@aztec/circuit-types';
+import { mockSimulatedTx, mockTxForRollup } from '@aztec/circuit-types/testing';
 import { Gas } from '@aztec/circuits.js';
 
 import { getGasLimits } from './get_gas_limits.js';
@@ -15,6 +16,8 @@ describe('getGasLimits', () => {
 
     txSimulationResult.publicOutput!.gasUsed = {
       totalGas: Gas.from({ daGas: 140, l2Gas: 280 }),
+      // Assume teardown gas limit of 20, 30
+      billedGas: Gas.from({ daGas: 150, l2Gas: 290 }),
       teardownGas: Gas.from({ daGas: 10, l2Gas: 20 }),
       publicGas: Gas.from({ daGas: 50, l2Gas: 200 }),
     };

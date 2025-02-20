@@ -10,12 +10,12 @@ import {
   type GovernanceProposerContract,
   type L1ContractsConfig,
   type L1TxUtilsConfig,
-  type L1TxUtilsWithBlobs,
   type RollupContract,
   type SlashingProposerContract,
   defaultL1TxUtilsConfig,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
+import { type L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { sleep } from '@aztec/foundation/sleep';
 import { EmpireBaseAbi, RollupAbi } from '@aztec/l1-artifacts';
 
@@ -223,7 +223,6 @@ describe('SequencerPublisher', () => {
         blockHash: `0x${blockHash.toString('hex')}`,
         oracleInput: {
           feeAssetPriceModifier: 0n,
-          provingCostModifier: 0n,
         },
         txHashes: [],
       },

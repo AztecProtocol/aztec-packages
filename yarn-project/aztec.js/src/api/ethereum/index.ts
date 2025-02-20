@@ -15,5 +15,5 @@ export { AnvilTestWatcher } from './anvil_test_watcher.js';
 export {
   deployL1Contract,
   deployL1Contracts,
-  DeployL1ContractsReturnType as DeployL1Contracts,
+  type DeployL1ContractsReturnType,
 } from '@aztec/ethereum/deploy-l1-contracts';

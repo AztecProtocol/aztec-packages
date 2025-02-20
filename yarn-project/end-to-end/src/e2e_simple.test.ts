@@ -36,7 +36,7 @@ describe('e2e_simple', () => {
         blockCheckIntervalMS: 200,
         minTxsPerBlock: 1,
         aztecEpochDuration: 8,
-        aztecProofSubmissionWindow: 16,
+        aztecProofSubmissionWindow: 15,
         aztecSlotDuration: 12,
         ethereumSlotDuration: 12,
         startProverNode: true,

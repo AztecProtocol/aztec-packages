@@ -5,7 +5,7 @@ import {
   type PrivateKernelResetCircuitPrivateInputsVariants,
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/kernel';
 import { pushTestData } from '@aztec/foundation/testing';
 
 import { type WitnessMap } from '@noir-lang/acvm_js';

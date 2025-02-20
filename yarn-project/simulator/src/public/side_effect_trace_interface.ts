@@ -1,11 +1,11 @@
 import {
   type ContractClassIdPreimage,
-  type NullifierLeafPreimage,
   type PublicCallRequest,
-  type PublicDataTreeLeafPreimage,
   type PublicLog,
   type SerializableContractInstance,
 } from '@aztec/circuits.js';
+import { type AvmNullifierReadTreeHint, type AvmPublicDataReadTreeHint } from '@aztec/circuits.js/avm';
+import { type NullifierLeafPreimage, type PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
 
@@ -63,9 +63,9 @@ export interface PublicSideEffectTraceInterface {
     contractAddress: AztecAddress,
     exists: boolean,
     instance?: SerializableContractInstance,
-    lowLeafPreimage?: NullifierLeafPreimage,
-    lowLeafIndex?: Fr,
-    lowLeafPath?: Fr[],
+    nullifierMembershipHint?: AvmNullifierReadTreeHint,
+    updateMembershipHint?: AvmPublicDataReadTreeHint,
+    updatePreimage?: Fr[],
   ): void;
   traceGetBytecode(
     contractAddress: AztecAddress,
@@ -73,9 +73,9 @@ export interface PublicSideEffectTraceInterface {
     bytecode?: Buffer,
     contractInstance?: SerializableContractInstance,
     contractClass?: ContractClassIdPreimage,
-    lowLeafPreimage?: NullifierLeafPreimage,
-    lowLeafIndex?: Fr,
-    lowLeafPath?: Fr[],
+    nullifierMembershipHint?: AvmNullifierReadTreeHint,
+    updateMembershipHint?: AvmPublicDataReadTreeHint,
+    updatePreimage?: Fr[],
   ): void;
   traceEnqueuedCall(
     /** The call request from private that enqueued this call. */

@@ -1,4 +1,5 @@
-import { type Note, type PXE } from '@aztec/circuit-types';
+import { type Note } from '@aztec/circuit-types';
+import { type PXE } from '@aztec/circuit-types/interfaces/client';
 import { type AztecAddress, Fr } from '@aztec/circuits.js';
 import { deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
 import { createLogger } from '@aztec/foundation/log';

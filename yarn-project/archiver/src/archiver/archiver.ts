@@ -32,6 +32,7 @@ import {
   type FunctionSelector,
   type PrivateLog,
   type PublicFunction,
+  type PublicLog,
   type UnconstrainedFunctionWithMembershipProof,
   computePublicBytecodeCommitment,
   isValidPrivateFunctionMembershipProof,
@@ -51,7 +52,10 @@ import {
   PrivateFunctionBroadcastedEvent,
   UnconstrainedFunctionBroadcastedEvent,
 } from '@aztec/protocol-contracts/class-registerer';
-import { ContractInstanceDeployedEvent } from '@aztec/protocol-contracts/instance-deployer';
+import {
+  ContractInstanceDeployedEvent,
+  ContractInstanceUpdatedEvent,
+} from '@aztec/protocol-contracts/instance-deployer';
 import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import groupBy from 'lodash.groupby';
@@ -680,9 +684,11 @@ export class Archiver implements ArchiveSource, Traceable {
     if (!instance) {
       throw new Error(`Contract ${address.toString()} not found`);
     }
-    const contractClass = await this.getContractClass(instance.contractClassId);
+    const contractClass = await this.getContractClass(instance.currentContractClassId);
     if (!contractClass) {
-      throw new Error(`Contract class ${instance.contractClassId.toString()} for ${address.toString()} not found`);
+      throw new Error(
+        `Contract class ${instance.currentContractClassId.toString()} for ${address.toString()} not found`,
+      );
     }
     return contractClass.publicFunctions.find(f => f.selector.equals(selector));
   }
@@ -864,6 +870,8 @@ class ArchiverStoreHelper
       | 'deleteContractClasses'
       | 'addContractInstances'
       | 'deleteContractInstances'
+      | 'addContractInstanceUpdates'
+      | 'deleteContractInstanceUpdates'
       | 'addFunctions'
     >
 {
@@ -922,6 +930,29 @@ class ArchiverStoreHelper
         return await this.store.addContractInstances(contractInstances, blockNum);
       } else if (operation == Operation.Delete) {
         return await this.store.deleteContractInstances(contractInstances, blockNum);
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Extracts and stores contract instances out of ContractInstanceDeployed events emitted by the canonical deployer contract.
+   * @param allLogs - All logs emitted in a bunch of blocks.
+   */
+  async #updateUpdatedContractInstances(allLogs: PublicLog[], blockNum: number, operation: Operation) {
+    const contractUpdates = allLogs
+      .filter(log => ContractInstanceUpdatedEvent.isContractInstanceUpdatedEvent(log))
+      .map(log => ContractInstanceUpdatedEvent.fromLog(log))
+      .map(e => e.toContractInstanceUpdate());
+
+    if (contractUpdates.length > 0) {
+      contractUpdates.forEach(c =>
+        this.#log.verbose(`${Operation[operation]} contract instance update at ${c.address.toString()}`),
+      );
+      if (operation == Operation.Store) {
+        return await this.store.addContractInstanceUpdates(contractUpdates, blockNum);
+      } else if (operation == Operation.Delete) {
+        return await this.store.deleteContractInstanceUpdates(contractUpdates, blockNum);
       }
     }
     return true;
@@ -1001,10 +1032,12 @@ class ArchiverStoreHelper
           .flatMap(txLog => txLog.unrollLogs());
         // ContractInstanceDeployed event logs are broadcast in privateLogs.
         const privateLogs = block.data.body.txEffects.flatMap(txEffect => txEffect.privateLogs);
+        const publicLogs = block.data.body.txEffects.flatMap(txEffect => txEffect.publicLogs);
         return (
           await Promise.all([
             this.#updateRegisteredContractClasses(contractClassLogs, block.data.number, Operation.Store),
             this.#updateDeployedContractInstances(privateLogs, block.data.number, Operation.Store),
+            this.#updateUpdatedContractInstances(publicLogs, block.data.number, Operation.Store),
             this.#storeBroadcastedIndividualFunctions(contractClassLogs, block.data.number),
           ])
         ).every(Boolean);
@@ -1034,11 +1067,13 @@ class ArchiverStoreHelper
 
         // ContractInstanceDeployed event logs are broadcast in privateLogs.
         const privateLogs = block.data.body.txEffects.flatMap(txEffect => txEffect.privateLogs);
+        const publicLogs = block.data.body.txEffects.flatMap(txEffect => txEffect.publicLogs);
 
         return (
           await Promise.all([
             this.#updateRegisteredContractClasses(contractClassLogs, block.data.number, Operation.Delete),
             this.#updateDeployedContractInstances(privateLogs, block.data.number, Operation.Delete),
+            this.#updateUpdatedContractInstances(publicLogs, block.data.number, Operation.Delete),
           ])
         ).every(Boolean);
       }),

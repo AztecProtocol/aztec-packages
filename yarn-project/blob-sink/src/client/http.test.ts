@@ -1,4 +1,5 @@
-import { Blob, makeEncodedBlob, makeUnencodedBlob } from '@aztec/blob-lib';
+import { Blob } from '@aztec/blob-lib';
+import { makeEncodedBlob, makeUnencodedBlob } from '@aztec/blob-lib/testing';
 import { Fr } from '@aztec/foundation/fields';
 
 import { jest } from '@jest/globals';

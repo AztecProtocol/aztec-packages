@@ -2,26 +2,19 @@ import { createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import {
-  type AztecNode,
-  type ClientProtocolCircuitVerifier,
   type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
   type InBlock,
   type L1ToL2MessageSource,
   type L2Block,
-  type L2BlockNumber,
   type L2BlockSource,
   type L2LogsSource,
   type LogFilter,
   MerkleTreeId,
-  NullifierMembershipWitness,
   type NullifierWithBlockSource,
   P2PClientType,
-  type ProverConfig,
   PublicDataWitness,
   PublicSimulationOutput,
-  type SequencerConfig,
-  type Service,
   SiblingPath,
   type Tx,
   type TxEffect,
@@ -30,11 +23,17 @@ import {
   type TxScopedL2Log,
   TxStatus,
   type TxValidationResult,
+} from '@aztec/circuit-types';
+import { type AztecNode, type L2BlockNumber, NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/client';
+import {
+  type ClientProtocolCircuitVerifier,
+  type ProverConfig,
+  type SequencerConfig,
+  type Service,
   type WorldStateSynchronizer,
   tryStop,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
 import {
-  type ARCHIVE_HEIGHT,
   type BlockHeader,
   type ContractClassPublic,
   type ContractDataSource,
@@ -42,19 +41,25 @@ import {
   EthAddress,
   Fr,
   type GasFees,
+  type NodeInfo,
+  type PrivateLog,
+  type ProtocolContractAddresses,
+} from '@aztec/circuits.js';
+import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
+import {
+  type NullifierLeafPreimage,
+  type PublicDataTreeLeaf,
+  type PublicDataTreeLeafPreimage,
+} from '@aztec/circuits.js/trees';
+import {
+  type ARCHIVE_HEIGHT,
   INITIAL_L2_BLOCK_NUM,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type NOTE_HASH_TREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
-  type NodeInfo,
-  type NullifierLeafPreimage,
   type PUBLIC_DATA_TREE_HEIGHT,
-  type PrivateLog,
-  type ProtocolContractAddresses,
-  type PublicDataTreeLeafPreimage,
   REGISTERER_CONTRACT_ADDRESS,
-} from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
+} from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -140,6 +145,9 @@ export class AztecNodeService implements AztecNode, Traceable {
       dateProvider?: DateProvider;
       blobSinkClient?: BlobSinkClientInterface;
     } = {},
+    options: {
+      prefilledPublicData?: PublicDataTreeLeaf[];
+    } = {},
   ): Promise<AztecNodeService> {
     const telemetry = deps.telemetry ?? getTelemetryClient();
     const log = deps.logger ?? createLogger('node');
@@ -156,7 +164,12 @@ export class AztecNodeService implements AztecNode, Traceable {
     const archiver = await createArchiver(config, blobSinkClient, { blockUntilSync: true }, telemetry);
 
     // now create the merkle trees and the world state synchronizer
-    const worldStateSynchronizer = await createWorldStateSynchronizer(config, archiver, telemetry);
+    const worldStateSynchronizer = await createWorldStateSynchronizer(
+      config,
+      archiver,
+      options.prefilledPublicData,
+      telemetry,
+    );
     const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
     if (!config.realProofs) {
       log.warn(`Aztec node is accepting fake proofs`);
@@ -839,7 +852,7 @@ export class AztecNodeService implements AztecNode, Traceable {
   @trackSpan('AztecNodeService.simulatePublicCalls', async (tx: Tx) => ({
     [Attributes.TX_HASH]: (await tx.getTxHash()).toString(),
   }))
-  public async simulatePublicCalls(tx: Tx, enforceFeePayment = true): Promise<PublicSimulationOutput> {
+  public async simulatePublicCalls(tx: Tx, skipFeeEnforcement = false): Promise<PublicSimulationOutput> {
     const txHash = await tx.getTxHash();
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
 
@@ -866,7 +879,7 @@ export class AztecNodeService implements AztecNode, Traceable {
     });
 
     try {
-      const processor = publicProcessorFactory.create(fork, newGlobalVariables, enforceFeePayment);
+      const processor = publicProcessorFactory.create(fork, newGlobalVariables, skipFeeEnforcement);
 
       // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
       const [processedTxs, failedTxs, returns] = await processor.process([tx]);
@@ -889,16 +902,19 @@ export class AztecNodeService implements AztecNode, Traceable {
     }
   }
 
-  public async isValidTx(tx: Tx, isSimulation: boolean = false): Promise<TxValidationResult> {
+  public async isValidTx(
+    tx: Tx,
+    { isSimulation, skipFeeEnforcement }: { isSimulation?: boolean; skipFeeEnforcement?: boolean } = {},
+  ): Promise<TxValidationResult> {
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
     const db = this.worldStateSynchronizer.getCommitted();
     const verifier = isSimulation ? undefined : this.proofVerifier;
     const validator = createValidatorForAcceptingTxs(db, this.contractDataSource, verifier, {
       blockNumber,
       l1ChainId: this.l1ChainId,
-      enforceFees: !!this.config.enforceFees,
       setupAllowList: this.config.allowedInSetup ?? (await getDefaultAllowedSetupFunctions()),
       gasFees: await this.getCurrentBaseFees(),
+      skipFeeEnforcement,
     });
 
     return await validator.validateTx(tx);

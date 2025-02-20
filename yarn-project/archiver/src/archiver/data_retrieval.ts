@@ -1,7 +1,8 @@
 import { Blob, BlobDeserializationError } from '@aztec/blob-lib';
 import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { Body, InboxLeaf, L2Block } from '@aztec/circuit-types';
-import { AppendOnlyTreeSnapshot, BlockHeader, Fr, Proof } from '@aztec/circuits.js';
+import { BlockHeader, Fr, Proof } from '@aztec/circuits.js';
+import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
 import { type ViemPublicClient } from '@aztec/ethereum';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { type EthAddress } from '@aztec/foundation/eth-address';
@@ -221,7 +222,6 @@ async function getBlockFromRollupTx(
       archive: Hex;
       blockHash: Hex;
       oracleInput: {
-        provingCostModifier: bigint;
         feeAssetPriceModifier: bigint;
       };
       txHashes: Hex[];
@@ -241,7 +241,7 @@ async function getBlockFromRollupTx(
   // Body.fromBlobFields to accept blob buffers directly
   let blockFields: Fr[];
   try {
-    blockFields = blobBodies.flatMap(b => b.toEncodedFields());
+    blockFields = Blob.toEncodedFields(blobBodies);
   } catch (err: any) {
     if (err instanceof BlobDeserializationError) {
       logger.fatal(err.message);

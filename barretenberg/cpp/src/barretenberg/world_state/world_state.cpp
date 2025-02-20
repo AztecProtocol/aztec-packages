@@ -38,6 +38,7 @@ WorldState::WorldState(uint64_t thread_pool_size,
                        const std::unordered_map<MerkleTreeId, uint64_t>& map_size,
                        const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
                        const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
+                       const std::vector<PublicDataLeafValue>& prefilled_public_data,
                        uint32_t initial_header_generator_point)
     : _workers(std::make_shared<ThreadPool>(thread_pool_size))
     , _tree_heights(tree_heights)
@@ -47,14 +48,30 @@ WorldState::WorldState(uint64_t thread_pool_size,
 {
     // We set the max readers to be high, at least the number of given threads or the default if higher
     uint64_t maxReaders = std::max(thread_pool_size, DEFAULT_MIN_NUMBER_OF_READERS);
-    create_canonical_fork(data_dir, map_size, maxReaders);
+    create_canonical_fork(data_dir, map_size, prefilled_public_data, maxReaders);
 }
+
+WorldState::WorldState(uint64_t thread_pool_size,
+                       const std::string& data_dir,
+                       const std::unordered_map<MerkleTreeId, uint64_t>& map_size,
+                       const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
+                       const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
+                       uint32_t initial_header_generator_point)
+    : WorldState::WorldState(thread_pool_size,
+                             data_dir,
+                             map_size,
+                             tree_heights,
+                             tree_prefill,
+                             std::vector<PublicDataLeafValue>(),
+                             initial_header_generator_point)
+{}
 
 WorldState::WorldState(uint64_t thread_pool_size,
                        const std::string& data_dir,
                        uint64_t map_size,
                        const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
                        const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
+                       const std::vector<PublicDataLeafValue>& prefilled_public_data,
                        uint32_t initial_header_generator_point)
     : WorldState(thread_pool_size,
                  data_dir,
@@ -67,11 +84,28 @@ WorldState::WorldState(uint64_t thread_pool_size,
                  },
                  tree_heights,
                  tree_prefill,
+                 prefilled_public_data,
+                 initial_header_generator_point)
+{}
+
+WorldState::WorldState(uint64_t thread_pool_size,
+                       const std::string& data_dir,
+                       uint64_t map_size,
+                       const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
+                       const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
+                       uint32_t initial_header_generator_point)
+    : WorldState(thread_pool_size,
+                 data_dir,
+                 map_size,
+                 tree_heights,
+                 tree_prefill,
+                 std::vector<PublicDataLeafValue>(),
                  initial_header_generator_point)
 {}
 
 void WorldState::create_canonical_fork(const std::string& dataDir,
                                        const std::unordered_map<MerkleTreeId, uint64_t>& dbSize,
+                                       const std::vector<PublicDataLeafValue>& prefilled_public_data,
                                        uint64_t maxReaders)
 {
     // create the underlying stores
@@ -110,7 +144,7 @@ void WorldState::create_canonical_fork(const std::string& dataDir,
         index_t initial_size = _initial_tree_size.at(MerkleTreeId::PUBLIC_DATA_TREE);
         auto store = std::make_unique<PublicDataStore>(
             getMerkleTreeName(MerkleTreeId::PUBLIC_DATA_TREE), levels, _persistentStores->publicDataStore);
-        auto tree = std::make_unique<PublicDataTree>(std::move(store), _workers, initial_size);
+        auto tree = std::make_unique<PublicDataTree>(std::move(store), _workers, initial_size, prefilled_public_data);
         fork->_trees.insert({ MerkleTreeId::PUBLIC_DATA_TREE, TreeWithStore(std::move(tree)) });
     }
     {
@@ -985,6 +1019,87 @@ bool WorldState::determine_if_synched(std::array<TreeMeta, NUM_TREES>& metaRespo
         }
     }
     return true;
+}
+
+void WorldState::checkpoint(const uint64_t& forkId)
+{
+    Fork::SharedPtr fork = retrieve_fork(forkId);
+    Signal signal(static_cast<uint32_t>(fork->_trees.size()));
+    std::array<Response, NUM_TREES> local;
+    std::mutex mtx;
+    for (auto& [id, tree] : fork->_trees) {
+        std::visit(
+            [&signal, &local, id, &mtx](auto&& wrapper) {
+                wrapper.tree->checkpoint([&signal, &local, &mtx, id](Response& resp) {
+                    {
+                        std::lock_guard<std::mutex> lock(mtx);
+                        local[id] = std::move(resp);
+                    }
+                    signal.signal_decrement();
+                });
+            },
+            tree);
+    }
+    signal.wait_for_level();
+    for (auto& m : local) {
+        if (!m.success) {
+            throw std::runtime_error(m.message);
+        }
+    }
+}
+
+void WorldState::commit_checkpoint(const uint64_t& forkId)
+{
+    Fork::SharedPtr fork = retrieve_fork(forkId);
+    Signal signal(static_cast<uint32_t>(fork->_trees.size()));
+    std::array<Response, NUM_TREES> local;
+    std::mutex mtx;
+    for (auto& [id, tree] : fork->_trees) {
+        std::visit(
+            [&signal, &local, id, &mtx](auto&& wrapper) {
+                wrapper.tree->commit_checkpoint([&signal, &local, &mtx, id](Response& resp) {
+                    {
+                        std::lock_guard<std::mutex> lock(mtx);
+                        local[id] = std::move(resp);
+                    }
+                    signal.signal_decrement();
+                });
+            },
+            tree);
+    }
+    signal.wait_for_level();
+    for (auto& m : local) {
+        if (!m.success) {
+            throw std::runtime_error(m.message);
+        }
+    }
+}
+
+void WorldState::revert_checkpoint(const uint64_t& forkId)
+{
+    Fork::SharedPtr fork = retrieve_fork(forkId);
+    Signal signal(static_cast<uint32_t>(fork->_trees.size()));
+    std::array<Response, NUM_TREES> local;
+    std::mutex mtx;
+    for (auto& [id, tree] : fork->_trees) {
+        std::visit(
+            [&signal, &local, id, &mtx](auto&& wrapper) {
+                wrapper.tree->revert_checkpoint([&signal, &local, &mtx, id](Response& resp) {
+                    {
+                        std::lock_guard<std::mutex> lock(mtx);
+                        local[id] = std::move(resp);
+                    }
+                    signal.signal_decrement();
+                });
+            },
+            tree);
+    }
+    signal.wait_for_level();
+    for (auto& m : local) {
+        if (!m.success) {
+            throw std::runtime_error(m.message);
+        }
+    }
 }
 
 } // namespace bb::world_state

@@ -1,4 +1,5 @@
-import { Fr, type LogHash, MAX_CONTRACT_CLASS_LOGS_PER_TX, type ScopedLogHash } from '@aztec/circuits.js';
+import { Fr, type LogHash, type ScopedLogHash } from '@aztec/circuits.js';
+import { MAX_CONTRACT_CLASS_LOGS_PER_TX } from '@aztec/constants';
 import { sha256Trunc } from '@aztec/foundation/crypto';
 import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
 

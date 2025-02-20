@@ -31,6 +31,7 @@ export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:
 export OTEL_EXPORTER_OTLP_LOGS_ENDPOINT="${OTEL_EXPORTER_OTLP_LOGS_ENDPOINT:-}"
 export OTEL_RESOURCE_ATTRIBUTES="service.name=boot-node"
 export VALIDATOR_PRIVATE_KEY=${VALIDATOR_PRIVATE_KEY:-"0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a"}
+export TEST_ACCOUNTS="true"
 
 echo "Waiting for l1 contracts to be deployed..."
 until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l1-contracts.env ]; do

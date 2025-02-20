@@ -1,26 +1,17 @@
 import { type ArchiveSource } from '@aztec/archiver';
 import { getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, Fr, GlobalVariables, type L2Block, createLogger } from '@aztec/aztec.js';
-import { Blob } from '@aztec/blob-lib';
+import { Blob, BlockBlobPublicInputs } from '@aztec/blob-lib';
 // eslint-disable-next-line no-restricted-imports
 import { type L2Tips, type ProcessedTx } from '@aztec/circuit-types';
-import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
-import {
-  type BlockHeader,
-  EthAddress,
-  GENESIS_ARCHIVE_ROOT,
-  GasFees,
-  GasSettings,
-  MAX_NULLIFIERS_PER_TX,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-} from '@aztec/circuits.js';
-import { BlockBlobPublicInputs } from '@aztec/circuits.js/blobs';
+import { makeBloatedProcessedTx } from '@aztec/circuit-types/testing';
+import { type BlockHeader, EthAddress, GasFees, GasSettings } from '@aztec/circuits.js';
 import { fr } from '@aztec/circuits.js/testing';
+import { GENESIS_ARCHIVE_ROOT, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
   GovernanceProposerContract,
   type L1ContractAddresses,
-  L1TxUtilsWithBlobs,
   RollupContract,
   SlashingProposerContract,
   type ViemPublicClient,
@@ -28,6 +19,7 @@ import {
   createEthereumChain,
   createL1Clients,
 } from '@aztec/ethereum';
+import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { range } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';
@@ -490,7 +482,6 @@ describe('L1Publisher integration', () => {
               archive: `0x${block.archive.root.toBuffer().toString('hex')}`,
               blockHash: `0x${(await block.header.hash()).toBuffer().toString('hex')}`,
               oracleInput: {
-                provingCostModifier: 0n,
                 feeAssetPriceModifier: 0n,
               },
               txHashes: [],

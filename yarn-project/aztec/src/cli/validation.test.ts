@@ -1,4 +1,5 @@
 import { type AztecNodeConfig, aztecNodeConfigMappings } from '@aztec/aztec-node';
+import { createLogger } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/circuits.js';
 import { startAnvil } from '@aztec/ethereum/test';
 import { getDefaultConfig } from '@aztec/foundation/config';
@@ -27,7 +28,7 @@ describe('validation', () => {
     });
 
     afterAll(async () => {
-      await anvil.stop();
+      await anvil.stop().catch(err => createLogger('cleanup').error(err));
     });
 
     it('validates correct config', async () => {

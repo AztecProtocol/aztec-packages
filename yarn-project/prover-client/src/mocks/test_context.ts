@@ -1,63 +1,58 @@
 import { type BBProverConfig } from '@aztec/bb-prover';
-import {
-  type L2Block,
-  type ProcessedTx,
-  type PublicExecutionRequest,
-  type ServerCircuitProver,
-  type Tx,
-} from '@aztec/circuit-types';
-import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
-import {
-  type AppendOnlyTreeSnapshot,
-  type BlockHeader,
-  type Gas,
-  type GlobalVariables,
-  TreeSnapshots,
-} from '@aztec/circuits.js';
+import { type L2Block, type ProcessedTx, type Tx } from '@aztec/circuit-types';
+import { type ServerCircuitProver } from '@aztec/circuit-types/interfaces/server';
+import { makeBloatedProcessedTx } from '@aztec/circuit-types/testing';
+import { type BlockHeader, type GlobalVariables, PublicDataWrite, TreeSnapshots } from '@aztec/circuits.js';
+import { type AppendOnlyTreeSnapshot, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import {
   PublicProcessor,
+  PublicTxSimulationTester,
   PublicTxSimulator,
-  type SimulationProvider,
-  WASMSimulatorWithBlobs,
-  type WorldStateDB,
+  SimpleContractDataSource,
+  WorldStateDB,
 } from '@aztec/simulator/server';
 import { type MerkleTreeAdminDatabase } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
-import { jest } from '@jest/globals';
 import { promises as fs } from 'fs';
-import { mock } from 'jest-mock-extended';
 
 import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
-import { AvmFinalizedCallResult } from '../../../simulator/src/avm/avm_contract_call_result.js';
-import { type AvmPersistableStateManager } from '../../../simulator/src/avm/journal/journal.js';
 import { buildBlock } from '../block_builder/light.js';
 import { ProvingOrchestrator } from '../orchestrator/index.js';
+import { BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';
 import { TestBroker } from '../test/mock_prover.js';
 import { getEnvironmentConfig, getSimulationProvider, makeGlobals, updateExpectedTreesFromTxs } from './fixtures.js';
 
 export class TestContext {
   private headers: Map<number, BlockHeader> = new Map();
+  private feePayerBalance: Fr;
 
   constructor(
     public publicTxSimulator: PublicTxSimulator,
     public worldState: MerkleTreeAdminDatabase,
     public publicProcessor: PublicProcessor,
-    public simulationProvider: SimulationProvider,
     public globalVariables: GlobalVariables,
     public prover: ServerCircuitProver,
     public broker: TestBroker,
+    public brokerProverFacade: BrokerCircuitProverFacade,
     public orchestrator: TestProvingOrchestrator,
     public blockNumber: number,
+    public feePayer: AztecAddress,
+    initialFeePayerBalance: Fr,
     public directoriesToCleanup: string[],
+    public tester: PublicTxSimulationTester,
     public logger: Logger,
-  ) {}
+  ) {
+    this.feePayerBalance = initialFeePayerBalance;
+  }
 
   public get epochProver() {
     return this.orchestrator;
@@ -66,20 +61,30 @@ export class TestContext {
   static async new(
     logger: Logger,
     proverCount = 4,
-    createProver: (bbConfig: BBProverConfig) => Promise<ServerCircuitProver> = _ =>
-      Promise.resolve(new TestCircuitProver(new WASMSimulatorWithBlobs())),
+    createProver: (bbConfig: BBProverConfig) => Promise<ServerCircuitProver> = async (bbConfig: BBProverConfig) =>
+      new TestCircuitProver(await getSimulationProvider(bbConfig, logger)),
     blockNumber = 1,
   ) {
     const directoriesToCleanup: string[] = [];
     const globalVariables = makeGlobals(blockNumber);
 
-    const worldStateDB = mock<WorldStateDB>();
+    const feePayer = AztecAddress.fromNumber(42222);
+    const initialFeePayerBalance = new Fr(10n ** 20n);
+    const feePayerSlot = await computeFeePayerBalanceLeafSlot(feePayer);
+    const prefilledPublicData = [new PublicDataTreeLeaf(feePayerSlot, initialFeePayerBalance)];
 
     // Separated dbs for public processor and prover - see public_processor for context
-    const ws = await NativeWorldStateService.tmp();
+    const ws = await NativeWorldStateService.tmp(
+      undefined /* rollupAddress */,
+      true /* cleanupTmpDir */,
+      prefilledPublicData,
+    );
     const publicDb = await ws.fork();
 
-    worldStateDB.getMerkleInterface.mockReturnValue(publicDb);
+    const contractDataSource = new SimpleContractDataSource();
+    const worldStateDB = new WorldStateDB(publicDb, contractDataSource);
+
+    const tester = new PublicTxSimulationTester(worldStateDB, contractDataSource, publicDb);
 
     const publicTxSimulator = new PublicTxSimulator(publicDb, worldStateDB, globalVariables, true);
     const processor = new PublicProcessor(
@@ -92,12 +97,8 @@ export class TestContext {
 
     let localProver: ServerCircuitProver;
     const config = await getEnvironmentConfig(logger);
-    const simulationProvider = await getSimulationProvider({
-      acvmWorkingDirectory: config?.acvmWorkingDirectory,
-      acvmBinaryPath: config?.expectedAcvmPath,
-    });
     if (!config) {
-      localProver = new TestCircuitProver(simulationProvider);
+      localProver = new TestCircuitProver();
     } else {
       const bbConfig: BBProverConfig = {
         acvmBinaryPath: config.expectedAcvmPath,
@@ -114,21 +115,26 @@ export class TestContext {
     }
 
     const broker = new TestBroker(proverCount, localProver);
-    const orchestrator = new TestProvingOrchestrator(ws, broker.facade, Fr.ZERO);
+    const facade = new BrokerCircuitProverFacade(broker);
+    const orchestrator = new TestProvingOrchestrator(ws, facade, Fr.ZERO);
 
     await broker.start();
+    facade.start();
 
     return new this(
       publicTxSimulator,
       ws,
       processor,
-      simulationProvider,
       globalVariables,
       localProver,
       broker,
+      facade,
       orchestrator,
       blockNumber,
+      feePayer,
+      initialFeePayerBalance,
       directoriesToCleanup,
+      tester,
       logger,
     );
   }
@@ -148,25 +154,35 @@ export class TestContext {
   }
 
   async cleanup() {
+    await this.brokerProverFacade.stop();
     await this.broker.stop();
     for (const dir of this.directoriesToCleanup.filter(x => x !== '')) {
       await fs.rm(dir, { recursive: true, force: true });
     }
   }
 
-  public makeProcessedTx(opts?: Parameters<typeof makeBloatedProcessedTx>[0]): Promise<ProcessedTx>;
-  public makeProcessedTx(seed?: number): Promise<ProcessedTx>;
-  public makeProcessedTx(seedOrOpts?: Parameters<typeof makeBloatedProcessedTx>[0] | number): Promise<ProcessedTx> {
+  public async makeProcessedTx(opts?: Parameters<typeof makeBloatedProcessedTx>[0]): Promise<ProcessedTx>;
+  public async makeProcessedTx(seed?: number): Promise<ProcessedTx>;
+  public async makeProcessedTx(
+    seedOrOpts?: Parameters<typeof makeBloatedProcessedTx>[0] | number,
+  ): Promise<ProcessedTx> {
     const opts = typeof seedOrOpts === 'number' ? { seed: seedOrOpts } : seedOrOpts;
     const blockNum = (opts?.globalVariables ?? this.globalVariables).blockNumber.toNumber();
     const header = this.getBlockHeader(blockNum - 1);
-    return makeBloatedProcessedTx({
+    const tx = await makeBloatedProcessedTx({
       header,
       vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
       globalVariables: this.globalVariables,
+      feePayer: this.feePayer,
       ...opts,
     });
+    this.feePayerBalance = new Fr(this.feePayerBalance.toBigInt() - tx.txEffect.transactionFee.toBigInt());
+    if (opts?.privateOnly) {
+      const feePayerSlot = await computeFeePayerBalanceLeafSlot(this.feePayer);
+      tx.txEffect.publicDataWrites[0] = new PublicDataWrite(feePayerSlot, this.feePayerBalance);
+    }
+    return tx;
   }
 
   /** Creates a block with the given number of txs and adds it to world-state */
@@ -192,32 +208,7 @@ export class TestContext {
   }
 
   public async processPublicFunctions(txs: Tx[], maxTransactions: number) {
-    const defaultExecutorImplementation = (
-      _stateManager: AvmPersistableStateManager,
-      executionRequest: PublicExecutionRequest,
-      allocatedGas: Gas,
-      _transactionFee: Fr,
-      _fnName: string,
-    ) => {
-      for (const tx of txs) {
-        const allCalls = tx.publicTeardownFunctionCall.isEmpty()
-          ? tx.enqueuedPublicFunctionCalls
-          : [...tx.enqueuedPublicFunctionCalls, tx.publicTeardownFunctionCall];
-        for (const request of allCalls) {
-          if (executionRequest.callContext.equals(request.callContext)) {
-            return Promise.resolve(
-              new AvmFinalizedCallResult(/*reverted=*/ false, /*output=*/ [], /*gasLeft=*/ allocatedGas),
-            );
-          }
-        }
-      }
-      throw new Error(`Unexpected execution request: ${executionRequest}`);
-    };
-    return await this.processPublicFunctionsWithMockExecutorImplementation(
-      txs,
-      maxTransactions,
-      defaultExecutorImplementation,
-    );
+    return await this.publicProcessor.process(txs, { maxTransactions });
   }
 
   public async setTreeRoots(txs: ProcessedTx[]) {
@@ -241,38 +232,6 @@ export class TestContext {
         );
       }
     }
-  }
-
-  private async processPublicFunctionsWithMockExecutorImplementation(
-    txs: Tx[],
-    maxTransactions: number,
-    executorMock?: (
-      stateManager: AvmPersistableStateManager,
-      executionRequest: PublicExecutionRequest,
-      allocatedGas: Gas,
-      transactionFee: Fr,
-      fnName: string,
-    ) => Promise<AvmFinalizedCallResult>,
-  ) {
-    // Mock the internal private function. Borrowed from https://stackoverflow.com/a/71033167
-    const simulateInternal: jest.SpiedFunction<
-      (
-        stateManager: AvmPersistableStateManager,
-        executionResult: any,
-        allocatedGas: Gas,
-        transactionFee: any,
-        fnName: any,
-      ) => Promise<AvmFinalizedCallResult>
-    > = jest.spyOn(
-      this.publicTxSimulator as unknown as {
-        simulateEnqueuedCallInternal: PublicTxSimulator['simulateEnqueuedCallInternal'];
-      },
-      'simulateEnqueuedCallInternal',
-    );
-    if (executorMock) {
-      simulateInternal.mockImplementation(executorMock);
-    }
-    return await this.publicProcessor.process(txs, { maxTransactions });
   }
 }
 
