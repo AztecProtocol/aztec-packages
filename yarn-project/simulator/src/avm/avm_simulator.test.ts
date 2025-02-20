@@ -2,6 +2,7 @@ import { MerkleTreeId } from '@aztec/circuit-types';
 import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import { GasFees, PublicDataWrite, PublicKeys, SerializableContractInstance } from '@aztec/circuits.js';
 import { FunctionSelector } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
   computeNoteHashNonce,
   computePublicDataTreeLeafSlot,
@@ -13,7 +14,6 @@ import {
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
 import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
 import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import {
   Grumpkin,
   keccak256,

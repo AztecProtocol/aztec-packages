@@ -4,6 +4,7 @@ import {
   Note,
   PublicExecutionRequest,
   TxExecutionRequest,
+  type TxScopedL2Log,
 } from '@aztec/circuit-types';
 import {
   type AztecNode,
@@ -38,6 +39,7 @@ import {
   getFunctionArtifact,
   getFunctionArtifactByName,
 } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
   computeNoteHashNonce,
   computeSecretHash,
@@ -55,7 +57,6 @@ import {
   PUBLIC_DISPATCH_SELECTOR,
 } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { times } from '@aztec/foundation/collection';
 import { poseidon2Hash, poseidon2HashWithSeparator, randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -302,6 +303,9 @@ describe('Private Execution test suite', () => {
       }
       return Promise.resolve(artifact);
     });
+
+    oracle.syncTaggedLogs.mockImplementation((_, __, ___) => Promise.resolve(new Map<string, TxScopedL2Log[]>()));
+    oracle.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
     node = mock<AztecNode>();
     node.getPublicStorageAt.mockImplementation(
