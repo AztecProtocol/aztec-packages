@@ -4,9 +4,8 @@ pub(crate) const MSM_ASSEMBLY: &str = "
                 ; d1 points to the scalars. Scalars are represented by (lo: Field, hi: Field) both range checked to 128 bits.
                 ; d2 contains the length of the points array. This will be the number of points * 3, since each point is represented by 3 fields.
                 ; d3 points to the result. The result is a point.
-                SET d7, 1 u32; Initialize a constant one
-                ADD d3, d7, d4; Compute the pointer to the result y
-                ADD d4, d7, d5; Compute the pointer to the result is_infinite
+                ADD d3, $2, d4; Compute the pointer to the result y. $2 is the reserved register 'one_usize'
+                ADD d4, $2, d5; Compute the pointer to the result is_infinite
                 ; Initialize the msm result: point at infinity
                 SET i3, 0 ff
                 SET i4, 0 ff
@@ -14,7 +13,8 @@ pub(crate) const MSM_ASSEMBLY: &str = "
                 ; Loop globals
                 SET d6, 0 u32; Initialize the outer loop variable, ranging from 0 to the number of points
                 SET d8, 0 ff; Initialize a 0 FF
-                SET d9, 256 u32; Initialize a constant 256
+                SET d9, 254 u32; Initialize a constant 254
+                SET d7, 126 u32; Initialize a constant 126 for the most significant bits of the scalar
                 SET d10, 128 u32; Initialize a constant 128
                 SET d11, 1 u1; Initialize a constant true
                 SET d12, 0 u1; Initialize a constant false
@@ -29,17 +29,17 @@ OUTER_BODY:     MUL d6, d14, d16; Compute the pointer to the point
                 ADD d16, d0, d16;
                 MUL d6, d13, d17; Compute the pointer to the scalar lo
                 ADD d17, d1, d17
-                ADD d17, d7, d18; Compute the pointer to the scalar hi
+                ADD d17, $2, d18; Compute the pointer to the scalar hi
                 EQ i17, d8, d19; Check if the scalar lo is zero
                 EQ i18, d8, d20; Check if the scalar hi is zero
                 AND d19, d20, d19; Check if both scalars are zero
                 JUMPI d19, OUTER_INC; If both scalar limbs are zero, continue
-                ; Decompose the scalars to an array of 256 bits
-                ; Allocate a 256 bit array
+                ; Decompose the scalars to an array of 254 bits
+                ; Allocate a 254 bit array
                 MOV $1, d19; Move the free memory pointer to d19, where we'll store the bits
-                ADD $1, d9, $1; Increase the free memory pointer by 256
-                TORADIXBE i18, d13, d10, d11, i19; Get the most significant bits of the full scalar
-                ADD d19, d10, d20; Create a pointer to the middle of the 256 bit array
+                ADD $1, d9, $1; Increase the free memory pointer by 254
+                TORADIXBE i18, d13, d7, d11, i19; Get the most significant bits of the full scalar
+                ADD d19, d7, d20; Create a pointer to the low significance part of the 254 bit array
                 TORADIXBE i17, d13, d10, d11, i20; Get the least significant bits of the full scalar
                 ; Now we have a pointer (i19) to the bits of the scalar in BE
                 ADD d19, d9, d21; Initialize the end pointer of the bits, will be used later
@@ -49,15 +49,15 @@ OUTER_BODY:     MUL d6, d14, d16; Compute the pointer to the point
                 ; due to the previous check
 FIND_MSB_BODY:  EQ i19, d11, d22; Check if the current bit is one
                 JUMPI d22, FIND_MSB_END
-                ADD d19, d7, d19; Increment the pointer of the MSB
+                ADD d19, $2, d19; Increment the pointer of the MSB
                 JUMP FIND_MSB_BODY
                 ; Now we have the pointer of the MSB in d19
 
                 ; Now store the result of the scalar multiplication in d22, d23, d24
 FIND_MSB_END:   MOV i16, d22; x
-                ADD d16, d7, d25; pointer to y
+                ADD d16, $2, d25; pointer to y
                 MOV i25, d23; y
-                ADD d25, d7, d25; pointer to is_infinite
+                ADD d25, $2, d25; pointer to is_infinite
                 MOV i25, d24; is_infinite
                 ; Also store the original point in d25, d26, d27
                 MOV d22, d25; x
@@ -66,7 +66,7 @@ FIND_MSB_END:   MOV i16, d22; x
 
                 ; Now we need to do the inner loop, that will do double then add
                 ; We need to iterate from the pointer of the MSB + 1 to the end pointer (d21)
-                ADD d19, d7, d19; We start from the pointer of the MSB + 1
+                ADD d19, $2, d19; We start from the pointer of the MSB + 1
 INNER_HEAD:     LT d19, d21, d28; Check if we are done with the loop
                 JUMPI d28, INNER_BODY
                 JUMP INNER_END
@@ -74,12 +74,12 @@ INNER_BODY:     ECADD d22, d23, d24, d22, d23, d24, d22; Double the current resu
                 EQ i19, d12, d28; Check if the current bit is zero
                 JUMPI d28, INNER_INC; If the current bit is zero, continue
                 ECADD d25, d26, d27, d22, d23, d24, d22; Add the original point to the result
-INNER_INC:      ADD d19, d7, d19; Increment the pointer
+INNER_INC:      ADD d19, $2, d19; Increment the pointer
                 JUMP INNER_HEAD
 
                 ; After the inner loop we have computed the scalar multiplication. Add it to the msm result
 INNER_END:      ECADD i3, i4, i5, d22, d23, d24, i3; Add the result to the msm result
-OUTER_INC:      ADD d6, d7, d6; Increment the outer loop variable
+OUTER_INC:      ADD d6, $2, d6; Increment the outer loop variable
                 JUMP OUTER_HEAD
                 ; After the outer loop we have computed the msm. We can return since we wrote the result in i3, i4, i5
 OUTER_END:      INTERNALRETURN
