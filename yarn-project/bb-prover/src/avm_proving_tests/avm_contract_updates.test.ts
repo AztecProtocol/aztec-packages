@@ -1,43 +1,29 @@
-import {
-  AztecAddress,
-  type ContractClassPublic,
-  type ContractInstanceWithAddress,
-  FunctionSelector,
-} from '@aztec/circuits.js';
+import { type ContractInstanceWithAddress } from '@aztec/circuits.js';
 import { deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
 import {
   ScheduledDelayChange,
   ScheduledValueChange,
   computeSharedMutableHashSlot,
 } from '@aztec/circuits.js/shared-mutable';
-import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
-import { PUBLIC_DISPATCH_SELECTOR, UPDATED_CLASS_IDS_SLOT, UPDATES_SCHEDULED_VALUE_CHANGE_LEN } from '@aztec/constants';
+import { UPDATED_CLASS_IDS_SLOT, UPDATES_SCHEDULED_VALUE_CHANGE_LEN } from '@aztec/constants';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { DEFAULT_BLOCK_NUMBER, getAvmTestContractBytecode } from '@aztec/simulator/public/fixtures';
+import { DEFAULT_BLOCK_NUMBER } from '@aztec/simulator/public/fixtures';
 
 import { AvmProvingTester } from './avm_proving_tester.js';
 
 const TIMEOUT = 300_000;
-const DISPATCH_FN_NAME = 'public_dispatch';
-const DISPATCH_SELECTOR = new FunctionSelector(PUBLIC_DISPATCH_SELECTOR);
 
 describe('AVM WitGen & Circuit - contract updates', () => {
   const sender = AztecAddress.fromNumber(42);
 
   const avmTestContractClassSeed = 0;
-  const avmTestContractBytecode = getAvmTestContractBytecode(DISPATCH_FN_NAME);
-  let avmTestContractClass: ContractClassPublic;
   let avmTestContractInstance: ContractInstanceWithAddress;
 
-  beforeEach(async () => {
-    avmTestContractClass = await makeContractClassPublic(
-      /*seed=*/ avmTestContractClassSeed,
-      /*publicDispatchFunction=*/ { bytecode: avmTestContractBytecode, selector: DISPATCH_SELECTOR },
-    );
-  });
+  beforeEach(async () => {});
 
   const writeContractUpdate = async (
     tester: AvmProvingTester,
@@ -69,16 +55,17 @@ describe('AVM WitGen & Circuit - contract updates', () => {
     async () => {
       // Contract was not originally the avmTestContract
       const originalClassId = new Fr(27);
-      avmTestContractInstance = await makeContractInstanceFromClassId(
-        originalClassId,
-        /*seed=*/ avmTestContractClassSeed,
-        {
-          currentClassId: avmTestContractClass.id,
-        },
-      );
       const tester = await AvmProvingTester.create(/*checkCircuitOnly*/ true);
-      await tester.addContractClass(avmTestContractClass, AvmTestContractArtifact);
-      await tester.addContractInstance(avmTestContractInstance);
+
+      avmTestContractInstance = await tester.registerAndDeployContract(
+        /*constructorArgs=*/ [],
+        sender,
+        /*contractArtifact=*/ AvmTestContractArtifact,
+        /*skipNullifierInsertion=*/ false,
+        /*seed=*/ avmTestContractClassSeed,
+        /*originalContractClassId=*/ originalClassId, // upgraded from
+      );
+
       await writeContractUpdate(
         tester,
         avmTestContractInstance.address,
@@ -105,16 +92,17 @@ describe('AVM WitGen & Circuit - contract updates', () => {
     async () => {
       // Contract was not originally the avmTestContract
       const originalClassId = new Fr(27);
-      avmTestContractInstance = await makeContractInstanceFromClassId(
-        originalClassId,
-        /*seed=*/ avmTestContractClassSeed,
-        {
-          currentClassId: avmTestContractClass.id,
-        },
-      );
+
       const tester = await AvmProvingTester.create(/*checkCircuitOnly*/ true);
-      await tester.addContractClass(avmTestContractClass, AvmTestContractArtifact);
-      await tester.addContractInstance(avmTestContractInstance);
+      avmTestContractInstance = await tester.registerAndDeployContract(
+        /*constructorArgs=*/ [],
+        sender,
+        /*contractArtifact=*/ AvmTestContractArtifact,
+        /*skipNullifierInsertion=*/ false,
+        /*seed=*/ avmTestContractClassSeed,
+        /*originalContractClassId=*/ originalClassId, // upgraded from
+      );
+
       await writeContractUpdate(
         tester,
         avmTestContractInstance.address,
@@ -143,13 +131,16 @@ describe('AVM WitGen & Circuit - contract updates', () => {
     async () => {
       // Contract was not originally the avmTestContract
       const newClassId = new Fr(27);
-      avmTestContractInstance = await makeContractInstanceFromClassId(
-        avmTestContractClass.id,
+
+      const tester = await AvmProvingTester.create(/*checkCircuitOnly*/ true);
+      avmTestContractInstance = await tester.registerAndDeployContract(
+        /*constructorArgs=*/ [],
+        sender,
+        /*contractArtifact=*/ AvmTestContractArtifact,
+        /*skipNullifierInsertion=*/ false,
         /*seed=*/ avmTestContractClassSeed,
       );
-      const tester = await AvmProvingTester.create(/*checkCircuitOnly*/ true);
-      await tester.addContractClass(avmTestContractClass, AvmTestContractArtifact);
-      await tester.addContractInstance(avmTestContractInstance);
+
       await writeContractUpdate(
         tester,
         avmTestContractInstance.address,
@@ -176,13 +167,16 @@ describe('AVM WitGen & Circuit - contract updates', () => {
     async () => {
       // Contract was not originally the avmTestContract
       const newClassId = new Fr(27);
-      avmTestContractInstance = await makeContractInstanceFromClassId(
-        avmTestContractClass.id,
+
+      const tester = await AvmProvingTester.create(/*checkCircuitOnly*/ true);
+      avmTestContractInstance = await tester.registerAndDeployContract(
+        /*constructorArgs=*/ [],
+        sender,
+        /*contractArtifact=*/ AvmTestContractArtifact,
+        /*skipNullifierInsertion=*/ false,
         /*seed=*/ avmTestContractClassSeed,
       );
-      const tester = await AvmProvingTester.create(/*checkCircuitOnly*/ true);
-      await tester.addContractClass(avmTestContractClass, AvmTestContractArtifact);
-      await tester.addContractInstance(avmTestContractInstance);
+
       await writeContractUpdate(
         tester,
         avmTestContractInstance.address,

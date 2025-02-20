@@ -31,13 +31,12 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
   constructor(
     contractDataSource: SimpleContractDataSource,
     merkleTrees: MerkleTreeWriteOperations,
-    skipContractDeployments = false,
     private stateManager: AvmPersistableStateManager,
   ) {
-    super(contractDataSource, merkleTrees, skipContractDeployments);
+    super(contractDataSource, merkleTrees);
   }
 
-  static async create(skipContractDeployments = false): Promise<AvmSimulationTester> {
+  static async create(): Promise<AvmSimulationTester> {
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
     const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
@@ -51,7 +50,7 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
       /*doMerkleOperations=*/ false,
       firstNullifier,
     );
-    return new AvmSimulationTester(contractDataSource, merkleTrees, skipContractDeployments, stateManager);
+    return new AvmSimulationTester(contractDataSource, merkleTrees, stateManager);
   }
 
   /**
