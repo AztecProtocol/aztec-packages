@@ -354,13 +354,24 @@ describe('AztecNodeApiSchema', () => {
     const contractClass = await getContractClassFromArtifact(artifact);
     await context.client.addContractClass({ ...contractClass, unconstrainedFunctions: [], privateFunctions: [] });
   });
+
+  it('getWorldStateSyncStatus', async () => {
+    const response = await context.client.getWorldStateSyncStatus();
+    expect(response).toEqual(await handler.getWorldStateSyncStatus());
+  });
 });
 
 class MockAztecNode implements AztecNode {
   constructor(private artifact: ContractArtifact) {}
 
   getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
-    throw new Error('Method not implemented.');
+    return Promise.resolve({
+      finalisedBlockNumber: 1,
+      latestBlockHash: '0x',
+      latestBlockNumber: 1,
+      oldestHistoricBlockNumber: 1,
+      treesAreSynched: true,
+    });
   }
 
   getL2Tips(): Promise<L2Tips> {
