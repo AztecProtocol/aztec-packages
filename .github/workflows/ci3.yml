@@ -110,7 +110,7 @@ jobs:
           ARCH: ${{ matrix.settings.arch }}
           LOG_ID: ${{ github.run_id }}
         run: |
-          # AWS access keys are used to create the ec2. Enough credentials exist in the AMI to push cache objects.
+          # AWS access keys are used to create the ec2. Enough credentials exist in the AMI only to push cache objects.
           # We take care to not pass any additional secrets here.
           if ${{ github.event_name != 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository }}; then
             export NETLIFY_SITE_ID=${{ secrets.NETLIFY_SITE_ID }}
