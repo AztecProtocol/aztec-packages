@@ -1,5 +1,5 @@
 import { type GlobalVariables } from '@aztec/circuits.js';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
 /**

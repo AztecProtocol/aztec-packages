@@ -39,6 +39,7 @@ import {
   getFunctionArtifact,
   getFunctionArtifactByName,
 } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
   computeNoteHashNonce,
   computeSecretHash,
@@ -57,7 +58,6 @@ import {
   PUBLIC_DISPATCH_SELECTOR,
 } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { times } from '@aztec/foundation/collection';
 import { poseidon2Hash, poseidon2HashWithSeparator, randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
