@@ -1,7 +1,6 @@
 import { BlobPublicInputs, BlockBlobPublicInputs, Poseidon2Sponge, SpongeBlob } from '@aztec/blob-lib';
 import {
   type BaseParityInputs,
-  CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
   type ContractClassLog,
   Fr,
   ParityPublicInputs,
@@ -51,6 +50,7 @@ import {
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   AZTEC_MAX_EPOCH_DURATION,
   BLOBS_PER_BLOCK,
+  CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
   HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type NESTED_RECURSIVE_PROOF_LENGTH,
   type NULLIFIER_TREE_HEIGHT,
