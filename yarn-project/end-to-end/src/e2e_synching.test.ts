@@ -32,25 +32,18 @@
  * blockCount: 10, txCount: 9,  complexity: Spam:            {"numberOfBlocks":17, "syncTime":49.40888188171387}
  */
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { type InitialAccountData, deployFundedSchnorrAccounts } from '@aztec/accounts/testing';
+import { deployFundedSchnorrAccounts } from '@aztec/accounts/testing';
+import type { InitialAccountData } from '@aztec/accounts/testing';
 import { createArchiver } from '@aztec/archiver';
 import { AztecNodeService } from '@aztec/aztec-node';
-import {
-  type AccountWalletWithSecretKey,
-  AnvilTestWatcher,
-  BatchCall,
-  type Contract,
-  Fr,
-  GrumpkinScalar,
-  type Logger,
-  createLogger,
-  sleep,
-} from '@aztec/aztec.js';
+import { AnvilTestWatcher, BatchCall, Fr, GrumpkinScalar, createLogger, sleep } from '@aztec/aztec.js';
+import type { AccountWalletWithSecretKey, Contract, Logger } from '@aztec/aztec.js';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 // eslint-disable-next-line no-restricted-imports
 import { L2Block } from '@aztec/circuit-types';
 import { tryStop } from '@aztec/circuit-types/interfaces/server';
-import { type AztecAddress, EthAddress } from '@aztec/circuits.js';
+import { EthAddress } from '@aztec/circuits.js';
+import type { AztecAddress } from '@aztec/circuits.js';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
   GovernanceProposerContract,
@@ -64,7 +57,7 @@ import { RollupAbi } from '@aztec/l1-artifacts';
 import { SchnorrHardcodedAccountContract } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
 import { SpamContract } from '@aztec/noir-contracts.js/Spam';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { type PXEService } from '@aztec/pxe';
+import type { PXEService } from '@aztec/pxe';
 import { SequencerPublisher } from '@aztec/sequencer-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
@@ -73,13 +66,8 @@ import { getContract } from 'viem';
 
 import { DEFAULT_BLOB_SINK_PORT } from './fixtures/fixtures.js';
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
-import {
-  type EndToEndContext,
-  createForwarderContract,
-  getPrivateKeyFromIndex,
-  setup,
-  setupPXEService,
-} from './fixtures/utils.js';
+import { createForwarderContract, getPrivateKeyFromIndex, setup, setupPXEService } from './fixtures/utils.js';
+import type { EndToEndContext } from './fixtures/utils.js';
 
 const SALT = 420;
 const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;

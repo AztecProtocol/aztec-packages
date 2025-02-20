@@ -1,17 +1,19 @@
-import { type BlockAttestation, type BlockProposal, type L2Block, type Tx, type TxHash } from '@aztec/circuit-types';
-import { type BlockHeader, type GlobalVariables } from '@aztec/circuits.js';
-import { type EpochCache } from '@aztec/epoch-cache';
+import type { BlockAttestation, BlockProposal, L2Block, Tx, TxHash } from '@aztec/circuit-types';
+import type { BlockHeader, GlobalVariables } from '@aztec/circuits.js';
+import type { EpochCache } from '@aztec/epoch-cache';
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { type Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
-import { DateProvider, type Timer } from '@aztec/foundation/timer';
-import { type P2P } from '@aztec/p2p';
+import { DateProvider } from '@aztec/foundation/timer';
+import type { Timer } from '@aztec/foundation/timer';
+import type { P2P } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
-import { type TelemetryClient, WithTracer, getTelemetryClient } from '@aztec/telemetry-client';
+import { WithTracer, getTelemetryClient } from '@aztec/telemetry-client';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 
-import { type ValidatorClientConfig } from './config.js';
+import type { ValidatorClientConfig } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
 import {
   AttestationTimeoutError,
@@ -22,7 +24,7 @@ import {
   ReExTimeoutError,
   TransactionsNotAvailableError,
 } from './errors/validator.error.js';
-import { type ValidatorKeyStore } from './key_store/interface.js';
+import type { ValidatorKeyStore } from './key_store/interface.js';
 import { LocalKeyStore } from './key_store/local_key_store.js';
 import { ValidatorMetrics } from './metrics.js';
 

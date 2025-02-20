@@ -1,4 +1,5 @@
-import { ReqRespSubProtocol, type ReqRespSubProtocolRateLimits } from '../interface.js';
+import { ReqRespSubProtocol } from '../interface.js';
+import type { ReqRespSubProtocolRateLimits } from '../interface.js';
 
 // TODO(md): these defaults need to be tuned
 export const DEFAULT_RATE_LIMITS: ReqRespSubProtocolRateLimits = {

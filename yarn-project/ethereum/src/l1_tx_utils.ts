@@ -1,36 +1,28 @@
 import { compactArray, times } from '@aztec/foundation/collection';
-import {
-  type ConfigMappingsType,
-  bigintConfigHelper,
-  getDefaultConfig,
-  numberConfigHelper,
-} from '@aztec/foundation/config';
-import { type Logger } from '@aztec/foundation/log';
+import { bigintConfigHelper, getDefaultConfig, numberConfigHelper } from '@aztec/foundation/config';
+import type { ConfigMappingsType } from '@aztec/foundation/config';
+import type { Logger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 
-import {
-  type Abi,
-  type Account,
-  type Address,
-  type BaseError,
-  type BlockOverrides,
-  type Chain,
-  type ContractFunctionExecutionError,
-  type GetTransactionReturnType,
-  type Hex,
-  type HttpTransport,
-  MethodNotFoundRpcError,
-  MethodNotSupportedRpcError,
-  type StateOverride,
-  type TransactionReceipt,
-  type WalletClient,
-  formatGwei,
-  getContractError,
-  hexToBytes,
+import { MethodNotFoundRpcError, MethodNotSupportedRpcError, formatGwei, getContractError, hexToBytes } from 'viem';
+import type {
+  Abi,
+  Account,
+  Address,
+  BaseError,
+  BlockOverrides,
+  Chain,
+  ContractFunctionExecutionError,
+  GetTransactionReturnType,
+  Hex,
+  HttpTransport,
+  StateOverride,
+  TransactionReceipt,
+  WalletClient,
 } from 'viem';
 
-import { type L1Clients } from './types.js';
+import type { L1Clients } from './types.js';
 import { formatViemError } from './utils.js';
 
 // 1_000_000_000 Gwei = 1 ETH

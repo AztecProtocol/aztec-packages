@@ -3,18 +3,17 @@ import {
   L1NotePayload,
   L2Block,
   Note,
-  type TxEffect,
   TxHash,
   TxScopedL2Log,
   randomInBlock,
   wrapInBlock,
 } from '@aztec/circuit-types';
-import { type AztecNode } from '@aztec/circuit-types/interfaces/client';
+import type { TxEffect } from '@aztec/circuit-types';
+import type { AztecNode } from '@aztec/circuit-types/interfaces/client';
 import { randomContractArtifact, randomContractInstanceWithAddress } from '@aztec/circuit-types/testing';
 import {
   AztecAddress,
   CompleteAddress,
-  type Fq,
   Fr,
   GrumpkinScalar,
   IndexedTaggingSecret,
@@ -23,18 +22,22 @@ import {
   computeTaggingSecretPoint,
   deriveKeys,
 } from '@aztec/circuits.js';
-import { type FunctionArtifact, FunctionSelector, FunctionType } from '@aztec/circuits.js/abi';
+import type { Fq } from '@aztec/circuits.js';
+import { FunctionSelector, FunctionType } from '@aztec/circuits.js/abi';
+import type { FunctionArtifact } from '@aztec/circuits.js/abi';
 import { INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX, PUBLIC_LOG_DATA_SIZE_IN_FIELDS } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { pedersenHash, poseidon2Hash } from '@aztec/foundation/crypto';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { type AcirSimulator, type SimulationProvider, WASMSimulator } from '@aztec/simulator/client';
+import { WASMSimulator } from '@aztec/simulator/client';
+import type { AcirSimulator, SimulationProvider } from '@aztec/simulator/client';
 
 import { jest } from '@jest/globals';
-import { type MockProxy, mock } from 'jest-mock-extended';
+import { mock } from 'jest-mock-extended';
+import type { MockProxy } from 'jest-mock-extended';
 
-import { type PxeDatabase } from '../database/index.js';
+import type { PxeDatabase } from '../database/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
 import { ContractDataOracle } from '../index.js';
 import { SimulatorOracle } from './index.js';

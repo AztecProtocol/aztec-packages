@@ -1,9 +1,5 @@
-import {
-  type ProofUri,
-  type ProvingJobId,
-  ProvingRequestType,
-  makeProvingJobId,
-} from '@aztec/circuit-types/interfaces/server';
+import { ProvingRequestType, makeProvingJobId } from '@aztec/circuit-types/interfaces/server';
+import type { ProofUri, ProvingJobId } from '@aztec/circuit-types/interfaces/server';
 import { randomBytes } from '@aztec/foundation/crypto';
 
 export function makeRandomProvingJobId(epochNumber?: number): ProvingJobId {

@@ -1,10 +1,11 @@
-import { type AztecNodeConfig, aztecNodeConfigMappings } from '@aztec/aztec-node';
+import { aztecNodeConfigMappings } from '@aztec/aztec-node';
+import type { AztecNodeConfig } from '@aztec/aztec-node';
 import { createLogger } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/circuits.js';
 import { startAnvil } from '@aztec/ethereum/test';
 import { getDefaultConfig } from '@aztec/foundation/config';
 
-import { type Anvil } from '@viem/anvil';
+import type { Anvil } from '@viem/anvil';
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { DefaultMnemonic } from '../mnemonic.js';

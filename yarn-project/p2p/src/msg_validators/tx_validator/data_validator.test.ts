@@ -1,4 +1,4 @@
-import { type Tx } from '@aztec/circuit-types';
+import type { Tx } from '@aztec/circuit-types';
 import { mockTx } from '@aztec/circuit-types/testing';
 import { AztecAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
 import { timesParallel } from '@aztec/foundation/collection';

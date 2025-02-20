@@ -1,17 +1,14 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
 import { createAztecNodeClient } from '@aztec/circuit-types/interfaces/client';
-import { P2PApiSchema, ProverNodeApiSchema, type ProvingJobBroker } from '@aztec/circuit-types/interfaces/server';
+import { P2PApiSchema, ProverNodeApiSchema } from '@aztec/circuit-types/interfaces/server';
+import type { ProvingJobBroker } from '@aztec/circuit-types/interfaces/server';
 import { NULL_KEY } from '@aztec/ethereum';
-import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
+import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
-import { type LogFn } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
 import { ProvingJobConsumerSchema, createProvingJobBrokerClient } from '@aztec/prover-client/broker';
-import {
-  type ProverNodeConfig,
-  createProverNode,
-  getProverNodeConfigFromEnv,
-  proverNodeConfigMappings,
-} from '@aztec/prover-node';
+import { createProverNode, getProverNodeConfigFromEnv, proverNodeConfigMappings } from '@aztec/prover-node';
+import type { ProverNodeConfig } from '@aztec/prover-node';
 import { initTelemetryClient, makeTracedFetch, telemetryClientConfigMappings } from '@aztec/telemetry-client';
 import { getGenesisValues } from '@aztec/world-state/testing';
 

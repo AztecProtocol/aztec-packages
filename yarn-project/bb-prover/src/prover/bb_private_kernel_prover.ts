@@ -1,15 +1,15 @@
-import { type PrivateKernelProver, type PrivateKernelSimulateOutput } from '@aztec/circuit-types/interfaces/client';
-import { type CircuitSimulationStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
-import { type ClientIvcProof } from '@aztec/circuits.js';
-import {
-  type PrivateKernelCircuitPublicInputs,
-  type PrivateKernelInitCircuitPrivateInputs,
-  type PrivateKernelInnerCircuitPrivateInputs,
-  type PrivateKernelResetCircuitPrivateInputs,
-  type PrivateKernelTailCircuitPrivateInputs,
-  type PrivateKernelTailCircuitPublicInputs,
+import type { PrivateKernelProver, PrivateKernelSimulateOutput } from '@aztec/circuit-types/interfaces/client';
+import type { CircuitSimulationStats, CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
+import type { ClientIvcProof } from '@aztec/circuits.js';
+import type {
+  PrivateKernelCircuitPublicInputs,
+  PrivateKernelInitCircuitPrivateInputs,
+  PrivateKernelInnerCircuitPrivateInputs,
+  PrivateKernelResetCircuitPrivateInputs,
+  PrivateKernelTailCircuitPrivateInputs,
+  PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/circuits.js/kernel';
-import { type NoirCompiledCircuit } from '@aztec/circuits.js/noir';
+import type { NoirCompiledCircuit } from '@aztec/circuits.js/noir';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
@@ -26,11 +26,11 @@ import {
   getPrivateKernelResetArtifactName,
   updateResetCircuitSampleInputs,
 } from '@aztec/noir-protocol-circuits-types/client';
-import { type ArtifactProvider, type ClientProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
+import type { ArtifactProvider, ClientProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
 import { ClientCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
-import { type SimulationProvider } from '@aztec/simulator/client';
+import type { SimulationProvider } from '@aztec/simulator/client';
 
-import { type Abi, type WitnessMap } from '@noir-lang/types';
+import type { Abi, WitnessMap } from '@noir-lang/types';
 
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 

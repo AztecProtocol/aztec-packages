@@ -3,8 +3,8 @@ import { Fr } from '@aztec/foundation/fields';
 
 import type { AztecAddress } from '../../aztec-address/index.js';
 import { deriveStorageSlotInMap } from '../../hash/map_slot.js';
-import { ScheduledDelayChange } from './scheduled_delay_change.js';
-import { ScheduledValueChange } from './scheduled_value_change.js';
+import type { ScheduledDelayChange } from './scheduled_delay_change.js';
+import type { ScheduledValueChange } from './scheduled_value_change.js';
 import { SHARED_MUTABLE_VALUES_LEN, SharedMutableValues } from './shared_mutable_values.js';
 
 export class SharedMutableValuesWithHash {

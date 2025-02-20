@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
 import { Fr, Point, fromBuffer } from '@aztec/foundation/fields';
 import { hexSchemaFor } from '@aztec/foundation/schemas';
-import { type BufferReader, FieldReader, TypeRegistry } from '@aztec/foundation/serialize';
+import { FieldReader, TypeRegistry } from '@aztec/foundation/serialize';
+import type { BufferReader } from '@aztec/foundation/serialize';
 import { hexToBuffer } from '@aztec/foundation/string';
 
 import { inspect } from 'util';

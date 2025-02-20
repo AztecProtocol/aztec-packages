@@ -1,18 +1,13 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { SlashingProposerAbi } from '@aztec/l1-artifacts';
 
-import {
-  type Chain,
-  type GetContractReturnType,
-  type Hex,
-  type HttpTransport,
-  type PublicClient,
-  getContract,
-} from 'viem';
+import { getContract } from 'viem';
+import type { Chain, GetContractReturnType, Hex, HttpTransport, PublicClient } from 'viem';
 
 import type { L1TxRequest } from '../l1_tx_utils.js';
 import type { L1Clients } from '../types.js';
-import { type IEmpireBase, encodeVote } from './empire_base.js';
+import { encodeVote } from './empire_base.js';
+import type { IEmpireBase } from './empire_base.js';
 
 export class SlashingProposerContract implements IEmpireBase {
   private readonly proposer: GetContractReturnType<typeof SlashingProposerAbi, PublicClient<HttpTransport, Chain>>;

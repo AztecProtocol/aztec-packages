@@ -1,10 +1,13 @@
-import { type AztecNode, type PXE, createAztecNodeClient, createLogger } from '@aztec/aztec.js';
+import { createAztecNodeClient, createLogger } from '@aztec/aztec.js';
+import type { AztecNode, PXE } from '@aztec/aztec.js';
 import { RunningPromise } from '@aztec/foundation/running-promise';
-import { type TelemetryClient, type Traceable, type Tracer, makeTracedFetch, trackSpan } from '@aztec/telemetry-client';
+import { makeTracedFetch, trackSpan } from '@aztec/telemetry-client';
+import type { TelemetryClient, Traceable, Tracer } from '@aztec/telemetry-client';
 
 import { Bot } from './bot.js';
-import { type BotConfig, getVersions } from './config.js';
-import { type BotRunnerApi } from './interface.js';
+import { getVersions } from './config.js';
+import type { BotConfig } from './config.js';
+import type { BotRunnerApi } from './interface.js';
 
 export class BotRunner implements BotRunnerApi, Traceable {
   private log = createLogger('bot');

@@ -1,13 +1,8 @@
-import { type L2BlockSource } from '@aztec/circuit-types';
+import type { L2BlockSource } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
-import {
-  type TelemetryClient,
-  type Traceable,
-  type Tracer,
-  getTelemetryClient,
-  trackSpan,
-} from '@aztec/telemetry-client';
+import { getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
+import type { TelemetryClient, Traceable, Tracer } from '@aztec/telemetry-client';
 
 export interface EpochMonitorHandler {
   handleEpochCompleted(epochNumber: bigint): Promise<void>;

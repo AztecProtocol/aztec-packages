@@ -1,25 +1,21 @@
 import { createEthereumChain } from '@aztec/ethereum';
-import { type EthAddress } from '@aztec/foundation/eth-address';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { TestERC20Abi } from '@aztec/l1-artifacts';
 
-import {
-  type Account,
-  type Chain,
-  type GetContractReturnType,
-  type HttpTransport,
-  type LocalAccount,
-  type PublicClient,
-  http as ViemHttp,
-  type WalletClient,
-  createPublicClient,
-  createWalletClient,
-  getContract,
-  parseEther,
+import { http as ViemHttp, createPublicClient, createWalletClient, getContract, parseEther } from 'viem';
+import type {
+  Account,
+  Chain,
+  GetContractReturnType,
+  HttpTransport,
+  LocalAccount,
+  PublicClient,
+  WalletClient,
 } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
-import { type FaucetConfig, type L1AssetConfig } from './config.js';
+import type { FaucetConfig, L1AssetConfig } from './config.js';
 
 type L1Asset = {
   contract: GetContractReturnType<typeof TestERC20Abi, WalletClient<HttpTransport, Chain, Account>>;

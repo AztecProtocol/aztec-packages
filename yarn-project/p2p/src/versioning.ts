@@ -1,15 +1,15 @@
 import {
-  type ComponentsVersions,
   checkCompressedComponentVersion,
   compressComponentVersions,
   getComponentsVersionsFromConfig,
 } from '@aztec/circuit-types';
-import { type ChainConfig } from '@aztec/circuit-types/config';
+import type { ComponentsVersions } from '@aztec/circuit-types';
+import type { ChainConfig } from '@aztec/circuit-types/config';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
-import { type SignableENR } from '@chainsafe/enr';
+import type { SignableENR } from '@chainsafe/enr';
 import xxhashFactory from 'xxhash-wasm';
 
 import { AZTEC_ENR_KEY } from './services/types.js';

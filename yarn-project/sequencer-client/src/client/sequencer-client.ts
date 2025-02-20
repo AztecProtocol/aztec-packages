@@ -1,7 +1,7 @@
-import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
-import { type L1ToL2MessageSource, type L2BlockSource } from '@aztec/circuit-types';
-import { type WorldStateSynchronizer } from '@aztec/circuit-types/interfaces/server';
-import { type AztecAddress, type ContractDataSource } from '@aztec/circuits.js';
+import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
+import type { L1ToL2MessageSource, L2BlockSource } from '@aztec/circuit-types';
+import type { WorldStateSynchronizer } from '@aztec/circuit-types/interfaces/server';
+import type { AztecAddress, ContractDataSource } from '@aztec/circuits.js';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
   ForwarderContract,
@@ -15,18 +15,19 @@ import {
 import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
-import { type DateProvider } from '@aztec/foundation/timer';
-import { type P2P } from '@aztec/p2p';
+import type { DateProvider } from '@aztec/foundation/timer';
+import type { P2P } from '@aztec/p2p';
 import { LightweightBlockBuilderFactory } from '@aztec/prover-client/block-builder';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
-import { type TelemetryClient } from '@aztec/telemetry-client';
-import { type ValidatorClient } from '@aztec/validator-client';
+import type { TelemetryClient } from '@aztec/telemetry-client';
+import type { ValidatorClient } from '@aztec/validator-client';
 
-import { type SequencerClientConfig } from '../config.js';
+import type { SequencerClientConfig } from '../config.js';
 import { GlobalVariableBuilder } from '../global_variable_builder/index.js';
 import { SequencerPublisher } from '../publisher/index.js';
-import { Sequencer, type SequencerConfig } from '../sequencer/index.js';
-import { type SlasherClient } from '../slasher/index.js';
+import { Sequencer } from '../sequencer/index.js';
+import type { SequencerConfig } from '../sequencer/index.js';
+import type { SlasherClient } from '../slasher/index.js';
 
 /**
  * Encapsulates the full sequencer and publisher.

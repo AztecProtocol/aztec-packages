@@ -8,7 +8,8 @@ import {
   MAX_PRIVATE_LOGS_PER_TX,
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
-import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import type { Tuple } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';

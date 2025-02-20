@@ -1,9 +1,5 @@
-import {
-  type L1ContractsConfig,
-  type L1ReaderConfig,
-  getL1ContractsConfigEnvVars,
-  getL1ReaderConfigFromEnv,
-} from '@aztec/ethereum';
+import { getL1ContractsConfigEnvVars, getL1ReaderConfigFromEnv } from '@aztec/ethereum';
+import type { L1ContractsConfig, L1ReaderConfig } from '@aztec/ethereum';
 
 export type EpochCacheConfig = Pick<
   L1ReaderConfig & L1ContractsConfig,

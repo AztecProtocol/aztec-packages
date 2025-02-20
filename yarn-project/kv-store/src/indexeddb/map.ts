@@ -1,8 +1,8 @@
-import { type IDBPDatabase, type IDBPObjectStore } from 'idb';
+import type { IDBPDatabase, IDBPObjectStore } from 'idb';
 
-import { type Key, type Range } from '../interfaces/common.js';
-import { type AztecAsyncMultiMap } from '../interfaces/map.js';
-import { type AztecIDBSchema } from './store.js';
+import type { Key, Range } from '../interfaces/common.js';
+import type { AztecAsyncMultiMap } from '../interfaces/map.js';
+import type { AztecIDBSchema } from './store.js';
 
 /**
  * A map backed by IndexedDB.

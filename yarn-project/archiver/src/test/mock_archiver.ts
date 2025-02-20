@@ -1,5 +1,5 @@
-import { type L1ToL2MessageSource, type L2Block, type L2BlockSource } from '@aztec/circuit-types';
-import { type Fr } from '@aztec/circuits.js';
+import type { L1ToL2MessageSource, L2Block, L2BlockSource } from '@aztec/circuit-types';
+import type { Fr } from '@aztec/circuits.js';
 
 import { MockL1ToL2MessageSource } from './mock_l1_to_l2_message_source.js';
 import { MockL2BlockSource } from './mock_l2_block_source.js';

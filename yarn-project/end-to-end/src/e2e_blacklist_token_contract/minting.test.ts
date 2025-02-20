@@ -1,4 +1,5 @@
-import { Fr, type TxHash, computeSecretHash } from '@aztec/aztec.js';
+import { Fr, computeSecretHash } from '@aztec/aztec.js';
+import type { TxHash } from '@aztec/aztec.js';
 
 import { BITSIZE_TOO_BIG_ERROR, U128_OVERFLOW_ERROR } from '../fixtures/index.js';
 import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';

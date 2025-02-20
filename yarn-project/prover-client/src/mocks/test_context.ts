@@ -1,13 +1,15 @@
-import { type BBProverConfig } from '@aztec/bb-prover';
-import { type L2Block, type ProcessedTx, type Tx } from '@aztec/circuit-types';
-import { type ServerCircuitProver } from '@aztec/circuit-types/interfaces/server';
+import type { BBProverConfig } from '@aztec/bb-prover';
+import type { L2Block, ProcessedTx, Tx } from '@aztec/circuit-types';
+import type { ServerCircuitProver } from '@aztec/circuit-types/interfaces/server';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/testing';
-import { type BlockHeader, type GlobalVariables, PublicDataWrite, TreeSnapshots } from '@aztec/circuits.js';
+import { PublicDataWrite, TreeSnapshots } from '@aztec/circuits.js';
+import type { BlockHeader, GlobalVariables } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { type AppendOnlyTreeSnapshot, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
+import { PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
+import type { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
-import { type Logger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
@@ -19,7 +21,7 @@ import {
   SimpleContractDataSource,
   WorldStateDB,
 } from '@aztec/simulator/server';
-import { type MerkleTreeAdminDatabase } from '@aztec/world-state';
+import type { MerkleTreeAdminDatabase } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import { promises as fs } from 'fs';

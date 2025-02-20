@@ -1,8 +1,9 @@
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, numToUInt8, serializeToBuffer } from '@aztec/foundation/serialize';
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { FieldsOf } from '@aztec/foundation/types';
 
-import { type ContractArtifact, type FunctionArtifact, FunctionSelector, getDefaultInitializer } from '../abi/index.js';
+import { FunctionSelector, getDefaultInitializer } from '../abi/index.js';
+import type { ContractArtifact, FunctionArtifact } from '../abi/index.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
 import { PublicKeys } from '../types/public_keys.js';
@@ -11,7 +12,7 @@ import {
   computeInitializationHash,
   computeInitializationHashFromEncodedArgs,
 } from './contract_address.js';
-import { type ContractInstance, type ContractInstanceWithAddress } from './interfaces/contract_instance.js';
+import type { ContractInstance, ContractInstanceWithAddress } from './interfaces/contract_instance.js';
 
 const VERSION = 1 as const;
 

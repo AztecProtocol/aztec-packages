@@ -1,14 +1,10 @@
-import { type EventLoopUtilization, type IntervalHistogram, monitorEventLoopDelay, performance } from 'node:perf_hooks';
+import { monitorEventLoopDelay, performance } from 'node:perf_hooks';
+import type { EventLoopUtilization, IntervalHistogram } from 'node:perf_hooks';
 
 import * as Attributes from './attributes.js';
 import * as Metrics from './metrics.js';
-import {
-  type BatchObservableResult,
-  type Meter,
-  type ObservableGauge,
-  type UpDownCounter,
-  ValueType,
-} from './telemetry.js';
+import { ValueType } from './telemetry.js';
+import type { BatchObservableResult, Meter, ObservableGauge, UpDownCounter } from './telemetry.js';
 
 /**
  * Detector for custom Aztec attributes

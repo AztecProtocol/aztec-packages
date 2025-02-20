@@ -1,4 +1,4 @@
-import { type AnyTx, type Tx } from '@aztec/circuit-types';
+import type { AnyTx, Tx } from '@aztec/circuit-types';
 import { mockTx, mockTxForRollup } from '@aztec/circuit-types/testing';
 import { Fr, MaxBlockNumber } from '@aztec/circuits.js';
 

@@ -3,22 +3,15 @@ import {
   CountedPublicCallRequest,
   Fr,
   FunctionData,
-  type KeyValidationHint,
   KeyValidationRequest,
   KeyValidationRequestAndGenerator,
   LogHash,
   NoteHash,
-  type NoteHashReadRequestHints,
   Nullifier,
-  type NullifierReadRequestHints,
-  type PendingReadHint,
   PrivateCallRequest,
-  type PrivateCircuitPublicInputs,
   PrivateLogData,
   PrivateValidationRequests,
-  type PublicKeys,
   ReadRequest,
-  type ReadRequestStatus,
   RollupValidationRequests,
   ScopedKeyValidationRequestAndGenerator,
   ScopedLogHash,
@@ -26,24 +19,35 @@ import {
   ScopedNullifier,
   ScopedPrivateLogData,
   ScopedReadRequest,
-  type SettledReadHint,
-  type TxRequest,
+} from '@aztec/circuits.js';
+import type {
+  KeyValidationHint,
+  NoteHashReadRequestHints,
+  NullifierReadRequestHints,
+  PendingReadHint,
+  PrivateCircuitPublicInputs,
+  PublicKeys,
+  ReadRequestStatus,
+  SettledReadHint,
+  TxRequest,
 } from '@aztec/circuits.js';
 import {
   PartialPrivateTailPublicInputsForPublic,
   PartialPrivateTailPublicInputsForRollup,
   PrivateAccumulatedData,
-  type PrivateCallData,
   PrivateKernelCircuitPublicInputs,
-  type PrivateKernelData,
-  type PrivateKernelResetHints,
   PrivateKernelTailCircuitPublicInputs,
   PrivateToPublicAccumulatedData,
-  type PrivateVerificationKeyHints,
-  type TransientDataIndexHint,
   TxConstantData,
 } from '@aztec/circuits.js/kernel';
-import { type NullifierLeafPreimage } from '@aztec/circuits.js/trees';
+import type {
+  PrivateCallData,
+  PrivateKernelData,
+  PrivateKernelResetHints,
+  PrivateVerificationKeyHints,
+  TransientDataIndexHint,
+} from '@aztec/circuits.js/kernel';
+import type { NullifierLeafPreimage } from '@aztec/circuits.js/trees';
 import {
   CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
@@ -56,10 +60,9 @@ import {
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
-  type NOTE_HASH_TREE_HEIGHT,
-  type NULLIFIER_TREE_HEIGHT,
   UPDATES_SHARED_MUTABLE_VALUES_LEN,
 } from '@aztec/constants';
+import type { NOTE_HASH_TREE_HEIGHT, NULLIFIER_TREE_HEIGHT } from '@aztec/constants';
 import { assertLength, mapTuple } from '@aztec/foundation/serialize';
 
 import type {

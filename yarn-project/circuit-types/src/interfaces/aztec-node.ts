@@ -1,18 +1,21 @@
 import {
   BlockHeader,
-  type ContractClassPublic,
   ContractClassPublicSchema,
-  type ContractInstanceWithAddress,
   ContractInstanceWithAddressSchema,
   GasFees,
-  type NodeInfo,
   NodeInfoSchema,
   PrivateLog,
-  type ProtocolContractAddresses,
   ProtocolContractAddressesSchema,
 } from '@aztec/circuits.js';
+import type {
+  ContractClassPublic,
+  ContractInstanceWithAddress,
+  NodeInfo,
+  ProtocolContractAddresses,
+} from '@aztec/circuits.js';
 import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { type ApiSchemaFor, optional, schemas } from '@aztec/circuits.js/schemas';
+import { optional, schemas } from '@aztec/circuits.js/schemas';
+import type { ApiSchemaFor } from '@aztec/circuits.js/schemas';
 import {
   ARCHIVE_HEIGHT,
   L1_TO_L2_MSG_TREE_HEIGHT,
@@ -20,42 +23,41 @@ import {
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
-import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum/l1-contract-addresses';
+import { L1ContractAddressesSchema } from '@aztec/ethereum/l1-contract-addresses';
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { Fr } from '@aztec/foundation/fields';
 import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
 
 import { z } from 'zod';
 
-import { type InBlock, inBlockSchemaFor } from '../in_block.js';
+import { inBlockSchemaFor } from '../in_block.js';
+import type { InBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
-import { type L2BlockSource, type L2Tips, L2TipsSchema } from '../l2_block_source.js';
+import { L2TipsSchema } from '../l2_block_source.js';
+import type { L2BlockSource, L2Tips } from '../l2_block_source.js';
 import {
-  type GetContractClassLogsResponse,
   GetContractClassLogsResponseSchema,
-  type GetPublicLogsResponse,
   GetPublicLogsResponseSchema,
-  type LogFilter,
   LogFilterSchema,
   TxScopedL2Log,
 } from '../logs/index.js';
+import type { GetContractClassLogsResponse, GetPublicLogsResponse, LogFilter } from '../logs/index.js';
 import { MerkleTreeId } from '../merkle_tree_id.js';
 import { PublicDataWitness } from '../public_data_witness.js';
 import { SiblingPath } from '../sibling_path/index.js';
-import {
-  PublicSimulationOutput,
-  Tx,
-  TxHash,
-  TxReceipt,
-  type TxValidationResult,
-  TxValidationResultSchema,
-} from '../tx/index.js';
+import { PublicSimulationOutput, Tx, TxHash, TxReceipt, TxValidationResultSchema } from '../tx/index.js';
+import type { TxValidationResult } from '../tx/index.js';
 import { TxEffect } from '../tx_effect.js';
-import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning.js';
-import { type SequencerConfig, SequencerConfigSchema } from './configs.js';
-import { type L2BlockNumber, L2BlockNumberSchema } from './l2_block_number.js';
+import { getVersioningResponseHandler } from '../versioning.js';
+import type { ComponentsVersions } from '../versioning.js';
+import { SequencerConfigSchema } from './configs.js';
+import type { SequencerConfig } from './configs.js';
+import { L2BlockNumberSchema } from './l2_block_number.js';
+import type { L2BlockNumber } from './l2_block_number.js';
 import { NullifierMembershipWitness } from './nullifier_membership_witness.js';
-import { type ProverConfig, ProverConfigSchema } from './prover-client.js';
-import { type ProverCoordination } from './prover-coordination.js';
+import { ProverConfigSchema } from './prover-client.js';
+import type { ProverConfig } from './prover-client.js';
+import type { ProverCoordination } from './prover-coordination.js';
 
 /**
  * The aztec node.

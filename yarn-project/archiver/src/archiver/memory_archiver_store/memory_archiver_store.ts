@@ -1,35 +1,37 @@
 import {
-  type ContractClass2BlockL2Logs,
   ExtendedPublicLog,
   ExtendedUnencryptedL2Log,
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  type InBlock,
-  type InboxLeaf,
-  type L2Block,
   L2BlockHash,
-  type LogFilter,
   LogId,
-  type TxEffect,
-  type TxHash,
   TxReceipt,
   TxScopedL2Log,
   wrapInBlock,
 } from '@aztec/circuit-types';
-import {
-  type BlockHeader,
-  type ContractClassPublic,
-  type ContractClassPublicWithBlockNumber,
-  type ContractInstanceUpdateWithAddress,
-  type ContractInstanceWithAddress,
-  type ExecutablePrivateFunctionWithMembershipProof,
-  Fr,
-  type PrivateLog,
-  type PublicLog,
-  type UnconstrainedFunctionWithMembershipProof,
+import type {
+  ContractClass2BlockL2Logs,
+  GetContractClassLogsResponse,
+  GetPublicLogsResponse,
+  InBlock,
+  InboxLeaf,
+  L2Block,
+  LogFilter,
+  TxEffect,
+  TxHash,
+} from '@aztec/circuit-types';
+import { Fr } from '@aztec/circuits.js';
+import type {
+  BlockHeader,
+  ContractClassPublic,
+  ContractClassPublicWithBlockNumber,
+  ContractInstanceUpdateWithAddress,
+  ContractInstanceWithAddress,
+  ExecutablePrivateFunctionWithMembershipProof,
+  PrivateLog,
+  PublicLog,
+  UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
 import { FunctionSelector } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
   INITIAL_L2_BLOCK_NUM,
   MAX_NOTE_HASHES_PER_TX,
@@ -38,9 +40,9 @@ import {
 } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 
-import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
-import { type DataRetrieval } from '../structs/data_retrieval.js';
-import { type L1Published } from '../structs/published.js';
+import type { ArchiverDataStore, ArchiverL1SynchPoint } from '../archiver_store.js';
+import type { DataRetrieval } from '../structs/data_retrieval.js';
+import type { L1Published } from '../structs/published.js';
 import { L1ToL2MessageStore } from './l1_to_l2_message_store.js';
 
 type StoredContractInstanceUpdate = ContractInstanceUpdateWithAddress & { blockNumber: number; logIndex: number };

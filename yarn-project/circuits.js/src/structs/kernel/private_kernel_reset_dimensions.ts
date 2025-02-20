@@ -1,5 +1,5 @@
 import { serializeToBuffer } from '@aztec/foundation/serialize';
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { FieldsOf } from '@aztec/foundation/types';
 
 export class PrivateKernelResetDimensions {
   constructor(

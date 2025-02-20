@@ -1,9 +1,5 @@
 import {
-  type ABIParameter,
-  type ABIVariable,
-  type ContractArtifact,
   EventSelector,
-  type FunctionArtifact,
   decodeFunctionSignature,
   getDefaultInitializer,
   isAztecAddressStruct,
@@ -12,6 +8,7 @@ import {
   isU128Struct,
   isWrappedFieldStruct,
 } from '@aztec/circuits.js/abi';
+import type { ABIParameter, ABIVariable, ContractArtifact, FunctionArtifact } from '@aztec/circuits.js/abi';
 
 /**
  * Returns the corresponding typescript type for a given Noir type.

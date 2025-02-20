@@ -1,6 +1,8 @@
-import { type FunctionCall, Note, type TxScopedL2Log } from '@aztec/circuit-types';
-import { type AztecNode } from '@aztec/circuit-types/interfaces/client';
-import { BlockHeader, CompleteAddress, type ContractInstance } from '@aztec/circuits.js';
+import { Note } from '@aztec/circuit-types';
+import type { FunctionCall, TxScopedL2Log } from '@aztec/circuit-types';
+import type { AztecNode } from '@aztec/circuit-types/interfaces/client';
+import { BlockHeader, CompleteAddress } from '@aztec/circuits.js';
+import type { ContractInstance } from '@aztec/circuits.js';
 import { FunctionSelector, FunctionType, encodeArguments } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -9,7 +11,7 @@ import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulT
 import { mock } from 'jest-mock-extended';
 
 import { WASMSimulator } from '../providers/acvm_wasm.js';
-import { type DBOracle } from './db_oracle.js';
+import type { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
 
 describe('Unconstrained Execution test suite', () => {

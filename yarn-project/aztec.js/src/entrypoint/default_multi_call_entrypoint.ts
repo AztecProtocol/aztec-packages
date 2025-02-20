@@ -1,9 +1,12 @@
 import { HashedValues, TxExecutionRequest } from '@aztec/circuit-types';
-import { type AztecAddress, TxContext } from '@aztec/circuits.js';
-import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/circuits.js/abi';
+import { TxContext } from '@aztec/circuits.js';
+import type { AztecAddress } from '@aztec/circuits.js';
+import { FunctionSelector, encodeArguments } from '@aztec/circuits.js/abi';
+import type { FunctionAbi } from '@aztec/circuits.js/abi';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
-import { type EntrypointInterface, EntrypointPayload, type ExecutionRequestInit } from './entrypoint.js';
+import { EntrypointPayload } from './entrypoint.js';
+import type { EntrypointInterface, ExecutionRequestInit } from './entrypoint.js';
 
 /**
  * Implementation for an entrypoint interface that can execute multiple function calls in a single transaction

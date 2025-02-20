@@ -1,6 +1,6 @@
-import { type Fr } from '@aztec/circuits.js';
+import type { Fr } from '@aztec/circuits.js';
 import { timesParallel } from '@aztec/foundation/collection';
-import { type ZodFor } from '@aztec/foundation/schemas';
+import type { ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';

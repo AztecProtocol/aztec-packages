@@ -1,25 +1,23 @@
-import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
+import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { getComponentsVersionsFromConfig } from '@aztec/circuit-types';
-import { type ArchiverApi, type Service } from '@aztec/circuit-types/interfaces/server';
-import {
-  type ContractClassPublic,
-  computePublicBytecodeCommitment,
-  getContractClassFromArtifact,
-} from '@aztec/circuits.js';
+import type { ArchiverApi, Service } from '@aztec/circuit-types/interfaces/server';
+import { computePublicBytecodeCommitment, getContractClassFromArtifact } from '@aztec/circuits.js';
+import type { ContractClassPublic } from '@aztec/circuits.js';
 import { FunctionType, decodeFunctionSignature } from '@aztec/circuits.js/abi';
 import { createLogger } from '@aztec/foundation/log';
-import { type Maybe } from '@aztec/foundation/types';
-import { type DataStoreConfig } from '@aztec/kv-store/config';
+import type { Maybe } from '@aztec/foundation/types';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContractArtifact } from '@aztec/noir-contracts.js/TokenBridge';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractNames, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
-import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
+import { getTelemetryClient } from '@aztec/telemetry-client';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import { Archiver } from './archiver/archiver.js';
-import { type ArchiverConfig } from './archiver/config.js';
+import type { ArchiverConfig } from './archiver/config.js';
 import { KVArchiverDataStore } from './archiver/index.js';
 import { createArchiverClient } from './rpc/index.js';
 

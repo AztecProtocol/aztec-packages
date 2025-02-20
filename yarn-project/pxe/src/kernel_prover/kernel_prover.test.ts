@@ -3,18 +3,18 @@ import {
   NoteAndSlot,
   PrivateCallExecutionResult,
   PrivateExecutionResult,
-  type PrivateKernelProver,
 } from '@aztec/circuit-types/interfaces/client';
+import type { PrivateKernelProver } from '@aztec/circuit-types/interfaces/client';
 import {
   FunctionSelector,
   NoteHash,
   PrivateCircuitPublicInputs,
   PublicKeys,
   ScopedNoteHash,
-  type TxRequest,
   VerificationKey,
   VerificationKeyAsFields,
 } from '@aztec/circuits.js';
+import type { TxRequest } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { PrivateKernelCircuitPublicInputs, PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
@@ -32,7 +32,7 @@ import { MembershipWitness } from '@aztec/foundation/trees';
 import { mock } from 'jest-mock-extended';
 
 import { KernelProver } from './kernel_prover.js';
-import { type ProvingDataOracle } from './proving_data_oracle.js';
+import type { ProvingDataOracle } from './proving_data_oracle.js';
 
 describe('Kernel Prover', () => {
   let txRequest: TxRequest;

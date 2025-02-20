@@ -1,13 +1,11 @@
-import { type BlobSinkConfig, blobSinkConfigMapping } from '@aztec/blob-sink/client';
-import { type ChainConfig, chainConfigMappings } from '@aztec/circuit-types/config';
-import {
-  type L1ContractAddresses,
-  type L1ContractsConfig,
-  type L1ReaderConfig,
-  l1ContractsConfigMappings,
-  l1ReaderConfigMappings,
-} from '@aztec/ethereum';
-import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
+import { blobSinkConfigMapping } from '@aztec/blob-sink/client';
+import type { BlobSinkConfig } from '@aztec/blob-sink/client';
+import { chainConfigMappings } from '@aztec/circuit-types/config';
+import type { ChainConfig } from '@aztec/circuit-types/config';
+import { l1ContractsConfigMappings, l1ReaderConfigMappings } from '@aztec/ethereum';
+import type { L1ContractAddresses, L1ContractsConfig, L1ReaderConfig } from '@aztec/ethereum';
+import { getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
+import type { ConfigMappingsType } from '@aztec/foundation/config';
 
 /**
  * There are 2 polling intervals used in this configuration. The first is the archiver polling interval, archiverPollingIntervalMS.

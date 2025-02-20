@@ -1,10 +1,12 @@
-import { type DeployAccountOptions, type PXE } from '@aztec/aztec.js';
+import type { DeployAccountOptions, PXE } from '@aztec/aztec.js';
 import { prettyPrintJSON } from '@aztec/cli/cli-utils';
 import { Fr } from '@aztec/foundation/fields';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 
-import { type AccountType, createOrRetrieveAccount } from '../utils/accounts.js';
-import { type IFeeOpts, printGasEstimates } from '../utils/options/fees.js';
+import { createOrRetrieveAccount } from '../utils/accounts.js';
+import type { AccountType } from '../utils/accounts.js';
+import { printGasEstimates } from '../utils/options/fees.js';
+import type { IFeeOpts } from '../utils/options/fees.js';
 
 export async function createAccount(
   client: PXE,

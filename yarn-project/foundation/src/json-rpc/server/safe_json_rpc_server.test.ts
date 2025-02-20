@@ -1,12 +1,9 @@
 import request from 'supertest';
 
-import { TestNote, TestState, type TestStateApi, TestStateSchema } from '../fixtures/test_state.js';
-import {
-  type SafeJsonRpcServer,
-  createNamespacedSafeJsonRpcServer,
-  createSafeJsonRpcServer,
-  makeHandler,
-} from './safe_json_rpc_server.js';
+import { TestNote, TestState, TestStateSchema } from '../fixtures/test_state.js';
+import type { TestStateApi } from '../fixtures/test_state.js';
+import { createNamespacedSafeJsonRpcServer, createSafeJsonRpcServer, makeHandler } from './safe_json_rpc_server.js';
+import type { SafeJsonRpcServer } from './safe_json_rpc_server.js';
 
 describe('SafeJsonRpcServer', () => {
   let testState: TestState;

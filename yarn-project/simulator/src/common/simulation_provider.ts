@@ -1,11 +1,11 @@
-import { type NoirCompiledCircuit } from '@aztec/circuits.js/noir';
+import type { NoirCompiledCircuit } from '@aztec/circuits.js/noir';
 
-import { type ExecutionError } from '@noir-lang/acvm_js';
+import type { ExecutionError } from '@noir-lang/acvm_js';
 import { abiDecodeError } from '@noir-lang/noirc_abi';
-import { type Abi, type WitnessMap } from '@noir-lang/types';
+import type { Abi, WitnessMap } from '@noir-lang/types';
 
-import { type ACIRCallback, type ACIRExecutionResult } from '../acvm/acvm.js';
-import { type ACVMWitness } from '../acvm/acvm_types.js';
+import type { ACIRCallback, ACIRExecutionResult } from '../acvm/acvm.js';
+import type { ACVMWitness } from '../acvm/acvm_types.js';
 
 /**
  * Low level simulation interface

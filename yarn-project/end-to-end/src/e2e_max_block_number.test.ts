@@ -1,4 +1,5 @@
-import { Fr, type PXE, type Wallet } from '@aztec/aztec.js';
+import { Fr } from '@aztec/aztec.js';
+import type { PXE, Wallet } from '@aztec/aztec.js';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 
 import { setup } from './fixtures/utils.js';

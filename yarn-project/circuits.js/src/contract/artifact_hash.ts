@@ -2,9 +2,11 @@ import { sha256 } from '@aztec/foundation/crypto';
 import { Fr, reduceFn } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { numToUInt8 } from '@aztec/foundation/serialize';
-import { MerkleTree, MerkleTreeCalculator } from '@aztec/foundation/trees';
+import type { MerkleTree } from '@aztec/foundation/trees';
+import { MerkleTreeCalculator } from '@aztec/foundation/trees';
 
-import { type ContractArtifact, type FunctionArtifact, FunctionSelector, FunctionType } from '../abi/index.js';
+import { FunctionSelector, FunctionType } from '../abi/index.js';
+import type { ContractArtifact, FunctionArtifact } from '../abi/index.js';
 
 const VERSION = 1;
 

@@ -1,5 +1,6 @@
-import { type DispatchMsg, TransportServer, WorkerListener } from '../../transport/index.js';
-import { type WasmModule } from '../../wasm/index.js';
+import { TransportServer, WorkerListener } from '../../transport/index.js';
+import type { DispatchMsg } from '../../transport/index.js';
+import type { WasmModule } from '../../wasm/index.js';
 
 /**
  * Start the transport server corresponding to this module.

@@ -1,7 +1,8 @@
-import { type AccountWalletWithSecretKey, type AztecAddress } from '@aztec/aztec.js';
-import { ExtendedNote, Note, type TxHash } from '@aztec/circuit-types';
+import type { AccountWalletWithSecretKey, AztecAddress } from '@aztec/aztec.js';
+import { ExtendedNote, Note } from '@aztec/circuit-types';
+import type { TxHash } from '@aztec/circuit-types';
 import { getContractArtifact, parseFields } from '@aztec/cli/utils';
-import { type LogFn } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
 
 export async function addNote(
   wallet: AccountWalletWithSecretKey,

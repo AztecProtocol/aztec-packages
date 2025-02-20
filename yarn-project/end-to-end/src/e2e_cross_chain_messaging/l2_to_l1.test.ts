@@ -3,7 +3,8 @@ import { sha256ToField } from '@aztec/foundation/crypto';
 import { OutboxAbi } from '@aztec/l1-artifacts';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 
-import { type Hex, decodeEventLog, getContract } from 'viem';
+import { decodeEventLog, getContract } from 'viem';
+import type { Hex } from 'viem';
 
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 

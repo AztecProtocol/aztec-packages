@@ -3,7 +3,7 @@ import { timesParallel } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 
 import { TestContext } from '../mocks/test_context.js';
-import { type ProvingOrchestrator } from './orchestrator.js';
+import type { ProvingOrchestrator } from './orchestrator.js';
 
 const logger = createLogger('prover-client:test:orchestrator-errors');
 

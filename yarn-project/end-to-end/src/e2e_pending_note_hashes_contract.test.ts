@@ -1,4 +1,5 @@
-import { type AztecAddress, type AztecNode, Fr, type Logger, type Wallet } from '@aztec/aztec.js';
+import { Fr } from '@aztec/aztec.js';
+import type { AztecAddress, AztecNode, Logger, Wallet } from '@aztec/aztec.js';
 import {
   MAX_NOTE_HASHES_PER_CALL,
   MAX_NOTE_HASHES_PER_TX,

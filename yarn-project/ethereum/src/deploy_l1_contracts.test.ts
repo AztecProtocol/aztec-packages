@@ -1,15 +1,18 @@
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
 import { getContract } from 'viem';
-import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
+import { privateKeyToAccount } from 'viem/accounts';
+import type { PrivateKeyAccount } from 'viem/accounts';
 
 import { createEthereumChain } from './chain.js';
 import { DefaultL1ContractsConfig } from './config.js';
-import { type DeployL1ContractsArgs, deployL1Contracts } from './deploy_l1_contracts.js';
+import { deployL1Contracts } from './deploy_l1_contracts.js';
+import type { DeployL1ContractsArgs } from './deploy_l1_contracts.js';
 import { startAnvil } from './test/start_anvil.js';
 
 describe('deploy_l1_contracts', () => {

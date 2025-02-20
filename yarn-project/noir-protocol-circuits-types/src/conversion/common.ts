@@ -19,20 +19,19 @@ import {
   Point,
   PrivateLog,
   PublicCallRequest,
-  type PublicDataWrite,
   PublicLog,
   ScopedL2ToL1Message,
   ScopedLogHash,
   StateReference,
   TxContext,
-  type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
+import type { PublicDataWrite, VerificationKeyAsFields } from '@aztec/circuits.js';
 import { PrivateToRollupAccumulatedData } from '@aztec/circuits.js/kernel';
-import {
-  AppendOnlyTreeSnapshot,
-  type NullifierLeafPreimage,
-  type ProtocolContractLeafPreimage,
-  type PublicDataTreeLeafPreimage,
+import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
+import type {
+  NullifierLeafPreimage,
+  ProtocolContractLeafPreimage,
+  PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js/trees';
 import {
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
@@ -40,10 +39,11 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
-  type PRIVATE_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
+import type { PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { type Tuple, mapTuple, toTruncField } from '@aztec/foundation/serialize';
+import { mapTuple, toTruncField } from '@aztec/foundation/serialize';
+import type { Tuple } from '@aztec/foundation/serialize';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 
 import type {

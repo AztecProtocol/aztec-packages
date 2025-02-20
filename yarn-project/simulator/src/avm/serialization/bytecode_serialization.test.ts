@@ -2,8 +2,9 @@ import { strict as assert } from 'assert';
 
 import { AvmParsingError, InvalidOpcodeError, InvalidTagValueError } from '../errors.js';
 import { Add, Call, EnvironmentVariable, GetEnvVar, StaticCall, Sub } from '../opcodes/index.js';
-import { type BufferCursor } from './buffer_cursor.js';
-import { type InstructionSet, decodeFromBytecode, encodeToBytecode } from './bytecode_serialization.js';
+import type { BufferCursor } from './buffer_cursor.js';
+import { decodeFromBytecode, encodeToBytecode } from './bytecode_serialization.js';
+import type { InstructionSet } from './bytecode_serialization.js';
 import { MAX_OPCODE_VALUE, Opcode } from './instruction_serialization.js';
 
 class InstA {

@@ -1,14 +1,16 @@
 import { Tx, TxHash } from '@aztec/circuit-types';
-import { type TxAddedToPoolStats } from '@aztec/circuit-types/stats';
+import type { TxAddedToPoolStats } from '@aztec/circuit-types/stats';
 import { ClientIvcProof } from '@aztec/circuits.js';
 import { toArray } from '@aztec/foundation/iterable';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
-import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
+import { getTelemetryClient } from '@aztec/telemetry-client';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';
 import { getPendingTxPriority } from './priority.js';
-import { type TxPool } from './tx_pool.js';
+import type { TxPool } from './tx_pool.js';
 
 /**
  * KV implementation of the Transaction Pool.

@@ -1,14 +1,15 @@
-import { type ComponentsVersions } from '@aztec/circuit-types';
+import type { ComponentsVersions } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import {
-  type ConfigMappingsType,
   booleanConfigHelper,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
   optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+import type { ConfigMappingsType } from '@aztec/foundation/config';
+import { schemas } from '@aztec/foundation/schemas';
+import type { ZodFor } from '@aztec/foundation/schemas';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 

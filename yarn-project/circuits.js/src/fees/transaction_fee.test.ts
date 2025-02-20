@@ -1,5 +1,5 @@
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
-import { type Writeable } from '@aztec/foundation/types';
+import type { Writeable } from '@aztec/foundation/types';
 
 import { Fr, Gas, GasFees, GasSettings } from '../structs/index.js';
 import { computeTransactionFee } from './transaction_fee.js';

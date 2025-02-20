@@ -1,6 +1,6 @@
-import { type Database, type Key } from 'lmdb';
+import type { Database, Key } from 'lmdb';
 
-import { type AztecAsyncSingleton, type AztecSingleton } from '../interfaces/singleton.js';
+import type { AztecAsyncSingleton, AztecSingleton } from '../interfaces/singleton.js';
 
 /** The slot where this singleton will store its value */
 type ValueSlot = ['singleton', string, 'value'];

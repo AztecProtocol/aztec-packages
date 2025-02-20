@@ -1,22 +1,19 @@
-import { type FunctionCall, type Note, type TxExecutionRequest } from '@aztec/circuit-types';
-import { type AztecNode, PrivateExecutionResult } from '@aztec/circuit-types/interfaces/client';
+import type { FunctionCall, Note, TxExecutionRequest } from '@aztec/circuit-types';
+import { PrivateExecutionResult } from '@aztec/circuit-types/interfaces/client';
+import type { AztecNode } from '@aztec/circuit-types/interfaces/client';
 import { CallContext } from '@aztec/circuits.js';
-import {
-  type FunctionArtifact,
-  FunctionSelector,
-  FunctionType,
-  type NoteSelector,
-  encodeArguments,
-} from '@aztec/circuits.js/abi';
+import { FunctionSelector, FunctionType, encodeArguments } from '@aztec/circuits.js/abi';
+import type { FunctionArtifact, NoteSelector } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 
 import { createSimulationError } from '../common/errors.js';
 import { HashedValuesCache } from '../common/hashed_values_cache.js';
-import { type SimulationProvider } from '../common/simulation_provider.js';
+import type { SimulationProvider } from '../common/simulation_provider.js';
 import { ClientExecutionContext } from './client_execution_context.js';
-import { type DBOracle } from './db_oracle.js';
+import type { DBOracle } from './db_oracle.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
 import { executePrivateFunction, verifyCurrentClassId } from './private_execution.js';
 import { executeUnconstrainedFunction } from './unconstrained_execution.js';

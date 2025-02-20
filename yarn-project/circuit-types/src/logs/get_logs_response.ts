@@ -1,5 +1,6 @@
 import { Fr } from '@aztec/circuits.js';
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+import { schemas } from '@aztec/foundation/schemas';
+import type { ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, boolToBuffer, numToUInt32BE } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';

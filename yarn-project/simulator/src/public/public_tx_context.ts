@@ -1,37 +1,23 @@
+import { MerkleTreeId, TxExecutionPhase } from '@aztec/circuit-types';
+import type { PublicExecutionRequest, SimulationError, Tx, TxHash } from '@aztec/circuit-types';
+import { ProvingRequestType } from '@aztec/circuit-types/interfaces/server';
+import type { AvmProvingRequest, MerkleTreeReadOperations } from '@aztec/circuit-types/interfaces/server';
 import {
-  MerkleTreeId,
-  type PublicExecutionRequest,
-  type SimulationError,
-  type Tx,
-  TxExecutionPhase,
-  type TxHash,
-} from '@aztec/circuit-types';
-import {
-  type AvmProvingRequest,
-  type MerkleTreeReadOperations,
-  ProvingRequestType,
-} from '@aztec/circuit-types/interfaces/server';
-import {
-  type AztecAddress,
   Fr,
   Gas,
-  type GasSettings,
-  type GlobalVariables,
   PublicCallRequest,
   PublicDataWrite,
   RevertCode,
-  type StateReference,
   TreeSnapshots,
   computeTransactionFee,
   countAccumulatedItems,
   mergeAccumulatedData,
 } from '@aztec/circuits.js';
-import { AvmCircuitInputs, type AvmCircuitPublicInputs } from '@aztec/circuits.js/avm';
-import {
-  PrivateToAvmAccumulatedData,
-  PrivateToAvmAccumulatedDataArrayLengths,
-  type PrivateToPublicAccumulatedData,
-} from '@aztec/circuits.js/kernel';
+import type { AztecAddress, GasSettings, GlobalVariables, StateReference } from '@aztec/circuits.js';
+import { AvmCircuitInputs } from '@aztec/circuits.js/avm';
+import type { AvmCircuitPublicInputs } from '@aztec/circuits.js/avm';
+import { PrivateToAvmAccumulatedData, PrivateToAvmAccumulatedDataArrayLengths } from '@aztec/circuits.js/kernel';
+import type { PrivateToPublicAccumulatedData } from '@aztec/circuits.js/kernel';
 import {
   MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
   MAX_L2_TO_L1_MSGS_PER_TX,
@@ -40,14 +26,15 @@ import {
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
 
 import { strict as assert } from 'assert';
 import { inspect } from 'util';
 
 import { AvmPersistableStateManager } from '../avm/index.js';
-import { type WorldStateDB } from './public_db_sources.js';
+import type { WorldStateDB } from './public_db_sources.js';
 import { SideEffectArrayLengths, SideEffectTrace } from './side_effect_trace.js';
 import { getCallRequestsByPhase, getExecutionRequestsByPhase } from './utils.js';
 

@@ -4,10 +4,10 @@ import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { LogWithTxData } from '@aztec/circuits.js/logs';
 import { Fr } from '@aztec/foundation/fields';
 
-import { type ACVMField } from '../acvm_types.js';
+import type { ACVMField } from '../acvm_types.js';
 import { frToBoolean, frToNumber, fromACVMField, fromBoundedVec } from '../deserialize.js';
 import { toACVMField, toACVMFieldSingleOrArray } from '../serialize.js';
-import { type TypedOracle } from './typed_oracle.js';
+import type { TypedOracle } from './typed_oracle.js';
 
 /**
  * A data source that has all the apis required by Aztec.nr.

@@ -1,6 +1,5 @@
 import {
   AztecAddress,
-  type BlockHeader,
   Fr,
   Gas,
   GasFees,
@@ -12,6 +11,7 @@ import {
   ScopedLogHash,
   mergeAccumulatedData,
 } from '@aztec/circuits.js';
+import type { BlockHeader } from '@aztec/circuits.js';
 import { AvmCircuitInputs, AvmCircuitPublicInputs, AvmExecutionHints } from '@aztec/circuits.js/avm';
 import { TxConstantData } from '@aztec/circuits.js/kernel';
 import { makePrivateToPublicAccumulatedData, makePrivateToRollupAccumulatedData } from '@aztec/circuits.js/testing';
@@ -23,10 +23,10 @@ import {
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 
-import { type MerkleTreeReadOperations } from '../interfaces/merkle_tree_operations.js';
+import type { MerkleTreeReadOperations } from '../interfaces/merkle_tree_operations.js';
 import { ProvingRequestType } from '../interfaces/proving-job.js';
 import { makeHeader } from '../l2_block_code_to_purge.js';
-import { type GasUsed } from '../tx/gas_used.js';
+import type { GasUsed } from '../tx/gas_used.js';
 import { makeProcessedTxFromPrivateOnlyTx, makeProcessedTxFromTxWithPublicCalls } from '../tx/processed_tx.js';
 import { mockTx } from './mocks.js';
 

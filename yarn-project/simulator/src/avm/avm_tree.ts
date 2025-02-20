@@ -1,9 +1,9 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
-import { type IndexedTreeId, type MerkleTreeReadOperations } from '@aztec/circuit-types/interfaces/server';
+import type { IndexedTreeId, MerkleTreeReadOperations } from '@aztec/circuit-types/interfaces/server';
 import { AppendOnlyTreeSnapshot, NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { type IndexedTreeLeafPreimage, type TreeLeafPreimage } from '@aztec/foundation/trees';
+import type { IndexedTreeLeafPreimage, TreeLeafPreimage } from '@aztec/foundation/trees';
 
 import { strict as assert } from 'assert';
 import cloneDeep from 'lodash.clonedeep';

@@ -1,28 +1,23 @@
-import { L2Block, MerkleTreeId, type ProcessedTx, type Tx, toNumBlobFields } from '@aztec/circuit-types';
-import {
-  type EpochProver,
-  type ForkMerkleTreeOperations,
-  type MerkleTreeWriteOperations,
-  type ProofAndVerificationKey,
-  type ServerCircuitProver,
+import { L2Block, MerkleTreeId, toNumBlobFields } from '@aztec/circuit-types';
+import type { ProcessedTx, Tx } from '@aztec/circuit-types';
+import type {
+  EpochProver,
+  ForkMerkleTreeOperations,
+  MerkleTreeWriteOperations,
+  ProofAndVerificationKey,
+  ServerCircuitProver,
 } from '@aztec/circuit-types/interfaces/server';
-import { type CircuitName } from '@aztec/circuit-types/stats';
+import type { CircuitName } from '@aztec/circuit-types/stats';
+import { BaseParityInputs, Fr, VerificationKeyData, makeEmptyRecursiveProof } from '@aztec/circuits.js';
+import type { BlockHeader, GlobalVariables } from '@aztec/circuits.js';
 import {
-  BaseParityInputs,
-  type BlockHeader,
-  Fr,
-  type GlobalVariables,
-  VerificationKeyData,
-  makeEmptyRecursiveProof,
-} from '@aztec/circuits.js';
-import {
-  type BaseRollupHints,
   EmptyBlockRootRollupInputs,
   PrivateBaseRollupInputs,
   SingleTxBlockRootRollupInputs,
   TubeInputs,
 } from '@aztec/circuits.js/rollup';
-import { type AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
+import type { BaseRollupHints } from '@aztec/circuits.js/rollup';
+import type { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
 import {
   AVM_PROOF_LENGTH_IN_FIELDS,
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
@@ -30,8 +25,8 @@ import {
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
-  type TUBE_PROOF_LENGTH,
 } from '@aztec/constants';
+import type { TUBE_PROOF_LENGTH } from '@aztec/constants';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { AbortError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
@@ -39,16 +34,10 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
-import { type TreeNodeLocation } from '@aztec/foundation/trees';
+import type { TreeNodeLocation } from '@aztec/foundation/trees';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
-import {
-  Attributes,
-  type TelemetryClient,
-  type Tracer,
-  getTelemetryClient,
-  trackSpan,
-  wrapCallbackInSpan,
-} from '@aztec/telemetry-client';
+import { Attributes, getTelemetryClient, trackSpan, wrapCallbackInSpan } from '@aztec/telemetry-client';
+import type { TelemetryClient, Tracer } from '@aztec/telemetry-client';
 
 import { inspect } from 'util';
 
@@ -61,8 +50,9 @@ import {
   validatePartialState,
   validateTx,
 } from './block-building-helpers.js';
-import { type BlockProvingState } from './block-proving-state.js';
-import { EpochProvingState, type ProvingResult, type TreeSnapshots } from './epoch-proving-state.js';
+import type { BlockProvingState } from './block-proving-state.js';
+import { EpochProvingState } from './epoch-proving-state.js';
+import type { ProvingResult, TreeSnapshots } from './epoch-proving-state.js';
 import { ProvingOrchestratorMetrics } from './orchestrator_metrics.js';
 import { TxProvingState } from './tx-proving-state.js';
 

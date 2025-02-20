@@ -1,5 +1,6 @@
-import { type AnyTx, Tx, type TxValidationResult, type TxValidator } from '@aztec/circuit-types';
-import { type Fr } from '@aztec/circuits.js';
+import { Tx } from '@aztec/circuit-types';
+import type { AnyTx, TxValidationResult, TxValidator } from '@aztec/circuit-types';
+import type { Fr } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
 
 export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {

@@ -1,6 +1,7 @@
 import { jest } from '@jest/globals';
 
-import { type Logger, createLogger } from '../log/pino-logger.js';
+import { createLogger } from '../log/pino-logger.js';
+import type { Logger } from '../log/pino-logger.js';
 import { sleep } from '../sleep/index.js';
 import { RunningPromise } from './running-promise.js';
 

@@ -1,9 +1,7 @@
 import {
   AztecAddress,
-  type BlockHeader,
   CallContext,
   ClientIvcProof,
-  type ContractInstanceWithAddress,
   GasFees,
   GasSettings,
   Nullifier,
@@ -12,7 +10,9 @@ import {
   computeContractAddressFromInstance,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { type ContractArtifact, NoteSelector } from '@aztec/circuits.js/abi';
+import type { BlockHeader, ContractInstanceWithAddress } from '@aztec/circuits.js';
+import { NoteSelector } from '@aztec/circuits.js/abi';
+import type { ContractArtifact } from '@aztec/circuits.js/abi';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import {
   PartialPrivateTailPublicInputsForPublic,

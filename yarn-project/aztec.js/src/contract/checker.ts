@@ -1,4 +1,4 @@
-import { type AbiType, type BasicType, type ContractArtifact, type StructType } from '@aztec/circuits.js/abi';
+import type { AbiType, BasicType, ContractArtifact, StructType } from '@aztec/circuits.js/abi';
 
 /**
  * Represents a type derived from input type T with the 'kind' property removed.

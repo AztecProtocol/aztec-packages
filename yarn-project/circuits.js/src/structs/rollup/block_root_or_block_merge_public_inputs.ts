@@ -3,9 +3,10 @@ import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
-import { BufferReader, type Tuple, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import type { Tuple } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { FieldsOf } from '@aztec/foundation/types';
 
 import { GlobalVariables } from '../global_variables.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';

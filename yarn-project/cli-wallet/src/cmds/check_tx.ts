@@ -1,6 +1,6 @@
-import { type PXE, type TxHash } from '@aztec/aztec.js';
+import type { PXE, TxHash } from '@aztec/aztec.js';
 import { inspectTx } from '@aztec/cli/inspect';
-import { type LogFn } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
 
 export async function checkTx(client: PXE, txHash: TxHash, statusOnly: boolean, log: LogFn) {
   if (statusOnly) {

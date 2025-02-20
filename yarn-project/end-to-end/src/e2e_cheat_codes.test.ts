@@ -1,17 +1,10 @@
-import { type AztecAddress, type CheatCodes, EthAddress, Fr, type Wallet } from '@aztec/aztec.js';
+import { EthAddress, Fr } from '@aztec/aztec.js';
+import type { AztecAddress, CheatCodes, Wallet } from '@aztec/aztec.js';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
-import {
-  type Account,
-  type Chain,
-  type GetContractReturnType,
-  type HttpTransport,
-  type PublicClient,
-  type WalletClient,
-  getContract,
-  parseEther,
-} from 'viem';
+import { getContract, parseEther } from 'viem';
+import type { Account, Chain, GetContractReturnType, HttpTransport, PublicClient, WalletClient } from 'viem';
 import type * as chains from 'viem/chains';
 
 import { mintTokensToPrivate } from './fixtures/token_utils.js';

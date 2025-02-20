@@ -5,7 +5,8 @@ import { createLogger } from '@aztec/foundation/log';
 
 import { expect, jest } from '@jest/globals';
 
-import { type TestWallets, performTransfers, setupTestWalletsWithTokens } from './setup_test_wallets.js';
+import { performTransfers, setupTestWalletsWithTokens } from './setup_test_wallets.js';
+import type { TestWallets } from './setup_test_wallets.js';
 import {
   applyProverFailure,
   deleteResourceByLabel,

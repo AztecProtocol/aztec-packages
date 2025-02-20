@@ -1,9 +1,11 @@
-import { MerkleTreeId, PublicExecutionRequest, type Tx } from '@aztec/circuit-types';
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
+import { MerkleTreeId, PublicExecutionRequest } from '@aztec/circuit-types';
+import type { Tx } from '@aztec/circuit-types';
+import type { MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import { CallContext, FunctionSelector, GasFees, GlobalVariables } from '@aztec/circuits.js';
-import { type ContractArtifact, encodeArguments } from '@aztec/circuits.js/abi';
-import { type AvmCircuitPublicInputs } from '@aztec/circuits.js/avm';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { encodeArguments } from '@aztec/circuits.js/abi';
+import type { ContractArtifact } from '@aztec/circuits.js/abi';
+import type { AvmCircuitPublicInputs } from '@aztec/circuits.js/avm';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
@@ -20,7 +22,8 @@ import { BaseAvmSimulationTester } from '../../avm/fixtures/base_avm_simulation_
 import { getContractFunctionArtifact, getFunctionSelector } from '../../avm/fixtures/index.js';
 import { SimpleContractDataSource } from '../../avm/fixtures/simple_contract_data_source.js';
 import { WorldStateDB } from '../public_db_sources.js';
-import { type PublicTxResult, PublicTxSimulator } from '../public_tx_simulator.js';
+import { PublicTxSimulator } from '../public_tx_simulator.js';
+import type { PublicTxResult } from '../public_tx_simulator.js';
 import { createTxForPublicCalls } from './index.js';
 
 const TIMESTAMP = new Fr(99833);

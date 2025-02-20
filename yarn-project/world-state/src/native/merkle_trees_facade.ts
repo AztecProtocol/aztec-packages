@@ -1,14 +1,15 @@
 import { MerkleTreeId, SiblingPath } from '@aztec/circuit-types';
-import {
-  type BatchInsertionResult,
-  type IndexedTreeId,
-  type MerkleTreeLeafType,
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
-  type SequentialInsertionResult,
-  type TreeInfo,
+import type {
+  BatchInsertionResult,
+  IndexedTreeId,
+  MerkleTreeLeafType,
+  MerkleTreeReadOperations,
+  MerkleTreeWriteOperations,
+  SequentialInsertionResult,
+  TreeInfo,
 } from '@aztec/circuit-types/interfaces/server';
-import { type BlockHeader, Fr, PartialStateReference, StateReference } from '@aztec/circuits.js';
+import { Fr, PartialStateReference, StateReference } from '@aztec/circuits.js';
+import type { BlockHeader } from '@aztec/circuits.js';
 import {
   NullifierLeaf,
   NullifierLeafPreimage,
@@ -16,19 +17,13 @@ import {
   PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js/trees';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
-import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
+import type { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
 import assert from 'assert';
 
-import {
-  type SerializedIndexedLeaf,
-  type SerializedLeafValue,
-  WorldStateMessageType,
-  type WorldStateRevision,
-  blockStateReference,
-  treeStateReferenceToSnapshot,
-} from './message.js';
-import { type NativeWorldStateInstance } from './native_world_state_instance.js';
+import { WorldStateMessageType, blockStateReference, treeStateReferenceToSnapshot } from './message.js';
+import type { SerializedIndexedLeaf, SerializedLeafValue, WorldStateRevision } from './message.js';
+import type { NativeWorldStateInstance } from './native_world_state_instance.js';
 
 export class MerkleTreesFacade implements MerkleTreeReadOperations {
   constructor(

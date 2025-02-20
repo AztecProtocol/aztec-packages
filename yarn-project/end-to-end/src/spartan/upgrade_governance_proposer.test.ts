@@ -1,4 +1,5 @@
-import { EthAddress, type NodeInfo, type PXE, createCompatibleClient, sleep } from '@aztec/aztec.js';
+import { EthAddress, createCompatibleClient, sleep } from '@aztec/aztec.js';
+import type { NodeInfo, PXE } from '@aztec/aztec.js';
 import {
   GovernanceProposerContract,
   L1TxUtils,

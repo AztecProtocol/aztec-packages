@@ -1,25 +1,19 @@
-import {
-  type L2Block,
-  type MerkleTreeId,
-  type NoteStatus,
-  type PublicDataWitness,
-  type TxScopedL2Log,
-} from '@aztec/circuit-types';
-import { type NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/client';
-import {
-  type BlockHeader,
-  type CompleteAddress,
-  type ContractInstance,
-  type IndexedTaggingSecret,
-  type KeyValidationRequest,
+import type { L2Block, MerkleTreeId, NoteStatus, PublicDataWitness, TxScopedL2Log } from '@aztec/circuit-types';
+import type { NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/client';
+import type {
+  BlockHeader,
+  CompleteAddress,
+  ContractInstance,
+  IndexedTaggingSecret,
+  KeyValidationRequest,
 } from '@aztec/circuits.js';
-import { type FunctionArtifact, type FunctionSelector } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { LogWithTxData } from '@aztec/circuits.js/logs';
-import { type Fr } from '@aztec/foundation/fields';
+import type { FunctionArtifact, FunctionSelector } from '@aztec/circuits.js/abi';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { LogWithTxData } from '@aztec/circuits.js/logs';
+import type { Fr } from '@aztec/foundation/fields';
 
-import { type NoteData } from '../acvm/index.js';
-import { type CommitmentsDB } from '../public/db_interfaces.js';
+import type { NoteData } from '../acvm/index.js';
+import type { CommitmentsDB } from '../public/db_interfaces.js';
 
 /**
  * Error thrown when a contract is not found in the database.

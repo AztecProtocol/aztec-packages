@@ -1,4 +1,5 @@
-import { type ContractArtifact, type NoirCompiledContract, loadContractArtifact } from '@aztec/aztec.js';
+import { loadContractArtifact } from '@aztec/aztec.js';
+import type { ContractArtifact, NoirCompiledContract } from '@aztec/aztec.js';
 
 import EcdsaKAccountContractJson from '../../../artifacts/EcdsaKAccount.json' assert { type: 'json' };
 

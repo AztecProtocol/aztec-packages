@@ -3,42 +3,39 @@ import {
   getSchnorrAccount,
   getSchnorrWalletWithSecretKey,
 } from '@aztec/accounts/schnorr';
-import { type InitialAccountData } from '@aztec/accounts/testing';
-import { type Archiver, createArchiver } from '@aztec/archiver';
-import {
-  type AccountWalletWithSecretKey,
-  type AztecNode,
-  type CheatCodes,
-  type CompleteAddress,
-  type DeployL1Contracts,
-  EthAddress,
-  type Logger,
-  type PXE,
-  createLogger,
-  deployL1Contract,
+import type { InitialAccountData } from '@aztec/accounts/testing';
+import { createArchiver } from '@aztec/archiver';
+import type { Archiver } from '@aztec/archiver';
+import { EthAddress, createLogger, deployL1Contract } from '@aztec/aztec.js';
+import type {
+  AccountWalletWithSecretKey,
+  AztecNode,
+  CheatCodes,
+  CompleteAddress,
+  DeployL1Contracts,
+  Logger,
+  PXE,
 } from '@aztec/aztec.js';
-import { BBCircuitVerifier, type ClientProtocolCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
+import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
+import type { ClientProtocolCircuitVerifier } from '@aztec/bb-prover';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
-import { type BlobSinkServer } from '@aztec/blob-sink/server';
+import type { BlobSinkServer } from '@aztec/blob-sink/server';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { HonkVerifierAbi, HonkVerifierBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
-import { type PXEService } from '@aztec/pxe';
+import { createProverNode } from '@aztec/prover-node';
+import type { ProverNode, ProverNodeConfig } from '@aztec/prover-node';
+import type { PXEService } from '@aztec/pxe';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
-import { type Hex, getContract } from 'viem';
+import { getContract } from 'viem';
+import type { Hex } from 'viem';
 import { privateKeyToAddress } from 'viem/accounts';
 
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
-import {
-  type ISnapshotManager,
-  type SubsystemsContext,
-  createSnapshotManager,
-  deployAccounts,
-  publicDeployAccounts,
-} from '../fixtures/snapshot_manager.js';
+import { createSnapshotManager, deployAccounts, publicDeployAccounts } from '../fixtures/snapshot_manager.js';
+import type { ISnapshotManager, SubsystemsContext } from '../fixtures/snapshot_manager.js';
 import { getPrivateKeyFromIndex, setupPXEService } from '../fixtures/utils.js';
 import { TokenSimulator } from '../simulators/token_simulator.js';
 

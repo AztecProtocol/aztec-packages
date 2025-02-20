@@ -1,56 +1,52 @@
 import { createLogger } from '@aztec/aztec.js';
-import {
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  type InBlock,
-  type L2Block,
-  L2BlockHash,
-  type L2Tips,
-  type LogFilter,
-  MerkleTreeId,
-  type PublicDataWitness,
-  type PublicSimulationOutput,
-  type SiblingPath,
-  type Tx,
-  type TxEffect,
-  TxHash,
-  TxReceipt,
-  TxScopedL2Log,
-  type TxValidationResult,
+import { L2BlockHash, MerkleTreeId, TxHash, TxReceipt, TxScopedL2Log } from '@aztec/circuit-types';
+import type {
+  GetContractClassLogsResponse,
+  GetPublicLogsResponse,
+  InBlock,
+  L2Block,
+  L2Tips,
+  LogFilter,
+  PublicDataWitness,
+  PublicSimulationOutput,
+  SiblingPath,
+  Tx,
+  TxEffect,
+  TxValidationResult,
 } from '@aztec/circuit-types';
-import { type AztecNode, type L2BlockNumber } from '@aztec/circuit-types/interfaces/client';
-import {
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
-  type NullifierMembershipWitness,
-  type ProverConfig,
-  type SequencerConfig,
+import type { AztecNode, L2BlockNumber } from '@aztec/circuit-types/interfaces/client';
+import type {
+  MerkleTreeReadOperations,
+  MerkleTreeWriteOperations,
+  NullifierMembershipWitness,
+  ProverConfig,
+  SequencerConfig,
 } from '@aztec/circuit-types/interfaces/server';
-import {
-  type AztecAddress,
-  type BlockHeader,
-  type ContractClassPublic,
-  type ContractInstanceWithAddress,
-  type GasFees,
-  type NodeInfo,
-  type PrivateLog,
-  type ProtocolContractAddresses,
-  type PublicLog,
+import type {
+  AztecAddress,
+  BlockHeader,
+  ContractClassPublic,
+  ContractInstanceWithAddress,
+  GasFees,
+  NodeInfo,
+  PrivateLog,
+  ProtocolContractAddresses,
+  PublicLog,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { type PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
-import {
-  type ARCHIVE_HEIGHT,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-  type NOTE_HASH_TREE_HEIGHT,
-  type NULLIFIER_TREE_HEIGHT,
-  type PUBLIC_DATA_TREE_HEIGHT,
-  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
+import type { PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
+import { PUBLIC_LOG_DATA_SIZE_IN_FIELDS } from '@aztec/constants';
+import type {
+  ARCHIVE_HEIGHT,
+  L1_TO_L2_MSG_TREE_HEIGHT,
+  NOTE_HASH_TREE_HEIGHT,
+  NULLIFIER_TREE_HEIGHT,
+  PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
-import { type L1ContractAddresses } from '@aztec/ethereum';
+import type { L1ContractAddresses } from '@aztec/ethereum';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { type NativeWorldStateService } from '@aztec/world-state';
+import type { NativeWorldStateService } from '@aztec/world-state';
 
 export class TXENode implements AztecNode {
   #logsByTags = new Map<string, TxScopedL2Log[]>();

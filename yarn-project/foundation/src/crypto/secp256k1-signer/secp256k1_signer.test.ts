@@ -3,7 +3,8 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 
 import { hashMessage, recoverAddress as viemRecoverAddress, recoverPublicKey as viemRecoverPublicKey } from 'viem';
-import { type PrivateKeyAccount, generatePrivateKey, privateKeyToAccount, publicKeyToAddress } from 'viem/accounts';
+import { generatePrivateKey, privateKeyToAccount, publicKeyToAddress } from 'viem/accounts';
+import type { PrivateKeyAccount } from 'viem/accounts';
 
 import { Secp256k1Signer } from './secp256k1_signer.js';
 import { recoverAddress as lightRecoverAddress, recoverPublicKey as lightRecoverPublicKey } from './utils.js';

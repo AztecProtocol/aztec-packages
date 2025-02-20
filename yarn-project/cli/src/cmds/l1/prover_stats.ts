@@ -3,12 +3,14 @@ import { createAztecNodeClient } from '@aztec/circuit-types/interfaces/client';
 import { EthAddress } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
 import { compactArray, mapValues, unique } from '@aztec/foundation/collection';
-import { type LogFn, type Logger, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
 import chunk from 'lodash.chunk';
 import groupBy from 'lodash.groupby';
-import { type PublicClient, createPublicClient, getAbiItem, getAddress, http } from 'viem';
+import { createPublicClient, getAbiItem, getAddress, http } from 'viem';
+import type { PublicClient } from 'viem';
 
 export async function proverStats(opts: {
   l1RpcUrl: string;

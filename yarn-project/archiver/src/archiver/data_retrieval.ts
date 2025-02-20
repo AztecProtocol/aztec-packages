@@ -1,30 +1,23 @@
 import { Blob, BlobDeserializationError } from '@aztec/blob-lib';
-import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
+import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { Body, InboxLeaf, L2Block } from '@aztec/circuit-types';
 import { BlockHeader, Fr, Proof } from '@aztec/circuits.js';
 import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
 import { asyncPool } from '@aztec/foundation/async-pool';
-import { type EthAddress } from '@aztec/foundation/eth-address';
-import { type ViemSignature } from '@aztec/foundation/eth-signature';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { ViemSignature } from '@aztec/foundation/eth-signature';
+import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
-import { ForwarderAbi, type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { ForwarderAbi, RollupAbi } from '@aztec/l1-artifacts';
+import type { InboxAbi } from '@aztec/l1-artifacts';
 
-import {
-  type Chain,
-  type GetContractEventsReturnType,
-  type GetContractReturnType,
-  type Hex,
-  type HttpTransport,
-  type PublicClient,
-  decodeFunctionData,
-  getAbiItem,
-  hexToBytes,
-} from 'viem';
+import { decodeFunctionData, getAbiItem, hexToBytes } from 'viem';
+import type { Chain, GetContractEventsReturnType, GetContractReturnType, Hex, HttpTransport, PublicClient } from 'viem';
 
 import { NoBlobBodiesFoundError } from './errors.js';
-import { type DataRetrieval } from './structs/data_retrieval.js';
-import { type L1Published, type L1PublishedData } from './structs/published.js';
+import type { DataRetrieval } from './structs/data_retrieval.js';
+import type { L1Published, L1PublishedData } from './structs/published.js';
 
 /**
  * Fetches new L2 blocks.

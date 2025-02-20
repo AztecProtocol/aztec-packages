@@ -1,13 +1,11 @@
-import { type Gossipable } from '@aztec/circuit-types';
-import {
-  Attributes,
-  type Histogram,
-  LmdbMetrics,
-  type LmdbStatsCallback,
-  Metrics,
-  type MetricsType,
-  type TelemetryClient,
-  type UpDownCounter,
+import type { Gossipable } from '@aztec/circuit-types';
+import { Attributes, LmdbMetrics, Metrics } from '@aztec/telemetry-client';
+import type {
+  Histogram,
+  LmdbStatsCallback,
+  MetricsType,
+  TelemetryClient,
+  UpDownCounter,
 } from '@aztec/telemetry-client';
 
 export enum PoolName {

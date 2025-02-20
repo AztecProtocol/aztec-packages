@@ -1,43 +1,30 @@
-import {
-  type L1ToL2MessageSource,
-  type L2Block,
-  type L2BlockSource,
-  type P2PClientType,
-  type Tx,
-  type TxHash,
-  getTimestampRangeForEpoch,
-} from '@aztec/circuit-types';
-import {
-  type EpochProverManager,
-  EpochProvingJobTerminalState,
-  type ProverCoordination,
-  type ProverNodeApi,
-  type Service,
-  type WorldStateSynchronizer,
-  tryStop,
+import { getTimestampRangeForEpoch } from '@aztec/circuit-types';
+import type { L1ToL2MessageSource, L2Block, L2BlockSource, P2PClientType, Tx, TxHash } from '@aztec/circuit-types';
+import { EpochProvingJobTerminalState, tryStop } from '@aztec/circuit-types/interfaces/server';
+import type {
+  EpochProverManager,
+  ProverCoordination,
+  ProverNodeApi,
+  Service,
+  WorldStateSynchronizer,
 } from '@aztec/circuit-types/interfaces/server';
-import { type ContractDataSource } from '@aztec/circuits.js';
+import type { ContractDataSource } from '@aztec/circuits.js';
 import { compact } from '@aztec/foundation/collection';
 import { memoize } from '@aztec/foundation/decorators';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { DateProvider } from '@aztec/foundation/timer';
-import { type Maybe } from '@aztec/foundation/types';
-import { type P2P } from '@aztec/p2p';
+import type { Maybe } from '@aztec/foundation/types';
+import type { P2P } from '@aztec/p2p';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
-import {
-  Attributes,
-  type TelemetryClient,
-  type Traceable,
-  type Tracer,
-  getTelemetryClient,
-  trackSpan,
-} from '@aztec/telemetry-client';
+import { Attributes, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
+import type { TelemetryClient, Traceable, Tracer } from '@aztec/telemetry-client';
 
-import { EpochProvingJob, type EpochProvingJobState } from './job/epoch-proving-job.js';
+import { EpochProvingJob } from './job/epoch-proving-job.js';
+import type { EpochProvingJobState } from './job/epoch-proving-job.js';
 import { ProverNodeMetrics } from './metrics.js';
-import { type EpochMonitor, type EpochMonitorHandler } from './monitors/epoch-monitor.js';
-import { type ProverNodePublisher } from './prover-node-publisher.js';
+import type { EpochMonitor, EpochMonitorHandler } from './monitors/epoch-monitor.js';
+import type { ProverNodePublisher } from './prover-node-publisher.js';
 
 export type ProverNodeOptions = {
   pollingIntervalMs: number;

@@ -3,12 +3,14 @@ import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { Attributes, getTelemetryClient } from '@aztec/telemetry-client';
 
-import { type ENR, SignableENR } from '@chainsafe/enr';
+import { SignableENR } from '@chainsafe/enr';
+import type { ENR } from '@chainsafe/enr';
 import { jest } from '@jest/globals';
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { multiaddr } from '@multiformats/multiaddr';
 
-import { type P2PConfig, getP2PDefaultConfig } from '../../config.js';
+import { getP2PDefaultConfig } from '../../config.js';
+import type { P2PConfig } from '../../config.js';
 import { ReqRespSubProtocol } from '../reqresp/interface.js';
 import { GoodByeReason } from '../reqresp/protocols/index.js';
 import { PeerEvent } from '../types.js';

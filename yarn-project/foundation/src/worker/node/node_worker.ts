@@ -1,8 +1,9 @@
 import { Worker } from 'worker_threads';
 
-import { type DispatchMsg, NodeConnector, TransportClient, createDispatchProxy } from '../../transport/index.js';
+import { NodeConnector, TransportClient, createDispatchProxy } from '../../transport/index.js';
+import type { DispatchMsg } from '../../transport/index.js';
 import { WasmModule } from '../../wasm/wasm_module.js';
-import { type WasmWorker } from '../wasm_worker.js';
+import type { WasmWorker } from '../wasm_worker.js';
 
 /**
  * Creates a node worker.

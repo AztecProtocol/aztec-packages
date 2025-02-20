@@ -1,37 +1,27 @@
+import { Note, PublicExecutionRequest } from '@aztec/circuit-types';
+import type { AuthWitness, Capsule, NoteStatus, UnencryptedL2Log } from '@aztec/circuit-types';
 import {
-  type AuthWitness,
-  type Capsule,
-  Note,
-  type NoteStatus,
-  PublicExecutionRequest,
-  type UnencryptedL2Log,
-} from '@aztec/circuit-types';
-import {
-  type AztecNode,
   CountedContractClassLog,
   CountedPublicExecutionRequest,
   NoteAndSlot,
-  type PrivateCallExecutionResult,
 } from '@aztec/circuit-types/interfaces/client';
-import {
-  type BlockHeader,
-  CallContext,
-  FunctionSelector,
-  PrivateContextInputs,
-  type TxContext,
-} from '@aztec/circuits.js';
-import { type FunctionAbi, type FunctionArtifact, type NoteSelector, countArgumentsSize } from '@aztec/circuits.js/abi';
+import type { AztecNode, PrivateCallExecutionResult } from '@aztec/circuit-types/interfaces/client';
+import { CallContext, FunctionSelector, PrivateContextInputs } from '@aztec/circuits.js';
+import type { BlockHeader, TxContext } from '@aztec/circuits.js';
+import { countArgumentsSize } from '@aztec/circuits.js/abi';
+import type { FunctionAbi, FunctionArtifact, NoteSelector } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
 import { PRIVATE_CONTEXT_INPUTS_LENGTH, PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 
-import { type NoteData, toACVMWitness } from '../acvm/index.js';
-import { type HashedValuesCache } from '../common/hashed_values_cache.js';
-import { type SimulationProvider } from '../server.js';
-import { type DBOracle } from './db_oracle.js';
-import { type ExecutionNoteCache } from './execution_note_cache.js';
+import { toACVMWitness } from '../acvm/index.js';
+import type { NoteData } from '../acvm/index.js';
+import type { HashedValuesCache } from '../common/hashed_values_cache.js';
+import type { SimulationProvider } from '../server.js';
+import type { DBOracle } from './db_oracle.js';
+import type { ExecutionNoteCache } from './execution_note_cache.js';
 import { pickNotes } from './pick_notes.js';
 import { executePrivateFunction, verifyCurrentClassId } from './private_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';

@@ -1,14 +1,5 @@
-import {
-  type AccountWallet,
-  type CheatCodes,
-  Fr,
-  HashedValues,
-  type Logger,
-  type PXE,
-  TxExecutionRequest,
-  type UniqueNote,
-  deriveKeys,
-} from '@aztec/aztec.js';
+import { Fr, HashedValues, TxExecutionRequest, deriveKeys } from '@aztec/aztec.js';
+import type { AccountWallet, CheatCodes, Logger, PXE, UniqueNote } from '@aztec/aztec.js';
 import { GasSettings, TxContext, computePartialAddress } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { ClaimContract } from '@aztec/noir-contracts.js/Claim';

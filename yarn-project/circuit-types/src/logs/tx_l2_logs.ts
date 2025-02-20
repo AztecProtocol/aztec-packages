@@ -1,4 +1,5 @@
-import { Fr, type LogHash, type ScopedLogHash } from '@aztec/circuits.js';
+import { Fr } from '@aztec/circuits.js';
+import type { LogHash, ScopedLogHash } from '@aztec/circuits.js';
 import { MAX_CONTRACT_CLASS_LOGS_PER_TX } from '@aztec/constants';
 import { sha256Trunc } from '@aztec/foundation/crypto';
 import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
@@ -7,7 +8,7 @@ import isEqual from 'lodash.isequal';
 import { z } from 'zod';
 
 import { UnencryptedFunctionL2Logs } from './function_l2_logs.js';
-import { type UnencryptedL2Log } from './unencrypted_l2_log.js';
+import type { UnencryptedL2Log } from './unencrypted_l2_log.js';
 
 /**
  * Data container of logs emitted in 1 tx.

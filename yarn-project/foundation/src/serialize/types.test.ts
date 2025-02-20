@@ -1,5 +1,6 @@
 import { makeTuple } from '../array/array.js';
-import { type Tuple, mapTuple } from './types.js';
+import { mapTuple } from './types.js';
+import type { Tuple } from './types.js';
 
 describe('tuple', () => {
   it('types mapTuple correctly', () => {

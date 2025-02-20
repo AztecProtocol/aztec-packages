@@ -1,20 +1,15 @@
-import {
-  type ClientIvcProof,
-  Fr,
-  Gas,
-  type GlobalVariables,
-  type PublicDataWrite,
-  RevertCode,
-} from '@aztec/circuits.js';
+import { Fr, Gas, RevertCode } from '@aztec/circuits.js';
+import type { ClientIvcProof, GlobalVariables, PublicDataWrite } from '@aztec/circuits.js';
 import { siloL2ToL1Message } from '@aztec/circuits.js/hash';
-import { CombinedConstantData, type PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
+import { CombinedConstantData } from '@aztec/circuits.js/kernel';
+import type { PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
 
-import { type AvmProvingRequest } from '../interfaces/proving-job.js';
-import { type SimulationError } from '../simulation_error.js';
+import type { AvmProvingRequest } from '../interfaces/proving-job.js';
+import type { SimulationError } from '../simulation_error.js';
 import { TxEffect } from '../tx_effect.js';
-import { type GasUsed } from './gas_used.js';
-import { type Tx } from './tx.js';
-import { type TxHash } from './tx_hash.js';
+import type { GasUsed } from './gas_used.js';
+import type { Tx } from './tx.js';
+import type { TxHash } from './tx_hash.js';
 
 export enum TxExecutionPhase {
   SETUP,

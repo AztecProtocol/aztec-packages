@@ -1,8 +1,9 @@
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
+import type { MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import { VerificationKeyData } from '@aztec/circuits.js';
-import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
+import type { AvmCircuitInputs } from '@aztec/circuits.js/avm';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { PublicTxSimulationTester, type TestEnqueuedCall } from '@aztec/simulator/public/fixtures';
+import { PublicTxSimulationTester } from '@aztec/simulator/public/fixtures';
+import type { TestEnqueuedCall } from '@aztec/simulator/public/fixtures';
 import { WorldStateDB } from '@aztec/simulator/server';
 import { NativeWorldStateService } from '@aztec/world-state';
 
@@ -11,15 +12,8 @@ import { tmpdir } from 'node:os';
 import path from 'path';
 
 import { SimpleContractDataSource } from '../../../simulator/src/avm/fixtures/simple_contract_data_source.js';
-import {
-  type BBResult,
-  type BBSuccess,
-  BB_RESULT,
-  generateAvmProof,
-  generateAvmProofV2,
-  verifyAvmProof,
-  verifyAvmProofV2,
-} from '../bb/execute.js';
+import { BB_RESULT, generateAvmProof, generateAvmProofV2, verifyAvmProof, verifyAvmProofV2 } from '../bb/execute.js';
+import type { BBResult, BBSuccess } from '../bb/execute.js';
 import { extractAvmVkData } from '../verification_key/verification_key_data.js';
 
 const BB_PATH = path.resolve('../../barretenberg/cpp/build/bin/bb');

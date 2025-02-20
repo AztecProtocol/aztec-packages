@@ -1,13 +1,13 @@
-import { type BlockHeader, type EthAddress } from '@aztec/circuits.js';
+import type { BlockHeader, EthAddress } from '@aztec/circuits.js';
 
 import { z } from 'zod';
 
-import { type L1RollupConstants } from './epoch-helpers/index.js';
-import { type InBlock } from './in_block.js';
-import { type L2Block } from './l2_block.js';
-import { type TxHash } from './tx/tx_hash.js';
-import { type TxReceipt } from './tx/tx_receipt.js';
-import { type TxEffect } from './tx_effect.js';
+import type { L1RollupConstants } from './epoch-helpers/index.js';
+import type { InBlock } from './in_block.js';
+import type { L2Block } from './l2_block.js';
+import type { TxHash } from './tx/tx_hash.js';
+import type { TxReceipt } from './tx/tx_receipt.js';
+import type { TxEffect } from './tx_effect.js';
 
 /**
  * Interface of classes allowing for the retrieval of L2 blocks.

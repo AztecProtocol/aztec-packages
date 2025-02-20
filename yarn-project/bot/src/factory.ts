@@ -1,25 +1,25 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { getDeployedTestAccountsWallets, getInitialTestAccounts } from '@aztec/accounts/testing';
 import {
-  type AccountWallet,
   BatchCall,
-  type DeployMethod,
-  type DeployOptions,
   FeeJuicePaymentMethodWithClaim,
   L1FeeJuicePortalManager,
   createLogger,
   createPXEClient,
   retryUntil,
 } from '@aztec/aztec.js';
-import { type FunctionCall } from '@aztec/circuit-types';
-import { type AztecNode, type PXE } from '@aztec/circuit-types/interfaces/client';
-import { type AztecAddress, Fr, deriveSigningKey } from '@aztec/circuits.js';
+import type { AccountWallet, DeployMethod, DeployOptions } from '@aztec/aztec.js';
+import type { FunctionCall } from '@aztec/circuit-types';
+import type { AztecNode, PXE } from '@aztec/circuit-types/interfaces/client';
+import { Fr, deriveSigningKey } from '@aztec/circuits.js';
+import type { AztecAddress } from '@aztec/circuits.js';
 import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
 import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { makeTracedFetch } from '@aztec/telemetry-client';
 
-import { type BotConfig, SupportedTokenContracts, getVersions } from './config.js';
+import { SupportedTokenContracts, getVersions } from './config.js';
+import type { BotConfig } from './config.js';
 import { getBalances, getPrivateBalance, isStandardTokenContract } from './utils.js';
 
 const MINT_BALANCE = 1e12;

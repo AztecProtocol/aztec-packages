@@ -1,16 +1,11 @@
-import {
-  BlockAttestation,
-  BlockProposal,
-  ConsensusPayload,
-  SignatureDomainSeparator,
-  type TxHash,
-} from '@aztec/circuit-types';
-import { type BlockHeader } from '@aztec/circuits.js';
+import { BlockAttestation, BlockProposal, ConsensusPayload, SignatureDomainSeparator } from '@aztec/circuit-types';
+import type { TxHash } from '@aztec/circuit-types';
+import type { BlockHeader } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto';
-import { type Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
 
-import { type ValidatorKeyStore } from '../key_store/interface.js';
+import type { ValidatorKeyStore } from '../key_store/interface.js';
 
 export class ValidationService {
   constructor(private keyStore: ValidatorKeyStore) {}

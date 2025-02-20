@@ -1,22 +1,19 @@
-import { type PublicExecutionRequest, type SimulationError } from '@aztec/circuit-types';
-import {
-  type ContractStorageRead,
-  type ContractStorageUpdateRequest,
-  type Fr,
-  Gas,
-  type L2ToL1Message,
-  type NoteHash,
-  type Nullifier,
-  PublicCallStackItemCompressed,
-  type PublicDataUpdateRequest,
-  PublicInnerCallRequest,
-  type PublicLog,
-  type ReadRequest,
-  RevertCode,
-  type ScopedL2ToL1Message,
-  type TreeLeafReadRequest,
+import type { PublicExecutionRequest, SimulationError } from '@aztec/circuit-types';
+import { Gas, PublicCallStackItemCompressed, PublicInnerCallRequest, RevertCode } from '@aztec/circuits.js';
+import type {
+  ContractStorageRead,
+  ContractStorageUpdateRequest,
+  Fr,
+  L2ToL1Message,
+  NoteHash,
+  Nullifier,
+  PublicDataUpdateRequest,
+  PublicLog,
+  ReadRequest,
+  ScopedL2ToL1Message,
+  TreeLeafReadRequest,
 } from '@aztec/circuits.js';
-import { type AvmExecutionHints } from '@aztec/circuits.js/avm';
+import type { AvmExecutionHints } from '@aztec/circuits.js/avm';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 
 export interface PublicSideEffects {

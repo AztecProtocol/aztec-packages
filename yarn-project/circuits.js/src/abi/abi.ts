@@ -1,7 +1,8 @@
 /* eslint-disable camelcase */
-import { type Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+import { schemas } from '@aztec/foundation/schemas';
+import type { ZodFor } from '@aztec/foundation/schemas';
 
 import { inflate } from 'pako';
 import { z } from 'zod';

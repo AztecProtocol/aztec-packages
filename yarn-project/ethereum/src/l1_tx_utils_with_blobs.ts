@@ -2,7 +2,8 @@ import { Blob } from '@aztec/blob-lib';
 
 import { formatGwei } from 'viem';
 
-import { type GasPrice, L1TxUtils } from './l1_tx_utils.js';
+import { L1TxUtils } from './l1_tx_utils.js';
+import type { GasPrice } from './l1_tx_utils.js';
 
 export class L1TxUtilsWithBlobs extends L1TxUtils {
   /**

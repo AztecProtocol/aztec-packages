@@ -1,6 +1,7 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
-import { type ApiSchemaFor, schemas } from '@aztec/foundation/schemas';
+import { schemas } from '@aztec/foundation/schemas';
+import type { ApiSchemaFor } from '@aztec/foundation/schemas';
 
 import cors from '@koa/cors';
 import { createServer } from 'http';
@@ -9,7 +10,8 @@ import bodyParser from 'koa-bodyparser';
 import Router from 'koa-router';
 import { z } from 'zod';
 
-import { type Faucet, ThrottleError } from './faucet.js';
+import { ThrottleError } from './faucet.js';
+import type { Faucet } from './faucet.js';
 
 export function createFaucetHttpServer(faucet: Faucet, apiPrefix = '', logger = createLogger('aztec:faucet:http')) {
   const router = new Router({ prefix: `${apiPrefix}` });

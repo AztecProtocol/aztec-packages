@@ -1,22 +1,24 @@
-import { type ArchiveSource } from '@aztec/archiver';
+import type { ArchiveSource } from '@aztec/archiver';
 import { getConfigEnvVars } from '@aztec/aztec-node';
-import { AztecAddress, Fr, GlobalVariables, type L2Block, createLogger } from '@aztec/aztec.js';
+import { AztecAddress, Fr, GlobalVariables, createLogger } from '@aztec/aztec.js';
+import type { L2Block } from '@aztec/aztec.js';
 import { Blob, BlockBlobPublicInputs } from '@aztec/blob-lib';
 // eslint-disable-next-line no-restricted-imports
-import { type L2Tips, type ProcessedTx } from '@aztec/circuit-types';
+import type { L2Tips, ProcessedTx } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/testing';
-import { type BlockHeader, EthAddress, GasFees, GasSettings } from '@aztec/circuits.js';
+import { EthAddress, GasFees, GasSettings } from '@aztec/circuits.js';
+import type { BlockHeader } from '@aztec/circuits.js';
 import { fr } from '@aztec/circuits.js/testing';
 import { GENESIS_ARCHIVE_ROOT, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
   GovernanceProposerContract,
-  type L1ContractAddresses,
   RollupContract,
   SlashingProposerContract,
   createEthereumChain,
   createL1Clients,
 } from '@aztec/ethereum';
+import type { L1ContractAddresses } from '@aztec/ethereum';
 import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { range } from '@aztec/foundation/array';
@@ -30,30 +32,17 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { LightweightBlockBuilder } from '@aztec/prover-client/block-builder';
 import { SequencerPublisher } from '@aztec/sequencer-client';
-import {
-  type MerkleTreeAdminDatabase,
-  NativeWorldStateService,
-  ServerWorldStateSynchronizer,
-  type WorldStateConfig,
-} from '@aztec/world-state';
+import { NativeWorldStateService, ServerWorldStateSynchronizer } from '@aztec/world-state';
+import type { MerkleTreeAdminDatabase, WorldStateConfig } from '@aztec/world-state';
 
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { writeFile } from 'fs/promises';
-import { type MockProxy, mock } from 'jest-mock-extended';
-import {
-  type Account,
-  type Address,
-  type Chain,
-  type GetContractReturnType,
-  type HttpTransport,
-  type PublicClient,
-  type WalletClient,
-  encodeFunctionData,
-  getAbiItem,
-  getAddress,
-  getContract,
-} from 'viem';
-import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
+import { mock } from 'jest-mock-extended';
+import type { MockProxy } from 'jest-mock-extended';
+import { encodeFunctionData, getAbiItem, getAddress, getContract } from 'viem';
+import type { Account, Address, Chain, GetContractReturnType, HttpTransport, PublicClient, WalletClient } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import type { PrivateKeyAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';

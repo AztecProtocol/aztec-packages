@@ -1,4 +1,4 @@
-import { type AztecAddress, type GrumpkinScalar, type Point, type PublicKey } from '@aztec/circuits.js';
+import type { AztecAddress, GrumpkinScalar, Point, PublicKey } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/foundation/crypto';
 
 /**

@@ -1,15 +1,16 @@
 import { createColors, isColorSupported } from 'colorette';
 import isNode from 'detect-node';
 import { pino, symbols } from 'pino';
-import { type Writable } from 'stream';
+import type { Writable } from 'stream';
 import { inspect } from 'util';
 
 import { compactArray } from '../collection/array.js';
-import { type EnvVar, parseBooleanEnv } from '../config/index.js';
+import { parseBooleanEnv } from '../config/index.js';
+import type { EnvVar } from '../config/index.js';
 import { GoogleCloudLoggerConfig } from './gcloud-logger-config.js';
 import { getLogLevelFromFilters, parseEnv } from './log-filters.js';
-import { type LogLevel } from './log-levels.js';
-import { type LogData, type LogFn } from './log_fn.js';
+import type { LogLevel } from './log-levels.js';
+import type { LogData, LogFn } from './log_fn.js';
 
 export function createLogger(module: string): Logger {
   module = logNameHandlers.reduce((moduleName, handler) => handler(moduleName), module.replace(/^aztec:/, ''));

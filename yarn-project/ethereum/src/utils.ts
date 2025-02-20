@@ -1,18 +1,9 @@
-import { type Fr } from '@aztec/foundation/fields';
-import { type Logger } from '@aztec/foundation/log';
+import type { Fr } from '@aztec/foundation/fields';
+import type { Logger } from '@aztec/foundation/log';
 import { ErrorsAbi } from '@aztec/l1-artifacts';
 
-import {
-  type Abi,
-  BaseError,
-  type ContractEventName,
-  ContractFunctionRevertedError,
-  type DecodeEventLogReturnType,
-  type Hex,
-  type Log,
-  decodeErrorResult,
-  decodeEventLog,
-} from 'viem';
+import { BaseError, ContractFunctionRevertedError, decodeErrorResult, decodeEventLog } from 'viem';
+import type { Abi, ContractEventName, DecodeEventLogReturnType, Hex, Log } from 'viem';
 
 export interface L2Claim {
   claimSecret: Fr;

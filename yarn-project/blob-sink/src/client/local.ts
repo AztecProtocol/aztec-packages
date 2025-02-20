@@ -1,8 +1,8 @@
-import { type Blob } from '@aztec/blob-lib';
+import type { Blob } from '@aztec/blob-lib';
 
-import { type BlobStore } from '../blobstore/index.js';
+import type { BlobStore } from '../blobstore/index.js';
 import { BlobWithIndex } from '../types/blob_with_index.js';
-import { type BlobSinkClientInterface } from './interface.js';
+import type { BlobSinkClientInterface } from './interface.js';
 
 export class LocalBlobSinkClient implements BlobSinkClientInterface {
   private readonly blobStore: BlobStore;

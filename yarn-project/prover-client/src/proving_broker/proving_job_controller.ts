@@ -1,9 +1,9 @@
-import {
-  type ProvingJobId,
-  type ProvingJobInputs,
-  type ProvingJobResultsMap,
-  ProvingRequestType,
-  type ServerCircuitProver,
+import { ProvingRequestType } from '@aztec/circuit-types/interfaces/server';
+import type {
+  ProvingJobId,
+  ProvingJobInputs,
+  ProvingJobResultsMap,
+  ServerCircuitProver,
 } from '@aztec/circuit-types/interfaces/server';
 
 export enum ProvingJobControllerStatus {

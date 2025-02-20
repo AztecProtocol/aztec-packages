@@ -1,5 +1,6 @@
 import { createLogger } from '../log/pino-logger.js';
-import { type PromiseWithResolvers, promiseWithResolvers } from '../promise/utils.js';
+import { promiseWithResolvers } from '../promise/utils.js';
+import type { PromiseWithResolvers } from '../promise/utils.js';
 import { FifoMemoryQueue } from './fifo_memory_queue.js';
 
 type Batch<T, K> = {

@@ -1,6 +1,6 @@
-import { type Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
 
-import { type CompleteAddress } from '../structs/complete_address.js';
+import type { CompleteAddress } from '../structs/complete_address.js';
 
 /**
  * Represents the data generated as part of contract deployment.

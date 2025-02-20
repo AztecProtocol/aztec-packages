@@ -1,14 +1,9 @@
-import { type AztecNodeService } from '@aztec/aztec-node';
-import {
-  type AccountWallet,
-  type AztecAddress,
-  FeeJuicePaymentMethod,
-  type FeePaymentMethod,
-  PublicFeePaymentMethod,
-} from '@aztec/aztec.js';
+import type { AztecNodeService } from '@aztec/aztec-node';
+import { FeeJuicePaymentMethod, PublicFeePaymentMethod } from '@aztec/aztec.js';
+import type { AccountWallet, AztecAddress, FeePaymentMethod } from '@aztec/aztec.js';
 import { GasSettings } from '@aztec/circuits.js';
-import { type Logger } from '@aztec/foundation/log';
-import { type FPCContract } from '@aztec/noir-contracts.js/FPC';
+import type { Logger } from '@aztec/foundation/log';
+import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 
 import { inspect } from 'util';

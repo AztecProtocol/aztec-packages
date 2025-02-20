@@ -1,5 +1,5 @@
-import { type EthAddress } from '@aztec/circuits.js';
-import { type LogFn } from '@aztec/foundation/log';
+import type { EthAddress } from '@aztec/circuits.js';
+import type { LogFn } from '@aztec/foundation/log';
 
 import { prettyPrintJSON } from '../../utils/commands.js';
 

@@ -1,4 +1,5 @@
-import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
+import { getConfigFromMappings } from '@aztec/foundation/config';
+import type { ConfigMappingsType } from '@aztec/foundation/config';
 
 export type ProverCoordinationConfig = {
   proverCoordinationNodeUrl: string | undefined;

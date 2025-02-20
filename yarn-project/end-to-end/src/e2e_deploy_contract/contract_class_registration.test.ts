@@ -1,19 +1,21 @@
-import { type AztecNodeService } from '@aztec/aztec-node';
+import type { AztecNodeService } from '@aztec/aztec-node';
 import {
   AztecAddress,
-  type AztecNode,
-  type ContractArtifact,
-  type ContractClassWithId,
-  type ContractInstanceWithAddress,
-  type FieldsOf,
   Fr,
-  type Logger,
-  type PXE,
-  type TxReceipt,
   TxStatus,
-  type Wallet,
   getContractClassFromArtifact,
   getContractInstanceFromDeployParams,
+} from '@aztec/aztec.js';
+import type {
+  AztecNode,
+  ContractArtifact,
+  ContractClassWithId,
+  ContractInstanceWithAddress,
+  FieldsOf,
+  Logger,
+  PXE,
+  TxReceipt,
+  Wallet,
 } from '@aztec/aztec.js';
 import {
   broadcastPrivateFunction,
@@ -21,7 +23,8 @@ import {
   deployInstance,
   registerContractClass,
 } from '@aztec/aztec.js/deployment';
-import { type ContractClassIdPreimage, PublicKeys } from '@aztec/circuits.js';
+import { PublicKeys } from '@aztec/circuits.js';
+import type { ContractClassIdPreimage } from '@aztec/circuits.js';
 import { FunctionSelector, FunctionType } from '@aztec/circuits.js/abi';
 import { writeTestData } from '@aztec/foundation/testing/files';
 import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
@@ -29,7 +32,8 @@ import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 
 import { DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
-import { DeployTest, type StatefulContractCtorArgs } from './deploy_test.js';
+import { DeployTest } from './deploy_test.js';
+import type { StatefulContractCtorArgs } from './deploy_test.js';
 
 describe('e2e_deploy_contract contract class registration', () => {
   const t = new DeployTest('contract class');

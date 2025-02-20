@@ -1,13 +1,14 @@
-import { type AvmCircuitInputs, serializeWithMessagePack } from '@aztec/circuits.js/avm';
+import { serializeWithMessagePack } from '@aztec/circuits.js/avm';
+import type { AvmCircuitInputs } from '@aztec/circuits.js/avm';
 import { sha256 } from '@aztec/foundation/crypto';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 
 import * as proc from 'child_process';
 import { promises as fs } from 'fs';
 import { basename, dirname, join } from 'path';
 
-import { type UltraHonkFlavor } from '../honk.js';
+import type { UltraHonkFlavor } from '../honk.js';
 import { CLIENT_IVC_PROOF_FILE_NAME, CLIENT_IVC_VK_FILE_NAME } from '../prover/client_ivc_proof_utils.js';
 
 export const VK_FILENAME = 'vk';

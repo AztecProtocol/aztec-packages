@@ -1,17 +1,13 @@
-import { type PublicKeys } from '@aztec/circuits.js';
-import {
-  type ContractArtifact,
-  type FunctionArtifact,
-  FunctionSelector,
-  encodeArguments,
-  getFunctionArtifactByName,
-} from '@aztec/circuits.js/abi';
+import type { PublicKeys } from '@aztec/circuits.js';
+import { FunctionSelector, encodeArguments, getFunctionArtifactByName } from '@aztec/circuits.js/abi';
+import type { ContractArtifact, FunctionArtifact } from '@aztec/circuits.js/abi';
 
-import { type AuthWitnessProvider } from '../account/interface.js';
-import { type Wallet } from '../account/wallet.js';
-import { type ExecutionRequestInit } from '../api/entrypoint.js';
+import type { AuthWitnessProvider } from '../account/interface.js';
+import type { Wallet } from '../account/wallet.js';
+import type { ExecutionRequestInit } from '../api/entrypoint.js';
 import { Contract } from '../contract/contract.js';
-import { DeployMethod, type DeployOptions } from '../contract/deploy_method.js';
+import { DeployMethod } from '../contract/deploy_method.js';
+import type { DeployOptions } from '../contract/deploy_method.js';
 import { EntrypointPayload, computeCombinedPayloadHash } from '../entrypoint/payload.js';
 
 /**

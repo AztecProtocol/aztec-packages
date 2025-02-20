@@ -1,14 +1,17 @@
 import { MockPrefilledArchiver } from '@aztec/archiver/test';
-import { type L2Block, MerkleTreeId } from '@aztec/circuit-types';
-import { EthAddress, type Fr } from '@aztec/circuits.js';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { MerkleTreeId } from '@aztec/circuit-types';
+import type { L2Block } from '@aztec/circuit-types';
+import { EthAddress } from '@aztec/circuits.js';
+import type { Fr } from '@aztec/circuits.js';
+import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { type DataStoreConfig } from '@aztec/kv-store/config';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
 
 import { jest } from '@jest/globals';
 
 import { NativeWorldStateService } from '../native/native_world_state.js';
-import { type WorldStateConfig } from '../synchronizer/config.js';
+import type { WorldStateConfig } from '../synchronizer/config.js';
 import { createWorldState } from '../synchronizer/factory.js';
 import { ServerWorldStateSynchronizer } from '../synchronizer/server_world_state_synchronizer.js';
 import { mockBlocks } from './utils.js';

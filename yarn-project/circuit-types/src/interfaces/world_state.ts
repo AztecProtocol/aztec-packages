@@ -1,4 +1,4 @@
-import { type L2BlockId } from '../l2_block_source.js';
+import type { L2BlockId } from '../l2_block_source.js';
 import type { MerkleTreeReadOperations, MerkleTreeWriteOperations } from './merkle_tree_operations.js';
 
 /**

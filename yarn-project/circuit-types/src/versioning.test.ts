@@ -1,19 +1,20 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createSafeJsonRpcClient } from '@aztec/foundation/json-rpc/client';
-import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
-import { type ApiSchemaFor } from '@aztec/foundation/schemas';
+import { createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
+import type { JsonRpcTestContext } from '@aztec/foundation/json-rpc/test';
+import type { ApiSchemaFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
 import {
-  type ComponentsVersions,
   checkCompressedComponentVersion,
   compressComponentVersions,
   getVersioningMiddleware,
   getVersioningResponseHandler,
   validatePartialComponentVersionsMatch,
 } from './versioning.js';
+import type { ComponentsVersions } from './versioning.js';
 
 describe('versioning', () => {
   let versions: ComponentsVersions;

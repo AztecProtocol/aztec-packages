@@ -1,13 +1,5 @@
-import {
-  AztecAddress,
-  ContractDeployer,
-  Fr,
-  type Logger,
-  type PXE,
-  TxStatus,
-  type Wallet,
-  getContractInstanceFromDeployParams,
-} from '@aztec/aztec.js';
+import { AztecAddress, ContractDeployer, Fr, TxStatus, getContractInstanceFromDeployParams } from '@aztec/aztec.js';
+import type { Logger, PXE, Wallet } from '@aztec/aztec.js';
 import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContractArtifact } from '@aztec/noir-contracts.js/Test';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';

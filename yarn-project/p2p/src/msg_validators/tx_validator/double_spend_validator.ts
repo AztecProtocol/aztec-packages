@@ -1,4 +1,5 @@
-import { type AnyTx, Tx, type TxValidationResult, type TxValidator } from '@aztec/circuit-types';
+import { Tx } from '@aztec/circuit-types';
+import type { AnyTx, TxValidationResult, TxValidator } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
 
 export interface NullifierSource {

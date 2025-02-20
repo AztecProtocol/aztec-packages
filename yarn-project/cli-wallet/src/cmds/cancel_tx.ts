@@ -1,7 +1,9 @@
-import { type AccountWalletWithSecretKey, type FeePaymentMethod, SentTx, type TxHash, TxStatus } from '@aztec/aztec.js';
-import { type FeeOptions } from '@aztec/aztec.js/entrypoint';
-import { type Fr, GasFees, GasSettings } from '@aztec/circuits.js';
-import { type LogFn } from '@aztec/foundation/log';
+import { SentTx, TxStatus } from '@aztec/aztec.js';
+import type { AccountWalletWithSecretKey, FeePaymentMethod, TxHash } from '@aztec/aztec.js';
+import type { FeeOptions } from '@aztec/aztec.js/entrypoint';
+import { GasFees, GasSettings } from '@aztec/circuits.js';
+import type { Fr } from '@aztec/circuits.js';
+import type { LogFn } from '@aztec/foundation/log';
 
 export async function cancelTx(
   wallet: AccountWalletWithSecretKey,

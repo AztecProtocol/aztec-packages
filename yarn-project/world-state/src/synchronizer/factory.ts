@@ -1,11 +1,12 @@
-import { type L1ToL2MessageSource, type L2BlockSource } from '@aztec/circuit-types';
-import { type PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
-import { type DataStoreConfig } from '@aztec/kv-store/config';
-import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
+import type { L1ToL2MessageSource, L2BlockSource } from '@aztec/circuit-types';
+import type { PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
+import { getTelemetryClient } from '@aztec/telemetry-client';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import { NativeWorldStateService } from '../native/native_world_state.js';
-import { type WorldStateConfig } from './config.js';
+import type { WorldStateConfig } from './config.js';
 import { ServerWorldStateSynchronizer } from './server_world_state_synchronizer.js';
 
 export async function createWorldStateSynchronizer(

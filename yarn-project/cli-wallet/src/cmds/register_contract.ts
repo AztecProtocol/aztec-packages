@@ -1,6 +1,6 @@
-import { type AccountWalletWithSecretKey, type AztecAddress, type AztecNode } from '@aztec/aztec.js';
+import type { AccountWalletWithSecretKey, AztecAddress, AztecNode } from '@aztec/aztec.js';
 import { getContractArtifact } from '@aztec/cli/cli-utils';
-import { type LogFn } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
 
 export async function registerContract(
   wallet: AccountWalletWithSecretKey,

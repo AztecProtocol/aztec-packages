@@ -1,12 +1,5 @@
-import {
-  type AccountWalletWithSecretKey,
-  type AztecNode,
-  BatchCall,
-  type DeployL1Contracts,
-  EthAddress,
-  Fr,
-  type SiblingPath,
-} from '@aztec/aztec.js';
+import { BatchCall, EthAddress, Fr } from '@aztec/aztec.js';
+import type { AccountWalletWithSecretKey, AztecNode, DeployL1Contracts, SiblingPath } from '@aztec/aztec.js';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { truncateAndPad } from '@aztec/foundation/serialize';
 import { OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';

@@ -1,31 +1,28 @@
-import {
-  type GetProvingJobResponse,
-  type ProofUri,
-  type ProvingJob,
-  type ProvingJobConsumer,
-  type ProvingJobFilter,
-  type ProvingJobId,
-  type ProvingJobProducer,
-  type ProvingJobSettledResult,
-  type ProvingJobStatus,
-  ProvingRequestType,
+import { ProvingRequestType } from '@aztec/circuit-types/interfaces/server';
+import type {
+  GetProvingJobResponse,
+  ProofUri,
+  ProvingJob,
+  ProvingJobConsumer,
+  ProvingJobFilter,
+  ProvingJobId,
+  ProvingJobProducer,
+  ProvingJobSettledResult,
+  ProvingJobStatus,
 } from '@aztec/circuit-types/interfaces/server';
 import { createLogger } from '@aztec/foundation/log';
-import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
+import { RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
+import type { PromiseWithResolvers } from '@aztec/foundation/promise';
 import { PriorityMemoryQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
-import {
-  type TelemetryClient,
-  type Traceable,
-  type Tracer,
-  getTelemetryClient,
-  trackSpan,
-} from '@aztec/telemetry-client';
+import { getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
+import type { TelemetryClient, Traceable, Tracer } from '@aztec/telemetry-client';
 
 import assert from 'assert';
 
-import { type ProvingBrokerDatabase } from './proving_broker_database.js';
-import { type MonitorCallback, ProvingBrokerInstrumentation } from './proving_broker_instrumentation.js';
+import type { ProvingBrokerDatabase } from './proving_broker_database.js';
+import { ProvingBrokerInstrumentation } from './proving_broker_instrumentation.js';
+import type { MonitorCallback } from './proving_broker_instrumentation.js';
 
 type InProgressMetadata = {
   id: ProvingJobId;

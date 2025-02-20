@@ -1,8 +1,9 @@
-import { type Hasher } from '@aztec/circuits.js/interfaces';
-import { type Bufferable, type FromBuffer } from '@aztec/foundation/serialize';
-import { type AztecKVStore } from '@aztec/kv-store';
+import type { Hasher } from '@aztec/circuits.js/interfaces';
+import type { Bufferable, FromBuffer } from '@aztec/foundation/serialize';
+import type { AztecKVStore } from '@aztec/kv-store';
 
-import { type TreeBase, getTreeMeta } from './tree_base.js';
+import { getTreeMeta } from './tree_base.js';
+import type { TreeBase } from './tree_base.js';
 
 /**
  * Creates a new tree and sets its root, depth and size based on the meta data which are associated with the name.

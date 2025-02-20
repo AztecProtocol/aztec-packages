@@ -1,16 +1,8 @@
-import { type TxExecutionPhase } from '@aztec/circuit-types';
-import { type Gas } from '@aztec/circuits.js';
-import { type ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
-import {
-  Attributes,
-  type Gauge,
-  type Histogram,
-  Metrics,
-  type TelemetryClient,
-  type Tracer,
-  type UpDownCounter,
-  ValueType,
-} from '@aztec/telemetry-client';
+import type { TxExecutionPhase } from '@aztec/circuit-types';
+import type { Gas } from '@aztec/circuits.js';
+import type { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
+import { Attributes, Metrics, ValueType } from '@aztec/telemetry-client';
+import type { Gauge, Histogram, TelemetryClient, Tracer, UpDownCounter } from '@aztec/telemetry-client';
 
 export class PublicProcessorMetrics {
   public readonly tracer: Tracer;

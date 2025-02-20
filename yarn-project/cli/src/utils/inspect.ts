@@ -1,9 +1,10 @@
-import { type ContractArtifact } from '@aztec/aztec.js';
-import { type ExtendedNote, NoteStatus, type TxHash } from '@aztec/circuit-types';
-import { type PXE } from '@aztec/circuit-types/interfaces/client';
-import { type AztecAddress, type Fr } from '@aztec/circuits.js';
+import type { ContractArtifact } from '@aztec/aztec.js';
+import { NoteStatus } from '@aztec/circuit-types';
+import type { ExtendedNote, TxHash } from '@aztec/circuit-types';
+import type { PXE } from '@aztec/circuit-types/interfaces/client';
+import type { AztecAddress, Fr } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
-import { type LogFn } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 export async function inspectBlock(pxe: PXE, blockNumber: number, log: LogFn, opts: { showTxs?: boolean } = {}) {

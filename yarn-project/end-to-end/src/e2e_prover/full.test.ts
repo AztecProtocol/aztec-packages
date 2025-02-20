@@ -1,11 +1,13 @@
-import { type AztecAddress, EthAddress } from '@aztec/aztec.js';
+import { EthAddress } from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
 import { FeeJuicePortalAbi, RewardDistributorAbi, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
 import TOML from '@iarna/toml';
 import '@jest/globals';
-import { type Chain, type GetContractReturnType, type HttpTransport, type PublicClient, getContract } from 'viem';
+import { getContract } from 'viem';
+import type { Chain, GetContractReturnType, HttpTransport, PublicClient } from 'viem';
 
 import { FullProverTest } from './e2e_prover_test.js';
 

@@ -1,11 +1,13 @@
 import { PeerErrorSeverity } from '@aztec/circuit-types';
 
 import { jest } from '@jest/globals';
-import { type PeerId } from '@libp2p/interface';
-import { type MockProxy, mock } from 'jest-mock-extended';
+import type { PeerId } from '@libp2p/interface';
+import { mock } from 'jest-mock-extended';
+import type { MockProxy } from 'jest-mock-extended';
 
-import { type PeerScoring } from '../../peer-manager/peer_scoring.js';
-import { ReqRespSubProtocol, type ReqRespSubProtocolRateLimits } from '../interface.js';
+import type { PeerScoring } from '../../peer-manager/peer_scoring.js';
+import { ReqRespSubProtocol } from '../interface.js';
+import type { ReqRespSubProtocolRateLimits } from '../interface.js';
 import { RateLimitStatus, RequestResponseRateLimiter } from './rate_limiter.js';
 
 class MockPeerId {

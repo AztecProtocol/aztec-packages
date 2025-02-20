@@ -1,14 +1,14 @@
-import { type ClientIvcProof, type VerificationKeyAsFields } from '@aztec/circuits.js';
-import {
-  type PrivateKernelCircuitPublicInputs,
-  type PrivateKernelInitCircuitPrivateInputs,
-  type PrivateKernelInnerCircuitPrivateInputs,
-  type PrivateKernelResetCircuitPrivateInputs,
-  type PrivateKernelTailCircuitPrivateInputs,
-  type PrivateKernelTailCircuitPublicInputs,
+import type { ClientIvcProof, VerificationKeyAsFields } from '@aztec/circuits.js';
+import type {
+  PrivateKernelCircuitPublicInputs,
+  PrivateKernelInitCircuitPrivateInputs,
+  PrivateKernelInnerCircuitPrivateInputs,
+  PrivateKernelResetCircuitPrivateInputs,
+  PrivateKernelTailCircuitPrivateInputs,
+  PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/circuits.js/kernel';
 
-import { type WitnessMap } from '@noir-lang/acvm_js';
+import type { WitnessMap } from '@noir-lang/acvm_js';
 import { z } from 'zod';
 
 export const PrivateKernelProverProfileResultSchema = z.object({

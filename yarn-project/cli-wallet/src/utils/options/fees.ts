@@ -1,17 +1,11 @@
-import {
-  type AccountWallet,
-  type DeployAccountOptions,
-  FeeJuicePaymentMethod,
-  type FeePaymentMethod,
-  type PXE,
-  type SendMethodOptions,
-} from '@aztec/aztec.js';
+import { FeeJuicePaymentMethod } from '@aztec/aztec.js';
+import type { AccountWallet, DeployAccountOptions, FeePaymentMethod, PXE, SendMethodOptions } from '@aztec/aztec.js';
 import { AztecAddress, Fr, Gas, GasFees, GasSettings } from '@aztec/circuits.js';
-import { type LogFn } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
 
 import { Option } from 'commander';
 
-import { type WalletDB } from '../../storage/wallet_db.js';
+import type { WalletDB } from '../../storage/wallet_db.js';
 import { createOrRetrieveAccount } from '../accounts.js';
 import { aliasedAddressParser } from './options.js';
 

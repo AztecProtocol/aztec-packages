@@ -1,5 +1,6 @@
-import { type BlockAttestation, type P2PValidator, PeerErrorSeverity } from '@aztec/circuit-types';
-import { type EpochCacheInterface } from '@aztec/epoch-cache';
+import { PeerErrorSeverity } from '@aztec/circuit-types';
+import type { BlockAttestation, P2PValidator } from '@aztec/circuit-types';
+import type { EpochCacheInterface } from '@aztec/epoch-cache';
 
 export class AttestationValidator implements P2PValidator<BlockAttestation> {
   private epochCache: EpochCacheInterface;

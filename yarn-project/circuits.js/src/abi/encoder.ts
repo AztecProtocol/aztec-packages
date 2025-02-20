@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 
-import { type AbiType, type FunctionAbi } from './abi.js';
+import type { AbiType, FunctionAbi } from './abi.js';
 import { U128 } from './u128.js';
 import { isAddressStruct, isFunctionSelectorStruct, isU128Struct, isWrappedFieldStruct } from './utils.js';
 

@@ -1,4 +1,4 @@
-import { type AztecAsyncKVStore, type AztecKVStore } from './store.js';
+import type { AztecAsyncKVStore, AztecKVStore } from './store.js';
 
 /* eslint-disable no-console */
 export const mockLogger = {

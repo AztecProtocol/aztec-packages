@@ -1,14 +1,14 @@
 import { Fr } from '@aztec/foundation/fields';
 import { hexSchemaFor, schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
 import { BlockHeader } from '../block_header.js';
 import { GlobalVariables } from '../global_variables.js';
 import { TxContext } from '../tx_context.js';
-import { type TxConstantData } from './tx_constant_data.js';
+import type { TxConstantData } from './tx_constant_data.js';
 
 /**
  * Data that is constant/not modified by neither of the kernels.

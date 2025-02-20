@@ -1,7 +1,8 @@
 import { BarretenbergSync, Fr as FrBarretenberg } from '@aztec/bb.js';
 
 import { Fr } from '../../fields/fields.js';
-import { type Fieldable, serializeToFields } from '../../serialize/serialize.js';
+import { serializeToFields } from '../../serialize/serialize.js';
+import type { Fieldable } from '../../serialize/serialize.js';
 
 /**
  * Create a poseidon hash (field) from an array of input fields.

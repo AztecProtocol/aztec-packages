@@ -1,4 +1,4 @@
-import { type FunctionArtifact, type FunctionSelector } from '../abi/index.js';
+import type { FunctionArtifact, FunctionSelector } from '../abi/index.js';
 
 /**
  * A contract function Data Access Object (DAO).

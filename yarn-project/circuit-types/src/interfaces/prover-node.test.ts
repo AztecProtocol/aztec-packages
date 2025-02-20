@@ -1,6 +1,8 @@
-import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
+import { createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
+import type { JsonRpcTestContext } from '@aztec/foundation/json-rpc/test';
 
-import { type EpochProvingJobState, type ProverNodeApi, ProverNodeApiSchema } from './prover-node.js';
+import { ProverNodeApiSchema } from './prover-node.js';
+import type { EpochProvingJobState, ProverNodeApi } from './prover-node.js';
 
 describe('ProvingNodeApiSchema', () => {
   let handler: MockProverNode;

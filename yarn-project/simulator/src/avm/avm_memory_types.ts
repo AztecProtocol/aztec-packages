@@ -10,8 +10,9 @@ import {
 } from '@aztec/constants';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
-import { type Logger, createLogger } from '@aztec/foundation/log';
-import { type FunctionsOf } from '@aztec/foundation/types';
+import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
+import type { FunctionsOf } from '@aztec/foundation/types';
 
 import { strict as assert } from 'assert';
 

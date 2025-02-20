@@ -1,12 +1,14 @@
-import { type NoirCompiledCircuit } from '@aztec/circuits.js/noir';
+import type { NoirCompiledCircuit } from '@aztec/circuits.js/noir';
 import { foreignCallHandler } from '@aztec/noir-protocol-circuits-types/server';
 
-import { type ExecutionError, executeCircuit } from '@noir-lang/acvm_js';
-import { type WitnessMap } from '@noir-lang/types';
+import { executeCircuit } from '@noir-lang/acvm_js';
+import type { ExecutionError } from '@noir-lang/acvm_js';
+import type { WitnessMap } from '@noir-lang/types';
 
-import { type ACIRCallback, type ACIRExecutionResult } from '../acvm/acvm.js';
-import { type ACVMWitness } from '../acvm/acvm_types.js';
-import { type SimulationProvider, parseErrorPayload } from '../common/simulation_provider.js';
+import type { ACIRCallback, ACIRExecutionResult } from '../acvm/acvm.js';
+import type { ACVMWitness } from '../acvm/acvm_types.js';
+import { parseErrorPayload } from '../common/simulation_provider.js';
+import type { SimulationProvider } from '../common/simulation_provider.js';
 
 /**
  * A simulation provider that uses the WASM simulator with the ability to handle blobs via the foreign call handler.

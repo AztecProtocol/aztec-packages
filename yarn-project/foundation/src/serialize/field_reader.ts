@@ -1,5 +1,6 @@
-import { Fq, type Fr } from '../fields/fields.js';
-import { type Tuple } from './types.js';
+import { Fq } from '../fields/fields.js';
+import type { Fr } from '../fields/fields.js';
+import type { Tuple } from './types.js';
 
 /**
  * The FieldReader class provides a utility for reading various data types from a field array.

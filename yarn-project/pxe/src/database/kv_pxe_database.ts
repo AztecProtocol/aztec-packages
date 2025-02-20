@@ -1,29 +1,30 @@
-import { type InBlock, MerkleTreeId, NoteStatus, type NotesFilter } from '@aztec/circuit-types';
+import { MerkleTreeId, NoteStatus } from '@aztec/circuit-types';
+import type { InBlock, NotesFilter } from '@aztec/circuit-types';
+import { AztecAddress, BlockHeader, CompleteAddress, SerializableContractInstance } from '@aztec/circuits.js';
+import type { ContractInstanceWithAddress, IndexedTaggingSecret, PublicKey } from '@aztec/circuits.js';
 import {
-  AztecAddress,
-  BlockHeader,
-  CompleteAddress,
-  type ContractInstanceWithAddress,
-  type IndexedTaggingSecret,
-  type PublicKey,
-  SerializableContractInstance,
-} from '@aztec/circuits.js';
-import { type ContractArtifact, FunctionSelector, FunctionType } from '@aztec/circuits.js/abi';
-import { contractArtifactFromBuffer, contractArtifactToBuffer } from '@aztec/circuits.js/abi';
+  FunctionSelector,
+  FunctionType,
+  contractArtifactFromBuffer,
+  contractArtifactToBuffer,
+} from '@aztec/circuits.js/abi';
+import type { ContractArtifact } from '@aztec/circuits.js/abi';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { Fr, type Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
+import type { Point } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
-import { type LogFn, createDebugOnlyLogger } from '@aztec/foundation/log';
-import {
-  type AztecAsyncArray,
-  type AztecAsyncKVStore,
-  type AztecAsyncMap,
-  type AztecAsyncMultiMap,
-  type AztecAsyncSingleton,
+import { createDebugOnlyLogger } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
+import type {
+  AztecAsyncArray,
+  AztecAsyncKVStore,
+  AztecAsyncMap,
+  AztecAsyncMultiMap,
+  AztecAsyncSingleton,
 } from '@aztec/kv-store';
 
 import { NoteDao } from './note_dao.js';
-import { type PxeDatabase } from './pxe_database.js';
+import type { PxeDatabase } from './pxe_database.js';
 
 /**
  * A PXE database backed by LMDB.

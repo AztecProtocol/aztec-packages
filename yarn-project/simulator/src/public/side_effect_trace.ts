@@ -1,10 +1,5 @@
 import {
-  type AztecAddress,
-  type ContractClassIdPreimage,
   EthAddress,
-  type Gas,
-  type GasSettings,
-  type GlobalVariables,
   L2ToL1Message,
   NoteHash,
   Nullifier,
@@ -14,7 +9,14 @@ import {
   PublicLog,
   ScopedL2ToL1Message,
   SerializableContractInstance,
-  type TreeSnapshots,
+} from '@aztec/circuits.js';
+import type {
+  AztecAddress,
+  ContractClassIdPreimage,
+  Gas,
+  GasSettings,
+  GlobalVariables,
+  TreeSnapshots,
 } from '@aztec/circuits.js';
 import {
   AvmAccumulatedData,
@@ -56,7 +58,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { strict as assert } from 'assert';
 
 import { SideEffectLimitReachedError } from './side_effect_errors.js';
-import { type PublicSideEffectTraceInterface } from './side_effect_trace_interface.js';
+import type { PublicSideEffectTraceInterface } from './side_effect_trace_interface.js';
 import { UniqueClassIds } from './unique_class_ids.js';
 
 const emptyPublicDataPath = () => new Array(PUBLIC_DATA_TREE_HEIGHT).fill(Fr.zero());

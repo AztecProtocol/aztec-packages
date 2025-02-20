@@ -4,7 +4,7 @@ import { expect } from 'chai';
 
 import type { AztecAsyncMap } from '../interfaces/map.js';
 import { openTmpStore } from './factory.js';
-import { AztecLMDBStoreV2 } from './store.js';
+import type { AztecLMDBStoreV2 } from './store.js';
 import type { WriteTransaction } from './write_transaction.js';
 
 describe('Clean shutdown', () => {

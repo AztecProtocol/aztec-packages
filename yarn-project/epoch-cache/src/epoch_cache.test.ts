@@ -1,8 +1,9 @@
-import { type RollupContract } from '@aztec/ethereum';
+import type { RollupContract } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { type MockProxy, mock } from 'jest-mock-extended';
+import { mock } from 'jest-mock-extended';
+import type { MockProxy } from 'jest-mock-extended';
 
 import { EpochCache } from './epoch_cache.js';
 

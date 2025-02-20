@@ -1,8 +1,10 @@
-import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
+import { createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
+import type { JsonRpcTestContext } from '@aztec/foundation/json-rpc/test';
 
 import { BlockAttestation } from '../p2p/block_attestation.js';
 import { Tx } from '../tx/tx.js';
-import { type P2PApi, P2PApiSchema, type PeerInfo } from './p2p.js';
+import { P2PApiSchema } from './p2p.js';
+import type { P2PApi, PeerInfo } from './p2p.js';
 
 describe('P2PApiSchema', () => {
   let handler: MockP2P;

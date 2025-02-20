@@ -1,27 +1,27 @@
-import { type AztecNode, type L2BlockNumber } from '@aztec/circuit-types/interfaces/client';
-import {
-  type AztecAddress,
+import type { AztecNode, L2BlockNumber } from '@aztec/circuit-types/interfaces/client';
+import { computeContractClassIdPreimage, computeSaltedInitializationHash } from '@aztec/circuits.js';
+import type {
+  AztecAddress,
   Fr,
-  type FunctionSelector,
-  type GrumpkinScalar,
-  type Point,
-  type VerificationKeyAsFields,
-  computeContractClassIdPreimage,
-  computeSaltedInitializationHash,
+  FunctionSelector,
+  GrumpkinScalar,
+  Point,
+  VerificationKeyAsFields,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { UpdatedClassIdHints } from '@aztec/circuits.js/kernel';
 import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/circuits.js/shared-mutable';
-import { type NOTE_HASH_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, VK_TREE_HEIGHT } from '@aztec/constants';
+import { PUBLIC_DATA_TREE_HEIGHT, VK_TREE_HEIGHT } from '@aztec/constants';
+import type { NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
-import { type Tuple } from '@aztec/foundation/serialize';
+import type { Tuple } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
-import { type KeyStore } from '@aztec/key-store';
+import type { KeyStore } from '@aztec/key-store';
 import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vks';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
-import { type ContractDataOracle } from '../contract_data_oracle/index.js';
-import { type ProvingDataOracle } from './../kernel_prover/proving_data_oracle.js';
+import type { ContractDataOracle } from '../contract_data_oracle/index.js';
+import type { ProvingDataOracle } from './../kernel_prover/proving_data_oracle.js';
 
 // TODO: Block number should not be "latest".
 // It should be fixed at the time the proof is being simulated. I.e., it should be the same as the value defined in the constant data.

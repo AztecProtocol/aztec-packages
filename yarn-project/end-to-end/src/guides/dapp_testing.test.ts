@@ -1,6 +1,7 @@
 // docs:start:imports
 import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
-import { type AccountWallet, CheatCodes, Fr, type PXE, TxStatus, createPXEClient, waitForPXE } from '@aztec/aztec.js';
+import { CheatCodes, Fr, TxStatus, createPXEClient, waitForPXE } from '@aztec/aztec.js';
+import type { AccountWallet, PXE } from '@aztec/aztec.js';
 // docs:end:imports
 // docs:start:import_contract
 import { TestContract } from '@aztec/noir-contracts.js/Test';

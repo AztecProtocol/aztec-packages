@@ -1,29 +1,23 @@
-import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
-import { type ACVMConfig, type BBConfig } from '@aztec/bb-prover/config';
-import {
-  type ConfigMappingsType,
-  booleanConfigHelper,
-  getConfigFromMappings,
-  numberConfigHelper,
-} from '@aztec/foundation/config';
-import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
-import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
-import {
-  type ProverAgentConfig,
-  type ProverBrokerConfig,
-  proverAgentConfigMappings,
-  proverBrokerConfigMappings,
-} from '@aztec/prover-client/broker';
-import { type ProverClientConfig, bbConfigMappings, proverClientConfigMappings } from '@aztec/prover-client/config';
-import {
-  type PublisherConfig,
-  type TxSenderConfig,
-  getPublisherConfigMappings,
-  getTxSenderConfigMappings,
-} from '@aztec/sequencer-client/config';
-import { type WorldStateConfig, worldStateConfigMappings } from '@aztec/world-state/config';
+import { archiverConfigMappings } from '@aztec/archiver/config';
+import type { ArchiverConfig } from '@aztec/archiver/config';
+import type { ACVMConfig, BBConfig } from '@aztec/bb-prover/config';
+import { booleanConfigHelper, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
+import type { ConfigMappingsType } from '@aztec/foundation/config';
+import { dataConfigMappings } from '@aztec/kv-store/config';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
+import { p2pConfigMappings } from '@aztec/p2p/config';
+import type { P2PConfig } from '@aztec/p2p/config';
+import { proverAgentConfigMappings, proverBrokerConfigMappings } from '@aztec/prover-client/broker';
+import type { ProverAgentConfig, ProverBrokerConfig } from '@aztec/prover-client/broker';
+import { bbConfigMappings, proverClientConfigMappings } from '@aztec/prover-client/config';
+import type { ProverClientConfig } from '@aztec/prover-client/config';
+import { getPublisherConfigMappings, getTxSenderConfigMappings } from '@aztec/sequencer-client/config';
+import type { PublisherConfig, TxSenderConfig } from '@aztec/sequencer-client/config';
+import { worldStateConfigMappings } from '@aztec/world-state/config';
+import type { WorldStateConfig } from '@aztec/world-state/config';
 
-import { type ProverCoordinationConfig, proverCoordinationConfigMappings } from './prover-coordination/config.js';
+import { proverCoordinationConfigMappings } from './prover-coordination/config.js';
+import type { ProverCoordinationConfig } from './prover-coordination/config.js';
 
 export type ProverNodeConfig = ArchiverConfig &
   ProverClientConfig &

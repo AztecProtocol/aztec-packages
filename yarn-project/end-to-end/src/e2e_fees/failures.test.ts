@@ -1,17 +1,9 @@
-import {
-  type AccountWallet,
-  type AztecAddress,
-  Fr,
-  type FunctionCall,
-  FunctionSelector,
-  PrivateFeePaymentMethod,
-  PublicFeePaymentMethod,
-  TxStatus,
-} from '@aztec/aztec.js';
+import { Fr, FunctionSelector, PrivateFeePaymentMethod, PublicFeePaymentMethod, TxStatus } from '@aztec/aztec.js';
+import type { AccountWallet, AztecAddress, FunctionCall } from '@aztec/aztec.js';
 import { Gas, GasSettings } from '@aztec/circuits.js';
 import { FunctionType, U128 } from '@aztec/circuits.js/abi';
-import { type FPCContract } from '@aztec/noir-contracts.js/FPC';
-import { type TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
+import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
+import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 
 import { expectMapping } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';

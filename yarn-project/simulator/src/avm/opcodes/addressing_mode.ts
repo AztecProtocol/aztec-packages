@@ -1,6 +1,7 @@
 import { strict as assert } from 'assert';
 
-import { TaggedMemory, type TaggedMemoryInterface } from '../avm_memory_types.js';
+import { TaggedMemory } from '../avm_memory_types.js';
+import type { TaggedMemoryInterface } from '../avm_memory_types.js';
 import { RelativeAddressOutOfRangeError } from '../errors.js';
 
 export enum AddressingMode {

@@ -1,13 +1,13 @@
-import { type FunctionCall } from '@aztec/circuit-types';
-import { type GasSettings } from '@aztec/circuits.js';
+import type { FunctionCall } from '@aztec/circuit-types';
+import type { GasSettings } from '@aztec/circuits.js';
 import { FunctionSelector, FunctionType, U128 } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
-import { type Wallet } from '../account/wallet.js';
+import type { Wallet } from '../account/wallet.js';
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { SignerlessWallet } from '../wallet/signerless_wallet.js';
-import { type FeePaymentMethod } from './fee_payment_method.js';
+import type { FeePaymentMethod } from './fee_payment_method.js';
 
 /**
  * Holds information about how the fee for a transaction is to be paid.

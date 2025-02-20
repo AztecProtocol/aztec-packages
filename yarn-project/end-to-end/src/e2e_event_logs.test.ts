@@ -1,16 +1,11 @@
-import {
-  type AccountWalletWithSecretKey,
-  AztecAddress,
-  type AztecNode,
-  EventMetadata,
-  Fr,
-  L1EventPayload,
-} from '@aztec/aztec.js';
+import { AztecAddress, EventMetadata, Fr, L1EventPayload } from '@aztec/aztec.js';
+import type { AccountWalletWithSecretKey, AztecNode } from '@aztec/aztec.js';
 import { EventSelector } from '@aztec/circuits.js/abi';
 import { makeTuple } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';
-import { type Tuple } from '@aztec/foundation/serialize';
-import { type ExampleEvent0, type ExampleEvent1, TestLogContract } from '@aztec/noir-contracts.js/TestLog';
+import type { Tuple } from '@aztec/foundation/serialize';
+import { TestLogContract } from '@aztec/noir-contracts.js/TestLog';
+import type { ExampleEvent0, ExampleEvent1 } from '@aztec/noir-contracts.js/TestLog';
 
 import { jest } from '@jest/globals';
 

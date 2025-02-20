@@ -1,15 +1,7 @@
-import {
-  type L1RollupConstants,
-  L2Block,
-  L2BlockHash,
-  type L2BlockSource,
-  type L2Tips,
-  type TxHash,
-  TxReceipt,
-  TxStatus,
-  getSlotRangeForEpoch,
-} from '@aztec/circuit-types';
-import { type BlockHeader, EthAddress } from '@aztec/circuits.js';
+import { L2Block, L2BlockHash, TxReceipt, TxStatus, getSlotRangeForEpoch } from '@aztec/circuit-types';
+import type { L1RollupConstants, L2BlockSource, L2Tips, TxHash } from '@aztec/circuit-types';
+import { EthAddress } from '@aztec/circuits.js';
+import type { BlockHeader } from '@aztec/circuits.js';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import { createLogger } from '@aztec/foundation/log';
 

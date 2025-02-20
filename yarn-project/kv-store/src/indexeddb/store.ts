@@ -1,14 +1,15 @@
-import { type Logger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 
-import { type DBSchema, type IDBPDatabase, deleteDB, openDB } from 'idb';
+import { deleteDB, openDB } from 'idb';
+import type { DBSchema, IDBPDatabase } from 'idb';
 
-import { type AztecAsyncArray } from '../interfaces/array.js';
-import { type Key, type StoreSize } from '../interfaces/common.js';
-import { type AztecAsyncCounter } from '../interfaces/counter.js';
-import { type AztecAsyncMap, type AztecAsyncMultiMap } from '../interfaces/map.js';
-import { type AztecAsyncSet } from '../interfaces/set.js';
-import { type AztecAsyncSingleton } from '../interfaces/singleton.js';
-import { type AztecAsyncKVStore } from '../interfaces/store.js';
+import type { AztecAsyncArray } from '../interfaces/array.js';
+import type { Key, StoreSize } from '../interfaces/common.js';
+import type { AztecAsyncCounter } from '../interfaces/counter.js';
+import type { AztecAsyncMap, AztecAsyncMultiMap } from '../interfaces/map.js';
+import type { AztecAsyncSet } from '../interfaces/set.js';
+import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
+import type { AztecAsyncKVStore } from '../interfaces/store.js';
 import { IndexedDBAztecArray } from './array.js';
 import { IndexedDBAztecMap } from './map.js';
 import { IndexedDBAztecSet } from './set.js';

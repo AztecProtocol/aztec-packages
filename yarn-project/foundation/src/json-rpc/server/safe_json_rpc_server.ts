@@ -1,16 +1,19 @@
 import cors from '@koa/cors';
 import http from 'http';
-import { type default as Application, default as Koa } from 'koa';
+import { default as Koa } from 'koa';
+import type { default as Application } from 'koa';
 import bodyParser from 'koa-bodyparser';
 import compress from 'koa-compress';
 import Router from 'koa-router';
-import { type AddressInfo } from 'net';
+import type { AddressInfo } from 'net';
 import { format, inspect } from 'util';
 import { ZodError } from 'zod';
 
-import { type Logger, createLogger } from '../../log/index.js';
+import { createLogger } from '../../log/index.js';
+import type { Logger } from '../../log/index.js';
 import { promiseWithResolvers } from '../../promise/utils.js';
-import { type ApiSchema, type ApiSchemaFor, parseWithOptionals, schemaHasMethod } from '../../schemas/index.js';
+import { parseWithOptionals, schemaHasMethod } from '../../schemas/index.js';
+import type { ApiSchema, ApiSchemaFor } from '../../schemas/index.js';
 import { jsonStringify } from '../convert.js';
 import { assert } from '../js_utils.js';
 

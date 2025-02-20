@@ -1,6 +1,6 @@
-import { type Database, type Key } from 'lmdb';
+import type { Database, Key } from 'lmdb';
 
-import { type AztecArray, type AztecAsyncArray } from '../interfaces/array.js';
+import type { AztecArray, AztecAsyncArray } from '../interfaces/array.js';
 import { LmdbAztecSingleton } from './singleton.js';
 
 /** The shape of a key that stores a value in an array */

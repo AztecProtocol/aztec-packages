@@ -1,8 +1,9 @@
-import { type AuthWitnessProvider } from '@aztec/aztec.js/account';
-import { AuthWitness, type CompleteAddress } from '@aztec/circuit-types';
-import { type ContractArtifact } from '@aztec/circuits.js/abi';
+import type { AuthWitnessProvider } from '@aztec/aztec.js/account';
+import { AuthWitness } from '@aztec/circuit-types';
+import type { CompleteAddress } from '@aztec/circuit-types';
+import type { ContractArtifact } from '@aztec/circuits.js/abi';
 import { EcdsaSignature } from '@aztec/foundation/crypto';
-import { type Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
 
 import { DefaultAccountContract } from '../../defaults/account_contract.js';
 import { signWithAgent } from '../../utils/ssh_agent.js';

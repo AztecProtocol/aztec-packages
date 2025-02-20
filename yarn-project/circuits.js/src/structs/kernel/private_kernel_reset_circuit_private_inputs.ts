@@ -1,14 +1,14 @@
-import {
-  type MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-  type MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-  type MAX_NULLIFIERS_PER_TX,
-  type MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+import type {
+  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
 } from '@aztec/constants';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { type PrivateKernelData } from './private_kernel_data.js';
-import { type PrivateKernelResetDimensions } from './private_kernel_reset_dimensions.js';
-import { type PrivateKernelResetHints } from './private_kernel_reset_hints.js';
+import type { PrivateKernelData } from './private_kernel_data.js';
+import type { PrivateKernelResetDimensions } from './private_kernel_reset_dimensions.js';
+import type { PrivateKernelResetHints } from './private_kernel_reset_hints.js';
 
 export class PrivateKernelResetCircuitPrivateInputsVariants<
   NH_RR_PENDING extends number,

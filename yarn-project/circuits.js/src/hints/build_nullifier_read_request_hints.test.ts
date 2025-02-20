@@ -1,21 +1,20 @@
 import { MAX_NULLIFIERS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
-import { type Tuple } from '@aztec/foundation/serialize';
+import type { Tuple } from '@aztec/foundation/serialize';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import {
   Nullifier,
-  type NullifierReadRequestHints,
   NullifierReadRequestHintsBuilder,
   PendingReadHint,
   ReadRequest,
   ReadRequestState,
   ReadRequestStatus,
-  type ScopedNullifier,
   ScopedReadRequest,
   SettledReadHint,
 } from '../structs/index.js';
+import type { NullifierReadRequestHints, ScopedNullifier } from '../structs/index.js';
 import { buildNullifierReadRequestHints } from './build_nullifier_read_request_hints.js';
 
 describe('buildNullifierReadRequestHints', () => {

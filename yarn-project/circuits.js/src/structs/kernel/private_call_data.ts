@@ -7,7 +7,7 @@ import {
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { FieldsOf } from '@aztec/foundation/types';
 
 import { PublicKeys } from '../../types/public_keys.js';
 import { PrivateCircuitPublicInputs } from '../private_circuit_public_inputs.js';

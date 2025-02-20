@@ -1,37 +1,28 @@
 /* eslint-disable require-await */
 import { ProvingError } from '@aztec/circuit-types';
-import {
-  type ProofAndVerificationKey,
-  type PublicInputsAndRecursiveProof,
-  type ServerCircuitProver,
-  makeProofAndVerificationKey,
-  makePublicInputsAndRecursiveProof,
+import { makeProofAndVerificationKey, makePublicInputsAndRecursiveProof } from '@aztec/circuit-types/interfaces/server';
+import type {
+  ProofAndVerificationKey,
+  PublicInputsAndRecursiveProof,
+  ServerCircuitProver,
 } from '@aztec/circuit-types/interfaces/server';
-import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
-import {
-  type BaseParityInputs,
-  Fr,
-  type ParityPublicInputs,
-  Proof,
-  RecursiveProof,
-  type RootParityInputs,
-  type VerificationKeyData,
-  makeRecursiveProofFromBinary,
-} from '@aztec/circuits.js';
-import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
-import {
-  type BaseOrMergeRollupPublicInputs,
-  type BlockMergeRollupInputs,
-  type BlockRootOrBlockMergePublicInputs,
-  type BlockRootRollupInputs,
-  type EmptyBlockRootRollupInputs,
-  type MergeRollupInputs,
-  type PrivateBaseRollupInputs,
-  type PublicBaseRollupInputs,
-  type RootRollupInputs,
-  type RootRollupPublicInputs,
-  type SingleTxBlockRootRollupInputs,
-  type TubeInputs,
+import type { CircuitProvingStats, CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
+import { Fr, Proof, RecursiveProof, makeRecursiveProofFromBinary } from '@aztec/circuits.js';
+import type { BaseParityInputs, ParityPublicInputs, RootParityInputs, VerificationKeyData } from '@aztec/circuits.js';
+import type { AvmCircuitInputs } from '@aztec/circuits.js/avm';
+import type {
+  BaseOrMergeRollupPublicInputs,
+  BlockMergeRollupInputs,
+  BlockRootOrBlockMergePublicInputs,
+  BlockRootRollupInputs,
+  EmptyBlockRootRollupInputs,
+  MergeRollupInputs,
+  PrivateBaseRollupInputs,
+  PublicBaseRollupInputs,
+  RootRollupInputs,
+  RootRollupPublicInputs,
+  SingleTxBlockRootRollupInputs,
+  TubeInputs,
 } from '@aztec/circuits.js/rollup';
 import {
   AGGREGATION_OBJECT_LENGTH,
@@ -48,7 +39,6 @@ import { BufferReader } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
 import {
   ServerCircuitArtifacts,
-  type ServerProtocolArtifact,
   convertBaseParityInputsToWitnessMap,
   convertBaseParityOutputsFromWitnessMap,
   convertBlockMergeRollupInputsToWitnessMap,
@@ -70,19 +60,19 @@ import {
   convertSingleTxBlockRootRollupInputsToWitnessMap,
   convertSingleTxBlockRootRollupOutputsFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types/server';
+import type { ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types/server';
 import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
 import { NativeACVMSimulator } from '@aztec/simulator/server';
-import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
+import { Attributes, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 
-import { type WitnessMap } from '@noir-lang/types';
+import type { WitnessMap } from '@noir-lang/types';
 import { assert } from 'console';
 import crypto from 'crypto';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 
 import {
-  type BBFailure,
-  type BBSuccess,
   BB_RESULT,
   PROOF_FIELDS_FILENAME,
   PROOF_FILENAME,
@@ -93,8 +83,10 @@ import {
   verifyAvmProof,
   verifyProof,
 } from '../bb/execute.js';
+import type { BBFailure, BBSuccess } from '../bb/execute.js';
 import type { ACVMConfig, BBConfig } from '../config.js';
-import { type UltraHonkFlavor, getUltraHonkFlavorForCircuit } from '../honk.js';
+import { getUltraHonkFlavorForCircuit } from '../honk.js';
+import type { UltraHonkFlavor } from '../honk.js';
 import { ProverInstrumentation } from '../instrumentation.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractAvmVkData, extractVkData } from '../verification_key/verification_key_data.js';

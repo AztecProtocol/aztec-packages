@@ -1,8 +1,9 @@
-import { type PXE } from '@aztec/aztec.js';
-import { type AccountWalletWithSecretKey } from '@aztec/aztec.js/wallet';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { PXE } from '@aztec/aztec.js';
+import type { AccountWalletWithSecretKey } from '@aztec/aztec.js/wallet';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { deriveMasterIncomingViewingSecretKey } from '@aztec/circuits.js/keys';
-import { Fr, type GrumpkinScalar } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
+import type { GrumpkinScalar } from '@aztec/foundation/fields';
 
 import {
   getSchnorrAccount,

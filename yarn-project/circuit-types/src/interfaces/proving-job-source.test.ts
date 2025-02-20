@@ -1,17 +1,13 @@
 import { VerificationKeyData, makeRecursiveProof } from '@aztec/circuits.js';
 import { BaseOrMergeRollupPublicInputs } from '@aztec/circuits.js/rollup';
 import { NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH } from '@aztec/constants';
-import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
+import { createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
+import type { JsonRpcTestContext } from '@aztec/foundation/json-rpc/test';
 
-import { type ProvingJobSource, ProvingJobSourceSchema } from './proving-job-source.js';
-import {
-  type ProofUri,
-  type ProvingJob,
-  type ProvingJobResult,
-  type ProvingRequestResultFor,
-  ProvingRequestType,
-  makePublicInputsAndRecursiveProof,
-} from './proving-job.js';
+import { ProvingJobSourceSchema } from './proving-job-source.js';
+import type { ProvingJobSource } from './proving-job-source.js';
+import { ProvingRequestType, makePublicInputsAndRecursiveProof } from './proving-job.js';
+import type { ProofUri, ProvingJob, ProvingJobResult, ProvingRequestResultFor } from './proving-job.js';
 
 describe('ProvingJobSourceSchema', () => {
   let handler: MockProvingJobSource;

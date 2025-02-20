@@ -3,33 +3,29 @@ import {
   BlockProposal,
   Body,
   ConsensusPayload,
-  type L1ToL2MessageSource,
   L2Block,
-  type L2BlockSource,
-  type MerkleTreeId,
-  type Tx,
   TxHash,
   makeProcessedTxFromPrivateOnlyTx,
 } from '@aztec/circuit-types';
-import {
-  type BlockBuilder,
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
-  WorldStateRunningState,
-  type WorldStateSynchronizer,
+import type { L1ToL2MessageSource, L2BlockSource, MerkleTreeId, Tx } from '@aztec/circuit-types';
+import { WorldStateRunningState } from '@aztec/circuit-types/interfaces/server';
+import type {
+  BlockBuilder,
+  MerkleTreeReadOperations,
+  MerkleTreeWriteOperations,
+  WorldStateSynchronizer,
 } from '@aztec/circuit-types/interfaces/server';
 import { mockTxForRollup } from '@aztec/circuit-types/testing';
 import {
   AztecAddress,
   BlockHeader,
-  type ContractDataSource,
   EthAddress,
   Fr,
-  type Gas,
   GasFees,
   GlobalVariables,
   PublicDataWrite,
 } from '@aztec/circuits.js';
+import type { ContractDataSource, Gas } from '@aztec/circuits.js';
 import { makeAppendOnlyTreeSnapshot } from '@aztec/circuits.js/testing';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
@@ -37,19 +33,23 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { toArray } from '@aztec/foundation/iterable';
-import { type Logger, createLogger } from '@aztec/foundation/log';
-import { TestDateProvider, type Timer } from '@aztec/foundation/timer';
-import { type P2P, P2PClientState } from '@aztec/p2p';
-import { type BlockBuilderFactory } from '@aztec/prover-client/block-builder';
-import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator/server';
-import { type ValidatorClient } from '@aztec/validator-client';
+import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
+import { TestDateProvider } from '@aztec/foundation/timer';
+import type { Timer } from '@aztec/foundation/timer';
+import { P2PClientState } from '@aztec/p2p';
+import type { P2P } from '@aztec/p2p';
+import type { BlockBuilderFactory } from '@aztec/prover-client/block-builder';
+import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
+import type { ValidatorClient } from '@aztec/validator-client';
 
 import { expect } from '@jest/globals';
-import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
+import { mock, mockFn } from 'jest-mock-extended';
+import type { MockProxy } from 'jest-mock-extended';
 
-import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
-import { type SequencerPublisher } from '../publisher/sequencer-publisher.js';
-import { type SlasherClient } from '../slasher/index.js';
+import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
+import type { SequencerPublisher } from '../publisher/sequencer-publisher.js';
+import type { SlasherClient } from '../slasher/index.js';
 import { Sequencer } from './sequencer.js';
 import { SequencerState } from './utils.js';
 

@@ -1,8 +1,9 @@
-import { type PXE, createCompatibleClient, sleep } from '@aztec/aztec.js';
+import { createCompatibleClient, sleep } from '@aztec/aztec.js';
+import type { PXE } from '@aztec/aztec.js';
 import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
-import { type ChildProcess } from 'child_process';
+import type { ChildProcess } from 'child_process';
 
 import { isK8sConfig, setupEnvironment, startPortForward } from './utils.js';
 

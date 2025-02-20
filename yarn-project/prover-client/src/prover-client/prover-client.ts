@@ -1,24 +1,27 @@
-import { type ACVMConfig, type BBConfig, BBNativeRollupProver, TestCircuitProver } from '@aztec/bb-prover';
-import {
-  type ActualProverConfig,
-  type EpochProver,
-  type EpochProverManager,
-  type ForkMerkleTreeOperations,
-  type ProvingJobBroker,
-  type ProvingJobConsumer,
-  type ProvingJobProducer,
-  type ServerCircuitProver,
+import { BBNativeRollupProver, TestCircuitProver } from '@aztec/bb-prover';
+import type { ACVMConfig, BBConfig } from '@aztec/bb-prover';
+import type {
+  ActualProverConfig,
+  EpochProver,
+  EpochProverManager,
+  ForkMerkleTreeOperations,
+  ProvingJobBroker,
+  ProvingJobConsumer,
+  ProvingJobProducer,
+  ServerCircuitProver,
 } from '@aztec/circuit-types/interfaces/server';
 import { Fr } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import { NativeACVMSimulator } from '@aztec/simulator/server';
-import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
+import { getTelemetryClient } from '@aztec/telemetry-client';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 
-import { type ProverClientConfig } from '../config.js';
+import type { ProverClientConfig } from '../config.js';
 import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
 import { BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';
-import { InlineProofStore, type ProofStore, createProofStore } from '../proving_broker/proof_store/index.js';
+import { InlineProofStore, createProofStore } from '../proving_broker/proof_store/index.js';
+import type { ProofStore } from '../proving_broker/proof_store/index.js';
 import { ProvingAgent } from '../proving_broker/proving_agent.js';
 import { ServerEpochProver } from './server-epoch-prover.js';
 

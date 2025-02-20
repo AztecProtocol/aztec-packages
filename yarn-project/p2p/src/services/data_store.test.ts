@@ -1,17 +1,10 @@
 import { randomBytes } from '@aztec/foundation/crypto';
 import { all } from '@aztec/foundation/iterable';
-import { type AztecAsyncKVStore } from '@aztec/kv-store';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
-import {
-  type Datastore,
-  Key,
-  type KeyQueryFilter,
-  type KeyQueryOrder,
-  type Pair,
-  type QueryFilter,
-  type QueryOrder,
-} from 'interface-datastore';
+import { Key } from 'interface-datastore';
+import type { Datastore, KeyQueryFilter, KeyQueryOrder, Pair, QueryFilter, QueryOrder } from 'interface-datastore';
 import drain from 'it-drain';
 import length from 'it-length';
 import { fromString as uint8ArrayFromString } from 'uint8arrays/from-string';

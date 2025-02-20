@@ -1,7 +1,8 @@
 import { Fr } from '@aztec/aztec.js';
 
 import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
-import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
+import { AlertChecker } from '../quality_of_service/alert_checker.js';
+import type { AlertConfig } from '../quality_of_service/alert_checker.js';
 import { TokenContractTest } from './token_contract_test.js';
 
 const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';

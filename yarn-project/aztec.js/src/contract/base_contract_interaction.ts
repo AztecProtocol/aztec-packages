@@ -1,10 +1,11 @@
-import { type Capsule, type TxExecutionRequest, type TxProvingResult } from '@aztec/circuit-types';
-import { type Fr, GasSettings } from '@aztec/circuits.js';
+import type { Capsule, TxExecutionRequest, TxProvingResult } from '@aztec/circuit-types';
+import { GasSettings } from '@aztec/circuits.js';
+import type { Fr } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
 
-import { type Wallet } from '../account/wallet.js';
-import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
-import { type FeeOptions, type UserFeeOptions } from '../entrypoint/payload.js';
+import type { Wallet } from '../account/wallet.js';
+import type { ExecutionRequestInit } from '../entrypoint/entrypoint.js';
+import type { FeeOptions, UserFeeOptions } from '../entrypoint/payload.js';
 import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
 import { getGasLimits } from './get_gas_limits.js';
 import { ProvenTx } from './proven_tx.js';

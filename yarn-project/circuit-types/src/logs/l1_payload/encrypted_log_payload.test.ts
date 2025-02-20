@@ -2,10 +2,10 @@ import {
   AztecAddress,
   CompleteAddress,
   IndexedTaggingSecret,
-  type PrivateLog,
   computeAddressSecret,
   deriveKeys,
 } from '@aztec/circuits.js';
+import type { PrivateLog } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';

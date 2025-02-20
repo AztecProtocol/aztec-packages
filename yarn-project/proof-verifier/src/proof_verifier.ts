@@ -1,22 +1,16 @@
 import { retrieveL2ProofsFromRollup } from '@aztec/archiver/data-retrieval';
 import { BBCircuitVerifier } from '@aztec/bb-prover';
 import { createEthereumChain } from '@aztec/ethereum';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
-import {
-  Attributes,
-  Metrics,
-  type TelemetryClient,
-  type Traceable,
-  type Tracer,
-  type UpDownCounter,
-  ValueType,
-  trackSpan,
-} from '@aztec/telemetry-client';
+import { Attributes, Metrics, ValueType, trackSpan } from '@aztec/telemetry-client';
+import type { TelemetryClient, Traceable, Tracer, UpDownCounter } from '@aztec/telemetry-client';
 
-import { type PublicClient, createPublicClient, http } from 'viem';
+import { createPublicClient, http } from 'viem';
+import type { PublicClient } from 'viem';
 
-import { type ProofVerifierConfig } from './config.js';
+import type { ProofVerifierConfig } from './config.js';
 
 const EXPECTED_PROOF_SIZE = 13988;
 

@@ -1,29 +1,17 @@
-import {
-  type L2Block,
-  type L2BlockId,
-  type L2BlockSource,
-  L2BlockStream,
-  type L2BlockStreamEvent,
-  type L2Tips,
-} from '@aztec/circuit-types';
+import { L2BlockStream } from '@aztec/circuit-types';
+import type { L2Block, L2BlockId, L2BlockSource, L2BlockStreamEvent, L2Tips } from '@aztec/circuit-types';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
-import { type L1ContractsConfig, type L1ReaderConfig, createEthereumChain } from '@aztec/ethereum';
+import { createEthereumChain } from '@aztec/ethereum';
+import type { L1ContractsConfig, L1ReaderConfig } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@aztec/kv-store';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts';
-import { type TelemetryClient, WithTracer, getTelemetryClient } from '@aztec/telemetry-client';
+import { WithTracer, getTelemetryClient } from '@aztec/telemetry-client';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 
-import {
-  type Chain,
-  type GetContractReturnType,
-  type HttpTransport,
-  type PublicClient,
-  createPublicClient,
-  getAddress,
-  getContract,
-  http,
-} from 'viem';
+import { createPublicClient, getAddress, getContract, http } from 'viem';
+import type { Chain, GetContractReturnType, HttpTransport, PublicClient } from 'viem';
 
 /**
  * Enum defining the possible states of the Slasher client.

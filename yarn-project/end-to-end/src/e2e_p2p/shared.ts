@@ -1,11 +1,12 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { type InitialAccountData } from '@aztec/accounts/testing';
-import { type AztecNodeService } from '@aztec/aztec-node';
-import { type Logger, type SentTx, TxStatus } from '@aztec/aztec.js';
-import { type SpamContract } from '@aztec/noir-contracts.js/Spam';
+import type { InitialAccountData } from '@aztec/accounts/testing';
+import type { AztecNodeService } from '@aztec/aztec-node';
+import { TxStatus } from '@aztec/aztec.js';
+import type { Logger, SentTx } from '@aztec/aztec.js';
+import type { SpamContract } from '@aztec/noir-contracts.js/Spam';
 import { createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
 
-import { type NodeContext } from '../fixtures/setup_p2p_test.js';
+import type { NodeContext } from '../fixtures/setup_p2p_test.js';
 import { submitTxsTo } from '../shared/submit-transactions.js';
 
 // submits a set of transactions to the provided Private eXecution Environment (PXE)

@@ -1,10 +1,11 @@
-import { type AztecNodeService } from '@aztec/aztec-node';
+import type { AztecNodeService } from '@aztec/aztec-node';
 import { sleep } from '@aztec/aztec.js';
 
 import fs from 'fs';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
-import { type NodeContext, createNode, createNodes } from '../fixtures/setup_p2p_test.js';
+import { createNode, createNodes } from '../fixtures/setup_p2p_test.js';
+import type { NodeContext } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { createPXEServiceAndSubmitTransactions } from './shared.js';
 

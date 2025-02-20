@@ -1,8 +1,9 @@
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 
 import { Registry } from 'prom-client';
 
-import { type Meter, type MetricsType, type ObservableGauge, type TelemetryClient } from './telemetry.js';
+import type { Meter, MetricsType, ObservableGauge, TelemetryClient } from './telemetry.js';
 
 /**
  * Types matching the gossipsub and libp2p services

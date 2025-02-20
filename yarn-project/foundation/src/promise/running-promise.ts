@@ -1,6 +1,7 @@
 import { createLogger } from '../log/pino-logger.js';
 import { InterruptibleSleep } from '../sleep/index.js';
-import { type PromiseWithResolvers, promiseWithResolvers } from './utils.js';
+import { promiseWithResolvers } from './utils.js';
+import type { PromiseWithResolvers } from './utils.js';
 
 /**
  * RunningPromise is a utility class that helps manage the execution of an asynchronous function

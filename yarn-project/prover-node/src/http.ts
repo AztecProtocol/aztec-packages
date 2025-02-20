@@ -1,7 +1,7 @@
 import { ProverNodeApiSchema } from '@aztec/circuit-types/interfaces/server';
 import { createTracedJsonRpcServer } from '@aztec/telemetry-client';
 
-import { type ProverNode } from './prover-node.js';
+import type { ProverNode } from './prover-node.js';
 
 /**
  * Wrap a ProverNode instance with a JSON RPC HTTP server.

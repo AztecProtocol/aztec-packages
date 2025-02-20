@@ -2,15 +2,11 @@ import { toArray } from '@aztec/foundation/iterable';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 
 import { expect } from 'chai';
-import { type SinonStubbedInstance, stub } from 'sinon';
+import { stub } from 'sinon';
+import type { SinonStubbedInstance } from 'sinon';
 
-import {
-  CURSOR_PAGE_SIZE,
-  Database,
-  type LMDBMessageChannel,
-  LMDBMessageType,
-  type LMDBResponseBody,
-} from './message.js';
+import { CURSOR_PAGE_SIZE, Database, LMDBMessageType } from './message.js';
+import type { LMDBMessageChannel, LMDBResponseBody } from './message.js';
 import { ReadTransaction } from './read_transaction.js';
 
 describe('ReadTransaction', () => {

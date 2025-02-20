@@ -2,8 +2,8 @@ import { AbortError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 
-import { type L2Block } from '../l2_block.js';
-import { type L2BlockId, type L2BlockSource, type L2Tips } from '../l2_block_source.js';
+import type { L2Block } from '../l2_block.js';
+import type { L2BlockId, L2BlockSource, L2Tips } from '../l2_block_source.js';
 
 /** Creates a stream of events for new blocks, chain tips updates, and reorgs, out of polling an archiver or a node. */
 export class L2BlockStream {

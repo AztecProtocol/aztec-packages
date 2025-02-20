@@ -1,10 +1,6 @@
-import {
-  type BlobSinkConfig,
-  blobSinkConfigMappings,
-  createBlobSinkServer,
-  getBlobSinkConfigFromEnv,
-} from '@aztec/blob-sink/server';
-import { type LogFn } from '@aztec/foundation/log';
+import { blobSinkConfigMappings, createBlobSinkServer, getBlobSinkConfigFromEnv } from '@aztec/blob-sink/server';
+import type { BlobSinkConfig } from '@aztec/blob-sink/server';
+import type { LogFn } from '@aztec/foundation/log';
 import { getConfigEnvVars as getTelemetryClientConfig, initTelemetryClient } from '@aztec/telemetry-client';
 
 import { extractRelevantOptions } from '../util.js';

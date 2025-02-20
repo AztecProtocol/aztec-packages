@@ -1,15 +1,8 @@
-import {
-  Attributes,
-  type Gauge,
-  type Histogram,
-  Metrics,
-  type TelemetryClient,
-  type Tracer,
-  type UpDownCounter,
-  ValueType,
-} from '@aztec/telemetry-client';
+import { Attributes, Metrics, ValueType } from '@aztec/telemetry-client';
+import type { Gauge, Histogram, TelemetryClient, Tracer, UpDownCounter } from '@aztec/telemetry-client';
 
-import { type SequencerState, type SequencerStateCallback, sequencerStateToNumber } from './utils.js';
+import { sequencerStateToNumber } from './utils.js';
+import type { SequencerState, SequencerStateCallback } from './utils.js';
 
 export class SequencerMetrics {
   public readonly tracer: Tracer;

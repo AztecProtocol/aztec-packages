@@ -4,8 +4,9 @@ import type { PeerInfo } from '@aztec/circuit-types/interfaces/server';
 import type { PeerId } from '@libp2p/interface';
 import EventEmitter from 'events';
 
-import { type ReqRespSubProtocol, type SubProtocolMap } from './reqresp/interface.js';
-import { type P2PService, type PeerDiscoveryService, PeerDiscoveryState } from './service.js';
+import type { ReqRespSubProtocol, SubProtocolMap } from './reqresp/interface.js';
+import { PeerDiscoveryState } from './service.js';
+import type { P2PService, PeerDiscoveryService } from './service.js';
 
 /**
  * A dummy implementation of the P2P Service.

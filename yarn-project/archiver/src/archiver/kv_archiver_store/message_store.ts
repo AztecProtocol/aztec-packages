@@ -4,7 +4,7 @@ import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@aztec/kv-store';
 
-import { type DataRetrieval } from '../structs/data_retrieval.js';
+import type { DataRetrieval } from '../structs/data_retrieval.js';
 
 /**
  * LMDB implementation of the ArchiverDataStore interface.

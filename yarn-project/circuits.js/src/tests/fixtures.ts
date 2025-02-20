@@ -2,8 +2,9 @@ import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
-import { type ContractArtifact, loadContractArtifact } from '../abi/index.js';
-import { type NoirCompiledContract } from '../noir/index.js';
+import { loadContractArtifact } from '../abi/index.js';
+import type { ContractArtifact } from '../abi/index.js';
+import type { NoirCompiledContract } from '../noir/index.js';
 
 // Copied from the build output for the contract `Benchmarking` in noir-contracts
 export function getBenchmarkContractArtifact(): ContractArtifact {

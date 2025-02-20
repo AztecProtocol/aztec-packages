@@ -1,4 +1,4 @@
-import { type AbiType } from './abi.js';
+import type { AbiType } from './abi.js';
 
 /**
  * Returns whether the ABI type is an Aztec or Ethereum Address defined in Aztec.nr.

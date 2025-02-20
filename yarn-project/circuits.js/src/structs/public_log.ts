@@ -1,13 +1,9 @@
 import { PUBLIC_LOG_DATA_SIZE_IN_FIELDS, PUBLIC_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
-import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
+import { makeTuple } from '@aztec/foundation/array';
+import type { FieldsOf } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
-import {
-  BufferReader,
-  FieldReader,
-  type Tuple,
-  serializeToBuffer,
-  serializeToFields,
-} from '@aztec/foundation/serialize';
+import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import type { Tuple } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
 import { z } from 'zod';

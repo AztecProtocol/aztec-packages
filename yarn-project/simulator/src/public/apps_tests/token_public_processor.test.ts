@@ -1,4 +1,5 @@
-import { AztecAddress, type ContractInstanceWithAddress, Fr, GasFees, GlobalVariables } from '@aztec/circuits.js';
+import { AztecAddress, Fr, GasFees, GlobalVariables } from '@aztec/circuits.js';
+import type { ContractInstanceWithAddress } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';

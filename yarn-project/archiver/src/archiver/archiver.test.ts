@@ -1,31 +1,28 @@
 import { Blob } from '@aztec/blob-lib';
-import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
-import { InboxLeaf, type L1RollupConstants, L2Block } from '@aztec/circuit-types';
+import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
+import { InboxLeaf, L2Block } from '@aztec/circuit-types';
+import type { L1RollupConstants } from '@aztec/circuit-types';
 import { PrivateLog } from '@aztec/circuits.js';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { ForwarderAbi, type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { ForwarderAbi, RollupAbi } from '@aztec/l1-artifacts';
+import type { InboxAbi } from '@aztec/l1-artifacts';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
-import { type MockProxy, mock } from 'jest-mock-extended';
-import {
-  type Chain,
-  type HttpTransport,
-  type Log,
-  type PublicClient,
-  type Transaction,
-  encodeFunctionData,
-  toHex,
-} from 'viem';
+import { mock } from 'jest-mock-extended';
+import type { MockProxy } from 'jest-mock-extended';
+import { encodeFunctionData, toHex } from 'viem';
+import type { Chain, HttpTransport, Log, PublicClient, Transaction } from 'viem';
 
 import { Archiver } from './archiver.js';
-import { type ArchiverDataStore } from './archiver_store.js';
-import { type ArchiverInstrumentation } from './instrumentation.js';
+import type { ArchiverDataStore } from './archiver_store.js';
+import type { ArchiverInstrumentation } from './instrumentation.js';
 import { MemoryArchiverStore } from './memory_archiver_store/memory_archiver_store.js';
 
 interface MockRollupContractRead {

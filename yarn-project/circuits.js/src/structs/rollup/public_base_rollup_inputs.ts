@@ -1,7 +1,7 @@
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { FieldsOf } from '@aztec/foundation/types';
 
 import { AvmProofData } from './avm_proof_data.js';
 import { PublicBaseRollupHints } from './base_rollup_hints.js';

@@ -1,12 +1,12 @@
-import { type SimulationError } from '@aztec/circuit-types';
+import type { SimulationError } from '@aztec/circuit-types';
 import { Gas } from '@aztec/circuits.js';
-import { type Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
 
 import { inspect } from 'util';
 
 import { createSimulationError } from '../common/errors.js';
-import { type Gas as AvmGas } from './avm_gas.js';
-import { type AvmRevertReason } from './errors.js';
+import type { Gas as AvmGas } from './avm_gas.js';
+import type { AvmRevertReason } from './errors.js';
 
 /**
  * Results of an contract call's execution in the AVM.

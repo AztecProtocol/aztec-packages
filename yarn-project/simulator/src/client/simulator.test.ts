@@ -1,15 +1,18 @@
 import { CompleteAddress, Note } from '@aztec/circuit-types';
-import { type AztecNode } from '@aztec/circuit-types/interfaces/client';
+import type { AztecNode } from '@aztec/circuit-types/interfaces/client';
 import { KeyValidationRequest, computeAppNullifierSecretKey, deriveKeys } from '@aztec/circuits.js';
-import { type FunctionArtifact, getFunctionArtifactByName } from '@aztec/circuits.js/abi';
+import { getFunctionArtifactByName } from '@aztec/circuits.js/abi';
+import type { FunctionArtifact } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { Fr, type Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
+import type { Point } from '@aztec/foundation/fields';
 import { TokenBlacklistContractArtifact } from '@aztec/noir-contracts.js/TokenBlacklist';
 
-import { type MockProxy, mock } from 'jest-mock-extended';
+import { mock } from 'jest-mock-extended';
+import type { MockProxy } from 'jest-mock-extended';
 
 import { WASMSimulator } from '../providers/acvm_wasm.js';
-import { type DBOracle } from './db_oracle.js';
+import type { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
 
 describe('Simulator', () => {

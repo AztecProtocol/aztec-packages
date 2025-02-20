@@ -1,11 +1,12 @@
 import { Tx, TxHash } from '@aztec/circuit-types';
-import { type TxAddedToPoolStats } from '@aztec/circuit-types/stats';
+import type { TxAddedToPoolStats } from '@aztec/circuit-types/stats';
 import { createLogger } from '@aztec/foundation/log';
-import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
+import { getTelemetryClient } from '@aztec/telemetry-client';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';
 import { getPendingTxPriority } from './priority.js';
-import { type TxPool } from './tx_pool.js';
+import type { TxPool } from './tx_pool.js';
 
 /**
  * In-memory implementation of the Transaction Pool.

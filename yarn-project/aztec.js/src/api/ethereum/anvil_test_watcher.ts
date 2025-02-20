@@ -1,11 +1,13 @@
-import { type EthAddress } from '@aztec/circuits.js';
-import { type EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { EthAddress } from '@aztec/circuits.js';
+import type { EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
+import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
-import { type TestDateProvider } from '@aztec/foundation/timer';
+import type { TestDateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
-import { type GetContractReturnType, type HttpTransport, type PublicClient, getAddress, getContract } from 'viem';
+import { getAddress, getContract } from 'viem';
+import type { GetContractReturnType, HttpTransport, PublicClient } from 'viem';
 import type * as chains from 'viem/chains';
 
 /**

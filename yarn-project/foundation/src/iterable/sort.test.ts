@@ -1,5 +1,5 @@
-import { all } from './index.js';
-import { type CompareFunction, sort } from './index.js';
+import { all, sort } from './index.js';
+import type { CompareFunction } from './index.js';
 
 describe('sort iterable', () => {
   it('should sort all entries of an iterator', () => {

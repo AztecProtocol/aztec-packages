@@ -1,6 +1,7 @@
 import { Fr, computeSecretHash, fileURLToPath } from '@aztec/aztec.js';
 import { LOCALHOST } from '@aztec/cli/cli-utils';
-import { type LogFn, createConsoleLogger, createLogger } from '@aztec/foundation/log';
+import { createConsoleLogger, createLogger } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
 import { openStoreAt } from '@aztec/kv-store/lmdb-v2';
 
 import { Argument, Command, Option } from 'commander';

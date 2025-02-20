@@ -1,18 +1,16 @@
-import {
-  EmptyL1RollupConstants,
-  type L1RollupConstants,
-  getEpochNumberAtTimestamp,
-  getSlotAtTimestamp,
-} from '@aztec/circuit-types';
+import { EmptyL1RollupConstants, getEpochNumberAtTimestamp, getSlotAtTimestamp } from '@aztec/circuit-types';
+import type { L1RollupConstants } from '@aztec/circuit-types';
 import { RollupContract, createEthereumChain } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 
 import { EventEmitter } from 'node:events';
 import { createPublicClient, encodeAbiParameters, http, keccak256 } from 'viem';
 
-import { type EpochCacheConfig, getEpochCacheConfigEnvVars } from './config.js';
+import { getEpochCacheConfigEnvVars } from './config.js';
+import type { EpochCacheConfig } from './config.js';
 
 type EpochAndSlot = {
   epoch: bigint;

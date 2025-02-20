@@ -1,17 +1,16 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
 import {
   AztecAddress,
-  type ContractArtifact,
-  type ContractInstanceWithAddress,
   Fr,
   PublicKeys,
   deriveKeys,
   getContractInstanceFromDeployParams,
   loadContractArtifact,
 } from '@aztec/aztec.js';
+import type { ContractArtifact, ContractInstanceWithAddress } from '@aztec/aztec.js';
 import { createSafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
-import { type Logger } from '@aztec/foundation/log';
-import { type ApiSchemaFor, type ZodFor } from '@aztec/foundation/schemas';
+import type { Logger } from '@aztec/foundation/log';
+import type { ApiSchemaFor, ZodFor } from '@aztec/foundation/schemas';
 
 import { readFile, readdir } from 'fs/promises';
 import { join } from 'path';
@@ -19,17 +18,14 @@ import { z } from 'zod';
 
 import { TXEService } from './txe_service/txe_service.js';
 import {
-  type ForeignCallArgs,
   ForeignCallArgsSchema,
-  type ForeignCallArray,
-  type ForeignCallResult,
   ForeignCallResultSchema,
-  type ForeignCallSingle,
   fromArray,
   fromSingle,
   toForeignCallResult,
   toSingle,
 } from './util/encoding.js';
+import type { ForeignCallArgs, ForeignCallArray, ForeignCallResult, ForeignCallSingle } from './util/encoding.js';
 
 const TXESessions = new Map<number, TXEService>();
 

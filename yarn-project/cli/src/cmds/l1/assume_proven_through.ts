@@ -1,6 +1,6 @@
 import { createPXEClient, makeFetch } from '@aztec/aztec.js';
 import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
-import { type LogFn } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
 
 import { setAssumeProvenThrough } from '../../utils/aztec.js';
 

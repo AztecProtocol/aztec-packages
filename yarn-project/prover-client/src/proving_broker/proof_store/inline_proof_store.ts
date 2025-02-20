@@ -1,16 +1,15 @@
-import {
-  type ProofUri,
-  type ProvingJobId,
-  ProvingJobInputs,
-  type ProvingJobInputsMap,
-  ProvingJobResult,
-  type ProvingJobResultsMap,
-  type ProvingRequestType,
+import { ProvingJobInputs, ProvingJobResult } from '@aztec/circuit-types/interfaces/server';
+import type {
+  ProofUri,
+  ProvingJobId,
+  ProvingJobInputsMap,
+  ProvingJobResultsMap,
+  ProvingRequestType,
 } from '@aztec/circuit-types/interfaces/server';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
-import { type ZodFor } from '@aztec/foundation/schemas';
+import type { ZodFor } from '@aztec/foundation/schemas';
 
-import { type ProofStore } from './proof_store.js';
+import type { ProofStore } from './proof_store.js';
 
 // use an ASCII encoded data uri https://datatracker.ietf.org/doc/html/rfc2397#section-2
 // we do this to avoid double encoding to base64 (since the inputs already serialize to a base64 string)

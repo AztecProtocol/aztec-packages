@@ -1,8 +1,9 @@
 import { EmpireBaseAbi } from '@aztec/l1-artifacts/EmpireBaseAbi';
 
-import { type Hex, encodeFunctionData } from 'viem';
+import { encodeFunctionData } from 'viem';
+import type { Hex } from 'viem';
 
-import { type L1TxRequest } from '../l1_tx_utils.js';
+import type { L1TxRequest } from '../l1_tx_utils.js';
 
 export interface IEmpireBase {
   getRoundInfo(rollupAddress: Hex, round: bigint): Promise<{ lastVote: bigint; leader: Hex; executed: boolean }>;

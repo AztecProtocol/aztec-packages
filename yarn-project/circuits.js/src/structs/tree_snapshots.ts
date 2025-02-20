@@ -1,5 +1,5 @@
 import { TREE_SNAPSHOTS_LENGTH } from '@aztec/constants';
-import { type Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';

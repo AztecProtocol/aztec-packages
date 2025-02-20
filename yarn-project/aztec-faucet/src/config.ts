@@ -1,5 +1,7 @@
-import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum';
-import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
+import { l1ReaderConfigMappings } from '@aztec/ethereum';
+import type { L1ReaderConfig } from '@aztec/ethereum';
+import { getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
+import type { ConfigMappingsType } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 export type L1AssetConfig = {

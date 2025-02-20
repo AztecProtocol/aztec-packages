@@ -1,5 +1,6 @@
-import { type InitialAccountData, deployFundedSchnorrAccounts } from '@aztec/accounts/testing';
-import { type Logger, type PXE } from '@aztec/aztec.js';
+import { deployFundedSchnorrAccounts } from '@aztec/accounts/testing';
+import type { InitialAccountData } from '@aztec/accounts/testing';
+import type { Logger, PXE } from '@aztec/aztec.js';
 import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 
 import { foundry, sepolia } from 'viem/chains';

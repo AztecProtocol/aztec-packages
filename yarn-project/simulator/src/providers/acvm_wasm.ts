@@ -1,14 +1,17 @@
-import { type NoirCompiledCircuit } from '@aztec/circuits.js/noir';
+import type { NoirCompiledCircuit } from '@aztec/circuits.js/noir';
 import { createLogger } from '@aztec/foundation/log';
 import { foreignCallHandler } from '@aztec/noir-protocol-circuits-types/client';
 
-import initACVM, { type ExecutionError, executeCircuit } from '@noir-lang/acvm_js';
+import initACVM, { executeCircuit } from '@noir-lang/acvm_js';
+import type { ExecutionError } from '@noir-lang/acvm_js';
 import initAbi from '@noir-lang/noirc_abi';
-import { type WitnessMap } from '@noir-lang/types';
+import type { WitnessMap } from '@noir-lang/types';
 
-import { type ACIRCallback, acvm } from '../acvm/acvm.js';
-import { type ACVMWitness } from '../acvm/acvm_types.js';
-import { type SimulationProvider, parseErrorPayload } from '../common/simulation_provider.js';
+import { acvm } from '../acvm/acvm.js';
+import type { ACIRCallback } from '../acvm/acvm.js';
+import type { ACVMWitness } from '../acvm/acvm_types.js';
+import { parseErrorPayload } from '../common/simulation_provider.js';
+import type { SimulationProvider } from '../common/simulation_provider.js';
 
 export class WASMSimulator implements SimulationProvider {
   constructor(protected log = createLogger('wasm-simulator')) {}

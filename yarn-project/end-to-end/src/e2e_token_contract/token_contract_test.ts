@@ -1,17 +1,13 @@
 import { getSchnorrWallet } from '@aztec/accounts/schnorr';
-import { type AccountWallet, type CompleteAddress, type Logger, createLogger } from '@aztec/aztec.js';
+import { createLogger } from '@aztec/aztec.js';
+import type { AccountWallet, CompleteAddress, Logger } from '@aztec/aztec.js';
 import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
-import {
-  type ISnapshotManager,
-  type SubsystemsContext,
-  createSnapshotManager,
-  deployAccounts,
-  publicDeployAccounts,
-} from '../fixtures/snapshot_manager.js';
+import { createSnapshotManager, deployAccounts, publicDeployAccounts } from '../fixtures/snapshot_manager.js';
+import type { ISnapshotManager, SubsystemsContext } from '../fixtures/snapshot_manager.js';
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 import { TokenSimulator } from '../simulators/token_simulator.js';
 

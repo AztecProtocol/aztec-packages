@@ -2,7 +2,8 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { computeRootFromSiblingPath } from '@aztec/foundation/trees';
 
-import { type ContractArtifact, FunctionSelector, FunctionType } from '../abi/index.js';
+import { FunctionSelector, FunctionType } from '../abi/index.js';
+import type { ContractArtifact } from '../abi/index.js';
 import {
   computeArtifactFunctionTree,
   computeArtifactHash,
@@ -11,10 +12,10 @@ import {
   computeFunctionMetadataHash,
   getArtifactMerkleTreeHasher,
 } from './artifact_hash.js';
-import {
-  type ContractClassPublic,
-  type UnconstrainedFunctionMembershipProof,
-  type UnconstrainedFunctionWithMembershipProof,
+import type {
+  ContractClassPublic,
+  UnconstrainedFunctionMembershipProof,
+  UnconstrainedFunctionWithMembershipProof,
 } from './interfaces/index.js';
 
 /**

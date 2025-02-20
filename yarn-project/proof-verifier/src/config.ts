@@ -1,11 +1,8 @@
 import { EthAddress } from '@aztec/circuits.js';
-import {
-  type ConfigMappingsType,
-  booleanConfigHelper,
-  getConfigFromMappings,
-  numberConfigHelper,
-} from '@aztec/foundation/config';
-import { type TelemetryClientConfig, telemetryClientConfigMappings } from '@aztec/telemetry-client';
+import { booleanConfigHelper, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
+import type { ConfigMappingsType } from '@aztec/foundation/config';
+import { telemetryClientConfigMappings } from '@aztec/telemetry-client';
+import type { TelemetryClientConfig } from '@aztec/telemetry-client';
 
 export type ProofVerifierConfig = {
   /** The URL to an L1 node */

@@ -1,9 +1,9 @@
-import { type BlockHeader, type Fr, type Proof } from '@aztec/circuits.js';
-import { type RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
+import type { BlockHeader, Fr, Proof } from '@aztec/circuits.js';
+import type { RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 
-import { type L2Block } from '../l2_block.js';
-import { type Tx } from '../tx/tx.js';
-import { type BlockBuilder } from './block-builder.js';
+import type { L2Block } from '../l2_block.js';
+import type { Tx } from '../tx/tx.js';
+import type { BlockBuilder } from './block-builder.js';
 
 /** Coordinates the proving of an entire epoch. */
 export interface EpochProver extends Omit<BlockBuilder, 'setBlockCompleted'> {

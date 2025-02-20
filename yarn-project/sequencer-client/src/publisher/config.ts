@@ -1,6 +1,9 @@
-import { type BlobSinkConfig, blobSinkConfigMapping } from '@aztec/blob-sink/client';
-import { type L1ReaderConfig, type L1TxUtilsConfig, NULL_KEY, l1TxUtilsConfigMappings } from '@aztec/ethereum';
-import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
+import { blobSinkConfigMapping } from '@aztec/blob-sink/client';
+import type { BlobSinkConfig } from '@aztec/blob-sink/client';
+import { NULL_KEY, l1TxUtilsConfigMappings } from '@aztec/ethereum';
+import type { L1ReaderConfig, L1TxUtilsConfig } from '@aztec/ethereum';
+import { getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
+import type { ConfigMappingsType } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 /**

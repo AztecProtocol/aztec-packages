@@ -1,12 +1,5 @@
-import {
-  type AccountWallet,
-  AztecAddress,
-  type GrumpkinScalar,
-  type Logger,
-  type Wallet,
-  computeAppNullifierSecretKey,
-  deriveMasterNullifierSecretKey,
-} from '@aztec/aztec.js';
+import { AztecAddress, computeAppNullifierSecretKey, deriveMasterNullifierSecretKey } from '@aztec/aztec.js';
+import type { AccountWallet, GrumpkinScalar, Logger, Wallet } from '@aztec/aztec.js';
 import { toBufferLE } from '@aztec/foundation/bigint-buffer';
 import { sha256 } from '@aztec/foundation/crypto';
 import { CardGameContract } from '@aztec/noir-contracts.js/CardGame';

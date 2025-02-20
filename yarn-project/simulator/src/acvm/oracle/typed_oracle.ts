@@ -1,25 +1,20 @@
-import {
-  type CompleteAddress,
-  type MerkleTreeId,
-  type Note,
-  type NoteStatus,
-  type PublicDataWitness,
-  type UnencryptedL2Log,
+import type {
+  CompleteAddress,
+  MerkleTreeId,
+  Note,
+  NoteStatus,
+  PublicDataWitness,
+  UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import { type NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/server';
-import {
-  type BlockHeader,
-  type ContractInstance,
-  type IndexedTaggingSecret,
-  type KeyValidationRequest,
-} from '@aztec/circuits.js';
-import { type FunctionSelector, type NoteSelector } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { type LogWithTxData } from '@aztec/circuits.js/logs';
-import { type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
+import type { NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/server';
+import type { BlockHeader, ContractInstance, IndexedTaggingSecret, KeyValidationRequest } from '@aztec/circuits.js';
+import type { FunctionSelector, NoteSelector } from '@aztec/circuits.js/abi';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { LogWithTxData } from '@aztec/circuits.js/logs';
+import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 
-import { type MessageLoadOracleInputs } from '../../common/message_load_oracle_inputs.js';
+import type { MessageLoadOracleInputs } from '../../common/message_load_oracle_inputs.js';
 
 /**
  * Information about a note needed during execution.

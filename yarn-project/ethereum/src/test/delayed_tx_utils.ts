@@ -1,5 +1,6 @@
 import { L1TxUtilsWithBlobs } from '../l1_tx_utils_with_blobs.js';
-import { type Delayer, withDelayer } from './tx_delayer.js';
+import { withDelayer } from './tx_delayer.js';
+import type { Delayer } from './tx_delayer.js';
 
 export class DelayedTxUtils extends L1TxUtilsWithBlobs {
   public delayer: Delayer | undefined;

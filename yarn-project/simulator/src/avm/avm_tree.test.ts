@@ -1,14 +1,11 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
-import {
-  type IndexedTreeId,
-  type MerkleTreeWriteOperations,
-  type SequentialInsertionResult,
+import type {
+  IndexedTreeId,
+  MerkleTreeWriteOperations,
+  SequentialInsertionResult,
 } from '@aztec/circuit-types/interfaces/server';
-import {
-  type NullifierLeafPreimage,
-  PublicDataTreeLeaf,
-  type PublicDataTreeLeafPreimage,
-} from '@aztec/circuits.js/trees';
+import { PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
+import type { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
 import {
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_SUBTREE_HEIGHT,
@@ -17,15 +14,11 @@ import {
 } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
+import type { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { NativeWorldStateService } from '@aztec/world-state';
 
-import {
-  AvmEphemeralForest,
-  EphemeralAvmTree,
-  type IndexedInsertResult,
-  type IndexedUpsertResult,
-} from './avm_tree.js';
+import { AvmEphemeralForest, EphemeralAvmTree } from './avm_tree.js';
+import type { IndexedInsertResult, IndexedUpsertResult } from './avm_tree.js';
 
 let mainState: MerkleTreeWriteOperations;
 let copyState: MerkleTreeWriteOperations;

@@ -1,9 +1,11 @@
-import { BatchCall, Fr, type Logger, type Wallet } from '@aztec/aztec.js';
+import { BatchCall, Fr } from '@aztec/aztec.js';
+import type { Logger, Wallet } from '@aztec/aztec.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 
-import { DeployTest, type StatefulContractCtorArgs } from './deploy_test.js';
+import { DeployTest } from './deploy_test.js';
+import type { StatefulContractCtorArgs } from './deploy_test.js';
 
 describe('e2e_deploy_contract private initialization', () => {
   const t = new DeployTest('private initialization');

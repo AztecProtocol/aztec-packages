@@ -1,28 +1,25 @@
-import {
-  type GasUsed,
-  NestedProcessReturnValues,
-  type PublicExecutionRequest,
-  type SimulationError,
-  type Tx,
-  TxExecutionPhase,
-} from '@aztec/circuit-types';
-import { type AvmProvingRequest, type MerkleTreeReadOperations } from '@aztec/circuit-types/interfaces/server';
-import { type AvmSimulationStats } from '@aztec/circuit-types/stats';
-import { type Fr, type Gas, type GlobalVariables, type PublicCallRequest, type RevertCode } from '@aztec/circuits.js';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { NestedProcessReturnValues, TxExecutionPhase } from '@aztec/circuit-types';
+import type { GasUsed, PublicExecutionRequest, SimulationError, Tx } from '@aztec/circuit-types';
+import type { AvmProvingRequest, MerkleTreeReadOperations } from '@aztec/circuit-types/interfaces/server';
+import type { AvmSimulationStats } from '@aztec/circuit-types/stats';
+import type { Fr, Gas, GlobalVariables, PublicCallRequest, RevertCode } from '@aztec/circuits.js';
+import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
-import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
+import { Attributes, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
+import type { TelemetryClient, Tracer } from '@aztec/telemetry-client';
 
 import { strict as assert } from 'assert';
 
-import { type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
-import { type AvmPersistableStateManager, AvmSimulator } from '../avm/index.js';
+import type { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
+import { AvmSimulator } from '../avm/index.js';
+import type { AvmPersistableStateManager } from '../avm/index.js';
 import { NullifierCollisionError } from '../avm/journal/nullifiers.js';
 import { getPublicFunctionDebugName } from '../common/debug_fn_name.js';
 import { ExecutorMetrics } from './executor_metrics.js';
-import { type WorldStateDB } from './public_db_sources.js';
+import type { WorldStateDB } from './public_db_sources.js';
 import { PublicTxContext } from './public_tx_context.js';
 
 export type ProcessedPhase = {

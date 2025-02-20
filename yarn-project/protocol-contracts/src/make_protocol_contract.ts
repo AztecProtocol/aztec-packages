@@ -1,8 +1,9 @@
-import { type ContractArtifact } from '@aztec/circuits.js/abi';
+import type { ContractArtifact } from '@aztec/circuits.js/abi';
 import { getContractClassFromArtifact, getContractInstanceFromDeployParams } from '@aztec/circuits.js/contract';
 
-import { type ProtocolContract } from './protocol_contract.js';
-import { ProtocolContractAddress, type ProtocolContractName, ProtocolContractSalt } from './protocol_contract_data.js';
+import type { ProtocolContract } from './protocol_contract.js';
+import { ProtocolContractAddress, ProtocolContractSalt } from './protocol_contract_data.js';
+import type { ProtocolContractName } from './protocol_contract_data.js';
 
 /**
  * Returns the canonical deployment given its name and artifact.

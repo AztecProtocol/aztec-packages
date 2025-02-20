@@ -1,13 +1,14 @@
-import { type AbiDecoded, type FunctionArtifact, type FunctionSelector, decodeFromAbi } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { type Fr } from '@aztec/foundation/fields';
+import { decodeFromAbi } from '@aztec/circuits.js/abi';
+import type { AbiDecoded, FunctionArtifact, FunctionSelector } from '@aztec/circuits.js/abi';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 
 import { witnessMapToFields } from '../acvm/deserialize.js';
 import { Oracle, extractCallStack, toACVMWitness } from '../acvm/index.js';
 import { ExecutionError, resolveAssertionMessageFromError } from '../common/errors.js';
-import { type SimulationProvider } from '../server.js';
-import { type ViewDataOracle } from './view_data_oracle.js';
+import type { SimulationProvider } from '../server.js';
+import type { ViewDataOracle } from './view_data_oracle.js';
 
 // docs:start:execute_unconstrained_function
 /**

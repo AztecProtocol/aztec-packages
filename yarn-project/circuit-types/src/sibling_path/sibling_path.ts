@@ -1,13 +1,13 @@
-import { type Hasher } from '@aztec/circuits.js/interfaces';
+import type { Hasher } from '@aztec/circuits.js/interfaces';
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
 import {
-  type Tuple,
   assertLength,
   deserializeArrayFromVector,
   serializeArrayOfBufferableToVector,
 } from '@aztec/foundation/serialize';
+import type { Tuple } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 /**

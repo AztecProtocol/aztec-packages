@@ -1,7 +1,7 @@
-import { type Hasher } from '@aztec/circuits.js/interfaces';
+import type { Hasher } from '@aztec/circuits.js/interfaces';
 import { sha256Trunc } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { type FromBuffer } from '@aztec/foundation/serialize';
+import type { FromBuffer } from '@aztec/foundation/serialize';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 
 import { SHA256Trunc } from './sha_256.js';

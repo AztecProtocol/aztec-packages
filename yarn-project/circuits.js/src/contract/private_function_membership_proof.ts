@@ -3,7 +3,8 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { computeRootFromSiblingPath } from '@aztec/foundation/trees';
 
-import { type ContractArtifact, FunctionSelector, FunctionType } from '../abi/index.js';
+import { FunctionSelector, FunctionType } from '../abi/index.js';
+import type { ContractArtifact } from '../abi/index.js';
 import {
   computeArtifactFunctionTree,
   computeArtifactHash,
@@ -13,10 +14,10 @@ import {
   getArtifactMerkleTreeHasher,
 } from './artifact_hash.js';
 import { getContractClassPrivateFunctionFromArtifact } from './contract_class.js';
-import {
-  type ContractClassPublic,
-  type ExecutablePrivateFunctionWithMembershipProof,
-  type PrivateFunctionMembershipProof,
+import type {
+  ContractClassPublic,
+  ExecutablePrivateFunctionWithMembershipProof,
+  PrivateFunctionMembershipProof,
 } from './interfaces/index.js';
 import { computePrivateFunctionLeaf, computePrivateFunctionsTree } from './private_function.js';
 

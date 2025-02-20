@@ -1,4 +1,4 @@
-import { type pino } from 'pino';
+import type { pino } from 'pino';
 
 /* eslint-disable camelcase */
 

@@ -1,15 +1,15 @@
-import { type AztecNode, type CheatCodes, type Logger, type PXE, type Wallet } from '@aztec/aztec.js';
+import type { AztecNode, CheatCodes, Logger, PXE, Wallet } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/circuits.js';
 import {
-  type DeployL1Contracts,
   GovernanceProposerContract,
   RollupContract,
   deployL1Contract,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
+import type { DeployL1Contracts } from '@aztec/ethereum';
 import { NewGovernanceProposerPayloadAbi } from '@aztec/l1-artifacts/NewGovernanceProposerPayloadAbi';
 import { NewGovernanceProposerPayloadBytecode } from '@aztec/l1-artifacts/NewGovernanceProposerPayloadBytecode';
-import { type PXEService } from '@aztec/pxe';
+import type { PXEService } from '@aztec/pxe';
 
 import { privateKeyToAccount } from 'viem/accounts';
 

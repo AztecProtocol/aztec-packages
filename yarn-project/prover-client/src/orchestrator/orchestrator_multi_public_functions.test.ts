@@ -1,5 +1,5 @@
-import { Tx } from '@aztec/circuit-types';
-import { type ContractInstanceWithAddress } from '@aztec/circuits.js';
+import type { Tx } from '@aztec/circuit-types';
+import type { ContractInstanceWithAddress } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
@@ -8,7 +8,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { type TestEnqueuedCall } from '@aztec/simulator/public/fixtures';
+import type { TestEnqueuedCall } from '@aztec/simulator/public/fixtures';
 
 import { TestContext } from '../mocks/test_context.js';
 

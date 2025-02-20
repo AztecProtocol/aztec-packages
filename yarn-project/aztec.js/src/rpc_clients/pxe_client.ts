@@ -1,5 +1,7 @@
-import { type ComponentsVersions, getVersioningResponseHandler } from '@aztec/circuit-types';
-import { type PXE, PXESchema } from '@aztec/circuit-types/interfaces/client';
+import { getVersioningResponseHandler } from '@aztec/circuit-types';
+import type { ComponentsVersions } from '@aztec/circuit-types';
+import { PXESchema } from '@aztec/circuit-types/interfaces/client';
+import type { PXE } from '@aztec/circuit-types/interfaces/client';
 import { createSafeJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 

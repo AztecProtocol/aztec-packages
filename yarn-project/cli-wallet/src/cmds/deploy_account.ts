@@ -1,8 +1,9 @@
-import { type AccountManager, type DeployAccountOptions } from '@aztec/aztec.js';
+import type { AccountManager, DeployAccountOptions } from '@aztec/aztec.js';
 import { prettyPrintJSON } from '@aztec/cli/cli-utils';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 
-import { type IFeeOpts, printGasEstimates } from '../utils/options/fees.js';
+import { printGasEstimates } from '../utils/options/fees.js';
+import type { IFeeOpts } from '../utils/options/fees.js';
 
 export async function deployAccount(
   account: AccountManager,

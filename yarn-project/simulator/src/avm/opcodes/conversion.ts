@@ -1,4 +1,4 @@
-import { type AvmContext } from '../avm_context.js';
+import type { AvmContext } from '../avm_context.js';
 import { TypeTag, Uint1, Uint8 } from '../avm_memory_types.js';
 import { InvalidToRadixInputsError } from '../errors.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';

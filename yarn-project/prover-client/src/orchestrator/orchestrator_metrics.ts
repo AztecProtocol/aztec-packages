@@ -1,4 +1,5 @@
-import { type Histogram, Metrics, type TelemetryClient, type Tracer, ValueType } from '@aztec/telemetry-client';
+import { Metrics, ValueType } from '@aztec/telemetry-client';
+import type { Histogram, TelemetryClient, Tracer } from '@aztec/telemetry-client';
 
 export class ProvingOrchestratorMetrics {
   public readonly tracer: Tracer;

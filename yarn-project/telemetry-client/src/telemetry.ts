@@ -1,18 +1,18 @@
-import {
-  type AttributeValue,
-  type BatchObservableCallback,
-  type MetricOptions,
-  type Observable,
-  type BatchObservableResult as OtelBatchObservableResult,
-  type Gauge as OtelGauge,
-  type Histogram as OtelHistogram,
-  type ObservableGauge as OtelObservableGauge,
-  type ObservableResult as OtelObservableResult,
-  type ObservableUpDownCounter as OtelObservableUpDownCounter,
-  type UpDownCounter as OtelUpDownCounter,
-  type Span,
-  SpanStatusCode,
-  type Tracer,
+import { SpanStatusCode } from '@opentelemetry/api';
+import type {
+  AttributeValue,
+  BatchObservableCallback,
+  MetricOptions,
+  Observable,
+  BatchObservableResult as OtelBatchObservableResult,
+  Gauge as OtelGauge,
+  Histogram as OtelHistogram,
+  ObservableGauge as OtelObservableGauge,
+  ObservableResult as OtelObservableResult,
+  ObservableUpDownCounter as OtelObservableUpDownCounter,
+  UpDownCounter as OtelUpDownCounter,
+  Span,
+  Tracer,
 } from '@opentelemetry/api';
 import { isPromise } from 'node:util/types';
 

@@ -1,13 +1,14 @@
 import type { L2BlockSource } from '@aztec/circuit-types';
-import { type L1ContractsConfig, type L1ReaderConfig } from '@aztec/ethereum';
+import type { L1ContractsConfig, L1ReaderConfig } from '@aztec/ethereum';
 import { createLogger } from '@aztec/foundation/log';
-import { type AztecAsyncKVStore } from '@aztec/kv-store';
-import { type DataStoreConfig } from '@aztec/kv-store/config';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
-import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
+import { getTelemetryClient } from '@aztec/telemetry-client';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import { SlasherClient } from './slasher_client.js';
-import { type SlasherConfig } from './slasher_client.js';
+import type { SlasherConfig } from './slasher_client.js';
 
 export const createSlasherClient = async (
   _config: SlasherConfig & DataStoreConfig & L1ContractsConfig & L1ReaderConfig,

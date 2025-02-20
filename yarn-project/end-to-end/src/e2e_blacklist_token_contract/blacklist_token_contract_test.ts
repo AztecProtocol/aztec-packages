@@ -1,28 +1,14 @@
 import { getSchnorrWallet } from '@aztec/accounts/schnorr';
-import {
-  type AccountWallet,
-  type CompleteAddress,
-  ExtendedNote,
-  Fr,
-  type Logger,
-  Note,
-  type TxHash,
-  computeSecretHash,
-  createLogger,
-} from '@aztec/aztec.js';
+import { ExtendedNote, Fr, Note, computeSecretHash, createLogger } from '@aztec/aztec.js';
+import type { AccountWallet, CompleteAddress, Logger, TxHash } from '@aztec/aztec.js';
 import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
-import { type TokenContract } from '@aztec/noir-contracts.js/Token';
+import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
 
 import { jest } from '@jest/globals';
 
-import {
-  type ISnapshotManager,
-  type SubsystemsContext,
-  createSnapshotManager,
-  deployAccounts,
-  publicDeployAccounts,
-} from '../fixtures/snapshot_manager.js';
+import { createSnapshotManager, deployAccounts, publicDeployAccounts } from '../fixtures/snapshot_manager.js';
+import type { ISnapshotManager, SubsystemsContext } from '../fixtures/snapshot_manager.js';
 import { TokenSimulator } from '../simulators/token_simulator.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;

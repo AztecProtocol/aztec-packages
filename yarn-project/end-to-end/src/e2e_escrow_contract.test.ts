@@ -1,13 +1,7 @@
-import {
-  type AccountWallet,
-  type AztecAddress,
-  BatchCall,
-  Fr,
-  type Logger,
-  type PXE,
-  deriveKeys,
-} from '@aztec/aztec.js';
-import { type PublicKeys, computePartialAddress } from '@aztec/circuits.js';
+import { BatchCall, Fr, deriveKeys } from '@aztec/aztec.js';
+import type { AccountWallet, AztecAddress, Logger, PXE } from '@aztec/aztec.js';
+import { computePartialAddress } from '@aztec/circuits.js';
+import type { PublicKeys } from '@aztec/circuits.js';
 import { EscrowContract } from '@aztec/noir-contracts.js/Escrow';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 

@@ -1,9 +1,10 @@
 import { SiblingPath } from '@aztec/circuit-types';
-import { type Bufferable, type FromBuffer, serializeToBuffer } from '@aztec/foundation/serialize';
-import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
+import { serializeToBuffer } from '@aztec/foundation/serialize';
+import type { Bufferable, FromBuffer } from '@aztec/foundation/serialize';
+import type { AztecKVStore, AztecMap } from '@aztec/kv-store';
 
-import { type TreeBase } from '../tree_base.js';
-import { type TreeSnapshot, type TreeSnapshotBuilder } from './snapshot_builder.js';
+import type { TreeBase } from '../tree_base.js';
+import type { TreeSnapshot, TreeSnapshotBuilder } from './snapshot_builder.js';
 
 /**
  * Metadata for a snapshot, per block

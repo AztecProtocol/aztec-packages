@@ -4,8 +4,9 @@ import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/
 
 import { z } from 'zod';
 
-import { type FunctionAbi, FunctionSelector, FunctionType } from '../abi/index.js';
-import { type ContractFunctionDao } from '../types/contract_function_dao.js';
+import { FunctionSelector, FunctionType } from '../abi/index.js';
+import type { FunctionAbi } from '../abi/index.js';
+import type { ContractFunctionDao } from '../types/contract_function_dao.js';
 
 /** Function description for circuit. */
 export class FunctionData {

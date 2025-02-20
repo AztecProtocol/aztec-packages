@@ -1,4 +1,5 @@
-import { type DetectorSync, type IResource, Resource } from '@opentelemetry/resources';
+import { Resource } from '@opentelemetry/resources';
+import type { DetectorSync, IResource } from '@opentelemetry/resources';
 import {
   ATTR_K8S_NAMESPACE_NAME,
   ATTR_K8S_POD_NAME,

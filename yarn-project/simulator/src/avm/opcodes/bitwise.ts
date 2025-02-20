@@ -1,5 +1,6 @@
 import type { AvmContext } from '../avm_context.js';
-import { type IntegralValue, TaggedMemory, type TaggedMemoryInterface, TypeTag } from '../avm_memory_types.js';
+import { TaggedMemory, TypeTag } from '../avm_memory_types.js';
+import type { IntegralValue, TaggedMemoryInterface } from '../avm_memory_types.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';

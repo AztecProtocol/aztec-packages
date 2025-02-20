@@ -1,27 +1,21 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
 import {
-  type InitialAccountData,
   deployFundedSchnorrAccounts,
   generateSchnorrAccounts,
   getDeployedTestAccounts,
   getDeployedTestAccountsWallets,
 } from '@aztec/accounts/testing';
-import { type Archiver, createArchiver } from '@aztec/archiver';
-import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
+import type { InitialAccountData } from '@aztec/accounts/testing';
+import { createArchiver } from '@aztec/archiver';
+import type { Archiver } from '@aztec/archiver';
+import { AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
+import type { AztecNodeConfig } from '@aztec/aztec-node';
 import {
-  type AccountWalletWithSecretKey,
   AnvilTestWatcher,
-  type AztecAddress,
-  type AztecNode,
   BatchCall,
   CheatCodes,
-  type ContractMethod,
-  type DeployL1Contracts,
   FeeJuicePaymentMethod,
-  type Logger,
-  type PXE,
   SignerlessWallet,
-  type Wallet,
   createAztecNodeClient,
   createLogger,
   createPXEClient,
@@ -29,15 +23,25 @@ import {
   makeFetch,
   waitForPXE,
 } from '@aztec/aztec.js';
+import type {
+  AccountWalletWithSecretKey,
+  AztecAddress,
+  AztecNode,
+  ContractMethod,
+  DeployL1Contracts,
+  Logger,
+  PXE,
+  Wallet,
+} from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
-import { type BBNativePrivateKernelProver } from '@aztec/bb-prover';
+import type { BBNativePrivateKernelProver } from '@aztec/bb-prover';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
-import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
+import { createBlobSinkServer } from '@aztec/blob-sink/server';
+import type { BlobSinkServer } from '@aztec/blob-sink/server';
 import { Fr, Gas, getContractClassFromArtifact } from '@aztec/circuits.js';
-import { type PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
+import type { PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { FEE_JUICE_INITIAL_MINT, GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH } from '@aztec/constants';
 import {
-  type DeployL1ContractsArgs,
   ForwarderContract,
   NULL_KEY,
   createL1Clients,
@@ -45,6 +49,7 @@ import {
   isAnvilTestChain,
   l1Artifacts,
 } from '@aztec/ethereum';
+import type { DeployL1ContractsArgs } from '@aztec/ethereum';
 import { DelayedTxUtils, EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -53,37 +58,25 @@ import { TestDateProvider } from '@aztec/foundation/timer';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
-import { type PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
-import { type SequencerClient } from '@aztec/sequencer-client';
-import { type TestSequencerClient } from '@aztec/sequencer-client/test';
-import {
-  type TelemetryClient,
-  type TelemetryClientConfig,
-  getConfigEnvVars as getTelemetryConfig,
-  initTelemetryClient,
-} from '@aztec/telemetry-client';
+import { createProverNode } from '@aztec/prover-node';
+import type { ProverNode, ProverNodeConfig } from '@aztec/prover-node';
+import { createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+import type { PXEService, PXEServiceConfig } from '@aztec/pxe';
+import type { SequencerClient } from '@aztec/sequencer-client';
+import type { TestSequencerClient } from '@aztec/sequencer-client/test';
+import { getConfigEnvVars as getTelemetryConfig, initTelemetryClient } from '@aztec/telemetry-client';
+import type { TelemetryClient, TelemetryClientConfig } from '@aztec/telemetry-client';
 import { BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
-import { type Anvil } from '@viem/anvil';
+import type { Anvil } from '@viem/anvil';
 import fs from 'fs/promises';
 import getPort from 'get-port';
 import { tmpdir } from 'os';
 import * as path from 'path';
 import { inspect } from 'util';
-import {
-  type Account,
-  type Chain,
-  type HDAccount,
-  type Hex,
-  type HttpTransport,
-  type PrivateKeyAccount,
-  createPublicClient,
-  createWalletClient,
-  getContract,
-  http,
-} from 'viem';
+import { createPublicClient, createWalletClient, getContract, http } from 'viem';
+import type { Account, Chain, HDAccount, Hex, HttpTransport, PrivateKeyAccount } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 

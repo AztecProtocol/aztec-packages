@@ -1,13 +1,17 @@
 #!/usr/bin/env -S node --no-warnings
 import { getSchnorrWallet } from '@aztec/accounts/schnorr';
 import { deployFundedSchnorrAccounts, getInitialTestAccounts } from '@aztec/accounts/testing';
-import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { AnvilTestWatcher, EthCheatCodes, SignerlessWallet, type Wallet } from '@aztec/aztec.js';
-import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
-import { type AztecNode, type PXE } from '@aztec/circuit-types/interfaces/client';
-import { type ContractInstanceWithAddress, getContractInstanceFromDeployParams } from '@aztec/circuits.js';
+import { AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
+import type { AztecNodeConfig } from '@aztec/aztec-node';
+import { AnvilTestWatcher, EthCheatCodes, SignerlessWallet } from '@aztec/aztec.js';
+import type { Wallet } from '@aztec/aztec.js';
+import { createBlobSinkClient } from '@aztec/blob-sink/client';
+import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
+import type { AztecNode, PXE } from '@aztec/circuit-types/interfaces/client';
+import { getContractInstanceFromDeployParams } from '@aztec/circuits.js';
+import type { ContractInstanceWithAddress } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { type PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
+import type { PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { setupCanonicalL2FeeJuice } from '@aztec/cli/setup-contracts';
 import { GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH } from '@aztec/constants';
 import {
@@ -18,20 +22,20 @@ import {
   waitForPublicClient,
 } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
-import { type LogFn, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
-import {
-  type TelemetryClient,
-  getConfigEnvVars as getTelemetryClientConfig,
-  initTelemetryClient,
-} from '@aztec/telemetry-client';
+import { createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+import type { PXEServiceConfig } from '@aztec/pxe';
+import { getConfigEnvVars as getTelemetryClientConfig, initTelemetryClient } from '@aztec/telemetry-client';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
-import { type HDAccount, type PrivateKeyAccount, createPublicClient, http as httpViemTransport } from 'viem';
+import { createPublicClient, http as httpViemTransport } from 'viem';
+import type { HDAccount, PrivateKeyAccount } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 

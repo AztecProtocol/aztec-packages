@@ -1,6 +1,6 @@
-import { type EpochProverManager } from '@aztec/circuit-types/interfaces/server';
+import type { EpochProverManager } from '@aztec/circuit-types/interfaces/server';
 
-import { type ProverNodePublisher } from '../prover-node-publisher.js';
+import type { ProverNodePublisher } from '../prover-node-publisher.js';
 import { ProverNode } from '../prover-node.js';
 
 class TestProverNode_ extends ProverNode {

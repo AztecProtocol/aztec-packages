@@ -1,12 +1,12 @@
 import { getContractClassFromArtifact } from '@aztec/circuits.js';
 import {
-  type FunctionArtifact,
   FunctionSelector,
   decodeFunctionSignature,
   decodeFunctionSignatureWithParameterNames,
 } from '@aztec/circuits.js/abi';
+import type { FunctionArtifact } from '@aztec/circuits.js/abi';
 import { sha256 } from '@aztec/foundation/crypto';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 
 import { getContractArtifact } from '../../utils/aztec.js';
 

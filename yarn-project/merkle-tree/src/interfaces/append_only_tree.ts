@@ -1,7 +1,7 @@
-import { type Bufferable } from '@aztec/foundation/serialize';
+import type { Bufferable } from '@aztec/foundation/serialize';
 
-import { type TreeSnapshot, type TreeSnapshotBuilder } from '../snapshots/snapshot_builder.js';
-import { type MerkleTree } from './merkle_tree.js';
+import type { TreeSnapshot, TreeSnapshotBuilder } from '../snapshots/snapshot_builder.js';
+import type { MerkleTree } from './merkle_tree.js';
 
 /**
  * A Merkle tree that supports only appending leaves and not updating existing leaves.

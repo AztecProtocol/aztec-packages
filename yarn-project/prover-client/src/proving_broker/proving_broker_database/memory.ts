@@ -1,12 +1,12 @@
-import {
-  type ProofUri,
-  type ProvingJob,
-  type ProvingJobId,
-  type ProvingJobSettledResult,
-  getEpochFromProvingJobId,
+import { getEpochFromProvingJobId } from '@aztec/circuit-types/interfaces/server';
+import type {
+  ProofUri,
+  ProvingJob,
+  ProvingJobId,
+  ProvingJobSettledResult,
 } from '@aztec/circuit-types/interfaces/server';
 
-import { type ProvingBrokerDatabase } from '../proving_broker_database.js';
+import type { ProvingBrokerDatabase } from '../proving_broker_database.js';
 
 export class InMemoryBrokerDatabase implements ProvingBrokerDatabase {
   private jobs = new Map<ProvingJobId, ProvingJob>();

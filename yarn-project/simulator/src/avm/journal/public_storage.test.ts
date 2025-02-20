@@ -1,9 +1,10 @@
 import { AztecAddress } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
-import { type MockProxy, mock } from 'jest-mock-extended';
+import { mock } from 'jest-mock-extended';
+import type { MockProxy } from 'jest-mock-extended';
 
-import { type PublicStateDB } from '../../server.js';
+import type { PublicStateDB } from '../../server.js';
 import { PublicStorage } from './public_storage.js';
 
 describe('avm public storage', () => {

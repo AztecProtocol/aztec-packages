@@ -1,48 +1,53 @@
-import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
+import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import {
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  type InBlock,
-  type InboxLeaf,
-  type L1RollupConstants,
-  type L1ToL2MessageSource,
-  type L2Block,
-  type L2BlockId,
-  type L2BlockSource,
-  type L2LogsSource,
-  type L2Tips,
-  type LogFilter,
-  type NullifierWithBlockSource,
-  type TxEffect,
-  type TxHash,
-  type TxReceipt,
-  type TxScopedL2Log,
-  type UnencryptedL2Log,
   getEpochNumberAtTimestamp,
   getSlotAtTimestamp,
   getSlotRangeForEpoch,
   getTimestampRangeForEpoch,
 } from '@aztec/circuit-types';
+import type {
+  GetContractClassLogsResponse,
+  GetPublicLogsResponse,
+  InBlock,
+  InboxLeaf,
+  L1RollupConstants,
+  L1ToL2MessageSource,
+  L2Block,
+  L2BlockId,
+  L2BlockSource,
+  L2LogsSource,
+  L2Tips,
+  LogFilter,
+  NullifierWithBlockSource,
+  TxEffect,
+  TxHash,
+  TxReceipt,
+  TxScopedL2Log,
+  UnencryptedL2Log,
+} from '@aztec/circuit-types';
 import {
-  type BlockHeader,
-  type ContractClassPublic,
-  type ContractDataSource,
-  type ContractInstanceWithAddress,
-  type ExecutablePrivateFunctionWithMembershipProof,
-  type FunctionSelector,
-  type PrivateLog,
-  type PublicFunction,
-  type PublicLog,
-  type UnconstrainedFunctionWithMembershipProof,
   computePublicBytecodeCommitment,
   isValidPrivateFunctionMembershipProof,
   isValidUnconstrainedFunctionMembershipProof,
 } from '@aztec/circuits.js';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type {
+  BlockHeader,
+  ContractClassPublic,
+  ContractDataSource,
+  ContractInstanceWithAddress,
+  ExecutablePrivateFunctionWithMembershipProof,
+  FunctionSelector,
+  PrivateLog,
+  PublicFunction,
+  PublicLog,
+  UnconstrainedFunctionWithMembershipProof,
+} from '@aztec/circuits.js';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { createEthereumChain } from '@aztec/ethereum';
-import { type EthAddress } from '@aztec/foundation/eth-address';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { count } from '@aztec/foundation/string';
 import { elapsed } from '@aztec/foundation/timer';
@@ -56,26 +61,20 @@ import {
   ContractInstanceDeployedEvent,
   ContractInstanceUpdatedEvent,
 } from '@aztec/protocol-contracts/instance-deployer';
-import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
+import { Attributes, trackSpan } from '@aztec/telemetry-client';
+import type { TelemetryClient, Traceable, Tracer } from '@aztec/telemetry-client';
 
 import groupBy from 'lodash.groupby';
-import {
-  type Chain,
-  type GetContractReturnType,
-  type HttpTransport,
-  type PublicClient,
-  createPublicClient,
-  getContract,
-  http,
-} from 'viem';
+import { createPublicClient, getContract, http } from 'viem';
+import type { Chain, GetContractReturnType, HttpTransport, PublicClient } from 'viem';
 
-import { type ArchiverDataStore, type ArchiverL1SynchPoint } from './archiver_store.js';
-import { type ArchiverConfig } from './config.js';
+import type { ArchiverDataStore, ArchiverL1SynchPoint } from './archiver_store.js';
+import type { ArchiverConfig } from './config.js';
 import { retrieveBlocksFromRollup, retrieveL1ToL2Messages } from './data_retrieval.js';
 import { NoBlobBodiesFoundError } from './errors.js';
 import { ArchiverInstrumentation } from './instrumentation.js';
-import { type DataRetrieval } from './structs/data_retrieval.js';
-import { type L1Published } from './structs/published.js';
+import type { DataRetrieval } from './structs/data_retrieval.js';
+import type { L1Published } from './structs/published.js';
 
 /**
  * Helper interface to combine all sources this archiver implementation provides.

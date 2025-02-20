@@ -1,4 +1,4 @@
-import { type EthAddress } from '@aztec/circuits.js';
+import type { EthAddress } from '@aztec/circuits.js';
 import {
   EthCheatCodes,
   createEthereumChain,
@@ -6,7 +6,7 @@ import {
   getL1ContractsConfigEnvVars,
   isAnvilTestChain,
 } from '@aztec/ethereum';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 import { ForwarderAbi, ForwarderBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
 import { createPublicClient, createWalletClient, getContract, http } from 'viem';

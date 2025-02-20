@@ -1,4 +1,4 @@
-import { type NoirCompiledCircuit } from '@aztec/circuits.js/noir';
+import type { NoirCompiledCircuit } from '@aztec/circuits.js/noir';
 
 import BaseParityJson from '../../artifacts/parity_base.json' assert { type: 'json' };
 import RootParityJson from '../../artifacts/parity_root.json' assert { type: 'json' };
@@ -14,7 +14,7 @@ import SingleTxBlockRootRollupJson from '../../artifacts/rollup_block_root_singl
 import SingleTxBlockRootRollupSimulatedJson from '../../artifacts/rollup_block_root_single_tx_simulated.json' assert { type: 'json' };
 import MergeRollupJson from '../../artifacts/rollup_merge.json' assert { type: 'json' };
 import RootRollupJson from '../../artifacts/rollup_root.json' assert { type: 'json' };
-import { type ServerProtocolArtifact } from './types.js';
+import type { ServerProtocolArtifact } from './types.js';
 
 export const ServerCircuitArtifacts: Record<ServerProtocolArtifact, NoirCompiledCircuit> = {
   BaseParityArtifact: BaseParityJson as NoirCompiledCircuit,

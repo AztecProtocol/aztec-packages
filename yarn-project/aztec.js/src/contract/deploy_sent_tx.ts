@@ -1,13 +1,14 @@
-import { type TxHash, type TxReceipt } from '@aztec/circuit-types';
-import { type PXE } from '@aztec/circuit-types/interfaces/client';
-import { type AztecAddress, type ContractInstanceWithAddress } from '@aztec/circuits.js';
+import type { TxHash, TxReceipt } from '@aztec/circuit-types';
+import type { PXE } from '@aztec/circuit-types/interfaces/client';
+import type { AztecAddress, ContractInstanceWithAddress } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { FieldsOf } from '@aztec/foundation/types';
 
-import { type Wallet } from '../account/index.js';
-import { type Contract } from './contract.js';
-import { type ContractBase } from './contract_base.js';
-import { SentTx, type WaitOpts } from './sent_tx.js';
+import type { Wallet } from '../account/index.js';
+import type { Contract } from './contract.js';
+import type { ContractBase } from './contract_base.js';
+import { SentTx } from './sent_tx.js';
+import type { WaitOpts } from './sent_tx.js';
 
 /** Options related to waiting for a deployment tx. */
 export type DeployedWaitOpts = WaitOpts & {

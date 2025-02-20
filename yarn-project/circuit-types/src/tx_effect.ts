@@ -17,7 +17,8 @@ import {
   REVERT_CODE_PREFIX,
   TX_FEE_PREFIX,
 } from '@aztec/constants';
-import { type FieldsOf, makeTuple, makeTupleAsync } from '@aztec/foundation/array';
+import { makeTuple, makeTupleAsync } from '@aztec/foundation/array';
+import type { FieldsOf } from '@aztec/foundation/array';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
@@ -34,7 +35,8 @@ import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { inspect } from 'util';
 import { z } from 'zod';
 
-import { ContractClassTxL2Logs, type TxL2Logs } from './logs/index.js';
+import { ContractClassTxL2Logs } from './logs/index.js';
+import type { TxL2Logs } from './logs/index.js';
 import { TxHash } from './tx/tx_hash.js';
 
 export { RevertCodeEnum } from '@aztec/circuits.js';

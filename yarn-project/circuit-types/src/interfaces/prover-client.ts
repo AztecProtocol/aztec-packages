@@ -1,12 +1,14 @@
 import { Fr } from '@aztec/circuits.js';
-import { type ConfigMappingsType, booleanConfigHelper, numberConfigHelper } from '@aztec/foundation/config';
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+import { booleanConfigHelper, numberConfigHelper } from '@aztec/foundation/config';
+import type { ConfigMappingsType } from '@aztec/foundation/config';
+import { schemas } from '@aztec/foundation/schemas';
+import type { ZodFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
-import { type TxHash } from '../tx/tx_hash.js';
-import { type EpochProver } from './epoch-prover.js';
-import { type ProvingJobConsumer } from './prover-broker.js';
+import type { TxHash } from '../tx/tx_hash.js';
+import type { EpochProver } from './epoch-prover.js';
+import type { ProvingJobConsumer } from './prover-broker.js';
 
 export type ActualProverConfig = {
   /** Whether to construct real proofs */

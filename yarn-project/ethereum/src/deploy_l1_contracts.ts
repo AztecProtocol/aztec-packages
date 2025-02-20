@@ -1,6 +1,6 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Fr } from '@aztec/foundation/fields';
-import { type Logger } from '@aztec/foundation/log';
+import type { Fr } from '@aztec/foundation/fields';
+import type { Logger } from '@aztec/foundation/log';
 import {
   CoinIssuerAbi,
   CoinIssuerBytecode,
@@ -37,12 +37,6 @@ import {
 
 import type { Abi, Narrow } from 'abitype';
 import {
-  type Account,
-  type Chain,
-  type Hex,
-  type HttpTransport,
-  type PublicClient,
-  type WalletClient,
   concatHex,
   createPublicClient,
   createWalletClient,
@@ -55,13 +49,16 @@ import {
   padHex,
   publicActions,
 } from 'viem';
-import { type HDAccount, type PrivateKeyAccount, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
+import type { Account, Chain, Hex, HttpTransport, PublicClient, WalletClient } from 'viem';
+import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
+import type { HDAccount, PrivateKeyAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { isAnvilTestChain } from './chain.js';
-import { type L1ContractsConfig } from './config.js';
-import { type L1ContractAddresses } from './l1_contract_addresses.js';
-import { L1TxUtils, type L1TxUtilsConfig, defaultL1TxUtilsConfig } from './l1_tx_utils.js';
+import type { L1ContractsConfig } from './config.js';
+import type { L1ContractAddresses } from './l1_contract_addresses.js';
+import { L1TxUtils, defaultL1TxUtilsConfig } from './l1_tx_utils.js';
+import type { L1TxUtilsConfig } from './l1_tx_utils.js';
 import type { L1Clients } from './types.js';
 
 export const DEPLOYER_ADDRESS: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';

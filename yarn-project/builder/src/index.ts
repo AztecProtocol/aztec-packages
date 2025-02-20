@@ -1,4 +1,4 @@
-import { type Command } from 'commander';
+import type { Command } from 'commander';
 import { dirname } from 'path';
 
 export function injectCommands(program: Command) {

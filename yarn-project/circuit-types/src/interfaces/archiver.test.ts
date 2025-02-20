@@ -1,41 +1,41 @@
 import {
   AztecAddress,
   BlockHeader,
-  type ContractClassPublic,
-  type ContractInstanceWithAddress,
   EthAddress,
   Fr,
   FunctionSelector,
   PrivateLog,
-  type PublicFunction,
   PublicKeys,
   computePublicBytecodeCommitment,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { type ContractArtifact, loadContractArtifact } from '@aztec/circuits.js/abi';
-import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
+import type { ContractClassPublic, ContractInstanceWithAddress, PublicFunction } from '@aztec/circuits.js';
+import { loadContractArtifact } from '@aztec/circuits.js/abi';
+import type { ContractArtifact } from '@aztec/circuits.js/abi';
+import { createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
+import type { JsonRpcTestContext } from '@aztec/foundation/json-rpc/test';
 import { fileURLToPath } from '@aztec/foundation/url';
 
 import { readFileSync } from 'fs';
 import omit from 'lodash.omit';
 import { resolve } from 'path';
 
-import { EmptyL1RollupConstants, type L1RollupConstants } from '../epoch-helpers/index.js';
-import { type InBlock, randomInBlock } from '../in_block.js';
+import { EmptyL1RollupConstants } from '../epoch-helpers/index.js';
+import type { L1RollupConstants } from '../epoch-helpers/index.js';
+import { randomInBlock } from '../in_block.js';
+import type { InBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
-import { type L2Tips } from '../l2_block_source.js';
+import type { L2Tips } from '../l2_block_source.js';
 import { ExtendedPublicLog } from '../logs/extended_public_log.js';
 import { ExtendedUnencryptedL2Log } from '../logs/extended_unencrypted_l2_log.js';
-import {
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  TxScopedL2Log,
-} from '../logs/get_logs_response.js';
-import { type LogFilter } from '../logs/log_filter.js';
+import { TxScopedL2Log } from '../logs/get_logs_response.js';
+import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '../logs/get_logs_response.js';
+import type { LogFilter } from '../logs/log_filter.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
 import { TxEffect } from '../tx_effect.js';
-import { type ArchiverApi, ArchiverApiSchema } from './archiver.js';
+import { ArchiverApiSchema } from './archiver.js';
+import type { ArchiverApi } from './archiver.js';
 
 describe('ArchiverApiSchema', () => {
   let handler: MockArchiver;

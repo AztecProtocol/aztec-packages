@@ -1,8 +1,8 @@
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { type EthAddress } from '@aztec/foundation/eth-address';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 
-import { type ACVMField } from './acvm_types.js';
+import type { ACVMField } from './acvm_types.js';
 
 /**
  * Adapts the buffer to the field size.

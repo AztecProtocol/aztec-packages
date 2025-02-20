@@ -1,4 +1,4 @@
-import { type AztecAddress, type ContractInstanceWithAddress } from '@aztec/circuits.js';
+import type { AztecAddress, ContractInstanceWithAddress } from '@aztec/circuits.js';
 
 /**
  * PXE database for managing contract instances.

@@ -1,7 +1,9 @@
 import { getSchnorrAccountContractAddress } from '@aztec/accounts/schnorr';
-import { Fr, type Wallet, getContractClassFromArtifact } from '@aztec/aztec.js';
+import { Fr, getContractClassFromArtifact } from '@aztec/aztec.js';
+import type { Wallet } from '@aztec/aztec.js';
 import { registerContractClass } from '@aztec/aztec.js/deployment';
-import { type AztecAddress, deriveSigningKey, getContractInstanceFromDeployParams } from '@aztec/circuits.js';
+import { deriveSigningKey, getContractInstanceFromDeployParams } from '@aztec/circuits.js';
+import type { AztecAddress } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot, deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
 import {
   ScheduledDelayChange,

@@ -1,10 +1,11 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
-import { Fr, type PXE } from '@aztec/aztec.js';
+import { Fr } from '@aztec/aztec.js';
+import type { PXE } from '@aztec/aztec.js';
 import { prettyPrintJSON } from '@aztec/cli/cli-utils';
-import { type LogFn } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
 
-import { type WalletDB } from '../storage/wallet_db.js';
+import type { WalletDB } from '../storage/wallet_db.js';
 
 export async function importTestAccounts(client: PXE, db: WalletDB, json: boolean, log: LogFn) {
   const testAccounts = await getInitialTestAccounts();

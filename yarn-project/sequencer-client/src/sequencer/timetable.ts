@@ -1,6 +1,6 @@
 import { createLogger } from '@aztec/aztec.js';
 
-import { type SequencerMetrics } from './metrics.js';
+import type { SequencerMetrics } from './metrics.js';
 import { SequencerState } from './utils.js';
 
 export class SequencerTimetable {

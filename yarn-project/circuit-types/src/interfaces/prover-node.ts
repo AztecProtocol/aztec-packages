@@ -1,4 +1,5 @@
-import { type ApiSchemaFor, schemas } from '@aztec/foundation/schemas';
+import { schemas } from '@aztec/foundation/schemas';
+import type { ApiSchemaFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 

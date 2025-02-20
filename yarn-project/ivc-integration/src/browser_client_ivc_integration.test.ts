@@ -2,11 +2,10 @@ import { jest } from '@jest/globals';
 import chalk from 'chalk';
 import createDebug from 'debug';
 import {
-  type Browser,
-  type Page,
   chromium,
   /* firefox, webkit */
 } from 'playwright';
+import type { Browser, Page } from 'playwright';
 
 import {
   generate3FunctionTestingIVCStack,

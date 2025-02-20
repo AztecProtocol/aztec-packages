@@ -1,19 +1,13 @@
-import {
-  type AccountWallet,
-  AztecAddress,
-  type ExtendedNote,
-  Fr,
-  INITIAL_L2_BLOCK_NUM,
-  type PXE,
-  getContractInstanceFromDeployParams,
-} from '@aztec/aztec.js';
+import { AztecAddress, Fr, INITIAL_L2_BLOCK_NUM, getContractInstanceFromDeployParams } from '@aztec/aztec.js';
+import type { AccountWallet, ExtendedNote, PXE } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { randomInt } from '@aztec/foundation/crypto';
 import { InclusionProofsContract } from '@aztec/noir-contracts.js/InclusionProofs';
 import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
 
 import { jest } from '@jest/globals';
-import { type MemDown, default as memdown } from 'memdown';
+import { default as memdown } from 'memdown';
+import type { MemDown } from 'memdown';
 
 import { setup } from './fixtures/utils.js';
 

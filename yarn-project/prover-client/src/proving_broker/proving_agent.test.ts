@@ -1,15 +1,15 @@
 import { ProvingError } from '@aztec/circuit-types';
-import {
-  type ProofUri,
-  type ProvingJob,
-  type ProvingJobConsumer,
-  type ProvingJobId,
-  type ProvingJobInputs,
-  ProvingRequestType,
-  type PublicInputsAndRecursiveProof,
-  makePublicInputsAndRecursiveProof,
+import { ProvingRequestType, makePublicInputsAndRecursiveProof } from '@aztec/circuit-types/interfaces/server';
+import type {
+  ProofUri,
+  ProvingJob,
+  ProvingJobConsumer,
+  ProvingJobId,
+  ProvingJobInputs,
+  PublicInputsAndRecursiveProof,
 } from '@aztec/circuit-types/interfaces/server';
-import { type ParityPublicInputs, VerificationKeyData, makeRecursiveProof } from '@aztec/circuits.js';
+import { VerificationKeyData, makeRecursiveProof } from '@aztec/circuits.js';
+import type { ParityPublicInputs } from '@aztec/circuits.js';
 import { makeBaseParityInputs, makeParityPublicInputs } from '@aztec/circuits.js/testing';
 import { RECURSIVE_PROOF_LENGTH } from '@aztec/constants';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -19,7 +19,7 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { jest } from '@jest/globals';
 
 import { MockProver } from '../test/mock_prover.js';
-import { type ProofStore } from './proof_store/index.js';
+import type { ProofStore } from './proof_store/index.js';
 import { ProvingAgent } from './proving_agent.js';
 
 describe('ProvingAgent', () => {

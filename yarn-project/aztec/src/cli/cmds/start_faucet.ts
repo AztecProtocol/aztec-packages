@@ -5,8 +5,8 @@ import {
   faucetConfigMapping,
   getFaucetConfigFromEnv,
 } from '@aztec/aztec-faucet';
-import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
-import { type LogFn } from '@aztec/foundation/log';
+import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
+import type { LogFn } from '@aztec/foundation/log';
 
 import { extractNamespacedOptions, extractRelevantOptions } from '../util.js';
 

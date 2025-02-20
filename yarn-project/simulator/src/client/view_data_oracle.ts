@@ -1,27 +1,23 @@
-import {
-  type AuthWitness,
-  type Capsule,
-  type CompleteAddress,
-  type MerkleTreeId,
-  type NoteStatus,
-  type PublicDataWitness,
+import type {
+  AuthWitness,
+  Capsule,
+  CompleteAddress,
+  MerkleTreeId,
+  NoteStatus,
+  PublicDataWitness,
 } from '@aztec/circuit-types';
-import { type AztecNode, type NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/client';
-import {
-  type BlockHeader,
-  type ContractInstance,
-  type IndexedTaggingSecret,
-  type KeyValidationRequest,
-} from '@aztec/circuits.js';
+import type { AztecNode, NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/client';
+import type { BlockHeader, ContractInstance, IndexedTaggingSecret, KeyValidationRequest } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { siloNullifier } from '@aztec/circuits.js/hash';
-import { LogWithTxData } from '@aztec/circuits.js/logs';
+import type { LogWithTxData } from '@aztec/circuits.js/logs';
 import { Aes128 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
 
-import { type NoteData, TypedOracle } from '../acvm/index.js';
-import { type DBOracle } from './db_oracle.js';
+import { TypedOracle } from '../acvm/index.js';
+import type { NoteData } from '../acvm/index.js';
+import type { DBOracle } from './db_oracle.js';
 import { pickNotes } from './pick_notes.js';
 
 /**

@@ -1,7 +1,8 @@
 import { assertMemberLength } from '../array/array.js';
 import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
 import { Fr } from '../fields/fields.js';
-import { BufferReader, type Tuple, serializeToBuffer } from '../serialize/index.js';
+import { BufferReader, serializeToBuffer } from '../serialize/index.js';
+import type { Tuple } from '../serialize/index.js';
 
 /**
  * Contains information which can be used to prove that a leaf is a member of a Merkle tree.

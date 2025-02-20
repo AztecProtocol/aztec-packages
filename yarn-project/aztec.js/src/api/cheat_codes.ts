@@ -1,6 +1,6 @@
-import { type PXE } from '@aztec/circuit-types/interfaces/client';
+import type { PXE } from '@aztec/circuit-types/interfaces/client';
 import { EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
-import { type L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 
 import { AztecCheatCodes } from '../utils/aztec_cheatcodes.js';
 import { RollupCheatCodes } from './ethereum/cheat_codes.js';

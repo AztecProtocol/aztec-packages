@@ -1,20 +1,9 @@
-import {
-  OK,
-  type ParseInput,
-  type ParseReturnType,
-  ZodFirstPartyTypeKind,
-  type ZodObject,
-  ZodOptional,
-  ZodParsedType,
-  type ZodRawShape,
-  type ZodType,
-  type ZodTypeAny,
-  z,
-} from 'zod';
+import { OK, ZodFirstPartyTypeKind, ZodOptional, ZodParsedType, z } from 'zod';
+import type { ParseInput, ParseReturnType, ZodObject, ZodRawShape, ZodType, ZodTypeAny } from 'zod';
 
 import { pick } from '../collection/object.js';
 import { isHex, withoutHexPrefix } from '../string/index.js';
-import { type ZodFor } from './types.js';
+import type { ZodFor } from './types.js';
 
 export const hexSchema = z.string().refine(isHex, 'Not a valid hex string').transform(withoutHexPrefix);
 

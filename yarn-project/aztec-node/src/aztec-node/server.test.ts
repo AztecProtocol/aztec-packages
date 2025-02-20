@@ -1,31 +1,21 @@
 import { TestCircuitVerifier } from '@aztec/bb-prover';
-import {
-  type L1ToL2MessageSource,
-  type L2BlockSource,
-  type L2LogsSource,
-  MerkleTreeId,
-  type NullifierWithBlockSource,
-} from '@aztec/circuit-types';
-import { type AztecNode } from '@aztec/circuit-types/interfaces/client';
-import { type MerkleTreeReadOperations, type WorldStateSynchronizer } from '@aztec/circuit-types/interfaces/server';
+import { MerkleTreeId } from '@aztec/circuit-types';
+import type { L1ToL2MessageSource, L2BlockSource, L2LogsSource, NullifierWithBlockSource } from '@aztec/circuit-types';
+import type { AztecNode } from '@aztec/circuit-types/interfaces/client';
+import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/circuit-types/interfaces/server';
 import { mockTx } from '@aztec/circuit-types/testing';
-import {
-  AztecAddress,
-  type ContractDataSource,
-  EthAddress,
-  Fr,
-  GasFees,
-  MaxBlockNumber,
-  RollupValidationRequests,
-} from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, Fr, GasFees, MaxBlockNumber, RollupValidationRequests } from '@aztec/circuits.js';
+import type { ContractDataSource } from '@aztec/circuits.js';
 import { PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
-import { type P2P } from '@aztec/p2p';
+import type { P2P } from '@aztec/p2p';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
-import { type GlobalVariableBuilder } from '@aztec/sequencer-client';
+import type { GlobalVariableBuilder } from '@aztec/sequencer-client';
 
-import { type MockProxy, mock } from 'jest-mock-extended';
+import { mock } from 'jest-mock-extended';
+import type { MockProxy } from 'jest-mock-extended';
 
-import { type AztecNodeConfig, getConfigEnvVars } from './config.js';
+import { getConfigEnvVars } from './config.js';
+import type { AztecNodeConfig } from './config.js';
 import { AztecNodeService } from './server.js';
 
 describe('aztec node', () => {

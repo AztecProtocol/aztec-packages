@@ -1,4 +1,5 @@
-import { type PXE, createCompatibleClient } from '@aztec/aztec.js';
+import { createCompatibleClient } from '@aztec/aztec.js';
+import type { PXE } from '@aztec/aztec.js';
 import { createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 

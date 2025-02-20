@@ -2,24 +2,25 @@ import { randomBytes } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 
 import { promises as fs, mkdirSync } from 'fs';
-import { type Database, type RootDatabase, open } from 'lmdb';
+import { open } from 'lmdb';
+import type { Database, RootDatabase } from 'lmdb';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { type AztecArray, type AztecAsyncArray } from '../interfaces/array.js';
-import { type Key, type StoreSize } from '../interfaces/common.js';
-import { type AztecAsyncCounter, type AztecCounter } from '../interfaces/counter.js';
-import {
-  type AztecAsyncMap,
-  type AztecAsyncMultiMap,
-  type AztecMap,
-  type AztecMapWithSize,
-  type AztecMultiMap,
-  type AztecMultiMapWithSize,
+import type { AztecArray, AztecAsyncArray } from '../interfaces/array.js';
+import type { Key, StoreSize } from '../interfaces/common.js';
+import type { AztecAsyncCounter, AztecCounter } from '../interfaces/counter.js';
+import type {
+  AztecAsyncMap,
+  AztecAsyncMultiMap,
+  AztecMap,
+  AztecMapWithSize,
+  AztecMultiMap,
+  AztecMultiMapWithSize,
 } from '../interfaces/map.js';
-import { type AztecAsyncSet, type AztecSet } from '../interfaces/set.js';
-import { type AztecAsyncSingleton, type AztecSingleton } from '../interfaces/singleton.js';
-import { type AztecAsyncKVStore, type AztecKVStore } from '../interfaces/store.js';
+import type { AztecAsyncSet, AztecSet } from '../interfaces/set.js';
+import type { AztecAsyncSingleton, AztecSingleton } from '../interfaces/singleton.js';
+import type { AztecAsyncKVStore, AztecKVStore } from '../interfaces/store.js';
 import { LmdbAztecArray } from './array.js';
 import { LmdbAztecCounter } from './counter.js';
 import { LmdbAztecMap, LmdbAztecMapWithSize } from './map.js';

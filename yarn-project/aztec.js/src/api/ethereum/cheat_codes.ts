@@ -1,18 +1,10 @@
 import { EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
-import { type L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
-import {
-  type GetContractReturnType,
-  type Hex,
-  type PublicClient,
-  type WalletClient,
-  createWalletClient,
-  getContract,
-  http,
-  publicActions,
-} from 'viem';
+import { createWalletClient, getContract, http, publicActions } from 'viem';
+import type { GetContractReturnType, Hex, PublicClient, WalletClient } from 'viem';
 import { foundry } from 'viem/chains';
 
 export { EthCheatCodes };

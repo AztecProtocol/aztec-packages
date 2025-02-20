@@ -1,17 +1,8 @@
-import { type Tx } from '@aztec/circuit-types';
-import {
-  type PublicInputsAndRecursiveProof,
-  type ServerCircuitProver,
-  makePublicInputsAndRecursiveProof,
-} from '@aztec/circuit-types/interfaces/server';
-import {
-  type BlockHeader,
-  ClientIvcProof,
-  Fr,
-  type GlobalVariables,
-  type ParityPublicInputs,
-  makeRecursiveProof,
-} from '@aztec/circuits.js';
+import type { Tx } from '@aztec/circuit-types';
+import { makePublicInputsAndRecursiveProof } from '@aztec/circuit-types/interfaces/server';
+import type { PublicInputsAndRecursiveProof, ServerCircuitProver } from '@aztec/circuit-types/interfaces/server';
+import { ClientIvcProof, Fr, makeRecursiveProof } from '@aztec/circuits.js';
+import type { BlockHeader, GlobalVariables, ParityPublicInputs } from '@aztec/circuits.js';
 import { makeParityPublicInputs } from '@aztec/circuits.js/testing';
 import { NESTED_RECURSIVE_PROOF_LENGTH, RECURSIVE_PROOF_LENGTH } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
@@ -20,10 +11,11 @@ import { sleep } from '@aztec/foundation/sleep';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
 
 import { jest } from '@jest/globals';
-import { type MockProxy, mock } from 'jest-mock-extended';
+import { mock } from 'jest-mock-extended';
+import type { MockProxy } from 'jest-mock-extended';
 
 import { TestContext } from '../mocks/test_context.js';
-import { type ProvingOrchestrator } from './orchestrator.js';
+import type { ProvingOrchestrator } from './orchestrator.js';
 
 const logger = createLogger('prover-client:test:orchestrator-workflow');
 

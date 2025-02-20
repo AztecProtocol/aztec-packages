@@ -1,11 +1,11 @@
 import { AuthWitness } from '@aztec/circuit-types';
-import { type AztecAddress } from '@aztec/circuits.js';
+import type { AztecAddress } from '@aztec/circuits.js';
 import { parseAztecAddress, parseSecretKey, parseTxHash } from '@aztec/cli/utils';
 
 import { Option } from 'commander';
 import { readdir, stat } from 'fs/promises';
 
-import { type AliasType, type WalletDB } from '../../storage/wallet_db.js';
+import type { AliasType, WalletDB } from '../../storage/wallet_db.js';
 import { AccountTypes } from '../accounts.js';
 
 const TARGET_DIR = 'target';

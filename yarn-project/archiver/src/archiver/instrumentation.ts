@@ -1,16 +1,13 @@
-import { type L2Block } from '@aztec/circuit-types';
+import type { L2Block } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
-import {
-  Attributes,
-  type Gauge,
-  type Histogram,
-  LmdbMetrics,
-  type LmdbStatsCallback,
-  Metrics,
-  type TelemetryClient,
-  type Tracer,
-  type UpDownCounter,
-  ValueType,
+import { Attributes, LmdbMetrics, Metrics, ValueType } from '@aztec/telemetry-client';
+import type {
+  Gauge,
+  Histogram,
+  LmdbStatsCallback,
+  TelemetryClient,
+  Tracer,
+  UpDownCounter,
 } from '@aztec/telemetry-client';
 
 export class ArchiverInstrumentation {

@@ -1,13 +1,13 @@
-import {
-  type Chain,
-  type Client,
-  type HttpTransport,
-  type PrivateKeyAccount,
-  type PublicActions,
-  type PublicClient,
-  type PublicRpcSchema,
-  type WalletActions,
-  type WalletRpcSchema,
+import type {
+  Chain,
+  Client,
+  HttpTransport,
+  PrivateKeyAccount,
+  PublicActions,
+  PublicClient,
+  PublicRpcSchema,
+  WalletActions,
+  WalletRpcSchema,
 } from 'viem';
 
 /**

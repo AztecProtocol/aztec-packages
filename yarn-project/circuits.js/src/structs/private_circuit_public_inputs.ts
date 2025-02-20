@@ -14,14 +14,9 @@ import {
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
-import {
-  BufferReader,
-  FieldReader,
-  type Tuple,
-  serializeToBuffer,
-  serializeToFields,
-} from '@aztec/foundation/serialize';
-import { type FieldsOf } from '@aztec/foundation/types';
+import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import type { Tuple } from '@aztec/foundation/serialize';
+import type { FieldsOf } from '@aztec/foundation/types';
 
 import { BlockHeader } from '../structs/block_header.js';
 import { isEmptyArray } from '../utils/index.js';

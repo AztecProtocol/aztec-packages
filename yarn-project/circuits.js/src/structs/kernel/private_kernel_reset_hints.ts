@@ -1,12 +1,12 @@
-import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import type { Tuple } from '@aztec/foundation/serialize';
 
 import {
   KeyValidationHint,
-  type NoteHashReadRequestHints,
-  type NullifierReadRequestHints,
   noteHashReadRequestHintsFromBuffer,
   nullifierReadRequestHintsFromBuffer,
 } from '../read_request_hints/index.js';
+import type { NoteHashReadRequestHints, NullifierReadRequestHints } from '../read_request_hints/index.js';
 import { TransientDataIndexHint } from '../transient_data_index_hint.js';
 
 export { TransientDataIndexHint } from '../transient_data_index_hint.js';

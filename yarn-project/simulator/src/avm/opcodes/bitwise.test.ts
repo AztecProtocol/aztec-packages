@@ -1,4 +1,4 @@
-import { type AvmContext } from '../avm_context.js';
+import type { AvmContext } from '../avm_context.js';
 import { Uint8, Uint16, Uint32 } from '../avm_memory_types.js';
 import { initContext } from '../fixtures/index.js';
 import { Opcode } from '../serialization/instruction_serialization.js';

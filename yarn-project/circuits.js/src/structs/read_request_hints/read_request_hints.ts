@@ -1,5 +1,6 @@
 import { makeTuple } from '@aztec/foundation/array';
-import { BufferReader, type Bufferable, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import type { Bufferable, Tuple } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 
 export enum ReadRequestState {

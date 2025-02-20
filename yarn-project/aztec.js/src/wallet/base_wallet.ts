@@ -1,44 +1,44 @@
-import {
-  type AuthWitness,
-  type ExtendedNote,
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  type L2Block,
-  type LogFilter,
-  type NotesFilter,
-  type SiblingPath,
-  type Tx,
-  type TxExecutionRequest,
-  type TxHash,
-  type TxProvingResult,
-  type TxReceipt,
-  type TxSimulationResult,
-  type UniqueNote,
+import type {
+  AuthWitness,
+  ExtendedNote,
+  GetContractClassLogsResponse,
+  GetPublicLogsResponse,
+  L2Block,
+  LogFilter,
+  NotesFilter,
+  SiblingPath,
+  Tx,
+  TxExecutionRequest,
+  TxHash,
+  TxProvingResult,
+  TxReceipt,
+  TxSimulationResult,
+  UniqueNote,
 } from '@aztec/circuit-types';
-import {
-  type ContractClassMetadata,
-  type ContractMetadata,
-  type EventMetadataDefinition,
-  type PXE,
-  type PXEInfo,
-  type PrivateExecutionResult,
+import type {
+  ContractClassMetadata,
+  ContractMetadata,
+  EventMetadataDefinition,
+  PXE,
+  PXEInfo,
+  PrivateExecutionResult,
 } from '@aztec/circuit-types/interfaces/client';
-import {
-  type AztecAddress,
-  type CompleteAddress,
-  type ContractInstanceWithAddress,
-  type Fr,
-  type GasFees,
-  type NodeInfo,
-  type PartialAddress,
-  type Point,
+import type {
+  AztecAddress,
+  CompleteAddress,
+  ContractInstanceWithAddress,
+  Fr,
+  GasFees,
+  NodeInfo,
+  PartialAddress,
+  Point,
 } from '@aztec/circuits.js';
 import type { AbiDecoded, ContractArtifact } from '@aztec/circuits.js/abi';
-import { type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
+import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 
-import { type Wallet } from '../account/wallet.js';
-import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
-import { type IntentAction, type IntentInnerHash } from '../utils/authwit.js';
+import type { Wallet } from '../account/wallet.js';
+import type { ExecutionRequestInit } from '../entrypoint/entrypoint.js';
+import type { IntentAction, IntentInnerHash } from '../utils/authwit.js';
 
 /**
  * A base class for Wallet implementations

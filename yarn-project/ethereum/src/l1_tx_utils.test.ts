@@ -3,18 +3,9 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 
-import { type Anvil } from '@viem/anvil';
-import {
-  type Abi,
-  type Account,
-  type Chain,
-  type HttpTransport,
-  type PublicClient,
-  type WalletClient,
-  createPublicClient,
-  createWalletClient,
-  http,
-} from 'viem';
+import type { Anvil } from '@viem/anvil';
+import { createPublicClient, createWalletClient, http } from 'viem';
+import type { Abi, Account, Chain, HttpTransport, PublicClient, WalletClient } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 

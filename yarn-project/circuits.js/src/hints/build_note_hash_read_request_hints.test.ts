@@ -1,20 +1,19 @@
 import { MAX_NOTE_HASHES_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
-import { type Tuple } from '@aztec/foundation/serialize';
+import type { Tuple } from '@aztec/foundation/serialize';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import {
   NoteHash,
-  type NoteHashReadRequestHints,
   NoteHashReadRequestHintsBuilder,
   PendingReadHint,
   ReadRequest,
   ReadRequestStatus,
-  type ScopedNoteHash,
   ScopedReadRequest,
   SettledReadHint,
 } from '../structs/index.js';
+import type { NoteHashReadRequestHints, ScopedNoteHash } from '../structs/index.js';
 import { buildNoteHashReadRequestHints } from './build_note_hash_read_request_hints.js';
 
 describe('buildNoteHashReadRequestHints', () => {

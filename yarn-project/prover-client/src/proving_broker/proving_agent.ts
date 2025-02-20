@@ -1,26 +1,21 @@
 import { ProvingError } from '@aztec/circuit-types';
-import {
-  type ProvingJob,
-  type ProvingJobConsumer,
-  type ProvingJobId,
-  type ProvingJobInputs,
-  type ProvingJobResultsMap,
-  ProvingRequestType,
-  type ServerCircuitProver,
+import { ProvingRequestType } from '@aztec/circuit-types/interfaces/server';
+import type {
+  ProvingJob,
+  ProvingJobConsumer,
+  ProvingJobId,
+  ProvingJobInputs,
+  ProvingJobResultsMap,
+  ServerCircuitProver,
 } from '@aztec/circuit-types/interfaces/server';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { truncate } from '@aztec/foundation/string';
 import { Timer } from '@aztec/foundation/timer';
-import {
-  type TelemetryClient,
-  type Traceable,
-  type Tracer,
-  getTelemetryClient,
-  trackSpan,
-} from '@aztec/telemetry-client';
+import { getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
+import type { TelemetryClient, Traceable, Tracer } from '@aztec/telemetry-client';
 
-import { type ProofStore } from './proof_store/index.js';
+import type { ProofStore } from './proof_store/index.js';
 import { ProvingAgentInstrumentation } from './proving_agent_instrumentation.js';
 import { ProvingJobController, ProvingJobControllerStatus } from './proving_job_controller.js';
 

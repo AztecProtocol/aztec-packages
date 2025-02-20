@@ -1,4 +1,5 @@
-import { ExtendedNote, Fr, type Logger, Note, type Wallet } from '@aztec/aztec.js';
+import { ExtendedNote, Fr, Note } from '@aztec/aztec.js';
+import type { Logger, Wallet } from '@aztec/aztec.js';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 
 import { setup } from './fixtures/utils.js';

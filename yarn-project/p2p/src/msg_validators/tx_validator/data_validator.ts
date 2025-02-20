@@ -1,4 +1,5 @@
-import { Tx, type TxValidationResult, type TxValidator } from '@aztec/circuit-types';
+import { Tx } from '@aztec/circuit-types';
+import type { TxValidationResult, TxValidator } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
 
 export class DataTxValidator implements TxValidator<Tx> {

@@ -1,12 +1,6 @@
 import type { L1PublishBlockStats, L1PublishStats } from '@aztec/circuit-types/stats';
-import {
-  Attributes,
-  type Histogram,
-  Metrics,
-  type TelemetryClient,
-  type UpDownCounter,
-  ValueType,
-} from '@aztec/telemetry-client';
+import { Attributes, Metrics, ValueType } from '@aztec/telemetry-client';
+import type { Histogram, TelemetryClient, UpDownCounter } from '@aztec/telemetry-client';
 
 import { formatEther } from 'viem/utils';
 

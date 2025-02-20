@@ -1,5 +1,5 @@
 import { createAztecNodeClient, createLogger, sleep } from '@aztec/aztec.js';
-import { type RollupCheatCodes } from '@aztec/aztec.js/ethereum';
+import type { RollupCheatCodes } from '@aztec/aztec.js/ethereum';
 import type { Logger } from '@aztec/foundation/log';
 import type { SequencerConfig } from '@aztec/sequencer-client';
 
@@ -8,7 +8,8 @@ import path from 'path';
 import { promisify } from 'util';
 import { z } from 'zod';
 
-import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
+import { AlertChecker } from '../quality_of_service/alert_checker.js';
+import type { AlertConfig } from '../quality_of_service/alert_checker.js';
 
 const execAsync = promisify(exec);
 

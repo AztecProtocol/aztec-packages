@@ -1,4 +1,4 @@
-import { type TxSimulationResult } from '@aztec/circuit-types';
+import type { TxSimulationResult } from '@aztec/circuit-types';
 import { mockSimulatedTx, mockTxForRollup } from '@aztec/circuit-types/testing';
 import { Gas } from '@aztec/circuits.js';
 

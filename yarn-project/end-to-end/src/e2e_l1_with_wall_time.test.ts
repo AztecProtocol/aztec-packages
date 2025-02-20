@@ -1,7 +1,7 @@
-import { type Logger, type PXE, type Wallet } from '@aztec/aztec.js';
+import type { Logger, PXE, Wallet } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/circuits.js';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
-import { type PXEService } from '@aztec/pxe';
+import type { PXEService } from '@aztec/pxe';
 
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';

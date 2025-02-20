@@ -1,10 +1,10 @@
-import { type EthAddress } from '@aztec/foundation/eth-address';
-import { type Fr } from '@aztec/foundation/fields';
+import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
 import type Koa from 'koa';
 
-import { type ChainConfig } from './config.js';
+import type { ChainConfig } from './config.js';
 
 // REFACTOR: This file is not a circuit-type, but at the moment we don't have any other
 // package common to all components that we can use for this shared code.

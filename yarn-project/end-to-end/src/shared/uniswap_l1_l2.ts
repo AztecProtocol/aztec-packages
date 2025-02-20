@@ -1,31 +1,14 @@
-import {
-  type AccountWallet,
-  AztecAddress,
-  type AztecNode,
-  EthAddress,
-  Fr,
-  type Logger,
-  type PXE,
-  computeAuthWitMessageHash,
-  generateClaimSecret,
-} from '@aztec/aztec.js';
-import { type DeployL1Contracts, deployL1Contract, extractEvent } from '@aztec/ethereum';
+import { AztecAddress, EthAddress, Fr, computeAuthWitMessageHash, generateClaimSecret } from '@aztec/aztec.js';
+import type { AccountWallet, AztecNode, Logger, PXE } from '@aztec/aztec.js';
+import { deployL1Contract, extractEvent } from '@aztec/ethereum';
+import type { DeployL1Contracts } from '@aztec/ethereum';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { InboxAbi, RollupAbi, UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 import { UniswapContract } from '@aztec/noir-contracts.js/Uniswap';
 
 import { jest } from '@jest/globals';
-import {
-  type Account,
-  type Chain,
-  type GetContractReturnType,
-  type HttpTransport,
-  type PublicClient,
-  type WalletClient,
-  getContract,
-  parseEther,
-  toFunctionSelector,
-} from 'viem';
+import { getContract, parseEther, toFunctionSelector } from 'viem';
+import type { Account, Chain, GetContractReturnType, HttpTransport, PublicClient, WalletClient } from 'viem';
 import type * as chains from 'viem/chains';
 
 import { ensureAccountsPubliclyDeployed } from '../fixtures/utils.js';

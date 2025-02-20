@@ -1,23 +1,12 @@
 import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
-import {
-  BatchCall,
-  L1FeeJuicePortalManager,
-  type PXE,
-  type WaitOpts,
-  type Wallet,
-  createCompatibleClient,
-  retryUntil,
-} from '@aztec/aztec.js';
-import { type AztecAddress, type EthAddress, Fr } from '@aztec/circuits.js';
+import { BatchCall, L1FeeJuicePortalManager, createCompatibleClient, retryUntil } from '@aztec/aztec.js';
+import type { PXE, WaitOpts, Wallet } from '@aztec/aztec.js';
+import { Fr } from '@aztec/circuits.js';
+import type { AztecAddress, EthAddress } from '@aztec/circuits.js';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
-import {
-  type ContractArtifacts,
-  type L1Clients,
-  createEthereumChain,
-  createL1Clients,
-  deployL1Contract,
-} from '@aztec/ethereum';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import { createEthereumChain, createL1Clients, deployL1Contract } from '@aztec/ethereum';
+import type { ContractArtifacts, L1Clients } from '@aztec/ethereum';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 
 import { getContract } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';

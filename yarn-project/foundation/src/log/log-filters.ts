@@ -1,4 +1,5 @@
-import { type LogLevel, LogLevels } from './log-levels.js';
+import { LogLevels } from './log-levels.js';
+import type { LogLevel } from './log-levels.js';
 
 export type LogFilters = [string, LogLevel][];
 

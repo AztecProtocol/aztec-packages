@@ -1,25 +1,16 @@
-import { type SiblingPath } from '@aztec/circuit-types';
-import { type PXE } from '@aztec/circuit-types/interfaces/client';
+import type { SiblingPath } from '@aztec/circuit-types';
+import type { PXE } from '@aztec/circuit-types/interfaces/client';
 import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { computeSecretHash } from '@aztec/circuits.js/hash';
 import { extractEvent } from '@aztec/ethereum/utils';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type Logger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { FeeJuicePortalAbi, OutboxAbi, TestERC20Abi, TokenPortalAbi } from '@aztec/l1-artifacts';
 
-import {
-  type Account,
-  type Chain,
-  type GetContractReturnType,
-  type Hex,
-  type HttpTransport,
-  type PublicClient,
-  type WalletClient,
-  getContract,
-  toFunctionSelector,
-} from 'viem';
+import { getContract, toFunctionSelector } from 'viem';
+import type { Account, Chain, GetContractReturnType, Hex, HttpTransport, PublicClient, WalletClient } from 'viem';
 
 /** L1 to L2 message info to claim it on L2. */
 export type L2Claim = {

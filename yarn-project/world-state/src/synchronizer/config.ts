@@ -1,9 +1,5 @@
-import {
-  type ConfigMappingsType,
-  booleanConfigHelper,
-  getConfigFromMappings,
-  numberConfigHelper,
-} from '@aztec/foundation/config';
+import { booleanConfigHelper, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
+import type { ConfigMappingsType } from '@aztec/foundation/config';
 
 /** World State synchronizer configuration values. */
 export interface WorldStateConfig {

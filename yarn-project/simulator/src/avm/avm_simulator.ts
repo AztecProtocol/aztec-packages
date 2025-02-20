@@ -1,6 +1,8 @@
-import { type AztecAddress, Fr, type GlobalVariables } from '@aztec/circuits.js';
+import { Fr } from '@aztec/circuits.js';
+import type { AztecAddress, GlobalVariables } from '@aztec/circuits.js';
 import { MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/constants';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 
 import { strict as assert } from 'assert';
 
@@ -8,7 +10,7 @@ import { SideEffectLimitReachedError } from '../public/side_effect_errors.js';
 import { AvmContext } from './avm_context.js';
 import { AvmContractCallResult } from './avm_contract_call_result.js';
 import { AvmExecutionEnvironment } from './avm_execution_environment.js';
-import { type Gas } from './avm_gas.js';
+import type { Gas } from './avm_gas.js';
 import { AvmMachineState } from './avm_machine_state.js';
 import { isAvmBytecode } from './bytecode_utils.js';
 import {
@@ -18,13 +20,10 @@ import {
   revertReasonFromExceptionalHalt,
   revertReasonFromExplicitRevert,
 } from './errors.js';
-import { type AvmPersistableStateManager } from './journal/journal.js';
-import { type Instruction } from './opcodes/instruction.js';
-import {
-  INSTRUCTION_SET,
-  type InstructionSet,
-  decodeInstructionFromBytecode,
-} from './serialization/bytecode_serialization.js';
+import type { AvmPersistableStateManager } from './journal/journal.js';
+import type { Instruction } from './opcodes/instruction.js';
+import { INSTRUCTION_SET, decodeInstructionFromBytecode } from './serialization/bytecode_serialization.js';
+import type { InstructionSet } from './serialization/bytecode_serialization.js';
 
 type OpcodeTally = {
   count: number;

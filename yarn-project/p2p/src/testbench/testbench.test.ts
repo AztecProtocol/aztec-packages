@@ -1,14 +1,17 @@
-import { type ChainConfig, emptyChainConfig } from '@aztec/circuit-types/config';
+import { emptyChainConfig } from '@aztec/circuit-types/config';
+import type { ChainConfig } from '@aztec/circuit-types/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 
-import { type ChildProcess, fork } from 'child_process';
+import { fork } from 'child_process';
+import type { ChildProcess } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { mockTx } from '../../../circuit-types/src/test/mocks.js';
-import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
+import { getP2PDefaultConfig } from '../config.js';
+import type { P2PConfig } from '../config.js';
 import { generatePeerIdPrivateKeys } from '../test-helpers/generate-peer-id-private-keys.js';
 import { getPorts } from '../test-helpers/get-ports.js';
 import { makeEnrs } from '../test-helpers/make-enrs.js';

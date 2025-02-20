@@ -2,11 +2,13 @@ import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
-import { type ContractArtifact, type FunctionArtifact, FunctionSelector, FunctionType } from '../abi/index.js';
+import { FunctionSelector, FunctionType } from '../abi/index.js';
+import type { ContractArtifact, FunctionArtifact } from '../abi/index.js';
 import { hashVK } from '../hash/hash.js';
 import { computeArtifactHash } from './artifact_hash.js';
-import { type ContractClassIdPreimage, computeContractClassIdWithPreimage } from './contract_class_id.js';
-import { type ContractClass, type ContractClassWithId, type PublicFunction } from './interfaces/index.js';
+import { computeContractClassIdWithPreimage } from './contract_class_id.js';
+import type { ContractClassIdPreimage } from './contract_class_id.js';
+import type { ContractClass, ContractClassWithId, PublicFunction } from './interfaces/index.js';
 
 /** Contract artifact including its artifact hash */
 type ContractArtifactWithHash = ContractArtifact & { artifactHash: Fr };

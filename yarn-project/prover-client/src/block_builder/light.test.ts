@@ -1,26 +1,23 @@
 import { TestCircuitProver } from '@aztec/bb-prover';
 import { Blob, SpongeBlob } from '@aztec/blob-lib';
-import { MerkleTreeId, type ProcessedTx, toNumBlobFields } from '@aztec/circuit-types';
-import { type MerkleTreeWriteOperations, type ServerCircuitProver } from '@aztec/circuit-types/interfaces/server';
+import { MerkleTreeId, toNumBlobFields } from '@aztec/circuit-types';
+import type { ProcessedTx } from '@aztec/circuit-types';
+import type { MerkleTreeWriteOperations, ServerCircuitProver } from '@aztec/circuit-types/interfaces/server';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/testing';
 import {
   AztecAddress,
   BaseParityInputs,
   Fr,
-  type GlobalVariables,
-  type ParityPublicInputs,
   PartialStateReference,
   PublicDataWrite,
-  type RecursiveProof,
   RootParityInput,
   RootParityInputs,
   StateReference,
-  type VerificationKeyAsFields,
   VkWitnessData,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
+import type { GlobalVariables, ParityPublicInputs, RecursiveProof, VerificationKeyAsFields } from '@aztec/circuits.js';
 import {
-  type BaseOrMergeRollupPublicInputs,
   BlockRootRollupBlobData,
   BlockRootRollupData,
   BlockRootRollupInputs,
@@ -28,13 +25,14 @@ import {
   EmptyBlockRootRollupInputs,
   MergeRollupInputs,
   PreviousRollupData,
-  type PrivateBaseRollupHints,
   PrivateBaseRollupInputs,
   PrivateTubeData,
   SingleTxBlockRootRollupInputs,
 } from '@aztec/circuits.js/rollup';
+import type { BaseOrMergeRollupPublicInputs, PrivateBaseRollupHints } from '@aztec/circuits.js/rollup';
 import { makeGlobalVariables } from '@aztec/circuits.js/testing';
-import { type AppendOnlyTreeSnapshot, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
+import { PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
+import type { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
 import {
   BLOBS_PER_BLOCK,
   FIELDS_PER_BLOB,
@@ -49,8 +47,10 @@ import {
 } from '@aztec/constants';
 import { padArrayEnd, times, timesParallel } from '@aztec/foundation/collection';
 import { sha256ToField } from '@aztec/foundation/crypto';
-import { type Logger, createLogger } from '@aztec/foundation/log';
-import { type Tuple, assertLength } from '@aztec/foundation/serialize';
+import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
+import { assertLength } from '@aztec/foundation/serialize';
+import type { Tuple } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import {
   ProtocolCircuitVks,
@@ -62,7 +62,8 @@ import {
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { getTelemetryClient } from '@aztec/telemetry-client';
-import { type MerkleTreeAdminDatabase, NativeWorldStateService } from '@aztec/world-state';
+import { NativeWorldStateService } from '@aztec/world-state';
+import type { MerkleTreeAdminDatabase } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
 

@@ -1,4 +1,5 @@
-import { NoteStatus, type NotesFilter } from '@aztec/circuit-types';
+import { NoteStatus } from '@aztec/circuit-types';
+import type { NotesFilter } from '@aztec/circuit-types';
 import { randomTxHash } from '@aztec/circuit-types/testing';
 import { AztecAddress, CompleteAddress, PublicKeys, SerializableContractInstance } from '@aztec/circuits.js';
 import { FunctionType } from '@aztec/circuits.js/abi';
@@ -13,7 +14,7 @@ import { TestContractArtifact } from '@aztec/noir-contracts.js/Test';
 import times from 'lodash.times';
 
 import { NoteDao } from './note_dao.js';
-import { type PxeDatabase } from './pxe_database.js';
+import type { PxeDatabase } from './pxe_database.js';
 
 /**
  * A common test suite for a PXE database.

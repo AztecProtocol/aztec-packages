@@ -1,38 +1,40 @@
 import {
-  type AuthWitness,
   EventMetadata,
-  type ExtendedNote,
-  type FunctionCall,
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  type InBlock,
   L1EventPayload,
-  type L2Block,
-  type LogFilter,
   MerkleTreeId,
-  type NotesFilter,
   PrivateSimulationResult,
-  type PublicSimulationOutput,
-  type SiblingPath,
   SimulationError,
-  type Tx,
-  type TxEffect,
-  type TxExecutionRequest,
-  type TxHash,
   TxProvingResult,
-  type TxReceipt,
   TxSimulationResult,
   UniqueNote,
   getNonNullifiedL1ToL2MessageWitness,
 } from '@aztec/circuit-types';
-import {
-  type AztecNode,
-  type EventMetadataDefinition,
-  type PXE,
-  type PXEInfo,
-  type PrivateExecutionResult,
-  type PrivateKernelProver,
-  type PrivateKernelSimulateOutput,
+import type {
+  AuthWitness,
+  ExtendedNote,
+  FunctionCall,
+  GetContractClassLogsResponse,
+  GetPublicLogsResponse,
+  InBlock,
+  L2Block,
+  LogFilter,
+  NotesFilter,
+  PublicSimulationOutput,
+  SiblingPath,
+  Tx,
+  TxEffect,
+  TxExecutionRequest,
+  TxHash,
+  TxReceipt,
+} from '@aztec/circuit-types';
+import type {
+  AztecNode,
+  EventMetadataDefinition,
+  PXE,
+  PXEInfo,
+  PrivateExecutionResult,
+  PrivateKernelProver,
+  PrivateKernelSimulateOutput,
 } from '@aztec/circuit-types/interfaces/client';
 import type {
   CompleteAddress,
@@ -43,38 +45,41 @@ import type {
   PartialAddress,
 } from '@aztec/circuits.js';
 import {
-  type AbiDecoded,
-  type ContractArtifact,
   EventSelector,
   FunctionSelector,
   FunctionType,
   decodeFunctionSignature,
   encodeArguments,
 } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { AbiDecoded, ContractArtifact } from '@aztec/circuits.js/abi';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/circuits.js/contract';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
-import { PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
+import type { PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
 import { computeAddressSecret } from '@aztec/circuits.js/keys';
-import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import { Fr, type Point } from '@aztec/foundation/fields';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
+import type { Point } from '@aztec/foundation/fields';
+import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { type KeyStore } from '@aztec/key-store';
-import { type L2TipsStore } from '@aztec/kv-store/stores';
+import type { KeyStore } from '@aztec/key-store';
+import type { L2TipsStore } from '@aztec/kv-store/stores';
 import { ProtocolContractAddress, protocolContractNames } from '@aztec/protocol-contracts';
 import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
-import { type AcirSimulator, type SimulationProvider, readCurrentClassId } from '@aztec/simulator/client';
+import { readCurrentClassId } from '@aztec/simulator/client';
+import type { AcirSimulator, SimulationProvider } from '@aztec/simulator/client';
 
 import { inspect } from 'util';
 
-import { type PXEServiceConfig } from '../config/index.js';
+import type { PXEServiceConfig } from '../config/index.js';
 import { getPackageInfo } from '../config/package_info.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { type PxeDatabase } from '../database/index.js';
+import type { PxeDatabase } from '../database/index.js';
 import { NoteDao } from '../database/note_dao.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
-import { KernelProver, type ProvingConfig } from '../kernel_prover/kernel_prover.js';
+import { KernelProver } from '../kernel_prover/kernel_prover.js';
+import type { ProvingConfig } from '../kernel_prover/kernel_prover.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import { Synchronizer } from '../synchronizer/index.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';

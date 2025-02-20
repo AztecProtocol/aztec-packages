@@ -1,7 +1,8 @@
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { fileURLToPath } from '@aztec/foundation/url';
 
-import { type Anvil, createAnvil } from '@viem/anvil';
+import { createAnvil } from '@viem/anvil';
+import type { Anvil } from '@viem/anvil';
 import { dirname, resolve } from 'path';
 
 /**

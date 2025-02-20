@@ -1,26 +1,21 @@
-import {
-  type Tx,
-  type TxExecutionRequest,
-  type TxHash,
-  type TxProvingResult,
-  type TxReceipt,
-  type TxSimulationResult,
+import type {
+  Tx,
+  TxExecutionRequest,
+  TxHash,
+  TxProvingResult,
+  TxReceipt,
+  TxSimulationResult,
 } from '@aztec/circuit-types';
-import {
-  AztecAddress,
-  CompleteAddress,
-  type ContractInstanceWithAddress,
-  EthAddress,
-  GasFees,
-  type NodeInfo,
-  getContractClassFromArtifact,
-} from '@aztec/circuits.js';
-import { type AbiDecoded, type ContractArtifact, FunctionType } from '@aztec/circuits.js/abi';
-import { type L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import { AztecAddress, CompleteAddress, EthAddress, GasFees, getContractClassFromArtifact } from '@aztec/circuits.js';
+import type { ContractInstanceWithAddress, NodeInfo } from '@aztec/circuits.js';
+import { FunctionType } from '@aztec/circuits.js/abi';
+import type { AbiDecoded, ContractArtifact } from '@aztec/circuits.js/abi';
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 
-import { type MockProxy, mock } from 'jest-mock-extended';
+import { mock } from 'jest-mock-extended';
+import type { MockProxy } from 'jest-mock-extended';
 
-import { type Wallet } from '../account/wallet.js';
+import type { Wallet } from '../account/wallet.js';
 import { Contract } from './contract.js';
 
 describe('Contract Class', () => {

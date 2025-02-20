@@ -1,5 +1,5 @@
-import { type PXE } from '@aztec/circuit-types/interfaces/client';
-import { type Logger } from '@aztec/foundation/log';
+import type { PXE } from '@aztec/circuit-types/interfaces/client';
+import type { Logger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 
 export const waitForPXE = async (pxe: PXE, logger?: Logger) => {

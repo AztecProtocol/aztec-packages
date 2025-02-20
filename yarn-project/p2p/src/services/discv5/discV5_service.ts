@@ -1,18 +1,23 @@
-import { type ComponentsVersions, checkCompressedComponentVersion } from '@aztec/circuit-types';
+import { checkCompressedComponentVersion } from '@aztec/circuit-types';
+import type { ComponentsVersions } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { OtelMetricsAdapter, type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
+import { OtelMetricsAdapter, getTelemetryClient } from '@aztec/telemetry-client';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 
-import { Discv5, type Discv5EventEmitter } from '@chainsafe/discv5';
+import { Discv5 } from '@chainsafe/discv5';
+import type { Discv5EventEmitter } from '@chainsafe/discv5';
 import { ENR, SignableENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
-import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
+import { multiaddr } from '@multiformats/multiaddr';
+import type { Multiaddr } from '@multiformats/multiaddr';
 import EventEmitter from 'events';
 
 import type { P2PConfig } from '../../config.js';
 import { convertToMultiaddr } from '../../util.js';
 import { setAztecEnrKey } from '../../versioning.js';
-import { type PeerDiscoveryService, PeerDiscoveryState } from '../service.js';
+import { PeerDiscoveryState } from '../service.js';
+import type { PeerDiscoveryService } from '../service.js';
 import { AZTEC_ENR_KEY, Discv5Event, PeerEvent } from '../types.js';
 
 const delayBeforeStart = 2000; // 2sec

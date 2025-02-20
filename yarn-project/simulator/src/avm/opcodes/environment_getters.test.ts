@@ -4,7 +4,7 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { randomInt } from 'crypto';
 
-import { type AvmContext } from '../avm_context.js';
+import type { AvmContext } from '../avm_context.js';
 import { TypeTag } from '../avm_memory_types.js';
 import { initContext, initExecutionEnvironment, initGlobalVariables } from '../fixtures/index.js';
 import { Opcode } from '../serialization/instruction_serialization.js';

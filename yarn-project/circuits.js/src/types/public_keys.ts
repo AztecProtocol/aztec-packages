@@ -14,11 +14,11 @@ import { Fr, Point } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, withoutHexPrefix } from '@aztec/foundation/string';
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
-import { type PublicKey } from './public_key.js';
+import type { PublicKey } from './public_key.js';
 
 export class PublicKeys {
   public constructor(

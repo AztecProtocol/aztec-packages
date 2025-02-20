@@ -1,10 +1,11 @@
-import { type ProcessedTx, type Tx, type TxValidator } from '@aztec/circuit-types';
-import {
-  type AllowedElement,
-  type ClientProtocolCircuitVerifier,
-  type MerkleTreeReadOperations,
+import type { ProcessedTx, Tx, TxValidator } from '@aztec/circuit-types';
+import type {
+  AllowedElement,
+  ClientProtocolCircuitVerifier,
+  MerkleTreeReadOperations,
 } from '@aztec/circuit-types/interfaces/server';
-import { type AztecAddress, type ContractDataSource, Fr, type GasFees, type GlobalVariables } from '@aztec/circuits.js';
+import { Fr } from '@aztec/circuits.js';
+import type { AztecAddress, ContractDataSource, GasFees, GlobalVariables } from '@aztec/circuits.js';
 import {
   AggregateTxValidator,
   BlockHeaderTxValidator,
@@ -17,7 +18,8 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { readPublicState } from '@aztec/simulator/server';
 
 import { ArchiveCache } from './archive_cache.js';
-import { GasTxValidator, type PublicStateSource } from './gas_validator.js';
+import { GasTxValidator } from './gas_validator.js';
+import type { PublicStateSource } from './gas_validator.js';
 import { NullifierCache } from './nullifier_cache.js';
 import { PhasesTxValidator } from './phases_validator.js';
 

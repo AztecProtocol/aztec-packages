@@ -5,10 +5,10 @@
  */
 import { PeerErrorSeverity } from '@aztec/circuit-types';
 
-import { type PeerId } from '@libp2p/interface';
+import type { PeerId } from '@libp2p/interface';
 
-import { type PeerScoring } from '../../peer-manager/peer_scoring.js';
-import { type ReqRespSubProtocol, type ReqRespSubProtocolRateLimits } from '../interface.js';
+import type { PeerScoring } from '../../peer-manager/peer_scoring.js';
+import type { ReqRespSubProtocol, ReqRespSubProtocolRateLimits } from '../interface.js';
 import { DEFAULT_RATE_LIMITS } from './rate_limits.js';
 
 // Check for disconnected peers every 10 minutes

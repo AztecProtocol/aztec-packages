@@ -1,44 +1,43 @@
-import { type InitialAccountData, deployFundedSchnorrAccount } from '@aztec/accounts/testing';
-import { type AztecNodeService } from '@aztec/aztec-node';
+import { deployFundedSchnorrAccount } from '@aztec/accounts/testing';
+import type { InitialAccountData } from '@aztec/accounts/testing';
+import type { AztecNodeService } from '@aztec/aztec-node';
 import {
-  type AccountWallet,
   AccountWalletWithSecretKey,
-  type AztecAddress,
-  type AztecNode,
-  type CheatCodes,
   ContractDeployer,
   ContractFunctionInteraction,
   Fr,
-  type GlobalVariables,
   L1EventPayload,
   L1NotePayload,
-  type Logger,
-  type PXE,
   TxStatus,
-  type Wallet,
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
+import type {
+  AccountWallet,
+  AztecAddress,
+  AztecNode,
+  CheatCodes,
+  GlobalVariables,
+  Logger,
+  PXE,
+  Wallet,
+} from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
-import { type Tx } from '@aztec/circuit-types';
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
+import type { Tx } from '@aztec/circuit-types';
+import type { MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times, unique } from '@aztec/foundation/collection';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { type TestDateProvider } from '@aztec/foundation/timer';
+import type { TestDateProvider } from '@aztec/foundation/timer';
 import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { type SequencerClient } from '@aztec/sequencer-client';
-import { type TestSequencerClient } from '@aztec/sequencer-client/test';
-import {
-  PublicProcessorFactory,
-  type PublicTxResult,
-  PublicTxSimulator,
-  type WorldStateDB,
-} from '@aztec/simulator/server';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import type { SequencerClient } from '@aztec/sequencer-client';
+import type { TestSequencerClient } from '@aztec/sequencer-client/test';
+import { PublicProcessorFactory, PublicTxSimulator } from '@aztec/simulator/server';
+import type { PublicTxResult, WorldStateDB } from '@aztec/simulator/server';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
 import 'jest-extended';

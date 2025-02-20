@@ -1,6 +1,7 @@
 import { isNoirCallStackUnresolved } from '@aztec/circuit-types';
 import { GasFees, GlobalVariables } from '@aztec/circuits.js';
-import { type ContractArtifact, type FunctionArtifact, FunctionSelector } from '@aztec/circuits.js/abi';
+import { FunctionSelector } from '@aztec/circuits.js/abi';
+import type { ContractArtifact, FunctionArtifact } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/constants';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -13,14 +14,15 @@ import { mock } from 'jest-mock-extended';
 import merge from 'lodash.merge';
 
 import { resolveAssertionMessageFromRevertData, traverseCauseChain } from '../../common.js';
-import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
-import { AvmSimulator, type WorldStateDB } from '../../server.js';
+import type { PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
+import { AvmSimulator } from '../../server.js';
+import type { WorldStateDB } from '../../server.js';
 import { AvmContext } from '../avm_context.js';
 import { AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { AvmMachineState } from '../avm_machine_state.js';
 import { Field, Uint8, Uint32, Uint64 } from '../avm_memory_types.js';
-import { type AvmEphemeralForest } from '../avm_tree.js';
-import { type AvmRevertReason } from '../errors.js';
+import type { AvmEphemeralForest } from '../avm_tree.js';
+import type { AvmRevertReason } from '../errors.js';
 import { AvmPersistableStateManager } from '../journal/journal.js';
 import { NullifierManager } from '../journal/nullifiers.js';
 import { PublicStorage } from '../journal/public_storage.js';

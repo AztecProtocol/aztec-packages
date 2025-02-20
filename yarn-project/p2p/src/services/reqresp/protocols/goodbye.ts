@@ -1,10 +1,11 @@
 import { createLogger } from '@aztec/foundation/log';
 
-import { type PeerId } from '@libp2p/interface';
+import type { PeerId } from '@libp2p/interface';
 
-import { type PeerManager } from '../../peer-manager/peer_manager.js';
-import { ReqRespSubProtocol, type ReqRespSubProtocolHandler } from '../interface.js';
-import { type ReqResp } from '../reqresp.js';
+import type { PeerManager } from '../../peer-manager/peer_manager.js';
+import { ReqRespSubProtocol } from '../interface.js';
+import type { ReqRespSubProtocolHandler } from '../interface.js';
+import type { ReqResp } from '../reqresp.js';
 
 /**
  * Enum defining the possible reasons for a goodbye message.

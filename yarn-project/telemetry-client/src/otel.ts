@@ -1,41 +1,33 @@
-import { type LogData, type Logger, addLogDataHandler } from '@aztec/foundation/log';
+import { addLogDataHandler } from '@aztec/foundation/log';
+import type { LogData, Logger } from '@aztec/foundation/log';
 
 import { MetricExporter as GoogleCloudMetricExporter } from '@google-cloud/opentelemetry-cloud-monitoring-exporter';
 import { TraceExporter as GoogleCloudTraceExporter } from '@google-cloud/opentelemetry-cloud-trace-exporter';
-import {
-  DiagConsoleLogger,
-  DiagLogLevel,
-  type Meter,
-  type Tracer,
-  type TracerProvider,
-  context,
-  diag,
-  isSpanContextValid,
-  trace,
-} from '@opentelemetry/api';
+import { DiagConsoleLogger, DiagLogLevel, context, diag, isSpanContextValid, trace } from '@opentelemetry/api';
+import type { Meter, Tracer, TracerProvider } from '@opentelemetry/api';
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { HostMetrics } from '@opentelemetry/host-metrics';
-import { type IResource } from '@opentelemetry/resources';
-import { type LoggerProvider } from '@opentelemetry/sdk-logs';
+import type { IResource } from '@opentelemetry/resources';
+import type { LoggerProvider } from '@opentelemetry/sdk-logs';
 import {
   ExplicitBucketHistogramAggregation,
   InstrumentType,
   MeterProvider,
   PeriodicExportingMetricReader,
-  type PeriodicExportingMetricReaderOptions,
   View,
 } from '@opentelemetry/sdk-metrics';
+import type { PeriodicExportingMetricReaderOptions } from '@opentelemetry/sdk-metrics';
 import { BatchSpanProcessor, NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 
-import { type TelemetryClientConfig } from './config.js';
+import type { TelemetryClientConfig } from './config.js';
 import { EventLoopMonitor } from './event_loop_monitor.js';
 import { linearBuckets } from './histogram_utils.js';
 import { OtelFilterMetricExporter } from './otel_filter_metric_exporter.js';
 import { registerOtelLoggerProvider } from './otel_logger_provider.js';
 import { getOtelResource } from './otel_resource.js';
-import { type Gauge, type TelemetryClient } from './telemetry.js';
+import type { Gauge, TelemetryClient } from './telemetry.js';
 
 export type OpenTelemetryClientFactory = (resource: IResource, log: Logger) => OpenTelemetryClient;
 

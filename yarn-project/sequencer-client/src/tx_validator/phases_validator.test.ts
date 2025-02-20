@@ -1,9 +1,11 @@
-import { type Tx } from '@aztec/circuit-types';
+import type { Tx } from '@aztec/circuit-types';
 import { mockTx } from '@aztec/circuit-types/testing';
-import { type AztecAddress, type ContractDataSource, Fr, type FunctionSelector } from '@aztec/circuits.js';
+import { Fr } from '@aztec/circuits.js';
+import type { AztecAddress, ContractDataSource, FunctionSelector } from '@aztec/circuits.js';
 import { makeAztecAddress, makeSelector } from '@aztec/circuits.js/testing';
 
-import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
+import { mock, mockFn } from 'jest-mock-extended';
+import type { MockProxy } from 'jest-mock-extended';
 
 import { PhasesTxValidator } from './phases_validator.js';
 import { patchNonRevertibleFn } from './test_utils.js';

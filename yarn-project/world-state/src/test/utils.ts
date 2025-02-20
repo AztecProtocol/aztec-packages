@@ -1,5 +1,5 @@
 import { L2Block, MerkleTreeId } from '@aztec/circuit-types';
-import { type MerkleTreeReadOperations, type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
+import type { MerkleTreeReadOperations, MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import { Fr } from '@aztec/circuits.js';
 import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
 import {
@@ -10,7 +10,7 @@ import {
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 
-import { type NativeWorldStateService } from '../native/native_world_state.js';
+import type { NativeWorldStateService } from '../native/native_world_state.js';
 
 export async function mockBlock(blockNum: number, size: number, fork: MerkleTreeWriteOperations) {
   const l2Block = await L2Block.random(blockNum, size);

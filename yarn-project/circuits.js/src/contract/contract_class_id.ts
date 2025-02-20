@@ -5,7 +5,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { strict as assert } from 'assert';
 
 import { bufferAsFields } from '../abi/index.js';
-import { type ContractClass } from './interfaces/contract_class.js';
+import type { ContractClass } from './interfaces/contract_class.js';
 import { computePrivateFunctionsRoot } from './private_function.js';
 
 /**

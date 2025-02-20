@@ -1,5 +1,5 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
+import type { MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import { GasFees, PublicKeys, SerializableContractInstance } from '@aztec/circuits.js';
 import { FunctionSelector } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
@@ -24,18 +24,19 @@ import {
   sha256,
 } from '@aztec/foundation/crypto';
 import { Fq, Fr, Point } from '@aztec/foundation/fields';
-import { type Fieldable } from '@aztec/foundation/serialize';
+import type { Fieldable } from '@aztec/foundation/serialize';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import { randomInt } from 'crypto';
 import { mock } from 'jest-mock-extended';
 
-import { type WorldStateDB } from '../public/public_db_sources.js';
+import type { WorldStateDB } from '../public/public_db_sources.js';
 import { SideEffectTrace } from '../public/side_effect_trace.js';
-import { type PublicSideEffectTraceInterface } from '../public/side_effect_trace_interface.js';
-import { type AvmContext } from './avm_context.js';
-import { type AvmExecutionEnvironment } from './avm_execution_environment.js';
-import { type MemoryValue, TypeTag, type Uint8, type Uint64 } from './avm_memory_types.js';
+import type { PublicSideEffectTraceInterface } from '../public/side_effect_trace_interface.js';
+import type { AvmContext } from './avm_context.js';
+import type { AvmExecutionEnvironment } from './avm_execution_environment.js';
+import { TypeTag } from './avm_memory_types.js';
+import type { MemoryValue, Uint8, Uint64 } from './avm_memory_types.js';
 import { AvmSimulator } from './avm_simulator.js';
 import { AvmEphemeralForest } from './avm_tree.js';
 import { isAvmBytecode, markBytecodeAsAvm } from './bytecode_utils.js';
@@ -53,7 +54,7 @@ import {
   randomMemoryUint64s,
   resolveAvmTestContractAssertionMessage,
 } from './fixtures/index.js';
-import { type AvmPersistableStateManager } from './journal/journal.js';
+import type { AvmPersistableStateManager } from './journal/journal.js';
 import {
   Add,
   CalldataCopy,
@@ -61,13 +62,13 @@ import {
   EmitNoteHash,
   EmitNullifier,
   EmitUnencryptedLog,
-  type Instruction,
   Jump,
   Return,
   SStore,
   SendL2ToL1Message,
   Set,
 } from './opcodes/index.js';
+import type { Instruction } from './opcodes/index.js';
 import { encodeToBytecode } from './serialization/bytecode_serialization.js';
 import { Opcode } from './serialization/instruction_serialization.js';
 import {

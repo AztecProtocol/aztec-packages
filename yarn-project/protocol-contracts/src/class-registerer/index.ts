@@ -1,9 +1,9 @@
 import { loadContractArtifact } from '@aztec/circuits.js/abi';
-import { type NoirCompiledContract } from '@aztec/circuits.js/noir';
+import type { NoirCompiledContract } from '@aztec/circuits.js/noir';
 
 import ContractClassRegistererJson from '../../artifacts/ContractClassRegisterer.json' assert { type: 'json' };
 import { makeProtocolContract } from '../make_protocol_contract.js';
-import { type ProtocolContract } from '../protocol_contract.js';
+import type { ProtocolContract } from '../protocol_contract.js';
 
 export * from './contract_class_registered_event.js';
 export * from './private_function_broadcasted_event.js';

@@ -1,18 +1,15 @@
 import { getSchnorrAccount, getSchnorrWalletWithSecretKey } from '@aztec/accounts/schnorr';
 import { generateSchnorrAccounts, getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import {
-  type AccountWalletWithSecretKey,
-  type AztecAddress,
-  type AztecNode,
   FeeJuicePaymentMethodWithClaim,
   L1FeeJuicePortalManager,
-  type PXE,
   createAztecNodeClient,
   createCompatibleClient,
   retryUntil,
 } from '@aztec/aztec.js';
+import type { AccountWalletWithSecretKey, AztecAddress, AztecNode, PXE } from '@aztec/aztec.js';
 import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
-import { type Logger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 export interface TestWallets {

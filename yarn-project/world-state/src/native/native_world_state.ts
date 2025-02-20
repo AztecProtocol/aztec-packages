@@ -1,11 +1,13 @@
-import { type L2Block, MerkleTreeId } from '@aztec/circuit-types';
-import {
-  type IndexedTreeId,
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
+import { MerkleTreeId } from '@aztec/circuit-types';
+import type { L2Block } from '@aztec/circuit-types';
+import type {
+  IndexedTreeId,
+  MerkleTreeReadOperations,
+  MerkleTreeWriteOperations,
 } from '@aztec/circuit-types/interfaces/server';
 import { BlockHeader, EthAddress, Fr, PartialStateReference, StateReference } from '@aztec/circuits.js';
-import { NullifierLeaf, type NullifierLeafPreimage, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
+import { NullifierLeaf, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
+import type { NullifierLeafPreimage } from '@aztec/circuits.js/trees';
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
@@ -17,18 +19,17 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
-import { type MerkleTreeAdminDatabase as MerkleTreeDatabase } from '../world-state-db/merkle_tree_db.js';
+import type { MerkleTreeAdminDatabase as MerkleTreeDatabase } from '../world-state-db/merkle_tree_db.js';
 import { MerkleTreesFacade, MerkleTreesForkFacade, serializeLeaf } from './merkle_trees_facade.js';
 import {
   WorldStateMessageType,
-  type WorldStateStatusFull,
-  type WorldStateStatusSummary,
   blockStateReference,
   sanitiseFullStatus,
   sanitiseSummary,
   treeStateReferenceToSnapshot,
   worldStateRevision,
 } from './message.js';
+import type { WorldStateStatusFull, WorldStateStatusSummary } from './message.js';
 import { NativeWorldState } from './native_world_state_instance.js';
 import { WorldStateVersion } from './world_state_version.js';
 

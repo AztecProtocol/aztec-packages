@@ -5,18 +5,18 @@
  */
 import { MockL2BlockSource } from '@aztec/archiver/test';
 import { P2PClientType, Tx, TxStatus } from '@aztec/circuit-types';
-import { type WorldStateSynchronizer } from '@aztec/circuit-types/interfaces/server';
-import { type EpochCacheInterface } from '@aztec/epoch-cache';
+import type { WorldStateSynchronizer } from '@aztec/circuit-types/interfaces/server';
+import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { type DataStoreConfig } from '@aztec/kv-store/config';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
-import { type P2PConfig } from '../config.js';
+import type { P2PConfig } from '../config.js';
 import { createP2PClient } from '../index.js';
-import { type AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
-import { type TxPool } from '../mem_pools/tx_pool/index.js';
+import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
+import type { TxPool } from '../mem_pools/tx_pool/index.js';
 import { AlwaysTrueCircuitVerifier } from '../test-helpers/reqresp-nodes.js';
 
 // Simple mock implementation

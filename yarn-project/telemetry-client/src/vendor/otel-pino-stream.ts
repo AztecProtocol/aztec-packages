@@ -16,7 +16,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { type Logger, SeverityNumber, logs } from '@opentelemetry/api-logs';
+import { SeverityNumber, logs } from '@opentelemetry/api-logs';
+import type { Logger } from '@opentelemetry/api-logs';
 import { millisToHrTime } from '@opentelemetry/core';
 import { Writable } from 'stream';
 

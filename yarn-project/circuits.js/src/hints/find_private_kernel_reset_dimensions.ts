@@ -1,8 +1,5 @@
-import {
-  PrivateKernelResetDimensions,
-  type PrivateKernelResetDimensionsConfig,
-  privateKernelResetDimensionNames,
-} from '../structs/kernel/index.js';
+import { PrivateKernelResetDimensions, privateKernelResetDimensionNames } from '../structs/kernel/index.js';
+import type { PrivateKernelResetDimensionsConfig } from '../structs/kernel/index.js';
 
 interface DimensionOption {
   dimensions: PrivateKernelResetDimensions;

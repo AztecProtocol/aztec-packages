@@ -1,5 +1,6 @@
 import type { AztecNodeConfig } from '@aztec/aztec-node';
-import { ContractDeployer, Fr, type Wallet } from '@aztec/aztec.js';
+import { ContractDeployer, Fr } from '@aztec/aztec.js';
+import type { Wallet } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';

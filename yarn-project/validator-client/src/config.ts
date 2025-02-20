@@ -1,10 +1,6 @@
 import { NULL_KEY } from '@aztec/ethereum';
-import {
-  type ConfigMappingsType,
-  booleanConfigHelper,
-  getConfigFromMappings,
-  numberConfigHelper,
-} from '@aztec/foundation/config';
+import { booleanConfigHelper, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
+import type { ConfigMappingsType } from '@aztec/foundation/config';
 
 /**
  * The Validator Configuration

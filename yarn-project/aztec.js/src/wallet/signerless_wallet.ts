@@ -1,10 +1,10 @@
-import { type AuthWitness, type TxExecutionRequest } from '@aztec/circuit-types';
-import { type PXE } from '@aztec/circuit-types/interfaces/client';
-import { type CompleteAddress, type Fr } from '@aztec/circuits.js';
+import type { AuthWitness, TxExecutionRequest } from '@aztec/circuit-types';
+import type { PXE } from '@aztec/circuit-types/interfaces/client';
+import type { CompleteAddress, Fr } from '@aztec/circuits.js';
 
 import { DefaultEntrypoint } from '../entrypoint/default_entrypoint.js';
-import { type EntrypointInterface, type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
-import { type IntentAction, type IntentInnerHash } from '../utils/authwit.js';
+import type { EntrypointInterface, ExecutionRequestInit } from '../entrypoint/entrypoint.js';
+import type { IntentAction, IntentInnerHash } from '../utils/authwit.js';
 import { BaseWallet } from './base_wallet.js';
 
 /**

@@ -1,4 +1,5 @@
-import { type AnyTx, Tx, type TxHash, type TxValidationResult, type TxValidator } from '@aztec/circuit-types';
+import { Tx } from '@aztec/circuit-types';
+import type { AnyTx, TxHash, TxValidationResult, TxValidator } from '@aztec/circuit-types';
 import { mockTx } from '@aztec/circuit-types/testing';
 
 import { AggregateTxValidator } from './aggregate_tx_validator.js';

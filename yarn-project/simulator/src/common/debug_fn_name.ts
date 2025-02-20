@@ -1,6 +1,7 @@
-import { type AztecAddress, type Fr, FunctionSelector } from '@aztec/circuits.js';
+import { FunctionSelector } from '@aztec/circuits.js';
+import type { AztecAddress, Fr } from '@aztec/circuits.js';
 
-import { type WorldStateDB } from '../public/public_db_sources.js';
+import type { WorldStateDB } from '../public/public_db_sources.js';
 
 export async function getPublicFunctionDebugName(
   db: WorldStateDB,

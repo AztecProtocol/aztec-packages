@@ -1,9 +1,10 @@
-import { type Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
 
 import { z } from 'zod';
 
-import { type AztecAddress } from '../../aztec-address/index.js';
-import { type ZodFor, schemas } from '../../schemas/index.js';
+import type { AztecAddress } from '../../aztec-address/index.js';
+import { schemas } from '../../schemas/index.js';
+import type { ZodFor } from '../../schemas/index.js';
 
 /**
  * An update to a contract instance, changing its contract class.

@@ -1,11 +1,11 @@
-import { type EpochCache } from '@aztec/epoch-cache';
-import { type DateProvider } from '@aztec/foundation/timer';
-import { type P2P } from '@aztec/p2p';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import type { EpochCache } from '@aztec/epoch-cache';
+import type { DateProvider } from '@aztec/foundation/timer';
+import type { P2P } from '@aztec/p2p';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import { generatePrivateKey } from 'viem/accounts';
 
-import { type ValidatorClientConfig } from './config.js';
+import type { ValidatorClientConfig } from './config.js';
 import { ValidatorClient } from './validator.js';
 
 export function createValidatorClient(

@@ -1,12 +1,5 @@
-import {
-  Attributes,
-  type Histogram,
-  Metrics,
-  type TelemetryClient,
-  type Tracer,
-  type UpDownCounter,
-  ValueType,
-} from '@aztec/telemetry-client';
+import { Attributes, Metrics, ValueType } from '@aztec/telemetry-client';
+import type { Histogram, TelemetryClient, Tracer, UpDownCounter } from '@aztec/telemetry-client';
 
 export class ExecutorMetrics {
   public readonly tracer: Tracer;

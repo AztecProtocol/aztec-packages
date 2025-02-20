@@ -1,18 +1,11 @@
 import { omit } from '@aztec/foundation/collection';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 
 import { inspect } from 'util';
-import {
-  type Client,
-  type Hex,
-  type PublicClient,
-  type WalletClient,
-  keccak256,
-  parseTransaction,
-  publicActions,
-  walletActions,
-} from 'viem';
+import { keccak256, parseTransaction, publicActions, walletActions } from 'viem';
+import type { Client, Hex, PublicClient, WalletClient } from 'viem';
 
 export function waitUntilBlock<T extends Client>(client: T, blockNumber: number | bigint, logger?: Logger) {
   const publicClient =

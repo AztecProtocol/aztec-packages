@@ -3,7 +3,8 @@ import { createLogger } from '@aztec/foundation/log';
 
 import http from 'http';
 
-import { type AztecNodeConfig, AztecNodeService, createAztecNodeRpcServer, getConfigEnvVars } from '../index.js';
+import { AztecNodeService, createAztecNodeRpcServer, getConfigEnvVars } from '../index.js';
+import type { AztecNodeConfig } from '../index.js';
 
 const { AZTEC_NODE_PORT = 8081, API_PREFIX = '' } = process.env;
 

@@ -1,4 +1,5 @@
-import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
+import { BBNativeRollupProver } from '@aztec/bb-prover';
+import type { BBProverConfig } from '@aztec/bb-prover';
 import {
   BaseParityInputs,
   Fr,

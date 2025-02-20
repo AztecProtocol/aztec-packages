@@ -1,9 +1,9 @@
-import { type ZodFor } from '@aztec/foundation/schemas';
+import type { ZodFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
-import { type ProcessedTx } from '../processed_tx.js';
-import { type Tx } from '../tx.js';
+import type { ProcessedTx } from '../processed_tx.js';
+import type { Tx } from '../tx.js';
 
 export type AnyTx = Tx | ProcessedTx;
 

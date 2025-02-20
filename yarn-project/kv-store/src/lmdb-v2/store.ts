@@ -1,4 +1,5 @@
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { Semaphore, SerialQueue } from '@aztec/foundation/queue';
 import { MsgpackChannel, NativeLMDBStore } from '@aztec/native';
 
@@ -14,13 +15,8 @@ import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
 import type { AztecAsyncKVStore } from '../interfaces/store.js';
 import { LMDBArray } from './array.js';
 import { LMDBMap, LMDBMultiMap } from './map.js';
-import {
-  Database,
-  type LMDBMessageChannel,
-  LMDBMessageType,
-  type LMDBRequestBody,
-  type LMDBResponseBody,
-} from './message.js';
+import { Database, LMDBMessageType } from './message.js';
+import type { LMDBMessageChannel, LMDBRequestBody, LMDBResponseBody } from './message.js';
 import { ReadTransaction } from './read_transaction.js';
 import { LMDBSingleValue } from './singleton.js';
 import { WriteTransaction } from './write_transaction.js';

@@ -16,16 +16,9 @@ import { NativeWorldState as BaseNativeWorldState, MsgpackChannel } from '@aztec
 import assert from 'assert';
 import { cpus } from 'os';
 
-import { type WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
-import {
-  WorldStateMessageType,
-  type WorldStateRequest,
-  type WorldStateRequestCategories,
-  type WorldStateResponse,
-  isWithCanonical,
-  isWithForkId,
-  isWithRevision,
-} from './message.js';
+import type { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
+import { WorldStateMessageType, isWithCanonical, isWithForkId, isWithRevision } from './message.js';
+import type { WorldStateRequest, WorldStateRequestCategories, WorldStateResponse } from './message.js';
 import { WorldStateOpsQueue } from './world_state_ops_queue.js';
 
 const MAX_WORLD_STATE_THREADS = +(process.env.HARDWARE_CONCURRENCY || '16');

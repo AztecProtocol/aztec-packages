@@ -1,10 +1,12 @@
-import { type AnyTx, type TxValidationResult } from '@aztec/circuit-types';
+import type { AnyTx, TxValidationResult } from '@aztec/circuit-types';
 import { mockTxForRollup } from '@aztec/circuit-types/testing';
 import { Fr } from '@aztec/circuits.js';
 
-import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
+import { mock, mockFn } from 'jest-mock-extended';
+import type { MockProxy } from 'jest-mock-extended';
 
-import { type ArchiveSource, BlockHeaderTxValidator } from './block_header_validator.js';
+import { BlockHeaderTxValidator } from './block_header_validator.js';
+import type { ArchiveSource } from './block_header_validator.js';
 
 describe('BlockHeaderTxValidator', () => {
   let txValidator: BlockHeaderTxValidator<AnyTx>;

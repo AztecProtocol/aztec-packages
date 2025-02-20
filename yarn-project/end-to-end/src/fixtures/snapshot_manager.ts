@@ -1,50 +1,54 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
-import { type InitialAccountData, deployFundedSchnorrAccounts, generateSchnorrAccounts } from '@aztec/accounts/testing';
-import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import {
-  AnvilTestWatcher,
-  type AztecAddress,
-  BatchCall,
-  type Capsule,
-  CheatCodes,
-  type CompleteAddress,
-  type ContractFunctionInteraction,
-  type DeployL1Contracts,
-  type FunctionCall,
-  type Logger,
-  type PXE,
-  type Wallet,
-  getContractClassFromArtifact,
+import { deployFundedSchnorrAccounts, generateSchnorrAccounts } from '@aztec/accounts/testing';
+import type { InitialAccountData } from '@aztec/accounts/testing';
+import { AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
+import type { AztecNodeConfig } from '@aztec/aztec-node';
+import { AnvilTestWatcher, BatchCall, CheatCodes, getContractClassFromArtifact } from '@aztec/aztec.js';
+import type {
+  AztecAddress,
+  Capsule,
+  CompleteAddress,
+  ContractFunctionInteraction,
+  DeployL1Contracts,
+  FunctionCall,
+  Logger,
+  PXE,
+  Wallet,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
-import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
-import { type DeployL1ContractsArgs, createL1Clients, getL1ContractsConfigEnvVars, l1Artifacts } from '@aztec/ethereum';
+import { createBlobSinkServer } from '@aztec/blob-sink/server';
+import type { BlobSinkServer } from '@aztec/blob-sink/server';
+import { createL1Clients, getL1ContractsConfigEnvVars, l1Artifacts } from '@aztec/ethereum';
+import type { DeployL1ContractsArgs } from '@aztec/ethereum';
 import { EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { resolver, reviver } from '@aztec/foundation/serialize';
 import { TestDateProvider } from '@aztec/foundation/timer';
-import { type ProverNode } from '@aztec/prover-node';
-import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+import type { ProverNode } from '@aztec/prover-node';
+import { createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+import type { PXEService } from '@aztec/pxe';
 import { getConfigEnvVars as getTelemetryConfig, initTelemetryClient } from '@aztec/telemetry-client';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
-import { type Anvil } from '@viem/anvil';
+import type { Anvil } from '@viem/anvil';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { copySync, removeSync } from 'fs-extra/esm';
 import fs from 'fs/promises';
 import getPort from 'get-port';
 import { tmpdir } from 'os';
 import path, { join } from 'path';
-import { type Hex, getContract } from 'viem';
+import { getContract } from 'viem';
+import type { Hex } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { setupL1Contracts } from './setup_l1_contracts.js';
-import { type SetupOptions, createAndSyncProverNode, getLogger, getPrivateKeyFromIndex } from './utils.js';
+import { createAndSyncProverNode, getLogger, getPrivateKeyFromIndex } from './utils.js';
+import type { SetupOptions } from './utils.js';
 import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
 
 export type SubsystemsContext = {

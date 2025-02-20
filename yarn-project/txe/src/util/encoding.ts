@@ -1,5 +1,7 @@
-import { AztecAddress, type ContractInstanceWithAddress, ContractInstanceWithAddressSchema } from '@aztec/circuits.js';
-import { type ContractArtifact, ContractArtifactSchema } from '@aztec/circuits.js/abi';
+import { AztecAddress, ContractInstanceWithAddressSchema } from '@aztec/circuits.js';
+import type { ContractInstanceWithAddress } from '@aztec/circuits.js';
+import { ContractArtifactSchema } from '@aztec/circuits.js/abi';
+import type { ContractArtifact } from '@aztec/circuits.js/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { hexToBuffer } from '@aztec/foundation/string';
 

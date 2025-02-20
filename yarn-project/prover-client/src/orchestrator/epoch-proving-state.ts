@@ -1,26 +1,19 @@
-import { type MerkleTreeId } from '@aztec/circuit-types';
-import {
-  type ProofAndVerificationKey,
-  type PublicInputsAndRecursiveProof,
-} from '@aztec/circuit-types/interfaces/server';
-import { type BlockHeader, type Fr, type GlobalVariables } from '@aztec/circuits.js';
-import {
-  BlockMergeRollupInputs,
-  type BlockRootOrBlockMergePublicInputs,
-  PreviousRollupBlockData,
-  RootRollupInputs,
-  type RootRollupPublicInputs,
-} from '@aztec/circuits.js/rollup';
-import { type AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
-import {
-  type ARCHIVE_HEIGHT,
-  type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-  type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-  type TUBE_PROOF_LENGTH,
-  VK_TREE_HEIGHT,
+import type { MerkleTreeId } from '@aztec/circuit-types';
+import type { ProofAndVerificationKey, PublicInputsAndRecursiveProof } from '@aztec/circuit-types/interfaces/server';
+import type { BlockHeader, Fr, GlobalVariables } from '@aztec/circuits.js';
+import { BlockMergeRollupInputs, PreviousRollupBlockData, RootRollupInputs } from '@aztec/circuits.js/rollup';
+import type { BlockRootOrBlockMergePublicInputs, RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
+import type { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
+import { VK_TREE_HEIGHT } from '@aztec/constants';
+import type {
+  ARCHIVE_HEIGHT,
+  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+  TUBE_PROOF_LENGTH,
 } from '@aztec/constants';
-import { type Tuple } from '@aztec/foundation/serialize';
-import { MembershipWitness, type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
+import type { Tuple } from '@aztec/foundation/serialize';
+import { MembershipWitness, UnbalancedTreeStore } from '@aztec/foundation/trees';
+import type { TreeNodeLocation } from '@aztec/foundation/trees';
 import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vks';
 
 import { BlockProvingState } from './block-proving-state.js';

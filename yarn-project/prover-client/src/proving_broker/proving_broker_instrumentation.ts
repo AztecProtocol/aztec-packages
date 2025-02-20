@@ -1,14 +1,12 @@
 import { ProvingRequestType } from '@aztec/circuit-types/interfaces/server';
-import { type Timer } from '@aztec/foundation/timer';
-import {
-  Attributes,
-  type Histogram,
-  Metrics,
-  type ObservableGauge,
-  type ObservableResult,
-  type TelemetryClient,
-  type UpDownCounter,
-  ValueType,
+import type { Timer } from '@aztec/foundation/timer';
+import { Attributes, Metrics, ValueType } from '@aztec/telemetry-client';
+import type {
+  Histogram,
+  ObservableGauge,
+  ObservableResult,
+  TelemetryClient,
+  UpDownCounter,
 } from '@aztec/telemetry-client';
 
 export type MonitorCallback = (proofType: ProvingRequestType) => number;

@@ -3,10 +3,12 @@ import { makeTuple } from '@aztec/foundation/array';
 import { toBigIntBE, toBufferBE, toHex } from '@aztec/foundation/bigint-buffer';
 import { sha256, sha256Trunc } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, FieldReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
-import { type FieldsOf } from '@aztec/foundation/types';
+import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import type { Tuple } from '@aztec/foundation/serialize';
+import type { FieldsOf } from '@aztec/foundation/types';
 
-import { type Blob, VERSIONED_HASH_VERSION_KZG } from './blob.js';
+import { VERSIONED_HASH_VERSION_KZG } from './blob.js';
+import type { Blob } from './blob.js';
 
 /**
  * Public inputs required to be passed from our rollup circuits to verify a blob.

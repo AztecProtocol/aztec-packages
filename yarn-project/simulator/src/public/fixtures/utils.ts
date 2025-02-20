@@ -1,4 +1,5 @@
-import { type PublicExecutionRequest, Tx } from '@aztec/circuit-types';
+import { Tx } from '@aztec/circuit-types';
+import type { PublicExecutionRequest } from '@aztec/circuit-types';
 import { BlockHeader, Gas, GasFees, GasSettings, RollupValidationRequests, TxContext } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {

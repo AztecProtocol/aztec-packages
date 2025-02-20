@@ -1,4 +1,4 @@
-import { type ExecutablePrivateFunctionWithMembershipProof, type PrivateFunction } from '@aztec/circuits.js';
+import type { ExecutablePrivateFunctionWithMembershipProof, PrivateFunction } from '@aztec/circuits.js';
 import { FunctionSelector, bufferFromFields } from '@aztec/circuits.js/abi';
 import {
   ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
@@ -7,7 +7,8 @@ import {
   REGISTERER_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, type Tuple } from '@aztec/foundation/serialize';
+import { BufferReader } from '@aztec/foundation/serialize';
+import type { Tuple } from '@aztec/foundation/serialize';
 
 import chunk from 'lodash.chunk';
 

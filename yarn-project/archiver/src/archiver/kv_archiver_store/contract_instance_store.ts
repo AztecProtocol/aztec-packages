@@ -1,10 +1,9 @@
-import {
-  type AztecAddress,
-  type ContractInstanceUpdateWithAddress,
-  type ContractInstanceWithAddress,
-  type Fr,
-  SerializableContractInstance,
-  SerializableContractInstanceUpdate,
+import { SerializableContractInstance, SerializableContractInstanceUpdate } from '@aztec/circuits.js';
+import type {
+  AztecAddress,
+  ContractInstanceUpdateWithAddress,
+  ContractInstanceWithAddress,
+  Fr,
 } from '@aztec/circuits.js';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 

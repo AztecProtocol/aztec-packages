@@ -1,4 +1,5 @@
-import { type Batch, Database, LMDBMessageType } from './message.js';
+import { Database, LMDBMessageType } from './message.js';
+import type { Batch } from './message.js';
 import { ReadTransaction } from './read_transaction.js';
 import {
   dedupeSortedArray,

@@ -4,44 +4,37 @@ import {
   L2Block,
   MerkleTreeId,
   Note,
-  type NoteStatus,
   PublicDataWitness,
   PublicExecutionRequest,
   SimulationError,
   TxEffect,
   TxHash,
-  type UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import {
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
-  NullifierMembershipWitness,
-} from '@aztec/circuit-types/interfaces/server';
-import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
+import type { NoteStatus, UnencryptedL2Log } from '@aztec/circuit-types';
+import { NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/server';
+import type { MerkleTreeReadOperations, MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
+import type { CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
   BlockHeader,
   CallContext,
-  type ContractInstance,
-  type ContractInstanceWithAddress,
   Gas,
   GasFees,
   GlobalVariables,
   IndexedTaggingSecret,
-  type KeyValidationRequest,
   PrivateContextInputs,
-  type PrivateLog,
   PublicDataWrite,
-  type PublicLog,
   computeTaggingSecretPoint,
   deriveKeys,
 } from '@aztec/circuits.js';
-import {
-  type ContractArtifact,
-  type FunctionAbi,
-  FunctionSelector,
-  type NoteSelector,
-  countArgumentsSize,
-} from '@aztec/circuits.js/abi';
+import type {
+  ContractInstance,
+  ContractInstanceWithAddress,
+  KeyValidationRequest,
+  PrivateLog,
+  PublicLog,
+} from '@aztec/circuits.js';
+import { FunctionSelector, countArgumentsSize } from '@aztec/circuits.js/abi';
+import type { ContractArtifact, FunctionAbi, NoteSelector } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
   computeNoteHashNonce,
@@ -50,43 +43,35 @@ import {
   siloNoteHash,
   siloNullifier,
 } from '@aztec/circuits.js/hash';
-import { LogWithTxData } from '@aztec/circuits.js/logs';
+import type { LogWithTxData } from '@aztec/circuits.js/logs';
 import {
   makeAppendOnlyTreeSnapshot,
   makeContentCommitment,
   makeGlobalVariables,
   makeHeader,
 } from '@aztec/circuits.js/testing';
+import { AppendOnlyTreeSnapshot, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
+import type { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
 import {
-  AppendOnlyTreeSnapshot,
-  type NullifierLeafPreimage,
-  PublicDataTreeLeaf,
-  type PublicDataTreeLeafPreimage,
-} from '@aztec/circuits.js/trees';
-import {
-  type L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
-  type NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PRIVATE_CONTEXT_INPUTS_LENGTH,
-  type PUBLIC_DATA_TREE_HEIGHT,
   PUBLIC_DISPATCH_SELECTOR,
 } from '@aztec/constants';
+import type { L1_TO_L2_MSG_TREE_HEIGHT, NULLIFIER_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Schnorr, poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { type LogFn, type Logger, applyStringFormatting, createDebugOnlyLogger } from '@aztec/foundation/log';
+import { applyStringFormatting, createDebugOnlyLogger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { type KeyStore } from '@aztec/key-store';
+import type { KeyStore } from '@aztec/key-store';
 import { ContractDataOracle, SimulatorOracle, enrichPublicSimulationError } from '@aztec/pxe';
 import {
   ExecutionNoteCache,
-  type MessageLoadOracleInputs,
-  type NoteData,
   Oracle,
-  type TypedOracle,
   ViewDataOracle,
   WASMSimulator,
   extractCallStack,
@@ -95,19 +80,19 @@ import {
   toACVMWitness,
   witnessMapToFields,
 } from '@aztec/simulator/client';
+import type { MessageLoadOracleInputs, NoteData, TypedOracle } from '@aztec/simulator/client';
 import { createTxForPublicCalls } from '@aztec/simulator/public/fixtures';
 import {
   ExecutionError,
-  type HashedValuesCache,
-  type PublicTxResult,
   PublicTxSimulator,
   createSimulationError,
   resolveAssertionMessageFromError,
 } from '@aztec/simulator/server';
-import { type NativeWorldStateService } from '@aztec/world-state';
+import type { HashedValuesCache, PublicTxResult } from '@aztec/simulator/server';
+import type { NativeWorldStateService } from '@aztec/world-state';
 
 import { TXENode } from '../node/txe_node.js';
-import { type TXEDatabase } from '../util/txe_database.js';
+import type { TXEDatabase } from '../util/txe_database.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
 import { TXEWorldStateDB } from '../util/txe_world_state_db.js';
 

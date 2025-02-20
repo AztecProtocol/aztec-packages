@@ -27,11 +27,11 @@ import {
   RECURSIVE_PROOF_LENGTH,
   TUBE_PROOF_LENGTH,
 } from '@aztec/constants';
-import { type ZodFor } from '@aztec/foundation/schemas';
+import type { ZodFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
-import { type ServerCircuitName } from '../stats/index.js';
+import type { ServerCircuitName } from '../stats/index.js';
 
 export type ProofAndVerificationKey<N extends number> = {
   proof: RecursiveProof<N>;

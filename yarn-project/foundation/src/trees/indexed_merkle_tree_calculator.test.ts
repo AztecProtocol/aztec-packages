@@ -3,7 +3,7 @@ import { poseidon2Hash } from '../crypto/poseidon/index.js';
 import { Fr } from '../fields/fields.js';
 import { BufferReader } from '../serialize/buffer_reader.js';
 import type { IndexedTreeLeaf, IndexedTreeLeafPreimage } from './index.js';
-import { type IndexedMerkleTree } from './indexed_merkle_tree.js';
+import type { IndexedMerkleTree } from './indexed_merkle_tree.js';
 import { IndexedMerkleTreeCalculator } from './indexed_merkle_tree_calculator.js';
 import type { MembershipWitness } from './membership_witness.js';
 

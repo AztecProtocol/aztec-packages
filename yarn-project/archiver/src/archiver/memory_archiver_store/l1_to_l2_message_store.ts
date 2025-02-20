@@ -1,6 +1,6 @@
 import { InboxLeaf } from '@aztec/circuit-types';
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/constants';
-import { type Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
 
 /**
  * A simple in-memory implementation of an L1 to L2 message store.

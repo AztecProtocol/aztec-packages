@@ -1,16 +1,10 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { GovernanceAbi } from '@aztec/l1-artifacts';
 
-import {
-  type Chain,
-  type GetContractReturnType,
-  type Hex,
-  type HttpTransport,
-  type PublicClient,
-  getContract,
-} from 'viem';
+import { getContract } from 'viem';
+import type { Chain, GetContractReturnType, Hex, HttpTransport, PublicClient } from 'viem';
 
-import { type L1ContractAddresses } from '../l1_contract_addresses.js';
+import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import { GovernanceProposerContract } from './governance_proposer.js';
 
 export type L1GovernanceContractAddresses = Pick<

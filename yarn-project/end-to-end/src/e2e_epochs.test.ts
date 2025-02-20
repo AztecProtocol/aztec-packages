@@ -1,21 +1,24 @@
-import { type Logger, getTimestampRangeForEpoch, retryUntil, sleep } from '@aztec/aztec.js';
+import { getTimestampRangeForEpoch, retryUntil, sleep } from '@aztec/aztec.js';
+import type { Logger } from '@aztec/aztec.js';
 import { ChainMonitor } from '@aztec/aztec.js/ethereum';
 // eslint-disable-next-line no-restricted-imports
-import { type L1RollupConstants } from '@aztec/circuit-types';
+import type { L1RollupConstants } from '@aztec/circuit-types';
 import { Proof } from '@aztec/circuits.js';
 import { RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { type DelayedTxUtils, type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
+import { waitUntilL1Timestamp } from '@aztec/ethereum/test';
+import type { DelayedTxUtils, Delayer } from '@aztec/ethereum/test';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
-import { type ProverNodePublisher } from '@aztec/prover-node';
-import { type TestProverNode } from '@aztec/prover-node/test';
-import { type SequencerPublisher } from '@aztec/sequencer-client';
-import { type TestSequencerClient } from '@aztec/sequencer-client/test';
+import type { ProverNodePublisher } from '@aztec/prover-node';
+import type { TestProverNode } from '@aztec/prover-node/test';
+import type { SequencerPublisher } from '@aztec/sequencer-client';
+import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 
 import { jest } from '@jest/globals';
-import { type PublicClient } from 'viem';
+import type { PublicClient } from 'viem';
 
-import { type EndToEndContext, setup } from './fixtures/utils.js';
+import { setup } from './fixtures/utils.js';
+import type { EndToEndContext } from './fixtures/utils.js';
 
 jest.setTimeout(1000 * 60 * 10);
 

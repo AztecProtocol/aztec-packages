@@ -1,16 +1,18 @@
-import { type BlockHeader, Fr } from '@aztec/circuits.js';
+import { Fr } from '@aztec/circuits.js';
+import type { BlockHeader } from '@aztec/circuits.js';
 import { compactArray } from '@aztec/foundation/collection';
 
-import { type MockProxy, mock } from 'jest-mock-extended';
+import { mock } from 'jest-mock-extended';
+import type { MockProxy } from 'jest-mock-extended';
 import times from 'lodash.times';
 
-import { type L2Block } from '../l2_block.js';
-import { type L2BlockSource, type L2Tips } from '../l2_block_source.js';
-import {
-  L2BlockStream,
-  type L2BlockStreamEvent,
-  type L2BlockStreamEventHandler,
-  type L2BlockStreamLocalDataProvider,
+import type { L2Block } from '../l2_block.js';
+import type { L2BlockSource, L2Tips } from '../l2_block_source.js';
+import { L2BlockStream } from './l2_block_stream.js';
+import type {
+  L2BlockStreamEvent,
+  L2BlockStreamEventHandler,
+  L2BlockStreamLocalDataProvider,
 } from './l2_block_stream.js';
 
 describe('L2BlockStream', () => {

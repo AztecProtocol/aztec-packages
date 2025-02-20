@@ -1,6 +1,8 @@
 import { ProvingRequestType } from '@aztec/circuit-types/interfaces/server';
-import { type ConfigMappingsType, booleanConfigHelper, numberConfigHelper } from '@aztec/foundation/config';
-import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
+import { booleanConfigHelper, numberConfigHelper } from '@aztec/foundation/config';
+import type { ConfigMappingsType } from '@aztec/foundation/config';
+import { dataConfigMappings } from '@aztec/kv-store/config';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
 
 import { z } from 'zod';
 

@@ -58,12 +58,12 @@ import { getDeployedBananaCoinAddress, getDeployedBananaFPCAddress } from '@azte
 import {
   Fr,
   GrumpkinScalar,
-  type PXE,
   PrivateFeePaymentMethod,
   createLogger,
   createPXEClient,
   waitForPXE,
 } from '@aztec/aztec.js';
+import type { PXE } from '@aztec/aztec.js';
 import { timesParallel } from '@aztec/foundation/collection';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 

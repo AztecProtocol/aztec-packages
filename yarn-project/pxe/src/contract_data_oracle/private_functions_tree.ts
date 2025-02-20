@@ -1,14 +1,16 @@
-import { type ContractArtifact, FunctionSelector } from '@aztec/circuits.js/abi';
+import { FunctionSelector } from '@aztec/circuits.js/abi';
+import type { ContractArtifact } from '@aztec/circuits.js/abi';
 import {
-  type ContractClassWithId,
   computePrivateFunctionLeaf,
   computePrivateFunctionsTree,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js/contract';
+import type { ContractClassWithId } from '@aztec/circuits.js/contract';
 import { FUNCTION_TREE_HEIGHT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { assertLength } from '@aztec/foundation/serialize';
-import { MembershipWitness, type MerkleTree } from '@aztec/foundation/trees';
+import { MembershipWitness } from '@aztec/foundation/trees';
+import type { MerkleTree } from '@aztec/foundation/trees';
 
 /**
  * Represents a Merkle tree of functions for a particular Contract Class.

@@ -1,23 +1,13 @@
-import {
-  type ContractArtifact,
-  type ContractInstanceWithAddress,
-  Fr,
-  PublicKeys,
-  getContractClassFromArtifact,
-} from '@aztec/aztec.js';
-import { type AztecNode, PXESchema, createAztecNodeClient } from '@aztec/circuit-types/interfaces/client';
+import { Fr, PublicKeys, getContractClassFromArtifact } from '@aztec/aztec.js';
+import type { ContractArtifact, ContractInstanceWithAddress } from '@aztec/aztec.js';
+import { PXESchema, createAztecNodeClient } from '@aztec/circuit-types/interfaces/client';
+import type { AztecNode } from '@aztec/circuit-types/interfaces/client';
 import { L2BasicContractsMap, Network } from '@aztec/circuits.js/network';
 import { getContractArtifact } from '@aztec/cli/cli-utils';
-import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
-import { type LogFn } from '@aztec/foundation/log';
-import {
-  AztecAddress,
-  type CliPXEOptions,
-  type PXEService,
-  type PXEServiceConfig,
-  allPxeConfigMappings,
-  createPXEService,
-} from '@aztec/pxe';
+import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
+import type { LogFn } from '@aztec/foundation/log';
+import { AztecAddress, allPxeConfigMappings, createPXEService } from '@aztec/pxe';
+import type { CliPXEOptions, PXEService, PXEServiceConfig } from '@aztec/pxe';
 import { makeTracedFetch } from '@aztec/telemetry-client';
 
 import { extractRelevantOptions } from '../util.js';

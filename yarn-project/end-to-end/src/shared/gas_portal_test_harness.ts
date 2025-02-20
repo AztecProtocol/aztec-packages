@@ -1,19 +1,9 @@
-import {
-  type AztecAddress,
-  type AztecNode,
-  EthAddress,
-  L1FeeJuicePortalManager,
-  type L1TokenManager,
-  type L2AmountClaim,
-  type Logger,
-  type PXE,
-  type Wallet,
-  retryUntil,
-} from '@aztec/aztec.js';
+import { EthAddress, L1FeeJuicePortalManager, retryUntil } from '@aztec/aztec.js';
+import type { AztecAddress, AztecNode, L1TokenManager, L2AmountClaim, Logger, PXE, Wallet } from '@aztec/aztec.js';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
-import { type Account, type Chain, type HttpTransport, type PublicClient, type WalletClient } from 'viem';
+import type { Account, Chain, HttpTransport, PublicClient, WalletClient } from 'viem';
 
 export interface IGasBridgingTestHarness {
   getL1FeeJuiceBalance(address: EthAddress): Promise<bigint>;

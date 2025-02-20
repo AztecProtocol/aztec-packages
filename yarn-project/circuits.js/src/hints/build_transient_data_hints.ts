@@ -1,7 +1,7 @@
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { type Tuple } from '@aztec/foundation/serialize';
+import type { Tuple } from '@aztec/foundation/serialize';
 
-import { type ScopedNoteHash, type ScopedNullifier, type ScopedReadRequest } from '../structs/index.js';
+import type { ScopedNoteHash, ScopedNullifier, ScopedReadRequest } from '../structs/index.js';
 import { TransientDataIndexHint } from '../structs/transient_data_index_hint.js';
 import { countAccumulatedItems } from '../utils/index.js';
 import { isValidNoteHashReadRequest } from './build_note_hash_read_request_hints.js';

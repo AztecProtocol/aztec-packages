@@ -1,6 +1,8 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { type InitialAccountData, deployFundedSchnorrAccount } from '@aztec/accounts/testing';
-import { type AztecAddress, type AztecNode, Fr, type Logger, type PXE, type Wallet, sleep } from '@aztec/aztec.js';
+import { deployFundedSchnorrAccount } from '@aztec/accounts/testing';
+import type { InitialAccountData } from '@aztec/accounts/testing';
+import { Fr, sleep } from '@aztec/aztec.js';
+import type { AztecAddress, AztecNode, Logger, PXE, Wallet } from '@aztec/aztec.js';
 import { ChildContract } from '@aztec/noir-contracts.js/Child';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 

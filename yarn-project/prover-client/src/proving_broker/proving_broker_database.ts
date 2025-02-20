@@ -1,8 +1,8 @@
-import {
-  type ProofUri,
-  type ProvingJob,
-  type ProvingJobId,
-  type ProvingJobSettledResult,
+import type {
+  ProofUri,
+  ProvingJob,
+  ProvingJobId,
+  ProvingJobSettledResult,
 } from '@aztec/circuit-types/interfaces/server';
 
 /**

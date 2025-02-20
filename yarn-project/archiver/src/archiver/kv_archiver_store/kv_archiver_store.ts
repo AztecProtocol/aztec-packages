@@ -1,33 +1,33 @@
-import {
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  type InBlock,
-  type InboxLeaf,
-  type L2Block,
-  type LogFilter,
-  type TxHash,
-  type TxReceipt,
-  type TxScopedL2Log,
+import type {
+  GetContractClassLogsResponse,
+  GetPublicLogsResponse,
+  InBlock,
+  InboxLeaf,
+  L2Block,
+  LogFilter,
+  TxHash,
+  TxReceipt,
+  TxScopedL2Log,
 } from '@aztec/circuit-types';
-import {
-  type BlockHeader,
-  type ContractClassPublic,
-  type ContractInstanceUpdateWithAddress,
-  type ContractInstanceWithAddress,
-  type ExecutablePrivateFunctionWithMembershipProof,
-  type Fr,
-  type PrivateLog,
-  type UnconstrainedFunctionWithMembershipProof,
+import type {
+  BlockHeader,
+  ContractClassPublic,
+  ContractInstanceUpdateWithAddress,
+  ContractInstanceWithAddress,
+  ExecutablePrivateFunctionWithMembershipProof,
+  Fr,
+  PrivateLog,
+  UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
 import { FunctionSelector } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
-import { type AztecAsyncKVStore, type StoreSize } from '@aztec/kv-store';
+import type { AztecAsyncKVStore, StoreSize } from '@aztec/kv-store';
 
-import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
-import { type DataRetrieval } from '../structs/data_retrieval.js';
-import { type L1Published } from '../structs/published.js';
+import type { ArchiverDataStore, ArchiverL1SynchPoint } from '../archiver_store.js';
+import type { DataRetrieval } from '../structs/data_retrieval.js';
+import type { L1Published } from '../structs/published.js';
 import { BlockStore } from './block_store.js';
 import { ContractClassStore } from './contract_class_store.js';
 import { ContractInstanceStore } from './contract_instance_store.js';

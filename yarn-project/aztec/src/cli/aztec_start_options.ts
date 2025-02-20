@@ -1,23 +1,15 @@
-import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
+import { archiverConfigMappings } from '@aztec/archiver/config';
+import type { ArchiverConfig } from '@aztec/archiver/config';
 import { faucetConfigMapping } from '@aztec/aztec-faucet/config';
 import { sequencerClientConfigMappings } from '@aztec/aztec-node/config';
 import { blobSinkConfigMappings } from '@aztec/blob-sink/server';
 import { botConfigMappings } from '@aztec/bot/config';
-import {
-  type ConfigMapping,
-  type EnvVar,
-  booleanConfigHelper,
-  isBooleanConfigValue,
-  omitConfigMappings,
-} from '@aztec/foundation/config';
+import { booleanConfigHelper, isBooleanConfigValue, omitConfigMappings } from '@aztec/foundation/config';
+import type { ConfigMapping, EnvVar } from '@aztec/foundation/config';
 import { bootnodeConfigMappings, p2pConfigMappings } from '@aztec/p2p/config';
 import { proofVerifierConfigMappings } from '@aztec/proof-verifier/config';
-import {
-  type ProverAgentConfig,
-  type ProverBrokerConfig,
-  proverAgentConfigMappings,
-  proverBrokerConfigMappings,
-} from '@aztec/prover-client/broker';
+import { proverAgentConfigMappings, proverBrokerConfigMappings } from '@aztec/prover-client/broker';
+import type { ProverAgentConfig, ProverBrokerConfig } from '@aztec/prover-client/broker';
 import { proverNodeConfigMappings } from '@aztec/prover-node/config';
 import { allPxeConfigMappings } from '@aztec/pxe/config';
 import { telemetryClientConfigMappings } from '@aztec/telemetry-client';

@@ -1,15 +1,18 @@
-import { type ChainConfig, chainConfigMappings } from '@aztec/circuit-types/config';
+import { chainConfigMappings } from '@aztec/circuit-types/config';
+import type { ChainConfig } from '@aztec/circuit-types/config';
 import {
-  type ConfigMappingsType,
   booleanConfigHelper,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
   pickConfigMappings,
 } from '@aztec/foundation/config';
-import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
+import type { ConfigMappingsType } from '@aztec/foundation/config';
+import { dataConfigMappings } from '@aztec/kv-store/config';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
 
-import { type P2PReqRespConfig, p2pReqRespConfigMappings } from './services/reqresp/config.js';
+import { p2pReqRespConfigMappings } from './services/reqresp/config.js';
+import type { P2PReqRespConfig } from './services/reqresp/config.js';
 
 /**
  * P2P client configuration values.

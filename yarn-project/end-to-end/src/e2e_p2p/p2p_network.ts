@@ -1,13 +1,14 @@
 import { getSchnorrWalletWithSecretKey } from '@aztec/accounts/schnorr';
-import { type InitialAccountData } from '@aztec/accounts/testing';
-import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
-import { type AccountWalletWithSecretKey } from '@aztec/aztec.js';
+import type { InitialAccountData } from '@aztec/accounts/testing';
+import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import type { AccountWalletWithSecretKey } from '@aztec/aztec.js';
 import { ChainMonitor } from '@aztec/aztec.js/ethereum';
-import { type PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
+import type { PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { RollupContract, getExpectedAddress, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { ForwarderAbi, ForwarderBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-contracts.js/Spam';
 import type { BootstrapNode } from '@aztec/p2p/bootstrap';
@@ -24,12 +25,8 @@ import {
   createValidatorConfig,
   generatePrivateKeys,
 } from '../fixtures/setup_p2p_test.js';
-import {
-  type ISnapshotManager,
-  type SubsystemsContext,
-  createSnapshotManager,
-  deployAccounts,
-} from '../fixtures/snapshot_manager.js';
+import { createSnapshotManager, deployAccounts } from '../fixtures/snapshot_manager.js';
+import type { ISnapshotManager, SubsystemsContext } from '../fixtures/snapshot_manager.js';
 import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
 import { getEndToEndTestTelemetryClient } from '../fixtures/with_telemetry_utils.js';
 

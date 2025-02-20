@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 
-import { type ACVMField, type ACVMWitness } from './acvm_types.js';
+import type { ACVMField, ACVMWitness } from './acvm_types.js';
 
 /**
  * Converts an ACVM field to a Fr.

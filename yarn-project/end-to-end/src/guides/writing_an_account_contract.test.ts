@@ -1,13 +1,6 @@
 import { DefaultAccountContract } from '@aztec/accounts/defaults';
-import {
-  AccountManager,
-  AuthWitness,
-  type AuthWitnessProvider,
-  type CompleteAddress,
-  Fr,
-  GrumpkinScalar,
-  Schnorr,
-} from '@aztec/aztec.js';
+import { AccountManager, AuthWitness, Fr, GrumpkinScalar, Schnorr } from '@aztec/aztec.js';
+import type { AuthWitnessProvider, CompleteAddress } from '@aztec/aztec.js';
 import { SchnorrHardcodedAccountContractArtifact } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 

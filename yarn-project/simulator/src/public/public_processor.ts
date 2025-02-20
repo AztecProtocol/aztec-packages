@@ -1,38 +1,25 @@
 import {
-  type FailedTx,
   MerkleTreeId,
   NestedProcessReturnValues,
-  type ProcessedTx,
   Tx,
   TxExecutionPhase,
-  type TxValidator,
   makeProcessedTxFromPrivateOnlyTx,
   makeProcessedTxFromTxWithPublicCalls,
 } from '@aztec/circuit-types';
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
-import {
-  type AztecAddress,
-  type ContractDataSource,
-  Fr,
-  Gas,
-  type GlobalVariables,
-  PublicDataWrite,
-} from '@aztec/circuits.js';
+import type { FailedTx, ProcessedTx, TxValidator } from '@aztec/circuit-types';
+import type { MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
+import { Fr, Gas, PublicDataWrite } from '@aztec/circuits.js';
+import type { AztecAddress, ContractDataSource, GlobalVariables } from '@aztec/circuits.js';
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NULLIFIER_SUBTREE_HEIGHT } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
-import { type DateProvider, Timer, elapsed, executeTimeout } from '@aztec/foundation/timer';
+import { Timer, elapsed, executeTimeout } from '@aztec/foundation/timer';
+import type { DateProvider } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
 import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
-import {
-  Attributes,
-  type TelemetryClient,
-  type Traceable,
-  type Tracer,
-  getTelemetryClient,
-  trackSpan,
-} from '@aztec/telemetry-client';
+import { Attributes, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
+import type { TelemetryClient, Traceable, Tracer } from '@aztec/telemetry-client';
 
 import { WorldStateDB } from './public_db_sources.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';

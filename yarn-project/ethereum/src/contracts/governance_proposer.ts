@@ -2,20 +2,13 @@ import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { GovernanceProposerAbi } from '@aztec/l1-artifacts';
 
-import {
-  type Chain,
-  type GetContractReturnType,
-  type Hex,
-  type HttpTransport,
-  type PublicClient,
-  type TransactionReceipt,
-  encodeFunctionData,
-  getContract,
-} from 'viem';
+import { encodeFunctionData, getContract } from 'viem';
+import type { Chain, GetContractReturnType, Hex, HttpTransport, PublicClient, TransactionReceipt } from 'viem';
 
 import type { GasPrice, L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
-import { type L1Clients } from '../types.js';
-import { type IEmpireBase, encodeVote } from './empire_base.js';
+import type { L1Clients } from '../types.js';
+import { encodeVote } from './empire_base.js';
+import type { IEmpireBase } from './empire_base.js';
 
 export class GovernanceProposerContract implements IEmpireBase {
   private readonly proposer: GetContractReturnType<typeof GovernanceProposerAbi, PublicClient<HttpTransport, Chain>>;

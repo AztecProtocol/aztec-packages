@@ -1,6 +1,7 @@
-import { type Histogram, Metrics, type TelemetryClient, type UpDownCounter } from '@aztec/telemetry-client';
+import { Metrics } from '@aztec/telemetry-client';
+import type { Histogram, TelemetryClient, UpDownCounter } from '@aztec/telemetry-client';
 
-import { type BlobWithIndex } from '../types/blob_with_index.js';
+import type { BlobWithIndex } from '../types/blob_with_index.js';
 
 export class BlobSinkMetrics {
   /** The number of blobs in the blob store */

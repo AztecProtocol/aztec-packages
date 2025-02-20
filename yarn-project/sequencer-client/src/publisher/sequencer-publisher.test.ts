@@ -3,28 +3,29 @@ import { HttpBlobSinkClient } from '@aztec/blob-sink/client';
 import { inboundTransform } from '@aztec/blob-sink/encoding';
 import { L2Block } from '@aztec/circuit-types';
 import { EthAddress } from '@aztec/circuits.js';
-import { type EpochCache } from '@aztec/epoch-cache';
-import {
-  type ForwarderContract,
-  type GasPrice,
-  type GovernanceProposerContract,
-  type L1ContractsConfig,
-  type L1TxUtilsConfig,
-  type RollupContract,
-  type SlashingProposerContract,
-  defaultL1TxUtilsConfig,
-  getL1ContractsConfigEnvVars,
+import type { EpochCache } from '@aztec/epoch-cache';
+import { defaultL1TxUtilsConfig, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import type {
+  ForwarderContract,
+  GasPrice,
+  GovernanceProposerContract,
+  L1ContractsConfig,
+  L1TxUtilsConfig,
+  RollupContract,
+  SlashingProposerContract,
 } from '@aztec/ethereum';
-import { type L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { sleep } from '@aztec/foundation/sleep';
 import { EmpireBaseAbi, RollupAbi } from '@aztec/l1-artifacts';
 
 import express, { json } from 'express';
-import { type Server } from 'http';
-import { type MockProxy, mock } from 'jest-mock-extended';
-import { type GetTransactionReceiptReturnType, type TransactionReceipt, encodeFunctionData } from 'viem';
+import type { Server } from 'http';
+import { mock } from 'jest-mock-extended';
+import type { MockProxy } from 'jest-mock-extended';
+import { encodeFunctionData } from 'viem';
+import type { GetTransactionReceiptReturnType, TransactionReceipt } from 'viem';
 
-import { type PublisherConfig, type TxSenderConfig } from './config.js';
+import type { PublisherConfig, TxSenderConfig } from './config.js';
 import { SequencerPublisher, VoteType } from './sequencer-publisher.js';
 
 const mockRollupAddress = EthAddress.random().toString();

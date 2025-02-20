@@ -1,25 +1,25 @@
-import {
-  type L1ToL2MessageSource,
-  type L2Block,
-  type L2BlockId,
-  type L2BlockSource,
-  type L2BlockStream,
-  type L2BlockStreamEvent,
-  type L2BlockStreamEventHandler,
-  type L2BlockStreamLocalDataProvider,
-  type L2Tips,
-  MerkleTreeId,
+import { MerkleTreeId } from '@aztec/circuit-types';
+import type {
+  L1ToL2MessageSource,
+  L2Block,
+  L2BlockId,
+  L2BlockSource,
+  L2BlockStream,
+  L2BlockStreamEvent,
+  L2BlockStreamEventHandler,
+  L2BlockStreamLocalDataProvider,
+  L2Tips,
 } from '@aztec/circuit-types';
-import {
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
-  WorldStateRunningState,
-  type WorldStateSynchronizer,
-  type WorldStateSynchronizerStatus,
+import { WorldStateRunningState } from '@aztec/circuit-types/interfaces/server';
+import type {
+  MerkleTreeReadOperations,
+  MerkleTreeWriteOperations,
+  WorldStateSynchronizer,
+  WorldStateSynchronizerStatus,
 } from '@aztec/circuit-types/interfaces/server';
-import { type L2BlockHandledStats } from '@aztec/circuit-types/stats';
+import type { L2BlockHandledStats } from '@aztec/circuit-types/stats';
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/constants';
-import { type Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { elapsed } from '@aztec/foundation/timer';
@@ -28,9 +28,9 @@ import { SHA256Trunc } from '@aztec/merkle-tree';
 import { TraceableL2BlockStream, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
-import { type WorldStateStatusFull } from '../native/message.js';
-import { type MerkleTreeAdminDatabase } from '../world-state-db/merkle_tree_db.js';
-import { type WorldStateConfig } from './config.js';
+import type { WorldStateStatusFull } from '../native/message.js';
+import type { MerkleTreeAdminDatabase } from '../world-state-db/merkle_tree_db.js';
+import type { WorldStateConfig } from './config.js';
 
 /**
  * Synchronizes the world state with the L2 blocks from a L2BlockSource via a block stream.

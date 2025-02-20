@@ -1,8 +1,8 @@
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
 import { Fr } from '@aztec/foundation/fields';
 
-import { type NoteData } from '../acvm/index.js';
+import type { NoteData } from '../acvm/index.js';
 
 interface PendingNote {
   note: NoteData;

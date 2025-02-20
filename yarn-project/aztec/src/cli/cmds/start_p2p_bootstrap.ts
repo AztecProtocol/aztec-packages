@@ -1,8 +1,10 @@
 import { P2PBootstrapApiSchema } from '@aztec/circuit-types/interfaces/server';
-import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
-import { type LogFn, createLogger } from '@aztec/foundation/log';
+import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
+import { createLogger } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
-import { type BootnodeConfig, BootstrapNode, bootnodeConfigMappings } from '@aztec/p2p';
+import { BootstrapNode, bootnodeConfigMappings } from '@aztec/p2p';
+import type { BootnodeConfig } from '@aztec/p2p';
 import { getConfigEnvVars as getTelemetryClientConfig, initTelemetryClient } from '@aztec/telemetry-client';
 
 import { extractRelevantOptions } from '../util.js';

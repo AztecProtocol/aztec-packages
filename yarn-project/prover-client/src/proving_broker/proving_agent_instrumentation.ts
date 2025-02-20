@@ -1,5 +1,6 @@
-import { type Timer } from '@aztec/foundation/timer';
-import { type Histogram, Metrics, type TelemetryClient, ValueType } from '@aztec/telemetry-client';
+import type { Timer } from '@aztec/foundation/timer';
+import { Metrics, ValueType } from '@aztec/telemetry-client';
+import type { Histogram, TelemetryClient } from '@aztec/telemetry-client';
 
 export class ProvingAgentInstrumentation {
   private idleTime: Histogram;

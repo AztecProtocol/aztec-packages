@@ -1,10 +1,13 @@
-import { Blob, BlobDeserializationError, type BlobJson } from '@aztec/blob-lib';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { Blob, BlobDeserializationError } from '@aztec/blob-lib';
+import type { BlobJson } from '@aztec/blob-lib';
+import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 
 import { outboundTransform } from '../encoding/index.js';
-import { type BlobSinkConfig, getBlobSinkConfigFromEnv } from './config.js';
-import { type BlobSinkClientInterface } from './interface.js';
+import { getBlobSinkConfigFromEnv } from './config.js';
+import type { BlobSinkConfig } from './config.js';
+import type { BlobSinkClientInterface } from './interface.js';
 
 export class HttpBlobSinkClient implements BlobSinkClientInterface {
   private readonly log: Logger;

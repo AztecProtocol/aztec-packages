@@ -8,7 +8,7 @@ import type { Blob as BlobBuffer } from 'c-kzg';
 
 import { deserializeEncodedBlobToFields, extractBlobFieldsFromBuffer } from './encoding.js';
 import { BlobDeserializationError } from './errors.js';
-import { type BlobJson } from './interface.js';
+import type { BlobJson } from './interface.js';
 
 /* eslint-disable import/no-named-as-default-member */
 const { BYTES_PER_BLOB, FIELD_ELEMENTS_PER_BLOB, blobToKzgCommitment, computeKzgProof, verifyKzgProof } = cKzg;

@@ -1,9 +1,11 @@
 import { toArray } from '@aztec/foundation/iterable';
 
 import { expect } from 'chai';
-import { type SinonStubbedInstance, stub } from 'sinon';
+import { stub } from 'sinon';
+import type { SinonStubbedInstance } from 'sinon';
 
-import { type Batch, CURSOR_PAGE_SIZE, Database, type LMDBMessageChannel, LMDBMessageType } from './message.js';
+import { CURSOR_PAGE_SIZE, Database, LMDBMessageType } from './message.js';
+import type { Batch, LMDBMessageChannel } from './message.js';
 import { WriteTransaction } from './write_transaction.js';
 
 describe('WriteTransaction', () => {

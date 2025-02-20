@@ -1,64 +1,45 @@
-import {
-  type FunctionCall,
-  type InBlock,
-  L1NotePayload,
-  type L2Block,
-  MerkleTreeId,
-  Note,
-  type NoteStatus,
-  type PublicDataWitness,
-  TxHash,
-  type TxScopedL2Log,
-  getNonNullifiedL1ToL2MessageWitness,
+import { L1NotePayload, MerkleTreeId, Note, TxHash, getNonNullifiedL1ToL2MessageWitness } from '@aztec/circuit-types';
+import type {
+  FunctionCall,
+  InBlock,
+  L2Block,
+  NoteStatus,
+  PublicDataWitness,
+  TxScopedL2Log,
 } from '@aztec/circuit-types';
+import type { AztecNode, L2BlockNumber, NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/client';
 import {
-  type AztecNode,
-  type L2BlockNumber,
-  type NullifierMembershipWitness,
-} from '@aztec/circuit-types/interfaces/client';
-import {
-  type AztecAddress,
-  type BlockHeader,
-  type CompleteAddress,
-  type ContractInstance,
   Fr,
   FunctionSelector,
   IndexedTaggingSecret,
-  type KeyValidationRequest,
   PrivateLog,
   PublicLog,
   computeAddressSecret,
   computeTaggingSecretPoint,
 } from '@aztec/circuits.js';
-import {
-  type FunctionArtifact,
-  FunctionType,
-  NoteSelector,
-  encodeArguments,
-  getFunctionArtifact,
-} from '@aztec/circuits.js/abi';
+import type {
+  AztecAddress,
+  BlockHeader,
+  CompleteAddress,
+  ContractInstance,
+  KeyValidationRequest,
+} from '@aztec/circuits.js';
+import { FunctionType, NoteSelector, encodeArguments, getFunctionArtifact } from '@aztec/circuits.js/abi';
+import type { FunctionArtifact } from '@aztec/circuits.js/abi';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
 import { LogWithTxData } from '@aztec/circuits.js/logs';
-import {
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-  MAX_NOTE_HASHES_PER_TX,
-  PRIVATE_LOG_SIZE_IN_FIELDS,
-  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
-} from '@aztec/constants';
+import { MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS, PUBLIC_LOG_DATA_SIZE_IN_FIELDS } from '@aztec/constants';
+import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
-import { type KeyStore } from '@aztec/key-store';
-import {
-  type AcirSimulator,
-  type DBOracle,
-  MessageLoadOracleInputs,
-  type SimulationProvider,
-} from '@aztec/simulator/client';
+import type { KeyStore } from '@aztec/key-store';
+import { MessageLoadOracleInputs } from '@aztec/simulator/client';
+import type { AcirSimulator, DBOracle, SimulationProvider } from '@aztec/simulator/client';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { type PxeDatabase } from '../database/index.js';
+import type { PxeDatabase } from '../database/index.js';
 import { NoteDao } from '../database/note_dao.js';
 import { getOrderedNoteItems } from '../note_decryption_utils/add_public_values_to_payload.js';
 import { getAcirSimulator } from '../simulator/index.js';

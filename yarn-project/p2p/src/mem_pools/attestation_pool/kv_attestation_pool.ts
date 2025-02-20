@@ -2,11 +2,12 @@ import { BlockAttestation } from '@aztec/circuit-types';
 import { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
-import { type AztecAsyncKVStore, type AztecAsyncMap, type AztecAsyncMultiMap } from '@aztec/kv-store';
-import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
+import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
+import { getTelemetryClient } from '@aztec/telemetry-client';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';
-import { type AttestationPool } from './attestation_pool.js';
+import type { AttestationPool } from './attestation_pool.js';
 
 export class KvAttestationPool implements AttestationPool {
   private metrics: PoolInstrumentation<BlockAttestation>;

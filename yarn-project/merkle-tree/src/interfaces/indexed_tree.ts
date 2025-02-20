@@ -1,13 +1,9 @@
-import { type BatchInsertionResult } from '@aztec/circuit-types/interfaces/server';
-import { type IndexedTreeLeaf, type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
+import type { BatchInsertionResult } from '@aztec/circuit-types/interfaces/server';
+import type { IndexedTreeLeaf, IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
-import {
-  type IndexedTreeSnapshot,
-  type TreeSnapshot,
-  type TreeSnapshotBuilder,
-} from '../snapshots/snapshot_builder.js';
-import { type AppendOnlyTree } from './append_only_tree.js';
-import { type MerkleTree } from './merkle_tree.js';
+import type { IndexedTreeSnapshot, TreeSnapshot, TreeSnapshotBuilder } from '../snapshots/snapshot_builder.js';
+import type { AppendOnlyTree } from './append_only_tree.js';
+import type { MerkleTree } from './merkle_tree.js';
 
 /**
  * Factory for creating leaf preimages.

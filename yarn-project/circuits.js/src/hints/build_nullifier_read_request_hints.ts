@@ -1,12 +1,9 @@
-import {
-  type MAX_NULLIFIERS_PER_TX,
-  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-  type NULLIFIER_TREE_HEIGHT,
-} from '@aztec/constants';
+import { MAX_NULLIFIER_READ_REQUESTS_PER_TX } from '@aztec/constants';
+import type { MAX_NULLIFIERS_PER_TX, NULLIFIER_TREE_HEIGHT } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { type Fr } from '@aztec/foundation/fields';
-import { type Tuple } from '@aztec/foundation/serialize';
-import { type IndexedTreeLeafPreimage, MembershipWitness } from '@aztec/foundation/trees';
+import type { Fr } from '@aztec/foundation/fields';
+import type { Tuple } from '@aztec/foundation/serialize';
+import type { IndexedTreeLeafPreimage, MembershipWitness } from '@aztec/foundation/trees';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import { siloNullifier } from '../hash/hash.js';
@@ -17,9 +14,9 @@ import {
   ReadRequest,
   ReadRequestResetStates,
   ReadRequestState,
-  type ScopedNullifier,
   ScopedReadRequest,
 } from '../structs/index.js';
+import type { ScopedNullifier } from '../structs/index.js';
 import { countAccumulatedItems, getNonEmptyItems } from '../utils/index.js';
 import { ScopedValueCache } from './scoped_value_cache.js';
 

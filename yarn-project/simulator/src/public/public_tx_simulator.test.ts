@@ -1,17 +1,16 @@
 import {
   MerkleTreeId,
   SimulationError,
-  type Tx,
   TxExecutionPhase,
   UnencryptedFunctionL2Logs,
   UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
+import type { Tx } from '@aztec/circuit-types';
+import type { MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import { mockTx } from '@aztec/circuit-types/testing';
 import {
   AztecAddress,
   BlockHeader,
-  type ContractDataSource,
   Fr,
   Gas,
   GasFees,
@@ -24,14 +23,16 @@ import {
   StateReference,
   countAccumulatedItems,
 } from '@aztec/circuits.js';
+import type { ContractDataSource } from '@aztec/circuits.js';
 import { bufferAsFields } from '@aztec/circuits.js/abi';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { fr, makeContractClassPublic } from '@aztec/circuits.js/testing';
 import { AppendOnlyTreeSnapshot, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, REGISTERER_CONTRACT_ADDRESS } from '@aztec/constants';
-import { type AztecKVStore } from '@aztec/kv-store';
+import type { AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
-import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
+import { Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
+import type { AppendOnlyTree } from '@aztec/merkle-tree';
 import { ProtocolContractAddress, REGISTERER_CONTRACT_CLASS_REGISTERED_TAG } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import { NativeWorldStateService } from '@aztec/world-state';
@@ -40,10 +41,11 @@ import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
 import { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
-import { type AvmPersistableStateManager } from '../avm/journal/journal.js';
-import { type InstructionSet } from '../avm/serialization/bytecode_serialization.js';
+import type { AvmPersistableStateManager } from '../avm/journal/journal.js';
+import type { InstructionSet } from '../avm/serialization/bytecode_serialization.js';
 import { WorldStateDB } from './public_db_sources.js';
-import { type PublicTxResult, PublicTxSimulator } from './public_tx_simulator.js';
+import { PublicTxSimulator } from './public_tx_simulator.js';
+import type { PublicTxResult } from './public_tx_simulator.js';
 
 describe('public_tx_simulator', () => {
   // Nullifier must be >=128 since tree starts with 128 entries pre-filled

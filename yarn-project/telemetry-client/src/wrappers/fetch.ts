@@ -1,5 +1,5 @@
 import { defaultFetch } from '@aztec/foundation/json-rpc/client';
-import { type Logger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 
 import { SpanKind, SpanStatusCode, context, propagation } from '@opentelemetry/api';

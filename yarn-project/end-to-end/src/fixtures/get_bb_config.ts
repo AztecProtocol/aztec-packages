@@ -1,5 +1,6 @@
-import { type Logger, fileURLToPath } from '@aztec/aztec.js';
-import { type BBConfig } from '@aztec/bb-prover';
+import { fileURLToPath } from '@aztec/aztec.js';
+import type { Logger } from '@aztec/aztec.js';
+import type { BBConfig } from '@aztec/bb-prover';
 
 import fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';

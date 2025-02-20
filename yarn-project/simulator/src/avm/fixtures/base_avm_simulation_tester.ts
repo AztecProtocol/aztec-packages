@@ -1,7 +1,8 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
-import { type ContractClassPublic, type ContractInstanceWithAddress, PublicDataWrite } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/circuits.js/abi';
+import type { MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
+import { PublicDataWrite } from '@aztec/circuits.js';
+import type { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/circuits.js';
+import type { ContractArtifact } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
 import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
@@ -10,7 +11,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 
-import { type SimpleContractDataSource } from './simple_contract_data_source.js';
+import type { SimpleContractDataSource } from './simple_contract_data_source.js';
 
 /**
  * An abstract test class that enables tests of real apps in the AVM without requiring e2e tests.

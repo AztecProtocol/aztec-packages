@@ -1,13 +1,15 @@
 // @attribution: lodestar impl for inspiration
 import { PeerErrorSeverity } from '@aztec/circuit-types';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { executeTimeout } from '@aztec/foundation/timer';
-import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
+import { Attributes, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 
-import { type IncomingStreamData, type PeerId, type Stream } from '@libp2p/interface';
+import type { IncomingStreamData, PeerId, Stream } from '@libp2p/interface';
 import { pipe } from 'it-pipe';
-import { type Libp2p } from 'libp2p';
-import { type Uint8ArrayList } from 'uint8arraylist';
+import type { Libp2p } from 'libp2p';
+import type { Uint8ArrayList } from 'uint8arraylist';
 
 import {
   CollectiveReqRespTimeoutError,
@@ -15,19 +17,21 @@ import {
   InvalidResponseError,
 } from '../../errors/reqresp.error.js';
 import { SnappyTransform } from '../encoding.js';
-import { type PeerScoring } from '../peer-manager/peer_scoring.js';
-import { type P2PReqRespConfig } from './config.js';
+import type { PeerScoring } from '../peer-manager/peer_scoring.js';
+import type { P2PReqRespConfig } from './config.js';
 import { BatchConnectionSampler } from './connection-sampler/batch_connection_sampler.js';
 import { ConnectionSampler } from './connection-sampler/connection_sampler.js';
 import {
   DEFAULT_SUB_PROTOCOL_HANDLERS,
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
-  type ReqRespResponse,
   ReqRespSubProtocol,
-  type ReqRespSubProtocolHandlers,
-  type ReqRespSubProtocolValidators,
-  type SubProtocolMap,
   subProtocolMap,
+} from './interface.js';
+import type {
+  ReqRespResponse,
+  ReqRespSubProtocolHandlers,
+  ReqRespSubProtocolValidators,
+  SubProtocolMap,
 } from './interface.js';
 import { ReqRespMetrics } from './metrics.js';
 import {

@@ -1,37 +1,26 @@
 // docs:start:cross_chain_test_harness
-import {
-  type AccountWallet,
-  type AztecAddress,
-  type AztecNode,
-  EthAddress,
-  type FieldsOf,
-  Fr,
-  type L1TokenManager,
-  L1TokenPortalManager,
-  type L2AmountClaim,
-  type L2AmountClaimWithRecipient,
-  type Logger,
-  type PXE,
-  type SiblingPath,
-  type TxReceipt,
-  type Wallet,
-  deployL1Contract,
-  retryUntil,
+import { EthAddress, Fr, L1TokenPortalManager, deployL1Contract, retryUntil } from '@aztec/aztec.js';
+import type {
+  AccountWallet,
+  AztecAddress,
+  AztecNode,
+  FieldsOf,
+  L1TokenManager,
+  L2AmountClaim,
+  L2AmountClaimWithRecipient,
+  Logger,
+  PXE,
+  SiblingPath,
+  TxReceipt,
+  Wallet,
 } from '@aztec/aztec.js';
-import { type L1ContractAddresses } from '@aztec/ethereum';
+import type { L1ContractAddresses } from '@aztec/ethereum';
 import { TestERC20Abi, TestERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 
-import {
-  type Account,
-  type Chain,
-  type Hex,
-  type HttpTransport,
-  type PublicClient,
-  type WalletClient,
-  getContract,
-} from 'viem';
+import { getContract } from 'viem';
+import type { Account, Chain, Hex, HttpTransport, PublicClient, WalletClient } from 'viem';
 
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 

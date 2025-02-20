@@ -1,4 +1,5 @@
-import { type L1RollupConstants, getTimestampRangeForEpoch } from './index.js';
+import { getTimestampRangeForEpoch } from './index.js';
+import type { L1RollupConstants } from './index.js';
 
 describe('EpochHelpers', () => {
   let constants: Omit<L1RollupConstants, 'l1StartBlock'>;

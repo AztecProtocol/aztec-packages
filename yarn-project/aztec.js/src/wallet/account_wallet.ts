@@ -1,18 +1,16 @@
-import { type AuthWitness, type TxExecutionRequest } from '@aztec/circuit-types';
-import { type PXE } from '@aztec/circuit-types/interfaces/client';
-import { type AztecAddress, Fr } from '@aztec/circuits.js';
-import { type ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/circuits.js/abi';
+import type { AuthWitness, TxExecutionRequest } from '@aztec/circuit-types';
+import type { PXE } from '@aztec/circuit-types/interfaces/client';
+import { Fr } from '@aztec/circuits.js';
+import type { AztecAddress } from '@aztec/circuits.js';
+import { FunctionType } from '@aztec/circuits.js/abi';
+import type { ABIParameterVisibility, FunctionAbi } from '@aztec/circuits.js/abi';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
-import { type AccountInterface } from '../account/interface.js';
+import type { AccountInterface } from '../account/interface.js';
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
-import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
-import {
-  type IntentAction,
-  type IntentInnerHash,
-  computeAuthWitMessageHash,
-  computeInnerAuthWitHashFromAction,
-} from '../utils/authwit.js';
+import type { ExecutionRequestInit } from '../entrypoint/entrypoint.js';
+import { computeAuthWitMessageHash, computeInnerAuthWitHashFromAction } from '../utils/authwit.js';
+import type { IntentAction, IntentInnerHash } from '../utils/authwit.js';
 import { BaseWallet } from './base_wallet.js';
 
 /**

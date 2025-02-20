@@ -1,5 +1,6 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
-import { type PublicCallRequest, SerializableContractInstance } from '@aztec/circuits.js';
+import { SerializableContractInstance } from '@aztec/circuits.js';
+import type { PublicCallRequest } from '@aztec/circuits.js';
 import { AvmNullifierReadTreeHint, AvmPublicDataReadTreeHint } from '@aztec/circuits.js/avm';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
@@ -28,9 +29,9 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { strict as assert } from 'assert';
 
 import { getPublicFunctionDebugName } from '../../common/debug_fn_name.js';
-import { type WorldStateDB } from '../../public/public_db_sources.js';
-import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
-import { type AvmExecutionEnvironment } from '../avm_execution_environment.js';
+import type { WorldStateDB } from '../../public/public_db_sources.js';
+import type { PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
+import type { AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { AvmEphemeralForest } from '../avm_tree.js';
 import { NullifierCollisionError, NullifierManager } from './nullifiers.js';
 import { PublicStorage } from './public_storage.js';

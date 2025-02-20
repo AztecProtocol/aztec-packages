@@ -4,7 +4,8 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
-import { type TestWallets, deployTestWalletWithTokens, setupTestWalletsWithTokens } from './setup_test_wallets.js';
+import { deployTestWalletWithTokens, setupTestWalletsWithTokens } from './setup_test_wallets.js';
+import type { TestWallets } from './setup_test_wallets.js';
 import { isK8sConfig, setupEnvironment, startPortForward } from './utils.js';
 
 const config = setupEnvironment(process.env);

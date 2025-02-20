@@ -1,7 +1,7 @@
-import { type RollupContract } from '@aztec/ethereum/contracts';
+import type { RollupContract } from '@aztec/ethereum/contracts';
 import { createLogger } from '@aztec/foundation/log';
 
-import { type PublicClient } from 'viem';
+import type { PublicClient } from 'viem';
 
 /** Utility class that polls the chain on quick intervals and logs new L1 blocks, L2 blocks, and L2 proofs. */
 export class ChainMonitor {

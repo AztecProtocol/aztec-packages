@@ -1,16 +1,18 @@
 import { CompleteAddress } from '@aztec/circuit-types';
-import { type PXE } from '@aztec/circuit-types/interfaces/client';
-import { type ContractInstanceWithAddress } from '@aztec/circuits.js';
+import type { PXE } from '@aztec/circuit-types/interfaces/client';
+import type { ContractInstanceWithAddress } from '@aztec/circuits.js';
 import { getContractInstanceFromDeployParams } from '@aztec/circuits.js/contract';
 import { deriveKeys } from '@aztec/circuits.js/keys';
 import { Fr } from '@aztec/foundation/fields';
 
-import { type AccountContract } from '../account/contract.js';
-import { type Salt, type Wallet } from '../account/index.js';
-import { type AccountInterface } from '../account/interface.js';
-import { DeployMethod, type DeployOptions } from '../contract/deploy_method.js';
+import type { AccountContract } from '../account/contract.js';
+import type { Salt, Wallet } from '../account/index.js';
+import type { AccountInterface } from '../account/interface.js';
+import { DeployMethod } from '../contract/deploy_method.js';
+import type { DeployOptions } from '../contract/deploy_method.js';
 import { Contract } from '../contract/index.js';
-import { DefaultWaitOpts, type WaitOpts } from '../contract/sent_tx.js';
+import { DefaultWaitOpts } from '../contract/sent_tx.js';
+import type { WaitOpts } from '../contract/sent_tx.js';
 import { DefaultMultiCallEntrypoint } from '../entrypoint/default_multi_call_entrypoint.js';
 import { AccountWalletWithSecretKey, SignerlessWallet } from '../wallet/index.js';
 import { DeployAccountMethod } from './deploy_account_method.js';

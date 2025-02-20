@@ -38,23 +38,24 @@ import {
   TUBE_PROOF_LENGTH,
   VK_TREE_HEIGHT,
 } from '@aztec/constants';
-import { type FieldsOf, makeHalfFullTuple, makeTuple } from '@aztec/foundation/array';
+import { makeHalfFullTuple, makeTuple } from '@aztec/foundation/array';
+import type { FieldsOf } from '@aztec/foundation/array';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { compact } from '@aztec/foundation/collection';
 import { SchnorrSignature, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Bufferable } from '@aztec/foundation/serialize';
+import type { Bufferable } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 
 import { AztecAddress } from '../aztec-address/index.js';
-import {
-  type ContractClassPublic,
-  type ContractInstanceWithAddress,
-  type ExecutablePrivateFunctionWithMembershipProof,
-  type PrivateFunction,
-  type PublicFunction,
-  SerializableContractInstance,
-  type UnconstrainedFunctionWithMembershipProof,
+import { SerializableContractInstance } from '../contract/index.js';
+import type {
+  ContractClassPublic,
+  ContractInstanceWithAddress,
+  ExecutablePrivateFunctionWithMembershipProof,
+  PrivateFunction,
+  PublicFunction,
+  UnconstrainedFunctionWithMembershipProof,
 } from '../contract/index.js';
 import {
   BaseParityInputs,

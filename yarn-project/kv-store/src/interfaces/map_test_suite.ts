@@ -2,9 +2,9 @@ import { toArray } from '@aztec/foundation/iterable';
 
 import { expect } from 'chai';
 
-import { type Key, type Range } from './common.js';
-import { type AztecAsyncMap, type AztecAsyncMultiMap, type AztecMap, type AztecMultiMap } from './map.js';
-import { type AztecAsyncKVStore, type AztecKVStore } from './store.js';
+import type { Key, Range } from './common.js';
+import type { AztecAsyncMap, AztecAsyncMultiMap, AztecMap, AztecMultiMap } from './map.js';
+import type { AztecAsyncKVStore, AztecKVStore } from './store.js';
 import { isSyncStore } from './utils.js';
 
 export function describeAztecMap(

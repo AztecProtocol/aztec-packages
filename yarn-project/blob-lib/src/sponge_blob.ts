@@ -1,13 +1,9 @@
-import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
+import { makeTuple } from '@aztec/foundation/array';
+import type { FieldsOf } from '@aztec/foundation/array';
 import { poseidon2Permutation } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import {
-  BufferReader,
-  FieldReader,
-  type Tuple,
-  serializeToBuffer,
-  serializeToFields,
-} from '@aztec/foundation/serialize';
+import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import type { Tuple } from '@aztec/foundation/serialize';
 
 /**
  * A Poseidon2 sponge used to accumulate data that will be added to a blob.

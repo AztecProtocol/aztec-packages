@@ -1,8 +1,8 @@
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { FieldsOf } from '@aztec/foundation/types';
 
-import { type ContractInstanceUpdate } from './interfaces/contract_instance_update.js';
+import type { ContractInstanceUpdate } from './interfaces/contract_instance_update.js';
 
 export class SerializableContractInstanceUpdate {
   prevContractClassId: Fr;

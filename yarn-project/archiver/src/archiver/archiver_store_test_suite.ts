@@ -2,14 +2,13 @@ import { InboxLeaf, L2Block, LogId, TxEffect, TxHash, wrapInBlock } from '@aztec
 import '@aztec/circuit-types/jest';
 import {
   AztecAddress,
-  type ContractClassPublic,
-  type ContractInstanceWithAddress,
   Fr,
   PrivateLog,
   PublicLog,
   SerializableContractInstance,
   computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
+import type { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/circuits.js';
 import {
   makeContractClassPublic,
   makeExecutablePrivateFunctionWithMembershipProof,
@@ -25,8 +24,8 @@ import {
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 
-import { type ArchiverDataStore, type ArchiverL1SynchPoint } from './archiver_store.js';
-import { type L1Published } from './structs/published.js';
+import type { ArchiverDataStore, ArchiverL1SynchPoint } from './archiver_store.js';
+import type { L1Published } from './structs/published.js';
 
 /**
  * @param testName - The name of the test suite.

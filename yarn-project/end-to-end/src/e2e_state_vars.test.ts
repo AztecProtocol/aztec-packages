@@ -1,4 +1,5 @@
-import { BatchCall, Fr, type PXE, type Wallet } from '@aztec/aztec.js';
+import { BatchCall, Fr } from '@aztec/aztec.js';
+import type { PXE, Wallet } from '@aztec/aztec.js';
 import { AuthContract } from '@aztec/noir-contracts.js/Auth';
 import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
 

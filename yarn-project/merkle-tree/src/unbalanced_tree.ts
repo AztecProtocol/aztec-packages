@@ -1,9 +1,10 @@
 import { SiblingPath } from '@aztec/circuit-types';
-import { type Hasher } from '@aztec/circuits.js/interfaces';
-import { type Bufferable, type FromBuffer, serializeToBuffer } from '@aztec/foundation/serialize';
+import type { Hasher } from '@aztec/circuits.js/interfaces';
+import { serializeToBuffer } from '@aztec/foundation/serialize';
+import type { Bufferable, FromBuffer } from '@aztec/foundation/serialize';
 
 import { HasherWithStats } from './hasher_with_stats.js';
-import { type MerkleTree } from './interfaces/merkle_tree.js';
+import type { MerkleTree } from './interfaces/merkle_tree.js';
 
 const indexToKeyHash = (name: string, level: number, index: bigint) => `${name}:${level}:${index}`;
 

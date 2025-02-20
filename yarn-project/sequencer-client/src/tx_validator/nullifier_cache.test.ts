@@ -1,8 +1,9 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
-import { type MerkleTreeReadOperations } from '@aztec/circuit-types/interfaces/server';
+import type { MerkleTreeReadOperations } from '@aztec/circuit-types/interfaces/server';
 import { times } from '@aztec/foundation/collection';
 
-import { type MockProxy, mock } from 'jest-mock-extended';
+import { mock } from 'jest-mock-extended';
+import type { MockProxy } from 'jest-mock-extended';
 
 import { NullifierCache } from './nullifier_cache.js';
 

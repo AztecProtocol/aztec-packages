@@ -1,25 +1,27 @@
-import { L2Block, type L2BlockSource, PeerErrorSeverity, TxHash } from '@aztec/circuit-types';
+import { L2Block, PeerErrorSeverity, TxHash } from '@aztec/circuit-types';
+import type { L2BlockSource } from '@aztec/circuit-types';
 import { mockTx } from '@aztec/circuit-types/testing';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 
 import { describe, expect, it, jest } from '@jest/globals';
-import { type PeerId } from '@libp2p/interface';
-import { type MockProxy, mock } from 'jest-mock-extended';
+import type { PeerId } from '@libp2p/interface';
+import { mock } from 'jest-mock-extended';
+import type { MockProxy } from 'jest-mock-extended';
 
 import { CollectiveReqRespTimeoutError, IndividualReqRespTimeoutError } from '../../errors/reqresp.error.js';
 import {
   MOCK_SUB_PROTOCOL_HANDLERS,
   MOCK_SUB_PROTOCOL_VALIDATORS,
-  type ReqRespNode,
   connectToPeers,
   createNodes,
   startNodes,
   stopNodes,
 } from '../../test-helpers/reqresp-nodes.js';
-import { type PeerManager } from '../peer-manager/peer_manager.js';
-import { type PeerScoring } from '../peer-manager/peer_scoring.js';
+import type { ReqRespNode } from '../../test-helpers/reqresp-nodes.js';
+import type { PeerManager } from '../peer-manager/peer_manager.js';
+import type { PeerScoring } from '../peer-manager/peer_scoring.js';
 import { ReqRespSubProtocol, RequestableBuffer } from './interface.js';
 import { reqRespBlockHandler } from './protocols/block.js';
 import { GoodByeReason, reqGoodbyeHandler } from './protocols/goodbye.js';

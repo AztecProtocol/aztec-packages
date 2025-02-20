@@ -6,7 +6,7 @@ import { bufferToHex } from '@aztec/foundation/string';
 import { AztecAddress } from '../aztec-address/index.js';
 import { computePartialAddress } from '../contract/contract_address.js';
 import { computeAddress, computePreaddress, deriveKeys } from '../keys/index.js';
-import { type PartialAddress } from '../types/partial_address.js';
+import type { PartialAddress } from '../types/partial_address.js';
 import { PublicKeys } from '../types/public_keys.js';
 
 /**

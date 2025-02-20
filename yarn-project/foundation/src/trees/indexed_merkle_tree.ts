@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { assertLength } from '@aztec/foundation/serialize';
-import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
+import type { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
 import { MembershipWitness } from './membership_witness.js';
 import { MerkleTree } from './merkle_tree.js';

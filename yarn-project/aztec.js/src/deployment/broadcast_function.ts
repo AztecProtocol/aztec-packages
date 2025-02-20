@@ -1,5 +1,6 @@
 import { Capsule } from '@aztec/circuit-types';
-import { type ContractArtifact, FunctionSelector, FunctionType, bufferAsFields } from '@aztec/circuits.js/abi';
+import { FunctionSelector, FunctionType, bufferAsFields } from '@aztec/circuits.js/abi';
+import type { ContractArtifact } from '@aztec/circuits.js/abi';
 import {
   computeVerificationKeyHash,
   createPrivateFunctionMembershipProof,
@@ -15,8 +16,8 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
-import { type ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
-import { type Wallet } from '../wallet/index.js';
+import type { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
+import type { Wallet } from '../wallet/index.js';
 import { getRegistererContract } from './protocol_contracts.js';
 
 /**

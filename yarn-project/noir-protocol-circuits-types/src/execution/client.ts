@@ -1,16 +1,16 @@
-import {
-  type PrivateKernelCircuitPublicInputs,
-  type PrivateKernelInitCircuitPrivateInputs,
-  type PrivateKernelInnerCircuitPrivateInputs,
-  type PrivateKernelResetCircuitPrivateInputsVariants,
-  type PrivateKernelTailCircuitPrivateInputs,
-  type PrivateKernelTailCircuitPublicInputs,
+import type {
+  PrivateKernelCircuitPublicInputs,
+  PrivateKernelInitCircuitPrivateInputs,
+  PrivateKernelInnerCircuitPrivateInputs,
+  PrivateKernelResetCircuitPrivateInputsVariants,
+  PrivateKernelTailCircuitPrivateInputs,
+  PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/circuits.js/kernel';
 import { pushTestData } from '@aztec/foundation/testing';
 
-import { type WitnessMap } from '@noir-lang/acvm_js';
+import type { WitnessMap } from '@noir-lang/acvm_js';
 import { abiDecode, abiEncode } from '@noir-lang/noirc_abi';
-import { type Abi, type InputMap } from '@noir-lang/types';
+import type { Abi, InputMap } from '@noir-lang/types';
 
 import {
   mapPrivateCallDataToNoir,
@@ -24,18 +24,18 @@ import {
   mapTxRequestToNoir,
 } from '../conversion/client.js';
 import { mapFieldToNoir } from '../conversion/common.js';
-import {
-  type PrivateKernelInitInputType,
-  type PrivateKernelInitReturnType,
-  type PrivateKernelInnerInputType,
-  type PrivateKernelInnerReturnType,
-  type PrivateKernelResetReturnType,
-  type PrivateKernelTailInputType,
-  type PrivateKernelTailReturnType,
-  type PrivateKernelTailToPublicInputType,
-  type PrivateKernelTailToPublicReturnType,
+import type {
+  PrivateKernelInitInputType,
+  PrivateKernelInitReturnType,
+  PrivateKernelInnerInputType,
+  PrivateKernelInnerReturnType,
+  PrivateKernelResetReturnType,
+  PrivateKernelTailInputType,
+  PrivateKernelTailReturnType,
+  PrivateKernelTailToPublicInputType,
+  PrivateKernelTailToPublicReturnType,
 } from '../types/index.js';
-import { type DecodedInputs } from '../utils/decoded_inputs.js';
+import type { DecodedInputs } from '../utils/decoded_inputs.js';
 
 /* eslint-disable camelcase */
 

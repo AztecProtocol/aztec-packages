@@ -1,7 +1,7 @@
 import { Tx } from '../tx/tx.js';
 import { BlockAttestation } from './block_attestation.js';
 import { BlockProposal } from './block_proposal.js';
-import { type Gossipable } from './gossipable.js';
+import type { Gossipable } from './gossipable.js';
 import { TopicType } from './topic_type.js';
 
 export interface RawGossipMessage {

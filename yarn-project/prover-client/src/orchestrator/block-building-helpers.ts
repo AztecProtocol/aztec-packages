@@ -1,24 +1,24 @@
-import { Blob, type SpongeBlob } from '@aztec/blob-lib';
-import { Body, MerkleTreeId, type ProcessedTx, TxEffect, getTreeHeight } from '@aztec/circuit-types';
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
+import { Blob } from '@aztec/blob-lib';
+import type { SpongeBlob } from '@aztec/blob-lib';
+import { Body, MerkleTreeId, TxEffect, getTreeHeight } from '@aztec/circuit-types';
+import type { ProcessedTx } from '@aztec/circuit-types';
+import type { MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import {
   BlockHeader,
   ContentCommitment,
   Fr,
-  type GlobalVariables,
-  type ParityPublicInputs,
   PartialStateReference,
   PublicDataHint,
   StateReference,
 } from '@aztec/circuits.js';
+import type { GlobalVariables, ParityPublicInputs } from '@aztec/circuits.js';
 import {
-  type BaseOrMergeRollupPublicInputs,
-  type BlockRootOrBlockMergePublicInputs,
   ConstantRollupData,
   PrivateBaseRollupHints,
   PrivateBaseStateDiffHints,
   PublicBaseRollupHints,
 } from '@aztec/circuits.js/rollup';
+import type { BaseOrMergeRollupPublicInputs, BlockRootOrBlockMergePublicInputs } from '@aztec/circuits.js/rollup';
 import {
   AppendOnlyTreeSnapshot,
   NullifierLeafPreimage,
@@ -40,14 +40,16 @@ import {
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
-import { type Logger } from '@aztec/foundation/log';
-import { type Tuple, assertLength, serializeToBuffer, toFriendlyJSON } from '@aztec/foundation/serialize';
+import type { Logger } from '@aztec/foundation/log';
+import { assertLength, serializeToBuffer, toFriendlyJSON } from '@aztec/foundation/serialize';
+import type { Tuple } from '@aztec/foundation/serialize';
 import { MembershipWitness, MerkleTreeCalculator, computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
-import { Attributes, type Span, runInSpan } from '@aztec/telemetry-client';
-import { type MerkleTreeReadOperations } from '@aztec/world-state';
+import { Attributes, runInSpan } from '@aztec/telemetry-client';
+import type { Span } from '@aztec/telemetry-client';
+import type { MerkleTreeReadOperations } from '@aztec/world-state';
 
 import { inspect } from 'util';
 

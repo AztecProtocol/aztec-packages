@@ -1,9 +1,5 @@
-import {
-  type ProofUri,
-  type ProvingJob,
-  type ProvingJobSettledResult,
-  ProvingRequestType,
-} from '@aztec/circuit-types/interfaces/server';
+import { ProvingRequestType } from '@aztec/circuit-types/interfaces/server';
+import type { ProofUri, ProvingJob, ProvingJobSettledResult } from '@aztec/circuit-types/interfaces/server';
 import { toArray } from '@aztec/foundation/iterable';
 
 import { jest } from '@jest/globals';
@@ -12,7 +8,7 @@ import { mkdir, mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { type ProverBrokerConfig } from '../config.js';
+import type { ProverBrokerConfig } from '../config.js';
 import { makeInputsUri, makeRandomProvingJobId } from '../fixtures.js';
 import { KVBrokerDatabase } from './persisted.js';
 

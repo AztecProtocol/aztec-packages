@@ -1,4 +1,5 @@
-import { ROOT_CONTEXT, type Span, SpanKind, SpanStatusCode, propagation } from '@opentelemetry/api';
+import { ROOT_CONTEXT, SpanKind, SpanStatusCode, propagation } from '@opentelemetry/api';
+import type { Span } from '@opentelemetry/api';
 import type Koa from 'koa';
 
 import { getTelemetryClient } from './start.js';

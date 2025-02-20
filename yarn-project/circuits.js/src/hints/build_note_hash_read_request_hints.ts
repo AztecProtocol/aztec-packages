@@ -1,9 +1,6 @@
-import {
-  type MAX_NOTE_HASHES_PER_TX,
-  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-  type NOTE_HASH_TREE_HEIGHT,
-} from '@aztec/constants';
-import { type Tuple } from '@aztec/foundation/serialize';
+import { MAX_NOTE_HASH_READ_REQUESTS_PER_TX } from '@aztec/constants';
+import type { MAX_NOTE_HASHES_PER_TX, NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
+import type { Tuple } from '@aztec/foundation/serialize';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 
 import {
@@ -11,9 +8,8 @@ import {
   PendingReadHint,
   ReadRequestResetStates,
   ReadRequestState,
-  type ScopedNoteHash,
-  type ScopedReadRequest,
 } from '../structs/index.js';
+import type { ScopedNoteHash, ScopedReadRequest } from '../structs/index.js';
 import { countAccumulatedItems, getNonEmptyItems } from '../utils/index.js';
 import { ScopedValueCache } from './scoped_value_cache.js';
 

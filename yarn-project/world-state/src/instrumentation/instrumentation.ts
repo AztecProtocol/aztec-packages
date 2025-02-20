@@ -1,21 +1,10 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
-import {
-  Attributes,
-  type Gauge,
-  type Histogram,
-  Metrics,
-  type TelemetryClient,
-  ValueType,
-} from '@aztec/telemetry-client';
+import { Attributes, Metrics, ValueType } from '@aztec/telemetry-client';
+import type { Gauge, Histogram, TelemetryClient } from '@aztec/telemetry-client';
 
-import {
-  type DBStats,
-  type TreeDBStats,
-  type TreeMeta,
-  WorldStateMessageType,
-  type WorldStateStatusFull,
-} from '../native/message.js';
+import { WorldStateMessageType } from '../native/message.js';
+import type { DBStats, TreeDBStats, TreeMeta, WorldStateStatusFull } from '../native/message.js';
 
 type DBTypeString = 'leaf_preimage' | 'leaf_indices' | 'nodes' | 'blocks' | 'block_indices';
 

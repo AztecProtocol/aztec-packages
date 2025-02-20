@@ -1,4 +1,5 @@
-import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
+import { booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
+import type { ConfigMappingsType } from '@aztec/foundation/config';
 
 export interface TelemetryClientConfig {
   useGcloudMetrics: boolean;

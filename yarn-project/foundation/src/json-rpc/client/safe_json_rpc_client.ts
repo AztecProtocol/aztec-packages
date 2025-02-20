@@ -1,8 +1,11 @@
 import { format } from 'util';
 
-import { type Logger, createLogger } from '../../log/pino-logger.js';
-import { type ApiSchema, type ApiSchemaFor, schemaHasMethod } from '../../schemas/api.js';
-import { type JsonRpcFetch, defaultFetch } from './fetch.js';
+import { createLogger } from '../../log/pino-logger.js';
+import type { Logger } from '../../log/pino-logger.js';
+import { schemaHasMethod } from '../../schemas/api.js';
+import type { ApiSchema, ApiSchemaFor } from '../../schemas/api.js';
+import { defaultFetch } from './fetch.js';
+import type { JsonRpcFetch } from './fetch.js';
 
 export type SafeJsonRpcClientOptions = {
   useApiEndpoints?: boolean;

@@ -1,13 +1,14 @@
 import { Fr, Gas } from '@aztec/circuits.js';
 import { CombinedConstantData } from '@aztec/circuits.js/kernel';
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+import { schemas } from '@aztec/foundation/schemas';
+import type { ZodFor } from '@aztec/foundation/schemas';
 
 import times from 'lodash.times';
 import { z } from 'zod';
 
 import { SimulationError } from '../simulation_error.js';
 import { TxEffect } from '../tx_effect.js';
-import { type GasUsed } from './gas_used.js';
+import type { GasUsed } from './gas_used.js';
 
 /** Return values of simulating a circuit. */
 export type ProcessReturnValues = Fr[] | undefined;

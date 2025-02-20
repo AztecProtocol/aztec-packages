@@ -1,8 +1,8 @@
 import { MAX_NOTE_HASH_READ_REQUESTS_PER_TX, NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
-import { type BufferReader } from '@aztec/foundation/serialize';
-import { type MembershipWitness } from '@aztec/foundation/trees';
+import type { BufferReader } from '@aztec/foundation/serialize';
+import type { MembershipWitness } from '@aztec/foundation/trees';
 
 import {
   PendingReadHint,

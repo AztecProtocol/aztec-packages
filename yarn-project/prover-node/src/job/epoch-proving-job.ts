@@ -1,27 +1,22 @@
-import {
-  type L1ToL2MessageSource,
-  type L2Block,
-  type L2BlockSource,
-  type ProcessedTx,
-  type Tx,
-} from '@aztec/circuit-types';
-import {
-  type EpochProver,
-  type EpochProvingJobState,
-  EpochProvingJobTerminalState,
-  type ForkMerkleTreeOperations,
+import type { L1ToL2MessageSource, L2Block, L2BlockSource, ProcessedTx, Tx } from '@aztec/circuit-types';
+import { EpochProvingJobTerminalState } from '@aztec/circuit-types/interfaces/server';
+import type {
+  EpochProver,
+  EpochProvingJobState,
+  ForkMerkleTreeOperations,
 } from '@aztec/circuit-types/interfaces/server';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
-import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator/server';
-import { Attributes, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
+import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
+import { Attributes, trackSpan } from '@aztec/telemetry-client';
+import type { Traceable, Tracer } from '@aztec/telemetry-client';
 
 import * as crypto from 'node:crypto';
 
-import { type ProverNodeMetrics } from '../metrics.js';
-import { type ProverNodePublisher } from '../prover-node-publisher.js';
+import type { ProverNodeMetrics } from '../metrics.js';
+import type { ProverNodePublisher } from '../prover-node-publisher.js';
 
 /**
  * Job that grabs a range of blocks from the unfinalised chain from L1, gets their txs given their hashes,

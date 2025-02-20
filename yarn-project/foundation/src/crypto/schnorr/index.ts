@@ -1,5 +1,6 @@
 import { BarretenbergSync } from '@aztec/bb.js';
-import { type GrumpkinScalar, Point } from '@aztec/foundation/fields';
+import { Point } from '@aztec/foundation/fields';
+import type { GrumpkinScalar } from '@aztec/foundation/fields';
 import { numToInt32BE } from '@aztec/foundation/serialize';
 
 import { concatenateUint8Arrays } from '../serialize.js';

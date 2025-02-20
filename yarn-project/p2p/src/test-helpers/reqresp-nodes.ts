@@ -1,14 +1,13 @@
-import { type L2BlockSource, type P2PClientType, type Tx } from '@aztec/circuit-types';
-import { type ChainConfig, emptyChainConfig } from '@aztec/circuit-types/config';
-import {
-  type ClientProtocolCircuitVerifier,
-  type WorldStateSynchronizer,
-} from '@aztec/circuit-types/interfaces/server';
-import { type EpochCache } from '@aztec/epoch-cache';
+import type { L2BlockSource, P2PClientType, Tx } from '@aztec/circuit-types';
+import { emptyChainConfig } from '@aztec/circuit-types/config';
+import type { ChainConfig } from '@aztec/circuit-types/config';
+import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/circuit-types/interfaces/server';
+import type { EpochCache } from '@aztec/epoch-cache';
 import { timesParallel } from '@aztec/foundation/collection';
-import { type DataStoreConfig } from '@aztec/kv-store/config';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
+import { getTelemetryClient } from '@aztec/telemetry-client';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import { SignableENR } from '@chainsafe/enr';
 import { gossipsub } from '@chainsafe/libp2p-gossipsub';
@@ -16,29 +15,27 @@ import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
 import { identify } from '@libp2p/identify';
-import { type PeerId } from '@libp2p/interface';
+import type { PeerId } from '@libp2p/interface';
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { tcp } from '@libp2p/tcp';
 import { multiaddr } from '@multiformats/multiaddr';
 import getPort from 'get-port';
-import { type Libp2p, type Libp2pOptions, createLibp2p } from 'libp2p';
+import { createLibp2p } from 'libp2p';
+import type { Libp2p, Libp2pOptions } from 'libp2p';
 
 import { BootstrapNode } from '../bootstrap/bootstrap.js';
-import { type BootnodeConfig, type P2PConfig } from '../config.js';
-import { type MemPools } from '../mem_pools/interface.js';
+import type { BootnodeConfig, P2PConfig } from '../config.js';
+import type { MemPools } from '../mem_pools/interface.js';
 import { DiscV5Service } from '../services/discv5/discV5_service.js';
 import { LibP2PService } from '../services/libp2p/libp2p_service.js';
-import { type PeerScoring } from '../services/peer-manager/peer_scoring.js';
-import { type P2PReqRespConfig } from '../services/reqresp/config.js';
-import {
-  ReqRespSubProtocol,
-  type ReqRespSubProtocolHandlers,
-  type ReqRespSubProtocolValidators,
-  noopValidator,
-} from '../services/reqresp/interface.js';
+import type { PeerScoring } from '../services/peer-manager/peer_scoring.js';
+import type { P2PReqRespConfig } from '../services/reqresp/config.js';
+import { ReqRespSubProtocol, noopValidator } from '../services/reqresp/interface.js';
+import type { ReqRespSubProtocolHandlers, ReqRespSubProtocolValidators } from '../services/reqresp/interface.js';
 import { pingHandler, statusHandler } from '../services/reqresp/protocols/index.js';
 import { ReqResp } from '../services/reqresp/reqresp.js';
-import { type PubSubLibp2p, convertToMultiaddr, createLibP2PPeerIdFromPrivateKey } from '../util.js';
+import { convertToMultiaddr, createLibP2PPeerIdFromPrivateKey } from '../util.js';
+import type { PubSubLibp2p } from '../util.js';
 
 /**
  * Creates a libp2p node, pre configured.

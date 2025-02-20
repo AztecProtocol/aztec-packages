@@ -1,7 +1,7 @@
 import { MAX_NULLIFIER_READ_REQUESTS_PER_TX, NULLIFIER_TREE_HEIGHT } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
-import { type BufferReader } from '@aztec/foundation/serialize';
-import { type MembershipWitness, type TreeLeafPreimage } from '@aztec/foundation/trees';
+import type { BufferReader } from '@aztec/foundation/serialize';
+import type { MembershipWitness, TreeLeafPreimage } from '@aztec/foundation/trees';
 
 import { NullifierLeafPreimage } from '../trees/index.js';
 import {

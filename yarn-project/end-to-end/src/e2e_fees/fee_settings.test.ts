@@ -1,11 +1,7 @@
-import {
-  type AccountWallet,
-  type AztecAddress,
-  type AztecNode,
-  type CheatCodes,
-  FeeJuicePaymentMethod,
-} from '@aztec/aztec.js';
-import { Fr, type GasSettings } from '@aztec/circuits.js';
+import { FeeJuicePaymentMethod } from '@aztec/aztec.js';
+import type { AccountWallet, AztecAddress, AztecNode, CheatCodes } from '@aztec/aztec.js';
+import { Fr } from '@aztec/circuits.js';
+import type { GasSettings } from '@aztec/circuits.js';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 
 import { inspect } from 'util';

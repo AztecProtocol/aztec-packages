@@ -1,6 +1,7 @@
 import type { AvmContext } from '../avm_context.js';
-import { type AvmContractCallResult } from '../avm_contract_call_result.js';
-import { type Field, TypeTag, Uint1 } from '../avm_memory_types.js';
+import type { AvmContractCallResult } from '../avm_contract_call_result.js';
+import { TypeTag, Uint1 } from '../avm_memory_types.js';
+import type { Field } from '../avm_memory_types.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';

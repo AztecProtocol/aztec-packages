@@ -1,6 +1,6 @@
-import { type NoirCompiledCircuit } from '@aztec/circuits.js/noir';
+import type { NoirCompiledCircuit } from '@aztec/circuits.js/noir';
 
-import { type PrivateResetArtifact } from '../private_kernel_reset_types.js';
+import type { PrivateResetArtifact } from '../private_kernel_reset_types.js';
 
 export type ClientProtocolArtifact =
   | 'PrivateKernelInitArtifact'

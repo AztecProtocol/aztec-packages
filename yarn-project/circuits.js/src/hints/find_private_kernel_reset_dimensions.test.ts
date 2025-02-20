@@ -1,11 +1,7 @@
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { FieldsOf } from '@aztec/foundation/types';
 
-import {
-  type DimensionName,
-  PrivateKernelResetDimensions,
-  type PrivateKernelResetDimensionsConfig,
-  privateKernelResetDimensionNames,
-} from '../structs/kernel/index.js';
+import { PrivateKernelResetDimensions, privateKernelResetDimensionNames } from '../structs/kernel/index.js';
+import type { DimensionName, PrivateKernelResetDimensionsConfig } from '../structs/kernel/index.js';
 import { findPrivateKernelResetDimensions } from './find_private_kernel_reset_dimensions.js';
 
 describe('findPrivateKernelResetDimensions', () => {

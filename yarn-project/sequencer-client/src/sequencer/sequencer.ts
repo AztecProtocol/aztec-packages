@@ -1,27 +1,14 @@
-import {
-  type L1RollupConstants,
-  type L1ToL2MessageSource,
-  type L2Block,
-  type L2BlockSource,
-  MerkleTreeId,
-  Tx,
-  type TxHash,
-} from '@aztec/circuit-types';
-import {
-  type AllowedElement,
-  SequencerConfigSchema,
-  type WorldStateSynchronizer,
-  type WorldStateSynchronizerStatus,
+import { MerkleTreeId, Tx } from '@aztec/circuit-types';
+import type { L1RollupConstants, L1ToL2MessageSource, L2Block, L2BlockSource, TxHash } from '@aztec/circuit-types';
+import { SequencerConfigSchema } from '@aztec/circuit-types/interfaces/server';
+import type {
+  AllowedElement,
+  WorldStateSynchronizer,
+  WorldStateSynchronizerStatus,
 } from '@aztec/circuit-types/interfaces/server';
-import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
-import {
-  BlockHeader,
-  ContentCommitment,
-  type ContractDataSource,
-  Gas,
-  type GlobalVariables,
-  StateReference,
-} from '@aztec/circuits.js';
+import type { L2BlockBuiltStats } from '@aztec/circuit-types/stats';
+import { BlockHeader, ContentCommitment, Gas, StateReference } from '@aztec/circuits.js';
+import type { ContractDataSource, GlobalVariables } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
@@ -32,19 +19,22 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { pickFromSchema } from '@aztec/foundation/schemas';
-import { type DateProvider, Timer, elapsed } from '@aztec/foundation/timer';
-import { type P2P } from '@aztec/p2p';
-import { type BlockBuilderFactory } from '@aztec/prover-client/block-builder';
-import { type PublicProcessorFactory } from '@aztec/simulator/server';
-import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
-import { type ValidatorClient } from '@aztec/validator-client';
+import { Timer, elapsed } from '@aztec/foundation/timer';
+import type { DateProvider } from '@aztec/foundation/timer';
+import type { P2P } from '@aztec/p2p';
+import type { BlockBuilderFactory } from '@aztec/prover-client/block-builder';
+import type { PublicProcessorFactory } from '@aztec/simulator/server';
+import { Attributes, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
+import type { TelemetryClient, Tracer } from '@aztec/telemetry-client';
+import type { ValidatorClient } from '@aztec/validator-client';
 
-import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
-import { type SequencerPublisher, VoteType } from '../publisher/sequencer-publisher.js';
-import { type SlasherClient } from '../slasher/slasher_client.js';
+import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
+import { VoteType } from '../publisher/sequencer-publisher.js';
+import type { SequencerPublisher } from '../publisher/sequencer-publisher.js';
+import type { SlasherClient } from '../slasher/slasher_client.js';
 import { createValidatorsForBlockBuilding } from '../tx_validator/tx_validator_factory.js';
 import { getDefaultAllowedSetupFunctions } from './allowed.js';
-import { type SequencerConfig } from './config.js';
+import type { SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
 import { SequencerTimetable, SequencerTooSlowError } from './timetable.js';
 import { SequencerState, orderAttestations } from './utils.js';

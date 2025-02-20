@@ -1,7 +1,7 @@
-import { type IDBPDatabase, type IDBPObjectStore } from 'idb';
+import type { IDBPDatabase, IDBPObjectStore } from 'idb';
 
-import { type AztecAsyncArray } from '../interfaces/array.js';
-import { type AztecIDBSchema } from './store.js';
+import type { AztecAsyncArray } from '../interfaces/array.js';
+import type { AztecIDBSchema } from './store.js';
 
 /**
  * A persistent array backed by IndexedDB.

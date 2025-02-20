@@ -1,11 +1,11 @@
-import { type ServerCircuitProver } from '@aztec/circuit-types/interfaces/server';
+import type { ServerCircuitProver } from '@aztec/circuit-types/interfaces/server';
 import { timesAsync } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
 
 import { TestContext } from '../mocks/test_context.js';
-import { type ProvingOrchestrator } from './orchestrator.js';
+import type { ProvingOrchestrator } from './orchestrator.js';
 
 const logger = createLogger('prover-client:test:orchestrator-failures');
 const LONG_TIMEOUT = 600_000;

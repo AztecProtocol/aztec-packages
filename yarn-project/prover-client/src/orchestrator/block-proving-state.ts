@@ -1,19 +1,10 @@
 import { SpongeBlob } from '@aztec/blob-lib';
-import { type L2Block, type MerkleTreeId } from '@aztec/circuit-types';
-import { type PublicInputsAndRecursiveProof } from '@aztec/circuit-types/interfaces/server';
-import { type CircuitName } from '@aztec/circuit-types/stats';
+import type { L2Block, MerkleTreeId } from '@aztec/circuit-types';
+import type { PublicInputsAndRecursiveProof } from '@aztec/circuit-types/interfaces/server';
+import type { CircuitName } from '@aztec/circuit-types/stats';
+import { Fr, RootParityInput, RootParityInputs, StateReference } from '@aztec/circuits.js';
+import type { BlockHeader, GlobalVariables, ParityPublicInputs } from '@aztec/circuits.js';
 import {
-  type BlockHeader,
-  Fr,
-  type GlobalVariables,
-  type ParityPublicInputs,
-  RootParityInput,
-  RootParityInputs,
-  StateReference,
-} from '@aztec/circuits.js';
-import {
-  type BaseOrMergeRollupPublicInputs,
-  type BlockRootOrBlockMergePublicInputs,
   BlockRootRollupBlobData,
   BlockRootRollupData,
   BlockRootRollupInputs,
@@ -23,27 +14,26 @@ import {
   PreviousRollupData,
   SingleTxBlockRootRollupInputs,
 } from '@aztec/circuits.js/rollup';
-import { type AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
-import {
-  type ARCHIVE_HEIGHT,
-  BLOBS_PER_BLOCK,
-  FIELDS_PER_BLOB,
-  type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-  type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-  NUM_BASE_PARITY_PER_ROOT_PARITY,
-  type RECURSIVE_PROOF_LENGTH,
-  VK_TREE_HEIGHT,
+import type { BaseOrMergeRollupPublicInputs, BlockRootOrBlockMergePublicInputs } from '@aztec/circuits.js/rollup';
+import type { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
+import { BLOBS_PER_BLOCK, FIELDS_PER_BLOB, NUM_BASE_PARITY_PER_ROOT_PARITY, VK_TREE_HEIGHT } from '@aztec/constants';
+import type {
+  ARCHIVE_HEIGHT,
+  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+  RECURSIVE_PROOF_LENGTH,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { type Logger } from '@aztec/foundation/log';
-import { type Tuple } from '@aztec/foundation/serialize';
-import { MembershipWitness, type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
+import type { Logger } from '@aztec/foundation/log';
+import type { Tuple } from '@aztec/foundation/serialize';
+import { MembershipWitness, UnbalancedTreeStore } from '@aztec/foundation/trees';
+import type { TreeNodeLocation } from '@aztec/foundation/trees';
 import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
 import { buildBlobHints, buildHeaderFromCircuitOutputs } from './block-building-helpers.js';
-import { type EpochProvingState } from './epoch-proving-state.js';
-import { type TxProvingState } from './tx-proving-state.js';
+import type { EpochProvingState } from './epoch-proving-state.js';
+import type { TxProvingState } from './tx-proving-state.js';
 
 export type TreeSnapshots = Map<MerkleTreeId, AppendOnlyTreeSnapshot>;
 

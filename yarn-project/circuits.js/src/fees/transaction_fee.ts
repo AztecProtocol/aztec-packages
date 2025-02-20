@@ -1,4 +1,5 @@
-import { type Fr, type Gas, GasFees, type GasSettings } from '../structs/index.js';
+import { GasFees } from '../structs/index.js';
+import type { Fr, Gas, GasSettings } from '../structs/index.js';
 
 export function computeTransactionFee(gasFees: GasFees, gasSettings: GasSettings, gasUsed: Gas): Fr {
   const { maxFeesPerGas, maxPriorityFeesPerGas } = gasSettings;

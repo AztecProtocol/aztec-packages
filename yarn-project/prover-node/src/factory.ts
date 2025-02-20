@@ -1,21 +1,26 @@
-import { type Archiver, createArchiver } from '@aztec/archiver';
-import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
-import { type ProverCoordination, type ProvingJobBroker } from '@aztec/circuit-types/interfaces/server';
-import { type PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
+import { createArchiver } from '@aztec/archiver';
+import type { Archiver } from '@aztec/archiver';
+import { createBlobSinkClient } from '@aztec/blob-sink/client';
+import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
+import type { ProverCoordination, ProvingJobBroker } from '@aztec/circuit-types/interfaces/server';
+import type { PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { EpochCache } from '@aztec/epoch-cache';
 import { L1TxUtils, RollupContract, createEthereumChain, createL1Clients } from '@aztec/ethereum';
-import { type Logger, createLogger } from '@aztec/foundation/log';
-import { type DataStoreConfig } from '@aztec/kv-store/config';
+import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { createProverClient } from '@aztec/prover-client';
 import { createAndStartProvingBroker } from '@aztec/prover-client/broker';
-import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
+import { getTelemetryClient } from '@aztec/telemetry-client';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
-import { type ProverNodeConfig } from './config.js';
+import type { ProverNodeConfig } from './config.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
 import { createProverCoordination } from './prover-coordination/factory.js';
 import { ProverNodePublisher } from './prover-node-publisher.js';
-import { ProverNode, type ProverNodeOptions } from './prover-node.js';
+import { ProverNode } from './prover-node.js';
+import type { ProverNodeOptions } from './prover-node.js';
 
 /** Creates a new prover node given a config. */
 export async function createProverNode(

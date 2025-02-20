@@ -1,7 +1,7 @@
-import { type AccountInterface, type AuthWitnessProvider } from '@aztec/aztec.js/account';
-import { type EntrypointInterface, type ExecutionRequestInit } from '@aztec/aztec.js/entrypoint';
-import { type AuthWitness, type TxExecutionRequest } from '@aztec/circuit-types';
-import { type AztecAddress, type CompleteAddress, type NodeInfo } from '@aztec/circuits.js';
+import type { AccountInterface, AuthWitnessProvider } from '@aztec/aztec.js/account';
+import type { EntrypointInterface, ExecutionRequestInit } from '@aztec/aztec.js/entrypoint';
+import type { AuthWitness, TxExecutionRequest } from '@aztec/circuit-types';
+import type { AztecAddress, CompleteAddress, NodeInfo } from '@aztec/circuits.js';
 import { DefaultAccountEntrypoint } from '@aztec/entrypoints/account';
 import { Fr } from '@aztec/foundation/fields';
 

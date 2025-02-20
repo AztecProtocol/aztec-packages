@@ -4,13 +4,13 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { mock } from 'jest-mock-extended';
 
-import { type WorldStateDB } from '../../public/public_db_sources.js';
-import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
-import { type AvmContext } from '../avm_context.js';
+import type { WorldStateDB } from '../../public/public_db_sources.js';
+import type { PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
+import type { AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint1, Uint32 } from '../avm_memory_types.js';
 import { markBytecodeAsAvm } from '../bytecode_utils.js';
 import { initContext, initPersistableStateManager } from '../fixtures/index.js';
-import { type AvmPersistableStateManager } from '../journal/journal.js';
+import type { AvmPersistableStateManager } from '../journal/journal.js';
 import { encodeToBytecode } from '../serialization/bytecode_serialization.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import {
@@ -22,7 +22,7 @@ import {
 } from '../test_utils.js';
 import { EnvironmentVariable, GetEnvVar } from './environment_getters.js';
 import { Call, Return, Revert, StaticCall } from './external_calls.js';
-import { type Instruction } from './instruction.js';
+import type { Instruction } from './instruction.js';
 import { CalldataCopy, Set } from './memory.js';
 import { SStore } from './storage.js';
 

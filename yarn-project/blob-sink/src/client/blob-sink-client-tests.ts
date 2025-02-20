@@ -1,6 +1,6 @@
 import { makeEncodedBlob } from '@aztec/blob-lib/testing';
 
-import { type BlobSinkClientInterface } from './interface.js';
+import type { BlobSinkClientInterface } from './interface.js';
 
 /**
  * Shared test suite for blob sink clients

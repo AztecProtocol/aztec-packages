@@ -1,5 +1,5 @@
 import { createCompatibleClient } from '@aztec/aztec.js';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 
 import { inspectBlock } from '../../utils/inspect.js';
 

@@ -1,22 +1,20 @@
 import { ClientIvcProof, Gas } from '@aztec/circuits.js';
 import { PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
-import {
-  type PrivateKernelProverProfileResult,
-  PrivateKernelProverProfileResultSchema,
-} from '../interfaces/private_kernel_prover.js';
+import { PrivateKernelProverProfileResultSchema } from '../interfaces/private_kernel_prover.js';
+import type { PrivateKernelProverProfileResult } from '../interfaces/private_kernel_prover.js';
 import { ContractClassTxL2Logs } from '../logs/tx_l2_logs.js';
 import {
-  type PrivateCallExecutionResult,
   PrivateExecutionResult,
   collectEnqueuedPublicFunctionCalls,
   collectPublicTeardownFunctionCall,
   collectSortedContractClassLogs,
 } from '../private_execution_result.js';
-import { type GasUsed } from './gas_used.js';
+import type { PrivateCallExecutionResult } from '../private_execution_result.js';
+import type { GasUsed } from './gas_used.js';
 import { NestedProcessReturnValues, PublicSimulationOutput } from './public_simulation_output.js';
 import { Tx } from './tx.js';
 

@@ -1,5 +1,5 @@
 import { createLogger } from '../log/index.js';
-import { type WasmWorker } from './wasm_worker.js';
+import type { WasmWorker } from './wasm_worker.js';
 
 const log = createLogger('foundation:worker_pool');
 

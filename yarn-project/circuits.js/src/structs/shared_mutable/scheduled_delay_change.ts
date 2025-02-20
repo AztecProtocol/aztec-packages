@@ -1,4 +1,4 @@
-import { type UInt32 } from '../../types/shared.js';
+import type { UInt32 } from '../../types/shared.js';
 
 export class ScheduledDelayChange {
   constructor(public pre: UInt32 | undefined, public post: UInt32 | undefined, public blockOfChange: UInt32) {}

@@ -1,30 +1,30 @@
-import {
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  type InBlock,
-  type InboxLeaf,
-  type L2Block,
-  type LogFilter,
-  type TxEffect,
-  type TxHash,
-  type TxReceipt,
-  type TxScopedL2Log,
+import type {
+  GetContractClassLogsResponse,
+  GetPublicLogsResponse,
+  InBlock,
+  InboxLeaf,
+  L2Block,
+  LogFilter,
+  TxEffect,
+  TxHash,
+  TxReceipt,
+  TxScopedL2Log,
 } from '@aztec/circuit-types';
-import {
-  type BlockHeader,
-  type ContractClassPublic,
-  type ContractInstanceUpdateWithAddress,
-  type ContractInstanceWithAddress,
-  type ExecutablePrivateFunctionWithMembershipProof,
-  type Fr,
-  type PrivateLog,
-  type UnconstrainedFunctionWithMembershipProof,
+import type {
+  BlockHeader,
+  ContractClassPublic,
+  ContractInstanceUpdateWithAddress,
+  ContractInstanceWithAddress,
+  ExecutablePrivateFunctionWithMembershipProof,
+  Fr,
+  PrivateLog,
+  UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
-import { type FunctionSelector } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { FunctionSelector } from '@aztec/circuits.js/abi';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
 
-import { type DataRetrieval } from './structs/data_retrieval.js';
-import { type L1Published } from './structs/published.js';
+import type { DataRetrieval } from './structs/data_retrieval.js';
+import type { L1Published } from './structs/published.js';
 
 /**
  * Represents the latest L1 block processed by the archiver for various objects in L2.

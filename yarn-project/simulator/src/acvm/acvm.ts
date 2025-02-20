@@ -1,17 +1,13 @@
-import { type NoirCallStack } from '@aztec/circuit-types';
+import type { NoirCallStack } from '@aztec/circuit-types';
 import type { FunctionDebugMetadata } from '@aztec/circuits.js/abi';
 import { createLogger } from '@aztec/foundation/log';
 
-import {
-  type ExecutionError,
-  type ForeignCallInput,
-  type ForeignCallOutput,
-  executeCircuitWithReturnWitness,
-} from '@noir-lang/acvm_js';
+import { executeCircuitWithReturnWitness } from '@noir-lang/acvm_js';
+import type { ExecutionError, ForeignCallInput, ForeignCallOutput } from '@noir-lang/acvm_js';
 
 import { resolveOpcodeLocations, traverseCauseChain } from '../common/errors.js';
-import { type ACVMWitness } from './acvm_types.js';
-import { type ORACLE_NAMES } from './oracle/index.js';
+import type { ACVMWitness } from './acvm_types.js';
+import type { ORACLE_NAMES } from './oracle/index.js';
 
 /**
  * The callback interface for the ACIR.

@@ -1,11 +1,8 @@
-import {
-  type ConfigMappingsType,
-  bigintConfigHelper,
-  getConfigFromMappings,
-  numberConfigHelper,
-} from '@aztec/foundation/config';
+import { bigintConfigHelper, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
+import type { ConfigMappingsType } from '@aztec/foundation/config';
 
-import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from './l1_tx_utils.js';
+import { l1TxUtilsConfigMappings } from './l1_tx_utils.js';
+import type { L1TxUtilsConfig } from './l1_tx_utils.js';
 
 export type L1ContractsConfig = {
   /** How many seconds an L1 slot lasts. */

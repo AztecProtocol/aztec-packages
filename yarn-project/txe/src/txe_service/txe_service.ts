@@ -1,29 +1,23 @@
 import { MerkleTreeId, SimulationError } from '@aztec/circuit-types';
-import {
-  type ContractInstanceWithAddress,
-  Fr,
-  FunctionSelector,
-  PublicDataWrite,
-  computePartialAddress,
-} from '@aztec/circuits.js';
-import { type ContractArtifact, NoteSelector } from '@aztec/circuits.js/abi';
+import { Fr, FunctionSelector, PublicDataWrite, computePartialAddress } from '@aztec/circuits.js';
+import type { ContractInstanceWithAddress } from '@aztec/circuits.js';
+import { NoteSelector } from '@aztec/circuits.js/abi';
+import type { ContractArtifact } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
 import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
-import { type Logger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { protocolContractNames } from '@aztec/protocol-contracts';
 import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
 import { enrichPublicSimulationError } from '@aztec/pxe';
-import { type TypedOracle } from '@aztec/simulator/client';
+import type { TypedOracle } from '@aztec/simulator/client';
 import { HashedValuesCache } from '@aztec/simulator/server';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import { TXE } from '../oracle/txe_oracle.js';
 import {
-  type ForeignCallArray,
-  type ForeignCallSingle,
   addressFromSingle,
   fromArray,
   fromSingle,
@@ -32,6 +26,7 @@ import {
   toForeignCallResult,
   toSingle,
 } from '../util/encoding.js';
+import type { ForeignCallArray, ForeignCallSingle } from '../util/encoding.js';
 import { ExpectedFailureError } from '../util/expected_failure_error.js';
 import { TXEDatabase } from '../util/txe_database.js';
 

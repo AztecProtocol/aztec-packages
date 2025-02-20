@@ -1,10 +1,5 @@
-import {
-  type ContractArtifact,
-  type FunctionArtifact,
-  FunctionType,
-  getDefaultInitializer,
-  getInitializer,
-} from './abi.js';
+import { FunctionType, getDefaultInitializer, getInitializer } from './abi.js';
+import type { ContractArtifact, FunctionArtifact } from './abi.js';
 
 describe('abi', () => {
   describe('getDefaultInitializer', () => {

@@ -1,4 +1,5 @@
-import { type ConfigMapping, numberConfigHelper } from '@aztec/foundation/config';
+import { numberConfigHelper } from '@aztec/foundation/config';
+import type { ConfigMapping } from '@aztec/foundation/config';
 
 export const DEFAULT_INDIVIDUAL_REQUEST_TIMEOUT_MS = 2000;
 export const DEFAULT_OVERALL_REQUEST_TIMEOUT_MS = 4000;

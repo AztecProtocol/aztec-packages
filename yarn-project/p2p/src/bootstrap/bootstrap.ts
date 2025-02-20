@@ -1,12 +1,16 @@
-import { type P2PBootstrapApi } from '@aztec/circuit-types/interfaces/server';
+import type { P2PBootstrapApi } from '@aztec/circuit-types/interfaces/server';
 import { createLogger } from '@aztec/foundation/log';
-import { type AztecAsyncKVStore } from '@aztec/kv-store';
-import { OtelMetricsAdapter, type TelemetryClient } from '@aztec/telemetry-client';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
+import { OtelMetricsAdapter } from '@aztec/telemetry-client';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 
-import { Discv5, type Discv5EventEmitter } from '@chainsafe/discv5';
-import { type ENR, SignableENR } from '@chainsafe/enr';
+import { Discv5 } from '@chainsafe/discv5';
+import type { Discv5EventEmitter } from '@chainsafe/discv5';
+import { SignableENR } from '@chainsafe/enr';
+import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
-import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
+import { multiaddr } from '@multiformats/multiaddr';
+import type { Multiaddr } from '@multiformats/multiaddr';
 
 import type { BootnodeConfig } from '../config.js';
 import { convertToMultiaddr, createLibP2PPeerIdFromPrivateKey, getPeerIdPrivateKey } from '../util.js';

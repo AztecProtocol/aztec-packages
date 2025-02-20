@@ -1,4 +1,5 @@
-import { type PXE, PXESchema } from '@aztec/circuit-types/interfaces/client';
+import { PXESchema } from '@aztec/circuit-types/interfaces/client';
+import type { PXE } from '@aztec/circuit-types/interfaces/client';
 import { createNamespacedSafeJsonRpcServer, createSafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
 
 import http from 'http';

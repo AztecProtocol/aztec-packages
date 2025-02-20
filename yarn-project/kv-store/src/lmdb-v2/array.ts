@@ -3,7 +3,8 @@ import { Encoder } from 'msgpackr/pack';
 import type { AztecAsyncArray } from '../interfaces/array.js';
 import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
 import type { ReadTransaction } from './read_transaction.js';
-import { AztecLMDBStoreV2, execInReadTx, execInWriteTx } from './store.js';
+import type { AztecLMDBStoreV2 } from './store.js';
+import { execInReadTx, execInWriteTx } from './store.js';
 import { deserializeKey, serializeKey } from './utils.js';
 
 export class LMDBArray<T> implements AztecAsyncArray<T> {

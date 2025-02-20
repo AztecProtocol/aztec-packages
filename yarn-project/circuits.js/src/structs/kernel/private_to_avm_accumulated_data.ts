@@ -4,20 +4,16 @@ import {
   MAX_NULLIFIERS_PER_TX,
   PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH,
 } from '@aztec/constants';
-import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
+import { makeTuple } from '@aztec/foundation/array';
+import type { FieldsOf } from '@aztec/foundation/array';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
-import {
-  BufferReader,
-  FieldReader,
-  type Tuple,
-  serializeToBuffer,
-  serializeToFields,
-} from '@aztec/foundation/serialize';
+import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import type { Tuple } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
 
-import { type UInt32 } from '../../types/shared.js';
+import type { UInt32 } from '../../types/shared.js';
 import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
 
 export class PrivateToAvmAccumulatedData {

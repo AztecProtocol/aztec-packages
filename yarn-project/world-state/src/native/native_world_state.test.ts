@@ -1,5 +1,6 @@
-import { type L2Block, MerkleTreeId, type SiblingPath } from '@aztec/circuit-types';
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
+import { MerkleTreeId } from '@aztec/circuit-types';
+import type { L2Block, SiblingPath } from '@aztec/circuit-types';
+import type { MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import { BlockHeader, EthAddress, Fr, PublicDataWrite } from '@aztec/circuits.js';
 import { makeContentCommitment, makeGlobalVariables } from '@aztec/circuits.js/testing';
 import { AppendOnlyTreeSnapshot, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
@@ -22,7 +23,7 @@ import { join } from 'path';
 
 import { assertSameState, compareChains, mockBlock, mockEmptyBlock } from '../test/utils.js';
 import { INITIAL_NULLIFIER_TREE_SIZE, INITIAL_PUBLIC_DATA_TREE_SIZE } from '../world-state-db/merkle_tree_db.js';
-import { type WorldStateStatusSummary } from './message.js';
+import type { WorldStateStatusSummary } from './message.js';
 import { NativeWorldStateService, WORLD_STATE_VERSION_FILE } from './native_world_state.js';
 import { WorldStateVersion } from './world_state_version.js';
 

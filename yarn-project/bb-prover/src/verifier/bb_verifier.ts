@@ -1,17 +1,18 @@
 import { Tx } from '@aztec/circuit-types';
-import { type ClientProtocolCircuitVerifier } from '@aztec/circuit-types/interfaces/server';
-import { type CircuitVerificationStats } from '@aztec/circuit-types/stats';
-import { type Proof, type VerificationKeyData } from '@aztec/circuits.js';
+import type { ClientProtocolCircuitVerifier } from '@aztec/circuit-types/interfaces/server';
+import type { CircuitVerificationStats } from '@aztec/circuit-types/stats';
+import type { Proof, VerificationKeyData } from '@aztec/circuits.js';
 import { runInDirectory } from '@aztec/foundation/fs';
-import { type Logger, createLogger } from '@aztec/foundation/log';
-import { type ClientProtocolArtifact, type ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
+import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
+import type { ClientProtocolArtifact, ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
 import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
 
 import { promises as fs } from 'fs';
 import * as path from 'path';
 
 import { BB_RESULT, PROOF_FILENAME, VK_FILENAME, verifyClientIvcProof, verifyProof } from '../bb/execute.js';
-import { type BBConfig } from '../config.js';
+import type { BBConfig } from '../config.js';
 import { getUltraHonkFlavorForCircuit } from '../honk.js';
 import { writeToOutputDirectory } from '../prover/client_ivc_proof_utils.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';

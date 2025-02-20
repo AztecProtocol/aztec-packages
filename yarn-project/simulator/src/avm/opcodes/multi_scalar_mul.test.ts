@@ -2,8 +2,9 @@ import { Fq, Fr, Point } from '@aztec/circuits.js';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Grumpkin } from '@aztec/foundation/crypto';
 
-import { type AvmContext } from '../avm_context.js';
-import { Field, type MemoryValue, Uint1, Uint32 } from '../avm_memory_types.js';
+import type { AvmContext } from '../avm_context.js';
+import { Field, Uint1, Uint32 } from '../avm_memory_types.js';
+import type { MemoryValue } from '../avm_memory_types.js';
 import { MSMPointNotOnCurveError, MSMPointsLengthError } from '../errors.js';
 import { initContext } from '../fixtures/index.js';
 import { MultiScalarMul } from './multi_scalar_mul.js';

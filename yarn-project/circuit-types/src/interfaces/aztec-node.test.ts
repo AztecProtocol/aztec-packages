@@ -1,19 +1,21 @@
 import {
   AztecAddress,
   BlockHeader,
-  type ContractClassPublic,
-  type ContractInstanceWithAddress,
   EthAddress,
   Fr,
   GasFees,
-  type NodeInfo,
   PrivateLog,
-  type ProtocolContractAddresses,
   ProtocolContractsNames,
   PublicKeys,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/circuits.js/abi';
+import type {
+  ContractClassPublic,
+  ContractInstanceWithAddress,
+  NodeInfo,
+  ProtocolContractAddresses,
+} from '@aztec/circuits.js';
+import type { ContractArtifact } from '@aztec/circuits.js/abi';
 import { loadContractArtifact } from '@aztec/circuits.js/abi';
 import {
   ARCHIVE_HEIGHT,
@@ -22,39 +24,40 @@ import {
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
-import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
+import { L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { memoize } from '@aztec/foundation/decorators';
-import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
+import { createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
+import type { JsonRpcTestContext } from '@aztec/foundation/json-rpc/test';
 import { fileURLToPath } from '@aztec/foundation/url';
 
 import { readFileSync } from 'fs';
 import omit from 'lodash.omit';
 import { resolve } from 'path';
 
-import { type InBlock, randomInBlock } from '../in_block.js';
+import { randomInBlock } from '../in_block.js';
+import type { InBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
-import { type L2Tips } from '../l2_block_source.js';
+import type { L2Tips } from '../l2_block_source.js';
 import { ExtendedPublicLog } from '../logs/extended_public_log.js';
 import { ExtendedUnencryptedL2Log } from '../logs/extended_unencrypted_l2_log.js';
-import {
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  TxScopedL2Log,
-} from '../logs/get_logs_response.js';
-import { type LogFilter } from '../logs/log_filter.js';
+import { TxScopedL2Log } from '../logs/get_logs_response.js';
+import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '../logs/get_logs_response.js';
+import type { LogFilter } from '../logs/log_filter.js';
 import { MerkleTreeId } from '../merkle_tree_id.js';
 import { PublicDataWitness } from '../public_data_witness.js';
 import { SiblingPath } from '../sibling_path/sibling_path.js';
-import { type TxValidationResult } from '../tx/index.js';
+import type { TxValidationResult } from '../tx/index.js';
 import { PublicSimulationOutput } from '../tx/public_simulation_output.js';
 import { Tx } from '../tx/tx.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
 import { TxEffect } from '../tx_effect.js';
-import { type AztecNode, AztecNodeApiSchema } from './aztec-node.js';
-import { type SequencerConfig } from './configs.js';
+import { AztecNodeApiSchema } from './aztec-node.js';
+import type { AztecNode } from './aztec-node.js';
+import type { SequencerConfig } from './configs.js';
 import { NullifierMembershipWitness } from './nullifier_membership_witness.js';
-import { type ProverConfig } from './prover-client.js';
+import type { ProverConfig } from './prover-client.js';
 
 describe('AztecNodeApiSchema', () => {
   let handler: MockAztecNode;

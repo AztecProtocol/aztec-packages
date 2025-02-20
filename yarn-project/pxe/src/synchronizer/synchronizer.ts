@@ -1,11 +1,13 @@
-import { L2BlockStream, type L2BlockStreamEvent, type L2BlockStreamEventHandler } from '@aztec/circuit-types';
-import { type AztecNode } from '@aztec/circuit-types/interfaces/client';
+import { L2BlockStream } from '@aztec/circuit-types';
+import type { L2BlockStreamEvent, L2BlockStreamEventHandler } from '@aztec/circuit-types';
+import type { AztecNode } from '@aztec/circuit-types/interfaces/client';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
-import { type Logger, createLogger } from '@aztec/foundation/log';
-import { type L2TipsStore } from '@aztec/kv-store/stores';
+import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
+import type { L2TipsStore } from '@aztec/kv-store/stores';
 
-import { type PXEConfig } from '../config/index.js';
-import { type PxeDatabase } from '../database/index.js';
+import type { PXEConfig } from '../config/index.js';
+import type { PxeDatabase } from '../database/index.js';
 
 /**
  * The Synchronizer class manages the synchronization with the aztec node, allowing PXE to retrieve the

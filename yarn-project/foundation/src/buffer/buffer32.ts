@@ -1,5 +1,5 @@
 import { randomBytes } from '@aztec/foundation/crypto';
-import { type Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
 import { BufferReader, deserializeBigInt, serializeBigInt } from '@aztec/foundation/serialize';
 
 import { bufferToHex } from '../string/index.js';

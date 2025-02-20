@@ -1,22 +1,24 @@
-import { type PeerErrorSeverity } from '@aztec/circuit-types';
-import { type PeerInfo } from '@aztec/circuit-types/interfaces/server';
+import type { PeerErrorSeverity } from '@aztec/circuit-types';
+import type { PeerInfo } from '@aztec/circuit-types/interfaces/server';
 import { createLogger } from '@aztec/foundation/log';
-import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
+import { trackSpan } from '@aztec/telemetry-client';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 
-import { type ENR } from '@chainsafe/enr';
-import { type Connection, type PeerId } from '@libp2p/interface';
-import { type Multiaddr } from '@multiformats/multiaddr';
+import type { ENR } from '@chainsafe/enr';
+import type { Connection, PeerId } from '@libp2p/interface';
+import type { Multiaddr } from '@multiformats/multiaddr';
 import { inspect } from 'util';
 
-import { type P2PConfig } from '../../config.js';
-import { type PubSubLibp2p } from '../../util.js';
+import type { P2PConfig } from '../../config.js';
+import type { PubSubLibp2p } from '../../util.js';
 import { ReqRespSubProtocol } from '../reqresp/interface.js';
 import { GoodByeReason, prettyGoodbyeReason } from '../reqresp/protocols/goodbye.js';
-import { type ReqResp } from '../reqresp/reqresp.js';
-import { type PeerDiscoveryService } from '../service.js';
+import type { ReqResp } from '../reqresp/reqresp.js';
+import type { PeerDiscoveryService } from '../service.js';
 import { PeerEvent } from '../types.js';
 import { PeerManagerMetrics } from './metrics.js';
-import { PeerScoreState, type PeerScoring } from './peer_scoring.js';
+import { PeerScoreState } from './peer_scoring.js';
+import type { PeerScoring } from './peer_scoring.js';
 
 const MAX_DIAL_ATTEMPTS = 3;
 const MAX_CACHED_PEERS = 100;

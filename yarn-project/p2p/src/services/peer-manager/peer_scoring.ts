@@ -2,9 +2,9 @@ import { PeerErrorSeverity } from '@aztec/circuit-types';
 import { median } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 
-import { type PeerId } from '@libp2p/interface';
+import type { PeerId } from '@libp2p/interface';
 
-import { type P2PConfig } from '../../config.js';
+import type { P2PConfig } from '../../config.js';
 
 const DefaultPeerPenalties = {
   [PeerErrorSeverity.LowToleranceError]: 50,

@@ -1,15 +1,11 @@
-import {
-  Archiver,
-  type ArchiverConfig,
-  KVArchiverDataStore,
-  archiverConfigMappings,
-  getArchiverConfigFromEnv,
-} from '@aztec/archiver';
+import { Archiver, KVArchiverDataStore, archiverConfigMappings, getArchiverConfigFromEnv } from '@aztec/archiver';
+import type { ArchiverConfig } from '@aztec/archiver';
 import { createLogger } from '@aztec/aztec.js';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { ArchiverApiSchema } from '@aztec/circuit-types/interfaces/server';
-import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
-import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
+import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
+import { dataConfigMappings } from '@aztec/kv-store/config';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { getConfigEnvVars as getTelemetryClientConfig, initTelemetryClient } from '@aztec/telemetry-client';
 

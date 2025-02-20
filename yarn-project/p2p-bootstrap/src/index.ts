@@ -1,7 +1,9 @@
 import { createLogger } from '@aztec/foundation/log';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
-import { type BootnodeConfig, BootstrapNode } from '@aztec/p2p';
-import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
+import { BootstrapNode } from '@aztec/p2p';
+import type { BootnodeConfig } from '@aztec/p2p';
+import { getTelemetryClient } from '@aztec/telemetry-client';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import Koa from 'koa';
 import Router from 'koa-router';

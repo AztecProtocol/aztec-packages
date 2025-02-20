@@ -1,7 +1,8 @@
-import { type GetPublicLogsResponse, type TxHash, type TxReceipt, TxStatus } from '@aztec/circuit-types';
-import { type PXE } from '@aztec/circuit-types/interfaces/client';
+import { TxStatus } from '@aztec/circuit-types';
+import type { GetPublicLogsResponse, TxHash, TxReceipt } from '@aztec/circuit-types';
+import type { PXE } from '@aztec/circuit-types/interfaces/client';
 import { retryUntil } from '@aztec/foundation/retry';
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { FieldsOf } from '@aztec/foundation/types';
 
 /** Options related to waiting for a tx. */
 export type WaitOpts = {

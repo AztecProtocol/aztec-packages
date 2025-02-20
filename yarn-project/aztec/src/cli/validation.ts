@@ -1,10 +1,5 @@
-import {
-  type L1ContractAddresses,
-  type L1ContractsConfig,
-  getL1ContractsAddresses,
-  getL1ContractsConfig,
-  getPublicClient,
-} from '@aztec/ethereum';
+import { getL1ContractsAddresses, getL1ContractsConfig, getPublicClient } from '@aztec/ethereum';
+import type { L1ContractAddresses, L1ContractsConfig } from '@aztec/ethereum';
 
 /**
  * Connects to L1 using the provided L1 RPC URL and reads all addresses and settings from the governance

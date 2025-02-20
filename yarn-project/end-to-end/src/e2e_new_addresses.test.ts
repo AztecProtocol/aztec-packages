@@ -1,4 +1,4 @@
-import { type Logger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 
 import { beforeEach, describe, it } from '@jest/globals';
 

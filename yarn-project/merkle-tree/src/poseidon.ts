@@ -1,4 +1,4 @@
-import { type Hasher } from '@aztec/circuits.js/interfaces';
+import type { Hasher } from '@aztec/circuits.js/interfaces';
 import { poseidon2Hash } from '@aztec/foundation/crypto/sync';
 import { Fr } from '@aztec/foundation/fields';
 

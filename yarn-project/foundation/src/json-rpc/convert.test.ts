@@ -1,4 +1,5 @@
-import { type ZodTypeAny, z } from 'zod';
+import { z } from 'zod';
+import type { ZodTypeAny } from 'zod';
 
 import { schemas } from '../schemas/schemas.js';
 import { mapSchema, setSchema } from '../schemas/utils.js';

@@ -1,18 +1,17 @@
-import { type ComponentsVersions, getVersioningResponseHandler } from '@aztec/circuit-types';
+import { getVersioningResponseHandler } from '@aztec/circuit-types';
+import type { ComponentsVersions } from '@aztec/circuit-types';
 import {
-  type GetProvingJobResponse,
   ProofUri,
   ProvingJob,
-  type ProvingJobBroker,
-  type ProvingJobConsumer,
   ProvingJobId,
-  type ProvingJobProducer,
   ProvingJobStatus,
   ProvingRequestType,
 } from '@aztec/circuit-types/interfaces/server';
+import type { ProvingJobBroker, ProvingJobConsumer, ProvingJobProducer } from '@aztec/circuit-types/interfaces/server';
 import { createSafeJsonRpcClient } from '@aztec/foundation/json-rpc/client';
-import { type SafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
-import { type ApiSchemaFor, optional } from '@aztec/foundation/schemas';
+import type { SafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
+import { optional } from '@aztec/foundation/schemas';
+import type { ApiSchemaFor } from '@aztec/foundation/schemas';
 import { createTracedJsonRpcServer, makeTracedFetch } from '@aztec/telemetry-client';
 
 import { z } from 'zod';

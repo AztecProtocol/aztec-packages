@@ -1,8 +1,8 @@
-import { type AuthWitness, type CompleteAddress } from '@aztec/circuit-types';
-import { type AztecAddress } from '@aztec/circuits.js';
-import { type Fr } from '@aztec/foundation/fields';
+import type { AuthWitness, CompleteAddress } from '@aztec/circuit-types';
+import type { AztecAddress } from '@aztec/circuits.js';
+import type { Fr } from '@aztec/foundation/fields';
 
-import { type EntrypointInterface } from '../entrypoint/entrypoint.js';
+import type { EntrypointInterface } from '../entrypoint/entrypoint.js';
 
 // docs:start:account-interface
 /** Creates authorization witnesses. */

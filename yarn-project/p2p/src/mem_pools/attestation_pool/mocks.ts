@@ -6,10 +6,11 @@ import {
   getHashedSignaturePayloadEthSignedMessage,
 } from '@aztec/circuit-types';
 import { makeHeader } from '@aztec/circuits.js/testing';
-import { type Secp256k1Signer } from '@aztec/foundation/crypto';
+import type { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
-import { type LocalAccount, generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
+import type { LocalAccount } from 'viem/accounts';
 
 /** Generate Account
  *

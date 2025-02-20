@@ -1,34 +1,28 @@
-import {
-  type ProofAndVerificationKey,
-  type ProvingJob,
-  type ProvingJobId,
-  type ProvingJobProducer,
-  type ProvingJobStatus,
-  type PublicInputsAndRecursiveProof,
-  type ServerCircuitProver,
-  makeProofAndVerificationKey,
-  makePublicInputsAndRecursiveProof,
+import { makeProofAndVerificationKey, makePublicInputsAndRecursiveProof } from '@aztec/circuit-types/interfaces/server';
+import type {
+  ProofAndVerificationKey,
+  ProvingJob,
+  ProvingJobId,
+  ProvingJobProducer,
+  ProvingJobStatus,
+  PublicInputsAndRecursiveProof,
+  ServerCircuitProver,
 } from '@aztec/circuit-types/interfaces/server';
-import {
-  type BaseParityInputs,
-  type RootParityInputs,
-  VerificationKeyData,
-  makeEmptyRecursiveProof,
-  makeRecursiveProof,
-} from '@aztec/circuits.js';
-import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
-import {
-  type BaseOrMergeRollupPublicInputs,
-  type BlockMergeRollupInputs,
-  type BlockRootOrBlockMergePublicInputs,
-  type BlockRootRollupInputs,
-  type EmptyBlockRootRollupInputs,
-  type MergeRollupInputs,
-  type PrivateBaseRollupInputs,
-  type PublicBaseRollupInputs,
-  type RootRollupInputs,
-  type RootRollupPublicInputs,
-  type SingleTxBlockRootRollupInputs,
+import { VerificationKeyData, makeEmptyRecursiveProof, makeRecursiveProof } from '@aztec/circuits.js';
+import type { BaseParityInputs, RootParityInputs } from '@aztec/circuits.js';
+import type { AvmCircuitInputs } from '@aztec/circuits.js/avm';
+import type {
+  BaseOrMergeRollupPublicInputs,
+  BlockMergeRollupInputs,
+  BlockRootOrBlockMergePublicInputs,
+  BlockRootRollupInputs,
+  EmptyBlockRootRollupInputs,
+  MergeRollupInputs,
+  PrivateBaseRollupInputs,
+  PublicBaseRollupInputs,
+  RootRollupInputs,
+  RootRollupPublicInputs,
+  SingleTxBlockRootRollupInputs,
 } from '@aztec/circuits.js/rollup';
 import {
   makeBaseOrMergeRollupPublicInputs,
@@ -46,7 +40,8 @@ import {
 } from '@aztec/constants';
 import { times } from '@aztec/foundation/collection';
 
-import { InlineProofStore, type ProofStore } from '../proving_broker/proof_store/index.js';
+import { InlineProofStore } from '../proving_broker/proof_store/index.js';
+import type { ProofStore } from '../proving_broker/proof_store/index.js';
 import { ProvingAgent } from '../proving_broker/proving_agent.js';
 import { ProvingBroker } from '../proving_broker/proving_broker.js';
 import { InMemoryBrokerDatabase } from '../proving_broker/proving_broker_database/memory.js';

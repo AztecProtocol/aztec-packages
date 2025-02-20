@@ -1,42 +1,39 @@
 import { Blob } from '@aztec/blob-lib';
-import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
-import {
-  ConsensusPayload,
-  type L2Block,
-  SignatureDomainSeparator,
-  type TxHash,
-  getHashedSignaturePayload,
-} from '@aztec/circuit-types';
+import { createBlobSinkClient } from '@aztec/blob-sink/client';
+import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
+import { ConsensusPayload, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/circuit-types';
+import type { L2Block, TxHash } from '@aztec/circuit-types';
 import type { L1PublishBlockStats } from '@aztec/circuit-types/stats';
-import { type BlockHeader, EthAddress } from '@aztec/circuits.js';
-import { type EpochCache } from '@aztec/epoch-cache';
-import {
-  FormattedViemError,
-  type ForwarderContract,
-  type GasPrice,
-  type GovernanceProposerContract,
-  type IEmpireBase,
-  type L1BlobInputs,
-  type L1ContractsConfig,
-  type L1GasConfig,
-  type L1TxRequest,
-  RollupContract,
-  type SlashingProposerContract,
-  type TransactionStats,
-  formatViemError,
+import { EthAddress } from '@aztec/circuits.js';
+import type { BlockHeader } from '@aztec/circuits.js';
+import type { EpochCache } from '@aztec/epoch-cache';
+import { FormattedViemError, RollupContract, formatViemError } from '@aztec/ethereum';
+import type {
+  ForwarderContract,
+  GasPrice,
+  GovernanceProposerContract,
+  IEmpireBase,
+  L1BlobInputs,
+  L1ContractsConfig,
+  L1GasConfig,
+  L1TxRequest,
+  SlashingProposerContract,
+  TransactionStats,
 } from '@aztec/ethereum';
-import { type L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { toHex } from '@aztec/foundation/bigint-buffer';
-import { type Signature } from '@aztec/foundation/eth-signature';
+import type { Signature } from '@aztec/foundation/eth-signature';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ForwarderAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
+import { getTelemetryClient } from '@aztec/telemetry-client';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
-import { type TransactionReceipt, encodeFunctionData } from 'viem';
+import { encodeFunctionData } from 'viem';
+import type { TransactionReceipt } from 'viem';
 
-import { type PublisherConfig, type TxSenderConfig } from './config.js';
+import type { PublisherConfig, TxSenderConfig } from './config.js';
 import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
 
 /** Arguments to the process method of the rollup contract */

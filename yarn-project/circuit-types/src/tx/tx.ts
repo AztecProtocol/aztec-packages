@@ -1,19 +1,21 @@
-import { ClientIvcProof, Fr, type GasSettings, PrivateLog } from '@aztec/circuits.js';
-import { PrivateKernelTailCircuitPublicInputs, type PrivateToPublicAccumulatedData } from '@aztec/circuits.js/kernel';
+import { ClientIvcProof, Fr, PrivateLog } from '@aztec/circuits.js';
+import type { GasSettings } from '@aztec/circuits.js';
+import { PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
+import type { PrivateToPublicAccumulatedData } from '@aztec/circuits.js/kernel';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { BufferReader, serializeArrayOfBufferableToVector, serializeToBuffer } from '@aztec/foundation/serialize';
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
-import { type GetPublicLogsResponse } from '../logs/get_logs_response.js';
-import { type L2LogsSource } from '../logs/l2_logs_source.js';
+import type { GetPublicLogsResponse } from '../logs/get_logs_response.js';
+import type { L2LogsSource } from '../logs/l2_logs_source.js';
 import { ContractClassTxL2Logs } from '../logs/tx_l2_logs.js';
 import { Gossipable } from '../p2p/gossipable.js';
 import { TopicType, createTopicString } from '../p2p/topic_type.js';
 import { PublicExecutionRequest } from '../public_execution_request.js';
-import { type TxStats } from '../stats/stats.js';
+import type { TxStats } from '../stats/stats.js';
 import { TxHash } from './tx_hash.js';
 
 /**

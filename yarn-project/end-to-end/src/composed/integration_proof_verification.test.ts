@@ -3,22 +3,14 @@ import { BBCircuitVerifier } from '@aztec/bb-prover';
 import { Proof } from '@aztec/circuits.js';
 import { RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 import { createL1Clients } from '@aztec/ethereum';
-import { type Logger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { HonkVerifierAbi, HonkVerifierBytecode, IVerifierAbi } from '@aztec/l1-artifacts';
 
-import { type Anvil } from '@viem/anvil';
+import type { Anvil } from '@viem/anvil';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
-import {
-  type Account,
-  type Chain,
-  type GetContractReturnType,
-  type Hex,
-  type HttpTransport,
-  type PublicClient,
-  type WalletClient,
-  getContract,
-} from 'viem';
+import { getContract } from 'viem';
+import type { Account, Chain, GetContractReturnType, Hex, HttpTransport, PublicClient, WalletClient } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';

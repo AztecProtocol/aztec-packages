@@ -1,12 +1,14 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
-import { AztecAddress, type ContractDataSource, Fr } from '@aztec/circuits.js';
+import type { MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
+import { AztecAddress, Fr } from '@aztec/circuits.js';
+import type { ContractDataSource } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
 import { timesParallel } from '@aztec/foundation/collection';
-import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
+import type { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
-import { type MockProxy, mock } from 'jest-mock-extended';
+import { mock } from 'jest-mock-extended';
+import type { MockProxy } from 'jest-mock-extended';
 
 import { WorldStateDB } from './public_db_sources.js';
 

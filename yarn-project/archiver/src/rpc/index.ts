@@ -1,5 +1,7 @@
-import { type ComponentsVersions, getVersioningResponseHandler } from '@aztec/circuit-types';
-import { type ArchiverApi, ArchiverApiSchema } from '@aztec/circuit-types/interfaces/server';
+import { getVersioningResponseHandler } from '@aztec/circuit-types';
+import type { ComponentsVersions } from '@aztec/circuit-types';
+import { ArchiverApiSchema } from '@aztec/circuit-types/interfaces/server';
+import type { ArchiverApi } from '@aztec/circuit-types/interfaces/server';
 import { createSafeJsonRpcClient } from '@aztec/foundation/json-rpc/client';
 import { createTracedJsonRpcServer, makeTracedFetch } from '@aztec/telemetry-client';
 

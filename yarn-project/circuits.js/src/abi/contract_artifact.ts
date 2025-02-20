@@ -1,17 +1,16 @@
-import {
-  type ABIParameter,
-  type ABIParameterVisibility,
-  type AbiType,
-  type BasicValue,
-  type ContractArtifact,
-  ContractArtifactSchema,
-  type ContractNote,
-  type FieldLayout,
-  type FunctionArtifact,
-  FunctionType,
-  type IntegerValue,
-  type StructValue,
-  type TypedStructFieldValue,
+import { ContractArtifactSchema, FunctionType } from '@aztec/circuits.js/abi';
+import type {
+  ABIParameter,
+  ABIParameterVisibility,
+  AbiType,
+  BasicValue,
+  ContractArtifact,
+  ContractNote,
+  FieldLayout,
+  FunctionArtifact,
+  IntegerValue,
+  StructValue,
+  TypedStructFieldValue,
 } from '@aztec/circuits.js/abi';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 
@@ -21,8 +20,8 @@ import {
   AZTEC_PRIVATE_ATTRIBUTE,
   AZTEC_PUBLIC_ATTRIBUTE,
   AZTEC_VIEW_ATTRIBUTE,
-  type NoirCompiledContract,
 } from '../noir/index.js';
+import type { NoirCompiledContract } from '../noir/index.js';
 
 /**
  * Serializes a contract artifact to a buffer for storage.

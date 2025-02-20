@@ -1,13 +1,8 @@
-import {
-  Attributes,
-  Metrics,
-  type TelemetryClient,
-  type Tracer,
-  type UpDownCounter,
-  ValueType,
-} from '@aztec/telemetry-client';
+import { Attributes, Metrics, ValueType } from '@aztec/telemetry-client';
+import type { TelemetryClient, Tracer, UpDownCounter } from '@aztec/telemetry-client';
 
-import { type GoodByeReason, prettyGoodbyeReason } from '../reqresp/protocols/index.js';
+import { prettyGoodbyeReason } from '../reqresp/protocols/index.js';
+import type { GoodByeReason } from '../reqresp/protocols/index.js';
 
 export class PeerManagerMetrics {
   private sentGoodbyes: UpDownCounter;

@@ -1,11 +1,9 @@
-import {
-  type ContractClassPublic,
-  type ContractClassPublicWithBlockNumber,
-  type ExecutablePrivateFunctionWithMembershipProof,
-  Fr,
-  FunctionSelector,
-  type UnconstrainedFunctionWithMembershipProof,
-  Vector,
+import { Fr, FunctionSelector, Vector } from '@aztec/circuits.js';
+import type {
+  ContractClassPublic,
+  ContractClassPublicWithBlockNumber,
+  ExecutablePrivateFunctionWithMembershipProof,
+  UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
 import { toArray } from '@aztec/foundation/iterable';
 import { BufferReader, numToUInt8, serializeToBuffer } from '@aztec/foundation/serialize';

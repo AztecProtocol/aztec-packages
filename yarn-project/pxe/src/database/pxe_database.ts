@@ -1,18 +1,18 @@
-import { type InBlock, type NotesFilter } from '@aztec/circuit-types';
-import {
-  type BlockHeader,
-  type CompleteAddress,
-  type ContractInstanceWithAddress,
-  type IndexedTaggingSecret,
-  type PublicKey,
+import type { InBlock, NotesFilter } from '@aztec/circuit-types';
+import type {
+  BlockHeader,
+  CompleteAddress,
+  ContractInstanceWithAddress,
+  IndexedTaggingSecret,
+  PublicKey,
 } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { type Fr } from '@aztec/foundation/fields';
+import type { ContractArtifact } from '@aztec/circuits.js/abi';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { Fr } from '@aztec/foundation/fields';
 
-import { type ContractArtifactDatabase } from './contracts/contract_artifact_db.js';
-import { type ContractInstanceDatabase } from './contracts/contract_instance_db.js';
-import { type NoteDao } from './note_dao.js';
+import type { ContractArtifactDatabase } from './contracts/contract_artifact_db.js';
+import type { ContractInstanceDatabase } from './contracts/contract_instance_db.js';
+import type { NoteDao } from './note_dao.js';
 
 /**
  * A database interface that provides methods for retrieving, adding, and removing transactional data related to Aztec

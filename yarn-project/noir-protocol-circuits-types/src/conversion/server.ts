@@ -1,60 +1,60 @@
 import { BlobPublicInputs, BlockBlobPublicInputs, Poseidon2Sponge, SpongeBlob } from '@aztec/blob-lib';
-import {
-  type BaseParityInputs,
-  Fr,
-  ParityPublicInputs,
-  type PublicDataHint,
-  type RecursiveProof,
-  RevertCode,
-  RollupValidationRequests,
-  type RootParityInput,
-  type RootParityInputs,
-  type TreeSnapshots,
-  type VkWitnessData,
+import { Fr, ParityPublicInputs, RevertCode, RollupValidationRequests } from '@aztec/circuits.js';
+import type {
+  BaseParityInputs,
+  PublicDataHint,
+  RecursiveProof,
+  RootParityInput,
+  RootParityInputs,
+  TreeSnapshots,
+  VkWitnessData,
 } from '@aztec/circuits.js';
-import { type AvmAccumulatedData, type AvmCircuitPublicInputs } from '@aztec/circuits.js/avm';
-import {
-  type PrivateToAvmAccumulatedData,
-  type PrivateToAvmAccumulatedDataArrayLengths,
-  type PrivateToPublicAccumulatedData,
-  type PrivateToPublicKernelCircuitPublicInputs,
-  PrivateToRollupKernelCircuitPublicInputs,
-  TxConstantData,
+import type { AvmAccumulatedData, AvmCircuitPublicInputs } from '@aztec/circuits.js/avm';
+import { PrivateToRollupKernelCircuitPublicInputs, TxConstantData } from '@aztec/circuits.js/kernel';
+import type {
+  PrivateToAvmAccumulatedData,
+  PrivateToAvmAccumulatedDataArrayLengths,
+  PrivateToPublicAccumulatedData,
+  PrivateToPublicKernelCircuitPublicInputs,
 } from '@aztec/circuits.js/kernel';
 import {
-  type AvmProofData,
   BaseOrMergeRollupPublicInputs,
-  type BlockMergeRollupInputs,
   BlockRootOrBlockMergePublicInputs,
-  type BlockRootRollupBlobData,
-  type BlockRootRollupData,
-  type BlockRootRollupInputs,
   ConstantRollupData,
-  type EmptyBlockRootRollupInputs,
   FeeRecipient,
-  type MergeRollupInputs,
-  type PreviousRollupBlockData,
-  type PreviousRollupData,
-  type PrivateBaseRollupInputs,
-  type PrivateBaseStateDiffHints,
-  type PrivateTubeData,
-  type PublicBaseRollupInputs,
-  type PublicTubeData,
-  type RootRollupInputs,
   RootRollupPublicInputs,
-  type SingleTxBlockRootRollupInputs,
+} from '@aztec/circuits.js/rollup';
+import type {
+  AvmProofData,
+  BlockMergeRollupInputs,
+  BlockRootRollupBlobData,
+  BlockRootRollupData,
+  BlockRootRollupInputs,
+  EmptyBlockRootRollupInputs,
+  MergeRollupInputs,
+  PreviousRollupBlockData,
+  PreviousRollupData,
+  PrivateBaseRollupInputs,
+  PrivateBaseStateDiffHints,
+  PrivateTubeData,
+  PublicBaseRollupInputs,
+  PublicTubeData,
+  RootRollupInputs,
+  SingleTxBlockRootRollupInputs,
 } from '@aztec/circuits.js/rollup';
 import {
-  type AVM_PROOF_LENGTH_IN_FIELDS,
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   AZTEC_MAX_EPOCH_DURATION,
   BLOBS_PER_BLOCK,
   HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  type NESTED_RECURSIVE_PROOF_LENGTH,
-  type NULLIFIER_TREE_HEIGHT,
-  type RECURSIVE_PROOF_LENGTH,
   ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  type TUBE_PROOF_LENGTH,
+} from '@aztec/constants';
+import type {
+  AVM_PROOF_LENGTH_IN_FIELDS,
+  NESTED_RECURSIVE_PROOF_LENGTH,
+  NULLIFIER_TREE_HEIGHT,
+  RECURSIVE_PROOF_LENGTH,
+  TUBE_PROOF_LENGTH,
 } from '@aztec/constants';
 import { toHex } from '@aztec/foundation/bigint-buffer';
 import { mapTuple } from '@aztec/foundation/serialize';

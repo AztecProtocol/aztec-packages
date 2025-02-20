@@ -1,17 +1,10 @@
 import { DefaultDappInterface } from '@aztec/accounts/dapp';
-import {
-  AccountWallet,
-  type AztecAddress,
-  type FeePaymentMethod,
-  Fr,
-  type PXE,
-  PrivateFeePaymentMethod,
-  PublicFeePaymentMethod,
-} from '@aztec/aztec.js';
-import { type AppSubscriptionContract } from '@aztec/noir-contracts.js/AppSubscription';
-import { type CounterContract } from '@aztec/noir-contracts.js/Counter';
-import { type FPCContract } from '@aztec/noir-contracts.js/FPC';
-import { type TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
+import { AccountWallet, Fr, PrivateFeePaymentMethod, PublicFeePaymentMethod } from '@aztec/aztec.js';
+import type { AztecAddress, FeePaymentMethod, PXE } from '@aztec/aztec.js';
+import type { AppSubscriptionContract } from '@aztec/noir-contracts.js/AppSubscription';
+import type { CounterContract } from '@aztec/noir-contracts.js/Counter';
+import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
+import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 
 import { expectMapping, expectMappingDelta } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';

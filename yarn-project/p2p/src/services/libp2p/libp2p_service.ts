@@ -1,54 +1,48 @@
 import {
   BlockAttestation,
   BlockProposal,
-  type Gossipable,
-  type L2BlockSource,
   MerkleTreeId,
   P2PClientType,
   PeerErrorSeverity,
-  type RawGossipMessage,
   TopicTypeMap,
   Tx,
-  type TxHash,
-  type TxValidationResult,
   getTopicTypeForClientType,
   metricsTopicStrToLabels,
 } from '@aztec/circuit-types';
-import {
-  type ClientProtocolCircuitVerifier,
-  type PeerInfo,
-  type WorldStateSynchronizer,
+import type { Gossipable, L2BlockSource, RawGossipMessage, TxHash, TxValidationResult } from '@aztec/circuit-types';
+import type {
+  ClientProtocolCircuitVerifier,
+  PeerInfo,
+  WorldStateSynchronizer,
 } from '@aztec/circuit-types/interfaces/server';
 import { Fr } from '@aztec/circuits.js';
-import { type EpochCacheInterface } from '@aztec/epoch-cache';
+import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
-import { Attributes, OtelMetricsAdapter, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
+import { Attributes, OtelMetricsAdapter, WithTracer, trackSpan } from '@aztec/telemetry-client';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 
-import { type ENR } from '@chainsafe/enr';
-import {
-  type GossipSub,
-  type GossipSubComponents,
-  type GossipsubMessage,
-  gossipsub,
-} from '@chainsafe/libp2p-gossipsub';
+import type { ENR } from '@chainsafe/enr';
+import { gossipsub } from '@chainsafe/libp2p-gossipsub';
+import type { GossipSub, GossipSubComponents, GossipsubMessage } from '@chainsafe/libp2p-gossipsub';
 import { createPeerScoreParams, createTopicScoreParams } from '@chainsafe/libp2p-gossipsub/score';
 import { SignaturePolicy } from '@chainsafe/libp2p-gossipsub/types';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
 import { identify } from '@libp2p/identify';
-import { type Message, type PeerId, TopicValidatorResult } from '@libp2p/interface';
-import { type ConnectionManager } from '@libp2p/interface-internal';
+import { TopicValidatorResult } from '@libp2p/interface';
+import type { Message, PeerId } from '@libp2p/interface';
+import type { ConnectionManager } from '@libp2p/interface-internal';
 import '@libp2p/kad-dht';
 import { mplex } from '@libp2p/mplex';
 import { tcp } from '@libp2p/tcp';
 import { createLibp2p } from 'libp2p';
 
-import { type P2PConfig } from '../../config.js';
-import { type MemPools } from '../../mem_pools/interface.js';
+import type { P2PConfig } from '../../config.js';
+import type { MemPools } from '../../mem_pools/interface.js';
 import { AttestationValidator, BlockProposalValidator } from '../../msg_validators/index.js';
 import {
   DataTxValidator,
@@ -56,12 +50,14 @@ import {
   MetadataTxValidator,
   TxProofValidator,
 } from '../../msg_validators/tx_validator/index.js';
-import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
+import { convertToMultiaddr } from '../../util.js';
+import type { PubSubLibp2p } from '../../util.js';
 import { AztecDatastore } from '../data_store.js';
 import { SnappyTransform, fastMsgIdFn, getMsgIdFn, msgIdToStrFn } from '../encoding.js';
 import { PeerManager } from '../peer-manager/peer_manager.js';
 import { PeerScoring } from '../peer-manager/peer_scoring.js';
-import { DEFAULT_SUB_PROTOCOL_VALIDATORS, ReqRespSubProtocol, type SubProtocolMap } from '../reqresp/interface.js';
+import { DEFAULT_SUB_PROTOCOL_VALIDATORS, ReqRespSubProtocol } from '../reqresp/interface.js';
+import type { SubProtocolMap } from '../reqresp/interface.js';
 import { reqGoodbyeHandler } from '../reqresp/protocols/goodbye.js';
 import { pingHandler, reqRespBlockHandler, reqRespTxHandler, statusHandler } from '../reqresp/protocols/index.js';
 import { ReqResp } from '../reqresp/reqresp.js';

@@ -1,15 +1,17 @@
-import { type Tx } from '@aztec/circuit-types';
+import type { Tx } from '@aztec/circuit-types';
 import { mockTx } from '@aztec/circuit-types/testing';
 import { AztecAddress, Fr, FunctionSelector, GasFees, GasSettings } from '@aztec/circuits.js';
 import { U128 } from '@aztec/circuits.js/abi';
 import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
-import { type Writeable } from '@aztec/foundation/types';
+import type { Writeable } from '@aztec/foundation/types';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 
-import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
+import { mock, mockFn } from 'jest-mock-extended';
+import type { MockProxy } from 'jest-mock-extended';
 
-import { GasTxValidator, type PublicStateSource } from './gas_validator.js';
+import { GasTxValidator } from './gas_validator.js';
+import type { PublicStateSource } from './gas_validator.js';
 import { patchNonRevertibleFn, patchRevertibleFn } from './test_utils.js';
 
 describe('GasTxValidator', () => {

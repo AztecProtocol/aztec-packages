@@ -1,5 +1,5 @@
-import { type TxSimulationResult } from '@aztec/circuit-types';
-import { type Gas } from '@aztec/circuits.js';
+import type { TxSimulationResult } from '@aztec/circuit-types';
+import type { Gas } from '@aztec/circuits.js';
 
 /**
  * Returns suggested total and teardown gas limits for a simulated tx.

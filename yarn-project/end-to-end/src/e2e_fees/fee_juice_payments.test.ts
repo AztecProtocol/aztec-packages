@@ -1,17 +1,11 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { generateSchnorrAccounts } from '@aztec/accounts/testing';
-import {
-  type AccountManager,
-  type AccountWallet,
-  type AztecAddress,
-  FeeJuicePaymentMethod,
-  FeeJuicePaymentMethodWithClaim,
-  type PXE,
-} from '@aztec/aztec.js';
-import { type GasSettings } from '@aztec/circuits.js';
+import { FeeJuicePaymentMethod, FeeJuicePaymentMethodWithClaim } from '@aztec/aztec.js';
+import type { AccountManager, AccountWallet, AztecAddress, PXE } from '@aztec/aztec.js';
+import type { GasSettings } from '@aztec/circuits.js';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
-import { type FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
-import { type TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
+import type { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
+import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 
 import { FeesTest } from './fees_test.js';
 

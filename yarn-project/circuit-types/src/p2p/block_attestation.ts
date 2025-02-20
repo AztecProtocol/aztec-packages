@@ -1,9 +1,9 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256, recoverAddress } from '@aztec/foundation/crypto';
-import { type EthAddress } from '@aztec/foundation/eth-address';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
-import { type Fr } from '@aztec/foundation/fields';
-import { type ZodFor } from '@aztec/foundation/schemas';
+import type { Fr } from '@aztec/foundation/fields';
+import type { ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';

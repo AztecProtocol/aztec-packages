@@ -1,7 +1,7 @@
 import { emptyChainConfig } from '@aztec/circuit-types/config';
 import { addLogNameHandler } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { type AztecAsyncKVStore } from '@aztec/kv-store';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -10,7 +10,8 @@ import type { PeerId } from '@libp2p/interface';
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 
 import { BootstrapNode } from '../../bootstrap/bootstrap.js';
-import { type BootnodeConfig, type P2PConfig, getP2PDefaultConfig } from '../../config.js';
+import { getP2PDefaultConfig } from '../../config.js';
+import type { BootnodeConfig, P2PConfig } from '../../config.js';
 import { PeerDiscoveryState } from '../service.js';
 import { DiscV5Service } from './discV5_service.js';
 

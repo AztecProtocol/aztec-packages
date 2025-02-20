@@ -1,23 +1,22 @@
 import { toHex } from '@aztec/foundation/bigint-buffer';
-import { type Logger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { ForwarderAbi, ForwarderBytecode } from '@aztec/l1-artifacts';
 
-import {
-  type Account,
-  type Chain,
-  type EncodeFunctionDataParameters,
-  type GetContractReturnType,
-  type Hex,
-  type HttpTransport,
-  type PublicClient,
-  type WalletClient,
-  encodeFunctionData,
-  getContract,
+import { encodeFunctionData, getContract } from 'viem';
+import type {
+  Account,
+  Chain,
+  EncodeFunctionDataParameters,
+  GetContractReturnType,
+  Hex,
+  HttpTransport,
+  PublicClient,
+  WalletClient,
 } from 'viem';
 
 import { deployL1Contract } from '../deploy_l1_contracts.js';
-import { type L1BlobInputs, type L1GasConfig, type L1TxRequest, type L1TxUtils } from '../l1_tx_utils.js';
-import { type L1Clients } from '../types.js';
+import type { L1BlobInputs, L1GasConfig, L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
+import type { L1Clients } from '../types.js';
 import { RollupContract } from './rollup.js';
 
 export class ForwarderContract {

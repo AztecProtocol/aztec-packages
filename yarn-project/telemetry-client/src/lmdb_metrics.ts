@@ -1,11 +1,6 @@
 import * as Metrics from './metrics.js';
-import {
-  type AttributesType,
-  type BatchObservableResult,
-  type Meter,
-  type ObservableGauge,
-  ValueType,
-} from './telemetry.js';
+import { ValueType } from './telemetry.js';
+import type { AttributesType, BatchObservableResult, Meter, ObservableGauge } from './telemetry.js';
 
 export type LmdbStatsCallback = () => Promise<{ mappingSize: number; numItems: number; actualSize: number }>;
 

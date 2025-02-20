@@ -1,31 +1,19 @@
-import {
-  type AllowedElement,
-  type ChainConfig,
-  type SequencerConfig,
-  chainConfigMappings,
-} from '@aztec/circuit-types/config';
+import { chainConfigMappings } from '@aztec/circuit-types/config';
+import type { AllowedElement, ChainConfig, SequencerConfig } from '@aztec/circuit-types/config';
 import { AztecAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
+import { l1ContractsConfigMappings, l1ReaderConfigMappings } from '@aztec/ethereum';
+import type { L1ContractsConfig, L1ReaderConfig } from '@aztec/ethereum';
 import {
-  type L1ContractsConfig,
-  type L1ReaderConfig,
-  l1ContractsConfigMappings,
-  l1ReaderConfigMappings,
-} from '@aztec/ethereum';
-import {
-  type ConfigMappingsType,
   booleanConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
   pickConfigMappings,
 } from '@aztec/foundation/config';
+import type { ConfigMappingsType } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
-import {
-  type PublisherConfig,
-  type TxSenderConfig,
-  getPublisherConfigMappings,
-  getTxSenderConfigMappings,
-} from './publisher/config.js';
+import { getPublisherConfigMappings, getTxSenderConfigMappings } from './publisher/config.js';
+import type { PublisherConfig, TxSenderConfig } from './publisher/config.js';
 
 export * from './publisher/config.js';
 export type { SequencerConfig };

@@ -1,20 +1,20 @@
-import { type BaseParityInputs, type ParityPublicInputs, type RootParityInputs } from '@aztec/circuits.js';
-import {
-  type BaseOrMergeRollupPublicInputs,
-  type BlockMergeRollupInputs,
-  type BlockRootOrBlockMergePublicInputs,
-  type BlockRootRollupInputs,
-  type EmptyBlockRootRollupInputs,
-  type MergeRollupInputs,
-  type PrivateBaseRollupInputs,
-  type PublicBaseRollupInputs,
-  type RootRollupInputs,
-  type RootRollupPublicInputs,
-  type SingleTxBlockRootRollupInputs,
+import type { BaseParityInputs, ParityPublicInputs, RootParityInputs } from '@aztec/circuits.js';
+import type {
+  BaseOrMergeRollupPublicInputs,
+  BlockMergeRollupInputs,
+  BlockRootOrBlockMergePublicInputs,
+  BlockRootRollupInputs,
+  EmptyBlockRootRollupInputs,
+  MergeRollupInputs,
+  PrivateBaseRollupInputs,
+  PublicBaseRollupInputs,
+  RootRollupInputs,
+  RootRollupPublicInputs,
+  SingleTxBlockRootRollupInputs,
 } from '@aztec/circuits.js/rollup';
 import { pushTestData } from '@aztec/foundation/testing';
 
-import { type WitnessMap } from '@noir-lang/acvm_js';
+import type { WitnessMap } from '@noir-lang/acvm_js';
 import { abiDecode, abiEncode } from '@noir-lang/noirc_abi';
 
 import { ServerCircuitArtifacts, SimulatedServerCircuitArtifacts } from '../artifacts/server.js';
@@ -34,19 +34,19 @@ import {
   mapRootRollupPublicInputsFromNoir,
   mapSingleTxBlockRootRollupInputsToNoir,
 } from '../conversion/server.js';
-import {
-  type ParityBaseReturnType,
-  type ParityRootReturnType,
-  type RollupBasePrivateReturnType,
-  type RollupBasePublicReturnType,
-  type RollupBlockMergeReturnType,
-  type RollupBlockRootEmptyReturnType,
-  type RollupBlockRootReturnType,
-  type RollupBlockRootSingleTxReturnType,
-  type RollupMergeReturnType,
-  type RollupRootReturnType,
+import type {
+  ParityBaseReturnType,
+  ParityRootReturnType,
+  RollupBasePrivateReturnType,
+  RollupBasePublicReturnType,
+  RollupBlockMergeReturnType,
+  RollupBlockRootEmptyReturnType,
+  RollupBlockRootReturnType,
+  RollupBlockRootSingleTxReturnType,
+  RollupMergeReturnType,
+  RollupRootReturnType,
 } from '../types/index.js';
-import { type DecodedInputs } from '../utils/decoded_inputs.js';
+import type { DecodedInputs } from '../utils/decoded_inputs.js';
 
 /**
  * Converts the inputs of the base parity circuit into a witness map.

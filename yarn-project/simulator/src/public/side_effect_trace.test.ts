@@ -1,6 +1,5 @@
 import {
   AztecAddress,
-  type ContractClassIdPreimage,
   EthAddress,
   L2ToL1Message,
   NoteHash,
@@ -10,6 +9,7 @@ import {
   SerializableContractInstance,
   Vector,
 } from '@aztec/circuits.js';
+import type { ContractClassIdPreimage } from '@aztec/circuits.js';
 import {
   AvmAppendTreeHint,
   AvmNullifierReadTreeHint,

@@ -2,24 +2,24 @@ import {
   AztecAddress,
   ClientIvcProof,
   CompleteAddress,
-  type ContractInstanceWithAddress,
   EthAddress,
   Fr,
   GasFees,
-  type NodeInfo,
   Point,
-  type ProtocolContractAddresses,
   ProtocolContractsNames,
   PublicKeys,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { type AbiDecoded, type ContractArtifact, EventSelector } from '@aztec/circuits.js/abi';
-import { loadContractArtifact } from '@aztec/circuits.js/abi';
+import type { ContractInstanceWithAddress, NodeInfo, ProtocolContractAddresses } from '@aztec/circuits.js';
+import { EventSelector, loadContractArtifact } from '@aztec/circuits.js/abi';
+import type { AbiDecoded, ContractArtifact } from '@aztec/circuits.js/abi';
 import { PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
 import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
+import { L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { memoize } from '@aztec/foundation/decorators';
-import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
+import { createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
+import type { JsonRpcTestContext } from '@aztec/foundation/json-rpc/test';
 import { fileURLToPath } from '@aztec/foundation/url';
 
 import { jest } from '@jest/globals';
@@ -30,30 +30,19 @@ import times from 'lodash.times';
 import { resolve } from 'path';
 
 import { AuthWitness } from '../auth_witness.js';
-import { type InBlock } from '../in_block.js';
+import type { InBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
-import {
-  ExtendedPublicLog,
-  ExtendedUnencryptedL2Log,
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  type LogFilter,
-} from '../logs/index.js';
+import { ExtendedPublicLog, ExtendedUnencryptedL2Log } from '../logs/index.js';
+import type { GetContractClassLogsResponse, GetPublicLogsResponse, LogFilter } from '../logs/index.js';
 import { ExtendedNote, UniqueNote } from '../notes/index.js';
-import { type NotesFilter } from '../notes/notes_filter.js';
+import type { NotesFilter } from '../notes/notes_filter.js';
 import { PrivateExecutionResult } from '../private_execution_result.js';
 import { SiblingPath } from '../sibling_path/sibling_path.js';
 import { Tx, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '../tx/index.js';
 import { TxEffect } from '../tx_effect.js';
 import { TxExecutionRequest } from '../tx_execution_request.js';
-import {
-  type ContractClassMetadata,
-  type ContractMetadata,
-  type EventMetadataDefinition,
-  type PXE,
-  type PXEInfo,
-  PXESchema,
-} from './pxe.js';
+import { PXESchema } from './pxe.js';
+import type { ContractClassMetadata, ContractMetadata, EventMetadataDefinition, PXE, PXEInfo } from './pxe.js';
 
 jest.setTimeout(12_000);
 

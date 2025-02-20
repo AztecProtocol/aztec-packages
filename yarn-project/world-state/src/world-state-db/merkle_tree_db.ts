@@ -1,10 +1,10 @@
-import { type L2Block, type MerkleTreeId } from '@aztec/circuit-types';
-import { type ForkMerkleTreeOperations, type MerkleTreeReadOperations } from '@aztec/circuit-types/interfaces/server';
-import { type Fr } from '@aztec/circuits.js';
+import type { L2Block, MerkleTreeId } from '@aztec/circuit-types';
+import type { ForkMerkleTreeOperations, MerkleTreeReadOperations } from '@aztec/circuit-types/interfaces/server';
+import type { Fr } from '@aztec/circuits.js';
 import { MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX } from '@aztec/constants';
-import { type IndexedTreeSnapshot, type TreeSnapshot } from '@aztec/merkle-tree';
+import type { IndexedTreeSnapshot, TreeSnapshot } from '@aztec/merkle-tree';
 
-import { type WorldStateStatusFull, type WorldStateStatusSummary } from '../native/message.js';
+import type { WorldStateStatusFull, WorldStateStatusSummary } from '../native/message.js';
 
 /**
  *

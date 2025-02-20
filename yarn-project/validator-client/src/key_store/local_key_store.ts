@@ -1,9 +1,9 @@
-import { type Buffer32 } from '@aztec/foundation/buffer';
+import type { Buffer32 } from '@aztec/foundation/buffer';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
-import { type EthAddress } from '@aztec/foundation/eth-address';
-import { type Signature } from '@aztec/foundation/eth-signature';
+import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { Signature } from '@aztec/foundation/eth-signature';
 
-import { type ValidatorKeyStore } from './interface.js';
+import type { ValidatorKeyStore } from './interface.js';
 
 /**
  * Local Key Store

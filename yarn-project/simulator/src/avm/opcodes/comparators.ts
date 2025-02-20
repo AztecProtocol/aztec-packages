@@ -1,5 +1,6 @@
 import type { AvmContext } from '../avm_context.js';
-import { type MemoryValue, Uint1 } from '../avm_memory_types.js';
+import { Uint1 } from '../avm_memory_types.js';
+import type { MemoryValue } from '../avm_memory_types.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { ThreeOperandInstruction } from './instruction_impl.js';

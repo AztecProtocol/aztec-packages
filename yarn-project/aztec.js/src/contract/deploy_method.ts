@@ -1,22 +1,23 @@
-import { type Capsule, type FunctionCall, type TxExecutionRequest } from '@aztec/circuit-types';
+import type { Capsule, FunctionCall, TxExecutionRequest } from '@aztec/circuit-types';
 import {
   AztecAddress,
-  type ContractInstanceWithAddress,
-  type PublicKeys,
   computePartialAddress,
   getContractClassFromArtifact,
   getContractInstanceFromDeployParams,
 } from '@aztec/circuits.js';
-import { type ContractArtifact, type FunctionArtifact, getInitializer } from '@aztec/circuits.js/abi';
-import { type Fr } from '@aztec/foundation/fields';
+import type { ContractInstanceWithAddress, PublicKeys } from '@aztec/circuits.js';
+import { getInitializer } from '@aztec/circuits.js/abi';
+import type { ContractArtifact, FunctionArtifact } from '@aztec/circuits.js/abi';
+import type { Fr } from '@aztec/foundation/fields';
 
-import { type Wallet } from '../account/index.js';
+import type { Wallet } from '../account/index.js';
 import { deployInstance } from '../deployment/deploy_instance.js';
 import { registerContractClass } from '../deployment/register_class.js';
-import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
-import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';
-import { type Contract } from './contract.js';
-import { type ContractBase } from './contract_base.js';
+import type { ExecutionRequestInit } from '../entrypoint/entrypoint.js';
+import { BaseContractInteraction } from './base_contract_interaction.js';
+import type { SendMethodOptions } from './base_contract_interaction.js';
+import type { Contract } from './contract.js';
+import type { ContractBase } from './contract_base.js';
 import { ContractFunctionInteraction } from './contract_function_interaction.js';
 import { DeployProvenTx } from './deploy_proven_tx.js';
 import { DeploySentTx } from './deploy_sent_tx.js';

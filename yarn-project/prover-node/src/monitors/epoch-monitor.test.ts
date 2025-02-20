@@ -1,9 +1,11 @@
-import { type L2BlockSource } from '@aztec/circuit-types';
+import type { L2BlockSource } from '@aztec/circuit-types';
 import { sleep } from '@aztec/foundation/sleep';
 
-import { type MockProxy, mock } from 'jest-mock-extended';
+import { mock } from 'jest-mock-extended';
+import type { MockProxy } from 'jest-mock-extended';
 
-import { EpochMonitor, type EpochMonitorHandler } from './epoch-monitor.js';
+import { EpochMonitor } from './epoch-monitor.js';
+import type { EpochMonitorHandler } from './epoch-monitor.js';
 
 describe('EpochMonitor', () => {
   let l2BlockSource: MockProxy<L2BlockSource>;

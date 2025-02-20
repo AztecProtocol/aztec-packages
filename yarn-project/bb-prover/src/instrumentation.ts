@@ -1,14 +1,7 @@
-import { type CircuitName } from '@aztec/circuit-types/stats';
-import { type Timer } from '@aztec/foundation/timer';
-import {
-  Attributes,
-  type Gauge,
-  type Histogram,
-  Metrics,
-  type TelemetryClient,
-  type Tracer,
-  ValueType,
-} from '@aztec/telemetry-client';
+import type { CircuitName } from '@aztec/circuit-types/stats';
+import type { Timer } from '@aztec/foundation/timer';
+import { Attributes, Metrics, ValueType } from '@aztec/telemetry-client';
+import type { Gauge, Histogram, TelemetryClient, Tracer } from '@aztec/telemetry-client';
 
 /**
  * Instrumentation class for Prover implementations.

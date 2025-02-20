@@ -1,13 +1,14 @@
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
-import { type MockProxy, mock } from 'jest-mock-extended';
+import { mock } from 'jest-mock-extended';
+import type { MockProxy } from 'jest-mock-extended';
 
-import { type AvmContext } from '../avm_context.js';
+import type { AvmContext } from '../avm_context.js';
 import { Field } from '../avm_memory_types.js';
 import { StaticCallAlterationError } from '../errors.js';
 import { initContext, initExecutionEnvironment } from '../fixtures/index.js';
-import { type AvmPersistableStateManager } from '../journal/journal.js';
+import type { AvmPersistableStateManager } from '../journal/journal.js';
 import { SLoad, SStore } from './storage.js';
 
 describe('Storage Instructions', () => {

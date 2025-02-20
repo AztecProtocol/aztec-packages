@@ -1,24 +1,13 @@
-import {
-  HashedValues,
-  type L1ToL2Message,
-  Note,
-  PublicExecutionRequest,
-  TxExecutionRequest,
-  type TxScopedL2Log,
-} from '@aztec/circuit-types';
-import {
-  type AztecNode,
-  CountedPublicExecutionRequest,
-  type L2BlockNumber,
-} from '@aztec/circuit-types/interfaces/client';
+import { HashedValues, Note, PublicExecutionRequest, TxExecutionRequest } from '@aztec/circuit-types';
+import type { L1ToL2Message, TxScopedL2Log } from '@aztec/circuit-types';
+import { CountedPublicExecutionRequest } from '@aztec/circuit-types/interfaces/client';
+import type { AztecNode, L2BlockNumber } from '@aztec/circuit-types/interfaces/client';
 import {
   BlockHeader,
   CallContext,
   CompleteAddress,
-  type ContractInstance,
   GasFees,
   GasSettings,
-  type GrumpkinScalar,
   IndexedTaggingSecret,
   KeyValidationRequest,
   PartialStateReference,
@@ -30,15 +19,14 @@ import {
   getContractInstanceFromDeployParams,
   getNonEmptyItems,
 } from '@aztec/circuits.js';
+import type { ContractInstance, GrumpkinScalar } from '@aztec/circuits.js';
 import {
-  type ContractArtifact,
-  type FunctionArtifact,
   FunctionSelector,
-  type NoteSelector,
   encodeArguments,
   getFunctionArtifact,
   getFunctionArtifactByName,
 } from '@aztec/circuits.js/abi';
+import type { ContractArtifact, FunctionArtifact, NoteSelector } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
   computeNoteHashNonce,
@@ -61,10 +49,12 @@ import { times } from '@aztec/foundation/collection';
 import { poseidon2Hash, poseidon2HashWithSeparator, randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type Logger, createLogger } from '@aztec/foundation/log';
-import { type FieldsOf } from '@aztec/foundation/types';
+import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
+import type { FieldsOf } from '@aztec/foundation/types';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
-import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
+import { Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
+import type { AppendOnlyTree } from '@aztec/merkle-tree';
 import { ChildContractArtifact } from '@aztec/noir-contracts.js/Child';
 import { ImportTestContractArtifact } from '@aztec/noir-contracts.js/ImportTest';
 import { ParentContractArtifact } from '@aztec/noir-contracts.js/Parent';
@@ -73,13 +63,14 @@ import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulT
 import { TestContractArtifact } from '@aztec/noir-contracts.js/Test';
 
 import { jest } from '@jest/globals';
-import { Matcher, type MatcherCreator, type MockProxy, mock } from 'jest-mock-extended';
+import { Matcher, mock } from 'jest-mock-extended';
+import type { MatcherCreator, MockProxy } from 'jest-mock-extended';
 import { toFunctionSelector } from 'viem';
 
 import { MessageLoadOracleInputs } from '../common/message_load_oracle_inputs.js';
 import { WASMSimulator } from '../providers/acvm_wasm.js';
 import { buildL1ToL2Message } from '../test/utils.js';
-import { type DBOracle } from './db_oracle.js';
+import type { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
 
 jest.setTimeout(60_000);

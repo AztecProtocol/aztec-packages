@@ -1,15 +1,11 @@
 import { getSchnorrAccount, getSchnorrWallet } from '@aztec/accounts/schnorr';
-import { type InitialAccountData, deployFundedSchnorrAccount } from '@aztec/accounts/testing';
-import {
-  type AccountWallet,
-  type ContractInstanceWithAddress,
-  ExtendedNote,
-  Note,
-  type TxHash,
-  computeSecretHash,
-} from '@aztec/aztec.js';
-import { type AztecAddress, Fr } from '@aztec/circuits.js';
-import { type DeployL1Contracts } from '@aztec/ethereum';
+import { deployFundedSchnorrAccount } from '@aztec/accounts/testing';
+import type { InitialAccountData } from '@aztec/accounts/testing';
+import { ExtendedNote, Note, computeSecretHash } from '@aztec/aztec.js';
+import type { AccountWallet, ContractInstanceWithAddress, TxHash } from '@aztec/aztec.js';
+import { Fr } from '@aztec/circuits.js';
+import type { AztecAddress } from '@aztec/circuits.js';
+import type { DeployL1Contracts } from '@aztec/ethereum';
 // We use TokenBlacklist because we want to test the persistence of manually added notes and standard token no longer
 // implements TransparentNote shield flow.
 import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
@@ -20,7 +16,8 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { BlacklistTokenContractTest, Role } from '../e2e_blacklist_token_contract/blacklist_token_contract_test.js';
-import { type EndToEndContext, setup } from '../fixtures/utils.js';
+import { setup } from '../fixtures/utils.js';
+import type { EndToEndContext } from '../fixtures/utils.js';
 
 jest.setTimeout(60_000);
 

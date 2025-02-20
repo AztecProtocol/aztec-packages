@@ -1,10 +1,10 @@
 /* eslint-disable jsdoc/require-jsdoc */
-import { type LogFn } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
 
 import { relative, resolve } from 'path';
 import { parse } from 'semver';
 
-import { type DependencyChanges } from './update/common.js';
+import type { DependencyChanges } from './update/common.js';
 import { GITHUB_TAG_PREFIX } from './update/github.js';
 import { updateAztecNr } from './update/noir.js';
 import { getNewestVersion, updateAztecDeps, updateLockfile } from './update/npm.js';

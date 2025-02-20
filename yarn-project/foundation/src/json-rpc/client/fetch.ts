@@ -1,6 +1,7 @@
 import { format, inspect } from 'util';
 
-import { type Logger, createLogger } from '../../log/index.js';
+import { createLogger } from '../../log/index.js';
+import type { Logger } from '../../log/index.js';
 import { NoRetryError, makeBackoff, retry } from '../../retry/index.js';
 import { jsonStringify } from '../convert.js';
 

@@ -1,18 +1,17 @@
-import {
-  type ProofUri,
-  type ProvingJobId,
-  type ProvingJobInputs,
-  type ProvingJobInputsMap,
-  type ProvingJobResult,
-  type ProvingJobResultsMap,
-  ProvingRequestType,
-  getProvingJobInputClassFor,
+import { ProvingRequestType, getProvingJobInputClassFor } from '@aztec/circuit-types/interfaces/server';
+import type {
+  ProofUri,
+  ProvingJobId,
+  ProvingJobInputs,
+  ProvingJobInputsMap,
+  ProvingJobResult,
+  ProvingJobResultsMap,
 } from '@aztec/circuit-types/interfaces/server';
 
 import { Storage } from '@google-cloud/storage';
 import { join } from 'path';
 
-import { type ProofStore } from './proof_store.js';
+import type { ProofStore } from './proof_store.js';
 
 const INPUTS_PATH = 'inputs';
 

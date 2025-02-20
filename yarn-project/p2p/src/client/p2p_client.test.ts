@@ -4,16 +4,17 @@ import { mockTx } from '@aztec/circuit-types/testing';
 import { Fr } from '@aztec/circuits.js';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
-import { type AztecAsyncKVStore } from '@aztec/kv-store';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
 import { expect } from '@jest/globals';
-import { type MockProxy, mock } from 'jest-mock-extended';
+import { mock } from 'jest-mock-extended';
+import type { MockProxy } from 'jest-mock-extended';
 
-import { type P2PService } from '../index.js';
-import { type AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
-import { type MemPools } from '../mem_pools/interface.js';
-import { type TxPool } from '../mem_pools/tx_pool/index.js';
+import type { P2PService } from '../index.js';
+import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
+import type { MemPools } from '../mem_pools/interface.js';
+import type { TxPool } from '../mem_pools/tx_pool/index.js';
 import { P2PClient } from './p2p_client.js';
 
 describe('In-Memory P2P Client', () => {

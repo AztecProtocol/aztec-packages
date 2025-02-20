@@ -1,11 +1,19 @@
-import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
-import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
-import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
-import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
-import { type ProverClientConfig, proverClientConfigMappings } from '@aztec/prover-client/config';
-import { type SequencerClientConfig, sequencerClientConfigMappings } from '@aztec/sequencer-client/config';
-import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client/config';
-import { type WorldStateConfig, worldStateConfigMappings } from '@aztec/world-state/config';
+import { archiverConfigMappings } from '@aztec/archiver/config';
+import type { ArchiverConfig } from '@aztec/archiver/config';
+import { booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
+import type { ConfigMappingsType } from '@aztec/foundation/config';
+import { dataConfigMappings } from '@aztec/kv-store/config';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
+import { p2pConfigMappings } from '@aztec/p2p/config';
+import type { P2PConfig } from '@aztec/p2p/config';
+import { proverClientConfigMappings } from '@aztec/prover-client/config';
+import type { ProverClientConfig } from '@aztec/prover-client/config';
+import { sequencerClientConfigMappings } from '@aztec/sequencer-client/config';
+import type { SequencerClientConfig } from '@aztec/sequencer-client/config';
+import { validatorClientConfigMappings } from '@aztec/validator-client/config';
+import type { ValidatorClientConfig } from '@aztec/validator-client/config';
+import { worldStateConfigMappings } from '@aztec/world-state/config';
+import type { WorldStateConfig } from '@aztec/world-state/config';
 
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';

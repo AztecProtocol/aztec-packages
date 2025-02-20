@@ -1,12 +1,13 @@
-import { type AccountManager, type Fr } from '@aztec/aztec.js';
-import { type ConfigMappingsType } from '@aztec/foundation/config';
-import { type LogFn } from '@aztec/foundation/log';
-import { type PXEService } from '@aztec/pxe';
+import type { AccountManager, Fr } from '@aztec/aztec.js';
+import type { ConfigMappingsType } from '@aztec/foundation/config';
+import type { LogFn } from '@aztec/foundation/log';
+import type { PXEService } from '@aztec/pxe';
 
 import chalk from 'chalk';
-import { type Command } from 'commander';
+import type { Command } from 'commander';
 
-import { type AztecStartOption, aztecStartOptions } from './aztec_start_options.js';
+import { aztecStartOptions } from './aztec_start_options.js';
+import type { AztecStartOption } from './aztec_start_options.js';
 
 export const installSignalHandlers = (logFn: LogFn, cb?: Array<() => Promise<void>>) => {
   const shutdown = async () => {

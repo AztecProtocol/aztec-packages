@@ -1,8 +1,9 @@
-import { type Fr } from '@aztec/circuits.js';
+import type { Fr } from '@aztec/circuits.js';
 
-import { type Gas } from './avm_gas.js';
+import type { Gas } from './avm_gas.js';
 import { TaggedMemory } from './avm_memory_types.js';
-import { type AvmRevertReason, OutOfGasError } from './errors.js';
+import { OutOfGasError } from './errors.js';
+import type { AvmRevertReason } from './errors.js';
 
 /**
  * A few fields of machine state are initialized from AVM session inputs or call instruction arguments

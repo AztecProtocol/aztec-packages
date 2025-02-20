@@ -1,5 +1,6 @@
-import { type InitialAccountData } from '@aztec/accounts/testing';
-import { type AztecAddress, type AztecNode, Fr, type L2Block, type Wallet } from '@aztec/aztec.js';
+import type { InitialAccountData } from '@aztec/accounts/testing';
+import { Fr } from '@aztec/aztec.js';
+import type { AztecAddress, AztecNode, L2Block, Wallet } from '@aztec/aztec.js';
 import {
   computeAppNullifierSecretKey,
   computeAppSecretKey,

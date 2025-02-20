@@ -1,10 +1,10 @@
-import { type L2Block, type ProcessedTx, type Tx } from '@aztec/circuit-types';
-import { type EpochProver } from '@aztec/circuit-types/interfaces/server';
-import { type BlockHeader, type Fr, type GlobalVariables, type Proof } from '@aztec/circuits.js';
-import { type RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
+import type { L2Block, ProcessedTx, Tx } from '@aztec/circuit-types';
+import type { EpochProver } from '@aztec/circuit-types/interfaces/server';
+import type { BlockHeader, Fr, GlobalVariables, Proof } from '@aztec/circuits.js';
+import type { RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 
-import { type ProvingOrchestrator } from '../orchestrator/orchestrator.js';
-import { type BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';
+import type { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
+import type { BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';
 
 /** Encapsulates the proving orchestrator and the broker facade */
 export class ServerEpochProver implements EpochProver {

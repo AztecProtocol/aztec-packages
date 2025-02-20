@@ -1,12 +1,12 @@
 import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
 import { z } from 'zod';
 
-import { type GasDimensions } from './gas.js';
+import type { GasDimensions } from './gas.js';
 
 /** Gas prices for each dimension. */
 export class GasFees {

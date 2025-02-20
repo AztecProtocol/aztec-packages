@@ -1,11 +1,11 @@
 import { getIdentities } from '@aztec/accounts/utils';
-import { type AccountManager, type AccountWalletWithSecretKey } from '@aztec/aztec.js';
-import { type PXE } from '@aztec/circuit-types/interfaces/client';
+import type { AccountManager, AccountWalletWithSecretKey } from '@aztec/aztec.js';
+import type { PXE } from '@aztec/circuit-types/interfaces/client';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { deriveSigningKey } from '@aztec/circuits.js/keys';
 import { Fr } from '@aztec/foundation/fields';
 
-import { type WalletDB } from '../storage/wallet_db.js';
+import type { WalletDB } from '../storage/wallet_db.js';
 import { extractECDSAPublicKeyFromBase64String } from './ecdsa.js';
 
 export const AccountTypes = ['schnorr', 'ecdsasecp256r1ssh', 'ecdsasecp256k1'] as const;

@@ -1,9 +1,10 @@
-import { AztecAddress, type ContractInstanceWithAddress, Fr } from '@aztec/circuits.js';
+import { AztecAddress, Fr } from '@aztec/circuits.js';
+import type { ContractInstanceWithAddress } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 
 import { PublicTxSimulationTester } from '../fixtures/public_tx_simulation_tester.js';
-import { type PublicTxResult } from '../public_tx_simulator.js';
+import type { PublicTxResult } from '../public_tx_simulator.js';
 
 describe('Public TX simulator apps tests: TokenContract', () => {
   const logger = createLogger('public-tx-apps-tests-token');

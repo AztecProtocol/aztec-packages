@@ -1,4 +1,4 @@
-import { type Hasher } from '@aztec/circuits.js/interfaces';
+import type { Hasher } from '@aztec/circuits.js/interfaces';
 import { sha256 } from '@aztec/foundation/crypto';
 import { truncateAndPad } from '@aztec/foundation/serialize';
 

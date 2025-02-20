@@ -1,5 +1,6 @@
 // Test suite for testing proper ordering of side effects
-import { Fr, type FunctionSelector, type PXE, type Wallet, toBigIntBE } from '@aztec/aztec.js';
+import { Fr, toBigIntBE } from '@aztec/aztec.js';
+import type { FunctionSelector, PXE, Wallet } from '@aztec/aztec.js';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { ChildContract } from '@aztec/noir-contracts.js/Child';
 import { ParentContract } from '@aztec/noir-contracts.js/Parent';

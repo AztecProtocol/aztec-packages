@@ -1,12 +1,9 @@
 import { getVersioningMiddleware } from '@aztec/circuit-types';
-import { type ChainConfig } from '@aztec/circuit-types/config';
+import type { ChainConfig } from '@aztec/circuit-types/config';
 import { AztecNodeApiSchema, PXESchema } from '@aztec/circuit-types/interfaces/client';
-import {
-  type NamespacedApiHandlers,
-  createNamespacedSafeJsonRpcServer,
-  startHttpRpcServer,
-} from '@aztec/foundation/json-rpc/server';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import { createNamespacedSafeJsonRpcServer, startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
+import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
 import { getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
 

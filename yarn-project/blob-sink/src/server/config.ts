@@ -1,5 +1,7 @@
-import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
-import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
+import { getConfigFromMappings } from '@aztec/foundation/config';
+import type { ConfigMappingsType } from '@aztec/foundation/config';
+import { dataConfigMappings } from '@aztec/kv-store/config';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
 
 export interface BlobSinkConfig {
   port?: number;

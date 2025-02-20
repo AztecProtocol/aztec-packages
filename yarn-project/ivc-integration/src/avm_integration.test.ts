@@ -1,6 +1,7 @@
-import { type BBSuccess, BB_RESULT, generateAvmProof, generateProof, verifyProof } from '@aztec/bb-prover';
-import { type ContractInstanceWithAddress } from '@aztec/circuits.js';
-import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
+import { BB_RESULT, generateAvmProof, generateProof, verifyProof } from '@aztec/bb-prover';
+import type { BBSuccess } from '@aztec/bb-prover';
+import type { ContractInstanceWithAddress } from '@aztec/circuits.js';
+import type { AvmCircuitInputs } from '@aztec/circuits.js/avm';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
   AVM_PROOF_LENGTH_IN_FIELDS,
@@ -13,7 +14,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
-import { type FixedLengthArray } from '@aztec/noir-protocol-circuits-types/types';
+import type { FixedLengthArray } from '@aztec/noir-protocol-circuits-types/types';
 import { PublicTxSimulationTester } from '@aztec/simulator/public/fixtures';
 
 import { promises as fs } from 'fs';

@@ -1,11 +1,11 @@
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
+import type { MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import { GasFees, GlobalVariables } from '@aztec/circuits.js';
 import { encodeArguments } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { NativeWorldStateService } from '@aztec/world-state';
 
-import { type AvmContractCallResult } from '../../avm/avm_contract_call_result.js';
+import type { AvmContractCallResult } from '../../avm/avm_contract_call_result.js';
 import {
   getContractFunctionArtifact,
   getFunctionSelector,

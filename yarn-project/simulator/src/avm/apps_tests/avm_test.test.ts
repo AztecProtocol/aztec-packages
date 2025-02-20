@@ -1,4 +1,5 @@
-import { AztecAddress, type ContractInstanceWithAddress } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/circuits.js';
+import type { ContractInstanceWithAddress } from '@aztec/circuits.js';
 import { makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
 import { MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';

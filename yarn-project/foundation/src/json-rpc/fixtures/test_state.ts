@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
-import { type ApiSchemaFor, optional, schemas } from '../../schemas/index.js';
+import { optional, schemas } from '../../schemas/index.js';
+import type { ApiSchemaFor } from '../../schemas/index.js';
 import { sleep } from '../../sleep/index.js';
 
 /**

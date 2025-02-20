@@ -1,18 +1,21 @@
 // An integration test for the p2p client to test req resp protocols
-import { PeerErrorSeverity, type Tx } from '@aztec/circuit-types';
+import { PeerErrorSeverity } from '@aztec/circuit-types';
+import type { Tx } from '@aztec/circuit-types';
 import { emptyChainConfig } from '@aztec/circuit-types/config';
-import { type WorldStateSynchronizer } from '@aztec/circuit-types/interfaces/server';
+import type { WorldStateSynchronizer } from '@aztec/circuit-types/interfaces/server';
 import { mockTx } from '@aztec/circuit-types/testing';
-import { type EpochCache } from '@aztec/epoch-cache';
+import type { EpochCache } from '@aztec/epoch-cache';
 import { sleep } from '@aztec/foundation/sleep';
 
 import { describe, expect, it, jest } from '@jest/globals';
-import { type MockProxy, mock } from 'jest-mock-extended';
+import { mock } from 'jest-mock-extended';
+import type { MockProxy } from 'jest-mock-extended';
 
-import { type P2PClient } from '../client/p2p_client.js';
-import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
-import { type AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
-import { type TxPool } from '../mem_pools/tx_pool/index.js';
+import type { P2PClient } from '../client/p2p_client.js';
+import { getP2PDefaultConfig } from '../config.js';
+import type { P2PConfig } from '../config.js';
+import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
+import type { TxPool } from '../mem_pools/tx_pool/index.js';
 import { makeTestP2PClients } from '../test-helpers/make-test-p2p-clients.js';
 
 const TEST_TIMEOUT = 80000;

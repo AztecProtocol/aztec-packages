@@ -1,30 +1,18 @@
 import { getSchnorrWallet } from '@aztec/accounts/schnorr';
-import { type AztecNodeConfig } from '@aztec/aztec-node';
-import {
-  type AccountWallet,
-  AztecAddress,
-  type AztecNode,
-  type CompleteAddress,
-  EthAddress,
-  type Logger,
-  type PXE,
-  createLogger,
-} from '@aztec/aztec.js';
+import type { AztecNodeConfig } from '@aztec/aztec-node';
+import { AztecAddress, EthAddress, createLogger } from '@aztec/aztec.js';
+import type { AccountWallet, AztecNode, CompleteAddress, Logger, PXE } from '@aztec/aztec.js';
 import { createL1Clients } from '@aztec/ethereum';
 import { InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 
-import { type Chain, type HttpTransport, type PublicClient, getContract } from 'viem';
+import { getContract } from 'viem';
+import type { Chain, HttpTransport, PublicClient } from 'viem';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
-import {
-  type ISnapshotManager,
-  type SubsystemsContext,
-  createSnapshotManager,
-  deployAccounts,
-  publicDeployAccounts,
-} from '../fixtures/snapshot_manager.js';
+import { createSnapshotManager, deployAccounts, publicDeployAccounts } from '../fixtures/snapshot_manager.js';
+import type { ISnapshotManager, SubsystemsContext } from '../fixtures/snapshot_manager.js';
 import { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;

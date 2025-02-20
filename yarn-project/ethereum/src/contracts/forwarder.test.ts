@@ -1,27 +1,23 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { GovernanceProposerAbi } from '@aztec/l1-artifacts/GovernanceProposerAbi';
 import { TestERC20Abi } from '@aztec/l1-artifacts/TestERC20Abi';
 import { TestERC20Bytecode } from '@aztec/l1-artifacts/TestERC20Bytecode';
 
-import { type Anvil } from '@viem/anvil';
-import {
-  type Chain,
-  type GetContractReturnType,
-  type HttpTransport,
-  type PublicClient,
-  encodeFunctionData,
-  getContract,
-} from 'viem';
-import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
+import type { Anvil } from '@viem/anvil';
+import { encodeFunctionData, getContract } from 'viem';
+import type { Chain, GetContractReturnType, HttpTransport, PublicClient } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import type { PrivateKeyAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { DefaultL1ContractsConfig } from '../config.js';
 import { createL1Clients, deployL1Contract, deployL1Contracts } from '../deploy_l1_contracts.js';
 import { L1TxUtils } from '../l1_tx_utils.js';
 import { startAnvil } from '../test/start_anvil.js';
-import { type L1Clients } from '../types.js';
+import type { L1Clients } from '../types.js';
 import { FormattedViemError } from '../utils.js';
 import { ForwarderContract } from './forwarder.js';
 

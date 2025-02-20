@@ -1,6 +1,8 @@
-import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
+import { createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
+import type { JsonRpcTestContext } from '@aztec/foundation/json-rpc/test';
 
-import { type ProverAgentApi, ProverAgentApiSchema } from './prover-agent.js';
+import { ProverAgentApiSchema } from './prover-agent.js';
+import type { ProverAgentApi } from './prover-agent.js';
 
 describe('ProverAgentApiSchema', () => {
   let handler: MockProverAgent;

@@ -1,7 +1,8 @@
-import levelup, { type LevelUp } from 'levelup';
+import levelup from 'levelup';
+import type { LevelUp } from 'levelup';
 import memdown from 'memdown';
 
-import { type DataStore } from '../data_store.js';
+import type { DataStore } from '../data_store.js';
 
 /**
  * Cache for data used by wasm module.

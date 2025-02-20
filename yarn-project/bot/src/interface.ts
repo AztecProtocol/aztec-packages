@@ -1,8 +1,9 @@
-import { type ApiSchemaFor } from '@aztec/foundation/schemas';
+import type { ApiSchemaFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
-import { type BotConfig, BotConfigSchema } from './config.js';
+import { BotConfigSchema } from './config.js';
+import type { BotConfig } from './config.js';
 
 export interface BotRunnerApi {
   start(): Promise<void>;

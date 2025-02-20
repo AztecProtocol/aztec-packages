@@ -1,21 +1,20 @@
 import { getSchnorrWallet } from '@aztec/accounts/schnorr';
-import {
-  type AccountWallet,
-  type AztecAddress,
-  type AztecNode,
-  type ContractArtifact,
-  type ContractBase,
-  Fr,
-  type Logger,
-  type PXE,
-  type PublicKeys,
-  type Wallet,
-  createLogger,
-  getContractInstanceFromDeployParams,
+import { Fr, createLogger, getContractInstanceFromDeployParams } from '@aztec/aztec.js';
+import type {
+  AccountWallet,
+  AztecAddress,
+  AztecNode,
+  ContractArtifact,
+  ContractBase,
+  Logger,
+  PXE,
+  PublicKeys,
+  Wallet,
 } from '@aztec/aztec.js';
-import { type StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
+import type { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 
-import { type ISnapshotManager, createSnapshotManager, deployAccounts } from '../fixtures/snapshot_manager.js';
+import { createSnapshotManager, deployAccounts } from '../fixtures/snapshot_manager.js';
+import type { ISnapshotManager } from '../fixtures/snapshot_manager.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
 

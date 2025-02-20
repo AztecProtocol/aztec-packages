@@ -1,15 +1,6 @@
 import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
-import {
-  AztecAddress,
-  BatchCall,
-  Fr,
-  type Logger,
-  type PXE,
-  type Wallet,
-  createPXEClient,
-  getContractClassFromArtifact,
-  makeFetch,
-} from '@aztec/aztec.js';
+import { AztecAddress, BatchCall, Fr, createPXEClient, getContractClassFromArtifact, makeFetch } from '@aztec/aztec.js';
+import type { Logger, PXE, Wallet } from '@aztec/aztec.js';
 import { CounterContract } from '@aztec/noir-contracts.js/Counter';
 import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';

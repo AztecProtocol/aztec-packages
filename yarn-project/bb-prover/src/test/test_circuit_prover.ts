@@ -1,34 +1,29 @@
 import {
-  type ProofAndVerificationKey,
   ProvingRequestType,
-  type PublicInputsAndRecursiveProof,
-  type ServerCircuitProver,
   makeProofAndVerificationKey,
   makePublicInputsAndRecursiveProof,
 } from '@aztec/circuit-types/interfaces/server';
-import {
-  type BaseParityInputs,
-  type ParityPublicInputs,
-  type Proof,
-  type RootParityInputs,
-  VerificationKeyData,
-  makeEmptyRecursiveProof,
-  makeRecursiveProof,
-} from '@aztec/circuits.js';
-import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
-import {
-  type BaseOrMergeRollupPublicInputs,
-  type BlockMergeRollupInputs,
-  type BlockRootOrBlockMergePublicInputs,
-  type BlockRootRollupInputs,
-  type EmptyBlockRootRollupInputs,
-  type MergeRollupInputs,
-  type PrivateBaseRollupInputs,
-  type PublicBaseRollupInputs,
-  type RootRollupInputs,
-  type RootRollupPublicInputs,
-  type SingleTxBlockRootRollupInputs,
-  type TubeInputs,
+import type {
+  ProofAndVerificationKey,
+  PublicInputsAndRecursiveProof,
+  ServerCircuitProver,
+} from '@aztec/circuit-types/interfaces/server';
+import { VerificationKeyData, makeEmptyRecursiveProof, makeRecursiveProof } from '@aztec/circuits.js';
+import type { BaseParityInputs, ParityPublicInputs, Proof, RootParityInputs } from '@aztec/circuits.js';
+import type { AvmCircuitInputs } from '@aztec/circuits.js/avm';
+import type {
+  BaseOrMergeRollupPublicInputs,
+  BlockMergeRollupInputs,
+  BlockRootOrBlockMergePublicInputs,
+  BlockRootRollupInputs,
+  EmptyBlockRootRollupInputs,
+  MergeRollupInputs,
+  PrivateBaseRollupInputs,
+  PublicBaseRollupInputs,
+  RootRollupInputs,
+  RootRollupPublicInputs,
+  SingleTxBlockRootRollupInputs,
+  TubeInputs,
 } from '@aztec/circuits.js/rollup';
 import {
   AVM_PROOF_LENGTH_IN_FIELDS,
@@ -42,7 +37,6 @@ import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import {
-  type ServerProtocolArtifact,
   SimulatedServerCircuitArtifacts,
   convertBaseParityInputsToWitnessMap,
   convertBaseParityOutputsFromWitnessMap,
@@ -65,11 +59,14 @@ import {
   convertSimulatedSingleTxBlockRootRollupInputsToWitnessMap,
   convertSimulatedSingleTxBlockRootRollupOutputsFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types/server';
+import type { ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types/server';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
-import { type SimulationProvider, WASMSimulatorWithBlobs, emitCircuitSimulationStats } from '@aztec/simulator/server';
-import { type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
+import { WASMSimulatorWithBlobs, emitCircuitSimulationStats } from '@aztec/simulator/server';
+import type { SimulationProvider } from '@aztec/simulator/server';
+import { getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 
-import { type WitnessMap } from '@noir-lang/types';
+import type { WitnessMap } from '@noir-lang/types';
 
 import { ProverInstrumentation } from '../instrumentation.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';

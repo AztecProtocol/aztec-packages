@@ -1,5 +1,5 @@
-import { type L1ToL2MessageSource } from '@aztec/circuit-types';
-import { type Fr } from '@aztec/circuits.js';
+import type { L1ToL2MessageSource } from '@aztec/circuit-types';
+import type { Fr } from '@aztec/circuits.js';
 
 /**
  * A mocked implementation of L1ToL2MessageSource to be used in tests.

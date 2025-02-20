@@ -1,14 +1,6 @@
 import { getSchnorrWallet } from '@aztec/accounts/schnorr';
-import {
-  type AccountWallet,
-  type AztecAddress,
-  type AztecNode,
-  CheatCodes,
-  type Logger,
-  type PXE,
-  createLogger,
-  sleep,
-} from '@aztec/aztec.js';
+import { CheatCodes, createLogger, sleep } from '@aztec/aztec.js';
+import type { AccountWallet, AztecAddress, AztecNode, Logger, PXE } from '@aztec/aztec.js';
 import { EthAddress, GasSettings, computePartialAddress } from '@aztec/circuits.js';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import { createL1Clients } from '@aztec/ethereum';
@@ -24,15 +16,13 @@ import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { getContract } from 'viem';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
-import { type ISnapshotManager, createSnapshotManager, deployAccounts } from '../fixtures/snapshot_manager.js';
+import { createSnapshotManager, deployAccounts } from '../fixtures/snapshot_manager.js';
+import type { ISnapshotManager } from '../fixtures/snapshot_manager.js';
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
-import {
-  type BalancesFn,
-  ensureAccountsPubliclyDeployed,
-  getBalancesFn,
-  setupCanonicalFeeJuice,
-} from '../fixtures/utils.js';
-import { FeeJuicePortalTestingHarnessFactory, type GasBridgingTestHarness } from '../shared/gas_portal_test_harness.js';
+import { ensureAccountsPubliclyDeployed, getBalancesFn, setupCanonicalFeeJuice } from '../fixtures/utils.js';
+import type { BalancesFn } from '../fixtures/utils.js';
+import { FeeJuicePortalTestingHarnessFactory } from '../shared/gas_portal_test_harness.js';
+import type { GasBridgingTestHarness } from '../shared/gas_portal_test_harness.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
 

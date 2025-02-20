@@ -1,4 +1,4 @@
-import { type TxHash } from '@aztec/circuit-types/tx_hash';
+import type { TxHash } from '@aztec/circuit-types/tx_hash';
 
 export class ValidatorError extends Error {
   constructor(message: string) {

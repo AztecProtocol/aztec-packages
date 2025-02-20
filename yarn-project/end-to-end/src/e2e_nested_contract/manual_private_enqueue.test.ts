@@ -1,4 +1,5 @@
-import { type AztecAddress, Fr } from '@aztec/aztec.js';
+import { Fr } from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js';
 import { ChildContract } from '@aztec/noir-contracts.js/Child';
 import { ParentContract } from '@aztec/noir-contracts.js/Parent';
 

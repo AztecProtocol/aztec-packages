@@ -1,8 +1,5 @@
-import {
-  type PrivateKernelResetCircuitPrivateInputs,
-  type PrivateKernelResetDimensions,
-  privateKernelResetDimensionNames,
-} from '@aztec/circuits.js/kernel';
+import { privateKernelResetDimensionNames } from '@aztec/circuits.js/kernel';
+import type { PrivateKernelResetCircuitPrivateInputs, PrivateKernelResetDimensions } from '@aztec/circuits.js/kernel';
 import { pushTestData } from '@aztec/foundation/testing';
 
 import {
@@ -10,7 +7,8 @@ import {
   mapPrivateKernelDataToNoir,
   mapPrivateKernelResetHintsToNoir,
 } from '../conversion/client.js';
-import { PrivateKernelResetArtifactFileNames, type PrivateResetArtifact } from '../private_kernel_reset_types.js';
+import { PrivateKernelResetArtifactFileNames } from '../private_kernel_reset_types.js';
+import type { PrivateResetArtifact } from '../private_kernel_reset_types.js';
 
 export function createPrivateKernelResetTag(dimensions: PrivateKernelResetDimensions) {
   return privateKernelResetDimensionNames.map(name => dimensions[name]).join('_');

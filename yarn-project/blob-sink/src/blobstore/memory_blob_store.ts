@@ -1,5 +1,6 @@
-import { type BlobWithIndex, BlobsWithIndexes } from '../types/index.js';
-import { type BlobStore } from './interface.js';
+import { BlobsWithIndexes } from '../types/index.js';
+import type { BlobWithIndex } from '../types/index.js';
+import type { BlobStore } from './interface.js';
 
 export class MemoryBlobStore implements BlobStore {
   private blobs: Map<string, Buffer> = new Map();

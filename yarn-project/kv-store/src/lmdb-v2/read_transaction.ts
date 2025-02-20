@@ -1,4 +1,5 @@
-import { CURSOR_PAGE_SIZE, Database, type LMDBMessageChannel, LMDBMessageType } from './message.js';
+import { CURSOR_PAGE_SIZE, Database, LMDBMessageType } from './message.js';
+import type { LMDBMessageChannel } from './message.js';
 
 export class ReadTransaction {
   protected open = true;

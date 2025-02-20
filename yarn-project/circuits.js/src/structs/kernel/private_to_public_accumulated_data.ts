@@ -7,16 +7,12 @@ import {
   MAX_PRIVATE_LOGS_PER_TX,
   PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH,
 } from '@aztec/constants';
-import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
+import { makeTuple } from '@aztec/foundation/array';
+import type { FieldsOf } from '@aztec/foundation/array';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
-import {
-  BufferReader,
-  FieldReader,
-  type Tuple,
-  serializeToBuffer,
-  serializeToFields,
-} from '@aztec/foundation/serialize';
+import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import type { Tuple } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
 

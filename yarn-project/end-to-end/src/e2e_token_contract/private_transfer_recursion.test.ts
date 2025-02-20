@@ -1,5 +1,6 @@
 import { BatchCall } from '@aztec/aztec.js';
-import { TokenContract, type Transfer } from '@aztec/noir-contracts.js/Token';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import type { Transfer } from '@aztec/noir-contracts.js/Token';
 
 import { TokenContractTest } from './token_contract_test.js';
 

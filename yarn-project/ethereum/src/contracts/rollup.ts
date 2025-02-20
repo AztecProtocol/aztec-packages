@@ -3,23 +3,13 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
 import { RollupAbi, RollupStorage, SlasherAbi } from '@aztec/l1-artifacts';
 
-import {
-  type Account,
-  type Chain,
-  type GetContractReturnType,
-  type Hex,
-  type HttpTransport,
-  type PublicClient,
-  createPublicClient,
-  getAddress,
-  getContract,
-  http,
-} from 'viem';
+import { createPublicClient, getAddress, getContract, http } from 'viem';
+import type { Account, Chain, GetContractReturnType, Hex, HttpTransport, PublicClient } from 'viem';
 
 import { createEthereumChain } from '../chain.js';
-import { type DeployL1Contracts } from '../deploy_l1_contracts.js';
-import { type L1ContractAddresses } from '../l1_contract_addresses.js';
-import { type L1ReaderConfig } from '../l1_reader.js';
+import type { DeployL1Contracts } from '../deploy_l1_contracts.js';
+import type { L1ContractAddresses } from '../l1_contract_addresses.js';
+import type { L1ReaderConfig } from '../l1_reader.js';
 import { formatViemError } from '../utils.js';
 import { SlashingProposerContract } from './slashing_proposer.js';
 

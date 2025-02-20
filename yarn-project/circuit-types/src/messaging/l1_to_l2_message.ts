@@ -1,14 +1,14 @@
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { computeL1ToL2MessageNullifier } from '@aztec/circuits.js/hash';
-import { type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
+import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex } from '@aztec/foundation/string';
 
-import { type AztecNode } from '../interfaces/aztec-node.js';
+import type { AztecNode } from '../interfaces/aztec-node.js';
 import { MerkleTreeId } from '../merkle_tree_id.js';
-import { type SiblingPath } from '../sibling_path/index.js';
+import type { SiblingPath } from '../sibling_path/index.js';
 import { L1Actor } from './l1_actor.js';
 import { L2Actor } from './l2_actor.js';
 

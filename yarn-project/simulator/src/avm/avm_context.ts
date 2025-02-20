@@ -1,11 +1,12 @@
-import { type AztecAddress } from '@aztec/circuits.js';
-import { type Fr } from '@aztec/foundation/fields';
+import type { AztecAddress } from '@aztec/circuits.js';
+import type { Fr } from '@aztec/foundation/fields';
 
-import { type AvmExecutionEnvironment } from './avm_execution_environment.js';
-import { type Gas, gasToGasLeft } from './avm_gas.js';
+import type { AvmExecutionEnvironment } from './avm_execution_environment.js';
+import { gasToGasLeft } from './avm_gas.js';
+import type { Gas } from './avm_gas.js';
 import { AvmMachineState } from './avm_machine_state.js';
 import type { AvmSimulator } from './avm_simulator.js';
-import { type AvmPersistableStateManager } from './journal/journal.js';
+import type { AvmPersistableStateManager } from './journal/journal.js';
 
 /**
  * An execution context includes the information necessary to initiate AVM

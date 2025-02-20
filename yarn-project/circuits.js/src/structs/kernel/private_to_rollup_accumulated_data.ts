@@ -6,11 +6,13 @@ import {
   MAX_PRIVATE_LOGS_PER_TX,
   PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH,
 } from '@aztec/constants';
-import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
+import { makeTuple } from '@aztec/foundation/array';
+import type { FieldsOf } from '@aztec/foundation/array';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
-import { BufferReader, type Tuple, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import type { Tuple } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { inspect } from 'util';

@@ -1,29 +1,26 @@
-import { ContractClassTxL2Logs, MerkleTreeId, type Tx } from '@aztec/circuit-types';
-import {
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
-  NullifierMembershipWitness,
-} from '@aztec/circuit-types/interfaces/server';
-import { type PublicDBAccessStats } from '@aztec/circuit-types/stats';
-import {
-  type AztecAddress,
-  type ContractClassPublic,
-  type ContractDataSource,
-  type ContractInstanceWithAddress,
-  Fr,
-  type FunctionSelector,
-  computePublicBytecodeCommitment,
+import { ContractClassTxL2Logs, MerkleTreeId } from '@aztec/circuit-types';
+import type { Tx } from '@aztec/circuit-types';
+import { NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/server';
+import type { MerkleTreeReadOperations, MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
+import type { PublicDBAccessStats } from '@aztec/circuit-types/stats';
+import { Fr, computePublicBytecodeCommitment } from '@aztec/circuits.js';
+import type {
+  AztecAddress,
+  ContractClassPublic,
+  ContractDataSource,
+  ContractInstanceWithAddress,
+  FunctionSelector,
 } from '@aztec/circuits.js';
 import { computeL1ToL2MessageNullifier, computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { type NullifierLeafPreimage, type PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
-import { type L1_TO_L2_MSG_TREE_HEIGHT, type NULLIFIER_TREE_HEIGHT } from '@aztec/constants';
+import type { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
+import type { L1_TO_L2_MSG_TREE_HEIGHT, NULLIFIER_TREE_HEIGHT } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
 import { ContractInstanceDeployedEvent } from '@aztec/protocol-contracts/instance-deployer';
 
 import { MessageLoadOracleInputs } from '../common/message_load_oracle_inputs.js';
-import { type CommitmentsDB, type PublicContractsDB, type PublicStateDB } from './db_interfaces.js';
+import type { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db_interfaces.js';
 
 /**
  * Implements the PublicContractsDB using a ContractDataSource.
