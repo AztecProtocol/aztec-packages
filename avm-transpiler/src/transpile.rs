@@ -15,6 +15,12 @@ use crate::opcodes::AvmOpcode;
 use crate::procedures::{compile_procedure, Procedure, SCRATCH_SPACE_START};
 use crate::utils::{dbg_print_avm_program, dbg_print_brillig_program, make_operand};
 
+pub(crate) const UNRESOLVED_PC: u32 = 0xdeadbeef;
+enum Label {
+    BrilligPC { pc: u32 },
+    Procedure { label: String },
+}
+
 /// Transpile a Brillig program to AVM bytecode
 /// Returns the bytecode and a mapping from Brillig program counter to AVM program counter.
 pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<u8>, Vec<usize>) {
@@ -23,7 +29,10 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
     let mut avm_instrs: Vec<AvmInstruction> = Vec::new();
     let mut brillig_pcs_to_avm_pcs: Vec<usize> = [0_usize].to_vec();
     let mut current_avm_pc: usize = 0;
+
     let mut procedures_used: HashSet<Procedure> = HashSet::default();
+    // Maps INSTRUCTION INDEXES to labels, not avm pcs to labels
+    let mut unresolved_jumps: HashMap<usize, Label> = HashMap::default();
 
     // Transpile a Brillig instruction to one or more AVM instructions
     for brillig_instr in brillig_bytecode {
@@ -236,21 +245,26 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
             }
             BrilligOpcode::Jump { location } => {
                 assert!(location.num_bits() <= 32);
+                unresolved_jumps
+                    .insert(avm_instrs.len(), Label::BrilligPC { pc: *location as u32 });
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::JUMP_32,
-                    immediates: vec![AvmOperand::BRILLIG_LOCATION { brillig_pc: *location as u32 }],
+                    immediates: vec![AvmOperand::U32 { value: UNRESOLVED_PC }],
                     ..Default::default()
                 });
             }
             BrilligOpcode::JumpIf { condition, location } => {
                 assert!(location.num_bits() <= 32);
+                unresolved_jumps
+                    .insert(avm_instrs.len(), Label::BrilligPC { pc: *location as u32 });
+
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::JUMPI_32,
                     indirect: Some(
                         AddressingModeBuilder::default().direct_operand(condition).build(),
                     ),
                     operands: vec![make_operand(16, &condition.to_usize())],
-                    immediates: vec![AvmOperand::BRILLIG_LOCATION { brillig_pc: *location as u32 }],
+                    immediates: vec![AvmOperand::U32 { value: UNRESOLVED_PC }],
                     ..Default::default()
                 });
             }
@@ -298,9 +312,12 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
             }
             BrilligOpcode::Call { location } => {
                 assert!(location.num_bits() <= 32);
+                unresolved_jumps
+                    .insert(avm_instrs.len(), Label::BrilligPC { pc: *location as u32 });
+
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::INTERNALCALL,
-                    immediates: vec![AvmOperand::BRILLIG_LOCATION { brillig_pc: *location as u32 }],
+                    immediates: vec![AvmOperand::U32 { value: UNRESOLVED_PC }],
                     ..Default::default()
                 });
             }
@@ -333,7 +350,12 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                 handle_foreign_call(&mut avm_instrs, function, destinations, inputs);
             }
             BrilligOpcode::BlackBox(operation) => {
-                handle_black_box_function(&mut avm_instrs, operation, &mut procedures_used);
+                handle_black_box_function(
+                    &mut avm_instrs,
+                    operation,
+                    &mut procedures_used,
+                    &mut unresolved_jumps,
+                );
             }
             _ => panic!(
                 "Transpiler doesn't know how to process {:?} brillig instruction",
@@ -360,39 +382,44 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                 (label, global_location)
             },
         ));
+        unresolved_jumps.extend(compiled_procedure.unresolved_jumps.into_iter().map(
+            |(instruction_index, target)| {
+                (instruction_index + avm_instrs.len(), Label::Procedure { label: target })
+            },
+        ));
         current_avm_pc += compiled_procedure.instructions_size;
         avm_instrs.extend(compiled_procedure.instructions);
     }
 
     // Now that we have the general structure of the AVM program, we need to resolve the
     // now unresolved jump locations.
-    let mut avm_instrs = avm_instrs
-        .into_iter()
-        .map(|i| match i.opcode {
-            AvmOpcode::JUMP_32 | AvmOpcode::JUMPI_32 | AvmOpcode::INTERNALCALL => {
-                let new_immediates = i
-                    .immediates
-                    .into_iter()
-                    .map(|o| match o {
-                        AvmOperand::BRILLIG_LOCATION { brillig_pc } => {
-                            let avm_pc = brillig_pcs_to_avm_pcs[brillig_pc as usize];
-                            assert!(avm_pc.num_bits() <= 32, "Oops! AVM PC is too large!");
-                            AvmOperand::U32 { value: avm_pc as u32 }
-                        }
-                        AvmOperand::PROCEDURE_LABEL { label } => {
-                            let resolved_location = *procedure_locations
-                                .get(&label)
-                                .unwrap_or_else(|| panic!("Procedure label {:?} not found", label));
-                            AvmOperand::U32 { value: resolved_location as u32 }
-                        }
-                        _ => o,
-                    })
-                    .collect::<Vec<AvmOperand>>();
-                AvmInstruction { immediates: new_immediates, ..i }
+    for (instruction_index, label) in unresolved_jumps.into_iter() {
+        let resolved_location = match label {
+            Label::BrilligPC { pc: brillig_pc } => {
+                let avm_pc = brillig_pcs_to_avm_pcs[brillig_pc as usize];
+                assert!(avm_pc.num_bits() <= 32, "Oops! AVM PC is too large!");
+                avm_pc as u32
             }
-            _ => i,
-        })
-        .collect::<Vec<AvmInstruction>>();
+            Label::Procedure { label: procedure_label } => *procedure_locations
+                .get(&procedure_label)
+                .unwrap_or_else(|| panic!("Procedure label {:?} not found", procedure_label))
+                as u32,
+        };
+        let instruction = avm_instrs.get_mut(instruction_index).unwrap();
+        assert!(
+            instruction.immediates.len() == 1,
+            "Expected one immediate for an unresolved jump/call"
+        );
+        let immediate = instruction.immediates.get_mut(0).unwrap();
+        let value = match immediate {
+            AvmOperand::U32 { value } => {
+                assert!(*value == UNRESOLVED_PC, "Expected unresolved PC"); // Double check
+                value
+            }
+            _ => panic!("Expected immediate to be a U32"),
+        };
+        *value = resolved_location;
+    }
 
     // TEMPORARY: Add a "magic number" instruction to the end of the program.
     // This makes it possible to know that the bytecode corresponds to the AVM.
@@ -1033,10 +1060,16 @@ fn generate_mov_to_procedure(source: &MemoryAddress, index: usize) -> AvmInstruc
     )
 }
 
-fn generate_procedure_call(procedure: Procedure) -> AvmInstruction {
+fn generate_procedure_call(
+    procedure: Procedure,
+    instruction_index: usize,
+    unresolved_jumps: &mut HashMap<usize, Label>,
+) -> AvmInstruction {
+    unresolved_jumps
+        .insert(instruction_index, Label::Procedure { label: procedure.entrypoint_label() });
     AvmInstruction {
         opcode: AvmOpcode::INTERNALCALL,
-        immediates: vec![AvmOperand::PROCEDURE_LABEL { label: procedure.entrypoint_label() }],
+        immediates: vec![AvmOperand::U32 { value: UNRESOLVED_PC }],
         ..Default::default()
     }
 }
@@ -1047,6 +1080,7 @@ fn handle_black_box_function(
     avm_instrs: &mut Vec<AvmInstruction>,
     operation: &BlackBoxOp,
     procedures_used: &mut HashSet<Procedure>,
+    unresolved_jumps: &mut HashMap<usize, Label>,
 ) {
     match operation {
         BlackBoxOp::Sha256Compression { input, hash_values, output } => {
@@ -1190,7 +1224,11 @@ fn handle_black_box_function(
             avm_instrs.push(generate_mov_to_procedure(&scalars.pointer, 1));
             avm_instrs.push(generate_mov_to_procedure(&points.size, 2));
             avm_instrs.push(generate_mov_to_procedure(&outputs.pointer, 3));
-            avm_instrs.push(generate_procedure_call(Procedure::MultiScalarMul));
+            avm_instrs.push(generate_procedure_call(
+                Procedure::MultiScalarMul,
+                avm_instrs.len(),
+                unresolved_jumps,
+            ));
             procedures_used.insert(Procedure::MultiScalarMul);
         }
         _ => panic!("Transpiler doesn't know how to process {:?}", operation),

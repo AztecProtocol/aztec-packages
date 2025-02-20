@@ -3,7 +3,7 @@ use crate::{
     procedures::parser::{Operand, ParsedOpcode, Symbol},
 };
 
-use super::{prefix_label, Label};
+use super::Label;
 
 // We should probably pull these constants from the noir compiler
 const NUM_RESERVED_REGISTERS: usize = 3;
@@ -42,7 +42,6 @@ pub(crate) struct OperandCollectionResult {
 
 pub(crate) struct OperandCollector {
     parsed_opcode: ParsedOpcode,
-    label_prefix: String,
     extracted_operands: Vec<usize>,
     extracted_immediates: Vec<Immediate>,
     indirect: Vec<bool>,
@@ -52,10 +51,9 @@ pub(crate) struct OperandCollector {
 }
 
 impl OperandCollector {
-    pub(crate) fn new(parsed_opcode: ParsedOpcode, label_prefix: String) -> Self {
+    pub(crate) fn new(parsed_opcode: ParsedOpcode) -> Self {
         OperandCollector {
             parsed_opcode,
-            label_prefix,
             extracted_operands: vec![],
             extracted_immediates: vec![],
             indirect: vec![],
@@ -127,9 +125,7 @@ impl OperandCollector {
                 Symbol::Reserved(_) | Symbol::Indirect(_) | Symbol::Direct(_) => {
                     Err("Expected label found address".to_string())
                 }
-                Symbol::Label(label) => {
-                    Ok(Immediate::Label(prefix_label(&self.label_prefix, &label)))
-                }
+                Symbol::Label(label) => Ok(Immediate::Label(label)),
             },
             Operand::Immediate(_) => Err("Expected label found numeric".to_string()),
         }?;

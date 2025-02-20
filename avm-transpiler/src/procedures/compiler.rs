@@ -4,6 +4,7 @@ use crate::{
     bit_traits::bits_needed_for,
     instructions::{AvmInstruction, AvmOperand},
     opcodes::AvmOpcode,
+    transpile::UNRESOLVED_PC,
     utils::make_operand,
 };
 use fxhash::FxHashMap as HashMap;
@@ -19,8 +20,10 @@ pub(crate) use operand_collector::SCRATCH_SPACE_START;
 
 pub(crate) struct CompiledProcedure {
     pub instructions: Vec<AvmInstruction>,
-    // Map of instruction index to label
+    // Map of instruction label to local avm pc
     pub locations: HashMap<Label, usize>,
+    // Map of instruction index to jumped to label
+    pub unresolved_jumps: HashMap<usize, Label>,
 
     pub instructions_size: usize,
 }
@@ -41,15 +44,22 @@ impl CompiledProcedure {
         self.instructions_size += instruction.size();
         self.instructions.push(instruction);
     }
+
+    fn add_unresolved_jump(&mut self, label_prefix: &Label, target: Label) {
+        self.unresolved_jumps.insert(self.instructions.len(), prefix_label(label_prefix, &target));
+    }
 }
 
 pub(crate) fn compile(
     parsed_assembly: Assembly,
     procedure: Procedure,
 ) -> Result<CompiledProcedure, String> {
-    let instructions = Vec::with_capacity(parsed_assembly.len());
-    let locations = HashMap::default();
-    let mut result = CompiledProcedure { instructions, locations, instructions_size: 0 };
+    let mut result = CompiledProcedure {
+        instructions: Vec::with_capacity(parsed_assembly.len()),
+        locations: HashMap::default(),
+        unresolved_jumps: HashMap::default(),
+        instructions_size: 0,
+    };
     for parsed_opcode in parsed_assembly.into_iter() {
         compile_opcode(parsed_opcode.clone(), procedure.label_prefix(), &mut result)
             .map_err(|err| format!("Error compiling opcode {:?}: {}", parsed_opcode, err))?;
@@ -67,7 +77,7 @@ fn compile_opcode(
 ) -> Result<(), String> {
     let label = parsed_opcode.label.clone();
     let alias = parsed_opcode.alias;
-    let mut collector = OperandCollector::new(parsed_opcode, label_prefix.clone());
+    let mut collector = OperandCollector::new(parsed_opcode);
     match alias {
         Alias::ADD
         | Alias::SUB
@@ -121,12 +131,11 @@ fn compile_opcode(
         Alias::JUMP => {
             collector.label_operand()?;
             let collection = collector.finish()?;
+            result.add_unresolved_jump(&label_prefix, collection.immediates[0].unwrap_label());
             result.add_instruction(
                 AvmInstruction {
                     opcode: AvmOpcode::JUMP_32,
-                    immediates: vec![AvmOperand::PROCEDURE_LABEL {
-                        label: collection.immediates[0].unwrap_label(),
-                    }],
+                    immediates: vec![AvmOperand::U32 { value: UNRESOLVED_PC }],
                     ..Default::default()
                 },
                 label_prefix,
@@ -137,14 +146,13 @@ fn compile_opcode(
             collector.memory_address_operand()?;
             collector.label_operand()?;
             let collection = collector.finish()?;
+            result.add_unresolved_jump(&label_prefix, collection.immediates[0].unwrap_label());
             result.add_instruction(
                 AvmInstruction {
                     opcode: AvmOpcode::JUMPI_32,
                     indirect: Some(build_addressing_mode(collection.indirect)),
                     operands: vec![make_operand(16, &collection.operands[0])],
-                    immediates: vec![AvmOperand::PROCEDURE_LABEL {
-                        label: collection.immediates[0].unwrap_label(),
-                    }],
+                    immediates: vec![AvmOperand::U32 { value: UNRESOLVED_PC }],
                     ..Default::default()
                 },
                 label_prefix,
