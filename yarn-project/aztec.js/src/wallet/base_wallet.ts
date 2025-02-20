@@ -1,6 +1,5 @@
 import {
   type AuthWitness,
-  type ExtendedNote,
   type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
   type L2Block,

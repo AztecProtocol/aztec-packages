@@ -39,7 +39,7 @@ import {
   type GetPublicLogsResponse,
   type LogFilter,
 } from '../logs/index.js';
-import { ExtendedNote, UniqueNote } from '../notes/index.js';
+import { UniqueNote } from '../notes/index.js';
 import { type NotesFilter } from '../notes/notes_filter.js';
 import { PrivateExecutionResult } from '../private_execution_result.js';
 import { SiblingPath } from '../sibling_path/sibling_path.js';

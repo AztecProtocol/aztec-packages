@@ -1,11 +1,6 @@
 import { getSchnorrAccount, getSchnorrWallet } from '@aztec/accounts/schnorr';
 import { type InitialAccountData, deployFundedSchnorrAccount } from '@aztec/accounts/testing';
-import {
-  type AccountWallet,
-  type ContractInstanceWithAddress,
-  type TxHash,
-  computeSecretHash,
-} from '@aztec/aztec.js';
+import { type AccountWallet, type ContractInstanceWithAddress, type TxHash, computeSecretHash } from '@aztec/aztec.js';
 import { type AztecAddress, Fr } from '@aztec/circuits.js';
 import { MAX_NOTE_HASHES_PER_TX } from '@aztec/constants';
 import { type DeployL1Contracts } from '@aztec/ethereum';
@@ -323,13 +318,7 @@ describe('Aztec persistence', () => {
 
     it('allows consuming transparent note created on another PXE', async () => {
       // this was created in the temporary PXE in `beforeAll`
-      await addPendingShieldNoteToPXE(
-        contract,
-        ownerWallet,
-        mintAmount,
-        await computeSecretHash(secret),
-        mintTxHash,
-      );
+      await addPendingShieldNoteToPXE(contract, ownerWallet, mintAmount, await computeSecretHash(secret), mintTxHash);
 
       const balanceBeforeRedeem = await contract.methods.balance_of_private(ownerWallet.getAddress()).simulate();
 
