@@ -41,13 +41,13 @@ jobs:
           github.event.pull_request.head.repo.full_name != github.repository
         run: |
           set -o pipefail
-          git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1
+          git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1 &>/dev/null
           forbidden_changes=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }} HEAD -- ci3 .github ci.sh)
           if echo "$forbidden_changes" | grep -q .; then
             echo "Error: External PRs can't contain CI changes (forbidden files: $forbidden_changes)."
             exit 1
           fi
-          labeled="${{contains(github.event.pull_request.labels.*.name, 'ci-external') || contains(github.event.pull_request.labels.*.name, 'ci-external-once')}}""
+          labeled="${{contains(github.event.pull_request.labels.*.name, 'ci-external') || contains(github.event.pull_request.labels.*.name, 'ci-external-once')}}"
           if [ "$labeled" == 'false' ]; then
             echo "External PRs need the 'ci-external' or 'ci-external-once' labels to run."
             exit 1
