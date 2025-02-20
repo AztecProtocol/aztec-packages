@@ -56,7 +56,6 @@ function compile_all {
     circuit-types \
     circuits.js \
     ivc-integration \
-    kv-store \
     l1-artifacts \
     native \
     noir-contracts.js \
