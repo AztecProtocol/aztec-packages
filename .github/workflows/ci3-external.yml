@@ -48,7 +48,8 @@ jobs:
             echo "Error: External PRs can only target master, targeted: ${{ github.event.pull_request.base.ref }}."
             exit 1
           fi
-          if ${{contains(github.event.pull_request.labels.*.name, 'ci-external') || contains(github.event.pull_request.labels.*.name, 'ci-external-once')}}; then
+          labeled="${{contains(github.event.pull_request.labels.*.name, 'ci-external') || contains(github.event.pull_request.labels.*.name, 'ci-external-once')}}"
+          if [ "$labeled" = false ]; then
             echo "External PRs need the 'ci-external' or 'ci-external-once' labels to run."
             exit 1
           fi
