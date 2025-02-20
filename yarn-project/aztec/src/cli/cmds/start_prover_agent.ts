@@ -1,13 +1,20 @@
-import { type ProverAgentConfig, proverAgentConfigMappings } from '@aztec/circuit-types';
 import { times } from '@aztec/foundation/collection';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
+import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
 import { type LogFn } from '@aztec/foundation/log';
 import { buildServerCircuitProver } from '@aztec/prover-client';
-import { InlineProofStore, ProvingAgent, createProvingJobBrokerClient } from '@aztec/prover-client/broker';
+import {
+  InlineProofStore,
+  type ProverAgentConfig,
+  ProvingAgent,
+  createProvingJobBrokerClient,
+  proverAgentConfigMappings,
+} from '@aztec/prover-client/broker';
 import { getProverNodeAgentConfigFromEnv } from '@aztec/prover-node';
-import { createAndStartTelemetryClient, telemetryClientConfigMappings } from '@aztec/telemetry-client/start';
+import { initTelemetryClient, makeTracedFetch, telemetryClientConfigMappings } from '@aztec/telemetry-client';
 
 import { extractRelevantOptions } from '../util.js';
+import { getVersions } from '../versioning.js';
 
 export async function startProverAgent(
   options: any,
@@ -33,11 +40,10 @@ export async function startProverAgent(
     process.exit(1);
   }
 
-  const broker = createProvingJobBrokerClient(config.proverBrokerUrl);
+  const fetch = makeTracedFetch([1, 2, 3], false, makeUndiciFetch(new Agent({ connections: 10 })));
+  const broker = createProvingJobBrokerClient(config.proverBrokerUrl, getVersions(), fetch);
 
-  const telemetry = await createAndStartTelemetryClient(
-    extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'),
-  );
+  const telemetry = initTelemetryClient(extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'));
   const prover = await buildServerCircuitProver(config, telemetry);
   const proofStore = new InlineProofStore();
   const agents = times(
@@ -47,9 +53,9 @@ export async function startProverAgent(
         broker,
         proofStore,
         prover,
-        telemetry,
         config.proverAgentProofTypes,
         config.proverAgentPollIntervalMs,
+        telemetry,
       ),
   );
 

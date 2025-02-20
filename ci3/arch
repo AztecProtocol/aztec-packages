@@ -1,0 +1,14 @@
+#!/bin/bash
+# Returns the standard artifact prefixes for each arch.
+case $(uname -m) in
+  aarch64)
+    echo arm64
+    ;;
+  amd64|x86_64)
+    echo amd64
+    ;;
+  *)
+    echo "Error: unknown architecture $(uname -m)" >&2
+    exit 1
+    ;;
+esac

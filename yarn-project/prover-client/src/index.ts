@@ -1,5 +1,4 @@
-export { EpochProverManager } from '@aztec/circuit-types';
+export type { EpochProverManager } from '@aztec/circuit-types/interfaces/server';
 
 export * from './prover-client/index.js';
 export * from './config.js';
-export * from './proving_broker/prover_cache/memory.js';

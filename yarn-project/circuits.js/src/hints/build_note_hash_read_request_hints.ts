@@ -1,13 +1,12 @@
-import { type Tuple } from '@aztec/foundation/serialize';
-
 import {
   type MAX_NOTE_HASHES_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   type NOTE_HASH_TREE_HEIGHT,
-} from '../constants.gen.js';
-import { siloNoteHash } from '../hash/index.js';
+} from '@aztec/constants';
+import { type Tuple } from '@aztec/foundation/serialize';
+import type { MembershipWitness } from '@aztec/foundation/trees';
+
 import {
-  type MembershipWitness,
   NoteHashReadRequestHintsBuilder,
   PendingReadHint,
   ReadRequestResetStates,
@@ -86,13 +85,12 @@ export async function buildNoteHashReadRequestHintsFromResetStates<PENDING exten
   for (let i = 0; i < resetStates.states.length; i++) {
     if (resetStates.states[i] === ReadRequestState.SETTLED) {
       const readRequest = noteHashReadRequests[i];
-      const siloedValue = siloNoteHash(readRequest.contractAddress, readRequest.value);
-      const leafIndex = noteHashLeafIndexMap.get(siloedValue.toBigInt());
+      const leafIndex = noteHashLeafIndexMap.get(readRequest.value.toBigInt());
       if (leafIndex === undefined) {
         throw new Error('Read request is reading an unknown note hash.');
       }
       const membershipWitness = await oracle.getNoteHashMembershipWitness(leafIndex);
-      builder.addSettledReadRequest(i, membershipWitness, siloedValue);
+      builder.addSettledReadRequest(i, membershipWitness, readRequest.value);
     }
   }
 

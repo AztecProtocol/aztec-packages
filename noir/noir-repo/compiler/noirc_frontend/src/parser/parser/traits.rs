@@ -92,6 +92,11 @@ impl<'a> Parser<'a> {
             })
             .into();
 
+            let r#trait = UnresolvedType {
+                typ: UnresolvedTypeData::Named(trait_name, trait_generics, false),
+                span,
+            };
+
             // bounds from trait
             let mut where_clause = where_clause.clone();
             for bound in bounds.clone() {
@@ -104,15 +109,7 @@ impl<'a> Parser<'a> {
             let items = vec![];
             let is_synthetic = true;
 
-            NoirTraitImpl {
-                impl_generics,
-                trait_name,
-                trait_generics,
-                object_type,
-                where_clause,
-                items,
-                is_synthetic,
-            }
+            NoirTraitImpl { impl_generics, r#trait, object_type, where_clause, items, is_synthetic }
         });
 
         let noir_trait = NoirTrait {
@@ -225,6 +222,10 @@ impl<'a> Parser<'a> {
             false, // allow mut
         );
 
+        if modifiers.visibility != ItemVisibility::Private {
+            self.push_error(ParserErrorReason::TraitVisibilityIgnored, modifiers.visibility_span);
+        }
+
         if !self.eat_keyword(Keyword::Fn) {
             self.modifiers_not_followed_by_an_item(modifiers);
             return None;
@@ -283,9 +284,13 @@ fn empty_trait(
 #[cfg(test)]
 mod tests {
     use crate::{
-        ast::{NoirTrait, NoirTraitImpl, TraitItem},
+        ast::{NoirTrait, NoirTraitImpl, TraitItem, UnresolvedTypeData},
         parser::{
-            parser::{parse_program, tests::expect_no_errors, ParserErrorReason},
+            parser::{
+                parse_program,
+                tests::{expect_no_errors, get_single_error, get_source_with_error_span},
+                ParserErrorReason,
+            },
             ItemKind,
         },
     };
@@ -366,9 +371,14 @@ mod tests {
         assert!(noir_trait_alias.items.is_empty());
         assert!(noir_trait_alias.is_alias);
 
-        assert_eq!(noir_trait_impl.trait_name.to_string(), "Foo");
+        let UnresolvedTypeData::Named(trait_name, trait_generics, _) = noir_trait_impl.r#trait.typ
+        else {
+            panic!("Expected name type");
+        };
+
+        assert_eq!(trait_name.to_string(), "Foo");
         assert_eq!(noir_trait_impl.impl_generics.len(), 3);
-        assert_eq!(noir_trait_impl.trait_generics.ordered_args.len(), 2);
+        assert_eq!(trait_generics.ordered_args.len(), 2);
         assert_eq!(noir_trait_impl.where_clause.len(), 2);
         assert_eq!(noir_trait_alias.bounds.len(), 2);
         assert_eq!(noir_trait_alias.bounds[0].to_string(), "Bar");
@@ -420,9 +430,14 @@ mod tests {
         assert!(noir_trait_alias.items.is_empty());
         assert!(noir_trait_alias.is_alias);
 
-        assert_eq!(noir_trait_impl.trait_name.to_string(), "Foo");
+        let UnresolvedTypeData::Named(trait_name, trait_generics, _) = noir_trait_impl.r#trait.typ
+        else {
+            panic!("Expected name type");
+        };
+
+        assert_eq!(trait_name.to_string(), "Foo");
         assert_eq!(noir_trait_impl.impl_generics.len(), 3);
-        assert_eq!(noir_trait_impl.trait_generics.ordered_args.len(), 2);
+        assert_eq!(trait_generics.ordered_args.len(), 2);
         assert_eq!(noir_trait_impl.where_clause.len(), 3);
         assert_eq!(noir_trait_impl.where_clause[0].to_string(), "A: Z");
         assert_eq!(noir_trait_impl.where_clause[1].to_string(), "#T: Bar");
@@ -513,7 +528,19 @@ mod tests {
     }
 
     #[test]
-    fn parse_trait_inheirtance() {
+    fn parse_trait_function_with_visibility() {
+        let src = "
+        trait Foo { pub fn foo(); }
+                    ^^^
+        ";
+        let (src, span) = get_source_with_error_span(src);
+        let (_module, errors) = parse_program(&src);
+        let error = get_single_error(&errors, span);
+        assert!(error.to_string().contains("Visibility is ignored on a trait method"));
+    }
+
+    #[test]
+    fn parse_trait_inheritance() {
         let src = "trait Foo: Bar + Baz {}";
         let noir_trait = parse_trait_no_errors(src);
         assert_eq!(noir_trait.bounds.len(), 2);
@@ -537,9 +564,14 @@ mod tests {
         assert_eq!(noir_trait_alias.to_string(), "trait Foo = Bar + Baz;");
         assert!(noir_trait_alias.is_alias);
 
-        assert_eq!(noir_trait_impl.trait_name.to_string(), "Foo");
+        let UnresolvedTypeData::Named(trait_name, trait_generics, _) = noir_trait_impl.r#trait.typ
+        else {
+            panic!("Expected name type");
+        };
+
+        assert_eq!(trait_name.to_string(), "Foo");
         assert_eq!(noir_trait_impl.impl_generics.len(), 1);
-        assert_eq!(noir_trait_impl.trait_generics.ordered_args.len(), 0);
+        assert_eq!(trait_generics.ordered_args.len(), 0);
         assert_eq!(noir_trait_impl.where_clause.len(), 2);
         assert_eq!(noir_trait_impl.where_clause[0].to_string(), "#T: Bar");
         assert_eq!(noir_trait_impl.where_clause[1].to_string(), "#T: Baz");

@@ -4,8 +4,16 @@ export type LogFilters = [string, LogLevel][];
 
 export function getLogLevelFromFilters(filters: LogFilters, module: string): LogLevel | undefined {
   for (const [filterModule, level] of filters) {
-    if (module.startsWith(filterModule)) {
-      return level as LogLevel;
+    try {
+      const regex = new RegExp(filterModule);
+      if (regex.test(module)) {
+        return level as LogLevel;
+      }
+    } catch {
+      // If regex is invalid, fall back to startsWith check
+      if (module.startsWith(filterModule)) {
+        return level as LogLevel;
+      }
     }
   }
   return undefined;
@@ -42,7 +50,13 @@ export function parseFilters(definition: string | undefined): LogFilters {
     const sanitizedLevel = level.trim().toLowerCase();
     assertLogLevel(sanitizedLevel);
     for (const module of modules.split(',')) {
-      filters.push([module.trim().toLowerCase(), sanitizedLevel as LogLevel | 'silent']);
+      filters.push([
+        module
+          .trim()
+          .toLowerCase()
+          .replace(/^aztec:/, ''),
+        sanitizedLevel as LogLevel | 'silent',
+      ]);
     }
   }
   return filters.reverse();

@@ -1,12 +1,9 @@
 import {
   type AccountWallet,
+  type DeployAccountOptions,
   FeeJuicePaymentMethod,
-  FeeJuicePaymentMethodWithClaim,
   type FeePaymentMethod,
-  NoFeePaymentMethod,
   type PXE,
-  PrivateFeePaymentMethod,
-  PublicFeePaymentMethod,
   type SendMethodOptions,
 } from '@aztec/aztec.js';
 import { AztecAddress, Fr, Gas, GasFees, GasSettings } from '@aztec/circuits.js';
@@ -15,13 +12,15 @@ import { type LogFn } from '@aztec/foundation/log';
 import { Option } from 'commander';
 
 import { type WalletDB } from '../../storage/wallet_db.js';
-import { aliasedAddressParser } from './index.js';
+import { createOrRetrieveAccount } from '../accounts.js';
+import { aliasedAddressParser } from './options.js';
 
 export type CliFeeArgs = {
   estimateGasOnly: boolean;
   gasLimits?: string;
   payment?: string;
   maxFeesPerGas?: string;
+  maxPriorityFeesPerGas?: string;
   estimateGas?: boolean;
 };
 
@@ -29,6 +28,7 @@ export interface IFeeOpts {
   estimateOnly: boolean;
   gasSettings: GasSettings;
   toSendOpts(sender: AccountWallet): Promise<SendMethodOptions>;
+  toDeployAccountOpts(sender: AccountWallet): Promise<DeployAccountOptions>;
 }
 
 export function printGasEstimates(
@@ -55,6 +55,10 @@ export class FeeOpts implements IFeeOpts {
     public estimateOnly: boolean,
     public gasSettings: GasSettings,
     private paymentMethodFactory: (sender: AccountWallet) => Promise<FeePaymentMethod>,
+    private getDeployWallet: (
+      sender: AccountWallet,
+      paymentMethod: FeePaymentMethod,
+    ) => Promise<AccountWallet | undefined>,
     private estimateGas: boolean,
   ) {}
 
@@ -68,10 +72,23 @@ export class FeeOpts implements IFeeOpts {
     };
   }
 
+  async toDeployAccountOpts(sender: AccountWallet): Promise<DeployAccountOptions> {
+    const paymentMethod = await this.paymentMethodFactory(sender);
+    const deployWallet = await this.getDeployWallet(sender, paymentMethod);
+    return {
+      deployWallet,
+      fee: {
+        estimateGas: this.estimateGas,
+        gasSettings: this.gasSettings,
+        paymentMethod,
+      },
+    };
+  }
+
   static paymentMethodOption() {
     return new Option(
-      '--payment <method=name,asset=address,fpc=address,claimSecret=string,claimAmount=string,feeRecipient=string>',
-      'Fee payment method and arguments. Valid methods are: none, fee_juice, fpc-public, fpc-private.',
+      '--payment <method=name,feePayer=string,asset=address,fpc=address,claimSecret=string,claimAmount=string,feeRecipient=string>',
+      'Fee payment method and arguments. Valid methods are: fee_juice, fpc-public, fpc-private.',
     );
   }
 
@@ -79,7 +96,11 @@ export class FeeOpts implements IFeeOpts {
     return [
       new Option('--gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>', 'Gas limits for the tx.'),
       FeeOpts.paymentMethodOption(),
-      new Option('--max-fee-per-gas <da=100,l2=100>', 'Maximum fee per gas unit for DA and L2 computation.'),
+      new Option('--max-fees-per-gas <da=100,l2=100>', 'Maximum fees per gas unit for DA and L2 computation.'),
+      new Option(
+        '--max-priority-fees-per-gas <da=0,l2=0>',
+        'Maximum priority fees per gas unit for DA and L2 computation.',
+      ),
       new Option('--no-estimate-gas', 'Whether to automatically estimate gas limits for the tx.'),
       new Option('--estimate-gas-only', 'Only report gas estimation for the tx, do not send it.'),
     ];
@@ -87,32 +108,37 @@ export class FeeOpts implements IFeeOpts {
 
   static async fromCli(args: CliFeeArgs, pxe: PXE, log: LogFn, db?: WalletDB) {
     const estimateOnly = args.estimateGasOnly;
-    const gasFees = args.maxFeesPerGas
-      ? parseGasFees(args.maxFeesPerGas)
-      : { maxFeesPerGas: await pxe.getCurrentBaseFees() };
+    const gasLimits = args.gasLimits ? parseGasLimits(args.gasLimits) : {};
+    const maxFeesPerGas = args.maxFeesPerGas ? parseGasFees(args.maxFeesPerGas) : await pxe.getCurrentBaseFees();
+    const maxPriorityFeesPerGas = args.maxPriorityFeesPerGas ? parseGasFees(args.maxPriorityFeesPerGas) : undefined;
     const gasSettings = GasSettings.default({
-      ...gasFees,
-      ...(args.gasLimits ? parseGasLimits(args.gasLimits) : {}),
+      ...gasLimits,
+      maxFeesPerGas,
+      maxPriorityFeesPerGas,
     });
 
-    if (!args.gasLimits && !args.payment) {
-      return new NoFeeOpts(estimateOnly, gasSettings);
-    }
+    const defaultPaymentMethod = async (sender: AccountWallet) => {
+      const { FeeJuicePaymentMethod } = await import('@aztec/aztec.js/fee');
+      return new FeeJuicePaymentMethod(sender.getAddress());
+    };
+
+    const getDeployWallet = async (sender: AccountWallet, paymentMethod: FeePaymentMethod) => {
+      if (paymentMethod instanceof FeeJuicePaymentMethod) {
+        const feePayer = await paymentMethod.getFeePayer();
+        if (!sender.getAddress().equals(feePayer)) {
+          return (await createOrRetrieveAccount(pxe, feePayer, db)).getWallet();
+        }
+      }
+      return undefined;
+    };
 
     return new FeeOpts(
       estimateOnly,
       gasSettings,
-      args.payment ? parsePaymentMethod(args.payment, log, db) : () => Promise.resolve(new NoFeePaymentMethod()),
+      args.payment ? parsePaymentMethod(args.payment, log, db) : defaultPaymentMethod,
+      getDeployWallet,
       !!args.estimateGas,
     );
-  }
-}
-
-class NoFeeOpts implements IFeeOpts {
-  constructor(public estimateOnly: boolean, public gasSettings: GasSettings) {}
-
-  toSendOpts(): Promise<SendMethodOptions> {
-    return Promise.resolve({});
   }
 }
 
@@ -134,23 +160,15 @@ export function parsePaymentMethod(
     if (!parsed.asset) {
       throw new Error('Missing "asset" in payment option');
     }
-    if (!parsed.feeRecipient) {
-      // Recipient of a fee in the refund flow
-      throw new Error('Missing "feeRecipient" in payment option');
-    }
 
     const fpc = aliasedAddressParser('contracts', parsed.fpc, db);
-    const feeRecipient = AztecAddress.fromString(parsed.feeRecipient);
 
-    return [AztecAddress.fromString(parsed.asset), fpc, feeRecipient];
+    return [AztecAddress.fromString(parsed.asset), fpc];
   };
 
   return async (sender: AccountWallet) => {
     switch (parsed.method) {
-      case 'none':
-        log('Using no fee payment');
-        return new NoFeePaymentMethod();
-      case 'native':
+      case 'fee_juice': {
         if (parsed.claim || (parsed.claimSecret && parsed.claimAmount && parsed.messageLeafIndex)) {
           let claimAmount, claimSecret, messageLeafIndex;
           if (parsed.claim && db) {
@@ -163,26 +181,35 @@ export function parsePaymentMethod(
             ({ claimAmount, claimSecret, messageLeafIndex } = parsed);
           }
           log(`Using Fee Juice for fee payments with claim for ${claimAmount} tokens`);
+          const { FeeJuicePaymentMethodWithClaim } = await import('@aztec/aztec.js/fee');
           return new FeeJuicePaymentMethodWithClaim(sender.getAddress(), {
-            claimAmount: typeof claimAmount === 'string' ? Fr.fromString(claimAmount) : new Fr(claimAmount),
-            claimSecret: Fr.fromString(claimSecret),
+            claimAmount: (typeof claimAmount === 'string'
+              ? Fr.fromHexString(claimAmount)
+              : new Fr(claimAmount)
+            ).toBigInt(),
+            claimSecret: Fr.fromHexString(claimSecret),
             messageLeafIndex: BigInt(messageLeafIndex),
           });
         } else {
           log(`Using Fee Juice for fee payment`);
-          return new FeeJuicePaymentMethod(sender.getAddress());
+          const { FeeJuicePaymentMethod } = await import('@aztec/aztec.js/fee');
+          const feePayer = parsed.feePayer
+            ? aliasedAddressParser('accounts', parsed.feePayer, db)
+            : sender.getAddress();
+          return new FeeJuicePaymentMethod(feePayer);
         }
+      }
       case 'fpc-public': {
         const [asset, fpc] = getFpcOpts(parsed, db);
         log(`Using public fee payment with asset ${asset} via paymaster ${fpc}`);
-        return new PublicFeePaymentMethod(asset, fpc, sender);
+        const { PublicFeePaymentMethod } = await import('@aztec/aztec.js/fee');
+        return new PublicFeePaymentMethod(fpc, sender);
       }
       case 'fpc-private': {
-        const [asset, fpc, feeRecipient] = getFpcOpts(parsed, db);
-        log(
-          `Using private fee payment with asset ${asset} via paymaster ${fpc} with rebate secret ${feeRecipient.toString()}`,
-        );
-        return new PrivateFeePaymentMethod(asset, fpc, sender, feeRecipient);
+        const [asset, fpc] = getFpcOpts(parsed, db);
+        log(`Using private fee payment with asset ${asset} via paymaster ${fpc}`);
+        const { PrivateFeePaymentMethod } = await import('@aztec/aztec.js/fee');
+        return new PrivateFeePaymentMethod(fpc, sender);
       }
       case undefined:
         throw new Error('Missing "method" in payment option');
@@ -212,7 +239,7 @@ function parseGasLimits(gasLimits: string): { gasLimits: Gas; teardownGasLimits:
   };
 }
 
-function parseGasFees(gasFees: string): { maxFeesPerGas: GasFees } {
+export function parseGasFees(gasFees: string): GasFees {
   const parsed = gasFees.split(',').reduce((acc, fee) => {
     const [dimension, value] = fee.split('=');
     acc[dimension] = parseInt(value, 10);
@@ -226,5 +253,5 @@ function parseGasFees(gasFees: string): { maxFeesPerGas: GasFees } {
     }
   }
 
-  return { maxFeesPerGas: new GasFees(parsed.da, parsed.l2) };
+  return new GasFees(parsed.da, parsed.l2);
 }

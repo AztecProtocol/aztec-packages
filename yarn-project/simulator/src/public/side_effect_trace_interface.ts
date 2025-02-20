@@ -1,18 +1,13 @@
-import { type UnencryptedL2Log } from '@aztec/circuit-types';
 import {
   type ContractClassIdPreimage,
-  type Gas,
-  type NullifierLeafPreimage,
   type PublicCallRequest,
-  type PublicDataTreeLeafPreimage,
+  type PublicLog,
   type SerializableContractInstance,
 } from '@aztec/circuits.js';
+import { type AvmNullifierReadTreeHint, type AvmPublicDataReadTreeHint } from '@aztec/circuits.js/avm';
+import { type NullifierLeafPreimage, type PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
-
-import { type AvmContractCallResult, type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
-import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
-import { type EnqueuedPublicCallExecutionResultWithSideEffects, type PublicFunctionCallResult } from './execution.js';
 
 export interface PublicSideEffectTraceInterface {
   fork(): PublicSideEffectTraceInterface;
@@ -31,14 +26,16 @@ export interface PublicSideEffectTraceInterface {
     contractAddress: AztecAddress,
     slot: Fr, // This is the storage slot not the computed leaf slot
     value: Fr,
+    protocolWrite: boolean,
     lowLeafPreimage?: PublicDataTreeLeafPreimage,
     lowLeafIndex?: Fr,
     lowLeafPath?: Fr[],
     newLeafPreimage?: PublicDataTreeLeafPreimage,
     insertionPath?: Fr[],
-  ): void;
+  ): Promise<void>;
   traceNoteHashCheck(contractAddress: AztecAddress, noteHash: Fr, leafIndex: Fr, exists: boolean, path?: Fr[]): void;
-  traceNewNoteHash(contractAddress: AztecAddress, noteHash: Fr, leafIndex?: Fr, path?: Fr[]): void;
+  traceNewNoteHash(uniqueNoteHash: Fr, leafIndex?: Fr, path?: Fr[]): void;
+  getNoteHashCount(): number;
   traceNullifierCheck(
     siloedNullifier: Fr,
     exists: boolean,
@@ -61,14 +58,14 @@ export interface PublicSideEffectTraceInterface {
     path?: Fr[],
   ): void;
   traceNewL2ToL1Message(contractAddress: AztecAddress, recipient: Fr, content: Fr): void;
-  traceUnencryptedLog(contractAddress: AztecAddress, log: Fr[]): void;
+  tracePublicLog(contractAddress: AztecAddress, log: Fr[]): void;
   traceGetContractInstance(
     contractAddress: AztecAddress,
     exists: boolean,
     instance?: SerializableContractInstance,
-    lowLeafPreimage?: NullifierLeafPreimage,
-    lowLeafIndex?: Fr,
-    lowLeafPath?: Fr[],
+    nullifierMembershipHint?: AvmNullifierReadTreeHint,
+    updateMembershipHint?: AvmPublicDataReadTreeHint,
+    updatePreimage?: Fr[],
   ): void;
   traceGetBytecode(
     contractAddress: AztecAddress,
@@ -76,23 +73,9 @@ export interface PublicSideEffectTraceInterface {
     bytecode?: Buffer,
     contractInstance?: SerializableContractInstance,
     contractClass?: ContractClassIdPreimage,
-    lowLeafPreimage?: NullifierLeafPreimage,
-    lowLeafIndex?: Fr,
-    lowLeafPath?: Fr[],
-  ): void;
-  traceNestedCall(
-    /** The trace of the nested call. */
-    nestedCallTrace: PublicSideEffectTraceInterface,
-    /** The execution environment of the nested call. */
-    nestedEnvironment: AvmExecutionEnvironment,
-    /** How much gas was available for this public execution. */
-    startGasLeft: Gas,
-    /** Bytecode used for this execution. */
-    bytecode: Buffer,
-    /** The call's results */
-    avmCallResults: AvmContractCallResult,
-    /** Function name */
-    functionName: string,
+    nullifierMembershipHint?: AvmNullifierReadTreeHint,
+    updateMembershipHint?: AvmPublicDataReadTreeHint,
+    updatePreimage?: Fr[],
   ): void;
   traceEnqueuedCall(
     /** The call request from private that enqueued this call. */
@@ -102,21 +85,5 @@ export interface PublicSideEffectTraceInterface {
     /** Did the call revert? */
     reverted: boolean,
   ): void;
-  toPublicEnqueuedCallExecutionResult(
-    /** The call's results */
-    avmCallResults: AvmFinalizedCallResult,
-  ): EnqueuedPublicCallExecutionResultWithSideEffects;
-  toPublicFunctionCallResult(
-    /** The execution environment of the nested call. */
-    avmEnvironment: AvmExecutionEnvironment,
-    /** How much gas was available for this public execution. */
-    startGasLeft: Gas,
-    /** Bytecode used for this execution. */
-    bytecode: Buffer,
-    /** The call's results */
-    avmCallResults: AvmFinalizedCallResult,
-    /** Function name for logging */
-    functionName: string,
-  ): PublicFunctionCallResult;
-  getUnencryptedLogs(): UnencryptedL2Log[];
+  getPublicLogs(): PublicLog[];
 }

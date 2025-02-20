@@ -1,20 +1,12 @@
-import { type PrivateExecutionResult, type PrivateKernelSimulateOutput, collectNested } from '@aztec/circuit-types';
+import {
+  type PrivateCallExecutionResult,
+  type PrivateKernelSimulateOutput,
+  collectNested,
+} from '@aztec/circuit-types/interfaces/client';
 import {
   type Fr,
   KeyValidationHint,
-  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-  MembershipWitness,
-  NULLIFIER_TREE_HEIGHT,
   type PrivateCircuitPublicInputs,
-  type PrivateKernelCircuitPublicInputs,
-  PrivateKernelData,
-  PrivateKernelResetCircuitPrivateInputs,
-  PrivateKernelResetDimensions,
-  PrivateKernelResetHints,
   type ReadRequest,
   ReadRequestResetStates,
   ReadRequestState,
@@ -22,8 +14,6 @@ import {
   ScopedNoteHash,
   ScopedNullifier,
   ScopedReadRequest,
-  TransientDataIndexHint,
-  VK_TREE_HEIGHT,
   buildNoteHashReadRequestHintsFromResetStates,
   buildNullifierReadRequestHintsFromResetStates,
   buildTransientDataHints,
@@ -32,18 +22,36 @@ import {
   getNonEmptyItems,
   getNoteHashReadRequestResetStates,
   getNullifierReadRequestResetStates,
-  privateKernelResetDimensionNames,
 } from '@aztec/circuits.js';
+import {
+  type PrivateKernelCircuitPublicInputs,
+  PrivateKernelData,
+  PrivateKernelResetCircuitPrivateInputs,
+  PrivateKernelResetDimensions,
+  PrivateKernelResetHints,
+  TransientDataIndexHint,
+  privateKernelResetDimensionNames,
+} from '@aztec/circuits.js/kernel';
+import {
+  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+  NULLIFIER_TREE_HEIGHT,
+  VK_TREE_HEIGHT,
+} from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Tuple, assertLength } from '@aztec/foundation/serialize';
-import { privateKernelResetDimensionsConfig } from '@aztec/noir-protocol-circuits-types';
+import { MembershipWitness } from '@aztec/foundation/trees';
+import { privateKernelResetDimensionsConfig } from '@aztec/noir-protocol-circuits-types/client';
 
 import { type ProvingDataOracle } from '../proving_data_oracle.js';
 
 function collectNestedReadRequests(
-  executionStack: PrivateExecutionResult[],
-  extractReadRequests: (execution: PrivateExecutionResult) => ReadRequest[],
+  executionStack: PrivateCallExecutionResult[],
+  extractReadRequests: (execution: PrivateCallExecutionResult) => ReadRequest[],
 ): ScopedReadRequest[] {
   return collectNested(executionStack, executionResult => {
     const nonEmptyReadRequests = getNonEmptyItems(extractReadRequests(executionResult));
@@ -57,7 +65,7 @@ function getNullifierMembershipWitnessResolver(oracle: ProvingDataOracle) {
   return async (nullifier: Fr) => {
     const res = await oracle.getNullifierMembershipWitness(nullifier);
     if (!res) {
-      throw new Error(`Cannot find the leaf for nullifier ${nullifier.toBigInt()}.`);
+      throw new Error(`Cannot find the leaf for nullifier ${nullifier}.`);
     }
 
     const { index, siblingPath, leafPreimage } = res;
@@ -101,7 +109,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
 
   constructor(
     private previousKernelOutput: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>,
-    private executionStack: PrivateExecutionResult[],
+    private executionStack: PrivateCallExecutionResult[],
     private noteHashNullifierCounterMap: Map<number, number>,
     private validationRequestsSplitCounter: number,
   ) {

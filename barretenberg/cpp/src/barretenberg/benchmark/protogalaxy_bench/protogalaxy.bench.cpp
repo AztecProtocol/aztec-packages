@@ -53,7 +53,7 @@ void fold_k(State& state) noexcept
     using ProtogalaxyProver = ProtogalaxyProver_<DeciderProvingKeys_<Flavor, k + 1>>;
     using Builder = typename Flavor::CircuitBuilder;
 
-    bb::srs::init_crs_factory("../srs_db/ignition");
+    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
 
     auto log2_num_gates = static_cast<size_t>(state.range(0));
 

@@ -1,18 +1,15 @@
 use crate::{
-    abis::function_selector::FunctionSelector,
     address::{
         partial_address::PartialAddress, salted_initialization_hash::SaltedInitializationHash,
     },
     constants::{
-        AZTEC_ADDRESS_LENGTH, FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__CONTRACT_ADDRESS_V1,
-        MAX_FIELD_VALUE,
+        AZTEC_ADDRESS_LENGTH, GENERATOR_INDEX__CONTRACT_ADDRESS_V1, MAX_FIELD_VALUE,
+        MAX_PROTOCOL_CONTRACTS,
     },
     contract_class_id::ContractClassId,
-    hash::{poseidon2_hash_with_separator, private_functions_root_from_siblings},
-    merkle_tree::membership::MembershipWitness,
-    public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, TpkM},
-    traits::{Deserialize, Empty, FromField, Serialize, ToField},
-    utils,
+    hash::poseidon2_hash_with_separator,
+    public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, ToPoint, TpkM},
+    traits::{Deserialize, Empty, FromField, Packable, Serialize, ToField},
 };
 
 // We do below because `use crate::point::Point;` does not work
@@ -20,7 +17,10 @@ use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
 
 use crate::public_keys::AddressPoint;
 use ec::{pow, sqrt};
-use std::embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key};
+use std::{
+    embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key},
+    ops::Add,
+};
 
 // Aztec address
 pub struct AztecAddress {
@@ -60,6 +60,18 @@ impl Serialize<AZTEC_ADDRESS_LENGTH> for AztecAddress {
 impl Deserialize<AZTEC_ADDRESS_LENGTH> for AztecAddress {
     fn deserialize(fields: [Field; AZTEC_ADDRESS_LENGTH]) -> Self {
         FromField::from_field(fields[0])
+    }
+}
+
+/// We implement the Packable trait for AztecAddress because it can be stored in contract's storage (and there
+/// the implementation of Packable is required).
+impl Packable<AZTEC_ADDRESS_LENGTH> for AztecAddress {
+    fn pack(self) -> [Field; AZTEC_ADDRESS_LENGTH] {
+        self.serialize()
+    }
+
+    fn unpack(fields: [Field; AZTEC_ADDRESS_LENGTH]) -> Self {
+        Self::deserialize(fields)
     }
 }
 
@@ -110,29 +122,11 @@ impl AztecAddress {
         AztecAddress::from_field(address_point.x)
     }
 
-    pub fn compute_from_private_function(
-        function_selector: FunctionSelector,
-        function_vk_hash: Field,
-        function_leaf_membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
-        contract_class_artifact_hash: Field,
-        contract_class_public_bytecode_commitment: Field,
+    pub fn compute_from_class_id(
+        contract_class_id: ContractClassId,
         salted_initialization_hash: SaltedInitializationHash,
         public_keys: PublicKeys,
     ) -> Self {
-        let private_functions_root = private_functions_root_from_siblings(
-            function_selector,
-            function_vk_hash,
-            function_leaf_membership_witness.leaf_index,
-            function_leaf_membership_witness.sibling_path,
-        );
-
-        let contract_class_id = ContractClassId::compute(
-            contract_class_artifact_hash,
-            private_functions_root,
-            contract_class_public_bytecode_commitment,
-        );
-
-        // Compute contract address using the preimage which includes the class_id.
         let partial_address = PartialAddress::compute_from_salted_initialization_hash(
             contract_class_id,
             salted_initialization_hash,
@@ -141,17 +135,16 @@ impl AztecAddress {
         AztecAddress::compute(public_keys, partial_address)
     }
 
+    pub fn is_protocol_contract(self) -> bool {
+        self.inner.lt(MAX_PROTOCOL_CONTRACTS as Field)
+    }
+
     pub fn is_zero(self) -> bool {
         self.inner == 0
     }
 
     pub fn assert_is_zero(self) {
         assert(self.to_field() == 0);
-    }
-
-    pub fn conditional_assign(predicate: bool, lhs: Self, rhs: Self) -> Self {
-        let result = utils::conditional_assign(predicate, rhs.to_field(), lhs.to_field());
-        Self { inner: result }
     }
 }
 

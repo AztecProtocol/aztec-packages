@@ -3,10 +3,9 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./dest/index.js",
+    "./common": "./dest/common.js",
+    "./server": "./dest/server.js",
     "./client": "./dest/client/index.js",
-    "./acvm": "./dest/acvm/index.js",
-    "./errors": "./dest/common/errors.js",
     "./public/fixtures": "./dest/public/fixtures/index.js"
   },
   "typedocOptions": {
@@ -22,7 +21,7 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests"
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "inherits": [
     "../package.common.json"
@@ -53,28 +52,28 @@
       ".ts"
     ],
     "reporters": [
-      [
-        "default",
-        {
-          "summaryThreshold": 9999
-        }
-      ]
+      "default"
+    ],
+    "testTimeout": 120000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
+    "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
-    "@aztec/types": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "@noir-lang/acvm_js": "portal:../../noir/packages/acvm_js",
     "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi",
     "@noir-lang/types": "portal:../../noir/packages/types",
     "levelup": "^5.1.1",
     "lodash.clonedeep": "^4.5.0",
+    "lodash.merge": "^4.6.2",
     "memdown": "^6.1.1",
     "tslib": "^2.4.0"
   },
@@ -91,10 +90,9 @@
     "@types/node": "^18.7.23",
     "jest": "^29.5.0",
     "jest-mock-extended": "^3.0.4",
-    "lodash.merge": "^4.6.2",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.4",
-    "viem": "^2.7.15"
+    "viem": "2.22.8"
   },
   "files": [
     "dest",

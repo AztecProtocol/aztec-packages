@@ -1,6 +1,9 @@
-import { MerkleTreeId, type MerkleTreeWriteOperations } from '@aztec/circuit-types';
-import { AztecAddress, type ContractDataSource, Fr, PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
+import { MerkleTreeId } from '@aztec/circuit-types';
+import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
+import { AztecAddress, type ContractDataSource, Fr } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
+import { timesParallel } from '@aztec/foundation/collection';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -19,16 +22,14 @@ describe('world_state_public_db', () => {
 
   let worldStateDB: WorldStateDB;
 
-  beforeEach(() => {
-    addresses = Array(DB_VALUES_SIZE).fill(0).map(AztecAddress.random);
+  beforeEach(async () => {
+    addresses = await Promise.all(Array(DB_VALUES_SIZE).fill(0).map(AztecAddress.random));
     slots = Array(DB_VALUES_SIZE).fill(0).map(Fr.random);
     dbValues = Array(DB_VALUES_SIZE).fill(0).map(Fr.random);
-    const publicDataEntries = Array(DB_VALUES_SIZE)
-      .fill(0)
-      .map((_, idx: number) => {
-        const leafSlot = computePublicDataTreeLeafSlot(addresses[idx], slots[idx]);
-        return new PublicDataTreeLeafPreimage(leafSlot, dbValues[idx], Fr.ZERO, 0n);
-      });
+    const publicDataEntries = await timesParallel(DB_VALUES_SIZE, async (idx: number) => {
+      const leafSlot = await computePublicDataTreeLeafSlot(addresses[idx], slots[idx]);
+      return new PublicDataTreeLeafPreimage(leafSlot, dbValues[idx], Fr.ZERO, 0n);
+    });
     dbStorage = new Map<number, Map<bigint, Buffer>>([
       [
         MerkleTreeId.PUBLIC_DATA_TREE,

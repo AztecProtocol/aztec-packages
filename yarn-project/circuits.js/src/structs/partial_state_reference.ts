@@ -1,10 +1,10 @@
+import { PARTIAL_STATE_REFERENCE_LENGTH } from '@aztec/constants';
 import { type Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';
 
-import { PARTIAL_STATE_REFERENCE_LENGTH } from '../constants.gen.js';
-import { AppendOnlyTreeSnapshot } from './rollup/append_only_tree_snapshot.js';
+import { AppendOnlyTreeSnapshot } from './trees/append_only_tree_snapshot.js';
 
 /**
  * Stores snapshots of trees which are commonly needed by base or merge rollup circuits.

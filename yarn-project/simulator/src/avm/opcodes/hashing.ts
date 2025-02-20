@@ -24,22 +24,21 @@ export class Poseidon2 extends Instruction {
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
     context.machineState.consumeGas(this.gasCost());
 
     const operands = [this.inputStateOffset, this.outputStateOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [inputOffset, outputOffset] = addressing.resolve(operands, memory);
-    memory.checkTagsRange(TypeTag.FIELD, inputOffset, Poseidon2.stateSize);
 
     const inputState = memory.getSlice(inputOffset, Poseidon2.stateSize);
-    const outputState = poseidon2Permutation(inputState);
+    memory.checkTagsRange(TypeTag.FIELD, inputOffset, Poseidon2.stateSize);
+
+    const outputState = await poseidon2Permutation(inputState);
     memory.setSlice(
       outputOffset,
       outputState.map(word => new Field(word)),
     );
-
-    memory.assert({ reads: Poseidon2.stateSize, writes: Poseidon2.stateSize, addressing });
   }
 }
 
@@ -62,21 +61,19 @@ export class KeccakF1600 extends Instruction {
   // pub fn keccakf1600(input: [u64; 25]) -> [u64; 25]
   public async execute(context: AvmContext): Promise<void> {
     const inputSize = 25;
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
     const operands = [this.dstOffset, this.inputOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [dstOffset, inputOffset] = addressing.resolve(operands, memory);
     context.machineState.consumeGas(this.gasCost());
 
+    const stateData = memory.getSlice(inputOffset, inputSize).map(word => word.toBigInt());
     memory.checkTagsRange(TypeTag.UINT64, inputOffset, inputSize);
 
-    const stateData = memory.getSlice(inputOffset, inputSize).map(word => word.toBigInt());
     const updatedState = keccakf1600(stateData);
 
     const res = updatedState.map(word => new Uint64(word));
     memory.setSlice(dstOffset, res);
-
-    memory.assert({ reads: inputSize, writes: inputSize, addressing });
   }
 }
 
@@ -106,24 +103,23 @@ export class Sha256Compression extends Instruction {
     const STATE_SIZE = 8;
     const INPUTS_SIZE = 16;
 
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
     const operands = [this.outputOffset, this.stateOffset, this.inputsOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [outputOffset, stateOffset, inputsOffset] = addressing.resolve(operands, memory);
 
     // Note: size of output is same as size of state
     context.machineState.consumeGas(this.gasCost());
+    const inputs = Uint32Array.from(memory.getSlice(inputsOffset, INPUTS_SIZE).map(word => word.toNumber()));
+    const state = Uint32Array.from(memory.getSlice(stateOffset, STATE_SIZE).map(word => word.toNumber()));
+
     memory.checkTagsRange(TypeTag.UINT32, inputsOffset, INPUTS_SIZE);
     memory.checkTagsRange(TypeTag.UINT32, stateOffset, STATE_SIZE);
 
-    const state = Uint32Array.from(memory.getSlice(stateOffset, STATE_SIZE).map(word => word.toNumber()));
-    const inputs = Uint32Array.from(memory.getSlice(inputsOffset, INPUTS_SIZE).map(word => word.toNumber()));
     const output = sha256Compression(state, inputs);
 
     // Conversion required from Uint32Array to Uint32[] (can't map directly, need `...`)
     const res = [...output].map(word => new Uint32(word));
     memory.setSlice(outputOffset, res);
-
-    memory.assert({ reads: STATE_SIZE + INPUTS_SIZE, writes: STATE_SIZE, addressing });
   }
 }

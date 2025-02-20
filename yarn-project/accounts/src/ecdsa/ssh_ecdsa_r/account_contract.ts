@@ -1,7 +1,7 @@
 import { type AuthWitnessProvider } from '@aztec/aztec.js/account';
 import { AuthWitness, type CompleteAddress } from '@aztec/circuit-types';
-import { EcdsaSignature } from '@aztec/circuits.js/barretenberg';
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type ContractArtifact } from '@aztec/circuits.js/abi';
+import { EcdsaSignature } from '@aztec/foundation/crypto';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { DefaultAccountContract } from '../../defaults/account_contract.js';
@@ -22,7 +22,7 @@ export class EcdsaRSSHAccountContract extends DefaultAccountContract {
   }
 
   getDeploymentArgs() {
-    return [this.signingPublicKey.subarray(0, 32), this.signingPublicKey.subarray(32, 64)];
+    return Promise.resolve([this.signingPublicKey.subarray(0, 32), this.signingPublicKey.subarray(32, 64)]);
   }
 
   getAuthWitnessProvider(_address: CompleteAddress): AuthWitnessProvider {

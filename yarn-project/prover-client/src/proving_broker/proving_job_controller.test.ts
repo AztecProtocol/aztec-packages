@@ -1,6 +1,11 @@
-import { type ProvingJobId, ProvingRequestType, makePublicInputsAndRecursiveProof } from '@aztec/circuit-types';
-import { RECURSIVE_PROOF_LENGTH, VerificationKeyData, makeRecursiveProof } from '@aztec/circuits.js';
+import {
+  type ProvingJobId,
+  ProvingRequestType,
+  makePublicInputsAndRecursiveProof,
+} from '@aztec/circuit-types/interfaces/server';
+import { VerificationKeyData, makeRecursiveProof } from '@aztec/circuits.js';
 import { makeBaseParityInputs, makeParityPublicInputs } from '@aztec/circuits.js/testing';
+import { RECURSIVE_PROOF_LENGTH } from '@aztec/constants';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 
@@ -23,6 +28,7 @@ describe('ProvingJobController', () => {
         type: ProvingRequestType.BASE_PARITY,
         inputs: makeBaseParityInputs(),
       },
+      42,
       0,
       prover,
       onComplete,

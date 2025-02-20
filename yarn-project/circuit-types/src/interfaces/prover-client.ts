@@ -7,13 +7,16 @@ import { z } from 'zod';
 import { type TxHash } from '../tx/tx_hash.js';
 import { type EpochProver } from './epoch-prover.js';
 import { type ProvingJobConsumer } from './prover-broker.js';
-import { type ProvingJobStatus } from './proving-job.js';
 
 export type ActualProverConfig = {
   /** Whether to construct real proofs */
   realProofs: boolean;
-  /** Artificial delay to introduce to all operations to the test prover. */
+  /** The type of artificial delay to introduce */
+  proverTestDelayType: 'fixed' | 'realistic';
+  /** If using fixed delay, the time each operation takes. */
   proverTestDelayMs: number;
+  /** If using realistic delays, what percentage of realistic times to apply. */
+  proverTestDelayFactor: number;
 };
 
 /**
@@ -24,18 +27,19 @@ export type ProverConfig = ActualProverConfig & {
   nodeUrl?: string;
   /** Identifier of the prover */
   proverId: Fr;
-  /** Where to store temporary data */
-  cacheDir?: string;
-
+  /** Number of proving agents to start within the prover. */
   proverAgentCount: number;
+  /** Store for failed proof inputs. */
+  failedProofStore?: string;
 };
 
 export const ProverConfigSchema = z.object({
   nodeUrl: z.string().optional(),
   realProofs: z.boolean(),
   proverId: schemas.Fr,
+  proverTestDelayType: z.enum(['fixed', 'realistic']),
   proverTestDelayMs: z.number(),
-  cacheDir: z.string().optional(),
+  proverTestDelayFactor: z.number(),
   proverAgentCount: z.number(),
 }) satisfies ZodFor<ProverConfig>;
 
@@ -55,48 +59,34 @@ export const proverConfigMappings: ConfigMappingsType<ProverConfig> = {
     description: 'Identifier of the prover',
     defaultValue: Fr.ZERO,
   },
+  proverTestDelayType: {
+    env: 'PROVER_TEST_DELAY_TYPE',
+    description: 'The type of artificial delay to introduce',
+  },
   proverTestDelayMs: {
     env: 'PROVER_TEST_DELAY_MS',
     description: 'Artificial delay to introduce to all operations to the test prover.',
     ...numberConfigHelper(0),
   },
-  cacheDir: {
-    env: 'PROVER_CACHE_DIR',
-    description: 'Where to store cache data generated while proving',
-    defaultValue: '/tmp/aztec-prover',
+  proverTestDelayFactor: {
+    env: 'PROVER_TEST_DELAY_FACTOR',
+    description: 'If using realistic delays, what percentage of realistic times to apply.',
+    ...numberConfigHelper(1),
   },
   proverAgentCount: {
     env: 'PROVER_AGENT_COUNT',
     description: 'The number of prover agents to start',
     ...numberConfigHelper(1),
   },
+  failedProofStore: {
+    env: 'PROVER_FAILED_PROOF_STORE',
+    description:
+      'Store for failed proof inputs. Google cloud storage is only supported at the moment. Set this value as gs://bucket-name/path/to/store.',
+  },
 };
 
 function parseProverId(str: string) {
-  return Fr.fromString(str.startsWith('0x') ? str : Buffer.from(str, 'utf8').toString('hex'));
-}
-
-/**
- * A database where the proving orchestrator can store intermediate results
- */
-export interface ProverCache {
-  /**
-   * Saves the status of a proving job
-   * @param jobId - The job ID
-   * @param status - The status of the proof
-   */
-  setProvingJobStatus(jobId: string, status: ProvingJobStatus): Promise<void>;
-
-  /**
-   * Retrieves the status of a proving job (if known)
-   * @param jobId - The job ID
-   */
-  getProvingJobStatus(jobId: string): Promise<ProvingJobStatus>;
-
-  /**
-   * Closes the cache
-   */
-  close(): Promise<void>;
+  return Fr.fromHexString(str.startsWith('0x') ? str : Buffer.from(str, 'utf8').toString('hex'));
 }
 
 /**
@@ -104,7 +94,7 @@ export interface ProverCache {
  * Provides the ability to generate proofs and build rollups.
  */
 export interface EpochProverManager {
-  createEpochProver(cache?: ProverCache): EpochProver;
+  createEpochProver(): EpochProver;
 
   start(): Promise<void>;
 

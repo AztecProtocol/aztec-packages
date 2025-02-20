@@ -1,6 +1,6 @@
 export class SideEffectLimitReachedError extends Error {
   constructor(sideEffectType: string, limit: number) {
-    super(`Reached the limit on number of '${sideEffectType}' side effects: ${limit}`);
+    super(`Reached the limit (${limit}) on number of '${sideEffectType}' per tx`);
     this.name = 'SideEffectLimitReachedError';
   }
 }

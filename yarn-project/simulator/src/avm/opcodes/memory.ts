@@ -66,15 +66,13 @@ export class Set extends Instruction {
     // Constructor ensured that this.inTag is a valid tag
     const res = TaggedMemory.buildFromTagTruncating(this.value, this.inTag);
 
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
     context.machineState.consumeGas(this.gasCost());
 
     const operands = [this.dstOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [dstOffset] = addressing.resolve(operands, memory);
     memory.set(dstOffset, res);
-
-    memory.assert({ writes: 1, addressing });
   }
 }
 
@@ -103,7 +101,7 @@ export class Cast extends Instruction {
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
     context.machineState.consumeGas(this.gasCost());
 
     const operands = [this.srcOffset, this.dstOffset];
@@ -115,8 +113,6 @@ export class Cast extends Instruction {
     const casted = TaggedMemory.buildFromTagTruncating(a.toBigInt(), this.dstTag);
 
     memory.set(dstOffset, casted);
-
-    memory.assert({ reads: 1, writes: 1, addressing });
   }
 }
 
@@ -143,18 +139,14 @@ export class Mov extends Instruction {
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
     context.machineState.consumeGas(this.gasCost());
 
     const operands = [this.srcOffset, this.dstOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [srcOffset, dstOffset] = addressing.resolve(operands, memory);
-
     const a = memory.get(srcOffset);
-
     memory.set(dstOffset, a);
-
-    memory.assert({ reads: 1, writes: 1, addressing });
   }
 }
 
@@ -180,7 +172,7 @@ export class CalldataCopy extends Instruction {
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
     const operands = [this.cdStartOffset, this.copySizeOffset, this.dstOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [cdStartOffset, copySizeOffset, dstOffset] = addressing.resolve(operands, memory);
@@ -190,11 +182,12 @@ export class CalldataCopy extends Instruction {
     const copySize = memory.get(copySizeOffset).toNumber();
     context.machineState.consumeGas(this.gasCost(copySize));
 
-    const transformedData = context.environment.calldata.slice(cdStart, cdStart + copySize).map(f => new Field(f));
+    // Values which are out-of-range of the calldata array will be set with Field(0);
+    const slice = context.environment.calldata.slice(cdStart, cdStart + copySize).map(f => new Field(f));
+    // slice has size = MIN(copySize, calldata.length - cdStart) as TS truncates out-of-range portion
+    const transformedData = [...slice, ...Array(copySize - slice.length).fill(new Field(0))];
 
     memory.setSlice(dstOffset, transformedData);
-
-    memory.assert({ reads: 2, writes: copySize, addressing });
   }
 }
 
@@ -209,15 +202,13 @@ export class ReturndataSize extends Instruction {
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
     const operands = [this.dstOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [dstOffset] = addressing.resolve(operands, memory);
     context.machineState.consumeGas(this.gasCost());
 
     memory.set(dstOffset, new Uint32(context.machineState.nestedReturndata.length));
-
-    memory.assert({ writes: 1, addressing });
   }
 }
 
@@ -243,7 +234,7 @@ export class ReturndataCopy extends Instruction {
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
     const operands = [this.rdStartOffset, this.copySizeOffset, this.dstOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [rdStartOffset, copySizeOffset, dstOffset] = addressing.resolve(operands, memory);
@@ -253,12 +244,11 @@ export class ReturndataCopy extends Instruction {
     const copySize = memory.get(copySizeOffset).toNumber();
     context.machineState.consumeGas(this.gasCost(copySize));
 
-    const transformedData = context.machineState.nestedReturndata
-      .slice(rdStart, rdStart + copySize)
-      .map(f => new Field(f));
+    // Values which are out-of-range of the returndata array will be set with Field(0);
+    const slice = context.machineState.nestedReturndata.slice(rdStart, rdStart + copySize).map(f => new Field(f));
+    // slice has size = MIN(copySize, returndata.length - rdStart) as TS truncates out-of-range portion
+    const transformedData = [...slice, ...Array(copySize - slice.length).fill(new Field(0))];
 
     memory.setSlice(dstOffset, transformedData);
-
-    memory.assert({ reads: 2, writes: copySize, addressing });
   }
 }

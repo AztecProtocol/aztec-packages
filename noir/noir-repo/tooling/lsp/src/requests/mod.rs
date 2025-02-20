@@ -1,5 +1,5 @@
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::{collections::HashMap, future::Future};
 
 use crate::{insert_all_files_for_workspace_into_file_manager, parse_diff, PackageCacheData};
@@ -16,8 +16,10 @@ use lsp_types::{
 };
 use nargo_fmt::Config;
 
+use noirc_frontend::ast::Ident;
 use noirc_frontend::graph::CrateId;
-use noirc_frontend::hir::def_map::CrateDefMap;
+use noirc_frontend::hir::def_map::{CrateDefMap, ModuleId};
+use noirc_frontend::parser::ParserError;
 use noirc_frontend::usage_tracker::UsageTracker;
 use noirc_frontend::{graph::Dependency, node_interner::NodeInterner};
 use serde::{Deserialize, Serialize};
@@ -88,6 +90,9 @@ pub(crate) struct InlayHintsOptions {
 
     #[serde(rename = "closingBraceHints", default = "default_closing_brace_hints")]
     pub(crate) closing_brace_hints: ClosingBraceHintsOptions,
+
+    #[serde(rename = "ChainingHints", default = "default_chaining_hints")]
+    pub(crate) chaining_hints: ChainingHintsOptions,
 }
 
 #[derive(Debug, Deserialize, Serialize, Copy, Clone)]
@@ -111,6 +116,12 @@ pub(crate) struct ClosingBraceHintsOptions {
     pub(crate) min_lines: u32,
 }
 
+#[derive(Debug, Deserialize, Serialize, Copy, Clone)]
+pub(crate) struct ChainingHintsOptions {
+    #[serde(rename = "enabled", default = "default_chaining_hints_enabled")]
+    pub(crate) enabled: bool,
+}
+
 fn default_enable_code_lens() -> bool {
     true
 }
@@ -124,6 +135,7 @@ fn default_inlay_hints() -> InlayHintsOptions {
         type_hints: default_type_hints(),
         parameter_hints: default_parameter_hints(),
         closing_brace_hints: default_closing_brace_hints(),
+        chaining_hints: default_chaining_hints(),
     }
 }
 
@@ -156,6 +168,14 @@ fn default_closing_brace_hints_enabled() -> bool {
 
 fn default_closing_brace_min_lines() -> u32 {
     25
+}
+
+fn default_chaining_hints() -> ChainingHintsOptions {
+    ChainingHintsOptions { enabled: default_chaining_hints_enabled() }
+}
+
+fn default_chaining_hints_enabled() -> bool {
+    true
 }
 
 impl Default for LspInitializationOptions {
@@ -281,15 +301,21 @@ fn on_formatting_inner(
     state: &LspState,
     params: lsp_types::DocumentFormattingParams,
 ) -> Result<Option<Vec<lsp_types::TextEdit>>, ResponseError> {
+    // The file_path might be Err/None if the action runs against an unsaved file
+    let file_path = params.text_document.uri.to_file_path().ok();
+    let directory_path = file_path.as_ref().and_then(|path| path.parent());
+
     let path = params.text_document.uri.to_string();
 
     if let Some(source) = state.input_files.get(&path) {
         let (module, errors) = noirc_frontend::parse_program(source);
-        if !errors.is_empty() {
+        let is_all_warnings = errors.iter().all(ParserError::is_warning);
+        if !is_all_warnings {
             return Ok(None);
         }
 
-        let new_text = nargo_fmt::format(source, module, &Config::default());
+        let config = read_format_config(directory_path);
+        let new_text = nargo_fmt::format(source, module, &config);
 
         let start_position = Position { line: 0, character: 0 };
         let end_position = Position {
@@ -303,6 +329,19 @@ fn on_formatting_inner(
         }]))
     } else {
         Ok(None)
+    }
+}
+
+fn read_format_config(file_path: Option<&Path>) -> Config {
+    match file_path {
+        Some(file_path) => match Config::read(file_path) {
+            Ok(config) => config,
+            Err(err) => {
+                eprintln!("{}", err);
+                Config::default()
+            }
+        },
+        None => Config::default(),
     }
 }
 
@@ -577,7 +616,7 @@ pub(crate) fn find_all_references_in_workspace(
             ));
         }
 
-        // The LSP client usually removes duplicate loctions, but we do it here just in case they don't
+        // The LSP client usually removes duplicate locations, but we do it here just in case they don't
         locations.sort_by_key(|location| {
             (
                 location.uri.to_string(),
@@ -617,6 +656,12 @@ pub(crate) fn find_all_references(
         .unwrap_or_default()
 }
 
+/// Represents a trait reexported from a given module with a name.
+pub(crate) struct TraitReexport {
+    pub(super) module_id: ModuleId,
+    pub(super) name: Ident,
+}
+
 #[cfg(test)]
 mod initialization {
     use acvm::blackbox_solver::StubbedBlackBoxSolver;
@@ -631,7 +676,7 @@ mod initialization {
     #[test]
     async fn test_on_initialize() {
         let client = ClientSocket::new_closed();
-        let mut state = LspState::new(&client, StubbedBlackBoxSolver);
+        let mut state = LspState::new(&client, StubbedBlackBoxSolver::default());
         let params = InitializeParams::default();
         let response = on_initialize(&mut state, params).await.unwrap();
         assert!(matches!(

@@ -1,4 +1,4 @@
-import { type PXE, PXESchema } from '@aztec/circuit-types';
+import { type PXE, PXESchema } from '@aztec/circuit-types/interfaces/client';
 import { createNamespacedSafeJsonRpcServer, createSafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
 
 import http from 'http';
@@ -21,6 +21,7 @@ export function startPXEHttpServer(pxeService: PXE, port: string | number): http
   const rpcServer = createNamespacedSafeJsonRpcServer({ pxe: [pxeService, PXESchema] });
 
   const app = rpcServer.getApp();
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   const httpServer = http.createServer(app.callback());
   httpServer.listen(port);
 

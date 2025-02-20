@@ -13,9 +13,9 @@ struct Signature {
 
 library SignatureLib {
   /**
-   * @notice The domain seperator for the signatures
+   * @notice The domain separator for the signatures
    */
-  enum SignatureDomainSeperator {
+  enum SignatureDomainSeparator {
     blockProposal,
     blockAttestation
   }

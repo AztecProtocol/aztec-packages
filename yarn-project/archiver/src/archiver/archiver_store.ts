@@ -1,5 +1,6 @@
 import {
-  type GetUnencryptedLogsResponse,
+  type GetContractClassLogsResponse,
+  type GetPublicLogsResponse,
   type InBlock,
   type InboxLeaf,
   type L2Block,
@@ -12,13 +13,14 @@ import {
 import {
   type BlockHeader,
   type ContractClassPublic,
+  type ContractInstanceUpdateWithAddress,
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
   type Fr,
   type PrivateLog,
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
-import { type ContractArtifact, type FunctionSelector } from '@aztec/foundation/abi';
+import { type FunctionSelector } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 
 import { type DataRetrieval } from './structs/data_retrieval.js';
@@ -156,18 +158,18 @@ export interface ArchiverDataStore {
   getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]>;
 
   /**
-   * Gets unencrypted logs based on the provided filter.
+   * Gets public logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
+  getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse>;
 
   /**
    * Gets contract class logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
+  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse>;
 
   /**
    * Gets the number of the latest L2 block processed.
@@ -244,6 +246,14 @@ export interface ArchiverDataStore {
   deleteContractInstances(data: ContractInstanceWithAddress[], blockNumber: number): Promise<boolean>;
 
   /**
+   * Add new contract instance updates
+   * @param data - List of contract updates to be added.
+   * @param blockNumber - Number of the L2 block the updates were scheduled in.
+   * @returns True if the operation is successful.
+   */
+  addContractInstanceUpdates(data: ContractInstanceUpdateWithAddress[], blockNumber: number): Promise<boolean>;
+  deleteContractInstanceUpdates(data: ContractInstanceUpdateWithAddress[], blockNumber: number): Promise<boolean>;
+  /**
    * Adds private functions to a contract class.
    */
   addFunctions(
@@ -253,7 +263,7 @@ export interface ArchiverDataStore {
   ): Promise<boolean>;
 
   /**
-   * Returns a contract instance given its address, or undefined if not exists.
+   * Returns a contract instance given its address and the given block number, or undefined if not exists.
    * @param address - Address of the contract.
    */
   getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>;
@@ -261,16 +271,14 @@ export interface ArchiverDataStore {
   /** Returns the list of all class ids known by the archiver. */
   getContractClassIds(): Promise<Fr[]>;
 
-  addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void>;
-  getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined>;
-
   // TODO:  These function names are in memory only as they are for development/debugging. They require the full contract
   //        artifact supplied to the node out of band. This should be reviewed and potentially removed as part of
   //        the node api cleanup process.
+  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void>;
   getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
 
   /**
    * Estimates the size of the store in bytes.
    */
-  estimateSize(): { mappingSize: number; actualSize: number; numItems: number };
+  estimateSize(): Promise<{ mappingSize: number; actualSize: number; numItems: number }>;
 }

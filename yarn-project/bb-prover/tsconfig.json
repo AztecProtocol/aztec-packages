@@ -13,6 +13,9 @@
       "path": "../circuits.js"
     },
     {
+      "path": "../constants"
+    },
+    {
       "path": "../foundation"
     },
     {
@@ -34,7 +37,10 @@
       "path": "../kv-store"
     },
     {
-      "path": "../types"
+      "path": "../noir-contracts.js"
+    },
+    {
+      "path": "../protocol-contracts"
     }
   ],
   "include": ["src"]

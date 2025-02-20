@@ -1,5 +1,5 @@
-import { type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/circuits.js';
 import { computeL1ToL2MessageNullifier } from '@aztec/circuits.js/hash';
+import { type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
@@ -68,8 +68,8 @@ export class L1ToL2Message {
     return new L1ToL2Message(L1Actor.empty(), L2Actor.empty(), Fr.ZERO, Fr.ZERO, Fr.ZERO);
   }
 
-  static random(): L1ToL2Message {
-    return new L1ToL2Message(L1Actor.random(), L2Actor.random(), Fr.random(), Fr.random(), Fr.random());
+  static async random(): Promise<L1ToL2Message> {
+    return new L1ToL2Message(L1Actor.random(), await L2Actor.random(), Fr.random(), Fr.random(), Fr.random());
   }
 }
 
@@ -86,7 +86,7 @@ export async function getNonNullifiedL1ToL2MessageWitness(
   }
   const [messageIndex, siblingPath] = response;
 
-  const messageNullifier = computeL1ToL2MessageNullifier(contractAddress, messageHash, secret);
+  const messageNullifier = await computeL1ToL2MessageNullifier(contractAddress, messageHash, secret);
 
   const [nullifierIndex] = await node.findLeavesIndexes('latest', MerkleTreeId.NULLIFIER_TREE, [messageNullifier]);
   if (nullifierIndex !== undefined) {

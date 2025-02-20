@@ -1,14 +1,14 @@
 import {
   AztecAddress,
   ContractDeployer,
-  type DebugLogger,
   Fr,
+  type Logger,
   type PXE,
   TxStatus,
   type Wallet,
   getContractInstanceFromDeployParams,
 } from '@aztec/aztec.js';
-import { StatefulTestContract } from '@aztec/noir-contracts.js';
+import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContractArtifact } from '@aztec/noir-contracts.js/Test';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 
@@ -18,7 +18,7 @@ describe('e2e_deploy_contract legacy', () => {
   const t = new DeployTest('legacy');
 
   let pxe: PXE;
-  let logger: DebugLogger;
+  let logger: Logger;
   let wallet: Wallet;
 
   beforeAll(async () => {
@@ -34,7 +34,7 @@ describe('e2e_deploy_contract legacy', () => {
   it('should deploy a test contract', async () => {
     const salt = Fr.random();
     const publicKeys = wallet.getCompleteAddress().publicKeys;
-    const deploymentData = getContractInstanceFromDeployParams(TestContractArtifact, {
+    const deploymentData = await getContractInstanceFromDeployParams(TestContractArtifact, {
       salt,
       publicKeys,
       deployer: wallet.getAddress(),
@@ -42,8 +42,8 @@ describe('e2e_deploy_contract legacy', () => {
     const deployer = new ContractDeployer(TestContractArtifact, wallet, publicKeys);
     const receipt = await deployer.deploy().send({ contractAddressSalt: salt }).wait({ wallet });
     expect(receipt.contract.address).toEqual(deploymentData.address);
-    expect(await pxe.getContractInstance(deploymentData.address)).toBeDefined();
-    expect(await pxe.isContractPubliclyDeployed(deploymentData.address)).toBeDefined();
+    expect((await pxe.getContractMetadata(deploymentData.address)).contractInstance).toBeDefined();
+    expect((await pxe.getContractMetadata(deploymentData.address)).isContractPubliclyDeployed).toBeTrue();
   });
 
   /**
@@ -113,7 +113,12 @@ describe('e2e_deploy_contract legacy', () => {
 
     expect(badTxReceipt.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
 
+    const { isContractClassPubliclyRegistered } = await pxe.getContractClassMetadata(
+      (
+        await badDeploy.getInstance()
+      ).currentContractClassId,
+    );
     // But the bad tx did not deploy
-    await expect(pxe.isContractClassPubliclyRegistered(badDeploy.getInstance().contractClassId)).resolves.toBeFalsy();
+    expect(isContractClassPubliclyRegistered).toBeFalse();
   });
 });

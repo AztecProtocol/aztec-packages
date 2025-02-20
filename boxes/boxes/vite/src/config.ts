@@ -1,56 +1,37 @@
+import { getInitialTestAccounts } from "@aztec/accounts/testing";
+import { getSchnorrAccount } from "@aztec/accounts/schnorr";
 import {
-  AztecNode,
-  Fr,
-  createDebugLogger,
-  deriveMasterIncomingViewingSecretKey,
+  AccountWalletWithSecretKey,
+  createAztecNodeClient,
+  createLogger,
 } from "@aztec/aztec.js";
-import { BoxReactContractArtifact } from "../artifacts/BoxReact";
-import { AccountManager } from "@aztec/aztec.js/account";
-import { SingleKeyAccountContract } from "@aztec/accounts/single_key";
-import { createAztecNodeClient } from "@aztec/aztec.js";
-import { PXEService } from "@aztec/pxe/service";
+import { BBWASMLazyPrivateKernelProver } from "@aztec/bb-prover/wasm/lazy";
+import { KeyStore } from "@aztec/key-store";
+import { createStore } from "@aztec/kv-store/indexeddb";
+import { L2TipsStore } from "@aztec/kv-store/stores";
 import { PXEServiceConfig, getPXEServiceConfig } from "@aztec/pxe/config";
 import { KVPxeDatabase } from "@aztec/pxe/database";
-import { TestPrivateKernelProver } from "@aztec/pxe/kernel_prover";
-import { KeyStore } from "@aztec/key-store";
-import { PrivateKernelProver } from "@aztec/circuit-types";
-import { L2TipsStore } from "@aztec/kv-store/stores";
-import { createStore } from "@aztec/kv-store/indexeddb";
-
-const SECRET_KEY = Fr.random();
+import { PXEService } from "@aztec/pxe/service";
+import { WASMSimulator } from "@aztec/simulator/client";
+import { BoxReactContractArtifact } from "../artifacts/BoxReact";
 
 export class PrivateEnv {
-  pxe;
-  accountContract;
-  account: AccountManager;
+  pxe: PXEService;
+  wallet: AccountWalletWithSecretKey;
 
-  constructor(
-    private secretKey: Fr,
-    private nodeURL: string,
-  ) {}
+  constructor() {}
 
   async init() {
+    const nodeURL = process.env.AZTEC_NODE_URL ?? "http://localhost:8080";
+
     const config = getPXEServiceConfig();
     config.dataDirectory = "pxe";
-    const aztecNode = await createAztecNodeClient(this.nodeURL);
-    const proofCreator = new TestPrivateKernelProver();
-    this.pxe = await this.createPXEService(aztecNode, config, proofCreator);
-    const encryptionPrivateKey = deriveMasterIncomingViewingSecretKey(
-      this.secretKey,
+    const aztecNode = await createAztecNodeClient(nodeURL);
+    const simulationProvider = new WASMSimulator();
+    const proofCreator = new BBWASMLazyPrivateKernelProver(
+      simulationProvider,
+      16,
     );
-    this.accountContract = new SingleKeyAccountContract(encryptionPrivateKey);
-    this.account = new AccountManager(
-      this.pxe,
-      this.secretKey,
-      this.accountContract,
-    );
-  }
-
-  async createPXEService(
-    aztecNode: AztecNode,
-    config: PXEServiceConfig,
-    proofCreator?: PrivateKernelProver,
-  ) {
     const l1Contracts = await aztecNode.getL1ContractAddresses();
     const configWithContracts = {
       ...config,
@@ -60,7 +41,7 @@ export class PrivateEnv {
     const store = await createStore(
       "pxe_data",
       configWithContracts,
-      createDebugLogger("aztec:pxe:data:indexeddb"),
+      createLogger("pxe:data:idb"),
     );
 
     const keyStore = new KeyStore(store);
@@ -68,32 +49,38 @@ export class PrivateEnv {
     const db = await KVPxeDatabase.create(store);
     const tips = new L2TipsStore(store, "pxe");
 
-    const server = new PXEService(
+    this.pxe = new PXEService(
       keyStore,
       aztecNode,
       db,
       tips,
       proofCreator,
+      simulationProvider,
       config,
     );
-    await server.start();
-    return server;
+    await this.pxe.init();
+    const [accountData] = await getInitialTestAccounts();
+    const account = await getSchnorrAccount(
+      this.pxe,
+      accountData.secret,
+      accountData.signingKey,
+      accountData.salt,
+    );
+    await account.register();
+    this.wallet = await account.getWallet();
   }
 
   async getWallet() {
-    // taking advantage that register is no-op if already registered
-    return await this.account.register();
+    return this.wallet;
   }
 }
 
-export const deployerEnv = new PrivateEnv(
-  SECRET_KEY,
-  process.env.PXE_URL || "http://localhost:8080",
-);
+export const deployerEnv = new PrivateEnv();
 
 const IGNORE_FUNCTIONS = [
   "constructor",
   "compute_note_hash_and_optionally_a_nullifier",
+  "process_log",
   "sync_notes",
 ];
 export const filteredInterface = BoxReactContractArtifact.functions.filter(

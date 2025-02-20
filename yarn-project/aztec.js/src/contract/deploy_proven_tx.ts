@@ -1,5 +1,7 @@
-import { type PXE, type Tx } from '@aztec/circuit-types';
-import { type AztecAddress, type ContractInstanceWithAddress } from '@aztec/circuits.js';
+import { type Tx } from '@aztec/circuit-types';
+import { type PXE } from '@aztec/circuit-types/interfaces/client';
+import { type ContractInstanceWithAddress } from '@aztec/circuits.js/contract';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 
 import { type Wallet } from '../account/index.js';
 import { type Contract } from './contract.js';
@@ -14,7 +16,7 @@ export class DeployProvenTx<TContract extends Contract = Contract> extends Prove
     wallet: PXE | Wallet,
     tx: Tx,
     private postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<TContract>,
-    private instance: ContractInstanceWithAddress,
+    private instanceGetter: () => Promise<ContractInstanceWithAddress>,
   ) {
     super(wallet, tx);
   }
@@ -27,6 +29,6 @@ export class DeployProvenTx<TContract extends Contract = Contract> extends Prove
       return this.wallet.sendTx(this.getPlainDataTx());
     })();
 
-    return new DeploySentTx(this.wallet, promise, this.postDeployCtor, this.instance);
+    return new DeploySentTx(this.wallet, promise, this.postDeployCtor, this.instanceGetter);
   }
 }

@@ -1,24 +1,41 @@
 #!/usr/bin/env bash
-set -eu
+# Use ci3 script base.
+source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-cd $(dirname "$0")
+cmd=${1:-}
 
-CMD=${1:-}
+hash=$(cache_content_hash ../noir/.rebuild_patterns .rebuild_patterns)
 
-if [ -n "$CMD" ]; then
-  if [ "$CMD" = "clean" ]; then
-    cargo clean
-    git clean -fdx
-    exit 0
-  else
-    echo "Unknown command: $CMD"
-    exit 1
+export GIT_COMMIT="0000000000000000000000000000000000000000"
+export SOURCE_DATE_EPOCH=0
+export GIT_DIRTY=false
+export RUSTFLAGS="-Dwarnings"
+
+function build {
+  echo_header "avm-transpiler build"
+  artifact=avm-transpiler-$hash.tar.gz
+  if ! cache_download $artifact; then
+    denoise "cargo build --release"
+    denoise "cargo fmt --check"
+    denoise "cargo clippy"
+    cache_upload $artifact target/release/avm-transpiler
   fi
-fi
+}
 
-# Attempt to just pull artefacts from CI and exit on success.
-if [[ "$OSTYPE" != "darwin"* ]] && [ -n "${USE_CACHE:-}" ]; then
-  ./bootstrap_cache.sh && exit
-fi
-
-./scripts/bootstrap_native.sh
+case "$cmd" in
+  "clean")
+    git clean -fdx
+    ;;
+  ""|"fast"|"full"|"ci")
+    build
+    ;;
+  "test")
+    echo "No tests."
+    ;;
+  "hash")
+    echo $hash
+    ;;
+  *)
+    echo "Unknown command: $cmd"
+    exit 1
+esac

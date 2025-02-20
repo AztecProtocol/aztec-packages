@@ -26,14 +26,14 @@ function get_load_balancer_url() {
 # Fetch the service URLs based on the namespace for injection in the test-transfer.sh
 export BOOTNODE_URL=$($(dirname $0)/get_service_address boot-node 8080)
 export PXE_URL=$($(dirname $0)/get_service_address pxe 8080)
-export ETHEREUM_HOST=$($(dirname $0)/get_service_address ethereum 8545)
+export ETHEREUM_HOST=$($(dirname $0)/get_service_address eth-execution 8545)
 
 echo "BOOTNODE_URL: $BOOTNODE_URL"
 echo "PXE_URL: $PXE_URL"
 echo "ETHEREUM_HOST: $ETHEREUM_HOST"
 
 echo "Bootstrapping contracts for test network. NOTE: This took one hour last run."
-# hack to ensure L2 contracts are considered deployed
+
 docker run aztecprotocol/aztec:$TAG bootstrap-network \
   --rpc-url $BOOTNODE_URL \
   --l1-rpc-url $ETHEREUM_HOST \

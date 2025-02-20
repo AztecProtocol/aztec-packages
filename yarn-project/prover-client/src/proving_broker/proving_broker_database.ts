@@ -1,4 +1,9 @@
-import { type ProofUri, type ProvingJob, type ProvingJobId, type ProvingJobSettledResult } from '@aztec/circuit-types';
+import {
+  type ProofUri,
+  type ProvingJob,
+  type ProvingJobId,
+  type ProvingJobSettledResult,
+} from '@aztec/circuit-types/interfaces/server';
 
 /**
  * A database for storing proof requests and their results
@@ -6,20 +11,20 @@ import { type ProofUri, type ProvingJob, type ProvingJobId, type ProvingJobSettl
 export interface ProvingBrokerDatabase {
   /**
    * Saves a proof request so it can be retrieved later
-   * @param request - The proof request to save
+   * @param job - The proof request to save
    */
-  addProvingJob(request: ProvingJob): Promise<void>;
+  addProvingJob(job: ProvingJob): Promise<void>;
 
   /**
-   * Removes a proof request from the backend
-   * @param id - The ID of the proof request to remove
+   * Deletes all proving jobs belonging to epochs older than the given epoch
+   * @param epochNumber - The epoch number beyond which jobs should be deleted
    */
-  deleteProvingJobAndResult(id: ProvingJobId): Promise<void>;
+  deleteAllProvingJobsOlderThanEpoch(epochNumber: number): Promise<void>;
 
   /**
    * Returns an iterator over all saved proving jobs
    */
-  allProvingJobs(): Iterable<[ProvingJob, ProvingJobSettledResult | undefined]>;
+  allProvingJobs(): AsyncIterableIterator<[ProvingJob, ProvingJobSettledResult | undefined]>;
 
   /**
    * Saves the result of a proof request
@@ -36,4 +41,9 @@ export interface ProvingBrokerDatabase {
    * @param err - The error that occurred while processing the proof request
    */
   setProvingJobError(id: ProvingJobId, err: string): Promise<void>;
+
+  /**
+   * Closes the database
+   */
+  close(): Promise<void>;
 }

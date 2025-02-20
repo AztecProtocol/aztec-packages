@@ -1,5 +1,6 @@
 import { BatchCall, Fr, type PXE, type Wallet } from '@aztec/aztec.js';
-import { AuthContract, DocsExampleContract } from '@aztec/noir-contracts.js';
+import { AuthContract } from '@aztec/noir-contracts.js/Auth';
+import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
 
 import { jest } from '@jest/globals';
 
@@ -52,9 +53,9 @@ describe('e2e_state_vars', () => {
       //    The indirect, adds 1 to the point to ensure that we are returning the correct value.
 
       const [a, b, c] = await new BatchCall(wallet, [
-        contract.methods.get_public_immutable_constrained_private().request(),
-        contract.methods.get_public_immutable_constrained_private_indirect().request(),
-        contract.methods.get_public_immutable().request(),
+        await contract.methods.get_public_immutable_constrained_private().request(),
+        await contract.methods.get_public_immutable_constrained_private_indirect().request(),
+        await contract.methods.get_public_immutable().request(),
       ]).simulate();
 
       expect(a).toEqual(c);
@@ -69,9 +70,9 @@ describe('e2e_state_vars', () => {
       //    The indirect, adds 1 to the point to ensure that we are returning the correct value.
 
       const [a, b, c] = await new BatchCall(wallet, [
-        contract.methods.get_public_immutable_constrained_public().request(),
-        contract.methods.get_public_immutable_constrained_public_indirect().request(),
-        contract.methods.get_public_immutable().request(),
+        await contract.methods.get_public_immutable_constrained_public().request(),
+        await contract.methods.get_public_immutable_constrained_public_indirect().request(),
+        await contract.methods.get_public_immutable().request(),
       ]).simulate();
 
       expect(a).toEqual(c);
@@ -145,11 +146,6 @@ describe('e2e_state_vars', () => {
       expect(noteBefore.owner).toEqual(noteAfter.owner);
       expect(noteBefore.points).toEqual(noteAfter.points);
       expect(noteBefore.randomness).toEqual(noteAfter.randomness);
-      expect(noteBefore.header.contract_address).toEqual(noteAfter.header.contract_address);
-      expect(noteBefore.header.storage_slot).toEqual(noteAfter.header.storage_slot);
-      expect(noteBefore.header.note_hash_counter).toEqual(noteAfter.header.note_hash_counter);
-      // !!! Nonce must be different
-      expect(noteBefore.header.nonce).not.toEqual(noteAfter.header.nonce);
     });
 
     it('replace PrivateMutable with other values', async () => {

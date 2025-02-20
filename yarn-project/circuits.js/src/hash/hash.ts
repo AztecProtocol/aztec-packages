@@ -1,8 +1,8 @@
+import { GeneratorIndex } from '@aztec/constants';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { poseidon2Hash, poseidon2HashWithSeparator, sha256Trunc } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
-import { GeneratorIndex } from '../constants.gen.js';
 import { type ScopedL2ToL1Message } from '../structs/l2_to_l1_message.js';
 
 /**
@@ -10,7 +10,7 @@ import { type ScopedL2ToL1Message } from '../structs/l2_to_l1_message.js';
  * @param vkBuf - The verification key as fields.
  * @returns The hash of the verification key.
  */
-export function hashVK(keyAsFields: Fr[]): Fr {
+export function hashVK(keyAsFields: Fr[]): Promise<Fr> {
   return poseidon2Hash(keyAsFields);
 }
 
@@ -20,7 +20,7 @@ export function hashVK(keyAsFields: Fr[]): Fr {
  * @param noteHashIndex - The index of the note hash.
  * @returns A note hash nonce.
  */
-export function computeNoteHashNonce(nullifierZero: Fr, noteHashIndex: number): Fr {
+export function computeNoteHashNonce(nullifierZero: Fr, noteHashIndex: number): Promise<Fr> {
   return poseidon2HashWithSeparator([nullifierZero, noteHashIndex], GeneratorIndex.NOTE_HASH_NONCE);
 }
 
@@ -31,7 +31,7 @@ export function computeNoteHashNonce(nullifierZero: Fr, noteHashIndex: number): 
  * @param uniqueNoteHash - The unique note hash to silo.
  * @returns A siloed note hash.
  */
-export function siloNoteHash(contract: AztecAddress, uniqueNoteHash: Fr): Fr {
+export function siloNoteHash(contract: AztecAddress, uniqueNoteHash: Fr): Promise<Fr> {
   return poseidon2HashWithSeparator([contract, uniqueNoteHash], GeneratorIndex.SILOED_NOTE_HASH);
 }
 
@@ -39,11 +39,11 @@ export function siloNoteHash(contract: AztecAddress, uniqueNoteHash: Fr): Fr {
  * Computes a unique note hash.
  * @dev Includes a nonce which contains data that guarantees the resulting note hash will be unique.
  * @param nonce - A nonce (typically derived from tx hash and note hash index in the tx).
- * @param noteHash - A note hash.
+ * @param siloedNoteHash - A note hash.
  * @returns A unique note hash.
  */
-export function computeUniqueNoteHash(nonce: Fr, noteHash: Fr): Fr {
-  return poseidon2HashWithSeparator([nonce, noteHash], GeneratorIndex.UNIQUE_NOTE_HASH);
+export function computeUniqueNoteHash(nonce: Fr, siloedNoteHash: Fr): Promise<Fr> {
+  return poseidon2HashWithSeparator([nonce, siloedNoteHash], GeneratorIndex.UNIQUE_NOTE_HASH);
 }
 
 /**
@@ -53,7 +53,7 @@ export function computeUniqueNoteHash(nonce: Fr, noteHash: Fr): Fr {
  * @param innerNullifier - The nullifier to silo.
  * @returns A siloed nullifier.
  */
-export function siloNullifier(contract: AztecAddress, innerNullifier: Fr): Fr {
+export function siloNullifier(contract: AztecAddress, innerNullifier: Fr): Promise<Fr> {
   return poseidon2HashWithSeparator([contract, innerNullifier], GeneratorIndex.OUTER_NULLIFIER);
 }
 
@@ -74,7 +74,7 @@ export function computePublicDataTreeValue(value: Fr): Fr {
  * @returns Public data tree index computed from contract address and storage slot.
 
  */
-export function computePublicDataTreeLeafSlot(contractAddress: AztecAddress, storageSlot: Fr): Fr {
+export function computePublicDataTreeLeafSlot(contractAddress: AztecAddress, storageSlot: Fr): Promise<Fr> {
   return poseidon2HashWithSeparator([contractAddress, storageSlot], GeneratorIndex.PUBLIC_LEAF_INDEX);
 }
 
@@ -83,9 +83,9 @@ export function computePublicDataTreeLeafSlot(contractAddress: AztecAddress, sto
  * @param args - Arguments to hash.
  * @returns Pedersen hash of the arguments.
  */
-export function computeVarArgsHash(args: Fr[]) {
+export function computeVarArgsHash(args: Fr[]): Promise<Fr> {
   if (args.length === 0) {
-    return Fr.ZERO;
+    return Promise.resolve(Fr.ZERO);
   }
 
   return poseidon2HashWithSeparator(args, GeneratorIndex.FUNCTION_ARGS);
@@ -97,12 +97,15 @@ export function computeVarArgsHash(args: Fr[]) {
  * @param secret - The secret to hash (could be generated however you want e.g. `Fr.random()`)
  * @returns The hash
  */
-export function computeSecretHash(secret: Fr) {
+export function computeSecretHash(secret: Fr): Promise<Fr> {
   return poseidon2HashWithSeparator([secret], GeneratorIndex.SECRET_HASH);
 }
 
-export function computeL1ToL2MessageNullifier(contract: AztecAddress, messageHash: Fr, secret: Fr) {
-  const innerMessageNullifier = poseidon2HashWithSeparator([messageHash, secret], GeneratorIndex.MESSAGE_NULLIFIER);
+export async function computeL1ToL2MessageNullifier(contract: AztecAddress, messageHash: Fr, secret: Fr) {
+  const innerMessageNullifier = await poseidon2HashWithSeparator(
+    [messageHash, secret],
+    GeneratorIndex.MESSAGE_NULLIFIER,
+  );
   return siloNullifier(contract, innerMessageNullifier);
 }
 

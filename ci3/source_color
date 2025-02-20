@@ -1,0 +1,16 @@
+# Color codes for output.
+
+yellow="\033[93m"
+blue="\033[34m"
+green="\033[32m"
+red="\033[31m"
+purple="\033[35m"
+bold="\033[1m"
+reset="\033[0m"
+
+# OSC 8 support for links.
+link_open='\033]8;;'
+link_close='\x07'
+
+# We always want color.
+export FORCE_COLOR=true

@@ -1,6 +1,6 @@
 import { SiblingPath } from '@aztec/circuit-types';
+import { type Hasher } from '@aztec/circuits.js/interfaces';
 import { type Bufferable, type FromBuffer, serializeToBuffer } from '@aztec/foundation/serialize';
-import { type Hasher } from '@aztec/types/interfaces';
 
 import { HasherWithStats } from './hasher_with_stats.js';
 import { type MerkleTree } from './interfaces/merkle_tree.js';
@@ -10,7 +10,7 @@ const indexToKeyHash = (name: string, level: number, index: bigint) => `${name}:
 /**
  * An ephemeral unbalanced Merkle tree implementation.
  * Follows the rollup implementation which greedily hashes pairs of nodes up the tree.
- * Remaining rightmost nodes are shifted up until they can be paired. See proving-state.ts -> findMergeLevel.
+ * Remaining rightmost nodes are shifted up until they can be paired.
  */
 export class UnbalancedTree<T extends Bufferable = Buffer> implements MerkleTree<T> {
   // This map stores index and depth -> value

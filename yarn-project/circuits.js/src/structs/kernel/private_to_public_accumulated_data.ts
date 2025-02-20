@@ -1,10 +1,3 @@
-import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
-import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, FieldReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
-
-import { inspect } from 'util';
-
 import {
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_ENQUEUED_CALLS_PER_TX,
@@ -12,7 +5,21 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
-} from '../../constants.gen.js';
+  PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH,
+} from '@aztec/constants';
+import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
+import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
+import {
+  BufferReader,
+  FieldReader,
+  type Tuple,
+  serializeToBuffer,
+  serializeToFields,
+} from '@aztec/foundation/serialize';
+
+import { inspect } from 'util';
+
 import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
 import { ScopedLogHash } from '../log_hash.js';
 import { PrivateLog } from '../private_log.js';
@@ -80,6 +87,16 @@ export class PrivateToPublicAccumulatedData {
 
   toBuffer() {
     return serializeToBuffer(...PrivateToPublicAccumulatedData.getFields(this));
+  }
+
+  toFields(): Fr[] {
+    const fields = serializeToFields(...PrivateToPublicAccumulatedData.getFields(this));
+    if (fields.length !== PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH) {
+      throw new Error(
+        `Invalid number of fields for PrivateToPublicAccumulatedData. Expected ${PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH}, got ${fields.length}`,
+      );
+    }
+    return fields;
   }
 
   static empty() {

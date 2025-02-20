@@ -1,11 +1,11 @@
-import { type ContractInstanceWithAddress, computePartialAddress } from '@aztec/circuits.js';
 import {
   type ContractArtifact,
   type ContractNote,
   type FieldLayout,
   type FunctionArtifact,
   FunctionSelector,
-} from '@aztec/foundation/abi';
+} from '@aztec/circuits.js/abi';
+import { type ContractInstanceWithAddress, computePartialAddress } from '@aztec/circuits.js/contract';
 
 import { type Wallet } from '../account/index.js';
 import { ContractFunctionInteraction } from './contract_function_interaction.js';
@@ -18,7 +18,7 @@ export type ContractMethod = ((...args: any[]) => ContractFunctionInteraction) &
   /**
    * The unique identifier for a contract function in bytecode.
    */
-  readonly selector: FunctionSelector;
+  selector: () => Promise<FunctionSelector>;
 };
 
 /**
@@ -62,7 +62,7 @@ export class ContractBase {
          * A getter for users to fetch the function selector.
          * @returns Selector of the function.
          */
-        get selector() {
+        selector() {
           return FunctionSelector.fromNameAndParameters(f.name, f.parameters);
         },
       });

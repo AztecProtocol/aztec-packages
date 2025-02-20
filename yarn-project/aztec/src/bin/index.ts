@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { fileURLToPath } from '@aztec/aztec.js';
+//
 import { injectCommands as injectBuilderCommands } from '@aztec/builder';
 import { injectCommands as injectWalletCommands } from '@aztec/cli-wallet';
 import { injectCommands as injectContractCommands } from '@aztec/cli/contracts';
@@ -8,7 +8,8 @@ import { injectCommands as injectInfrastructureCommands } from '@aztec/cli/infra
 import { injectCommands as injectL1Commands } from '@aztec/cli/l1';
 import { injectCommands as injectMiscCommands } from '@aztec/cli/misc';
 import { injectCommands as injectPXECommands } from '@aztec/cli/pxe';
-import { createConsoleLogger, createDebugLogger } from '@aztec/foundation/log';
+import { createConsoleLogger, createLogger } from '@aztec/foundation/log';
+import { fileURLToPath } from '@aztec/foundation/url';
 
 import { Command } from 'commander';
 import { readFileSync } from 'fs';
@@ -17,10 +18,16 @@ import { dirname, resolve } from 'path';
 import { injectAztecCommands } from '../cli/index.js';
 
 const userLog = createConsoleLogger();
-const debugLogger = createDebugLogger('aztec:cli');
+const debugLogger = createLogger('cli');
 
 /** CLI & full node main entrypoint */
 async function main() {
+  const shutdown = () => {
+    process.exit(0);
+  };
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
+
   const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../package.json');
   const cliVersion: string = JSON.parse(readFileSync(packageJsonPath).toString()).version;
   let program = new Command('aztec');
@@ -33,7 +40,7 @@ async function main() {
   program = injectPXECommands(program, userLog, debugLogger);
   program = injectMiscCommands(program, userLog);
   program = injectDevnetCommands(program, userLog, debugLogger);
-  program = injectWalletCommands(program, userLog, debugLogger);
+  program = await injectWalletCommands(program, userLog, debugLogger);
 
   await program.parseAsync(process.argv);
 }

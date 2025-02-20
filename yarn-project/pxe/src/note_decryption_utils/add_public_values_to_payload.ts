@@ -24,10 +24,10 @@ export async function getOrderedNoteItems(
     );
   }
 
-  const artifact = await db.getContractArtifact(instance.contractClassId);
+  const artifact = await db.getContractArtifact(instance.currentContractClassId);
   if (!artifact) {
     throw new Error(
-      `Could not find artifact for contract class ${instance.contractClassId.toString()}. This should never happen here as the partial notes flow should be triggered only for non-deferred notes.`,
+      `Could not find artifact for contract class ${instance.currentContractClassId.toString()}. This should never happen here as the partial notes flow should be triggered only for non-deferred notes.`,
     );
   }
 
@@ -41,7 +41,7 @@ export async function getOrderedNoteItems(
   noteFields.sort((a, b) => a.index - b.index);
 
   // Now we insert the public fields into the note based on its indices defined in the ABI.
-  const modifiedNoteItems = privateNoteValues;
+  const modifiedNoteItems = [...privateNoteValues];
   let indexInPublicValues = 0;
   for (let i = 0; i < noteFields.length; i++) {
     const noteField = noteFields[i];

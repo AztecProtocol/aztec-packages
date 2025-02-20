@@ -22,16 +22,22 @@
       "path": "../entrypoints"
     },
     {
+      "path": "../ethereum"
+    },
+    {
       "path": "../foundation"
     },
     {
       "path": "../noir-contracts.js"
     },
     {
+      "path": "../noir-protocol-circuits-types"
+    },
+    {
       "path": "../protocol-contracts"
     },
     {
-      "path": "../types"
+      "path": "../telemetry-client"
     }
   ],
   "include": ["src"]

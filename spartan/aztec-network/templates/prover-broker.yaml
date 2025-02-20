@@ -1,6 +1,6 @@
 {{- if .Values.proverBroker.enabled }}
 apiVersion: apps/v1
-kind: ReplicaSet
+kind: StatefulSet
 metadata:
   name: {{ include "aztec-network.fullname" . }}-prover-broker
   labels:
@@ -11,14 +11,29 @@ spec:
     matchLabels:
       {{- include "aztec-network.selectorLabels" . | nindent 6 }}
       app: prover-broker
+  {{- if not .Values.storage.localSsd }}
+  volumeClaimTemplates:
+    - metadata:
+        name: prover-broker-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: {{ .Values.proverBroker.storageSize }}
+  {{- end }}
   template:
     metadata:
       labels:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: prover-broker
     spec:
-      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
+      {{- if .Values.network.gke }}
+      nodeSelector:
+        local-ssd: "{{ .Values.storage.localSsd }}"
+        node-type: network
+      {{- end }}
       {{- if .Values.network.public }}
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       {{- include "aztec-network.publicAntiAffinity" . | nindent 6 }}
@@ -26,36 +41,32 @@ spec:
       volumes:
         - name: config
           emptyDir: {}
+        - name: prover-broker-data
+          emptyDir: {}
         - name: scripts
           configMap:
             name: {{ include "aztec-network.fullname" . }}-scripts
       initContainers:
         {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
         - name: wait-for-prover-node
-          image: {{ .Values.images.aztec.image }}
+          {{- include "aztec-network.image" . | nindent 10 }}
           command:
             - /bin/bash
             - -c
             - |
               source /shared/config/service-addresses
               cat /shared/config/service-addresses
-              {{- if .Values.telemetry.enabled }}
-              until curl --head --silent $OTEL_COLLECTOR_ENDPOINT > /dev/null; do
-                echo "Waiting for OpenTelemetry collector $OTEL_COLLECTOR_ENDPOINT..."
-                sleep 5
-              done
-              echo "OpenTelemetry collector is ready!"
-              {{- end }}
           volumeMounts:
             - name: config
               mountPath: /shared/config
       containers:
         - name: prover-broker
-          image: "{{ .Values.images.aztec.image }}"
-          imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
+          {{- include "aztec-network.image" . | nindent 10 }}
           volumeMounts:
             - name: config
               mountPath: /shared/config
+            - name: prover-broker-data
+              mountPath: {{ .Values.proverBroker.dataDir }}
           command:
             - "/bin/bash"
             - "-c"
@@ -63,6 +74,22 @@ spec:
               source /shared/config/service-addresses && \
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --prover-broker
           env:
+            - name: K8S_POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OTEL_SERVICE_NAME
+              value: prover-broker
+            - name: K8S_NAMESPACE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: NODE_OPTIONS
+              value: "--max-old-space-size={{ .Values.proverBroker.maxOldSpaceSize}}"
             - name: AZTEC_PORT
               value: "{{ .Values.proverBroker.service.nodePort }}"
             - name: LOG_LEVEL
@@ -75,12 +102,34 @@ spec:
               value: "{{ .Values.proverBroker.jobTimeoutMs }}"
             - name: PROVER_BROKER_JOB_MAX_RETRIES
               value: "{{ .Values.proverBroker.jobMaxRetries }}"
-            - name: PROVER_BROKER_DATA_DIRECTORY
-              value: "{{ .Values.proverBroker.dataDirectory }}"
+            - name: DATA_DIRECTORY
+              value: "{{ .Values.proverBroker.dataDir }}"
+            - name: DATA_STORE_MAP_SIZE_KB
+              value: "{{ .Values.storage.dataStoreMapSize }}"
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
+            - name: USE_GCLOUD_LOGGING
+              value: "{{ .Values.telemetry.useGcloudLogging }}"
+            - name: USE_GCLOUD_METRICS
+              value: "{{ .Values.telemetry.useGcloudMetrics }}"
+            - name: OTEL_EXCLUDE_METRICS
+              value: "{{ .Values.telemetry.excludeMetrics }}"
           resources:
             {{- toYaml .Values.proverBroker.resources | nindent 12 }}
+      volumes:
+        - name: scripts
+          configMap:
+            name: {{ include "aztec-network.fullname" . }}-scripts
+        - name: config
+          emptyDir: {}
+      {{- if .Values.storage.localSsd }}
+        - name: prover-broker-data
+          emptyDir: {}
+      {{ else }}
+        - name: prover-broker-data
+          persistentVolumeClaim:
+            claimName: prover-broker-data
+      {{- end }}
 {{- end }}
 ---
 # Headless service for StatefulSet DNS entries
@@ -90,6 +139,7 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-prover-broker
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
+    app: prover-broker
 spec:
   type: ClusterIP
   selector:

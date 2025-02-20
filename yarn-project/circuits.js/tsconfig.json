@@ -7,13 +7,16 @@
   },
   "references": [
     {
+      "path": "../blob-lib"
+    },
+    {
+      "path": "../constants"
+    },
+    {
       "path": "../ethereum"
     },
     {
       "path": "../foundation"
-    },
-    {
-      "path": "../types"
     }
   ],
   "include": ["src"]

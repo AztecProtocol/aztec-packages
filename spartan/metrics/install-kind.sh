@@ -4,11 +4,15 @@ set -eu
 SCRIPT_DIR="$(dirname $(realpath -s "${BASH_SOURCE[0]}"))"
 cd "$SCRIPT_DIR"
 
+echo "Installing metrics (KIND)"
+
 # check if metrics is already installed
 if helm ls --namespace metrics | grep -q metrics; then
   echo "metrics is already installed"
   exit 0
 fi
+
+./copy-dashboard.sh
 
 helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
 helm repo add grafana https://grafana.github.io/helm-charts

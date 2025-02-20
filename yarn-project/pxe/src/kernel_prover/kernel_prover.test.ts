@@ -1,32 +1,33 @@
+import { Note, PublicExecutionRequest } from '@aztec/circuit-types';
 import {
-  Note,
   NoteAndSlot,
+  PrivateCallExecutionResult,
   PrivateExecutionResult,
   type PrivateKernelProver,
-  PublicExecutionRequest,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/client';
 import {
-  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   FunctionSelector,
-  MAX_NOTE_HASHES_PER_CALL,
-  MAX_NOTE_HASHES_PER_TX,
-  MembershipWitness,
   NoteHash,
   PrivateCircuitPublicInputs,
-  PrivateKernelCircuitPublicInputs,
-  PrivateKernelTailCircuitPublicInputs,
   PublicKeys,
   ScopedNoteHash,
   type TxRequest,
-  VK_TREE_HEIGHT,
   VerificationKey,
   VerificationKeyAsFields,
 } from '@aztec/circuits.js';
+import { NoteSelector } from '@aztec/circuits.js/abi';
+import { PrivateKernelCircuitPublicInputs, PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
 import { makeTxRequest } from '@aztec/circuits.js/testing';
-import { NoteSelector } from '@aztec/foundation/abi';
+import {
+  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  MAX_NOTE_HASHES_PER_CALL,
+  MAX_NOTE_HASHES_PER_TX,
+  VK_TREE_HEIGHT,
+} from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
+import { MembershipWitness } from '@aztec/foundation/trees';
 
 import { mock } from 'jest-mock-extended';
 
@@ -51,6 +52,10 @@ describe('Kernel Prover', () => {
   const generateFakeSiloedCommitment = (note: NoteAndSlot) => createFakeSiloedCommitment(generateFakeCommitment(note));
 
   const createExecutionResult = (fnName: string, newNoteIndices: number[] = []): PrivateExecutionResult => {
+    return new PrivateExecutionResult(createCallExecutionResult(fnName, newNoteIndices), Fr.zero());
+  };
+
+  const createCallExecutionResult = (fnName: string, newNoteIndices: number[] = []): PrivateCallExecutionResult => {
     const publicInputs = PrivateCircuitPublicInputs.empty();
     publicInputs.noteHashes = makeTuple(
       MAX_NOTE_HASHES_PER_CALL,
@@ -61,7 +66,8 @@ describe('Kernel Prover', () => {
       0,
     );
     publicInputs.callContext.functionSelector = new FunctionSelector(fnName.charCodeAt(0));
-    return new PrivateExecutionResult(
+    publicInputs.callContext.contractAddress = contractAddress;
+    return new PrivateCallExecutionResult(
       Buffer.alloc(0),
       VerificationKey.makeFake().toBuffer(),
       new Map(),
@@ -70,7 +76,7 @@ describe('Kernel Prover', () => {
       newNoteIndices.map(idx => notesAndSlots[idx]),
       new Map(),
       [],
-      (dependencies[fnName] || []).map(name => createExecutionResult(name)),
+      (dependencies[fnName] || []).map(name => createCallExecutionResult(name)),
       [],
       PublicExecutionRequest.empty(),
       [],
@@ -111,30 +117,24 @@ describe('Kernel Prover', () => {
     };
   };
 
-  const computeAppCircuitVerificationKeyOutput = () => {
-    return {
-      verificationKey: VerificationKeyAsFields.makeEmpty(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
-    };
-  };
-
   const expectExecution = (fns: string[]) => {
-    const callStackItemsInit = proofCreator.simulateProofInit.mock.calls.map(args =>
+    const callStackItemsInit = proofCreator.simulateInit.mock.calls.map(args =>
       String.fromCharCode(args[0].privateCall.publicInputs.callContext.functionSelector.value),
     );
-    const callStackItemsInner = proofCreator.simulateProofInner.mock.calls.map(args =>
+    const callStackItemsInner = proofCreator.simulateInner.mock.calls.map(args =>
       String.fromCharCode(args[0].privateCall.publicInputs.callContext.functionSelector.value),
     );
 
-    expect(proofCreator.simulateProofInit).toHaveBeenCalledTimes(Math.min(1, fns.length));
-    expect(proofCreator.simulateProofInner).toHaveBeenCalledTimes(Math.max(0, fns.length - 1));
+    expect(proofCreator.simulateInit).toHaveBeenCalledTimes(Math.min(1, fns.length));
+    expect(proofCreator.simulateInner).toHaveBeenCalledTimes(Math.max(0, fns.length - 1));
     expect(callStackItemsInit.concat(callStackItemsInner)).toEqual(fns);
-    proofCreator.simulateProofInner.mockClear();
-    proofCreator.simulateProofInit.mockClear();
+    proofCreator.simulateInner.mockClear();
+    proofCreator.simulateInit.mockClear();
   };
 
   const prove = (executionResult: PrivateExecutionResult) => prover.prove(txRequest, executionResult);
 
-  beforeEach(() => {
+  beforeEach(async () => {
     txRequest = makeTxRequest();
 
     oracle = mock<ProvingDataOracle>();
@@ -142,8 +142,9 @@ describe('Kernel Prover', () => {
     oracle.getVkMembershipWitness.mockResolvedValue(MembershipWitness.random(VK_TREE_HEIGHT));
 
     oracle.getContractAddressPreimage.mockResolvedValue({
-      contractClassId: Fr.random(),
-      publicKeys: PublicKeys.random(),
+      currentContractClassId: Fr.random(),
+      originalContractClassId: Fr.random(),
+      publicKeys: await PublicKeys.random(),
       saltedInitializationHash: Fr.random(),
     });
     oracle.getContractClassIdPreimage.mockResolvedValue({
@@ -153,13 +154,12 @@ describe('Kernel Prover', () => {
     });
 
     proofCreator = mock<PrivateKernelProver>();
-    proofCreator.simulateProofInit.mockResolvedValue(simulateProofOutput([]));
-    proofCreator.simulateProofInner.mockResolvedValue(simulateProofOutput([]));
-    proofCreator.simulateProofReset.mockResolvedValue(simulateProofOutput([]));
-    proofCreator.simulateProofTail.mockResolvedValue(simulateProofOutputFinal([]));
-    proofCreator.computeAppCircuitVerificationKey.mockResolvedValue(computeAppCircuitVerificationKeyOutput());
+    proofCreator.simulateInit.mockResolvedValue(simulateProofOutput([]));
+    proofCreator.simulateInner.mockResolvedValue(simulateProofOutput([]));
+    proofCreator.simulateReset.mockResolvedValue(simulateProofOutput([]));
+    proofCreator.simulateTail.mockResolvedValue(simulateProofOutputFinal([]));
 
-    prover = new KernelProver(oracle, proofCreator);
+    prover = new KernelProver(oracle, proofCreator, true);
   });
 
   it('should create proofs in correct order', async () => {

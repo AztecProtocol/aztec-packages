@@ -1,10 +1,20 @@
-export * from './pub_key.js';
-export * from './l1_contracts.js';
-export * from './abi_types.js';
-export * from './cheat_codes.js';
-export * from './authwit.js';
-export * from './pxe.js';
-export * from './node.js';
-export * from './anvil_test_watcher.js';
-export * from './field_compressed_string.js';
-export * from './portal_manager.js';
+export { generatePublicKey } from './pub_key.js';
+export {
+  type AztecAddressLike,
+  type EthAddressLike,
+  type EventSelectorLike,
+  type FieldLike,
+  type FunctionSelectorLike,
+  type U128Like,
+  type WrappedFieldLike,
+} from './abi_types.js';
+export {
+  computeAuthWitMessageHash,
+  computeInnerAuthWitHash,
+  computeInnerAuthWitHashFromAction,
+  type IntentAction,
+  type IntentInnerHash,
+} from './authwit.js';
+export { waitForPXE } from './pxe.js';
+export { waitForNode, createAztecNodeClient, type AztecNode } from './node.js';
+export { readFieldCompressedString } from './field_compressed_string.js';

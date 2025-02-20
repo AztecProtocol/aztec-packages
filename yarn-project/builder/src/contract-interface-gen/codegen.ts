@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-import { loadContractArtifact } from '@aztec/types/abi';
+import { loadContractArtifact } from '@aztec/circuits.js/abi';
 
 import crypto from 'crypto';
 import { access, mkdir, readFile, readdir, stat, writeFile } from 'fs/promises';
@@ -60,7 +60,7 @@ async function generateFromNoirAbi(outputPath: string, noirAbiPath: string, opts
     relativeArtifactPath = `./${relativeArtifactPath}`;
   }
 
-  const tsWrapper = generateTypescriptContractInterface(aztecAbi, relativeArtifactPath);
+  const tsWrapper = await generateTypescriptContractInterface(aztecAbi, relativeArtifactPath);
   const outputFilePath = `${outputPath}/${aztecAbi.name}.ts`;
 
   await writeFile(outputFilePath, tsWrapper);

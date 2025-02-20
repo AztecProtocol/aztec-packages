@@ -272,6 +272,7 @@ impl<F: for<'a> Deserialize<'a>> Program<F> {
             .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidInput, err))
     }
 
+    /// Deserialize bytecode.
     pub fn deserialize_program(serialized_circuit: &[u8]) -> std::io::Result<Self> {
         Program::read(serialized_circuit)
     }
@@ -281,7 +282,7 @@ impl<F: for<'a> Deserialize<'a>> Program<F> {
     where
         D: Deserializer<'de>,
     {
-        let bytecode_b64: String = serde::Deserialize::deserialize(deserializer)?;
+        let bytecode_b64: String = Deserialize::deserialize(deserializer)?;
         let program_bytes = base64::engine::general_purpose::STANDARD
             .decode(bytecode_b64)
             .map_err(D::Error::custom)?;

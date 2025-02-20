@@ -1,6 +1,6 @@
 import { type EnvVar } from './env_var.js';
 
-export { EnvVar } from './env_var.js';
+export { type EnvVar } from './env_var.js';
 
 export interface ConfigMapping {
   env?: EnvVar;
@@ -9,6 +9,7 @@ export interface ConfigMapping {
   printDefault?: (val: any) => string;
   description: string;
   isBoolean?: boolean;
+  nested?: Record<string, ConfigMapping>;
 }
 
 export function isBooleanConfigValue<T>(obj: T, key: keyof T): boolean {
@@ -21,18 +22,15 @@ export function getConfigFromMappings<T>(configMappings: ConfigMappingsType<T>):
   const config = {} as T;
 
   for (const key in configMappings) {
-    if (configMappings[key]) {
-      const { env, parseEnv, defaultValue: def } = configMappings[key];
-      // Special case for L1 contract addresses which is an object of config values
-      if (key === 'l1Contracts' && def) {
-        (config as any)[key] = getConfigFromMappings(def);
-      } else {
-        const val = env ? process.env[env] : undefined;
-        if (val !== undefined) {
-          (config as any)[key] = parseEnv ? parseEnv(val) : val;
-        } else if (def !== undefined) {
-          (config as any)[key] = def;
-        }
+    const { env, parseEnv, defaultValue: def, nested } = configMappings[key];
+    if (nested) {
+      (config as any)[key] = getConfigFromMappings(nested);
+    } else {
+      const val = env ? process.env[env] : undefined;
+      if (val !== undefined) {
+        (config as any)[key] = parseEnv ? parseEnv(val) : val;
+      } else if (def !== undefined) {
+        (config as any)[key] = def;
       }
     }
   }
@@ -74,7 +72,12 @@ export function numberConfigHelper(defaultVal: number): Pick<ConfigMapping, 'par
  */
 export function bigintConfigHelper(defaultVal?: bigint): Pick<ConfigMapping, 'parseEnv' | 'defaultValue'> {
   return {
-    parseEnv: (val: string) => BigInt(val),
+    parseEnv: (val: string) => {
+      if (val === '') {
+        return defaultVal;
+      }
+      return BigInt(val);
+    },
     defaultValue: defaultVal,
   };
 }
@@ -102,13 +105,18 @@ export function optionalNumberConfigHelper(): Pick<ConfigMapping, 'parseEnv'> {
 export function booleanConfigHelper(
   defaultVal = false,
 ): Required<Pick<ConfigMapping, 'parseEnv' | 'defaultValue' | 'isBoolean'> & { parseVal: (val: string) => boolean }> {
-  const parse = (val: string | boolean) => (typeof val === 'boolean' ? val : ['1', 'true', 'TRUE'].includes(val));
+  const parse = (val: string | boolean) => (typeof val === 'boolean' ? val : parseBooleanEnv(val));
   return {
     parseEnv: parse,
     parseVal: parse,
     defaultValue: defaultVal,
     isBoolean: true,
   };
+}
+
+/** Parses an env var as boolean. Returns true only if value is 1, true, or TRUE. */
+export function parseBooleanEnv(val: string | undefined): boolean {
+  return val !== undefined && ['1', 'true', 'TRUE'].includes(val);
 }
 
 /**

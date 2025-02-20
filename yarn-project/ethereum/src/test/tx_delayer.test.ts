@@ -1,4 +1,4 @@
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 
 import { type Anvil } from '@viem/anvil';
@@ -13,7 +13,7 @@ import { type Delayer, withDelayer } from './tx_delayer.js';
 describe('tx_delayer', () => {
   let anvil: Anvil;
   let rpcUrl: string;
-  let logger: DebugLogger;
+  let logger: Logger;
   let account: PrivateKeyAccount;
   let client: ViemClient;
   let delayer: Delayer;
@@ -21,8 +21,8 @@ describe('tx_delayer', () => {
   const ETHEREUM_SLOT_DURATION = 2;
 
   beforeAll(async () => {
-    ({ anvil, rpcUrl } = await startAnvil(ETHEREUM_SLOT_DURATION));
-    logger = createDebugLogger('aztec:ethereum:test:tx_delayer');
+    ({ anvil, rpcUrl } = await startAnvil({ l1BlockTime: ETHEREUM_SLOT_DURATION }));
+    logger = createLogger('ethereum:test:tx_delayer');
   });
 
   beforeEach(() => {
@@ -96,6 +96,6 @@ describe('tx_delayer', () => {
   }, 20000);
 
   afterAll(async () => {
-    await anvil.stop();
+    await anvil.stop().catch(err => createLogger('cleanup').error(err));
   });
 });

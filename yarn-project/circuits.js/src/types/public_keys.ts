@@ -1,12 +1,3 @@
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
-import { Fr, Point } from '@aztec/foundation/fields';
-import { schemas } from '@aztec/foundation/schemas';
-import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { bufferToHex } from '@aztec/foundation/string';
-import { type FieldsOf } from '@aztec/foundation/types';
-
-import { z } from 'zod';
-
 import {
   DEFAULT_IVPK_M_X,
   DEFAULT_IVPK_M_Y,
@@ -17,7 +8,16 @@ import {
   DEFAULT_TPK_M_X,
   DEFAULT_TPK_M_Y,
   GeneratorIndex,
-} from '../constants.gen.js';
+} from '@aztec/constants';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { Fr, Point } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
+import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, withoutHexPrefix } from '@aztec/foundation/string';
+import { type FieldsOf } from '@aztec/foundation/types';
+
+import { z } from 'zod';
+
 import { type PublicKey } from './public_key.js';
 
 export class PublicKeys {
@@ -84,8 +84,8 @@ export class PublicKeys {
     );
   }
 
-  static random(): PublicKeys {
-    return new PublicKeys(Point.random(), Point.random(), Point.random(), Point.random());
+  static async random(): Promise<PublicKeys> {
+    return new PublicKeys(await Point.random(), await Point.random(), await Point.random(), await Point.random());
   }
 
   /**
@@ -189,6 +189,6 @@ export class PublicKeys {
   }
 
   static fromString(keys: string) {
-    return PublicKeys.fromBuffer(Buffer.from(keys, 'hex'));
+    return PublicKeys.fromBuffer(Buffer.from(withoutHexPrefix(keys), 'hex'));
   }
 }

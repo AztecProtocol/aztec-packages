@@ -23,6 +23,7 @@ impl<'a> Parser<'a> {
         // and throw the error in name resolution.
 
         let attributes = self.validate_secondary_attributes(attributes);
+        let is_global_let = true;
 
         let Some(ident) = self.eat_ident() else {
             self.eat_semicolons();
@@ -35,6 +36,7 @@ impl<'a> Parser<'a> {
                 expression: Expression { kind: ExpressionKind::Error, span: Span::default() },
                 attributes,
                 comptime,
+                is_global_let,
             };
         };
 
@@ -53,7 +55,7 @@ impl<'a> Parser<'a> {
             self.expected_token(Token::Semicolon);
         }
 
-        LetStatement { pattern, r#type: typ, expression, attributes, comptime }
+        LetStatement { pattern, r#type: typ, expression, attributes, comptime, is_global_let }
     }
 }
 
@@ -68,9 +70,12 @@ fn ident_to_pattern(ident: Ident, mutable: bool) -> Pattern {
 
 #[cfg(test)]
 mod tests {
+    use acvm::FieldElement;
+
     use crate::{
         ast::{
-            IntegerBitSize, ItemVisibility, LetStatement, Pattern, Signedness, UnresolvedTypeData,
+            ExpressionKind, IntegerBitSize, ItemVisibility, LetStatement, Literal, Pattern,
+            Signedness, UnresolvedTypeData,
         },
         parser::{
             parser::{
@@ -105,6 +110,7 @@ mod tests {
         assert_eq!("foo", name.to_string());
         assert!(matches!(let_statement.r#type.typ, UnresolvedTypeData::Unspecified));
         assert!(!let_statement.comptime);
+        assert!(let_statement.is_global_let);
         assert_eq!(visibility, ItemVisibility::Private);
     }
 
@@ -167,5 +173,28 @@ mod tests {
         let (_, errors) = parse_program(&src);
         let error = get_single_error(&errors, span);
         assert_eq!(error.to_string(), "Expected a ';' but found end of input");
+    }
+
+    #[test]
+    fn parse_negative_field_global() {
+        let src = "
+        global foo: Field = -17;
+        ";
+        let (let_statement, _visibility) = parse_global_no_errors(src);
+        let Pattern::Identifier(name) = &let_statement.pattern else {
+            panic!("Expected identifier pattern");
+        };
+        assert_eq!("foo", name.to_string());
+        assert_eq!(let_statement.pattern.span().start(), 16);
+        assert_eq!(let_statement.pattern.span().end(), 19);
+
+        let ExpressionKind::Literal(Literal::Integer(abs_value, is_negative)) =
+            let_statement.expression.kind
+        else {
+            panic!("Expected integer literal expression, got {:?}", let_statement.expression.kind);
+        };
+
+        assert!(is_negative);
+        assert_eq!(abs_value, FieldElement::from(17u128));
     }
 }

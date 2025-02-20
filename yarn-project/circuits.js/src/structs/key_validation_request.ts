@@ -1,7 +1,6 @@
+import { KEY_VALIDATION_REQUEST_LENGTH } from '@aztec/constants';
 import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
-
-import { KEY_VALIDATION_REQUEST_LENGTH } from '../constants.gen.js';
 
 /**
  * Request for validating keys used in the app.
@@ -58,7 +57,7 @@ export class KeyValidationRequest {
     return new KeyValidationRequest(Point.ZERO, Fr.ZERO);
   }
 
-  static random() {
-    return new KeyValidationRequest(Point.random(), Fr.random());
+  static async random() {
+    return new KeyValidationRequest(await Point.random(), Fr.random());
   }
 }

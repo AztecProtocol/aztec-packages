@@ -18,6 +18,10 @@ export function describeAztecSingleton(
       singleton = store.openSingleton<string>('test');
     });
 
+    afterEach(async () => {
+      await store.delete();
+    });
+
     async function get() {
       return isSyncStore(store) && !forceAsync
         ? (singleton as AztecSingleton<string>).get()

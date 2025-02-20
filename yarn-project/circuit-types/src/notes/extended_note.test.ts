@@ -1,13 +1,13 @@
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
-import { randomExtendedNote, randomUniqueNote } from '../mocks.js';
+import { randomExtendedNote, randomUniqueNote } from '../test/mocks.js';
 import { ExtendedNote, UniqueNote } from './extended_note.js';
 
 describe('ExtendedNote', () => {
   let note: ExtendedNote;
 
-  beforeEach(() => {
-    note = randomExtendedNote();
+  beforeEach(async () => {
+    note = await randomExtendedNote();
   });
 
   it('convert to and from buffer', () => {
@@ -24,8 +24,8 @@ describe('ExtendedNote', () => {
 describe('UniqueNote', () => {
   let note: UniqueNote;
 
-  beforeEach(() => {
-    note = randomUniqueNote();
+  beforeEach(async () => {
+    note = await randomUniqueNote();
   });
 
   it('convert to and from buffer', () => {

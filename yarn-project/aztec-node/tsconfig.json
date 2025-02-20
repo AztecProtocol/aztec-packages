@@ -13,10 +13,19 @@
       "path": "../bb-prover"
     },
     {
+      "path": "../blob-sink"
+    },
+    {
       "path": "../circuit-types"
     },
     {
       "path": "../circuits.js"
+    },
+    {
+      "path": "../constants"
+    },
+    {
+      "path": "../epoch-cache"
     },
     {
       "path": "../ethereum"
@@ -47,9 +56,6 @@
     },
     {
       "path": "../telemetry-client"
-    },
-    {
-      "path": "../types"
     },
     {
       "path": "../validator-client"

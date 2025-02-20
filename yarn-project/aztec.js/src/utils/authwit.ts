@@ -1,5 +1,6 @@
-import { type FunctionCall, PackedValues } from '@aztec/circuit-types';
-import { type AztecAddress, Fr, GeneratorIndex } from '@aztec/circuits.js';
+import { type FunctionCall, HashedValues } from '@aztec/circuit-types';
+import { type AztecAddress, Fr } from '@aztec/circuits.js';
+import { GeneratorIndex } from '@aztec/constants';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
@@ -50,17 +51,17 @@ export type IntentAction = {
  * @param metadata - The metadata for the intent (chainId, version)
  * @returns The message hash for the action
  */
-export const computeAuthWitMessageHash = (intent: IntentInnerHash | IntentAction, metadata: IntentMetadata) => {
+export const computeAuthWitMessageHash = async (intent: IntentInnerHash | IntentAction, metadata: IntentMetadata) => {
   const chainId = metadata.chainId;
   const version = metadata.version;
 
   if ('caller' in intent) {
-    const action = intent.action instanceof ContractFunctionInteraction ? intent.action.request() : intent.action;
+    const action = intent.action instanceof ContractFunctionInteraction ? await intent.action.request() : intent.action;
     return computeOuterAuthWitHash(
       action.to,
       chainId,
       version,
-      computeInnerAuthWitHashFromAction(intent.caller, action),
+      await computeInnerAuthWitHashFromAction(intent.caller, action),
     );
   } else {
     const inner = Buffer.isBuffer(intent.innerHash) ? Fr.fromBuffer(intent.innerHash) : intent.innerHash;
@@ -69,8 +70,12 @@ export const computeAuthWitMessageHash = (intent: IntentInnerHash | IntentAction
 };
 // docs:end:authwit_computeAuthWitMessageHash
 
-export const computeInnerAuthWitHashFromAction = (caller: AztecAddress, action: FunctionCall) =>
-  computeInnerAuthWitHash([caller.toField(), action.selector.toField(), PackedValues.fromValues(action.args).hash]);
+export const computeInnerAuthWitHashFromAction = async (caller: AztecAddress, action: FunctionCall) =>
+  computeInnerAuthWitHash([
+    caller.toField(),
+    action.selector.toField(),
+    (await HashedValues.fromValues(action.args)).hash,
+  ]);
 
 /**
  * Compute the inner hash for an authentication witness.

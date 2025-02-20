@@ -1,6 +1,7 @@
 import { createRequire } from 'module';
 import webpack from 'webpack';
 import HtmlWebpackPlugin from 'html-webpack-plugin';
+
 const require = createRequire(import.meta.url);
 
 export default (_, argv) => ({
@@ -22,9 +23,13 @@ export default (_, argv) => ({
       },
     ],
   },
+  output: {
+    publicPath: "/"
+  },
   plugins: [
     new HtmlWebpackPlugin({
       template: './index.html',
+      scriptLoading: 'module',
     }),
     new webpack.DefinePlugin({
       'process.env': {
@@ -42,6 +47,7 @@ export default (_, argv) => ({
       os: false,
       fs: false,
       path: false,
+      tty: false,
       url: false,
       worker_threads: false,
       events: require.resolve('events/'),
@@ -53,7 +59,7 @@ export default (_, argv) => ({
   },
   devServer: {
     port: 5173,
-    historyApiFallback: true,
     open: true,
+    historyApiFallback: true,
   },
 });

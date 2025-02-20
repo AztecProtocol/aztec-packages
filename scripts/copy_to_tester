@@ -1,0 +1,10 @@
+#!/bin/bash
+set -eu
+
+ABSOLUTE=${ABSOLUTE:-0}
+if [ -n "${ABSOLUTE:-}" ]; then
+  prefix=""
+else
+  prefix=/home/ubuntu/run-$RUN_ID/
+fi
+scp -o ControlMaster=auto -o ControlPath=~/.ssh_mux_%h_%p_%r -o ControlPersist=30s -o TCPKeepAlive=no -o ServerAliveCountMax=5 -o ServerAliveInterval=30 -o StrictHostKeyChecking=no -i "$SPOT_KEY" $1 ubuntu@"$SPOT_IP":"$prefix""$2"

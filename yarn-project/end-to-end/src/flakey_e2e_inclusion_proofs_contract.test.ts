@@ -9,8 +9,8 @@ import {
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { randomInt } from '@aztec/foundation/crypto';
-import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js';
 import { InclusionProofsContract } from '@aztec/noir-contracts.js/InclusionProofs';
+import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
 
 import { jest } from '@jest/globals';
 import { type MemDown, default as memdown } from 'memdown';
@@ -53,7 +53,7 @@ describe('e2e_inclusion_proofs_contract', () => {
     describe('proves note existence and its nullifier non-existence and nullifier non-existence failure case', () => {
       // Owner of a note
       let noteCreationBlockNumber: number;
-      let noteHashes, visibleIncomingNotes: ExtendedNote[];
+      let noteHashes, visibleNotes: ExtendedNote[];
       const value = 100n;
       let validNoteBlockNumber: any;
 
@@ -65,13 +65,13 @@ describe('e2e_inclusion_proofs_contract', () => {
         ({ noteHashes } = receipt.debugInfo!);
 
         await contract.methods.sync_notes().simulate();
-        visibleIncomingNotes = await wallets[0].getIncomingNotes({ txHash: receipt.txHash });
+        visibleNotes = await wallets[0].getNotes({ txHash: receipt.txHash });
       });
 
       it('should return the correct values for creating a note', () => {
         expect(noteHashes.length).toBe(1);
-        expect(visibleIncomingNotes.length).toBe(1);
-        const [receivedValue, receivedOwner, _randomness] = visibleIncomingNotes[0].note.items;
+        expect(visibleNotes.length).toBe(1);
+        const [receivedValue, receivedOwner, _randomness] = visibleNotes[0].note.items;
         expect(receivedValue.toBigInt()).toBe(value);
         expect(receivedOwner).toEqual(owner.toField());
       });
@@ -161,11 +161,11 @@ describe('e2e_inclusion_proofs_contract', () => {
         const { noteHashes } = receipt.debugInfo!;
 
         await contract.methods.sync_notes().simulate();
-        const visibleIncomingNotes = await wallets[0].getIncomingNotes({ txHash: receipt.txHash });
+        const visibleNotes = await wallets[0].getNotes({ txHash: receipt.txHash });
 
         expect(noteHashes.length).toBe(1);
-        expect(visibleIncomingNotes.length).toBe(1);
-        const [receivedValue, receivedOwner, _randomness] = visibleIncomingNotes[0].note.items;
+        expect(visibleNotes.length).toBe(1);
+        const [receivedValue, receivedOwner, _randomness] = visibleNotes[0].note.items;
         expect(receivedValue.toBigInt()).toBe(value);
         expect(receivedOwner).toEqual(owner.toField());
       }
@@ -272,9 +272,13 @@ describe('e2e_inclusion_proofs_contract', () => {
     it('proves public deployment of a contract', async () => {
       // Publicly deploy another contract (so we don't test on the same contract)
       const initArgs = [wallets[0].getAddress(), 42n];
-      const instance = getContractInstanceFromDeployParams(StatefulTestContractArtifact, { constructorArgs: initArgs });
-      await (await registerContractClass(wallets[0], StatefulTestContractArtifact)).send().wait();
-      const receipt = await deployInstance(wallets[0], instance).send().wait();
+      const instance = await getContractInstanceFromDeployParams(StatefulTestContractArtifact, {
+        constructorArgs: initArgs,
+      });
+      const registerMethod = await registerContractClass(wallets[0], StatefulTestContractArtifact);
+      await registerMethod.send().wait();
+      const deployMethod = await deployInstance(wallets[0], instance);
+      const receipt = await deployMethod.send().wait();
 
       await assertInclusion(instance.address, receipt.blockNumber!, { testDeploy: true, testInit: false });
     });

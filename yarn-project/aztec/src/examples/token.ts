@@ -1,19 +1,13 @@
-import { getSingleKeyAccount } from '@aztec/accounts/single_key';
-import { type AccountWallet, Fr, createPXEClient } from '@aztec/aztec.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
+import { createPXEClient } from '@aztec/aztec.js';
+import { createLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
-const logger = createDebugLogger('aztec:http-rpc-client');
-
-export const alicePrivateKey = Fr.random();
-export const bobPrivateKey = Fr.random();
+const logger = createLogger('example:token');
 
 const url = 'http://localhost:8080';
 
 const pxe = createPXEClient(url);
-
-let aliceWallet: AccountWallet;
-let bobWallet: AccountWallet;
 
 const ALICE_MINT_BALANCE = 333n;
 const TRANSFER_AMOUNT = 33n;
@@ -24,12 +18,11 @@ const TRANSFER_AMOUNT = 33n;
 async function main() {
   logger.info('Running token contract test on HTTP interface.');
 
-  aliceWallet = await getSingleKeyAccount(pxe, alicePrivateKey).waitSetup();
-  bobWallet = await getSingleKeyAccount(pxe, bobPrivateKey).waitSetup();
+  const [aliceWallet, bobWallet] = await getDeployedTestAccountsWallets(pxe);
   const alice = aliceWallet.getCompleteAddress();
   const bob = bobWallet.getCompleteAddress();
 
-  logger.info(`Created Alice and Bob accounts: ${alice.address.toString()}, ${bob.address.toString()}`);
+  logger.info(`Fetched Alice and Bob accounts: ${alice.address.toString()}, ${bob.address.toString()}`);
 
   logger.info('Deploying Token...');
   const token = await TokenContract.deploy(aliceWallet, alice, 'TokenName', 'TokenSymbol', 18).send().deployed();

@@ -4,8 +4,8 @@ import {
   type FunctionArtifact,
   FunctionSelector,
   encodeArguments,
-  getFunctionArtifact,
-} from '@aztec/foundation/abi';
+  getFunctionArtifactByName,
+} from '@aztec/circuits.js/abi';
 
 import { type AuthWitnessProvider } from '../account/interface.js';
 import { type Wallet } from '../account/wallet.js';
@@ -42,18 +42,18 @@ export class DeployAccountMethod extends DeployMethod {
     this.#authWitnessProvider = authWitnessProvider;
     this.#feePaymentArtifact =
       typeof feePaymentNameOrArtifact === 'string'
-        ? getFunctionArtifact(artifact, feePaymentNameOrArtifact)
+        ? getFunctionArtifactByName(artifact, feePaymentNameOrArtifact)
         : feePaymentNameOrArtifact;
   }
 
   protected override async getInitializeFunctionCalls(
     options: DeployOptions,
-  ): Promise<Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'packedArguments'>> {
+  ): Promise<Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'hashedArguments'>> {
     const exec = await super.getInitializeFunctionCalls(options);
 
     if (options.fee && this.#feePaymentArtifact) {
-      const { address } = this.getInstance();
-      const emptyAppPayload = EntrypointPayload.fromAppExecution([]);
+      const { address } = await this.getInstance();
+      const emptyAppPayload = await EntrypointPayload.fromAppExecution([]);
       const fee = await this.getDefaultFeeOptions(options.fee);
       const feePayload = await EntrypointPayload.fromFeeOptions(address, fee);
 
@@ -61,7 +61,7 @@ export class DeployAccountMethod extends DeployMethod {
         name: this.#feePaymentArtifact.name,
         to: address,
         args: encodeArguments(this.#feePaymentArtifact, [emptyAppPayload, feePayload, false]),
-        selector: FunctionSelector.fromNameAndParameters(
+        selector: await FunctionSelector.fromNameAndParameters(
           this.#feePaymentArtifact.name,
           this.#feePaymentArtifact.parameters,
         ),
@@ -71,14 +71,14 @@ export class DeployAccountMethod extends DeployMethod {
       });
 
       exec.authWitnesses ??= [];
-      exec.packedArguments ??= [];
+      exec.hashedArguments ??= [];
 
       exec.authWitnesses.push(
-        await this.#authWitnessProvider.createAuthWit(computeCombinedPayloadHash(emptyAppPayload, feePayload)),
+        await this.#authWitnessProvider.createAuthWit(await computeCombinedPayloadHash(emptyAppPayload, feePayload)),
       );
 
-      exec.packedArguments.push(...emptyAppPayload.packedArguments);
-      exec.packedArguments.push(...feePayload.packedArguments);
+      exec.hashedArguments.push(...emptyAppPayload.hashedArguments);
+      exec.hashedArguments.push(...feePayload.hashedArguments);
     }
 
     return exec;

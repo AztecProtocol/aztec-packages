@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.27;
 
-import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeMath.sol";
+import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeLib.sol";
 import {Test} from "forge-std/Test.sol";
+import {stdStorage, StdStorage} from "forge-std/Test.sol";
 
 contract TestBase is Test {
   using SlotLib for Slot;
   using EpochLib for Epoch;
+  using stdStorage for StdStorage;
 
   function assertGt(Timestamp a, Timestamp b) internal {
     if (a <= b) {
@@ -218,5 +220,16 @@ contract TestBase is Test {
       emit log_named_string("Error", err);
       assertEq(a, b);
     }
+  }
+
+  // Blobs
+
+  function skipBlobCheck(address rollup) internal {
+    // For not entirely clear reasons, the checked_write and find in stdStore breaks with
+    // under/overflow errors if using them. But we can still use them to find the slot
+    // and looking in the logs. Interesting.
+    // Alternative, run forge inspect src/core/Rollup.sol:Rollup storageLayout --pretty
+    //    uint256 slot = stdstore.target(address(rollup)).sig("checkBlob()").find();
+    vm.store(address(rollup), bytes32(uint256(4)), bytes32(uint256(0)));
   }
 }

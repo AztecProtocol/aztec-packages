@@ -1,25 +1,37 @@
+import { compactArray, times } from '@aztec/foundation/collection';
 import {
   type ConfigMappingsType,
   bigintConfigHelper,
   getDefaultConfig,
   numberConfigHelper,
 } from '@aztec/foundation/config';
-import { type DebugLogger } from '@aztec/foundation/log';
+import { type Logger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 
 import {
+  type Abi,
   type Account,
   type Address,
+  type BaseError,
+  type BlockOverrides,
   type Chain,
+  type ContractFunctionExecutionError,
   type GetTransactionReturnType,
   type Hex,
   type HttpTransport,
-  type PublicClient,
+  MethodNotFoundRpcError,
+  MethodNotSupportedRpcError,
+  type StateOverride,
   type TransactionReceipt,
   type WalletClient,
   formatGwei,
+  getContractError,
+  hexToBytes,
 } from 'viem';
+
+import { type L1Clients } from './types.js';
+import { formatViemError } from './utils.js';
 
 // 1_000_000_000 Gwei = 1 ETH
 // 1_000_000_000 Wei = 1 Gwei
@@ -27,9 +39,16 @@ import {
 
 const WEI_CONST = 1_000_000_000n;
 
+// @note using this large gas limit to avoid the issue of `gas limit too low` when estimating gas in reth
+const LARGE_GAS_LIMIT = 10_000_000n;
+
 // setting a minimum bump percentage to 10% due to geth's implementation
 // https://github.com/ethereum/go-ethereum/blob/e3d61e6db028c412f74bc4d4c7e117a9e29d0de0/core/txpool/legacypool/list.go#L298
-const MIN_REPLACEMENT_BUMP_PERCENTAGE = 10n;
+const MIN_REPLACEMENT_BUMP_PERCENTAGE = 10;
+
+// setting a minimum bump percentage to 100% due to geth's implementation
+// https://github.com/ethereum/go-ethereum/blob/e3d61e6db028c412f74bc4d4c7e117a9e29d0de0/core/txpool/blobpool/config.go#L34
+const MIN_BLOB_REPLACEMENT_BUMP_PERCENTAGE = 100;
 
 // Avg ethereum block time is ~12s
 const BLOCK_TIME_MS = 12_000;
@@ -38,7 +57,7 @@ export interface L1TxUtilsConfig {
   /**
    * How much to increase calculated gas limit.
    */
-  gasLimitBufferPercentage?: bigint;
+  gasLimitBufferPercentage?: number;
   /**
    * Maximum gas price in gwei
    */
@@ -48,13 +67,21 @@ export interface L1TxUtilsConfig {
    */
   minGwei?: bigint;
   /**
+   * Maximum blob fee per gas in gwei
+   */
+  maxBlobGwei?: bigint;
+  /**
    * Priority fee bump percentage
    */
-  priorityFeeBumpPercentage?: bigint;
+  priorityFeeBumpPercentage?: number;
   /**
    * How much to increase priority fee by each attempt (percentage)
    */
-  priorityFeeRetryBumpPercentage?: bigint;
+  priorityFeeRetryBumpPercentage?: number;
+  /**
+   * Fixed priority fee per gas in Gwei. Overrides any priority fee bump percentage config
+   */
+  fixedPriorityFeePerGas?: number;
   /**
    * Maximum number of speed-up attempts
    */
@@ -71,13 +98,18 @@ export interface L1TxUtilsConfig {
    * How long to wait for a tx to be mined before giving up
    */
   txTimeoutMs?: number;
+  /**
+   * How many attempts will be done to get a tx after it was sent?
+   * First attempt is done at 1s, second at 2s, third at 3s, etc.
+   */
+  txPropagationMaxQueryAttempts?: number;
 }
 
 export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
   gasLimitBufferPercentage: {
-    description: 'How much to increase gas price by each attempt (percentage)',
+    description: 'How much to increase calculated gas limit by (percentage)',
     env: 'L1_GAS_LIMIT_BUFFER_PERCENTAGE',
-    ...bigintConfigHelper(20n),
+    ...numberConfigHelper(20),
   },
   minGwei: {
     description: 'Minimum gas price in gwei',
@@ -89,15 +121,25 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
     env: 'L1_GAS_PRICE_MAX',
     ...bigintConfigHelper(100n),
   },
+  maxBlobGwei: {
+    description: 'Maximum blob fee per gas in gwei',
+    env: 'L1_BLOB_FEE_PER_GAS_MAX',
+    ...bigintConfigHelper(1_500n),
+  },
   priorityFeeBumpPercentage: {
     description: 'How much to increase priority fee by each attempt (percentage)',
     env: 'L1_PRIORITY_FEE_BUMP_PERCENTAGE',
-    ...bigintConfigHelper(20n),
+    ...numberConfigHelper(20),
   },
   priorityFeeRetryBumpPercentage: {
     description: 'How much to increase priority fee by each retry attempt (percentage)',
     env: 'L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE',
-    ...bigintConfigHelper(50n),
+    ...numberConfigHelper(50),
+  },
+  fixedPriorityFeePerGas: {
+    description: 'Fixed priority fee per gas in Gwei. Overrides any priority fee bump percentage',
+    env: 'L1_FIXED_PRIORITY_FEE_PER_GAS',
+    ...numberConfigHelper(0),
   },
   maxAttempts: {
     description: 'Maximum number of speed-up attempts',
@@ -112,12 +154,17 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
   stallTimeMs: {
     description: 'How long before considering tx stalled',
     env: 'L1_TX_MONITOR_STALL_TIME_MS',
-    ...numberConfigHelper(30_000),
+    ...numberConfigHelper(45_000),
   },
   txTimeoutMs: {
     description: 'How long to wait for a tx to be mined before giving up. Set to 0 to disable.',
     env: 'L1_TX_MONITOR_TX_TIMEOUT_MS',
     ...numberConfigHelper(300_000), // 5 mins
+  },
+  txPropagationMaxQueryAttempts: {
+    description: 'How many attempts will be done to get a tx after it was sent',
+    env: 'L1_TX_PROPAGATION_MAX_QUERY_ATTEMPTS',
+    ...numberConfigHelper(3),
   },
 };
 
@@ -125,28 +172,70 @@ export const defaultL1TxUtilsConfig = getDefaultConfig<L1TxUtilsConfig>(l1TxUtil
 
 export interface L1TxRequest {
   to: Address | null;
-  data: Hex;
+  data?: Hex;
   value?: bigint;
 }
 
-interface GasPrice {
-  maxFeePerGas: bigint;
-  maxPriorityFeePerGas: bigint;
+export type L1GasConfig = Partial<L1TxUtilsConfig> & { gasLimit?: bigint; txTimeoutAt?: Date };
+
+export interface L1BlobInputs {
+  blobs: Uint8Array[];
+  kzg: any;
+  maxFeePerBlobGas?: bigint;
 }
 
+export interface GasPrice {
+  maxFeePerGas: bigint;
+  maxPriorityFeePerGas: bigint;
+  maxFeePerBlobGas?: bigint;
+}
+
+export type TransactionStats = {
+  /** Address of the sender. */
+  sender: string;
+  /** Hash of the transaction. */
+  transactionHash: string;
+  /** Size in bytes of the tx calldata */
+  calldataSize: number;
+  /** Gas required to pay for the calldata inclusion (depends on size and number of zeros)  */
+  calldataGas: number;
+};
+
 export class L1TxUtils {
-  private readonly config: L1TxUtilsConfig;
+  protected readonly config: L1TxUtilsConfig;
+  private interrupted = false;
 
   constructor(
-    private readonly publicClient: PublicClient,
-    private readonly walletClient: WalletClient<HttpTransport, Chain, Account>,
-    private readonly logger?: DebugLogger,
+    public publicClient: L1Clients['publicClient'],
+    public walletClient: WalletClient<HttpTransport, Chain, Account>,
+    protected readonly logger?: Logger,
     config?: Partial<L1TxUtilsConfig>,
   ) {
     this.config = {
       ...defaultL1TxUtilsConfig,
       ...(config || {}),
     };
+    this.logger?.debug('Initializing L1 TX utils with config', { config: this.config });
+  }
+
+  public interrupt() {
+    this.interrupted = true;
+  }
+
+  public restart() {
+    this.interrupted = false;
+  }
+
+  public getSenderAddress() {
+    return this.walletClient.account.address;
+  }
+
+  public getBlock() {
+    return this.publicClient.getBlock();
+  }
+
+  public getBlockNumber() {
+    return this.publicClient.getBlockNumber();
   }
 
   /**
@@ -157,32 +246,57 @@ export class L1TxUtils {
    */
   public async sendTransaction(
     request: L1TxRequest,
-    _gasConfig?: Partial<L1TxUtilsConfig> & { fixedGas?: bigint },
+    _gasConfig?: L1GasConfig,
+    blobInputs?: L1BlobInputs,
   ): Promise<{ txHash: Hex; gasLimit: bigint; gasPrice: GasPrice }> {
-    const gasConfig = { ...this.config, ..._gasConfig };
-    const account = this.walletClient.account;
-    let gasLimit: bigint;
+    try {
+      const gasConfig = { ...this.config, ..._gasConfig };
+      const account = this.walletClient.account;
+      let gasLimit: bigint;
 
-    if (gasConfig.fixedGas) {
-      gasLimit = gasConfig.fixedGas;
-    } else {
-      gasLimit = await this.estimateGas(account, request);
+      if (gasConfig.gasLimit) {
+        gasLimit = gasConfig.gasLimit;
+      } else {
+        gasLimit = await this.estimateGas(account, request);
+      }
+
+      const gasPrice = await this.getGasPrice(gasConfig, !!blobInputs);
+
+      if (gasConfig.txTimeoutAt && Date.now() > gasConfig.txTimeoutAt.getTime()) {
+        throw new Error('Transaction timed out before sending');
+      }
+
+      let txHash: Hex;
+      if (blobInputs) {
+        txHash = await this.walletClient.sendTransaction({
+          ...request,
+          ...blobInputs,
+          gas: gasLimit,
+          maxFeePerGas: gasPrice.maxFeePerGas,
+          maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
+          maxFeePerBlobGas: gasPrice.maxFeePerBlobGas!,
+        });
+      } else {
+        txHash = await this.walletClient.sendTransaction({
+          ...request,
+          gas: gasLimit,
+          maxFeePerGas: gasPrice.maxFeePerGas,
+          maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
+        });
+      }
+      this.logger?.verbose(`Sent L1 transaction ${txHash}`, {
+        gasLimit,
+        maxFeePerGas: formatGwei(gasPrice.maxFeePerGas),
+        maxPriorityFeePerGas: formatGwei(gasPrice.maxPriorityFeePerGas),
+        ...(gasPrice.maxFeePerBlobGas && { maxFeePerBlobGas: formatGwei(gasPrice.maxFeePerBlobGas) }),
+      });
+
+      return { txHash, gasLimit, gasPrice };
+    } catch (err: any) {
+      const viemError = formatViemError(err);
+      this.logger?.error(`Failed to send L1 transaction`, viemError.message, { metaMessages: viemError.metaMessages });
+      throw viemError;
     }
-
-    const gasPrice = await this.getGasPrice(gasConfig);
-
-    const txHash = await this.walletClient.sendTransaction({
-      ...request,
-      gas: gasLimit,
-      maxFeePerGas: gasPrice.maxFeePerGas,
-      maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
-    });
-
-    this.logger?.verbose(
-      `Sent L1 transaction ${txHash} with gas limit ${gasLimit} and price ${formatGwei(gasPrice.maxFeePerGas)} gwei`,
-    );
-
-    return { txHash, gasLimit, gasPrice };
   }
 
   /**
@@ -196,19 +310,29 @@ export class L1TxUtils {
     request: L1TxRequest,
     initialTxHash: Hex,
     params: { gasLimit: bigint },
-    _gasConfig?: Partial<L1TxUtilsConfig>,
+    _gasConfig?: Partial<L1TxUtilsConfig> & { txTimeoutAt?: Date },
+    _blobInputs?: L1BlobInputs,
+    isCancelTx: boolean = false,
   ): Promise<TransactionReceipt> {
+    const isBlobTx = !!_blobInputs;
     const gasConfig = { ...this.config, ..._gasConfig };
     const account = this.walletClient.account;
+    const blobInputs = _blobInputs || {};
+    const makeGetTransactionBackoff = () =>
+      makeBackoff(times(gasConfig.txPropagationMaxQueryAttempts ?? 3, i => i + 1));
 
     // Retry a few times, in case the tx is not yet propagated.
     const tx = await retry<GetTransactionReturnType>(
       () => this.publicClient.getTransaction({ hash: initialTxHash }),
       `Getting L1 transaction ${initialTxHash}`,
-      makeBackoff([1, 2, 3]),
+      makeGetTransactionBackoff(),
       this.logger,
       true,
     );
+
+    if (!tx) {
+      throw new Error(`Failed to get L1 transaction ${initialTxHash} to monitor`);
+    }
 
     if (tx?.nonce === undefined || tx?.nonce === null) {
       throw new Error(`Failed to get L1 transaction ${initialTxHash} nonce`);
@@ -219,8 +343,19 @@ export class L1TxUtils {
     let currentTxHash = initialTxHash;
     let attempts = 0;
     let lastAttemptSent = Date.now();
+    let lastGasPrice: GasPrice = {
+      maxFeePerGas: tx.maxFeePerGas!,
+      maxPriorityFeePerGas: tx.maxPriorityFeePerGas!,
+      maxFeePerBlobGas: tx.maxFeePerBlobGas!,
+    };
     const initialTxTime = lastAttemptSent;
+
     let txTimedOut = false;
+    const isTimedOut = () =>
+      (gasConfig.txTimeoutAt && Date.now() > gasConfig.txTimeoutAt.getTime()) ||
+      (gasConfig.txTimeoutMs !== undefined && Date.now() - initialTxTime > gasConfig.txTimeoutMs) ||
+      this.interrupted ||
+      false;
 
     while (!txTimedOut) {
       try {
@@ -230,15 +365,16 @@ export class L1TxUtils {
             try {
               const receipt = await this.publicClient.getTransactionReceipt({ hash });
               if (receipt) {
-                this.logger?.debug(`L1 Transaction ${hash} confirmed`);
                 if (receipt.status === 'reverted') {
-                  this.logger?.error(`L1 Transaction ${hash} reverted`);
+                  this.logger?.error(`L1 transaction ${hash} reverted`, receipt);
+                } else {
+                  this.logger?.debug(`L1 transaction ${hash} mined`);
                 }
                 return receipt;
               }
             } catch (err) {
               if (err instanceof Error && err.message.includes('reverted')) {
-                throw err;
+                throw formatViemError(err);
               }
             }
           }
@@ -248,21 +384,19 @@ export class L1TxUtils {
         const tx = await retry<GetTransactionReturnType>(
           () => this.publicClient.getTransaction({ hash: currentTxHash }),
           `Getting L1 transaction ${currentTxHash}`,
-          makeBackoff([1, 2, 3]),
+          makeGetTransactionBackoff(),
           this.logger,
           true,
         );
         const timePassed = Date.now() - lastAttemptSent;
 
         if (tx && timePassed < gasConfig.stallTimeMs!) {
-          this.logger?.debug(`L1 Transaction ${currentTxHash} pending. Time passed: ${timePassed}ms`);
+          this.logger?.debug(`L1 transaction ${currentTxHash} pending. Time passed: ${timePassed}ms.`);
 
           // Check timeout before continuing
-          if (gasConfig.txTimeoutMs) {
-            txTimedOut = Date.now() - initialTxTime > gasConfig.txTimeoutMs;
-            if (txTimedOut) {
-              break;
-            }
+          txTimedOut = isTimedOut();
+          if (txTimedOut) {
+            break;
           }
 
           await sleep(gasConfig.checkIntervalMs!);
@@ -273,19 +407,31 @@ export class L1TxUtils {
           attempts++;
           const newGasPrice = await this.getGasPrice(
             gasConfig,
+            isBlobTx,
             attempts,
             tx.maxFeePerGas && tx.maxPriorityFeePerGas
-              ? { maxFeePerGas: tx.maxFeePerGas, maxPriorityFeePerGas: tx.maxPriorityFeePerGas }
+              ? {
+                  maxFeePerGas: tx.maxFeePerGas,
+                  maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
+                  maxFeePerBlobGas: tx.maxFeePerBlobGas,
+                }
               : undefined,
           );
+          lastGasPrice = newGasPrice;
 
           this.logger?.debug(
-            `L1 Transaction ${currentTxHash} appears stuck. Attempting speed-up ${attempts}/${gasConfig.maxAttempts} ` +
+            `L1 transaction ${currentTxHash} appears stuck. Attempting speed-up ${attempts}/${gasConfig.maxAttempts} ` +
               `with new priority fee ${formatGwei(newGasPrice.maxPriorityFeePerGas)} gwei`,
+            {
+              maxFeePerGas: formatGwei(newGasPrice.maxFeePerGas),
+              maxPriorityFeePerGas: formatGwei(newGasPrice.maxPriorityFeePerGas),
+              ...(newGasPrice.maxFeePerBlobGas && { maxFeePerBlobGas: formatGwei(newGasPrice.maxFeePerBlobGas) }),
+            },
           );
 
           currentTxHash = await this.walletClient.sendTransaction({
             ...request,
+            ...blobInputs,
             nonce,
             gas: params.gasLimit,
             maxFeePerGas: newGasPrice.maxFeePerGas,
@@ -297,18 +443,36 @@ export class L1TxUtils {
         }
         await sleep(gasConfig.checkIntervalMs!);
       } catch (err: any) {
-        this.logger?.warn(`Error monitoring tx ${currentTxHash}:`, err);
-        if (err.message?.includes('reverted')) {
-          throw err;
+        const viemError = formatViemError(err);
+        this.logger?.warn(`Error monitoring L1 transaction ${currentTxHash}:`, viemError.message);
+        if (viemError.message?.includes('reverted')) {
+          throw viemError;
         }
         await sleep(gasConfig.checkIntervalMs!);
       }
       // Check if tx has timed out.
-      if (gasConfig.txTimeoutMs) {
-        txTimedOut = Date.now() - initialTxTime > gasConfig.txTimeoutMs!;
-      }
+      txTimedOut = isTimedOut();
     }
-    throw new Error(`L1 Transaction ${currentTxHash} timed out`);
+
+    if (!isCancelTx) {
+      // Fire cancellation without awaiting to avoid blocking the main thread
+      this.attemptTxCancellation(nonce, isBlobTx, lastGasPrice, attempts)
+        .then(cancelTxHash => {
+          this.logger?.debug(`Sent cancellation tx ${cancelTxHash} for timed out tx ${currentTxHash}`);
+        })
+        .catch(err => {
+          const viemError = formatViemError(err);
+          this.logger?.error(`Failed to send cancellation for timed out tx ${currentTxHash}:`, viemError.message, {
+            metaMessages: viemError.metaMessages,
+          });
+        });
+
+      this.logger?.error(`L1 transaction ${currentTxHash} timed out`, {
+        txHash: currentTxHash,
+        ...tx,
+      });
+    }
+    throw new Error(`L1 transaction ${currentTxHash} timed out`);
   }
 
   /**
@@ -319,17 +483,20 @@ export class L1TxUtils {
    */
   public async sendAndMonitorTransaction(
     request: L1TxRequest,
-    gasConfig?: Partial<L1TxUtilsConfig> & { fixedGas?: bigint },
-  ): Promise<TransactionReceipt> {
-    const { txHash, gasLimit } = await this.sendTransaction(request, gasConfig);
-    return this.monitorTransaction(request, txHash, { gasLimit }, gasConfig);
+    gasConfig?: L1GasConfig,
+    blobInputs?: L1BlobInputs,
+  ): Promise<{ receipt: TransactionReceipt; gasPrice: GasPrice }> {
+    const { txHash, gasLimit, gasPrice } = await this.sendTransaction(request, gasConfig, blobInputs);
+    const receipt = await this.monitorTransaction(request, txHash, { gasLimit }, gasConfig, blobInputs);
+    return { receipt, gasPrice };
   }
 
   /**
    * Gets the current gas price with bounds checking
    */
-  private async getGasPrice(
+  public async getGasPrice(
     _gasConfig?: L1TxUtilsConfig,
+    isBlobTx: boolean = false,
     attempt: number = 0,
     previousGasPrice?: typeof attempt extends 0 ? never : GasPrice,
   ): Promise<GasPrice> {
@@ -337,26 +504,54 @@ export class L1TxUtils {
     const block = await this.publicClient.getBlock({ blockTag: 'latest' });
     const baseFee = block.baseFeePerGas ?? 0n;
 
-    // Get initial priority fee from the network
-    let priorityFee = await this.publicClient.estimateMaxPriorityFeePerGas();
+    // Get blob base fee if available
+    let blobBaseFee = 0n;
+    if (isBlobTx) {
+      try {
+        const blobBaseFeeHex = await this.publicClient.request({ method: 'eth_blobBaseFee' });
+        blobBaseFee = BigInt(blobBaseFeeHex);
+        this.logger?.debug('L1 Blob base fee:', { blobBaseFee: formatGwei(blobBaseFee) });
+      } catch {
+        this.logger?.warn('Failed to get L1 blob base fee', attempt);
+      }
+    }
+
+    let priorityFee: bigint;
+    if (gasConfig.fixedPriorityFeePerGas) {
+      this.logger?.debug('Using fixed priority fee per L1 gas', {
+        fixedPriorityFeePerGas: gasConfig.fixedPriorityFeePerGas,
+      });
+      // try to maintain precision up to 1000000 wei
+      priorityFee = BigInt(gasConfig.fixedPriorityFeePerGas * 1_000_000) * (WEI_CONST / 1_000_000n);
+    } else {
+      // Get initial priority fee from the network
+      priorityFee = await this.publicClient.estimateMaxPriorityFeePerGas();
+    }
     let maxFeePerGas = baseFee;
+
+    let maxFeePerBlobGas = blobBaseFee;
 
     // Bump base fee so it's valid for next blocks if it stalls
     const numBlocks = Math.ceil(gasConfig.stallTimeMs! / BLOCK_TIME_MS);
     for (let i = 0; i < numBlocks; i++) {
       // each block can go up 12.5% from previous baseFee
       maxFeePerGas = (maxFeePerGas * (1_000n + 125n)) / 1_000n;
+      // same for blob gas fee
+      maxFeePerBlobGas = (maxFeePerBlobGas * (1_000n + 125n)) / 1_000n;
     }
-
     if (attempt > 0) {
       const configBump =
         gasConfig.priorityFeeRetryBumpPercentage ?? defaultL1TxUtilsConfig.priorityFeeRetryBumpPercentage!;
-      const bumpPercentage =
-        configBump > MIN_REPLACEMENT_BUMP_PERCENTAGE ? configBump : MIN_REPLACEMENT_BUMP_PERCENTAGE;
 
+      // if this is a blob tx, we have to use the blob bump percentage
+      const minBumpPercentage = isBlobTx ? MIN_BLOB_REPLACEMENT_BUMP_PERCENTAGE : MIN_REPLACEMENT_BUMP_PERCENTAGE;
+
+      const bumpPercentage = configBump > minBumpPercentage ? configBump : minBumpPercentage;
       // Calculate minimum required fees based on previous attempt
-      const minPriorityFee = (previousGasPrice!.maxPriorityFeePerGas * (100n + bumpPercentage)) / 100n;
-      const minMaxFee = (previousGasPrice!.maxFeePerGas * (100n + bumpPercentage)) / 100n;
+      // multiply by 100 & divide by 100 to maintain some precision
+      const minPriorityFee =
+        (previousGasPrice!.maxPriorityFeePerGas * (100_00n + BigInt(bumpPercentage * 1_00))) / 100_00n;
+      const minMaxFee = (previousGasPrice!.maxFeePerGas * (100_00n + BigInt(bumpPercentage * 1_00))) / 100_00n;
 
       // Add priority fee to maxFeePerGas
       maxFeePerGas += priorityFee;
@@ -365,8 +560,11 @@ export class L1TxUtils {
       priorityFee = priorityFee > minPriorityFee ? priorityFee : minPriorityFee;
       maxFeePerGas = maxFeePerGas > minMaxFee ? maxFeePerGas : minMaxFee;
     } else {
-      // first attempt, just bump priority fee
-      priorityFee = (priorityFee * (100n + (gasConfig.priorityFeeBumpPercentage || 0n))) / 100n;
+      // first attempt, just bump priority fee, unless it's a fixed config
+      // multiply by 100 & divide by 100 to maintain some precision
+      if (!gasConfig.fixedPriorityFeePerGas) {
+        priorityFee = (priorityFee * (100_00n + BigInt((gasConfig.priorityFeeBumpPercentage || 0) * 1_00))) / 100_00n;
+      }
       maxFeePerGas += priorityFee;
     }
 
@@ -374,27 +572,277 @@ export class L1TxUtils {
     const maxGweiInWei = gasConfig.maxGwei! * WEI_CONST;
     maxFeePerGas = maxFeePerGas > maxGweiInWei ? maxGweiInWei : maxFeePerGas;
 
+    // Ensure we don't exceed maxBlobGwei
+    if (maxFeePerBlobGas) {
+      const maxBlobGweiInWei = gasConfig.maxBlobGwei! * WEI_CONST;
+      maxFeePerBlobGas = maxFeePerBlobGas > maxBlobGweiInWei ? maxBlobGweiInWei : maxFeePerBlobGas;
+    }
+
     // Ensure priority fee doesn't exceed max fee
     const maxPriorityFeePerGas = priorityFee > maxFeePerGas ? maxFeePerGas : priorityFee;
 
-    this.logger?.debug(
-      `Gas price calculation (attempt ${attempt}): baseFee=${formatGwei(baseFee)}, ` +
-        `maxPriorityFee=${formatGwei(maxPriorityFeePerGas)}, maxFee=${formatGwei(maxFeePerGas)}`,
-    );
+    if (attempt > 0 && previousGasPrice?.maxFeePerBlobGas) {
+      const bumpPercentage =
+        gasConfig.priorityFeeRetryBumpPercentage! > MIN_BLOB_REPLACEMENT_BUMP_PERCENTAGE
+          ? gasConfig.priorityFeeRetryBumpPercentage!
+          : MIN_BLOB_REPLACEMENT_BUMP_PERCENTAGE;
 
-    return { maxFeePerGas, maxPriorityFeePerGas };
+      // calculate min blob fee based on previous attempt
+      const minBlobFee = (previousGasPrice.maxFeePerBlobGas * (100_00n + BigInt(bumpPercentage * 1_00))) / 100_00n;
+
+      // use max between current network values and min required values
+      maxFeePerBlobGas = maxFeePerBlobGas > minBlobFee ? maxFeePerBlobGas : minBlobFee;
+    }
+
+    this.logger?.debug(`Computed L1 gas price`, {
+      attempt,
+      baseFee: formatGwei(baseFee),
+      maxFeePerGas: formatGwei(maxFeePerGas),
+      maxPriorityFeePerGas: formatGwei(maxPriorityFeePerGas),
+      ...(maxFeePerBlobGas && { maxFeePerBlobGas: formatGwei(maxFeePerBlobGas) }),
+    });
+
+    return {
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+      ...(maxFeePerBlobGas && { maxFeePerBlobGas: maxFeePerBlobGas }),
+    };
   }
 
   /**
    * Estimates gas and adds buffer
    */
-  public async estimateGas(account: Account, request: L1TxRequest, _gasConfig?: L1TxUtilsConfig): Promise<bigint> {
+  public async estimateGas(
+    account: Account | Hex,
+    request: L1TxRequest,
+    _gasConfig?: L1TxUtilsConfig,
+    _blobInputs?: L1BlobInputs,
+  ): Promise<bigint> {
     const gasConfig = { ...this.config, ..._gasConfig };
-    const initialEstimate = await this.publicClient.estimateGas({ account, ...request });
+    let initialEstimate = 0n;
+    if (_blobInputs) {
+      // @note requests with blobs also require maxFeePerBlobGas to be set
+      const gasPrice = await this.getGasPrice(gasConfig, true, 0);
+      initialEstimate = await this.publicClient.estimateGas({
+        account,
+        ...request,
+        ..._blobInputs,
+        maxFeePerBlobGas: gasPrice.maxFeePerBlobGas!,
+        gas: LARGE_GAS_LIMIT,
+      });
+
+      this.logger?.debug(`L1 gas used in estimateGas by blob tx: ${initialEstimate}`);
+    } else {
+      initialEstimate = await this.publicClient.estimateGas({ account, ...request, gas: LARGE_GAS_LIMIT });
+      this.logger?.debug(`L1 gas used in estimateGas by non-blob tx: ${initialEstimate}`);
+    }
 
     // Add buffer based on either fixed amount or percentage
-    const withBuffer = initialEstimate + (initialEstimate * (gasConfig.gasLimitBufferPercentage ?? 0n)) / 100n;
+    const withBuffer = this.bumpGasLimit(initialEstimate, gasConfig);
 
     return withBuffer;
   }
+
+  async getTransactionStats(txHash: string): Promise<TransactionStats | undefined> {
+    const tx = await this.publicClient.getTransaction({ hash: txHash as Hex });
+    if (!tx) {
+      return undefined;
+    }
+    const calldata = hexToBytes(tx.input);
+    return {
+      sender: tx.from.toString(),
+      transactionHash: tx.hash,
+      calldataSize: calldata.length,
+      calldataGas: getCalldataGasUsage(calldata),
+    };
+  }
+
+  public async tryGetErrorFromRevertedTx(
+    data: Hex,
+    args: {
+      args: readonly any[];
+      functionName: string;
+      abi: Abi;
+      address: Hex;
+    },
+    blobInputs: (L1BlobInputs & { maxFeePerBlobGas: bigint }) | undefined,
+    stateOverride: StateOverride = [],
+  ) {
+    try {
+      await this.publicClient.simulateContract({
+        ...args,
+        account: this.walletClient.account,
+        stateOverride,
+      });
+      this.logger?.trace('Simulated blob tx', { blobInputs });
+      // If the above passes, we have a blob error. We cannot simulate blob txs, and failed txs no longer throw errors.
+      // Strangely, the only way to throw the revert reason as an error and provide blobs is prepareTransactionRequest.
+      // See: https://github.com/wevm/viem/issues/2075
+      // This throws a EstimateGasExecutionError with the custom error information:
+      const request = blobInputs
+        ? {
+            account: this.walletClient.account,
+            to: args.address,
+            data,
+            blobs: blobInputs.blobs,
+            kzg: blobInputs.kzg,
+            maxFeePerBlobGas: blobInputs.maxFeePerBlobGas,
+          }
+        : {
+            account: this.walletClient.account,
+            to: args.address,
+            data,
+          };
+      this.logger?.trace('Preparing tx', { request });
+      await this.walletClient.prepareTransactionRequest(request);
+      this.logger?.trace('Prepared tx');
+      return undefined;
+    } catch (simulationErr: any) {
+      // If we don't have a ContractFunctionExecutionError, we have a blob related error => use getContractError to get the error msg.
+      const contractErr =
+        simulationErr.name === 'ContractFunctionExecutionError'
+          ? simulationErr
+          : getContractError(simulationErr as BaseError, {
+              args: [],
+              abi: args.abi,
+              functionName: args.functionName,
+              address: args.address,
+              sender: this.walletClient.account.address,
+            });
+      if (contractErr.name === 'ContractFunctionExecutionError') {
+        const execErr = contractErr as ContractFunctionExecutionError;
+        return tryGetCustomErrorNameContractFunction(execErr);
+      }
+      this.logger?.error(`Error getting error from simulation`, simulationErr);
+    }
+  }
+
+  public async simulateGasUsed(
+    request: L1TxRequest & { gas?: bigint },
+    blockOverrides: BlockOverrides<bigint, number> = {},
+    stateOverrides: StateOverride = [],
+    _gasConfig?: L1TxUtilsConfig & { fallbackGasEstimate?: bigint },
+  ): Promise<bigint> {
+    const gasConfig = { ...this.config, ..._gasConfig };
+    const gasPrice = await this.getGasPrice(gasConfig, false);
+
+    const nonce = await this.publicClient.getTransactionCount({ address: this.walletClient.account.address });
+
+    try {
+      const result = await this.publicClient.simulate({
+        validation: true,
+        blocks: [
+          {
+            blockOverrides,
+            stateOverrides,
+            calls: [
+              {
+                from: this.walletClient.account.address,
+                to: request.to!,
+                data: request.data,
+                maxFeePerGas: gasPrice.maxFeePerGas,
+                maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
+                gas: request.gas ?? LARGE_GAS_LIMIT,
+                nonce,
+              },
+            ],
+          },
+        ],
+      });
+
+      this.logger?.debug(`L1 gas used in simulation: ${result[0].calls[0].gasUsed}`, {
+        result,
+      });
+      if (result[0].calls[0].status === 'failure') {
+        this.logger?.error('L1 transaction Simulation failed', {
+          error: result[0].calls[0].error,
+        });
+        throw new Error(`L1 transaction simulation failed with error: ${result[0].calls[0].error.message}`);
+      }
+      return result[0].gasUsed;
+    } catch (err) {
+      if (err instanceof MethodNotFoundRpcError || err instanceof MethodNotSupportedRpcError) {
+        if (gasConfig.fallbackGasEstimate) {
+          this.logger?.warn(
+            `Node does not support eth_simulateV1 API. Using fallback gas estimate: ${gasConfig.fallbackGasEstimate}`,
+          );
+          return gasConfig.fallbackGasEstimate;
+        }
+        this.logger?.error('Node does not support eth_simulateV1 API');
+      }
+      throw err;
+    }
+  }
+
+  public bumpGasLimit(gasLimit: bigint, _gasConfig?: L1TxUtilsConfig): bigint {
+    const gasConfig = { ...this.config, ..._gasConfig };
+    return gasLimit + (gasLimit * BigInt((gasConfig?.gasLimitBufferPercentage || 0) * 1_00)) / 100_00n;
+  }
+
+  /**
+   * Attempts to cancel a transaction by sending a 0-value tx to self with same nonce but higher gas prices
+   * @param nonce - The nonce of the transaction to cancel
+   * @param previousGasPrice - The gas price of the previous transaction
+   * @param attempts - The number of attempts to cancel the transaction
+   * @returns The hash of the cancellation transaction
+   */
+  protected async attemptTxCancellation(nonce: number, isBlobTx = false, previousGasPrice?: GasPrice, attempts = 0) {
+    if (isBlobTx) {
+      throw new Error('Cannot cancel blob transactions, please use L1TxUtilsWithBlobsClass');
+    }
+    const account = this.walletClient.account;
+
+    // Get gas price with higher priority fee for cancellation
+    const cancelGasPrice = await this.getGasPrice(
+      {
+        ...this.config,
+        // Use high bump for cancellation to ensure it replaces the original tx
+        priorityFeeRetryBumpPercentage: 150, // 150% bump should be enough to replace any tx
+      },
+      isBlobTx,
+      attempts + 1,
+      previousGasPrice,
+    );
+
+    this.logger?.debug(`Attempting to cancel transaction with nonce ${nonce}`, {
+      maxFeePerGas: formatGwei(cancelGasPrice.maxFeePerGas),
+      maxPriorityFeePerGas: formatGwei(cancelGasPrice.maxPriorityFeePerGas),
+    });
+    const request = {
+      to: account.address,
+      value: 0n,
+    };
+
+    // Send 0-value tx to self with higher gas price
+    const cancelTxHash = await this.walletClient.sendTransaction({
+      ...request,
+      nonce,
+      gas: 21_000n, // Standard ETH transfer gas
+      maxFeePerGas: cancelGasPrice.maxFeePerGas,
+      maxPriorityFeePerGas: cancelGasPrice.maxPriorityFeePerGas,
+    });
+    const receipt = await this.monitorTransaction(
+      request,
+      cancelTxHash,
+      { gasLimit: 21_000n },
+      undefined,
+      undefined,
+      true,
+    );
+
+    return receipt.transactionHash;
+  }
+}
+
+export function tryGetCustomErrorNameContractFunction(err: ContractFunctionExecutionError) {
+  return compactArray([err.shortMessage, ...(err.metaMessages ?? []).slice(0, 2).map(s => s.trim())]).join(' ');
+}
+
+/*
+ * Returns cost of calldata usage in Ethereum.
+ * @param data - Calldata.
+ * @returns 4 for each zero byte, 16 for each nonzero.
+ */
+export function getCalldataGasUsage(data: Uint8Array) {
+  return data.filter(byte => byte === 0).length * 4 + data.filter(byte => byte !== 0).length * 16;
 }

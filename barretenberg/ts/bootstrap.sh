@@ -1,30 +1,73 @@
 #!/usr/bin/env bash
-set -eu
+# Use ci3 script base.
+source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-cd "$(dirname "$0")"
+cmd=${1:-}
+hash=$(cache_content_hash ../cpp/.rebuild_patterns .rebuild_patterns)
 
-CMD=${1:-}
-BUILD_CMD="build"
+function build {
+  echo_header "bb.js build"
+  denoise "yarn install"
 
-if [ -n "$CMD" ]; then
-  if [ "$CMD" = "clean" ]; then
-    git clean -fdx
-    exit 0
-  elif [ "$CMD" = "esm" ]; then
-    BUILD_CMD="build:esm"
-  else
-    echo "Unknown command: $CMD"
-    exit 1
+  if ! cache_download bb.js-$hash.tar.gz; then
+    find . -exec touch -d "@0" {} + 2>/dev/null || true
+    yarn clean
+    parallel -v --line-buffered --tag 'denoise "yarn {}"' ::: build:wasm build:esm build:cjs build:browser
+    cache_upload bb.js-$hash.tar.gz dest
   fi
-fi
 
-# Attempt to just pull artefacts from CI and exit on success.
-[ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh && exit
+  # We copy snapshot dirs to dest so we can run tests from dest.
+  # This is because web-workers run into issues with transpilation.
+  for snapshot_dir in src/**/__snapshots__; do
+    dest_dir="${snapshot_dir/src\//dest\/node\/}"
+    rm -rf "$dest_dir"
+    cp -r "$snapshot_dir" "$dest_dir"
+    for file in $dest_dir/*.test.ts.snap; do
+      mv "$file" "${file/.test.ts.snap/.test.js.snap}"
+    done
+  done
+}
 
-yarn install --immutable
-echo "Building with command 'yarn $BUILD_CMD'..."
-yarn $BUILD_CMD
+function test_cmds {
+  cd dest/node
+  for test in **/*.test.js; do
+    echo "$hash barretenberg/ts/scripts/run_test.sh $test"
+  done
+}
 
-# Make bin globally available.
-npm link
-echo "Barretenberg ts build successful"
+function test {
+  echo_header "bb.js test"
+  test_cmds | filter_test_cmds | parallelise
+}
+
+function release {
+  local version=${REF_NAME#v}
+  deploy_npm $(dist_tag) $version
+}
+
+function release_commit {
+  local version="$CURRENT_VERSION-commit.$COMMIT_HASH"
+  deploy_npm next $version
+}
+
+case "$cmd" in
+  "clean")
+    git clean -fdx
+    ;;
+  "ci")
+    build
+    test
+    ;;
+  ""|"fast"|"full")
+    build
+    ;;
+  "hash")
+    echo "$hash"
+    ;;
+  test|test_cmds|release|release_commit)
+    $cmd
+    ;;
+  *)
+    echo "Unknown command: $cmd"
+    exit 1
+esac

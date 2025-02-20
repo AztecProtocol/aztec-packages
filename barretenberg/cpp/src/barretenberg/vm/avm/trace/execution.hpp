@@ -24,10 +24,8 @@ std::string to_name(TxExecutionPhase phase);
 class Execution {
   public:
     static constexpr size_t SRS_SIZE = 1 << 22;
-    using TraceBuilderConstructor = std::function<AvmTraceBuilder(AvmPublicInputs public_inputs,
-                                                                  ExecutionHints execution_hints,
-                                                                  uint32_t side_effect_counter,
-                                                                  std::vector<FF> calldata)>;
+    using TraceBuilderConstructor = std::function<AvmTraceBuilder(
+        AvmPublicInputs public_inputs, ExecutionHints execution_hints, uint32_t side_effect_counter)>;
 
     Execution() = default;
 
@@ -42,8 +40,10 @@ class Execution {
                                       ExecutionHints const& execution_hints,
                                       bool apply_e2e_assertions = false);
 
-    static AvmError execute_enqueued_call(AvmTraceBuilder& trace_builder,
-                                          PublicCallRequest& public_call_request,
+    static AvmError execute_enqueued_call(TxExecutionPhase& phase,
+                                          AvmTraceBuilder& trace_builder,
+                                          AvmEnqueuedCallHint& enqueued_call_hint,
+                                          Gas const teardown_gas_limits,
                                           std::vector<FF>& returndata,
                                           bool check_bytecode_membership);
 
@@ -53,9 +53,11 @@ class Execution {
         trace_builder_constructor = std::move(constructor);
     }
 
-    static std::tuple<AvmFlavor::VerificationKey, bb::HonkProof> prove(
+    static std::tuple<bb::avm::AvmFlavor::VerificationKey, bb::HonkProof> prove(
         AvmPublicInputs const& public_inputs = AvmPublicInputs(), ExecutionHints const& execution_hints = {});
-    static bool verify(AvmFlavor::VerificationKey vk, HonkProof const& proof);
+    static void check_circuit(AvmPublicInputs const& public_inputs = AvmPublicInputs(),
+                              ExecutionHints const& execution_hints = {});
+    static bool verify(bb::avm::AvmFlavor::VerificationKey vk, HonkProof const& proof);
 
   private:
     static TraceBuilderConstructor trace_builder_constructor;

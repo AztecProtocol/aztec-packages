@@ -35,7 +35,7 @@ export class GetContractInstance extends Instruction {
   }
 
   async execute(context: AvmContext): Promise<void> {
-    const memory = context.machineState.memory.track(this.type);
+    const memory = context.machineState.memory;
     context.machineState.consumeGas(this.gasCost());
 
     if (!(this.memberEnum in ContractInstanceMember)) {
@@ -58,7 +58,7 @@ export class GetContractInstance extends Instruction {
           memberValue = new Field(instance.deployer.toField());
           break;
         case ContractInstanceMember.CLASS_ID:
-          memberValue = new Field(instance.contractClassId.toField());
+          memberValue = new Field(instance.currentContractClassId.toField());
           break;
         case ContractInstanceMember.INIT_HASH:
           memberValue = new Field(instance.initializationHash);
@@ -68,7 +68,5 @@ export class GetContractInstance extends Instruction {
 
     memory.set(existsOffset, new Uint1(exists ? 1 : 0));
     memory.set(dstOffset, memberValue);
-
-    memory.assert({ reads: 1, writes: 2, addressing });
   }
 }

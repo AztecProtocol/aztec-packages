@@ -1,15 +1,14 @@
+import { type ContractArtifact, FunctionSelector } from '@aztec/circuits.js/abi';
 import {
   type ContractClassWithId,
-  FUNCTION_TREE_HEIGHT,
-  MembershipWitness,
   computePrivateFunctionLeaf,
   computePrivateFunctionsTree,
   getContractClassFromArtifact,
-} from '@aztec/circuits.js';
-import { type MerkleTree } from '@aztec/circuits.js/merkle';
-import { type ContractArtifact, type FunctionSelector } from '@aztec/foundation/abi';
+} from '@aztec/circuits.js/contract';
+import { FUNCTION_TREE_HEIGHT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { assertLength } from '@aztec/foundation/serialize';
+import { MembershipWitness, type MerkleTree } from '@aztec/foundation/trees';
 
 /**
  * Represents a Merkle tree of functions for a particular Contract Class.
@@ -19,10 +18,12 @@ import { assertLength } from '@aztec/foundation/serialize';
  */
 export class PrivateFunctionsTree {
   private tree?: MerkleTree;
-  private contractClass: ContractClassWithId;
 
-  constructor(private readonly artifact: ContractArtifact) {
-    this.contractClass = getContractClassFromArtifact(artifact);
+  private constructor(private readonly artifact: ContractArtifact, private contractClass: ContractClassWithId) {}
+
+  static async create(artifact: ContractArtifact) {
+    const contractClass = await getContractClassFromArtifact(artifact);
+    return new PrivateFunctionsTree(artifact, contractClass);
   }
 
   /**
@@ -33,8 +34,14 @@ export class PrivateFunctionsTree {
    * @param selector - The function selector.
    * @returns The artifact object containing relevant information about the targeted function.
    */
-  public getFunctionArtifact(selector: FunctionSelector) {
-    const artifact = this.artifact.functions.find(f => selector.equals(f.name, f.parameters));
+  public async getFunctionArtifact(selector: FunctionSelector) {
+    const functionsAndSelectors = await Promise.all(
+      this.artifact.functions.map(async f => ({
+        f,
+        selector: await FunctionSelector.fromNameAndParameters(f.name, f.parameters),
+      })),
+    );
+    const artifact = functionsAndSelectors.find(f => selector.equals(f.selector))?.f;
     if (!artifact) {
       throw new Error(
         `Unknown function. Selector ${selector.toString()} not found in the artifact ${
@@ -53,8 +60,9 @@ export class PrivateFunctionsTree {
    * @param selector - The selector of a function to get bytecode for.
    * @returns The bytecode of the function as a string.
    */
-  public getBytecode(selector: FunctionSelector) {
-    return this.getFunctionArtifact(selector).bytecode;
+  public async getBytecode(selector: FunctionSelector) {
+    const artifact = await this.getFunctionArtifact(selector);
+    return artifact.bytecode;
   }
 
   /**
@@ -94,7 +102,7 @@ export class PrivateFunctionsTree {
    * @param selector - The function selector.
    * @returns A MembershipWitness instance representing the position and authentication path of the function in the function tree.
    */
-  public getFunctionMembershipWitness(
+  public async getFunctionMembershipWitness(
     selector: FunctionSelector,
   ): Promise<MembershipWitness<typeof FUNCTION_TREE_HEIGHT>> {
     const fn = this.getContractClass().privateFunctions.find(f => f.selector.equals(selector));
@@ -102,22 +110,21 @@ export class PrivateFunctionsTree {
       throw new Error(`Private function with selector ${selector.toString()} not found in contract class.`);
     }
 
-    const leaf = computePrivateFunctionLeaf(fn);
-    const index = this.getTree().getIndex(leaf);
-    const path = this.getTree().getSiblingPath(index);
-    return Promise.resolve(
-      new MembershipWitness<typeof FUNCTION_TREE_HEIGHT>(
-        FUNCTION_TREE_HEIGHT,
-        BigInt(index),
-        assertLength(path.map(Fr.fromBuffer), FUNCTION_TREE_HEIGHT),
-      ),
+    const leaf = await computePrivateFunctionLeaf(fn);
+    const tree = await this.getTree();
+    const index = tree.getIndex(leaf);
+    const path = tree.getSiblingPath(index);
+    return new MembershipWitness<typeof FUNCTION_TREE_HEIGHT>(
+      FUNCTION_TREE_HEIGHT,
+      BigInt(index),
+      assertLength(path.map(Fr.fromBuffer), FUNCTION_TREE_HEIGHT),
     );
   }
 
-  private getTree() {
+  private async getTree() {
     if (!this.tree) {
       const fns = this.getContractClass().privateFunctions;
-      this.tree = computePrivateFunctionsTree(fns);
+      this.tree = await computePrivateFunctionsTree(fns);
     }
     return this.tree;
   }

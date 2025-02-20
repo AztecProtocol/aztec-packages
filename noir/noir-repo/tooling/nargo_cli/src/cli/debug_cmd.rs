@@ -12,18 +12,16 @@ use nargo::ops::{compile_program, compile_program_with_debug_instrumenter, repor
 use nargo::package::{CrateName, Package};
 use nargo::workspace::Workspace;
 use nargo::{insert_all_files_for_workspace_into_file_manager, parse_all};
-use nargo_toml::{get_package_manifest, resolve_workspace_from_toml, PackageSelection};
+use nargo_toml::PackageSelection;
 use noirc_abi::input_parser::{Format, InputValue};
 use noirc_abi::InputMap;
-use noirc_driver::{
-    file_manager_with_stdlib, CompileOptions, CompiledProgram, NOIR_ARTIFACT_VERSION_STRING,
-};
+use noirc_driver::{file_manager_with_stdlib, CompileOptions, CompiledProgram};
 use noirc_frontend::debug::DebugInstrumenter;
 use noirc_frontend::hir::ParsedFiles;
 
 use super::compile_cmd::get_target_width;
 use super::fs::{inputs::read_inputs_from_file, witness::save_witness_to_dir};
-use super::NargoConfig;
+use super::{LockType, WorkspaceCommand};
 use crate::errors::CliError;
 
 /// Executes a circuit in debug mode
@@ -38,7 +36,7 @@ pub(crate) struct DebugCommand {
 
     /// The name of the package to execute
     #[clap(long)]
-    package: Option<CrateName>,
+    pub(super) package: Option<CrateName>,
 
     #[clap(flatten)]
     compile_options: CompileOptions,
@@ -52,17 +50,24 @@ pub(crate) struct DebugCommand {
     skip_instrumentation: Option<bool>,
 }
 
-pub(crate) fn run(args: DebugCommand, config: NargoConfig) -> Result<(), CliError> {
+impl WorkspaceCommand for DebugCommand {
+    fn package_selection(&self) -> PackageSelection {
+        self.package
+            .as_ref()
+            .cloned()
+            .map_or(PackageSelection::DefaultOrAll, PackageSelection::Selected)
+    }
+
+    fn lock_type(&self) -> LockType {
+        // Always compiles fresh in-memory in debug mode, doesn't read or write the compilation artifacts.
+        // Reads the Prover.toml file and writes the witness at the end, but shouldn't conflict with others.
+        LockType::None
+    }
+}
+
+pub(crate) fn run(args: DebugCommand, workspace: Workspace) -> Result<(), CliError> {
     let acir_mode = args.acir_mode;
     let skip_instrumentation = args.skip_instrumentation.unwrap_or(acir_mode);
-
-    let toml_path = get_package_manifest(&config.program_dir)?;
-    let selection = args.package.map_or(PackageSelection::DefaultOrAll, PackageSelection::Selected);
-    let workspace = resolve_workspace_from_toml(
-        &toml_path,
-        selection,
-        Some(NOIR_ARTIFACT_VERSION_STRING.to_string()),
-    )?;
     let target_dir = &workspace.target_directory_path();
 
     let Some(package) = workspace.into_iter().find(|p| p.is_binary()) else {
@@ -85,7 +90,14 @@ pub(crate) fn run(args: DebugCommand, config: NargoConfig) -> Result<(), CliErro
 
     let compiled_program = nargo::ops::transform_program(compiled_program, target_width);
 
-    run_async(package, compiled_program, &args.prover_name, &args.witness_name, target_dir)
+    run_async(
+        package,
+        compiled_program,
+        &args.prover_name,
+        &args.witness_name,
+        target_dir,
+        args.compile_options.pedantic_solving,
+    )
 }
 
 pub(crate) fn compile_bin_package_for_debugging(
@@ -172,6 +184,7 @@ fn run_async(
     prover_name: &str,
     witness_name: &Option<String>,
     target_dir: &PathBuf,
+    pedantic_solving: bool,
 ) -> Result<(), CliError> {
     use tokio::runtime::Builder;
     let runtime = Builder::new_current_thread().enable_all().build().unwrap();
@@ -179,7 +192,7 @@ fn run_async(
     runtime.block_on(async {
         println!("[{}] Starting debugger", package.name);
         let (return_value, witness_stack) =
-            debug_program_and_decode(program, package, prover_name)?;
+            debug_program_and_decode(program, package, prover_name, pedantic_solving)?;
 
         if let Some(solved_witness_stack) = witness_stack {
             println!("[{}] Circuit witness successfully solved", package.name);
@@ -206,12 +219,13 @@ fn debug_program_and_decode(
     program: CompiledProgram,
     package: &Package,
     prover_name: &str,
+    pedantic_solving: bool,
 ) -> Result<(Option<InputValue>, Option<WitnessStack<FieldElement>>), CliError> {
     // Parse the initial witness values from Prover.toml
     let (inputs_map, _) =
         read_inputs_from_file(&package.root_dir, prover_name, Format::Toml, &program.abi)?;
     let program_abi = program.abi.clone();
-    let witness_stack = debug_program(program, &inputs_map)?;
+    let witness_stack = debug_program(program, &inputs_map, pedantic_solving)?;
 
     match witness_stack {
         Some(witness_stack) => {
@@ -229,9 +243,14 @@ fn debug_program_and_decode(
 pub(crate) fn debug_program(
     compiled_program: CompiledProgram,
     inputs_map: &InputMap,
+    pedantic_solving: bool,
 ) -> Result<Option<WitnessStack<FieldElement>>, CliError> {
     let initial_witness = compiled_program.abi.encode(inputs_map, None)?;
 
-    noir_debugger::run_repl_session(&Bn254BlackBoxSolver, compiled_program, initial_witness)
-        .map_err(CliError::from)
+    noir_debugger::run_repl_session(
+        &Bn254BlackBoxSolver(pedantic_solving),
+        compiled_program,
+        initial_witness,
+    )
+    .map_err(CliError::from)
 }

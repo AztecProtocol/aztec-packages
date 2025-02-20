@@ -1,6 +1,6 @@
 import { createCompatibleClient } from '@aztec/aztec.js';
-import { MINIMUM_STAKE, createEthereumChain } from '@aztec/ethereum';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { createEthereumChain, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
 import { createPublicClient, createWalletClient, getContract, http } from 'viem';
@@ -15,7 +15,7 @@ export async function sequencers(opts: {
   chainId: number;
   blockNumber?: number;
   log: LogFn;
-  debugLogger: DebugLogger;
+  debugLogger: Logger;
 }) {
   const { command, who: maybeWho, mnemonic, rpcUrl, l1RpcUrl, chainId, log, debugLogger } = opts;
   const client = await createCompatibleClient(rpcUrl, debugLogger);
@@ -66,19 +66,21 @@ export async function sequencers(opts: {
     log(`Adding ${who} as sequencer`);
 
     const stakingAsset = getContract({
-      address: await rollup.read.STAKING_ASSET(),
+      address: await rollup.read.getStakingAsset(),
       abi: TestERC20Abi,
       client: walletClient,
     });
 
+    const config = getL1ContractsConfigEnvVars();
+
     await Promise.all(
       [
-        await stakingAsset.write.mint([walletClient.account.address, MINIMUM_STAKE], {} as any),
-        await stakingAsset.write.approve([rollup.address, MINIMUM_STAKE], {} as any),
+        await stakingAsset.write.mint([walletClient.account.address, config.minimumStake], {} as any),
+        await stakingAsset.write.approve([rollup.address, config.minimumStake], {} as any),
       ].map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })),
     );
 
-    const hash = await writeableRollup.write.deposit([who, who, who, MINIMUM_STAKE]);
+    const hash = await writeableRollup.write.deposit([who, who, who, config.minimumStake]);
     await publicClient.waitForTransactionReceipt({ hash });
     log(`Added in tx ${hash}`);
   } else if (command === 'remove') {

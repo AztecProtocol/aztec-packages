@@ -1,8 +1,7 @@
 import createDebug from 'debug';
 import { randomBytes } from '../../random/index.js';
-import { killSelf } from '../helpers/index.js';
 
-const debug = createDebug('bb.js:wasm');
+const debug = createDebug('bb.js:bb_wasm_base');
 
 /**
  * Base implementation of BarretenbergWasm.
@@ -34,9 +33,8 @@ export class BarretenbergWasmBase {
           view.setBigUint64(out, ts, true);
         },
         proc_exit: () => {
-          this.logger('PANIC: proc_exit was called. This is maybe caused by "joining" with unstable wasi pthreads.');
-          this.logger(new Error().stack!);
-          killSelf();
+          this.logger('PANIC: proc_exit was called.');
+          throw new Error();
         },
       },
 
@@ -53,9 +51,9 @@ export class BarretenbergWasmBase {
           const m = this.getMemory();
           const str2 = `${str} (mem: ${(m.length / (1024 * 1024)).toFixed(2)}MiB)`;
           this.logger(str2);
-          if (str2.startsWith('WARNING:')) {
-            this.logger(new Error().stack!);
-          }
+          // if (str2.startsWith('WARNING:')) {
+          //   this.logger(new Error().stack!);
+          // }
         },
 
         get_data: (keyAddr: number, outBufAddr: number) => {

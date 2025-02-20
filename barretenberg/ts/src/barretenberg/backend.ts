@@ -5,6 +5,7 @@ import {
   deflattenFields,
   flattenFieldsAsArray,
   ProofData,
+  ProofDataForRecursion,
   reconstructHonkProof,
   reconstructUltraPlonkProof,
 } from '../proof/index.js';
@@ -153,6 +154,17 @@ const fieldByteSize = 32;
 const publicInputOffset = 3;
 const publicInputsOffsetBytes = publicInputOffset * fieldByteSize;
 
+/**
+ * Options for the UltraHonkBackend.
+ */
+export type UltraHonkBackendOptions = {
+  /**Selecting this option will use the keccak hash function instead of poseidon
+   * when generating challenges in the proof.
+   * Use this when you want to verify the created proof on an EVM chain.
+   */
+  keccak: boolean;
+};
+
 export class UltraHonkBackend {
   // These type assertions are used so that we don't
   // have to initialize `api` in the constructor.
@@ -182,9 +194,14 @@ export class UltraHonkBackend {
     }
   }
 
-  async generateProof(compressedWitness: Uint8Array): Promise<ProofData> {
+  async generateProof(compressedWitness: Uint8Array, options?: UltraHonkBackendOptions): Promise<ProofData> {
     await this.instantiate();
-    const proofWithPublicInputs = await this.api.acirProveUltraHonk(
+
+    const proveUltraHonk = options?.keccak
+      ? this.api.acirProveUltraKeccakHonk.bind(this.api)
+      : this.api.acirProveUltraHonk.bind(this.api);
+
+    const proofWithPublicInputs = await proveUltraHonk(
       this.acirUncompressedBytecode,
       this.circuitOptions.recursive,
       gunzip(compressedWitness),
@@ -200,6 +217,7 @@ export class UltraHonkBackend {
     const proofStart = proofWithPublicInputs.slice(0, publicInputsOffset);
     const publicInputsSplitIndex = numPublicInputs * fieldByteSize;
     const proofEnd = proofWithPublicInputs.slice(publicInputsOffset + publicInputsSplitIndex);
+
     // Construct the proof without the public inputs
     const proof = new Uint8Array([...proofStart, ...proofEnd]);
 
@@ -213,24 +231,90 @@ export class UltraHonkBackend {
     return { proof, publicInputs };
   }
 
-  async verifyProof(proofData: ProofData): Promise<boolean> {
+  async generateProofForRecursiveAggregation(
+    compressedWitness: Uint8Array,
+    options?: UltraHonkBackendOptions,
+  ): Promise<ProofDataForRecursion> {
     await this.instantiate();
-    const proof = reconstructHonkProof(flattenFieldsAsArray(proofData.publicInputs), proofData.proof);
-    const vkBuf = await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive);
 
-    return await this.api.acirVerifyUltraHonk(proof, new RawBuffer(vkBuf));
+    const proveUltraHonk = options?.keccak
+      ? this.api.acirProveUltraKeccakHonk.bind(this.api)
+      : this.api.acirProveUltraHonk.bind(this.api);
+
+    const proofWithPublicInputs = await proveUltraHonk(
+      this.acirUncompressedBytecode,
+      this.circuitOptions.recursive,
+      gunzip(compressedWitness),
+    );
+
+    // proofWithPublicInputs starts with a four-byte size
+    const numSerdeHeaderBytes = 4;
+    // some public inputs are handled specially
+    const numKZGAccumulatorFieldElements = 16;
+    // proof begins with: size, num public inputs, public input offset
+    const numProofPreambleElements = 3;
+    const publicInputsSizeIndex = 1;
+
+    // Slice serde header and convert to fields
+    const proofAsStrings = deflattenFields(proofWithPublicInputs.slice(numSerdeHeaderBytes));
+    const numPublicInputs = Number(proofAsStrings[publicInputsSizeIndex]) - numKZGAccumulatorFieldElements;
+
+    // Account for the serialized buffer size at start
+    const publicInputsOffset = publicInputsOffsetBytes + serializedBufferSize;
+    const publicInputsSplitIndex = numPublicInputs * fieldByteSize;
+
+    // Construct the proof without the public inputs
+    const numPublicInputsBytes = numPublicInputs * fieldByteSize;
+    const numHeaderPlusPreambleBytes = numSerdeHeaderBytes + numProofPreambleElements * fieldByteSize;
+    const proofNoPIs = new Uint8Array(proofWithPublicInputs.length - numPublicInputsBytes);
+    // copy the elements before the public inputs
+    proofNoPIs.set(proofWithPublicInputs.subarray(0, numHeaderPlusPreambleBytes), 0);
+    // copy the elements after the public inputs
+    proofNoPIs.set(
+      proofWithPublicInputs.subarray(numHeaderPlusPreambleBytes + numPublicInputsBytes),
+      numHeaderPlusPreambleBytes,
+    );
+    const proof: string[] = deflattenFields(proofNoPIs.slice(numSerdeHeaderBytes));
+
+    // Fetch the number of public inputs out of the proof string
+    const publicInputsConcatenated = proofWithPublicInputs.slice(
+      publicInputsOffset,
+      publicInputsOffset + publicInputsSplitIndex,
+    );
+    const publicInputs = deflattenFields(publicInputsConcatenated);
+
+    return { proof, publicInputs };
   }
 
-  async getVerificationKey(): Promise<Uint8Array> {
+  async verifyProof(proofData: ProofData, options?: UltraHonkBackendOptions): Promise<boolean> {
     await this.instantiate();
-    return await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive);
+
+    const proof = reconstructHonkProof(flattenFieldsAsArray(proofData.publicInputs), proofData.proof);
+
+    const writeVkUltraHonk = options?.keccak
+      ? this.api.acirWriteVkUltraKeccakHonk.bind(this.api)
+      : this.api.acirWriteVkUltraHonk.bind(this.api);
+    const verifyUltraHonk = options?.keccak
+      ? this.api.acirVerifyUltraKeccakHonk.bind(this.api)
+      : this.api.acirVerifyUltraHonk.bind(this.api);
+
+    const vkBuf = await writeVkUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive);
+    return await verifyUltraHonk(proof, new RawBuffer(vkBuf));
+  }
+
+  async getVerificationKey(options?: UltraHonkBackendOptions): Promise<Uint8Array> {
+    await this.instantiate();
+    return options?.keccak
+      ? await this.api.acirWriteVkUltraKeccakHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive)
+      : await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive);
   }
 
   /** @description Returns a solidity verifier */
-  async getSolidityVerifier(): Promise<string> {
+  async getSolidityVerifier(vk?: Uint8Array): Promise<string> {
     await this.instantiate();
-    await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive);
-    return await this.api.getHonkSolidityVerifier(this.acirUncompressedBytecode, this.circuitOptions.recursive);
+    const vkBuf =
+      vk ?? (await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive));
+    return await this.api.acirHonkSolidityVerifier(this.acirUncompressedBytecode, new RawBuffer(vkBuf));
   }
 
   // TODO(https://github.com/noir-lang/noir/issues/5661): Update this to handle Honk recursive aggregation in the browser once it is ready in the backend itself
@@ -292,9 +376,25 @@ export class AztecClientBackend {
     }
   }
 
+  async prove(witnessMsgpack: Uint8Array[]): Promise<[Uint8Array, Uint8Array]> {
+    await this.instantiate();
+    return this.api.acirProveAztecClient(this.acirMsgpack, witnessMsgpack);
+  }
+
+  async verify(proof: Uint8Array, vk: Uint8Array): Promise<boolean> {
+    await this.instantiate();
+    return this.api.acirVerifyAztecClient(proof, vk);
+  }
+
   async proveAndVerify(witnessMsgpack: Uint8Array[]): Promise<boolean> {
     await this.instantiate();
     return this.api.acirProveAndVerifyAztecClient(this.acirMsgpack, witnessMsgpack);
+  }
+
+  async gates(): Promise<number[]> {
+    // call function on API
+    await this.instantiate();
+    return this.api.acirGatesAztecClient(this.acirMsgpack);
   }
 
   async destroy(): Promise<void> {

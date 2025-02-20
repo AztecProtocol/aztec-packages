@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -eo pipefail
 
 OUT_DIR="./src"
 INDEX="$OUT_DIR/index.ts"
+
+FORCE=""
+if [ "$1" == "--force" ]; then
+  FORCE="--force"
+fi
 
 mkdir -p $OUT_DIR
 
@@ -20,7 +25,7 @@ echo "// Auto generated module - do not edit!" >"$INDEX"
 mkdir -p artifacts
 
 decl=$(cat <<EOF
-import { type NoirCompiledContract } from '@aztec/types/noir';
+import { type NoirCompiledContract } from '@aztec/circuits.js/noir';
 const circuit: NoirCompiledContract;
 export = circuit;
 EOF
@@ -37,10 +42,13 @@ for ABI in $(find ../../noir-projects/noir-contracts/target -maxdepth 1 -type f 
 done
 
 # Generate types for the contracts
-node --no-warnings ../builder/dest/bin/cli.js codegen -o $OUT_DIR artifacts
+node --no-warnings ../builder/dest/bin/cli.js codegen $FORCE -o $OUT_DIR artifacts
 
 # Append exports for each generated TypeScript file to index.ts
+echo "/** List of contract names exported by this package. */" >>"$INDEX"
+echo "export const ContractNames = [" >>"$INDEX"
 find "$OUT_DIR" -maxdepth 1 -type f -name '*.ts' ! -name 'index.ts' | while read -r TS_FILE; do
   CONTRACT_NAME=$(basename "$TS_FILE" .ts) # Remove the .ts extension to get the contract name
-  echo "export * from './${CONTRACT_NAME}.js';" >>"$INDEX"
+  echo "  '$CONTRACT_NAME'," >>"$INDEX"
 done
+echo "];" >>"$INDEX"

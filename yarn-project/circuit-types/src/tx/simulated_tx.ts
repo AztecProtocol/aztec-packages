@@ -1,4 +1,5 @@
-import { ClientIvcProof, Gas, PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js';
+import { ClientIvcProof, Gas } from '@aztec/circuits.js';
+import { PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
@@ -7,8 +8,9 @@ import {
   type PrivateKernelProverProfileResult,
   PrivateKernelProverProfileResultSchema,
 } from '../interfaces/private_kernel_prover.js';
-import { ContractClassTxL2Logs, UnencryptedTxL2Logs } from '../logs/tx_l2_logs.js';
+import { ContractClassTxL2Logs } from '../logs/tx_l2_logs.js';
 import {
+  type PrivateCallExecutionResult,
   PrivateExecutionResult,
   collectEnqueuedPublicFunctionCalls,
   collectPublicTeardownFunctionCall,
@@ -33,11 +35,9 @@ export class PrivateSimulationResult {
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(this.privateExecutionResult);
     const teardownPublicFunction = collectPublicTeardownFunctionCall(this.privateExecutionResult);
 
-    // NB: no unencrypted logs* come from private, but we keep the property on Tx so enqueued_calls_processor.ts can accumulate public logs
     const tx = new Tx(
       this.publicInputs,
       ClientIvcProof.empty(),
-      UnencryptedTxL2Logs.empty(), // *unencrypted logs
       contractClassLogs,
       enqueuedPublicFunctions,
       teardownPublicFunction,
@@ -60,7 +60,9 @@ export class TxSimulationResult extends PrivateSimulationResult {
     return (
       this.publicOutput?.gasUsed ?? {
         totalGas: this.publicInputs.gasUsed,
+        billedGas: this.publicInputs.gasUsed,
         teardownGas: Gas.empty(),
+        publicGas: Gas.empty(),
       }
     );
   }
@@ -102,11 +104,11 @@ export class TxSimulationResult extends PrivateSimulationResult {
     );
   }
 
-  static random() {
+  static async random() {
     return new TxSimulationResult(
-      PrivateExecutionResult.random(),
+      await PrivateExecutionResult.random(),
       PrivateKernelTailCircuitPublicInputs.empty(),
-      PublicSimulationOutput.random(),
+      await PublicSimulationOutput.random(),
     );
   }
 }
@@ -123,11 +125,9 @@ export class TxProvingResult {
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(this.privateExecutionResult);
     const teardownPublicFunction = collectPublicTeardownFunctionCall(this.privateExecutionResult);
 
-    // NB: no unencrypted logs* come from private, but we keep the property on Tx so enqueued_calls_processor.ts can accumulate public logs
     const tx = new Tx(
       this.publicInputs,
       this.clientIvcProof,
-      UnencryptedTxL2Logs.empty(), // *unencrypted logs
       contractClassLogs,
       enqueuedPublicFunctions,
       teardownPublicFunction,
@@ -149,9 +149,9 @@ export class TxProvingResult {
     return new TxProvingResult(fields.privateExecutionResult, fields.publicInputs, fields.clientIvcProof);
   }
 
-  static random() {
+  static async random() {
     return new TxProvingResult(
-      PrivateExecutionResult.random(),
+      await PrivateExecutionResult.random(),
       PrivateKernelTailCircuitPublicInputs.empty(),
       ClientIvcProof.empty(),
     );
@@ -165,7 +165,14 @@ export class TxProvingResult {
  * @returns
  */
 export function accumulatePrivateReturnValues(executionResult: PrivateExecutionResult): NestedProcessReturnValues {
-  const acc = new NestedProcessReturnValues(executionResult.returnValues);
-  acc.nested = executionResult.nestedExecutions.map(nestedExecution => accumulatePrivateReturnValues(nestedExecution));
-  return acc;
+  const collectPrivateReturnValuesRecursive = (
+    executionResult: PrivateCallExecutionResult,
+  ): NestedProcessReturnValues => {
+    const acc = new NestedProcessReturnValues(executionResult.returnValues);
+    acc.nested = executionResult.nestedExecutions.map(nestedExecution =>
+      collectPrivateReturnValuesRecursive(nestedExecution),
+    );
+    return acc;
+  };
+  return collectPrivateReturnValuesRecursive(executionResult.entrypoint);
 }

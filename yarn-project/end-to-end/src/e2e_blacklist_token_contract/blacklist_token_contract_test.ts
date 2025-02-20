@@ -1,24 +1,26 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { getSchnorrWallet } from '@aztec/accounts/schnorr';
 import {
   type AccountWallet,
   type CompleteAddress,
-  type DebugLogger,
   ExtendedNote,
   Fr,
+  type Logger,
   Note,
   type TxHash,
   computeSecretHash,
-  createDebugLogger,
+  createLogger,
 } from '@aztec/aztec.js';
-import { DocsExampleContract, TokenBlacklistContract, type TokenContract } from '@aztec/noir-contracts.js';
+import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
+import { type TokenContract } from '@aztec/noir-contracts.js/Token';
+import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
 
 import { jest } from '@jest/globals';
 
 import {
   type ISnapshotManager,
   type SubsystemsContext,
-  addAccounts,
   createSnapshotManager,
+  deployAccounts,
   publicDeployAccounts,
 } from '../fixtures/snapshot_manager.js';
 import { TokenSimulator } from '../simulators/token_simulator.js';
@@ -58,7 +60,7 @@ export class BlacklistTokenContractTest {
   static DELAY = 2;
 
   private snapshotManager: ISnapshotManager;
-  logger: DebugLogger;
+  logger: Logger;
   wallets: AccountWallet[] = [];
   accounts: CompleteAddress[] = [];
   asset!: TokenBlacklistContract;
@@ -70,7 +72,7 @@ export class BlacklistTokenContractTest {
   blacklisted!: AccountWallet;
 
   constructor(testName: string) {
-    this.logger = createDebugLogger(`aztec:e2e_blacklist_token_contract:${testName}`);
+    this.logger = createLogger(`e2e:e2e_blacklist_token_contract:${testName}`);
     this.snapshotManager = createSnapshotManager(`e2e_blacklist_token_contract/${testName}`, dataPath);
   }
 
@@ -89,14 +91,17 @@ export class BlacklistTokenContractTest {
     // Adding a timeout of 2 minutes in here such that it is propagated to the underlying tests
     jest.setTimeout(120_000);
 
-    await this.snapshotManager.snapshot('3_accounts', addAccounts(3, this.logger), async ({ accountKeys }, { pxe }) => {
-      const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
-      this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
-      this.admin = this.wallets[0];
-      this.other = this.wallets[1];
-      this.blacklisted = this.wallets[2];
-      this.accounts = await pxe.getRegisteredAccounts();
-    });
+    await this.snapshotManager.snapshot(
+      '3_accounts',
+      deployAccounts(3, this.logger),
+      async ({ deployedAccounts }, { pxe }) => {
+        this.wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
+        this.admin = this.wallets[0];
+        this.other = this.wallets[1];
+        this.blacklisted = this.wallets[2];
+        this.accounts = this.wallets.map(w => w.getCompleteAddress());
+      },
+    );
 
     await this.snapshotManager.snapshot(
       'e2e_blacklist_token_contract',
@@ -199,7 +204,7 @@ export class BlacklistTokenContractTest {
 
         this.logger.verbose(`Minting ${amount} privately...`);
         const secret = Fr.random();
-        const secretHash = computeSecretHash(secret);
+        const secretHash = await computeSecretHash(secret);
         const receipt = await asset.methods.mint_private(amount, secretHash).send().wait();
 
         await this.addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);

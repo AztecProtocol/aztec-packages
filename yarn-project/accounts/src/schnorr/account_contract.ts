@@ -1,7 +1,9 @@
+import { getAccountContractAddress } from '@aztec/aztec.js';
 import { type AuthWitnessProvider } from '@aztec/aztec.js/account';
 import { AuthWitness, type CompleteAddress, type GrumpkinScalar } from '@aztec/circuit-types';
-import { Schnorr } from '@aztec/circuits.js/barretenberg';
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type ContractArtifact } from '@aztec/circuits.js/abi';
+import { deriveSigningKey } from '@aztec/circuits.js/keys';
+import { Schnorr } from '@aztec/foundation/crypto';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { DefaultAccountContract } from '../defaults/account_contract.js';
@@ -16,8 +18,8 @@ export class SchnorrAccountContract extends DefaultAccountContract {
     super(SchnorrAccountContractArtifact as ContractArtifact);
   }
 
-  getDeploymentArgs() {
-    const signingPublicKey = new Schnorr().computePublicKey(this.signingPrivateKey);
+  async getDeploymentArgs() {
+    const signingPublicKey = await new Schnorr().computePublicKey(this.signingPrivateKey);
     return [signingPublicKey.x, signingPublicKey.y];
   }
 
@@ -30,9 +32,21 @@ export class SchnorrAccountContract extends DefaultAccountContract {
 class SchnorrAuthWitnessProvider implements AuthWitnessProvider {
   constructor(private signingPrivateKey: GrumpkinScalar) {}
 
-  createAuthWit(messageHash: Fr): Promise<AuthWitness> {
+  async createAuthWit(messageHash: Fr): Promise<AuthWitness> {
     const schnorr = new Schnorr();
-    const signature = schnorr.constructSignature(messageHash.toBuffer(), this.signingPrivateKey).toBuffer();
-    return Promise.resolve(new AuthWitness(messageHash, [...signature]));
+    const signature = await schnorr.constructSignature(messageHash.toBuffer(), this.signingPrivateKey);
+    return new AuthWitness(messageHash, [...signature.toBuffer()]);
   }
+}
+
+/**
+ * Compute the address of a schnorr account contract.
+ * @param secret - A seed for deriving the signing key and public keys.
+ * @param salt - The contract address salt.
+ * @param signingPrivateKey - A specific signing private key that's not derived from the secret.
+ */
+export async function getSchnorrAccountContractAddress(secret: Fr, salt: Fr, signingPrivateKey?: GrumpkinScalar) {
+  const signingKey = signingPrivateKey ?? deriveSigningKey(secret);
+  const accountContract = new SchnorrAccountContract(signingKey);
+  return await getAccountContractAddress(accountContract, secret, salt);
 }

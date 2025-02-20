@@ -6,7 +6,7 @@
  */
 import { AccountManager, type Salt } from '@aztec/aztec.js/account';
 import { type AccountWallet, getWallet } from '@aztec/aztec.js/wallet';
-import { type PXE } from '@aztec/circuit-types';
+import { type PXE } from '@aztec/circuit-types/interfaces/client';
 import { type AztecAddress, type Fr } from '@aztec/circuits.js';
 
 import { EcdsaRSSHAccountContract } from './account_contract.js';
@@ -20,9 +20,15 @@ export { EcdsaRSSHAccountContract };
  * @param secretKey - Secret key used to derive all the keystore keys.
  * @param signingPublicKey - Secp2561 key used to identify its corresponding private key in the SSH Agent.
  * @param salt - Deployment salt.
+ * @returns An account manager initialized with the account contract and its deployment params
  */
-export function getEcdsaRSSHAccount(pxe: PXE, secretKey: Fr, signingPublicKey: Buffer, salt?: Salt): AccountManager {
-  return new AccountManager(pxe, secretKey, new EcdsaRSSHAccountContract(signingPublicKey), salt);
+export function getEcdsaRSSHAccount(
+  pxe: PXE,
+  secretKey: Fr,
+  signingPublicKey: Buffer,
+  salt?: Salt,
+): Promise<AccountManager> {
+  return AccountManager.create(pxe, secretKey, new EcdsaRSSHAccountContract(signingPublicKey), salt);
 }
 
 /**

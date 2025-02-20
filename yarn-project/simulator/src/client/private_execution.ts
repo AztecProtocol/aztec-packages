@@ -1,49 +1,51 @@
-import { PrivateExecutionResult } from '@aztec/circuit-types';
+import { type AztecNode, PrivateCallExecutionResult } from '@aztec/circuit-types/interfaces/client';
 import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
-import {
-  Fr,
-  PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-  PRIVATE_CONTEXT_INPUTS_LENGTH,
-  PrivateCircuitPublicInputs,
-} from '@aztec/circuits.js';
-import { type FunctionArtifact, type FunctionSelector, countArgumentsSize } from '@aztec/foundation/abi';
+import { type ContractInstance, Fr, PrivateCircuitPublicInputs } from '@aztec/circuits.js';
+import { type FunctionArtifact, type FunctionSelector, countArgumentsSize } from '@aztec/circuits.js/abi';
+import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/circuits.js/shared-mutable';
+import { PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH, PRIVATE_CONTEXT_INPUTS_LENGTH } from '@aztec/constants';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import { fromACVMField, witnessMapToFields } from '../acvm/deserialize.js';
-import { type ACVMWitness, Oracle, acvm, extractCallStack } from '../acvm/index.js';
+import { type ACVMWitness, Oracle, extractCallStack } from '../acvm/index.js';
 import { ExecutionError, resolveAssertionMessageFromError } from '../common/errors.js';
+import { type SimulationProvider } from '../server.js';
 import { type ClientExecutionContext } from './client_execution_context.js';
 
 /**
  * Execute a private function and return the execution result.
  */
 export async function executePrivateFunction(
+  simulator: SimulationProvider,
   context: ClientExecutionContext,
   artifact: FunctionArtifact,
   contractAddress: AztecAddress,
   functionSelector: FunctionSelector,
-  log = createDebugLogger('aztec:simulator:private_execution'),
-): Promise<PrivateExecutionResult> {
+  log = createLogger('simulator:private_execution'),
+): Promise<PrivateCallExecutionResult> {
   const functionName = await context.getDebugFunctionName();
-  log.verbose(`Executing external function ${functionName}@${contractAddress}`);
+  log.verbose(`Executing private function ${functionName}`, { contract: contractAddress });
   const acir = artifact.bytecode;
   const initialWitness = context.getInitialWitness(artifact);
   const acvmCallback = new Oracle(context);
   const timer = new Timer();
-  const acirExecutionResult = await acvm(acir, initialWitness, acvmCallback).catch((err: Error) => {
-    err.message = resolveAssertionMessageFromError(err, artifact);
-    throw new ExecutionError(
-      err.message,
-      {
-        contractAddress,
-        functionSelector,
-      },
-      extractCallStack(err, artifact.debug),
-      { cause: err },
-    );
-  });
+  const acirExecutionResult = await simulator
+    .executeUserCircuit(acir, initialWitness, acvmCallback)
+    .catch((err: Error) => {
+      err.message = resolveAssertionMessageFromError(err, artifact);
+      throw new ExecutionError(
+        err.message,
+        {
+          contractAddress,
+          functionSelector,
+        },
+        extractCallStack(err, artifact.debug),
+        { cause: err },
+      );
+    });
   const duration = timer.ms();
   const partialWitness = acirExecutionResult.partialWitness;
   const publicInputs = extractPrivateCircuitPublicInputs(artifact, partialWitness);
@@ -61,7 +63,7 @@ export async function executePrivateFunction(
 
   const contractClassLogs = context.getContractClassLogs();
 
-  const rawReturnValues = await context.unpackReturns(publicInputs.returnsHash);
+  const rawReturnValues = await context.loadFromExecutionCache(publicInputs.returnsHash);
 
   const noteHashLeafIndexMap = context.getNoteHashLeafIndexMap();
   const newNotes = context.getNewNotes();
@@ -72,7 +74,7 @@ export async function executePrivateFunction(
 
   log.debug(`Returning from call to ${contractAddress.toString()}:${functionSelector}`);
 
-  return new PrivateExecutionResult(
+  return new PrivateCallExecutionResult(
     acir,
     Buffer.from(artifact.verificationKey!, 'base64'),
     partialWitness,
@@ -110,4 +112,35 @@ export function extractPrivateCircuitPublicInputs(
     returnData.push(fromACVMField(returnedField));
   }
   return PrivateCircuitPublicInputs.fromFields(returnData);
+}
+
+export async function readCurrentClassId(
+  contractAddress: AztecAddress,
+  instance: ContractInstance,
+  node: AztecNode,
+  blockNumber: number,
+) {
+  const { sharedMutableSlot } = await SharedMutableValuesWithHash.getContractUpdateSlots(contractAddress);
+  const sharedMutableValues = await SharedMutableValues.readFromTree(sharedMutableSlot, slot =>
+    node.getPublicStorageAt(ProtocolContractAddress.ContractInstanceDeployer, slot, blockNumber),
+  );
+  let currentClassId = sharedMutableValues.svc.getCurrentAt(blockNumber)[0];
+  if (currentClassId.isZero()) {
+    currentClassId = instance.originalContractClassId;
+  }
+  return currentClassId;
+}
+
+export async function verifyCurrentClassId(
+  contractAddress: AztecAddress,
+  instance: ContractInstance,
+  node: AztecNode,
+  blockNumber: number,
+) {
+  const currentClassId = await readCurrentClassId(contractAddress, instance, node, blockNumber);
+  if (!instance.currentContractClassId.equals(currentClassId)) {
+    throw new Error(
+      `Contract ${contractAddress} is outdated, current class id is ${currentClassId}, local class id is ${instance.currentContractClassId}`,
+    );
+  }
 }

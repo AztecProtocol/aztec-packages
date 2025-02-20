@@ -1,6 +1,6 @@
 {
   "name": "Development",
-  "image": "aztecprotocol/devbox:1.0",
+  "image": "aztecprotocol/devbox:3.0",
   "features": {
     // Use custom fork with noble added to list of supported distros.
     "./docker-in-docker": {}

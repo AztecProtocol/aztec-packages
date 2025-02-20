@@ -1,5 +1,5 @@
 import { NetCrs, NetGrumpkinCrs } from '../net_crs.js';
-import { mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { closeSync, mkdirSync, openSync, readFileSync, readSync, writeFileSync } from 'fs';
 import { stat } from 'fs/promises';
 import createDebug from 'debug';
 import { homedir } from 'os';
@@ -45,7 +45,14 @@ export class Crs {
    * @returns The points data.
    */
   getG1Data(): Uint8Array {
-    return readFileSync(this.path + '/bn254_g1.dat');
+    // Ensure length > 0, otherwise we might read a huge file.
+    // This is a backup.
+    const length = Math.max(this.numPoints, 1) * 64;
+    const fd = openSync(this.path + '/bn254_g1.dat', 'r');
+    const buffer = new Uint8Array(length);
+    readSync(fd, buffer, 0, length, 0);
+    closeSync(fd);
+    return buffer;
   }
 
   /**

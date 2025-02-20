@@ -1,10 +1,11 @@
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_db_transaction.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/lmdblib/lmdb_db_transaction.hpp"
+#include "barretenberg/lmdblib/lmdb_helpers.hpp"
+#include "barretenberg/lmdblib/lmdb_store_base.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
@@ -48,73 +49,54 @@ int index_key_cmp(const MDB_val* a, const MDB_val* b)
 }
 
 LMDBTreeStore::LMDBTreeStore(std::string directory, std::string name, uint64_t mapSizeKb, uint64_t maxNumReaders)
-    : _name(std::move(name))
-    , _directory(std::move(directory))
-    , _environment(std::make_shared<LMDBEnvironment>(_directory, mapSizeKb, 5, maxNumReaders))
+    : LMDBStoreBase(directory, mapSizeKb, maxNumReaders, 5)
+    , _name(std::move(name))
 {
 
     {
-        LMDBDatabaseCreationTransaction tx(_environment);
+        LMDBDatabaseCreationTransaction::Ptr tx = create_db_transaction();
         _blockDatabase =
-            std::make_unique<LMDBDatabase>(_environment, tx, _name + BLOCKS_DB, false, false, block_key_cmp);
-        tx.commit();
+            std::make_unique<LMDBDatabase>(_environment, *tx, _name + BLOCKS_DB, false, false, false, block_key_cmp);
+        tx->commit();
     }
 
     {
-        LMDBDatabaseCreationTransaction tx(_environment);
-        _nodeDatabase = std::make_unique<LMDBDatabase>(_environment, tx, _name + NODES_DB, false, false, fr_key_cmp);
-        tx.commit();
+        LMDBDatabaseCreationTransaction::Ptr tx = create_db_transaction();
+        _nodeDatabase =
+            std::make_unique<LMDBDatabase>(_environment, *tx, _name + NODES_DB, false, false, false, fr_key_cmp);
+        tx->commit();
     }
 
     {
-        LMDBDatabaseCreationTransaction tx(_environment);
+        LMDBDatabaseCreationTransaction::Ptr tx = create_db_transaction();
         _leafKeyToIndexDatabase =
-            std::make_unique<LMDBDatabase>(_environment, tx, _name + LEAF_INDICES_DB, false, false, fr_key_cmp);
-        tx.commit();
+            std::make_unique<LMDBDatabase>(_environment, *tx, _name + LEAF_INDICES_DB, false, false, false, fr_key_cmp);
+        tx->commit();
     }
 
     {
-        LMDBDatabaseCreationTransaction tx(_environment);
-        _leafHashToPreImageDatabase =
-            std::make_unique<LMDBDatabase>(_environment, tx, _name + LEAF_PREIMAGES_DB, false, false, fr_key_cmp);
-        tx.commit();
+        LMDBDatabaseCreationTransaction::Ptr tx = create_db_transaction();
+        _leafHashToPreImageDatabase = std::make_unique<LMDBDatabase>(
+            _environment, *tx, _name + LEAF_PREIMAGES_DB, false, false, false, fr_key_cmp);
+        tx->commit();
     }
 
     {
-        LMDBDatabaseCreationTransaction tx(_environment);
-        _indexToBlockDatabase =
-            std::make_unique<LMDBDatabase>(_environment, tx, _name + BLOCK_INDICES_DB, false, false, index_key_cmp);
-        tx.commit();
+        LMDBDatabaseCreationTransaction::Ptr tx = create_db_transaction();
+        _indexToBlockDatabase = std::make_unique<LMDBDatabase>(
+            _environment, *tx, _name + BLOCK_INDICES_DB, false, false, false, index_key_cmp);
+        tx->commit();
     }
-}
-
-LMDBTreeStore::WriteTransaction::Ptr LMDBTreeStore::create_write_transaction() const
-{
-    return std::make_unique<LMDBTreeWriteTransaction>(_environment);
-}
-LMDBTreeStore::ReadTransaction::Ptr LMDBTreeStore::create_read_transaction()
-{
-    _environment->wait_for_reader();
-    return std::make_unique<LMDBTreeReadTransaction>(_environment);
 }
 
 void LMDBTreeStore::get_stats(TreeDBStats& stats, ReadTransaction& tx)
 {
-
-    MDB_stat stat;
-    MDB_envinfo info;
-    call_lmdb_func(mdb_env_info, _environment->underlying(), &info);
-    stats.mapSize = info.me_mapsize;
-    call_lmdb_func(mdb_stat, tx.underlying(), _blockDatabase->underlying(), &stat);
-    stats.blocksDBStats = DBStats(BLOCKS_DB, stat);
-    call_lmdb_func(mdb_stat, tx.underlying(), _leafHashToPreImageDatabase->underlying(), &stat);
-    stats.leafPreimagesDBStats = DBStats(LEAF_PREIMAGES_DB, stat);
-    call_lmdb_func(mdb_stat, tx.underlying(), _leafKeyToIndexDatabase->underlying(), &stat);
-    stats.leafIndicesDBStats = DBStats(LEAF_INDICES_DB, stat);
-    call_lmdb_func(mdb_stat, tx.underlying(), _nodeDatabase->underlying(), &stat);
-    stats.nodesDBStats = DBStats(NODES_DB, stat);
-    call_lmdb_func(mdb_stat, tx.underlying(), _indexToBlockDatabase->underlying(), &stat);
-    stats.blockIndicesDBStats = DBStats(BLOCK_INDICES_DB, stat);
+    stats.mapSize = _environment->get_map_size();
+    stats.blocksDBStats = _blockDatabase->get_stats(tx);
+    stats.leafPreimagesDBStats = _leafHashToPreImageDatabase->get_stats(tx);
+    stats.leafIndicesDBStats = _leafKeyToIndexDatabase->get_stats(tx);
+    stats.nodesDBStats = _nodeDatabase->get_stats(tx);
+    stats.blockIndicesDBStats = _indexToBlockDatabase->get_stats(tx);
 }
 
 void LMDBTreeStore::write_block_data(const block_number_t& blockNumber,
@@ -161,15 +143,7 @@ void LMDBTreeStore::write_block_index_data(const block_number_t& blockNumber,
         msgpack::unpack((const char*)data.data(), data.size()).get().convert(payload);
     }
 
-    // Double check it's not already present (it shouldn't be)
-    // We then add the block number and sort
-    // Sorting shouldn't be necessary as we add blocks in ascending order, but we will make sure
-    // Sorting here and when we unwind blocks means that looking up the block number for an index becomes O(1)
-    // These lookups are much more frequent than adds or deletes so we take the hit here
-    if (!payload.contains(blockNumber)) {
-        payload.blockNumbers.emplace_back(blockNumber);
-        payload.sort();
-    }
+    payload.add_block(blockNumber);
 
     // Write the new payload back down
     msgpack::sbuffer buffer;
@@ -189,11 +163,11 @@ bool LMDBTreeStore::find_block_for_index(const index_t& index, block_number_t& b
     }
     BlockIndexPayload payload;
     msgpack::unpack((const char*)data.data(), data.size()).get().convert(payload);
-    if (payload.blockNumbers.empty()) {
+    if (payload.is_empty()) {
         return false;
     }
     // The block numbers are sorted so we simply return the lowest
-    blockNumber = payload.blockNumbers[0];
+    blockNumber = payload.get_min_block_number();
     return true;
 }
 
@@ -217,7 +191,7 @@ void LMDBTreeStore::delete_block_index(const index_t& sizeAtBlock,
     payload.delete_block(blockNumber);
 
     // if it's now empty, delete it
-    if (payload.blockNumbers.empty()) {
+    if (payload.is_empty()) {
         tx.delete_value(key, *_indexToBlockDatabase);
         return;
     }

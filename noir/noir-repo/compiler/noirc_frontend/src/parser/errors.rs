@@ -23,8 +23,6 @@ pub enum ParserErrorReason {
     ExpectedMutAfterAmpersand { found: Token },
     #[error("Invalid left-hand side of assignment")]
     InvalidLeftHandSideOfAssignment,
-    #[error("Expected trait, found {found}")]
-    ExpectedTrait { found: String },
     #[error("Visibility `{visibility}` is not followed by an item")]
     VisibilityNotFollowedByAnItem { visibility: ItemVisibility },
     #[error("`unconstrained` is not followed by an item")]
@@ -71,6 +69,8 @@ pub enum ParserErrorReason {
     PatternInTraitFunctionParameter,
     #[error("Patterns aren't allowed in a trait impl's associated constants")]
     PatternInAssociatedConstant,
+    #[error("Visibility is ignored on a trait method")]
+    TraitVisibilityIgnored,
     #[error("Visibility is ignored on a trait impl method")]
     TraitImplVisibilityIgnored,
     #[error("comptime keyword is deprecated")]
@@ -81,8 +81,8 @@ pub enum ParserErrorReason {
         "Multiple primary attributes found. Only one function attribute is allowed per function"
     )]
     MultipleFunctionAttributesFound,
-    #[error("A function attribute cannot be placed on a struct")]
-    NoFunctionAttributesAllowedOnStruct,
+    #[error("A function attribute cannot be placed on a struct or enum")]
+    NoFunctionAttributesAllowedOnType,
     #[error("Assert statements can only accept string literals")]
     AssertMessageNotString,
     #[error("Integer bit size {0} isn't supported")]
@@ -108,6 +108,10 @@ pub enum ParserErrorReason {
     WrongNumberOfAttributeArguments { name: String, min: usize, max: usize, found: usize },
     #[error("The `deprecated` attribute expects a string argument")]
     DeprecatedAttributeExpectsAStringArgument,
+    #[error("Unsafe block must have a safety comment above it")]
+    MissingSafetyComment,
+    #[error("Missing parameters for function definition")]
+    MissingParametersForFunctionDefinition,
 }
 
 /// Represents a parsing error, or a parsing error in the making.
@@ -181,7 +185,8 @@ impl ParserError {
     }
 
     pub fn is_warning(&self) -> bool {
-        matches!(self.reason(), Some(ParserErrorReason::ExperimentalFeature(_)))
+        let diagnostic: Diagnostic = self.into();
+        diagnostic.is_warning()
     }
 }
 
@@ -258,6 +263,9 @@ impl<'a> From<&'a ParserError> for Diagnostic {
                 ParserErrorReason::ExperimentalFeature(_) => {
                     Diagnostic::simple_warning(reason.to_string(), "".into(), error.span)
                 }
+                ParserErrorReason::TraitVisibilityIgnored => {
+                    Diagnostic::simple_warning(reason.to_string(), "".into(), error.span)
+                }
                 ParserErrorReason::TraitImplVisibilityIgnored => {
                     Diagnostic::simple_warning(reason.to_string(), "".into(), error.span)
                 }
@@ -272,6 +280,23 @@ impl<'a> From<&'a ParserError> for Diagnostic {
                     "Noir doesn't have immutable references, only mutable references".to_string(),
                     error.span,
                 ),
+                ParserErrorReason::MissingSafetyComment => Diagnostic::simple_warning(
+                    "Unsafe block must have a safety comment above it".into(),
+                    "The comment must start with the \"Safety: \" word".into(),
+                    error.span,
+                ),
+                ParserErrorReason::MissingParametersForFunctionDefinition => {
+                    Diagnostic::simple_error(
+                        "Missing parameters for function definition".into(),
+                        "Add a parameter list: `()`".into(),
+                        error.span,
+                    )
+                }
+                ParserErrorReason::DocCommentDoesNotDocumentAnything => {
+                    let primary = "This doc comment doesn't document anything".to_string();
+                    let secondary = "Consider changing it to a regular `//` comment".to_string();
+                    Diagnostic::simple_warning(primary, secondary, error.span)
+                }
                 other => Diagnostic::simple_error(format!("{other}"), String::new(), error.span),
             },
             None => {
@@ -281,7 +306,7 @@ impl<'a> From<&'a ParserError> for Diagnostic {
                 ) {
                     let primary = "This doc comment doesn't document anything".to_string();
                     let secondary = "Consider changing it to a regular `//` comment".to_string();
-                    Diagnostic::simple_error(primary, secondary, error.span)
+                    Diagnostic::simple_warning(primary, secondary, error.span)
                 } else {
                     let primary = error.to_string();
                     Diagnostic::simple_error(primary, String::new(), error.span)

@@ -1,10 +1,8 @@
-import { type L1NotePayload, Note, TxHash, randomTxHash } from '@aztec/circuit-types';
+import { Note, TxHash } from '@aztec/circuit-types';
 import { AztecAddress, Fr, Point, type PublicKey } from '@aztec/circuits.js';
-import { NoteSelector } from '@aztec/foundation/abi';
+import { NoteSelector } from '@aztec/circuits.js/abi';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-
-import { type NoteInfo } from '../note_decryption_utils/index.js';
 
 /**
  * A note with contextual data which was decrypted as outgoing.
@@ -38,40 +36,15 @@ export class OutgoingNoteDao {
     public ovpkM: PublicKey,
   ) {}
 
-  static fromPayloadAndNoteInfo(
-    note: Note,
-    payload: L1NotePayload,
-    noteInfo: NoteInfo,
-    l2BlockNumber: number,
-    l2BlockHash: string,
-    dataStartIndexForTx: number,
-    ovpkM: PublicKey,
-  ) {
-    const noteHashIndexInTheWholeTree = BigInt(dataStartIndexForTx + noteInfo.noteHashIndex);
-    return new OutgoingNoteDao(
-      note,
-      payload.contractAddress,
-      payload.storageSlot,
-      payload.noteTypeId,
-      noteInfo.txHash,
-      l2BlockNumber,
-      l2BlockHash,
-      noteInfo.nonce,
-      noteInfo.noteHash,
-      noteHashIndexInTheWholeTree,
-      ovpkM,
-    );
-  }
-
   toBuffer(): Buffer {
     return serializeToBuffer([
       this.note,
       this.contractAddress,
       this.storageSlot,
       this.noteTypeId,
-      this.txHash.buffer,
+      this.txHash,
       this.l2BlockNumber,
-      Fr.fromString(this.l2BlockHash),
+      Fr.fromHexString(this.l2BlockHash),
       this.nonce,
       this.noteHash,
       this.index,
@@ -85,7 +58,7 @@ export class OutgoingNoteDao {
     const contractAddress = AztecAddress.fromBuffer(reader);
     const storageSlot = Fr.fromBuffer(reader);
     const noteTypeId = reader.readObject(NoteSelector);
-    const txHash = new TxHash(reader.readBytes(TxHash.SIZE));
+    const txHash = reader.readObject(TxHash);
     const l2BlockNumber = reader.readNumber();
     const l2BlockHash = Fr.fromBuffer(reader).toString();
     const nonce = Fr.fromBuffer(reader);
@@ -126,10 +99,10 @@ export class OutgoingNoteDao {
     return noteSize + AztecAddress.SIZE_IN_BYTES + Fr.SIZE_IN_BYTES * 2 + TxHash.SIZE + Point.SIZE_IN_BYTES;
   }
 
-  static random({
+  static async random({
     note = Note.random(),
-    contractAddress = AztecAddress.random(),
-    txHash = randomTxHash(),
+    contractAddress = undefined,
+    txHash = TxHash.random(),
     storageSlot = Fr.random(),
     noteTypeId = NoteSelector.random(),
     nonce = Fr.random(),
@@ -137,11 +110,11 @@ export class OutgoingNoteDao {
     l2BlockHash = Fr.random().toString(),
     noteHash = Fr.random(),
     index = Fr.random().toBigInt(),
-    ovpkM = Point.random(),
+    ovpkM = undefined,
   }: Partial<OutgoingNoteDao> = {}) {
     return new OutgoingNoteDao(
       note,
-      contractAddress,
+      contractAddress ?? (await AztecAddress.random()),
       storageSlot,
       noteTypeId,
       txHash,
@@ -150,7 +123,7 @@ export class OutgoingNoteDao {
       nonce,
       noteHash,
       index,
-      ovpkM,
+      ovpkM ?? (await Point.random()),
     );
   }
 }

@@ -1,11 +1,14 @@
-use crate::note::note_interface::NoteInterface;
-use dep::protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::ToField};
+use crate::note::{note_interface::NoteInterface, retrieved_note::RetrievedNote};
+use dep::protocol_types::{
+    constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+    traits::{Packable, ToField},
+};
 use std::option::Option;
 
 pub struct PropertySelector {
-    pub(crate) index: u8, // index of the field in the serialized note array
-    pub(crate) offset: u8, // offset in the byte representation of the field (selected with index above) from which to reading
-    pub(crate) length: u8, // number of bytes to read after the offset
+    pub index: u8, // index of the field in the serialized note array
+    pub offset: u8, // offset in the byte representation of the field (selected with index above) from which to reading
+    pub length: u8, // number of bytes to read after the offset
 }
 
 pub struct Select {
@@ -53,9 +56,9 @@ pub global NoteStatus: NoteStatusEnum = NoteStatusEnum {
 
 // This is the default filter and preprocessor, which does nothing
 fn return_all_notes<Note>(
-    notes: [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    notes: [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     _p: Field,
-) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
+) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
     notes
 }
 
@@ -67,9 +70,9 @@ pub struct NoteGetterOptions<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS> {
     pub offset: u32,
     // Preprocessor and filter functions are used to filter notes. The preprocessor is applied before the filter and
     // unlike filter it is applied in an unconstrained context.
-    pub preprocessor: fn([Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], PREPROCESSOR_ARGS) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    pub preprocessor: fn([Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], PREPROCESSOR_ARGS) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     pub preprocessor_args: PREPROCESSOR_ARGS,
-    pub filter: fn([Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    pub filter: fn([Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     pub filter_args: FILTER_ARGS,
     pub status: u8,
 }
@@ -134,7 +137,7 @@ impl<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS> NoteGetterOptions<Note, N
 
 impl<Note, let N: u32> NoteGetterOptions<Note, N, Field, Field>
 where
-    Note: NoteInterface<N>,
+    Note: NoteInterface + Packable<N>,
 {
     // This function initializes a NoteGetterOptions that simply returns the maximum number of notes allowed in a call.
     pub fn new() -> Self {
@@ -154,13 +157,13 @@ where
 
 impl<Note, let N: u32, PREPROCESSOR_ARGS> NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, Field>
 where
-    Note: NoteInterface<N>,
+    Note: NoteInterface + Packable<N>,
 {
     // This function initializes a NoteGetterOptions with a preprocessor, which takes the notes returned from
     // the database and preprocessor_args as its parameters.
     // `preprocessor_args` allows you to provide additional data or context to the custom preprocessor.
     pub fn with_preprocessor(
-        preprocessor: fn([Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], PREPROCESSOR_ARGS) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+        preprocessor: fn([Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], PREPROCESSOR_ARGS) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
         preprocessor_args: PREPROCESSOR_ARGS,
     ) -> Self {
         Self {
@@ -179,13 +182,13 @@ where
 
 impl<Note, let N: u32, FILTER_ARGS> NoteGetterOptions<Note, N, Field, FILTER_ARGS>
 where
-    Note: NoteInterface<N>,
+    Note: NoteInterface + Packable<N>,
 {
     // This function initializes a NoteGetterOptions with a filter, which takes
     // the notes returned from the database and filter_args as its parameters.
     // `filter_args` allows you to provide additional data or context to the custom filter.
     pub fn with_filter(
-        filter: fn([Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+        filter: fn([Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
         filter_args: FILTER_ARGS,
     ) -> Self {
         Self {

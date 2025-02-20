@@ -1,22 +1,28 @@
-import {
-  type AztecAddress,
-  type Fr,
-  type MerkleTree,
-  MerkleTreeCalculator,
-  PROTOCOL_CONTRACT_TREE_HEIGHT,
-} from '@aztec/circuits.js';
+import { ProtocolContractLeafPreimage } from '@aztec/circuits.js/trees';
+import { MAX_PROTOCOL_CONTRACTS, PROTOCOL_CONTRACT_TREE_HEIGHT } from '@aztec/constants';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { type Fr } from '@aztec/foundation/fields';
+import { type IndexedMerkleTree, IndexedMerkleTreeCalculator } from '@aztec/foundation/trees';
 
-export function buildProtocolContractTree(contracts: { address: AztecAddress; leaf: Fr }[]): MerkleTree {
-  const calculator = new MerkleTreeCalculator(PROTOCOL_CONTRACT_TREE_HEIGHT, Buffer.alloc(32), (a, b) =>
-    poseidon2Hash([a, b]).toBuffer(),
+export async function buildProtocolContractTree(
+  contracts: { address: AztecAddress; leaf: Fr }[],
+): Promise<IndexedMerkleTree<ProtocolContractLeafPreimage, typeof PROTOCOL_CONTRACT_TREE_HEIGHT>> {
+  const hasher = {
+    hash: async (l: Buffer, r: Buffer) => (await poseidon2Hash([l, r])).toBuffer(),
+    hashInputs: async (i: Buffer[]) => (await poseidon2Hash(i)).toBuffer(),
+  };
+  const calculator = await IndexedMerkleTreeCalculator.create(
+    PROTOCOL_CONTRACT_TREE_HEIGHT,
+    hasher,
+    ProtocolContractLeafPreimage,
   );
 
-  const leaves = new Array(2 ** PROTOCOL_CONTRACT_TREE_HEIGHT).fill(Buffer.alloc(32));
+  const leaves = new Array(MAX_PROTOCOL_CONTRACTS).fill(Buffer.alloc(32));
 
   for (const contract of contracts) {
     const index = contract.address.toField().toNumber();
-    leaves[index] = contract.leaf;
+    leaves[index] = contract.leaf.toBuffer();
   }
 
   return calculator.computeTree(leaves);

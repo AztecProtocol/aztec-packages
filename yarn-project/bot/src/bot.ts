@@ -2,15 +2,16 @@ import {
   type AztecAddress,
   BatchCall,
   FeeJuicePaymentMethod,
-  NoFeePaymentMethod,
   type SendMethodOptions,
   type Wallet,
-  createDebugLogger,
+  createLogger,
 } from '@aztec/aztec.js';
-import { type AztecNode, type FunctionCall, type PXE } from '@aztec/circuit-types';
+import { type FunctionCall } from '@aztec/circuit-types';
+import { type AztecNode, type PXE } from '@aztec/circuit-types/interfaces/client';
 import { Gas } from '@aztec/circuits.js';
-import { times } from '@aztec/foundation/collection';
-import { type EasyPrivateTokenContract, type TokenContract } from '@aztec/noir-contracts.js';
+import { timesParallel } from '@aztec/foundation/collection';
+import { type EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
+import { type TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { type BotConfig } from './config.js';
 import { BotFactory } from './factory.js';
@@ -19,7 +20,7 @@ import { getBalances, getPrivateBalance, isStandardTokenContract } from './utils
 const TRANSFER_AMOUNT = 1;
 
 export class Bot {
-  private log = createDebugLogger('aztec:bot');
+  private log = createLogger('bot');
 
   private attempts: number = 0;
   private successes: number = 0;
@@ -56,17 +57,21 @@ export class Bot {
 
     const calls: FunctionCall[] = [];
     if (isStandardTokenContract(token)) {
-      calls.push(...times(privateTransfersPerTx, () => token.methods.transfer(recipient, TRANSFER_AMOUNT).request()));
       calls.push(
-        ...times(publicTransfersPerTx, () =>
+        ...(await timesParallel(privateTransfersPerTx, () =>
+          token.methods.transfer(recipient, TRANSFER_AMOUNT).request(),
+        )),
+      );
+      calls.push(
+        ...(await timesParallel(publicTransfersPerTx, () =>
           token.methods.transfer_in_public(sender, recipient, TRANSFER_AMOUNT, 0).request(),
-        ),
+        )),
       );
     } else {
       calls.push(
-        ...times(privateTransfersPerTx, () =>
-          token.methods.transfer(TRANSFER_AMOUNT, sender, recipient, sender).request(),
-        ),
+        ...(await timesParallel(privateTransfersPerTx, () =>
+          token.methods.transfer(TRANSFER_AMOUNT, sender, recipient).request(),
+        )),
       );
     }
 
@@ -127,9 +132,8 @@ export class Bot {
 
   private getSendMethodOpts(): SendMethodOptions {
     const sender = this.wallet.getAddress();
-    const { feePaymentMethod, l2GasLimit, daGasLimit, skipPublicSimulation } = this.config;
-    const paymentMethod =
-      feePaymentMethod === 'fee_juice' ? new FeeJuicePaymentMethod(sender) : new NoFeePaymentMethod();
+    const { l2GasLimit, daGasLimit, skipPublicSimulation } = this.config;
+    const paymentMethod = new FeeJuicePaymentMethod(sender);
 
     let gasSettings, estimateGas;
     if (l2GasLimit !== undefined && l2GasLimit > 0 && daGasLimit !== undefined && daGasLimit > 0) {
@@ -140,7 +144,8 @@ export class Bot {
       estimateGas = true;
       this.log.verbose(`Estimating gas for transaction`);
     }
+    const baseFeePadding = 2; // Send 3x the current base fee
     this.log.verbose(skipPublicSimulation ? `Skipping public simulation` : `Simulating public transfers`);
-    return { fee: { estimateGas, paymentMethod, gasSettings }, skipPublicSimulation };
+    return { fee: { estimateGas, paymentMethod, gasSettings, baseFeePadding }, skipPublicSimulation };
   }
 }

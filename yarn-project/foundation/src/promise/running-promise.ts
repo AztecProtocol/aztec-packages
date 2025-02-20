@@ -1,3 +1,4 @@
+import { createLogger } from '../log/pino-logger.js';
 import { InterruptibleSleep } from '../sleep/index.js';
 import { type PromiseWithResolvers, promiseWithResolvers } from './utils.js';
 
@@ -12,18 +13,33 @@ export class RunningPromise {
   private interruptibleSleep = new InterruptibleSleep();
   private requested: PromiseWithResolvers<void> | undefined = undefined;
 
-  constructor(private fn: () => void | Promise<void>, private pollingIntervalMS = 10000) {}
+  constructor(
+    private fn: () => void | Promise<void>,
+    private logger = createLogger('running-promise'),
+    private pollingIntervalMS = 10000,
+    private ignoredErrors: (new (...args: any[]) => Error)[] = [],
+  ) {}
 
   /**
    * Starts the running promise.
    */
   public start() {
+    if (this.running) {
+      this.logger.warn(`Attempted to start running promise that was already started`);
+      return;
+    }
     this.running = true;
 
     const poll = async () => {
       while (this.running) {
         const hasRequested = this.requested !== undefined;
-        await this.fn();
+        try {
+          await this.fn();
+        } catch (err) {
+          if (err instanceof Error && !this.ignoredErrors.some(ErrorType => err instanceof ErrorType)) {
+            this.logger.error('Error in running promise', err);
+          }
+        }
 
         // If an immediate run had been requested *before* the function started running, resolve the request.
         if (hasRequested) {
@@ -45,6 +61,10 @@ export class RunningPromise {
    * and waits for the currently executing function to complete.
    */
   async stop(): Promise<void> {
+    if (!this.running) {
+      this.logger.warn(`Running promise was not started`);
+      return;
+    }
     this.running = false;
     this.interruptibleSleep.interrupt();
     await this.runningPromise;

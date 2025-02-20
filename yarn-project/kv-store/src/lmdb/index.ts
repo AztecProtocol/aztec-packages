@@ -1,4 +1,4 @@
-import { type Logger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { join } from 'path';
 
@@ -8,7 +8,7 @@ import { AztecLmdbStore } from './store.js';
 
 export { AztecLmdbStore } from './store.js';
 
-export function createStore(name: string, config: DataStoreConfig, log: Logger = createDebugLogger('aztec:kv-store')) {
+export function createStore(name: string, config: DataStoreConfig, log: Logger = createLogger('kv-store')) {
   let { dataDirectory } = config;
   if (typeof dataDirectory !== 'undefined') {
     dataDirectory = join(dataDirectory, name);

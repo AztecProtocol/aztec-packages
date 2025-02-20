@@ -1,9 +1,8 @@
-import { type ServerCircuitProver } from '@aztec/circuit-types';
-import { NUM_BASE_PARITY_PER_ROOT_PARITY } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { type ServerCircuitProver } from '@aztec/circuit-types/interfaces/server';
+import { NUM_BASE_PARITY_PER_ROOT_PARITY } from '@aztec/constants';
+import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
 
@@ -11,7 +10,7 @@ import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prov
 import { TestContext } from '../mocks/test_context.js';
 import { ProvingOrchestrator } from './orchestrator.js';
 
-const logger = createDebugLogger('aztec:orchestrator-lifecycle');
+const logger = createLogger('prover-client:test:orchestrator-lifecycle');
 
 describe('prover/orchestrator/lifecycle', () => {
   let context: TestContext;
@@ -26,8 +25,8 @@ describe('prover/orchestrator/lifecycle', () => {
 
   describe('lifecycle', () => {
     it('cancels proving requests', async () => {
-      const prover: ServerCircuitProver = new TestCircuitProver(new NoopTelemetryClient());
-      const orchestrator = new ProvingOrchestrator(context.worldState, prover, new NoopTelemetryClient());
+      const prover: ServerCircuitProver = new TestCircuitProver();
+      const orchestrator = new ProvingOrchestrator(context.worldState, prover);
 
       const spy = jest.spyOn(prover, 'getBaseParityProof');
       const deferredPromises: PromiseWithResolvers<any>[] = [];
@@ -38,7 +37,7 @@ describe('prover/orchestrator/lifecycle', () => {
       });
 
       orchestrator.startNewEpoch(1, 1, 1);
-      await orchestrator.startNewBlock(2, context.globalVariables, []);
+      await orchestrator.startNewBlock(context.globalVariables, [], context.getPreviousBlockHeader());
 
       await sleep(1);
 

@@ -4,28 +4,29 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-    "./native": "./dest/native/index.js"
+    "./native": "./dest/native/index.js",
+    "./test": "./dest/test/index.js",
+    "./testing": "./dest/testing.js",
+    "./config": "./dest/synchronizer/config.js"
   },
   "typedocOptions": {
     "entryPoints": [
-      "./src/index.ts"
+      "./src/index.ts",
+      "./src/testing.ts"
     ],
     "name": "World State",
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && yarn generate && tsc -b",
-    "build:cpp": "./scripts/build.sh cpp",
+    "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
-    "clean": "rm -rf ./dest ./build .tsbuildinfo",
+    "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests",
-    "generate": "mkdir -p build && (([ -f ../../barretenberg/cpp/build/bin/world_state_napi.node ] && cp -v ../../barretenberg/cpp/build/bin/world_state_napi.node build) || ([ -f ../../barretenberg/cpp/build-pic/lib/world_state_napi.node ] && cp -v ../../barretenberg/cpp/build-pic/lib/world_state_napi.node build) || true)"
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "inherits": [
-    "../package.common.json",
-    "./package.local.json"
+    "../package.common.json"
   ],
   "jest": {
     "moduleNameMapper": {
@@ -53,31 +54,29 @@
       ".ts"
     ],
     "reporters": [
-      [
-        "default",
-        {
-          "summaryThreshold": 9999
-        }
-      ]
+      "default"
+    ],
+    "testTimeout": 120000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
+    "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/merkle-tree": "workspace:^",
+    "@aztec/native": "workspace:^",
+    "@aztec/protocol-contracts": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
-    "@aztec/types": "workspace:^",
-    "bindings": "^1.5.0",
-    "msgpackr": "^1.10.2",
     "tslib": "^2.4.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@aztec/archiver": "workspace:^",
     "@jest/globals": "^29.5.0",
-    "@types/bindings": "^1.5.5",
     "@types/jest": "^29.5.0",
     "@types/levelup": "^5.1.2",
     "@types/memdown": "^3.0.0",

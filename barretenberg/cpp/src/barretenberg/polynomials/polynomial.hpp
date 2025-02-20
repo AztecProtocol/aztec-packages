@@ -36,13 +36,15 @@ template <typename Fr> struct PolynomialSpan {
         ASSERT(index >= start_index && index < end_index());
         return span[index - start_index];
     }
-    PolynomialSpan subspan(size_t offset)
+    PolynomialSpan subspan(size_t offset, size_t length)
     {
         if (offset > span.size()) { // Return a null span
             return { 0, span.subspan(span.size()) };
         }
-        return { start_index + offset, span.subspan(offset) };
+        size_t new_length = std::min(length, span.size() - offset);
+        return { start_index + offset, span.subspan(offset, new_length) };
     }
+    operator PolynomialSpan<const Fr>() const { return PolynomialSpan<const Fr>(start_index, span); }
 };
 
 /**
@@ -161,6 +163,12 @@ template <typename Fr> class Polynomial {
      * we returns the view of the n-1 coefficients (a₁, …, aₙ₋₁).
      */
     Polynomial shifted() const;
+
+    /**
+     * @brief Returns a Polynomial equal to the right-shift-by-magnitude of self.
+     * @note Resulting Polynomial shares the memory of that used to generate it
+     */
+    Polynomial right_shifted(const size_t magnitude) const;
 
     /**
      * @brief evaluate multi-linear extension p(X_0,…,X_{n-1}) = \sum_i a_i*L_i(X_0,…,X_{n-1}) at u =
@@ -387,10 +395,6 @@ template <typename Fr> class Polynomial {
 
     // safety check for in place operations
     bool in_place_operation_viable(size_t domain_size) { return (size() >= domain_size); }
-
-    // When a polynomial is instantiated from a size alone, the memory allocated corresponds to
-    // input size + MAXIMUM_COEFFICIENT_SHIFT to support 'shifted' coefficients efficiently.
-    const static size_t MAXIMUM_COEFFICIENT_SHIFT = 1;
 
     // The underlying memory, with a bespoke (but minimal) shared array struct that fits our needs.
     // Namely, it supports polynomial shifts and 'virtual' zeroes past a size up until a 'virtual' size.

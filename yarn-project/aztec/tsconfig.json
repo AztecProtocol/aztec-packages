@@ -13,6 +13,9 @@
       "path": "../archiver"
     },
     {
+      "path": "../aztec-faucet"
+    },
+    {
       "path": "../aztec-node"
     },
     {
@@ -20,6 +23,9 @@
     },
     {
       "path": "../bb-prover"
+    },
+    {
+      "path": "../blob-sink"
     },
     {
       "path": "../bot"
@@ -38,6 +44,9 @@
     },
     {
       "path": "../cli-wallet"
+    },
+    {
+      "path": "../constants"
     },
     {
       "path": "../entrypoints"
@@ -85,7 +94,7 @@
       "path": "../txe"
     },
     {
-      "path": "../types"
+      "path": "../world-state"
     }
   ],
   "include": ["src"]

@@ -1,11 +1,20 @@
-import { type ArchiverApi, ArchiverApiSchema } from '@aztec/circuit-types';
-import { createSafeJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
-import { createSafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
+import { type ComponentsVersions, getVersioningResponseHandler } from '@aztec/circuit-types';
+import { type ArchiverApi, ArchiverApiSchema } from '@aztec/circuit-types/interfaces/server';
+import { createSafeJsonRpcClient } from '@aztec/foundation/json-rpc/client';
+import { createTracedJsonRpcServer, makeTracedFetch } from '@aztec/telemetry-client';
 
-export function createArchiverClient(url: string, fetch = makeFetch([1, 2, 3], true)): ArchiverApi {
-  return createSafeJsonRpcClient<ArchiverApi>(url, ArchiverApiSchema, false, 'archiver', fetch);
+export function createArchiverClient(
+  url: string,
+  versions: Partial<ComponentsVersions>,
+  fetch = makeTracedFetch([1, 2, 3], true),
+): ArchiverApi {
+  return createSafeJsonRpcClient<ArchiverApi>(url, ArchiverApiSchema, {
+    namespaceMethods: 'archiver',
+    fetch,
+    onResponse: getVersioningResponseHandler(versions),
+  });
 }
 
 export function createArchiverRpcServer(handler: ArchiverApi) {
-  return createSafeJsonRpcServer(handler, ArchiverApiSchema);
+  return createTracedJsonRpcServer(handler, ArchiverApiSchema);
 }

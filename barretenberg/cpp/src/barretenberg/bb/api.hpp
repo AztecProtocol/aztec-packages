@@ -8,7 +8,6 @@ class API {
     struct Flags {
         std::optional<std::string> output_type; // bytes, fields, bytes_and_fields, fields_msgpack
         std::optional<std::string> input_type;  // compiletime_stack, runtime_stack
-        bool no_auto_verify; // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove
     };
 
     virtual void prove(const Flags& flags,
@@ -36,5 +35,8 @@ class API {
                            const std::filesystem::path& proof_path,
                            const std::filesystem::path& vk_path,
                            const std::filesystem::path& output_path) = 0;
+
+    virtual void write_arbitrary_valid_proof_and_vk_to_file(const API::Flags& flags,
+                                                            const std::filesystem::path& output_dir) = 0;
 };
 } // namespace bb

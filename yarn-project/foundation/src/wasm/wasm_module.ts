@@ -59,7 +59,7 @@ export class WasmModule implements IWasmModule {
   constructor(
     private module: WebAssembly.Module | Buffer,
     private importFn: (module: WasmModule) => any,
-    loggerName = 'aztec:wasm',
+    loggerName = 'wasm',
   ) {
     this.debug = createDebugOnlyLogger(loggerName);
     this.mutexQ.put(true);

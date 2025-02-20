@@ -14,11 +14,10 @@ mod types;
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract DocsExample {
+pub contract DocsExample {
     // how to import dependencies defined in your workspace
     use dep::aztec::{
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-        keys::getters::get_public_keys,
+        encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
         macros::{functions::{internal, private, public, view}, storage::{storage, storage_no_init}},
     };
     use dep::aztec::prelude::{
@@ -159,12 +158,10 @@ contract DocsExample {
     // docs:start:initialize-private-mutable
     #[private]
     fn initialize_private_immutable(randomness: Field, points: u8) {
-        let mut new_card = CardNote::new(points, randomness, context.msg_sender());
+        let new_card = CardNote::new(points, randomness, context.msg_sender());
 
-        let msg_sender_ovpk_m = get_public_keys(context.msg_sender()).ovpk_m;
-        storage.private_immutable.initialize(&mut new_card).emit(encode_and_encrypt_note(
+        storage.private_immutable.initialize(new_card).emit(encode_and_encrypt_note(
             &mut context,
-            msg_sender_ovpk_m,
             context.msg_sender(),
             context.msg_sender(),
         ));
@@ -174,13 +171,11 @@ contract DocsExample {
     #[private]
     // msg_sender() is 0 at deploy time. So created another function
     fn initialize_private(randomness: Field, points: u8) {
-        let mut legendary_card = CardNote::new(points, randomness, context.msg_sender());
+        let legendary_card = CardNote::new(points, randomness, context.msg_sender());
 
-        let msg_sender_ovpk_m = get_public_keys(context.msg_sender()).ovpk_m;
         // create and broadcast note
-        storage.legendary_card.initialize(&mut legendary_card).emit(encode_and_encrypt_note(
+        storage.legendary_card.initialize(legendary_card).emit(encode_and_encrypt_note(
             &mut context,
-            msg_sender_ovpk_m,
             context.msg_sender(),
             context.msg_sender(),
         ));
@@ -188,13 +183,10 @@ contract DocsExample {
 
     #[private]
     fn insert_notes(amounts: [u8; 3]) {
-        let msg_sender_ovpk_m = get_public_keys(context.msg_sender()).ovpk_m;
-
         for i in 0..amounts.len() {
-            let mut note = CardNote::new(amounts[i], 1, context.msg_sender());
-            storage.set.insert(&mut note).emit(encode_and_encrypt_note(
+            let note = CardNote::new(amounts[i], 1, context.msg_sender());
+            storage.set.insert(note).emit(encode_and_encrypt_note(
                 &mut context,
-                msg_sender_ovpk_m,
                 context.msg_sender(),
                 context.msg_sender(),
             ));
@@ -202,12 +194,10 @@ contract DocsExample {
     }
     #[private]
     fn insert_note(amount: u8, randomness: Field) {
-        let mut note = CardNote::new(amount, randomness, context.msg_sender());
+        let note = CardNote::new(amount, randomness, context.msg_sender());
 
-        let msg_sender_ovpk_m = get_public_keys(context.msg_sender()).ovpk_m;
-        storage.set.insert(&mut note).emit(encode_and_encrypt_note(
+        storage.set.insert(note).emit(encode_and_encrypt_note(
             &mut context,
-            msg_sender_ovpk_m,
             context.msg_sender(),
             context.msg_sender(),
         ));
@@ -220,12 +210,10 @@ contract DocsExample {
     // docs:end:state_vars-NoteGetterOptionsComparatorExampleNoir
     #[private]
     fn update_legendary_card(randomness: Field, points: u8) {
-        let mut new_card = CardNote::new(points, randomness, context.msg_sender());
+        let new_card = CardNote::new(points, randomness, context.msg_sender());
 
-        let msg_sender_ovpk_m = get_public_keys(context.msg_sender()).ovpk_m;
-        storage.legendary_card.replace(&mut new_card).emit(encode_and_encrypt_note(
+        storage.legendary_card.replace(new_card).emit(encode_and_encrypt_note(
             &mut context,
-            msg_sender_ovpk_m,
             context.msg_sender(),
             context.msg_sender(),
         ));
@@ -241,13 +229,11 @@ contract DocsExample {
         let card = storage.legendary_card.get_note().note;
         // docs:end:state_vars-PrivateMutableGet
         let points = card.points + 1;
-        let mut new_card = CardNote::new(points, card.randomness, context.msg_sender());
+        let new_card = CardNote::new(points, card.randomness, context.msg_sender());
 
-        let msg_sender_ovpk_m = get_public_keys(context.msg_sender()).ovpk_m;
         // docs:start:state_vars-PrivateMutableReplace
-        storage.legendary_card.replace(&mut new_card).emit(encode_and_encrypt_note(
+        storage.legendary_card.replace(new_card).emit(encode_and_encrypt_note(
             &mut context,
-            msg_sender_ovpk_m,
             context.msg_sender(),
             context.msg_sender(),
         ));
@@ -256,6 +242,7 @@ contract DocsExample {
             &mut context,
         );
     }
+
     #[private]
     #[view]
     fn verify_private_authwit(inner_hash: Field) -> Field {

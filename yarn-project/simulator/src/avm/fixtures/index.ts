@@ -1,17 +1,20 @@
 import { isNoirCallStackUnresolved } from '@aztec/circuit-types';
-import { GasFees, GlobalVariables, MAX_L2_GAS_PER_ENQUEUED_CALL } from '@aztec/circuits.js';
-import { type FunctionArtifact, FunctionSelector } from '@aztec/foundation/abi';
+import { GasFees, GlobalVariables } from '@aztec/circuits.js';
+import { type ContractArtifact, type FunctionArtifact, FunctionSelector } from '@aztec/circuits.js/abi';
+import { MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/constants';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { AvmTestContractArtifact } from '@aztec/noir-contracts.js';
+import { AvmGadgetsTestContractArtifact } from '@aztec/noir-contracts.js/AvmGadgetsTest';
+import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 
 import { strict as assert } from 'assert';
 import { mock } from 'jest-mock-extended';
 import merge from 'lodash.merge';
 
-import { type WorldStateDB, resolveAssertionMessageFromRevertData, traverseCauseChain } from '../../index.js';
+import { resolveAssertionMessageFromRevertData, traverseCauseChain } from '../../common.js';
 import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
+import { AvmSimulator, type WorldStateDB } from '../../server.js';
 import { AvmContext } from '../avm_context.js';
 import { AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { AvmMachineState } from '../avm_machine_state.js';
@@ -22,6 +25,8 @@ import { AvmPersistableStateManager } from '../journal/journal.js';
 import { NullifierManager } from '../journal/nullifiers.js';
 import { PublicStorage } from '../journal/public_storage.js';
 
+export const PUBLIC_DISPATCH_FN_NAME = 'public_dispatch';
+
 /**
  * Create a new AVM context with default values.
  */
@@ -30,11 +35,13 @@ export function initContext(overrides?: {
   env?: AvmExecutionEnvironment;
   machineState?: AvmMachineState;
 }): AvmContext {
-  return new AvmContext(
+  const ctx = new AvmContext(
     overrides?.persistableState || initPersistableStateManager(),
     overrides?.env || initExecutionEnvironment(),
     overrides?.machineState || initMachineState(),
   );
+  ctx.provideSimulator = AvmSimulator.build;
+  return ctx;
 }
 
 /** Creates an empty state manager with mocked host storage. */
@@ -45,6 +52,7 @@ export function initPersistableStateManager(overrides?: {
   nullifiers?: NullifierManager;
   doMerkleOperations?: boolean;
   merkleTrees?: AvmEphemeralForest;
+  firstNullifier?: Fr;
 }): AvmPersistableStateManager {
   const worldStateDB = overrides?.worldStateDB || mock<WorldStateDB>();
   return new AvmPersistableStateManager(
@@ -54,6 +62,7 @@ export function initPersistableStateManager(overrides?: {
     overrides?.nullifiers || new NullifierManager(worldStateDB),
     overrides?.doMerkleOperations || false,
     overrides?.merkleTrees || mock<AvmEphemeralForest>(),
+    overrides?.firstNullifier || new Fr(27),
   );
 }
 
@@ -64,7 +73,6 @@ export function initExecutionEnvironment(overrides?: Partial<AvmExecutionEnviron
   return new AvmExecutionEnvironment(
     overrides?.address ?? AztecAddress.zero(),
     overrides?.sender ?? AztecAddress.zero(),
-    overrides?.functionSelector ?? FunctionSelector.empty(),
     overrides?.contractCallDepth ?? Fr.zero(),
     overrides?.transactionFee ?? Fr.zero(),
     overrides?.globals ?? GlobalVariables.empty(),
@@ -94,7 +102,7 @@ export function initGlobalVariables(overrides?: Partial<GlobalVariables>): Globa
  */
 export function initMachineState(overrides?: Partial<AvmMachineState>): AvmMachineState {
   return AvmMachineState.fromState({
-    l2GasLeft: overrides?.l2GasLeft ?? MAX_L2_GAS_PER_ENQUEUED_CALL,
+    l2GasLeft: overrides?.l2GasLeft ?? MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
     daGasLeft: overrides?.daGasLeft ?? 1e8,
   });
 }
@@ -122,15 +130,67 @@ export function randomMemoryFields(length: number): Field[] {
   return [...Array(length)].map(_ => new Field(Fr.random()));
 }
 
-export function getAvmTestContractFunctionSelector(functionName: string): FunctionSelector {
-  const artifact = AvmTestContractArtifact.functions.find(f => f.name === functionName)!;
-  assert(!!artifact, `Function ${functionName} not found in AvmTestContractArtifact`);
+export function getFunctionSelector(
+  functionName: string,
+  contractArtifact: ContractArtifact,
+): Promise<FunctionSelector> {
+  const fnArtifact = contractArtifact.functions.find(f => f.name === functionName)!;
+  assert(!!fnArtifact, `Function ${functionName} not found in ${contractArtifact.name}`);
+  const params = fnArtifact.parameters;
+  return FunctionSelector.fromNameAndParameters(fnArtifact.name, params);
+}
+
+export function getContractFunctionArtifact(
+  functionName: string,
+  contractArtifact: ContractArtifact,
+): FunctionArtifact | undefined {
+  const artifact = contractArtifact.functions.find(f => f.name === functionName)!;
+  if (!artifact) {
+    return undefined;
+  }
+  return artifact;
+}
+
+export function resolveContractAssertionMessage(
+  functionName: string,
+  revertReason: AvmRevertReason,
+  output: Fr[],
+  contractArtifact: ContractArtifact,
+): string | undefined {
+  traverseCauseChain(revertReason, cause => {
+    revertReason = cause as AvmRevertReason;
+  });
+
+  const functionArtifact = contractArtifact.functions.find(f => f.name === functionName);
+  if (!functionArtifact || !revertReason.noirCallStack || !isNoirCallStackUnresolved(revertReason.noirCallStack)) {
+    return undefined;
+  }
+
+  return resolveAssertionMessageFromRevertData(output, functionArtifact);
+}
+
+export function getAvmTestContractFunctionSelector(functionName: string): Promise<FunctionSelector> {
+  return getFunctionSelector(functionName, AvmTestContractArtifact);
+}
+
+export function getAvmGadgetsTestContractFunctionSelector(functionName: string): Promise<FunctionSelector> {
+  const artifact = AvmGadgetsTestContractArtifact.functions.find(f => f.name === functionName)!;
+  assert(!!artifact, `Function ${functionName} not found in AvmGadgetsTestContractArtifact`);
   const params = artifact.parameters;
   return FunctionSelector.fromNameAndParameters(artifact.name, params);
 }
 
 export function getAvmTestContractArtifact(functionName: string): FunctionArtifact {
-  const artifact = AvmTestContractArtifact.functions.find(f => f.name === functionName)!;
+  const artifact = getContractFunctionArtifact(functionName, AvmTestContractArtifact);
+  assert(
+    !!artifact?.bytecode,
+    `No bytecode found for function ${functionName}. Try re-running bootstrap.sh on the repository root.`,
+  );
+  return artifact;
+}
+
+export function getAvmGadgetsTestContractArtifact(functionName: string): FunctionArtifact {
+  const artifact = AvmGadgetsTestContractArtifact.functions.find(f => f.name === functionName)!;
   assert(
     !!artifact?.bytecode,
     `No bytecode found for function ${functionName}. Try re-running bootstrap.sh on the repository root.`,
@@ -143,7 +203,20 @@ export function getAvmTestContractBytecode(functionName: string): Buffer {
   return artifact.bytecode;
 }
 
+export function getAvmGadgetsTestContractBytecode(functionName: string): Buffer {
+  const artifact = getAvmGadgetsTestContractArtifact(functionName);
+  return artifact.bytecode;
+}
+
 export function resolveAvmTestContractAssertionMessage(
+  functionName: string,
+  revertReason: AvmRevertReason,
+  output: Fr[],
+): string | undefined {
+  return resolveContractAssertionMessage(functionName, revertReason, output, AvmTestContractArtifact);
+}
+
+export function resolveAvmGadgetsTestContractAssertionMessage(
   functionName: string,
   revertReason: AvmRevertReason,
   output: Fr[],
@@ -152,7 +225,7 @@ export function resolveAvmTestContractAssertionMessage(
     revertReason = cause as AvmRevertReason;
   });
 
-  const functionArtifact = AvmTestContractArtifact.functions.find(f => f.name === functionName);
+  const functionArtifact = AvmGadgetsTestContractArtifact.functions.find(f => f.name === functionName);
   if (!functionArtifact || !revertReason.noirCallStack || !isNoirCallStackUnresolved(revertReason.noirCallStack)) {
     return undefined;
   }

@@ -8,17 +8,21 @@
     "./interfaces/pxe": "./dest/api/interfaces/pxe.js",
     "./abi": "./dest/api/abi.js",
     "./account": "./dest/api/account.js",
-    "./aztec_address": "./dest/api/aztec_address.js",
+    "./addresses": "./dest/api/addresses.js",
+    "./cheatcodes": "./dest/api/cheatcodes.js",
+    "./contracts": "./dest/contract/index.js",
     "./deployment": "./dest/api/deployment.js",
     "./entrypoint": "./dest/api/entrypoint.js",
     "./eth_address": "./dest/api/eth_address.js",
-    "./ethereum": "./dest/api/ethereum.js",
+    "./ethereum": "./dest/api/ethereum/index.js",
     "./fee": "./dest/api/fee.js",
     "./fields": "./dest/api/fields.js",
-    "./init": "./dest/api/init.js",
+    "./log": "./dest/api/log.js",
     "./log_id": "./dest/api/log_id.js",
+    "./rpc": "./dest/rpc_clients/index.js",
     "./tx_hash": "./dest/api/tx_hash.js",
-    "./wallet": "./dest/api/wallet.js"
+    "./wallet": "./dest/api/wallet.js",
+    "./utils": "./dest/utils/index.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -28,14 +32,13 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && tsc -b && webpack",
-    "build:web": "webpack",
+    "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
     "build:ts": "tsc -b",
     "clean": "rm -rf ./dest .tsbuildinfo ./src/account_contract/artifacts",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests"
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "inherits": [
     "../package.common.json",
@@ -67,25 +70,24 @@
       ".ts"
     ],
     "reporters": [
-      [
-        "default",
-        {
-          "summaryThreshold": 9999
-        }
-      ]
+      "default"
+    ],
+    "testTimeout": 120000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
+    "@aztec/constants": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
-    "@aztec/types": "workspace:^",
     "axios": "^1.7.2",
     "tslib": "^2.4.0",
-    "viem": "^2.7.15"
+    "viem": "2.22.8"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",
@@ -101,9 +103,7 @@
     "ts-loader": "^9.4.4",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.4",
-    "util": "^0.12.5",
-    "webpack": "^5.88.2",
-    "webpack-cli": "^5.1.4"
+    "util": "^0.12.5"
   },
   "files": [
     "dest",

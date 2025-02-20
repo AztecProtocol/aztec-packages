@@ -1,7 +1,7 @@
 import { type AuthWitnessProvider } from '@aztec/aztec.js/account';
 import { AuthWitness, type CompleteAddress, type GrumpkinScalar } from '@aztec/circuit-types';
-import { Schnorr } from '@aztec/circuits.js/barretenberg';
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type ContractArtifact } from '@aztec/circuits.js/abi';
+import { Schnorr } from '@aztec/foundation/crypto';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { DefaultAccountContract } from '../defaults/account_contract.js';
@@ -16,8 +16,8 @@ export class SingleKeyAccountContract extends DefaultAccountContract {
     super(SchnorrSingleKeyAccountContractArtifact as ContractArtifact);
   }
 
-  getDeploymentArgs(): undefined {
-    return undefined;
+  getDeploymentArgs() {
+    return Promise.resolve(undefined);
   }
 
   getAuthWitnessProvider(account: CompleteAddress): AuthWitnessProvider {
@@ -33,9 +33,9 @@ export class SingleKeyAccountContract extends DefaultAccountContract {
 class SingleKeyAuthWitnessProvider implements AuthWitnessProvider {
   constructor(private privateKey: GrumpkinScalar, private account: CompleteAddress) {}
 
-  createAuthWit(messageHash: Fr): Promise<AuthWitness> {
+  async createAuthWit(messageHash: Fr): Promise<AuthWitness> {
     const schnorr = new Schnorr();
-    const signature = schnorr.constructSignature(messageHash.toBuffer(), this.privateKey);
+    const signature = await schnorr.constructSignature(messageHash.toBuffer(), this.privateKey);
     const witness = [...this.account.publicKeys.toFields(), ...signature.toBuffer(), this.account.partialAddress];
     return Promise.resolve(new AuthWitness(messageHash, witness));
   }

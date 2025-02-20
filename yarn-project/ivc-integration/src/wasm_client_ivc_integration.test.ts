@@ -1,6 +1,9 @@
-import { createDebugLogger } from '@aztec/foundation/log';
+import { AztecClientBackend } from '@aztec/bb.js';
 
 import { jest } from '@jest/globals';
+
+/* eslint-disable camelcase */
+import createDebug from 'debug';
 import { ungzip } from 'pako';
 
 import {
@@ -17,6 +20,7 @@ import {
   MockPrivateKernelResetVk,
   MockPrivateKernelTailCircuit,
   getVkAsFields,
+  proveThenVerifyAztecClient,
   witnessGenCreatorAppMockCircuit,
   witnessGenMockPrivateKernelInitCircuit,
   witnessGenMockPrivateKernelInnerCircuit,
@@ -25,41 +29,13 @@ import {
   witnessGenReaderAppMockCircuit,
 } from './index.js';
 
-/* eslint-disable camelcase */
-
-const logger = createDebugLogger('aztec:clientivc-integration');
+const logger = createDebug('ivc-integration:test:wasm');
+createDebug.enable('*');
 
 jest.setTimeout(120_000);
 
 describe('Client IVC Integration', () => {
   beforeEach(async () => {});
-
-  function base64ToUint8Array(base64: string) {
-    const binaryString = atob(base64);
-    const len = binaryString.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes;
-  }
-
-  async function proveAndVerifyAztecClient(
-    witnessStack: Uint8Array[],
-    bytecodes: string[],
-    threads?: number,
-  ): Promise<boolean> {
-    const { AztecClientBackend } = await import('@aztec/bb.js');
-    const backend = new AztecClientBackend(
-      bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr)),
-      { threads },
-    );
-
-    const verified = await backend.proveAndVerify(witnessStack.map((arr: Uint8Array) => ungzip(arr)));
-    logger.debug(`finished running proveAndVerify ${verified}`);
-    await backend.destroy();
-    return verified;
-  }
 
   // This test will verify a client IVC proof of a simple tx:
   // 1. Run a mock app that creates two commitments
@@ -71,20 +47,20 @@ describe('Client IVC Integration', () => {
     };
     // Witness gen app and kernels
     const appWitnessGenResult = await witnessGenCreatorAppMockCircuit({ commitments_to_create: ['0x1', '0x2'] });
-    logger.debug('generated app mock circuit witness');
+    logger('generated app mock circuit witness');
 
     const initWitnessGenResult = await witnessGenMockPrivateKernelInitCircuit({
       app_inputs: appWitnessGenResult.publicInputs,
       tx,
       app_vk: getVkAsFields(MockAppCreatorVk),
     });
-    logger.debug('generated mock private kernel init witness');
+    logger('generated mock private kernel init witness');
 
     const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
       prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
       kernel_vk: getVkAsFields(MockPrivateKernelInitVk),
     });
-    logger.debug('generated mock private kernel tail witness');
+    logger('generated mock private kernel tail witness');
 
     // Create client IVC proof
     const bytecodes = [
@@ -92,16 +68,36 @@ describe('Client IVC Integration', () => {
       MockPrivateKernelInitCircuit.bytecode,
       MockPrivateKernelTailCircuit.bytecode,
     ];
-    logger.debug('built bytecode array');
-    const witnessStack = [appWitnessGenResult.witness, initWitnessGenResult.witness, tailWitnessGenResult.witness];
-    logger.debug('built witness stack');
 
-    const verifyResult = await proveAndVerifyAztecClient(witnessStack, bytecodes);
-    logger.debug(`generated and verified proof. result: ${verifyResult}`);
+    logger('built bytecode array');
+    const witnessStack = [appWitnessGenResult.witness, initWitnessGenResult.witness, tailWitnessGenResult.witness];
+    logger('built witness stack');
+
+    const verifyResult = await proveThenVerifyAztecClient(bytecodes, witnessStack);
+    logger(`generated then verified proof. result: ${verifyResult}`);
 
     expect(verifyResult).toEqual(true);
   });
 
+  it('Should generate an array of gate numbers for the stack of programs being proved by ClientIVC', async () => {
+    // Create ACIR bytecodes
+    const bytecodes = [
+      MockAppCreatorCircuit.bytecode,
+      MockPrivateKernelInitCircuit.bytecode,
+      MockPrivateKernelTailCircuit.bytecode,
+    ];
+
+    // Initialize AztecClientBackend with the given bytecodes
+    const backend = new AztecClientBackend(bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr)));
+
+    // Compute the numbers of gates in each circuit
+    const gateNumbers = await backend.gates();
+    await backend.destroy();
+    logger('Gate numbers for each circuit:', gateNumbers);
+    // STARTER: add a test here instantiate an AztecClientBackend with the above bytecodes, call gates, and check they're correct (maybe just
+    // eyeball against logs to start... better is to make another test that actually pins the sizes since the mock protocol circuits are
+    // intended not to change, though for sure there will be some friction, and such test should actually just be located in barretenberg/ts)
+  });
   // This test will verify a client IVC proof of a more complex tx:
   // 1. Run a mock app that creates two commitments
   // 2. Run the init kernel to process the app run
@@ -163,9 +159,12 @@ describe('Client IVC Integration', () => {
       tailWitnessGenResult.witness,
     ];
 
-    const verifyResult = await proveAndVerifyAztecClient(witnessStack, bytecodes);
-    logger.debug(`generated and verified proof. result: ${verifyResult}`);
+    const verifyResult = await proveThenVerifyAztecClient(bytecodes, witnessStack);
+    logger(`generated then verified proof. result: ${verifyResult}`);
 
     expect(verifyResult).toEqual(true);
   });
 });
+function base64ToUint8Array(base64: string): Uint8Array {
+  return Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+}

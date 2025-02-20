@@ -209,7 +209,7 @@ class AvmArithmeticTests : public ::testing::Test {
         , trace_builder(
               AvmTraceBuilder(public_inputs).set_full_precomputed_tables(false).set_range_check_required(false))
     {
-        srs::init_crs_factory("../srs_db/ignition");
+        srs::init_crs_factory(bb::srs::get_ignition_crs_path());
     }
 
     AvmPublicInputs public_inputs;
@@ -217,9 +217,10 @@ class AvmArithmeticTests : public ::testing::Test {
 
     void gen_trace_builder(std::vector<FF> const& calldata)
     {
-        trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata)
-                            .set_full_precomputed_tables(false)
-                            .set_range_check_required(false);
+        trace_builder =
+            AvmTraceBuilder(public_inputs, {}, 0).set_full_precomputed_tables(false).set_range_check_required(false);
+        trace_builder.set_all_calldata(calldata);
+        trace_builder.current_ext_call_ctx.calldata = calldata;
     }
 
     // Generate a trace with an EQ opcode operation.
@@ -601,6 +602,7 @@ TEST_F(AvmArithmeticTestsFF, fDivisionByZeroError)
 // We check that the operator error flag is raised.
 TEST_F(AvmArithmeticTestsFF, fDivisionZeroByZeroError)
 {
+    gen_trace_builder({});
     //                  Memory layout:    [0,0,0,0,0,0,....]
     trace_builder.op_fdiv(0, 0, 1, 2); // [0,0,0,0,0,0....]
     trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);

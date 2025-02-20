@@ -1,4 +1,5 @@
-import { type PXE, Tx } from '@aztec/circuit-types';
+import { Tx } from '@aztec/circuit-types';
+import { type PXE } from '@aztec/circuit-types/interfaces/client';
 
 import { type Wallet } from '../account/index.js';
 import { SentTx } from './sent_tx.js';
@@ -11,7 +12,6 @@ export class ProvenTx extends Tx {
     super(
       tx.data,
       tx.clientIvcProof,
-      tx.unencryptedLogs,
       tx.contractClassLogs,
       tx.enqueuedPublicFunctionCalls,
       tx.publicTeardownFunctionCall,
@@ -23,7 +23,6 @@ export class ProvenTx extends Tx {
     return new Tx(
       this.data,
       this.clientIvcProof,
-      this.unencryptedLogs,
       this.contractClassLogs,
       this.enqueuedPublicFunctionCalls,
       this.publicTeardownFunctionCall,

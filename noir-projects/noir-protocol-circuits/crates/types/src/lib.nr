@@ -1,6 +1,7 @@
 pub mod utils;
 pub mod address;
 pub mod debug_log;
+pub mod debug;
 pub mod public_keys;
 pub mod point;
 pub mod scalar;
@@ -13,13 +14,16 @@ pub mod contract_instance;
 
 pub mod messaging;
 pub mod hash;
+pub mod poseidon2;
 pub mod traits;
 pub mod type_serialization;
+pub mod type_packing;
 
+pub mod shared_mutable;
 pub mod content_commitment;
 pub mod block_header;
 
-mod tests;
+pub(crate) mod tests;
 
 pub mod state_reference;
 pub mod partial_state_reference;
@@ -31,5 +35,5 @@ pub mod meta;
 pub mod indexed_tagging_secret;
 
 pub use abis::kernel_circuit_public_inputs::{
-    KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs,
+    PrivateKernelCircuitPublicInputs, PrivateToRollupKernelCircuitPublicInputs,
 };

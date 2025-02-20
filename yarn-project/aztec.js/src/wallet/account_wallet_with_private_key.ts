@@ -1,4 +1,4 @@
-import { type PXE } from '@aztec/circuit-types';
+import { type PXE } from '@aztec/circuit-types/interfaces/client';
 import { type Fr, computeAddressSecret, deriveMasterIncomingViewingSecretKey } from '@aztec/circuits.js';
 
 import { type Salt } from '../account/index.js';
@@ -30,9 +30,9 @@ export class AccountWalletWithSecretKey extends AccountWallet {
    * note - this ensures that the address secret always corresponds to an address point with y being positive
    * dev - this is also referred to as the address secret, which decrypts payloads encrypted to an address point
    */
-  public getEncryptionSecret() {
+  public async getEncryptionSecret() {
     return computeAddressSecret(
-      this.getCompleteAddress().getPreaddress(),
+      await this.getCompleteAddress().getPreaddress(),
       deriveMasterIncomingViewingSecretKey(this.getSecretKey()),
     );
   }

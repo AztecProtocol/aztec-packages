@@ -1,11 +1,11 @@
 import {
   type ContractClassPublic,
-  PUBLIC_DISPATCH_SELECTOR,
   type PublicFunction,
   computeContractClassId,
   computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
-import { FunctionSelector, bufferFromFields } from '@aztec/foundation/abi';
+import { FunctionSelector, bufferFromFields } from '@aztec/circuits.js/abi';
+import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
 
@@ -46,11 +46,11 @@ export class ContractClassRegisteredEvent {
     );
   }
 
-  toContractClassPublic(): ContractClassPublic {
-    const computedClassId = computeContractClassId({
+  async toContractClassPublic(): Promise<ContractClassPublic> {
+    const computedClassId = await computeContractClassId({
       artifactHash: this.artifactHash,
       privateFunctionsRoot: this.privateFunctionsRoot,
-      publicBytecodeCommitment: computePublicBytecodeCommitment(this.packedPublicBytecode),
+      publicBytecodeCommitment: await computePublicBytecodeCommitment(this.packedPublicBytecode),
     });
 
     if (!computedClassId.equals(this.contractClassId)) {

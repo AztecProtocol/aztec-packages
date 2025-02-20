@@ -1,6 +1,10 @@
 use crate::{
     context::PrivateContext,
-    note::{note_interface::{NoteInterface, NullifiableNote}, utils::compute_siloed_nullifier},
+    note::{
+        note_interface::{NoteInterface, NullifiableNote},
+        retrieved_note::RetrievedNote,
+        utils::compute_siloed_nullifier,
+    },
     oracle::get_nullifier_membership_witness::get_low_nullifier_membership_witness,
 };
 use dep::protocol_types::{
@@ -16,6 +20,7 @@ trait ProveNullifierNonInclusion {
 impl ProveNullifierNonInclusion for BlockHeader {
     fn prove_nullifier_non_inclusion(self, nullifier: Field) {
         // 1) Get the membership witness of a low nullifier of the nullifier
+        // Safety: The witness is only used as a "magical value" that makes the proof below pass. Hence it's safe.
         let witness = unsafe {
             get_low_nullifier_membership_witness(
                 self.global_variables.block_number as u32,
@@ -27,9 +32,9 @@ impl ProveNullifierNonInclusion for BlockHeader {
         // the 'low leaf', i.e. the leaf that would come immediately before the nullifier's leaf, if the nullifier were
         // to be in the tree.
         let low_nullifier_leaf = witness.leaf_preimage;
-        assert(
-            self.state.partial.nullifier_tree.root
-                == root_from_sibling_path(low_nullifier_leaf.hash(), witness.index, witness.path),
+        assert_eq(
+            self.state.partial.nullifier_tree.root,
+            root_from_sibling_path(low_nullifier_leaf.hash(), witness.index, witness.path),
             "Proving nullifier non-inclusion failed: Could not prove low nullifier inclusion",
         );
 
@@ -51,22 +56,28 @@ impl ProveNullifierNonInclusion for BlockHeader {
 }
 
 trait ProveNoteNotNullified {
-    fn prove_note_not_nullified<Note, let N: u32>(
+    fn prove_note_not_nullified<Note>(
         header: BlockHeader,
-        note: Note,
+        retrieved_note: RetrievedNote<Note>,
+        storage_slot: Field,
         context: &mut PrivateContext,
     )
     where
-        Note: NoteInterface<N> + NullifiableNote;
+        Note: NoteInterface + NullifiableNote;
 }
 
 impl ProveNoteNotNullified for BlockHeader {
     // docs:start:prove_note_not_nullified
-    fn prove_note_not_nullified<Note, let N: u32>(self, note: Note, context: &mut PrivateContext)
+    fn prove_note_not_nullified<Note>(
+        self,
+        retrieved_note: RetrievedNote<Note>,
+        storage_slot: Field,
+        context: &mut PrivateContext,
+    )
     where
-        Note: NoteInterface<N> + NullifiableNote,
+        Note: NoteInterface + NullifiableNote,
     {
-        let nullifier = compute_siloed_nullifier(note, context);
+        let nullifier = compute_siloed_nullifier(retrieved_note, storage_slot, context);
 
         self.prove_nullifier_non_inclusion(nullifier);
     }

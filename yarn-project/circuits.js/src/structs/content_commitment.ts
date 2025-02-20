@@ -1,3 +1,4 @@
+import { CONTENT_COMMITMENT_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -5,17 +6,16 @@ import { bufferToHex } from '@aztec/foundation/string';
 
 import { z } from 'zod';
 
-import { CONTENT_COMMITMENT_LENGTH } from '../constants.gen.js';
-
 export const NUM_BYTES_PER_SHA256 = 32;
 
 export class ContentCommitment {
-  constructor(public numTxs: Fr, public txsEffectsHash: Buffer, public inHash: Buffer, public outHash: Buffer) {
-    if (txsEffectsHash.length !== NUM_BYTES_PER_SHA256) {
-      throw new Error(`txsEffectsHash buffer must be ${NUM_BYTES_PER_SHA256} bytes`);
+  constructor(public numTxs: Fr, public blobsHash: Buffer, public inHash: Buffer, public outHash: Buffer) {
+    // NB: we do not calculate blobHash in the circuit, but we still truncate it so it fits in a field
+    if (blobsHash.length !== NUM_BYTES_PER_SHA256) {
+      throw new Error(`blobsHash buffer must be ${NUM_BYTES_PER_SHA256} bytes`);
     }
-    if (txsEffectsHash[0] !== 0) {
-      throw new Error(`txsEffectsHash buffer should be truncated and left padded`);
+    if (blobsHash[0] !== 0) {
+      throw new Error(`blobsHash buffer should be truncated and left padded`);
     }
     if (inHash.length !== NUM_BYTES_PER_SHA256) {
       throw new Error(`inHash buffer must be ${NUM_BYTES_PER_SHA256} bytes`);
@@ -35,13 +35,11 @@ export class ContentCommitment {
     return z
       .object({
         numTxs: schemas.Fr,
-        txsEffectsHash: schemas.Buffer,
+        blobsHash: schemas.Buffer,
         inHash: schemas.Buffer,
         outHash: schemas.Buffer,
       })
-      .transform(
-        ({ numTxs, txsEffectsHash, inHash, outHash }) => new ContentCommitment(numTxs, txsEffectsHash, inHash, outHash),
-      );
+      .transform(({ numTxs, blobsHash, inHash, outHash }) => new ContentCommitment(numTxs, blobsHash, inHash, outHash));
   }
 
   getSize() {
@@ -49,18 +47,29 @@ export class ContentCommitment {
   }
 
   toBuffer() {
-    return serializeToBuffer(this.numTxs, this.txsEffectsHash, this.inHash, this.outHash);
+    return serializeToBuffer(this.numTxs, this.blobsHash, this.inHash, this.outHash);
+  }
+
+  toInspect() {
+    return {
+      numTxs: this.numTxs.toNumber(),
+      blobsHash: bufferToHex(this.blobsHash),
+      inHash: bufferToHex(this.inHash),
+      outHash: bufferToHex(this.outHash),
+    };
   }
 
   toFields(): Fr[] {
     const serialized = [
       this.numTxs,
-      Fr.fromBuffer(this.txsEffectsHash),
+      Fr.fromBuffer(this.blobsHash),
       Fr.fromBuffer(this.inHash),
       Fr.fromBuffer(this.outHash),
     ];
     if (serialized.length !== CONTENT_COMMITMENT_LENGTH) {
-      throw new Error(`Expected content commitment to have 4 fields, but it has ${serialized.length} fields`);
+      throw new Error(
+        `Expected content commitment to have ${CONTENT_COMMITMENT_LENGTH} fields, but it has ${serialized.length} fields`,
+      );
     }
     return serialized;
   }
@@ -98,7 +107,7 @@ export class ContentCommitment {
   isEmpty(): boolean {
     return (
       this.numTxs.isZero() &&
-      this.txsEffectsHash.equals(Buffer.alloc(NUM_BYTES_PER_SHA256)) &&
+      this.blobsHash.equals(Buffer.alloc(NUM_BYTES_PER_SHA256)) &&
       this.inHash.equals(Buffer.alloc(NUM_BYTES_PER_SHA256)) &&
       this.outHash.equals(Buffer.alloc(NUM_BYTES_PER_SHA256))
     );
@@ -118,7 +127,7 @@ export class ContentCommitment {
       this.inHash.equals(other.inHash) &&
       this.outHash.equals(other.outHash) &&
       this.numTxs.equals(other.numTxs) &&
-      this.txsEffectsHash.equals(other.txsEffectsHash)
+      this.blobsHash.equals(other.blobsHash)
     );
   }
 }

@@ -1,8 +1,7 @@
 use dep::authwit::auth_witness;
-use dep::aztec::protocol_types::{
-    address::PartialAddress,
-    public_keys::{PUBLIC_KEYS_LENGTH, PublicKeys},
-    utils::arr_copy_slice,
+use dep::aztec::{
+    protocol_types::{address::PartialAddress, public_keys::{PUBLIC_KEYS_LENGTH, PublicKeys}},
+    utils::array,
 };
 
 pub struct AuthWitness {
@@ -18,7 +17,7 @@ impl AuthWitness {
             signature[i] = values[i + PUBLIC_KEYS_LENGTH] as u8;
         }
         Self {
-            keys: PublicKeys::deserialize(arr_copy_slice(values, [0; PUBLIC_KEYS_LENGTH], 0)),
+            keys: PublicKeys::deserialize(array::subarray(values, 0)),
             signature,
             partial_address: PartialAddress::from_field(values[76]),
         }

@@ -15,6 +15,8 @@ contract Rollup is RealRollup {
     IERC20 _stakingAsset,
     bytes32 _vkTreeRoot,
     bytes32 _protocolContractTreeRoot,
+    bytes32 _genesisArchiveRoot,
+    bytes32 _genesisBlockHash,
     address _ares
   )
     RealRollup(
@@ -23,13 +25,17 @@ contract Rollup is RealRollup {
       _stakingAsset,
       _vkTreeRoot,
       _protocolContractTreeRoot,
+      _genesisArchiveRoot,
+      _genesisBlockHash,
       _ares,
       Config({
         aztecSlotDuration: TestConstants.AZTEC_SLOT_DURATION,
         aztecEpochDuration: TestConstants.AZTEC_EPOCH_DURATION,
         targetCommitteeSize: TestConstants.AZTEC_TARGET_COMMITTEE_SIZE,
-        aztecEpochProofClaimWindowInL2Slots: TestConstants.AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS,
-        minimumStake: TestConstants.AZTEC_MINIMUM_STAKE
+        aztecProofSubmissionWindow: TestConstants.AZTEC_PROOF_SUBMISSION_WINDOW,
+        minimumStake: TestConstants.AZTEC_MINIMUM_STAKE,
+        slashingQuorum: TestConstants.AZTEC_SLASHING_QUORUM,
+        slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE
       })
     )
   {}

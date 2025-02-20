@@ -1,5 +1,5 @@
-import { createAccount } from '@aztec/accounts/testing';
-import { createDebugLogger, createPXEClient, waitForPXE } from '@aztec/aztec.js';
+import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
+import { createLogger, createPXEClient, waitForPXE } from '@aztec/aztec.js';
 
 import { deployToken } from '../fixtures/token_utils';
 
@@ -14,11 +14,10 @@ describe('token', () => {
   beforeAll(async () => {
     const pxe = createPXEClient(PXE_URL);
     await waitForPXE(pxe);
-    owner = await createAccount(pxe);
-    recipient = await createAccount(pxe);
+    [owner, recipient] = await getDeployedTestAccountsWallets(pxe);
 
     const initialBalance = 69;
-    token = await deployToken(owner, initialBalance, createDebugLogger('sample_dapp'));
+    token = await deployToken(owner, initialBalance, createLogger('e2e:sample_dapp'));
   }, 120_000);
   // docs:end:setup
 

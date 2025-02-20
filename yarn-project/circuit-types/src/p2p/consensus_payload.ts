@@ -5,9 +5,10 @@ import { hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { encodeAbiParameters, parseAbiParameters } from 'viem';
+import { z } from 'zod';
 
 import { TxHash } from '../tx/tx_hash.js';
-import { type Signable, type SignatureDomainSeperator } from './signature_utils.js';
+import { type Signable, type SignatureDomainSeparator } from './signature_utils.js';
 
 export class ConsensusPayload implements Signable {
   private size: number | undefined;
@@ -21,19 +22,29 @@ export class ConsensusPayload implements Signable {
     public readonly txHashes: TxHash[],
   ) {}
 
+  static get schema() {
+    return z
+      .object({
+        header: BlockHeader.schema,
+        archive: Fr.schema,
+        txHashes: z.array(TxHash.schema),
+      })
+      .transform(obj => new ConsensusPayload(obj.header, obj.archive, obj.txHashes));
+  }
+
   static getFields(fields: FieldsOf<ConsensusPayload>) {
     return [fields.header, fields.archive, fields.txHashes] as const;
   }
 
-  getPayloadToSign(domainSeperator: SignatureDomainSeperator): Buffer {
-    const abi = parseAbiParameters('uint8, (bytes32, bytes32, (uint256, uint256), bytes, bytes32[])');
+  async getPayloadToSign(domainSeparator: SignatureDomainSeparator): Promise<Buffer> {
+    const abi = parseAbiParameters('uint8, (bytes32, bytes32, (uint256), bytes, bytes32[])');
     const txArray = this.txHashes.map(tx => tx.toString());
     const encodedData = encodeAbiParameters(abi, [
-      domainSeperator,
+      domainSeparator,
       [
         this.archive.toString(),
-        this.header.hash().toString(),
-        [0n, 0n] /* @todo See #9963 */,
+        (await this.header.hash()).toString(),
+        [0n] /* @todo See #9963 */,
         this.header.toString(),
         txArray,
       ],

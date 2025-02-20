@@ -1,11 +1,10 @@
-import { type FunctionAbi, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
+import { FUNCTION_DATA_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
-import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';
 
-import { FUNCTION_DATA_LENGTH } from '../constants.gen.js';
+import { type FunctionAbi, FunctionSelector, FunctionType } from '../abi/index.js';
 import { type ContractFunctionDao } from '../types/contract_function_dao.js';
 
 /** Function description for circuit. */
@@ -17,9 +16,9 @@ export class FunctionData {
     public isPrivate: boolean,
   ) {}
 
-  static fromAbi(abi: FunctionAbi | ContractFunctionDao): FunctionData {
+  static async fromAbi(abi: FunctionAbi | ContractFunctionDao): Promise<FunctionData> {
     return new FunctionData(
-      FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
+      await FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
       abi.functionType === FunctionType.PRIVATE,
     );
   }
@@ -27,7 +26,7 @@ export class FunctionData {
   static get schema() {
     return z
       .object({
-        selector: schemas.FunctionSelector,
+        selector: FunctionSelector.schema,
         isPrivate: z.boolean(),
       })
       .transform(({ selector, isPrivate }) => new FunctionData(selector, isPrivate));

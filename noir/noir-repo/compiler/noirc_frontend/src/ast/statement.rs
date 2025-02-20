@@ -1,5 +1,4 @@
 use std::fmt::Display;
-use std::sync::atomic::{AtomicU32, Ordering};
 
 use acvm::acir::AcirField;
 use acvm::FieldElement;
@@ -13,6 +12,7 @@ use super::{
 };
 use crate::ast::UnresolvedTypeData;
 use crate::elaborator::types::SELF_TYPE_NAME;
+use crate::elaborator::Turbofish;
 use crate::lexer::token::SpannedToken;
 use crate::node_interner::{
     InternedExpressionKind, InternedPattern, InternedStatementKind, NodeInterner,
@@ -42,10 +42,11 @@ pub struct Statement {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum StatementKind {
     Let(LetStatement),
-    Constrain(ConstrainStatement),
     Expression(Expression),
     Assign(AssignStatement),
     For(ForLoopStatement),
+    Loop(Expression, Span /* loop keyword span */),
+    While(WhileStatement),
     Break,
     Continue,
     /// This statement should be executed at compile-time
@@ -72,6 +73,24 @@ impl Statement {
         self.kind = self.kind.add_semicolon(semi, span, last_statement_in_block, emit_error);
         self
     }
+
+    /// Returns the innermost span that gives this statement its type.
+    pub fn type_span(&self) -> Span {
+        match &self.kind {
+            StatementKind::Expression(expression) => expression.type_span(),
+            StatementKind::Comptime(statement) => statement.type_span(),
+            StatementKind::Let(..)
+            | StatementKind::Assign(..)
+            | StatementKind::For(..)
+            | StatementKind::Loop(..)
+            | StatementKind::While(..)
+            | StatementKind::Break
+            | StatementKind::Continue
+            | StatementKind::Semi(..)
+            | StatementKind::Interned(..)
+            | StatementKind::Error => self.span,
+        }
+    }
 }
 
 impl StatementKind {
@@ -87,7 +106,6 @@ impl StatementKind {
 
         match self {
             StatementKind::Let(_)
-            | StatementKind::Constrain(_)
             | StatementKind::Assign(_)
             | StatementKind::Semi(_)
             | StatementKind::Break
@@ -104,8 +122,8 @@ impl StatementKind {
                     statement.add_semicolon(semi, span, last_statement_in_block, emit_error);
                 StatementKind::Comptime(statement)
             }
-            // A semicolon on a for loop is optional and does nothing
-            StatementKind::For(_) => self,
+            // A semicolon on a for loop, loop or while is optional and does nothing
+            StatementKind::For(_) | StatementKind::Loop(..) | StatementKind::While(..) => self,
 
             // No semicolon needed for a resolved statement
             StatementKind::Interned(_) => self,
@@ -117,6 +135,7 @@ impl StatementKind {
                     | (ExpressionKind::Unsafe(..), semi, _)
                     | (ExpressionKind::Interned(..), semi, _)
                     | (ExpressionKind::InternedStatement(..), semi, _)
+                    | (ExpressionKind::Match(..), semi, _)
                     | (ExpressionKind::If(_), semi, _) => {
                         if semi.is_some() {
                             StatementKind::Semi(expr)
@@ -136,12 +155,6 @@ impl StatementKind {
     }
 }
 
-impl Recoverable for StatementKind {
-    fn error(_: Span) -> Self {
-        StatementKind::Error
-    }
-}
-
 impl StatementKind {
     pub fn new_let(
         pattern: Pattern,
@@ -154,32 +167,9 @@ impl StatementKind {
             r#type,
             expression,
             comptime: false,
+            is_global_let: false,
             attributes,
         })
-    }
-
-    /// Create a Statement::Assign value, desugaring any combined operators like += if needed.
-    pub fn assign(
-        lvalue: LValue,
-        operator: Token,
-        mut expression: Expression,
-        span: Span,
-    ) -> StatementKind {
-        // Desugar `a <op>= b` to `a = a <op> b`. This relies on the evaluation of `a` having no side effects,
-        // which is currently enforced by the restricted syntax of LValues.
-        if operator != Token::Assign {
-            let lvalue_expr = lvalue.as_expression();
-            let error_msg = "Token passed to Statement::assign is not a binary operator";
-
-            let infix = crate::ast::InfixExpression {
-                lhs: lvalue_expr,
-                operator: operator.try_into_binary_op(span).expect(error_msg),
-                rhs: expression,
-            };
-            expression = Expression::new(ExpressionKind::Infix(Box::new(infix)), span);
-        }
-
-        StatementKind::Assign(AssignStatement { lvalue, expression })
     }
 }
 
@@ -279,30 +269,12 @@ impl Ident {
     }
 }
 
-impl Recoverable for Ident {
-    fn error(span: Span) -> Self {
-        Ident(Spanned::from(span, ERROR_IDENT.to_owned()))
-    }
-}
-
-impl<T> Recoverable for Vec<T> {
-    fn error(_: Span) -> Self {
-        vec![]
-    }
-}
-
-/// Trait for recoverable nodes during parsing.
-/// This is similar to Default but is expected
-/// to return an Error node of the appropriate type.
-pub trait Recoverable {
-    fn error(span: Span) -> Self;
-}
-
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ModuleDeclaration {
     pub visibility: ItemVisibility,
     pub ident: Ident,
     pub outer_attributes: Vec<SecondaryAttribute>,
+    pub has_semicolon: bool,
 }
 
 impl std::fmt::Display for ModuleDeclaration {
@@ -414,9 +386,6 @@ pub struct TypePath {
     pub turbofish: Option<GenericTypeArgs>,
 }
 
-// Note: Path deliberately doesn't implement Recoverable.
-// No matter which default value we could give in Recoverable::error,
-// it would most likely cause further errors during name resolution
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct Path {
     pub segments: Vec<PathSegment>,
@@ -531,6 +500,12 @@ impl PathSegment {
     pub fn turbofish_span(&self) -> Span {
         Span::from(self.ident.span().end()..self.span.end())
     }
+
+    pub fn turbofish(&self) -> Option<Turbofish> {
+        self.generics
+            .as_ref()
+            .map(|generics| Turbofish { span: self.turbofish_span(), generics: generics.clone() })
+    }
 }
 
 impl From<Ident> for PathSegment {
@@ -562,6 +537,7 @@ pub struct LetStatement {
 
     // True if this should only be run during compile-time
     pub comptime: bool,
+    pub is_global_let: bool,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -578,55 +554,6 @@ pub enum LValue {
     Index { array: Box<LValue>, index: Expression, span: Span },
     Dereference(Box<LValue>, Span),
     Interned(InternedExpressionKind, Span),
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct ConstrainStatement {
-    pub kind: ConstrainKind,
-    pub arguments: Vec<Expression>,
-    pub span: Span,
-}
-
-impl Display for ConstrainStatement {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.kind {
-            ConstrainKind::Assert | ConstrainKind::AssertEq => write!(
-                f,
-                "{}({})",
-                self.kind,
-                vecmap(&self.arguments, |arg| arg.to_string()).join(", ")
-            ),
-            ConstrainKind::Constrain => {
-                write!(f, "constrain {}", &self.arguments[0])
-            }
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum ConstrainKind {
-    Assert,
-    AssertEq,
-    Constrain,
-}
-
-impl ConstrainKind {
-    pub fn required_arguments_count(&self) -> usize {
-        match self {
-            ConstrainKind::Assert | ConstrainKind::Constrain => 1,
-            ConstrainKind::AssertEq => 2,
-        }
-    }
-}
-
-impl Display for ConstrainKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ConstrainKind::Assert => write!(f, "assert"),
-            ConstrainKind::AssertEq => write!(f, "assert_eq"),
-            ConstrainKind::Constrain => write!(f, "constrain"),
-        }
-    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -691,12 +618,6 @@ impl Pattern {
             }
             Pattern::Interned(id, _) => interner.get_pattern(*id).try_as_expression(interner),
         }
-    }
-}
-
-impl Recoverable for Pattern {
-    fn error(span: Span) -> Self {
-        Pattern::Identifier(Ident::error(span))
     }
 }
 
@@ -839,10 +760,9 @@ impl ForRange {
         block: Expression,
         for_loop_span: Span,
     ) -> Statement {
-        /// Counter used to generate unique names when desugaring
-        /// code in the parser requires the creation of fresh variables.
-        /// The parser is stateless so this is a static global instead.
-        static UNIQUE_NAME_COUNTER: AtomicU32 = AtomicU32::new(0);
+        // Counter used to generate unique names when desugaring
+        // code in the parser requires the creation of fresh variables.
+        let mut unique_name_counter: u32 = 0;
 
         match self {
             ForRange::Range(..) => {
@@ -853,7 +773,8 @@ impl ForRange {
                 let start_range = ExpressionKind::integer(FieldElement::zero());
                 let start_range = Expression::new(start_range, array_span);
 
-                let next_unique_id = UNIQUE_NAME_COUNTER.fetch_add(1, Ordering::Relaxed);
+                let next_unique_id = unique_name_counter;
+                unique_name_counter += 1;
                 let array_name = format!("$i{next_unique_id}");
                 let array_span = array.span;
                 let array_ident = Ident::new(array_name, array_span);
@@ -886,7 +807,7 @@ impl ForRange {
                 }));
                 let end_range = Expression::new(end_range, array_span);
 
-                let next_unique_id = UNIQUE_NAME_COUNTER.fetch_add(1, Ordering::Relaxed);
+                let next_unique_id = unique_name_counter;
                 let index_name = format!("$i{next_unique_id}");
                 let fresh_identifier = Ident::new(index_name.clone(), array_span);
 
@@ -952,14 +873,24 @@ pub struct ForLoopStatement {
     pub span: Span,
 }
 
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct WhileStatement {
+    pub condition: Expression,
+    pub body: Expression,
+    pub while_keyword_span: Span,
+}
+
 impl Display for StatementKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             StatementKind::Let(let_statement) => let_statement.fmt(f),
-            StatementKind::Constrain(constrain) => constrain.fmt(f),
             StatementKind::Expression(expression) => expression.fmt(f),
             StatementKind::Assign(assign) => assign.fmt(f),
             StatementKind::For(for_loop) => for_loop.fmt(f),
+            StatementKind::Loop(block, _) => write!(f, "loop {}", block),
+            StatementKind::While(while_) => {
+                write!(f, "while {} {}", while_.condition, while_.body)
+            }
             StatementKind::Break => write!(f, "break"),
             StatementKind::Continue => write!(f, "continue"),
             StatementKind::Comptime(statement) => write!(f, "comptime {}", statement.kind),

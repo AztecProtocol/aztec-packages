@@ -7,20 +7,24 @@
 mod array_set;
 mod as_slice_length;
 mod assert_constant;
+pub(crate) mod brillig_entry_points;
 mod constant_folding;
 mod defunctionalize;
 mod die;
 pub(crate) mod flatten_cfg;
-mod inlining;
+mod hint;
+pub(crate) mod inlining;
 mod loop_invariant;
+mod make_constrain_not_equal;
 mod mem2reg;
 mod normalize_value_ids;
+mod preprocess_fns;
+pub(crate) mod pure;
 mod rc;
 mod remove_bit_shifts;
 mod remove_enable_side_effects;
 mod remove_if_else;
-mod resolve_is_unconstrained;
-mod runtime_separation;
+mod remove_unreachable;
 mod simplify_cfg;
 mod unrolling;
 

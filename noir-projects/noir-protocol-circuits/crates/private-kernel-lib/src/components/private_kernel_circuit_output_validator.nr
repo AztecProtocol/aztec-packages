@@ -1,4 +1,4 @@
-use crate::components::private_kernel_circuit_public_inputs_composer::create_first_nullifier;
+use crate::components::private_kernel_circuit_public_inputs_composer::create_protocol_nullifier;
 use dep::types::{
     abis::{
         kernel_circuit_public_inputs::{
@@ -8,9 +8,16 @@ use dep::types::{
         private_circuit_public_inputs::{
             PrivateCircuitPublicInputs, PrivateCircuitPublicInputsArrayLengths,
         },
+        private_kernel::private_call_data::PrivateCallData,
     },
     address::AztecAddress,
-    traits::is_empty,
+    constants::DEFAULT_UPDATE_DELAY,
+    contract_class_id::ContractClassId,
+    shared_mutable::{
+        compute_shared_mutable_block_horizon, scheduled_delay_change::ScheduledDelayChange,
+        scheduled_value_change::ScheduledValueChange, SharedMutableValues,
+    },
+    traits::{is_empty, Packable},
     transaction::tx_request::TxRequest,
     utils::arrays::{
         assert_array_appended, assert_array_appended_and_scoped, assert_array_appended_reversed,
@@ -30,21 +37,27 @@ impl PrivateKernelCircuitOutputValidator {
     pub fn validate_as_first_call(
         self,
         tx_request: TxRequest,
-        private_call: PrivateCircuitPublicInputs,
+        private_call: PrivateCallData,
         private_call_array_lengths: PrivateCircuitPublicInputsArrayLengths,
         vk_tree_root: Field,
         protocol_contract_tree_root: Field,
+        is_private_only: bool,
+        first_nullifier_hint: Field,
     ) {
         self.validate_initial_values(
             tx_request,
             private_call,
             vk_tree_root,
             protocol_contract_tree_root,
+            is_private_only,
+            first_nullifier_hint,
         );
         let mut offsets = PrivateKernelCircuitPublicInputsArrayLengths::empty();
-        offsets.nullifiers = 1; // The first nullifier is not propagated from the private call.
+        if first_nullifier_hint == 0 {
+            offsets.nullifiers = 1; // The protocol nullifier is not propagated from the private call.
+        }
         self.validate_propagated_from_private_call(
-            private_call,
+            private_call.public_inputs,
             private_call_array_lengths,
             offsets,
             0, // num_popped_call
@@ -55,7 +68,7 @@ impl PrivateKernelCircuitOutputValidator {
         self,
         previous_kernel: PrivateKernelCircuitPublicInputs,
         previous_kernel_array_lengths: PrivateKernelCircuitPublicInputsArrayLengths,
-        private_call: PrivateCircuitPublicInputs,
+        private_call: PrivateCallData,
         private_call_array_lengths: PrivateCircuitPublicInputsArrayLengths,
     ) {
         self.validate_aggregated_values(previous_kernel, private_call);
@@ -64,7 +77,7 @@ impl PrivateKernelCircuitOutputValidator {
             previous_kernel_array_lengths,
         );
         self.validate_propagated_from_private_call(
-            private_call,
+            private_call.public_inputs,
             private_call_array_lengths,
             previous_kernel_array_lengths,
             1, // num_popped_call
@@ -74,15 +87,18 @@ impl PrivateKernelCircuitOutputValidator {
     fn validate_initial_values(
         self,
         tx_request: TxRequest,
-        private_call: PrivateCircuitPublicInputs,
+        private_call: PrivateCallData,
         vk_tree_root: Field,
         protocol_contract_tree_root: Field,
+        is_private_only: bool,
+        first_nullifier_hint: Field,
     ) {
         // Constants.
+        assert_eq(self.output.is_private_only, is_private_only, "mismatch is_private_only");
         assert_eq(self.output.constants.tx_context, tx_request.tx_context, "mismatch tx_context");
         assert_eq(
             self.output.constants.historical_header,
-            private_call.historical_header,
+            private_call.public_inputs.historical_header,
             "mismatch historical_header",
         );
         assert_eq(self.output.constants.vk_tree_root, vk_tree_root, "mismatch vk_tree_root");
@@ -92,32 +108,41 @@ impl PrivateKernelCircuitOutputValidator {
             "mismatch protocol_contract_tree_root",
         );
 
-        // First nullifier.
-        let first_nullifier = create_first_nullifier(tx_request);
-        assert_eq(
-            self.output.end.nullifiers[0],
-            first_nullifier,
-            "first nullifier must be the tx request nullifier",
-        );
+        let protocol_nullifier = create_protocol_nullifier(tx_request);
+        // No need to check claimed_first_nullifier if the hint is nonzero, since it's just a prover hint that will be verified in tail.
+        // Also, a first_nullifier_hint of 0 with a manipulated claimed_first_nullifier will result in an always failing check in tail.
+        if first_nullifier_hint == 0 {
+            assert_eq(
+                self.output.end.nullifiers[0],
+                protocol_nullifier,
+                "protocol nullifier must be the tx request nullifier",
+            );
+        }
 
         // Others.
         assert_eq(
             self.output.min_revertible_side_effect_counter,
-            private_call.min_revertible_side_effect_counter,
+            private_call.public_inputs.min_revertible_side_effect_counter,
             "incorrect initial min_revertible_side_effect_counter",
         );
+
+        let max_block_number = Self::update_max_block_number_for_contract_updates(
+            private_call,
+            private_call.public_inputs.max_block_number,
+        );
+
         assert_eq(
             self.output.validation_requests.for_rollup.max_block_number,
-            private_call.max_block_number,
+            max_block_number,
             "incorrect initial max_block_number",
         );
         assert_eq(
             self.output.public_teardown_call_request,
-            private_call.public_teardown_call_request,
+            private_call.public_inputs.public_teardown_call_request,
             "incorrect initial public_teardown_call_request",
         );
-        let initial_fee_payer = if private_call.is_fee_payer {
-            private_call.call_context.contract_address
+        let initial_fee_payer = if private_call.public_inputs.is_fee_payer {
+            private_call.public_inputs.call_context.contract_address
         } else {
             AztecAddress::zero()
         };
@@ -127,19 +152,19 @@ impl PrivateKernelCircuitOutputValidator {
     fn validate_aggregated_values(
         self,
         previous_kernel: PrivateKernelCircuitPublicInputs,
-        private_call: PrivateCircuitPublicInputs,
+        private_call: PrivateCallData,
     ) {
         // min_revertible_side_effect_counter
         let propagated_min_revertible_counter = if previous_kernel
             .min_revertible_side_effect_counter
             != 0 {
             assert(
-                private_call.min_revertible_side_effect_counter == 0,
+                private_call.public_inputs.min_revertible_side_effect_counter == 0,
                 "cannot overwrite min_revertible_side_effect_counter",
             );
             previous_kernel.min_revertible_side_effect_counter
         } else {
-            private_call.min_revertible_side_effect_counter
+            private_call.public_inputs.min_revertible_side_effect_counter
         };
         assert_eq(
             self.output.min_revertible_side_effect_counter,
@@ -150,8 +175,12 @@ impl PrivateKernelCircuitOutputValidator {
         // max_block_number
         let max_block_number = MaxBlockNumber::min(
             previous_kernel.validation_requests.for_rollup.max_block_number,
-            private_call.max_block_number,
+            private_call.public_inputs.max_block_number,
         );
+
+        let max_block_number =
+            Self::update_max_block_number_for_contract_updates(private_call, max_block_number);
+
         assert_eq(
             self.output.validation_requests.for_rollup.max_block_number,
             max_block_number,
@@ -163,12 +192,12 @@ impl PrivateKernelCircuitOutputValidator {
             previous_kernel.public_teardown_call_request,
         ) {
             assert(
-                is_empty(private_call.public_teardown_call_request),
+                is_empty(private_call.public_inputs.public_teardown_call_request),
                 "cannot overwrite public_teardown_call_request",
             );
             previous_kernel.public_teardown_call_request
         } else {
-            private_call.public_teardown_call_request
+            private_call.public_inputs.public_teardown_call_request
         };
         assert_eq(
             self.output.public_teardown_call_request,
@@ -178,10 +207,10 @@ impl PrivateKernelCircuitOutputValidator {
 
         // fee_payer
         let propagated_fee_payer = if !is_empty(previous_kernel.fee_payer) {
-            assert(!private_call.is_fee_payer, "cannot overwrite fee_payer");
+            assert(!private_call.public_inputs.is_fee_payer, "cannot overwrite fee_payer");
             previous_kernel.fee_payer
-        } else if private_call.is_fee_payer {
-            private_call.call_context.contract_address
+        } else if private_call.public_inputs.is_fee_payer {
+            private_call.public_inputs.call_context.contract_address
         } else {
             AztecAddress::zero()
         };
@@ -193,6 +222,16 @@ impl PrivateKernelCircuitOutputValidator {
         previous_kernel: PrivateKernelCircuitPublicInputs,
         array_lengths: PrivateKernelCircuitPublicInputsArrayLengths,
     ) {
+        assert_eq(
+            self.output.is_private_only,
+            previous_kernel.is_private_only,
+            "mismatch is_private_only",
+        );
+        assert_eq(
+            self.output.claimed_first_nullifier,
+            previous_kernel.claimed_first_nullifier,
+            "mismatch claimed_first_nullifier",
+        );
         assert_eq(self.output.constants, previous_kernel.constants, "mismatch constants");
 
         assert_eq(
@@ -332,4 +371,26 @@ impl PrivateKernelCircuitOutputValidator {
             offsets.private_call_stack - num_popped_call,
         );
     }
+
+    fn update_max_block_number_for_contract_updates(
+        private_call: PrivateCallData,
+        max_block_number: MaxBlockNumber,
+    ) -> MaxBlockNumber {
+        if !private_call.public_inputs.call_context.contract_address.is_protocol_contract() {
+            let shared_mutable_values: SharedMutableValues<ContractClassId, DEFAULT_UPDATE_DELAY> = Packable::unpack(
+                private_call.verification_key_hints.updated_class_id_shared_mutable_values,
+            );
+
+            MaxBlockNumber::min(
+                max_block_number,
+                MaxBlockNumber::new(compute_shared_mutable_block_horizon(
+                    shared_mutable_values,
+                    private_call.public_inputs.historical_header.global_variables.block_number
+                         as u32,
+                    )),
+                )
+            } else {
+                max_block_number
+            }
+        }
 }

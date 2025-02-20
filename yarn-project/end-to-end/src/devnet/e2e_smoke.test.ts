@@ -1,10 +1,10 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import {
   type EthAddress,
   FeeJuicePaymentMethodWithClaim,
   Fr,
   type PXE,
-  SignerlessWallet,
   TxStatus,
   type WaitOpts,
   createAztecNodeClient,
@@ -12,14 +12,14 @@ import {
   fileURLToPath,
   retryUntil,
 } from '@aztec/aztec.js';
-import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 // eslint-disable-next-line no-restricted-imports
-import { PXESchema } from '@aztec/circuit-types';
+import { PXESchema } from '@aztec/circuit-types/interfaces/client';
 import { deriveSigningKey } from '@aztec/circuits.js';
 import { createNamespacedSafeJsonRpcServer, startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
-import { type DebugLogger } from '@aztec/foundation/log';
+import { type Logger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
-import { FeeJuiceContract, TestContract } from '@aztec/noir-contracts.js';
+import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
+import { TestContract } from '@aztec/noir-contracts.js/Test';
 
 import getPort from 'get-port';
 import { exec } from 'node:child_process';
@@ -58,7 +58,7 @@ describe('End-to-end tests for devnet', () => {
   // eslint-disable-next-line
   let pxe: PXE;
   let pxeUrl: string; // needed for the CLI
-  let logger: DebugLogger;
+  let logger: Logger;
   let l1ChainId: number;
   let feeJuiceL1: EthAddress;
   let teardown: () => void | Promise<void>;
@@ -145,7 +145,7 @@ describe('End-to-end tests for devnet', () => {
   it('deploys an account while paying with FeeJuice', async () => {
     const privateKey = Fr.random();
     const l1Account = await cli<{ privateKey: string; address: string }>('create-l1-account');
-    const l2Account = getSchnorrAccount(pxe, privateKey, deriveSigningKey(privateKey), Fr.ZERO);
+    const l2Account = await getSchnorrAccount(pxe, privateKey, deriveSigningKey(privateKey), Fr.ZERO);
 
     await expect(getL1Balance(l1Account.address)).resolves.toEqual(0n);
     await expect(getL1Balance(l1Account.address, feeJuiceL1)).resolves.toEqual(0n);
@@ -179,8 +179,8 @@ describe('End-to-end tests for devnet', () => {
       .deploy({
         fee: {
           paymentMethod: new FeeJuicePaymentMethodWithClaim(l2Account.getAddress(), {
-            claimAmount: Fr.fromString(claimAmount),
-            claimSecret: Fr.fromString(claimSecret.value),
+            claimAmount: Fr.fromHexString(claimAmount).toBigInt(),
+            claimSecret: Fr.fromHexString(claimSecret.value),
             messageLeafIndex: BigInt(messageLeafIndex),
           }),
         },
@@ -293,10 +293,12 @@ describe('End-to-end tests for devnet', () => {
   }
 
   async function advanceChainWithEmptyBlocks(pxe: PXE) {
-    const { l1ChainId, protocolVersion } = await pxe.getNodeInfo();
-    const test = await TestContract.deploy(
-      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(l1ChainId, protocolVersion)),
-    )
+    const [deployWallet] = await getDeployedTestAccountsWallets(pxe);
+    if (!deployWallet) {
+      throw new Error('A funded wallet is required to create dummy txs.');
+    }
+
+    const test = await TestContract.deploy(deployWallet)
       .send({ universalDeploy: true, skipClassRegistration: true })
       .deployed();
 

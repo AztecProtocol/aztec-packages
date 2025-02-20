@@ -1,5 +1,5 @@
 import { AztecAddress, type PrivateLog } from '@aztec/circuits.js';
-import { EventSelector } from '@aztec/foundation/abi';
+import { EventSelector } from '@aztec/circuits.js/abi';
 import { type Fq, Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -46,20 +46,8 @@ export class L1EventPayload {
     return payload;
   }
 
-  static decryptAsIncoming(log: PrivateLog, sk: Fq): L1EventPayload | undefined {
-    const decryptedLog = EncryptedLogPayload.decryptAsIncoming(log, sk);
-    if (!decryptedLog) {
-      return undefined;
-    }
-
-    return this.#fromIncomingBodyPlaintextAndContractAddress(
-      decryptedLog.incomingBodyPlaintext,
-      decryptedLog.contractAddress,
-    );
-  }
-
-  static decryptAsOutgoing(log: PrivateLog, sk: Fq): L1EventPayload | undefined {
-    const decryptedLog = EncryptedLogPayload.decryptAsOutgoing(log, sk);
+  static async decryptAsIncoming(log: PrivateLog, sk: Fq): Promise<L1EventPayload | undefined> {
+    const decryptedLog = await EncryptedLogPayload.decryptAsIncoming(log.fields, sk);
     if (!decryptedLog) {
       return undefined;
     }
@@ -84,8 +72,8 @@ export class L1EventPayload {
    * @param contract - The address of a contract the event was emitted from.
    * @returns A random L1EventPayload object.
    */
-  static random(contract = AztecAddress.random()) {
-    return new L1EventPayload(Event.random(), contract, EventSelector.random());
+  static async random(contract?: AztecAddress) {
+    return new L1EventPayload(Event.random(), contract ?? (await AztecAddress.random()), EventSelector.random());
   }
 
   public equals(other: L1EventPayload) {

@@ -5,7 +5,7 @@ import fs from 'fs';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { type NodeContext, createNode, createNodes } from '../fixtures/setup_p2p_test.js';
-import { P2PNetworkTest, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
+import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { createPXEServiceAndSubmitTransactions } from './shared.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
@@ -26,7 +26,11 @@ describe('e2e_p2p_rediscovery', () => {
       basePort: BOOT_NODE_UDP_PORT,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       metricsPort: shouldCollectMetrics(),
+      initialConfig: {
+        ...SHORTENED_BLOCK_TIME_CONFIG,
+      },
     });
+    await t.setupAccount();
     await t.applyBaseSnapshots();
     await t.setup();
 
@@ -46,9 +50,11 @@ describe('e2e_p2p_rediscovery', () => {
     const contexts: NodeContext[] = [];
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
+      t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
+      t.prefilledPublicData,
       DATA_DIR,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up`
       shouldCollectMetrics(),
@@ -58,7 +64,7 @@ describe('e2e_p2p_rediscovery', () => {
     await sleep(3000);
 
     // stop bootstrap node
-    await t.bootstrapNode.stop();
+    await t.bootstrapNode?.stop();
 
     // create new nodes from datadir
     const newNodes: AztecNodeService[] = [];
@@ -72,9 +78,11 @@ describe('e2e_p2p_rediscovery', () => {
 
       const newNode = await createNode(
         t.ctx.aztecNodeConfig,
+        t.ctx.dateProvider,
         i + 1 + BOOT_NODE_UDP_PORT,
         undefined,
         i,
+        t.prefilledPublicData,
         `${DATA_DIR}-${i}`,
       );
       t.logger.info(`Node ${i} restarted`);
@@ -86,7 +94,7 @@ describe('e2e_p2p_rediscovery', () => {
     await sleep(2000);
 
     for (const node of newNodes) {
-      const context = await createPXEServiceAndSubmitTransactions(t.logger, node, NUM_TXS_PER_NODE);
+      const context = await createPXEServiceAndSubmitTransactions(t.logger, node, NUM_TXS_PER_NODE, t.fundedAccount);
       contexts.push(context);
     }
 

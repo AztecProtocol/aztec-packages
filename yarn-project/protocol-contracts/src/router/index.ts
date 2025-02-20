@@ -1,6 +1,18 @@
-import { type ProtocolContract, getCanonicalProtocolContract } from '../protocol_contract.js';
+import { loadContractArtifact } from '@aztec/circuits.js/abi';
+import { type NoirCompiledContract } from '@aztec/circuits.js/noir';
 
-/** Returns the canonical deployment of the router. */
-export function getCanonicalRouter(): ProtocolContract {
-  return getCanonicalProtocolContract('Router');
+import RouterJson from '../../artifacts/Router.json' assert { type: 'json' };
+import { makeProtocolContract } from '../make_protocol_contract.js';
+import { type ProtocolContract } from '../protocol_contract.js';
+
+export const RouterArtifact = loadContractArtifact(RouterJson as NoirCompiledContract);
+
+let protocolContract: ProtocolContract;
+
+/** Returns the canonical deployment of the contract. */
+export async function getCanonicalRouter(): Promise<ProtocolContract> {
+  if (!protocolContract) {
+    protocolContract = await makeProtocolContract('Router', RouterArtifact);
+  }
+  return protocolContract;
 }

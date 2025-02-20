@@ -1,9 +1,9 @@
+import { MAX_NULLIFIERS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Tuple } from '@aztec/foundation/serialize';
 
-import { MAX_NULLIFIERS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX } from '../constants.gen.js';
 import {
   Nullifier,
   type NullifierReadRequestHints,
@@ -19,7 +19,7 @@ import {
 import { buildNullifierReadRequestHints } from './build_nullifier_read_request_hints.js';
 
 describe('buildNullifierReadRequestHints', () => {
-  const contractAddress = AztecAddress.random();
+  let contractAddress: AztecAddress;
   const settledNullifierInnerValue = 99999;
   const oracle = {
     getNullifierMembershipWitness: () => ({ membershipWitness: {}, leafPreimage: {} } as any),
@@ -82,7 +82,8 @@ describe('buildNullifierReadRequestHints', () => {
   const buildHints = async () =>
     await buildNullifierReadRequestHints(oracle, nullifierReadRequests, nullifiers, futureNullifiers);
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    contractAddress = await AztecAddress.random();
     nullifierReadRequests = makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ScopedReadRequest.empty);
     nullifiers = makeTuple(MAX_NULLIFIERS_PER_TX, i => makeNullifier(innerNullifier(i)));
     expectedHints = NullifierReadRequestHintsBuilder.empty(

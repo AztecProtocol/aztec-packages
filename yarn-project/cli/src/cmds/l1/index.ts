@@ -1,5 +1,5 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 
 import { type Command, Option } from 'commander';
 
@@ -14,7 +14,7 @@ import {
   pxeOption,
 } from '../../utils/commands.js';
 
-export function injectCommands(program: Command, log: LogFn, debugLogger: DebugLogger) {
+export function injectCommands(program: Command, log: LogFn, debugLogger: Logger) {
   const { BB_BINARY_PATH, BB_WORKING_DIRECTORY } = process.env;
 
   program
@@ -32,9 +32,11 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       'The mnemonic to use in deployment',
       'test test test test test test test test test test test junk',
     )
+    .option('-i, --mnemonic-index <number>', 'The index of the mnemonic to use in deployment', arg => parseInt(arg), 0)
     .addOption(l1ChainIdOption)
     .option('--salt <number>', 'The optional salt to use in deployment', arg => parseInt(arg))
     .option('--json', 'Output the contract addresses in JSON format')
+    .option('--test-accounts', 'Populate genesis state with initial fee juice for test accounts')
     .action(async options => {
       const { deployL1Contracts } = await import('./deploy_l1_contracts.js');
 
@@ -45,7 +47,9 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         options.l1ChainId,
         options.privateKey,
         options.mnemonic,
+        options.mnemonicIndex,
         options.salt,
+        options.testAccounts,
         options.json,
         initialValidators,
         log,
@@ -78,8 +82,9 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       'test test test test test test test test test test test junk',
     )
     .addOption(l1ChainIdOption)
-    .option('--validator <addresse>', 'ethereum address of the validator', parseEthereumAddress)
+    .option('--validator <address>', 'ethereum address of the validator', parseEthereumAddress)
     .option('--rollup <address>', 'ethereum address of the rollup contract', parseEthereumAddress)
+    .option('--withdrawer <address>', 'ethereum address of the withdrawer', parseEthereumAddress)
     .action(async options => {
       const { addL1Validator } = await import('./update_l1_validators.js');
       await addL1Validator({
@@ -89,6 +94,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         mnemonic: options.mnemonic,
         validatorAddress: options.validator,
         rollupAddress: options.rollup,
+        withdrawerAddress: options.withdrawer,
         log,
         debugLogger,
       });

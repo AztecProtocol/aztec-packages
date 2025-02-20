@@ -50,8 +50,8 @@ export async function send(
     log('Transaction pending. Check status with check-tx');
   }
   const gasSettings = GasSettings.from({
+    ...feeOpts.gasSettings,
     ...gasLimits,
-    maxFeesPerGas: feeOpts.gasSettings.maxFeesPerGas,
   });
   return {
     txHash,

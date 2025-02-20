@@ -2,7 +2,9 @@
 
 All the packages that make up [Aztec](https://docs.aztec.network).
 
+- [**`barretenberg`**](/noir-projects): The ZK prover backend that provides succinct verifiability for Aztec. Also houses the Aztec VM.
 - [**`l1-contracts`**](/l1-contracts): Solidity code for the Ethereum contracts that process rollups
+- [**`noir-projects`**](/noir-projects): Noir code for Aztec contracts and protocol circuits.
 - [**`yarn-project`**](/yarn-project): Typescript code for client and backend
 - [**`docs`**](/docs): Documentation source for the docs site
 
@@ -19,39 +21,13 @@ All the packages that make up [Aztec](https://docs.aztec.network).
 
 All issues being worked on are tracked on the [Aztec Github Project](https://github.com/orgs/AztecProtocol/projects/22). For a higher-level roadmap, check the [milestones overview](https://aztec.network/roadmap) section of our website.
 
-## Development Setup
-
-Run `bootstrap.sh full` in the project root to set up your environment. This will update git submodules, download ignition transcripts, install Foundry, compile Solidity contracts, install the current node version via nvm, and build all typescript packages.
-
-Alternatively, to just hack on Noir contracts and Typescript, run `./bootstrap.sh fast`, which will download existing builds for barretenberg and nargo from the CI cache. Note that this requires AWS ECR credentials, and only works on Ubuntu.
-
-To build Typescript code, make sure to have [`nvm`](https://github.com/nvm-sh/nvm) (node version manager) installed.
-
-## Continuous Integration
-
-This repository uses CircleCI for continuous integration. Build steps are managed using [`build-system`](https://github.com/AztecProtocol/build-system). Small packages are built and tested as part of a docker build operation, while larger ones and end-to-end tests spin up a large AWS spot instance. Each successful build step creates a new docker image that gets tagged with the package name and commit.
-
-All packages need to be included in the [build manifest](build_manifest.yml), which declares what paths belong to each package, as well as dependencies between packages. When the CI runs, if none of the rebuild patterns or dependencies were changed, then the build step is skipped and the last successful image is re-tagged with the current commit. Read more on the [`build-system`](https://github.com/AztecProtocol/build-system) repository README.
-
-It is faster to debug CI failures within a persistent ssh session compared to pushing and waiting. You can create a session with "Rerun step with SSH" on CircleCI which will generate an ssh command for debugging on a worker. Run that command locally and then do
-
-```bash
-cd project
-./build-system/scripts/setup_env "$(git rev-parse HEAD)" "" https://github.com/AztecProtocol/aztec-packages
-source /tmp/.bash_env*
-set +euo
-{start testing your CI commands here}
-```
-
-This provide an interactive environment for debugging the CI test.
-
 ## Debugging
 
-Logging goes through the [DebugLogger](yarn-project/foundation/src/log/debug.ts) module in Typescript. `LOG_LEVEL` controls the default log level, and one can set alternate levels for specific modules, such as `debug; warn: module1, module2; error: module3`.
+Logging goes through the [Logger](yarn-project/foundation/src/log/) module in Typescript. `LOG_LEVEL` controls the default log level, and one can set alternate levels for specific modules, such as `debug; warn: module1, module2; error: module3`.
 
 ## Releases
 
-Releases are driven by [release-please](https://github.com/googleapis/release-please), which maintains a 'Release PR' containing an updated CHANGELOG.md since the last release. Triggering a new release is simply a case of merging this PR to master. A [github workflow](./.github/workflows/release_please.yml) will create the tagged release triggering CircleCI to build and deploy the version at that tag.
+Releases are driven by [release-please](https://github.com/googleapis/release-please), which maintains a 'Release PR' containing an updated CHANGELOG.md since the last release. Triggering a new release is simply a case of merging this PR to master. A [github workflow](./.github/workflows/release-please.yml) will create the tagged release triggering ./bootstrap.sh release to build and deploy the version at that tag.
 
 ## Contribute
 
@@ -59,28 +35,10 @@ There are many ways you can participate and help build high quality software. Ch
 
 ## Syncing noir
 
-We currently use [git-subrepo](https://github.com/ingydotnet/git-subrepo) to manage a mirror of noir. This tool was chosen because it makes code checkout and development as simple as possible (compared to submodules or subtrees), with the tradeoff of complexity around sync's.
+We use marker commits and [git-subrepo](https://github.com/ingydotnet/git-subrepo) (for a subset of its intended use) to manage a mirror of noir. This tool was chosen because it makes code checkout and development as simple as possible (compared to submodules or subtrees), with the tradeoff of complexity around sync's.
 
-There is an automatic mirror pushing noir to a PR on noir side. If the mirror is not working, generally we need to do a "git subrepo pull noir".
+## Development and CI
 
-Recovering if the sync is not happening with basic pull commands:
+For a broad overview of the CI system take a look at [CI.md](CI.md).
 
-- manually editing the commit variable in noir/noir-repo/.gitrepo:
-  this needs to exist in the branch we push to, and have the same content as our base. This is similar to submodules, except instead of pointing to the final state of the module, it points to the last commit we have sync'd from, for purposes of commit replay. This can be fixed to match the commit in master after merges.
-- manually editing the parent variable in noir/noir-repo/.gitrepo: this is the parent of the last sync commit on aztec side. If you get errors with a commit not being found in the upstream repo, and the commit mentioned is not the commit variable above, it might indicate this is somehow incorrect. This can happen when commit content is ported without its history, e.g. squashes.
-- use pull --force ONLY where you would use git reset. That is, if you really want to match some upstream noir for a purpose its fine, but you'll lose local changes (if any)
-
-## Earthly
-
-Earthly is a reproducible build tool that aims to combine the functionality of Docker, Makefiles and BASH.
-Non-build earthly targets should start with 'test', 'run', or 'bench' as a general rule (but not hard rule) while builds can be nouns or start with build-.
-If something is a bundle of targets for CI, we can do e.g. build-ci, test-ci etc.
-See barretenberg/cpp/Earthfile for an example of a fairly involved Earthfile that can be used for inspiration.
-[Earthly docs](https://docs.earthly.dev/) are extensive and show the various build patterns.
-
-In a nutshell:
-
-- Docker-like syntax defines all builds. We lean on docker heavily for when to rebuild and cache, and how to run in a reproducible manner.
-- It supports modularization of the build manifest into multiple directories that can be imported. Simple functions and conditional logic can be used.
-- We provide two modes, one for CI by passing --ci and one for local with incremental builds.
-- We do NOT provide a native execution story for anything but Linux and WASM currently.
+For some deeper information on individual scripts etc (for developing CI itself), take a look at [ci3/README.md](ci3/README.md).

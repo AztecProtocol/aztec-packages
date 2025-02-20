@@ -1,13 +1,13 @@
 import { type ACVMConfig, type BBConfig } from '@aztec/bb-prover';
+import { type ProverConfig, proverConfigMappings } from '@aztec/circuit-types/interfaces/server';
+import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
+
 import {
   type ProverAgentConfig,
   type ProverBrokerConfig,
-  type ProverConfig,
   proverAgentConfigMappings,
   proverBrokerConfigMappings,
-  proverConfigMappings,
-} from '@aztec/circuit-types';
-import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
+} from './proving_broker/config.js';
 
 /**
  * The prover configuration.
@@ -25,7 +25,7 @@ export const bbConfigMappings: ConfigMappingsType<BBConfig & ACVMConfig> = {
   },
   bbWorkingDirectory: {
     env: 'BB_WORKING_DIRECTORY',
-    description: 'The working directory to for proving',
+    description: 'The working directory to use for proving',
   },
   bbBinaryPath: {
     env: 'BB_BINARY_PATH',

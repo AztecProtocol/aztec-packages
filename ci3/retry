@@ -1,0 +1,19 @@
+#!/bin/bash
+set -u # not -e
+[ "${BUILD_SYSTEM_DEBUG:-}" = 1 ] && set -x
+
+if [ -n "${RETRY_DISABLED:-}" ]; then
+  set -e
+  eval "$"
+  exit
+fi
+
+ATTEMPTS=3
+# Retries up to 3 times with 5 second intervals
+for i in $(seq 1 $ATTEMPTS); do
+  eval "$*" && exit
+  [ "$i" != "$ATTEMPTS" ] && sleep 5
+done
+
+>&2 echo "$@ failed after $ATTEMPTS attempts"
+exit 1

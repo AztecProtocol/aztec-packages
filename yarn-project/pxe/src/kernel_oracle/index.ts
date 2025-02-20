@@ -1,21 +1,24 @@
-import { type AztecNode, type L2BlockNumber } from '@aztec/circuit-types';
+import { type AztecNode, type L2BlockNumber } from '@aztec/circuit-types/interfaces/client';
 import {
   type AztecAddress,
-  type Fr,
+  Fr,
   type FunctionSelector,
   type GrumpkinScalar,
-  MembershipWitness,
-  type NOTE_HASH_TREE_HEIGHT,
   type Point,
-  VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
   computeContractClassIdPreimage,
   computeSaltedInitializationHash,
 } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { UpdatedClassIdHints } from '@aztec/circuits.js/kernel';
+import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/circuits.js/shared-mutable';
+import { type NOTE_HASH_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, VK_TREE_HEIGHT } from '@aztec/constants';
+import { createLogger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
+import { MembershipWitness } from '@aztec/foundation/trees';
 import { type KeyStore } from '@aztec/key-store';
-import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types';
+import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vks';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import { type ContractDataOracle } from '../contract_data_oracle/index.js';
 import { type ProvingDataOracle } from './../kernel_prover/proving_data_oracle.js';
@@ -31,13 +34,13 @@ export class KernelOracle implements ProvingDataOracle {
     private keyStore: KeyStore,
     private node: AztecNode,
     private blockNumber: L2BlockNumber = 'latest',
-    private log = createDebugLogger('aztec:pxe:kernel_oracle'),
+    private log = createLogger('pxe:kernel_oracle'),
   ) {}
 
   public async getContractAddressPreimage(address: AztecAddress) {
     const instance = await this.contractDataOracle.getContractInstance(address);
     return {
-      saltedInitializationHash: computeSaltedInitializationHash(instance),
+      saltedInitializationHash: await computeSaltedInitializationHash(instance),
       ...instance,
     };
   }
@@ -47,8 +50,8 @@ export class KernelOracle implements ProvingDataOracle {
     return computeContractClassIdPreimage(contractClass);
   }
 
-  public async getFunctionMembershipWitness(contractAddress: AztecAddress, selector: FunctionSelector) {
-    return await this.contractDataOracle.getFunctionMembershipWitness(contractAddress, selector);
+  public async getFunctionMembershipWitness(contractClassId: Fr, selector: FunctionSelector) {
+    return await this.contractDataOracle.getFunctionMembershipWitness(contractClassId, selector);
   }
 
   public getVkMembershipWitness(vk: VerificationKeyAsFields) {
@@ -80,5 +83,35 @@ export class KernelOracle implements ProvingDataOracle {
 
   public getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string> {
     return this.contractDataOracle.getDebugFunctionName(contractAddress, selector);
+  }
+
+  public async getUpdatedClassIdHints(contractAddress: AztecAddress): Promise<UpdatedClassIdHints> {
+    const { sharedMutableSlot, sharedMutableHashSlot } = await SharedMutableValuesWithHash.getContractUpdateSlots(
+      contractAddress,
+    );
+
+    const hashLeafSlot = await computePublicDataTreeLeafSlot(
+      ProtocolContractAddress.ContractInstanceDeployer,
+      sharedMutableHashSlot,
+    );
+    const updatedClassIdWitness = await this.node.getPublicDataTreeWitness(this.blockNumber, hashLeafSlot);
+
+    if (!updatedClassIdWitness) {
+      throw new Error(`No public data tree witness found for ${hashLeafSlot}`);
+    }
+
+    const readStorage = (storageSlot: Fr) =>
+      this.node.getPublicStorageAt(ProtocolContractAddress.ContractInstanceDeployer, storageSlot, this.blockNumber);
+    const sharedMutableValues = await SharedMutableValues.readFromTree(sharedMutableSlot, readStorage);
+
+    return new UpdatedClassIdHints(
+      new MembershipWitness(
+        PUBLIC_DATA_TREE_HEIGHT,
+        updatedClassIdWitness.index,
+        updatedClassIdWitness.siblingPath.toTuple(),
+      ),
+      updatedClassIdWitness.leafPreimage,
+      sharedMutableValues,
+    );
   }
 }

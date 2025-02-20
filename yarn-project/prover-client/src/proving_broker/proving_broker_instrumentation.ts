@@ -1,4 +1,4 @@
-import { ProvingRequestType } from '@aztec/circuit-types';
+import { ProvingRequestType } from '@aztec/circuit-types/interfaces/server';
 import { type Timer } from '@aztec/foundation/timer';
 import {
   Attributes,
@@ -9,7 +9,6 @@ import {
   type TelemetryClient,
   type UpDownCounter,
   ValueType,
-  millisecondBuckets,
 } from '@aztec/telemetry-client';
 
 export type MonitorCallback = (proofType: ProvingRequestType) => number;
@@ -20,6 +19,8 @@ export class ProvingBrokerInstrumentation {
   private resolvedJobs: UpDownCounter;
   private rejectedJobs: UpDownCounter;
   private timedOutJobs: UpDownCounter;
+  private cachedJobs: UpDownCounter;
+  private totalJobs: UpDownCounter;
   private jobWait: Histogram;
   private jobDuration: Histogram;
   private retriedJobs: UpDownCounter;
@@ -51,22 +52,24 @@ export class ProvingBrokerInstrumentation {
       valueType: ValueType.INT,
     });
 
+    this.cachedJobs = meter.createUpDownCounter(Metrics.PROVING_QUEUE_CACHED_JOBS, {
+      valueType: ValueType.INT,
+    });
+
+    this.totalJobs = meter.createUpDownCounter(Metrics.PROVING_QUEUE_TOTAL_JOBS, {
+      valueType: ValueType.INT,
+    });
+
     this.jobWait = meter.createHistogram(Metrics.PROVING_QUEUE_JOB_WAIT, {
       description: 'Records how long a job sits in the queue',
       unit: 'ms',
       valueType: ValueType.INT,
-      advice: {
-        explicitBucketBoundaries: millisecondBuckets(1), // 10ms -> ~327s
-      },
     });
 
     this.jobDuration = meter.createHistogram(Metrics.PROVING_QUEUE_JOB_DURATION, {
       description: 'Records how long a job takes to complete',
       unit: 'ms',
       valueType: ValueType.INT,
-      advice: {
-        explicitBucketBoundaries: millisecondBuckets(1), // 10ms -> ~327s
-      },
     });
   }
 
@@ -98,6 +101,18 @@ export class ProvingBrokerInstrumentation {
 
   incTimedOutJobs(proofType: ProvingRequestType) {
     this.timedOutJobs.add(1, {
+      [Attributes.PROVING_JOB_TYPE]: ProvingRequestType[proofType],
+    });
+  }
+
+  incCachedJobs(proofType: ProvingRequestType) {
+    this.cachedJobs.add(1, {
+      [Attributes.PROVING_JOB_TYPE]: ProvingRequestType[proofType],
+    });
+  }
+
+  incTotalJobs(proofType: ProvingRequestType) {
+    this.totalJobs.add(1, {
       [Attributes.PROVING_JOB_TYPE]: ProvingRequestType[proofType],
     });
   }

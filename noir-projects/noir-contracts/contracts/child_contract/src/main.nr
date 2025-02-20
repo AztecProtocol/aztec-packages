@@ -2,17 +2,18 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract Child {
+pub contract Child {
     use dep::aztec::prelude::{AztecAddress, Map, PrivateSet, PublicMutable};
 
     use dep::aztec::{
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-        keys::getters::get_public_keys,
+        encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
         macros::{functions::{internal, private, public}, storage::storage},
         note::note_getter_options::NoteGetterOptions,
         utils::comparison::Comparator,
     };
+    // docs:start:import_valuenote
     use dep::value_note::value_note::ValueNote;
+    // docs:end:import_valuenote
 
     #[storage]
     struct Storage<Context> {
@@ -49,19 +50,19 @@ contract Child {
     #[public]
     fn pub_set_value(new_value: Field) -> Field {
         storage.current_value.write(new_value);
-        context.emit_unencrypted_log(new_value);
+        context.emit_public_log(new_value);
 
         new_value
     }
 
     #[private]
     fn private_set_value(new_value: Field, owner: AztecAddress) -> Field {
-        let owner_ovpk_m = get_public_keys(owner).ovpk_m;
+        // docs:start:valuenote_new
+        let note = ValueNote::new(new_value, owner);
+        // docs:end:valuenote_new
 
-        let mut note = ValueNote::new(new_value, owner);
-        storage.a_map_with_private_values.at(owner).insert(&mut note).emit(encode_and_encrypt_note(
+        storage.a_map_with_private_values.at(owner).insert(note).emit(encode_and_encrypt_note(
             &mut context,
-            owner_ovpk_m,
             owner,
             owner,
         ));
@@ -72,8 +73,8 @@ contract Child {
     fn private_get_value(amount: Field, owner: AztecAddress) -> Field {
         let mut options = NoteGetterOptions::new();
         options = options.select(ValueNote::properties().value, Comparator.EQ, amount).set_limit(1);
-        let notes = storage.a_map_with_private_values.at(owner).get_notes(options);
-        notes.get(0).value
+        let retrieved_notes = storage.a_map_with_private_values.at(owner).get_notes(options);
+        retrieved_notes.get(0).note.value
     }
 
     // Increments `current_value` by `new_value`
@@ -81,7 +82,7 @@ contract Child {
     fn pub_inc_value(new_value: Field) -> Field {
         let old_value = storage.current_value.read();
         storage.current_value.write(old_value + new_value);
-        context.emit_unencrypted_log(new_value);
+        context.emit_public_log(new_value);
 
         new_value
     }
@@ -92,7 +93,7 @@ contract Child {
     fn pub_inc_value_internal(new_value: Field) -> Field {
         let old_value = storage.current_value.read();
         storage.current_value.write(old_value + new_value);
-        context.emit_unencrypted_log(new_value);
+        context.emit_public_log(new_value);
 
         new_value
     }
@@ -101,13 +102,13 @@ contract Child {
     fn set_value_twice_with_nested_first() {
         let _result = Child::at(context.this_address()).pub_set_value(10).call(&mut context);
         storage.current_value.write(20);
-        context.emit_unencrypted_log(20);
+        context.emit_public_log(20);
     }
 
     #[public]
     fn set_value_twice_with_nested_last() {
         storage.current_value.write(20);
-        context.emit_unencrypted_log(20);
+        context.emit_public_log(20);
         let _result = Child::at(context.this_address()).pub_set_value(10).call(&mut context);
     }
 
@@ -116,6 +117,6 @@ contract Child {
         Child::at(context.this_address()).set_value_twice_with_nested_first().call(&mut context);
         Child::at(context.this_address()).set_value_twice_with_nested_last().call(&mut context);
         storage.current_value.write(20);
-        context.emit_unencrypted_log(20);
+        context.emit_public_log(20);
     }
 }

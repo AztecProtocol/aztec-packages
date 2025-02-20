@@ -1,12 +1,12 @@
 import {
   type AuthWitness,
-  type AztecNode,
+  type Capsule,
   type CompleteAddress,
-  MerkleTreeId,
+  type MerkleTreeId,
   type NoteStatus,
-  type NullifierMembershipWitness,
   type PublicDataWitness,
 } from '@aztec/circuit-types';
+import { type AztecNode, type NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/client';
 import {
   type BlockHeader,
   type ContractInstance,
@@ -15,8 +15,9 @@ import {
 } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { Aes128 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
+import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
 
 import { type NoteData, TypedOracle } from '../acvm/index.js';
 import { type DBOracle } from './db_oracle.js';
@@ -31,9 +32,10 @@ export class ViewDataOracle extends TypedOracle {
     protected readonly contractAddress: AztecAddress,
     /** List of transient auth witnesses to be used during this simulation */
     protected readonly authWitnesses: AuthWitness[],
+    protected readonly capsules: Capsule[],
     protected readonly db: DBOracle,
     protected readonly aztecNode: AztecNode,
-    protected log = createDebugLogger('aztec:simulator:client_view_context'),
+    protected log = createLogger('simulator:client_view_context'),
     protected readonly scopes?: AztecAddress[],
   ) {
     super();
@@ -72,24 +74,8 @@ export class ViewDataOracle extends TypedOracle {
    * @param leafValue - The leaf value
    * @returns The index and sibling path concatenated [index, sibling_path]
    */
-  public override async getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
-    const index = await this.db.findLeafIndex(blockNumber, treeId, leafValue);
-    if (!index) {
-      throw new Error(`Leaf value: ${leafValue} not found in ${MerkleTreeId[treeId]}`);
-    }
-    const siblingPath = await this.db.getSiblingPath(blockNumber, treeId, index);
-    return [new Fr(index), ...siblingPath];
-  }
-
-  /**
-   * Fetches a sibling path at a given block and index from a tree specified by `treeId`.
-   * @param blockNumber - The block number at which to get the membership witness.
-   * @param treeId - Id of the tree to get the sibling path from.
-   * @param leafIndex - Index of the leaf to get sibling path for
-   * @returns The sibling path.
-   */
-  public override getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: Fr): Promise<Fr[]> {
-    return this.db.getSiblingPath(blockNumber, treeId, leafIndex.toBigInt());
+  public override getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
+    return this.db.getMembershipWitness(blockNumber, treeId, leafValue);
   }
 
   /**
@@ -179,15 +165,6 @@ export class ViewDataOracle extends TypedOracle {
   }
 
   /**
-   * Pops a capsule from the capsule dispenser
-   * @returns The capsule values
-   * @remarks A capsule is a "blob" of data that is passed to the contract through an oracle.
-   */
-  public override popCapsule(): Promise<Fr[]> {
-    return this.db.popCapsule();
-  }
-
-  /**
    * Gets some notes for a contract address and storage slot.
    * Returns a flattened array containing filtered notes.
    *
@@ -246,7 +223,7 @@ export class ViewDataOracle extends TypedOracle {
    * @returns A boolean indicating whether the nullifier exists in the tree or not.
    */
   public override async checkNullifierExists(innerNullifier: Fr) {
-    const nullifier = siloNullifier(this.contractAddress, innerNullifier!);
+    const nullifier = await siloNullifier(this.contractAddress, innerNullifier!);
     const index = await this.db.getNullifierIndex(nullifier);
     return index !== undefined;
   }
@@ -290,23 +267,26 @@ export class ViewDataOracle extends TypedOracle {
   }
 
   public override debugLog(message: string, fields: Fr[]): void {
-    const formattedStr = applyStringFormatting(message, fields);
-    this.log.verbose(`debug_log ${formattedStr}`);
+    // TODO(#10558) Remove this check once the debug log is fixed
+    if (message.startsWith('Context.note_hashes, after pushing new note hash:')) {
+      return;
+    }
+    this.log.verbose(`${applyStringFormatting(message, fields)}`, { module: `${this.log.module}:debug_log` });
   }
 
   /**
    * Returns the tagging secret for a given sender and recipient pair, siloed to the current contract address.
    * Includes the next index to be used used for tagging with this secret.
-   * For this to work, the ivpsk_m of the sender must be known.
+   * For this to work, the ivsk_m of the sender must be known.
    * @param sender - The address sending the note
    * @param recipient - The address receiving the note
    * @returns A tagging secret that can be used to tag notes.
    */
-  public override async getAppTaggingSecretAsSender(
+  public override async getIndexedTaggingSecretAsSender(
     sender: AztecAddress,
     recipient: AztecAddress,
   ): Promise<IndexedTaggingSecret> {
-    return await this.db.getAppTaggingSecretAsSender(this.contractAddress, sender, recipient);
+    return await this.db.getIndexedTaggingSecretAsSender(this.contractAddress, sender, recipient);
   }
 
   public override async syncNotes() {
@@ -315,8 +295,79 @@ export class ViewDataOracle extends TypedOracle {
       await this.aztecNode.getBlockNumber(),
       this.scopes,
     );
+
     for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries()) {
       await this.db.processTaggedLogs(taggedLogs, AztecAddress.fromString(recipient));
     }
+
+    await this.db.removeNullifiedNotes(this.contractAddress);
+  }
+
+  public override async deliverNote(
+    contractAddress: AztecAddress,
+    storageSlot: Fr,
+    nonce: Fr,
+    content: Fr[],
+    noteHash: Fr,
+    nullifier: Fr,
+    txHash: Fr,
+    recipient: AztecAddress,
+  ) {
+    // TODO(#10727): allow other contracts to deliver notes
+    if (!this.contractAddress.equals(contractAddress)) {
+      throw new Error(`Got a note delivery request from ${contractAddress}, expected ${this.contractAddress}`);
+    }
+
+    await this.db.deliverNote(contractAddress, storageSlot, nonce, content, noteHash, nullifier, txHash, recipient);
+  }
+
+  public override storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
+    if (!contractAddress.equals(this.contractAddress)) {
+      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
+      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
+    }
+    return this.db.storeCapsule(this.contractAddress, slot, capsule);
+  }
+
+  public override async loadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
+    if (!contractAddress.equals(this.contractAddress)) {
+      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
+      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
+    }
+    return (
+      this.capsules.find(c => c.contractAddress.equals(contractAddress) && c.storageSlot.equals(slot))?.data ??
+      (await this.db.loadCapsule(this.contractAddress, slot))
+    );
+  }
+
+  public override deleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void> {
+    if (!contractAddress.equals(this.contractAddress)) {
+      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
+      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
+    }
+    return this.db.deleteCapsule(this.contractAddress, slot);
+  }
+
+  public override copyCapsule(
+    contractAddress: AztecAddress,
+    srcSlot: Fr,
+    dstSlot: Fr,
+    numEntries: number,
+  ): Promise<void> {
+    if (!contractAddress.equals(this.contractAddress)) {
+      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
+      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
+    }
+    return this.db.copyCapsule(this.contractAddress, srcSlot, dstSlot, numEntries);
+  }
+
+  // TODO(#11849): consider replacing this oracle with a pure Noir implementation of aes decryption.
+  public override aes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer> {
+    // Noir can't predict the amount of padding that gets trimmed,
+    // but it needs to know the length of the returned value.
+    // So we tell Noir that the length is the (predictable) length
+    // of the padded plaintext, we return that padded plaintext, and have Noir interpret the padding to do the trimming.
+    const aes128 = new Aes128();
+    return aes128.decryptBufferCBCKeepPadding(ciphertext, iv, symKey);
   }
 }

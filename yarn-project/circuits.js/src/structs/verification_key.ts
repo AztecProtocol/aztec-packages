@@ -1,3 +1,7 @@
+import {
+  HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+} from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
 import { Fq, Fr } from '@aztec/foundation/fields';
@@ -5,8 +9,7 @@ import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
-import { HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '../constants.gen.js';
-import { CircuitType } from './shared.js';
+import { CircuitType } from '../types/shared.js';
 
 /**
  * Curve data.
@@ -142,6 +145,13 @@ export class VerificationKeyAsFields {
     return new VerificationKeyAsFields(makeTuple(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, Fr.random, seed), Fr.random());
   }
 
+  static makeFakeRollupHonk(seed = 1): VerificationKeyAsFields {
+    return new VerificationKeyAsFields(
+      makeTuple(ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, i => new Fr(i), seed),
+      new Fr(seed + 1),
+    );
+  }
+
   /**
    * Builds an 'empty' verification key
    * @returns An 'empty' verification key
@@ -211,6 +221,21 @@ export class VerificationKey {
   }
 
   /**
+   * Builds a fake Rollup Honk verification key that should be accepted by circuits.
+   * @returns A fake verification key.
+   */
+  static makeRollupFake(): VerificationKey {
+    return new VerificationKey(
+      CircuitType.ULTRA, // This is entirely arbitrary
+      2048,
+      116,
+      {}, // Empty set of commitments
+      false,
+      times(16, i => i),
+    );
+  }
+
+  /**
    * Builds a fake verification key that should be accepted by circuits.
    * @returns A fake verification key.
    */
@@ -249,7 +274,14 @@ export class VerificationKeyData {
     return new VerificationKeyData(VerificationKeyAsFields.makeFakeHonk(), VerificationKey.makeFake().toBuffer());
   }
 
-  static makeFake(len = HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS): VerificationKeyData {
+  static makeFakeRollupHonk(): VerificationKeyData {
+    return new VerificationKeyData(
+      VerificationKeyAsFields.makeFakeRollupHonk(),
+      VerificationKey.makeRollupFake().toBuffer(),
+    );
+  }
+
+  static makeFake(len = ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS): VerificationKeyData {
     return new VerificationKeyData(VerificationKeyAsFields.makeFake(len), VerificationKey.makeFake().toBuffer());
   }
 

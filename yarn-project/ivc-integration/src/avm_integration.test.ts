@@ -1,16 +1,20 @@
 import { type BBSuccess, BB_RESULT, generateAvmProof, generateProof, verifyProof } from '@aztec/bb-prover';
+import { type ContractInstanceWithAddress } from '@aztec/circuits.js';
+import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
 import {
   AVM_PROOF_LENGTH_IN_FIELDS,
   AVM_PUBLIC_COLUMN_MAX_SIZE,
   AVM_PUBLIC_INPUTS_FLATTENED_SIZE,
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-} from '@aztec/circuits.js/constants';
+} from '@aztec/constants';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
+import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 import { type FixedLengthArray } from '@aztec/noir-protocol-circuits-types/types';
-import { simulateAvmTestContractGenerateCircuitInputs } from '@aztec/simulator/public/fixtures';
+import { PublicTxSimulationTester } from '@aztec/simulator/public/fixtures';
 
 import { promises as fs } from 'fs';
 import { tmpdir } from 'node:os';
@@ -22,16 +26,29 @@ import { MockPublicBaseCircuit, witnessGenMockPublicBaseCircuit } from './index.
 
 // Auto-generated types from noir are not in camel case.
 /* eslint-disable camelcase */
-const logger = createDebugLogger('aztec:avm-integration');
+
+const logger = createLogger('ivc-integration:test:avm-integration');
 
 describe('AVM Integration', () => {
   let bbWorkingDirectory: string;
   let bbBinaryPath: string;
 
+  let avmTestContractInstance: ContractInstanceWithAddress;
+  let avmTestContractAddress: AztecAddress;
+
+  let simTester: PublicTxSimulationTester;
+
   beforeEach(async () => {
     //Create a temp working dir
     bbWorkingDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-avm-integration-'));
     bbBinaryPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../barretenberg/cpp/build/bin', 'bb');
+
+    simTester = await PublicTxSimulationTester.create();
+    avmTestContractInstance = await simTester.registerAndDeployContract(
+      /*constructorArgs=*/ [],
+      /*deployer=*/ AztecAddress.fromNumber(420),
+      AvmTestContractArtifact,
+    );
   });
 
   async function createHonkProof(witness: Uint8Array, bytecode: string): Promise<BBSuccess> {
@@ -53,11 +70,28 @@ describe('AVM Integration', () => {
     return provingResult as BBSuccess;
   }
 
-  it('Should generate and verify an ultra honk proof from an AVM verification', async () => {
-    const bbSuccess = await proveAvmTestContract(
-      'bulk_testing',
-      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x)),
+  // TODO: Skipping for now as per Davids advice.
+  it.skip('Should generate and verify an ultra honk proof from an AVM verification', async () => {
+    // Get a deployed contract instance to pass to the contract
+    // for it to use as "expected" values when testing contract instance retrieval.
+    const expectContractInstance = avmTestContractInstance;
+    const argsField = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    const argsU8 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    const args = [
+      ...argsField,
+      ...argsU8,
+      /*getInstanceForAddress=*/ expectContractInstance.address.toField(),
+      /*expectedDeployer=*/ expectContractInstance.deployer.toField(),
+      /*expectedClassId=*/ expectContractInstance.currentContractClassId.toField(),
+      /*expectedInitializationHash=*/ expectContractInstance.initializationHash.toField(),
+    ].map(x => new Fr(x));
+    const simRes = await simTester.simulateTx(
+      /*sender=*/ AztecAddress.fromNumber(42),
+      /*setupCalls=*/ [],
+      /*appCalls=*/ [{ address: avmTestContractAddress, fnName: 'bulk_testing', args }],
     );
+    const avmCircuitInputs = simRes.avmProvingRequest.inputs;
+    const bbSuccess = await proveAvm(avmCircuitInputs);
 
     const avmProofPath = bbSuccess.proofPath;
     const avmVkPath = bbSuccess.vkPath;
@@ -112,17 +146,15 @@ describe('AVM Integration', () => {
       path.join(bbWorkingDirectory, 'proof'),
       path.join(bbWorkingDirectory, 'vk'),
       'ultra_honk',
-      logger.info,
+      logger,
     );
 
     expect(verifyResult.status).toBe(BB_RESULT.SUCCESS);
   }, 240_000);
 });
 
-async function proveAvmTestContract(functionName: string, calldata: Fr[] = []): Promise<BBSuccess> {
-  const avmCircuitInputs = await simulateAvmTestContractGenerateCircuitInputs(functionName, calldata);
-
-  const internalLogger = createDebugLogger('aztec:avm-proving-test');
+async function proveAvm(avmCircuitInputs: AvmCircuitInputs): Promise<BBSuccess> {
+  const internalLogger = createLogger('ivc-integration:test:avm-proving');
 
   // The paths for the barretenberg binary and the write path are hardcoded for now.
   const bbPath = path.resolve('../../barretenberg/cpp/build/bin/bb');

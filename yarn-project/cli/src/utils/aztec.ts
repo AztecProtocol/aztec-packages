@@ -1,11 +1,12 @@
 import { type ContractArtifact, type FunctionArtifact, loadContractArtifact } from '@aztec/aztec.js/abi';
-import { type PXE } from '@aztec/circuit-types';
+import { type PXE } from '@aztec/circuit-types/interfaces/client';
+import { FunctionType } from '@aztec/circuits.js/abi';
 import { type DeployL1Contracts, type L1ContractsConfig } from '@aztec/ethereum';
-import { FunctionType } from '@aztec/foundation/abi';
 import { type EthAddress } from '@aztec/foundation/eth-address';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type Fr } from '@aztec/foundation/fields';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 import { type NoirPackageConfig } from '@aztec/foundation/noir';
-import { RollupAbi } from '@aztec/l1-artifacts';
+import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
 import TOML from '@iarna/toml';
@@ -22,13 +23,6 @@ import {
 } from 'viem';
 
 import { encodeArgs } from './encoding.js';
-
-/**
- * Helper type to dynamically import contracts.
- */
-interface ArtifactsType {
-  [key: string]: ContractArtifact;
-}
 
 /**
  * Helper to get an ABI function or throw error if it doesn't exist.
@@ -56,29 +50,41 @@ export async function deployAztecContracts(
   chainId: number,
   privateKey: string | undefined,
   mnemonic: string,
+  mnemonicIndex: number,
   salt: number | undefined,
   initialValidators: EthAddress[],
+  genesisArchiveRoot: Fr,
+  genesisBlockHash: Fr,
   config: L1ContractsConfig,
-  debugLogger: DebugLogger,
+  debugLogger: Logger,
 ): Promise<DeployL1Contracts> {
   const { createEthereumChain, deployL1Contracts } = await import('@aztec/ethereum');
   const { mnemonicToAccount, privateKeyToAccount } = await import('viem/accounts');
 
   const account = !privateKey
-    ? mnemonicToAccount(mnemonic!)
+    ? mnemonicToAccount(mnemonic!, { addressIndex: mnemonicIndex })
     : privateKeyToAccount(`${privateKey.startsWith('0x') ? '' : '0x'}${privateKey}` as `0x${string}`);
   const chain = createEthereumChain(rpcUrl, chainId);
 
-  const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types');
+  const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types/vks');
 
-  return await deployL1Contracts(chain.rpcUrl, account, chain.chainInfo, debugLogger, {
-    l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
-    vkTreeRoot: getVKTreeRoot(),
-    protocolContractTreeRoot,
-    salt,
-    initialValidators,
-    ...config,
-  });
+  return await deployL1Contracts(
+    chain.rpcUrl,
+    account,
+    chain.chainInfo,
+    debugLogger,
+    {
+      l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
+      vkTreeRoot: getVKTreeRoot(),
+      protocolContractTreeRoot,
+      genesisArchiveRoot,
+      genesisBlockHash,
+      salt,
+      initialValidators,
+      ...config,
+    },
+    config,
+  );
 }
 
 /** Sets the assumed proven block number on the rollup contract on L1 */
@@ -98,13 +104,13 @@ export async function setAssumeProvenThrough(
 
 /**
  * Gets all contracts available in \@aztec/noir-contracts.js.
- * @returns The contract ABIs.
+ * @returns The contract names.
  */
-export async function getExampleContractArtifacts(): Promise<ArtifactsType> {
+export async function getExampleContractNames(): Promise<string[]> {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
-  const imports = await import('@aztec/noir-contracts.js');
-  return Object.fromEntries(Object.entries(imports).filter(([key]) => key.endsWith('Artifact'))) as any;
+  const { ContractNames } = await import('@aztec/noir-contracts.js');
+  return ContractNames;
 }
 
 /**
@@ -114,11 +120,17 @@ export async function getExampleContractArtifacts(): Promise<ArtifactsType> {
  */
 export async function getContractArtifact(fileDir: string, log: LogFn) {
   // first check if it's a noir-contracts example
-  const artifacts = await getExampleContractArtifacts();
-  for (const key of [fileDir, fileDir + 'Artifact', fileDir + 'ContractArtifact']) {
-    if (artifacts[key]) {
-      return artifacts[key] as ContractArtifact;
+  const allNames = await getExampleContractNames();
+  const contractName = fileDir.replace(/Contract(Artifact)?$/, '');
+  if (allNames.includes(contractName)) {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
+    const imported = await import(`@aztec/noir-contracts.js/${contractName}`);
+    const artifact = imported[`${contractName}ContractArtifact`] as ContractArtifact;
+    if (!artifact) {
+      throw Error(`Could not import ${contractName}ContractArtifact from @aztec/noir-contracts.js/${contractName}`);
     }
+    return artifact;
   }
 
   let contents: string;

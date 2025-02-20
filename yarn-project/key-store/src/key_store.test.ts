@@ -1,17 +1,17 @@
 import { AztecAddress, Fr, deriveKeys, derivePublicKeyFromSecretKey } from '@aztec/circuits.js';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
 import { KeyStore } from './key_store.js';
 
 describe('KeyStore', () => {
   it('Adds account and returns keys', async () => {
-    const keyStore = new KeyStore(openTmpStore());
+    const keyStore = new KeyStore(await openTmpStore('test'));
 
     // Arbitrary fixed values
     const sk = new Fr(8923n);
-    const keys = deriveKeys(sk);
-    const derivedMasterNullifierPublicKey = derivePublicKeyFromSecretKey(keys.masterNullifierSecretKey);
-    const computedMasterNullifierPublicKeyHash = derivedMasterNullifierPublicKey.hash();
+    const keys = await deriveKeys(sk);
+    const derivedMasterNullifierPublicKey = await derivePublicKeyFromSecretKey(keys.masterNullifierSecretKey);
+    const computedMasterNullifierPublicKeyHash = await derivedMasterNullifierPublicKey.hash();
 
     const partialAddress = new Fr(243523n);
 
@@ -22,7 +22,7 @@ describe('KeyStore', () => {
 
     const { pkM: masterNullifierPublicKey } = await keyStore.getKeyValidationRequest(
       computedMasterNullifierPublicKeyHash,
-      AztecAddress.random(), // Address is random because we are not interested in the app secret key here
+      await AztecAddress.random(), // Address is random because we are not interested in the app secret key here
     );
     expect(masterNullifierPublicKey.toString()).toMatchInlineSnapshot(
       `"0x1c088f4e4a711f236a88b55da9ddf388de0bc00d56a5ceca96cea3a5cbe75bf32db0a333ba30c36b844d9fc6d2fb0de8d10e4371f0c5baebae452d90ff366798"`,

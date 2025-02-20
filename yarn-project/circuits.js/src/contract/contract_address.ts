@@ -1,9 +1,9 @@
-import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
+import { GeneratorIndex } from '@aztec/constants';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
-import { GeneratorIndex } from '../constants.gen.js';
+import { type FunctionAbi, FunctionSelector, encodeArguments } from '../abi/index.js';
 import { computeVarArgsHash } from '../hash/hash.js';
 import { computeAddress } from '../keys/index.js';
 import { type ContractInstance } from './interfaces/contract_instance.js';
@@ -19,12 +19,12 @@ import { type ContractInstance } from './interfaces/contract_instance.js';
  * ```
  * @param instance - A contract instance for which to calculate the deployment address.
  */
-export function computeContractAddressFromInstance(
+export async function computeContractAddressFromInstance(
   instance:
     | ContractInstance
-    | ({ contractClassId: Fr; saltedInitializationHash: Fr } & Pick<ContractInstance, 'publicKeys'>),
-): AztecAddress {
-  const partialAddress = computePartialAddress(instance);
+    | ({ originalContractClassId: Fr; saltedInitializationHash: Fr } & Pick<ContractInstance, 'publicKeys'>),
+): Promise<AztecAddress> {
+  const partialAddress = await computePartialAddress(instance);
   return computeAddress(instance.publicKeys, partialAddress);
 }
 
@@ -32,18 +32,18 @@ export function computeContractAddressFromInstance(
  * Computes the partial address defined as the hash of the contract class id and salted initialization hash.
  * @param instance - Contract instance for which to calculate the partial address.
  */
-export function computePartialAddress(
+export async function computePartialAddress(
   instance:
-    | Pick<ContractInstance, 'contractClassId' | 'initializationHash' | 'salt' | 'deployer'>
-    | { contractClassId: Fr; saltedInitializationHash: Fr },
-): Fr {
+    | Pick<ContractInstance, 'originalContractClassId' | 'initializationHash' | 'salt' | 'deployer'>
+    | { originalContractClassId: Fr; saltedInitializationHash: Fr },
+): Promise<Fr> {
   const saltedInitializationHash =
     'saltedInitializationHash' in instance
       ? instance.saltedInitializationHash
-      : computeSaltedInitializationHash(instance);
+      : await computeSaltedInitializationHash(instance);
 
   return poseidon2HashWithSeparator(
-    [instance.contractClassId, saltedInitializationHash],
+    [instance.originalContractClassId, saltedInitializationHash],
     GeneratorIndex.PARTIAL_ADDRESS,
   );
 }
@@ -54,7 +54,7 @@ export function computePartialAddress(
  */
 export function computeSaltedInitializationHash(
   instance: Pick<ContractInstance, 'initializationHash' | 'salt' | 'deployer'>,
-): Fr {
+): Promise<Fr> {
   return poseidon2HashWithSeparator(
     [instance.salt, instance.initializationHash, instance.deployer],
     GeneratorIndex.PARTIAL_ADDRESS,
@@ -67,11 +67,11 @@ export function computeSaltedInitializationHash(
  * @param args - Unencoded arguments, will be encoded as fields according to the constructor function abi.
  * @returns The hash, or zero if no initialization function is provided.
  */
-export function computeInitializationHash(initFn: FunctionAbi | undefined, args: any[]): Fr {
+export async function computeInitializationHash(initFn: FunctionAbi | undefined, args: any[]): Promise<Fr> {
   if (!initFn) {
     return Fr.ZERO;
   }
-  const selector = FunctionSelector.fromNameAndParameters(initFn.name, initFn.parameters);
+  const selector = await FunctionSelector.fromNameAndParameters(initFn.name, initFn.parameters);
   const flatArgs = encodeArguments(initFn, args);
   return computeInitializationHashFromEncodedArgs(selector, flatArgs);
 }
@@ -82,7 +82,10 @@ export function computeInitializationHash(initFn: FunctionAbi | undefined, args:
  * @param args - Encoded arguments.
  * @returns The hash.
  */
-export function computeInitializationHashFromEncodedArgs(initFn: FunctionSelector, encodedArgs: Fr[]): Fr {
-  const argsHash = computeVarArgsHash(encodedArgs);
+export async function computeInitializationHashFromEncodedArgs(
+  initFn: FunctionSelector,
+  encodedArgs: Fr[],
+): Promise<Fr> {
+  const argsHash = await computeVarArgsHash(encodedArgs);
   return poseidon2HashWithSeparator([initFn, argsHash], GeneratorIndex.CONSTRUCTOR);
 }

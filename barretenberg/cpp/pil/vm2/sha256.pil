@@ -1,0 +1,380 @@
+include "precomputed.pil";
+
+namespace sha256;
+
+    // Memory ops
+    pol commit state_offset;
+    pol commit input_offset;
+    pol commit output_offset;
+
+    // Initial state values loaded from state_offset;
+    pol commit init_a;
+    pol commit init_b;
+    pol commit init_c;
+    pol commit init_d;
+    pol commit init_e;
+    pol commit init_f;
+    pol commit init_g;
+    pol commit init_h;
+
+    // Output state values to be written to memory, the need to be "limbed" since it's addition modulo 2^32
+    // We could re-use the init columns but we need to reverse the round orders.
+    // Only the output_X_rhs is written to memory
+    pol commit output_a_lhs;
+    pol commit output_a_rhs;
+    pol commit output_b_lhs;
+    pol commit output_b_rhs;
+    pol commit output_c_lhs;
+    pol commit output_c_rhs;
+    pol commit output_d_lhs;
+    pol commit output_d_rhs;
+    pol commit output_e_lhs;
+    pol commit output_e_rhs;
+    pol commit output_f_lhs;
+    pol commit output_f_rhs;
+    pol commit output_g_lhs;
+    pol commit output_g_rhs;
+    pol commit output_h_lhs;
+    pol commit output_h_rhs;
+
+
+    // Control flow
+    pol commit clk;
+
+    // Selector for Sha256Compression Operation
+    pol commit sel;
+    sel * (1 - sel) = 0;
+
+    // TODO: This skippable condition makes verification fail.
+    // Re-check after https://github.com/AztecProtocol/aztec-packages/pull/10598 is merged.
+    // #[skippable_if]
+    // sel = 0;
+
+    // These are needed while we can't use constant values in lookups.
+    // For the XOR lookups
+    pol commit xor_sel;
+    perform_round * (xor_sel - 2) = 0;
+    // For the AND lookups
+    pol commit and_sel;
+    and_sel = 0;
+
+    // Start Row
+    pol commit start;
+    start * (1 - start) = 0;
+    // If the current row is latched and the next row is "on", the next row is the start of the new computation
+    start' - (latch * sel') = 0;
+
+    // Selector to stop after 64 rounds
+    pol commit latch;
+    latch * (1 - latch) = 0;
+
+    // We perform a compression operation if we are not at a latched row
+    pol commit perform_round;
+    perform_round - (sel * (1 - latch)) = 0;
+    // Temp while we don't have the lookups enabled
+    pol commit dummy_zero;
+    dummy_zero = 0;
+    pol LAST = sel * latch;
+
+    // Counter
+    pol NUM_ROUNDS = 64;
+    pol commit rounds_remaining;
+    start * (rounds_remaining - NUM_ROUNDS) + perform_round * (rounds_remaining - rounds_remaining' - 1) = 0;
+    pol commit round_count;
+    sel * (round_count - (NUM_ROUNDS - rounds_remaining)) = 0;
+    pol commit rounds_remaining_inv;
+    // latch == 1 when the rounds_remaining == 0
+    sel * (rounds_remaining * (latch * (1 - rounds_remaining_inv) + rounds_remaining_inv) - 1 + latch) = 0;
+
+    // Hash Values
+    pol commit a;
+    pol commit b;
+    pol commit c;
+    pol commit d;
+    pol commit e;
+    pol commit f;
+    pol commit g;
+    pol commit h;
+
+    // ========== COMPUTE W =============
+    // w is only computed on the 16th round (as 0-15 are populated from the input)
+    // s0 := (w[i-15] rightrotate 7) xor (w[i-15] rightrotate 18) xor (w[i-15] rightshift  3)
+    // s1 := (w[i-2] rightrotate 17) xor (w[i-2] rightrotate 19) xor (w[i-2] rightshift 10)
+    // w[i] := w[i-16] + s0 + w[i-7] + s1
+
+    // Computing the w values for each round requires the 16th, 15th, 7th and 2nd previous w values (i - 16, i - 15, i - 7 and i - 2)
+    // To store this in the vm, we track 16 columns that are added to by each row and we denote the following
+    // helper_w0 = i - 16, helper_w1 = i - 15, helper_w9 = i - 7, helper_w14 = i - 2, helper_w15 = i - 1
+
+    pol commit helper_w0, helper_w1, helper_w2, helper_w3;
+    pol commit helper_w4, helper_w5, helper_w6, helper_w7;
+    pol commit helper_w8, helper_w9, helper_w10, helper_w11;
+    pol commit helper_w12, helper_w13, helper_w14, helper_w15;
+
+    perform_round * (helper_w0' - helper_w1) = 0;
+    perform_round * (helper_w1' - helper_w2) = 0;
+    perform_round * (helper_w2' - helper_w3) = 0;
+    perform_round * (helper_w3' - helper_w4) = 0;
+    perform_round * (helper_w4' - helper_w5) = 0;
+    perform_round * (helper_w5' - helper_w6) = 0;
+    perform_round * (helper_w6' - helper_w7) = 0;
+    perform_round * (helper_w7' - helper_w8) = 0;
+    perform_round * (helper_w8' - helper_w9) = 0;
+    perform_round * (helper_w9' - helper_w10) = 0;
+    perform_round * (helper_w10' - helper_w11) = 0;
+    perform_round * (helper_w11' - helper_w12) = 0;
+    perform_round * (helper_w12' - helper_w13) = 0;
+    perform_round * (helper_w13' - helper_w14) = 0;
+    perform_round * (helper_w14' - helper_w15) = 0;
+    // The last value is given the currently computed w value
+    perform_round * (helper_w15' - w) = 0;
+
+    // Message Schedule Array, in the first row
+    pol commit w;
+    // These are for rounds > 15
+    pol COMPUTED_W = helper_w0 + w_s_0 + helper_w9 + w_s_1;
+    pol commit computed_w_lhs;
+    pol commit computed_w_rhs;
+    perform_round * ((computed_w_lhs * 2**32 + computed_w_rhs) - COMPUTED_W) = 0;
+    pol commit is_input_round;// TODO: Constrain this
+    perform_round * (w - (is_input_round * helper_w0 + (1 - is_input_round) * computed_w_rhs)) = 0;
+
+
+    // ========== Compute w_s0 ===================
+    // w[i-15] `rotr` 7
+    pol commit w_15_rotr_7;
+    pol commit lhs_w_7;
+    pol commit rhs_w_7;
+    perform_round * (helper_w1 - (lhs_w_7 * 2**7 + rhs_w_7)) = 0;
+    perform_round * (w_15_rotr_7 - (rhs_w_7 * 2**25 + lhs_w_7)) = 0;
+    // w[i-15] `rotr` 18
+    pol commit w_15_rotr_18;
+    pol commit lhs_w_18;
+    pol commit rhs_w_18;
+    perform_round * (helper_w1 - (lhs_w_18 * 2**18 + rhs_w_18)) = 0;
+    perform_round * (w_15_rotr_18 - (rhs_w_18 * 2**14 + lhs_w_18)) = 0;
+    // w[i-15] `rightshift`  3
+    pol commit w_15_rshift_3;
+    pol commit lhs_w_3;
+    pol commit rhs_w_3;
+    perform_round * (helper_w1 - (lhs_w_3 * 2**3 + rhs_w_3)) = 0;
+    perform_round * (w_15_rshift_3 - lhs_w_3) = 0;
+    // s0 := (w[i-15] `rotr` 7) `xor` (w[i-15] `rotr` 18) `xor` (w[i-15] `rightshift`  3)
+    pol commit w_15_rotr_7_xor_w_15_rotr_18;
+    // #[LOOKUP_W_S_0_XOR_0]
+    // dummy_zero {w_15_rotr_7, w_15_rotr_18, w_15_rotr_7_xor_w_15_rotr_18, xor_sel}
+    // in
+    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+
+    pol commit w_s_0;
+    // #[LOOKUP_W_S_0_XOR_1]
+    // dummy_zero {w_15_rotr_7_xor_w_15_rotr_18, w_15_rshift_3, w_s_0, xor_sel}
+    // in
+    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+
+    // ========== Compute w_s1 ===================
+    // w[i-2] `rotr` 17
+    pol commit w_2_rotr_17;
+    pol commit lhs_w_17;
+    pol commit rhs_w_17;
+    perform_round * (helper_w14 - (lhs_w_17 * 2**17 + rhs_w_17)) = 0;
+    perform_round * (w_2_rotr_17 - (rhs_w_17 * 2**15 + lhs_w_17)) = 0;
+    // w[i-2] `rotr` 19
+    pol commit w_2_rotr_19;
+    pol commit lhs_w_19;
+    pol commit rhs_w_19;
+    perform_round * (helper_w14 - (lhs_w_19 * 2**19 + rhs_w_19)) = 0;
+    perform_round * (w_2_rotr_19 - (rhs_w_19 * 2**13 + lhs_w_19)) = 0;
+    // w[i-2] `rightshift` 10
+    pol commit w_2_rshift_10;
+    pol commit lhs_w_10;
+    pol commit rhs_w_10;
+    perform_round * (helper_w14 - (lhs_w_10 * 2**10 + rhs_w_10)) = 0;
+    perform_round * (w_2_rshift_10 - lhs_w_10) = 0;
+    // s1 := (w[i-2] `rotr` 17) `xor` (w[i-2] `rotr` 19) `xor` (w[i-2] `rightshift` 10)
+    pol commit w_2_rotr_17_xor_w_2_rotr_19;
+    // #[LOOKUP_W_S_1_XOR_0]
+    // dummy_zero {w_2_rotr_17, w_2_rotr_19, w_2_rotr_17_xor_w_2_rotr_19, xor_sel}
+    // in
+    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+
+    pol commit w_s_1;
+    // #[LOOKUP_W_S_1_XOR_1]
+    // dummy_zero {w_2_rotr_17_xor_w_2_rotr_19, w_2_rshift_10, w_s_1, xor_sel}
+    // in
+    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+
+    // ========== START OF COMPRESSION BLOCK ==================
+
+    // ====== Computing S1 ====================
+    // e `rotr` 6
+    pol commit e_rotr_6;
+    pol commit lhs_e_6;
+    pol commit rhs_e_6;
+    perform_round * (e - (lhs_e_6 * 2**6 + rhs_e_6)) = 0;
+    perform_round * (e_rotr_6 - (rhs_e_6 * 2**26 + lhs_e_6)) = 0;
+    // e `rotr` 11
+    pol commit e_rotr_11;
+    pol commit lhs_e_11;
+    pol commit rhs_e_11;
+    perform_round * (e - (lhs_e_11 * 2**11 + rhs_e_11)) = 0;
+    perform_round * (e_rotr_11 - (rhs_e_11 * 2**21 + lhs_e_11)) = 0;
+    // e `rotr` 25
+    pol commit e_rotr_25;
+    pol commit lhs_e_25;
+    pol commit rhs_e_25;
+    perform_round * (e - (lhs_e_25 * 2**25 + rhs_e_25)) = 0;
+    perform_round * (e_rotr_25 - (rhs_e_25 * 2**7 + lhs_e_25)) = 0;
+
+    // pol S_1 = (E_0 `rotr` 6) `xor` (E_0 `rotr` 11) `xor` (E_0 `rotr` 25);
+
+    pol commit e_rotr_6_xor_e_rotr_11;
+    // #[LOOKUP_S_1_XOR_0]
+    // dummy_zero {e_rotr_6, e_rotr_11, e_rotr_6_xor_e_rotr_11, xor_sel}
+    // in
+    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+
+    pol commit s_1;
+    // #[LOOKUP_S_1_XOR_1]
+    // dummy_zero {e_rotr_6_xor_e_rotr_11, e_rotr_25, s_1, xor_sel}
+    // in
+    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+
+    // ==== COMPUTING CH ===========
+    // pol CH_0 = (E_0 `and` F_0) `xor` ((`not` E_0) `and` G_0);
+    pol commit e_and_f;
+
+    // #[LOOKUP_CH_AND_0]
+    // dummy_zero {e, f, e_and_f, and_sel}
+    // in
+    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+
+    pol commit not_e;
+    perform_round * (e + not_e - (2**32 - 1)) = 0;
+
+    pol commit not_e_and_g;
+    // #[LOOKUP_CH_AND_1]
+    // dummy_zero {not_e, g, not_e_and_g, and_sel}
+    // in
+    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+
+    pol commit ch;
+    // #[LOOKUP_CH_XOR]
+    // dummy_zero {e_and_f, not_e_and_g, ch, xor_sel}
+    // in
+    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+
+    // ===== COMPUTING TMP 1 ===========
+    // Lookup round constants
+    pol commit round_constant;
+    #[LOOKUP_SHA256_ROUND_CONSTANT]
+    sel {round_count, round_constant}
+    in
+    precomputed.sel_sha256_compression {precomputed.clk, precomputed.sha256_compression_round_constant};
+
+    pol TMP_1 = h + s_1 + ch + round_constant + w;
+
+    // ===== S0 ==================
+    // pol S_0_0 = (A_0 `rotr` 2) `xor` (A_0 `rotr` 13) `xor` (A_0 `rotr` 22);
+    // a `rotr` 2
+    pol commit a_rotr_2;
+    pol commit lhs_a_2;
+    pol commit rhs_a_2;
+    perform_round * (a - (lhs_a_2 * 2**2 + rhs_a_2)) = 0;
+    perform_round * (a_rotr_2 - (rhs_a_2 * 2**30 + lhs_a_2)) = 0;
+    // a `rotr` 13
+    pol commit a_rotr_13;
+    pol commit lhs_a_13;
+    pol commit rhs_a_13;
+    perform_round * (a - (lhs_a_13 * 2**13 + rhs_a_13)) = 0;
+    perform_round * (a_rotr_13 - (rhs_a_13 * 2**19 + lhs_a_13)) = 0;
+    // a `rotr` 22
+    pol commit a_rotr_22;
+    pol commit lhs_a_22;
+    pol commit rhs_a_22;
+    perform_round * (a - (lhs_a_22 * 2**22 + rhs_a_22)) = 0;
+    perform_round * (a_rotr_22 - (rhs_a_22 * 2**10 + lhs_a_22)) = 0;
+    // (A_0 `rotr` 2) `xor` (A_0 `rotr` 13)
+    pol commit a_rotr_2_xor_a_rotr_13;
+    // #[LOOKUP_S_0_XOR_0]
+    // dummy_zero {a_rotr_2, a_rotr_13, a_rotr_2_xor_a_rotr_13, xor_sel}
+    // in
+    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+
+    pol commit s_0;
+    // #[LOOKUP_S_0_XOR_1]
+    // dummy_zero {a_rotr_2_xor_a_rotr_13, a_rotr_22, s_0, xor_sel}
+    // in
+    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+
+    // ====== Computing Maj =========
+    // pol MAJ_0 = (A_0 `and` B_0) `xor` (A_0 `and` C_0) `xor` (B_0 `and` C_0);
+    pol commit a_and_b;
+    // #[LOOKUP_MAJ_AND_0]
+    // dummy_zero {a, b, a_and_b, and_sel}
+    // in
+    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+
+    pol commit a_and_c;
+    // #[LOOKUP_MAJ_AND_1]
+    // dummy_zero {a, c, a_and_c, and_sel}
+    // in
+    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+
+    pol commit b_and_c;
+    // #[LOOKUP_MAJ_AND_2]
+    // dummy_zero {b, c, b_and_c, and_sel}
+    // in
+    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+
+    pol commit a_and_b_xor_a_and_c;
+    // #[LOOKUP_MAJ_XOR_0]
+    // dummy_zero {a_and_b, a_and_c, a_and_b_xor_a_and_c, xor_sel}
+    // in
+    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+
+    pol commit maj;
+    // #[LOOKUP_MAJ_XOR_1]
+    // dummy_zero {a_and_b_xor_a_and_c, b_and_c, maj, xor_sel}
+    // in
+    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+
+    // ==== Compute TMP 2 ====
+    pol NEXT_A = s_0 + maj + TMP_1;
+
+    pol commit next_a_lhs;
+    pol commit next_a_rhs;
+    perform_round * ((next_a_lhs * 2**32 + next_a_rhs) - NEXT_A) = 0;
+
+    pol NEXT_E = d + TMP_1;
+
+    pol commit next_e_lhs;
+    pol commit next_e_rhs;
+    perform_round * ((next_e_lhs * 2**32 + next_e_rhs) - NEXT_E) = 0;
+
+    perform_round * (a' - next_a_rhs) = 0;
+    perform_round * (b' - a) = 0;
+    perform_round * (c' - b) = 0;
+    perform_round * (d' - c) = 0;
+    perform_round * (e' - next_e_rhs) = 0;
+    perform_round * (f' - e) = 0;
+    perform_round * (g' - f) = 0;
+    perform_round * (h' - g) = 0;
+
+    // TODO: These constraints could be better - we might have to reverse the order of the rounds
+    pol OUT_A = a + init_a;
+    LAST * (OUT_A - (output_a_lhs * 2**32 + output_a_rhs)) = 0;
+    pol OUT_B = b + init_b;
+    LAST * (OUT_B - (output_b_lhs * 2**32 + output_b_rhs)) = 0;
+    pol OUT_C = c + init_c;
+    LAST * (OUT_C - (output_c_lhs * 2**32 + output_c_rhs)) = 0;
+    pol OUT_D = d + init_d;
+    LAST * (OUT_D - (output_d_lhs * 2**32 + output_d_rhs)) = 0;
+    pol OUT_E = e + init_e;
+    LAST * (OUT_E - (output_e_lhs * 2**32 + output_e_rhs)) = 0;
+    pol OUT_F = f + init_f;
+    LAST * (OUT_F - (output_f_lhs * 2**32 + output_f_rhs)) = 0;
+    pol OUT_G = g + init_g;
+    LAST * (OUT_G - (output_g_lhs * 2**32 + output_g_rhs)) = 0;
+    pol OUT_H = h + init_h;
+    LAST * (OUT_H - (output_h_lhs * 2**32 + output_h_rhs)) = 0;

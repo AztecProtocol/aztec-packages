@@ -1,6 +1,7 @@
-import { type PXE, type TxHash, type TxReceipt } from '@aztec/circuit-types';
+import { type TxHash, type TxReceipt } from '@aztec/circuit-types';
+import { type PXE } from '@aztec/circuit-types/interfaces/client';
 import { type AztecAddress, type ContractInstanceWithAddress } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { type Wallet } from '../account/index.js';
@@ -24,14 +25,14 @@ export type DeployTxReceipt<TContract extends ContractBase = Contract> = FieldsO
  * A contract deployment transaction sent to the network, extending SentTx with methods to create a contract instance.
  */
 export class DeploySentTx<TContract extends Contract = Contract> extends SentTx {
-  private log = createDebugLogger('aztec:js:deploy_sent_tx');
+  private log = createLogger('aztecjs:deploy_sent_tx');
 
   constructor(
     wallet: PXE | Wallet,
     txHashPromise: Promise<TxHash>,
     private postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<TContract>,
-    /** The deployed contract instance */
-    public instance: ContractInstanceWithAddress,
+    /** A getter for the deployed contract instance */
+    public instanceGetter: () => Promise<ContractInstanceWithAddress>,
   ) {
     super(wallet, txHashPromise);
   }
@@ -43,7 +44,8 @@ export class DeploySentTx<TContract extends Contract = Contract> extends SentTx 
    */
   public async deployed(opts?: DeployedWaitOpts): Promise<TContract> {
     const receipt = await this.wait(opts);
-    this.log.info(`Contract ${this.instance.address.toString()} successfully deployed.`);
+    const instance = await this.instanceGetter();
+    this.log.info(`Contract ${instance.address.toString()} successfully deployed.`);
     return receipt.contract;
   }
 
@@ -58,12 +60,13 @@ export class DeploySentTx<TContract extends Contract = Contract> extends SentTx 
     return { ...receipt, contract };
   }
 
-  protected getContractObject(wallet?: Wallet): Promise<TContract> {
+  protected async getContractObject(wallet?: Wallet): Promise<TContract> {
     const isWallet = (pxe: PXE | Wallet): pxe is Wallet => !!(pxe as Wallet).createTxExecutionRequest;
     const contractWallet = wallet ?? (isWallet(this.pxe) && this.pxe);
     if (!contractWallet) {
       throw new Error(`A wallet is required for creating a contract instance`);
     }
-    return this.postDeployCtor(this.instance.address, contractWallet) as Promise<TContract>;
+    const instance = await this.instanceGetter();
+    return this.postDeployCtor(instance.address, contractWallet) as Promise<TContract>;
   }
 }

@@ -10,11 +10,12 @@
       "path": "../circuits.js"
     },
     {
-      "path": "../foundation"
+      "path": "../constants"
     },
     {
-      "path": "../types"
+      "path": "../foundation"
     }
   ],
-  "include": ["src", "artifacts/*.d.json.ts"]
+  "include": ["src", "artifacts/*.d.json.ts"],
+  "exclude": ["src/scripts"]
 }

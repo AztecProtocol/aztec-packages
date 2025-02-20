@@ -13,10 +13,19 @@
       "path": "../bb-prover"
     },
     {
+      "path": "../blob-sink"
+    },
+    {
       "path": "../circuit-types"
     },
     {
       "path": "../circuits.js"
+    },
+    {
+      "path": "../constants"
+    },
+    {
+      "path": "../epoch-cache"
     },
     {
       "path": "../ethereum"
@@ -31,7 +40,13 @@
       "path": "../l1-artifacts"
     },
     {
+      "path": "../noir-protocol-circuits-types"
+    },
+    {
       "path": "../p2p"
+    },
+    {
+      "path": "../protocol-contracts"
     },
     {
       "path": "../prover-client"
@@ -44,9 +59,6 @@
     },
     {
       "path": "../telemetry-client"
-    },
-    {
-      "path": "../types"
     },
     {
       "path": "../world-state"

@@ -1,0 +1,129 @@
+{{- if not .Values.ethereum.execution.externalHost }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-eth-execution
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.ethereum.replicas }}
+  selector:
+    matchLabels:
+      {{- include "aztec-network.selectorLabels" . | nindent 6 }}
+      app: eth-execution
+  template:
+    metadata:
+      labels:
+        {{- include "aztec-network.selectorLabels" . | nindent 8 }}
+        app: eth-execution
+    spec:
+      {{- if .Values.network.gke }}
+      nodeSelector:
+        node-type: network
+      {{- end }}
+      {{- if .Values.network.public }}
+      hostNetwork: true
+      {{- end }}
+      containers:
+        - name: ethereum
+          image: "{{ .Values.images.reth.image }}"
+          imagePullPolicy: {{ .Values.images.reth.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              exec /entrypoints/eth-execution.sh
+          env:
+            - name: K8S_MODE
+              value: "true"
+            - name: HTTP_PORT
+              value: "{{ .Values.ethereum.execution.service.port }}"
+            - name: WS_PORT
+              value: "{{ .Values.ethereum.execution.service.wsPort }}"
+            - name: MAX_TX_INPUT_SIZE_BYTES
+              value: "{{ .Values.ethereum.maxTxInputSizeBytes }}"
+          ports:
+            - containerPort: {{ .Values.ethereum.execution.service.port }}
+              name: eth-execution
+            - containerPort: {{ .Values.ethereum.execution.service.wsPort }}
+              name: eth-exec-ws
+          volumeMounts:
+            - name: genesis
+              mountPath: /genesis
+            - name: shared-volume
+              mountPath: /data
+            - name: entrypoint-scripts
+              mountPath: /entrypoints
+          resources:
+            {{- toYaml .Values.ethereum.execution.resources | nindent 12 }}
+      volumes:
+        {{- if gt (.Values.ethereum.replicas | int) 0 }}
+        - name: shared-volume
+          persistentVolumeClaim:
+            claimName: {{ include "aztec-network.fullname" . }}-eth-execution-pvc
+        {{- end }}
+        - name: genesis
+          configMap:
+            name: {{ include "aztec-network.fullname" . }}-eth-execution-genesis
+        - name: entrypoint-scripts
+          configMap:
+            name: {{ include "aztec-network.fullname" . }}-entrypoint-scripts
+            defaultMode: 0755
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-eth-execution
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+    app: eth-execution
+spec:
+  {{- if .Values.network.public }}
+  type: LoadBalancer
+  {{- else }}
+  type: ClusterIP
+  {{- end }}
+  selector:
+    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
+    app: eth-execution
+  ports:
+    - name: jsonrpc
+      protocol: TCP
+      port: {{ .Values.ethereum.execution.service.port }}
+      targetPort: {{ .Values.ethereum.execution.service.targetPort }}
+    - name: ws
+      protocol: TCP
+      port: {{ .Values.ethereum.execution.service.wsPort }}
+      targetPort: {{ .Values.ethereum.execution.service.wsTargetPort }}
+    # Engine Api
+    - name: engine
+      protocol: TCP
+      port: 8551
+      targetPort: 8551
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-eth-execution-genesis
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+data:
+  genesis.json: |
+    {{ .Files.Get "eth-devnet/out/genesis.json" | nindent 4 }}
+  jwt-secret.hex: |
+    {{ .Files.Get "eth-devnet/out/jwt-secret.hex" | nindent 4 }}
+---
+{{- if gt (.Values.ethereum.replicas | int) 0 }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-eth-execution-pvc
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: {{ .Values.ethereum.execution.storageSize }}
+{{- end }}
+---
+{{ end }}

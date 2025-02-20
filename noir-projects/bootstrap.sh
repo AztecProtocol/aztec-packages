@@ -1,54 +1,51 @@
 #!/usr/bin/env bash
-set -eu
+source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-cd "$(dirname "$0")"
+cmd=${1:-}
 
-CMD=${1:-}
+function build {
+  echo_header "noir-projects build"
 
-if [ -n "$CMD" ]; then
-  if [ "$CMD" = "clean" ]; then
-    git clean -fdx
-    exit 0
-  else
-    echo "Unknown command: $CMD"
-    exit 1
-  fi
-fi
+  # Use fmt as a trick to download dependencies.
+  # Otherwise parallel runs of nargo will trip over each other trying to download dependencies.
+  # Also doubles up as our formatting check.
+  function prep {
+    set -eu
+    (cd noir-protocol-circuits && yarn && node ./scripts/generate_variants.js)
+    for dir in noir-contracts noir-protocol-circuits mock-protocol-circuits aztec-nr; do
+      (cd $dir && ../../noir/noir-repo/target/release/nargo fmt --check)
+    done
+  }
+  export -f prep
 
-# Attempt to just pull artefacts from CI and exit on success.
-[ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh && exit
+  denoise prep
 
-g="\033[32m"  # Green
-b="\033[34m"  # Blue
-r="\033[0m"   # Reset
+  parallel --tag --line-buffered --joblog joblog.txt --halt now,fail=1 denoise "'./{}/bootstrap.sh $cmd'" ::: \
+    mock-protocol-circuits \
+    noir-protocol-circuits \
+    noir-contracts
+}
 
-AVAILABLE_MEMORY=0
+function test_cmds {
+  parallel -k ./{}/bootstrap.sh test_cmds ::: noir-protocol-circuits noir-contracts aztec-nr
+}
 
-case "$(uname)" in
-  Linux*)
-    # Check available memory on Linux
-    AVAILABLE_MEMORY=$(awk '/MemTotal/ { printf $2 }' /proc/meminfo)
+function test {
+  echo_header "noir-projects test"
+  test_cmds | filter_test_cmds | parallelise
+}
+
+case "$cmd" in
+  full|fast|ci|"")
+    build
+    ;;
+  test|test_cmds)
+    $cmd
+    ;;
+  "hash")
+    cache_content_hash .rebuild_patterns ../noir/.rebuild_patterns
     ;;
   *)
-    echo "Parallel builds not supported on this operating system"
-    ;;
+    echo_stderr "Unknown command: $cmd"
+    exit 1
 esac
-# If builds fail with an amount of free memory greater than this value then it should be increased.
-MIN_PARALLEL_BUILD_MEMORY=134217728
-
-yarn
-
-if [[ AVAILABLE_MEMORY -lt MIN_PARALLEL_BUILD_MEMORY ]]; then
-  echo "System does not have enough memory for parallel builds, falling back to sequential"
-  ./noir-contracts/bootstrap.sh
-  ./noir-protocol-circuits/bootstrap.sh
-  ./mock-protocol-circuits/bootstrap.sh
-else
-  ((./noir-contracts/bootstrap.sh) > >(awk -v g="$g" -v r="$r" '{print g "contracts: " r $0}')) &
-  ((./noir-protocol-circuits/bootstrap.sh) > >(awk -v b="$b" -v r="$r" '{print  b "protocol-circuits: " r $0}')) &
-  ((./mock-protocol-circuits/bootstrap.sh) > >(awk -v b="$b" -v r="$r" '{print  b "mock-protocol-circuits: " r $0}')) &
-
-  for job in $(jobs -p); do
-    wait $job || exit 1
-  done
-fi

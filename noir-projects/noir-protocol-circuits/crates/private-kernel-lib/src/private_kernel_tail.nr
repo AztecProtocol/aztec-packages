@@ -4,11 +4,12 @@ use crate::components::{
 };
 use dep::types::{
     abis::{
-        kernel_circuit_public_inputs::KernelCircuitPublicInputs,
+        kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
         private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
     },
     constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX},
     PrivateKernelCircuitPublicInputs,
+    proof::traits::Verifiable,
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
@@ -28,12 +29,16 @@ impl PrivateKernelTailCircuitPrivateInputs {
         }
     }
 
-    unconstrained fn generate_output(self) -> KernelCircuitPublicInputs {
+    unconstrained fn generate_output(self) -> PrivateToRollupKernelCircuitPublicInputs {
         TailOutputComposer::new(self.previous_kernel.public_inputs).finish()
     }
 
-    pub fn execute(self) -> KernelCircuitPublicInputs {
+    pub fn execute(self) -> PrivateToRollupKernelCircuitPublicInputs {
+        if !std::runtime::is_unconstrained() {
+            self.previous_kernel.verify();
+        }
         // Generate output.
+        // Safety: The output is validated below by TailOutputValidator.
         let output = unsafe { self.generate_output() };
 
         // Validate inputs.
@@ -56,19 +61,19 @@ mod tests {
     };
     use dep::types::{
         abis::{
-            gas::Gas, kernel_circuit_public_inputs::KernelCircuitPublicInputs,
+            gas::Gas, kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
             max_block_number::MaxBlockNumber,
         },
         address::{AztecAddress, EthAddress},
         messaging::l2_to_l1_message::ScopedL2ToL1Message,
         point::Point,
         tests::fixture_builder::FixtureBuilder,
-        traits::is_empty,
+        traits::{Empty, FromField},
     };
     use dep::types::constants::{
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, EMPTY_NESTED_INDEX, GENERATOR_INDEX__IVSK_M,
-        L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
-        PRIVATE_KERNEL_INNER_INDEX, PRIVATE_LOG_SIZE_IN_FIELDS,
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, GENERATOR_INDEX__IVSK_M, L2_GAS_PER_L2_TO_L1_MSG,
+        L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
+        PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_TAIL_INDEX, PRIVATE_LOG_SIZE_IN_FIELDS,
     };
 
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailInputs and PrivateKernelTailToPublicInputs.
@@ -80,12 +85,14 @@ mod tests {
         pub fn new() -> Self {
             let mut previous_kernel = FixtureBuilder::new().in_vk_tree(PRIVATE_KERNEL_INNER_INDEX);
             previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1_000_000, 1_000_000);
-            previous_kernel.set_first_nullifier();
+            previous_kernel.set_protocol_nullifier();
+            previous_kernel.set_fee_payer(AztecAddress::from_field(234234));
+            previous_kernel.is_private_only = true;
 
             PrivateKernelTailInputsBuilder { previous_kernel }
         }
 
-        pub fn execute(&mut self) -> KernelCircuitPublicInputs {
+        pub fn execute(&mut self) -> PrivateToRollupKernelCircuitPublicInputs {
             let kernel = PrivateKernelTailCircuitPrivateInputs {
                 previous_kernel: self.previous_kernel.to_private_kernel_data(),
             };
@@ -104,9 +111,7 @@ mod tests {
     #[test]
     fn execution_succeeded() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
-        let public_inputs = builder.execute();
-
-        assert(is_empty(public_inputs.start_state));
+        let _public_inputs = builder.execute();
     }
 
     #[test]
@@ -144,7 +149,7 @@ mod tests {
         builder.previous_kernel.append_l2_to_l1_msgs(2);
 
         // Reorder the msgs
-        let original_msgs = builder.previous_kernel.l2_to_l1_msgs.storage;
+        let original_msgs = builder.previous_kernel.l2_to_l1_msgs.storage();
         let mut reversed_msgs = [ScopedL2ToL1Message::empty(); 2];
         for i in 0..reversed_msgs.len() {
             reversed_msgs[i] = builder.previous_kernel.l2_to_l1_msgs.pop();
@@ -216,6 +221,15 @@ mod tests {
         builder.failed();
     }
 
+    #[test(should_fail_with = "First nullifier claim was not satisfied")]
+    fn first_nullifier_validation() {
+        let mut builder = PrivateKernelTailInputsBuilder::new();
+        let mut first_nullifier = builder.previous_kernel.nullifiers.get(0);
+        first_nullifier.nullifier.value += 1;
+        builder.previous_kernel.nullifiers.set(0, first_nullifier);
+        builder.failed();
+    }
+
     #[test]
     fn empty_tx_consumes_fixed_gas() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
@@ -283,21 +297,6 @@ mod tests {
     }
 
     #[test]
-    fn propagate_fee_payer() {
-        // Check that we carry forward if the fee payer is already set
-        let mut builder = PrivateKernelTailInputsBuilder::new();
-        let fee_payer = AztecAddress::from_field(123);
-        builder.previous_kernel.fee_payer = fee_payer;
-        let public_inputs = builder.execute();
-        assert_eq(public_inputs.fee_payer, fee_payer);
-
-        // Check that the fee payer remains empty if unset
-        let mut builder = PrivateKernelTailInputsBuilder::new();
-        let public_inputs = builder.execute();
-        assert_eq(public_inputs.fee_payer, AztecAddress::empty());
-    }
-
-    #[test]
     fn valid_previous_kernel() {
         for i in 0..ALLOWED_PREVIOUS_CIRCUITS.len() {
             let mut builder = PrivateKernelTailInputsBuilder::new();
@@ -311,7 +310,7 @@ mod tests {
     #[test(should_fail_with = "Invalid vk index")]
     fn invalid_previous_kernel() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
-        builder.previous_kernel = builder.previous_kernel.in_vk_tree(EMPTY_NESTED_INDEX);
+        builder.previous_kernel = builder.previous_kernel.in_vk_tree(PRIVATE_KERNEL_TAIL_INDEX);
         let _res = builder.execute();
     }
 }

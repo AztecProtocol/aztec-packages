@@ -1,60 +1,134 @@
 #!/usr/bin/env bash
-set -euo pipefail;
+set -euo pipefail
 
-target_dir=./generated
+# Working directory independent.
+cd $(git rev-parse --show-toplevel)/yarn-project/l1-artifacts
 
+# Contracts name list (all assumed to be in l1-contracts).
+# This script writes into the src/ folder:
+# - index.ts: entrypoint
+# - {name}Abi.ts: contains the ABI
+# - {name}Bytecode.ts: contains the bytecode and link references
 
-# CONTRACT elements have structure PROJECT_DIR_NAME:CONTRACT_NAME.
-#   This will generate the following artifacts for the contracts within the target_dir{./generated} directory.
-#   - a .{CONTRACT_NAME}Bytecode.ts containing the contract bytecode.
-#   - a .{CONTRACT_NAME}Abi.ts containing the contract ABI.
-
-CONTRACTS=(
-  "l1-contracts:Registry"
-  "l1-contracts:Inbox"
-  "l1-contracts:Outbox"
-  "l1-contracts:Rollup"
-  "l1-contracts:TokenPortal"
-  "l1-contracts:TestERC20"
-  "l1-contracts:UniswapPortal"
-  "l1-contracts:IERC20"
-  "l1-contracts:FeeJuicePortal"
-  "l1-contracts:MockVerifier"
-  "l1-contracts:IVerifier"
-  "l1-contracts:IProofCommitmentEscrow"
-  "l1-contracts:ProofCommitmentEscrow"
-  "l1-contracts:CoinIssuer"
-  "l1-contracts:RewardDistributor"
-  "l1-contracts:GovernanceProposer"
-  "l1-contracts:Governance"
-  "l1-contracts:NewGovernanceProposerPayload"
-  "l1-contracts:LeonidasLib"
-  "l1-contracts:ExtRollupLib"
+contracts=(
+  "Registry"
+  "Inbox"
+  "Outbox"
+  "Rollup"
+  "TokenPortal"
+  "TestERC20"
+  "UniswapPortal"
+  "IERC20"
+  "FeeJuicePortal"
+  "MockVerifier"
+  "IVerifier"
+  "CoinIssuer"
+  "RewardDistributor"
+  "GovernanceProposer"
+  "Governance"
+  "NewGovernanceProposerPayload"
+  "ValidatorSelectionLib"
+  "ExtRollupLib"
+  "SlashingProposer"
+  "Slasher"
+  "EmpireBase"
+  "SlashFactory"
+  "Forwarder"
+  "HonkVerifier"
+  "StakingLib"
 )
 
+# Combine error ABIs once, removing duplicates by {type, name}.
+combined_errors_abi=$(
+  jq -s '
+    .[0].abi + .[1].abi
+    | unique_by({type: .type, name: .name})
+  ' \
+    ../../l1-contracts/out/Errors.sol/Errors.json \
+    ../../l1-contracts/out/libraries/Errors.sol/Errors.json
+)
 
-# create target dir if it doesn't exist
-mkdir -p "$target_dir";
+# Start from clean.
+rm -rf src && mkdir src
 
-echo -ne "// Auto generated module\n" > "$target_dir/index.ts";
+echo "// Auto-generated module" >"src/index.ts"
 
-for E in "${CONTRACTS[@]}"; do
-    ARR=(${E//:/ })
-    ROOT="${ARR[0]}";
-    CONTRACT_NAME="${ARR[1]}";
+# Generate ErrorsAbi.ts
+(
+  echo "/**"
+  echo " * Combined Errors ABI."
+  echo " */"
+  echo -n "export const ErrorsAbi = "
+  echo -n "$combined_errors_abi"
+  echo " as const;"
+) >"src/ErrorsAbi.ts"
 
-    echo -ne "/**\n * $CONTRACT_NAME ABI.\n */\nexport const ${CONTRACT_NAME}Abi = " > "$target_dir/${CONTRACT_NAME}Abi.ts";
-    jq -j '.abi' ../../$ROOT/out/$CONTRACT_NAME.sol/$CONTRACT_NAME.json >> "$target_dir/${CONTRACT_NAME}Abi.ts";
-    echo " as const;" >> "$target_dir/${CONTRACT_NAME}Abi.ts";
+# Add Errors export to index.ts
+echo "export * from './ErrorsAbi.js';" >>"src/index.ts"
 
-    echo -ne "/**\n * $CONTRACT_NAME bytecode.\n */\nexport const ${CONTRACT_NAME}Bytecode = \"" > "$target_dir/${CONTRACT_NAME}Bytecode.ts";
-    jq -j '.bytecode.object' ../../$ROOT/out/$CONTRACT_NAME.sol/$CONTRACT_NAME.json >> "$target_dir/${CONTRACT_NAME}Bytecode.ts";
-    echo "\";" >> "$target_dir/${CONTRACT_NAME}Bytecode.ts";
-    echo -ne "/**\n * $CONTRACT_NAME link references.\n */\nexport const ${CONTRACT_NAME}LinkReferences = " >> "$target_dir/${CONTRACT_NAME}Bytecode.ts";
-    jq -j '.bytecode.linkReferences' ../../$ROOT/out/$CONTRACT_NAME.sol/$CONTRACT_NAME.json >> "$target_dir/${CONTRACT_NAME}Bytecode.ts";
-    echo " as const;" >> "$target_dir/${CONTRACT_NAME}Bytecode.ts";
+# Collect all compressed abis
+abis=""
 
-    echo -ne "export * from './${CONTRACT_NAME}Abi.js';\nexport * from './${CONTRACT_NAME}Bytecode.js';\n" >> "$target_dir/index.ts";
-done;
+for contract_name in "${contracts[@]}"; do
+  # Append compressed abi to abis collection
+  abis="$abis:$(jq -c '.abi' "../../l1-contracts/out/${contract_name}.sol/${contract_name}.json")"
 
-echo "Successfully generated TS artifacts!";
+  # Generate <ContractName>Abi.ts
+  (
+    echo "/**"
+    echo " * ${contract_name} ABI."
+    echo " */"
+    echo -n "export const ${contract_name}Abi = "
+    # Merge contract abi and errors abi while removing duplicates based on both type and name
+    # Just merging it into all, it is not the cleanest, but it does the job.
+    jq -j --argjson errs "$combined_errors_abi" '
+      .abi + $errs
+      | unique_by({type: .type, name: .name})
+    ' \
+      "../../l1-contracts/out/${contract_name}.sol/${contract_name}.json"
+    echo " as const;"
+  ) >"src/${contract_name}Abi.ts"
+
+  # Generate <ContractName>Bytecode.ts
+  (
+    echo "/**"
+    echo " * ${contract_name} bytecode."
+    echo " */"
+    echo -n "export const ${contract_name}Bytecode = \""
+    jq -j '.bytecode.object' \
+      "../../l1-contracts/out/${contract_name}.sol/${contract_name}.json"
+    echo "\";"
+
+    echo "/**"
+    echo " * ${contract_name} link references."
+    echo " */"
+    echo -n "export const ${contract_name}LinkReferences = "
+    jq -j '.bytecode.linkReferences' \
+      "../../l1-contracts/out/${contract_name}.sol/${contract_name}.json"
+    echo " as const;"
+  ) >"src/${contract_name}Bytecode.ts"
+
+  # Update index.ts exports
+  echo "export * from './${contract_name}Abi.js';" >>"src/index.ts"
+  echo "export * from './${contract_name}Bytecode.js';" >>"src/index.ts"
+done
+
+# Generate RollupStorage.ts
+(
+  echo "/**"
+  echo " * Rollup storage."
+  echo " */"
+  echo -n "export const RollupStorage = "
+  jq -j '.storage' "../../l1-contracts/out/Rollup.sol/storage.json"
+  echo " as const;"
+) >"src/RollupStorage.ts"
+
+# Update index.ts exports
+echo "export * from './RollupStorage.js';" >>"src/index.ts"
+
+# Write abis hash. Consider excluding some contracts from this hash if
+# we don't want to consider them as breaking for the interfaces.
+echo "export const AbisChecksum = \"$(echo -n "$abis" | sha256sum | cut -d' ' -f1)\";" >"src/checksum.ts"
+echo "export * from './checksum.js';" >>"src/index.ts"
+
+echo "Successfully generated TS artifacts"

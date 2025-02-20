@@ -1,6 +1,6 @@
 {
   "name": "@aztec/aztec",
-  "version": "0.66.0",
+  "version": "0.76.4",
   "type": "module",
   "exports": {
     ".": "./dest/index.js"
@@ -17,11 +17,12 @@
     "build": "yarn clean && tsc -b",
     "start": "node --no-warnings ./dest/bin",
     "start:debug": "node --inspect=0.0.0.0:9221 --no-warnings ./dest/bin",
+    "start:sandbox": "ETHEREUM_HOST=http://0.0.0.0:8545/ && yarn start start --sandbox",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "build:dev": "tsc -b --watch",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests",
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
     "run:example:token": "LOG_LEVEL='verbose' node ./dest/examples/token.js"
   },
   "inherits": [
@@ -30,15 +31,18 @@
   "dependencies": {
     "@aztec/accounts": "workspace:^",
     "@aztec/archiver": "workspace:^",
+    "@aztec/aztec-faucet": "workspace:^",
     "@aztec/aztec-node": "workspace:^",
     "@aztec/aztec.js": "workspace:^",
     "@aztec/bb-prover": "workspace:^",
+    "@aztec/blob-sink": "workspace:^",
     "@aztec/bot": "workspace:^",
     "@aztec/builder": "workspace:^",
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/cli": "workspace:^",
     "@aztec/cli-wallet": "workspace:^",
+    "@aztec/constants": "workspace:^",
     "@aztec/entrypoints": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
@@ -54,14 +58,14 @@
     "@aztec/pxe": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/txe": "workspace:^",
-    "@aztec/types": "workspace:^",
+    "@aztec/world-state": "workspace:^",
     "@types/chalk": "^2.2.0",
     "abitype": "^0.8.11",
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
     "koa": "^2.14.2",
     "koa-router": "^12.0.0",
-    "viem": "^2.7.15"
+    "viem": "2.22.8"
   },
   "files": [
     "dest",
@@ -103,12 +107,11 @@
       ".ts"
     ],
     "reporters": [
-      [
-        "default",
-        {
-          "summaryThreshold": 9999
-        }
-      ]
+      "default"
+    ],
+    "testTimeout": 120000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   },
   "engines": {

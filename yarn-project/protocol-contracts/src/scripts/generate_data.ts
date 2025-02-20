@@ -1,29 +1,28 @@
+import { AztecAddress, Fr, getContractInstanceFromDeployParams } from '@aztec/circuits.js';
+import { loadContractArtifact } from '@aztec/circuits.js/abi';
+import { type NoirCompiledContract } from '@aztec/circuits.js/noir';
 import {
-  AztecAddress,
   CANONICAL_AUTH_REGISTRY_ADDRESS,
   DEPLOYER_CONTRACT_ADDRESS,
   DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
+  DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE,
   FEE_JUICE_ADDRESS,
-  Fr,
   MULTI_CALL_ENTRYPOINT_ADDRESS,
   REGISTERER_CONTRACT_ADDRESS,
   REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
   REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE,
   REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE,
   ROUTER_ADDRESS,
-  getContractInstanceFromDeployParams,
-} from '@aztec/circuits.js';
+} from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { createConsoleLogger } from '@aztec/foundation/log';
-import { loadContractArtifact } from '@aztec/types/abi';
-import { type NoirCompiledContract } from '@aztec/types/noir';
 
 import { promises as fs } from 'fs';
 import path from 'path';
 
 import { buildProtocolContractTree } from '../build_protocol_contract_tree.js';
 
-const log = createConsoleLogger('aztec:autogenerate');
+const log = createConsoleLogger('autogenerate');
 
 const noirContractsRoot = '../../noir-projects/noir-contracts';
 const srcPath = path.join(noirContractsRoot, './target');
@@ -64,23 +63,23 @@ async function copyArtifact(srcName: string, destName: string) {
   return artifact;
 }
 
-function computeContractLeaf(artifact: NoirCompiledContract) {
-  const instance = getContractInstanceFromDeployParams(loadContractArtifact(artifact), { salt });
+async function computeContractLeaf(artifact: NoirCompiledContract) {
+  const instance = await getContractInstanceFromDeployParams(loadContractArtifact(artifact), { salt });
   return instance.address;
 }
 
-function computeRoot(names: string[], leaves: Fr[]) {
+async function computeRoot(names: string[], leaves: Fr[]) {
   const data = names.map((name, i) => ({
     address: new AztecAddress(new Fr(contractAddressMapping[name])),
     leaf: leaves[i],
   }));
-  const tree = buildProtocolContractTree(data);
+  const tree = await buildProtocolContractTree(data);
   return Fr.fromBuffer(tree.root);
 }
 
 async function generateDeclarationFile(destName: string) {
   const content = `
-    import { type NoirCompiledContract } from '@aztec/types/noir';
+    import { type NoirCompiledContract } from '@aztec/circuits.js/noir';
     const circuit: NoirCompiledContract;
     export = circuit;
   `;
@@ -94,26 +93,6 @@ function generateNames(names: string[]) {
     ] as const;
 
     export type ProtocolContractName = typeof protocolContractNames[number];
-  `;
-}
-
-function generateArtifacts(names: string[]) {
-  const imports = names
-    .map(name => {
-      return `
-      import ${name}Json from '../artifacts/${name}.json' assert { type: 'json' };
-    `;
-    })
-    .join('\n');
-
-  const exports = names.map(name => `${name}: loadContractArtifact(${name}Json as NoirCompiledContract)`).join(',\n');
-
-  return `
-    ${imports}
-
-    export const ProtocolContractArtifact: Record<ProtocolContractName, ContractArtifact> = {
-      ${exports}
-    };
   `;
 }
 
@@ -136,42 +115,39 @@ function generateContractAddresses(names: string[]) {
 
 function generateContractLeaves(names: string[], leaves: Fr[]) {
   return `
-    export const ProtocolContractLeaf = {
-      ${leaves.map((leaf, i) => `${names[i]}: Fr.fromString('${leaf.toString()}')`).join(',\n')}
+    export const ProtocolContractLeaves = {
+      ${leaves.map((leaf, i) => `${names[i]}: Fr.fromHexString('${leaf.toString()}')`).join(',\n')}
     };
   `;
 }
 
-function generateRoot(names: string[], leaves: Fr[]) {
-  const root = computeRoot(names, leaves);
+async function generateRoot(names: string[], leaves: Fr[]) {
+  const root = await computeRoot(names, leaves);
   return `
-    export const protocolContractTreeRoot = Fr.fromString('${root.toString()}');
+    export const protocolContractTreeRoot = Fr.fromHexString('${root.toString()}');
   `;
 }
 
-function generateLogTags() {
+async function generateLogTags() {
   return `
   export const REGISTERER_CONTRACT_CLASS_REGISTERED_TAG = new Fr(${REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE}n);
   export const REGISTERER_PRIVATE_FUNCTION_BROADCASTED_TAG = new Fr(${REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE}n);
   export const REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_TAG = new Fr(${REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE}n);
-  export const DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_TAG = Fr.fromString('${poseidon2Hash([
+  export const DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_TAG = Fr.fromHexString('${await poseidon2Hash([
     DEPLOYER_CONTRACT_ADDRESS,
     DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
   ])}');
+   export const DEPLOYER_CONTRACT_INSTANCE_UPDATED_TAG = new Fr(${DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE}n);
   `;
 }
 
 async function generateOutputFile(names: string[], leaves: Fr[]) {
   const content = `
     // GENERATED FILE - DO NOT EDIT. RUN \`yarn generate\` or \`yarn generate:data\`
-    import { AztecAddress, Fr } from '@aztec/circuits.js';
-    import { type ContractArtifact } from '@aztec/foundation/abi';
-    import { loadContractArtifact } from '@aztec/types/abi';
-    import { type NoirCompiledContract } from '@aztec/types/noir';
+    import { Fr } from '@aztec/foundation/fields';
+    import { AztecAddress } from '@aztec/foundation/aztec-address';
 
     ${generateNames(names)}
-
-    ${generateArtifacts(names)}
 
     ${generateSalts(names)}
 
@@ -179,9 +155,9 @@ async function generateOutputFile(names: string[], leaves: Fr[]) {
 
     ${generateContractLeaves(names, leaves)}
 
-    ${generateRoot(names, leaves)}
+    ${await generateRoot(names, leaves)}
 
-    ${generateLogTags()}
+    ${await generateLogTags()}
   `;
   await fs.writeFile(outputFilePath, content);
 }
@@ -193,14 +169,15 @@ async function main() {
     await fs.readFile(path.join(noirContractsRoot, 'protocol_contracts.json'), 'utf8'),
   ) as string[];
 
-  const leaves = [];
+  const leaves: Fr[] = [];
   const destNames = srcNames.map(n => n.split('-')[1]);
   for (let i = 0; i < srcNames.length; i++) {
     const srcName = srcNames[i];
     const destName = destNames[i];
     const artifact = await copyArtifact(srcName, destName);
     await generateDeclarationFile(destName);
-    leaves.push(computeContractLeaf(artifact).toField());
+    const contractLeaf = await computeContractLeaf(artifact);
+    leaves.push(contractLeaf.toField());
   }
 
   await generateOutputFile(destNames, leaves);

@@ -1,7 +1,7 @@
 variable "GKE_CLUSTER_CONTEXT" {
   description = "GKE cluster context"
   type        = string
-  default     = "gke_testnet-440309_us-east4-a_spartan-gke"
+  default     = "gke_testnet-440309_us-west1-a_aztec-gke-private"
 }
 
 variable "RELEASE_NAME" {
@@ -23,4 +23,47 @@ variable "L1_DEPLOYMENT_MNEMONIC" {
   description = "Mnemonic to use for the L1 contract deployments"
   type        = string
   sensitive   = true
+  default     = ""
+}
+
+variable "BOT_L1_MNEMONIC" {
+  type    = string
+  default = "test test test test test test test test test test test junk"
+}
+
+variable "L1_DEPLOYMENT_PRIVATE_KEY" {
+  description = "Private key to use for the L1 contract deployments"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "EXTERNAL_ETHEREUM_HOST" {
+  description = "External host to use for the ethereum node"
+  type        = string
+  default     = ""
+}
+
+variable "EXTERNAL_ETHEREUM_CONSENSUS_HOST" {
+  description = "External host to use for the ethereum consensus node"
+  type        = string
+  default     = ""
+}
+
+variable "EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY" {
+  description = "API key to use for the ethereum consensus node"
+  type        = string
+  default     = ""
+}
+
+variable "EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER" {
+  description = "API key header to use for the ethereum consensus node"
+  type        = string
+  default     = ""
+}
+
+variable "L1_DEPLOYMENT_SALT" {
+  description = "Salt to use for the L1 contract deployments"
+  type        = string
+  default     = ""
 }

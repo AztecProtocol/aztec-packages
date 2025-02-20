@@ -1,8 +1,8 @@
-import { type Logger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { Registry } from 'prom-client';
 
-import { type Meter, type Metrics, type ObservableGauge, type TelemetryClient } from './telemetry.js';
+import { type Meter, type MetricsType, type ObservableGauge, type TelemetryClient } from './telemetry.js';
 
 /**
  * Types matching the gossipsub and libp2p services
@@ -62,7 +62,7 @@ export interface MetricsRegister {
   avgMinMax<Labels extends LabelsGeneric = NoLabels>(config: AvgMinMaxConfig<Labels>): IAvgMinMax<Labels>;
 }
 
-/**Otel Metrics Adapters
+/**Otel MetricsType Adapters
  *
  * Some dependencies we use export metrics directly in a Prometheus format
  * This adapter is used to convert those metrics to a format that we can use with OpenTelemetry
@@ -93,7 +93,7 @@ export class OtelGauge<Labels extends LabelsGeneric = NoLabels> implements IGaug
     help: string,
     private labelNames: Array<keyof Labels> = [],
   ) {
-    this.gauge = meter.createObservableGauge(name as Metrics, {
+    this.gauge = meter.createObservableGauge(name as MetricsType, {
       description: help,
     });
 
@@ -237,7 +237,7 @@ class NoopOtelHistogram<Labels extends LabelsGeneric = NoLabels> implements IHis
   constructor(
     private logger: Logger,
     _meter: Meter,
-    _name: string, // Metrics must be registered in the aztec labels registry
+    _name: string, // MetricsType must be registered in the aztec labels registry
     _help: string,
     _buckets: number[] = [],
     _labelNames: Array<keyof Labels> = [],
@@ -265,7 +265,7 @@ class NoopOtelAvgMinMax<Labels extends LabelsGeneric = NoLabels> implements IAvg
   constructor(
     private _logger: Logger,
     _meter: Meter,
-    _name: string, // Metrics must be registered in the aztec labels registry
+    _name: string, // MetricsType must be registered in the aztec labels registry
     _help: string,
     _labelNames: Array<keyof Labels> = [],
   ) {}
@@ -285,7 +285,10 @@ class NoopOtelAvgMinMax<Labels extends LabelsGeneric = NoLabels> implements IAvg
 export class OtelMetricsAdapter extends Registry implements MetricsRegister {
   private readonly meter: Meter;
 
-  constructor(telemetryClient: TelemetryClient, private logger: Logger = createDebugLogger('otel-metrics-adapter')) {
+  constructor(
+    telemetryClient: TelemetryClient,
+    private logger: Logger = createLogger('telemetry:otel-metrics-adapter'),
+  ) {
     super();
     this.meter = telemetryClient.getMeter('metrics-adapter');
   }
@@ -294,7 +297,7 @@ export class OtelMetricsAdapter extends Registry implements MetricsRegister {
     return new OtelGauge<Labels>(
       this.logger,
       this.meter,
-      configuration.name as Metrics,
+      configuration.name as MetricsType,
       configuration.help,
       configuration.labelNames,
     );
@@ -304,7 +307,7 @@ export class OtelMetricsAdapter extends Registry implements MetricsRegister {
     return new NoopOtelHistogram<Labels>(
       this.logger,
       this.meter,
-      configuration.name as Metrics,
+      configuration.name as MetricsType,
       configuration.help,
       configuration.buckets,
       configuration.labelNames,
@@ -315,7 +318,7 @@ export class OtelMetricsAdapter extends Registry implements MetricsRegister {
     return new NoopOtelAvgMinMax<Labels>(
       this.logger,
       this.meter,
-      configuration.name as Metrics,
+      configuration.name as MetricsType,
       configuration.help,
       configuration.labelNames,
     );

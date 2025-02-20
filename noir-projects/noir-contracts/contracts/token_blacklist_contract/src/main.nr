@@ -1,5 +1,12 @@
 mod types;
 
+use dep::aztec::macros::aztec;
+
+// NOTE: This contract is stale and is kept around only as a reference of how to implement a blacklist.
+// Don't take into consideration the interface of this contract. The TransparentNote "shield" flow is
+// deprecated and has been replaced with partial notes in the standard token contract.
+// TODO(#11970): https://github.com/AztecProtocol/aztec-packages/issues/11970
+//
 // Minimal token implementation that supports `AuthWit` accounts and SharedMutable variables.
 // The auth message follows a similar pattern to the cross-chain message and includes a designated caller.
 // The designated caller is ALWAYS used here, and not based on a flag as cross-chain.
@@ -7,16 +14,14 @@ mod types;
 // To be read as `caller` calls function at `contract` defined by `selector` with `args`
 // Including a nonce in the message hash ensures that the message can only be used once.
 // The SharedMutables are used for access control related to minters and blacklist.
-
-use dep::aztec::macros::aztec;
-
 #[aztec]
-contract TokenBlacklist {
+pub contract TokenBlacklist {
     // Libs
     use dep::aztec::{
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_unconstrained,
+        encrypted_logs::log_assembly_strategies::default_aes128::note::{
+            encode_and_encrypt_note, encode_and_encrypt_note_unconstrained,
+        },
         hash::compute_secret_hash,
-        keys::getters::get_public_keys,
         macros::{functions::{initializer, internal, private, public, view}, storage::storage},
         prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable, SharedMutable},
         utils::comparison::Comparator,
@@ -99,11 +104,16 @@ contract TokenBlacklist {
         assert(caller_roles.is_minter, "caller is not minter");
 
         let pending_shields = storage.pending_shields;
-        let mut note = TransparentNote::new(amount, secret_hash);
+        let note = TransparentNote::new(amount, secret_hash);
         let supply = storage.total_supply.read().add(U128::from_integer(amount));
 
         storage.total_supply.write(supply);
-        pending_shields.insert_from_public(&mut note);
+
+        // We insert the note hash into the pending_shields. Since the TransparentNote flow is deprecated (use partial
+        // notes instead), we no longer have utility a function exposed on the PrivateSet to insert the note hash from
+        // public context. Hence we need to manually get the slot and insert the note hash into the context.
+        let note_hash = note.compute_note_hash(pending_shields.storage_slot);
+        context.push_note_hash(note_hash);
     }
 
     #[public]
@@ -122,10 +132,15 @@ contract TokenBlacklist {
         let from_balance = storage.public_balances.at(from).read().sub(amount);
 
         let pending_shields = storage.pending_shields;
-        let mut note = TransparentNote::new(amount.to_field(), secret_hash);
+        let note = TransparentNote::new(amount.to_field(), secret_hash);
 
         storage.public_balances.at(from).write(from_balance);
-        pending_shields.insert_from_public(&mut note);
+
+        // We insert the note hash into the pending_shields. Since the TransparentNote flow is deprecated (use partial
+        // notes instead), we no longer have utility a function exposed on the PrivateSet to insert the note hash from
+        // public context. Hence we need to manually get the slot and insert the note hash into the context.
+        let note_hash = note.compute_note_hash(pending_shields.storage_slot);
+        context.push_note_hash(note_hash);
     }
 
     #[public]
@@ -187,17 +202,11 @@ contract TokenBlacklist {
         assert(notes.len() == 1, "note not popped");
 
         // Add the token note to user's balances set
-        let msg_sender_ovpk_m = get_public_keys(context.msg_sender()).ovpk_m;
-        // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
-        // https://github.com/noir-lang/noir/issues/5771
-        storage.balances.add(to, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note_unconstrained(
-                &mut context,
-                msg_sender_ovpk_m,
-                to,
-                context.msg_sender(),
-            ),
-        );
+        storage.balances.add(to, U128::from_integer(amount)).emit(encode_and_encrypt_note(
+            &mut context,
+            to,
+            context.msg_sender(),
+        ));
     }
 
     #[private]
@@ -213,12 +222,11 @@ contract TokenBlacklist {
             assert(nonce == 0, "invalid nonce");
         }
 
-        let from_ovpk_m = get_public_keys(from).ovpk_m;
-        // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
-        // https://github.com/noir-lang/noir/issues/5771
-        storage.balances.sub(from, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note_unconstrained(&mut context, from_ovpk_m, from, from),
-        );
+        storage.balances.sub(from, U128::from_integer(amount)).emit(encode_and_encrypt_note(
+            &mut context,
+            from,
+            from,
+        ));
 
         TokenBlacklist::at(context.this_address())._increase_public_balance(to, amount).enqueue(
             &mut context,
@@ -239,18 +247,14 @@ contract TokenBlacklist {
             assert(nonce == 0, "invalid nonce");
         }
 
-        let from_ovpk_m = get_public_keys(from).ovpk_m;
-
         let amount = U128::from_integer(amount);
         storage.balances.sub(from, amount).emit(encode_and_encrypt_note_unconstrained(
             &mut context,
-            from_ovpk_m,
             from,
             from,
         ));
         storage.balances.add(to, amount).emit(encode_and_encrypt_note_unconstrained(
             &mut context,
-            from_ovpk_m,
             to,
             from,
         ));
@@ -267,12 +271,11 @@ contract TokenBlacklist {
             assert(nonce == 0, "invalid nonce");
         }
 
-        let from_ovpk_m = get_public_keys(from).ovpk_m;
-        // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
-        // https://github.com/noir-lang/noir/issues/5771
-        storage.balances.sub(from, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note_unconstrained(&mut context, from_ovpk_m, from, from),
-        );
+        storage.balances.sub(from, U128::from_integer(amount)).emit(encode_and_encrypt_note(
+            &mut context,
+            from,
+            from,
+        ));
 
         TokenBlacklist::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }

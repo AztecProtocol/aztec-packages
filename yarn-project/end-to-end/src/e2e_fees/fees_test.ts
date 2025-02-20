@@ -1,32 +1,30 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { getSchnorrWallet } from '@aztec/accounts/schnorr';
 import {
   type AccountWallet,
   type AztecAddress,
   type AztecNode,
-  type DebugLogger,
+  CheatCodes,
+  type Logger,
   type PXE,
-  SignerlessWallet,
-  createDebugLogger,
+  createLogger,
   sleep,
 } from '@aztec/aztec.js';
-import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
-import { EthAddress, FEE_FUNDING_FOR_TESTER_ACCOUNT, GasSettings, computePartialAddress } from '@aztec/circuits.js';
+import { EthAddress, GasSettings, computePartialAddress } from '@aztec/circuits.js';
+import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import { createL1Clients } from '@aztec/ethereum';
 import { TestERC20Abi } from '@aztec/l1-artifacts';
-import {
-  AppSubscriptionContract,
-  TokenContract as BananaCoin,
-  CounterContract,
-  FPCContract,
-  FeeJuiceContract,
-} from '@aztec/noir-contracts.js';
+import { AppSubscriptionContract } from '@aztec/noir-contracts.js/AppSubscription';
+import { CounterContract } from '@aztec/noir-contracts.js/Counter';
+import { FPCContract } from '@aztec/noir-contracts.js/FPC';
+import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
+import { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 
 import { getContract } from 'viem';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
-import { type ISnapshotManager, addAccounts, createSnapshotManager } from '../fixtures/snapshot_manager.js';
+import { type ISnapshotManager, createSnapshotManager, deployAccounts } from '../fixtures/snapshot_manager.js';
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 import {
   type BalancesFn,
@@ -51,9 +49,10 @@ export class FeesTest {
   private snapshotManager: ISnapshotManager;
   private wallets: AccountWallet[] = [];
 
-  public logger: DebugLogger;
+  public logger: Logger;
   public pxe!: PXE;
   public aztecNode!: AztecNode;
+  public cheatCodes!: CheatCodes;
 
   public aliceWallet!: AccountWallet;
   public aliceAddress!: AztecAddress;
@@ -62,7 +61,7 @@ export class FeesTest {
   public sequencerAddress!: AztecAddress;
   public coinbase!: EthAddress;
 
-  public feeRecipient!: AztecAddress; // Account that receives the fees from the fee refund flow.
+  public fpcAdmin!: AztecAddress;
 
   public gasSettings!: GasSettings;
 
@@ -82,9 +81,12 @@ export class FeesTest {
   public readonly SUBSCRIPTION_AMOUNT = BigInt(1e19);
   public readonly APP_SPONSORED_TX_GAS_LIMIT = BigInt(10e9);
 
-  constructor(testName: string) {
-    this.logger = createDebugLogger(`aztec:e2e_fees:${testName}`);
-    this.snapshotManager = createSnapshotManager(`e2e_fees/${testName}`, dataPath);
+  constructor(testName: string, private numberOfAccounts = 3) {
+    if (!numberOfAccounts) {
+      throw new Error('There must be at least 1 initial account.');
+    }
+    this.logger = createLogger(`e2e:e2e_fees:${testName}`);
+    this.snapshotManager = createSnapshotManager(`e2e_fees/${testName}-${numberOfAccounts}`, dataPath);
   }
 
   async setup() {
@@ -130,27 +132,26 @@ export class FeesTest {
   async applyInitialAccountsSnapshot() {
     await this.snapshotManager.snapshot(
       'initial_accounts',
-      addAccounts(3, this.logger),
-      async ({ accountKeys }, { pxe, aztecNode, aztecNodeConfig }) => {
+      deployAccounts(this.numberOfAccounts, this.logger),
+      async ({ deployedAccounts }, { pxe, aztecNode, aztecNodeConfig }) => {
         this.pxe = pxe;
         this.aztecNode = aztecNode;
         this.gasSettings = GasSettings.default({ maxFeesPerGas: (await this.aztecNode.getCurrentBaseFees()).mul(2) });
-        const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
-        await Promise.all(accountManagers.map(a => a.register()));
-        this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
+        this.cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrl, pxe);
+        this.wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
         this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
         [this.aliceWallet, this.bobWallet] = this.wallets.slice(0, 2);
         [this.aliceAddress, this.bobAddress, this.sequencerAddress] = this.wallets.map(w => w.getAddress());
 
-        // We like sequencer so we send him the fees.
-        this.feeRecipient = this.sequencerAddress;
+        // We set Alice as the FPC admin to avoid the need for deployment of another account.
+        this.fpcAdmin = this.aliceAddress;
 
-        this.feeJuiceContract = await FeeJuiceContract.at(getCanonicalFeeJuice().address, this.aliceWallet);
-        const bobInstance = await this.bobWallet.getContractInstance(this.bobAddress);
-        if (!bobInstance) {
-          throw new Error('Bob instance not found');
+        const canonicalFeeJuice = await getCanonicalFeeJuice();
+        this.feeJuiceContract = await FeeJuiceContract.at(canonicalFeeJuice.address, this.aliceWallet);
+        if (this.numberOfAccounts > 1) {
+          const bobInstance = (await this.bobWallet.getContractMetadata(this.bobAddress)).contractInstance;
+          await this.aliceWallet.registerAccount(deployedAccounts[1].secret, await computePartialAddress(bobInstance!));
         }
-        await this.aliceWallet.registerAccount(accountKeys[1][0], computePartialAddress(bobInstance));
         this.coinbase = EthAddress.random();
 
         const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrl, MNEMONIC);
@@ -176,12 +177,7 @@ export class FeesTest {
     await this.snapshotManager.snapshot(
       'setup_fee_juice',
       async context => {
-        await setupCanonicalFeeJuice(
-          new SignerlessWallet(
-            context.pxe,
-            new DefaultMultiCallEntrypoint(context.aztecNodeConfig.l1ChainId, context.aztecNodeConfig.version),
-          ),
-        );
+        await setupCanonicalFeeJuice(context.pxe);
       },
       async (_data, context) => {
         this.feeJuiceContract = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, this.aliceWallet);
@@ -222,10 +218,10 @@ export class FeesTest {
       'fpc_setup',
       async context => {
         const feeJuiceContract = this.feeJuiceBridgeTestHarness.feeJuice;
-        expect(await context.pxe.isContractPubliclyDeployed(feeJuiceContract.address)).toBe(true);
+        expect((await context.pxe.getContractMetadata(feeJuiceContract.address)).isContractPubliclyDeployed).toBe(true);
 
         const bananaCoin = this.bananaCoin;
-        const bananaFPC = await FPCContract.deploy(this.aliceWallet, bananaCoin.address, this.feeRecipient)
+        const bananaFPC = await FPCContract.deploy(this.aliceWallet, bananaCoin.address, this.fpcAdmin)
           .send()
           .deployed();
 
@@ -285,25 +281,11 @@ export class FeesTest {
     );
   }
 
-  public async applyFundAliceWithFeeJuice() {
-    await this.snapshotManager.snapshot(
-      'fund_alice_with_fee_juice',
-      async () => {
-        await this.mintAndBridgeFeeJuice(this.aliceAddress, FEE_FUNDING_FOR_TESTER_ACCOUNT);
-      },
-      () => Promise.resolve(),
-    );
-  }
-
   public async applySetupSubscription() {
     await this.snapshotManager.snapshot(
       'setup_subscription',
       async () => {
-        // Deploy counter contract for testing with Bob as owner
-        // Emitting the outgoing logs to Bob below since we need someone to emit them to.
-        const counterContract = await CounterContract.deploy(this.bobWallet, 0, this.bobAddress, this.bobAddress)
-          .send()
-          .deployed();
+        const counterContract = await CounterContract.deploy(this.bobWallet, 0, this.bobAddress).send().deployed();
 
         // Deploy subscription contract, that allows subscriptions for SUBSCRIPTION_AMOUNT of bananas
         const subscriptionContract = await AppSubscriptionContract.deploy(

@@ -50,6 +50,10 @@ pub enum InterpreterError {
         typ: Type,
         location: Location,
     },
+    NonBoolUsedInWhile {
+        typ: Type,
+        location: Location,
+    },
     NonBoolUsedInConstrain {
         typ: Type,
         location: Location,
@@ -133,6 +137,10 @@ pub enum InterpreterError {
         typ: Type,
         location: Location,
     },
+    NonEnumInConstructor {
+        typ: Type,
+        location: Location,
+    },
     CannotInlineMacro {
         value: String,
         typ: Type,
@@ -146,7 +154,7 @@ pub enum InterpreterError {
         location: Location,
     },
     FailedToParseMacro {
-        error: ParserError,
+        error: Box<ParserError>,
         tokens: String,
         rule: &'static str,
         file: FileId,
@@ -243,6 +251,12 @@ pub enum InterpreterError {
     CannotInterpretFormatStringWithErrors {
         location: Location,
     },
+    GlobalsDependencyCycle {
+        location: Location,
+    },
+    LoopHaltedForUiResponsiveness {
+        location: Location,
+    },
 
     // These cases are not errors, they are just used to prevent us from running more code
     // until the loop can be resumed properly. These cases will never be displayed to users.
@@ -275,6 +289,7 @@ impl InterpreterError {
             | InterpreterError::ErrorNodeEncountered { location, .. }
             | InterpreterError::NonFunctionCalled { location, .. }
             | InterpreterError::NonBoolUsedInIf { location, .. }
+            | InterpreterError::NonBoolUsedInWhile { location, .. }
             | InterpreterError::NonBoolUsedInConstrain { location, .. }
             | InterpreterError::FailingConstraint { location, .. }
             | InterpreterError::NoMethodFound { location, .. }
@@ -294,6 +309,7 @@ impl InterpreterError {
             | InterpreterError::CastToNonNumericType { location, .. }
             | InterpreterError::QuoteInRuntimeCode { location, .. }
             | InterpreterError::NonStructInConstructor { location, .. }
+            | InterpreterError::NonEnumInConstructor { location, .. }
             | InterpreterError::CannotInlineMacro { location, .. }
             | InterpreterError::UnquoteFoundDuringEvaluation { location, .. }
             | InterpreterError::UnsupportedTopLevelItemUnquote { location, .. }
@@ -319,7 +335,9 @@ impl InterpreterError {
             | InterpreterError::CannotResolveExpression { location, .. }
             | InterpreterError::CannotSetFunctionBody { location, .. }
             | InterpreterError::UnknownArrayLength { location, .. }
-            | InterpreterError::CannotInterpretFormatStringWithErrors { location } => *location,
+            | InterpreterError::CannotInterpretFormatStringWithErrors { location }
+            | InterpreterError::GlobalsDependencyCycle { location }
+            | InterpreterError::LoopHaltedForUiResponsiveness { location } => *location,
 
             InterpreterError::FailedToParseMacro { error, file, .. } => {
                 Location::new(error.span(), *file)
@@ -398,6 +416,11 @@ impl<'a> From<&'a InterpreterError> for CustomDiagnostic {
             InterpreterError::NonBoolUsedInIf { typ, location } => {
                 let msg = format!("Expected a `bool` but found `{typ}`");
                 let secondary = "If conditions must be a boolean value".to_string();
+                CustomDiagnostic::simple_error(msg, secondary, location.span)
+            }
+            InterpreterError::NonBoolUsedInWhile { typ, location } => {
+                let msg = format!("Expected a `bool` but found `{typ}`");
+                let secondary = "While conditions must be a boolean value".to_string();
                 CustomDiagnostic::simple_error(msg, secondary, location.span)
             }
             InterpreterError::NonBoolUsedInConstrain { typ, location } => {
@@ -497,6 +520,10 @@ impl<'a> From<&'a InterpreterError> for CustomDiagnostic {
                 let msg = format!("`{typ}` is not a struct type");
                 CustomDiagnostic::simple_error(msg, String::new(), location.span)
             }
+            InterpreterError::NonEnumInConstructor { typ, location } => {
+                let msg = format!("`{typ}` is not an enum type");
+                CustomDiagnostic::simple_error(msg, String::new(), location.span)
+            }
             InterpreterError::CannotInlineMacro { value, typ, location } => {
                 let msg = format!("Cannot inline values of type `{typ}` into this position");
                 let secondary = format!("Cannot inline value `{value}`");
@@ -522,7 +549,7 @@ impl<'a> From<&'a InterpreterError> for CustomDiagnostic {
 
                 let push_the_problem_on_the_library_author = "To avoid this error in the future, try adding input validation to your macro. Erroring out early with an `assert` can be a good way to provide a user-friendly error message".into();
 
-                let mut diagnostic = CustomDiagnostic::from(error);
+                let mut diagnostic = CustomDiagnostic::from(error.as_ref());
                 // Swap the parser's primary note to become the secondary note so that it is
                 // more clear this error originates from failing to parse a macro.
                 let secondary = std::mem::take(&mut diagnostic.message);
@@ -631,7 +658,7 @@ impl<'a> From<&'a InterpreterError> for CustomDiagnostic {
             }
             InterpreterError::GenericNameShouldBeAnIdent { name, location } => {
                 let msg =
-                    "Generic name needs to be a valid identifer (one word beginning with a letter)"
+                    "Generic name needs to be a valid identifier (one word beginning with a letter)"
                         .to_string();
                 let secondary = format!("`{name}` is not a valid identifier");
                 CustomDiagnostic::simple_error(msg, secondary, location.span)
@@ -673,6 +700,18 @@ impl<'a> From<&'a InterpreterError> for CustomDiagnostic {
                 let secondary =
                     "Some of the variables to interpolate could not be evaluated".to_string();
                 CustomDiagnostic::simple_error(msg, secondary, location.span)
+            }
+            InterpreterError::GlobalsDependencyCycle { location } => {
+                let msg = "This global recursively depends on itself".to_string();
+                let secondary = String::new();
+                CustomDiagnostic::simple_error(msg, secondary, location.span)
+            }
+            InterpreterError::LoopHaltedForUiResponsiveness { location } => {
+                let msg = "This loop took too much time to execute so it was halted for UI responsiveness"
+                    .to_string();
+                let secondary =
+                    "This error doesn't happen in normal executions of `nargo`".to_string();
+                CustomDiagnostic::simple_warning(msg, secondary, location.span)
             }
         }
     }

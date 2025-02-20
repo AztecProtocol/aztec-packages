@@ -1,10 +1,7 @@
-import { defaultReporter } from '@web/test-runner';
-import { summaryReporter } from '@web/test-runner';
-import { fileURLToPath } from 'url';
 import { esbuildPlugin } from '@web/dev-server-esbuild';
+import { defaultReporter } from '@web/test-runner';
 import { playwrightLauncher } from '@web/test-runner-playwright';
-
-const reporter = process.env.CI ? summaryReporter() : defaultReporter();
+import { fileURLToPath } from 'url';
 
 export default {
   browsers: [
@@ -20,5 +17,5 @@ export default {
   files: ['./src/**/indexeddb/*.test.ts'],
   rootDir: fileURLToPath(new URL('../', import.meta.url)),
   nodeResolve: true,
-  reporters: [reporter],
+  reporters: [defaultReporter()],
 };
