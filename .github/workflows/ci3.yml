@@ -61,10 +61,9 @@ jobs:
           github.event.pull_request.head.repo.full_name != github.repository &&
           (
             (contains(github.event.pull_request.labels.*.name, 'ci-external') == false &&
-             contains(github.event.pull_request.labels.*.name, 'ci-external-once') == false) ||
-            github.event.pull_request.base.ref != 'ref/heads/master'
+             contains(github.event.pull_request.labels.*.name, 'ci-external-once') == false)
           )
-        run: echo "External PRs need the 'ci-external' or 'ci-external-once' labels to run, and must target master." && exit 1
+        run: echo "External PRs need the 'ci-external' or 'ci-external-once' labels to run." && exit 1
 
       - name: External Contributor Changes
         if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
@@ -74,6 +73,7 @@ jobs:
           if git diff --name-only origin/${{ github.event.pull_request.base.ref }} HEAD -- ci3 .github ci.sh | grep -q .; then
             echo "Error: External PRs can't contain CI changes." && exit 1
           fi
+          echo ${{ github.event.pull_request.base.ref }}
           # Remove any ci-external-once labels.
           GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} gh pr edit ${{ github.event.pull_request.number }} --remove-label "ci-external-once"
 
