@@ -90,7 +90,7 @@ void write(const ProverOutput& prover_output,
             write_bytes(ObjectToWrite::PROOF);
             write_fields(ObjectToWrite::PROOF);
         } else {
-            ASSERT("Invalid std::string for PROOF");
+            throw_or_abort("Invalid output_data_type for output_content proof");
         }
     } else if (output_content == "vk") {
         if (output_data_type == "bytes") {
@@ -104,7 +104,7 @@ void write(const ProverOutput& prover_output,
             write_bytes(ObjectToWrite::VK);
             write_fields(ObjectToWrite::VK);
         } else {
-            ASSERT("Invalid std::string for VK");
+            throw_or_abort("Invalid output_data_type for output_content vk");
         }
     } else if (output_content == "proof_and_vk") {
         if (output_data_type == "bytes") {
@@ -122,7 +122,7 @@ void write(const ProverOutput& prover_output,
             write_bytes(ObjectToWrite::VK);
             write_fields(ObjectToWrite::VK);
         } else {
-            throw_or_abort("Invalid std::string for PROOF_AND_VK");
+            throw_or_abort("Invalid output_data_type for output_content proof_and_vk");
         }
     } else {
         throw_or_abort("Invalid std::string");
