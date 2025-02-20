@@ -198,12 +198,9 @@ class ClientIVCMockCircuitProducer {
         if (is_kernel) {
             ivc.complete_kernel_circuit_logic(circuit); // complete with recursive verifiers etc
         }
-        info("num pub inputs before: ", num_public_inputs);
-        info("num pub inputs in circuit before: ", circuit.get_num_public_inputs());
         while (circuit.get_num_public_inputs() < num_public_inputs) {
-            circuit.add_public_variable(13634816);
+            circuit.add_public_variable(13634816); // arbitrary number
         }
-        info("num pub inputs in circuit after: ", circuit.get_num_public_inputs());
         is_kernel = !is_kernel; // toggle is_kernel on/off alternatingly
 
         return circuit;

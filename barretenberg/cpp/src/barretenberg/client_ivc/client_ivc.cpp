@@ -260,7 +260,6 @@ std::shared_ptr<ClientIVC::DeciderProvingKey> ClientIVC::construct_hiding_circui
     // inputs to the tube circuit) which are intermediate stages.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): link these properly, likely insecure
     auto num_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(fold_proof[PUBLIC_INPUTS_SIZE_INDEX]));
-    info("NUMBER OF PUBLIC INPUTS IN FOLD PROOF: ", num_public_inputs);
     num_public_inputs -= bb::PAIRING_POINT_ACCUMULATOR_SIZE;      // exclude aggregation object
     num_public_inputs -= bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE; // exclude propagated databus commitments
     for (size_t i = 0; i < num_public_inputs; i++) {
@@ -322,13 +321,8 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
  */
 void ClientIVC::construct_vk()
 {
-    if (!one_circuit) {
-        construct_hiding_circuit_key();
-        ASSERT(merge_verification_queue.size() == 1); // ensure only a single merge proof remains in the queue
-    }
-
-    MergeProof& merge_proof = merge_verification_queue[0];
-    goblin.prove(merge_proof);
+    construct_hiding_circuit_key();
+    goblin.construct_vks();
 };
 
 /**

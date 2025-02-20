@@ -144,18 +144,21 @@ void write_vk_for_stack(const std::string& bytecode_path, const std::filesystem:
 
     const size_t num_public_inputs_in_final_circuit = get_num_public_inputs_in_final_circuit(bytecode_path);
     info("num_public_inputs_in_final_circuit: ", num_public_inputs_in_final_circuit);
+    // MAGIC_NUMBER is bb::PAIRING_POINT_ACCUMULATOR_SIZE or bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE
     static constexpr size_t MAGIC_NUMBER = 16;
 
     ClientIVC ivc{ { E2E_FULL_TEST_STRUCTURE } };
     ClientIVCMockCircuitProducer circuit_producer;
 
     // Initialize the IVC with an arbitrary circuit
-    MegaCircuitBuilder circuit_0 = circuit_producer.create_next_circuit(ivc, 7);
+    // We segfault if we only call accumulate once
+    static constexpr size_t SMALL_ARBITRARY_LOG_CIRCUIT_SIZE{ 5 };
+    MegaCircuitBuilder circuit_0 = circuit_producer.create_next_circuit(ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE);
     ivc.accumulate(circuit_0);
 
     // Create another circuit and accumulate
-    MegaCircuitBuilder circuit_1 =
-        circuit_producer.create_next_circuit(ivc, 7, num_public_inputs_in_final_circuit + MAGIC_NUMBER);
+    MegaCircuitBuilder circuit_1 = circuit_producer.create_next_circuit(
+        ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE, num_public_inputs_in_final_circuit + MAGIC_NUMBER);
     ivc.accumulate(circuit_1);
 
     ivc.construct_vk();
@@ -232,7 +235,6 @@ std::shared_ptr<ClientIVC> _accumulate(std::vector<acir_format::AcirProgram>& fo
 
         // Do one step of ivc accumulator or, if there is only one circuit in the stack, prove that circuit. In this
         // case, no work is added to the Goblin opqueue, but VM proofs for trivials inputs are produced.
-        info("NUM PUB INPUTS IN CIRCUIT BEING ACCUMULATED: ", circuit.get_num_public_inputs());
         ivc->accumulate(circuit, /*one_circuit=*/folding_stack.size() == 1);
     }
 
