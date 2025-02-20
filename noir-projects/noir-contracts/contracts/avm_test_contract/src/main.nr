@@ -163,15 +163,22 @@ pub contract AvmTest {
     }
 
     #[public]
-    fn variable_base_msm() -> Point {
+    fn variable_base_msm(
+        scalar_lo: Field,
+        scalar_hi: Field,
+        scalar2_lo: Field,
+        scalar2_hi: Field,
+    ) -> Point {
         let g = Point {
             x: 1,
             y: 17631683881184975370165255887551781615748388533673675138860,
             is_infinite: false,
         };
-        let scalar = Scalar { lo: 3, hi: 0 };
-        let scalar2 = Scalar { lo: 20, hi: 0 };
-        let triple_g = multi_scalar_mul([g, g], [scalar, scalar2]);
+
+        let triple_g = multi_scalar_mul(
+            [g, g],
+            [Scalar { lo: scalar_lo, hi: scalar_hi }, Scalar { lo: scalar2_lo, hi: scalar2_hi }],
+        );
         triple_g
     }
 

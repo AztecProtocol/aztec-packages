@@ -42,16 +42,15 @@ OUTER_BODY:     MUL d6, d14, d16; Compute the pointer to the point
                 ADD d19, d10, d20; Create a pointer to the middle of the 256 bit array
                 TORADIXBE i17, d13, d10, d11, i20; Get the least significant bits of the full scalar
                 ; Now we have a pointer (i19) to the bits of the scalar in BE
+                ADD d19, d9, d21; Initialize the end pointer of the bits, will be used later
 
                 ; Now we need to find the pointer to the MSB
-                ADD d19, d9, d21; Initialize the end pointer
-FIND_MSB_HEAD:  LT d19, d21, d22; Check if we are done with the loop
-                JUMPI d22, FIND_MSB_BODY
-                JUMP FIND_MSB_END
+                ; We don't need to put a head in the loop since we know that there must be a 1 at some point
+                ; due to the previous check
 FIND_MSB_BODY:  EQ i19, d11, d22; Check if the current bit is one
                 JUMPI d22, FIND_MSB_END
-FIND_MSB_INC:   ADD d19, d7, d19; Increment the pointer of the MSB
-                JUMP FIND_MSB_HEAD
+                ADD d19, d7, d19; Increment the pointer of the MSB
+                JUMP FIND_MSB_BODY
                 ; Now we have the pointer of the MSB in d19
 
                 ; Now store the result of the scalar multiplication in d22, d23, d24
