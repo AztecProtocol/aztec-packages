@@ -29,7 +29,6 @@ void write(const ProverOutput& prover_output,
     const auto write_bytes = [&](const ObjectToWrite& obj) {
         switch (obj) {
         case ObjectToWrite::PROOF: {
-            info("case ObjectToWrite::PROOF: ");
             const auto buf = to_buffer</*include_size*/ true>(prover_output.proof);
             if (output_to_stdout) {
                 write_bytes_to_stdout(buf);
@@ -39,7 +38,6 @@ void write(const ProverOutput& prover_output,
             break;
         }
         case ObjectToWrite::VK: {
-            info("case ObjectToWrite::VK: ");
             const auto buf = to_buffer(prover_output.key);
             if (output_to_stdout) {
                 write_bytes_to_stdout(buf);
@@ -54,23 +52,19 @@ void write(const ProverOutput& prover_output,
     const auto write_fields = [&](const ObjectToWrite& obj) {
         switch (obj) {
         case ObjectToWrite::PROOF: {
-            info("case ObjectToWrite::PROOF: ");
             const std::string proof_json = to_json(prover_output.proof);
             if (output_to_stdout) {
                 std::cout << proof_json;
             } else {
-                info("writing proof as fields to ", output_dir / "proof_fields.json");
                 write_file(output_dir / "proof_fields.json", { proof_json.begin(), proof_json.end() });
             }
             break;
         }
         case ObjectToWrite::VK: {
-            info("case ObjectToWrite::VK: ");
             const std::string vk_json = to_json(prover_output.key->to_field_elements());
             if (output_to_stdout) {
                 std::cout << vk_json;
             } else {
-                info("writing vk as fields to ", output_dir / "vk_fields.json");
                 write_file(output_dir / "vk_fields.json", { vk_json.begin(), vk_json.end() });
             }
             break;
@@ -80,49 +74,40 @@ void write(const ProverOutput& prover_output,
 
     if (output_content == "proof") {
         if (output_data_type == "bytes") {
-            info("case bytes: ");
             write_bytes(ObjectToWrite::PROOF);
         } else if (output_data_type == "fields") {
-            info("case fields: ");
             write_fields(ObjectToWrite::PROOF);
         } else if (output_data_type == "bytes_and_fields") {
-            info("case bytes_and_fields: ");
             write_bytes(ObjectToWrite::PROOF);
             write_fields(ObjectToWrite::PROOF);
         } else {
-            ASSERT("Invalid std::string for PROOF");
+            throw_or_abort("Invalid output_data_type for output_content proof");
         }
     } else if (output_content == "vk") {
         if (output_data_type == "bytes") {
-            info("case bytes: ");
             write_bytes(ObjectToWrite::VK);
         } else if (output_data_type == "fields") {
-            info("case fields: ");
             write_fields(ObjectToWrite::VK);
         } else if (output_data_type == "bytes_and_fields") {
-            info("case bytes_and_fields: ");
             write_bytes(ObjectToWrite::VK);
             write_fields(ObjectToWrite::VK);
         } else {
-            ASSERT("Invalid std::string for VK");
+            throw_or_abort("Invalid output_data_type for output_content vk");
         }
     } else if (output_content == "proof_and_vk") {
         if (output_data_type == "bytes") {
-            info("case bytes: ");
             write_bytes(ObjectToWrite::PROOF);
             write_bytes(ObjectToWrite::VK);
         } else if (output_data_type == "fields") {
-            info("case fields: ");
             write_fields(ObjectToWrite::PROOF);
             write_fields(ObjectToWrite::VK);
         } else if (output_data_type == "bytes_and_fields") {
-            info("case bytes_and_fields: ");
             write_bytes(ObjectToWrite::PROOF);
             write_fields(ObjectToWrite::PROOF);
             write_bytes(ObjectToWrite::VK);
             write_fields(ObjectToWrite::VK);
         } else {
-            throw_or_abort("Invalid std::string for PROOF_AND_VK");
+            throw_or_abort("Invalid output_data_type for output_content proof_and_vk");
         }
     } else {
         throw_or_abort("Invalid std::string");
