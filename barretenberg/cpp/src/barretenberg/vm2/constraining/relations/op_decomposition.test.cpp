@@ -9,6 +9,10 @@ namespace bb::avm2::constraining {
 using simulation::OperandType;
 namespace {
 
+constexpr std::string OPERAND_PREFIX = "op";
+constexpr std::string BYTE_PREFIX = "bd";
+constexpr std::string SELECTOR_PREFIX = "sel_op_dc_";
+
 // We use a map from opcode to an array of pairs of size_t
 // Each array index corresponds to an operand or indirect value.
 // We reserve index 0 for indirect value and then the successive indices
@@ -135,9 +139,9 @@ std::string render_partitions_pil(const std::vector<Partition>& partitions,
 {
     std::string output;
     for (const auto& partition : partitions) {
-        output += format("pol sel_", bitmask_to_sel_idx.at(partition.union_subset));
-        output += format(" = sel_", bitmask_to_sel_idx.at(partition.subset_1));
-        output += format(" + sel_", bitmask_to_sel_idx.at(partition.subset_2), ";\n");
+        output += format("pol ", SELECTOR_PREFIX, bitmask_to_sel_idx.at(partition.union_subset));
+        output += format(" = ", SELECTOR_PREFIX, bitmask_to_sel_idx.at(partition.subset_1));
+        output += format(" + ", SELECTOR_PREFIX, bitmask_to_sel_idx.at(partition.subset_2), ";\n");
     }
     return output;
 }
@@ -148,7 +152,8 @@ std::string render_operand_layout_pil(OperandLayout layout)
     std::vector<std::string> monomials;
     uint8_t byte_offset = layout.offset;
     for (int i = 0; i < layout.len; i++) {
-        monomials.push_back(format("byte_", byte_offset + i, " * 2**", 8 * i));
+        monomials.push_back(
+            format(BYTE_PREFIX, byte_offset + i + 1, " * 2**", 8 * (layout.len - i - 1))); // Big-endian bytes
     }
 
     return std::accumulate(std::next(monomials.begin()), monomials.end(), monomials[0], add_fold);
@@ -158,12 +163,12 @@ std::string render_pil(const std::array<std::vector<std::pair<size_t, OperandLay
 {
     std::string pil_equations;
     for (uint8_t i = 0; i < 8; i++) {
-        pil_equations += (i == 0) ? "indirect = " : format("op_", static_cast<uint32_t>(i), " = ");
+        pil_equations += (i == 0) ? "indirect = " : format(OPERAND_PREFIX, static_cast<uint32_t>(i), " = ");
 
         std::vector<std::string> additive_terms;
         for (const auto& sel_layout : sel_layout_breakdowns[i]) {
             additive_terms.push_back(
-                format("sel_", sel_layout.first, " * (", render_operand_layout_pil(sel_layout.second), ")"));
+                format(SELECTOR_PREFIX, sel_layout.first, " * (", render_operand_layout_pil(sel_layout.second), ")"));
         }
         pil_equations +=
             std::accumulate(std::next(additive_terms.begin()), additive_terms.end(), additive_terms[0], add_fold);
@@ -244,12 +249,17 @@ TEST(DecompositionSelectors, Basic)
     info(" Precomputed Selectors Table:");
     info("#################################\n");
 
+    info("constexpr size_t NUM_OP_DC_SELECTORS = 18;\n\n");
+
+    info("const std::unordered_map<WireOpCode, std::array<uint8_t, NUM_OP_DC_SELECTORS>> WireOpCode_DC_SELECTORS = "
+         "{");
     for (int i = 0; i < static_cast<int>(WireOpCode::LAST_OPCODE_SENTINEL); i++) {
         const auto wire_opcode = static_cast<WireOpCode>(i);
         if (simulation::WireOpCode_WIRE_FORMAT.contains(wire_opcode)) {
-            info("{WireOpCode::", wire_opcode, ", ", render_selector_array(wire_opcode, bitmasks_vector), ",");
+            info("{WireOpCode::", wire_opcode, ", ", render_selector_array(wire_opcode, bitmasks_vector), "},");
         }
     }
+    info("};");
 
     // Add subsets/bitmasks which were removed as unions at the end.
     for (const auto& partition : partitions) {

@@ -77,6 +77,7 @@ class AvmFlavor {
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
 
+<<<<<<< HEAD
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 16;
     static constexpr size_t NUM_WITNESS_ENTITIES = 694;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 83;
@@ -84,6 +85,15 @@ class AvmFlavor {
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
     static constexpr size_t NUM_ALL_ENTITIES = 793;
+=======
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 53;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 700;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 84;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
+    // the unshifted and one for the shifted
+    static constexpr size_t NUM_ALL_ENTITIES = 837;
+>>>>>>> 05299aaf0d (Witness generation and unit tests)
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -107,23 +117,23 @@ class AvmFlavor {
     template <typename FF_>
     using LookupRelations_ = std::tuple<
         // Lookups
-        lookup_bc_decomposition_abs_diff_is_u16_relation<FF_>,
-        lookup_bc_decomposition_bytes_are_bytes_relation<FF_>,
-        lookup_bc_decomposition_bytes_to_read_as_unary_relation<FF_>,
-        lookup_bitwise_byte_operations_relation<FF_>,
-        lookup_bitwise_integral_tag_length_relation<FF_>,
-        lookup_poseidon2_hash_poseidon2_perm_relation<FF_>,
-        lookup_range_check_dyn_diff_is_u16_relation<FF_>,
-        lookup_range_check_dyn_rng_chk_pow_2_relation<FF_>,
-        lookup_range_check_r0_is_u16_relation<FF_>,
-        lookup_range_check_r1_is_u16_relation<FF_>,
-        lookup_range_check_r2_is_u16_relation<FF_>,
-        lookup_range_check_r3_is_u16_relation<FF_>,
-        lookup_range_check_r4_is_u16_relation<FF_>,
-        lookup_range_check_r5_is_u16_relation<FF_>,
-        lookup_range_check_r6_is_u16_relation<FF_>,
-        lookup_range_check_r7_is_u16_relation<FF_>,
-        lookup_sha256_round_constant_relation<FF_>>;
+        abs_diff_is_u16_relation<FF_>,
+        byte_operations_relation<FF_>,
+        bytes_are_bytes_relation<FF_>,
+        bytes_to_read_as_unary_relation<FF_>,
+        dyn_diff_is_u16_relation<FF_>,
+        dyn_rng_chk_pow_2_relation<FF_>,
+        integral_tag_length_relation<FF_>,
+        poseidon2_perm_relation<FF_>,
+        r0_is_u16_relation<FF_>,
+        r1_is_u16_relation<FF_>,
+        r2_is_u16_relation<FF_>,
+        r3_is_u16_relation<FF_>,
+        r4_is_u16_relation<FF_>,
+        r5_is_u16_relation<FF_>,
+        r6_is_u16_relation<FF_>,
+        r7_is_u16_relation<FF_>,
+        round_constant_relation<FF_>>;
 
     using LookupRelations = LookupRelations_<FF>;
 
@@ -369,6 +379,24 @@ class AvmFlavor {
       public:
         VerifierCommitments_(const std::shared_ptr<VerificationKey>& verification_key)
         {
+            this->instr_fetching_sel_op_dc_0 = verification_key->instr_fetching_sel_op_dc_0;
+            this->instr_fetching_sel_op_dc_1 = verification_key->instr_fetching_sel_op_dc_1;
+            this->instr_fetching_sel_op_dc_10 = verification_key->instr_fetching_sel_op_dc_10;
+            this->instr_fetching_sel_op_dc_11 = verification_key->instr_fetching_sel_op_dc_11;
+            this->instr_fetching_sel_op_dc_12 = verification_key->instr_fetching_sel_op_dc_12;
+            this->instr_fetching_sel_op_dc_13 = verification_key->instr_fetching_sel_op_dc_13;
+            this->instr_fetching_sel_op_dc_14 = verification_key->instr_fetching_sel_op_dc_14;
+            this->instr_fetching_sel_op_dc_15 = verification_key->instr_fetching_sel_op_dc_15;
+            this->instr_fetching_sel_op_dc_16 = verification_key->instr_fetching_sel_op_dc_16;
+            this->instr_fetching_sel_op_dc_17 = verification_key->instr_fetching_sel_op_dc_17;
+            this->instr_fetching_sel_op_dc_2 = verification_key->instr_fetching_sel_op_dc_2;
+            this->instr_fetching_sel_op_dc_3 = verification_key->instr_fetching_sel_op_dc_3;
+            this->instr_fetching_sel_op_dc_4 = verification_key->instr_fetching_sel_op_dc_4;
+            this->instr_fetching_sel_op_dc_5 = verification_key->instr_fetching_sel_op_dc_5;
+            this->instr_fetching_sel_op_dc_6 = verification_key->instr_fetching_sel_op_dc_6;
+            this->instr_fetching_sel_op_dc_7 = verification_key->instr_fetching_sel_op_dc_7;
+            this->instr_fetching_sel_op_dc_8 = verification_key->instr_fetching_sel_op_dc_8;
+            this->instr_fetching_sel_op_dc_9 = verification_key->instr_fetching_sel_op_dc_9;
             this->precomputed_as_unary = verification_key->precomputed_as_unary;
             this->precomputed_bitwise_input_a = verification_key->precomputed_bitwise_input_a;
             this->precomputed_bitwise_input_b = verification_key->precomputed_bitwise_input_b;
@@ -380,8 +408,27 @@ class AvmFlavor {
             this->precomputed_power_of_2 = verification_key->precomputed_power_of_2;
             this->precomputed_sel_bitwise = verification_key->precomputed_sel_bitwise;
             this->precomputed_sel_integral_tag = verification_key->precomputed_sel_integral_tag;
+            this->precomputed_sel_op_dc_0 = verification_key->precomputed_sel_op_dc_0;
+            this->precomputed_sel_op_dc_1 = verification_key->precomputed_sel_op_dc_1;
+            this->precomputed_sel_op_dc_10 = verification_key->precomputed_sel_op_dc_10;
+            this->precomputed_sel_op_dc_11 = verification_key->precomputed_sel_op_dc_11;
+            this->precomputed_sel_op_dc_12 = verification_key->precomputed_sel_op_dc_12;
+            this->precomputed_sel_op_dc_13 = verification_key->precomputed_sel_op_dc_13;
+            this->precomputed_sel_op_dc_14 = verification_key->precomputed_sel_op_dc_14;
+            this->precomputed_sel_op_dc_15 = verification_key->precomputed_sel_op_dc_15;
+            this->precomputed_sel_op_dc_16 = verification_key->precomputed_sel_op_dc_16;
+            this->precomputed_sel_op_dc_17 = verification_key->precomputed_sel_op_dc_17;
+            this->precomputed_sel_op_dc_2 = verification_key->precomputed_sel_op_dc_2;
+            this->precomputed_sel_op_dc_3 = verification_key->precomputed_sel_op_dc_3;
+            this->precomputed_sel_op_dc_4 = verification_key->precomputed_sel_op_dc_4;
+            this->precomputed_sel_op_dc_5 = verification_key->precomputed_sel_op_dc_5;
+            this->precomputed_sel_op_dc_6 = verification_key->precomputed_sel_op_dc_6;
+            this->precomputed_sel_op_dc_7 = verification_key->precomputed_sel_op_dc_7;
+            this->precomputed_sel_op_dc_8 = verification_key->precomputed_sel_op_dc_8;
+            this->precomputed_sel_op_dc_9 = verification_key->precomputed_sel_op_dc_9;
             this->precomputed_sel_range_16 = verification_key->precomputed_sel_range_16;
             this->precomputed_sel_range_8 = verification_key->precomputed_sel_range_8;
+            this->precomputed_sel_range_wire_opcode = verification_key->precomputed_sel_range_wire_opcode;
             this->precomputed_sel_sha256_compression = verification_key->precomputed_sel_sha256_compression;
             this->precomputed_sel_unary = verification_key->precomputed_sel_unary;
             this->precomputed_sha256_compression_round_constant =
