@@ -178,10 +178,6 @@ Randomness is required because notes are stored as commitments (hashes) in the n
 
 #include_code nft_note /noir-projects/noir-contracts/contracts/nft_contract/src/types/nft_note.nr rust
 
-The custom note implementation also includes the nullifier computation function. This tells the protocol how the note should be nullified.
-
-#include_code compute_nullifier /noir-projects/noir-contracts/contracts/nft_contract/src/types/nft_note.nr rust
-
 ## Functions
 
 Copy and paste the body of each function into the appropriate place in your project if you are following along.
