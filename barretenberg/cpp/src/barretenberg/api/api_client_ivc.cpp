@@ -256,9 +256,8 @@ void ClientIVCAPI::prove(const Flags& flags,
     std::shared_ptr<ClientIVC> ivc = _accumulate(folding_stack);
     ClientIVC::Proof proof = ivc->prove();
 
-    // We'd like to use the `write` function that UltraHonkAPI uses, but ultimately there are missing functions for
-    // conversion to field a string of field elements that don't feel worth implementing
-
+    // We'd like to use the `write` function that UltraHonkAPI uses, but there are missing functions for creating string
+    // representations of vks that don't feel worth implementing
     const bool output_to_stdout = output_dir == "-";
 
     const auto write_proof = [&]() {
