@@ -20,9 +20,6 @@
       "path": "../foundation"
     },
     {
-      "path": "../types"
-    },
-    {
       "path": "../kv-store"
     },
     {

@@ -94,9 +94,6 @@
       "path": "../txe"
     },
     {
-      "path": "../types"
-    },
-    {
       "path": "../world-state"
     }
   ],

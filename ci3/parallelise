@@ -5,7 +5,7 @@ NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 cd $root
 jobs=$(get_num_cpus_max ${1:-})
-parallel_args="-j$jobs --memsuspend ${MEMSUSPEND:-64G} --line-buffer --joblog joblog.txt --halt now,fail=1"
+parallel_args="-j$jobs --memsuspend ${MEMSUSPEND:-64G} --line-buffer --joblog joblog.txt"
 
 echo "Starting test run with max $jobs jobs..."
 
@@ -22,7 +22,9 @@ if [ -t 1 ]; then
   fi
   set -e
 else
-  denoise "parallel $parallel_args 'run_test_cmd {}'"
+  # TODO reinstate denoise once it can print out a log link early.
+  # denoise "parallel $parallel_args 'run_test_cmd {}'"
+  parallel $parallel_args 'run_test_cmd {}'
 fi
 
 slow_jobs=$(cat joblog.txt | \

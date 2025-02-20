@@ -26,9 +26,6 @@
     },
     {
       "path": "../protocol-contracts"
-    },
-    {
-      "path": "../types"
     }
   ],
   "include": ["src", "src/**/*.json"]
