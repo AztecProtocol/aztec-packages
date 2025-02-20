@@ -54,8 +54,6 @@ jobs:
         run: echo "CI is not run on drafts." && exit 1
 
       - name: External Contributor Labels and Target
-        # Run only for external PRs (pull_request_target, != github.repository)
-        # And then check if we have incorrect labels OR an incorrect base_ref.
         if: |
           github.event_name == 'pull_request_target' &&
           contains(github.event.pull_request.labels.*.name, 'ci-external') == false &&
