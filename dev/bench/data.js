@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740053526069,
+  "lastUpdate": 1740060102627,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "leizciw@gmail.com",
-            "name": "Leila Wang",
-            "username": "LeilaWang"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0c937238e193ad1a9936004f665a319ba92468d9",
-          "message": "feat!: enforce fees (#11480)\n\n### Circuits\r\n- Private kernels ensure that fee payer is not empty.\r\n- Private base rollup and the avm check that the fee payer must have\r\nenough balance to pay the fee.\r\n\r\n### Aztec.js/cli\r\n- Default payment method is `FeeJuicePaymentMethod`, the fee payer is\r\nthe wallet owner.\r\n- `NoFeePaymentMethod` is no longer available.\r\n- \r\n\r\n### End-to-end/Sandbox\r\n- Some public data leaves are created for funding the initial test\r\naccounts with fee juice. The genesis archive root and block hash are\r\ngenerated with these public data leaves.\r\n  - For the e2e tests, the test accounts are generated randomly.\r\n- For the sandbox, the test accounts are defined in\r\n`@aztec/accounts/testing`.\r\n- These funded test accounts can deploy their own account contract and\r\npay the fee for the deployment themselves.\r\n- These funded test accounts can be used to deploy another account\r\nwithout pre-funded fee juice.\r\n- By calling `someAccountManager.deploy({ deployWallet: fundedWallet })`\r\n- `BananaCoin` and `BananaFPC` are deployed in sandbox by default. Users\r\ncan use the funded accounts to mint banana coin for a new account.\r\n- The new account can then submit transactions and pay the fees using\r\n`PrivateFeePaymentMethod`.\r\n  - See example in `end-to-end/src/composed/e2e_sandbox_example.test.ts`\r\n\r\n---------\r\n\r\nCo-authored-by: Alex Gherghisan <alexghr@users.noreply.github.com>\r\nCo-authored-by: ludamad <domuradical@gmail.com>",
-          "timestamp": "2025-02-17T09:00:37+01:00",
-          "tree_id": "7cf64fee037fb7e98d424d44ece100fb57ad4d9b",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0c937238e193ad1a9936004f665a319ba92468d9"
-        },
-        "date": 1739781429915,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18338.773387999936,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16067.586888000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18842.640455000037,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16471.326252000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4024.2380279998997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3154.818714 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55020.452012,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55020450000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11293.945298,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11293951000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1825613558,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1825613558 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 135923700,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 135923700 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3300,6 +3234,72 @@ window.BENCHMARK_DATA = {
             "value": 135784583,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 135784583 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8effaa1d459d54a83d0d56f9948367de6bf1ca3a",
+          "message": "chore: Reinstate orchestrator workflow test (#12121)\n\nFixes #11870",
+          "timestamp": "2025-02-20T10:39:48-03:00",
+          "tree_id": "05a5b9f7ccdd263f4cb87019686f35011c302c38",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8effaa1d459d54a83d0d56f9948367de6bf1ca3a"
+        },
+        "date": 1740060094512,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18107.019303000015,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15933.386844999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18579.38439999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16198.419140999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3870.387400000027,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3105.7189940000003 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54837.687836,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54837688000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11527.325481,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11527330000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1812814908,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1812814908 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 131763707,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 131763707 ns\nthreads: 1"
           }
         ]
       }
