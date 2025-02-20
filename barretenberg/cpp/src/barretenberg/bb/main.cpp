@@ -381,6 +381,7 @@ int main(int argc, char* argv[])
     std::string plonk_prove_output_path{ "./proofs/proof" };
     add_output_path_option(OLD_API_prove, plonk_prove_output_path);
     add_bytecode_path_option(OLD_API_prove);
+    add_witness_path_option(OLD_API_prove);
 
     /***************************************************************************************************************
      * Subcommand: OLD_API prove_output_all
