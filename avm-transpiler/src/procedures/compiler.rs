@@ -10,50 +10,35 @@ use crate::{
 use fxhash::FxHashMap as HashMap;
 use operand_collector::OperandCollector;
 
-use super::{
-    parser::{Alias, Assembly, ParsedOpcode},
-    Procedure,
-};
+use super::parser::{Alias, Assembly, AssemblyLabel, ParsedOpcode};
 
-pub(crate) type Label = String;
 pub(crate) use operand_collector::SCRATCH_SPACE_START;
 
 pub(crate) struct CompiledProcedure {
     pub instructions: Vec<AvmInstruction>,
     // Map of instruction label to local avm pc
-    pub locations: HashMap<Label, usize>,
+    pub locations: HashMap<AssemblyLabel, usize>,
     // Map of instruction index to jumped to label
-    pub unresolved_jumps: HashMap<usize, Label>,
+    pub unresolved_jumps: HashMap<usize, AssemblyLabel>,
 
     pub instructions_size: usize,
 }
 
 impl CompiledProcedure {
-    fn add_instruction(
-        &mut self,
-        instruction: AvmInstruction,
-        label_prefix: Label,
-        label: Option<Label>,
-    ) {
-        // TODO improve labelling
-        // Make prefixes typed instead of string formatting
-        // Make prefixing upstream instead of the collector and compiler. Ideally here, avoid leaking the label_prefix
+    fn add_instruction(&mut self, instruction: AvmInstruction, label: Option<AssemblyLabel>) {
         if let Some(label) = label {
-            self.locations.insert(prefix_label(&label_prefix, &label), self.instructions_size);
+            self.locations.insert(label, self.instructions_size);
         }
         self.instructions_size += instruction.size();
         self.instructions.push(instruction);
     }
 
-    fn add_unresolved_jump(&mut self, label_prefix: &Label, target: Label) {
-        self.unresolved_jumps.insert(self.instructions.len(), prefix_label(label_prefix, &target));
+    fn add_unresolved_jump(&mut self, target: AssemblyLabel) {
+        self.unresolved_jumps.insert(self.instructions.len(), target);
     }
 }
 
-pub(crate) fn compile(
-    parsed_assembly: Assembly,
-    procedure: Procedure,
-) -> Result<CompiledProcedure, String> {
+pub(crate) fn compile(parsed_assembly: Assembly) -> Result<CompiledProcedure, String> {
     let mut result = CompiledProcedure {
         instructions: Vec::with_capacity(parsed_assembly.len()),
         locations: HashMap::default(),
@@ -61,18 +46,15 @@ pub(crate) fn compile(
         instructions_size: 0,
     };
     for parsed_opcode in parsed_assembly.into_iter() {
-        compile_opcode(parsed_opcode.clone(), procedure.label_prefix(), &mut result)
+        compile_opcode(parsed_opcode.clone(), &mut result)
             .map_err(|err| format!("Error compiling opcode {:?}: {}", parsed_opcode, err))?;
     }
-
-    result.locations.insert(procedure.entrypoint_label(), 0);
 
     Ok(result)
 }
 
 fn compile_opcode(
     parsed_opcode: ParsedOpcode,
-    label_prefix: Label,
     result: &mut CompiledProcedure,
 ) -> Result<(), String> {
     let label = parsed_opcode.label.clone();
@@ -92,7 +74,7 @@ fn compile_opcode(
         | Alias::EQ
         | Alias::LT
         | Alias::LTE => {
-            compile_binary_instruction(alias, label_prefix, label, collector, result)?;
+            compile_binary_instruction(alias, label, collector, result)?;
         }
         Alias::SET => {
             collector.memory_address_operand()?;
@@ -124,21 +106,19 @@ fn compile_opcode(
                     immediates: vec![make_operand(bits_needed_opcode, &immediate_value)],
                     tag: collection.tag,
                 },
-                label_prefix,
                 label,
             );
         }
         Alias::JUMP => {
             collector.label_operand()?;
             let collection = collector.finish()?;
-            result.add_unresolved_jump(&label_prefix, collection.immediates[0].unwrap_label());
+            result.add_unresolved_jump(collection.immediates[0].unwrap_label());
             result.add_instruction(
                 AvmInstruction {
                     opcode: AvmOpcode::JUMP_32,
                     immediates: vec![AvmOperand::U32 { value: UNRESOLVED_PC }],
                     ..Default::default()
                 },
-                label_prefix,
                 label,
             );
         }
@@ -146,7 +126,7 @@ fn compile_opcode(
             collector.memory_address_operand()?;
             collector.label_operand()?;
             let collection = collector.finish()?;
-            result.add_unresolved_jump(&label_prefix, collection.immediates[0].unwrap_label());
+            result.add_unresolved_jump(collection.immediates[0].unwrap_label());
             result.add_instruction(
                 AvmInstruction {
                     opcode: AvmOpcode::JUMPI_32,
@@ -155,7 +135,6 @@ fn compile_opcode(
                     immediates: vec![AvmOperand::U32 { value: UNRESOLVED_PC }],
                     ..Default::default()
                 },
-                label_prefix,
                 label,
             );
         }
@@ -180,7 +159,6 @@ fn compile_opcode(
                         .collect(),
                     ..Default::default()
                 },
-                label_prefix,
                 label,
             );
         }
@@ -211,7 +189,6 @@ fn compile_opcode(
                     tag: collection.tag,
                     ..Default::default()
                 },
-                label_prefix,
                 label,
             );
         }
@@ -238,7 +215,6 @@ fn compile_opcode(
                         .collect(),
                     ..Default::default()
                 },
-                label_prefix,
                 label,
             );
         }
@@ -247,7 +223,6 @@ fn compile_opcode(
             collector.finish()?;
             result.add_instruction(
                 AvmInstruction { opcode: AvmOpcode::INTERNALRETURN, ..Default::default() },
-                label_prefix,
                 label,
             );
         }
@@ -272,7 +247,6 @@ fn compile_opcode(
                         .collect(),
                     ..Default::default()
                 },
-                label_prefix,
                 label,
             );
         }
@@ -296,7 +270,6 @@ fn compile_opcode(
                         .collect(),
                     ..Default::default()
                 },
-                label_prefix,
                 label,
             );
         }
@@ -306,8 +279,7 @@ fn compile_opcode(
 
 fn compile_binary_instruction(
     alias: Alias,
-    label_prefix: String,
-    label: Option<String>,
+    label: Option<AssemblyLabel>,
     mut collector: OperandCollector,
     result: &mut CompiledProcedure,
 ) -> Result<(), String> {
@@ -401,7 +373,6 @@ fn compile_binary_instruction(
                 .collect(),
             ..Default::default()
         },
-        label_prefix,
         label,
     );
     Ok(())
@@ -423,8 +394,4 @@ fn build_addressing_mode(indirect: Vec<bool>) -> AvmOperand {
     } else {
         AvmOperand::U16 { value: result as u16 }
     }
-}
-
-fn prefix_label(label_prefix: &Label, label: &Label) -> Label {
-    format!("{}__PREFIX__{}", label_prefix, label)
 }

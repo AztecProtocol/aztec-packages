@@ -1,9 +1,7 @@
 use crate::{
     instructions::AvmTypeTag,
-    procedures::parser::{Operand, ParsedOpcode, Symbol},
+    procedures::parser::{AssemblyLabel, Operand, ParsedOpcode, Symbol},
 };
-
-use super::Label;
 
 // We should probably pull these constants from the noir compiler
 const NUM_RESERVED_REGISTERS: usize = 3;
@@ -14,7 +12,7 @@ pub(crate) const SCRATCH_SPACE_START: usize = NUM_RESERVED_REGISTERS + MAX_STACK
 
 pub(crate) enum Immediate {
     Numeric(u128),
-    Label(Label),
+    Label(AssemblyLabel),
 }
 
 impl Immediate {
@@ -25,7 +23,7 @@ impl Immediate {
         }
     }
 
-    pub(crate) fn unwrap_label(&self) -> Label {
+    pub(crate) fn unwrap_label(&self) -> AssemblyLabel {
         match self {
             Immediate::Numeric(_) => panic!("Expected label immediate"),
             Immediate::Label(label) => label.clone(),

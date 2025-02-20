@@ -88,7 +88,7 @@ OUTER_END:      INTERNALRETURN
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::procedures::{compiler::compile, parser::parse, Procedure};
+    use crate::procedures::{compiler::compile, parser::parse};
 
     #[test]
     fn smoke_parse_msm() {
@@ -98,6 +98,6 @@ mod tests {
     #[test]
     fn smoke_compile_msm() {
         let parsed = parse(MSM_ASSEMBLY).expect("Failed to parse MSM assembly");
-        compile(parsed, Procedure::MultiScalarMul).expect("Failed to compile MSM assembly");
+        compile(parsed).expect("Failed to compile MSM assembly");
     }
 }

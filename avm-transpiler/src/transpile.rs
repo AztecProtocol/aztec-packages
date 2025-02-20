@@ -12,13 +12,37 @@ use noirc_errors::debug_info::DebugInfo;
 use crate::bit_traits::{bits_needed_for, BitsQueryable};
 use crate::instructions::{AddressingModeBuilder, AvmInstruction, AvmOperand, AvmTypeTag};
 use crate::opcodes::AvmOpcode;
-use crate::procedures::{compile_procedure, Procedure, SCRATCH_SPACE_START};
+use crate::procedures::{
+    compile_procedure, AssemblyLabel as ProcedureLocalLabel, Procedure, SCRATCH_SPACE_START,
+};
 use crate::utils::{dbg_print_avm_program, dbg_print_brillig_program, make_operand};
 
 pub(crate) const UNRESOLVED_PC: u32 = 0xdeadbeef;
 enum Label {
     BrilligPC { pc: u32 },
-    Procedure { label: String },
+    Procedure { label: ProcedureLabel },
+}
+
+impl ProcedureLocalLabel {
+    fn prefix(self, procedure: Procedure) -> ProcedureLabel {
+        ProcedureLabel::new(self, procedure)
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub struct ProcedureLabel {
+    local_label: Option<ProcedureLocalLabel>,
+    procedure: Procedure,
+}
+
+impl ProcedureLabel {
+    fn new(local_label: ProcedureLocalLabel, procedure: Procedure) -> Self {
+        Self { local_label: Some(local_label), procedure }
+    }
+
+    fn entrypoint(procedure: Procedure) -> Self {
+        Self { local_label: None, procedure }
+    }
 }
 
 /// Transpile a Brillig program to AVM bytecode
@@ -374,17 +398,22 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
         let compiled_procedure = compile_procedure(procedure).unwrap_or_else(|err| {
             panic!("Failed to compile procedure {:?} with error: {:?}", procedure, err)
         });
+        procedure_locations.insert(ProcedureLabel::entrypoint(procedure), current_avm_pc);
+
         procedure_locations.extend(compiled_procedure.locations.into_iter().map(
             |(label, local_location)| {
                 let global_location = local_location + current_avm_pc;
                 assert!(global_location.num_bits() <= 32, "Oops! AVM PC is too large!");
 
-                (label, global_location)
+                (label.prefix(procedure), global_location)
             },
         ));
         unresolved_jumps.extend(compiled_procedure.unresolved_jumps.into_iter().map(
             |(instruction_index, target)| {
-                (instruction_index + avm_instrs.len(), Label::Procedure { label: target })
+                (
+                    instruction_index + avm_instrs.len(),
+                    Label::Procedure { label: target.prefix(procedure) },
+                )
             },
         ));
         current_avm_pc += compiled_procedure.instructions_size;
@@ -1065,8 +1094,10 @@ fn generate_procedure_call(
     instruction_index: usize,
     unresolved_jumps: &mut HashMap<usize, Label>,
 ) -> AvmInstruction {
-    unresolved_jumps
-        .insert(instruction_index, Label::Procedure { label: procedure.entrypoint_label() });
+    unresolved_jumps.insert(
+        instruction_index,
+        Label::Procedure { label: ProcedureLabel::entrypoint(procedure) },
+    );
     AvmInstruction {
         opcode: AvmOpcode::INTERNALCALL,
         immediates: vec![AvmOperand::U32 { value: UNRESOLVED_PC }],
