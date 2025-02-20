@@ -8,6 +8,78 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [PXE] Removed `addNote` and `addNullifiedNote`
+
+These functions have been removed from PXE and the base `Wallet` interface. If you need to deliver a note manually because its creation is not being broadcast in an encrypted log, then create an unconstrained contract function to process it and simulate execution of it. The `aztec::discovery::private_logs::do_process_log` function can be used to perform note discovery and add to it to PXE.
+
+See an example of how to handle a `TransparentNote`:
+
+```rust
+    unconstrained fn deliver_transparent_note(
+        contract_address: AztecAddress,
+        amount: Field,
+        secret_hash: Field,
+        tx_hash: Field,
+        unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
+        first_nullifier_in_tx: Field,
+        recipient: AztecAddress,
+    ) {
+        // do_process_log expects a standard aztec-nr encoded note, which has the following shape:
+        // [ storage_slot, note_type_id, ...packed_note ]
+        let note = TransparentNote::new(amount, secret_hash);
+        let log_plaintext = BoundedVec::from_array(array_concat(
+            [
+                MyContract::storage_layout().my_state_variable.slot,
+                TransparentNote::get_note_type_id(),
+            ],
+            note.pack(),
+        ));
+
+        do_process_log(
+            contract_address,
+            log_plaintext,
+            tx_hash,
+            unique_note_hashes_in_tx,
+            first_nullifier_in_tx,
+            recipient,
+            |packed_note_content: BoundedVec<Field, _>, contract_address: aztec::protocol_types::address::AztecAddress, nonce: Field, storage_slot: Field, note_type_id: Field| {
+                let hashes = _compute_note_hash_and_optionally_a_nullifier(
+                    contract_address,
+                    nonce,
+                    storage_slot,
+                    note_type_id,
+                    true,
+                    packed_note_content,
+                );
+
+                Option::some(
+                    aztec::discovery::NoteHashAndNullifier {
+                        note_hash: hashes[0],
+                        inner_nullifier: hashes[3],
+                    },
+                )
+            },
+        );
+    }
+```
+
+The note is then processed by calling this function:
+
+```typescript
+const txEffects = await wallet.getTxEffect(txHash);
+await contract.methods
+  .deliver_transparent_note(
+    contract.address,
+    new Fr(amount),
+    secretHash,
+    txHash.hash,
+    toBoundedVec(txEffects!.data.noteHashes, MAX_NOTE_HASHES_PER_TX),
+    txEffects!.data.nullifiers[0],
+    wallet.getAddress(),
+  )
+  .simulate();
+```
+
 ### Fee is mandatory
 
 All transactions must now pay fees. Previously, the default payment method was `NoFeePaymentMethod`; It has been changed to `FeeJuicePaymentMethod`, with the wallet owner as the fee payer.
