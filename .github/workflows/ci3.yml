@@ -8,12 +8,21 @@ on:
       - master
     tags:
       - "v*"
-  # For internal devs.
+  # Internal devs only: Ran when changes DO include CI configuration files.
+  # If an external dev ever runs this, it won't have secrets. We warn them about the offending files they edited.
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
-  # For external devs. Workflow file edits won't take effect in the PR.
+    paths:
+      - 'ci3/**'
+      - '.github/**'
+      - 'ci.sh'
+  # For all cases where ci files not touched. Workflow file edits won't take effect in the PR.
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
+    paths-ignore:
+      - 'ci3/**'
+      - '.github/**'
+      - 'ci.sh'
 
 concurrency:
   # On master or workflow_dispatch (checked via event_name) the group id is the unique run_id so we get parallel runs.
@@ -29,12 +38,6 @@ concurrency:
 jobs:
   ci:
     runs-on: ubuntu-latest
-    # Always allow 'push' and 'workflow_dispatch' jobs. Otherwise, only run pull_request events on internal PRs and pull_request_target on external PRs.
-    if: |
-      github.event_name == 'push' ||
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
-      (github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository)
     strategy:
       fail-fast: false
       matrix:
@@ -56,25 +59,27 @@ jobs:
 
       - name: Fail If Draft
         if: github.event.pull_request.draft && (github.event.action != 'labeled' || github.event.label.name != 'trigger-workflow')
-        run: echo "CI is not run on drafts." && exit 1
+        run: echo "CI is not run on drafts (unless ./ci.sh trigger-workflow is used)." && exit 1
 
-      - name: External Contributor Labels and Target
+      - name: External Contributor Checks
+        # Run only if a pull request event type and we have a forked repository origin.
         if: |
-          github.event_name == 'pull_request_target' &&
-          contains(github.event.pull_request.labels.*.name, 'ci-external') == false &&
-          contains(github.event.pull_request.labels.*.name, 'ci-external-once') == false
-        run: echo "External PRs need the 'ci-external' or 'ci-external-once' labels to run." && exit 1
-
-      - name: External Contributor Changes
-        if: github.event_name == 'pull_request_target'
+          (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') &&
+          github.event.pull_request.head.repo.full_name != github.repository
         run: |
           set -o pipefail
           git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1
           if git diff --name-only origin/${{ github.event.pull_request.base.ref }} HEAD -- ci3 .github ci.sh | grep -q .; then
-            echo "Error: External PRs can't contain CI changes." && exit 1
+            echo "Error: External PRs can't contain CI changes."
+            exit 1
           fi
           if [ ${{ github.event.pull_request.base.ref }} != "master" ]; then
-            echo "Error: External PRs can only target master, targeted: ${{ github.event.pull_request.base.ref }}." && exit 1
+            echo "Error: External PRs can only target master, targeted: ${{ github.event.pull_request.base.ref }}."
+            exit 1
+          fi
+          if [ ${{ contains(github.event.pull_request.labels.*.name, 'ci-external') || contains(github.event.pull_request.labels.*.name, 'ci-external-once')}} == 'false' ]; then
+            echo "External PRs need the 'ci-external' or 'ci-external-once' labels to run."
+            exit 1
           fi
           # Remove any ci-external-once labels.
           GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} gh pr edit ${{ github.event.pull_request.number }} --remove-label "ci-external-once"
@@ -88,6 +93,8 @@ jobs:
         run: echo "CI_FULL=1" >> $GITHUB_ENV
 
       - name: Setup
+        env:
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
           # Ensure we can SSH into the spot instances we request.
           mkdir -p ~/.ssh
