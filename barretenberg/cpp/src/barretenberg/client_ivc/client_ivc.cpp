@@ -237,11 +237,8 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
 }
 
 /**
- * @brief Construct the hiding circuit, which recursively verifies the last folding proof and decider proof, and
- * then produce a proof of the circuit's correctness with MegaHonk.
- *
- * @details The aim of this intermediate stage is to reduce the cost of producing a zero-knowledge ClientIVCProof.
- * @return HonkProof - a Mega proof
+ * @brief Construct the proving key of the hiding circuit, which recursively verifies the last folding proof and the
+ * decider proof.
  */
 std::shared_ptr<ClientIVC::DeciderProvingKey> ClientIVC::construct_hiding_circuit_key()
 {
@@ -300,10 +297,8 @@ std::shared_ptr<ClientIVC::DeciderProvingKey> ClientIVC::construct_hiding_circui
 }
 
 /**
- * @brief Construct the hiding circuit, which recursively verifies the last folding proof and decider proof, and
- * then produce a proof of the circuit's correctness with MegaHonk.
+ * @brief Construct the hiding circuit  then produce a proof of the circuit's correctness with MegaHonk.
  *
- * @details The aim of this intermediate stage is to reduce the cost of producing a zero-knowledge ClientIVCProof.
  * @return HonkProof - a Mega proof
  */
 HonkProof ClientIVC::construct_and_prove_hiding_circuit()
@@ -314,11 +309,6 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
     return proof;
 }
 
-/**
- * @brief Construct a proof for the IVC, which, if verified, fully establishes its correctness
- *
- * @return Proof
- */
 void ClientIVC::construct_vk()
 {
     construct_hiding_circuit_key();
