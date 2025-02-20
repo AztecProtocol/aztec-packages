@@ -150,8 +150,6 @@ mod test {
     };
 
     // Helper function that allows us to test encryption, then decryption, for various sizes of message.
-    // A `for` loop didn't work because we couldn't programmatically create
-    // arrays of larger and larger sizes in Noir.
     fn encrypt_then_decrypt<let N: u32>(msg: [Field; N]) {
         // Alice encrypting to Bob:
 
