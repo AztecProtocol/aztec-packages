@@ -142,7 +142,7 @@ pub fn poseidon2_decrypt<let L: u32>(
 }
 
 mod test {
-    use super::{poseidon2_decrypt, poseidon2_encrypt};
+    use super::{poseidon2_decrypt, poseidon2_encrypt, TWO_POW_128};
     use std::{
         embedded_curve_ops::{fixed_base_scalar_mul, multi_scalar_mul},
         hash::from_field_unsafe as fr_to_fq_unsafe,
@@ -250,5 +250,10 @@ mod test {
         assert(encrypt_and_return_ct_length([1, 2, 3, 4, 5, 6, 7]) == 10);
         assert(encrypt_and_return_ct_length([1, 2, 3, 4, 5, 6, 7, 8]) == 10);
         assert(encrypt_and_return_ct_length([1, 2, 3, 4, 5, 6, 7, 8, 9]) == 10);
+    }
+
+    #[test]
+    fn test_2_pow_128() {
+        assert(2.pow_32(128) == TWO_POW_128);
     }
 }
