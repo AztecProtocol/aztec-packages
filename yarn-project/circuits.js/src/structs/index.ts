@@ -17,7 +17,6 @@ export * from './key_validation_request.js';
 export * from './key_validation_request_and_generator.js';
 export * from './l2_to_l1_message.js';
 export * from './log_hash.js';
-export * from './log_with_tx_data.js';
 export * from './max_block_number.js';
 export * from './note_hash.js';
 export * from './nullifier.js';

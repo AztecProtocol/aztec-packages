@@ -12,9 +12,9 @@ import {
   type ContractInstance,
   type IndexedTaggingSecret,
   type KeyValidationRequest,
-  type LogWithTxData,
 } from '@aztec/circuits.js';
 import { type FunctionArtifact, type FunctionSelector } from '@aztec/circuits.js/abi';
+import { LogWithTxData } from '@aztec/circuits.js/logs';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
 

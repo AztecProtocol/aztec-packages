@@ -12,9 +12,9 @@ import {
   type ContractInstance,
   type IndexedTaggingSecret,
   type KeyValidationRequest,
-  type LogWithTxData,
 } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
+import { LogWithTxData } from '@aztec/circuits.js/logs';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Aes128 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';

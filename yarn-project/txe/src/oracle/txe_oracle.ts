@@ -28,7 +28,6 @@ import {
   GlobalVariables,
   IndexedTaggingSecret,
   type KeyValidationRequest,
-  type LogWithTxData,
   PrivateContextInputs,
   type PrivateLog,
   PublicDataWrite,
@@ -50,6 +49,7 @@ import {
   siloNoteHash,
   siloNullifier,
 } from '@aztec/circuits.js/hash';
+import { LogWithTxData } from '@aztec/circuits.js/logs';
 import {
   makeAppendOnlyTreeSnapshot,
   makeContentCommitment,

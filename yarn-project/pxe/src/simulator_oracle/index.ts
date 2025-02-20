@@ -25,7 +25,6 @@ import {
   FunctionSelector,
   IndexedTaggingSecret,
   type KeyValidationRequest,
-  LogWithTxData,
   PrivateLog,
   PublicLog,
   computeAddressSecret,
@@ -39,6 +38,7 @@ import {
   getFunctionArtifact,
 } from '@aztec/circuits.js/abi';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
+import { LogWithTxData } from '@aztec/circuits.js/logs';
 import {
   type L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_NOTE_HASHES_PER_TX,

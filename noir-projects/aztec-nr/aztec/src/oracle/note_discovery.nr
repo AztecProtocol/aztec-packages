@@ -1,5 +1,8 @@
 use crate::discovery::MAX_NOTE_PACKED_LEN;
-use dep::protocol_types::{address::AztecAddress, log_with_tx_data::LogWithTxData};
+use dep::protocol_types::{
+    address::AztecAddress,
+    constants::{MAX_NOTE_HASHES_PER_TX, PUBLIC_LOG_DATA_SIZE_IN_FIELDS},
+};
 
 /// Finds new notes that may have been sent to all registered accounts in PXE in the current contract and makes them
 /// available for later querying via the `get_notes` oracle.
@@ -43,6 +46,19 @@ pub unconstrained fn deliver_note(
         tx_hash,
         recipient,
     )
+}
+
+/// The contents of a public log, plus contextual information about the transaction in which the log was emitted. This
+/// is the data required in order to discover notes that are being delivered in a log.
+// TODO(#11639): this could also be used to fetch private logs, but the `BoundedVec` maximum length is that of a public
+// log.
+pub struct LogWithTxData {
+    pub log_content: BoundedVec<Field, PUBLIC_LOG_DATA_SIZE_IN_FIELDS>,
+    pub tx_hash: Field,
+    /// The array of new note hashes created by `tx_hash`
+    pub unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
+    /// The first nullifier created by `tx_hash`
+    pub first_nullifier_in_tx: Field,
 }
 
 /// Fetches a log from the node that has the corresponding `tag`. The log can be either a public or a private log, and

@@ -1,6 +1,6 @@
 import { MerkleTreeId, UnencryptedL2Log } from '@aztec/circuit-types';
-import { LogWithTxData } from '@aztec/circuits.js';
 import { FunctionSelector, NoteSelector } from '@aztec/circuits.js/abi';
+import { LogWithTxData } from '@aztec/circuits.js/logs';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
