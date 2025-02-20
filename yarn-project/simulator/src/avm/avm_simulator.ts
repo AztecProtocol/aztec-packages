@@ -1,4 +1,5 @@
-import { type AztecAddress, Fr, type GlobalVariables, MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/circuits.js';
+import { type AztecAddress, Fr, type GlobalVariables } from '@aztec/circuits.js';
+import { MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/constants';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { strict as assert } from 'assert';
@@ -44,9 +45,12 @@ export class AvmSimulator {
   // only. Otherwise, use build() below.
   constructor(
     private context: AvmContext,
-    private instructionSet: InstructionSet = INSTRUCTION_SET(),
+    private instructionSet: InstructionSet = INSTRUCTION_SET,
     enableTallying = false,
   ) {
+    // This will be used by the CALL opcode to create a new simulator. It is required to
+    // avoid a dependency cycle.
+    context.provideSimulator = AvmSimulator.build;
     assert(
       context.machineState.gasLeft.l2Gas <= MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
       `Cannot allocate more than ${MAX_L2_GAS_PER_TX_PUBLIC_PORTION} to the AVM for execution.`,
@@ -205,7 +209,7 @@ export class AvmSimulator {
 
       const endTotalTime = performance.now();
       const totalTime = endTotalTime - startTotalTime;
-      this.log.debug(`Total execution time: ${totalTime}ms`);
+      this.log.debug(`Core AVM simulation took ${totalTime}ms`);
 
       // Return results for processing by calling context
       return results;

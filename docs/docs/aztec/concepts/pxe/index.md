@@ -67,11 +67,7 @@ The database stores various types of data, including:
 - **Capsules**: External data or data injected into the system via [oracles](#oracles).
 - **Address Book**: A list of expected addresses that a PXE may encrypt notes for, or received encrypted notes from. This list helps the PXE reduce the amount of work required to find notes relevant to it's registered accounts.
 
-### Note discovery
-
-Note discovery helps solve the problem of a user parsing the chain for their encrypted notes.
-
-There is a note tagging scheme that allows users to register an expected note sender in their PXE, which tells the PXE to expect notes coming from that expected sender. This helps the PXE more efficiently discover the encrypted notes being created for its registered accounts.
+The PXE is not in charge of note discovery, ie finding the notes that are owned by the user. This is handled by Aztec contracts, and you can learn more [here](../advanced/storage/note_discovery.md)
 
 ### Authorization
 
@@ -109,4 +105,4 @@ Oracles are pieces of data that are injected into a smart contract function from
 To learn how to develop on top of the PXE, refer to these guides:
 
 - [Run more than one PXE on your local machine](../../../developers/guides/local_env/run_more_than_one_pxe_sandbox.md)
-- [Use in-built oracles including oracles for arbitrary data](../../../developers/guides/smart_contracts/writing_contracts/how_to_pop_capsules.md)
+- [Use in-built oracles including oracles for arbitrary data](../../../developers/guides/smart_contracts/writing_contracts/how_to_use_capsules.md)

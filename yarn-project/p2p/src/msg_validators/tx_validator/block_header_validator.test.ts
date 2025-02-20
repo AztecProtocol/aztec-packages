@@ -1,4 +1,5 @@
-import { type AnyTx, type TxValidationResult, mockTxForRollup } from '@aztec/circuit-types';
+import { type AnyTx, type TxValidationResult } from '@aztec/circuit-types';
+import { mockTxForRollup } from '@aztec/circuit-types/testing';
 import { Fr } from '@aztec/circuits.js';
 
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';

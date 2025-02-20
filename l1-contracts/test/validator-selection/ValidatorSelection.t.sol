@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {DecoderBase} from "../decoders/Base.sol";
+import {DecoderBase} from "../base/DecoderBase.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
@@ -104,12 +104,14 @@ contract ValidatorSelectionTest is DecoderBase {
       _stakingAsset: testERC20,
       _vkTreeRoot: bytes32(0),
       _protocolContractTreeRoot: bytes32(0),
+      _genesisArchiveRoot: bytes32(Constants.GENESIS_ARCHIVE_ROOT),
+      _genesisBlockHash: bytes32(Constants.GENESIS_BLOCK_HASH),
       _ares: address(this),
       _config: Config({
         aztecSlotDuration: TestConstants.AZTEC_SLOT_DURATION,
         aztecEpochDuration: TestConstants.AZTEC_EPOCH_DURATION,
         targetCommitteeSize: TestConstants.AZTEC_TARGET_COMMITTEE_SIZE,
-        aztecEpochProofClaimWindowInL2Slots: TestConstants.AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS,
+        aztecProofSubmissionWindow: TestConstants.AZTEC_PROOF_SUBMISSION_WINDOW,
         minimumStake: TestConstants.AZTEC_MINIMUM_STAKE,
         slashingQuorum: TestConstants.AZTEC_SLASHING_QUORUM,
         slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE
@@ -267,7 +269,7 @@ contract ValidatorSelectionTest is DecoderBase {
       header: header,
       archive: full.block.archive,
       blockHash: bytes32(0),
-      oracleInput: OracleInput(0, 0),
+      oracleInput: OracleInput(0),
       txHashes: txHashes
     });
 

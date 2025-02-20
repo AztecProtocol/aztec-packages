@@ -1,6 +1,8 @@
 // An integration test for the p2p client to test req resp protocols
-import { PeerErrorSeverity, type Tx, type WorldStateSynchronizer, mockTx } from '@aztec/circuit-types';
+import { PeerErrorSeverity, type Tx } from '@aztec/circuit-types';
 import { emptyChainConfig } from '@aztec/circuit-types/config';
+import { type WorldStateSynchronizer } from '@aztec/circuit-types/interfaces/server';
+import { mockTx } from '@aztec/circuit-types/testing';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { sleep } from '@aztec/foundation/sleep';
 
@@ -10,7 +12,6 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import { type P2PClient } from '../client/p2p_client.js';
 import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
 import { type AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
-import { type EpochProofQuotePool } from '../mem_pools/epoch_proof_quote_pool/epoch_proof_quote_pool.js';
 import { type TxPool } from '../mem_pools/tx_pool/index.js';
 import { makeTestP2PClients } from '../test-helpers/make-test-p2p-clients.js';
 
@@ -21,7 +22,6 @@ const NUMBER_OF_PEERS = 2;
 describe('p2p client integration', () => {
   let txPool: MockProxy<TxPool>;
   let attestationPool: MockProxy<AttestationPool>;
-  let epochProofQuotePool: MockProxy<EpochProofQuotePool>;
   let epochCache: MockProxy<EpochCache>;
   let worldState: MockProxy<WorldStateSynchronizer>;
 
@@ -32,7 +32,6 @@ describe('p2p client integration', () => {
   beforeEach(() => {
     txPool = mock<TxPool>();
     attestationPool = mock<AttestationPool>();
-    epochProofQuotePool = mock<EpochProofQuotePool>();
     epochCache = mock<EpochCache>();
     worldState = mock<WorldStateSynchronizer>();
 
@@ -65,7 +64,6 @@ describe('p2p client integration', () => {
         clients = await makeTestP2PClients(NUMBER_OF_PEERS, {
           p2pBaseConfig: { ...emptyChainConfig, ...getP2PDefaultConfig() },
           mockAttestationPool: attestationPool,
-          mockEpochProofQuotePool: epochProofQuotePool,
           mockTxPool: txPool,
           mockEpochCache: epochCache,
           mockWorldState: worldState,
@@ -94,7 +92,6 @@ describe('p2p client integration', () => {
         clients = await makeTestP2PClients(NUMBER_OF_PEERS, {
           p2pBaseConfig,
           mockAttestationPool: attestationPool,
-          mockEpochProofQuotePool: epochProofQuotePool,
           mockTxPool: txPool,
           mockEpochCache: epochCache,
           mockWorldState: worldState,
@@ -127,7 +124,6 @@ describe('p2p client integration', () => {
         clients = await makeTestP2PClients(NUMBER_OF_PEERS, {
           p2pBaseConfig,
           mockAttestationPool: attestationPool,
-          mockEpochProofQuotePool: epochProofQuotePool,
           mockTxPool: txPool,
           mockEpochCache: epochCache,
           mockWorldState: worldState,
@@ -167,7 +163,6 @@ describe('p2p client integration', () => {
         clients = await makeTestP2PClients(NUMBER_OF_PEERS, {
           p2pBaseConfig,
           mockAttestationPool: attestationPool,
-          mockEpochProofQuotePool: epochProofQuotePool,
           mockTxPool: txPool,
           mockEpochCache: epochCache,
           mockWorldState: worldState,

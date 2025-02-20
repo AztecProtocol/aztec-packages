@@ -1,4 +1,5 @@
-import { emptyChainConfig } from '@aztec/circuit-types/config';
+import { type ChainConfig, emptyChainConfig } from '@aztec/circuit-types/config';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 
@@ -6,7 +7,7 @@ import { type ChildProcess, fork } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import { mockTx } from '../../../circuit-types/src/mocks.js';
+import { mockTx } from '../../../circuit-types/src/test/mocks.js';
 import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
 import { generatePeerIdPrivateKeys } from '../test-helpers/generate-peer-id-private-keys.js';
 import { getPorts } from '../test-helpers/get-ports.js';
@@ -51,6 +52,7 @@ describe.skip('Gossipsub', () => {
     const peerIdPrivateKeys = generatePeerIdPrivateKeys(numberOfClients);
     const ports = await getPorts(numberOfClients);
     const peerEnrs = await makeEnrs(peerIdPrivateKeys, ports, p2pBaseConfig);
+    const rollupAddress = EthAddress.random();
 
     processes = [];
     for (let i = 0; i < numberOfClients; i++) {
@@ -61,8 +63,11 @@ describe.skip('Gossipsub', () => {
       // Maximum seed with 10 other peers to allow peer discovery to connect them at a smoother rate
       const otherNodes = peerEnrs.filter((_, ind) => ind < Math.min(i, 10));
 
-      const config: P2PConfig = {
+      const config: P2PConfig & Partial<ChainConfig> = {
         ...getP2PDefaultConfig(),
+        l1Contracts: {
+          rollupAddress,
+        },
         p2pEnabled: true,
         peerIdPrivateKey: peerIdPrivateKeys[i],
         tcpListenAddress: listenAddr,

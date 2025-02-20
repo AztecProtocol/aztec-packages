@@ -5,4 +5,4 @@ export * from './config.js';
 export * from './bb/execute.js';
 export * from './honk.js';
 
-export { type ClientProtocolCircuitVerifier } from '@aztec/circuit-types';
+export { type ClientProtocolCircuitVerifier } from '@aztec/circuit-types/interfaces/server';

@@ -81,7 +81,7 @@ See [partial notes](../../../../../aztec/concepts/advanced/storage/partial_notes
 
 When you send someone a note, the note hash gets added to the note hash tree. To spend the note, the receiver needs to get the note itself (the note hash preimage). There are two ways you can get a hold of your notes:
 
-1. When sending someone a note, emit the note contents to the recipient (the function encrypts the log in such a way that only a recipient can decrypt it). PXE then tries to decrypt all the encrypted logs, and stores the successfully decrypted one. [More info here](../how_to_emit_event.md)
+1. When sending someone a note, emit the note log to the recipient (the function encrypts the log in such a way that only a recipient can decrypt it). PXE then tries to decrypt all the encrypted logs, and stores the successfully decrypted one. [More info here](../how_to_emit_event.md)
 2. Manually using `pxe.addNote()` - If you choose to not emit logs to save gas or when creating a note in the public domain and want to consume it in private domain (`encrypt_and_emit_note` shouldn't be called in the public domain because everything is public), like in the previous section where we created a note in public that doesn't have a designated owner.
 
 #include_code pxe_add_note yarn-project/end-to-end/src/composed/e2e_persistence.test.ts typescript
@@ -106,7 +106,7 @@ Hence, it's necessary to add a "randomness" field to your note to prevent such a
 
 ### L1 -- L2 interactions
 
-Refer to [Token Portal codealong tutorial on bridging tokens between L1 and L2](../../../../tutorials/codealong/contract_tutorials/token_bridge/0_setup.md) and/or [Uniswap smart contract example that shows how to swap on L1 using funds on L2](../../../../tutorials/codealong/contract_tutorials/uniswap/index.md). Both examples show how to:
+Refer to [Token Portal codealong tutorial on bridging tokens between L1 and L2](../../../../tutorials/codealong/contract_tutorials/token_bridge.md) and/or [Uniswap smart contract example that shows how to swap on L1 using funds on L2](../../../../tutorials/codealong/contract_tutorials/uniswap/index.md). Both examples show how to:
 
 1. L1 -> L2 message flow
 2. L2 -> L1 message flow

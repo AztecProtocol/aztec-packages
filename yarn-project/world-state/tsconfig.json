@@ -13,6 +13,9 @@
       "path": "../circuits.js"
     },
     {
+      "path": "../constants"
+    },
+    {
       "path": "../foundation"
     },
     {
@@ -23,6 +26,9 @@
     },
     {
       "path": "../native"
+    },
+    {
+      "path": "../protocol-contracts"
     },
     {
       "path": "../telemetry-client"

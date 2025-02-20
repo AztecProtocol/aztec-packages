@@ -35,8 +35,8 @@ pub contract Test {
             lifecycle::{create_note, destroy_note_unsafe},
             note_getter::{get_notes, view_notes},
             note_getter_options::NoteStatus,
+            retrieved_note::RetrievedNote,
         },
-        oracle::pxe_db,
         test::mocks::mock_struct::MockStruct,
         utils::comparison::Comparator,
     };
@@ -128,8 +128,8 @@ pub contract Test {
             "this storage slot is reserved for example_constant",
         );
 
-        let mut note = ValueNote::new(value, owner);
-        create_note(&mut context, storage_slot, &mut note).emit(encode_and_encrypt_note(
+        let note = ValueNote::new(value, owner);
+        create_note(&mut context, storage_slot, note).emit(encode_and_encrypt_note(
             &mut context,
             owner,
             sender,
@@ -148,10 +148,10 @@ pub contract Test {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let (notes, _): (BoundedVec<ValueNote, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
+        let (retrieved_notes, _): (BoundedVec<RetrievedNote<ValueNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
             get_notes(&mut context, storage_slot, options);
 
-        notes.get(0).value
+        retrieved_notes.get(0).note.value
     }
 
     #[private]
@@ -166,10 +166,10 @@ pub contract Test {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let (notes, _): (BoundedVec<ValueNote, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
+        let (retrieved_notes, _): (BoundedVec<RetrievedNote<ValueNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
             get_notes(&mut context, storage_slot, options);
 
-        [notes.get(0).value, notes.get(1).value]
+        [retrieved_notes.get(0).note.value, retrieved_notes.get(1).note.value]
     }
 
     unconstrained fn call_view_notes(storage_slot: Field, active_or_nullified: bool) -> pub Field {
@@ -215,13 +215,13 @@ pub contract Test {
         );
 
         let options = NoteGetterOptions::new();
-        let (notes, note_hashes): (BoundedVec<ValueNote, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
+        let (retrieved_notes, note_hashes): (BoundedVec<RetrievedNote<ValueNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
             get_notes(&mut context, storage_slot, options);
 
-        let note = notes.get(0);
+        let retrieved_note = retrieved_notes.get(0);
         let note_hash = note_hashes.get(0);
 
-        destroy_note_unsafe(&mut context, note, note_hash);
+        destroy_note_unsafe(&mut context, retrieved_note, note_hash);
     }
 
     #[private]
@@ -342,8 +342,8 @@ pub contract Test {
         );
         storage_slot += 1;
 
-        let mut note = ValueNote::new(value + 1, owner);
-        create_note(&mut context, storage_slot, &mut note).emit(encode_and_encrypt_note(
+        let note = ValueNote::new(value + 1, owner);
+        create_note(&mut context, storage_slot, note).emit(encode_and_encrypt_note(
             &mut context,
             owner,
             sender,
@@ -425,8 +425,8 @@ pub contract Test {
 
     #[private]
     fn set_constant(value: Field) {
-        let mut note = TestNote::new(value);
-        storage.example_constant.initialize(&mut note).discard();
+        let note = TestNote::new(value);
+        storage.example_constant.initialize(note).discard();
     }
 
     #[private]
@@ -483,16 +483,6 @@ pub contract Test {
     unconstrained fn get_constant() -> pub Field {
         let constant = storage.example_constant.view_note();
         constant.value
-    }
-
-    unconstrained fn store_in_pxe_db(key: Field, arbitrary_struct: MockStruct) {
-        pxe_db::store(context.this_address(), key, arbitrary_struct);
-    }
-
-    unconstrained fn load_from_pxe_db(key: Field) -> pub [Field; 2] {
-        let maybe_arbitrary_struct: Option<MockStruct> = pxe_db::load(context.this_address(), key);
-        let arbitrary_struct = maybe_arbitrary_struct.unwrap_or(MockStruct::new(0, 0));
-        arbitrary_struct.serialize()
     }
 
     #[private]

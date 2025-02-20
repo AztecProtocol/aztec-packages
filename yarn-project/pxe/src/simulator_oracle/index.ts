@@ -1,19 +1,21 @@
 import {
-  type AztecNode,
   type FunctionCall,
   type InBlock,
   L1NotePayload,
   type L2Block,
-  type L2BlockNumber,
   MerkleTreeId,
   Note,
   type NoteStatus,
-  type NullifierMembershipWitness,
   type PublicDataWitness,
   TxHash,
   type TxScopedL2Log,
   getNonNullifiedL1ToL2MessageWitness,
 } from '@aztec/circuit-types';
+import {
+  type AztecNode,
+  type L2BlockNumber,
+  type NullifierMembershipWitness,
+} from '@aztec/circuit-types/interfaces/client';
 import {
   type AztecAddress,
   type BlockHeader,
@@ -23,22 +25,20 @@ import {
   FunctionSelector,
   IndexedTaggingSecret,
   type KeyValidationRequest,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-  MAX_NOTE_HASHES_PER_TX,
-  PRIVATE_LOG_SIZE_IN_FIELDS,
   PrivateLog,
   PublicLog,
   computeAddressSecret,
   computeTaggingSecretPoint,
 } from '@aztec/circuits.js';
-import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
 import {
   type FunctionArtifact,
   FunctionType,
   NoteSelector,
   encodeArguments,
   getFunctionArtifact,
-} from '@aztec/foundation/abi';
+} from '@aztec/circuits.js/abi';
+import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
+import { type L1_TO_L2_MSG_TREE_HEIGHT, MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
@@ -134,7 +134,7 @@ export class SimulatorOracle implements DBOracle {
     functionName: string,
   ): Promise<FunctionArtifact | undefined> {
     const instance = await this.contractDataOracle.getContractInstance(contractAddress);
-    const artifact = await this.contractDataOracle.getContractArtifact(instance.contractClassId);
+    const artifact = await this.contractDataOracle.getContractArtifact(instance.currentContractClassId);
     return artifact && getFunctionArtifact(artifact, functionName);
   }
 
@@ -775,7 +775,7 @@ export class SimulatorOracle implements DBOracle {
       receipt.blockHash!.toString(),
       uniqueNoteHashTreeIndex,
       await recipient.toAddressPoint(),
-      NoteSelector.empty(), // todo: remove
+      NoteSelector.empty(), // TODO(#12013): remove
     );
   }
 
@@ -798,10 +798,11 @@ export class SimulatorOracle implements DBOracle {
       );
     }
 
+    const selector = await FunctionSelector.fromNameAndParameters(artifact);
     const execRequest: FunctionCall = {
       name: artifact.name,
       to: contractAddress,
-      selector: await FunctionSelector.fromNameAndParameters(artifact),
+      selector,
       type: FunctionType.UNCONSTRAINED,
       isStatic: artifact.isStatic,
       args: encodeArguments(artifact, [
@@ -819,26 +820,26 @@ export class SimulatorOracle implements DBOracle {
       getAcirSimulator(this.db, this.aztecNode, this.keyStore, this.simulationProvider, this.contractDataOracle)
     ).runUnconstrained(
       execRequest,
-      artifact,
       contractAddress,
+      selector,
       [], // empty scope as this call should not require access to private information
     );
   }
 
-  dbStore(contractAddress: AztecAddress, slot: Fr, values: Fr[]): Promise<void> {
-    return this.db.dbStore(contractAddress, slot, values);
+  storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
+    return this.db.storeCapsule(contractAddress, slot, capsule);
   }
 
-  dbLoad(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
-    return this.db.dbLoad(contractAddress, slot);
+  loadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
+    return this.db.loadCapsule(contractAddress, slot);
   }
 
-  dbDelete(contractAddress: AztecAddress, slot: Fr): Promise<void> {
-    return this.db.dbDelete(contractAddress, slot);
+  deleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void> {
+    return this.db.deleteCapsule(contractAddress, slot);
   }
 
-  dbCopy(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
-    return this.db.dbCopy(contractAddress, srcSlot, dstSlot, numEntries);
+  copyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
+    return this.db.copyCapsule(contractAddress, srcSlot, dstSlot, numEntries);
   }
 }
 

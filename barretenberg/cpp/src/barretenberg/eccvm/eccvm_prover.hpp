@@ -30,6 +30,7 @@ class ECCVMProver {
     using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
 
     explicit ECCVMProver(CircuitBuilder& builder,
+                         const bool fixed_size = false,
                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
                          const std::shared_ptr<Transcript>& ipa_transcript = std::make_shared<Transcript>());
 
@@ -47,6 +48,8 @@ class ECCVMProver {
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Transcript> ipa_transcript;
 
+    bool fixed_size;
+
     TranslationEvaluations translation_evaluations;
 
     std::vector<FF> public_inputs;
@@ -57,11 +60,6 @@ class ECCVMProver {
 
     CommitmentLabels commitment_labels;
     ZKData zk_sumcheck_data;
-
-    Polynomial batched_quotient_Q; // batched quotient poly computed by Shplonk
-    FF nu_challenge;               // needed in both Shplonk rounds
-
-    Polynomial quotient_W;
 
     FF evaluation_challenge_x;
     FF translation_batching_challenge_v; // to be rederived by the translator verifier

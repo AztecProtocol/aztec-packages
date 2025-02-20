@@ -9,7 +9,7 @@ import {
   TxStatus,
 } from '@aztec/aztec.js';
 import { Gas, GasSettings } from '@aztec/circuits.js';
-import { FunctionType, U128 } from '@aztec/foundation/abi';
+import { FunctionType, U128 } from '@aztec/circuits.js/abi';
 import { type FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { type TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 
@@ -41,11 +41,11 @@ describe('e2e_fees failures', () => {
     const privateMintedAlicePrivateBananas = t.ALICE_INITIAL_BANANAS;
 
     const [initialAlicePrivateBananas] = await t.getBananaPrivateBalanceFn(aliceAddress, sequencerAddress);
-    const [initialAliceGas, initialFPCGas] = await t.getGasBalanceFn(aliceAddress, bananaFPC.address);
-
     const [initialFPCPublicBananas] = await t.getBananaPublicBalanceFn(bananaFPC.address);
 
     await t.mintPrivateBananas(privateMintedAlicePrivateBananas, aliceAddress);
+    // Catch the initial balances after the mint above, which costs gas.
+    const [initialAliceGas, initialFPCGas] = await t.getGasBalanceFn(aliceAddress, bananaFPC.address);
 
     // if we simulate locally, it throws an error
     await expect(
@@ -130,13 +130,15 @@ describe('e2e_fees failures', () => {
       aliceAddress,
       bananaFPC.address,
     );
+
+    await bananaCoin.methods.mint_to_public(aliceAddress, publicMintedAlicePublicBananas).send().wait();
+
     const [initialAliceGas, initialFPCGas, initialSequencerGas] = await t.getGasBalanceFn(
       aliceAddress,
       bananaFPC.address,
       sequencerAddress,
     );
 
-    await bananaCoin.methods.mint_to_public(aliceAddress, publicMintedAlicePublicBananas).send().wait();
     // if we simulate locally, it throws an error
     await expect(
       bananaCoin.methods
@@ -245,13 +247,14 @@ describe('e2e_fees failures', () => {
       aliceAddress,
       bananaFPC.address,
     );
+
+    await bananaCoin.methods.mint_to_public(aliceAddress, publicMintedAlicePublicBananas).send().wait();
+
     const [initialAliceGas, initialFPCGas, initialSequencerGas] = await t.getGasBalanceFn(
       aliceAddress,
       bananaFPC.address,
       sequencerAddress,
     );
-
-    await bananaCoin.methods.mint_to_public(aliceAddress, publicMintedAlicePublicBananas).send().wait();
 
     const badGas = GasSettings.from({
       ...gasSettings,

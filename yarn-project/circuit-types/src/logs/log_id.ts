@@ -1,4 +1,4 @@
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader } from '@aztec/foundation/serialize';

@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.76.4](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.76.3...barretenberg.js-v0.76.4) (2025-02-13)
+
+
+### Miscellaneous
+
+* Unify webpack dev server versions ([#11965](https://github.com/AztecProtocol/aztec-packages/issues/11965)) ([921d2cd](https://github.com/AztecProtocol/aztec-packages/commit/921d2cd9de54a9fd7cc49e4951c9fa65ab1526ef))
+
+## [0.76.3](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.76.2...barretenberg.js-v0.76.3) (2025-02-13)
+
+
+### Features
+
+* **perf:** Speed up construction of bbjs Frs & cache zero hashes in ephemeral trees (redo) ([#11894](https://github.com/AztecProtocol/aztec-packages/issues/11894)) ([e093acf](https://github.com/AztecProtocol/aztec-packages/commit/e093acff0f251608010abaff7139dd077ca34afd))
+
+
+### Bug Fixes
+
+* Memory fragmentation fixes to cut UltraHonk memory usage by 26% ([#11895](https://github.com/AztecProtocol/aztec-packages/issues/11895)) ([b4e2264](https://github.com/AztecProtocol/aztec-packages/commit/b4e2264a9a7df027f5266f1f88b014bd72af76f0))
+
+## [0.76.2](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.76.1...barretenberg.js-v0.76.2) (2025-02-11)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
 ## [0.76.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.76.0...barretenberg.js-v0.76.1) (2025-02-10)
 
 

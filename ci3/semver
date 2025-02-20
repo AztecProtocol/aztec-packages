@@ -1,0 +1,64 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use feature 'say';
+
+# Written in perl as it is very portable and doesn't have the python versioning fiasco.
+# We allow one variant: we allow a leading 'v' as we use this in release-please.
+# Usage: either
+#   semver check <semver>
+#   semver <semver> check
+#   semver <semver> <component>
+#
+# Valid components: major, minor, patch, prerelease, buildmetadata, or 'check' mode
+
+if (@ARGV != 2) {
+    die "Usage: $0 <semver> <component> OR $0 check <semver>\n";
+}
+
+my ($mode, $version) = @ARGV;
+
+# Regular expression for SemVer with named capture groups
+my $regex = qr/
+    ^
+    v?
+    (?<major>0|[1-9]\d*)
+    \.
+    (?<minor>0|[1-9]\d*)
+    \.
+    (?<patch>0|[1-9]\d*)
+    (?:-
+        (?<prerelease>
+            (?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)
+            (?:\.
+                (?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)
+            )*
+        )
+    )?
+    (?:\+
+        (?<buildmetadata>
+            [0-9a-zA-Z-]+
+            (?:\.[0-9a-zA-Z-]+)*
+        )
+    )?
+    $
+/x;
+
+if ($version =~ $regex) {
+    # In "check" mode, exit silently with success.
+    if ($mode eq 'check') {
+        exit 0;
+    }
+
+    # Validate requested component
+    my %valid = map { $_ => 1 } qw(major minor patch prerelease buildmetadata);
+    die "Invalid component: $mode. Valid components are: major, minor, patch, prerelease, buildmetadata, or 'check'\n"
+        unless exists $valid{$mode};
+
+    # Output the captured component (or empty string if not present)
+    my $value = defined $+{$mode} ? $+{$mode} : "";
+    say $value;
+    exit 0;
+} else {
+    exit 1
+}

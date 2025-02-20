@@ -6,21 +6,21 @@ import {
   EthAddress,
   Fr,
   GasFees,
-  L1_TO_L2_MSG_TREE_HEIGHT,
   type NodeInfo,
   Point,
-  PrivateKernelTailCircuitPublicInputs,
   type ProtocolContractAddresses,
   ProtocolContractsNames,
   PublicKeys,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
+import { type AbiDecoded, type ContractArtifact, EventSelector } from '@aztec/circuits.js/abi';
+import { loadContractArtifact } from '@aztec/circuits.js/abi';
+import { PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
+import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
-import { type AbiDecoded, type ContractArtifact, EventSelector } from '@aztec/foundation/abi';
 import { memoize } from '@aztec/foundation/decorators';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 import { fileURLToPath } from '@aztec/foundation/url';
-import { loadContractArtifact } from '@aztec/types/abi';
 
 import { jest } from '@jest/globals';
 import { deepStrictEqual } from 'assert';
@@ -42,7 +42,6 @@ import {
 import { ExtendedNote, UniqueNote } from '../notes/index.js';
 import { type NotesFilter } from '../notes/notes_filter.js';
 import { PrivateExecutionResult } from '../private_execution_result.js';
-import { type EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
 import { SiblingPath } from '../sibling_path/sibling_path.js';
 import { Tx, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '../tx/index.js';
 import { TxEffect } from '../tx_effect.js';
@@ -77,7 +76,8 @@ describe('PXESchema', () => {
     address = await AztecAddress.random();
     instance = {
       version: 1,
-      contractClassId: Fr.random(),
+      currentContractClassId: Fr.random(),
+      originalContractClassId: Fr.random(),
       deployer: await AztecAddress.random(),
       initializationHash: Fr.random(),
       publicKeys: await PublicKeys.random(),
@@ -111,8 +111,8 @@ describe('PXESchema', () => {
     expect(result).toEqual([expect.any(Fr)]);
   });
 
-  it('addCapsule', async () => {
-    await context.client.addCapsule(address, Fr.random(), times(3, Fr.random));
+  it('storeCapsule', async () => {
+    await context.client.storeCapsule(address, Fr.random(), times(3, Fr.random));
   });
 
   it('registerAccount', async () => {
@@ -145,6 +145,10 @@ describe('PXESchema', () => {
 
   it('registerContract', async () => {
     await context.client.registerContract({ instance, artifact });
+  });
+
+  it('updateContract', async () => {
+    await context.client.updateContract(instance.address, artifact);
   });
 
   it('getContracts', async () => {
@@ -232,10 +236,6 @@ describe('PXESchema', () => {
     await context.client.addNote(await ExtendedNote.random(), address);
   });
 
-  it('addNullifiedNote', async () => {
-    await context.client.addNullifiedNote(await ExtendedNote.random());
-  });
-
   it('getBlock', async () => {
     const result = await context.client.getBlock(1);
     expect(result).toBeInstanceOf(L2Block);
@@ -306,7 +306,7 @@ describe('PXESchema', () => {
   });
 
   it('getPrivateEvents', async () => {
-    const result = await context.client.getPrivateEvents<EpochProofQuote>(
+    const result = await context.client.getPrivateEvents<{ value: bigint }>(
       { abiType: { kind: 'boolean' }, eventSelector: EventSelector.random(), fieldNames: ['name'] },
       1,
       1,
@@ -316,7 +316,7 @@ describe('PXESchema', () => {
   });
 
   it('getPublicEvents', async () => {
-    const result = await context.client.getPublicEvents<EpochProofQuote>(
+    const result = await context.client.getPublicEvents<{ value: bigint }>(
       { abiType: { kind: 'boolean' }, eventSelector: EventSelector.random(), fieldNames: ['name'] },
       1,
       1,
@@ -344,7 +344,7 @@ class MockPXE implements PXE {
     expect(messageHash).toBeInstanceOf(Fr);
     return Promise.resolve([Fr.random()]);
   }
-  addCapsule(contract: AztecAddress, storageSlot: Fr, capsule: Fr[]): Promise<void> {
+  storeCapsule(contract: AztecAddress, storageSlot: Fr, capsule: Fr[]): Promise<void> {
     expect(contract).toBeInstanceOf(AztecAddress);
     expect(storageSlot).toBeInstanceOf(Fr);
     expect(capsule.every(c => c instanceof Fr)).toBeTruthy();
@@ -383,6 +383,10 @@ class MockPXE implements PXE {
   }): Promise<void> {
     expect(contract.instance).toEqual(this.instance);
     deepStrictEqual(contract.artifact, this.artifact);
+    return Promise.resolve();
+  }
+  updateContract(contractAddress: AztecAddress, _artifact: ContractArtifact): Promise<void> {
+    expect(contractAddress).toEqual(this.address);
     return Promise.resolve();
   }
   getContracts(): Promise<AztecAddress[]> {
@@ -453,10 +457,6 @@ class MockPXE implements PXE {
   addNote(note: ExtendedNote, scope?: AztecAddress | undefined): Promise<void> {
     expect(note).toBeInstanceOf(ExtendedNote);
     expect(scope).toEqual(this.address);
-    return Promise.resolve();
-  }
-  addNullifiedNote(note: ExtendedNote): Promise<void> {
-    expect(note).toBeInstanceOf(ExtendedNote);
     return Promise.resolve();
   }
   getBlock(number: number): Promise<L2Block | undefined> {

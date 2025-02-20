@@ -93,7 +93,7 @@ template <IsUltraFlavor Flavor> void DeciderProvingKey_<Flavor>::allocate_select
 template <IsUltraFlavor Flavor>
 void DeciderProvingKey_<Flavor>::allocate_table_lookup_polynomials(const Circuit& circuit)
 {
-    PROFILE_THIS_NAME("allocate_table_lookup_polynomials_and_inverses");
+    PROFILE_THIS_NAME("allocate_table_lookup_and_lookup_read_polynomials");
 
     size_t table_offset = circuit.blocks.lookup.trace_offset;
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1193): can potentially improve memory footprint
@@ -131,18 +131,18 @@ void DeciderProvingKey_<Flavor>::allocate_ecc_op_polynomials(const Circuit& circ
     PROFILE_THIS_NAME("allocate_ecc_op_polynomials");
 
     // Allocate the ecc op wires and selector
-    const size_t op_wire_offset = circuit.blocks.ecc_op.trace_offset;
     const size_t ecc_op_block_size = circuit.blocks.ecc_op.get_fixed_size(is_structured);
     for (auto& wire : proving_key.polynomials.get_ecc_op_wires()) {
-        wire = Polynomial(ecc_op_block_size, proving_key.circuit_size, op_wire_offset);
+        wire = Polynomial(ecc_op_block_size, proving_key.circuit_size);
     }
-    proving_key.polynomials.lagrange_ecc_op = Polynomial(ecc_op_block_size, proving_key.circuit_size, op_wire_offset);
+    proving_key.polynomials.lagrange_ecc_op = Polynomial(ecc_op_block_size, proving_key.circuit_size);
 }
 
 template <IsUltraFlavor Flavor>
 void DeciderProvingKey_<Flavor>::allocate_databus_polynomials(const Circuit& circuit)
     requires HasDataBus<Flavor>
 {
+    PROFILE_THIS_NAME("allocate_databus_and_lookup_inverse_polynomials");
     proving_key.polynomials.calldata = Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
     proving_key.polynomials.calldata_read_counts = Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);
     proving_key.polynomials.calldata_read_tags = Polynomial(MAX_DATABUS_SIZE, proving_key.circuit_size);

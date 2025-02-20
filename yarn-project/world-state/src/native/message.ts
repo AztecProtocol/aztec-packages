@@ -1,5 +1,6 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
-import { AppendOnlyTreeSnapshot, Fr, type StateReference, type UInt32 } from '@aztec/circuits.js';
+import { Fr, type StateReference, type UInt32 } from '@aztec/circuits.js';
+import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
 import { type Tuple } from '@aztec/foundation/serialize';
 
 export enum WorldStateMessageType {
@@ -34,6 +35,10 @@ export enum WorldStateMessageType {
   REMOVE_HISTORICAL_BLOCKS,
 
   GET_STATUS,
+
+  CREATE_CHECKPOINT,
+  COMMIT_CHECKPOINT,
+  REVERT_CHECKPOINT,
 
   CLOSE = 999,
 }
@@ -450,6 +455,10 @@ export type WorldStateRequest = {
 
   [WorldStateMessageType.GET_STATUS]: WithCanonicalForkId;
 
+  [WorldStateMessageType.CREATE_CHECKPOINT]: WithForkId;
+  [WorldStateMessageType.COMMIT_CHECKPOINT]: WithForkId;
+  [WorldStateMessageType.REVERT_CHECKPOINT]: WithForkId;
+
   [WorldStateMessageType.CLOSE]: WithCanonicalForkId;
 };
 
@@ -485,6 +494,10 @@ export type WorldStateResponse = {
   [WorldStateMessageType.FINALISE_BLOCKS]: WorldStateStatusSummary;
 
   [WorldStateMessageType.GET_STATUS]: WorldStateStatusSummary;
+
+  [WorldStateMessageType.CREATE_CHECKPOINT]: void;
+  [WorldStateMessageType.COMMIT_CHECKPOINT]: void;
+  [WorldStateMessageType.REVERT_CHECKPOINT]: void;
 
   [WorldStateMessageType.CLOSE]: void;
 };

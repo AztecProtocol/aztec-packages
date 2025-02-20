@@ -224,6 +224,8 @@ mod tests {
             inputs.constants.global_variables.version = fixtures::VERSION;
             inputs.avm_data.global_variables = inputs.constants.global_variables;
             inputs.constants.vk_tree_root = inputs.tube_data.vk_tree_root;
+            inputs.constants.protocol_contract_tree_root =
+                inputs.tube_data.protocol_contract_tree_root;
 
             inputs.pre_existing_blocks[0] = inputs.tube_data.historical_header.hash();
 
@@ -323,7 +325,7 @@ mod tests {
         }
 
         fn execute(self) -> BaseOrMergeRollupPublicInputs {
-            /// Safety: This is a mock for testing only
+            // Safety: This is a mock for testing only
             let inputs = unsafe { self.build_inputs() };
             inputs.execute()
         }

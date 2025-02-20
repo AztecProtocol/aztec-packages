@@ -11,23 +11,14 @@ import { getLogLevelFromFilters, parseEnv } from './log-filters.js';
 import { type LogLevel } from './log-levels.js';
 import { type LogData, type LogFn } from './log_fn.js';
 
-export function createLogger(module: string, fixedTerms = {}): Logger {
+export function createLogger(module: string): Logger {
   module = logNameHandlers.reduce((moduleName, handler) => handler(moduleName), module.replace(/^aztec:/, ''));
   const pinoLogger = logger.child({ module }, { level: getLogLevelFromFilters(logFilters, module) });
-
-  // Only perform copy of data if fixed terms are provided
-  const hasFixedTerms = Object.keys(fixedTerms).length > 0;
 
   // We check manually for isLevelEnabled to avoid calling processLogData unnecessarily.
   // Note that isLevelEnabled is missing from the browser version of pino.
   const logFn = (level: LogLevel, msg: string, data?: unknown) =>
-    isLevelEnabled(pinoLogger, level) &&
-    pinoLogger[level](
-      hasFixedTerms
-        ? processLogData({ ...fixedTerms, ...(data ?? {}) } as LogData)
-        : processLogData((data as LogData) ?? {}),
-      msg,
-    );
+    isLevelEnabled(pinoLogger, level) && pinoLogger[level](processLogData((data as LogData) ?? {}), msg);
 
   return {
     silent: () => {},
@@ -92,19 +83,19 @@ function isLevelEnabled(logger: pino.Logger<'verbose', boolean>, level: LogLevel
 
 // Load log levels from environment variables.
 const defaultLogLevel = process.env.NODE_ENV === 'test' ? 'silent' : 'info';
-const [logLevel, logFilters] = parseEnv(process.env.LOG_LEVEL, defaultLogLevel);
+export const [logLevel, logFilters] = parseEnv(process.env.LOG_LEVEL, defaultLogLevel);
 
 // Define custom logging levels for pino.
 const customLevels = { verbose: 25 };
 
 // Global pino options, tweaked for google cloud if running there.
-const useGcloudObservability = parseBooleanEnv(process.env['USE_GCLOUD_OBSERVABILITY' satisfies EnvVar]);
+const useGcloudLogging = parseBooleanEnv(process.env['USE_GCLOUD_LOGGING' satisfies EnvVar]);
 const pinoOpts: pino.LoggerOptions<keyof typeof customLevels> = {
   customLevels,
   messageKey: 'msg',
   useOnlyCustomLevels: false,
   level: logLevel,
-  ...(useGcloudObservability ? GoogleCloudLoggerConfig : {}),
+  ...(useGcloudLogging ? GoogleCloudLoggerConfig : {}),
 };
 
 export const levels = {
@@ -148,7 +139,7 @@ const stdioTransport: pino.TransportTargetOptions = {
 // this transport configured. Note that the target is defined as the export in the telemetry-client,
 // since pino will load this transport separately on a worker thread, to minimize disruption to the main loop.
 const otlpEndpoint = process.env['OTEL_EXPORTER_OTLP_LOGS_ENDPOINT' satisfies EnvVar];
-const otlpEnabled = !!otlpEndpoint && !useGcloudObservability;
+const otlpEnabled = !!otlpEndpoint && !useGcloudLogging;
 const otelOpts = { levels };
 const otelTransport: pino.TransportTargetOptions = {
   target: '@aztec/telemetry-client/otel-pino-stream',
@@ -178,7 +169,7 @@ function makeLogger() {
   }
 }
 
-const logger = makeLogger();
+export const logger = makeLogger();
 
 // Log the logger configuration.
 logger.verbose(

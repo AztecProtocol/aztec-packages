@@ -1,9 +1,6 @@
-import {
-  AztecAddress,
-  type ContractInstanceWithAddress,
-  MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
-} from '@aztec/circuits.js';
+import { AztecAddress, type ContractInstanceWithAddress } from '@aztec/circuits.js';
 import { makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
+import { MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 
@@ -25,6 +22,7 @@ describe('AVM simulator apps tests: AvmTestContract', () => {
         /*constructorArgs=*/ [],
         deployer,
         /*contractArtifact=*/ AvmTestContractArtifact,
+        /*skipNullifierInsertion=*/ false,
         /*seed=*/ i,
       );
       instances.push(instance);
@@ -43,7 +41,7 @@ describe('AVM simulator apps tests: AvmTestContract', () => {
       argsU8,
       /*getInstanceForAddress=*/ expectContractInstance.address,
       /*expectedDeployer=*/ expectContractInstance.deployer,
-      /*expectedClassId=*/ expectContractInstance.contractClassId,
+      /*expectedClassId=*/ expectContractInstance.currentContractClassId,
       /*expectedInitializationHash=*/ expectContractInstance.initializationHash,
     ];
     const results = await simTester.simulateCall(sender, /*address=*/ testContractAddress, 'bulk_testing', args);
@@ -61,7 +59,7 @@ describe('AVM simulator apps tests: AvmTestContract', () => {
 
     // include another contract address that reuses a class ID to ensure that we can call it even after the limit is reached
     const instanceSameClassAsFirstContract = await makeContractInstanceFromClassId(
-      instances[0].contractClassId,
+      instances[0].currentContractClassId,
       /*seed=*/ 1000,
     );
     instanceAddresses.push(instanceSameClassAsFirstContract.address);

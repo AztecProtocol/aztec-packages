@@ -3,7 +3,7 @@
  */
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { type SentTx } from '@aztec/aztec.js';
-import { type AztecAddress } from '@aztec/circuits.js';
+import { type PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { addLogNameHandler, removeLogNameHandler } from '@aztec/foundation/log';
 import { type DateProvider } from '@aztec/foundation/timer';
 import { type PXEService } from '@aztec/pxe';
@@ -24,7 +24,6 @@ export interface NodeContext {
   node: AztecNodeService;
   pxeService: PXEService;
   txs: SentTx[];
-  account: AztecAddress;
 }
 
 export function generatePrivateKeys(startIndex: number, numberOfKeys: number): `0x${string}`[] {
@@ -42,6 +41,7 @@ export async function createNodes(
   bootstrapNodeEnr: string,
   numNodes: number,
   bootNodePort: number,
+  prefilledPublicData?: PublicDataTreeLeaf[],
   dataDirectory?: string,
   metricsPort?: number,
 ): Promise<AztecNodeService[]> {
@@ -62,6 +62,7 @@ export async function createNodes(
       port,
       bootstrapNodeEnr,
       i,
+      prefilledPublicData,
       dataDir,
       metricsPort,
       loggerIdStorage,
@@ -80,6 +81,7 @@ export async function createNode(
   tcpPort: number,
   bootstrapNode: string | undefined,
   accountIndex: number,
+  prefilledPublicData?: PublicDataTreeLeaf[],
   dataDirectory?: string,
   metricsPort?: number,
   loggerIdStorage?: AsyncLocalStorage<string>,
@@ -87,7 +89,7 @@ export async function createNode(
   const createNode = async () => {
     const validatorConfig = await createValidatorConfig(config, bootstrapNode, tcpPort, accountIndex, dataDirectory);
     const telemetry = getEndToEndTestTelemetryClient(metricsPort);
-    return await AztecNodeService.createAndSync(validatorConfig, { telemetry, dateProvider });
+    return await AztecNodeService.createAndSync(validatorConfig, { telemetry, dateProvider }, { prefilledPublicData });
   };
   return loggerIdStorage ? await loggerIdStorage.run(tcpPort.toString(), createNode) : createNode();
 }

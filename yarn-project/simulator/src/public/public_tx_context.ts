@@ -1,8 +1,5 @@
 import {
-  type AvmProvingRequest,
   MerkleTreeId,
-  type MerkleTreeReadOperations,
-  ProvingRequestType,
   type PublicExecutionRequest,
   type SimulationError,
   type Tx,
@@ -10,21 +7,16 @@ import {
   type TxHash,
 } from '@aztec/circuit-types';
 import {
-  AvmCircuitInputs,
-  type AvmCircuitPublicInputs,
+  type AvmProvingRequest,
+  type MerkleTreeReadOperations,
+  ProvingRequestType,
+} from '@aztec/circuit-types/interfaces/server';
+import {
   type AztecAddress,
   Fr,
   Gas,
   type GasSettings,
   type GlobalVariables,
-  MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
-  MAX_L2_TO_L1_MSGS_PER_TX,
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  PrivateToAvmAccumulatedData,
-  PrivateToAvmAccumulatedDataArrayLengths,
-  type PrivateToPublicAccumulatedData,
   PublicCallRequest,
   PublicDataWrite,
   RevertCode,
@@ -34,6 +26,19 @@ import {
   countAccumulatedItems,
   mergeAccumulatedData,
 } from '@aztec/circuits.js';
+import { AvmCircuitInputs, type AvmCircuitPublicInputs } from '@aztec/circuits.js/avm';
+import {
+  PrivateToAvmAccumulatedData,
+  PrivateToAvmAccumulatedDataArrayLengths,
+  type PrivateToPublicAccumulatedData,
+} from '@aztec/circuits.js/kernel';
+import {
+  MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
+  MAX_L2_TO_L1_MSGS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+} from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
@@ -162,7 +167,7 @@ export class PublicTxContext {
    * NOTE: this does not "halt" the entire transaction execution.
    */
   revert(phase: TxExecutionPhase, revertReason: SimulationError | undefined = undefined, culprit = '') {
-    this.log.debug(`${TxExecutionPhase[phase]} phase reverted! ${culprit} failed with reason: ${revertReason}`);
+    this.log.warn(`${TxExecutionPhase[phase]} phase reverted! ${culprit} failed with reason: ${revertReason}`);
 
     if (revertReason && !this.revertReason) {
       // don't override revertReason
@@ -170,7 +175,7 @@ export class PublicTxContext {
       this.revertReason = revertReason;
     }
     if (phase === TxExecutionPhase.SETUP) {
-      this.log.debug(`Setup phase reverted! The transaction will be thrown out.`);
+      this.log.warn(`Setup phase reverted! The transaction will be thrown out.`);
       if (revertReason) {
         throw revertReason;
       } else {

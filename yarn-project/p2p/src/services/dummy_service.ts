@@ -1,4 +1,5 @@
-import type { BlockAttestation, BlockProposal, Gossipable, PeerInfo, TxHash } from '@aztec/circuit-types';
+import type { BlockAttestation, BlockProposal, Gossipable, TxHash } from '@aztec/circuit-types';
+import type { PeerInfo } from '@aztec/circuit-types/interfaces/server';
 
 import type { PeerId } from '@libp2p/interface';
 import EventEmitter from 'events';

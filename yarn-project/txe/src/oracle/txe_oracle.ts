@@ -3,11 +3,8 @@ import {
   Body,
   L2Block,
   MerkleTreeId,
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
   Note,
   type NoteStatus,
-  NullifierMembershipWitness,
   PublicDataWitness,
   PublicExecutionRequest,
   SimulationError,
@@ -15,9 +12,13 @@ import {
   TxHash,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
+import {
+  type MerkleTreeReadOperations,
+  type MerkleTreeWriteOperations,
+  NullifierMembershipWitness,
+} from '@aztec/circuit-types/interfaces/server';
 import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
-  AppendOnlyTreeSnapshot,
   BlockHeader,
   CallContext,
   type ContractInstance,
@@ -27,26 +28,20 @@ import {
   GlobalVariables,
   IndexedTaggingSecret,
   type KeyValidationRequest,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  NULLIFIER_SUBTREE_HEIGHT,
-  type NULLIFIER_TREE_HEIGHT,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  type NullifierLeafPreimage,
-  PRIVATE_CONTEXT_INPUTS_LENGTH,
-  type PUBLIC_DATA_TREE_HEIGHT,
-  PUBLIC_DISPATCH_SELECTOR,
   PrivateContextInputs,
   type PrivateLog,
-  PublicDataTreeLeaf,
-  type PublicDataTreeLeafPreimage,
   PublicDataWrite,
   type PublicLog,
   computeTaggingSecretPoint,
   deriveKeys,
 } from '@aztec/circuits.js';
-import { Schnorr } from '@aztec/circuits.js/barretenberg';
+import {
+  type ContractArtifact,
+  type FunctionAbi,
+  FunctionSelector,
+  type NoteSelector,
+  countArgumentsSize,
+} from '@aztec/circuits.js/abi';
 import {
   computeNoteHashNonce,
   computePublicDataTreeLeafSlot,
@@ -61,15 +56,25 @@ import {
   makeHeader,
 } from '@aztec/circuits.js/testing';
 import {
-  type ContractArtifact,
-  type FunctionAbi,
-  FunctionSelector,
-  type NoteSelector,
-  countArgumentsSize,
-} from '@aztec/foundation/abi';
+  AppendOnlyTreeSnapshot,
+  type NullifierLeafPreimage,
+  PublicDataTreeLeaf,
+  type PublicDataTreeLeafPreimage,
+} from '@aztec/circuits.js/trees';
+import {
+  type L1_TO_L2_MSG_TREE_HEIGHT,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+  NULLIFIER_SUBTREE_HEIGHT,
+  type NULLIFIER_TREE_HEIGHT,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  PRIVATE_CONTEXT_INPUTS_LENGTH,
+  type PUBLIC_DATA_TREE_HEIGHT,
+  PUBLIC_DISPATCH_SELECTOR,
+} from '@aztec/constants';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { Schnorr, poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type LogFn, type Logger, applyStringFormatting, createDebugOnlyLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -81,6 +86,7 @@ import {
   type NoteData,
   Oracle,
   type TypedOracle,
+  ViewDataOracle,
   WASMSimulator,
   extractCallStack,
   extractPrivateCircuitPublicInputs,
@@ -115,6 +121,7 @@ export class TXE implements TypedOracle {
 
   private contractDataOracle: ContractDataOracle;
   private simulatorOracle: SimulatorOracle;
+  private viewDataOracle: ViewDataOracle;
 
   private publicDataWrites: PublicDataWrite[] = [];
   private uniqueNoteHashesFromPublic: Fr[] = [];
@@ -157,6 +164,16 @@ export class TXE implements TypedOracle {
       keyStore,
       this.node,
       this.simulationProvider,
+    );
+
+    this.viewDataOracle = new ViewDataOracle(
+      this.contractAddress,
+      [] /* authWitnesses */,
+      [] /* capsules */,
+      this.simulatorOracle, // note: SimulatorOracle implements DBOracle
+      this.node,
+      /* log, */
+      /* scopes, */
     );
 
     this.debug = createDebugOnlyLogger('aztec:kv-pxe-database');
@@ -862,7 +879,7 @@ export class TXE implements TypedOracle {
     if (!instance) {
       return undefined;
     }
-    const artifact = await this.contractDataOracle.getContractArtifact(instance!.contractClassId);
+    const artifact = await this.contractDataOracle.getContractArtifact(instance!.currentContractClassId);
     if (!artifact) {
       return undefined;
     }
@@ -1156,35 +1173,39 @@ export class TXE implements TypedOracle {
     return preimage.value;
   }
 
-  dbStore(contractAddress: AztecAddress, slot: Fr, values: Fr[]): Promise<void> {
+  storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.txeDatabase.dbStore(this.contractAddress, slot, values);
+    return this.txeDatabase.storeCapsule(this.contractAddress, slot, capsule);
   }
 
-  dbLoad(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
+  loadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.txeDatabase.dbLoad(this.contractAddress, slot);
+    return this.txeDatabase.loadCapsule(this.contractAddress, slot);
   }
 
-  dbDelete(contractAddress: AztecAddress, slot: Fr): Promise<void> {
+  deleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.txeDatabase.dbDelete(this.contractAddress, slot);
+    return this.txeDatabase.deleteCapsule(this.contractAddress, slot);
   }
 
-  dbCopy(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
+  copyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.txeDatabase.dbCopy(this.contractAddress, srcSlot, dstSlot, numEntries);
+    return this.txeDatabase.copyCapsule(this.contractAddress, srcSlot, dstSlot, numEntries);
+  }
+
+  aes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer> {
+    return this.viewDataOracle.aes128Decrypt(ciphertext, iv, symKey);
   }
 }

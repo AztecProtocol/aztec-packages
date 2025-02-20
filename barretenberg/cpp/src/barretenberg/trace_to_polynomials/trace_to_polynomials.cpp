@@ -55,9 +55,11 @@ void TraceToPolynomials<Flavor>::add_memory_records_to_proving_key(TraceData& tr
     ASSERT(proving_key.memory_read_records.empty() && proving_key.memory_write_records.empty());
 
     // Update indices of RAM/ROM reads/writes based on where block containing these gates sits in the trace
+    proving_key.memory_read_records.reserve(builder.memory_read_records.size());
     for (auto& index : builder.memory_read_records) {
         proving_key.memory_read_records.emplace_back(index + trace_data.ram_rom_offset);
     }
+    proving_key.memory_write_records.reserve(builder.memory_write_records.size());
     for (auto& index : builder.memory_write_records) {
         proving_key.memory_write_records.emplace_back(index + trace_data.ram_rom_offset);
     }
@@ -138,16 +140,16 @@ void TraceToPolynomials<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builde
     requires IsMegaFlavor<Flavor>
 {
     auto& ecc_op_selector = proving_key.polynomials.lagrange_ecc_op;
-    const size_t op_wire_offset = Flavor::has_zero_row ? 1 : 0;
+    const size_t wire_idx_offset = Flavor::has_zero_row ? 1 : 0;
 
-    // Copy the ecc op data from the conventional wires into the op wires over the range of ecc op gates
+    // Copy the ecc op data from the conventional wires into the op wires over the range of ecc op gates. The data is
+    // stored in the ecc op wires starting from index 0, whereas the wires contain the data offset by a zero row.
     const size_t num_ecc_ops = builder.blocks.ecc_op.size();
     for (auto [ecc_op_wire, wire] :
          zip_view(proving_key.polynomials.get_ecc_op_wires(), proving_key.polynomials.get_wires())) {
         for (size_t i = 0; i < num_ecc_ops; ++i) {
-            size_t idx = i + op_wire_offset;
-            ecc_op_wire.at(idx) = wire[idx];
-            ecc_op_selector.at(idx) = 1; // construct selector as the indicator on the ecc op block
+            ecc_op_wire.at(i) = wire[i + wire_idx_offset];
+            ecc_op_selector.at(i) = 1; // construct selector as the indicator on the ecc op block
         }
     }
 }

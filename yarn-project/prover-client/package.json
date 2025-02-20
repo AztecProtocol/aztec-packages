@@ -60,7 +60,7 @@
     "reporters": [
       "default"
     ],
-    "testTimeout": 30000,
+    "testTimeout": 120000,
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
     ]
@@ -70,6 +70,7 @@
     "@aztec/blob-lib": "workspace:^",
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
+    "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
@@ -87,6 +88,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@aztec/noir-contracts.js": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
     "@types/memdown": "^3.0.0",
