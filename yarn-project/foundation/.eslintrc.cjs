@@ -34,6 +34,7 @@ module.exports = {
     node: true,
   },
   rules: {
+    '@typescript-eslint/consistent-type-imports': 'error',
     '@typescript-eslint/explicit-module-boundary-types': 'off',
     '@typescript-eslint/no-non-null-assertion': 'off',
     '@typescript-eslint/no-explicit-any': 'off',
@@ -71,6 +72,7 @@ module.exports = {
     ],
     'import/no-extraneous-dependencies': 'error',
     'import/no-cycle': 'warn',
+    'import/consistent-type-specifier-style': 'error',
     // this unfortunately doesn't block `fit` and `fdescribe`
     'no-only-tests/no-only-tests': ['error'],
   },
