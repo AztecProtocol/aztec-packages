@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740083324897,
+  "lastUpdate": 1740088637484,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7a1205c3f95ee953352baccd979a266c5a8e57fc",
-          "message": "fix: hash_str caching (#12074)\n\nit was not allowing multiple args but used that way, make more flexible",
-          "timestamp": "2025-02-18T16:54:39Z",
-          "tree_id": "b59f119592f34a54d6c8beee15583a76d0def6b9",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7a1205c3f95ee953352baccd979a266c5a8e57fc"
-        },
-        "date": 1739899062426,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18057.77098999988,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15989.715027999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18617.996016999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16417.376631 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3970.5484600001455,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3067.605636 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55685.693488,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55685691000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9341.550754999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9341558000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1804133597,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1804133597 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 132752586,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 132752586 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3300,6 +3234,72 @@ window.BENCHMARK_DATA = {
             "value": 127991101,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 127991101 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "codygunton@gmail.com",
+            "name": "Cody Gunton",
+            "username": "codygunton"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "94d0b9b94e26bfa4b8e6069c089701f35d12aa3e",
+          "message": "fix: ASSERTS that should throw (#12167)\n\nI did e2e and e2e_all in\nhttps://github.com/AztecProtocol/aztec-packages/pull/11459 and the\ndarwin builds didn't fail there, but they fail in master. This is\nbasically a typo fix.",
+          "timestamp": "2025-02-20T16:27:20-05:00",
+          "tree_id": "7d808a0d842fbaf37c649ddb4a3b3a14b4500ddc",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/94d0b9b94e26bfa4b8e6069c089701f35d12aa3e"
+        },
+        "date": 1740088629401,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18401.915873000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16234.546625 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18770.98970799989,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16358.921682999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3928.8175990000127,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3192.524564 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54918.76687400001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54918767000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10640.891133999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10640895000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1849008533,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1849008533 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 128856934,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 128856934 ns\nthreads: 1"
           }
         ]
       }
