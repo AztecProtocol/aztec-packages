@@ -1,8 +1,6 @@
 import { type InitialAccountData } from '@aztec/accounts/testing';
 import { type AztecAddress, type AztecNode, Fr, type L2Block, type Wallet } from '@aztec/aztec.js';
 import {
-  GeneratorIndex,
-  INITIAL_L2_BLOCK_NUM,
   computeAppNullifierSecretKey,
   computeAppSecretKey,
   deriveMasterNullifierSecretKey,
@@ -10,6 +8,7 @@ import {
   derivePublicKeyFromSecretKey,
 } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
+import { GeneratorIndex, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 

@@ -1,13 +1,8 @@
 import { BBWASMBundlePrivateKernelProver } from '@aztec/bb-prover/wasm/bundle';
-import {
-  type AztecNode,
-  type PXE,
-  type PrivateKernelProver,
-  TxEffect,
-  mockTx,
-  randomInBlock,
-} from '@aztec/circuit-types';
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
+import { TxEffect, randomInBlock } from '@aztec/circuit-types';
+import { type AztecNode, type PXE, type PrivateKernelProver } from '@aztec/circuit-types/interfaces/client';
+import { mockTx } from '@aztec/circuit-types/testing';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { type L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { KeyStore } from '@aztec/key-store';

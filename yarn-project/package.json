@@ -36,6 +36,7 @@
     "circuit-types",
     "cli",
     "cli-wallet",
+    "constants",
     "docs",
     "end-to-end",
     "entrypoints",

@@ -8,7 +8,8 @@ import {
   FeeJuicePaymentMethodWithClaim,
   type PXE,
 } from '@aztec/aztec.js';
-import { FEE_FUNDING_FOR_TESTER_ACCOUNT, type GasSettings } from '@aztec/circuits.js';
+import { type GasSettings } from '@aztec/circuits.js';
+import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import { type FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { type TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 

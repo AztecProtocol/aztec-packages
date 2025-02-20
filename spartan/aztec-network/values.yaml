@@ -72,7 +72,7 @@ bootNode:
   coinbaseAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   sequencer:
     maxSecondsBetweenBlocks: 0
-    minTxsPerBlock: 1
+    minTxsPerBlock: 0
   validator:
     disabled: true
   p2p:
@@ -114,7 +114,7 @@ validator:
   logLevel: "debug; info: aztec:simulator, json-rpc"
   sequencer:
     maxSecondsBetweenBlocks: 0
-    minTxsPerBlock: 1
+    minTxsPerBlock: 0
     maxTxsPerBlock: 4
     enforceTimeTable: true
   validator:

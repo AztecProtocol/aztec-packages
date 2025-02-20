@@ -62,6 +62,7 @@
   "dependencies": {
     "@aztec/bb.js": "../../ts",
     "@aztec/circuits.js": "workspace:^",
+    "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/types": "workspace:^",
     "@noir-lang/noir_codegen": "portal:../../noir/packages/noir_codegen",

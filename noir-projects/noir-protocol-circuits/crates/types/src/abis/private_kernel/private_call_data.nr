@@ -43,8 +43,7 @@ pub struct PrivateVerificationKeyHints {
     pub acir_hash: Field,
     pub updated_class_id_witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>,
     pub updated_class_id_leaf: PublicDataTreeLeafPreimage,
-    pub updated_class_id_value_change: [Field; 3],
-    pub updated_class_id_delay_change: [Field; 1],
+    pub updated_class_id_shared_mutable_values: [Field; 3],
 }
 
 pub struct PrivateCallDataWithoutPublicInputs {

@@ -1,11 +1,5 @@
-import {
-  ClientIvcProof,
-  Fr,
-  type GasSettings,
-  PrivateKernelTailCircuitPublicInputs,
-  PrivateLog,
-  type PrivateToPublicAccumulatedData,
-} from '@aztec/circuits.js';
+import { ClientIvcProof, Fr, type GasSettings, PrivateLog } from '@aztec/circuits.js';
+import { PrivateKernelTailCircuitPublicInputs, type PrivateToPublicAccumulatedData } from '@aztec/circuits.js/kernel';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { BufferReader, serializeArrayOfBufferableToVector, serializeToBuffer } from '@aztec/foundation/serialize';
