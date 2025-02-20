@@ -18,6 +18,7 @@ import {
   WorldStateRunningState,
   type WorldStateSyncStatus,
   type WorldStateSynchronizer,
+  type WorldStateSynchronizerStatus,
 } from '@aztec/circuit-types/interfaces/server';
 import { mockTxForRollup } from '@aztec/circuit-types/testing';
 import {
@@ -207,8 +208,14 @@ describe('sequencer', () => {
       getCommitted: () => merkleTreeOps,
       status: mockFn().mockResolvedValue({
         state: WorldStateRunningState.IDLE,
-        syncedToL2Block: { number: lastBlockNumber, hash },
-      }),
+        syncSummary: {
+          latestBlockNumber: lastBlockNumber,
+          latestBlockHash: hash,
+          finalisedBlockNumber: 0,
+          oldestHistoricBlockNumber: 0,
+          treesAreSynched: true,
+        },
+      } satisfies WorldStateSynchronizerStatus),
     });
 
     publicProcessor = mock<PublicProcessor>();
