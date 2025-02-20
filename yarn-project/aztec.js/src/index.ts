@@ -22,13 +22,13 @@
 
 export { ContractDeployer } from './deployment/index.js';
 
-export { NoteSelector } from '@aztec/foundation/abi';
+export { NoteSelector } from '@aztec/circuits.js/abi';
 
 export { createCompatibleClient, createPXEClient } from './rpc_clients/index.js';
 
 export { type AuthWitnessProvider } from './account/index.js';
 
-export { type AccountContract } from './account/index.js';
+export { type AccountContract, getAccountContractAddress } from './account/index.js';
 export { AccountManager, type DeployAccountOptions } from './account_manager/index.js';
 
 export { AccountWallet, AccountWalletWithSecretKey, SignerlessWallet, type Wallet } from './wallet/index.js';
@@ -45,11 +45,12 @@ export {
   getContractInstanceFromDeployParams,
   GlobalVariables,
   GrumpkinScalar,
-  INITIAL_L2_BLOCK_NUM,
   type NodeInfo,
   Point,
   PublicKeys,
 } from '@aztec/circuits.js';
+
+export { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 
 export { computeSecretHash } from '@aztec/circuits.js/hash';
 
@@ -60,16 +61,14 @@ export {
   deriveMasterNullifierSecretKey,
 } from '@aztec/circuits.js/keys';
 
-export { Grumpkin, Schnorr } from '@aztec/circuits.js/barretenberg';
-
 export {
   AuthWitness,
   Body,
+  Capsule,
   Comparator,
   ContractClass2BlockL2Logs,
   EncryptedLogPayload,
   EventMetadata,
-  EventType,
   ExtendedNote,
   FunctionCall,
   getTimestampRangeForEpoch,
@@ -83,7 +82,6 @@ export {
   LogId,
   MerkleTreeId,
   merkleTreeIds,
-  mockTx,
   Note,
   SiblingPath,
   Tx,
@@ -96,15 +94,16 @@ export {
   type LogFilter,
   type PartialAddress,
   type PublicKey,
-  type PXE,
 } from '@aztec/circuit-types';
+
+export { type PXE, EventType } from '@aztec/circuit-types/interfaces/client';
 
 // TODO: These kinds of things have no place on our public api.
 // External devs will almost certainly have their own methods of doing these things.
 // If we want to use them in our own "aztec.js consuming code", import them from foundation as needed.
-export { decodeFromAbi, encodeArguments, type AbiType } from '@aztec/foundation/abi';
+export { decodeFromAbi, encodeArguments, type AbiType } from '@aztec/circuits.js/abi';
 export { toBigIntBE } from '@aztec/foundation/bigint-buffer';
-export { sha256 } from '@aztec/foundation/crypto';
+export { sha256, Grumpkin, Schnorr } from '@aztec/foundation/crypto';
 export { makeFetch } from '@aztec/foundation/json-rpc/client';
 export { retry, retryUntil } from '@aztec/foundation/retry';
 export { to2Fields, toBigInt } from '@aztec/foundation/serialize';

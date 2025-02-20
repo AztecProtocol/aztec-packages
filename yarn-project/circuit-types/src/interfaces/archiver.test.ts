@@ -12,10 +12,9 @@ import {
   computePublicBytecodeCommitment,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type ContractArtifact, loadContractArtifact } from '@aztec/circuits.js/abi';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 import { fileURLToPath } from '@aztec/foundation/url';
-import { loadContractArtifact } from '@aztec/types/abi';
 
 import { readFileSync } from 'fs';
 import omit from 'lodash.omit';
@@ -237,7 +236,8 @@ describe('ArchiverApiSchema', () => {
     const result = await context.client.getContract(address);
     expect(result).toEqual({
       address,
-      contractClassId: expect.any(Fr),
+      currentContractClassId: expect.any(Fr),
+      originalContractClassId: expect.any(Fr),
       deployer: expect.any(AztecAddress),
       initializationHash: expect.any(Fr),
       publicKeys: expect.any(PublicKeys),
@@ -370,7 +370,8 @@ class MockArchiver implements ArchiverApi {
   async getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     return {
       address,
-      contractClassId: Fr.random(),
+      currentContractClassId: Fr.random(),
+      originalContractClassId: Fr.random(),
       deployer: await AztecAddress.random(),
       initializationHash: Fr.random(),
       publicKeys: await PublicKeys.random(),

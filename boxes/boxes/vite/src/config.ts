@@ -1,29 +1,25 @@
+import { getInitialTestAccounts } from "@aztec/accounts/testing";
+import { getSchnorrAccount } from "@aztec/accounts/schnorr";
 import {
-  Fr,
+  AccountWalletWithSecretKey,
+  createAztecNodeClient,
   createLogger,
-  deriveMasterIncomingViewingSecretKey,
 } from "@aztec/aztec.js";
-import { BoxReactContractArtifact } from "../artifacts/BoxReact";
-import { AccountManager } from "@aztec/aztec.js/account";
-import { SchnorrAccountContract } from "@aztec/accounts/schnorr";
-import { createAztecNodeClient } from "@aztec/aztec.js";
-import { PXEService } from "@aztec/pxe/service";
+import { BBWASMLazyPrivateKernelProver } from "@aztec/bb-prover/wasm/lazy";
+import { KeyStore } from "@aztec/key-store";
+import { createStore } from "@aztec/kv-store/indexeddb";
+import { L2TipsStore } from "@aztec/kv-store/stores";
 import { PXEServiceConfig, getPXEServiceConfig } from "@aztec/pxe/config";
 import { KVPxeDatabase } from "@aztec/pxe/database";
-import { KeyStore } from "@aztec/key-store";
-import { L2TipsStore } from "@aztec/kv-store/stores";
-import { createStore } from "@aztec/kv-store/indexeddb";
-import { BBWASMLazyPrivateKernelProver } from "@aztec/bb-prover/wasm/lazy";
+import { PXEService } from "@aztec/pxe/service";
 import { WASMSimulator } from "@aztec/simulator/client";
-
-const SECRET_KEY = Fr.random();
+import { BoxReactContractArtifact } from "../artifacts/BoxReact";
 
 export class PrivateEnv {
-  pxe;
-  accountContract;
-  accountManager: AccountManager;
+  pxe: PXEService;
+  wallet: AccountWalletWithSecretKey;
 
-  constructor(private secretKey: Fr) {}
+  constructor() {}
 
   async init() {
     const nodeURL = process.env.AZTEC_NODE_URL ?? "http://localhost:8080";
@@ -63,28 +59,28 @@ export class PrivateEnv {
       config,
     );
     await this.pxe.init();
-    const encryptionPrivateKey = deriveMasterIncomingViewingSecretKey(
-      this.secretKey,
-    );
-    this.accountContract = new SchnorrAccountContract(encryptionPrivateKey);
-    this.accountManager = await AccountManager.create(
+    const [accountData] = await getInitialTestAccounts();
+    const account = await getSchnorrAccount(
       this.pxe,
-      this.secretKey,
-      this.accountContract,
+      accountData.secret,
+      accountData.signingKey,
+      accountData.salt,
     );
-    await this.accountManager.deploy().wait();
+    await account.register();
+    this.wallet = await account.getWallet();
   }
 
   async getWallet() {
-    return await this.accountManager.register();
+    return this.wallet;
   }
 }
 
-export const deployerEnv = new PrivateEnv(SECRET_KEY);
+export const deployerEnv = new PrivateEnv();
 
 const IGNORE_FUNCTIONS = [
   "constructor",
   "compute_note_hash_and_optionally_a_nullifier",
+  "process_log",
   "sync_notes",
 ];
 export const filteredInterface = BoxReactContractArtifact.functions.filter(

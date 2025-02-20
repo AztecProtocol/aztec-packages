@@ -1,6 +1,6 @@
+import { STATE_REFERENCE_LENGTH } from '@aztec/constants';
 import { randomInt } from '@aztec/foundation/crypto';
 
-import { STATE_REFERENCE_LENGTH } from '../constants.gen.js';
 import { makeStateReference } from '../tests/factories.js';
 import { StateReference } from './state_reference.js';
 

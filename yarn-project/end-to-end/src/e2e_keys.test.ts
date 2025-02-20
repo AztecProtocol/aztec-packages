@@ -1,16 +1,6 @@
-import { createAccounts } from '@aztec/accounts/testing';
+import { type InitialAccountData } from '@aztec/accounts/testing';
+import { type AztecAddress, type AztecNode, Fr, type L2Block, type Wallet } from '@aztec/aztec.js';
 import {
-  type AccountWallet,
-  type AztecAddress,
-  type AztecNode,
-  Fr,
-  type L2Block,
-  type PXE,
-  type Wallet,
-} from '@aztec/aztec.js';
-import {
-  GeneratorIndex,
-  INITIAL_L2_BLOCK_NUM,
   computeAppNullifierSecretKey,
   computeAppSecretKey,
   deriveMasterNullifierSecretKey,
@@ -18,6 +8,7 @@ import {
   derivePublicKeyFromSecretKey,
 } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
+import { GeneratorIndex, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 
@@ -31,20 +22,20 @@ describe('Keys', () => {
   jest.setTimeout(TIMEOUT);
 
   let aztecNode: AztecNode;
-  let pxe: PXE;
   let teardown: () => Promise<void>;
 
   let testContract: TestContract;
 
-  const secret = Fr.random();
-  let account: AccountWallet;
+  let secret: Fr;
+  let wallet: Wallet;
 
   beforeAll(async () => {
-    let wallet: Wallet;
-    ({ aztecNode, pxe, teardown, wallet } = await setup(2));
+    let initialFundedAccounts: InitialAccountData[];
+    ({ aztecNode, teardown, wallet, initialFundedAccounts } = await setup(1));
+
     testContract = await TestContract.deploy(wallet).send().deployed();
 
-    [account] = await createAccounts(pxe, 1, [secret]);
+    secret = initialFundedAccounts[0].secret;
   });
 
   afterAll(() => teardown());
@@ -70,7 +61,7 @@ describe('Keys', () => {
       const nskApp = await computeAppNullifierSecretKey(masterNullifierSecretKey, testContract.address);
 
       const noteValue = 5;
-      const noteOwner = account.getAddress();
+      const noteOwner = wallet.getAddress();
       const sender = noteOwner;
       const noteStorageSlot = 12;
 
@@ -78,7 +69,7 @@ describe('Keys', () => {
 
       expect(await getNumNullifiedNotes(nskApp, testContract.address)).toEqual(0);
 
-      await testContract.withWallet(account).methods.call_destroy_note(noteStorageSlot).send().wait();
+      await testContract.methods.call_destroy_note(noteStorageSlot).send().wait();
 
       expect(await getNumNullifiedNotes(nskApp, testContract.address)).toEqual(1);
     });

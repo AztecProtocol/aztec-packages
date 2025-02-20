@@ -45,6 +45,8 @@ contract MultiProofTest is RollupBase {
   uint256 internal SLOT_DURATION;
   uint256 internal EPOCH_DURATION;
 
+  address internal sequencer = address(bytes20("sequencer"));
+
   constructor() {
     TimeLib.initialize(
       block.timestamp, TestConstants.AZTEC_SLOT_DURATION, TestConstants.AZTEC_EPOCH_DURATION
@@ -84,6 +86,8 @@ contract MultiProofTest is RollupBase {
           testERC20,
           bytes32(0),
           bytes32(0),
+          bytes32(Constants.GENESIS_ARCHIVE_ROOT),
+          bytes32(Constants.GENESIS_BLOCK_HASH),
           address(this),
           Config({
             aztecSlotDuration: TestConstants.AZTEC_SLOT_DURATION,
@@ -113,8 +117,7 @@ contract MultiProofTest is RollupBase {
     emit log_named_uint("proven block number", provenBlockNumber);
     emit log_named_uint("pending block number", pendingBlockNumber);
 
-    address[2] memory provers = [address(bytes20("lasse")), address(bytes20("mitch"))];
-    address sequencer = address(bytes20("sequencer"));
+    address[2] memory provers = [address(bytes20("alice")), address(bytes20("bob"))];
 
     emit log_named_decimal_uint("sequencer rewards", rollup.getSequencerRewards(sequencer), 18);
     emit log_named_decimal_uint(
@@ -139,20 +142,77 @@ contract MultiProofTest is RollupBase {
     }
   }
 
-  function testMultiProof() public setUpFor("mixed_block_1") {
+  function testMultipleProvers() public setUpFor("mixed_block_1") {
+    address alice = address(bytes20("alice"));
+    address bob = address(bytes20("bob"));
+
     _proposeBlock("mixed_block_1", 1, 15e6);
     _proposeBlock("mixed_block_2", 2, 15e6);
 
     assertEq(rollup.getProvenBlockNumber(), 0, "Block already proven");
 
     string memory name = "mixed_block_";
-    _proveBlocks(name, 1, 1, address(bytes20("lasse")));
-    _proveBlocks(name, 1, 1, address(bytes20("mitch")));
-    _proveBlocks(name, 1, 2, address(bytes20("mitch")));
+    _proveBlocks(name, 1, 1, alice);
+    _proveBlocks(name, 1, 1, bob);
+    _proveBlocks(name, 1, 2, bob);
 
     logStatus();
 
+    assertTrue(rollup.getHasSubmitted(Epoch.wrap(0), 1, alice));
+    assertFalse(rollup.getHasSubmitted(Epoch.wrap(0), 2, alice));
+    assertTrue(rollup.getHasSubmitted(Epoch.wrap(0), 1, bob));
+    assertTrue(rollup.getHasSubmitted(Epoch.wrap(0), 2, bob));
+
     assertEq(rollup.getProvenBlockNumber(), 2, "Block not proven");
+
+    {
+      uint256 sequencerRewards = rollup.getSequencerRewards(sequencer);
+      assertGt(sequencerRewards, 0, "Sequencer rewards is zero");
+      vm.prank(sequencer);
+      uint256 sequencerRewardsClaimed = rollup.claimSequencerRewards(sequencer);
+      assertEq(sequencerRewardsClaimed, sequencerRewards, "Sequencer rewards not claimed");
+      assertEq(rollup.getSequencerRewards(sequencer), 0, "Sequencer rewards not zeroed");
+    }
+
+    Epoch[] memory epochs = new Epoch[](1);
+    epochs[0] = Epoch.wrap(0);
+
+    {
+      uint256 aliceRewards = rollup.getSpecificProverRewardsForEpoch(Epoch.wrap(0), alice);
+      assertEq(aliceRewards, 0, "Alice rewards not zero");
+    }
+
+    {
+      uint256 bobRewards = rollup.getSpecificProverRewardsForEpoch(Epoch.wrap(0), bob);
+      assertGt(bobRewards, 0, "Bob rewards is zero");
+
+      vm.expectRevert(
+        abi.encodeWithSelector(
+          Errors.Rollup__NotPastDeadline.selector, TestConstants.AZTEC_PROOF_SUBMISSION_WINDOW, 2
+        )
+      );
+      vm.prank(bob);
+      rollup.claimProverRewards(bob, epochs);
+
+      vm.warp(
+        Timestamp.unwrap(
+          rollup.getTimestampForSlot(Slot.wrap(TestConstants.AZTEC_PROOF_SUBMISSION_WINDOW + 1))
+        )
+      );
+      vm.prank(bob);
+      uint256 bobRewardsClaimed = rollup.claimProverRewards(bob, epochs);
+
+      assertEq(bobRewardsClaimed, bobRewards, "Bob rewards not claimed");
+      assertEq(
+        rollup.getSpecificProverRewardsForEpoch(Epoch.wrap(0), bob), 0, "Bob rewards not zeroed"
+      );
+
+      vm.expectRevert(
+        abi.encodeWithSelector(Errors.Rollup__AlreadyClaimed.selector, bob, Epoch.wrap(0))
+      );
+      vm.prank(bob);
+      rollup.claimProverRewards(bob, epochs);
+    }
   }
 
   function testNoHolesInProvenBlocks() public setUpFor("mixed_block_1") {
@@ -164,7 +224,7 @@ contract MultiProofTest is RollupBase {
       name,
       2,
       2,
-      address(bytes20("lasse")),
+      address(bytes20("alice")),
       abi.encodeWithSelector(Errors.Rollup__StartIsNotBuildingOnProven.selector)
     );
   }
@@ -178,7 +238,7 @@ contract MultiProofTest is RollupBase {
       name,
       1,
       2,
-      address(bytes20("lasse")),
+      address(bytes20("alice")),
       abi.encodeWithSelector(Errors.Rollup__StartAndEndNotSameEpoch.selector, 0, 1)
     );
   }

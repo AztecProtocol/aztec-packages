@@ -1,7 +1,7 @@
+import { KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH } from '../constants.gen.js';
 import { KeyValidationRequest } from './key_validation_request.js';
 
 /**

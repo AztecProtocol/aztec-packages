@@ -30,7 +30,11 @@ import {
   subProtocolMap,
 } from './interface.js';
 import { ReqRespMetrics } from './metrics.js';
-import { RequestResponseRateLimiter } from './rate-limiter/rate_limiter.js';
+import {
+  RateLimitStatus,
+  RequestResponseRateLimiter,
+  prettyPrintRateLimitStatus,
+} from './rate-limiter/rate_limiter.js';
 import { ReqRespStatus, ReqRespStatusError, parseStatusChunk, prettyPrintReqRespStatus } from './status.js';
 
 /**
@@ -589,8 +593,13 @@ export class ReqResp {
 
     try {
       // Store a reference to from this for the async generator
-      if (!this.rateLimiter.allow(protocol, connection.remotePeer)) {
-        this.logger.warn(`Rate limit exceeded for ${protocol} from ${connection.remotePeer}`);
+      const rateLimitStatus = this.rateLimiter.allow(protocol, connection.remotePeer);
+      if (rateLimitStatus != RateLimitStatus.Allowed) {
+        this.logger.warn(
+          `Rate limit exceeded ${prettyPrintRateLimitStatus(rateLimitStatus)} for ${protocol} from ${
+            connection.remotePeer
+          }`,
+        );
 
         throw new ReqRespStatusError(ReqRespStatus.RATE_LIMIT_EXCEEDED);
       }

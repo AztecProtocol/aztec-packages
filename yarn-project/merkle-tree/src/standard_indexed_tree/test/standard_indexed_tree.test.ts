@@ -1,11 +1,11 @@
 import { SiblingPath } from '@aztec/circuit-types';
+import { Fr } from '@aztec/circuits.js';
 import {
-  Fr,
   NullifierLeaf,
   NullifierLeafPreimage,
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/trees';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { type FromBuffer } from '@aztec/foundation/serialize';
 import { type AztecKVStore } from '@aztec/kv-store';

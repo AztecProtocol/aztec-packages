@@ -92,10 +92,11 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          ARCH: amd64
+          ARCH: ${{ matrix.settings.arch }}
           LOG_ID: ${{ github.run_id }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
         run: |
           ./ci.sh ec2
 
@@ -170,6 +171,7 @@ jobs:
           ARCH: amd64
           LOG_ID: ${{ github.run_id }}
           INSTANCE_POSTFIX: ${{ matrix.number }}
+          DRY_RUN: 1
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           ./ci.sh ec2-test

@@ -1,7 +1,8 @@
 /**
  * Validation logic unit tests
  */
-import { TxHash, mockTx } from '@aztec/circuit-types';
+import { TxHash } from '@aztec/circuit-types';
+import { makeBlockAttestation, makeBlockProposal, mockTx } from '@aztec/circuit-types/testing';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
@@ -14,7 +15,6 @@ import { describe, expect, it } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { type PrivateKeyAccount, generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
-import { makeBlockAttestation, makeBlockProposal } from '../../circuit-types/src/p2p/mocks.js';
 import { type ValidatorClientConfig } from './config.js';
 import {
   AttestationTimeoutError,

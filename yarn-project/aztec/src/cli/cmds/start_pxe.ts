@@ -5,7 +5,7 @@ import {
   PublicKeys,
   getContractClassFromArtifact,
 } from '@aztec/aztec.js';
-import { type AztecNode, PXESchema, createAztecNodeClient } from '@aztec/circuit-types';
+import { type AztecNode, PXESchema, createAztecNodeClient } from '@aztec/circuit-types/interfaces/client';
 import { getContractArtifact } from '@aztec/cli/cli-utils';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
@@ -105,13 +105,15 @@ export async function addPXE(
 
     await Promise.all(
       Object.values(l2Contracts).map(async ({ name, address, artifact, initHash, salt }) => {
+        const contractClass = await getContractClassFromArtifact(artifact!);
         const instance: ContractInstanceWithAddress = {
           version: 1,
           salt,
           initializationHash: initHash,
           address,
           deployer: AztecAddress.ZERO,
-          contractClassId: (await getContractClassFromArtifact(artifact!)).id,
+          currentContractClassId: contractClass.id,
+          originalContractClassId: contractClass.id,
           publicKeys: PublicKeys.default(),
         };
         userLog(`Registering ${name} at ${address.toString()}`);
