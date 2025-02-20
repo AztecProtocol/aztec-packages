@@ -50,13 +50,16 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: External Contributor Labels and Target
-        # Run only for external PRs.
+        # Run only for external PRs (pull_request_target, != github.repository)
+        # And then check if we have incorrect labels OR an incorrect base_ref.
         if: |
           github.event_name == 'pull_request_target' &&
           github.event.pull_request.head.repo.full_name != github.repository &&
-          contains(github.event.pull_request.labels.*.name, 'ci-external') == false &&
-          contains(github.event.pull_request.labels.*.name, 'ci-external-once') == false &&
-          github.event.pull_request.base.ref == 'master'
+          (
+            (contains(github.event.pull_request.labels.*.name, 'ci-external') == false &&
+             contains(github.event.pull_request.labels.*.name, 'ci-external-once') == false) ||
+            github.event.pull_request.base.ref != 'ref/heads/master'
+          )
         run: echo "External PRs need the 'ci-external' or 'ci-external-once' labels to run, and must target master." && exit 1
 
       - name: External Contributor Changes
@@ -72,7 +75,7 @@ jobs:
 
       - name: Fail If Draft
         if: github.event.pull_request.draft && (github.event.action != 'labeled' || github.event.label.name != 'trigger-workflow')
-        run: echo "CI is not run on drafts." && exit
+        run: echo "CI is not run on drafts." && exit 1
 
       - name: CI Full Override
         if: |
