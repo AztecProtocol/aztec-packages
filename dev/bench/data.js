@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740065616242,
+  "lastUpdate": 1740065964973,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "84741533+jewelofchaos9@users.noreply.github.com",
-            "name": "defkit",
-            "username": "jewelofchaos9"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "914ead09cb19b1a1f8929db7603fdb7e0433482b",
-          "message": "chore(docs): acir formal verification final report (#12040)\n\nSMT verification results of ssa->acir translation.",
-          "timestamp": "2025-02-17T12:49:24Z",
-          "tree_id": "b3c7d1cf67e9bc432d304c432753f2a8ed37b705",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/914ead09cb19b1a1f8929db7603fdb7e0433482b"
-        },
-        "date": 1739797193789,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18075.453373000015,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16051.966492000001 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18669.87492499999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16194.918232999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3915.178076000018,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3094.3153509999997 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54786.092111000005,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54786091000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10631.256249,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10631260000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1816231128,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1816231128 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 134972954,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 134972954 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3300,6 +3234,72 @@ window.BENCHMARK_DATA = {
             "value": 128864046,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 128864046 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b0cdf2019cbf90bed0d57bc1411203267c102578",
+          "message": "chore: Silence warns on invalid bootnode enr (#12135)\n\nIf the bootnode enr is not valid and the node has been instructed to\nskip its check, it will still connect to it and discover peers, but will\nfrequently emit a warning on the logs.\n\nThis silences it.",
+          "timestamp": "2025-02-20T15:14:03Z",
+          "tree_id": "834e1ffd5716f1da47698b9f7a6e40f7b9fd6305",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b0cdf2019cbf90bed0d57bc1411203267c102578"
+        },
+        "date": 1740065957138,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18212.068661000103,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15971.591951999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18787.492907000116,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16342.070103000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3933.419173999937,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3162.4170040000004 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54924.988731,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54924990000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10888.3467,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10888349000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1813094573,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1813094573 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 128771741,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 128771741 ns\nthreads: 1"
           }
         ]
       }
