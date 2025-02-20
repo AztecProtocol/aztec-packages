@@ -47,8 +47,7 @@ OUTER_BODY:     MUL d6, d14, d16; Compute the pointer to the point
                 ; Now we need to find the pointer to the MSB
                 ; We don't need to put a head in the loop since we know that there must be a 1 at some point
                 ; due to the previous check
-FIND_MSB_BODY:  EQ i19, d11, d22; Check if the current bit is one
-                JUMPI d22, FIND_MSB_END
+FIND_MSB_BODY:  JUMPI i19, FIND_MSB_END; Check if the current bit is one
                 ADD d19, $2, d19; Increment the pointer of the MSB
                 JUMP FIND_MSB_BODY
                 ; Now we have the pointer of the MSB in d19
