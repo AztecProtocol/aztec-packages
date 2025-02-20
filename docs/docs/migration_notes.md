@@ -8,6 +8,10 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [aztec-nr] Removed `compute_note_hash_and_optionally_a_nullifer`
+
+This function is no longer mandatory for contracts, and the `#[aztec]` macro no longer injects it.
+
 ### [PXE] Removed `addNote` and `addNullifiedNote`
 
 These functions have been removed from PXE and the base `Wallet` interface. If you need to deliver a note manually because its creation is not being broadcast in an encrypted log, then create an unconstrained contract function to process it and simulate execution of it. The `aztec::discovery::private_logs::do_process_log` function can be used to perform note discovery and add to it to PXE.
@@ -42,23 +46,7 @@ See an example of how to handle a `TransparentNote`:
             unique_note_hashes_in_tx,
             first_nullifier_in_tx,
             recipient,
-            |packed_note_content: BoundedVec<Field, _>, contract_address: aztec::protocol_types::address::AztecAddress, nonce: Field, storage_slot: Field, note_type_id: Field| {
-                let hashes = _compute_note_hash_and_optionally_a_nullifier(
-                    contract_address,
-                    nonce,
-                    storage_slot,
-                    note_type_id,
-                    true,
-                    packed_note_content,
-                );
-
-                Option::some(
-                    aztec::discovery::NoteHashAndNullifier {
-                        note_hash: hashes[0],
-                        inner_nullifier: hashes[3],
-                    },
-                )
-            },
+            _compute_note_hash_and_nullifier,
         );
     }
 ```

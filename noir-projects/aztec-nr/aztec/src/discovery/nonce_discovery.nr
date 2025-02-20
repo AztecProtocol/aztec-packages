@@ -26,7 +26,7 @@ pub struct DiscoveredNoteInfo {
 pub unconstrained fn attempt_note_nonce_discovery<Env>(
     unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
     first_nullifier_in_tx: Field,
-    compute_note_hash_and_nullifier: fn[Env](BoundedVec<Field, MAX_NOTE_PACKED_LEN>, AztecAddress, Field, Field, Field) -> Option<NoteHashAndNullifier>,
+    compute_note_hash_and_nullifier: unconstrained fn[Env](BoundedVec<Field, MAX_NOTE_PACKED_LEN>, Field, Field, AztecAddress, Field) -> Option<NoteHashAndNullifier>,
     contract_address: AztecAddress,
     storage_slot: Field,
     note_type_id: Field,
@@ -53,10 +53,10 @@ pub unconstrained fn attempt_note_nonce_discovery<Env>(
             // TODO(#11157): handle failed note_hash_and_nullifier computation
             let hashes = compute_note_hash_and_nullifier(
                 packed_note_content,
-                contract_address,
-                candidate_nonce,
                 storage_slot,
                 note_type_id,
+                contract_address,
+                candidate_nonce,
             )
                 .expect(f"Failed to compute a note hash for note type {note_type_id}");
 
