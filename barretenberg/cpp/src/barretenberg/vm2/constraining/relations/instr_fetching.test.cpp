@@ -105,5 +105,42 @@ TEST(InstrFetchingConstrainingTest, ecaddWithTraceGen)
     check_relation<instr_fetching>(trace);
 }
 
+// Positive test for each opcode. We assume that decode instruction is working correctly.
+// It works as long as the relations are not constraining correct range for TAG and or indirect.
+TEST(InstrFetchingConstrainingTest, eachOpcodeWithTraceGen)
+{
+    uint32_t seed = 987137937; // Arbitrary number serving as pseudo-random seed to generate bytes
+
+    auto gen_40_bytes = [&]() {
+        std::vector<uint8_t> bytes;
+        bytes.resize(40);
+
+        for (size_t i = 0; i < 40; i++) {
+            bytes.at(i) = static_cast<uint8_t>(seed % 256);
+            seed *= seed;
+        }
+        return bytes;
+    };
+
+    for (uint8_t i = 0; i < static_cast<int>(WireOpCode::LAST_OPCODE_SENTINEL); i++) {
+        TestTraceContainer trace;
+        BytecodeTraceBuilder builder;
+
+        std::vector<uint8_t> bytecode = gen_40_bytes();
+        bytecode.at(0) = i;
+
+        const auto instr = simulation::decode_instruction(bytecode, 0);
+
+        builder.process_instruction_fetching({ { .bytecode_id = 1,
+                                                 .pc = 0,
+                                                 .instruction = instr,
+                                                 .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } },
+                                             trace);
+
+        EXPECT_EQ(trace.get_num_rows(), 1);
+        check_relation<instr_fetching>(trace);
+    }
+}
+
 } // namespace
 } // namespace bb::avm2::constraining
