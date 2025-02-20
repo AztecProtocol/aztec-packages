@@ -1,6 +1,5 @@
 import { z } from 'zod';
 
-import { AztecAddress } from '../aztec-address/index.js';
 import { Buffer32 } from '../buffer/buffer32.js';
 import { EthAddress } from '../eth-address/index.js';
 import { Fq, Fr } from '../fields/fields.js';
@@ -12,9 +11,6 @@ import { bufferSchema, hexSchema } from './utils.js';
 export const schemas = {
   /** Accepts a hex string. */
   EthAddress: EthAddress.schema,
-
-  /** Accepts a hex string. */
-  AztecAddress: AztecAddress.schema,
 
   /** Accepts a hex string. */
   Fr: Fr.schema,

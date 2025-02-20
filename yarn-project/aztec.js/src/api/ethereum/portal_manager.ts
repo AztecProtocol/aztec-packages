@@ -1,8 +1,8 @@
 import { type SiblingPath } from '@aztec/circuit-types';
 import { type PXE } from '@aztec/circuit-types/interfaces/client';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { computeSecretHash } from '@aztec/circuits.js/hash';
 import { extractEvent } from '@aztec/ethereum/utils';
-import type { AztecAddress } from '@aztec/foundation/aztec-address';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';

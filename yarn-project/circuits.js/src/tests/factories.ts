@@ -39,7 +39,6 @@ import {
   VK_TREE_HEIGHT,
 } from '@aztec/constants';
 import { type FieldsOf, makeHalfFullTuple, makeTuple } from '@aztec/foundation/array';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { compact } from '@aztec/foundation/collection';
 import { SchnorrSignature, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
@@ -47,6 +46,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Bufferable } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 
+import { AztecAddress } from '../aztec-address/index.js';
 import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,

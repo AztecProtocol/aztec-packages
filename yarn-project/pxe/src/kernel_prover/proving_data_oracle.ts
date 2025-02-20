@@ -7,9 +7,9 @@ import {
   type PublicKeys,
   type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { UpdatedClassIdHints } from '@aztec/circuits.js/kernel';
 import { type FUNCTION_TREE_HEIGHT, type NOTE_HASH_TREE_HEIGHT, type VK_TREE_HEIGHT } from '@aztec/constants';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 
 /**

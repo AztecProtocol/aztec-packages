@@ -8,7 +8,7 @@ import {
   type NoteSelector,
   encodeArguments,
 } from '@aztec/circuits.js/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 
