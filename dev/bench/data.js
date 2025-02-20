@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740088637484,
+  "lastUpdate": 1740089090867,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "santiago@aztecprotocol.com",
-            "name": "Santiago Palladino",
-            "username": "spalladino"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c067772a24816a8aa6614beb10f2d5026e7b0ab6",
-          "message": "fix: Add missing bootstrap fast aliases (#12078)",
-          "timestamp": "2025-02-18T17:00:34Z",
-          "tree_id": "02a98618c68224a5462af80ed6d7902076a48168",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c067772a24816a8aa6614beb10f2d5026e7b0ab6"
-        },
-        "date": 1739899208139,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18174.726759999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16008.194966000001 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18571.589092999944,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16058.12971 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3915.408137999975,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3097.3590260000005 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54548.120922,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54548120000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10676.128055,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10676130000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1831482488,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1831482488 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 130977593,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 130977593 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3300,6 +3234,72 @@ window.BENCHMARK_DATA = {
             "value": 128856934,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 128856934 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "06e1041f38eaf6b68c621369d95993496e445062",
+          "message": "fix(ci): don't have checks go green immediately (#12168)\n\nWe can't have overlapping check names here. We have to split this out to\nits own repo. This is probably a good separation of concerns, too, to\nprevent people just leaking secrets without stopping to think.",
+          "timestamp": "2025-02-20T16:52:36-05:00",
+          "tree_id": "cfbcc37d1ea54e0d47d91d3f0659e6caa63025c3",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/06e1041f38eaf6b68c621369d95993496e445062"
+        },
+        "date": 1740089083282,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 17973.176707999985,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15946.519593 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18615.35791,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16343.199058 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3865.1225970000382,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3108.192513 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54769.314765999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54769315000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10592.253077999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10592256000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1822248343,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1822248343 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 132696508,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 132696508 ns\nthreads: 1"
           }
         ]
       }
