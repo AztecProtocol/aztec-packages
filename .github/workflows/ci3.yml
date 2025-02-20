@@ -107,13 +107,17 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           ARCH: ${{ matrix.settings.arch }}
           LOG_ID: ${{ github.run_id }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
         run: |
+          # AWS access keys are used to create the ec2. Enough credentials exist in the AMI to push cache objects.
+          # We take care to not pass any additional secrets here.
+          if ${{ github.event_name != 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository }}; then
+            export NETLIFY_SITE_ID=${{ secrets.NETLIFY_SITE_ID }}
+            export NETLIFY_AUTH_TOKEN=${{ secrets.NETLIFY_AUTH_TOKEN }}
+            export DOCKERHUB_PASSWORD=${{ secrets.DOCKERHUB_PASSWORD }}
+            export GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          fi
           ./ci.sh ec2
 
       - name: Download benchmarks
