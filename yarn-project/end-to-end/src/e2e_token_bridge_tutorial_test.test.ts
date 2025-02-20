@@ -20,9 +20,9 @@ import { getContract } from 'viem';
 // docs:end:imports
 // docs:start:utils
 const MNEMONIC = 'test test test test test test test test test test test junk';
-const { ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
+const { ETHEREUM_HOSTS = 'http://localhost:8545' } = process.env;
 
-const { walletClient, publicClient } = createL1Clients(ETHEREUM_HOST, MNEMONIC);
+const { walletClient, publicClient } = createL1Clients(ETHEREUM_HOSTS.split(','), MNEMONIC);
 const ownerEthAddress = walletClient.account.address;
 
 const setupSandbox = async () => {
