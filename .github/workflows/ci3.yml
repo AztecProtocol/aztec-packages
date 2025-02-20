@@ -154,6 +154,15 @@ jobs:
         run: |
           ./ci.sh ec2-test
 
+  merge-check:
+    runs-on: ubuntu-20.04
+    needs: ci
+    if: always()
+    steps:
+      - name: Failing deploy
+        if: ${{ contains(needs.*.result, 'failure') }}
+        run: exit 1
+
   notify:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && failure()
