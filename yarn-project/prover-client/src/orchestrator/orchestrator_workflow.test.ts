@@ -13,11 +13,7 @@ import {
   makeRecursiveProof,
 } from '@aztec/circuits.js';
 import { makeParityPublicInputs } from '@aztec/circuits.js/testing';
-import {
-  NESTED_RECURSIVE_PROOF_LENGTH,
-  NUM_BASE_PARITY_PER_ROOT_PARITY,
-  RECURSIVE_PROOF_LENGTH,
-} from '@aztec/constants';
+import { NESTED_RECURSIVE_PROOF_LENGTH, RECURSIVE_PROOF_LENGTH } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
@@ -48,8 +44,7 @@ describe('prover/orchestrator', () => {
         previousBlockHeader = context.getPreviousBlockHeader();
       });
 
-      // TODO(#11870): Failed 'toHaveBeenCalledTimes(NUM_BASE_PARITY_PER_ROOT_PARITY)', reinstate.
-      it.skip('calls root parity circuit only when ready', async () => {
+      it('calls root parity circuit only when ready', async () => {
         // create a custom L2 to L1 message
         const message = Fr.random();
 
@@ -87,19 +82,18 @@ describe('prover/orchestrator', () => {
         orchestrator.startNewEpoch(1, 1, 1);
         await orchestrator.startNewBlock(globalVariables, [message], previousBlockHeader);
 
-        await sleep(10);
-        expect(mockProver.getBaseParityProof).toHaveBeenCalledTimes(NUM_BASE_PARITY_PER_ROOT_PARITY);
-        expect(mockProver.getRootParityProof).not.toHaveBeenCalled();
-
-        await sleep(10);
-        // even now the root parity should not have been called
+        // the prover broker deduplicates jobs, so the base parity proof
+        // for the three sets empty messages is called only once. so total
+        // calls is one for the empty messages and one for the custom message.
+        await sleep(2000);
+        expect(mockProver.getBaseParityProof).toHaveBeenCalledTimes(2);
         expect(mockProver.getRootParityProof).not.toHaveBeenCalled();
 
         // only after the base parity proof is resolved, the root parity should be called
         pendingBaseParityResult.resolve(expectedBaseParityResult);
 
         // give the orchestrator a chance to calls its callbacks
-        await sleep(10);
+        await sleep(5000);
         expect(mockProver.getRootParityProof).toHaveBeenCalledTimes(1);
 
         orchestrator.cancel();
