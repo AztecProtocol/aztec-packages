@@ -4,12 +4,12 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-    "./blob": "./dest/blob/index.js",
     "./stats": "./dest/stats/index.js",
     "./jest": "./dest/jest/index.js",
-    "./interfaces": "./dest/interfaces/index.js",
+    "./interfaces/client": "./dest/interfaces/client.js",
+    "./interfaces/server": "./dest/interfaces/server.js",
     "./log_id": "./dest/logs/log_id.js",
-    "./test": "./dest/test/index.js",
+    "./testing": "./dest/test/index.js",
     "./tx_hash": "./dest/tx/tx_hash.js",
     "./config": "./dest/config.js"
   },
@@ -68,9 +68,9 @@
   },
   "dependencies": {
     "@aztec/circuits.js": "workspace:^",
+    "@aztec/constants": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
-    "@aztec/types": "workspace:^",
     "browserify-cipher": "^1.0.1",
     "lodash.clonedeep": "^4.5.0",
     "lodash.isequal": "^4.5.0",

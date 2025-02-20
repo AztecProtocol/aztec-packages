@@ -14,10 +14,7 @@ use dep::types::{
     constants::DEFAULT_UPDATE_DELAY,
     contract_class_id::ContractClassId,
     debug::no_op,
-    shared_mutable::{
-        compute_shared_mutable_block_horizon, scheduled_delay_change::ScheduledDelayChange,
-        scheduled_value_change::ScheduledValueChange,
-    },
+    shared_mutable::{compute_shared_mutable_block_horizon, SharedMutableValues},
     traits::{Empty, Hash, is_empty, Packable},
     transaction::tx_request::TxRequest,
     utils::arrays::{array_length, array_to_bounded_vec, sort_by_counter_asc, sort_by_counter_desc},
@@ -190,15 +187,14 @@ impl PrivateKernelCircuitPublicInputsComposer {
         );
         // Update the max block number for the shared mutable read
         if !private_call.public_inputs.call_context.contract_address.is_protocol_contract() {
+            let shared_mutable_values: SharedMutableValues<ContractClassId, DEFAULT_UPDATE_DELAY> = Packable::unpack(
+                private_call.verification_key_hints.updated_class_id_shared_mutable_values,
+            );
+
             self.public_inputs.validation_requests.max_block_number = MaxBlockNumber::min(
                 self.public_inputs.validation_requests.max_block_number,
                 MaxBlockNumber::new(compute_shared_mutable_block_horizon(
-                    ScheduledValueChange::<ContractClassId>::unpack(
-                        private_call.verification_key_hints.updated_class_id_value_change,
-                    ),
-                    ScheduledDelayChange::<DEFAULT_UPDATE_DELAY>::unpack(
-                        private_call.verification_key_hints.updated_class_id_delay_change,
-                    ),
+                    shared_mutable_values,
                     private_call.public_inputs.historical_header.global_variables.block_number
                          as u32,
                     )),

@@ -1,16 +1,16 @@
-import { Fr } from '@aztec/foundation/fields';
-import { bufferSchemaFor } from '@aztec/foundation/schemas';
-import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
-import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
-import { type FieldsOf } from '@aztec/foundation/types';
-
 import {
   ARCHIVE_HEIGHT,
   BLOBS_PER_BLOCK,
   FIELDS_PER_BLOB,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   NESTED_RECURSIVE_PROOF_LENGTH,
-} from '../../constants.gen.js';
+} from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
+import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
+import { type FieldsOf } from '@aztec/foundation/types';
+
 import { BlockHeader } from '../block_header.js';
 import { RootParityInput } from '../parity/root_parity_input.js';
 import { PreviousRollupData } from './previous_rollup_data.js';

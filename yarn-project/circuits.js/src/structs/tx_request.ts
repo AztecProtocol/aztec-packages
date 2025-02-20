@@ -1,10 +1,10 @@
+import { GeneratorIndex, TX_REQUEST_LENGTH } from '@aztec/constants';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import { GeneratorIndex, TX_REQUEST_LENGTH } from '../constants.gen.js';
 import { FunctionData } from './function_data.js';
 import { TxContext } from './tx_context.js';
 

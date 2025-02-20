@@ -1,13 +1,9 @@
+import { type L1ToL2MessageSource, L2Block, type L2BlockSource, type ProcessedTx, type Tx } from '@aztec/circuit-types';
 import {
   type EpochProver,
-  type L1ToL2MessageSource,
-  L2Block,
-  type L2BlockSource,
   type MerkleTreeWriteOperations,
-  type ProcessedTx,
-  type Tx,
   type WorldStateSynchronizer,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
 import { BlockHeader, Proof } from '@aztec/circuits.js';
 import { RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 import { times, timesParallel } from '@aztec/foundation/collection';

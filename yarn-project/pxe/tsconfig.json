@@ -19,6 +19,9 @@
       "path": "../circuits.js"
     },
     {
+      "path": "../constants"
+    },
+    {
       "path": "../ethereum"
     },
     {
@@ -38,9 +41,6 @@
     },
     {
       "path": "../simulator"
-    },
-    {
-      "path": "../types"
     },
     {
       "path": "../noir-contracts.js"

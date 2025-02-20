@@ -2,7 +2,7 @@ import { createConsoleLogger } from '@aztec/foundation/log';
 
 import { promises as fs } from 'fs';
 
-import { ClientProtocolArtifact } from '../artifacts/types.js';
+import { type ClientProtocolArtifact } from '../artifacts/types.js';
 import { PrivateKernelResetArtifactFileNames } from '../private_kernel_reset_types.js';
 
 const log = createConsoleLogger('autogenerate');
@@ -19,7 +19,7 @@ const ClientCircuitArtifactNames: Record<ClientProtocolArtifact, string> = {
 
 function generateImports() {
   return `
-  import { type NoirCompiledCircuit } from '@aztec/types/noir';
+  import { type NoirCompiledCircuit } from '@aztec/circuits.js/noir';
   import { type ClientProtocolArtifact } from './artifacts/types.js';
 `;
 }
