@@ -201,7 +201,7 @@ export class Archiver implements ArchiveSource, Traceable {
     }
 
     if (blockUntilSynced) {
-      await this.sync(blockUntilSynced);
+      await this.syncSafe(blockUntilSynced);
     }
 
     this.runningPromise = new RunningPromise(() => this.sync(false), this.log, this.config.pollingIntervalMs, [
@@ -211,6 +211,14 @@ export class Archiver implements ArchiveSource, Traceable {
     ]);
 
     this.runningPromise.start();
+  }
+
+  private async syncSafe(initialRun: boolean) {
+    try {
+      await this.sync(initialRun);
+    } catch (error) {
+      this.log.error('Error during sync', { error });
+    }
   }
 
   /**

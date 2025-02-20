@@ -16,7 +16,7 @@ library ConfigurationLib {
 
   uint256 internal constant VOTES_LOWER = 1;
 
-  Timestamp internal constant TIME_LOWER = Timestamp.wrap(3600);
+  Timestamp internal constant TIME_LOWER = Timestamp.wrap(360);
   Timestamp internal constant TIME_UPPER = Timestamp.wrap(30 * 24 * 3600);
 
   function withdrawalDelay(DataStructures.Configuration storage _self)

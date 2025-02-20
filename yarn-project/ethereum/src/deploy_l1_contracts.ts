@@ -77,11 +77,11 @@ export type DeployL1Contracts = {
   /**
    * Wallet Client Type.
    */
-  walletClient: WalletClient<HttpTransport, Chain, Account>;
+  walletClient: L1Clients['walletClient'];
   /**
    * Public Client Type.
    */
-  publicClient: PublicClient<HttpTransport, Chain>;
+  publicClient: L1Clients['publicClient'];
   /**
    * The currently deployed l1 contract addresses
    */
@@ -228,12 +228,13 @@ export function createL1Clients(
   rpcUrl: string,
   mnemonicOrPrivateKeyOrHdAccount: string | `0x${string}` | HDAccount | PrivateKeyAccount,
   chain: Chain = foundry,
+  accountIndex?: number,
 ): L1Clients {
   const hdAccount =
     typeof mnemonicOrPrivateKeyOrHdAccount === 'string'
       ? mnemonicOrPrivateKeyOrHdAccount.startsWith('0x')
         ? privateKeyToAccount(mnemonicOrPrivateKeyOrHdAccount as `0x${string}`)
-        : mnemonicToAccount(mnemonicOrPrivateKeyOrHdAccount)
+        : mnemonicToAccount(mnemonicOrPrivateKeyOrHdAccount, { accountIndex })
       : mnemonicOrPrivateKeyOrHdAccount;
 
   // From what I can see, this is the difference between the HDAccount and the PrivateKeyAccount
@@ -262,13 +263,13 @@ export const deployRollupAndUpgradePayload = async (
   chain: Chain,
   account: HDAccount | PrivateKeyAccount,
   args: DeployL1ContractsArgs,
-  addresses: Pick<
-    L1ContractAddresses,
-    'registryAddress' | 'feeJuicePortalAddress' | 'rewardDistributorAddress' | 'stakingAssetAddress'
-  >,
+  registryAddress: EthAddress,
   logger: Logger,
   txUtilsConfig: L1TxUtilsConfig,
 ) => {
+  const { publicClient } = createL1Clients(rpcUrl, account, chain);
+  const addresses = await RegistryContract.collectAddresses(publicClient, registryAddress, 'canonical');
+
   const rollup = await deployRollup(rpcUrl, chain, account, args, addresses, logger, txUtilsConfig);
   const payloadAddress = await deployUpgradePayload(
     rpcUrl,
@@ -315,6 +316,7 @@ export const deployRollup = async (
   logger: Logger,
   txUtilsConfig: L1TxUtilsConfig,
 ): Promise<RollupContract> => {
+  logger.info(`Deploying rollup with salt [${args.salt}]`);
   const { walletClient, publicClient } = createL1Clients(rpcUrl, account, chain);
   const deployer = new L1Deployer(walletClient, publicClient, args.salt, logger, txUtilsConfig);
 
@@ -457,8 +459,7 @@ export const deployL1Contracts = async (
 
   logger.verbose(`Deploying contracts from ${account.address.toString()}`);
 
-  const walletClient = createWalletClient({ account, chain, transport: http(rpcUrl) });
-  const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
+  const { walletClient, publicClient } = createL1Clients(rpcUrl, account, chain);
   // Governance stuff
   const govDeployer = new L1Deployer(walletClient, publicClient, args.salt, logger, txUtilsConfig);
 

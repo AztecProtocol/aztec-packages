@@ -61,6 +61,7 @@ aztec:
 
   botKeyIndexStart: 3000
   l1Salt: "" # leave empty for random salt
+  testAccounts: true
 
 bootNode:
   peerIdPrivateKey: ""

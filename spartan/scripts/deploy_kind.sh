@@ -9,6 +9,9 @@
 #   AZTEC_DOCKER_TAG (default: current git commit)
 #   INSTALL_TIMEOUT (default: 30m)
 #   OVERRIDES (default: "", no overrides)
+#
+# Note on OVERRIDES:
+# You can use like OVERRIDES="replicas=3,resources.limits.cpu=1"
 
 source $(git rev-parse --show-toplevel)/ci3/source
 
@@ -83,7 +86,7 @@ fi
 
 # Install the Helm chart
 echo "Cleaning up any existing Helm releases..."
-helm uninstall spartan -n "$namespace" 2>/dev/null || true
+helm uninstall mitch -n "$namespace" 2>/dev/null || true
 kubectl delete clusterrole spartan-aztec-network-node 2>/dev/null || true
 kubectl delete clusterrolebinding spartan-aztec-network-node 2>/dev/null || true
 
@@ -109,7 +112,7 @@ if [ "$sepolia_deployment" = "true" ]; then
   fi
 fi
 
-helm upgrade --install spartan ../aztec-network \
+helm upgrade --install mitch ../aztec-network \
   --namespace "$namespace" \
   --create-namespace \
   "${helm_set_args[@]}" \

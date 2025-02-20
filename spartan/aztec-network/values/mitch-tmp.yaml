@@ -1,0 +1,71 @@
+telemetry:
+  enabled: true
+  useGcloudLogging: false
+
+aztec:
+  testAccounts: true
+
+network:
+  setupL2Contracts: true
+
+ethereum:
+  execution:
+    externalHost: "http://spartan-aztec-network-eth-execution.smoke:8545"
+  beacon:
+    externalHost: "http://spartan-aztec-network-eth-beacon.smoke:5052"
+
+bootNode:
+  sequencer:
+    minTxsPerBlock: 0
+  resources:
+    requests:
+      memory: "1Gi"
+  deployContracts: false
+  contracts:
+    registryAddress: 0x29f815e32efdef19883cf2b92a766b7aebadd326
+
+validator:
+  sequencer:
+    minTxsPerBlock: 0
+    enforceTimeTable: false
+  validator:
+    disabled: false
+    reexecute: true
+  resources:
+    requests:
+      memory: "1Gi"
+
+proverNode:
+  resources:
+    requests:
+      memory: "1Gi"
+
+pxe:
+  enabled: true
+  replicas: 1
+  service:
+    nodePort: 8081
+  resources:
+    requests:
+      memory: "1Gi"
+
+bot:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      memory: "1Gi"
+
+proverBroker:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      memory: "1Gi"
+
+proverAgent:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      memory: "1Gi"
