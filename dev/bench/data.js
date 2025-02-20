@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740046177039,
+  "lastUpdate": 1740049506334,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "152162806+sklppy88@users.noreply.github.com",
-            "name": "esau",
-            "username": "sklppy88"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3633c077e48f051919c30f4377fbb967f696b773",
-          "message": "fix: unexposing test fr from vkey struct ts (#12028)\n\nwhoops !",
-          "timestamp": "2025-02-15T21:56:12Z",
-          "tree_id": "2f32a9363dae4031e0528b163ef39ffbe26277fd",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3633c077e48f051919c30f4377fbb967f696b773"
-        },
-        "date": 1739657796983,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18039.335058999997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15931.832471 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18565.380645000005,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16177.571516 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3870.8480039999813,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3084.2926980000007 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54956.944531,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54956945000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10379.151297,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10379156000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1812584741,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1812584741 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 131095380,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 131095380 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3300,6 +3234,72 @@ window.BENCHMARK_DATA = {
             "value": 128323209,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 128323209 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexghr@users.noreply.github.com",
+            "name": "Alex Gherghisan",
+            "username": "alexghr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b088422d7a1d04b7b666e34e631d783dac01612e",
+          "message": "refactor: replace kv-store backend in pxe, key store and wallet (#12087)\n\nFix #11658",
+          "timestamp": "2025-02-20T10:52:10Z",
+          "tree_id": "519e4b192ac47d4f436eead8d842cbaaaf347184",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b088422d7a1d04b7b666e34e631d783dac01612e"
+        },
+        "date": 1740049498367,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18112.526052000023,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15982.122671 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18523.48228300002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16019.026635 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3908.309978000034,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3059.261392 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54759.235129,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54759234000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10971.710576000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10971714000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1833658780,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1833658780 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 130442489,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 130442489 ns\nthreads: 1"
           }
         ]
       }
