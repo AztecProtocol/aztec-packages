@@ -46,7 +46,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          # Check out the actual commit.
+          # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Fail If Draft
@@ -80,6 +80,7 @@ jobs:
           GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} gh pr edit ${{ github.event.pull_request.number }} --remove-label "ci-external-once"
 
       - name: CI Full Override
+        # TODO consolidate legacy labels to just ci-full.
         if: |
           contains(github.event.pull_request.labels.*.name, 'e2e-all') ||
           contains(github.event.pull_request.labels.*.name, 'network-all') ||
