@@ -474,7 +474,7 @@ template <typename Flavor> class SmallSubgroupIPAProver {
      * @param evaluation_challenge_x We evaluate the transcript polynomials at x as univariates.
      * @param batching_challenge_v The evaluations at x are batched using v.
      */
-    static FF compute_claimed_inner_product(TranslationData<typename Flavor::Transcript>& translation_data,
+    static FF compute_claimed_inner_product(const TranslationData<typename Flavor::Transcript>& translation_data,
                                             const FF& evaluation_challenge_x,
                                             const FF& batching_challenge_v,
                                             const size_t num_wires)

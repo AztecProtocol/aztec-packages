@@ -155,6 +155,8 @@ OpeningClaim<typename Flavor::Curve> ECCVMRecursiveVerifier_<Flavor>::reduce_ver
     // Get the batching challenge for commitments and evaluations
     batching_challenge_v = transcript->template get_challenge<FF>("Translation:batching_challenge_v");
 
+    FF claimed_masking_term_eval = transcript->template receive_from_prover<FF>("Translation:masking_term_eval");
+
     // Compute the batched commitment and batched evaluation for the univariate opening claim
     auto batched_transcript_eval = transcript_evaluations[0];
     auto batching_scalar = batching_challenge_v;

@@ -132,6 +132,11 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
 OpeningClaim<typename ECCVMFlavor::Curve> ECCVMVerifier::reduce_verify_translation_evaluations(
     const std::array<Commitment, NUM_TRANSCRIPT_WIRES>& transcript_commitments)
 {
+    std::array<Commitment, NUM_LIBRA_COMMITMENTS> small_ipa_commitments;
+
+    small_ipa_commitments[0] =
+        transcript->template receive_from_prover<Commitment>("Translation:masking_term_commitment");
+
     evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
 
     // Construct arrays of commitments and evaluations to be batched, the evaluations being received from the prover
@@ -146,6 +151,10 @@ OpeningClaim<typename ECCVMFlavor::Curve> ECCVMVerifier::reduce_verify_translati
 
     // Get the batching challenge for commitments and evaluations
     batching_challenge_v = transcript->template get_challenge<FF>("Translation:batching_challenge_v");
+
+    FF claimed_masking_term_eval = transcript->template receive_from_prover<FF>("Translation:masking_term_eval");
+
+    std::array<FF, NUM_LIBRA_EVALUATIONS> small_ipa_evaluations;
 
     // Compute the batched commitment and batched evaluation for the univariate opening claim
     Commitment batched_commitment = transcript_commitments[0];
