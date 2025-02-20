@@ -129,7 +129,7 @@ jobs:
           alert-threshold: "105%"
           comment-on-alert: true
           fail-on-alert: false
-          alert-comment-cc-usersT: "@ludamad @codygunton"
+          alert-comment-cc-users: "@ludamad @codygunton"
           max-items-in-chart: 50
 
       - name: Store yarn project benchmark result
