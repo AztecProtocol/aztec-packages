@@ -175,7 +175,6 @@ export class RollupContract {
       rewardDistributorAddress,
       feeJuiceAddress,
       stakingAssetAddress,
-      slashFactoryAddress,
     ] = (
       await Promise.all([
         this.rollup.read.getInbox(),
@@ -184,7 +183,6 @@ export class RollupContract {
         this.rollup.read.getRewardDistributor(),
         this.rollup.read.getFeeAsset(),
         this.rollup.read.getStakingAsset(),
-        this.rollup.read.getSlashFactory(),
       ] as const)
     ).map(EthAddress.fromString);
 
@@ -196,7 +194,6 @@ export class RollupContract {
       feeJuiceAddress,
       stakingAssetAddress,
       rewardDistributorAddress,
-      slashFactoryAddress,
     };
   }
 
