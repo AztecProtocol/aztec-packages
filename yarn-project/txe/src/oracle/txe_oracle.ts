@@ -725,6 +725,8 @@ export class TXE implements TypedOracle {
       for (const txEffect of paddedTxEffects) {
         // We do not need to add public data writes because we apply them as we go. We use the sequentialInsert because
         // the batchInsert was not working when updating a previously updated slot.
+        // FIXME: public data writes, note hashes, nullifiers, messages should all be handled in the same way.
+        // They are all relevant to subsequent enqueued calls and txs.
 
         const nullifiersPadded = padArrayEnd(txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX);
 
@@ -758,6 +760,11 @@ export class TXE implements TypedOracle {
 
     await fork.updateArchive(l2Block.header);
 
+    // We've built a block with all of our state changes in a "fork".
+    // Now emulate a "sync" to this block, by letting cpp reapply the block's
+    // changes to the underlying unforked world state and comparing the results
+    // against the block's state reference (which is this state reference here in the fork).
+    // This essentially commits the state updates to the unforked state and sanity checks the roots.
     await this.nativeWorldStateService.handleL2BlockAndMessages(l2Block, l1ToL2Messages);
 
     this.publicDataWrites = [];
@@ -908,10 +915,14 @@ export class TXE implements TypedOracle {
     globalVariables.blockNumber = new Fr(this.blockNumber);
     globalVariables.gasFees = new GasFees(1, 1);
 
+    // Checkpoint here so that we can revert merkle ops after simulation.
+    // See note at revert below.
+    await db.createCheckpoint();
     const simulator = new PublicTxSimulator(
       db,
       new TXEWorldStateDB(db, new TXEPublicContractDataSource(this), this),
       globalVariables,
+      /*doMerkleOperations=*/ true,
     );
 
     const { usedTxRequestHashForNonces } = this.noteCache.finish();
@@ -930,6 +941,12 @@ export class TXE implements TypedOracle {
     );
 
     const result = await simulator.simulate(tx);
+
+    // NOTE: Don't accept any merkle updates from the AVM since this was just 1 enqueued call
+    // and the TXE will re-apply all txEffects after entire execution (all enqueued calls)
+    // complete.
+    await db.revertCheckpoint();
+
     const noteHashes = result.avmProvingRequest.inputs.publicInputs.accumulatedData.noteHashes.filter(
       s => !s.isEmpty(),
     );
@@ -937,6 +954,7 @@ export class TXE implements TypedOracle {
     const publicDataWrites = result.avmProvingRequest.inputs.publicInputs.accumulatedData.publicDataWrites.filter(
       s => !s.isEmpty(),
     );
+    // For now, public data writes are the only merkle operations that are readable by later enqueued calls in the TXE.
     await this.addPublicDataWrites(publicDataWrites);
 
     this.addUniqueNoteHashesFromPublic(noteHashes);
