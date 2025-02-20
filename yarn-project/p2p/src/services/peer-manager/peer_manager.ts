@@ -279,37 +279,26 @@ export class PeerManager {
    * @returns The pruned list of connections.
    */
   private pruneDuplicatePeers(connections: Connection[]): Connection[] {
-    const peerConnections = new Map<string, Connection[]>();
+    const peerConnections = new Map<string, Connection>();
 
     for (const conn of connections) {
       const peerId = conn.remotePeer.toString();
-      const existingConns = peerConnections.get(peerId) || [];
-      existingConns.push(conn);
-      peerConnections.set(peerId, existingConns);
-    }
-
-    // Keep the oldest connection for each peer
-    const uniqueConnections: Connection[] = [];
-    for (const [peerId, conns] of peerConnections.entries()) {
-      if (conns.length > 1) {
-        const sortedConns = [...conns].sort((a, b) => a.timeline.open - b.timeline.open);
-        const [conn, ...duplicates] = sortedConns;
-
-        this.logger.debug(
-          `Found ${duplicates.length} duplicate connection(s) to peer ${peerId}, keeping oldest connection`,
-        );
-
-        for (const conn of duplicates) {
+      const existingConnection = peerConnections.get(peerId);
+      if (!existingConnection) {
+        peerConnections.set(peerId, conn);
+      } else {
+        // Keep the oldest connection for each peer
+        this.logger.debug(`Found duplicate connection to peer ${peerId}, keeping oldest connection`);
+        if (conn.timeline.open < existingConnection.timeline.open) {
+          peerConnections.set(peerId, conn);
+          void existingConnection.close();
+        } else {
           void conn.close();
         }
-
-        uniqueConnections.push(conn);
-      } else {
-        uniqueConnections.push(conns[0]);
       }
     }
 
-    return uniqueConnections;
+    return [...peerConnections.values()];
   }
 
   private async goodbyeAndDisconnectPeer(peer: PeerId, reason: GoodByeReason) {

@@ -343,27 +343,33 @@ describe('PeerManager', () => {
       const peerId = await createSecp256k1PeerId();
 
       // Create mock connections with different timestamps to simulate connections opened at different times
-      const originalConnection = {
+      const oldestConnection = {
         remotePeer: peerId,
         timeline: { open: 1000 },
         close: jest.fn(),
       };
-      const duplicateConnection = {
+      const duplicateConnection1 = {
         remotePeer: peerId,
         timeline: { open: 2000 },
         close: jest.fn(),
       };
-      mockLibP2PNode.getConnections.mockReturnValue([originalConnection, duplicateConnection]);
+      const duplicateConnection2 = {
+        remotePeer: peerId,
+        timeline: { open: 3000 },
+        close: jest.fn(),
+      };
+      mockLibP2PNode.getConnections.mockReturnValue([duplicateConnection1, oldestConnection, duplicateConnection2]);
 
       // Trigger heartbeat which should call pruneDuplicatePeers
       peerManager.heartbeat();
 
       await sleep(100);
 
-      // Verify the duplicate connection was closed
-      expect(duplicateConnection.close).toHaveBeenCalled();
-      // Verify the oldest connection was not closed
-      expect(originalConnection.close).not.toHaveBeenCalled();
+      // Verify that the duplicate connections were closed
+      expect(duplicateConnection1.close).toHaveBeenCalled();
+      expect(duplicateConnection2.close).toHaveBeenCalled();
+      // Verify that the oldest connection was not closed
+      expect(oldestConnection.close).not.toHaveBeenCalled();
     });
 
     it('should properly clean up peers on stop', async () => {
