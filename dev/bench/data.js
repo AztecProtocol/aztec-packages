@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740076819545,
+  "lastUpdate": 1740077496209,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "16536249+LHerskind@users.noreply.github.com",
-            "name": "Lasse Herskind",
-            "username": "LHerskind"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8aee21da34016782dfb0476df858d64e3333d994",
-          "message": "feat: make rewards claimable (#11975)\n\nFixes #11949.",
-          "timestamp": "2025-02-18T09:04:01Z",
-          "tree_id": "b5bfdb2c01aa7348ee5ca806425d3fdea6272ec7",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8aee21da34016782dfb0476df858d64e3333d994"
-        },
-        "date": 1739870911877,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18112.768509000034,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15981.205748999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18718.990391000036,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16333.252645000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4003.4159639999416,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3102.036591 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54970.957800000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54970958000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11057.511843,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11057513000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1829537793,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1829537793 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 134968343,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 134968343 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3300,6 +3234,72 @@ window.BENCHMARK_DATA = {
             "value": 133655668,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 133655668 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "gregojquiros@gmail.com",
+            "name": "Gregorio Juliana",
+            "username": "Thunkar"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8831838aab69f26686855730811d07c7d99d361a",
+          "message": "chore: @aztec/stdlib pt. 3: aztec-address out of foundation (#12140)\n\nFinal cleanup `foundation` and removal of all aztec-specific references.\nThis paves the way for the new stdlib to be born from the remnants of\n`circuits.js` and `circuit-types`!\n\nThis has led to a single \"weird thing\":\n\n`@aztec/ethereum` requires `AztecAddress` *just for the deployment of l1\ncontracts*. In the end, this is just an arg provided to `viem` that gets\neventually stringified, so we only have the type to avoid making\nmistakes ourselves. Since this is a pretty internal method, to avoid\ncircular dependencies I've turned it into a `Fr`, as that's our\n\"flattened\" AztecAddress representation. @alexghr @spalladino how bad is\nit?\n\nAnother option would be to move `deployL1Contracts` to `circuits.js`\n(soon to be `stdlib`), as this package pulls from `ethereum` and has\naccess to AztecAddress.\n\n---------\n\nCo-authored-by: thunkar <gregjquiros@gmail.com>",
+          "timestamp": "2025-02-20T19:25:54+01:00",
+          "tree_id": "95de7bce4cb41c9bcafde616cf28102b5870518e",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8831838aab69f26686855730811d07c7d99d361a"
+        },
+        "date": 1740077488687,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18396.944177000023,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16254.126714999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18804.310319999786,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16565.136599999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3919.6321000001717,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3097.849819 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55196.903116999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55196902000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10494.42185,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10494426000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1818503171,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1818503171 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 128064425,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 128064425 ns\nthreads: 1"
           }
         ]
       }
