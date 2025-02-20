@@ -4,7 +4,7 @@ use crate::{
     bit_traits::bits_needed_for,
     instructions::{AvmInstruction, AvmOperand},
     opcodes::AvmOpcode,
-    utils::{make_operand, make_unresolved_pc},
+    utils::{make_operand, make_unresolved_pc, UnresolvedPCLocation},
 };
 use fxhash::FxHashMap as HashMap;
 use operand_collector::OperandCollector;
@@ -17,8 +17,8 @@ pub(crate) struct CompiledProcedure {
     pub instructions: Vec<AvmInstruction>,
     // Map of instruction label to local avm pc
     pub locations: HashMap<Label, usize>,
-    // Map of instruction index to jumped to label
-    pub unresolved_jumps: HashMap<usize, Label>,
+    // Maps instructions with unresolved PCs to their target label
+    pub unresolved_jumps: HashMap<UnresolvedPCLocation, Label>,
 
     pub instructions_size: usize,
 }
@@ -32,8 +32,11 @@ impl CompiledProcedure {
         self.instructions.push(instruction);
     }
 
-    fn add_unresolved_jump(&mut self, target: Label) {
-        self.unresolved_jumps.insert(self.instructions.len(), target);
+    fn add_unresolved_jump(&mut self, immediate_index: usize, target: Label) {
+        self.unresolved_jumps.insert(
+            UnresolvedPCLocation { instruction_index: self.instructions.len(), immediate_index },
+            target,
+        );
     }
 }
 
@@ -111,7 +114,7 @@ fn compile_opcode(
         Mnemonic::JUMP => {
             collector.label_operand()?;
             let collection = collector.finish()?;
-            result.add_unresolved_jump(collection.immediates[0].unwrap_label());
+            result.add_unresolved_jump(0, collection.immediates[0].unwrap_label());
             result.add_instruction(
                 AvmInstruction {
                     opcode: AvmOpcode::JUMP_32,
@@ -125,7 +128,7 @@ fn compile_opcode(
             collector.memory_address_operand()?;
             collector.label_operand()?;
             let collection = collector.finish()?;
-            result.add_unresolved_jump(collection.immediates[0].unwrap_label());
+            result.add_unresolved_jump(0, collection.immediates[0].unwrap_label());
             result.add_instruction(
                 AvmInstruction {
                     opcode: AvmOpcode::JUMPI_32,

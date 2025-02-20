@@ -82,3 +82,11 @@ pub(crate) const UNRESOLVED_PC: u32 = 0xdeadbeef;
 pub(crate) fn make_unresolved_pc() -> AvmOperand {
     AvmOperand::U32 { value: UNRESOLVED_PC }
 }
+
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub(crate) struct UnresolvedPCLocation {
+    // The index of the instruction that contains the unresolved PC
+    pub(crate) instruction_index: usize,
+    // The index of the immediate operand in the instruction that is unresolved
+    pub(crate) immediate_index: usize,
+}

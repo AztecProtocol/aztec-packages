@@ -17,7 +17,7 @@ use crate::procedures::{
 };
 use crate::utils::{
     dbg_print_avm_program, dbg_print_brillig_program, make_operand, make_unresolved_pc,
-    UNRESOLVED_PC,
+    UnresolvedPCLocation, UNRESOLVED_PC,
 };
 
 enum Label {
@@ -58,7 +58,7 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
 
     let mut procedures_used: HashSet<Procedure> = HashSet::default();
     // Maps INSTRUCTION INDEXES to labels, not avm pcs to labels
-    let mut unresolved_jumps: HashMap<usize, Label> = HashMap::default();
+    let mut unresolved_jumps: HashMap<UnresolvedPCLocation, Label> = HashMap::default();
 
     // Transpile a Brillig instruction to one or more AVM instructions
     for brillig_instr in brillig_bytecode {
@@ -271,8 +271,13 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
             }
             BrilligOpcode::Jump { location } => {
                 assert!(location.num_bits() <= 32);
-                unresolved_jumps
-                    .insert(avm_instrs.len(), Label::BrilligPC { pc: *location as u32 });
+                unresolved_jumps.insert(
+                    UnresolvedPCLocation {
+                        instruction_index: avm_instrs.len(),
+                        immediate_index: 0,
+                    },
+                    Label::BrilligPC { pc: *location as u32 },
+                );
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::JUMP_32,
                     immediates: vec![make_unresolved_pc()],
@@ -281,8 +286,13 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
             }
             BrilligOpcode::JumpIf { condition, location } => {
                 assert!(location.num_bits() <= 32);
-                unresolved_jumps
-                    .insert(avm_instrs.len(), Label::BrilligPC { pc: *location as u32 });
+                unresolved_jumps.insert(
+                    UnresolvedPCLocation {
+                        instruction_index: avm_instrs.len(),
+                        immediate_index: 0,
+                    },
+                    Label::BrilligPC { pc: *location as u32 },
+                );
 
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::JUMPI_32,
@@ -338,8 +348,13 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
             }
             BrilligOpcode::Call { location } => {
                 assert!(location.num_bits() <= 32);
-                unresolved_jumps
-                    .insert(avm_instrs.len(), Label::BrilligPC { pc: *location as u32 });
+                unresolved_jumps.insert(
+                    UnresolvedPCLocation {
+                        instruction_index: avm_instrs.len(),
+                        immediate_index: 0,
+                    },
+                    Label::BrilligPC { pc: *location as u32 },
+                );
 
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::INTERNALCALL,
@@ -415,11 +430,9 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
             },
         ));
         unresolved_jumps.extend(compiled_procedure.unresolved_jumps.into_iter().map(
-            |(instruction_index, target)| {
-                (
-                    instruction_index + avm_instrs.len(),
-                    Label::Procedure { label: target.prefix(procedure) },
-                )
+            |(mut unresolved_pc_location, target)| {
+                unresolved_pc_location.instruction_index += avm_instrs.len();
+                (unresolved_pc_location, Label::Procedure { label: target.prefix(procedure) })
             },
         ));
         current_avm_pc += compiled_procedure.instructions_size;
@@ -428,9 +441,9 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
 
     // Now that we have the general structure of the AVM program, we need to resolve the
     // now unresolved jump locations.
-    for (instruction_index, label) in unresolved_jumps.into_iter() {
-        // We can have two types of unresolved jumps. Either unresolved jumps that come from brillig bytecode, where the target is a brillig pc
-        // or unresolved jumps that come from procedures, where the target is a procedure label (basically a string prefixed with the id of the procedure).
+    // We can have two types of unresolved jumps. Either unresolved jumps that come from brillig bytecode, where the target is a brillig pc
+    // or unresolved jumps that come from procedures, where the target is a procedure label (local labels are string and the we prefix them with the id of the procedure).
+    for (unresolved_pc_location, label) in unresolved_jumps.into_iter() {
         let resolved_location = match label {
             Label::BrilligPC { pc: brillig_pc } => {
                 let avm_pc = brillig_pcs_to_avm_pcs[brillig_pc as usize];
@@ -442,12 +455,16 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                 .unwrap_or_else(|| panic!("Procedure label {:?} not found", procedure_label))
                 as u32,
         };
-        let instruction = avm_instrs.get_mut(instruction_index).unwrap();
-        assert!(
-            instruction.immediates.len() == 1,
-            "Expected one immediate for an unresolved jump/call"
-        );
-        let immediate = instruction.immediates.get_mut(0).unwrap();
+        let instruction = avm_instrs
+            .get_mut(unresolved_pc_location.instruction_index)
+            .expect("Could not find instruction with unresolved PC");
+
+        let immediate = instruction
+            .immediates
+            .get_mut(unresolved_pc_location.immediate_index)
+            .expect("Could not find unresolved PC");
+
+        // If these assertions fail either we have an incorrectly built unresolved PC or the unresolved pc location is messed up
         let value = match immediate {
             AvmOperand::U32 { value } => {
                 assert!(*value == UNRESOLVED_PC, "Expected unresolved PC"); // Double check
@@ -1100,10 +1117,10 @@ fn generate_mov_to_procedure(source: &MemoryAddress, index: usize) -> AvmInstruc
 fn generate_procedure_call(
     procedure: Procedure,
     instruction_index: usize,
-    unresolved_jumps: &mut HashMap<usize, Label>,
+    unresolved_jumps: &mut HashMap<UnresolvedPCLocation, Label>,
 ) -> AvmInstruction {
     unresolved_jumps.insert(
-        instruction_index,
+        UnresolvedPCLocation { instruction_index, immediate_index: 0 },
         Label::Procedure { label: ProcedureLabel::entrypoint(procedure) },
     );
     AvmInstruction {
@@ -1119,7 +1136,7 @@ fn handle_black_box_function(
     avm_instrs: &mut Vec<AvmInstruction>,
     operation: &BlackBoxOp,
     procedures_used: &mut HashSet<Procedure>,
-    unresolved_jumps: &mut HashMap<usize, Label>,
+    unresolved_jumps: &mut HashMap<UnresolvedPCLocation, Label>,
 ) {
     match operation {
         BlackBoxOp::Sha256Compression { input, hash_values, output } => {
