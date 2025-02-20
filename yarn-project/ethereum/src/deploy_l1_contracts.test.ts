@@ -38,7 +38,8 @@ describe('deploy_l1_contracts', () => {
     genesisArchiveRoot = Fr.random();
     genesisBlockHash = Fr.random();
     initialValidators = times(3, EthAddress.random);
-    l2FeeJuiceAddress = Fr.random();
+    // Valid AztecAddress represented by its xCoord as a Fr
+    l2FeeJuiceAddress = Fr.fromHexString('0x302dbc2f9b50a73283d5fb2f35bc01eae8935615817a0b4219a057b2ba8a5a3f');
 
     if (!rpcUrl) {
       ({ stop, rpcUrl } = await startAnvil());
