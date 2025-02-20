@@ -1,3 +1,4 @@
+# CI for Aztec. At a high-level, runs ./bootstrap.sh ci in root. See root README.md for more details.
 name: CI3
 
 on:
@@ -7,12 +8,16 @@ on:
       - master
     tags:
       - "v*"
+  # For internal devs.
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
+  # For external devs. Workflow file edits won't take effect in the PR.
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
 
 concurrency:
+  # On master (handled by push event) the group id is the unique run_id so we get parallel runs.
+  # On PR's the group id is the ref_name so only 1 can run at a time.
   group: ci3-${{ github.event_name == 'push' && github.run_id || github.ref_name }}
   cancel-in-progress: true
 
