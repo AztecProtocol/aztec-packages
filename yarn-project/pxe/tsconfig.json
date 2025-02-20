@@ -43,9 +43,6 @@
       "path": "../simulator"
     },
     {
-      "path": "../types"
-    },
-    {
       "path": "../noir-contracts.js"
     }
   ],
