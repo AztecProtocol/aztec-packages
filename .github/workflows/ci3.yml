@@ -14,13 +14,9 @@ on:
 
 concurrency:
   # On master or workflow_dispatch (checked via event_name) the group id is the unique run_id so we get parallel runs.
-  # On PR's the group id is the ref_name so only 1 can run at a time. Include the repo in case it is an external PR.
+  # On PR's the group id is the ref_name so only 1 can run at a time.
   group: |
-    ci3-${{
-      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
-      github.run_id ||
-      github.head_ref
-    }}
+    ci3-${{(github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.run_id || github.head_ref }}
   cancel-in-progress: true
 
 jobs:
