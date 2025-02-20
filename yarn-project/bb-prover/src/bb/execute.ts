@@ -323,7 +323,7 @@ export async function generateTubeProof(
     const logFunction = (message: string) => {
       log(`TubeCircuit (prove) BB out - ${message}`);
     };
-    const result = await executeBB(pathToBB, 'OLD_API prove_tube', args, logFunction);
+    const result = await executeBB(pathToBB, 'prove_tube', args, logFunction);
     const durationMs = timer.ms();
 
     if (result.status == BB_RESULT.SUCCESS) {
