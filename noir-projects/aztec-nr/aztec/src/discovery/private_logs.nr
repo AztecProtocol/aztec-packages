@@ -1,6 +1,6 @@
 use std::static_assert;
 
-use crate::{oracle::note_discovery::{deliver_note, sync_notes}, pxe_db::DBArray, utils::array};
+use crate::{oracle::note_discovery::{deliver_note, sync_notes}, capsules::CapsuleArray, utils::array};
 
 use dep::protocol_types::{
     address::AztecAddress,
@@ -14,7 +14,7 @@ use crate::discovery::{
     nonce_discovery::{attempt_note_nonce_discovery, DiscoveredNoteInfo},
     NOTE_PRIVATE_LOG_RESERVED_FIELDS,
     partial_notes::{
-        DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_DB_SLOT, DeliveredPendingPartialNote,
+        DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT, DeliveredPendingPartialNote,
     },
 };
 
@@ -25,8 +25,8 @@ pub global MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN: u32 =
     MAX_NOTE_PACKED_LEN - PARTIAL_NOTE_COMPLETION_LOG_TAG_LEN;
 
 /// Searches for private logs that signal new private notes that are then delivered to PXE, or new partial notes that
-/// are stored in the PXE DB so that `fetch_and_process_public_partial_note_completion_logs` can later search for public
-/// logs that will complete them.
+/// are stored in the PXE capsules so that `fetch_and_process_public_partial_note_completion_logs` can later search for
+/// public logs that will complete them.
 pub unconstrained fn fetch_and_process_private_tagged_logs<Env>(
     _contract_address: AztecAddress,
     _compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
@@ -185,9 +185,9 @@ unconstrained fn process_partial_note_private_log(
         recipient,
     };
 
-    DBArray::at(
+    CapsuleArray::at(
         contract_address,
-        DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_DB_SLOT,
+        DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT,
     )
         .push(pending);
 }

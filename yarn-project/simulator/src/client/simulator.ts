@@ -190,14 +190,15 @@ export class AcirSimulator {
       );
     }
 
-    const maxNoteFields = (artifact.parameters[artifact.parameters.length - 1].type as ArrayType).length;
+    const MAX_NOTE_PACKED_LEN = 16;
+    const maxNoteFields = MAX_NOTE_PACKED_LEN;
     if (maxNoteFields < note.items.length) {
       throw new Error(
         `The note being processed has ${note.items.length} fields, while "compute_note_hash_and_optionally_a_nullifier" can only handle a maximum of ${maxNoteFields} fields. Please reduce the number of fields in your note.`,
       );
     }
 
-    const extendedNoteItems = note.items.concat(Array(maxNoteFields - note.items.length).fill(Fr.ZERO));
+    const noteItemsBoundedVec = { len: note.items.length, storage: note.items.concat(Array(maxNoteFields - note.items.length).fill(Fr.ZERO)) };
     const selector = await FunctionSelector.fromNameAndParameters(artifact);
     const execRequest: FunctionCall = {
       name: artifact.name,
@@ -205,7 +206,7 @@ export class AcirSimulator {
       selector,
       type: FunctionType.UNCONSTRAINED,
       isStatic: artifact.isStatic,
-      args: encodeArguments(artifact, [contractAddress, nonce, storageSlot, noteTypeId, true, extendedNoteItems]),
+      args: encodeArguments(artifact, [contractAddress, nonce, storageSlot, noteTypeId, true, noteItemsBoundedVec]),
       returnTypes: artifact.returnTypes,
     };
 

@@ -178,7 +178,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_optionally_a_
                             f"Expected packed note of length {expected_len} but got {actual_len} for note type id {note_type_id}"
                         );
 
-                        aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($unpack, contract_address, nonce, true, storage_slot, packed_note.storage())
+                        aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($unpack, contract_address, nonce, storage_slot, compute_nullifier, packed_note.storage())
                     }
                 },
             );
@@ -240,8 +240,7 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
                 compute_nullifier: bool,
                 packed_note: BoundedVec<Field, aztec::discovery::MAX_NOTE_PACKED_LEN>,
             ) -> pub [Field; 4] {
-                _compute_note_hash_and_optionally_a_nullifier(contract_address, nonce, storage_slot, note_type_id, compute_nullifier, )
-
+                _compute_note_hash_and_optionally_a_nullifier(contract_address, nonce, storage_slot, note_type_id, compute_nullifier, packed_note)
             }
         }
     } else {
@@ -284,6 +283,9 @@ comptime fn generate_process_log() -> Quoted {
                 // be modified by the macros that alter unconstrained functions. As such, we need to manually inject the
                 // unconstrained execution context since it will not be available otherwise.
                 let context = dep::aztec::context::unconstrained_context::UnconstrainedContext::new();
+
+                // TODO(#10727): allow other contracts to process logs and deliver notes
+                let contract_address = context.this_address();
 
                 aztec::discovery::private_logs::do_process_log(
                     contract_address,

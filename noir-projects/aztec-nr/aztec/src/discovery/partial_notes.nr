@@ -5,7 +5,7 @@ use crate::{
         private_logs::MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN,
     },
     oracle::note_discovery::{deliver_note, get_log_by_tag},
-    pxe_db::DBArray,
+    capsules::CapsuleArray,
     utils::array,
 };
 
@@ -16,9 +16,9 @@ use dep::protocol_types::{
     traits::{Deserialize, Serialize, ToField},
 };
 
-/// The slot in the PXE DB where we store a `DBArray` of `DeliveredPendingPartialNote`.
+/// The slot in the PXE capsules where we store a `CapsuleArray` of `DeliveredPendingPartialNote`.
 // TODO(#11630): come up with some sort of slot allocation scheme.
-pub global DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_DB_SLOT: Field = 77;
+pub global DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT: Field = 77;
 
 /// Public logs contain an extra field at the beginning with the address of the contract that emitted them, and partial
 /// notes emit their completion tag in the log, resulting in the first two fields in the public log not being part of
@@ -48,9 +48,9 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
     contract_address: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
 ) {
-    let pending_partial_notes = DBArray::at(
+    let pending_partial_notes = CapsuleArray::at(
         contract_address,
-        DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_DB_SLOT,
+        DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT,
     );
 
     debug_log_format(
