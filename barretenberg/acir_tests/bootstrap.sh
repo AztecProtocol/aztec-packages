@@ -134,10 +134,20 @@ function test_cmds_internal {
   echo FLOW=prove_then_verify_client_ivc $run_test databus
   echo FLOW=prove_then_verify_client_ivc $run_test databus_two_calldata
 }
+function ultra_honk_wasm_memory {
+    VERBOSE=1 BIN=../ts/dest/node/main.js SYS=ultra_honk FLOW=prove_then_verify ./run_test.sh verify_honk_proof > ./bench-out/ultra_honk_rec_verifier_memory.txt
+  }
 
 function bench {
   # TODO: Move to scripts dir along with run_test.sh.
   LOG_FILE=bench-acir.jsonl ./bench_acir_tests.sh
+
+  rm -rf bench-out && mkdir -p bench-out
+  export -f ultra_honk_wasm_memory
+  local num_cpus=$(get_num_cpus)
+  local jobs=$((num_cpus / HARDWARE_CONCURRENCY))
+  parallel -v --line-buffer --tag --jobs "$jobs" run_benchmark {#} {} ::: \
+    ultra_honk_wasm_memory
 }
 
 case "$cmd" in
