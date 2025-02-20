@@ -1,6 +1,3 @@
-import { Fr } from '@aztec/foundation/fields';
-import { BufferReader } from '@aztec/foundation/serialize';
-
 import { type UInt32 } from '../../types/shared.js';
 
 export class ScheduledDelayChange {

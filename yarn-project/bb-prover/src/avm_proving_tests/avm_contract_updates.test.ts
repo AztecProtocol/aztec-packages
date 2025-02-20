@@ -1,13 +1,10 @@
 import { type ContractInstanceWithAddress } from '@aztec/circuits.js';
-import { deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
 import {
   ScheduledDelayChange,
   ScheduledValueChange,
-  computeSharedMutableHashSlot,
+  SharedMutableValuesWithHash,
 } from '@aztec/circuits.js/shared-mutable';
-import { UPDATED_CLASS_IDS_SLOT, UPDATES_SCHEDULED_VALUE_CHANGE_LEN } from '@aztec/constants';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';

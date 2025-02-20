@@ -58,7 +58,6 @@ import {
   MAX_PRIVATE_LOGS_PER_TX,
   type NOTE_HASH_TREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
-  UPDATES_SCHEDULED_VALUE_CHANGE_LEN,
 } from '@aztec/constants';
 import { assertLength, mapTuple } from '@aztec/foundation/serialize';
 

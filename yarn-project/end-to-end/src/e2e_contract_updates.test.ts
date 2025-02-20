@@ -5,7 +5,8 @@ import { type AztecAddress, deriveSigningKey, getContractInstanceFromDeployParam
 import { computePublicDataTreeLeafSlot, deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
 import {
   ScheduledDelayChange,
-  ScheduledValueChange
+  ScheduledValueChange,
+  SharedMutableValuesWithHash,
 } from '@aztec/circuits.js/shared-mutable';
 import { PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { MINIMUM_UPDATE_DELAY, UPDATED_CLASS_IDS_SLOT } from '@aztec/constants';

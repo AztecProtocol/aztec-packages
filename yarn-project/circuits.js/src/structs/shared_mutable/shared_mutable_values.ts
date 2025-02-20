@@ -1,8 +1,8 @@
+import { UPDATES_VALUE_SIZE } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { UPDATES_VALUE_SIZE } from '../../constants.gen.js';
 import { ScheduledDelayChange } from './scheduled_delay_change.js';
 import { ScheduledValueChange } from './scheduled_value_change.js';
 
