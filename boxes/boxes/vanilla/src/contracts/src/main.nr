@@ -7,7 +7,7 @@ contract Vanilla {
         macros::{functions::{initializer, private}, storage::storage},
         prelude::{AztecAddress, Map, NoteInterface, PrivateMutable},
     };
-    use dep::value_note::value_note::{VALUE_NOTE_LEN, ValueNote};
+    use dep::value_note::value_note::ValueNote;
 
     #[storage]
     struct Storage<Context> {
