@@ -4,6 +4,7 @@ import {
   Note,
   PublicExecutionRequest,
   TxExecutionRequest,
+  type TxScopedL2Log,
 } from '@aztec/circuit-types';
 import {
   type AztecNode,
@@ -302,6 +303,9 @@ describe('Private Execution test suite', () => {
       }
       return Promise.resolve(artifact);
     });
+
+    oracle.syncTaggedLogs.mockImplementation((_, __, ___) => Promise.resolve(new Map<string, TxScopedL2Log[]>()));
+    oracle.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
     node = mock<AztecNode>();
     node.getPublicStorageAt.mockImplementation(

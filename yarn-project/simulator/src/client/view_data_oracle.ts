@@ -15,6 +15,7 @@ import {
 } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { siloNullifier } from '@aztec/circuits.js/hash';
+import { LogWithTxData } from '@aztec/circuits.js/logs';
 import { Aes128 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
@@ -319,6 +320,10 @@ export class ViewDataOracle extends TypedOracle {
     }
 
     await this.db.deliverNote(contractAddress, storageSlot, nonce, content, noteHash, nullifier, txHash, recipient);
+  }
+
+  public override getLogByTag(tag: Fr): Promise<LogWithTxData | null> {
+    return this.db.getLogByTag(tag);
   }
 
   public override storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {

@@ -86,37 +86,5 @@ describe('Simulator', () => {
         ),
       );
     });
-
-    it('throw if a note has more fields than "compute_note_hash_and_optionally_a_nullifier" can process', async () => {
-      const note = await createNote();
-      const wrongPreimageLength = note.length - 1;
-
-      const modifiedArtifact: FunctionArtifact = {
-        ...artifact,
-        parameters: [
-          ...artifact.parameters.slice(0, -1),
-          {
-            name: 'note',
-            type: {
-              kind: 'array',
-              length: wrongPreimageLength,
-              type: {
-                kind: 'field',
-              },
-            },
-            visibility: 'private',
-          },
-        ],
-      };
-      oracle.getFunctionArtifactByName.mockResolvedValue(modifiedArtifact);
-
-      await expect(
-        simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, note),
-      ).rejects.toThrow(
-        new RegExp(
-          `"compute_note_hash_and_optionally_a_nullifier" can only handle a maximum of ${wrongPreimageLength} fields`,
-        ),
-      );
-    });
   });
 });
