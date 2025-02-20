@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {DecoderBase} from "../decoders/Base.sol";
+import {DecoderBase} from "../base/DecoderBase.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
@@ -13,7 +13,6 @@ import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {Rollup, Config} from "@aztec/core/Rollup.sol";
-import {ValidatorSelection} from "@aztec/core/ValidatorSelection.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
@@ -69,20 +68,10 @@ contract ValidatorSelectionTest is DecoderBase {
   modifier setup(uint256 _validatorCount) {
     string memory _name = "mixed_block_1";
     {
-      ValidatorSelection validatorSelection = new ValidatorSelection(
-        testERC20,
-        TestConstants.AZTEC_MINIMUM_STAKE,
-        TestConstants.AZTEC_SLASHING_QUORUM,
-        TestConstants.AZTEC_SLASHING_ROUND_SIZE,
-        TestConstants.AZTEC_SLOT_DURATION,
-        TestConstants.AZTEC_EPOCH_DURATION,
-        TestConstants.AZTEC_TARGET_COMMITTEE_SIZE
-      );
-
       DecoderBase.Full memory full = load(_name);
       uint256 slotNumber = full.block.decodedHeader.globalVariables.slotNumber;
       uint256 initialTime = full.block.decodedHeader.globalVariables.timestamp
-        - slotNumber * validatorSelection.getSlotDuration();
+        - slotNumber * TestConstants.AZTEC_SLOT_DURATION;
       vm.warp(initialTime);
     }
 
@@ -115,12 +104,14 @@ contract ValidatorSelectionTest is DecoderBase {
       _stakingAsset: testERC20,
       _vkTreeRoot: bytes32(0),
       _protocolContractTreeRoot: bytes32(0),
+      _genesisArchiveRoot: bytes32(Constants.GENESIS_ARCHIVE_ROOT),
+      _genesisBlockHash: bytes32(Constants.GENESIS_BLOCK_HASH),
       _ares: address(this),
       _config: Config({
         aztecSlotDuration: TestConstants.AZTEC_SLOT_DURATION,
         aztecEpochDuration: TestConstants.AZTEC_EPOCH_DURATION,
         targetCommitteeSize: TestConstants.AZTEC_TARGET_COMMITTEE_SIZE,
-        aztecEpochProofClaimWindowInL2Slots: TestConstants.AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS,
+        aztecProofSubmissionWindow: TestConstants.AZTEC_PROOF_SUBMISSION_WINDOW,
         minimumStake: TestConstants.AZTEC_MINIMUM_STAKE,
         slashingQuorum: TestConstants.AZTEC_SLASHING_QUORUM,
         slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE
@@ -187,14 +178,14 @@ contract ValidatorSelectionTest is DecoderBase {
   }
 
   function testValidatorSetLargerThanCommittee(bool _insufficientSigs) public setup(100) {
-    assertGt(rollup.getAttesters().length, rollup.TARGET_COMMITTEE_SIZE(), "Not enough validators");
-    uint256 committeeSize = rollup.TARGET_COMMITTEE_SIZE() * 2 / 3 + (_insufficientSigs ? 0 : 1);
+    assertGt(rollup.getAttesters().length, rollup.getTargetCommitteeSize(), "Not enough validators");
+    uint256 committeeSize = rollup.getTargetCommitteeSize() * 2 / 3 + (_insufficientSigs ? 0 : 1);
 
     _testBlock("mixed_block_1", _insufficientSigs, committeeSize, false);
 
     assertEq(
       rollup.getEpochCommittee(rollup.getCurrentEpoch()).length,
-      rollup.TARGET_COMMITTEE_SIZE(),
+      rollup.getTargetCommitteeSize(),
       "Invalid committee size"
     );
   }
@@ -278,7 +269,7 @@ contract ValidatorSelectionTest is DecoderBase {
       header: header,
       archive: full.block.archive,
       blockHash: bytes32(0),
-      oracleInput: OracleInput(0, 0),
+      oracleInput: OracleInput(0),
       txHashes: txHashes
     });
 

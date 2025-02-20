@@ -24,10 +24,6 @@ use acvm::{acir::AcirField, FieldElement};
 use im::HashSet;
 
 use crate::{
-    brillig::{
-        brillig_gen::{brillig_globals::convert_ssa_globals, convert_ssa_function},
-        brillig_ir::brillig_variable::BrilligVariable,
-    },
     errors::RuntimeError,
     ssa::{
         ir::{
@@ -60,8 +56,6 @@ impl Ssa {
         mut self,
         max_bytecode_increase_percent: Option<i32>,
     ) -> Result<Ssa, RuntimeError> {
-        let mut global_cache = None;
-
         for function in self.functions.values_mut() {
             let is_brillig = function.runtime().is_brillig();
 
@@ -78,19 +72,9 @@ impl Ssa {
             // to the globals and a mutable reference to the function at the same time, both part of the `Ssa`.
             if has_unrolled && is_brillig {
                 if let Some(max_incr_pct) = max_bytecode_increase_percent {
-                    if global_cache.is_none() {
-                        let globals = (*function.dfg.globals).clone();
-                        // DIE is run at the end of our SSA optimizations, so we mark all globals as in use here.
-                        let used_globals = &globals.values_iter().map(|(id, _)| id).collect();
-                        let (_, brillig_globals, _) =
-                            convert_ssa_globals(false, globals, used_globals);
-                        global_cache = Some(brillig_globals);
-                    }
-                    let brillig_globals = global_cache.as_ref().unwrap();
-
                     let orig_function = orig_function.expect("took snapshot to compare");
-                    let new_size = brillig_bytecode_size(function, brillig_globals);
-                    let orig_size = brillig_bytecode_size(&orig_function, brillig_globals);
+                    let new_size = function.num_instructions();
+                    let orig_size = orig_function.num_instructions();
                     if !is_new_size_ok(orig_size, new_size, max_incr_pct) {
                         *function = orig_function;
                     }
@@ -315,9 +299,8 @@ impl Loop {
     fn get_const_lower_bound(
         &self,
         function: &Function,
-        cfg: &ControlFlowGraph,
+        pre_header: BasicBlockId,
     ) -> Option<FieldElement> {
-        let pre_header = self.get_pre_header(function, cfg).ok()?;
         let jump_value = get_induction_variable(function, pre_header).ok()?;
         function.dfg.get_numeric_constant(jump_value)
     }
@@ -336,7 +319,7 @@ impl Loop {
     ///     v5 = lt v1, u32 4           // Upper bound
     ///     jmpif v5 then: b3, else: b2
     /// ```
-    pub(super) fn get_const_upper_bound(&self, function: &Function) -> Option<FieldElement> {
+    fn get_const_upper_bound(&self, function: &Function) -> Option<FieldElement> {
         let block = &function.dfg[self.header];
         let instructions = block.instructions();
         if instructions.is_empty() {
@@ -367,12 +350,12 @@ impl Loop {
     }
 
     /// Get the lower and upper bounds of the loop if both are constant numeric values.
-    fn get_const_bounds(
+    pub(super) fn get_const_bounds(
         &self,
         function: &Function,
-        cfg: &ControlFlowGraph,
+        pre_header: BasicBlockId,
     ) -> Option<(FieldElement, FieldElement)> {
-        let lower = self.get_const_lower_bound(function, cfg)?;
+        let lower = self.get_const_lower_bound(function, pre_header)?;
         let upper = self.get_const_upper_bound(function)?;
         Some((lower, upper))
     }
@@ -681,7 +664,8 @@ impl Loop {
         function: &Function,
         cfg: &ControlFlowGraph,
     ) -> Option<BoilerplateStats> {
-        let (lower, upper) = self.get_const_bounds(function, cfg)?;
+        let pre_header = self.get_pre_header(function, cfg).ok()?;
+        let (lower, upper) = self.get_const_bounds(function, pre_header)?;
         let lower = lower.try_to_u64()?;
         let upper = upper.try_to_u64()?;
         let refs = self.find_pre_header_reference_values(function, cfg)?;
@@ -1021,25 +1005,6 @@ fn simplify_between_unrolls(function: &mut Function) {
     function.mem2reg();
 }
 
-/// Convert the function to Brillig bytecode and return the resulting size.
-fn brillig_bytecode_size(
-    function: &Function,
-    globals: &HashMap<ValueId, BrilligVariable>,
-) -> usize {
-    // We need to do some SSA passes in order for the conversion to be able to go ahead,
-    // otherwise we can hit `unreachable!()` instructions in `convert_ssa_instruction`.
-    // Creating a clone so as not to modify the originals.
-    let mut temp = function.clone();
-
-    // Might as well give it the best chance.
-    simplify_between_unrolls(&mut temp);
-
-    // This is to try to prevent hitting ICE.
-    temp.dead_instruction_elimination(false, true);
-
-    convert_ssa_function(&temp, false, globals).byte_code.len()
-}
-
 /// Decide if the new bytecode size is acceptable, compared to the original.
 ///
 /// The maximum increase can be expressed as a negative value if we demand a decrease.
@@ -1178,9 +1143,11 @@ mod tests {
         let loops = Loops::find_all(function);
         assert_eq!(loops.yet_to_unroll.len(), 1);
 
-        let (lower, upper) = loops.yet_to_unroll[0]
-            .get_const_bounds(function, &loops.cfg)
-            .expect("bounds are numeric const");
+        let loop_ = &loops.yet_to_unroll[0];
+        let pre_header =
+            loop_.get_pre_header(function, &loops.cfg).expect("Should have a pre_header");
+        let (lower, upper) =
+            loop_.get_const_bounds(function, pre_header).expect("bounds are numeric const");
 
         assert_eq!(lower, FieldElement::from(0u32));
         assert_eq!(upper, FieldElement::from(4u32));
@@ -1308,7 +1275,7 @@ mod tests {
             jmp b1()
           b1():
             v20 = load v3 -> [u64; 6]
-            dec_rc v0
+            dec_rc v0 v0
             return v20
         }
         ";
@@ -1484,7 +1451,7 @@ mod tests {
             jmp b1(v16)
           b2():
             v8 = load v4 -> [u64; 6]
-            dec_rc v0
+            dec_rc v0 v0
             return v8
         }}
         "

@@ -29,13 +29,8 @@ export enum GossipSubEvent {
 /***************************************************
  *                    Types
  ***************************************************/
+
 /**
  * Aztec network specific types
  */
-export const AZTEC_ENR_KEY = 'aztec_network';
-
-export enum AztecENR {
-  'devnet' = 0x01,
-  'ignition-testnet' = 0x02,
-  'alpha-testnet' = 0x03,
-}
+export const AZTEC_ENR_KEY = 'aztec';

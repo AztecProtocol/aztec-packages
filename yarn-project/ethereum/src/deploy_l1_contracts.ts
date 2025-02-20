@@ -40,15 +40,10 @@ import type { Abi, Narrow } from 'abitype';
 import {
   type Account,
   type Chain,
-  type Client,
   type Hex,
   type HttpTransport,
-  type PublicActions,
   type PublicClient,
-  type PublicRpcSchema,
-  type WalletActions,
   type WalletClient,
-  type WalletRpcSchema,
   concatHex,
   createPublicClient,
   createWalletClient,
@@ -67,7 +62,8 @@ import { foundry } from 'viem/chains';
 import { isAnvilTestChain } from './chain.js';
 import { type L1ContractsConfig } from './config.js';
 import { type L1ContractAddresses } from './l1_contract_addresses.js';
-import { L1TxUtils } from './l1_tx_utils.js';
+import { L1TxUtils, type L1TxUtilsConfig, defaultL1TxUtilsConfig } from './l1_tx_utils.js';
+import type { L1Clients } from './types.js';
 
 export const DEPLOYER_ADDRESS: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
 
@@ -196,24 +192,19 @@ export interface DeployL1ContractsArgs extends L1ContractsConfig {
   vkTreeRoot: Fr;
   /** The protocol contract tree root. */
   protocolContractTreeRoot: Fr;
+  /** The genesis root of the archive tree. */
+  genesisArchiveRoot: Fr;
+  /** The hash of the genesis block header. */
+  genesisBlockHash: Fr;
   /** The block number to assume proven through. */
   assumeProvenThrough?: number;
   /** The salt for CREATE2 deployment. */
   salt: number | undefined;
   /** The initial validators for the rollup contract. */
   initialValidators?: EthAddress[];
+  /** Configuration for the L1 tx utils module. */
+  l1TxConfig?: Partial<L1TxUtilsConfig>;
 }
-
-export type L1Clients = {
-  publicClient: PublicClient<HttpTransport, Chain>;
-  walletClient: Client<
-    HttpTransport,
-    Chain,
-    PrivateKeyAccount,
-    [...WalletRpcSchema, ...PublicRpcSchema],
-    PublicActions<HttpTransport, Chain> & WalletActions<Chain, PrivateKeyAccount>
-  >;
-};
 
 /**
  * Creates a wallet and a public viem client for interacting with L1.
@@ -270,6 +261,7 @@ export const deployL1Contracts = async (
   chain: Chain,
   logger: Logger,
   args: DeployL1ContractsArgs,
+  txUtilsConfig: L1TxUtilsConfig = defaultL1TxUtilsConfig,
 ): Promise<DeployL1Contracts> => {
   // We are assuming that you are running this on a local anvil node which have 1s block times
   // To align better with actual deployment, we update the block interval to 12s
@@ -296,7 +288,7 @@ export const deployL1Contracts = async (
   const walletClient = createWalletClient({ account, chain, transport: http(rpcUrl) });
   const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
   // Governance stuff
-  const govDeployer = new L1Deployer(walletClient, publicClient, args.salt, logger);
+  const govDeployer = new L1Deployer(walletClient, publicClient, args.salt, logger, txUtilsConfig);
 
   const registryAddress = await govDeployer.deploy(l1Artifacts.registry, [account.address.toString()]);
   logger.verbose(`Deployed Registry at ${registryAddress}`);
@@ -348,7 +340,7 @@ export const deployL1Contracts = async (
   await govDeployer.waitForDeployments();
   logger.verbose(`All governance contracts deployed`);
 
-  const deployer = new L1Deployer(walletClient, publicClient, args.salt, logger);
+  const deployer = new L1Deployer(walletClient, publicClient, args.salt, logger, args.l1TxConfig ?? {});
 
   const feeJuicePortalAddress = await deployer.deploy(l1Artifacts.feeJuicePortal, [
     registryAddress.toString(),
@@ -361,17 +353,20 @@ export const deployL1Contracts = async (
     aztecSlotDuration: args.aztecSlotDuration,
     aztecEpochDuration: args.aztecEpochDuration,
     targetCommitteeSize: args.aztecTargetCommitteeSize,
-    aztecEpochProofClaimWindowInL2Slots: args.aztecEpochProofClaimWindowInL2Slots,
+    aztecProofSubmissionWindow: args.aztecProofSubmissionWindow,
     minimumStake: args.minimumStake,
     slashingQuorum: args.slashingQuorum,
     slashingRoundSize: args.slashingRoundSize,
   };
+  logger.verbose(`Rollup config args`, rollupConfigArgs);
   const rollupArgs = [
     feeJuicePortalAddress.toString(),
     rewardDistributorAddress.toString(),
     stakingAssetAddress.toString(),
     args.vkTreeRoot.toString(),
     args.protocolContractTreeRoot.toString(),
+    args.genesisArchiveRoot.toString(),
+    args.genesisBlockHash.toString(),
     account.address.toString(),
     rollupConfigArgs,
   ];
@@ -579,13 +574,16 @@ export const deployL1Contracts = async (
 class L1Deployer {
   private salt: Hex | undefined;
   private txHashes: Hex[] = [];
+  private l1TxUtils: L1TxUtils;
   constructor(
     private walletClient: WalletClient<HttpTransport, Chain, Account>,
     private publicClient: PublicClient<HttpTransport, Chain>,
     maybeSalt: number | undefined,
     private logger: Logger,
+    private txUtilsConfig?: L1TxUtilsConfig,
   ) {
     this.salt = maybeSalt ? padHex(numberToHex(maybeSalt), { size: 32 }) : undefined;
+    this.l1TxUtils = new L1TxUtils(this.publicClient, this.walletClient, this.logger, this.txUtilsConfig);
   }
 
   async deploy(params: ContractArtifacts, args: readonly unknown[] = []): Promise<EthAddress> {
@@ -598,6 +596,7 @@ class L1Deployer {
       this.salt,
       params.libraries,
       this.logger,
+      this.l1TxUtils,
     );
     if (txHash) {
       this.txHashes.push(txHash);
@@ -630,11 +629,15 @@ export async function deployL1Contract(
   maybeSalt?: Hex,
   libraries?: Libraries,
   logger?: Logger,
+  _l1TxUtils?: L1TxUtils,
 ): Promise<{ address: EthAddress; txHash: Hex | undefined }> {
   let txHash: Hex | undefined = undefined;
   let resultingAddress: Hex | null | undefined = undefined;
+  let l1TxUtils: L1TxUtils | undefined = _l1TxUtils;
 
-  const l1TxUtils = new L1TxUtils(publicClient, walletClient, logger);
+  if (!l1TxUtils) {
+    l1TxUtils = new L1TxUtils(publicClient, walletClient, logger);
+  }
 
   if (libraries) {
     // Note that this does NOT work well for linked libraries having linked libraries.
@@ -649,11 +652,11 @@ export async function deployL1Contract(
     }
 
     const replacements: Record<string, EthAddress> = {};
-
+    const libraryTxs: Hex[] = [];
     for (const libraryName in libraries?.libraryCode) {
       const lib = libraries.libraryCode[libraryName];
 
-      const { address } = await deployL1Contract(
+      const { address, txHash } = await deployL1Contract(
         walletClient,
         publicClient,
         lib.contractAbi,
@@ -662,7 +665,12 @@ export async function deployL1Contract(
         maybeSalt,
         undefined,
         logger,
+        l1TxUtils,
       );
+
+      if (txHash) {
+        libraryTxs.push(txHash);
+      }
 
       for (const linkRef in libraries.linkReferences) {
         for (const contractName in libraries.linkReferences[linkRef]) {
@@ -688,6 +696,13 @@ export async function deployL1Contract(
     for (const toReplace in replacements) {
       const replacement = replacements[toReplace].toString().slice(2);
       bytecode = bytecode.replace(new RegExp(escapeRegExp(toReplace), 'g'), replacement) as Hex;
+    }
+
+    // Reth fails gas estimation if the deployed contract attempts to call a library that is not yet deployed,
+    // so we wait for all library deployments to be mined before deploying the contract.
+    if (libraryTxs.length > 0) {
+      logger?.verbose(`Awaiting for linked libraries to be deployed`);
+      await Promise.all(libraryTxs.map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })));
     }
   }
 

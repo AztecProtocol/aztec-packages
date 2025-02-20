@@ -1,5 +1,6 @@
 use std::{
     fmt::{self, Debug, Formatter},
+    str::FromStr,
     sync::Arc,
 };
 
@@ -31,10 +32,18 @@ mod lexer;
 mod tests;
 mod token;
 
+impl FromStr for Ssa {
+    type Err = SsaErrorWithSource;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::from_str_impl(s, false)
+    }
+}
+
 impl Ssa {
     /// Creates an Ssa object from the given string.
     pub(crate) fn from_str(src: &str) -> Result<Ssa, SsaErrorWithSource> {
-        Self::from_str_impl(src, false)
+        FromStr::from_str(src)
     }
 
     /// Creates an Ssa object from the given string but trying to simplify
@@ -182,6 +191,10 @@ impl<'a> Parser<'a> {
 
     fn parse_function(&mut self) -> ParseResult<ParsedFunction> {
         let runtime_type = self.parse_runtime_type()?;
+
+        // Ignore function purity if it is in the input
+        self.eat_identifier().ok();
+
         self.eat_or_error(Token::Keyword(Keyword::Fn))?;
 
         let external_name = self.eat_ident_or_error()?;
@@ -383,7 +396,8 @@ impl<'a> Parser<'a> {
         }
 
         let value = self.parse_value_or_error()?;
-        Ok(Some(ParsedInstruction::DecrementRc { value }))
+        let original = self.parse_value_or_error()?;
+        Ok(Some(ParsedInstruction::DecrementRc { value, original }))
     }
 
     fn parse_enable_side_effects(&mut self) -> ParseResult<Option<ParsedInstruction>> {

@@ -1,4 +1,4 @@
-import { BatchCall, Fr, type Logger, type PXE, SignerlessWallet, type Wallet } from '@aztec/aztec.js';
+import { BatchCall, Fr, type Logger, type Wallet } from '@aztec/aztec.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
@@ -8,50 +8,41 @@ import { DeployTest, type StatefulContractCtorArgs } from './deploy_test.js';
 describe('e2e_deploy_contract private initialization', () => {
   const t = new DeployTest('private initialization');
 
-  let pxe: PXE;
   let logger: Logger;
   let wallet: Wallet;
 
   beforeAll(async () => {
-    ({ pxe, logger, wallet } = await t.setup());
+    ({ logger, wallet } = await t.setup());
   });
 
   afterAll(() => t.teardown());
 
   // Tests calling a private function in an uninitialized and undeployed contract. Note that
   // it still requires registering the contract artifact and instance locally in the pxe.
-  test.each(['as entrypoint', 'from an account contract'] as const)(
-    'executes a function in an undeployed contract %s',
-    async kind => {
-      const testWallet = kind === 'as entrypoint' ? new SignerlessWallet(pxe) : wallet;
-      const contract = await t.registerContract(testWallet, TestContract);
-      const receipt = await contract.methods.emit_nullifier(10).send().wait({ debug: true });
-      const expected = await siloNullifier(contract.address, new Fr(10));
-      expect(receipt.debugInfo?.nullifiers).toContainEqual(expected);
-    },
-  );
+  it('executes a function in an undeployed contract from an account contract', async () => {
+    const contract = await t.registerContract(wallet, TestContract);
+    const receipt = await contract.methods.emit_nullifier(10).send().wait({ debug: true });
+    const expected = await siloNullifier(contract.address, new Fr(10));
+    expect(receipt.debugInfo?.nullifiers).toContainEqual(expected);
+  });
 
   // Tests privately initializing an undeployed contract. Also requires pxe registration in advance.
-  test.each(['as entrypoint', 'from an account contract'] as const)(
-    'privately initializes an undeployed contract %s',
-    async kind => {
-      const testWallet = kind === 'as entrypoint' ? new SignerlessWallet(pxe) : wallet;
-      const owner = await t.registerRandomAccount();
-      const sender = owner;
-      const initArgs: StatefulContractCtorArgs = [owner, sender, 42];
-      const contract = await t.registerContract(testWallet, StatefulTestContract, { initArgs });
-      logger.info(`Calling the constructor for ${contract.address}`);
-      await contract.methods
-        .constructor(...initArgs)
-        .send()
-        .wait();
-      logger.info(`Checking if the constructor was run for ${contract.address}`);
-      expect(await contract.methods.summed_values(owner).simulate()).toEqual(42n);
-      logger.info(`Calling a private function that requires initialization on ${contract.address}`);
-      await contract.methods.create_note(owner, sender, 10).send().wait();
-      expect(await contract.methods.summed_values(owner).simulate()).toEqual(52n);
-    },
-  );
+  it('privately initializes an undeployed contract from an account contract', async () => {
+    const owner = await t.registerRandomAccount();
+    const sender = owner;
+    const initArgs: StatefulContractCtorArgs = [owner, sender, 42];
+    const contract = await t.registerContract(wallet, StatefulTestContract, { initArgs });
+    logger.info(`Calling the constructor for ${contract.address}`);
+    await contract.methods
+      .constructor(...initArgs)
+      .send()
+      .wait();
+    logger.info(`Checking if the constructor was run for ${contract.address}`);
+    expect(await contract.methods.summed_values(owner).simulate()).toEqual(42n);
+    logger.info(`Calling a private function that requires initialization on ${contract.address}`);
+    await contract.methods.create_note(owner, sender, 10).send().wait();
+    expect(await contract.methods.summed_values(owner).simulate()).toEqual(52n);
+  });
 
   // Tests privately initializing multiple undeployed contracts on the same tx through an account contract.
   it('initializes multiple undeployed contracts in a single tx', async () => {

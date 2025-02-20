@@ -2345,7 +2345,7 @@ fn main() {
     }
 
     #[test]
-    async fn test_auto_import_suggests_private_function_if_visibile() {
+    async fn test_auto_import_suggests_private_function_if_visible() {
         let src = r#"
             mod foo {
                 fn qux() {
@@ -3094,6 +3094,7 @@ fn main() {
         assert_eq!(items.len(), 1);
 
         let item = &items[0];
+        assert_eq!(item.kind, Some(CompletionItemKind::ENUM_MEMBER));
         assert_eq!(item.label, "Variant(…)".to_string());
 
         let details = item.label_details.as_ref().unwrap();
@@ -3107,5 +3108,283 @@ fn main() {
             panic!("Expected markdown docs");
         };
         assert!(markdown.value.contains("Some docs"));
+    }
+
+    #[test]
+    async fn test_suggests_enum_variant_without_parameters() {
+        let src = r#"
+        enum Enum {
+            /// Some docs
+            Variant
+        }
+
+        fn foo() {
+            Enum::Var>|<
+        }
+        "#;
+        let items = get_completions(src).await;
+        assert_eq!(items.len(), 1);
+
+        let item = &items[0];
+        assert_eq!(item.kind, Some(CompletionItemKind::ENUM_MEMBER));
+        assert_eq!(item.label, "Variant".to_string());
+
+        let details = item.label_details.as_ref().unwrap();
+        assert_eq!(details.description, Some("Variant".to_string()));
+
+        assert_eq!(item.detail, Some("Variant".to_string()));
+        assert_eq!(item.insert_text, None);
+
+        let Documentation::MarkupContent(markdown) = item.documentation.as_ref().unwrap() else {
+            panic!("Expected markdown docs");
+        };
+        assert!(markdown.value.contains("Some docs"));
+    }
+
+    #[test]
+    async fn test_suggests_enum_type() {
+        let src = r#"
+        enum ThisIsAnEnum {
+        }
+
+        fn foo() {
+            ThisIsA>|<
+        }
+        "#;
+        let items = get_completions(src).await;
+        assert_eq!(items.len(), 1);
+
+        let item = &items[0];
+        assert_eq!(item.kind, Some(CompletionItemKind::ENUM));
+    }
+
+    #[test]
+    async fn autocompletes_via_parent_module_reexport() {
+        let src = r#"mod aztec {
+    mod deps {
+        pub mod protocol_types {
+            pub struct SomeStruct {}
+        }
+    }
+
+    pub use deps::protocol_types;
+}
+
+fn main() {
+    SomeStru>|<
+}"#;
+
+        let mut items = get_completions(src).await;
+        assert_eq!(items.len(), 1);
+
+        let item = items.remove(0);
+        assert_eq!(
+            item.label_details,
+            Some(CompletionItemLabelDetails {
+                detail: Some("(use aztec::protocol_types::SomeStruct)".to_string()),
+                description: Some("SomeStruct".to_string()),
+            })
+        );
+
+        let expected = r#"use aztec::protocol_types::SomeStruct;
+
+mod aztec {
+    mod deps {
+        pub mod protocol_types {
+            pub struct SomeStruct {}
+        }
+    }
+
+    pub use deps::protocol_types;
+}
+
+fn main() {
+    SomeStru
+}"#;
+
+        let changed =
+            apply_text_edits(&src.replace(">|<", ""), &item.additional_text_edits.unwrap());
+        assert_eq!(changed, expected);
+    }
+
+    #[test]
+    async fn autocompletes_via_renamed_parent_module_reexport() {
+        let src = r#"mod aztec {
+    mod deps {
+        pub mod protocol_types {
+            pub struct SomeStruct {}
+        }
+    }
+
+    pub use deps::protocol_types as export;
+}
+
+fn main() {
+    SomeStru>|<
+}"#;
+
+        let mut items = get_completions(src).await;
+        assert_eq!(items.len(), 1);
+
+        let item = items.remove(0);
+        assert_eq!(
+            item.label_details,
+            Some(CompletionItemLabelDetails {
+                detail: Some("(use aztec::export::SomeStruct)".to_string()),
+                description: Some("SomeStruct".to_string()),
+            })
+        );
+
+        let expected = r#"use aztec::export::SomeStruct;
+
+mod aztec {
+    mod deps {
+        pub mod protocol_types {
+            pub struct SomeStruct {}
+        }
+    }
+
+    pub use deps::protocol_types as export;
+}
+
+fn main() {
+    SomeStru
+}"#;
+
+        let changed =
+            apply_text_edits(&src.replace(">|<", ""), &item.additional_text_edits.unwrap());
+        assert_eq!(changed, expected);
+    }
+
+    #[test]
+    async fn autocompletes_nested_type_via_parent_module_reexport() {
+        let src = r#"mod aztec {
+    mod deps {
+        pub mod protocol_types {
+            pub mod nested {
+                pub struct SomeStruct {}
+            }
+        }
+    }
+
+    pub use deps::protocol_types;
+}
+
+fn main() {
+    SomeStru>|<
+}"#;
+
+        let mut items = get_completions(src).await;
+        assert_eq!(items.len(), 1);
+
+        let item = items.remove(0);
+        assert_eq!(
+            item.label_details,
+            Some(CompletionItemLabelDetails {
+                detail: Some("(use aztec::protocol_types::nested::SomeStruct)".to_string()),
+                description: Some("SomeStruct".to_string()),
+            })
+        );
+
+        let expected = r#"use aztec::protocol_types::nested::SomeStruct;
+
+mod aztec {
+    mod deps {
+        pub mod protocol_types {
+            pub mod nested {
+                pub struct SomeStruct {}
+            }
+        }
+    }
+
+    pub use deps::protocol_types;
+}
+
+fn main() {
+    SomeStru
+}"#;
+
+        let changed =
+            apply_text_edits(&src.replace(">|<", ""), &item.additional_text_edits.unwrap());
+        assert_eq!(changed, expected);
+    }
+
+    #[test]
+    async fn does_not_autocomplete_nested_type_via_parent_module_reexport_if_it_is_not_visible() {
+        let src = r#"mod aztec {
+    mod deps {
+        pub mod protocol_types {
+            pub mod nested {
+                struct SomeStruct {}
+            }
+        }
+    }
+
+    pub use deps::protocol_types;
+}
+
+fn main() {
+    SomeStru>|<
+}"#;
+
+        let items = get_completions(src).await;
+        assert_eq!(items.len(), 0);
+    }
+
+    #[test]
+    async fn autocompletes_deeply_nested_type_via_parent_module_reexport() {
+        let src = r#"mod aztec {
+    mod deps {
+        pub mod protocol_types {
+            pub mod deeply {
+                pub mod nested {
+                    pub struct SomeStruct {}
+                }
+            }
+        }
+    }
+
+    pub use deps::protocol_types;
+}
+
+fn main() {
+    SomeStru>|<
+}"#;
+
+        let mut items = get_completions(src).await;
+        assert_eq!(items.len(), 1);
+
+        let item = items.remove(0);
+        assert_eq!(
+            item.label_details,
+            Some(CompletionItemLabelDetails {
+                detail: Some("(use aztec::protocol_types::deeply::nested::SomeStruct)".to_string()),
+                description: Some("SomeStruct".to_string()),
+            })
+        );
+
+        let expected = r#"use aztec::protocol_types::deeply::nested::SomeStruct;
+
+mod aztec {
+    mod deps {
+        pub mod protocol_types {
+            pub mod deeply {
+                pub mod nested {
+                    pub struct SomeStruct {}
+                }
+            }
+        }
+    }
+
+    pub use deps::protocol_types;
+}
+
+fn main() {
+    SomeStru
+}"#;
+
+        let changed =
+            apply_text_edits(&src.replace(">|<", ""), &item.additional_text_edits.unwrap());
+        assert_eq!(changed, expected);
     }
 }

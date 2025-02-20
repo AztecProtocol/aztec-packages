@@ -3,13 +3,11 @@
 pragma solidity >=0.8.27;
 
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
-import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 import {BlockLog} from "@aztec/core/interfaces/IRollup.sol";
-import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {DataStructures} from "./../DataStructures.sol";
 import {Errors} from "./../Errors.sol";
-import {Timestamp, Slot, Epoch} from "./../TimeLib.sol";
-import {SignedEpochProofQuote} from "./EpochProofQuoteLib.sol";
+import {Timestamp, Slot} from "./../TimeLib.sol";
+import {TimeLib} from "./../TimeLib.sol";
 import {Header} from "./HeaderLib.sol";
 
 struct ValidateHeaderArgs {
@@ -21,7 +19,6 @@ struct ValidateHeaderArgs {
   DataStructures.ExecutionFlags flags;
   uint256 version;
   IFeeJuicePortal feeJuicePortal;
-  function(Slot) external view returns (Timestamp) getTimestampForSlot;
 }
 
 library ValidationLib {
@@ -56,7 +53,7 @@ library ValidationLib {
     Slot lastSlot = _blocks[_args.pendingBlockNumber].slotNumber;
     require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
 
-    Timestamp timestamp = _args.getTimestampForSlot(slot);
+    Timestamp timestamp = TimeLib.toTimestamp(slot);
     require(
       Timestamp.wrap(_args.header.globalVariables.timestamp) == timestamp,
       Errors.Rollup__InvalidTimestamp(
@@ -94,65 +91,5 @@ library ValidationLib {
         )
       );
     }
-  }
-
-  function validateEpochProofRightClaimAtTime(
-    Slot _currentSlot,
-    address _currentProposer,
-    Epoch _epochToProve,
-    uint256 _posInEpoch,
-    SignedEpochProofQuote calldata _quote,
-    bytes32 _digest,
-    DataStructures.EpochProofClaim storage _proofClaim,
-    uint256 _claimDurationInL2Slots,
-    uint256 _proofCommitmentMinBondAmountInTst,
-    IProofCommitmentEscrow _proofCommitmentEscrow
-  ) internal view {
-    SignatureLib.verify(_quote.signature, _quote.quote.prover, _digest);
-
-    require(
-      _quote.quote.validUntilSlot >= _currentSlot,
-      Errors.Rollup__QuoteExpired(_currentSlot, _quote.quote.validUntilSlot)
-    );
-
-    require(
-      _quote.quote.basisPointFee <= 10_000,
-      Errors.Rollup__InvalidBasisPointFee(_quote.quote.basisPointFee)
-    );
-
-    require(
-      _currentProposer == address(0) || _currentProposer == msg.sender,
-      Errors.ValidatorSelection__InvalidProposer(_currentProposer, msg.sender)
-    );
-
-    require(
-      _quote.quote.epochToProve == _epochToProve,
-      Errors.Rollup__NotClaimingCorrectEpoch(_epochToProve, _quote.quote.epochToProve)
-    );
-
-    require(
-      _posInEpoch < _claimDurationInL2Slots,
-      Errors.Rollup__NotInClaimPhase(_posInEpoch, _claimDurationInL2Slots)
-    );
-
-    // if the epoch to prove is not the one that has been claimed,
-    // then whatever is in the proofClaim is stale
-    require(
-      _proofClaim.epochToProve != _epochToProve || _proofClaim.proposerClaimant == address(0),
-      Errors.Rollup__ProofRightAlreadyClaimed()
-    );
-
-    require(
-      _quote.quote.bondAmount >= _proofCommitmentMinBondAmountInTst,
-      Errors.Rollup__InsufficientBondAmount(
-        _proofCommitmentMinBondAmountInTst, _quote.quote.bondAmount
-      )
-    );
-
-    uint256 availableFundsInEscrow = _proofCommitmentEscrow.deposits(_quote.quote.prover);
-    require(
-      _quote.quote.bondAmount <= availableFundsInEscrow,
-      Errors.Rollup__InsufficientFundsInEscrow(_quote.quote.bondAmount, availableFundsInEscrow)
-    );
   }
 }

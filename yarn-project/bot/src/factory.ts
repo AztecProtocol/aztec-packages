@@ -1,19 +1,25 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { getDeployedTestAccountsWallets, getInitialTestAccounts } from '@aztec/accounts/testing';
 import {
   type AccountWallet,
   BatchCall,
   type DeployMethod,
   type DeployOptions,
+  FeeJuicePaymentMethodWithClaim,
+  L1FeeJuicePortalManager,
   createLogger,
   createPXEClient,
+  retryUntil,
 } from '@aztec/aztec.js';
-import { type AztecNode, type FunctionCall, type PXE } from '@aztec/circuit-types';
-import { Fr, deriveSigningKey } from '@aztec/circuits.js';
+import { type FunctionCall } from '@aztec/circuit-types';
+import { type AztecNode, type PXE } from '@aztec/circuit-types/interfaces/client';
+import { type AztecAddress, Fr, deriveSigningKey } from '@aztec/circuits.js';
+import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
 import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { makeTracedFetch } from '@aztec/telemetry-client';
 
-import { type BotConfig, SupportedTokenContracts } from './config.js';
+import { type BotConfig, SupportedTokenContracts, getVersions } from './config.js';
 import { getBalances, getPrivateBalance, isStandardTokenContract } from './utils.js';
 
 const MINT_BALANCE = 1e12;
@@ -28,6 +34,11 @@ export class BotFactory {
     if (config.flushSetupTransactions && !dependencies.node) {
       throw new Error(`Either a node client or node url must be provided if transaction flushing is requested`);
     }
+    if (config.senderPrivateKey && !dependencies.node) {
+      throw new Error(
+        `Either a node client or node url must be provided for bridging L1 fee juice to deploy an account with private key`,
+      );
+    }
     if (!dependencies.pxe && !config.pxeUrl) {
       throw new Error(`Either a PXE client or a PXE URL must be provided`);
     }
@@ -40,7 +51,7 @@ export class BotFactory {
       return;
     }
     this.log.info(`Using remote PXE at ${config.pxeUrl!}`);
-    this.pxe = createPXEClient(config.pxeUrl!, makeTracedFetch([1, 2, 3], false));
+    this.pxe = createPXEClient(config.pxeUrl!, getVersions(), makeTracedFetch([1, 2, 3], false));
   }
 
   /**
@@ -60,17 +71,30 @@ export class BotFactory {
    * @returns The sender wallet.
    */
   private async setupAccount() {
+    if (this.config.senderPrivateKey) {
+      return await this.setupAccountWithPrivateKey(this.config.senderPrivateKey);
+    } else {
+      return await this.setupTestAccount();
+    }
+  }
+
+  private async setupAccountWithPrivateKey(privateKey: Fr) {
     const salt = Fr.ONE;
-    const signingKey = deriveSigningKey(this.config.senderPrivateKey);
-    const account = await getSchnorrAccount(this.pxe, this.config.senderPrivateKey, signingKey, salt);
+    const signingKey = deriveSigningKey(privateKey);
+    const account = await getSchnorrAccount(this.pxe, privateKey, signingKey, salt);
     const isInit = (await this.pxe.getContractMetadata(account.getAddress())).isContractInitialized;
     if (isInit) {
       this.log.info(`Account at ${account.getAddress().toString()} already initialized`);
       const wallet = await account.register();
       return wallet;
     } else {
-      this.log.info(`Initializing account at ${account.getAddress().toString()}`);
-      const sentTx = account.deploy();
+      const address = account.getAddress();
+      this.log.info(`Deploying account at ${address}`);
+
+      const claim = await this.bridgeL1FeeJuice(address, 10n ** 22n);
+
+      const paymentMethod = new FeeJuicePaymentMethodWithClaim(address, claim);
+      const sentTx = account.deploy({ fee: { paymentMethod } });
       const txHash = await sentTx.getTxHash();
       this.log.info(`Sent tx with hash ${txHash.toString()}`);
       if (this.config.flushSetupTransactions) {
@@ -79,8 +103,23 @@ export class BotFactory {
       }
       this.log.verbose('Waiting for account deployment to settle');
       await sentTx.wait({ timeout: this.config.txMinedWaitSeconds });
+      this.log.info(`Account deployed at ${address}`);
       return account.getWallet();
     }
+  }
+
+  private async setupTestAccount() {
+    let [wallet] = await getDeployedTestAccountsWallets(this.pxe);
+    if (wallet) {
+      this.log.info(`Using funded test account: ${wallet.getAddress()}`);
+    } else {
+      this.log.info('Registering funded test account');
+      const [account] = await getInitialTestAccounts();
+      const manager = await getSchnorrAccount(this.pxe, account.secret, account.signingKey, account.salt);
+      wallet = await manager.register();
+      this.log.info(`Funded test account registered: ${wallet.getAddress()}`);
+    }
+    return wallet;
   }
 
   /**
@@ -173,5 +212,38 @@ export class BotFactory {
     }
     this.log.verbose('Waiting for token mint to settle');
     await sentTx.wait({ timeout: this.config.txMinedWaitSeconds });
+  }
+
+  private async bridgeL1FeeJuice(recipient: AztecAddress, amount: bigint) {
+    const l1RpcUrl = this.config.l1RpcUrl;
+    if (!l1RpcUrl) {
+      throw new Error('L1 Rpc url is required to bridge the fee juice to fund the deployment of the account.');
+    }
+    const mnemonicOrPrivateKey = this.config.l1Mnemonic || this.config.l1PrivateKey;
+    if (!mnemonicOrPrivateKey) {
+      throw new Error(
+        'Either a mnemonic or private key of an L1 account is required to bridge the fee juice to fund the deployment of the account.',
+      );
+    }
+
+    const { l1ChainId } = await this.pxe.getNodeInfo();
+    const chain = createEthereumChain(l1RpcUrl, l1ChainId);
+    const { publicClient, walletClient } = createL1Clients(chain.rpcUrl, mnemonicOrPrivateKey, chain.chainInfo);
+
+    const portal = await L1FeeJuicePortalManager.new(this.pxe, publicClient, walletClient, this.log);
+    const claim = await portal.bridgeTokensPublic(recipient, amount, true /* mint */);
+    this.log.info('Created a claim for L1 fee juice.');
+
+    // Progress by 2 L2 blocks so that the l1ToL2Message added above will be available to use on L2.
+    await this.advanceL2Block();
+    await this.advanceL2Block();
+
+    return claim;
+  }
+
+  private async advanceL2Block() {
+    const initialBlockNumber = await this.node!.getBlockNumber();
+    await this.node!.flushTxs();
+    await retryUntil(async () => (await this.node!.getBlockNumber()) >= initialBlockNumber + 1);
   }
 }

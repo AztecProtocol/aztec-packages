@@ -15,6 +15,9 @@ namespace bb::{{snakeCase root_name}} {
 
 class {{lookup_name}}_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "{{shoutySnakeCase lookup_name}}";
+    static constexpr std::string_view RELATION_NAME = "{{relation_name}}";
+
     static constexpr size_t READ_TERMS = {{read_terms}};
     static constexpr size_t WRITE_TERMS = {{write_terms}};
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = {{read_term_types}};
@@ -83,9 +86,26 @@ class {{lookup_name}}_lookup_settings {
 
 template <typename FF_> class {{lookup_name}}_relation : public GenericLookupRelation<{{lookup_name}}_lookup_settings, FF_> {
     public:
-        static constexpr std::string_view NAME = "{{shoutySnakeCase lookup_name}}";
+        using Settings = {{lookup_name}}_lookup_settings;
+        static constexpr std::string_view NAME = {{lookup_name}}_lookup_settings::NAME;
+        static constexpr std::string_view RELATION_NAME = {{lookup_name}}_lookup_settings::RELATION_NAME;
+
+        {{! TODO: This is a safe skippable condition, but there might be a better one. --}}
+        template <typename AllEntities> inline static bool skip(const AllEntities& in)
+        {
+            return in.{{inverses_col}}.is_zero();
+        }
+
+        static std::string get_subrelation_label(size_t index) {
+            {{! from generic_lookup_relation.hpp }}
+            if (index == 0) {
+                return "INVERSES_ARE_CORRECT";
+            } else if (index == 1) {
+                return "ACCUMULATION_IS_CORRECT";
+            }
+            return std::to_string(index);
+        }
 };
-template <typename FF_> using {{lookup_name}} = GenericLookup<{{lookup_name}}_lookup_settings, FF_>;
 
 {{/with}}{{/each}}
 } // namespace bb::{{snakeCase root_name}}

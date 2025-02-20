@@ -22,6 +22,9 @@
       "path": "../circuits.js"
     },
     {
+      "path": "../constants"
+    },
+    {
       "path": "../epoch-cache"
     },
     {
@@ -37,7 +40,13 @@
       "path": "../l1-artifacts"
     },
     {
+      "path": "../noir-protocol-circuits-types"
+    },
+    {
       "path": "../p2p"
+    },
+    {
+      "path": "../protocol-contracts"
     },
     {
       "path": "../prover-client"

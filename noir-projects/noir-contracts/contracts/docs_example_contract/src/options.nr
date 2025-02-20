@@ -1,5 +1,5 @@
 use crate::types::card_note::{CARD_NOTE_LEN, CardNote};
-use dep::aztec::prelude::NoteGetterOptions;
+use dep::aztec::prelude::{NoteGetterOptions, RetrievedNote};
 
 use dep::aztec::{note::note_getter_options::SortOrder, utils::comparison::Comparator};
 use dep::aztec::protocol_types::{
@@ -37,13 +37,13 @@ pub fn create_exact_card_getter_options(
 
 // docs:start:state_vars-OptionFilter
 pub fn filter_min_points(
-    cards: [Option<CardNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    cards: [Option<RetrievedNote<CardNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     min_points: u8,
-) -> [Option<CardNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
+) -> [Option<RetrievedNote<CardNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
     let mut selected_cards = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     let mut num_selected = 0;
     for i in 0..cards.len() {
-        if cards[i].is_some() & cards[i].unwrap_unchecked().points >= min_points {
+        if cards[i].is_some() & cards[i].unwrap_unchecked().note.points >= min_points {
             selected_cards[num_selected] = cards[i];
             num_selected += 1;
         }

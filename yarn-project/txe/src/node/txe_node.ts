@@ -1,23 +1,15 @@
 import { createLogger } from '@aztec/aztec.js';
 import {
-  type AztecNode,
-  type EpochProofQuote,
   type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
   type InBlock,
   type L2Block,
   L2BlockHash,
-  type L2BlockNumber,
   type L2Tips,
   type LogFilter,
-  type MerkleTreeId,
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
-  type NullifierMembershipWitness,
-  type ProverConfig,
+  MerkleTreeId,
   type PublicDataWitness,
   type PublicSimulationOutput,
-  type SequencerConfig,
   type SiblingPath,
   type Tx,
   type TxEffect,
@@ -26,23 +18,35 @@ import {
   TxScopedL2Log,
   type TxValidationResult,
 } from '@aztec/circuit-types';
+import { type AztecNode, type L2BlockNumber } from '@aztec/circuit-types/interfaces/client';
 import {
-  type ARCHIVE_HEIGHT,
+  type MerkleTreeReadOperations,
+  type MerkleTreeWriteOperations,
+  type NullifierMembershipWitness,
+  type ProverConfig,
+  type SequencerConfig,
+} from '@aztec/circuit-types/interfaces/server';
+import {
   type AztecAddress,
   type BlockHeader,
   type ContractClassPublic,
   type ContractInstanceWithAddress,
   type GasFees,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-  type NOTE_HASH_TREE_HEIGHT,
-  type NULLIFIER_TREE_HEIGHT,
   type NodeInfo,
-  type PUBLIC_DATA_TREE_HEIGHT,
-  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
   type PrivateLog,
   type ProtocolContractAddresses,
   type PublicLog,
 } from '@aztec/circuits.js';
+import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { type PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
+import {
+  type ARCHIVE_HEIGHT,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
+  type NOTE_HASH_TREE_HEIGHT,
+  type NULLIFIER_TREE_HEIGHT,
+  type PUBLIC_DATA_TREE_HEIGHT,
+  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
+} from '@aztec/constants';
 import { type L1ContractAddresses } from '@aztec/ethereum';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
@@ -568,6 +572,10 @@ export class TXENode implements AztecNode {
     throw new Error('TXE Node method getTxByHash not implemented');
   }
 
+  getTxsByHash(_txHashes: TxHash[]): Promise<Tx[]> {
+    throw new Error('TXE Node method getTxByHash not implemented');
+  }
+
   /**
    * Gets the storage value at the given contract storage slot.
    *
@@ -579,8 +587,23 @@ export class TXENode implements AztecNode {
    * @param blockNumber - The block number at which to get the data or 'latest'.
    * @returns Storage value at the given contract slot.
    */
-  getPublicStorageAt(_contract: AztecAddress, _slot: Fr, _blockNumber: L2BlockNumber): Promise<Fr> {
-    throw new Error('TXE Node method getPublicStorageAt not implemented');
+  async getPublicStorageAt(contract: AztecAddress, slot: Fr, blockNumber: L2BlockNumber): Promise<Fr> {
+    const db: MerkleTreeReadOperations =
+      blockNumber === (await this.getBlockNumber()) || blockNumber === 'latest' || blockNumber === undefined
+        ? this.baseFork
+        : this.nativeWorldStateService.getSnapshot(blockNumber);
+
+    const leafSlot = await computePublicDataTreeLeafSlot(contract, slot);
+
+    const lowLeafResult = await db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
+    if (!lowLeafResult || !lowLeafResult.alreadyPresent) {
+      return Fr.ZERO;
+    }
+    const preimage = (await db.getLeafPreimage(
+      MerkleTreeId.PUBLIC_DATA_TREE,
+      lowLeafResult.index,
+    )) as PublicDataTreeLeafPreimage;
+    return preimage.value;
   }
 
   /**
@@ -607,7 +630,7 @@ export class TXENode implements AztecNode {
    * @param tx - The transaction to validate for correctness.
    * @param isSimulation - True if the transaction is a simulated one without generated proofs. (Optional)
    */
-  isValidTx(_tx: Tx, _isSimulation?: boolean): Promise<TxValidationResult> {
+  isValidTx(_tx: Tx): Promise<TxValidationResult> {
     throw new Error('TXE Node method isValidTx not implemented');
   }
 
@@ -645,22 +668,6 @@ export class TXENode implements AztecNode {
    */
   getEncodedEnr(): Promise<string | undefined> {
     throw new Error('TXE Node method getEncodedEnr not implemented');
-  }
-
-  /**
-   * Receives a quote for an epoch proof and stores it in its EpochProofQuotePool
-   * @param quote - The quote to store
-   */
-  addEpochProofQuote(_quote: EpochProofQuote): Promise<void> {
-    throw new Error('TXE Node method addEpochProofQuote not implemented');
-  }
-
-  /**
-   * Returns the received quotes for a given epoch
-   * @param epoch - The epoch for which to get the quotes
-   */
-  getEpochProofQuotes(_epoch: bigint): Promise<EpochProofQuote[]> {
-    throw new Error('TXE Node method getEpochProofQuotes not implemented');
   }
 
   /**

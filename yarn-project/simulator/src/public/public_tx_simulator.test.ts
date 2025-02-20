@@ -1,15 +1,14 @@
 import {
   MerkleTreeId,
-  type MerkleTreeWriteOperations,
   SimulationError,
   type Tx,
   TxExecutionPhase,
   UnencryptedFunctionL2Logs,
   UnencryptedL2Log,
-  mockTx,
 } from '@aztec/circuit-types';
+import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
+import { mockTx } from '@aztec/circuit-types/testing';
 import {
-  AppendOnlyTreeSnapshot,
   AztecAddress,
   BlockHeader,
   type ContractDataSource,
@@ -18,24 +17,23 @@ import {
   GasFees,
   GasSettings,
   GlobalVariables,
-  NULLIFIER_SUBTREE_HEIGHT,
-  PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
-  PublicDataTreeLeaf,
   PublicDataWrite,
-  REGISTERER_CONTRACT_ADDRESS,
   RevertCode,
   ScopedLogHash,
   StateReference,
   countAccumulatedItems,
 } from '@aztec/circuits.js';
+import { bufferAsFields } from '@aztec/circuits.js/abi';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { fr, makeContractClassPublic } from '@aztec/circuits.js/testing';
-import { bufferAsFields } from '@aztec/foundation/abi';
+import { AppendOnlyTreeSnapshot, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
+import { NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, REGISTERER_CONTRACT_ADDRESS } from '@aztec/constants';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import { ProtocolContractAddress, REGISTERER_CONTRACT_CLASS_REGISTERED_TAG } from '@aztec/protocol-contracts';
+import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
@@ -44,7 +42,6 @@ import { mock } from 'jest-mock-extended';
 import { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmPersistableStateManager } from '../avm/journal/journal.js';
 import { type InstructionSet } from '../avm/serialization/bytecode_serialization.js';
-import { computeFeePayerBalanceStorageSlot } from './fee_payment.js';
 import { WorldStateDB } from './public_db_sources.js';
 import { type PublicTxResult, PublicTxSimulator } from './public_tx_simulator.js';
 
@@ -243,17 +240,17 @@ describe('public_tx_simulator', () => {
 
   const createSimulator = ({
     doMerkleOperations = true,
-    enforceFeePayment = true,
+    skipFeeEnforcement = false,
   }: {
     doMerkleOperations?: boolean;
-    enforceFeePayment?: boolean;
+    skipFeeEnforcement?: boolean;
   }) => {
     const simulator = new PublicTxSimulator(
       db,
       worldStateDB,
       GlobalVariables.from({ ...GlobalVariables.empty(), gasFees }),
       doMerkleOperations,
-      enforceFeePayment,
+      skipFeeEnforcement,
     );
 
     // Mock the internal private function. Borrowed from https://stackoverflow.com/a/71033167
@@ -333,6 +330,7 @@ describe('public_tx_simulator', () => {
     const expectedTotalGas = privateGasUsed.add(expectedPublicGasUsed);
     expect(txResult.gasUsed).toEqual({
       totalGas: expectedTotalGas,
+      billedGas: expectedTotalGas,
       teardownGas: Gas.empty(),
       publicGas: expectedPublicGasUsed,
     });
@@ -369,6 +367,7 @@ describe('public_tx_simulator', () => {
     const expectedTotalGas = privateGasUsed.add(expectedPublicGasUsed);
     expect(txResult.gasUsed).toEqual({
       totalGas: expectedTotalGas,
+      billedGas: expectedTotalGas,
       teardownGas: Gas.empty(),
       publicGas: expectedPublicGasUsed,
     });
@@ -403,8 +402,10 @@ describe('public_tx_simulator', () => {
 
     const expectedTeardownGasUsed = enqueuedCallGasUsed;
     const expectedTotalGas = privateGasUsed.add(expectedTeardownGasUsed);
+    const expectedBilledGas = privateGasUsed.add(teardownGasLimits);
     expect(txResult.gasUsed).toEqual({
       totalGas: expectedTotalGas,
+      billedGas: expectedBilledGas,
       teardownGas: expectedTeardownGasUsed,
       publicGas: expectedTeardownGasUsed,
     });
@@ -443,8 +444,11 @@ describe('public_tx_simulator', () => {
     const expectedPublicGasUsed = enqueuedCallGasUsed.mul(3); // 2 for setup and 1 for app logic.
     const expectedTeardownGasUsed = enqueuedCallGasUsed;
     const expectedTotalGas = privateGasUsed.add(expectedPublicGasUsed).add(expectedTeardownGasUsed);
+    const expectedBilledGas = privateGasUsed.add(expectedPublicGasUsed).add(teardownGasLimits);
+
     expect(txResult.gasUsed).toEqual({
       totalGas: expectedTotalGas,
+      billedGas: expectedBilledGas,
       teardownGas: expectedTeardownGasUsed,
       publicGas: expectedPublicGasUsed.add(expectedTeardownGasUsed),
     });
@@ -593,8 +597,10 @@ describe('public_tx_simulator', () => {
     const expectedAppLogicGas = enqueuedCallGasUsed.mul(2);
     const expectedTeardownGasUsed = enqueuedCallGasUsed;
     const expectedTotalGas = privateGasUsed.add(expectedSetupGas).add(expectedAppLogicGas).add(expectedTeardownGasUsed);
+    const expectedBilledGas = privateGasUsed.add(expectedSetupGas).add(expectedAppLogicGas).add(teardownGasLimits);
     expect(txResult.gasUsed).toEqual({
       totalGas: expectedTotalGas,
+      billedGas: expectedBilledGas,
       teardownGas: expectedTeardownGasUsed,
       publicGas: expectedTotalGas.sub(privateGasUsed),
     });
@@ -675,8 +681,10 @@ describe('public_tx_simulator', () => {
     const expectedAppLogicGas = enqueuedCallGasUsed.mul(2);
     const expectedTeardownGasUsed = enqueuedCallGasUsed;
     const expectedTotalGas = privateGasUsed.add(expectedSetupGas).add(expectedAppLogicGas).add(expectedTeardownGasUsed);
+    const expectedBilledGas = privateGasUsed.add(expectedSetupGas).add(expectedAppLogicGas).add(teardownGasLimits);
     expect(txResult.gasUsed).toEqual({
       totalGas: expectedTotalGas,
+      billedGas: expectedBilledGas,
       teardownGas: expectedTeardownGasUsed,
       publicGas: expectedTotalGas.sub(privateGasUsed),
     });
@@ -759,8 +767,10 @@ describe('public_tx_simulator', () => {
     const expectedAppLogicGas = enqueuedCallGasUsed.mul(2);
     const expectedTeardownGasUsed = enqueuedCallGasUsed;
     const expectedTotalGas = privateGasUsed.add(expectedSetupGas).add(expectedAppLogicGas).add(expectedTeardownGasUsed);
+    const expectedBilledGas = privateGasUsed.add(expectedSetupGas).add(expectedAppLogicGas).add(teardownGasLimits);
     expect(txResult.gasUsed).toEqual({
       totalGas: expectedTotalGas,
+      billedGas: expectedBilledGas,
       teardownGas: expectedTeardownGasUsed,
       publicGas: expectedTotalGas.sub(privateGasUsed),
     });
@@ -900,8 +910,10 @@ describe('public_tx_simulator', () => {
     const expectedPublicGasUsed = enqueuedCallGasUsed.mul(2); // 1 for setup and 1 for app logic.
     const expectedTeardownGasUsed = enqueuedCallGasUsed;
     const expectedTotalGas = privateGasUsed.add(expectedPublicGasUsed).add(expectedTeardownGasUsed);
+    const expectedBilledGas = privateGasUsed.add(expectedPublicGasUsed).add(teardownGasLimits);
     expect(txResult.gasUsed).toEqual({
       totalGas: expectedTotalGas,
+      billedGas: expectedBilledGas,
       teardownGas: expectedTeardownGasUsed,
       publicGas: expectedPublicGasUsed.add(expectedTeardownGasUsed),
     });
@@ -948,7 +960,7 @@ describe('public_tx_simulator', () => {
     });
 
     it('allows disabling fee balance checks for fee estimation', async () => {
-      simulator = createSimulator({ enforceFeePayment: false });
+      simulator = createSimulator({ skipFeeEnforcement: true });
       const feePayer = await AztecAddress.random();
 
       const txResult = await simulator.simulate(

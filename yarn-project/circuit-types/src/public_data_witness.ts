@@ -1,4 +1,6 @@
-import { Fr, PUBLIC_DATA_TREE_HEIGHT, PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
+import { Fr } from '@aztec/circuits.js';
+import { PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
+import { PUBLIC_DATA_TREE_HEIGHT } from '@aztec/constants';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';

@@ -1,4 +1,4 @@
-import { type P2PBootstrapApi } from '@aztec/circuit-types/interfaces';
+import { type P2PBootstrapApi } from '@aztec/circuit-types/interfaces/server';
 import { createLogger } from '@aztec/foundation/log';
 import { type AztecAsyncKVStore } from '@aztec/kv-store';
 import { OtelMetricsAdapter, type TelemetryClient } from '@aztec/telemetry-client';
@@ -68,7 +68,12 @@ export class BootstrapNode implements P2PBootstrapApi {
 
     try {
       await this.node.start();
-      this.logger.info('Bootstrap node started', { peerId, enr: enr.encodeTxt(), addr: listenAddrUdp.toString() });
+      this.logger.info('Bootstrap node started', {
+        peerId,
+        enr: enr.encodeTxt(),
+        addr: listenAddrUdp.toString(),
+        versions,
+      });
     } catch (e) {
       this.logger.error('Error starting Discv5', e);
     }

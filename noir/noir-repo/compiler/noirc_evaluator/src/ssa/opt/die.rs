@@ -30,26 +30,36 @@ impl Ssa {
     }
 
     fn dead_instruction_elimination_inner(mut self, flattened: bool) -> Ssa {
-        let mut used_global_values: HashSet<_> = self
+        let mut used_globals_map: HashMap<_, _> = self
             .functions
             .par_iter_mut()
-            .flat_map(|(_, func)| func.dead_instruction_elimination(true, flattened))
+            .filter_map(|(id, func)| {
+                let set = func.dead_instruction_elimination(true, flattened);
+                if func.runtime().is_brillig() {
+                    Some((*id, set))
+                } else {
+                    None
+                }
+            })
             .collect();
 
         let globals = &self.functions[&self.main_id].dfg.globals;
-        // Check which globals are used across all functions
-        for (id, value) in globals.values_iter().rev() {
-            if used_global_values.contains(&id) {
-                if let Value::Instruction { instruction, .. } = &value {
-                    let instruction = &globals[*instruction];
-                    instruction.for_each_value(|value_id| {
-                        used_global_values.insert(value_id);
-                    });
+        for used_global_values in used_globals_map.values_mut() {
+            // DIE only tracks used instruction results, however, globals include constants.
+            // Back track globals for internal values which may be in use.
+            for (id, value) in globals.values_iter().rev() {
+                if used_global_values.contains(&id) {
+                    if let Value::Instruction { instruction, .. } = &value {
+                        let instruction = &globals[*instruction];
+                        instruction.for_each_value(|value_id| {
+                            used_global_values.insert(value_id);
+                        });
+                    }
                 }
             }
         }
 
-        self.used_global_values = used_global_values;
+        self.used_globals = used_globals_map;
 
         self
     }
@@ -212,7 +222,7 @@ impl Context {
             .retain(|instruction| !self.instructions_to_remove.contains(instruction));
 
         // Take the mutated array back.
-        std::mem::swap(&mut self.mutated_array_types, &mut mutated_array_types);
+        self.mutated_array_types = mutated_array_types;
 
         false
     }
@@ -274,7 +284,7 @@ impl Context {
             self.rc_instructions.iter().fold(HashMap::default(), |mut acc, (rc, block)| {
                 let value = match &dfg[*rc] {
                     Instruction::IncrementRc { value } => *value,
-                    Instruction::DecrementRc { value } => *value,
+                    Instruction::DecrementRc { value, .. } => *value,
                     other => {
                         unreachable!(
                             "Expected IncrementRc or DecrementRc instruction, found {other:?}"
@@ -424,7 +434,7 @@ impl Context {
         dfg: &DataFlowGraph,
     ) -> bool {
         use Instruction::*;
-        if let IncrementRc { value } | DecrementRc { value } = instruction {
+        if let IncrementRc { value } | DecrementRc { value, .. } = instruction {
             let Some(instruction) = dfg.get_local_or_global_instruction(*value) else {
                 return false;
             };
@@ -613,13 +623,13 @@ struct RcTracker<'a> {
     // We also separately track all IncrementRc instructions and all array types which have been mutably borrowed.
     // If an array is the same type as one of those non-mutated array types, we can safely remove all IncrementRc instructions on that array.
     inc_rcs: HashMap<ValueId, HashSet<InstructionId>>,
+    // Mutated arrays shared across the blocks of the function.
+    mutated_array_types: &'a mut HashSet<Type>,
     // The SSA often creates patterns where after simplifications we end up with repeat
     // IncrementRc instructions on the same value. We track whether the previous instruction was an IncrementRc,
     // and if the current instruction is also an IncrementRc on the same value we remove the current instruction.
     // `None` if the previous instruction was anything other than an IncrementRc
     previous_inc_rc: Option<ValueId>,
-    // Mutated arrays shared across the blocks of the function.
-    mutated_array_types: &'a mut HashSet<Type>,
 }
 
 impl<'a> RcTracker<'a> {
@@ -675,7 +685,7 @@ impl<'a> RcTracker<'a> {
                 // Remember that this array was RC'd by this instruction.
                 self.inc_rcs.entry(*value).or_default().insert(instruction_id);
             }
-            Instruction::DecrementRc { value } => {
+            Instruction::DecrementRc { value, .. } => {
                 let typ = function.dfg.type_of_value(*value);
 
                 // We assume arrays aren't mutated until we find an array_set
@@ -825,7 +835,7 @@ mod test {
               b0(v0: [Field; 2]):
                 inc_rc v0
                 v2 = array_get v0, index u32 0 -> Field
-                dec_rc v0
+                dec_rc v0 v0
                 return v2
             }
             ";
@@ -849,7 +859,7 @@ mod test {
               b0(v0: [Field; 2]):
                 inc_rc v0
                 v2 = array_set v0, index u32 0, value u32 0
-                dec_rc v0
+                dec_rc v0 v0
                 return v2
             }
             ";
@@ -957,7 +967,7 @@ mod test {
                 v3 = load v0 -> [Field; 3]
                 v6 = array_set v3, index u32 0, value Field 5
                 store v6 at v0
-                dec_rc v6
+                dec_rc v6 v1
                 return
             }
             ";

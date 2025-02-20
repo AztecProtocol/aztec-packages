@@ -119,8 +119,8 @@ impl<'a> FunctionContext<'a> {
             .1;
 
         let mut builder = FunctionBuilder::new(function_name, function_id);
-        builder.set_runtime(runtime);
         builder.set_globals(Arc::new(globals));
+        builder.set_runtime(runtime);
 
         let definitions = HashMap::default();
         let mut this = Self { definitions, builder, shared_context, loops: Vec::new() };
@@ -136,13 +136,11 @@ impl<'a> FunctionContext<'a> {
     pub(super) fn new_function(&mut self, id: IrFunctionId, func: &ast::Function) {
         self.definitions.clear();
 
-        let globals = self.builder.current_function.dfg.globals.clone();
         if func.unconstrained {
             self.builder.new_brillig_function(func.name.clone(), id, func.inline_type);
         } else {
             self.builder.new_function(func.name.clone(), id, func.inline_type);
         }
-        self.builder.set_globals(globals);
 
         self.add_parameters_to_scope(&func.parameters);
     }
@@ -966,11 +964,13 @@ impl<'a> FunctionContext<'a> {
     ///
     /// This is done on parameters rather than call arguments so that we can optimize out
     /// paired inc/dec instructions within brillig functions more easily.
-    pub(crate) fn increment_parameter_rcs(&mut self) -> HashSet<ValueId> {
+    ///
+    /// Returns the list of parameters incremented, together with the value ID of the arrays they refer to.
+    pub(crate) fn increment_parameter_rcs(&mut self) -> Vec<(ValueId, ValueId)> {
         let entry = self.builder.current_function.entry_block();
         let parameters = self.builder.current_function.dfg.block_parameters(entry).to_vec();
 
-        let mut incremented = HashSet::default();
+        let mut incremented = Vec::default();
         let mut seen_array_types = HashSet::default();
 
         for parameter in parameters {
@@ -981,10 +981,11 @@ impl<'a> FunctionContext<'a> {
                 if element.contains_an_array() {
                     // If we haven't already seen this array type, the value may be possibly
                     // aliased, so issue an inc_rc for it.
-                    if !seen_array_types.insert(element.get_contained_array().clone())
-                        && self.builder.increment_array_reference_count(parameter)
-                    {
-                        incremented.insert(parameter);
+                    if seen_array_types.insert(element.get_contained_array().clone()) {
+                        continue;
+                    }
+                    if let Some(id) = self.builder.increment_array_reference_count(parameter) {
+                        incremented.push((parameter, id));
                     }
                 }
             }
@@ -999,14 +1000,14 @@ impl<'a> FunctionContext<'a> {
     /// ignored.
     pub(crate) fn end_scope(
         &mut self,
-        mut incremented_params: HashSet<ValueId>,
+        mut incremented_params: Vec<(ValueId, ValueId)>,
         terminator_args: &[ValueId],
     ) {
-        incremented_params.retain(|parameter| !terminator_args.contains(parameter));
+        incremented_params.retain(|(parameter, _)| !terminator_args.contains(parameter));
 
-        for parameter in incremented_params {
+        for (parameter, original) in incremented_params {
             if self.builder.current_function.dfg.value_is_reference(parameter) {
-                self.builder.decrement_array_reference_count(parameter);
+                self.builder.decrement_array_reference_count(parameter, original);
             }
         }
     }

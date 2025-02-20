@@ -3,7 +3,6 @@ export * from './deploy_l1_contracts.js';
 export * from './chain.js';
 export * from './eth_cheat_codes.js';
 export * from './l1_tx_utils.js';
-export * from './l1_tx_utils_with_blobs.js';
 export * from './l1_contract_addresses.js';
 export * from './l1_reader.js';
 export * from './utils.js';

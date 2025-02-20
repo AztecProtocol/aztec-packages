@@ -1,4 +1,4 @@
-use crate::ssa::ir::function::FunctionId;
+use crate::{brillig::BrilligOptions, ssa::ir::function::FunctionId};
 
 use super::{
     artifact::{BrilligArtifact, BrilligParameter},
@@ -24,15 +24,16 @@ impl<F: AcirField + DebugToString> BrilligContext<F, Stack> {
         target_function: FunctionId,
         globals_init: bool,
         globals_memory_size: usize,
+        options: &BrilligOptions,
     ) -> BrilligArtifact<F> {
-        let mut context = BrilligContext::new(false);
+        let mut context = BrilligContext::new(options);
 
         context.globals_memory_size = Some(globals_memory_size);
 
         context.codegen_entry_point(&arguments, &return_parameters);
 
         if globals_init {
-            context.add_globals_init_instruction();
+            context.add_globals_init_instruction(target_function);
         }
 
         context.add_external_call_instruction(target_function);

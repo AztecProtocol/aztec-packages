@@ -3,6 +3,7 @@ import { multiaddr } from '@multiformats/multiaddr';
 
 import { AZTEC_ENR_KEY, AztecENR } from '../types/index.js';
 import { convertToMultiaddr, createLibP2PPeerIdFromPrivateKey } from '../util.js';
+import { setAztecEnrKey } from '../versioning.js';
 
 export async function createBootnodeENR(
   privateKey: string,
@@ -14,5 +15,7 @@ export async function createBootnodeENR(
   const publicAddr = multiaddr(convertToMultiaddr(udpAnnounceAddress, 'udp'));
   enr.setLocationMultiaddr(publicAddr);
   enr.set(AZTEC_ENR_KEY, Uint8Array.from([AztecENR[network]]));
+
+  const versions = setAztecEnrKey(enr, config);
   return enr;
 }

@@ -18,7 +18,7 @@ using testing::Field;
 using R = TestTraceContainer::Row;
 using FF = R::FF;
 
-TEST(AvmTraceGenBitwiseTest, U1And)
+TEST(BitwiseTraceGenTest, U1And)
 {
     TestTraceContainer trace;
     BitwiseTraceBuilder builder;
@@ -68,7 +68,7 @@ TEST(AvmTraceGenBitwiseTest, U1And)
                                   ROW_FIELD_EQ(R, bitwise_start, 1))));
 }
 
-TEST(AvmTraceGenBitwiseTest, U32And)
+TEST(BitwiseTraceGenTest, U32And)
 {
     TestTraceContainer trace;
     BitwiseTraceBuilder builder;

@@ -1,41 +1,22 @@
-import {
-  AztecAddress,
-  type ContractClassPublic,
-  type ContractInstanceWithAddress,
-  FunctionSelector,
-  PUBLIC_DISPATCH_SELECTOR,
-} from '@aztec/circuits.js';
-import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
+import { type ContractInstanceWithAddress } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
-import { getAvmTestContractBytecode } from '@aztec/simulator/public/fixtures';
 
 import { AvmProvingTesterV2 } from './avm_proving_tester.js';
 
-const DISPATCH_FN_NAME = 'public_dispatch';
-const DISPATCH_SELECTOR = new FunctionSelector(PUBLIC_DISPATCH_SELECTOR);
-
 describe('AVM v2', () => {
   const sender = AztecAddress.fromNumber(42);
-  const avmTestContractClassSeed = 0;
-  const avmTestContractBytecode = getAvmTestContractBytecode(DISPATCH_FN_NAME);
-  let avmTestContractClass: ContractClassPublic;
   let avmTestContractInstance: ContractInstanceWithAddress;
-
   let tester: AvmProvingTesterV2;
 
   beforeEach(async () => {
-    avmTestContractClass = await makeContractClassPublic(
-      /*seed=*/ avmTestContractClassSeed,
-      /*publicDispatchFunction=*/ { bytecode: avmTestContractBytecode, selector: DISPATCH_SELECTOR },
-    );
-    avmTestContractInstance = await makeContractInstanceFromClassId(
-      avmTestContractClass.id,
-      /*seed=*/ avmTestContractClassSeed,
-    );
     tester = await AvmProvingTesterV2.create();
-    await tester.addContractClass(avmTestContractClass, AvmTestContractArtifact);
-    await tester.addContractInstance(avmTestContractInstance);
+    avmTestContractInstance = await tester.registerAndDeployContract(
+      /*constructorArgs=*/ [],
+      /*deployer=*/ AztecAddress.fromNumber(420),
+      AvmTestContractArtifact,
+    );
   });
 
   it('bulk_testing v2', async () => {
@@ -49,7 +30,7 @@ describe('AVM v2', () => {
       argsU8,
       /*getInstanceForAddress=*/ expectContractInstance.address.toField(),
       /*expectedDeployer=*/ expectContractInstance.deployer.toField(),
-      /*expectedClassId=*/ expectContractInstance.contractClassId.toField(),
+      /*expectedClassId=*/ expectContractInstance.currentContractClassId.toField(),
       /*expectedInitializationHash=*/ expectContractInstance.initializationHash.toField(),
     ];
 

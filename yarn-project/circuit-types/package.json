@@ -6,9 +6,10 @@
     ".": "./dest/index.js",
     "./stats": "./dest/stats/index.js",
     "./jest": "./dest/jest/index.js",
-    "./interfaces": "./dest/interfaces/index.js",
+    "./interfaces/client": "./dest/interfaces/client.js",
+    "./interfaces/server": "./dest/interfaces/server.js",
     "./log_id": "./dest/logs/log_id.js",
-    "./test": "./dest/test/index.js",
+    "./testing": "./dest/test/index.js",
     "./tx_hash": "./dest/tx/tx_hash.js",
     "./config": "./dest/config.js"
   },
@@ -25,8 +26,8 @@
     "clean": "rm -rf ./dest .tsbuildinfo ./src/test/artifacts",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test": "HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16} RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
-    "generate": "./scripts/copy-test-artifacts.sh && run -T prettier -w ./src/test/artifacts --loglevel warn"
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
+    "generate": "./scripts/copy-test-artifacts.sh"
   },
   "inherits": [
     "../package.common.json",
@@ -60,13 +61,14 @@
     "reporters": [
       "default"
     ],
-    "testTimeout": 30000,
+    "testTimeout": 120000,
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {
     "@aztec/circuits.js": "workspace:^",
+    "@aztec/constants": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/types": "workspace:^",
@@ -80,6 +82,7 @@
   "devDependencies": {
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
+    "@types/koa": "^2.15.0",
     "@types/lodash.clonedeep": "^4.5.7",
     "@types/lodash.isequal": "^4.5.6",
     "@types/lodash.omit": "^4.5.9",

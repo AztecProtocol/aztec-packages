@@ -30,7 +30,7 @@ pub fn compute_swap_public_content_hash(
     // The purpose of including the following selector is to make the message unique to that specific call. Note that
     // it has nothing to do with calling the function.
     let selector = comptime {
-        std::hash::keccak256(
+        keccak256::keccak256(
             "swap_public(address,uint256,uint24,address,uint256,bytes32,bytes32,address)".as_bytes(),
             75,
         )
@@ -84,7 +84,7 @@ pub fn compute_swap_private_content_hash(
     // The purpose of including the following selector is to make the message unique to that specific call. Note that
     // it has nothing to do with calling the function.
     let selector = comptime {
-        std::hash::keccak256(
+        keccak256::keccak256(
             "swap_private(address,uint256,uint24,address,uint256,bytes32,address)".as_bytes(),
             68,
         )
