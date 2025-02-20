@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740089090867,
+  "lastUpdate": 1740091212526,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "santiago@aztecprotocol.com",
-            "name": "Santiago Palladino",
-            "username": "spalladino"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f61fe9d620604312715f321288c3b5bb36336bc2",
-          "message": "fix: L1 deployment on reth (#12060)\n\nFixes deployment of L1 contracts with salt on reth. The deployment was\r\nfailing because `reth` fails to estimate gas when deploying a contract\r\nthat relies on external libraries deployed in an unmined tx. This PR\r\nmakes the deployment of the contract to wait for dependent libraries to\r\nbe deployed.\r\n\r\nUnfortunately I didn't manage to get eth-devnet into unit tests, but\r\nadded env vars to configure the `deploy-l1-contracts` test to try it\r\nlocally.\r\n\r\nFixes #11576",
-          "timestamp": "2025-02-18T17:02:11Z",
-          "tree_id": "3d33744ac0b3b2be43983bf33af275928810bae4",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f61fe9d620604312715f321288c3b5bb36336bc2"
-        },
-        "date": 1739899662724,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18191.040938000013,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16072.805827 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18606.448847000138,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16228.742174999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4010.139706000018,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3034.448147 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54724.933007,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54724933000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11630.896286000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11630905000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1814849607,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1814849607 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 132268210,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 132268210 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3300,6 +3234,72 @@ window.BENCHMARK_DATA = {
             "value": 132696508,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 132696508 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7768ffe4e25cb234328be04f4fff8947f6390415",
+          "message": "chore(spartan): workaround bot + transfer test conflict (#12165)\n\nUntil #12163, disable bot which interferes with the transfer test",
+          "timestamp": "2025-02-20T17:28:01-05:00",
+          "tree_id": "9c567e11c6385ff3566c1517d10387d536cfb033",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7768ffe4e25cb234328be04f4fff8947f6390415"
+        },
+        "date": 1740091205418,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18137.002772000018,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16021.873844000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18624.61639099996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16332.193616000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3855.399848999923,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3058.315564000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54917.17576,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54917174000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9772.573803,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9772579000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1820323753,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1820323753 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 128813543,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 128813543 ns\nthreads: 1"
           }
         ]
       }
