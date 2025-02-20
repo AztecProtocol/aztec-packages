@@ -9,7 +9,7 @@ use crate::{
 use fxhash::FxHashMap as HashMap;
 use operand_collector::OperandCollector;
 
-use super::parser::{Alias, Assembly, Label, ParsedOpcode};
+use super::parser::{Label, Mnemonic, ParsedOpcode};
 
 pub(crate) use operand_collector::SCRATCH_SPACE_START;
 
@@ -37,14 +37,14 @@ impl CompiledProcedure {
     }
 }
 
-pub(crate) fn compile(parsed_assembly: Assembly) -> Result<CompiledProcedure, String> {
+pub(crate) fn compile(parsed_opcodes: Vec<ParsedOpcode>) -> Result<CompiledProcedure, String> {
     let mut result = CompiledProcedure {
-        instructions: Vec::with_capacity(parsed_assembly.len()),
+        instructions: Vec::with_capacity(parsed_opcodes.len()),
         locations: HashMap::default(),
         unresolved_jumps: HashMap::default(),
         instructions_size: 0,
     };
-    for parsed_opcode in parsed_assembly.into_iter() {
+    for parsed_opcode in parsed_opcodes.into_iter() {
         compile_opcode(parsed_opcode.clone(), &mut result)
             .map_err(|err| format!("Error compiling opcode {:?}: {}", parsed_opcode, err))?;
     }
@@ -57,25 +57,25 @@ fn compile_opcode(
     result: &mut CompiledProcedure,
 ) -> Result<(), String> {
     let label = parsed_opcode.label.clone();
-    let alias = parsed_opcode.alias;
+    let mnemonic = parsed_opcode.mnemonic;
     let mut collector = OperandCollector::new(parsed_opcode);
-    match alias {
-        Alias::ADD
-        | Alias::SUB
-        | Alias::MUL
-        | Alias::FDIV
-        | Alias::DIV
-        | Alias::AND
-        | Alias::OR
-        | Alias::XOR
-        | Alias::SHL
-        | Alias::SHR
-        | Alias::EQ
-        | Alias::LT
-        | Alias::LTE => {
-            compile_binary_instruction(alias, label, collector, result)?;
+    match mnemonic {
+        Mnemonic::ADD
+        | Mnemonic::SUB
+        | Mnemonic::MUL
+        | Mnemonic::FDIV
+        | Mnemonic::DIV
+        | Mnemonic::AND
+        | Mnemonic::OR
+        | Mnemonic::XOR
+        | Mnemonic::SHL
+        | Mnemonic::SHR
+        | Mnemonic::EQ
+        | Mnemonic::LT
+        | Mnemonic::LTE => {
+            compile_binary_instruction(mnemonic, label, collector, result)?;
         }
-        Alias::SET => {
+        Mnemonic::SET => {
             collector.memory_address_operand()?;
             collector.numeric_operand()?;
             collector.with_tag()?;
@@ -108,7 +108,7 @@ fn compile_opcode(
                 label,
             );
         }
-        Alias::JUMP => {
+        Mnemonic::JUMP => {
             collector.label_operand()?;
             let collection = collector.finish()?;
             result.add_unresolved_jump(collection.immediates[0].unwrap_label());
@@ -121,7 +121,7 @@ fn compile_opcode(
                 label,
             );
         }
-        Alias::JUMPI => {
+        Mnemonic::JUMPI => {
             collector.memory_address_operand()?;
             collector.label_operand()?;
             let collection = collector.finish()?;
@@ -137,7 +137,7 @@ fn compile_opcode(
                 label,
             );
         }
-        Alias::NOT => {
+        Mnemonic::NOT => {
             collector.memory_address_operand()?;
             collector.memory_address_operand()?;
             let collection = collector.finish()?;
@@ -162,7 +162,7 @@ fn compile_opcode(
             );
         }
 
-        Alias::CAST => {
+        Mnemonic::CAST => {
             collector.memory_address_operand()?;
             collector.memory_address_operand()?;
             collector.with_tag()?;
@@ -192,7 +192,7 @@ fn compile_opcode(
             );
         }
 
-        Alias::MOV => {
+        Mnemonic::MOV => {
             collector.memory_address_operand()?;
             collector.memory_address_operand()?;
             let collection = collector.finish()?;
@@ -218,7 +218,7 @@ fn compile_opcode(
             );
         }
 
-        Alias::INTERNALRETURN => {
+        Mnemonic::INTERNALRETURN => {
             collector.finish()?;
             result.add_instruction(
                 AvmInstruction { opcode: AvmOpcode::INTERNALRETURN, ..Default::default() },
@@ -226,7 +226,7 @@ fn compile_opcode(
             );
         }
 
-        Alias::ECADD => {
+        Mnemonic::ECADD => {
             collector.memory_address_operand()?; // p1 x
             collector.memory_address_operand()?; // p1 y
             collector.memory_address_operand()?; // p1 is_infinite
@@ -250,7 +250,7 @@ fn compile_opcode(
             );
         }
 
-        Alias::TORADIXBE => {
+        Mnemonic::TORADIXBE => {
             collector.memory_address_operand()?; // input
             collector.memory_address_operand()?; // radix
             collector.memory_address_operand()?; // num_limbs
@@ -277,7 +277,7 @@ fn compile_opcode(
 }
 
 fn compile_binary_instruction(
-    alias: Alias,
+    mnemonic: Mnemonic,
     label: Option<Label>,
     mut collector: OperandCollector,
     result: &mut CompiledProcedure,
@@ -292,73 +292,73 @@ fn compile_binary_instruction(
         "Binary opcodes only support 8 or 16 bit encodings, got: {}",
         bits_needed
     );
-    let avm_opcode = match alias {
-        Alias::ADD => match bits_needed {
+    let avm_opcode = match mnemonic {
+        Mnemonic::ADD => match bits_needed {
             8 => AvmOpcode::ADD_8,
             16 => AvmOpcode::ADD_16,
             _ => unreachable!(),
         },
-        Alias::SUB => match bits_needed {
+        Mnemonic::SUB => match bits_needed {
             8 => AvmOpcode::SUB_8,
             16 => AvmOpcode::SUB_16,
             _ => unreachable!(),
         },
-        Alias::MUL => match bits_needed {
+        Mnemonic::MUL => match bits_needed {
             8 => AvmOpcode::MUL_8,
             16 => AvmOpcode::MUL_16,
             _ => unreachable!(),
         },
-        Alias::FDIV => match bits_needed {
+        Mnemonic::FDIV => match bits_needed {
             8 => AvmOpcode::FDIV_8,
             16 => AvmOpcode::FDIV_16,
             _ => unreachable!(),
         },
-        Alias::DIV => match bits_needed {
+        Mnemonic::DIV => match bits_needed {
             8 => AvmOpcode::DIV_8,
             16 => AvmOpcode::DIV_16,
             _ => unreachable!(),
         },
-        Alias::AND => match bits_needed {
+        Mnemonic::AND => match bits_needed {
             8 => AvmOpcode::AND_8,
             16 => AvmOpcode::AND_16,
             _ => unreachable!(),
         },
-        Alias::OR => match bits_needed {
+        Mnemonic::OR => match bits_needed {
             8 => AvmOpcode::OR_8,
             16 => AvmOpcode::OR_16,
             _ => unreachable!(),
         },
-        Alias::XOR => match bits_needed {
+        Mnemonic::XOR => match bits_needed {
             8 => AvmOpcode::XOR_8,
             16 => AvmOpcode::XOR_16,
             _ => unreachable!(),
         },
-        Alias::SHL => match bits_needed {
+        Mnemonic::SHL => match bits_needed {
             8 => AvmOpcode::SHL_8,
             16 => AvmOpcode::SHL_16,
             _ => unreachable!(),
         },
-        Alias::SHR => match bits_needed {
+        Mnemonic::SHR => match bits_needed {
             8 => AvmOpcode::SHR_8,
             16 => AvmOpcode::SHR_16,
             _ => unreachable!(),
         },
-        Alias::EQ => match bits_needed {
+        Mnemonic::EQ => match bits_needed {
             8 => AvmOpcode::EQ_8,
             16 => AvmOpcode::EQ_16,
             _ => unreachable!(),
         },
-        Alias::LT => match bits_needed {
+        Mnemonic::LT => match bits_needed {
             8 => AvmOpcode::LT_8,
             16 => AvmOpcode::LT_16,
             _ => unreachable!(),
         },
-        Alias::LTE => match bits_needed {
+        Mnemonic::LTE => match bits_needed {
             8 => AvmOpcode::LTE_8,
             16 => AvmOpcode::LTE_16,
             _ => unreachable!(),
         },
-        _ => unreachable!("Invalid binary opcode: {:?}", alias),
+        _ => unreachable!("Invalid binary opcode: {:?}", mnemonic),
     };
 
     result.add_instruction(

@@ -4,7 +4,7 @@ use regex::Regex;
 
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, Copy)]
-pub(crate) enum Alias {
+pub(crate) enum Mnemonic {
     // Compute
     ADD,
     SUB,
@@ -33,32 +33,32 @@ pub(crate) enum Alias {
     TORADIXBE,
 }
 
-impl Alias {
-    fn lookup(as_string: &str) -> Alias {
+impl Mnemonic {
+    fn lookup(as_string: &str) -> Mnemonic {
         match as_string {
-            "ADD" => Alias::ADD,
-            "SUB" => Alias::SUB,
-            "MUL" => Alias::MUL,
-            "DIV" => Alias::DIV,
-            "FDIV" => Alias::FDIV,
-            "EQ" => Alias::EQ,
-            "LT" => Alias::LT,
-            "LTE" => Alias::LTE,
-            "AND" => Alias::AND,
-            "OR" => Alias::OR,
-            "XOR" => Alias::XOR,
-            "NOT" => Alias::NOT,
-            "SHL" => Alias::SHL,
-            "SHR" => Alias::SHR,
-            "CAST" => Alias::CAST,
-            "JUMP" => Alias::JUMP,
-            "JUMPI" => Alias::JUMPI,
-            "INTERNALRETURN" => Alias::INTERNALRETURN,
-            "SET" => Alias::SET,
-            "MOV" => Alias::MOV,
-            "ECADD" => Alias::ECADD,
-            "TORADIXBE" => Alias::TORADIXBE,
-            _ => unreachable!("Invalid alias {}", as_string),
+            "ADD" => Mnemonic::ADD,
+            "SUB" => Mnemonic::SUB,
+            "MUL" => Mnemonic::MUL,
+            "DIV" => Mnemonic::DIV,
+            "FDIV" => Mnemonic::FDIV,
+            "EQ" => Mnemonic::EQ,
+            "LT" => Mnemonic::LT,
+            "LTE" => Mnemonic::LTE,
+            "AND" => Mnemonic::AND,
+            "OR" => Mnemonic::OR,
+            "XOR" => Mnemonic::XOR,
+            "NOT" => Mnemonic::NOT,
+            "SHL" => Mnemonic::SHL,
+            "SHR" => Mnemonic::SHR,
+            "CAST" => Mnemonic::CAST,
+            "JUMP" => Mnemonic::JUMP,
+            "JUMPI" => Mnemonic::JUMPI,
+            "INTERNALRETURN" => Mnemonic::INTERNALRETURN,
+            "SET" => Mnemonic::SET,
+            "MOV" => Mnemonic::MOV,
+            "ECADD" => Mnemonic::ECADD,
+            "TORADIXBE" => Mnemonic::TORADIXBE,
+            _ => unreachable!("Invalid mnemonic {}", as_string),
         }
     }
 }
@@ -90,16 +90,14 @@ pub(crate) enum Operand {
 
 #[derive(Debug, Clone)]
 pub(crate) struct ParsedOpcode {
-    pub(crate) alias: Alias,
+    pub(crate) mnemonic: Mnemonic,
     pub(crate) operands: Vec<Operand>,
     pub(crate) tag: Option<AvmTypeTag>,
     pub(crate) label: Option<Label>,
 }
 
-pub(crate) type Assembly = Vec<ParsedOpcode>;
-
 // Simple regex parser
-pub(crate) fn parse(assembly: &str) -> Result<Assembly, String> {
+pub(crate) fn parse(assembly: &str) -> Result<Vec<ParsedOpcode>, String> {
     // Strip out comments, then remove empty lines
     static COMMENT_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r";.*|\/\*.*?\*\/").unwrap());
 
@@ -110,7 +108,7 @@ pub(crate) fn parse(assembly: &str) -> Result<Assembly, String> {
         .collect();
 
     static LINE_REGEX: Lazy<Regex> = Lazy::new(|| {
-        Regex::new(r"^(?:(?<label>\w+):\s+)?(?<alias>\w+)(?:\s+(?<operands>.+?))?(?:\s+(?<tag>u1|u8|u16|u32|u64|u128|ff))?$").unwrap()
+        Regex::new(r"^(?:(?<label>\w+):\s+)?(?<mnemonic>\w+)(?:\s+(?<operands>.+?))?(?:\s+(?<tag>u1|u8|u16|u32|u64|u128|ff))?$").unwrap()
     });
 
     assembly
@@ -122,10 +120,10 @@ pub(crate) fn parse(assembly: &str) -> Result<Assembly, String> {
 
             let label = caps.name("label").map(|m| Label::new(m.as_str().to_string()));
 
-            let alias = Alias::lookup(
-                caps.name("alias")
+            let mnemonic = Mnemonic::lookup(
+                caps.name("mnemonic")
                     .map(|m| m.as_str())
-                    .ok_or_else(|| format!("Missing opcode alias in line `{}`", line))?,
+                    .ok_or_else(|| format!("Missing opcode mnemonic in line `{}`", line))?,
             );
 
             let operands = caps.name("operands").map(|m| m.as_str());
@@ -136,7 +134,7 @@ pub(crate) fn parse(assembly: &str) -> Result<Assembly, String> {
 
             let tag = caps.name("tag").map(|m| parse_tag(m.as_str()));
 
-            Ok(ParsedOpcode { alias, label, operands, tag })
+            Ok(ParsedOpcode { mnemonic, label, operands, tag })
         })
         .collect::<Result<Vec<_>, _>>()
 }
