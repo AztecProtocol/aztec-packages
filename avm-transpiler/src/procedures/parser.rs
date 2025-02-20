@@ -90,18 +90,20 @@ pub(crate) type Assembly = Vec<ParsedOpcode>;
 // Simple regex parser
 pub(crate) fn parse(assembly: &str) -> Result<Assembly, String> {
     // Strip out comments, then remove empty lines
-    let assembly = assembly
+    let comment_regex = Regex::new(r";.*|\/\*.*?\*\/").unwrap();
+
+    let assembly: Vec<_> = assembly
         .lines()
-        .map(|line| line.split(';').next().unwrap().trim())
+        .map(|line| comment_regex.replace_all(line, "").trim().to_string())
         .filter(|line| !line.is_empty())
-        .collect::<Vec<&str>>();
+        .collect();
 
     let line_regex = Regex::new(r"^(?:(?<label>\w+):\s+)?(?<alias>\w+)(?:\s+(?<operands>.+?))?(?:\s+(?<tag>u1|u8|u16|u32|u64|u128|ff))?$").unwrap();
 
     assembly
         .into_iter()
-        .map(|line: &str| {
-            let Some(caps) = line_regex.captures(line) else {
+        .map(|line: String| {
+            let Some(caps) = line_regex.captures(&line) else {
                 return Err(format!("Line `{}` is invalid", line));
             };
 
