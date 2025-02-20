@@ -256,6 +256,7 @@ fn compile_opcode(
             result.add_instruction(
                 AvmInstruction {
                     opcode: AvmOpcode::ECADD,
+                    indirect: Some(build_addressing_mode(collection.indirect)),
                     operands: collection
                         .operands
                         .into_iter()
@@ -279,6 +280,7 @@ fn compile_opcode(
             result.add_instruction(
                 AvmInstruction {
                     opcode: AvmOpcode::TORADIXBE,
+                    indirect: Some(build_addressing_mode(collection.indirect)),
                     operands: collection
                         .operands
                         .into_iter()
