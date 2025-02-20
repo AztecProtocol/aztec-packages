@@ -180,26 +180,21 @@ assert(context.msg_sender() == context.this_address(), "Function can only be cal
 
 ## Implementing notes #[note]
 
-The `#[note]` attribute is used to define custom note types in Aztec contracts. Learn more about notes [here](../../concepts/storage/index.md).
+The `#[note]` attribute is used to define notes in Aztec contracts. Learn more about notes [here](../../concepts/storage/index.md).
 
 When a struct is annotated with `#[note]`, the Aztec macro applies a series of transformations and generates implementations to turn it into a note that can be used in contracts to store private data.
 
-1. **NoteInterface Implementation**: The macro automatically implements the `NoteInterface`, `NoteHashing` and `Packable<N>` traits for the annotated struct. This includes:
+1. **NoteInterface Implementation**: The macro automatically implements the `NoteInterface`, `NoteHashing` and `Packable<N>` traits for the annotated struct. This includes the following methods:
 
    - `get_note_type_id`
-   - `compute_note_hiding_point`
-   - `to_be_bytes`
-   - A `properties` method in the note's implementation
+   - `compute_note_hash`
+   - `compute_nullifier`
+   - `pack`
+   - `unpack`
 
-2. **Automatic Header Field**: If the struct doesn't already have a `header` field of type `NoteHeader`, one is automatically created
+2. **Property Metadata**: A separate struct is generated to describe the note's fields, which is used for efficient retrieval of note data
 
-3. **Note Type ID Generation**: A unique `note_type_id` is automatically computed for the note type using a Keccak hash of the struct name
-
-4. **Serialization and Deserialization**: Methods for converting the note to and from a series of `Field` elements are generated, assuming each field can be converted to/from a `Field`
-
-5. **Property Metadata**: A separate struct is generated to describe the note's fields, which is used for efficient retrieval of note data
-
-6. **Export Information**: The note type and its ID are automatically exported
+3. **Export Information**: The note type and its ID are automatically exported
 
 ### Before expansion
 

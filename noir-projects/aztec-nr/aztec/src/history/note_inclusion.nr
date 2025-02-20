@@ -3,8 +3,7 @@ use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 
 use crate::{
     note::{
-        note_interface::{NoteHashing, NoteInterface},
-        retrieved_note::RetrievedNote,
+        note_interface::NoteHashing, retrieved_note::RetrievedNote,
         utils::compute_note_hash_for_nullify,
     },
     oracle::get_membership_witness::get_note_hash_membership_witness,

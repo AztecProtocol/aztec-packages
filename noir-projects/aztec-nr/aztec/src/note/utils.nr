@@ -1,6 +1,6 @@
 use crate::{
     context::PrivateContext,
-    note::{note_interface::{NoteHashing, NoteInterface}, retrieved_note::RetrievedNote},
+    note::{note_interface::NoteHashing, retrieved_note::RetrievedNote},
 };
 
 use dep::protocol_types::hash::{

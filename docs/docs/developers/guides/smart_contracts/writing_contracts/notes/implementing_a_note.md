@@ -4,7 +4,7 @@ tags: [contracts, notes]
 keywords: [implementing note, note]
 ---
 
-You may want to create your own note type if you need to use a specific type of private data or struct that is not already implemented in Aztec.nr., or if you want to experiment with custom note hashing and nullifier schemes (For that we `#[custom_note]` note macro that does not derive the `NoteHashing` trait like the `#[note]` macro does).
+You may want to create your own note type if you need to use a specific type of private data or struct that is not already implemented in Aztec.nr, or if you want to experiment with custom note hashing and nullifier schemes. For custom hashing and nullifier schemes, use the `#[custom_note]` macro instead of `#[note]`, as it does not automatically derive the `NoteHashing` trait.
 
 For example, if you are developing a card game, you may want to store multiple pieces of data in each card. Rather than storing each piece of data in its own note, you can define a card note type that contains all the data, and then nullify (or exchange ownership of) the card when it has been used.
 

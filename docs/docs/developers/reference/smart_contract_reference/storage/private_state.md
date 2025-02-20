@@ -47,7 +47,7 @@ Instead, in the case of notes they can be understood only as a tag that is used 
 The state variable storage slot can commonly represent an owner, as is the case when using the `at(...)` function of a `Map<>` with an `AztecAddress` as the key.
 :::
 
-A private state variable generally points to one or many notes (depending on the type). The note(s) are all valid private state if the note(s) haven't yet been nullified.
+A private state variable points to one or many notes (depending on the type). The note(s) are all valid private state if the note(s) haven't yet been nullified.
 
 An `PrivateImmutable` will point to _one_ note over the lifetime of the contract. This note is a struct of information that is persisted forever.
 
