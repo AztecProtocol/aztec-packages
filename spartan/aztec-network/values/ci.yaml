@@ -8,26 +8,20 @@ ethereum:
   execution:
     resources:
       requests:
-        memory: "2Gi"
         cpu: "200m"
       limits:
-        memory: "2Gi"
         cpu: "200m"
   beacon:
     resources:
       requests:
-        memory: "2Gi"
         cpu: "200m"
       limits:
-        memory: "2Gi"
         cpu: "200m"
   validator:
     resources:
       requests:
-        memory: "2Gi"
         cpu: "200m"
       limits:
-        memory: "2Gi"
         cpu: "200m"
 
 telemetry:
@@ -37,7 +31,6 @@ validator:
   replicas: 8
   resources:
     requests:
-      memory: "512Mi"
       cpu: "200m"
   validator:
     disabled: false
@@ -54,23 +47,19 @@ bootNode:
     disabled: true
   resources:
     requests:
-      memory: "2Gi"
       cpu: "200m"
 
 proverAgent:
   resources:
     requests:
-      memory: "2Gi"
       cpu: "200m"
 
 proverBroker:
   resources:
     requests:
-      memory: "2Gi"
       cpu: "200m"
 
 proverNode:
   resources:
     requests:
-      memory: "2Gi"
       cpu: "200m"

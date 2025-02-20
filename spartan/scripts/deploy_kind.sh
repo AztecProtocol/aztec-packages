@@ -24,6 +24,7 @@ chaos_values="${CHAOS_VALUES:-}"
 aztec_docker_tag=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}
 install_timeout=${INSTALL_TIMEOUT:-30m}
 overrides="${OVERRIDES:-}"
+resources_file="${RESOURCES_FILE:-default.yaml}"
 
 if ! docker_has_image "aztecprotocol/aztec:$aztec_docker_tag"; then
   echo "Aztec Docker image not found. It needs to be built."
@@ -115,7 +116,8 @@ helm upgrade --install spartan ../aztec-network \
   "${helm_set_args[@]}" \
   --set images.aztec.image="aztecprotocol/aztec:$aztec_docker_tag" \
   $(generate_overrides "$overrides") \
-  --values "../aztec-network/values/$values_file" \
+  -f "../aztec-network/values/$values_file" \
+  -f "../aztec-network/resources/$resources_file" \
   --wait \
   --wait-for-jobs=true \
   --timeout="$install_timeout"

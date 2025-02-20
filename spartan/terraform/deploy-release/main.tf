@@ -48,8 +48,11 @@ resource "helm_release" "aztec-gke-cluster" {
   create_namespace = true
   upgrade_install  = true
 
-  # base values file
-  values = [file("../../aztec-network/values/${var.VALUES_FILE}")]
+  # base values and resources file - defaults to gcloud.yaml
+  values = [
+    file("../../aztec-network/values/${var.VALUES_FILE}"),
+    file("../../aztec-network/resources/${var.RESOURCES_FILE}")
+  ]
 
   set {
     name  = "images.aztec.image"

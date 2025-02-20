@@ -108,8 +108,6 @@ resource "helm_release" "aztec-gke-cluster" {
     value = "${google_compute_address.otel_collector_ip.address}:8889"
   }
 
-
-
   # Setting timeout and wait conditions
   timeout       = 600 # 10 minutes in seconds
   wait          = true

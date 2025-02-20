@@ -19,7 +19,6 @@ validator:
   replicas: 128
   resources:
     requests:
-      memory: "5Gi"
       cpu: "1.5"
       ephemeral-storage: "275Gi"
   maxOldSpaceSize: "4608"
@@ -36,7 +35,6 @@ bootNode:
     disabled: true
   resources:
     requests:
-      memory: "5Gi"
       cpu: "1.5"
       ephemeral-storage: "275Gi"
   maxOldSpaceSize: "4608"
@@ -47,7 +45,6 @@ proverAgent:
 proverBroker:
   resources:
     requests:
-      memory: "5Gi"
       cpu: "1.5"
       ephemeral-storage: "275Gi"
   maxOldSpaceSize: "4608"
@@ -55,7 +52,6 @@ proverBroker:
 proverNode:
   resources:
     requests:
-      memory: "5Gi"
       cpu: "1.5"
       ephemeral-storage: "275Gi"
   maxOldSpaceSize: "4608"
@@ -74,18 +70,15 @@ ethereum:
   execution:
     resources:
       requests:
-        memory: "5Gi"
         cpu: "1.5"
     storageSize: "80Gi"
   beacon:
     resources:
       requests:
-        memory: "5Gi"
         cpu: "1.5"
     storageSize: "80Gi"
   validator:
     resources:
       requests:
-        memory: "5Gi"
         cpu: "1.5"
     storageSize: "80Gi"

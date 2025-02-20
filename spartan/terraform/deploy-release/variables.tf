@@ -14,6 +14,13 @@ variable "VALUES_FILE" {
   type        = string
 }
 
+# In google cloud we run with a beefier resources file
+variable "RESOURCES_FILE" {
+  description = "Name of the resources file to use for deployment"
+  type        = string
+  default     = "gcloud.yaml"
+}
+
 variable "AZTEC_DOCKER_IMAGE" {
   description = "Docker image to use for the aztec network"
   type        = string

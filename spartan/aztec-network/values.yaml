@@ -77,9 +77,6 @@ bootNode:
     disabled: true
   p2p:
     enabled: "true"
-  resources:
-    requests:
-      memory: "5Gi"
   maxOldSpaceSize: "4608"
   deployContracts: true # Set to false to use manual contract addresses
   startupProbe:
@@ -127,9 +124,6 @@ validator:
     # Only if we fail for 20 minutes straight do we call it botched
     # This gives enough time to sync
     failureThreshold: 120
-  resources:
-    requests:
-      memory: "5Gi"
   maxOldSpaceSize: "4608"
   archiverPollingInterval: 1000
   archiverViemPollingInterval: 1000
@@ -159,9 +153,6 @@ proverNode:
     jobTimeoutMs: 30000
     pollIntervalMs: 1000
     jobMaxRetries: 3
-  resources:
-    requests:
-      memory: "5Gi"
   maxOldSpaceSize: "4608"
   archiverPollingInterval: 1000
   archiverViemPollingInterval: 1000
@@ -190,9 +181,6 @@ pxe:
     timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 3
-  resources:
-    requests:
-      memory: "4Gi"
 
 bot:
   enabled: true
@@ -221,9 +209,6 @@ bot:
     failureThreshold: 3
   gke:
     spotEnabled: true
-  resources:
-    requests:
-      memory: "5Gi"
   maxOldSpaceSize: "4608"
 
 ethereum:
@@ -243,9 +228,6 @@ ethereum:
       targetPort: 8545
       wsPort: 8546
       wsTargetPort: 8546
-    resources:
-      requests:
-        memory: "4Gi"
     storageSize: "80Gi"
   beacon:
     externalHost: ""
@@ -254,16 +236,8 @@ ethereum:
     service:
       port: 5052
       targetPort: 5052
-    resources:
-      requests:
-        memory: "4Gi"
-      limits:
-        memory: "4Gi"
     storageSize: "80Gi"
   validator:
-    resources:
-      requests:
-        memory: "4Gi"
     storageSize: "80Gi"
   readinessProbe:
     initialDelaySeconds: 5
@@ -288,9 +262,6 @@ proverAgent:
   logLevel: "debug; info: aztec:simulator, json-rpc"
   bb:
     hardwareConcurrency: ""
-  resources:
-    requests:
-      memory: "5Gi"
   maxOldSpaceSize: "4608"
   pollInterval: 200
 
@@ -305,9 +276,6 @@ proverBroker:
   logLevel: "debug; info: aztec:simulator, json-rpc"
   storageSize: "1Gi"
   dataDir: "/data"
-  resources:
-    requests:
-      memory: "5Gi"
   maxOldSpaceSize: "4608"
 
 jobs:
@@ -338,7 +306,3 @@ faucet:
   accountIndex: 0
   l1Assets: ""
   logLevel: ""
-  resources:
-    requests:
-      memory: "2Gi"
-      cpu: "200m"
