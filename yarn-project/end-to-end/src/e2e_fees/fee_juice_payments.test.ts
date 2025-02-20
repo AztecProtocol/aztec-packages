@@ -69,12 +69,12 @@ describe('e2e_fees Fee Juice payments', () => {
       const claim = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(FEE_FUNDING_FOR_TESTER_ACCOUNT, bobAddress);
       // docs:start:claim_and_pay
       const paymentMethod = new FeeJuicePaymentMethodWithClaim(bobAddress, claim);
-      // docs:end:claim_and_pay
       const receipt = await feeJuiceContract
         .withWallet(bobWallet)
         .methods.check_balance(0n)
         .send({ fee: { gasSettings, paymentMethod } })
         .wait();
+      // docs:end:claim_and_pay
       const endBalance = await feeJuiceContract.methods.balance_of_public(bobAddress).simulate();
 
       expect(endBalance).toBeGreaterThan(0n);
@@ -87,10 +87,12 @@ describe('e2e_fees Fee Juice payments', () => {
     it('sends tx with payment in Fee Juice with public calls', async () => {
       const initialBalance = await feeJuiceContract.methods.balance_of_public(aliceAddress).simulate();
       const paymentMethod = new FeeJuicePaymentMethod(aliceAddress);
+      // docs:start:pay_fee_juice_send
       const { transactionFee } = await bananaCoin.methods
         .transfer_in_public(aliceAddress, bobAddress, 1n, 0n)
         .send({ fee: { gasSettings, paymentMethod } })
         .wait();
+      // docs:end:pay_fee_juice_send
       expect(transactionFee).toBeGreaterThan(0n);
       const endBalance = await feeJuiceContract.methods.balance_of_public(aliceAddress).simulate();
       expect(endBalance).toBeLessThan(initialBalance);

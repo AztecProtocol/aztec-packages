@@ -88,8 +88,10 @@ describe('e2e_fees account_init', () => {
       const [bobsInitialGas] = await t.getGasBalanceFn(bobsAddress);
       expect(bobsInitialGas).toEqual(FEE_FUNDING_FOR_TESTER_ACCOUNT);
 
+      // docs:start:pay_fee_juice_deploy
       const paymentMethod = new FeeJuicePaymentMethod(bobsAddress);
       const tx = await bobsAccountManager.deploy({ fee: { paymentMethod } }).wait();
+      // docs:end:pay_fee_juice_deploy
 
       expect(tx.transactionFee!).toBeGreaterThan(0n);
       await expect(t.getGasBalanceFn(bobsAddress)).resolves.toEqual([bobsInitialGas - tx.transactionFee!]);
