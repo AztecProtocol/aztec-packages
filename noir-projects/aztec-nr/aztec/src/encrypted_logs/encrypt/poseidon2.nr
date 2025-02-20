@@ -22,10 +22,7 @@ global TWO_POW_128: Field = 0x100000000000000000000000000000000;
 ///
 /// See the paper: https://drive.google.com/file/d/1EVrP3DzoGbmzkRmYnyEDcIQcXVU7GlOd/view
 ///
-/// Note: The output ciphertext is between 1 and 3 extra fields longer than the msg, depending on `L mod 3`.
 /// Note: The return length is: L padded to the next multiple of 3, plus 1 for a message auth code of s[1].
-/// Note: L padded to the next power of 3 is 3 * ceil(L / 3).
-/// Note: ceil(L / 3) = (L + 3 - 1) / 3.
 ///
 /// @param nonce is only needed if your use case needs to protect against replay attacks.
 pub fn poseidon2_encrypt<let L: u32>(
