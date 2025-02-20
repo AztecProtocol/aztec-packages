@@ -1,6 +1,10 @@
 use std::static_assert;
 
-use crate::{oracle::note_discovery::{deliver_note, sync_notes}, capsules::CapsuleArray, utils::array};
+use crate::{
+    capsules::CapsuleArray,
+    oracle::note_discovery::{deliver_note, sync_notes},
+    utils::array,
+};
 
 use dep::protocol_types::{
     address::AztecAddress,

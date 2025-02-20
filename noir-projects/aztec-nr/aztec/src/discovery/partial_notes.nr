@@ -1,11 +1,11 @@
 use crate::{
+    capsules::CapsuleArray,
     discovery::{
         ComputeNoteHashAndNullifier,
         nonce_discovery::{attempt_note_nonce_discovery, DiscoveredNoteInfo},
         private_logs::MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN,
     },
     oracle::note_discovery::{deliver_note, get_log_by_tag},
-    capsules::CapsuleArray,
     utils::array,
 };
 
