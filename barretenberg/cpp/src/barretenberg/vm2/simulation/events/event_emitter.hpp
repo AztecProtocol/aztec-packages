@@ -32,7 +32,7 @@ template <typename Event> class EventEmitter : public EventEmitterInterface<Even
     Container events;
 };
 
-// This is an EventEmmiter that eagerly deduplicates events based on a provided key.
+// This is an EventEmitter that eagerly deduplicates events based on a provided key.
 template <typename Event> class DeduplicatingEventEmitter : public EventEmitter<Event> {
   public:
     virtual ~DeduplicatingEventEmitter() = default;
