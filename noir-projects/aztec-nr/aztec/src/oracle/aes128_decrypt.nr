@@ -20,28 +20,24 @@
 ///
 /// It's up to the calling function to determine whether decryption succeeded or failed.
 /// See the tests below for an example of how.
-unconstrained fn aes128_decrypt_oracle_wrapper<let N: u32>(
-    ciphertext: [u8; N],
-    iv: [u8; 16],
-    sym_key: [u8; 16],
-) -> [u8; N] {
-    aes128_decrypt_oracle(ciphertext, iv, sym_key)
-}
-
 #[oracle(aes128Decrypt)]
-unconstrained fn aes128_decrypt_oracle<let N: u32>(
+pub unconstrained fn aes128_decrypt_oracle<let N: u32>(
     ciphertext: [u8; N],
     iv: [u8; 16],
     sym_key: [u8; 16],
-) -> [u8; N] {}
+) -> BoundedVec<u8, N> {}
 
 mod test {
     use crate::{
         encrypted_logs::encrypt::aes128::derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256,
-        utils::point::point_from_x_coord,
+        utils::{array::{subarray::subarray, subbvec::subbvec}, point::point_from_x_coord},
     };
-    use super::aes128_decrypt_oracle_wrapper;
+    use super::aes128_decrypt_oracle;
     use std::aes128::aes128_encrypt;
+
+    global TEST_PLAINTEXT_LENGTH: u32 = 10;
+    global TEST_CIPHERTEXT_LENGTH: u32 = 16;
+    global TEST_PADDING_LENGTH: u32 = TEST_CIPHERTEXT_LENGTH - TEST_PLAINTEXT_LENGTH;
 
     #[test]
     unconstrained fn aes_encrypt_then_decrypt() {
@@ -51,23 +47,27 @@ mod test {
             ciphertext_shared_secret,
         );
 
-        let plaintext: [u8; 10] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let plaintext: [u8; TEST_PLAINTEXT_LENGTH] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
-        let ciphertext = aes128_encrypt(plaintext, iv, sym_key);
+        let ciphertext: [u8; TEST_CIPHERTEXT_LENGTH] = aes128_encrypt(plaintext, iv, sym_key);
 
-        let received_plaintext = aes128_decrypt_oracle_wrapper(ciphertext, iv, sym_key);
-        let padding_length = received_plaintext[received_plaintext.len() - 1] as u32;
+        let received_plaintext = aes128_decrypt_oracle(ciphertext, iv, sym_key);
 
-        // A BoundedVec could also be used.
-        let mut received_plaintext_with_padding_removed = std::collections::vec::Vec::new();
-        for i in 0..received_plaintext.len() - padding_length {
-            received_plaintext_with_padding_removed.push(received_plaintext[i]);
-        }
-
-        assert_eq(received_plaintext_with_padding_removed.slice, plaintext.as_slice());
+        assert_eq(received_plaintext.len(), TEST_PLAINTEXT_LENGTH);
+        assert_eq(received_plaintext.max_len(), TEST_CIPHERTEXT_LENGTH);
+        assert_eq(
+            subarray::<_, _, TEST_PLAINTEXT_LENGTH>(received_plaintext.storage(), 0),
+            plaintext,
+        );
+        assert_eq(
+            subarray::<_, _, TEST_PADDING_LENGTH>(
+                received_plaintext.storage(),
+                TEST_PLAINTEXT_LENGTH,
+            ),
+            [0 as u8; TEST_PADDING_LENGTH],
+        );
     }
 
-    global TEST_PLAINTEXT_LENGTH: u32 = 10;
     global TEST_MAC_LENGTH: u32 = 32;
 
     #[test(should_fail_with = "mac does not match")]
@@ -129,12 +129,10 @@ mod test {
         let mut bad_sym_key = sym_key;
         bad_sym_key[0] = 0;
 
-        let received_plaintext = aes128_decrypt_oracle_wrapper(ciphertext, iv, bad_sym_key);
+        let received_plaintext = aes128_decrypt_oracle(ciphertext, iv, bad_sym_key);
 
-        let mut extracted_mac_as_bytes = [0 as u8; TEST_MAC_LENGTH];
-        for i in 0..TEST_MAC_LENGTH {
-            extracted_mac_as_bytes[i] = received_plaintext[TEST_PLAINTEXT_LENGTH + i];
-        }
+        let extracted_mac_as_bytes: [u8; TEST_MAC_LENGTH] =
+            subarray(received_plaintext.storage(), TEST_PLAINTEXT_LENGTH);
 
         // We expect this assertion to fail, because we used a bad sym key.
         assert_eq(mac_as_bytes, extracted_mac_as_bytes, "mac does not match");

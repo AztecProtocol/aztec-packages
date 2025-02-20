@@ -363,13 +363,11 @@ export class ViewDataOracle extends TypedOracle {
 
   // TODO(#11849): consider replacing this oracle with a pure Noir implementation of aes decryption.
   public override aes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer> {
-    // We do not trim the padding in typescript-land.
     // In Noir-land, when this oracle is called, all the caller knows is the
     // ciphertext length. Without performing decryption, the caller cannot know the
-    // true plaintext length. Therefore, the array length of the return type of this
-    // oracle must be that of the ciphertext, which is equal to the _padded_ plaintext.
-    // It's then up to the Noir code to remove the pkcs#7 padding itself.
+    // true plaintext length. Therefore, we return a BoundedVec, which conveys the
+    // actual length of the plaintext.
     const aes128 = new Aes128();
-    return aes128.decryptBufferCBCKeepPadding(ciphertext, iv, symKey);
+    return aes128.decryptBufferCBC(ciphertext, iv, symKey);
   }
 }

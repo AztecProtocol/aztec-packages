@@ -25,6 +25,8 @@ import {
   type ForeignCallArray,
   type ForeignCallSingle,
   addressFromSingle,
+  arrayToBoundedVec,
+  bufferToU8Array,
   fromArray,
   fromSingle,
   fromUintArray,
@@ -587,14 +589,12 @@ export class TXEService {
     const ivBuffer = fromUintArray(iv, 8);
     const symKeyBuffer = fromUintArray(symKey, 8);
 
-    // TODO(AD): this is a hack to shut up linter - this shouldn't be async!
-    const paddedPlaintext = await Promise.resolve(
-      this.typedOracle.aes128Decrypt(ciphertextBuffer, ivBuffer, symKeyBuffer),
-    );
+    const plaintextBuffer = await this.typedOracle.aes128Decrypt(ciphertextBuffer, ivBuffer, symKeyBuffer);
 
-    // We convert each byte of the buffer to its own Field, so that the Noir
-    // function correctly receives [u8; N].
-    return toForeignCallResult([toArray(Array.from(paddedPlaintext).map(byte => new Fr(byte)))]);
+    const result = toForeignCallResult(arrayToBoundedVec(bufferToU8Array(plaintextBuffer), ciphertextBuffer.length));
+    this.logger.debug('result', result);
+
+    return result;
   }
 
   // AVM opcodes
