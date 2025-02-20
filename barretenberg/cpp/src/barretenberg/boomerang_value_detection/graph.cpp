@@ -1272,39 +1272,6 @@ template <typename FF> void Graph_<FF>::print_variables_gate_counts()
      }
  }
 
-/**
- * @brief this method prints information about gate's selectors for every variable in one gate
- * @tparam FF 
- * @param ultra_builder 
- */
-
-template <typename FF> void Graph_<FF>::print_variables_in_one_gate(bb::UltraCircuitBuilder& ultra_builder)
-{
-    const auto& gate_blocks = ultra_builder.blocks.get_gate_blocks();
-    for (const auto& [key, gates]: variable_gates) {
-        if (variables_in_one_gate.contains(key.first)) {
-            ASSERT(gates.size() == 1);
-            size_t gate_index = gates[0];
-            UltraBlock block = gate_blocks[key.second];
-            info("---- printing gate selectors where variable with index ", key.first, " was found ----");
-            info("q_m == ", block.q_m()[gate_index]);
-            info("q_c == ", block.q_c()[gate_index]);
-            info("q_1 == ", block.q_1()[gate_index]);
-            info("q_2 == ", block.q_2()[gate_index]);
-            info("q_3 == ", block.q_3()[gate_index]);
-            info("q_4 == ", block.q_4()[gate_index]);
-            info("q_arith == ", block.q_arith()[gate_index]);
-            info("q_delta_range == ", block.q_delta_range()[gate_index]);
-            info("q_elliptic == ", block.q_elliptic()[gate_index]);
-            info("q_aux == ", block.q_aux()[gate_index]);
-            info("q_lookup_type == ", block.q_lookup_type()[gate_index]);
-            info("q_poseidon2_external == ", block.q_poseidon2_external()[gate_index]);
-            info("q_poseidon2_internal == ", block.q_poseidon2_internal()[gate_index]);
-            info("---- finished printing ----");
-        }
-    }
-}
-
 template class Graph_<bb::fr>;
 
 } //namespace cdg
