@@ -29,13 +29,14 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
     using InnerBF = InnerFlavor::BF;
 
     using RecursiveVerifier = TranslatorRecursiveVerifier_<RecursiveFlavor>;
-    using TranslatorBF = typename TranslatorRecursiveFlavor_<OuterBuilder>::BF;
 
     using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
     using OuterFlavor = std::conditional_t<IsMegaBuilder<OuterBuilder>, MegaFlavor, UltraFlavor>;
     using OuterProver = UltraProver_<OuterFlavor>;
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
     using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
+
+    using TranslatorBF = typename TranslatorRecursiveFlavor_<OuterBuilder>::BF;
 
     using Transcript = InnerFlavor::Transcript;
 
@@ -86,9 +87,7 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
 
         auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(prover.key->proving_key);
         RecursiveVerifier verifier{ &outer_circuit, verification_key, transcript };
-        verifier.verify_proof(inner_proof,
-                              TranslatorBF::from_witness(&outer_circuit, evaluation_challenge_x),
-                              TranslatorBF::from_witness(&outer_circuit, batching_challenge_v));
+        auto pairing_points = verifier.verify_proof(proof, evaluation_challenge_x, batching_challenge_v);
         info("Recursive Verifier: num gates = ", outer_circuit.num_gates);
 
         // Check for a failure flag in the recursive verifier circuit

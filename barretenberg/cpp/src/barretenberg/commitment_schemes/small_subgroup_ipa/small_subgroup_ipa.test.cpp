@@ -277,7 +277,7 @@ TYPED_TEST(SmallSubgroupIPATest, TranslationEvaluationsMaskingTerm)
         }
 
         TranslationData<typename TypeParam::Transcript> translation_data(
-            RefVector(transcript_polynomials), prover_transcript, ck);
+            RefVector<Polynomial<FF>>(transcript_polynomials), prover_transcript, ck);
 
         const FF evaluation_challenge_x = FF::random_element();
         const FF batching_challenge_v = FF::random_element();

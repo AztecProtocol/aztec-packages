@@ -103,6 +103,7 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
     }
 }
 
+// Check that the GoblinRecursiveVerifier circuit does not depend on the inputs.
 TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
 {
     // Retrieves the trace blocks (each consisting of a specific gate) from the recursive verifier circuit
