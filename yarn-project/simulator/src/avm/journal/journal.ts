@@ -5,15 +5,10 @@ import {
   computeNoteHashNonce,
   computePublicDataTreeLeafSlot,
   computeUniqueNoteHash,
-  deriveStorageSlotInMap,
   siloNoteHash,
   siloNullifier,
 } from '@aztec/circuits.js/hash';
-import {
-  ScheduledDelayChange,
-  ScheduledValueChange,
-  computeSharedMutableHashSlot,
-} from '@aztec/circuits.js/shared-mutable';
+import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/circuits.js/shared-mutable';
 import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
 import {
   CANONICAL_AUTH_REGISTRY_ADDRESS,
@@ -22,9 +17,6 @@ import {
   MULTI_CALL_ENTRYPOINT_ADDRESS,
   REGISTERER_CONTRACT_ADDRESS,
   ROUTER_ADDRESS,
-  UPDATED_CLASS_IDS_SLOT,
-  UPDATES_SCHEDULED_VALUE_CHANGE_LEN,
-  UPDATES_VALUE_SIZE,
 } from '@aztec/constants';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
@@ -748,26 +740,24 @@ export class AvmPersistableStateManager {
   }
 
   async getContractUpdateHints(contractAddress: AztecAddress) {
-    const sharedMutableSlot = await deriveStorageSlotInMap(new Fr(UPDATED_CLASS_IDS_SLOT), contractAddress);
-
-    const hashSlot = computeSharedMutableHashSlot(sharedMutableSlot, UPDATES_SCHEDULED_VALUE_CHANGE_LEN);
+    const { sharedMutableSlot, sharedMutableHashSlot } = await SharedMutableValuesWithHash.getContractUpdateSlots(
+      contractAddress,
+    );
 
     const {
       value: hash,
       leafPreimage,
       leafIndex,
       leafPath,
-    } = await this.getPublicDataMembership(ProtocolContractAddress.ContractInstanceDeployer, hashSlot);
+    } = await this.getPublicDataMembership(ProtocolContractAddress.ContractInstanceDeployer, sharedMutableHashSlot);
     const updateMembership = new AvmPublicDataReadTreeHint(leafPreimage, leafIndex, leafPath);
 
     const readStorage = async (storageSlot: Fr) =>
       (await this.publicStorage.read(ProtocolContractAddress.ContractInstanceDeployer, storageSlot)).value;
 
-    const valueChange = await ScheduledValueChange.readFromTree(sharedMutableSlot, UPDATES_VALUE_SIZE, readStorage);
+    const sharedMutableValues = await SharedMutableValues.readFromTree(sharedMutableSlot, readStorage);
 
-    const delayChange = await ScheduledDelayChange.readFromTree(sharedMutableSlot, readStorage);
-
-    const updatePreimage = [delayChange.toField(), ...valueChange.toFields()];
+    const updatePreimage = sharedMutableValues.toFields();
 
     if (!hash.isZero()) {
       const hashed = await poseidon2Hash(updatePreimage);

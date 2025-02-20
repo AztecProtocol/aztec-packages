@@ -61,11 +61,18 @@ unconstrained fn test_storage_slot_allocation() {
 }
 
 fn get_shared_mutable_num_slots() -> Field {
-    let scheduled_delay_packed_len = 1; // There is 1 ScheduledDelayChange stored in storage and it fits into 1 slot.
-    let example_struct_packed_len = 5; // ExampleStruct packs to 5 slots.
-    // There are 2 example structs stored in the packed representation of ScheduledValueChange<ExampleStruct>.
-    let scheduled_value_change_packed_len = (example_struct_packed_len * 2 + 1);
-    let with_hash_additional_slots = 1; // Wrapping the values in WithHash adds 1 slot.
+    // ExampleStruct packs to 5 slots.
+    let example_struct_packed_len = 5;
 
-    scheduled_delay_packed_len + scheduled_value_change_packed_len + with_hash_additional_slots
+    // ScheduledDelayChange and block_of_change of ScheduledValueChange are stored in a single slot.
+    let sdc_and_block_of_change_of_svc_packed_len = 1;
+
+    // There are 2 example structs stored in the packed representation of ScheduledValueChange<ExampleStruct>.
+    let value_change_and_delay_change_packed_len =
+        example_struct_packed_len * 2 + sdc_and_block_of_change_of_svc_packed_len;
+
+    // Wrapping the values in WithHash adds 1 slot.
+    let with_hash_additional_slots = 1;
+
+    value_change_and_delay_change_packed_len + with_hash_additional_slots
 }

@@ -1,13 +1,10 @@
 import { type ContractInstanceWithAddress } from '@aztec/circuits.js';
-import { deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
 import {
   ScheduledDelayChange,
   ScheduledValueChange,
-  computeSharedMutableHashSlot,
+  SharedMutableValuesWithHash,
 } from '@aztec/circuits.js/shared-mutable';
-import { UPDATED_CLASS_IDS_SLOT, UPDATES_SCHEDULED_VALUE_CHANGE_LEN } from '@aztec/constants';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -32,22 +29,17 @@ describe('AVM WitGen & Circuit - contract updates', () => {
     nextClassId: Fr,
     blockOfChange: number,
   ) => {
-    const sharedMutableSlot = await deriveStorageSlotInMap(new Fr(UPDATED_CLASS_IDS_SLOT), contractAddress);
+    const { sharedMutableSlot } = await SharedMutableValuesWithHash.getContractUpdateSlots(contractAddress);
 
     const valueChange = new ScheduledValueChange([previousClassId], [nextClassId], blockOfChange);
     const delayChange = ScheduledDelayChange.empty();
+    const sharedMutableValuesWithHash = new SharedMutableValuesWithHash(valueChange, delayChange);
+
     const writeToTree = async (storageSlot: Fr, value: Fr) => {
       await tester.setPublicStorage(ProtocolContractAddress.ContractInstanceDeployer, storageSlot, value);
     };
-    await valueChange.writeToTree(sharedMutableSlot, writeToTree);
-    await delayChange.writeToTree(sharedMutableSlot, writeToTree);
 
-    const updatePreimage = [delayChange.toField(), ...valueChange.toFields()];
-    const updateHash = await poseidon2Hash(updatePreimage);
-
-    const hashSlot = computeSharedMutableHashSlot(sharedMutableSlot, UPDATES_SCHEDULED_VALUE_CHANGE_LEN);
-
-    await writeToTree(hashSlot, updateHash);
+    await sharedMutableValuesWithHash.writeToTree(sharedMutableSlot, writeToTree);
   };
 
   it(

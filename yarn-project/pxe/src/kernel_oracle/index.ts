@@ -9,21 +9,10 @@ import {
   computeContractClassIdPreimage,
   computeSaltedInitializationHash,
 } from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot, deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
+import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { UpdatedClassIdHints } from '@aztec/circuits.js/kernel';
-import {
-  ScheduledDelayChange,
-  ScheduledValueChange,
-  computeSharedMutableHashSlot,
-} from '@aztec/circuits.js/shared-mutable';
-import {
-  type NOTE_HASH_TREE_HEIGHT,
-  PUBLIC_DATA_TREE_HEIGHT,
-  UPDATED_CLASS_IDS_SLOT,
-  UPDATES_SCHEDULED_VALUE_CHANGE_LEN,
-  UPDATES_VALUE_SIZE,
-  VK_TREE_HEIGHT,
-} from '@aztec/constants';
+import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/circuits.js/shared-mutable';
+import { type NOTE_HASH_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, VK_TREE_HEIGHT } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
@@ -97,13 +86,13 @@ export class KernelOracle implements ProvingDataOracle {
   }
 
   public async getUpdatedClassIdHints(contractAddress: AztecAddress): Promise<UpdatedClassIdHints> {
-    const sharedMutableSlot = await deriveStorageSlotInMap(new Fr(UPDATED_CLASS_IDS_SLOT), contractAddress);
-
-    const hashSlot = computeSharedMutableHashSlot(sharedMutableSlot, UPDATES_SCHEDULED_VALUE_CHANGE_LEN);
+    const { sharedMutableSlot, sharedMutableHashSlot } = await SharedMutableValuesWithHash.getContractUpdateSlots(
+      contractAddress,
+    );
 
     const hashLeafSlot = await computePublicDataTreeLeafSlot(
       ProtocolContractAddress.ContractInstanceDeployer,
-      hashSlot,
+      sharedMutableHashSlot,
     );
     const updatedClassIdWitness = await this.node.getPublicDataTreeWitness(this.blockNumber, hashLeafSlot);
 
@@ -113,9 +102,7 @@ export class KernelOracle implements ProvingDataOracle {
 
     const readStorage = (storageSlot: Fr) =>
       this.node.getPublicStorageAt(ProtocolContractAddress.ContractInstanceDeployer, storageSlot, this.blockNumber);
-
-    const valueChange = await ScheduledValueChange.readFromTree(sharedMutableSlot, UPDATES_VALUE_SIZE, readStorage);
-    const delayChange = await ScheduledDelayChange.readFromTree(sharedMutableSlot, readStorage);
+    const sharedMutableValues = await SharedMutableValues.readFromTree(sharedMutableSlot, readStorage);
 
     return new UpdatedClassIdHints(
       new MembershipWitness(
@@ -124,8 +111,7 @@ export class KernelOracle implements ProvingDataOracle {
         updatedClassIdWitness.siblingPath.toTuple(),
       ),
       updatedClassIdWitness.leafPreimage,
-      valueChange,
-      delayChange,
+      sharedMutableValues,
     );
   }
 }

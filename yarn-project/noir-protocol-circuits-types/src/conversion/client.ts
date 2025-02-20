@@ -58,7 +58,7 @@ import {
   MAX_PRIVATE_LOGS_PER_TX,
   type NOTE_HASH_TREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
-  UPDATES_SCHEDULED_VALUE_CHANGE_LEN,
+  UPDATES_SHARED_MUTABLE_VALUES_LEN,
 } from '@aztec/constants';
 import { assertLength, mapTuple } from '@aztec/foundation/serialize';
 
@@ -615,9 +615,9 @@ export function mapFunctionDataFromNoir(functionData: FunctionDataNoir): Functio
 export function mapPrivateVerificationKeyHintsToNoir(
   privateVerificationKeyHints: PrivateVerificationKeyHints,
 ): PrivateVerificationKeyHintsNoir {
-  const updatedClassIdValueChangeAsFields = assertLength(
-    privateVerificationKeyHints.updatedClassIdHints.updatedClassIdValueChange.toFields(),
-    UPDATES_SCHEDULED_VALUE_CHANGE_LEN,
+  const updatedClassIdSharedMutableValuesFields = assertLength(
+    privateVerificationKeyHints.updatedClassIdHints.updatedClassIdValues.toFields(),
+    UPDATES_SHARED_MUTABLE_VALUES_LEN,
   );
 
   return {
@@ -641,10 +641,7 @@ export function mapPrivateVerificationKeyHintsToNoir(
     updated_class_id_leaf: mapPublicDataTreePreimageToNoir(
       privateVerificationKeyHints.updatedClassIdHints.updatedClassIdLeaf,
     ),
-    updated_class_id_value_change: mapTuple(updatedClassIdValueChangeAsFields, mapFieldToNoir),
-    updated_class_id_delay_change: [
-      mapFieldToNoir(privateVerificationKeyHints.updatedClassIdHints.updatedClassIdDelayChange.toField()),
-    ],
+    updated_class_id_shared_mutable_values: mapTuple(updatedClassIdSharedMutableValuesFields, mapFieldToNoir),
   };
 }
 
