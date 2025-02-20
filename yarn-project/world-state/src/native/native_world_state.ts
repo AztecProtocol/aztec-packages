@@ -191,21 +191,26 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       });
     });
 
-    return await this.instance.call(
-      WorldStateMessageType.SYNC_BLOCK,
-      {
-        blockNumber: l2Block.number,
-        blockHeaderHash: await l2Block.header.hash(),
-        paddedL1ToL2Messages: paddedL1ToL2Messages.map(serializeLeaf),
-        paddedNoteHashes: paddedNoteHashes.map(serializeLeaf),
-        paddedNullifiers: paddedNullifiers.map(serializeLeaf),
-        publicDataWrites: publicDataWrites.map(serializeLeaf),
-        blockStateRef: blockStateReference(l2Block.header.state),
-        canonical: true,
-      },
-      this.sanitiseAndCacheSummaryFromFull.bind(this),
-      this.deleteCachedSummary.bind(this),
-    );
+    try {
+      return await this.instance.call(
+        WorldStateMessageType.SYNC_BLOCK,
+        {
+          blockNumber: l2Block.number,
+          blockHeaderHash: await l2Block.header.hash(),
+          paddedL1ToL2Messages: paddedL1ToL2Messages.map(serializeLeaf),
+          paddedNoteHashes: paddedNoteHashes.map(serializeLeaf),
+          paddedNullifiers: paddedNullifiers.map(serializeLeaf),
+          publicDataWrites: publicDataWrites.map(serializeLeaf),
+          blockStateRef: blockStateReference(l2Block.header.state),
+          canonical: true,
+        },
+        this.sanitiseAndCacheSummaryFromFull.bind(this),
+        this.deleteCachedSummary.bind(this),
+      );
+    } catch (err) {
+      this.worldStateInstrumentation.incCriticalErrors('synch_pending_block');
+      throw err;
+    }
   }
 
   public async close(): Promise<void> {
@@ -240,15 +245,20 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    * @returns The new WorldStateStatus
    */
   public async setFinalised(toBlockNumber: bigint) {
-    await this.instance.call(
-      WorldStateMessageType.FINALISE_BLOCKS,
-      {
-        toBlockNumber,
-        canonical: true,
-      },
-      this.sanitiseAndCacheSummary.bind(this),
-      this.deleteCachedSummary.bind(this),
-    );
+    try {
+      await this.instance.call(
+        WorldStateMessageType.FINALISE_BLOCKS,
+        {
+          toBlockNumber,
+          canonical: true,
+        },
+        this.sanitiseAndCacheSummary.bind(this),
+        this.deleteCachedSummary.bind(this),
+      );
+    } catch (err) {
+      this.worldStateInstrumentation.incCriticalErrors('finalize_block');
+      throw err;
+    }
     return this.getStatusSummary();
   }
 
@@ -258,15 +268,20 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    * @returns The new WorldStateStatus
    */
   public async removeHistoricalBlocks(toBlockNumber: bigint) {
-    return await this.instance.call(
-      WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS,
-      {
-        toBlockNumber,
-        canonical: true,
-      },
-      this.sanitiseAndCacheSummaryFromFull.bind(this),
-      this.deleteCachedSummary.bind(this),
-    );
+    try {
+      return await this.instance.call(
+        WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS,
+        {
+          toBlockNumber,
+          canonical: true,
+        },
+        this.sanitiseAndCacheSummaryFromFull.bind(this),
+        this.deleteCachedSummary.bind(this),
+      );
+    } catch (err) {
+      this.worldStateInstrumentation.incCriticalErrors('prune_historical_block');
+      throw err;
+    }
   }
 
   /**
@@ -275,15 +290,20 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    * @returns The new WorldStateStatus
    */
   public async unwindBlocks(toBlockNumber: bigint) {
-    return await this.instance.call(
-      WorldStateMessageType.UNWIND_BLOCKS,
-      {
-        toBlockNumber,
-        canonical: true,
-      },
-      this.sanitiseAndCacheSummaryFromFull.bind(this),
-      this.deleteCachedSummary.bind(this),
-    );
+    try {
+      return await this.instance.call(
+        WorldStateMessageType.UNWIND_BLOCKS,
+        {
+          toBlockNumber,
+          canonical: true,
+        },
+        this.sanitiseAndCacheSummaryFromFull.bind(this),
+        this.deleteCachedSummary.bind(this),
+      );
+    } catch (err) {
+      this.worldStateInstrumentation.incCriticalErrors('prune_pending_block');
+      throw err;
+    }
   }
 
   public async getStatusSummary() {

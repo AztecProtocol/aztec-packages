@@ -130,6 +130,7 @@ export const WORLD_STATE_OLDEST_BLOCK = 'aztec.world_state.oldest_block';
 export const WORLD_STATE_DB_USED_SIZE = 'aztec.world_state.db_used_size';
 export const WORLD_STATE_DB_NUM_ITEMS = 'aztec.world_state.db_num_items';
 export const WORLD_STATE_REQUEST_TIME = 'aztec.world_state.request_time';
+export const WORLD_STATE_CRITICAL_ERROR_COUNT = 'aztec.world_state.critical_error_count';
 
 export const PROOF_VERIFIER_COUNT = 'aztec.proof_verifier.count';
 

@@ -64,6 +64,8 @@ export const TX_HASH = 'aztec.tx.hash';
 export const OK = 'aztec.ok';
 /** Generic status attribute */
 export const STATUS = 'aztec.status';
+/** Generic error type attribute */
+export const ERROR_TYPE = 'aztec.error_type';
 /** The type of the transaction */
 export const L1_TX_TYPE = 'aztec.l1.tx_type';
 /** The L1 address of the entity that sent a transaction to L1 */
