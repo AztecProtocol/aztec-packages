@@ -256,9 +256,17 @@ pub(crate) comptime fn is_note(typ: Type) -> bool {
     })
 }
 
-/// Returns the typed expression of a trait method implementation. This is preferred over directly inlining with
-/// `$typ::target_method()` in a quote, as direct inlining would result in missing import warnings in the generated
-/// code (specifically, warnings that the trait implementation is not in scope).
+/// Returns the typed expression of a trait method implementation.
+///
+/// This helper function is preferred over directly inlining with `$typ::target_method()` in a quote,
+/// as direct inlining would result in missing import warnings in the generated code (specifically,
+/// warnings that the trait implementation is not in scope).
+///
+/// # Note
+/// A copy of this function exists in `noir-protocol-circuits/crates/types/src/meta/mod.nr`. We maintain separate
+/// copies because importing it here from there would cause the `target_trait` to be interpreted in the context
+/// of the protocol circuits types crate, making it impossible to compile code for traits from that crate
+/// (e.g. NoteInterface).
 pub(crate) comptime fn get_trait_impl_method(
     typ: Type,
     target_trait: Quoted,
