@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740133140606,
+  "lastUpdate": 1740134538836,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "janbenes1234@gmail.com",
-            "name": "Jan Beneš",
-            "username": "benesjan"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a00fa0e2db7dd12493bcd50facf1983a7dcc0190",
-          "message": "refactor: function macros cleanup (#12066)",
-          "timestamp": "2025-02-18T20:51:25+01:00",
-          "tree_id": "ca3159ebf01d1b15df0c3b74eb1e4555d3280ee7",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a00fa0e2db7dd12493bcd50facf1983a7dcc0190"
-        },
-        "date": 1739909815508,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18310.965803999807,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16210.559495999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18747.691648,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16372.549455000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3939.0519920000315,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3130.8320360000002 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54499.423315,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54499423000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10085.854174,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10085861000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1843636525,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1843636525 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 133447829,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 133447829 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3300,6 +3234,72 @@ window.BENCHMARK_DATA = {
             "value": 136959012,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 136959012 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e332eeb6d4d02d6b1d124ba6d6b5c62e12dd3ac8",
+          "message": "chore(avm): modify interaction label processing (#12181)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this line.",
+          "timestamp": "2025-02-21T10:12:21Z",
+          "tree_id": "b00ef6559b8aa916c9074f8c67757ba374ac3372",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e332eeb6d4d02d6b1d124ba6d6b5c62e12dd3ac8"
+        },
+        "date": 1740134531490,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18387.22418200018,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16070.678356000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18760.8471850001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16284.003556000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3995.781688000079,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3182.757996 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54912.499047,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54912501000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10269.883287,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10269899000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1824968919,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1824968919 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 131162436,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 131162436 ns\nthreads: 1"
           }
         ]
       }
