@@ -72,7 +72,7 @@ INNER_HEAD:     LT d19, d21, d28; Check if we are done with the loop
 INNER_BODY:     ECADD d22, d23, d24, d22, d23, d24, /*not indirect, so the result is stored in d22, d23, d24*/ d22; Double the current result.
                 EQ i19, d12, d28; Check if the current bit is zero
                 JUMPI d28, INNER_INC; If the current bit is zero, continue
-                ECADD d25, d26, d27, d22, d23, d24, /*not a pointer, so the result is stored in d22, d23, d24*/ d22; Add the original point to the result
+                ECADD d25, d26, d27, d22, d23, d24, /*not indirect, so the result is stored in d22, d23, d24*/ d22; Add the original point to the result
 INNER_INC:      ADD d19, $2, d19; Increment the pointer
                 JUMP INNER_HEAD
 
