@@ -72,5 +72,6 @@ pol constant sel_op_dc_16;
 pol constant sel_op_dc_17;
 
 // Toggle the rows which index (clk) is equal to a wire opcode
-// Is used to select any mapping from wire_opcode ot pre-computed values
+// Is used to select the operand decomposition selectors (pre-computed values)
+// for any given wire opcode.
 pol constant sel_range_wire_opcode;

@@ -106,7 +106,7 @@ TEST(InstrFetchingConstrainingTest, ecaddWithTraceGen)
 }
 
 // Positive test for each opcode. We assume that decode instruction is working correctly.
-// It works as long as the relations are not constraining correct range for TAG and or indirect.
+// It works as long as the relations are not constraining the correct range for TAG nor indirect.
 TEST(InstrFetchingConstrainingTest, eachOpcodeWithTraceGen)
 {
     uint32_t seed = 987137937; // Arbitrary number serving as pseudo-random seed to generate bytes

@@ -5,9 +5,9 @@
 
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 
-/******************************************************************************/
-//        CODE GENERATION OF OPERAND DECOMPOSITION INTO BYTES
 /******************************************************************************
+       CODE GENERATION OF OPERAND DECOMPOSITION INTO BYTES
+*******************************************************************************
 This test serves the purpose of code-generate the operand decomposition into bytes
 which can be statically derived by the wire format of the opcodes specified in
 the map WireOpCode_WIRE_FORMAT (see serialization.hpp).
@@ -235,7 +235,7 @@ std::unordered_map<uint32_t, std::unordered_set<WireOpCode>> gen_op_idx_with_lay
 
 TEST(DecompositionSelectors, CodeGen)
 {
-    GTEST_SKIP();
+    GTEST_SKIP(); // Comment out in order to code-generate.
     std::unordered_map<WireOpCode, std::array<OperandLayout, NUM_OF_OPERANDS>> opcode_to_layouts =
         gen_opcode_to_operands_layout();
 

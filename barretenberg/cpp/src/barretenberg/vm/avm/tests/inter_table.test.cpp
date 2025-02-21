@@ -148,7 +148,7 @@ class AvmRangeCheckNegativeTests : public AvmInterTableTests {
     size_t mem_row_idx;
     size_t alu_row_idx;
 
-    void SetUp() override { (GTEST_SKIP); }
+    void SetUp() override { GTEST_SKIP(); }
 
     void genTraceAdd(FF const& a, FF const& b, FF const& c, AvmMemoryTag tag)
     {
