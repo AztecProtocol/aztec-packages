@@ -568,7 +568,6 @@ describe('Simulator oracle', () => {
       addNotesSpy.mockReset();
       getNotesSpy.mockReset();
       removeNullifiedNotesSpy.mockReset();
-      simulator.computeNoteHashAndNullifier.mockReset();
       aztecNode.getTxEffect.mockReset();
     });
 

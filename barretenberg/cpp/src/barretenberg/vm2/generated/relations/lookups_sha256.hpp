@@ -12,7 +12,7 @@ namespace bb::avm2 {
 
 /////////////////// lookup_sha256_round_constant ///////////////////
 
-class lookup_sha256_round_constant_lookup_settings {
+class lookup_sha256_round_constant_settings {
   public:
     static constexpr std::string_view NAME = "LOOKUP_SHA256_ROUND_CONSTANT";
     static constexpr std::string_view RELATION_NAME = "sha256";
@@ -75,12 +75,11 @@ class lookup_sha256_round_constant_lookup_settings {
 };
 
 template <typename FF_>
-class lookup_sha256_round_constant_relation
-    : public GenericLookupRelation<lookup_sha256_round_constant_lookup_settings, FF_> {
+class lookup_sha256_round_constant_relation : public GenericLookupRelation<lookup_sha256_round_constant_settings, FF_> {
   public:
-    using Settings = lookup_sha256_round_constant_lookup_settings;
-    static constexpr std::string_view NAME = lookup_sha256_round_constant_lookup_settings::NAME;
-    static constexpr std::string_view RELATION_NAME = lookup_sha256_round_constant_lookup_settings::RELATION_NAME;
+    using Settings = lookup_sha256_round_constant_settings;
+    static constexpr std::string_view NAME = lookup_sha256_round_constant_settings::NAME;
+    static constexpr std::string_view RELATION_NAME = lookup_sha256_round_constant_settings::RELATION_NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {

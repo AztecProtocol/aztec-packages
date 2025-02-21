@@ -115,7 +115,7 @@ export class PublicTxSimulator {
       processedPhases.push(teardownResult);
     }
 
-    context.halt();
+    await context.halt();
     await this.payFee(context);
 
     const endStateReference = await this.db.getStateReference();
@@ -171,11 +171,11 @@ export class PublicTxSimulator {
 
     if (result.reverted) {
       // Drop the currently active forked state manager and rollback to end of setup.
-      context.state.discardForkedState();
+      await context.state.discardForkedState();
     } else {
       if (!context.hasPhase(TxExecutionPhase.TEARDOWN)) {
         // Nothing to do after this (no teardown), so merge state updates now instead of letting teardown handle it.
-        context.state.mergeForkedState();
+        await context.state.mergeForkedState();
       }
     }
 
@@ -191,17 +191,17 @@ export class PublicTxSimulator {
     if (!context.state.isForked()) {
       // If state isn't forked (app logic reverted), fork now
       // so we can rollback to the end of setup if teardown reverts.
-      context.state.fork();
+      await context.state.fork();
     }
 
     const result = await this.simulatePhase(TxExecutionPhase.TEARDOWN, context);
 
     if (result.reverted) {
       // Drop the currently active forked state manager and rollback to end of setup.
-      context.state.discardForkedState();
+      await context.state.discardForkedState();
     } else {
       // Merge state updates from teardown,
-      context.state.mergeForkedState();
+      await context.state.mergeForkedState();
     }
 
     return result;
@@ -400,7 +400,7 @@ export class PublicTxSimulator {
    */
   public async insertRevertiblesFromPrivate(context: PublicTxContext) {
     // Fork the state manager so we can rollback to end of setup if app logic reverts.
-    context.state.fork();
+    await context.state.fork();
     const stateManager = context.state.getActiveStateManager();
     try {
       await stateManager.writeSiloedNullifiersFromPrivate(context.revertibleAccumulatedDataFromPrivate.nullifiers);
