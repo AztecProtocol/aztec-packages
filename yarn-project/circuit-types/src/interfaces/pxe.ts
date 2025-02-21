@@ -8,6 +8,7 @@ import {
 } from '@aztec/circuits.js/abi';
 import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
+  CompleteAddress,
   type ContractClassWithId,
   ContractClassWithIdSchema,
   type ContractInstanceWithAddress,
@@ -26,7 +27,6 @@ import type { Fr, Point } from '@aztec/foundation/fields';
 
 import { z } from 'zod';
 
-import { CompleteAddress } from '../../../circuits.js/src/contract/complete_address.js';
 import { AuthWitness } from '../auth_witness.js';
 import { type InBlock, inBlockSchemaFor } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
