@@ -185,16 +185,15 @@ int main(int argc, char* argv[])
 
     const auto add_verifier_type_option = [&](CLI::App* subcommand) {
         return subcommand
-            ->add_option(
-                "--verifier_type",
-                vk_path,
-                "Is a verification key for use a standalone single circuit verifier (e.g. a SNARK or folding recursive "
-                "verifier) or is it for an ivc verifier? `standalone` produces a verification key is sufficient "
-                "for verifying proofs about a single circuit (including the non-encsapsulated use case where an IVC "
-                "scheme is manually constructed via recursive UltraHonk proof verification). `ivc` produces a "
-                "verification key for verifying the stack of run though a dedicated ivc verifier class (currently the "
-                "only option is the ClientIVC class) ")
-            ->check(CLI::IsMember({ "standalone", "ivc" }).name("is_member"))
+            ->add_option("--verifier_type",
+                         flags.verifier_type,
+                         "Is a verification key for use a standalone single circuit verifier (e.g. a SNARK or folding "
+                         "recursive verifier) or is it for an ivc verifier? `standalone` produces a verification key "
+                         "is sufficient for verifying proofs about a single circuit (including the non-encsapsulated "
+                         "use case where an IVC scheme is manually constructed via recursive UltraHonk proof "
+                         "verification). `ivc` produces a verification key for verifying the stack of run though a "
+                         "dedicated ivc verifier class (currently the only option is the ClientIVC class) ")
+            ->check(CLI::IsMember({ "standalone", "ivc" }).name("is_member"));
     };
 
     const auto add_verbose_flag = [&](CLI::App* subcommand) {
