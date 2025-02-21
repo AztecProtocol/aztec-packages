@@ -16,7 +16,9 @@ import {
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
   WorldStateRunningState,
+  type WorldStateSyncStatus,
   type WorldStateSynchronizer,
+  type WorldStateSynchronizerStatus,
 } from '@aztec/circuit-types/interfaces/server';
 import { mockTxForRollup } from '@aztec/circuit-types/testing';
 import {
@@ -206,8 +208,14 @@ describe('sequencer', () => {
       getCommitted: () => merkleTreeOps,
       status: mockFn().mockResolvedValue({
         state: WorldStateRunningState.IDLE,
-        syncedToL2Block: { number: lastBlockNumber, hash },
-      }),
+        syncSummary: {
+          latestBlockNumber: lastBlockNumber,
+          latestBlockHash: hash,
+          finalisedBlockNumber: 0,
+          oldestHistoricBlockNumber: 0,
+          treesAreSynched: true,
+        },
+      } satisfies WorldStateSynchronizerStatus),
     });
 
     publicProcessor = mock<PublicProcessor>();
@@ -499,7 +507,13 @@ describe('sequencer', () => {
     const currentTip = firstBlock;
     const syncedToL2Block = { number: currentTip.number, hash: (await currentTip.hash()).toString() };
     worldState.status.mockImplementation(() =>
-      Promise.resolve({ state: WorldStateRunningState.IDLE, syncedToL2Block }),
+      Promise.resolve({
+        state: WorldStateRunningState.IDLE,
+        syncSummary: {
+          latestBlockNumber: syncedToL2Block.number,
+          latestBlockHash: syncedToL2Block.hash,
+        } as WorldStateSyncStatus,
+      }),
     );
     p2p.getStatus.mockImplementation(() => Promise.resolve({ state: P2PClientState.IDLE, syncedToL2Block }));
     l2BlockSource.getL2Tips.mockImplementation(() =>

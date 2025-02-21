@@ -30,6 +30,7 @@ import {
   type ProverConfig,
   type SequencerConfig,
   type Service,
+  type WorldStateSyncStatus,
   type WorldStateSynchronizer,
   tryStop,
 } from '@aztec/circuit-types/interfaces/server';
@@ -125,6 +126,11 @@ export class AztecNodeService implements AztecNode, Traceable {
     this.tracer = telemetry.getTracer('AztecNodeService');
 
     this.log.info(`Aztec Node started on chain 0x${l1ChainId.toString(16)}`, config.l1Contracts);
+  }
+
+  public async getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
+    const status = await this.worldStateSynchronizer.status();
+    return status.syncSummary;
   }
 
   public getL2Tips() {

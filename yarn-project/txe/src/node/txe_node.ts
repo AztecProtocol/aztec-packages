@@ -25,6 +25,7 @@ import {
   type NullifierMembershipWitness,
   type ProverConfig,
   type SequencerConfig,
+  type WorldStateSyncStatus,
 } from '@aztec/circuit-types/interfaces/server';
 import {
   type AztecAddress,
@@ -719,5 +720,12 @@ export class TXENode implements AztecNode {
    */
   getNodeInfo(): Promise<NodeInfo> {
     throw new Error('TXE Node method getNodeInfo not implemented');
+  }
+
+  /**
+   * Returns the sync status of the node's world state
+   */
+  getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
+    throw new Error('TXE Node method getWorldStateSyncStatus not implemented');
   }
 }
