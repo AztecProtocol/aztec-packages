@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740157350188,
+  "lastUpdate": 1740159410852,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "60546371+PhilWindle@users.noreply.github.com",
-            "name": "PhilWindle",
-            "username": "PhilWindle"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9dac0c6227a8b19b335e0b2812946273a9580a78",
-          "message": "chore: Provide defaults for bb and acvm in release image (#12105)\n\nThis PR attempts to fix deployments by re-instating defaults env vars\nfor bb and acvm in yarn project.",
-          "timestamp": "2025-02-19T12:41:18Z",
-          "tree_id": "dd3ec41b0f1fbc35ad4d6a8aae58de868f90f03b",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/9dac0c6227a8b19b335e0b2812946273a9580a78"
-        },
-        "date": 1739969556062,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 17934.122342000024,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15866.812563000001 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18516.76063599996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16392.960636 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3832.938817000013,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3095.571844 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55038.778769,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55038776000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11039.586822,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11039588000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1806512226,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1806512226 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 128597189,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 128597189 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3300,6 +3234,72 @@ window.BENCHMARK_DATA = {
             "value": 135693386,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 135693386 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "saleel@aztecprotocol.com",
+            "name": "saleel",
+            "username": "saleel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d0013f2c68228faeac35cb5968f71dabc3d936dc",
+          "message": "docs: update bb commands and fix links in readme (#12178)\n\n- Update new API names\n- Fix links to Noir docs",
+          "timestamp": "2025-02-21T12:22:04-05:00",
+          "tree_id": "73ee854e04beaf7479356d5f19e059db02bed769",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d0013f2c68228faeac35cb5968f71dabc3d936dc"
+        },
+        "date": 1740159403506,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18082.453192,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15929.382677 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18593.101707000074,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16167.689634999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3916.2995990000127,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3057.081881 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55015.49477,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55015493000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11350.669404,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11350681000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1828504828,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1828504828 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 133847420,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 133847420 ns\nthreads: 1"
           }
         ]
       }
