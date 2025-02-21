@@ -1,7 +1,7 @@
 import { L1FeeJuicePortalManager, type PXE } from '@aztec/aztec.js';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { prettyPrintJSON } from '@aztec/cli/utils';
 import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type LogFn, type Logger } from '@aztec/foundation/log';
 

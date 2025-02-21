@@ -34,6 +34,8 @@ const k8sLocalConfigSchema = z.object({
   CONTAINER_NODE_PORT: z.coerce.number().default(8080),
   HOST_SEQUENCER_PORT: z.coerce.number().min(1, 'HOST_SEQUENCER_PORT env variable must be set'),
   CONTAINER_SEQUENCER_PORT: z.coerce.number().default(8080),
+  HOST_PROVER_NODE_PORT: z.coerce.number().min(1, 'HOST_PROVER_NODE_PORT env variable must be set'),
+  CONTAINER_PROVER_NODE_PORT: z.coerce.number().default(8080),
   HOST_PXE_PORT: z.coerce.number().min(1, 'HOST_PXE_PORT env variable must be set'),
   CONTAINER_PXE_PORT: z.coerce.number().default(8080),
   HOST_ETHEREUM_PORT: z.coerce.number().min(1, 'HOST_ETHEREUM_PORT env variable must be set'),
@@ -319,6 +321,44 @@ export function applyProverFailure({
     values: {
       'proverFailure.duration': `${durationSeconds}s`,
     },
+    logger,
+  });
+}
+
+export function applyProverKill({
+  namespace,
+  spartanDir,
+  logger,
+}: {
+  namespace: string;
+  spartanDir: string;
+  logger: Logger;
+}) {
+  return installChaosMeshChart({
+    instanceName: 'prover-kill',
+    targetNamespace: namespace,
+    valuesFile: 'prover-kill.yaml',
+    helmChartDir: getChartDir(spartanDir, 'aztec-chaos-scenarios'),
+    clean: true,
+    logger,
+  });
+}
+
+export function applyProverBrokerKill({
+  namespace,
+  spartanDir,
+  logger,
+}: {
+  namespace: string;
+  spartanDir: string;
+  logger: Logger;
+}) {
+  return installChaosMeshChart({
+    instanceName: 'prover-broker-kill',
+    targetNamespace: namespace,
+    valuesFile: 'prover-broker-kill.yaml',
+    helmChartDir: getChartDir(spartanDir, 'aztec-chaos-scenarios'),
+    clean: true,
     logger,
   });
 }

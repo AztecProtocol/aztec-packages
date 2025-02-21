@@ -3,6 +3,7 @@ import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/
 import { CallContext, FunctionSelector, GasFees, GlobalVariables } from '@aztec/circuits.js';
 import { type ContractArtifact, encodeArguments } from '@aztec/circuits.js/abi';
 import { type AvmCircuitPublicInputs } from '@aztec/circuits.js/avm';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
@@ -10,7 +11,6 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
   PUBLIC_DISPATCH_SELECTOR,
 } from '@aztec/constants';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';

@@ -267,4 +267,9 @@ export class RollupContract {
       throw formatViemError(err);
     }
   }
+
+  /** Calls getHasSubmitted directly. Returns whether the given prover has submitted a proof with the given length for the given epoch. */
+  public getHasSubmittedProof(epochNumber: number, numberOfBlocksInEpoch: number, prover: EthAddress) {
+    return this.rollup.read.getHasSubmitted([BigInt(epochNumber), BigInt(numberOfBlocksInEpoch), prover.toString()]);
+  }
 }

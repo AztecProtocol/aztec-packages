@@ -1,4 +1,3 @@
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Fr } from '@aztec/foundation/fields';
 import { type Logger } from '@aztec/foundation/log';
@@ -183,8 +182,12 @@ export const l1Artifacts = {
 };
 
 export interface DeployL1ContractsArgs extends L1ContractsConfig {
-  /** The address of the L2 Fee Juice contract. */
-  l2FeeJuiceAddress: AztecAddress;
+  /**
+   * The address of the L2 Fee Juice contract.
+   * It should be an AztecAddress, but the type is defined in circuits.js,
+   * which would create a circular import
+   * */
+  l2FeeJuiceAddress: Fr;
   /** The vk tree root. */
   vkTreeRoot: Fr;
   /** The protocol contract tree root. */

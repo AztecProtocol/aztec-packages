@@ -16,11 +16,9 @@
 #include "barretenberg/vm2/generated/flavor.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bc_decomposition.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bitwise.hpp"
-#include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_poseidon2_hash.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_range_check.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sha256.hpp"
-#include "barretenberg/vm2/generated/relations/perms_execution.hpp"
 #include "barretenberg/vm2/tracegen/alu_trace.hpp"
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
 #include "barretenberg/vm2/tracegen/ecc_trace.hpp"
@@ -219,26 +217,23 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
     // Now we can compute lookups and permutations.
     {
         auto jobs_interactions = make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
-            std::make_unique<LookupIntoBitwise<lookup_dummy_precomputed_lookup_settings>>(),
-            std::make_unique<LookupIntoDynamicTableGeneric<lookup_dummy_dynamic_lookup_settings>>(),
-            std::make_unique<LookupIntoDynamicTableSequential<lookup_pos2_perm_lookup_settings>>(),
-            std::make_unique<PermutationBuilder<perm_dummy_dynamic_permutation_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_rng_chk_diff_lookup_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_rng_chk_pow_2_lookup_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_rng_chk_is_r0_16_bit_lookup_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_rng_chk_is_r1_16_bit_lookup_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_rng_chk_is_r2_16_bit_lookup_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_rng_chk_is_r3_16_bit_lookup_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_rng_chk_is_r4_16_bit_lookup_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_rng_chk_is_r5_16_bit_lookup_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_rng_chk_is_r6_16_bit_lookup_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_rng_chk_is_r7_16_bit_lookup_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_bitw_byte_operations_lookup_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_bitw_byte_lengths_lookup_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_bytecode_to_read_unary_lookup_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_bytecode_bytes_are_bytes_lookup_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_bytecode_remaining_abs_diff_u16_lookup_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_sha256_round_constant_lookup_settings>>());
+            std::make_unique<LookupIntoDynamicTableSequential<lookup_poseidon2_hash_poseidon2_perm_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_range_check_dyn_diff_is_u16_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_range_check_dyn_rng_chk_pow_2_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_range_check_r0_is_u16_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_range_check_r1_is_u16_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_range_check_r2_is_u16_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_range_check_r3_is_u16_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_range_check_r4_is_u16_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_range_check_r5_is_u16_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_range_check_r6_is_u16_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_range_check_r7_is_u16_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_bitwise_byte_operations_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_bitwise_integral_tag_length_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_bytes_to_read_as_unary_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_bytes_are_bytes_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_abs_diff_is_u16_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_sha256_round_constant_settings>>());
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));
     }

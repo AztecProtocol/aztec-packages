@@ -49,7 +49,9 @@ function test_cmds {
   echo "$prefix simple e2e_deploy_contract/deploy_method"
   echo "$prefix simple e2e_deploy_contract/legacy"
   echo "$prefix simple e2e_deploy_contract/private_initialization"
-  echo "$prefix simple e2e_epochs"
+  echo "$prefix simple e2e_epochs/epochs_empty_blocks"
+  echo "$prefix simple e2e_epochs/epochs_multi_proof"
+  echo "$prefix simple e2e_epochs/epochs_proof_fails"
   echo "$prefix simple e2e_escrow_contract"
   echo "$prefix simple e2e_event_logs"
 
@@ -88,7 +90,6 @@ function test_cmds {
   echo "$prefix simple e2e_p2p/upgrade_governance_proposer"
 
   echo "$prefix simple e2e_private_voting_contract"
-  echo "$prefix simple e2e_prover_coordination"
   echo "$prefix simple e2e_pruned_blocks"
   echo "$prefix simple e2e_public_testnet_transfer"
   echo "$prefix simple e2e_state_vars"

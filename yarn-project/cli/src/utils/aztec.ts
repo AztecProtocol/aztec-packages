@@ -66,7 +66,7 @@ export async function deployAztecContracts(
     chain.chainInfo,
     debugLogger,
     {
-      l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
+      l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice.toField(),
       vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
       genesisArchiveRoot,

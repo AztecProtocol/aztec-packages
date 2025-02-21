@@ -82,7 +82,7 @@ export async function createProverNode(
     txGatheringTimeoutMs: config.txGatheringTimeoutMs,
   };
 
-  const epochMonitor = new EpochMonitor(archiver, proverNodeConfig, telemetry);
+  const epochMonitor = await EpochMonitor.create(archiver, proverNodeConfig, telemetry);
 
   return new ProverNode(
     prover,
