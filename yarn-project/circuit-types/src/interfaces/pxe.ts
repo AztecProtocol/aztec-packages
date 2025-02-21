@@ -38,7 +38,7 @@ import {
   type LogFilter,
   LogFilterSchema,
 } from '../logs/index.js';
-import { ExtendedNote, UniqueNote } from '../notes/index.js';
+import { UniqueNote } from '../notes/index.js';
 import { type NotesFilter, NotesFilterSchema } from '../notes/notes_filter.js';
 import { PrivateExecutionResult } from '../private_execution_result.js';
 import { SiblingPath } from '../sibling_path/sibling_path.js';
@@ -276,14 +276,6 @@ export interface PXE {
   getL2ToL1MembershipWitness(blockNumber: number, l2Tol1Message: Fr): Promise<[bigint, SiblingPath<number>]>;
 
   /**
-   * Adds a note to the database.
-   * @throws If the note hash of the note doesn't exist in the tree.
-   * @param note - The note to add.
-   * @param scope - The scope to add the note under. Currently optional.
-   */
-  addNote(note: ExtendedNote, scope?: AztecAddress): Promise<void>;
-
-  /**
    * Get the given block.
    * @param number - The block number being requested.
    * @returns The blocks requested.
@@ -509,7 +501,6 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .function()
     .args(z.number(), schemas.Fr)
     .returns(z.tuple([schemas.BigInt, SiblingPath.schema])),
-  addNote: z.function().args(ExtendedNote.schema, optional(schemas.AztecAddress)).returns(z.void()),
   getBlock: z
     .function()
     .args(z.number())
