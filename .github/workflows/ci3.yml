@@ -116,6 +116,27 @@ jobs:
           fail-on-alert: false
           alert-comment-cc-users: "@philwindle @spalladino"
           max-items-in-chart: 50
+      ## TODO: work into ci3
+      - name: Run Testbench
+        run: |
+          ./yarn-project/p2p/scripts/run_testbench.sh bench.json
+      - name: Store benchmark result
+        if: github.ref == 'refs/heads/master'
+        continue-on-error: true
+        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+        with:
+          name: "P2P Testbench"
+          benchmark-data-dir-path: "dev/p2p-bench"
+          tool: "customSmallerIsBetter"
+          output-file-path: ./yarn-project/p2p/out/bench.json
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          auto-push: true
+          # TODO: modify
+          alert-threshold: "150%"
+          comment-on-alert: true
+          fail-on-alert: false
+          alert-comment-cc-users: "@Maddiaa0"
+          max-items-in-chart: 50
 
   ci-grind:
     runs-on: ubuntu-latest
