@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 
 namespace bb::avm2::tracegen {
@@ -176,6 +177,35 @@ void PrecomputedTraceBuilder::process_integral_tag_length(TraceContainer& trace)
         trace.set(static_cast<uint32_t>(tag),
                   { { { C::precomputed_sel_integral_tag, 1 },
                       { C::precomputed_integral_tag_length, integral_tag_length(tag) } } });
+    }
+}
+
+void PrecomputedTraceBuilder::process_wire_instruction_spec(TraceContainer& trace)
+{
+    using C = Column;
+    const std::array<Column, NUM_OP_DC_SELECTORS> sel_op_dc_columns = {
+        C::precomputed_sel_op_dc_0,  C::precomputed_sel_op_dc_1,  C::precomputed_sel_op_dc_2,
+        C::precomputed_sel_op_dc_3,  C::precomputed_sel_op_dc_4,  C::precomputed_sel_op_dc_5,
+        C::precomputed_sel_op_dc_6,  C::precomputed_sel_op_dc_7,  C::precomputed_sel_op_dc_8,
+        C::precomputed_sel_op_dc_9,  C::precomputed_sel_op_dc_10, C::precomputed_sel_op_dc_11,
+        C::precomputed_sel_op_dc_12, C::precomputed_sel_op_dc_13, C::precomputed_sel_op_dc_14,
+        C::precomputed_sel_op_dc_15, C::precomputed_sel_op_dc_16, C::precomputed_sel_op_dc_17,
+    };
+
+    // First set the selector for this table lookup.
+    for (uint32_t i = 0; i < static_cast<uint32_t>(WireOpCode::LAST_OPCODE_SENTINEL); i++) {
+        trace.set(C::precomputed_sel_range_wire_opcode, i, 1);
+    }
+
+    // Fill the lookup tables with the operand decomposition selectors.
+    for (const auto& [wire_opcode, wire_instruction_spec] : WIRE_INSTRUCTION_SPEC) {
+        for (size_t i = 0; i < NUM_OP_DC_SELECTORS; i++) {
+            trace.set(
+                sel_op_dc_columns[i], static_cast<uint32_t>(wire_opcode), wire_instruction_spec.op_dc_selectors[i]);
+        }
+        trace.set(C::precomputed_exec_opcode,
+                  static_cast<uint32_t>(wire_opcode),
+                  static_cast<uint32_t>(wire_instruction_spec.exec_opcode));
     }
 }
 
