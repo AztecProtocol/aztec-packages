@@ -21,6 +21,8 @@ class API {
         std::string oracle_hash_type;         // which hash function does the prover use as a random oracle?
         std::string output_data_type;         // output bytes, fields, both, or a msgpack buffer of fields
         std::string output_content_type;      // output a proof, a verification key, or both
+        std::string verifier_type; // is a verification key for use a single circuit verifier (e.g. a SNARK or folding
+                                   // recursive verifier) or is it for an ivc verifier?
 
         friend std::ostream& operator<<(std::ostream& os, const Flags& flags)
         {
@@ -38,6 +40,7 @@ class API {
                << "  oracle_hash_type: " << flags.oracle_hash_type << "\n"
                << "  output_data_type: " << flags.output_data_type << "\n"
                << "  output_content_type: " << flags.output_content_type << "\n"
+               << "  verifier_type: " << flags.verifier_type << "\n"
                << "]" << std::endl;
             return os;
         }

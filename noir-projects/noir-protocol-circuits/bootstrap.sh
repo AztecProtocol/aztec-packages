@@ -90,7 +90,7 @@ function compile {
 
   if echo "$name" | grep -qE "${ivc_regex}"; then
     local proto="client_ivc"
-    local write_vk_cmd="write_vk --scheme client_ivc"
+    local write_vk_cmd="write_vk --scheme client_ivc --verifier_type standalone"
   elif echo "$name" | grep -qE "${rollup_honk_regex}"; then
     local proto="ultra_rollup_honk"
     # --honk_recursion 2 injects a fake ipa claim

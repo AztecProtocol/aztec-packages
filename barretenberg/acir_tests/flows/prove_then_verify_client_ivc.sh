@@ -22,12 +22,12 @@ trap "rm -rf $outdir" EXIT
 
 flags="--scheme client_ivc -c $CRS_PATH ${VERBOSE:+-v}"
 
-# Trying to use process substitution fails with command substitution: ignored null byte in input.
+# Trying to use process substitution fails with: command substitution: ignored null byte in input.
 #   So we want to avoid capturing via shell strings.
 # Trying to use -o - > <named pipe> fails with a segfault
 # Trying to use -o <named pipe> fails because the output type is a directory where a file `proof`
 #   and/or `vk` will be written, not a file path where proof/vk will be written
-$BIN prove $flags -b $BFLAG -w $WFLAG $INFLAG --output_content proof -o $outdir&
-$BIN write_vk $flags -b $BFLAG $INFLAG -o $outdir &
+$BIN prove $flags -b $BFLAG -w $WFLAG $INFLAG --output_content proof -o $outdir &
+$BIN write_vk $flags -b $BFLAG $INFLAG  --verifier_type ivc -o $outdir &
 wait
 $BIN verify $flags -p $outdir/proof -k $outdir/vk

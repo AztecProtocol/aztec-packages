@@ -90,9 +90,9 @@ template <typename T> T unpack_from_file(const std::filesystem::path& filename)
  * @param bytecode_path
  * @param witness_path
  */
-void write_vk_for_single_circuit(const std::string& output_data_type,
-                                 const std::string& bytecode_path,
-                                 const std::string& output_path)
+void write_standalone_vk(const std::string& output_data_type,
+                         const std::string& bytecode_path,
+                         const std::string& output_path)
 {
     using Builder = ClientIVC::ClientCircuit;
     using Prover = ClientIVC::MegaProver;
@@ -137,7 +137,7 @@ size_t get_num_public_inputs_in_final_circuit(const std::filesystem::path& bytec
     return constraints.public_inputs.size();
 }
 
-void write_vk_for_stack(const std::string& bytecode_path, const std::filesystem::path& output_dir)
+void write_vk_for_ivc(const std::string& bytecode_path, const std::filesystem::path& output_dir)
 {
     init_bn254_crs(1 << CONST_PG_LOG_N);
     init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
@@ -352,12 +352,12 @@ void ClientIVCAPI::write_vk(const Flags& flags,
                             const std::filesystem::path& bytecode_path,
                             const std::filesystem::path& output_path)
 {
-    if (flags.input_type == "single_circuit") {
-        write_vk_for_single_circuit(flags.output_data_type, bytecode_path, output_path);
-    } else if (flags.input_type == "runtime_stack") {
-        write_vk_for_stack(bytecode_path, output_path);
+    if (flags.verifier_type == "ivc") {
+        write_vk_for_ivc(bytecode_path, output_path);
+    } else if (flags.verifier_type == "standalone") {
+        write_standalone_vk(flags.output_data_type, bytecode_path, output_path);
     } else {
-        const std::string msg = std::string("Can't write vk for input type ") + flags.input_type;
+        const std::string msg = std::string("Can't write vk for verifier type ") + flags.verifier_type;
         throw_or_abort(msg);
     }
 }

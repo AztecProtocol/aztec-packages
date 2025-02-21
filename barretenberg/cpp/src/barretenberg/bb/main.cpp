@@ -183,6 +183,20 @@ int main(int argc, char* argv[])
             /* ->check(CLI::ExistingFile) */;
     };
 
+    const auto add_verifier_type_option = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_option(
+                "--verifier_type",
+                vk_path,
+                "Is a verification key for use a standalone single circuit verifier (e.g. a SNARK or folding recursive "
+                "verifier) or is it for an ivc verifier? `standalone` produces a verification key is sufficient "
+                "for verifying proofs about a single circuit (including the non-encsapsulated use case where an IVC "
+                "scheme is manually constructed via recursive UltraHonk proof verification). `ivc` produces a "
+                "verification key for verifying the stack of run though a dedicated ivc verifier class (currently the "
+                "only option is the ClientIVC class) ")
+            ->check(CLI::IsMember({ "standalone", "ivc" }).name("is_member"))
+    };
+
     const auto add_verbose_flag = [&](CLI::App* subcommand) {
         return subcommand->add_flag("--verbose, --verbose_logging, -v", flags.verbose, "Output all logs to stderr.");
     };
@@ -273,6 +287,7 @@ int main(int argc, char* argv[])
     add_ipa_accumulation_flag(write_vk);
     add_honk_recursion_option(write_vk);
     add_recursive_flag(write_vk);
+    add_verifier_type_option(write_vk)->default_val("standalone");
 
     /***************************************************************************************************************
      * Subcommand: verify
