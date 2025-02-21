@@ -42,7 +42,6 @@ import {
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
   computeNoteHashNonce,
-  computeSecretHash,
   computeUniqueNoteHash,
   computeVarArgsHash,
   deriveStorageSlotInMap,

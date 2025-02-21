@@ -426,8 +426,10 @@ pub contract Test {
     }
 
     #[private]
-    fn set_constant(value: Field) {
-        let note = TestNote::new(value);
+    fn set_constant(value: U128, owner: AztecAddress, randomness: Field) {
+        // TODO(#8999): Once we nuke randomness from notes we can just use UintNote::new(value, owner) here and we'll
+        // get rid of the warnings.
+        let note = UintNote { value, owner, randomness };
         // We don't broadcast the fact that we created a note, it must be manually delivered by calling the deliver_note
         // function. Note that we can only do this because the note contains no contract-generated values (e.g.
         // randomness), if it did then we'd need to extract those out of the contract so that the app can get them (e.g.
@@ -437,7 +439,9 @@ pub contract Test {
 
     unconstrained fn deliver_note(
         contract_address: AztecAddress,
-        value: Field,
+        value: U128,
+        owner: AztecAddress,
+        randomness: Field,
         tx_hash: Field,
         unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
         first_nullifier_in_tx: Field,
@@ -445,9 +449,12 @@ pub contract Test {
     ) {
         // do_process_log expects a standard aztec-nr encoded note, which has the following shape:
         // [ storage_slot, note_type_id, ...packed_note ]
-        let note = TestNote::new(value);
+
+        // TODO(#8999): Once we nuke randomness from notes we can just use UintNote::new(value, owner) here and we'll
+        // get rid of the warnings.
+        let note = UintNote { value, owner, randomness };
         let log_plaintext = BoundedVec::from_array(array_concat(
-            [Test::storage_layout().example_constant.slot, TestNote::get_note_type_id()],
+            [Test::storage_layout().example_constant.slot, UintNote::get_note_type_id()],
             note.pack(),
         ));
 
@@ -499,6 +506,11 @@ pub contract Test {
     #[private]
     fn deploy_contract(target: AztecAddress) {
         aztec_deploy_contract(&mut context, target);
+    }
+
+    unconstrained fn get_constant() -> pub U128 {
+        let constant = storage.example_constant.view_note();
+        constant.get_value()
     }
 
     #[private]

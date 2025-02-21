@@ -24,9 +24,11 @@ describe('e2e_offchain_note_delivery', () => {
 
   it('can create a note that is not broadcast, deliver it offchain and read it', async () => {
     const value = 123n;
+    const owner = wallet.getAddress();
+    const randomness = Fr.random();
 
     const { txHash, debugInfo } = await contract.methods
-      .set_constant(value)
+      .set_constant(value, owner, randomness)
       .send()
       .wait({ interval: 0.1, debug: true });
 
@@ -39,6 +41,8 @@ describe('e2e_offchain_note_delivery', () => {
       .deliver_note(
         contract.address,
         value,
+        owner,
+        randomness,
         txHash.hash,
         toBoundedVec(txEffect!.data.noteHashes, MAX_NOTE_HASHES_PER_TX),
         txEffect!.data.nullifiers[0],
