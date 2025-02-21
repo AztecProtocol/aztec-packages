@@ -247,6 +247,8 @@ void BytecodeTraceBuilder::process_instruction_fetching(
                       // TODO: add the rest.
                       // Single bytes.
                       { C::instr_fetching_bd0, wire_opcode },
+                      { C::instr_fetching_exec_opcode,
+                        static_cast<uint32_t>(WIRE_INSTRUCTION_SPEC.at(w_opcode).exec_opcode) },
                       { C::instr_fetching_bd1, bytecode_at(event.pc + 1) },
                       { C::instr_fetching_bd2, bytecode_at(event.pc + 2) },
                       { C::instr_fetching_bd3, bytecode_at(event.pc + 3) },

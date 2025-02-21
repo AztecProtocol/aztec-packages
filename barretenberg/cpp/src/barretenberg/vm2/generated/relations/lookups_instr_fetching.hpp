@@ -232,7 +232,7 @@ class lookup_instr_fetching_wire_instruction_info_settings {
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
     static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 19;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 20;
     static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
     static constexpr size_t READ_TERM_DEGREE = 0;
     static constexpr size_t WRITE_TERM_DEGREE = 0;
@@ -243,22 +243,22 @@ class lookup_instr_fetching_wire_instruction_info_settings {
     static constexpr Column COUNTS = Column::lookup_instr_fetching_wire_instruction_info_counts;
     static constexpr Column INVERSES = Column::lookup_instr_fetching_wire_instruction_info_inv;
     static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        Column::instr_fetching_bd0,          Column::instr_fetching_sel_op_dc_0,  Column::instr_fetching_sel_op_dc_1,
-        Column::instr_fetching_sel_op_dc_2,  Column::instr_fetching_sel_op_dc_3,  Column::instr_fetching_sel_op_dc_4,
-        Column::instr_fetching_sel_op_dc_5,  Column::instr_fetching_sel_op_dc_6,  Column::instr_fetching_sel_op_dc_7,
-        Column::instr_fetching_sel_op_dc_8,  Column::instr_fetching_sel_op_dc_9,  Column::instr_fetching_sel_op_dc_10,
-        Column::instr_fetching_sel_op_dc_11, Column::instr_fetching_sel_op_dc_12, Column::instr_fetching_sel_op_dc_13,
-        Column::instr_fetching_sel_op_dc_14, Column::instr_fetching_sel_op_dc_15, Column::instr_fetching_sel_op_dc_16,
-        Column::instr_fetching_sel_op_dc_17
+        Column::instr_fetching_bd0,          Column::instr_fetching_exec_opcode,  Column::instr_fetching_sel_op_dc_0,
+        Column::instr_fetching_sel_op_dc_1,  Column::instr_fetching_sel_op_dc_2,  Column::instr_fetching_sel_op_dc_3,
+        Column::instr_fetching_sel_op_dc_4,  Column::instr_fetching_sel_op_dc_5,  Column::instr_fetching_sel_op_dc_6,
+        Column::instr_fetching_sel_op_dc_7,  Column::instr_fetching_sel_op_dc_8,  Column::instr_fetching_sel_op_dc_9,
+        Column::instr_fetching_sel_op_dc_10, Column::instr_fetching_sel_op_dc_11, Column::instr_fetching_sel_op_dc_12,
+        Column::instr_fetching_sel_op_dc_13, Column::instr_fetching_sel_op_dc_14, Column::instr_fetching_sel_op_dc_15,
+        Column::instr_fetching_sel_op_dc_16, Column::instr_fetching_sel_op_dc_17
     };
     static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        Column::precomputed_clk,          Column::precomputed_sel_op_dc_0,  Column::precomputed_sel_op_dc_1,
-        Column::precomputed_sel_op_dc_2,  Column::precomputed_sel_op_dc_3,  Column::precomputed_sel_op_dc_4,
-        Column::precomputed_sel_op_dc_5,  Column::precomputed_sel_op_dc_6,  Column::precomputed_sel_op_dc_7,
-        Column::precomputed_sel_op_dc_8,  Column::precomputed_sel_op_dc_9,  Column::precomputed_sel_op_dc_10,
-        Column::precomputed_sel_op_dc_11, Column::precomputed_sel_op_dc_12, Column::precomputed_sel_op_dc_13,
-        Column::precomputed_sel_op_dc_14, Column::precomputed_sel_op_dc_15, Column::precomputed_sel_op_dc_16,
-        Column::precomputed_sel_op_dc_17
+        Column::precomputed_clk,          Column::precomputed_exec_opcode,  Column::precomputed_sel_op_dc_0,
+        Column::precomputed_sel_op_dc_1,  Column::precomputed_sel_op_dc_2,  Column::precomputed_sel_op_dc_3,
+        Column::precomputed_sel_op_dc_4,  Column::precomputed_sel_op_dc_5,  Column::precomputed_sel_op_dc_6,
+        Column::precomputed_sel_op_dc_7,  Column::precomputed_sel_op_dc_8,  Column::precomputed_sel_op_dc_9,
+        Column::precomputed_sel_op_dc_10, Column::precomputed_sel_op_dc_11, Column::precomputed_sel_op_dc_12,
+        Column::precomputed_sel_op_dc_13, Column::precomputed_sel_op_dc_14, Column::precomputed_sel_op_dc_15,
+        Column::precomputed_sel_op_dc_16, Column::precomputed_sel_op_dc_17
     };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
@@ -292,6 +292,7 @@ class lookup_instr_fetching_wire_instruction_info_settings {
                                      in._instr_fetching_sel(),
                                      in._precomputed_sel_range_wire_opcode(),
                                      in._instr_fetching_bd0(),
+                                     in._instr_fetching_exec_opcode(),
                                      in._instr_fetching_sel_op_dc_0(),
                                      in._instr_fetching_sel_op_dc_1(),
                                      in._instr_fetching_sel_op_dc_2(),
@@ -311,6 +312,7 @@ class lookup_instr_fetching_wire_instruction_info_settings {
                                      in._instr_fetching_sel_op_dc_16(),
                                      in._instr_fetching_sel_op_dc_17(),
                                      in._precomputed_clk(),
+                                     in._precomputed_exec_opcode(),
                                      in._precomputed_sel_op_dc_0(),
                                      in._precomputed_sel_op_dc_1(),
                                      in._precomputed_sel_op_dc_2(),

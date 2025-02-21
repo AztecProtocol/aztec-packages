@@ -203,6 +203,9 @@ void PrecomputedTraceBuilder::process_wire_instruction_spec(TraceContainer& trac
             trace.set(
                 sel_op_dc_columns[i], static_cast<uint32_t>(wire_opcode), wire_instruction_spec.op_dc_selectors[i]);
         }
+        trace.set(C::precomputed_exec_opcode,
+                  static_cast<uint32_t>(wire_opcode),
+                  static_cast<uint32_t>(wire_instruction_spec.exec_opcode));
     }
 }
 

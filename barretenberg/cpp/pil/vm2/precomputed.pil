@@ -71,7 +71,9 @@ pol constant sel_op_dc_15;
 pol constant sel_op_dc_16;
 pol constant sel_op_dc_17;
 
+pol constant exec_opcode;
+
 // Toggle the rows which index (clk) is equal to a wire opcode
-// Is used to select the operand decomposition selectors (pre-computed values)
-// for any given wire opcode.
+// Is used to lookup into the wire instruction spec table which contains the operand decomposition
+// selectors as well as exec_opcode
 pol constant sel_range_wire_opcode;
