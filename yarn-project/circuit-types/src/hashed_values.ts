@@ -1,5 +1,5 @@
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
-import { schemas } from '@aztec/circuits.js/schemas';
+import { type ZodFor, schemas } from '@aztec/circuits.js/schemas';
 import { Vector } from '@aztec/circuits.js/types';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -21,7 +21,7 @@ export class HashedValues {
     public readonly hash: Fr,
   ) {}
 
-  static get schema() {
+  static get schema(): ZodFor<HashedValues> {
     return z.array(schemas.Fr).transform(HashedValues.fromValues);
   }
 

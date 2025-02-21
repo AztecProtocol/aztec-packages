@@ -1,6 +1,6 @@
 import { PublicDataWrite, RevertCode } from '@aztec/circuits.js/avm';
 import { PrivateLog, PublicLog } from '@aztec/circuits.js/logs';
-import { schemas } from '@aztec/circuits.js/schemas';
+import { type ZodFor, schemas } from '@aztec/circuits.js/schemas';
 import {
   CONTRACT_CLASS_LOGS_PREFIX,
   L2_L1_MSGS_PREFIX,
@@ -36,6 +36,7 @@ import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { inspect } from 'util';
 import { z } from 'zod';
 
+import type { Tx } from './index.js';
 import { ContractClassTxL2Logs, type TxL2Logs } from './logs/index.js';
 import { TxHash } from './tx/tx_hash.js';
 
@@ -511,7 +512,7 @@ export class TxEffect {
     );
   }
 
-  static get schema() {
+  static get schema(): ZodFor<TxEffect> {
     return z
       .object({
         revertCode: RevertCode.schema,

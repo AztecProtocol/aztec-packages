@@ -1,5 +1,5 @@
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { schemas } from '@aztec/circuits.js/schemas';
+import { type ZodFor, schemas } from '@aztec/circuits.js/schemas';
 import { randomBytes, sha256Trunc } from '@aztec/foundation/crypto';
 import { BufferReader, prefixBufferWithLength, toHumanReadable } from '@aztec/foundation/serialize';
 
@@ -47,7 +47,7 @@ export class UnencryptedL2Log {
     return `UnencryptedL2Log(contractAddress: ${this.contractAddress.toString()}, data: ${payload})`;
   }
 
-  static get schema() {
+  static get schema(): ZodFor<UnencryptedL2Log> {
     return z
       .object({ contractAddress: schemas.AztecAddress, data: schemas.Buffer })
       .transform(({ contractAddress, data }) => new UnencryptedL2Log(contractAddress, data));

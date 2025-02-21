@@ -1,9 +1,9 @@
 import { Fr } from '@aztec/foundation/fields';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import { Gas } from '../gas/gas.js';
-import { bufferSchemaFor } from '../schemas/index.js';
 import { TxConstantData } from '../tx/tx_constant_data.js';
 import { RollupValidationRequests } from './hints/rollup_validation_requests.js';
 import { PrivateToPublicAccumulatedData } from './private_to_public_accumulated_data.js';

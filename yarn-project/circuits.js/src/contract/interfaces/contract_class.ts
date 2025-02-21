@@ -1,9 +1,9 @@
 import { type Fr } from '@aztec/foundation/fields';
+import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
 import { FunctionSelector } from '../../abi/index.js';
-import { type ZodFor, schemas } from '../../schemas/index.js';
 
 const VERSION = 1 as const;
 

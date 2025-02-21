@@ -1,11 +1,11 @@
 /* eslint-disable camelcase */
 import { type Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
+import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
 import { inflate } from 'pako';
 import { z } from 'zod';
 
-import { type ZodFor, schemas } from '../schemas/index.js';
 import { FunctionSelector } from './function_selector.js';
 import { NoteSelector } from './note_selector.js';
 

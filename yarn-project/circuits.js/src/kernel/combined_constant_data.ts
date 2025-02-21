@@ -1,10 +1,10 @@
 import { Fr } from '@aztec/foundation/fields';
+import { type ZodFor, hexSchemaFor, schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
-import { type ZodFor, hexSchemaFor, schemas } from '../schemas/index.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { GlobalVariables } from '../tx/global_variables.js';
 import { type TxConstantData } from '../tx/tx_constant_data.js';

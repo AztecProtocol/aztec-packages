@@ -1,0 +1,205 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`revert_code should serialize RevertCode<0> properly 1`] = `
+{
+  "data": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+  ],
+  "type": "Buffer",
+}
+`;
+
+exports[`revert_code should serialize RevertCode<0> properly 2`] = `
+{
+  "data": [
+    0,
+  ],
+  "type": "Buffer",
+}
+`;
+
+exports[`revert_code should serialize RevertCode<0> properly 3`] = `"0x0000000000000000000000000000000000000000000000000000000000000000"`;
+
+exports[`revert_code should serialize RevertCode<1> properly 1`] = `
+{
+  "data": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+  ],
+  "type": "Buffer",
+}
+`;
+
+exports[`revert_code should serialize RevertCode<1> properly 2`] = `
+{
+  "data": [
+    1,
+  ],
+  "type": "Buffer",
+}
+`;
+
+exports[`revert_code should serialize RevertCode<1> properly 3`] = `"0x0000000000000000000000000000000000000000000000000000000000000001"`;
+
+exports[`revert_code should serialize RevertCode<2> properly 1`] = `
+{
+  "data": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    2,
+  ],
+  "type": "Buffer",
+}
+`;
+
+exports[`revert_code should serialize RevertCode<2> properly 2`] = `
+{
+  "data": [
+    2,
+  ],
+  "type": "Buffer",
+}
+`;
+
+exports[`revert_code should serialize RevertCode<2> properly 3`] = `"0x0000000000000000000000000000000000000000000000000000000000000002"`;
+
+exports[`revert_code should serialize RevertCode<3> properly 1`] = `
+{
+  "data": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    3,
+  ],
+  "type": "Buffer",
+}
+`;
+
+exports[`revert_code should serialize RevertCode<3> properly 2`] = `
+{
+  "data": [
+    3,
+  ],
+  "type": "Buffer",
+}
+`;
+
+exports[`revert_code should serialize RevertCode<3> properly 3`] = `"0x0000000000000000000000000000000000000000000000000000000000000003"`;

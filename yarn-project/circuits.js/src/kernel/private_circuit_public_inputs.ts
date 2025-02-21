@@ -13,6 +13,7 @@ import {
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import {
   BufferReader,
   FieldReader,
@@ -27,7 +28,6 @@ import { LogHash } from '../kernel/log_hash.js';
 import { PrivateCallRequest } from '../kernel/private_call_request.js';
 import { PrivateLogData } from '../kernel/private_log_data.js';
 import { L2ToL1Message } from '../messaging/l2_to_l1_message.js';
-import { bufferSchemaFor } from '../schemas/index.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { CallContext } from '../tx/call_context.js';
 import { MaxBlockNumber } from '../tx/max_block_number.js';

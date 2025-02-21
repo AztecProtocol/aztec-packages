@@ -9,6 +9,7 @@ import {
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, type Tuple, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
@@ -16,7 +17,6 @@ import { inspect } from 'util';
 
 import { PrivateLog } from '../logs/private_log.js';
 import { ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
-import { bufferSchemaFor } from '../schemas/index.js';
 import { ScopedLogHash } from './log_hash.js';
 
 /**

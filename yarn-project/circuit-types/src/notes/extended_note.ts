@@ -1,6 +1,6 @@
 import { NoteSelector } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { schemas } from '@aztec/circuits.js/schemas';
+import { type ZodFor, schemas } from '@aztec/circuits.js/schemas';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
@@ -53,7 +53,7 @@ export class ExtendedNote {
     return new this(note, owner, contractAddress, storageSlot, noteTypeId, txHash);
   }
 
-  static get schema() {
+  static get schema(): ZodFor<ExtendedNote> {
     return z
       .object({
         note: Note.schema,

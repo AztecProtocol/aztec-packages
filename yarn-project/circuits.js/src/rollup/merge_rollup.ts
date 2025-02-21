@@ -1,7 +1,7 @@
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
-import { bufferSchemaFor } from '../schemas/index.js';
 import { PreviousRollupData } from './previous_rollup_data.js';
 
 /**

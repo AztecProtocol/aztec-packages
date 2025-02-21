@@ -1,8 +1,8 @@
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import { bufferSchemaFor } from '../schemas/index.js';
 import { BlockRootRollupData } from './block_root_rollup.js';
 import { ConstantRollupData } from './constant_rollup_data.js';
 

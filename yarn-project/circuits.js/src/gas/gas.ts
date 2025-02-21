@@ -1,11 +1,11 @@
 import { Fr } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
 import { z } from 'zod';
 
-import { schemas } from '../schemas/index.js';
 import { type UInt32 } from '../types/shared.js';
 import { type GasFees } from './gas_fees.js';
 

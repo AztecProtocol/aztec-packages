@@ -1,6 +1,6 @@
 import { FunctionSelector } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { schemas } from '@aztec/circuits.js/schemas';
+import { type ZodFor, schemas } from '@aztec/circuits.js/schemas';
 import { FunctionData, TxContext, TxRequest } from '@aztec/circuits.js/tx';
 import { Vector } from '@aztec/circuits.js/types';
 import { Fr } from '@aztec/foundation/fields';
@@ -54,7 +54,7 @@ export class TxExecutionRequest {
     public capsules: Capsule[],
   ) {}
 
-  static get schema() {
+  static get schema(): ZodFor<TxExecutionRequest> {
     return z
       .object({
         origin: schemas.AztecAddress,
