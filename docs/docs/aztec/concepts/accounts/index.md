@@ -14,7 +14,7 @@ Under the Account Abstraction, the identity of a user is usually represented by 
 
 Among the account parts to be abstracted are authentication (“Who I am”), authorization (“What I am allowed to do”), replay protection, fee payment, and execution.
 
-Among the use cases to be unlocked by Account Abstraction are account recovery, gas sponsorship, multichain accounts, and support of signatures other than ECDSA, such as more efficient signatures (e.g. Schnorr, BLS), or more user-friendly ones (e.g. smartphone secure enclave).
+Among the use cases to be unlocked by Account Abstraction are account recovery, gas sponsorship, and support of signatures other than ECDSA, such as more efficient signatures (e.g. Schnorr, BLS), or more user-friendly ones (e.g. smartphone secure enclave).
 
 ### Protocol vs application level
 
