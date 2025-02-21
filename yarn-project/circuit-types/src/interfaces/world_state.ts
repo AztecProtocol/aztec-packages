@@ -1,4 +1,5 @@
-import { type L2BlockId } from '../l2_block_source.js';
+import { z } from 'zod';
+
 import type { MerkleTreeReadOperations, MerkleTreeWriteOperations } from './merkle_tree_operations.js';
 
 /**
@@ -11,6 +12,14 @@ export enum WorldStateRunningState {
   STOPPED,
 }
 
+export interface WorldStateSyncStatus {
+  latestBlockNumber: number;
+  latestBlockHash: string;
+  finalisedBlockNumber: number;
+  oldestHistoricBlockNumber: number;
+  treesAreSynched: boolean;
+}
+
 /**
  * Defines the status of the world state synchronizer.
  */
@@ -20,9 +29,9 @@ export interface WorldStateSynchronizerStatus {
    */
   state: WorldStateRunningState;
   /**
-   * The block number that the world state synchronizer is synced to.
+   * The block numbers that the world state synchronizer is synced to.
    */
-  syncedToL2Block: L2BlockId;
+  syncSummary: WorldStateSyncStatus;
 }
 
 /** Provides writeable forks of the world state at a given block number. */
@@ -65,3 +74,11 @@ export interface WorldStateSynchronizer extends ForkMerkleTreeOperations {
    */
   getCommitted(): MerkleTreeReadOperations;
 }
+
+export const WorldStateSyncStatusSchema = z.object({
+  finalisedBlockNumber: z.number(),
+  latestBlockNumber: z.number(),
+  latestBlockHash: z.string(),
+  oldestHistoricBlockNumber: z.number(),
+  treesAreSynched: z.boolean(),
+}) satisfies z.ZodType<WorldStateSyncStatus>;

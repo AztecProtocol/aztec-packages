@@ -687,7 +687,12 @@ export class Sequencer {
    */
   protected async getChainTip(): Promise<{ blockNumber: number; archive: Fr } | undefined> {
     const syncedBlocks = await Promise.all([
-      this.worldState.status().then((s: WorldStateSynchronizerStatus) => s.syncedToL2Block),
+      this.worldState.status().then((s: WorldStateSynchronizerStatus) => {
+        return {
+          number: s.syncSummary.latestBlockNumber,
+          hash: s.syncSummary.latestBlockHash,
+        };
+      }),
       this.l2BlockSource.getL2Tips().then(t => t.latest),
       this.p2pClient.getStatus().then(p2p => p2p.syncedToL2Block),
       this.l1ToL2MessageSource.getBlockNumber(),

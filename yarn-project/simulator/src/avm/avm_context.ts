@@ -43,18 +43,18 @@ export class AvmContext {
    * @param callType - Type of call (CALL or STATICCALL)
    * @returns new AvmContext instance
    */
-  public createNestedContractCallContext(
+  public async createNestedContractCallContext(
     address: AztecAddress,
     calldata: Fr[],
     allocatedGas: Gas,
     callType: 'CALL' | 'STATICCALL',
-  ): AvmContext {
+  ): Promise<AvmContext> {
     const deriveFn =
       callType === 'CALL'
         ? this.environment.deriveEnvironmentForNestedCall
         : this.environment.deriveEnvironmentForNestedStaticCall;
     const newExecutionEnvironment = deriveFn.call(this.environment, address, calldata);
-    const forkedWorldState = this.persistableState.fork();
+    const forkedWorldState = await this.persistableState.fork();
     const machineState = AvmMachineState.fromState(gasToGasLeft(allocatedGas));
     return new AvmContext(forkedWorldState, newExecutionEnvironment, machineState);
   }

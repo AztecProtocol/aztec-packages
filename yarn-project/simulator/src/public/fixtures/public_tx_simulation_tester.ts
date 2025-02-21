@@ -1,17 +1,9 @@
-import { MerkleTreeId, PublicExecutionRequest, type Tx } from '@aztec/circuit-types';
+import { PublicExecutionRequest, type Tx } from '@aztec/circuit-types';
 import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import { CallContext, FunctionSelector, GasFees, GlobalVariables } from '@aztec/circuits.js';
 import { type ContractArtifact, encodeArguments } from '@aztec/circuits.js/abi';
-import { type AvmCircuitPublicInputs } from '@aztec/circuits.js/avm';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
-import {
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  NULLIFIER_SUBTREE_HEIGHT,
-  PUBLIC_DATA_TREE_HEIGHT,
-  PUBLIC_DISPATCH_SELECTOR,
-} from '@aztec/constants';
-import { padArrayEnd } from '@aztec/foundation/collection';
+import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 import { NativeWorldStateService } from '@aztec/world-state';
@@ -139,33 +131,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     const endTime = performance.now();
     this.logger.debug(`Public transaction simulation took ${endTime - startTime}ms`);
 
-    if (avmResult.revertCode.isOK()) {
-      await this.commitTxStateUpdates(avmResult.avmProvingRequest.inputs.publicInputs);
-    }
-
     return avmResult;
-  }
-
-  private async commitTxStateUpdates(avmCircuitInputs: AvmCircuitPublicInputs) {
-    await this.merkleTrees.appendLeaves(
-      MerkleTreeId.NOTE_HASH_TREE,
-      padArrayEnd(avmCircuitInputs.accumulatedData.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
-    );
-    try {
-      await this.merkleTrees.batchInsert(
-        MerkleTreeId.NULLIFIER_TREE,
-        padArrayEnd(avmCircuitInputs.accumulatedData.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(n => n.toBuffer()),
-        NULLIFIER_SUBTREE_HEIGHT,
-      );
-    } catch (error) {
-      this.logger.warn(`Detected duplicate nullifier.`);
-    }
-
-    await this.merkleTrees.batchInsert(
-      MerkleTreeId.PUBLIC_DATA_TREE,
-      avmCircuitInputs.accumulatedData.publicDataWrites.map(w => w.toBuffer()),
-      PUBLIC_DATA_TREE_HEIGHT,
-    );
   }
 }
 

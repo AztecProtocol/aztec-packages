@@ -60,6 +60,10 @@ export class BlockHeader {
     return new BlockHeader(...BlockHeader.getFields(fields));
   }
 
+  getSlot() {
+    return this.globalVariables.slotNumber.toBigInt();
+  }
+
   getSize() {
     return (
       this.lastArchive.getSize() +

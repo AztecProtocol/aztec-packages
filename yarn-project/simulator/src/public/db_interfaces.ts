@@ -23,44 +23,14 @@ export interface PublicStateDB {
    * @param contract - Owner of the storage.
    * @param slot - Slot to read in the contract storage.
    * @param newValue - The new value to store.
-   * @returns The slot of the written leaf in the public data tree.
    */
-  storageWrite(contract: AztecAddress, slot: Fr, newValue: Fr): Promise<bigint>;
-
-  /**
-   * Mark the uncommitted changes in this TX as a checkpoint.
-   */
-  checkpoint(): Promise<void>;
-
-  /**
-   * Rollback to the last checkpoint.
-   */
-  rollbackToCheckpoint(): Promise<void>;
-
-  /**
-   * Commit the changes in this TX. Includes all changes since the last commit,
-   * even if they haven't been covered by a checkpoint.
-   */
-  commit(): Promise<void>;
-
-  /**
-   * Rollback to the last commit.
-   */
-  rollbackToCommit(): Promise<void>;
+  storageWrite(contract: AztecAddress, slot: Fr, newValue: Fr): Promise<void>;
 }
 
 /**
  * Database interface for providing access to public contract data.
  */
 export interface PublicContractsDB {
-  /**
-   * Returns the brillig (public bytecode) of a function.
-   * @param address - The contract address that owns this function.
-   * @param selector - The selector for the function.
-   * @returns The bytecode or undefined if not found.
-   */
-  getBytecode(address: AztecAddress, selector: FunctionSelector): Promise<Buffer | undefined>;
-
   /**
    * Returns a publicly deployed contract instance.
    * @param address - Address of the contract.

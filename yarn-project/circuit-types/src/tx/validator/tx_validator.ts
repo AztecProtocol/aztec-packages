@@ -7,6 +7,10 @@ import { type Tx } from '../tx.js';
 
 export type AnyTx = Tx | ProcessedTx;
 
+export function hasPublicCalls(tx: AnyTx): boolean {
+  return tx.data.numberOfPublicCallRequests() > 0;
+}
+
 export type TxValidationResult =
   | { result: 'valid' }
   | { result: 'invalid'; reason: string[] }

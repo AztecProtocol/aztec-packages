@@ -62,6 +62,7 @@ describe('public_tx_simulator', () => {
   const enqueuedCallGasUsed = new Gas(12, 34);
 
   let db: MerkleTreeWriteOperations;
+  let dbCopy: MerkleTreeWriteOperations;
   let worldStateDB: WorldStateDB;
 
   let publicDataTree: AppendOnlyTree<Fr>;
@@ -103,10 +104,10 @@ describe('public_tx_simulator', () => {
       maxPriorityFeesPerGas,
     });
 
-    tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0] = new Fr(7777);
-    tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[1] = new Fr(8888);
+    tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0] = new Fr(0x7777);
+    tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[1] = new Fr(0x8888);
 
-    tx.data.forPublic!.revertibleAccumulatedData.nullifiers[0] = new Fr(9999);
+    tx.data.forPublic!.revertibleAccumulatedData.nullifiers[0] = new Fr(0x9999);
 
     tx.data.gasUsed = privateGasUsed;
     if (hasPublicTeardownCall) {
@@ -214,14 +215,16 @@ describe('public_tx_simulator', () => {
     //  console.log(`TESTING Nullifier tree root after insertion ${(await db.getStateReference()).partial.nullifierTree.root}`);
     //}
     // This is how the public processor inserts nullifiers.
-    await db.batchInsert(
+    await dbCopy.batchInsert(
       MerkleTreeId.NULLIFIER_TREE,
       siloedNullifiers.map(n => n.toBuffer()),
       NULLIFIER_SUBTREE_HEIGHT,
     );
-    const expectedRoot = (await db.getStateReference()).partial.nullifierTree.root;
-    const gotRoot = txResult.avmProvingRequest.inputs.publicInputs.endTreeSnapshots.nullifierTree.root;
+    const expectedRoot = new Fr((await db.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).root);
+    const gotRoot = new Fr((await db.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).root);
+    const gotRootPublicInputs = txResult.avmProvingRequest.inputs.publicInputs.endTreeSnapshots.nullifierTree.root;
     expect(gotRoot).toEqual(expectedRoot);
+    expect(gotRootPublicInputs).toEqual(expectedRoot);
   };
 
   const expectAvailableGasForCalls = (availableGases: Gas[]) => {
@@ -281,6 +284,7 @@ describe('public_tx_simulator', () => {
 
   beforeEach(async () => {
     db = await (await NativeWorldStateService.tmp()).fork();
+    dbCopy = await (await NativeWorldStateService.tmp()).fork();
     worldStateDB = new WorldStateDB(db, mock<ContractDataSource>());
 
     treeStore = openTmpStore();
@@ -560,7 +564,7 @@ describe('public_tx_simulator', () => {
 
     const appLogicFailure = new SimulationError('Simulation Failed in app logic', []);
 
-    const siloedNullifiers = [new Fr(10000), new Fr(20000), new Fr(30000), new Fr(40000), new Fr(50000)];
+    const siloedNullifiers = [new Fr(0x10000), new Fr(0x20000), new Fr(0x30000), new Fr(0x40000), new Fr(0x50000)];
     mockPublicExecutor([
       // SETUP
       async (stateManager: AvmPersistableStateManager) => {
