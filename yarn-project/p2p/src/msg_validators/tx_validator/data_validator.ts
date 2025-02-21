@@ -23,17 +23,13 @@ export class DataTxValidator implements TxValidator<Tx> {
       return { result: 'invalid', reason: ['Wrong number of execution requests for public calls'] };
     }
 
-    const totalArgsLength = tx.enqueuedPublicFunctionCalls.reduce(
-      (acc, execRequest) => acc + execRequest.args.length,
-      0,
-    );
-    if (totalArgsLength > MAX_ARGS_TO_ALL_ENQUEUED_CALLS) {
+    if (tx.getTotalPublicArgsCount() > MAX_ARGS_TO_ALL_ENQUEUED_CALLS) {
       this.#log.warn(
         `Rejecting tx ${await Tx.getHash(
           tx,
         )} because the total length of args to public enqueued calls is greater than ${MAX_ARGS_TO_ALL_ENQUEUED_CALLS}`,
       );
-      return { result: 'invalid', reason: ['Too many args to enqueued calls'] };
+      return { result: 'invalid', reason: ['Too many args in total to enqueued public calls'] };
     }
     const invalidExecutionRequestIndex = (
       await Promise.all(

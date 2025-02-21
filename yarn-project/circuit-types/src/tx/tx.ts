@@ -79,6 +79,14 @@ export class Tx extends Gossipable {
     return this.publicTeardownFunctionCall.isEmpty() ? undefined : this.publicTeardownFunctionCall;
   }
 
+  getTotalPublicArgsCount(): number {
+    let count = this.enqueuedPublicFunctionCalls.reduce((acc, execRequest) => acc + execRequest.args.length, 0);
+    if (!this.publicTeardownFunctionCall.isEmpty()) {
+      count += this.publicTeardownFunctionCall.args.length;
+    }
+    return count;
+  }
+
   getGasSettings(): GasSettings {
     return this.data.constants.txContext.gasSettings;
   }
