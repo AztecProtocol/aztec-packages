@@ -9,12 +9,14 @@ import {
   L1FeeJuicePortalManager,
   createLogger,
   createPXEClient,
+  retry,
   retryUntil,
 } from '@aztec/aztec.js';
 import { type FunctionCall } from '@aztec/circuit-types';
 import { type AztecNode, type PXE } from '@aztec/circuit-types/interfaces/client';
 import { type AztecAddress, Fr, deriveSigningKey } from '@aztec/circuits.js';
 import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
+import { makeBackoff } from '@aztec/foundation/retry';
 import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { makeTracedFetch } from '@aztec/telemetry-client';
@@ -94,13 +96,21 @@ export class BotFactory {
       const claim = await this.bridgeL1FeeJuice(address, 10n ** 22n);
 
       const paymentMethod = new FeeJuicePaymentMethodWithClaim(address, claim);
-      const sentTx = account.deploy({ fee: { paymentMethod } });
-      const txHash = await sentTx.getTxHash();
-      this.log.info(`Sent tx with hash ${txHash.toString()}`);
-      await this.tryFlushTxs();
-      this.log.verbose('Waiting for account deployment to settle');
-      await sentTx.wait({ timeout: this.config.txMinedWaitSeconds });
-      this.log.info(`Account deployed at ${address}`);
+
+      await retry(
+        async () => {
+          const sentTx = account.deploy({ fee: { paymentMethod } });
+          const txHash = await sentTx.getTxHash();
+          this.log.info(`Sent tx with hash ${txHash.toString()}`);
+          await this.tryFlushTxs();
+          this.log.verbose('Waiting for account deployment to settle');
+          await sentTx.wait({ timeout: this.config.txMinedWaitSeconds });
+          this.log.info(`Account deployed at ${address}`);
+        },
+        'deploy bot account',
+        makeBackoff([1, 1, 1, 1, 1]),
+        this.log,
+      );
       return account.getWallet();
     }
   }
