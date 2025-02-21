@@ -10,7 +10,7 @@ In this section, you'll learn about Aztec's account abstraction, Aztec accounts 
 
 ## Account Abstraction (AA)
 
-Under the Account Abstraction, the identity of a user is usually represented by a smart contract. That makes user's on-chain identity more flexible. For example, Bitcoin has rigid accounts that must be a private key, whereas a user might want their on-chain identity to be represented by a physical passport.
+With account abstraction, the identity of a user is usually represented by a smart contract. That makes user's on-chain identity more flexible than simply using private/public keys. For example, Bitcoin has rigid accounts that must be a private key, whereas a user might want their on-chain identity to be controlled by a physical passport.
 
 Among the account parts to be abstracted are authentication (“Who I am”), authorization (“What I am allowed to do”), replay protection, fee payment, and execution.
 
