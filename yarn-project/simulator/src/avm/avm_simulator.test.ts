@@ -277,18 +277,70 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     expect(results.output).toEqual([g3.x, g3.y, Fr.ZERO]);
   });
 
-  it('variable msm operations', async () => {
-    const context = initContext();
+  describe('msm', () => {
+    it('low scalars', async () => {
+      const calldata: Fr[] = [
+        /* scalar lo */ new Fr(3),
+        /* scalar hi */ new Fr(0),
+        /* scalar2 lo */ new Fr(20),
+        /* scalar2 hi */ new Fr(0),
+      ];
+      const context = initContext({ env: initExecutionEnvironment({ calldata }) });
 
-    const bytecode = getAvmTestContractBytecode('variable_base_msm');
-    const results = await new AvmSimulator(context).executeBytecode(bytecode);
+      const bytecode = getAvmTestContractBytecode('variable_base_msm');
+      const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
-    expect(results.reverted).toBe(false);
-    const grumpkin = new Grumpkin();
-    const g3 = await grumpkin.mul(grumpkin.generator(), new Fq(3));
-    const g20 = await grumpkin.mul(grumpkin.generator(), new Fq(20));
-    const expectedResult = await grumpkin.add(g3, g20);
-    expect(results.output).toEqual([expectedResult.x, expectedResult.y, Fr.ZERO]);
+      expect(results.reverted).toBe(false);
+      const grumpkin = new Grumpkin();
+      const g3 = await grumpkin.mul(grumpkin.generator(), new Fq(3));
+      const g20 = await grumpkin.mul(grumpkin.generator(), new Fq(20));
+      const expectedResult = await grumpkin.add(g3, g20);
+      expect(results.output).toEqual([expectedResult.x, expectedResult.y, Fr.ZERO]);
+    });
+
+    it('with a zero', async () => {
+      const calldata: Fr[] = [
+        /* scalar lo */ new Fr(3),
+        /* scalar hi */ new Fr(0),
+        /* scalar2 lo */ new Fr(0),
+        /* scalar2 hi */ new Fr(0),
+      ];
+      const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+
+      const bytecode = getAvmTestContractBytecode('variable_base_msm');
+      const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+      expect(results.reverted).toBe(false);
+      const grumpkin = new Grumpkin();
+      const expectedResult = await grumpkin.mul(grumpkin.generator(), new Fq(3));
+      expect(results.output).toEqual([expectedResult.x, expectedResult.y, Fr.ZERO]);
+    });
+
+    const fqToLimbs = (fq: Fq): [bigint, bigint] => {
+      const asBigint = fq.toBigInt();
+      // Return lo, hi limbs of 128 bits
+      const hi = asBigint >> 128n;
+      const lo = asBigint & (2n ** 128n - 1n);
+      return [lo, hi];
+    };
+
+    it('high scalars', async () => {
+      const scalar = new Fq(Fq.MODULUS - 1n);
+      const scalar2 = new Fq(Fq.MODULUS - 2n);
+
+      const calldata: Fr[] = [...fqToLimbs(scalar), ...fqToLimbs(scalar2)].map(bigint => new Fr(bigint));
+      const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+
+      const bytecode = getAvmTestContractBytecode('variable_base_msm');
+      const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+      expect(results.reverted).toBe(false);
+      const grumpkin = new Grumpkin();
+      const g1 = await grumpkin.mul(grumpkin.generator(), scalar);
+      const g2 = await grumpkin.mul(grumpkin.generator(), scalar2);
+      const expectedResult = await grumpkin.add(g1, g2);
+      expect(results.output).toEqual([expectedResult.x, expectedResult.y, Fr.ZERO]);
+    });
   });
 
   it('pedersen commitment operations', async () => {
