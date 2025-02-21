@@ -9,8 +9,7 @@ use super::traits::{Deserialize, Packable, Serialize};
 /// # Note
 /// A copy of this function exists in `aztec-nr/aztec/src/macros/utils.nr`. We maintain separate copies
 /// because importing it there from here would cause the `target_trait` to be interpreted in the context
-/// of the protocol circuits types crate, making it impossible to compile code for traits from that crate
-/// (e.g. NoteInterface).
+/// of this crate, making it impossible to compile code for traits from that crate (e.g. NoteInterface).
 comptime fn get_trait_impl_method(
     typ: Type,
     target_trait: Quoted,
