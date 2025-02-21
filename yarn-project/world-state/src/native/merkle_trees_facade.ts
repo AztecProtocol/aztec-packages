@@ -2,7 +2,6 @@ import { MerkleTreeId, SiblingPath } from '@aztec/circuit-types';
 import {
   type BatchInsertionResult,
   type IndexedTreeId,
-  type MerkleTreeCheckpointOperations,
   type MerkleTreeLeafType,
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
@@ -327,34 +326,5 @@ function deserializeIndexedLeaf(leaf: SerializedIndexedLeaf): IndexedTreeLeafPre
     );
   } else {
     throw new Error('Invalid leaf type');
-  }
-}
-
-export class ForkCheckpoint {
-  private completed = false;
-
-  private constructor(private readonly fork: MerkleTreeCheckpointOperations) {}
-
-  static async new(fork: MerkleTreeCheckpointOperations): Promise<ForkCheckpoint> {
-    await fork.createCheckpoint();
-    return new ForkCheckpoint(fork);
-  }
-
-  async commit(): Promise<void> {
-    if (this.completed) {
-      return;
-    }
-
-    await this.fork.commitCheckpoint();
-    this.completed = true;
-  }
-
-  async revert(): Promise<void> {
-    if (this.completed) {
-      return;
-    }
-
-    await this.fork.revertCheckpoint();
-    this.completed = true;
   }
 }

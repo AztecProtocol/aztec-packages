@@ -33,8 +33,8 @@ import {
   getTelemetryClient,
   trackSpan,
 } from '@aztec/telemetry-client';
+import { ForkCheckpoint } from '@aztec/world-state/native';
 
-import { ForkCheckpoint } from '../../../world-state/src/native/merkle_trees_facade.js';
 import { WorldStateDB } from './public_db_sources.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
 import { PublicTxSimulator } from './public_tx_simulator.js';

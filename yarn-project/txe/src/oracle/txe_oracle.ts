@@ -104,9 +104,8 @@ import {
   createSimulationError,
   resolveAssertionMessageFromError,
 } from '@aztec/simulator/server';
-import { type NativeWorldStateService } from '@aztec/world-state';
+import { ForkCheckpoint, type NativeWorldStateService } from '@aztec/world-state/native';
 
-import { ForkCheckpoint } from '../../../world-state/src/native/merkle_trees_facade.js';
 import { TXENode } from '../node/txe_node.js';
 import { type TXEDatabase } from '../util/txe_database.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
