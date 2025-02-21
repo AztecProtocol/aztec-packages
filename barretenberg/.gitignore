@@ -7,4 +7,3 @@ ts/dest
 .idea
 cmake-build-debug
 *_opt.pil
-bench-out
