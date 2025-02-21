@@ -22,6 +22,7 @@ using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using instr_fetching = bb::avm2::instr_fetching<FF>;
+using simulation::Instruction;
 using simulation::Operand;
 
 TEST(InstrFetchingConstrainingTest, EmptyRow)
@@ -34,11 +35,11 @@ TEST(InstrFetchingConstrainingTest, EmptyRow)
 }
 
 // Basic positive test with a hardcoded bytecode for ADD_8
-TEST(InstrFetchingConstrainingTest, add8WithTraceGen)
+TEST(InstrFetchingConstrainingTest, Add8WithTraceGen)
 {
     TestTraceContainer trace;
     BytecodeTraceBuilder builder;
-    simulation::Instruction add_8_instruction = {
+    Instruction add_8_instruction = {
         .opcode = WireOpCode::ADD_8,
         .indirect = 3,
         .operands = { Operand::u8(0x34), Operand::u8(0x35), Operand::u8(0x36) },
@@ -58,11 +59,12 @@ TEST(InstrFetchingConstrainingTest, add8WithTraceGen)
 }
 
 // Basic positive test with a hardcoded bytecode for ECADD
-TEST(InstrFetchingConstrainingTest, ecaddWithTraceGen)
+// Cover the longest amount of operands.
+TEST(InstrFetchingConstrainingTest, EcaddWithTraceGen)
 {
     TestTraceContainer trace;
     BytecodeTraceBuilder builder;
-    simulation::Instruction ecadd_instruction = {
+    Instruction ecadd_instruction = {
         .opcode = WireOpCode::ECADD,
         .indirect = 0x1f1f,
         .operands = { Operand::u16(0x1279),
@@ -107,7 +109,7 @@ TEST(InstrFetchingConstrainingTest, ecaddWithTraceGen)
 
 // Positive test for each opcode. We assume that decode instruction is working correctly.
 // It works as long as the relations are not constraining the correct range for TAG nor indirect.
-TEST(InstrFetchingConstrainingTest, eachOpcodeWithTraceGen)
+TEST(InstrFetchingConstrainingTest, EachOpcodeWithTraceGen)
 {
     uint32_t seed = 987137937; // Arbitrary number serving as pseudo-random seed to generate bytes
 
