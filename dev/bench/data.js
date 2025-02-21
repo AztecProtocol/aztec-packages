@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740159410852,
+  "lastUpdate": 1740179296340,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "sirasistant@gmail.com",
-            "name": "Álvaro Rodríguez",
-            "username": "sirasistant"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e3bc1a5401bc16876706cee019a73b441ee98afa",
-          "message": "fix: Use gas billed in block header building (#12101)\n\nFixes https://github.com/AztecProtocol/aztec-packages/issues/12089",
-          "timestamp": "2025-02-19T15:15:39+01:00",
-          "tree_id": "71d5ad78761ec4b1731d4d4896feaccd76020caa",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e3bc1a5401bc16876706cee019a73b441ee98afa"
-        },
-        "date": 1739976167822,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18232.54027899998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16147.084724999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18776.526205999973,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16321.302573 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3989.462730000014,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3142.032781 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54911.461774999996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54911460000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10867.966644999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10867969000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1829487357,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1829487357 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 131622903,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 131622903 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3300,6 +3234,72 @@ window.BENCHMARK_DATA = {
             "value": 133847420,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 133847420 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fd323cc9d3f2a1e81f3ea2bc82e36c8fcf02db93",
+          "message": "fix: Revert \"feat: add wasm memory benchmark to bench.json\" (#12204)\n\nbench code didn't execute properly",
+          "timestamp": "2025-02-21T17:54:21-05:00",
+          "tree_id": "5e631c85d6f90315a0ac198831868364d16e60c2",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/fd323cc9d3f2a1e81f3ea2bc82e36c8fcf02db93"
+        },
+        "date": 1740179288919,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18057.75719500002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15928.698677 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18666.189926000014,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16235.844681999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3844.826229999967,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3104.21074 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54798.984343,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54798984000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11213.816013000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11213816000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1816578951,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1816578951 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 128319092,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 128319092 ns\nthreads: 1"
           }
         ]
       }
