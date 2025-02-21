@@ -49,7 +49,9 @@ void print_subcommand_options(const CLI::App* sub)
 {
     for (const auto& opt : sub->get_options()) {
         if (opt->count() > 0) { // Only print options that were set.
-            ASSERT(opt->results().size() == 1);
+            if (opt->results().size() > 1) {
+                vinfo("  Warning: the following option is called more than once");
+            }
             vinfo("  ", opt->get_name(), ": ", opt->results()[0]);
         }
     }
