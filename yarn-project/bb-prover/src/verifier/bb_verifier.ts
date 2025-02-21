@@ -63,7 +63,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
         proofType: 'ultra-honk',
       } satisfies CircuitVerificationStats);
     };
-    await runInDirectory(this.config.bbWorkingDirectory, operation, this.config.bbSkipCleanup);
+    await runInDirectory(this.config.bbWorkingDirectory, operation, this.config.bbSkipCleanup, this.logger);
   }
 
   public async verifyProof(tx: Tx): Promise<boolean> {
@@ -103,7 +103,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
           proofType: 'client-ivc',
         } satisfies CircuitVerificationStats);
       };
-      await runInDirectory(this.config.bbWorkingDirectory, operation, this.config.bbSkipCleanup);
+      await runInDirectory(this.config.bbWorkingDirectory, operation, this.config.bbSkipCleanup, this.logger);
       return true;
     } catch (err) {
       this.logger.warn(`Failed to verify ClientIVC proof for tx ${Tx.getHash(tx)}: ${String(err)}`);

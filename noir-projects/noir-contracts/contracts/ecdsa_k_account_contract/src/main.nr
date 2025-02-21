@@ -79,4 +79,3 @@ pub contract EcdsaKAccount {
         )
     }
 }
-

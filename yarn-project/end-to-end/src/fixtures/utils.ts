@@ -782,7 +782,6 @@ export async function createAndSyncProverNode(
     ...aztecNodeConfig,
     proverCoordinationNodeUrl: undefined,
     dataDirectory: undefined,
-    proverId: new Fr(42),
     realProofs: false,
     proverAgentCount: 2,
     publisherPrivateKey: proverNodePrivateKey,

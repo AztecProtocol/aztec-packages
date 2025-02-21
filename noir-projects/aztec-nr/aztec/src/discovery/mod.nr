@@ -28,23 +28,24 @@ pub struct NoteHashAndNullifier {
 /// address).
 ///
 /// This function must be user-provided as its implementation requires knowledge of how note type IDs are allocated in a
-/// contract. A typical implementation would look like this:
+/// contract. The `#[aztec]` macro automatically creates such a contract library method called
+/// `_compute_note_hash_and_nullifier`, which looks something like this:
 ///
 /// ```
 /// |packed_note_content, contract_address, nonce, storage_slot, note_type_id| {
 ///     if note_type_id == MyNoteType::get_note_type_id() {
 ///         assert(packed_note_content.len() == MY_NOTE_TYPE_SERIALIZATION_LENGTH);
-///         let hashes = dep::aztec::note::utils::compute_note_hash_and_optionally_a_nullifier(
-///             MyNoteType::unpack_content,
-///             note_header,
-///             true,
-///             packed_note_content.storage(),
-///         )
 ///
-///         Option::some(dep::aztec::oracle::management::NoteHashesAndNullifier {
-///             note_hash: hashes[0],
-///             inner_nullifier: hashes[3],
-///         })
+///         let note = MyNoteType::unpack(aztec::utils::array::subarray(packed_note.storage(), 0));
+///
+///         let note_hash = note.compute_note_hash(storage_slot);
+///         let inner_nullifier = note.compute_nullifier_without_context(storage_slot, contract_address, nonce);
+///
+///         Option::some(
+///             aztec::discovery::NoteHashAndNullifier {
+///                 note_hash, inner_nullifier
+///             }
+///         )
 ///     } else if note_type_id == MyOtherNoteType::get_note_type_id() {
 ///           ... // Similar to above but calling MyOtherNoteType::unpack_content
 ///     } else {
@@ -52,7 +53,7 @@ pub struct NoteHashAndNullifier {
 ///     };
 /// }
 /// ```
-type ComputeNoteHashAndNullifier<Env> = fn[Env](/* packed_note_content */BoundedVec<Field, MAX_NOTE_PACKED_LEN>, /* contract_address */ AztecAddress, /* nonce */ Field, /* storage_slot */ Field, /* note_type_id */ Field) -> Option<NoteHashAndNullifier>;
+type ComputeNoteHashAndNullifier<Env> = unconstrained fn[Env](/* packed_note_content */BoundedVec<Field, MAX_NOTE_PACKED_LEN>, /* storage_slot */ Field, /* note_type_id */ Field, /* contract_address */ AztecAddress, /* nonce */ Field) -> Option<NoteHashAndNullifier>;
 
 /// Performs the note discovery process, in which private and public logs are downloaded and inspected to find private
 /// notes, partial notes, and their completion. This is the mechanism via which PXE learns of new notes.
