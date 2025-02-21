@@ -169,8 +169,6 @@ std::string to_string(OpCode opcode)
         return "KECCAKF1600";
     case OpCode::ECADD:
         return "ECADD";
-    case OpCode::MSM:
-        return "MSM";
     // Conversions
     case OpCode::TORADIXBE:
         return "TORADIXBE";

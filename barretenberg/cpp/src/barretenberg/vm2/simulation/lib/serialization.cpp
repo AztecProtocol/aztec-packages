@@ -179,8 +179,6 @@ const std::unordered_map<WireOpCode, std::vector<OperandType>> WireOpCode_WIRE_F
         OperandType::UINT16,     // rhs.y
         OperandType::UINT16,     // rhs.is_infinite
         OperandType::UINT16 } }, // dst_offset
-    { WireOpCode::MSM,
-      { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
     // Gadget - Conversion
     { WireOpCode::TORADIXBE,
       { OperandType::INDIRECT16,
