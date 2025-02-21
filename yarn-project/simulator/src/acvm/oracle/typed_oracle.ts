@@ -264,6 +264,6 @@ export abstract class TypedOracle {
   }
 
   aes128Decrypt(_ciphertext: Buffer, _iv: Buffer, _symKey: Buffer): Promise<Buffer> {
-    throw new OracleMethodNotAvailableError('aes128Decrypt');
+    return Promise.reject(new OracleMethodNotAvailableError('aes128Decrypt'));
   }
 }
