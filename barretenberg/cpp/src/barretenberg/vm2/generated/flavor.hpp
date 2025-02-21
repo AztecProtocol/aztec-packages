@@ -78,8 +78,8 @@ class AvmFlavor {
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
 
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 53;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 703;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 35;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 721;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 84;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
@@ -372,24 +372,6 @@ class AvmFlavor {
       public:
         VerifierCommitments_(const std::shared_ptr<VerificationKey>& verification_key)
         {
-            this->instr_fetching_sel_op_dc_0 = verification_key->instr_fetching_sel_op_dc_0;
-            this->instr_fetching_sel_op_dc_1 = verification_key->instr_fetching_sel_op_dc_1;
-            this->instr_fetching_sel_op_dc_10 = verification_key->instr_fetching_sel_op_dc_10;
-            this->instr_fetching_sel_op_dc_11 = verification_key->instr_fetching_sel_op_dc_11;
-            this->instr_fetching_sel_op_dc_12 = verification_key->instr_fetching_sel_op_dc_12;
-            this->instr_fetching_sel_op_dc_13 = verification_key->instr_fetching_sel_op_dc_13;
-            this->instr_fetching_sel_op_dc_14 = verification_key->instr_fetching_sel_op_dc_14;
-            this->instr_fetching_sel_op_dc_15 = verification_key->instr_fetching_sel_op_dc_15;
-            this->instr_fetching_sel_op_dc_16 = verification_key->instr_fetching_sel_op_dc_16;
-            this->instr_fetching_sel_op_dc_17 = verification_key->instr_fetching_sel_op_dc_17;
-            this->instr_fetching_sel_op_dc_2 = verification_key->instr_fetching_sel_op_dc_2;
-            this->instr_fetching_sel_op_dc_3 = verification_key->instr_fetching_sel_op_dc_3;
-            this->instr_fetching_sel_op_dc_4 = verification_key->instr_fetching_sel_op_dc_4;
-            this->instr_fetching_sel_op_dc_5 = verification_key->instr_fetching_sel_op_dc_5;
-            this->instr_fetching_sel_op_dc_6 = verification_key->instr_fetching_sel_op_dc_6;
-            this->instr_fetching_sel_op_dc_7 = verification_key->instr_fetching_sel_op_dc_7;
-            this->instr_fetching_sel_op_dc_8 = verification_key->instr_fetching_sel_op_dc_8;
-            this->instr_fetching_sel_op_dc_9 = verification_key->instr_fetching_sel_op_dc_9;
             this->precomputed_as_unary = verification_key->precomputed_as_unary;
             this->precomputed_bitwise_input_a = verification_key->precomputed_bitwise_input_a;
             this->precomputed_bitwise_input_b = verification_key->precomputed_bitwise_input_b;
