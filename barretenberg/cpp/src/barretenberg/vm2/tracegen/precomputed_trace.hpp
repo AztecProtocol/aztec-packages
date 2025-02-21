@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
 
 namespace bb::avm2::tracegen {
@@ -8,7 +9,7 @@ namespace bb::avm2::tracegen {
 // See precomputed.pil.
 class PrecomputedTraceBuilder final {
   public:
-    void process_misc(TraceContainer& trace);
+    void process_misc(TraceContainer& trace, const uint32_t num_rows = CIRCUIT_SUBGROUP_SIZE);
     void process_bitwise(TraceContainer& trace);
     void process_sel_range_8(TraceContainer& trace);
     void process_sel_range_16(TraceContainer& trace);

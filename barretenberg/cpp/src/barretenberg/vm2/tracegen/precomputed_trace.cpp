@@ -4,12 +4,11 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 
 namespace bb::avm2::tracegen {
 
-void PrecomputedTraceBuilder::process_misc(TraceContainer& trace)
+void PrecomputedTraceBuilder::process_misc(TraceContainer& trace, const uint32_t num_rows)
 {
     using C = Column;
 
@@ -18,8 +17,8 @@ void PrecomputedTraceBuilder::process_misc(TraceContainer& trace)
 
     // Clk.
     // TODO: What a waste of 64MB. Can we elegantly have a flag for this?
-    trace.reserve_column(C::precomputed_clk, CIRCUIT_SUBGROUP_SIZE);
-    for (uint32_t i = 0; i < CIRCUIT_SUBGROUP_SIZE; i++) {
+    trace.reserve_column(C::precomputed_clk, num_rows);
+    for (uint32_t i = 0; i < num_rows; i++) {
         trace.set(C::precomputed_clk, i, i);
     }
 }
@@ -156,8 +155,11 @@ void PrecomputedTraceBuilder::process_sha256_round_constants(TraceContainer& tra
     };
     constexpr auto num_rows = round_constants.size();
     trace.reserve_column(C::precomputed_sha256_compression_round_constant, num_rows);
+    trace.reserve_column(C::precomputed_sel_sha256_compression, num_rows);
     for (uint32_t i = 0; i < num_rows; i++) {
-        trace.set(C::precomputed_sha256_compression_round_constant, i, round_constants[i]);
+        trace.set(i,
+                  { { { C::precomputed_sel_sha256_compression, 1 },
+                      { C::precomputed_sha256_compression_round_constant, round_constants[i] } } });
     }
 }
 
