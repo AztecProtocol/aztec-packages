@@ -1,8 +1,5 @@
 use aztec::{macros::notes::note, oracle::random::random, protocol_types::address::AztecAddress};
 
-// TODO(#12008): Remove the need for the manual import of `Packable` trait here. This is a bug in macros.
-use aztec::protocol_types::traits::Packable;
-
 // docs:start:value-note-def
 #[note]
 #[derive(Eq)]
