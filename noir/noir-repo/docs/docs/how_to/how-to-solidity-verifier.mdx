@@ -65,16 +65,16 @@ This will compile your source code into a Noir build artifact to be stored in th
 <TabItem value="UltraHonk">
 
 ```sh
-bb write_vk_ultra_keccak_honk -b ./target/<noir_artifact_name>.json
-bb contract --scheme ultra_honk
+bb write_vk -b ./target/<noir_artifact_name>.json -o ./target
+bb write_contract -k ./target/vk
 ```
 
 </TabItem>
-<TabItem value="UltraPlonk">
+<TabItem value="UltraPlonk (deprecated)">
 
 ```sh
-bb write_vk -b ./target/<noir_artifact_name>.json
-bb contract
+bb OLD_API write_vk -b ./target/<noir_artifact_name>.json
+bb OLD_API contract
 ```
 
 </TabItem>
@@ -125,7 +125,7 @@ Looking closely, we will notice that our "Solidity Verifier" is composed on mult
 ![Deploying HonkVerifier](@site/static/img/how-tos/solidity_verifier_7.png)
 
 </TabItem>
-<TabItem value="UltraPlonk">
+<TabItem value="UltraPlonk (deprecated)">
 
 ![Deploying PlonkVerifier](@site/static/img/how-tos/solidity_verifier_9.png)
 
@@ -155,7 +155,7 @@ This will generate a `Prover.toml` you can fill with the values you want to prov
 
 ```bash
 nargo execute <witness-name>
-bb prove_ultra_keccak_honk -b ./target/<circuit-name>.json -w ./target/<witness-name> -o ./target/proof
+bb prove --oracle-hash keccak -b ./target/<circuit-name>.json -w ./target/<witness-name> -o ./target
 ```
 
 :::tip[Public inputs]
@@ -170,11 +170,11 @@ Beautiful. This assumes a circuit with one public input (32 bytes, for Barretenb
 :::
 
 </TabItem>
-<TabItem value="UltraPlonk">
+<TabItem value="UltraPlonk (deprecated)">
 
 ```bash
 nargo execute <witness-name>
-bb prove -b ./target/<circuit-name>.json -w ./target/<witness-name> -o ./target/proof
+bb OLD_API prove -b ./target/<circuit-name>.json -w ./target/<witness-name> -o ./target/proof
 ```
 
 
