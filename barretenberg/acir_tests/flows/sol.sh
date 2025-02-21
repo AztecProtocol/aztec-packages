@@ -10,10 +10,10 @@ export PROOF_AS_FIELDS="$PWD/sol_proof_fields.json"
 export VK="$PWD/sol_vk"
 
 # Create a proof, write the solidity contract, write the proof as fields in order to extract the public inputs
-$BIN prove -o $PROOF $FLAGS
-$BIN write_vk  -o $VK $FLAGS
-$BIN proof_as_fields -k $VK $FLAGS -p $PROOF
-$BIN contract -k $VK $FLAGS $BFLAG -o Key.sol
+$BIN OLD_API prove -o $PROOF $FLAGS
+$BIN OLD_API write_vk  -o $VK $FLAGS
+$BIN OLD_API proof_as_fields -k $VK $FLAGS -p $PROOF
+$BIN OLD_API contract -k $VK $FLAGS $BFLAG -o Key.sol
 
 # Export the paths to the environment variables for the js test runner
 export KEY_PATH="$PWD/Key.sol"

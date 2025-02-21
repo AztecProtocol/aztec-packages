@@ -1,6 +1,6 @@
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
+import { AztecAddress } from '../aztec-address/index.js';
 import {
   NoteHash,
   Nullifier,

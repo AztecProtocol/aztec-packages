@@ -1,2 +1,2 @@
-export { AztecAddress } from '@aztec/foundation/aztec-address';
+export { AztecAddress } from '@aztec/circuits.js/aztec-address';
 export { CompleteAddress } from '@aztec/circuits.js';

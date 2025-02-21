@@ -1,9 +1,10 @@
 import { L2_TO_L1_MESSAGE_LENGTH, SCOPED_L2_TO_L1_MESSAGE_LENGTH } from '@aztec/constants';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
+
+import { AztecAddress } from '../aztec-address/index.js';
 
 export class L2ToL1Message {
   constructor(public recipient: EthAddress, public content: Fr, public counter: number) {}
