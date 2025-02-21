@@ -136,7 +136,7 @@ function test_cmds_internal {
 }
 
 function ultra_honk_wasm_memory {
-  VERBOSE=1 BIN=../ts/dest/node/main.js SYS=ultra_honk FLOW=prove_then_verify ./run_test.sh verify_honk_proof > ./bench-out/ultra_honk_rec_verifier_memory.txt
+  VERBOSE=1 BIN=../ts/dest/node/main.js SYS=ultra_honk FLOW=prove_then_verify ./run_test.sh verify_honk_proof > ./bench-out/ultra_honk_rec_wasm_memory.txt
 }
 
 function run_benchmark {
@@ -153,7 +153,7 @@ function bench {
   export HARDWARE_CONCURRENCY=16
 
   rm -rf bench-out && mkdir -p bench-out
-  export -f ultra_honk_wasm_memory
+  export -f ultra_honk_wasm_memory run_benchmark
   local num_cpus=$(get_num_cpus)
   local jobs=$((num_cpus / HARDWARE_CONCURRENCY))
   parallel -v --line-buffer --tag --jobs "$jobs" run_benchmark {#} {} ::: \

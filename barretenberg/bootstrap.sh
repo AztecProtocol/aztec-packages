@@ -20,7 +20,7 @@ if [ $cmd == "bench" ]; then
     wasm ./cpp/bench-out/ultra_honk_wasm.json \
     "" ./cpp/bench-out/client_ivc_op_count.json \
     "" ./cpp/bench-out/client_ivc_op_count_time.json \
-    wasm ./acir_tests/bench-out/ultra_honk_wasm_memory.txt \
+    wasm ./acir_tests/bench-out/ultra_honk_rec_wasm_memory.txt \
     > ./bench-out/bb-bench.json
 
   cache_upload barretenberg-bench-results-$COMMIT_HASH.tar.gz ./bench-out/bb-bench.json
