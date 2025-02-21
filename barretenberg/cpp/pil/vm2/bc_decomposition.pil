@@ -69,7 +69,7 @@ sel * (1 - last_of_contract) * (bytes_remaining' - bytes_remaining + 1) = 0;
 sel * (1 - last_of_contract) * (id' - id) = 0;
 
 // This constrains that the bytes are in the range 0 to 255.
-#[LOOKUP_BYTECODE_BYTES_ARE_BYTES]
+#[BYTES_ARE_BYTES]
 sel { bytes } in precomputed.sel_range_8 { precomputed.clk };
 
 // These are helper columns that will be used for bytecode decomposition.
@@ -135,14 +135,14 @@ sel * (2 * sel_overflow_correction_needed * (WINDOW_SIZE - bytes_remaining) - WI
 // than the trace size 2^21 (and bytecode hashing/validation could not pass). This provides guarantee that
 // abs_diff cannot be the result of an underflow. This would be only possible for bytes_remaining being very close
 // to the field order.
-#[LOOKUP_BYTECODE_REMAINING_ABS_DIFF_U16]
+#[ABS_DIFF_IS_U16]
 sel { abs_diff } in precomputed.sel_range_16 { precomputed.clk };
 
 #[BC_DEC_OVERFLOW_CORRECTION_VALUE]
 sel * ((1 - sel_overflow_correction_needed) * (bytes_to_read - WINDOW_SIZE) + sel_overflow_correction_needed * (bytes_to_read - bytes_remaining)) = 0;
 
 pol commit bytes_to_read_unary;
-#[LOOKUP_BYTECODE_TO_READ_UNARY]
+#[BYTES_TO_READ_AS_UNARY]
 sel { bytes_to_read, bytes_to_read_unary } in precomputed.sel_unary { precomputed.clk, precomputed.as_unary };
 
 // We don't need sel_pc_plus_0 because we always read the current byte.
@@ -274,5 +274,5 @@ sel_packed * (
 //       Above relation would then become stgh like:
 //       (1 - last_of_contract) * (bytes_pc_plus_i - bytes_pc_plus_{i+1}') = 0;
 //
-//       Note also that we could then remove #[LOOKUP_BYTECODE_TO_READ_UNARY] and
+//       Note also that we could then remove #[TO_READ_AS_UNARY] and
 //       #[BC_DEC_UNARY_RECONSTRUCTION].
