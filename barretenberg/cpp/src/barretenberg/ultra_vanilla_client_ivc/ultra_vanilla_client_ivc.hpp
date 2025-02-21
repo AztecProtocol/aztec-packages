@@ -63,6 +63,11 @@ class UltraVanillaClientIVC {
      */
     void accumulate(Circuit&, const Proof&, const std::shared_ptr<VK>&);
 
+    /**
+     * @brief Append a recursive verifier and update the accumulator.
+     */
+    void handle_accumulator(Circuit&, const size_t, const bool);
+
   public:
     std::shared_ptr<CommitmentKey<curve::BN254>> commitment_key;
     Proof previous_proof;
@@ -72,7 +77,8 @@ class UltraVanillaClientIVC {
     PairingPointAccumulatorIndices accumulator_indices;
     std::vector<std::shared_ptr<VK>> vk_cache;
 
-    UltraVanillaClientIVC(const size_t dyadic_size = 1 << 20)
+    UltraVanillaClientIVC() = default;
+    UltraVanillaClientIVC(const size_t dyadic_size)
         : commitment_key(std::make_shared<CommitmentKey<curve::BN254>>(dyadic_size))
     {}
 
@@ -84,7 +90,11 @@ class UltraVanillaClientIVC {
      * @return HonkProof A proof of the final circuit which through recursive verification, demonstrates that all
      * circuits were satisfied, or one of them was not satisfied, depending on whether it verifies or does not verify.
      */
-    HonkProof prove(CircuitSource<Flavor>& source, const bool cache_vks = false);
+    HonkProof prove(CircuitSource<Flavor>& source,
+                    const bool cache_vks = false,
+                    // if the first step does not contain an accumulator from an earlier recursive verification, we need
+                    // to initialize the accumulator, otherwise we must not initialize it
+                    const bool init_kzg_accumulator = true);
 
     /**
      * @brief Verify an IVC proof.
@@ -96,12 +106,16 @@ class UltraVanillaClientIVC {
      * @return true All circuits provided have been satisfied.
      * @return false Some circuit provided was not satisfied.
      */
-    bool verify(const Proof& proof, const std::shared_ptr<VK>& vk);
+    static bool verify(const Proof& proof, const std::shared_ptr<VK>& vk);
 
     /**
      * @brief Prove and then verify the proof. This is used for testing.
      */
-    bool prove_and_verify(CircuitSource<Flavor>& source, const bool cache_vks = false);
+    bool prove_and_verify(CircuitSource<Flavor>& source,
+                          const bool cache_vks = false,
+                          // if the first step does not contain an accumulator from an earlier recursive verification,
+                          // we need to initialize the accumulator, otherwise we must not initialize it
+                          const bool init_kzg_accumulator = true);
 
     /**
      * @brief Compute the verification key of each circuit provided by the source.

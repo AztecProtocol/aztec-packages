@@ -67,7 +67,7 @@ impl LookupBuilder for BBFiles {
             .iter()
             .filter(|identity| matches!(identity.kind, IdentityKind::Plookup))
             .map(|lookup| {
-                let name = lookup
+                let label = lookup
                     .attribute
                     .clone()
                     .expect(
@@ -83,6 +83,7 @@ impl LookupBuilder for BBFiles {
                     .unwrap_or_default()
                     .replace(".pil", "");
                 let file_name = format!("lookups_{}.hpp", relation);
+                let name = format!("lookup_{}_{}", relation, label);
                 Lookup {
                     name: name.clone(),
                     owning_relation: relation,

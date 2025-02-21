@@ -267,7 +267,7 @@ namespace sha256;
     // ===== COMPUTING TMP 1 ===========
     // Lookup round constants
     pol commit round_constant;
-    #[LOOKUP_SHA256_ROUND_CONSTANT]
+    #[ROUND_CONSTANT]
     sel {round_count, round_constant}
     in
     precomputed.sel_sha256_compression {precomputed.clk, precomputed.sha256_compression_round_constant};

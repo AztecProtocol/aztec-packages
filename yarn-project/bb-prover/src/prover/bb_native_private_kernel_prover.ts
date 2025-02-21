@@ -113,6 +113,7 @@ export class BBNativePrivateKernelProver extends BBPrivateKernelProver {
           throw err;
         }),
       this.skipCleanup,
+      this.log,
     );
   }
 }
