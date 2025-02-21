@@ -1,4 +1,4 @@
-import { PrivateLog } from '@aztec/circuits.js';
+import { PrivateLog } from '@aztec/circuits.js/logs';
 
 import { getSampleContractInstanceDeployedEventPayload } from '../tests/fixtures.js';
 import { ContractInstanceDeployedEvent } from './contract_instance_deployed_event.js';

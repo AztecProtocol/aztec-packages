@@ -21,3 +21,8 @@ export * from './private_context_inputs.js';
 export * from './log_hash.js';
 export * from './private_circuit_public_inputs.js';
 export * from './utils/index.js';
+export * from './public_call_request.js';
+export * from './note_hash.js';
+export * from './private_log_data.js';
+export * from './private_call_request.js';
+export * from './private_validation_requests.js';
