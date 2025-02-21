@@ -190,14 +190,15 @@ export class PeerManager {
   private discover() {
     const connections = this.libP2PNode.getConnections();
 
-    const healthyConnections = this.pruneUnhealthyPeers(connections);
+    const uniqueConnections = this.pruneDuplicatePeers(connections);
+    const healthyConnections = this.pruneUnhealthyPeers(uniqueConnections);
 
     // Calculate how many connections we're looking to make
     const peersToConnect = this.config.maxPeerCount - healthyConnections.length;
 
     const logLevel = this.heartbeatCounter % this.displayPeerCountsPeerHeartbeat === 0 ? 'info' : 'debug';
-    this.logger[logLevel](`Connected to ${connections.length} peers`, {
-      connections: connections.length,
+    this.logger[logLevel](`Connected to ${healthyConnections.length} peers`, {
+      connections: healthyConnections.length,
       maxPeerCount: this.config.maxPeerCount,
       cachedPeers: this.cachedPeers.size,
       ...this.peerScoring.getStats(),
@@ -266,6 +267,38 @@ export class PeerManager {
     }
 
     return connectedHealthyPeers;
+  }
+
+  /**
+   * If multiple connections to the same peer are found, the oldest connection is kept and the duplicates are pruned.
+   *
+   * This is necessary to resolve a race condition where multiple connections to the same peer are established if
+   * they are discovered at the same time.
+   *
+   * @param connections - The list of connections to prune duplicate peers from.
+   * @returns The pruned list of connections.
+   */
+  private pruneDuplicatePeers(connections: Connection[]): Connection[] {
+    const peerConnections = new Map<string, Connection>();
+
+    for (const conn of connections) {
+      const peerId = conn.remotePeer.toString();
+      const existingConnection = peerConnections.get(peerId);
+      if (!existingConnection) {
+        peerConnections.set(peerId, conn);
+      } else {
+        // Keep the oldest connection for each peer
+        this.logger.debug(`Found duplicate connection to peer ${peerId}, keeping oldest connection`);
+        if (conn.timeline.open < existingConnection.timeline.open) {
+          peerConnections.set(peerId, conn);
+          void existingConnection.close();
+        } else {
+          void conn.close();
+        }
+      }
+    }
+
+    return [...peerConnections.values()];
   }
 
   private async goodbyeAndDisconnectPeer(peer: PeerId, reason: GoodByeReason) {

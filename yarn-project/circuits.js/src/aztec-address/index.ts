@@ -1,11 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
-import { inspect } from 'util';
+import { Fr, Point, fromBuffer } from '@aztec/foundation/fields';
+import { hexSchemaFor } from '@aztec/foundation/schemas';
+import { type BufferReader, FieldReader, TypeRegistry } from '@aztec/foundation/serialize';
+import { hexToBuffer } from '@aztec/foundation/string';
 
-import { Fr, Point, fromBuffer } from '../fields/index.js';
-import { hexSchemaFor } from '../schemas/utils.js';
-import { type BufferReader, FieldReader } from '../serialize/index.js';
-import { TypeRegistry } from '../serialize/type_registry.js';
-import { hexToBuffer } from '../string/index.js';
+import { inspect } from 'util';
 
 /** Branding to ensure fields are not interchangeable types. */
 export interface AztecAddress {

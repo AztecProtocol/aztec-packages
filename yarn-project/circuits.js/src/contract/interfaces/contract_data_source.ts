@@ -1,7 +1,7 @@
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { FunctionSelector } from '../../abi/index.js';
+import { type AztecAddress } from '../../aztec-address/index.js';
 import { type ContractClassPublic, type PublicFunction } from './contract_class.js';
 import { type ContractInstanceWithAddress } from './contract_instance.js';
 
