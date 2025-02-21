@@ -1,6 +1,6 @@
-variable "region" {
-  description = "Region for the VM instance"
-  type        = string
+variable "regions" {
+  description = "Regions for the VM instances"
+  type        = list(string)
 }
 
 variable "start_script" {
@@ -13,17 +13,22 @@ variable "network_name" {
   type        = string
 }
 
-variable "peer_id_private_key" {
+variable "peer_id_private_keys" {
   description = "The peer id private key of the boot node"
-  type        = string
+  type        = list(string)
 }
 
-variable "enr" {
-  description = "The ENR of the boot node"
+variable "enrs" {
+  description = "The ENRS of all the bootnodes"
   type        = string
 }
 
 variable "machine_type" {
   description = "The machine type for the VM instance"
+  type        = string
+}
+
+variable "project_id" {
+  description = "The GCP project ID"
   type        = string
 }

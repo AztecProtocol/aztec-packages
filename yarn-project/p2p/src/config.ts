@@ -10,7 +10,6 @@ import {
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 
 import { type P2PReqRespConfig, p2pReqRespConfigMappings } from './services/reqresp/config.js';
-import { type AztecENR } from './types/index.js';
 
 /**
  * P2P client configuration values.

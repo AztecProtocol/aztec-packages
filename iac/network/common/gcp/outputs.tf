@@ -9,3 +9,7 @@ output "public_key" {
 output "ssh_user" {
   value = module.ssh.ssh_user
 }
+
+output "service_account_email" {
+  value = module.iam.service_account_email
+}
