@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740091683303,
+  "lastUpdate": 1740097609526,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47148561+Maddiaa0@users.noreply.github.com",
-            "name": "Maddiaa",
-            "username": "Maddiaa0"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "fa6e69558c4c3a6fd95272d6109811a95866055a",
-          "message": "chore(ops): add gcloud cli into devbox base image (#12082)",
-          "timestamp": "2025-02-18T17:18:48Z",
-          "tree_id": "ec893b68fc3914e9a03e93d042476a157b3b8193",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/fa6e69558c4c3a6fd95272d6109811a95866055a"
-        },
-        "date": 1739899792326,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18103.913791000025,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15850.223801000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18539.270089000012,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16287.22522 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3829.18237399997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3062.796259 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54674.711770999995,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54674712000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9518.736895999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9518741000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1819609301,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1819609301 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 128722592,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 128722592 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3300,6 +3234,72 @@ window.BENCHMARK_DATA = {
             "value": 128756795,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 128756795 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "critesjosh@gmail.com",
+            "name": "josh crites",
+            "username": "critesjosh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "321854c86cafeeb72b19f6b8353ebd9b56b81261",
+          "message": "fix(docs): Escape $ in notes page (#12170)\n\nFixes a formatting error. Now renders properly:\n\n\n![image](https://github.com/user-attachments/assets/0925e93e-edaa-45ad-8e2b-ab650720169b)\n\nCo-authored-by: ludamad <adam.domurad@gmail.com>",
+          "timestamp": "2025-02-20T19:15:11-05:00",
+          "tree_id": "cc761ebbcd55522fead30be978f58c0f1cdde7cc",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/321854c86cafeeb72b19f6b8353ebd9b56b81261"
+        },
+        "date": 1740097602252,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18057.729859999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15900.661340999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18563.499621999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16170.933662000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3878.6432869999885,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3070.129144 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55054.548623,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55054548000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11321.878781000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11321882000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1832254534,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1832254534 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 136657595,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 136657595 ns\nthreads: 1"
           }
         ]
       }
