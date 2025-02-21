@@ -12,16 +12,16 @@ class InstructionInfoDBInterface {
   public:
     virtual ~InstructionInfoDBInterface() = default;
 
-    virtual const InstructionSpec& get(ExecutionOpCode opcode) const = 0;
+    virtual const ExecInstructionSpec& get(ExecutionOpCode opcode) const = 0;
     virtual ExecutionOpCode map_wire_opcode_to_execution_opcode(WireOpCode opcode) const = 0;
 };
 
 class InstructionInfoDB : public InstructionInfoDBInterface {
   public:
-    const InstructionSpec& get(ExecutionOpCode opcode) const override
+    const ExecInstructionSpec& get(ExecutionOpCode opcode) const override
     {
-        auto it = INSTRUCTION_SPEC.find(opcode);
-        if (it == INSTRUCTION_SPEC.end()) {
+        auto it = EXEC_INSTRUCTION_SPEC.find(opcode);
+        if (it == EXEC_INSTRUCTION_SPEC.end()) {
             throw std::runtime_error("Cannot find instruction spec for opcode: " +
                                      std::to_string(static_cast<int>(opcode)));
         }

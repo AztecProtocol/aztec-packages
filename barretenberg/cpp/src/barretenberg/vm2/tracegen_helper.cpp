@@ -63,7 +63,7 @@ auto build_precomputed_columns_jobs(TraceContainer& trace)
             AVM_TRACK_TIME("tracegen/precomputed/integral_tag_length",
                            precomputed_builder.process_integral_tag_length(trace));
             AVM_TRACK_TIME("tracegen/precomputed/operand_dec_selectors",
-                           precomputed_builder.process_operand_dec_selectors(trace));
+                           precomputed_builder.process_wire_instruction_spec(trace));
         },
     };
 }

@@ -110,7 +110,7 @@ void Execution::execution_loop()
             info("@", pc, " ", instruction.to_string());
 
             ExecutionOpCode opcode = instruction_info_db.map_wire_opcode_to_execution_opcode(instruction.opcode);
-            const InstructionSpec& spec = instruction_info_db.get(opcode); // Unused for now.
+            const ExecInstructionSpec& spec = instruction_info_db.get(opcode); // Unused for now.
             std::vector<Operand> resolved_operands = addressing.resolve(instruction, context.get_memory());
 
             dispatch_opcode(opcode, resolved_operands);

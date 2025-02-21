@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <vector>
 
+#include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"

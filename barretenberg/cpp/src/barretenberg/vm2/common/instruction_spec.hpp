@@ -7,7 +7,9 @@
 
 namespace bb::avm2 {
 
-struct InstructionSpec {
+constexpr size_t NUM_OP_DC_SELECTORS = 18;
+
+struct ExecInstructionSpec {
     struct GasInfo {
         uint16_t base_l2;
         uint16_t base_da;
@@ -20,12 +22,13 @@ struct InstructionSpec {
     uint8_t num_addresses;
     GasInfo gas_cost;
 
-    bool operator==(const InstructionSpec& other) const = default;
+    bool operator==(const ExecInstructionSpec& other) const = default;
 };
 
 // These are "extern" because the definition is in a different file.
-// Note: in the circuit, we can choose to merge both tables.
-extern const std::unordered_map<ExecutionOpCode, InstructionSpec> INSTRUCTION_SPEC;
+// Note: in the circuit, we can choose to merge these tables.
 extern const std::unordered_map<WireOpCode, ExecutionOpCode> OPCODE_MAP;
+extern const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_SPEC;
+extern const std::unordered_map<WireOpCode, std::array<uint8_t, NUM_OP_DC_SELECTORS>> WireOpCode_DC_SELECTORS;
 
 } // namespace bb::avm2

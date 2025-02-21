@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 
 namespace bb::avm2::tracegen {
@@ -179,7 +180,7 @@ void PrecomputedTraceBuilder::process_integral_tag_length(TraceContainer& trace)
     }
 }
 
-void PrecomputedTraceBuilder::process_operand_dec_selectors(TraceContainer& trace)
+void PrecomputedTraceBuilder::process_wire_instruction_spec(TraceContainer& trace)
 {
     using C = Column;
     const std::array<Column, NUM_OP_DC_SELECTORS> sel_op_dc_columns = {
