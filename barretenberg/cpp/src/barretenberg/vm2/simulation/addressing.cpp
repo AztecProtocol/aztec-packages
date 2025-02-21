@@ -23,7 +23,7 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
     try {
         // Note: it's fine to query instruction info in here since it does not trigger events.
         ExecutionOpCode opcode = instruction_info_db.map_wire_opcode_to_execution_opcode(instruction.opcode);
-        const InstructionSpec& spec = instruction_info_db.get(opcode);
+        const ExecInstructionSpec& spec = instruction_info_db.get(opcode);
         event.spec = &spec;
         // This represents either: (1) wrong info in the spec, or (2) a wrong witgen deserialization.
         // Therefore, it is not an error the circuit should be able to prove.

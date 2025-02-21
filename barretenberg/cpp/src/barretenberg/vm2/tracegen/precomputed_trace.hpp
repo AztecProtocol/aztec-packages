@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/vm2/common/constants.hpp"
+#include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
 
 namespace bb::avm2::tracegen {
@@ -17,6 +18,7 @@ class PrecomputedTraceBuilder final {
     void process_unary(TraceContainer& trace);
     void process_sha256_round_constants(TraceContainer& trace);
     void process_integral_tag_length(TraceContainer& trace);
+    void process_wire_instruction_spec(TraceContainer& trace);
 };
 
 } // namespace bb::avm2::tracegen

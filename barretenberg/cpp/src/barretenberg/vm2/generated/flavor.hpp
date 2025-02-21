@@ -33,6 +33,7 @@
 // Lookup and permutation relations
 #include "relations/lookups_bc_decomposition.hpp"
 #include "relations/lookups_bitwise.hpp"
+#include "relations/lookups_instr_fetching.hpp"
 #include "relations/lookups_poseidon2_hash.hpp"
 #include "relations/lookups_range_check.hpp"
 #include "relations/lookups_sha256.hpp"
@@ -77,13 +78,13 @@ class AvmFlavor {
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
 
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 16;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 694;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 83;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 36;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 721;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 84;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 793;
+    static constexpr size_t NUM_ALL_ENTITIES = 841;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -112,6 +113,8 @@ class AvmFlavor {
         lookup_bc_decomposition_bytes_to_read_as_unary_relation<FF_>,
         lookup_bitwise_byte_operations_relation<FF_>,
         lookup_bitwise_integral_tag_length_relation<FF_>,
+        lookup_instr_fetching_bytes_from_bc_dec_relation<FF_>,
+        lookup_instr_fetching_wire_instruction_info_relation<FF_>,
         lookup_poseidon2_hash_poseidon2_perm_relation<FF_>,
         lookup_range_check_dyn_diff_is_u16_relation<FF_>,
         lookup_range_check_dyn_rng_chk_pow_2_relation<FF_>,
@@ -375,13 +378,33 @@ class AvmFlavor {
             this->precomputed_bitwise_op_id = verification_key->precomputed_bitwise_op_id;
             this->precomputed_bitwise_output = verification_key->precomputed_bitwise_output;
             this->precomputed_clk = verification_key->precomputed_clk;
+            this->precomputed_exec_opcode = verification_key->precomputed_exec_opcode;
             this->precomputed_first_row = verification_key->precomputed_first_row;
             this->precomputed_integral_tag_length = verification_key->precomputed_integral_tag_length;
             this->precomputed_power_of_2 = verification_key->precomputed_power_of_2;
             this->precomputed_sel_bitwise = verification_key->precomputed_sel_bitwise;
             this->precomputed_sel_integral_tag = verification_key->precomputed_sel_integral_tag;
+            this->precomputed_sel_op_dc_0 = verification_key->precomputed_sel_op_dc_0;
+            this->precomputed_sel_op_dc_1 = verification_key->precomputed_sel_op_dc_1;
+            this->precomputed_sel_op_dc_10 = verification_key->precomputed_sel_op_dc_10;
+            this->precomputed_sel_op_dc_11 = verification_key->precomputed_sel_op_dc_11;
+            this->precomputed_sel_op_dc_12 = verification_key->precomputed_sel_op_dc_12;
+            this->precomputed_sel_op_dc_13 = verification_key->precomputed_sel_op_dc_13;
+            this->precomputed_sel_op_dc_14 = verification_key->precomputed_sel_op_dc_14;
+            this->precomputed_sel_op_dc_15 = verification_key->precomputed_sel_op_dc_15;
+            this->precomputed_sel_op_dc_16 = verification_key->precomputed_sel_op_dc_16;
+            this->precomputed_sel_op_dc_17 = verification_key->precomputed_sel_op_dc_17;
+            this->precomputed_sel_op_dc_2 = verification_key->precomputed_sel_op_dc_2;
+            this->precomputed_sel_op_dc_3 = verification_key->precomputed_sel_op_dc_3;
+            this->precomputed_sel_op_dc_4 = verification_key->precomputed_sel_op_dc_4;
+            this->precomputed_sel_op_dc_5 = verification_key->precomputed_sel_op_dc_5;
+            this->precomputed_sel_op_dc_6 = verification_key->precomputed_sel_op_dc_6;
+            this->precomputed_sel_op_dc_7 = verification_key->precomputed_sel_op_dc_7;
+            this->precomputed_sel_op_dc_8 = verification_key->precomputed_sel_op_dc_8;
+            this->precomputed_sel_op_dc_9 = verification_key->precomputed_sel_op_dc_9;
             this->precomputed_sel_range_16 = verification_key->precomputed_sel_range_16;
             this->precomputed_sel_range_8 = verification_key->precomputed_sel_range_8;
+            this->precomputed_sel_range_wire_opcode = verification_key->precomputed_sel_range_wire_opcode;
             this->precomputed_sel_sha256_compression = verification_key->precomputed_sel_sha256_compression;
             this->precomputed_sel_unary = verification_key->precomputed_sel_unary;
             this->precomputed_sha256_compression_round_constant =
