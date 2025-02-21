@@ -22,3 +22,7 @@ bootNode:
     floodPublish: false
   validator:
     disabled: true
+
+proverNode:
+  p2p:
+    floodPublish: false

@@ -146,7 +146,9 @@ validator:
 proverNode:
   externalHost: ""
   replicas: 1
-  p2pEnabled: true
+  p2p:
+    enabled: true
+    floodPublish: true
   service:
     p2pTcpPort: 40400
     p2pUdpPort: 40400
