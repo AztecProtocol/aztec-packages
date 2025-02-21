@@ -916,37 +916,44 @@ export class TXE implements TypedOracle {
     globalVariables.blockNumber = new Fr(this.blockNumber);
     globalVariables.gasFees = new GasFees(1, 1);
 
-    // Checkpoint here so that we can revert merkle ops after simulation.
-    // See note at revert below.
-    await db.createCheckpoint();
-    const simulator = new PublicTxSimulator(
-      db,
-      new TXEWorldStateDB(db, new TXEPublicContractDataSource(this), this),
-      globalVariables,
-      /*doMerkleOperations=*/ true,
-    );
+    let result: PublicTxResult;
+    try {
+      // Checkpoint here so that we can revert merkle ops after simulation.
+      // See note at revert below.
+      await db.createCheckpoint();
+      const simulator = new PublicTxSimulator(
+        db,
+        new TXEWorldStateDB(db, new TXEPublicContractDataSource(this), this),
+        globalVariables,
+        /*doMerkleOperations=*/ true,
+      );
 
-    const { usedTxRequestHashForNonces } = this.noteCache.finish();
-    const firstNullifier = usedTxRequestHashForNonces ? this.getTxRequestHash() : this.noteCache.getAllNullifiers()[0];
+      const { usedTxRequestHashForNonces } = this.noteCache.finish();
+      const firstNullifier = usedTxRequestHashForNonces
+        ? this.getTxRequestHash()
+        : this.noteCache.getAllNullifiers()[0];
 
-    // When setting up a teardown call, we tell it that
-    // private execution used Gas(1, 1) so it can compute a tx fee.
-    const gasUsedByPrivate = isTeardown ? new Gas(1, 1) : Gas.empty();
-    const tx = await createTxForPublicCalls(
-      firstNullifier,
-      /*setupExecutionRequests=*/ [],
-      /*appExecutionRequests=*/ isTeardown ? [] : [executionRequest],
-      /*teardownExecutionRequests=*/ isTeardown ? executionRequest : undefined,
-      /*feePayer=*/ AztecAddress.zero(),
-      gasUsedByPrivate,
-    );
+      // When setting up a teardown call, we tell it that
+      // private execution used Gas(1, 1) so it can compute a tx fee.
+      const gasUsedByPrivate = isTeardown ? new Gas(1, 1) : Gas.empty();
+      const tx = await createTxForPublicCalls(
+        firstNullifier,
+        /*setupExecutionRequests=*/ [],
+        /*appExecutionRequests=*/ isTeardown ? [] : [executionRequest],
+        /*teardownExecutionRequests=*/ isTeardown ? executionRequest : undefined,
+        /*feePayer=*/ AztecAddress.zero(),
+        gasUsedByPrivate,
+      );
 
-    const result = await simulator.simulate(tx);
-
-    // NOTE: Don't accept any merkle updates from the AVM since this was just 1 enqueued call
-    // and the TXE will re-apply all txEffects after entire execution (all enqueued calls)
-    // complete.
-    await db.revertCheckpoint();
+      result = await simulator.simulate(tx);
+    } finally {
+      // NOTE: Don't accept any merkle updates from the AVM since this was just 1 enqueued call
+      // and the TXE will re-apply all txEffects after entire execution (all enqueued calls)
+      // complete.
+      await db.revertCheckpoint();
+      // If an error is thrown during the above simulation, this revert is the last
+      // thing executed and we skip the postprocessing below.
+    }
 
     const noteHashes = result.avmProvingRequest.inputs.publicInputs.accumulatedData.noteHashes.filter(
       s => !s.isEmpty(),

@@ -255,14 +255,12 @@ export class PublicProcessor implements Traceable {
           }
         }
 
-        // Otherwise, commit tx state for the next tx to be processed
-        if (tx.hasPublicCalls()) {
-          // If has public calls, just commit the state updates performed by the AVM
-          await this.worldStateDB.commitCheckpoint();
-        } else {
-          // Otherwise, perform all tree insertions for side effects from private
-          await this.commitTxState(processedTx);
+        if (!tx.hasPublicCalls()) {
+          // If there are no public calls, perform all tree insertions for side effects from private
+          // When there are public calls, the PublicTxSimjulator & AVM handle tree insertions.
+          await this.doTreeInsertionsForPrivateOnlyTx(processedTx);
         }
+
         nullifierCache?.addNullifiers(processedTx.txEffect.nullifiers.map(n => n.toBuffer()));
         result.push(processedTx);
         returns = returns.concat(returnValues);
@@ -270,7 +268,11 @@ export class PublicProcessor implements Traceable {
         totalPublicGas = totalPublicGas.add(processedTx.gasUsed.publicGas);
         totalBlockGas = totalBlockGas.add(processedTx.gasUsed.totalGas);
         totalSizeInBytes += txSize;
+
+        // Commit tx state for reference by the next tx to be processed
+        await this.worldStateDB.commitCheckpoint();
       } catch (err: any) {
+        // Roll back state to start of TX before proceeding to next TX
         await this.worldStateDB.revertCheckpoint();
         if (err?.name === 'PublicProcessorTimeoutError') {
           this.log.warn(`Stopping tx processing due to timeout.`);
@@ -327,7 +329,10 @@ export class PublicProcessor implements Traceable {
     return [processedTx, returnValues ?? []];
   }
 
-  private async commitTxState(processedTx: ProcessedTx, txValidator?: TxValidator<ProcessedTx>): Promise<void> {
+  private async doTreeInsertionsForPrivateOnlyTx(
+    processedTx: ProcessedTx,
+    txValidator?: TxValidator<ProcessedTx>,
+  ): Promise<void> {
     const treeInsertionStart = process.hrtime.bigint();
 
     // Update the state so that the next tx in the loop has the correct .startState
