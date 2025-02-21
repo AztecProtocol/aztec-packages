@@ -151,7 +151,7 @@ bool verify_ultra_plonk(const std::string& proof_path, const std::string& vk_pat
     acir_composer.load_verification_key(std::move(vk_data));
     auto verified = acir_composer.verify_proof(read_file(proof_path));
 
-    vinfo("verified: ", verified);
+    info("verified: ", verified);
     return verified;
 }
 

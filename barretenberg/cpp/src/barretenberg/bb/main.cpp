@@ -630,10 +630,11 @@ int main(int argc, char* argv[])
 
     CLI11_PARSE(app, argc, argv);
     print_active_subcommands(app);
-    vinfo(flags);
-
+    info("Scheme is: ", flags.scheme);
     debug_logging = flags.debug;
     verbose_logging = debug_logging || flags.verbose;
+
+    vinfo(flags);
 
     // prob this construction is too much
     const auto execute_command = [&](API& api) {

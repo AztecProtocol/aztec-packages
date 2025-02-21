@@ -78,13 +78,6 @@ bb verify --scheme ultra_honk -k ./target/vk -p ./target/proof
 
 If successful, the verification will complete in silence.
 
-### MegaHonk
-
-The usage with MegaHonk is similar to the above UltraHonk. Refer to all the available `bb` commands, using the `bb <command>_mega_honk` syntax.
-
-> [!WARNING]
-> MegaHonk generates insecure recursion circuits when Goblin recursive verifiers are not present.
-
 ### Solidity verifier
 
 Barretenberg can generate a smart contract that verifies proofs in Solidity (i.e. for usage in EVM chains). This feature is only available for UltraHonk, as the MegaHonk proving system is intended for use with apps deploying on Aztec only.
