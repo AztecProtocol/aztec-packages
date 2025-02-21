@@ -1,9 +1,9 @@
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex } from '@aztec/foundation/string';
 
+import { AztecAddress } from '../aztec-address/index.js';
 import { computePartialAddress } from '../contract/contract_address.js';
 import { computeAddress, computePreaddress, deriveKeys } from '../keys/index.js';
 import { type PartialAddress } from '../types/partial_address.js';

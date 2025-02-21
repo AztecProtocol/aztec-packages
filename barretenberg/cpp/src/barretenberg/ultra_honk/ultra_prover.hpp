@@ -44,6 +44,8 @@ template <IsUltraFlavor Flavor_> class UltraProver_ {
 
     explicit UltraProver_(Builder&);
 
+    explicit UltraProver_(Builder&&);
+
     BB_PROFILE void generate_gate_challenges();
 
     HonkProof export_proof();
@@ -56,6 +58,7 @@ template <IsUltraFlavor Flavor_> class UltraProver_ {
 
 using UltraProver = UltraProver_<UltraFlavor>;
 using UltraKeccakProver = UltraProver_<UltraKeccakFlavor>;
+using UltraKeccakZKProver = UltraProver_<UltraKeccakZKFlavor>;
 using MegaProver = UltraProver_<MegaFlavor>;
 using MegaZKProver = UltraProver_<MegaZKFlavor>;
 

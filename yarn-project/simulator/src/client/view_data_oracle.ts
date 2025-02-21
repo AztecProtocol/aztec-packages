@@ -13,9 +13,9 @@ import {
   type IndexedTaggingSecret,
   type KeyValidationRequest,
 } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { LogWithTxData } from '@aztec/circuits.js/logs';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Aes128 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { applyStringFormatting, createLogger } from '@aztec/foundation/log';

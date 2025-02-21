@@ -1,6 +1,6 @@
 import { AztecAddress } from '@aztec/circuits.js';
+import { schemas } from '@aztec/circuits.js/schemas';
 import { randomBytes, sha256Trunc } from '@aztec/foundation/crypto';
-import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, prefixBufferWithLength, toHumanReadable } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';

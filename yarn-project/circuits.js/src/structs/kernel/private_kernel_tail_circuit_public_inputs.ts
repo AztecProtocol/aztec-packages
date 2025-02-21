@@ -1,8 +1,8 @@
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
+import { AztecAddress } from '../../aztec-address/index.js';
 import { countAccumulatedItems, mergeAccumulatedData } from '../../utils/index.js';
 import { Gas } from '../gas.js';
 import { PublicCallRequest } from '../public_call_request.js';

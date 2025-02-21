@@ -302,6 +302,7 @@ case "$cmd" in
     echo "Toolchains look good! 🎉"
   ;;
   ""|"fast"|"full")
+    install_hooks
     build $cmd
   ;;
   "ci")

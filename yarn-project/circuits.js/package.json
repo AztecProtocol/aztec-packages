@@ -8,6 +8,7 @@
   ],
   "exports": {
     ".": "./dest/index.js",
+    "./aztec-address": "./dest/aztec-address/index.js",
     "./abi": "./dest/abi/index.js",
     "./hash": "./dest/hash/index.js",
     "./keys": "./dest/keys/index.js",
