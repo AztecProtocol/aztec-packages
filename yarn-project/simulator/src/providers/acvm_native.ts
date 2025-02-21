@@ -158,7 +158,7 @@ export class NativeACVMSimulator implements SimulationProvider {
       return result.witness;
     };
 
-    return await runInDirectory(this.workingDirectory, operation, false);
+    return await runInDirectory(this.workingDirectory, operation, false, logger);
   }
 
   executeUserCircuit(
