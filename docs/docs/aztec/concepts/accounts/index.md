@@ -10,7 +10,7 @@ In this section, you'll learn about Aztec's account abstraction, Aztec accounts 
 
 ## Account Abstraction (AA)
 
-With account abstraction, the identity of a user is usually represented by a smart contract. That makes user's on-chain identity more flexible than simply using private/public keys. For example, Bitcoin has rigid accounts that must be a private key, whereas a user might want their on-chain identity to be controlled by a physical passport.
+Under the Account Abstraction, the identity of a user is usually represented by a smart contract. That makes user's on-chain identity more flexible. For example, Bitcoin has rigid accounts that must be a private key, whereas a user might want their on-chain identity to be represented by a physical passport.
 
 Among the account parts to be abstracted are authentication (“Who I am”), authorization (“What I am allowed to do”), replay protection, fee payment, and execution.
 
@@ -18,7 +18,7 @@ Among the use cases to be unlocked by Account Abstraction are account recovery, 
 
 ### Protocol vs application level
 
-AA can be implemented at the protocol level is called native Account Abstraction. In this case, all the accounts on the network are smart contracts. AA can also be implemented at the smart-contract level, then we call it non-native Account Abstraction. In this case, there might be both EOAs and accounts controlled by smart contracts.
+AA can be implemented at the protocol level, then we call it native Account Abstraction. In this case, all the accounts on the network are smart contracts. AA can also be implemented at the smart-contract level, then we call it non-native Account Abstraction. In this case, there might be both EOAs and accounts controlled by smart contracts.
 
 In the case of Aztec, we have native Account Abstraction.
 
@@ -88,7 +88,7 @@ Entrypoints for the following cases:
 
 ### Account contracts and wallets
 
-Account contracts are tightly coupled to the wallet software that users use to interact with the protocol. Dapps submit to the wallet software one or more function calls to be executed (e.g. "call swap in X contract"), and the wallet encodes the request as a valid payload for the user's account contract. The account contract then validates the request encoded by the wallet, and executes the function calls requested by the dapp.
+Account contracts are tightly coupled to the wallet software that users use to interact with the protocol. Dapps submit to the wallet software one or more function calls to be executed (e.g. "call swap in X contract"), and the wallet encodes and signs the request as a valid payload for the user's account contract. The account contract then validates the request encoded and signed by the wallet, and executes the function calls requested by the dapp.
 
 ### Account initialization
 
@@ -106,14 +106,12 @@ Address is derived from the [address keys](keys.md#address-keys). While the Addr
 
 Because of the contract address derivation scheme you can check that a given set of public [keys](keys.md) corresponds to a given address just by trying to recompute it.
 
-You can check that a given set of public keys corresponds to a given address by recomputing it, thanks to the contract address derivation scheme.
+If Alice wants Bob to send her a note, it's enough to share with him her address (x coordinate of the AddressPublicKey). 
 
-Since this is commonly needed when sending a [note](../concepts/storage/notes.md) to an account, we coined the term complete address for the collection of:
+However, if Alice wants to spend her notes (i.e. to prove that the nullifier key inside her address is correct) she needs her complete address. It is represented by:
 - all the user's public keys,
 - [partial address](keys.md#address-keys),
 - contract address.
-
-Once the complete address is shared with the sender, the sender can use the public keys and partial address to check that the complete address is correct, and then send the notes to that address.
 
 ### Authorizing actions
 
