@@ -60,12 +60,16 @@ describe('e2e_deploy_contract contract class registration', () => {
   });
 
   describe('registering a contract class', () => {
-    it('optionally emits public bytecode', async () => {
+    it.only('optionally emits public bytecode', async () => {
       const registrationTxReceipt = await registerContractClass(wallet, TestContract.artifact, true).then(c =>
         c.send().wait(),
       );
       const logs = await aztecNode.getContractClassLogs({ txHash: registrationTxReceipt.txHash });
       expect(logs.logs.length).toEqual(1);
+
+      // TODO(#10007): The below is temporary as it's commented out on a below test
+      const logData = logs.logs[0].log.toBuffer();
+      writeTestData('yarn-project/protocol-contracts/fixtures/ContractClassRegisteredEventData.hex', logData);
     });
 
     // TODO(#10007) Remove this test. We should always broadcast public bytecode.
@@ -88,7 +92,7 @@ describe('e2e_deploy_contract contract class registration', () => {
       // TODO(#10007) Enable this.
       // const logs = await aztecNode.getContractClassLogs({ txHash: registrationTxReceipt.txHash });
       // expect(logs.logs.length).toEqual(1);
-      // const logData = logs.logs[0].log.data;
+      // const logData = logs.logs[0].log.toBuffer();
       // writeTestData('yarn-project/protocol-contracts/fixtures/ContractClassRegisteredEventData.hex', logData);
 
       const registeredClass = await aztecNode.getContractClass(contractClass.id);

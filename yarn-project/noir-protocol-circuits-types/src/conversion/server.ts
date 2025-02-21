@@ -317,16 +317,6 @@ export function mapContractClassLogToNoir(log: ContractClassLog): LogNoir<typeof
   };
 }
 
-/**
- * Maps a contract class log from noir.
- * @param log - The noir contract class log.
- * @returns The ts contract class log.
- */
-export function mapContractClassLogFromNoir(log: LogNoir<typeof CONTRACT_CLASS_LOG_SIZE_IN_FIELDS>) {
-  // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
-  return new ContractClassLog(mapTupleFromNoir(log.fields, log.fields.length, mapFieldFromNoir));
-}
-
 function mapPublicDataHintToNoir(hint: PublicDataHint): PublicDataHintNoir {
   return {
     leaf_slot: mapFieldToNoir(hint.leafSlot),

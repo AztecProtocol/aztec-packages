@@ -183,12 +183,13 @@ mod tests {
         abis::{
             append_only_tree_snapshot::AppendOnlyTreeSnapshot,
             constant_rollup_data::ConstantRollupData, contract_class_log::ContractClassLog,
-            nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
-            side_effect::OrderedValue, sponge_blob::SpongeBlob, tree_snapshots::TreeSnapshots,
+            log::Log, nullifier_leaf_preimage::NullifierLeafPreimage,
+            public_data_write::PublicDataWrite, side_effect::OrderedValue, sponge_blob::SpongeBlob,
+            tree_snapshots::TreeSnapshots,
         },
         address::EthAddress,
         constants::{
-            ARCHIVE_HEIGHT, AVM_VK_INDEX, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
+            ARCHIVE_HEIGHT, AVM_VK_INDEX, CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS,
             CONTRACT_CLASS_LOGS_PREFIX, L2_L1_MSGS_PREFIX, MAX_CONTRACT_CLASS_LOGS_PER_TX,
             MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
             MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTES_PREFIX, NULLIFIERS_PREFIX,
@@ -205,7 +206,7 @@ mod tests {
             fixtures::{self, merkle_tree::generate_full_sha_tree},
             merkle_tree_utils::NonEmptyMerkleTree,
         },
-        traits::{Empty, Hash, Serialize},
+        traits::{Empty, Hash, Serialize, ToField},
         utils::{arrays::array_concat, field::field_from_bytes},
     };
 
@@ -292,9 +293,12 @@ mod tests {
 
         // Exists separately to allow us to append correct log preimages and hashes
         unconstrained fn append_contract_class_log<let N: u32>(&mut self, log_fields: [Field; N]) {
-            let padded_log_fields: [Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS] =
-                array_concat(log_fields, [0; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - N]);
-            let log = ContractClassLog::new(padded_log_fields);
+            let padded_log_fields: [Field; CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS] =
+                array_concat(log_fields, [0; CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS - N]);
+            let log = ContractClassLog {
+                contract_address: self.tube_data.contract_address,
+                log: Log { fields: padded_log_fields },
+            };
             self.contract_class_logs_preimages.push(log);
             let log_hash = poseidon2_hash_subarray_variable(padded_log_fields, N);
             self.tube_data.add_contract_class_log_hash(log_hash, N);
@@ -452,7 +456,7 @@ mod tests {
             + 1 // L2 to L1 msgs and prefix
             + NUM_PUB_LOGS * PUBLIC_LOG_SIZE_IN_FIELDS
             + 1 // public logs and prefix
-            + NUM_CC_LOGS * (cc_log.len() + 1)
+            + NUM_CC_LOGS * (cc_log.len() + 2)
             + 1 // contract class logs and prefix
             + 2
             + 1 // single public data update (2 fields) and prefix
@@ -575,24 +579,24 @@ mod tests {
         }
         offset += NUM_PUB_LOGS * PUBLIC_LOG_SIZE_IN_FIELDS;
         // cc logs
-        let total_contract_class_logs_len = NUM_CC_LOGS * (cc_log.len() + 1);
+        let total_contract_class_logs_len = NUM_CC_LOGS * (cc_log.len() + 2);
         let contract_class_logs_prefix =
             encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, total_contract_class_logs_len);
         reconstructed_tx_effects[offset] = contract_class_logs_prefix;
         offset += 1;
         for i in 0..NUM_CC_LOGS {
-            let siloed_log = silo_contract_class_log(
-                builder.contract_class_logs_preimages.storage()[i],
-                builder.tube_data.contract_address,
-            );
+            let siloed_log =
+                silo_contract_class_log(builder.contract_class_logs_preimages.storage()[i]);
             let log_len = builder.tube_data.contract_class_logs_hashes.storage()[i].log_hash.length;
             if log_len != 0 {
                 reconstructed_tx_effects[offset] = log_len as Field;
                 offset += 1;
+                reconstructed_tx_effects[offset] = builder.tube_data.contract_address.to_field();
+                offset += 1;
             }
-            for j in 0..CONTRACT_CLASS_LOG_SIZE_IN_FIELDS {
+            for j in 0..CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS {
                 if j < log_len {
-                    reconstructed_tx_effects[offset] = siloed_log.fields[j];
+                    reconstructed_tx_effects[offset] = siloed_log.log.fields[j];
                     offset += 1;
                 }
             }

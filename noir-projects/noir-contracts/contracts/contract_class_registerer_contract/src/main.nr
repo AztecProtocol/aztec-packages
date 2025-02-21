@@ -7,7 +7,7 @@ pub contract ContractClassRegisterer {
     use dep::aztec::protocol_types::{
         abis::log_hash::LogHash,
         constants::{
-            ARTIFACT_FUNCTION_TREE_MAX_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
+            ARTIFACT_FUNCTION_TREE_MAX_HEIGHT, CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS,
             FUNCTION_TREE_HEIGHT, MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
             MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS,
             MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
@@ -220,8 +220,8 @@ pub contract ContractClassRegisterer {
         // cannot prove non-registration. Therefore, it is possible that a malicious oracle might prevent sequencers
         // from including transactions with calls to certain badly-broadcasted contracts.
         // TODO(#8978): review correctness
-        let log_to_emit: [Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS] =
-            array_concat(log, [0; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - N]);
+        let log_to_emit: [Field; CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS] =
+            array_concat(log, [0; CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS - N]);
         // Safety: The below length is constrained in the base rollup.
         let length = unsafe { find_index_hint_from_end(log_to_emit, |elem| !is_empty(elem)) };
         // TODO: We will eventually remove this hash.

@@ -124,15 +124,15 @@ fn compute_siloed_contract_class_log_field(
     poseidon2_hash([contract_address.to_field(), first_field])
 }
 
-pub fn silo_contract_class_log(
-    contract_class_log: ContractClassLog,
-    contract_address: AztecAddress,
-) -> ContractClassLog {
-    if contract_address.is_zero() {
+pub fn silo_contract_class_log(contract_class_log: ContractClassLog) -> ContractClassLog {
+    if contract_class_log.contract_address.is_zero() {
         contract_class_log
     } else {
         let mut log = contract_class_log;
-        log.fields[0] = compute_siloed_contract_class_log_field(contract_address, log.fields[0]);
+        log.log.fields[0] = compute_siloed_contract_class_log_field(
+            contract_class_log.contract_address,
+            log.log.fields[0],
+        );
         log
     }
 }

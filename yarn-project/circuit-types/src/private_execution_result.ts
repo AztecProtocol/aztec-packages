@@ -200,7 +200,7 @@ export class PrivateCallExecutionResult {
       await timesParallel(nested, () => PrivateCallExecutionResult.random(0)),
       [await CountedPublicExecutionRequest.random()],
       await PublicExecutionRequest.random(),
-      [new CountedContractClassLog(ContractClassLog.random(), randomInt(10))],
+      [new CountedContractClassLog(await ContractClassLog.random(), randomInt(10))],
     );
   }
 }
