@@ -333,7 +333,7 @@ function deserializeIndexedLeaf(leaf: SerializedIndexedLeaf): IndexedTreeLeafPre
 export class ForkCheckpoint {
   private completed = false;
 
-  constructor(private readonly fork: MerkleTreeCheckpointOperations) {}
+  private constructor(private readonly fork: MerkleTreeCheckpointOperations) {}
 
   static async new(fork: MerkleTreeCheckpointOperations): Promise<ForkCheckpoint> {
     await fork.createCheckpoint();
