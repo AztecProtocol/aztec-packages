@@ -34,6 +34,7 @@ import {
   trackSpan,
 } from '@aztec/telemetry-client';
 
+import { ForkCheckpoint } from '../../../world-state/src/native/merkle_trees_facade.js';
 import { WorldStateDB } from './public_db_sources.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
 import { PublicTxSimulator } from './public_tx_simulator.js';
@@ -220,8 +221,12 @@ export class PublicProcessor implements Traceable {
         }
       }
 
+      // We checkpoint the transaction here, then within the try/catch we
+      // 1. Revert the checkpoint if the tx fails or needs to be discarded for any reason
+      // 2. Commit the transaction in the finally block. Note that by using the ForkCheckpoint lifecycle only the first commit/revert takes effect
+      const checkpoint = await ForkCheckpoint.new(this.worldStateDB);
+
       try {
-        await this.worldStateDB.createCheckpoint();
         const [processedTx, returnValues] = await this.processTx(tx, deadline);
 
         // If the actual size of this tx would exceed block size, skip it
@@ -233,6 +238,8 @@ export class PublicProcessor implements Traceable {
             totalSizeInBytes,
             maxBlockSize,
           });
+          // Need to revert the checkpoint here and don't go any further
+          await checkpoint.revert();
           continue;
         }
 
@@ -248,7 +255,8 @@ export class PublicProcessor implements Traceable {
             const reason = result.reason.join(', ');
             this.log.error(`Rejecting tx ${processedTx.hash} after processing: ${reason}.`);
             failed.push({ tx, error: new Error(`Tx failed post-process validation: ${reason}`) });
-            await this.worldStateDB.revertCheckpoint();
+            // Need to revert the checkpoint here and don't go any further
+            await checkpoint.revert();
             continue;
           } else {
             this.log.trace(`Tx ${(await tx.getTxHash()).toString()} is valid post processing.`);
@@ -257,7 +265,7 @@ export class PublicProcessor implements Traceable {
 
         if (!tx.hasPublicCalls()) {
           // If there are no public calls, perform all tree insertions for side effects from private
-          // When there are public calls, the PublicTxSimjulator & AVM handle tree insertions.
+          // When there are public calls, the PublicTxSimulator & AVM handle tree insertions.
           await this.doTreeInsertionsForPrivateOnlyTx(processedTx);
         }
 
@@ -268,12 +276,9 @@ export class PublicProcessor implements Traceable {
         totalPublicGas = totalPublicGas.add(processedTx.gasUsed.publicGas);
         totalBlockGas = totalBlockGas.add(processedTx.gasUsed.totalGas);
         totalSizeInBytes += txSize;
-
-        // Commit tx state for reference by the next tx to be processed
-        await this.worldStateDB.commitCheckpoint();
       } catch (err: any) {
         // Roll back state to start of TX before proceeding to next TX
-        await this.worldStateDB.revertCheckpoint();
+        await checkpoint.revert();
         if (err?.name === 'PublicProcessorTimeoutError') {
           this.log.warn(`Stopping tx processing due to timeout.`);
           break;
@@ -283,6 +288,9 @@ export class PublicProcessor implements Traceable {
 
         failed.push({ tx, error: err instanceof Error ? err : new Error(errorMessage) });
         returns.push(new NestedProcessReturnValues([]));
+      } finally {
+        // Base case is we always commit the checkpoint. Using the ForkCheckpoint means this has no effect if the tx was reverted
+        await checkpoint.commit();
       }
     }
 

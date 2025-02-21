@@ -106,6 +106,7 @@ import {
 } from '@aztec/simulator/server';
 import { type NativeWorldStateService } from '@aztec/world-state';
 
+import { ForkCheckpoint } from '../../../world-state/src/native/merkle_trees_facade.js';
 import { TXENode } from '../node/txe_node.js';
 import { type TXEDatabase } from '../util/txe_database.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
@@ -917,10 +918,10 @@ export class TXE implements TypedOracle {
     globalVariables.gasFees = new GasFees(1, 1);
 
     let result: PublicTxResult;
+    // Checkpoint here so that we can revert merkle ops after simulation.
+    // See note at revert below.
+    const checkpoint = await ForkCheckpoint.new(db);
     try {
-      // Checkpoint here so that we can revert merkle ops after simulation.
-      // See note at revert below.
-      await db.createCheckpoint();
       const simulator = new PublicTxSimulator(
         db,
         new TXEWorldStateDB(db, new TXEPublicContractDataSource(this), this),
@@ -950,7 +951,7 @@ export class TXE implements TypedOracle {
       // NOTE: Don't accept any merkle updates from the AVM since this was just 1 enqueued call
       // and the TXE will re-apply all txEffects after entire execution (all enqueued calls)
       // complete.
-      await db.revertCheckpoint();
+      await checkpoint.revert();
       // If an error is thrown during the above simulation, this revert is the last
       // thing executed and we skip the postprocessing below.
     }

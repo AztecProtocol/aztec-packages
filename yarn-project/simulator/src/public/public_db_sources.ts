@@ -1,5 +1,9 @@
 import { ContractClassTxL2Logs, MerkleTreeId, type Tx } from '@aztec/circuit-types';
-import { type MerkleTreeReadOperations, type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
+import {
+  type MerkleTreeCheckpointOperations,
+  type MerkleTreeReadOperations,
+  type MerkleTreeWriteOperations,
+} from '@aztec/circuit-types/interfaces/server';
 import { type PublicDBAccessStats } from '@aztec/circuit-types/stats';
 import {
   type AztecAddress,
@@ -139,7 +143,7 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
 /**
  * A public state DB that reads and writes to the world state.
  */
-export class WorldStateDB extends ContractsDataSourcePublicDB implements PublicStateDB {
+export class WorldStateDB extends ContractsDataSourcePublicDB implements PublicStateDB, MerkleTreeCheckpointOperations {
   private logger = createLogger('simulator:world-state-db');
 
   constructor(public db: MerkleTreeWriteOperations, dataSource: ContractDataSource) {
