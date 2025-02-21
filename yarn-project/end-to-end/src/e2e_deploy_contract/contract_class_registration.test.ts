@@ -60,7 +60,7 @@ describe('e2e_deploy_contract contract class registration', () => {
   });
 
   describe('registering a contract class', () => {
-    it.only('optionally emits public bytecode', async () => {
+    it('optionally emits public bytecode', async () => {
       const registrationTxReceipt = await registerContractClass(wallet, TestContract.artifact, true).then(c =>
         c.send().wait(),
       );

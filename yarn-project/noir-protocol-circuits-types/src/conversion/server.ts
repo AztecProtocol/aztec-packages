@@ -78,10 +78,10 @@ import type {
   BlockRootRollupData as BlockRootRollupDataNoir,
   BlockRootRollupInputs as BlockRootRollupInputsNoir,
   ConstantRollupData as ConstantRollupDataNoir,
+  ContractClassLog as ContractClassLogNoir,
   EmptyBlockRootRollupInputs as EmptyBlockRootRollupInputsNoir,
   FeeRecipient as FeeRecipientNoir,
   FixedLengthArray,
-  Log as LogNoir,
   MergeRollupInputs as MergeRollupInputsNoir,
   Field as NoirField,
   ParityPublicInputs as ParityPublicInputsNoir,
@@ -308,12 +308,15 @@ export function mapBlockBlobPublicInputsFromNoir(
  * @param log - The ts contract class log.
  * @returns The noir contract class log.
  */
-export function mapContractClassLogToNoir(log: ContractClassLog): LogNoir<typeof CONTRACT_CLASS_LOG_SIZE_IN_FIELDS> {
+export function mapContractClassLogToNoir(log: ContractClassLog): ContractClassLogNoir {
   return {
-    // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
-    fields: Array.from({ length: CONTRACT_CLASS_LOG_SIZE_IN_FIELDS }, (_, idx) =>
-      mapFieldToNoir(log.fields[idx]),
-    ) as Tuple<string, typeof CONTRACT_CLASS_LOG_SIZE_IN_FIELDS>,
+    log: {
+      // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
+      fields: Array.from({ length: CONTRACT_CLASS_LOG_SIZE_IN_FIELDS }, (_, idx) =>
+        mapFieldToNoir(log.fields[idx]),
+      ) as Tuple<string, typeof CONTRACT_CLASS_LOG_SIZE_IN_FIELDS>,
+    },
+    contract_address: mapAztecAddressToNoir(log.contractAddress),
   };
 }
 
