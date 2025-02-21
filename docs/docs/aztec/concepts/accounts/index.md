@@ -38,6 +38,8 @@ Couple of examples:
 
 ## Aztec account
 
+Smart contracts on Aztec are represented by an "address", which is a hexadecimal number that uniquely represents an entity on the Aztec network. An address is derived by hashing information specific to the entity represented by the address. This information includes contract bytecode and the public keys used in private execution for encryption and nullification. This means addresses are deterministic. 
+
 Aztec has no concept of EOAs (Externally Owned Accounts). Every account is implemented as a contract.
 
 ### Entrypoints
