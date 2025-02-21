@@ -26,7 +26,7 @@ In the case of Aztec, we have native Account Abstraction.
 
 ### Authorization abstraction and DoS attacks
 
-While we talk about “arbitrary verification logic” describing the intuition behind AA, the logic is usually not really arbitrary. The verification logic (i.e. what can be checked as an authorization) is limited to make the verification time fast and bounded. If it is not bounded, an attacker can flood the mempool with expensive invalid transactions clogging the network. That is the case for all chains where transaction validity is checked by the sequencer.
+While we talk about “arbitrary verification logic” describing the intuition behind AA, the logic is usually not really arbitrary. The verification logic (i.e. what is checked as an authorization) is limited to make the verification time fast and bounded. If it is not bounded, an attacker can flood the mempool with expensive invalid transactions, clogging the network. That is the case for all chains where transaction validity is checked by the sequencer.
 
 On Aztec, there is no limitation on verification logic. The sequencer only verifies the proof and this process is independent of the verification logic complexity.
 
