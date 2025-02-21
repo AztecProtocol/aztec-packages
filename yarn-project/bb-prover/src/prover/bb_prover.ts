@@ -781,6 +781,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
           throw err;
         }),
       this.config.bbSkipCleanup,
+      logger,
     );
   }
 }
