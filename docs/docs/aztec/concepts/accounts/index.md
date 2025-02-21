@@ -18,7 +18,7 @@ Among the use cases to be unlocked by Account Abstraction are account recovery, 
 
 ### Protocol vs application level
 
-AA can be implemented at the protocol level, then we call it native Account Abstraction. In this case, all the accounts on the network are smart contracts. AA can also be implemented at the smart-contract level, then we call it non-native Account Abstraction. In this case, there might be both EOAs and accounts controlled by smart contracts.
+AA can be implemented at the protocol level is called native Account Abstraction. In this case, all the accounts on the network are smart contracts. AA can also be implemented at the smart-contract level, then we call it non-native Account Abstraction. In this case, there might be both EOAs and accounts controlled by smart contracts.
 
 In the case of Aztec, we have native Account Abstraction.
 
