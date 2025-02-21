@@ -10,7 +10,7 @@ source $(git rev-parse --show-toplevel)/ci3/source
 ./acir_tests/bootstrap.sh $@
 
 cmd=${1:-}
-if [ $cmd == "bench" ]; then
+if [ "$cmd" == "bench" ]; then
     rm -rf bench-out && mkdir -p bench-out
     ./scripts/combine_benchmarks.py \
     native ./cpp/bench-out/client_ivc_17_in_20_release.json \
