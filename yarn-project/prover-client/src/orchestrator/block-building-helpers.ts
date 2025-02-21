@@ -4,6 +4,7 @@ import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/
 import {
   BlockHeader,
   ContentCommitment,
+  ContractClassLog,
   Fr,
   type GlobalVariables,
   type ParityPublicInputs,
@@ -27,6 +28,7 @@ import {
 } from '@aztec/circuits.js/trees';
 import {
   ARCHIVE_HEIGHT,
+  MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   NOTE_HASH_SUBTREE_HEIGHT,
@@ -135,6 +137,11 @@ export const buildBaseRollupHints = runInSpan(
     const inputSpongeBlob = startSpongeBlob.clone();
     await startSpongeBlob.absorb(tx.txEffect.toBlobFields());
 
+    const contractClassLogsPreimages = makeTuple(
+      MAX_CONTRACT_CLASS_LOGS_PER_TX,
+      i => tx.txEffect.contractClassLogs[i] || ContractClassLog.empty(),
+    );
+
     if (tx.avmProvingRequest) {
       const blockHash = await tx.constants.historicalHeader.hash();
       const archiveRootMembershipWitness = await getMembershipWitnessFor(
@@ -147,6 +154,7 @@ export const buildBaseRollupHints = runInSpan(
       return PublicBaseRollupHints.from({
         startSpongeBlob: inputSpongeBlob,
         archiveRootMembershipWitness,
+        contractClassLogsPreimages,
         constants,
       });
     } else {
@@ -201,6 +209,7 @@ export const buildBaseRollupHints = runInSpan(
         stateDiffHints,
         feePayerFeeJuiceBalanceReadHint,
         archiveRootMembershipWitness,
+        contractClassLogsPreimages,
         constants,
       });
     }

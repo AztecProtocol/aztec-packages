@@ -8,7 +8,6 @@ import {
   type PrivateKernelProverProfileResult,
   PrivateKernelProverProfileResultSchema,
 } from '../interfaces/private_kernel_prover.js';
-import { ContractClassTxL2Logs } from '../logs/tx_l2_logs.js';
 import {
   type PrivateCallExecutionResult,
   PrivateExecutionResult,
@@ -31,7 +30,7 @@ export class PrivateSimulationResult {
   }
 
   toSimulatedTx(): Tx {
-    const contractClassLogs = new ContractClassTxL2Logs([collectSortedContractClassLogs(this.privateExecutionResult)]);
+    const contractClassLogs = collectSortedContractClassLogs(this.privateExecutionResult);
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(this.privateExecutionResult);
     const teardownPublicFunction = collectPublicTeardownFunctionCall(this.privateExecutionResult);
 
@@ -121,7 +120,7 @@ export class TxProvingResult {
   ) {}
 
   toTx(): Tx {
-    const contractClassLogs = new ContractClassTxL2Logs([collectSortedContractClassLogs(this.privateExecutionResult)]);
+    const contractClassLogs = collectSortedContractClassLogs(this.privateExecutionResult);
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(this.privateExecutionResult);
     const teardownPublicFunction = collectPublicTeardownFunctionCall(this.privateExecutionResult);
 

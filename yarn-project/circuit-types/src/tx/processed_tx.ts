@@ -96,8 +96,7 @@ export async function makeProcessedTxFromPrivateOnlyTx(
     [feePaymentPublicDataWrite],
     data.end.privateLogs.filter(l => !l.isEmpty()),
     [],
-    data.end.contractClassLogPreimagesLength,
-    tx.contractClassLogs,
+    await tx.filterContractClassLogs(tx.data.getNonEmptyContractClassLogsHashes(), true),
   );
 
   const gasUsed = {
@@ -144,7 +143,10 @@ export async function makeProcessedTxFromTxWithPublicCalls(
     ...(revertCode.isOK() ? tx.data.forPublic!.revertibleAccumulatedData.privateLogs : []),
   ].filter(l => !l.isEmpty());
 
-  const contractClassLogPreimagesLength = tx.contractClassLogs.getKernelLength();
+  const contractClassLogs = [
+    ...(await tx.getSplitContractClassLogs(false, true)),
+    ...(revertCode.isOK() ? await tx.getSplitContractClassLogs(false, true) : []),
+  ].filter(l => !l.isEmpty());
 
   const txEffect = new TxEffect(
     revertCode,
@@ -158,8 +160,7 @@ export async function makeProcessedTxFromTxWithPublicCalls(
     publicDataWrites,
     privateLogs,
     avmPublicInputs.accumulatedData.publicLogs.filter(l => !l.isEmpty()),
-    new Fr(contractClassLogPreimagesLength),
-    tx.contractClassLogs,
+    contractClassLogs,
   );
 
   return {

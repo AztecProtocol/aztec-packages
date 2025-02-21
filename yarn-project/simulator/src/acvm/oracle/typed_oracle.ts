@@ -4,11 +4,11 @@ import {
   type Note,
   type NoteStatus,
   type PublicDataWitness,
-  type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import { type NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/server';
 import {
   type BlockHeader,
+  type ContractClassLog,
   type ContractInstance,
   type IndexedTaggingSecret,
   type KeyValidationRequest,
@@ -176,8 +176,8 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('storageWrite'));
   }
 
-  emitContractClassLog(_log: UnencryptedL2Log, _counter: number): Fr {
-    throw new OracleMethodNotAvailableError('emitContractClassUnencryptedLog');
+  emitContractClassLog(_log: ContractClassLog, _counter: number): void {
+    throw new OracleMethodNotAvailableError('emitContractClassLog');
   }
 
   callPrivateFunction(
