@@ -26,6 +26,8 @@ def modify_benchmark_data(file_paths, prefixes):
                         "time_unit": "MiB"
                     }
                     combined_results['benchmarks'].append(new_entry)
+                else:
+                    print(f"Warning: No memory found in {file_path}")
             else:
                 data = json.load(file)
                 # Modify benchmark names and extract specific data
