@@ -105,13 +105,16 @@ describe('e2e_blacklist_token_contract mint', () => {
     });
 
     describe('failure cases', () => {
-      it('try to redeem as recipient (double-spend) [REVERTS]', async () => {
-        await expect(t.addPendingShieldNoteToPXE(asset, wallets[0], amount, secretHash, txHash)).rejects.toThrow(
-          'The note has been destroyed.',
-        );
-        await expect(asset.methods.redeem_shield(wallets[0].getAddress(), amount, secret).prove()).rejects.toThrow(
-          `Assertion failed: note not popped 'notes.len() == 1'`,
-        );
+      it('try to redeem as recipient again (double-spend) [REVERTS]', async () => {
+        // We have another wallet add the note to their PXE and then try to spend it. They will be able to successfully
+        // add it, but PXE will realize that the note has been nullified already and not inject it into the circuit
+        // during execution of redeem_shield, resulting in a simulaton failure.
+
+        await t.addPendingShieldNoteToPXE(asset, wallets[1], amount, secretHash, txHash);
+
+        await expect(
+          asset.withWallet(wallets[1]).methods.redeem_shield(wallets[1].getAddress(), amount, secret).prove(),
+        ).rejects.toThrow(`Assertion failed: note not popped 'notes.len() == 1'`);
       });
 
       it('mint_private as non-minter', async () => {
