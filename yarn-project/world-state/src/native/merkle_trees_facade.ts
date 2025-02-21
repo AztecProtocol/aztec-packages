@@ -331,7 +331,7 @@ function deserializeIndexedLeaf(leaf: SerializedIndexedLeaf): IndexedTreeLeafPre
 }
 
 export class ForkCheckpoint {
-  private competed = false;
+  private completed = false;
 
   constructor(private readonly fork: MerkleTreeCheckpointOperations) {}
 
@@ -341,20 +341,20 @@ export class ForkCheckpoint {
   }
 
   async commit(): Promise<void> {
-    if (this.competed) {
+    if (this.completed) {
       return;
     }
 
     await this.fork.commitCheckpoint();
-    this.competed = true;
+    this.completed = true;
   }
 
   async revert(): Promise<void> {
-    if (this.competed) {
+    if (this.completed) {
       return;
     }
 
     await this.fork.revertCheckpoint();
-    this.competed = true;
+    this.completed = true;
   }
 }
