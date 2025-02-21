@@ -71,11 +71,12 @@ function test_cmds {
 
 # Prints to stdout, one per line, the command to execute each individual test.
 # Paths are all relative to the repository root.
+# WORKTODO: revert filtering when Adam's component is finished
 function test_cmds_internal {
   local plonk_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
-    grep -vE 'verify_honk_proof|double_verify_honk_proof|verify_rollup_honk_proof|fold')
+    grep -vE 'verify_honk_proof|double_verify_honk_proof|verify_rollup_honk_proof|fold|token_transfer')
   local honk_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
-    grep -vE 'single_verify_proof|double_verify_proof|double_verify_nested_proof|verify_rollup_honk_proof|fold')
+    grep -vE 'single_verify_proof|double_verify_proof|double_verify_nested_proof|verify_rollup_honk_proof|fold|token_transfer')
 
   local run_test=$(realpath --relative-to=$root ./run_test.sh)
   local run_test_browser=$(realpath --relative-to=$root ./run_test_browser.sh)
