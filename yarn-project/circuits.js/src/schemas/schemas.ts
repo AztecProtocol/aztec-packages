@@ -79,4 +79,5 @@ export {
   type ApiSchemaFor,
   optional,
   mapSchema,
+  pickFromSchema,
 } from '@aztec/foundation/schemas';
