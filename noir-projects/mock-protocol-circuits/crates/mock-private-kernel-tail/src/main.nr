@@ -17,4 +17,3 @@ fn main(
 
     KernelPublicInputs { commitments: prev_kernel_public_inputs.commitments }
 }
-
