@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740134538836,
+  "lastUpdate": 1740141174884,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47148561+Maddiaa0@users.noreply.github.com",
-            "name": "Maddiaa",
-            "username": "Maddiaa0"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8471b544666f7849d1834b33fd6aae35fd5823d2",
-          "message": "fix(spartan): eth-execution logging (#12094)",
-          "timestamp": "2025-02-18T20:28:37Z",
-          "tree_id": "0a48d15c5263ef0ff6011995f35dce516477a453",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8471b544666f7849d1834b33fd6aae35fd5823d2"
-        },
-        "date": 1739911779835,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18147.302337999918,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16053.374232999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18636.195013999895,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16139.839233 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3933.8040390000515,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3060.260157999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54545.363948000006,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54545362000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10646.921357999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10646929000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1813237017,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1813237017 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 131852914,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 131852914 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3300,6 +3234,72 @@ window.BENCHMARK_DATA = {
             "value": 131162436,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 131162436 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e2f675f98cf887871f633db51b83ec50af6e5f83",
+          "message": "fix: Fix epoch monitoring and related e2e tests (#12096)\n\nFixes the prover-node's epoch monitor so it accounts for the previous\nepoch to be proven. The updated logic is that an epoch is ready to prove\nonly if it is completed and it contains the first unproven block (which\ngets updated over a reorg).\n\nAlso fixes #11840 \n\nBuilds on top of @PhilWindle's #12014\n\n---------\n\nCo-authored-by: PhilWindle <philip.windle@gmail.com>",
+          "timestamp": "2025-02-21T09:04:51-03:00",
+          "tree_id": "17349e5c88f5897cbb0dda2cdd071c962ea6cd8c",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e2f675f98cf887871f633db51b83ec50af6e5f83"
+        },
+        "date": 1740141167561,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18387.406677999934,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16216.388550000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18908.683499000064,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16445.991206 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4095.2355709998756,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3152.8012390000004 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55045.208420999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55045208000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10150.565249000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10150579000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1826167779,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1826167779 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 127532963,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 127532963 ns\nthreads: 1"
           }
         ]
       }
