@@ -386,63 +386,6 @@ export function injectCommands(
     });
 
   program
-    .command('add-note')
-    .description('Adds a note to the database in the PXE.')
-    .argument('[name]', 'The Note name')
-    .argument(
-      '[storageFieldName]',
-      'The name of the variable in the storage field that contains the note. WARNING: Maps are not supported',
-    )
-    .requiredOption('-a, --address <string>', 'The Aztec address of the note owner.', address =>
-      aliasedAddressParser('accounts', address, db),
-    )
-    .addOption(createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)))
-    .requiredOption('-t, --transaction-hash <string>', 'The hash of the tx containing the note.', txHash =>
-      aliasedTxHashParser(txHash, db),
-    )
-    .addOption(createContractAddressOption(db))
-    .addOption(createArtifactOption(db))
-    .addOption(
-      new Option('-b, --body [noteFields...]', 'The members of a Note')
-        .argParser((arg, prev: string[]) => {
-          const next = db?.tryRetrieveAlias(arg) || arg;
-          prev.push(next);
-          return prev;
-        })
-        .default([]),
-    )
-    .addOption(pxeOption)
-    .action(async (noteName, storageFieldName, _options, command) => {
-      const { addNote } = await import('./add_note.js');
-      const options = command.optsWithGlobals();
-      const {
-        contractArtifact: artifactPathPromise,
-        contractAddress,
-        address,
-        secretKey,
-        rpcUrl,
-        body,
-        transactionHash,
-      } = options;
-      const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
-      const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
-      const account = await createOrRetrieveAccount(client, address, db, undefined, secretKey);
-      const wallet = await getWalletWithScopes(account, db);
-
-      await addNote(
-        wallet,
-        address,
-        contractAddress,
-        noteName,
-        storageFieldName,
-        artifactPath,
-        transactionHash,
-        body,
-        log,
-      );
-    });
-
-  program
     .command('create-authwit')
     .description(
       'Creates an authorization witness that can be privately sent to a caller so they can perform an action on behalf of the provided account',

@@ -55,6 +55,7 @@ import { type AztecNode, AztecNodeApiSchema } from './aztec-node.js';
 import { type SequencerConfig } from './configs.js';
 import { NullifierMembershipWitness } from './nullifier_membership_witness.js';
 import { type ProverConfig } from './prover-client.js';
+import type { WorldStateSyncStatus } from './world_state.js';
 
 describe('AztecNodeApiSchema', () => {
   let handler: MockAztecNode;
@@ -353,10 +354,25 @@ describe('AztecNodeApiSchema', () => {
     const contractClass = await getContractClassFromArtifact(artifact);
     await context.client.addContractClass({ ...contractClass, unconstrainedFunctions: [], privateFunctions: [] });
   });
+
+  it('getWorldStateSyncStatus', async () => {
+    const response = await context.client.getWorldStateSyncStatus();
+    expect(response).toEqual(await handler.getWorldStateSyncStatus());
+  });
 });
 
 class MockAztecNode implements AztecNode {
   constructor(private artifact: ContractArtifact) {}
+
+  getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
+    return Promise.resolve({
+      finalisedBlockNumber: 1,
+      latestBlockHash: '0x',
+      latestBlockNumber: 1,
+      oldestHistoricBlockNumber: 1,
+      treesAreSynched: true,
+    });
+  }
 
   getL2Tips(): Promise<L2Tips> {
     return Promise.resolve({

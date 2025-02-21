@@ -226,3 +226,6 @@ export class AccountManager {
     return (await this.accountContract.getDeploymentArgs()) !== undefined;
   }
 }
+
+export { DeployAccountMethod } from './deploy_account_method.js';
+export { type DeployAccountTxReceipt, DeployAccountSentTx } from './deploy_account_sent_tx.js';
