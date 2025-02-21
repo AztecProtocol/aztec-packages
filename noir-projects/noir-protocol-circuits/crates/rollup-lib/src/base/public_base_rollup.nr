@@ -197,7 +197,7 @@ mod tests {
             TX_FEE_PREFIX, TX_START_PREFIX,
         },
         data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
-        hash::{poseidon2_hash, silo_contract_class_log, silo_l2_to_l1_message},
+        hash::{poseidon2_hash_subarray_variable, silo_contract_class_log, silo_l2_to_l1_message},
         merkle_tree::MembershipWitness,
         messaging::l2_to_l1_message::ScopedL2ToL1Message,
         tests::{
@@ -296,7 +296,7 @@ mod tests {
                 array_concat(log_fields, [0; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - N]);
             let log = ContractClassLog::new(padded_log_fields);
             self.contract_class_logs_preimages.push(log);
-            let log_hash = poseidon2_hash(padded_log_fields);
+            let log_hash = poseidon2_hash_subarray_variable(padded_log_fields, N);
             self.tube_data.add_contract_class_log_hash(log_hash, N);
         }
 
