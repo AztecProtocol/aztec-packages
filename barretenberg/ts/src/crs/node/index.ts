@@ -29,11 +29,11 @@ export class Crs {
       .catch(() => 0);
 
     if (g1FileSize >= this.numPoints * 64 && g1FileSize % 64 == 0 && g2FileSize == 128) {
-      vinfo(`using cached crs of size: ${g1FileSize / 64}`);
+      debug(`using cached crs of size: ${g1FileSize / 64}`);
       return;
     }
 
-    vinfo(`downloading crs of size: ${this.numPoints}`);
+    debug(`downloading crs of size: ${this.numPoints}`);
     const crs = new NetCrs(this.numPoints);
     await crs.init();
     writeFileSync(this.path + '/bn254_g1.dat', crs.getG1Data());
