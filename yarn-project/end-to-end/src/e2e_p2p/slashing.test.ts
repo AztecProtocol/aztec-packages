@@ -40,7 +40,6 @@ describe('e2e_p2p_slashing', () => {
         slashingQuorum,
         slashingRoundSize,
       },
-      assumeProvenThrough: 2,
     });
 
     await t.setupAccount();

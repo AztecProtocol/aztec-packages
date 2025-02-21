@@ -12,7 +12,7 @@ import {
 import { EthAddress, GasSettings, computePartialAddress } from '@aztec/circuits.js';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import { createL1Clients } from '@aztec/ethereum';
-import { TestERC20Abi } from '@aztec/l1-artifacts';
+import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { AppSubscriptionContract } from '@aztec/noir-contracts.js/AppSubscription';
 import { CounterContract } from '@aztec/noir-contracts.js/Counter';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
@@ -24,7 +24,12 @@ import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { getContract } from 'viem';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
-import { type ISnapshotManager, createSnapshotManager, deployAccounts } from '../fixtures/snapshot_manager.js';
+import {
+  type ISnapshotManager,
+  type SubsystemsContext,
+  createSnapshotManager,
+  deployAccounts,
+} from '../fixtures/snapshot_manager.js';
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 import {
   type BalancesFn,
@@ -72,7 +77,10 @@ export class FeesTest {
   public subscriptionContract!: AppSubscriptionContract;
   public feeJuiceBridgeTestHarness!: GasBridgingTestHarness;
 
+  public context!: SubsystemsContext;
+
   public getCoinbaseBalance!: () => Promise<bigint>;
+  public getCoinbaseSequencerRewards!: () => Promise<bigint>;
   public getGasBalanceFn!: BalancesFn;
   public getBananaPublicBalanceFn!: BalancesFn;
   public getBananaPrivateBalanceFn!: BalancesFn;
@@ -86,7 +94,14 @@ export class FeesTest {
       throw new Error('There must be at least 1 initial account.');
     }
     this.logger = createLogger(`e2e:e2e_fees:${testName}`);
-    this.snapshotManager = createSnapshotManager(`e2e_fees/${testName}-${numberOfAccounts}`, dataPath);
+    this.snapshotManager = createSnapshotManager(
+      `e2e_fees/${testName}-${numberOfAccounts}`,
+      dataPath,
+      {
+        startProverNode: true,
+      },
+      {},
+    );
   }
 
   async setup() {
@@ -97,6 +112,10 @@ export class FeesTest {
 
   async teardown() {
     await this.snapshotManager.teardown();
+  }
+
+  setIsMarkingAsProven(b: boolean) {
+    this.context.watcher.setIsMarkingAsProven(b);
   }
 
   async catchUpProvenChain() {
@@ -180,6 +199,8 @@ export class FeesTest {
         await setupCanonicalFeeJuice(context.pxe);
       },
       async (_data, context) => {
+        this.context = context;
+
         this.feeJuiceContract = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, this.aliceWallet);
 
         this.getGasBalanceFn = getBalancesFn('⛽', this.feeJuiceContract.methods.balance_of_public, this.logger);
@@ -233,6 +254,7 @@ export class FeesTest {
           bananaFPCAddress: bananaFPC.address,
           feeJuiceAddress: feeJuiceContract.address,
           l1FeeJuiceAddress: this.feeJuiceBridgeTestHarness.l1FeeJuiceAddress,
+          rollupAddress: context.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
         };
       },
       async (data, context) => {
@@ -255,6 +277,17 @@ export class FeesTest {
             client: walletClient,
           });
           return await gasL1.read.balanceOf([this.coinbase.toString()]);
+        };
+
+        this.getCoinbaseSequencerRewards = async () => {
+          const { walletClient } = createL1Clients(context.aztecNodeConfig.l1RpcUrl, MNEMONIC);
+          const rollup = getContract({
+            address: data.rollupAddress.toString(),
+            abi: RollupAbi,
+            client: walletClient,
+          });
+
+          return await rollup.read.getSequencerRewards([this.coinbase.toString()]);
         };
       },
     );

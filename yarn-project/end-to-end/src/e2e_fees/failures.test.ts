@@ -71,7 +71,7 @@ describe('e2e_fees failures', () => {
 
     // We wait until the proven chain is caught up so all previous fees are paid out.
     await t.catchUpProvenChain();
-    const currentSequencerL1Gas = await t.getCoinbaseBalance();
+    const currentSequencerRewards = await t.getCoinbaseSequencerRewards();
 
     const txReceipt = await bananaCoin.methods
       .transfer_in_public(aliceAddress, sequencerAddress, outrageousPublicAmountAliceDoesNotHave, 0)
@@ -90,8 +90,8 @@ describe('e2e_fees failures', () => {
     await t.catchUpProvenChain();
 
     const feeAmount = txReceipt.transactionFee!;
-    const newSequencerL1FeeAssetBalance = await t.getCoinbaseBalance();
-    expect(newSequencerL1FeeAssetBalance).toEqual(currentSequencerL1Gas + feeAmount);
+    const newSequencerRewards = await t.getCoinbaseSequencerRewards();
+    expect(newSequencerRewards).toEqual(currentSequencerRewards + feeAmount);
 
     // and thus we paid the fee
     await expectMapping(

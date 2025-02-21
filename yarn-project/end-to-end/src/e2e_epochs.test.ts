@@ -40,7 +40,6 @@ describe('e2e_epochs', () => {
     // Set up system without any account nor protocol contracts
     // and with faster block times and shorter epochs.
     context = await setup(0, {
-      assumeProvenThrough: undefined,
       skipProtocolContracts: true,
       salt: 1,
       aztecEpochDuration: EPOCH_DURATION_IN_L2_SLOTS,

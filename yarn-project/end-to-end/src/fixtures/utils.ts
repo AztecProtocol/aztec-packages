@@ -133,7 +133,6 @@ export const setupL1Contracts = async (
     genesisBlockHash: args.genesisBlockHash ?? new Fr(GENESIS_BLOCK_HASH),
     salt: args.salt,
     initialValidators: args.initialValidators,
-    assumeProvenThrough: args.assumeProvenThrough,
     ...getL1ContractsConfigEnvVars(),
     ...args,
   });
@@ -293,8 +292,6 @@ export type SetupOptions = {
   l1StartTime?: number;
   /** The anvil time where we should at the earliest be seeing L2 blocks */
   l2StartTime?: number;
-  /** How far we should assume proven */
-  assumeProvenThrough?: number;
   /** Whether to start a prover node */
   startProverNode?: boolean;
   /** Whether to fund the rewardDistributor */
@@ -350,7 +347,6 @@ export type EndToEndContext = {
 export async function setup(
   numberOfAccounts = 1,
   opts: SetupOptions = {
-    assumeProvenThrough: Number.MAX_SAFE_INTEGER,
     customForwarderContractAddress: EthAddress.ZERO,
   },
   pxeOpts: Partial<PXEServiceConfig> = {},

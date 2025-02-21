@@ -2,6 +2,7 @@ import {
   type AccountWalletWithSecretKey,
   type AztecNode,
   BatchCall,
+  type CheatCodes,
   type DeployL1Contracts,
   EthAddress,
   Fr,
@@ -9,7 +10,7 @@ import {
 } from '@aztec/aztec.js';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { truncateAndPad } from '@aztec/foundation/serialize';
-import { OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { OutboxAbi } from '@aztec/l1-artifacts';
 import { SHA256 } from '@aztec/merkle-tree';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 
@@ -26,10 +27,10 @@ describe('E2E Outbox Tests', () => {
   let wallets: AccountWalletWithSecretKey[];
   let deployL1ContractsValues: DeployL1Contracts;
   let outbox: any;
-  let rollup: any;
+  let cheatCodes: CheatCodes;
 
   beforeEach(async () => {
-    ({ teardown, aztecNode, wallets, deployL1ContractsValues } = await setup(1));
+    ({ teardown, aztecNode, wallets, deployL1ContractsValues, cheatCodes } = await setup(1));
     outbox = getContract({
       address: deployL1ContractsValues.l1ContractAddresses.outboxAddress.toString(),
       abi: OutboxAbi,
@@ -38,12 +39,6 @@ describe('E2E Outbox Tests', () => {
 
     const receipt = await TestContract.deploy(wallets[0]).send({ contractAddressSalt: Fr.ZERO }).wait();
     contract = receipt.contract;
-
-    rollup = getContract({
-      address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-      abi: RollupAbi,
-      client: deployL1ContractsValues.walletClient,
-    });
   });
 
   afterAll(() => teardown());
@@ -100,7 +95,7 @@ describe('E2E Outbox Tests', () => {
     // Outbox L1 tests
 
     // Since the outbox is only consumable when the block is proven, we need to set the block to be proven
-    await rollup.write.setAssumeProvenThroughBlockNumber([txReceipt.blockNumber ?? 0]);
+    await cheatCodes.rollup.markAsProven(txReceipt.blockNumber ?? 0);
 
     // Check L1 has expected message tree
     const [l1Root, l1MinHeight] = await outbox.read.getRootData([txReceipt.blockNumber]);
@@ -218,7 +213,7 @@ describe('E2E Outbox Tests', () => {
 
     // Outbox L1 tests
     // Since the outbox is only consumable when the block is proven, we need to set the block to be proven
-    await rollup.write.setAssumeProvenThroughBlockNumber([l2TxReceipt0.blockNumber ?? 0]);
+    await cheatCodes.rollup.markAsProven(l2TxReceipt0.blockNumber ?? 0);
 
     // Check L1 has expected message tree
     const [l1Root, l1MinHeight] = await outbox.read.getRootData([l2TxReceipt0.blockNumber]);
@@ -336,7 +331,7 @@ describe('E2E Outbox Tests', () => {
 
     // Outbox L1 tests
     // Since the outbox is only consumable when the block is proven, we need to set the block to be proven
-    await rollup.write.setAssumeProvenThroughBlockNumber([l2TxReceipt0.blockNumber ?? 0]);
+    await cheatCodes.rollup.markAsProven(l2TxReceipt0.blockNumber ?? 0);
 
     // Check L1 has expected message tree
     const [l1Root, l1MinHeight] = await outbox.read.getRootData([l2TxReceipt0.blockNumber]);

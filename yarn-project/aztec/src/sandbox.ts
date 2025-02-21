@@ -72,7 +72,6 @@ export async function deployContractsToL1(
       protocolContractTreeRoot,
       genesisArchiveRoot: opts.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
       genesisBlockHash: opts.genesisBlockHash ?? new Fr(GENESIS_BLOCK_HASH),
-      assumeProvenThrough: opts.assumeProvenThroughBlockNumber,
       salt: opts.salt,
     },
   );

@@ -102,6 +102,9 @@ export class TokenSimulator {
       calls.push(await this.token.methods.balance_of_public(address).request());
     }
 
+    // @todo Something is wrong down here, for some reason we are going to use the WRONG block.
+    // I'm thinking that it might be because of some funky time jumps or stuff like that which means that we prune?
+
     const results = (
       await Promise.all(chunk(calls, 4).map(batch => new BatchCall(this.defaultWallet, batch).simulate()))
     ).flat();

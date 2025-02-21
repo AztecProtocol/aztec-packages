@@ -6,21 +6,11 @@ import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type Fr } from '@aztec/foundation/fields';
 import { type LogFn, type Logger } from '@aztec/foundation/log';
 import { type NoirPackageConfig } from '@aztec/foundation/noir';
-import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
 import TOML from '@iarna/toml';
 import { readFile } from 'fs/promises';
 import { gtr, ltr, satisfies, valid } from 'semver';
-import {
-  type Account,
-  type Chain,
-  type HttpTransport,
-  type WalletClient,
-  getAddress,
-  getContract,
-  publicActions,
-} from 'viem';
 
 import { encodeArgs } from './encoding.js';
 
@@ -85,21 +75,6 @@ export async function deployAztecContracts(
     },
     config,
   );
-}
-
-/** Sets the assumed proven block number on the rollup contract on L1 */
-export async function setAssumeProvenThrough(
-  blockNumber: number,
-  rollupAddress: EthAddress,
-  walletClient: WalletClient<HttpTransport, Chain, Account>,
-) {
-  const rollup = getContract({
-    address: getAddress(rollupAddress.toString()),
-    abi: RollupAbi,
-    client: walletClient,
-  });
-  const hash = await rollup.write.setAssumeProvenThroughBlockNumber([BigInt(blockNumber)]);
-  await walletClient.extend(publicActions).waitForTransactionReceipt({ hash });
 }
 
 /**

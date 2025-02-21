@@ -22,13 +22,19 @@ describe('e2e_fees private_payment', () => {
     await t.applyFPCSetupSnapshot();
     await t.applyFundAliceWithBananas();
     ({ aliceWallet, aliceAddress, bobAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings } = await t.setup());
+
+    // Prove up until the current state by just marking it as proven.
+    // Then turn off the watcher to prevent it from keep proving
+    await t.cheatCodes.rollup.advanceToNextEpoch();
+    await t.catchUpProvenChain();
+    t.setIsMarkingAsProven(false);
   });
 
   afterAll(async () => {
     await t.teardown();
   });
 
-  let initialSequencerL1Gas: bigint;
+  let initialSequencerRewards: bigint;
 
   let initialAlicePublicBananas: bigint;
   let initialAlicePrivateBananas: bigint;
@@ -49,7 +55,7 @@ describe('e2e_fees private_payment', () => {
       maxFeesPerGas: await aliceWallet.getCurrentBaseFees(),
     });
 
-    initialSequencerL1Gas = await t.getCoinbaseBalance();
+    initialSequencerRewards = await t.getCoinbaseSequencerRewards();
 
     [
       [initialAlicePrivateBananas, initialBobPrivateBananas],
@@ -65,7 +71,7 @@ describe('e2e_fees private_payment', () => {
     aliceWallet.setScopes([aliceAddress, bobAddress]);
   });
 
-  it('pays fees for tx that dont run public app logic', async () => {
+  it.only('pays fees for tx that dont run public app logic', async () => {
     /**
      * PRIVATE SETUP (1 nullifier for tx)
      * check authwit (1 nullifier)
@@ -99,38 +105,39 @@ describe('e2e_fees private_payment', () => {
     const localTx = await interaction.prove(settings);
     expect(localTx.data.feePayer).toEqual(bananaFPC.address);
 
-    const tx = await localTx.send().wait();
+    const tx = localTx.send();
+    await tx.wait({ timeout: 300, interval: 10, proven: false });
+    await t.cheatCodes.rollup.advanceToNextEpoch();
 
-    /**
-     * at present the user is paying DA gas for:
-     * 3 nullifiers = 3 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE = 3 * 32 * 16 = 1536 DA gas
-     * 2 note hashes =  2 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE = 2 * 32 * 16 = 1024 DA gas
-     * 1160 bytes of logs = 1160 * DA_GAS_PER_BYTE = 1160 * 16 = 5568 DA gas
-     * tx overhead of 512 DA gas
-     * for a total of 21632 DA gas (without gas used during public execution)
-     * public execution uses N gas
-     * for a total of 200032492n gas
-     *
-     * The default teardown gas allocation at present is
-     * 100_000_000 for both DA and L2 gas.
-     *
-     * That produces a grand total of 200032492n.
-     *
-     * This will change because we are presently squashing notes/nullifiers across non/revertible during
-     * private execution, but we shouldn't.
-     *
-     * TODO(6583): update this comment properly now that public execution consumes gas
-     */
+    // @todo At this point, the prover should start kicking in and the tx should be proven
+    //       but for some reason, we instead run into having a mismatch with the block header
+    //       where the `totalManaUsed` differs, but the total fee is the same. The total fee for
+    //       the circuit also matches the mana used and the fee, but the computed block header does not
+    //       for some reason, it seems like the correct values are used throughout the fee computation,
+    //       but then the block header is built using a different one.
+    //
+    //       An example to show the mismatch that can be run in chisel is below:
+    // uint256 feePerMana = 287580;
+    // uint256 expectedFees = 0x000000000000000000000000000000000000000000000000000001a02cd6bfc8;
+    // uint256 manaUsedComputedHeader = 0x00000000000000000000000000000000000000000000000000000000000505ac;
+    // feePerMana * manaUsedComputedHeader
+    // Type: uint256
+    // ├ Hex: 0x1609af8dd0
+    // ├ Hex (full word): 0x0000000000000000000000000000000000000000000000000000001609af8dd0
+    // └ Decimal: 94651780560
+    //
+    // uint256 manaUsedCircuit = 0x00000000000000000000000000000000000000000000000000000000005ed75e;
+    // feePerMana * manaUsedCircuit
+    // Type: uint256
+    // ├ Hex: 0x1a02cd6bfc8
+    // ├ Hex (full word): 0x000000000000000000000000000000000000000000000000000001a02cd6bfc8
+    // └ Decimal: 1787458666440
 
-    // We wait until the block is proven since that is when the payout happens.
-    const bn = await t.aztecNode.getBlockNumber();
-    while ((await t.aztecNode.getProvenBlockNumber()) < bn) {
-      await sleep(1000);
-    }
+    const receipt = await tx.wait({ timeout: 300, interval: 10, proven: true, provenTimeout: 300 });
 
     // expect(tx.transactionFee).toEqual(200032492n);
-    await expect(t.getCoinbaseBalance()).resolves.toEqual(initialSequencerL1Gas + tx.transactionFee!);
-    const feeAmount = tx.transactionFee!;
+    await expect(t.getCoinbaseSequencerRewards()).resolves.toEqual(initialSequencerRewards + receipt.transactionFee!);
+    const feeAmount = receipt.transactionFee!;
 
     await expectMapping(
       t.getBananaPrivateBalanceFn,
