@@ -1,12 +1,12 @@
+import { FunctionSelector } from '@aztec/circuits.js/abi';
 import {
   type ContractClassPublic,
   type ContractClassPublicWithBlockNumber,
   type ExecutablePrivateFunctionWithMembershipProof,
-  Fr,
-  FunctionSelector,
   type UnconstrainedFunctionWithMembershipProof,
-  Vector,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/contract';
+import { Vector } from '@aztec/circuits.js/types';
+import { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import { BufferReader, numToUInt8, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
