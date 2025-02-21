@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740179296340,
+  "lastUpdate": 1740181415600,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "codygunton@gmail.com",
-            "name": "Cody Gunton",
-            "username": "codygunton"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6fd8b49d7bdda4995ec6b017964878faab0e905e",
-          "message": "fix: Don't consider skipping (#10598)\n\nThe relation accumulation method\n`accumulate_relation_evaluations_without_skipping` used by the verifier\nhas been erroneously allowing the verifier to use the skip mechanism via\n`/*consider_skipping=*/true`.\n\nFixing this uncovered an issue with the `EccOpQueueRelation` skip\ncondition which has been resolved.\n\n---------\n\nCo-authored-by: ledwards2225 <l.edwards.d@gmail.com>\nCo-authored-by: iakovenkos <sergey.s.yakovenko@gmail.com>\nCo-authored-by: sergei iakovenko <105737703+iakovenkos@users.noreply.github.com>",
-          "timestamp": "2025-02-19T16:07:08+01:00",
-          "tree_id": "efcc4350a872b1e5f60374e267cd73a840ed1a7e",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/6fd8b49d7bdda4995ec6b017964878faab0e905e"
-        },
-        "date": 1739979189223,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18403.262648999997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16124.557427 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18563.016007999977,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16326.078087999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3954.467732000012,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3100.9277029999994 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54703.377405,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54703377000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9883.794893999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9883799000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1839515914,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1839515914 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 130210216,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 130210216 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3300,6 +3234,72 @@ window.BENCHMARK_DATA = {
             "value": 128319092,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 128319092 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexghr@users.noreply.github.com",
+            "name": "Alex Gherghisan",
+            "username": "alexghr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "68c228d3c43b072a58b2e0fd3aa5e7a696400b0c",
+          "message": "fix: delete deploy hooks after they are applied (#12189)",
+          "timestamp": "2025-02-21T23:29:56Z",
+          "tree_id": "36bb46604b8ecbd8ae298e3bd77fa959b9cabdfa",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/68c228d3c43b072a58b2e0fd3aa5e7a696400b0c"
+        },
+        "date": 1740181408420,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18244.393578000087,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16058.998344 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18555.38624899998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16209.128962 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3944.531513000129,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3123.7079179999996 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55342.125301,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55342126000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10414.690582000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10414699000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1814740922,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1814740922 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 134342920,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 134342920 ns\nthreads: 1"
           }
         ]
       }
