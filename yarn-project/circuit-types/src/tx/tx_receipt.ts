@@ -1,6 +1,6 @@
-import { PublicDataWrite, RevertCode } from '@aztec/circuits.js';
+import { PublicDataWrite, RevertCode } from '@aztec/circuits.js/avm';
+import { schemas } from '@aztec/circuits.js/schemas';
 import { type Fr } from '@aztec/foundation/fields';
-import { schemas } from '@aztec/foundation/schemas';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';

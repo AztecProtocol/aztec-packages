@@ -1,4 +1,4 @@
-import { AztecAddress } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
 import { type MockProxy, mock } from 'jest-mock-extended';

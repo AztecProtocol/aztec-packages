@@ -1,4 +1,6 @@
-import { Fr, PrivateLog, PublicDataWrite, PublicLog, RevertCode } from '@aztec/circuits.js';
+import { PublicDataWrite, RevertCode } from '@aztec/circuits.js/avm';
+import { PrivateLog, PublicLog } from '@aztec/circuits.js/logs';
+import { schemas } from '@aztec/circuits.js/schemas';
 import {
   CONTRACT_CLASS_LOGS_PREFIX,
   L2_L1_MSGS_PREFIX,
@@ -21,8 +23,8 @@ import { type FieldsOf, makeTuple, makeTupleAsync } from '@aztec/foundation/arra
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
-import { schemas } from '@aztec/foundation/schemas';
 import {
   BufferReader,
   FieldReader,
@@ -36,8 +38,6 @@ import { z } from 'zod';
 
 import { ContractClassTxL2Logs, type TxL2Logs } from './logs/index.js';
 import { TxHash } from './tx/tx_hash.js';
-
-export { RevertCodeEnum } from '@aztec/circuits.js';
 
 // This will appear as 0x74785f7374617274 in logs
 export const TX_START_PREFIX = 8392562855083340404n;

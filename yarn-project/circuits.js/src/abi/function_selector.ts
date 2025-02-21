@@ -1,9 +1,9 @@
 import { fromHex, toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { poseidon2HashBytes, randomBytes } from '@aztec/foundation/crypto';
 import { type Fr } from '@aztec/foundation/fields';
-import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, TypeRegistry } from '@aztec/foundation/serialize';
 
+import { type ZodFor, hexSchemaFor } from '../schemas/index.js';
 import { type ABIParameter } from './abi.js';
 import { decodeFunctionSignature } from './decoder.js';
 import { Selector } from './selector.js';
@@ -114,7 +114,7 @@ export class FunctionSelector extends Selector {
     return this.toString();
   }
 
-  static get schema() {
+  static get schema(): ZodFor<FunctionSelector> {
     return hexSchemaFor(FunctionSelector);
   }
 }

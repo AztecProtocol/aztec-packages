@@ -1,18 +1,18 @@
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
-  BlockHeader,
   type ContractClassPublic,
   ContractClassPublicSchema,
   type ContractInstanceWithAddress,
   ContractInstanceWithAddressSchema,
-  GasFees,
   type NodeInfo,
   NodeInfoSchema,
-  PrivateLog,
   type ProtocolContractAddresses,
   ProtocolContractAddressesSchema,
-} from '@aztec/circuits.js';
-import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+} from '@aztec/circuits.js/contract';
+import { GasFees } from '@aztec/circuits.js/gas';
+import { PrivateLog } from '@aztec/circuits.js/logs';
 import { type ApiSchemaFor, optional, schemas } from '@aztec/circuits.js/schemas';
+import { BlockHeader } from '@aztec/circuits.js/tx';
 import {
   ARCHIVE_HEIGHT,
   L1_TO_L2_MSG_TREE_HEIGHT,

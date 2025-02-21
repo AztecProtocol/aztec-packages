@@ -1,9 +1,9 @@
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, TypeRegistry } from '@aztec/foundation/serialize';
 
+import { hexSchemaFor } from '../schemas/index.js';
 import { Selector } from './selector.js';
 
 /* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */

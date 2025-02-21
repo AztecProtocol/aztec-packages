@@ -1,6 +1,6 @@
+import { type ApiSchemaFor, schemas } from '@aztec/circuits.js/schemas';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
-import { type ApiSchemaFor, schemas } from '@aztec/foundation/schemas';
 
 import cors from '@koa/cors';
 import { createServer } from 'http';

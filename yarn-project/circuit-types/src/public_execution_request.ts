@@ -1,12 +1,15 @@
-import { CallContext, PublicCallRequest, Vector } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
+import { type ZodFor, schemas } from '@aztec/circuits.js/schemas';
+import { CallContext } from '@aztec/circuits.js/tx';
+import { Vector } from '@aztec/circuits.js/types';
 import { Fr } from '@aztec/foundation/fields';
-import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
 import { z } from 'zod';
+
+import { PublicCallRequest } from '../../circuits.js/src/kernel/public_call_request.js';
 
 /**
  * The execution request of a public function.
@@ -31,7 +34,7 @@ export class PublicExecutionRequest {
     return serializeToBuffer(this.callContext, new Vector(this.args));
   }
 
-  static get schema() {
+  static get schema(): ZodFor<PublicExecutionRequest> {
     return z
       .object({
         callContext: CallContext.schema,

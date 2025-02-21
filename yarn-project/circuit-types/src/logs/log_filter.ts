@@ -1,4 +1,4 @@
-import { type AztecAddress } from '@aztec/circuits.js';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { schemas } from '@aztec/circuits.js/schemas';
 
 import { z } from 'zod';

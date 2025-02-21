@@ -1,4 +1,4 @@
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+import { type ZodFor, schemas } from '@aztec/circuits.js/schemas';
 
 import { z } from 'zod';
 

@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
 import { Fr, Point, fromBuffer } from '@aztec/foundation/fields';
-import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { type BufferReader, FieldReader, TypeRegistry } from '@aztec/foundation/serialize';
 import { hexToBuffer } from '@aztec/foundation/string';
 
 import { inspect } from 'util';
+
+import { type ZodFor, hexSchemaFor } from '../schemas/index.js';
 
 /** Branding to ensure fields are not interchangeable types. */
 export interface AztecAddress {
@@ -136,7 +137,7 @@ export class AztecAddress {
     return this.toString();
   }
 
-  static get schema() {
+  static get schema(): ZodFor<AztecAddress> {
     return hexSchemaFor(AztecAddress, AztecAddress.isAddress);
   }
 }

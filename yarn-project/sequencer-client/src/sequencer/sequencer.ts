@@ -23,6 +23,7 @@ import {
   StateReference,
 } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { pickFromSchema } from '@aztec/circuits.js/schemas';
 import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { omit } from '@aztec/foundation/collection';
@@ -31,7 +32,6 @@ import type { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
-import { pickFromSchema } from '@aztec/foundation/schemas';
 import { type DateProvider, Timer, elapsed } from '@aztec/foundation/timer';
 import { type P2P } from '@aztec/p2p';
 import { type BlockBuilderFactory } from '@aztec/prover-client/block-builder';

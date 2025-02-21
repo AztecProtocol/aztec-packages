@@ -7,12 +7,10 @@
     "./package.local.json"
   ],
   "exports": {
-    ".": "./dest/index.js",
     "./aztec-address": "./dest/aztec-address/index.js",
     "./abi": "./dest/abi/index.js",
     "./hash": "./dest/hash/index.js",
     "./keys": "./dest/keys/index.js",
-    "./barretenberg": "./dest/barretenberg/index.js",
     "./testing": "./dest/tests/index.js",
     "./testing/fixtures": "./dest/tests/fixtures.js",
     "./interfaces": "./dest/interfaces/index.js",
@@ -21,14 +19,20 @@
     "./types": "./dest/types/index.js",
     "./contract": "./dest/contract/index.js",
     "./simulation": "./dest/simulator/index.js",
-    "./rollup": "./dest/structs/rollup/index.js",
-    "./kernel": "./dest/structs/kernel/index.js",
-    "./trees": "./dest/structs/trees/index.js",
-    "./logs": "./dest/structs/logs/index.js",
-    "./avm": "./dest/structs/avm/index.js",
+    "./rollup": "./dest/rollup/index.js",
+    "./kernel": "./dest/kernel/index.js",
+    "./trees": "./dest/trees/index.js",
+    "./logs": "./dest/logs/index.js",
+    "./avm": "./dest/avm/index.js",
     "./schemas": "./dest/schemas/index.js",
     "./noir": "./dest/noir/index.js",
-    "./shared-mutable": "./dest/structs/shared_mutable/index.js"
+    "./shared-mutable": "./dest/shared_mutable/index.js",
+    "./parity": "./dest/parity/index.js",
+    "./vks": "./dest/vks/index.js",
+    "./proofs": "./dest/proofs/index.js",
+    "./messaging": "./dest/messaging/index.js",
+    "./gas": "./dest/gas/index.js",
+    "./tx": "./dest/tx/index.js"
   },
   "typedocOptions": {
     "entryPoints": [

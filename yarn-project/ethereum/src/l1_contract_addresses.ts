@@ -1,6 +1,6 @@
+import { type ZodFor } from '@aztec/circuits.js/schemas';
 import { type ConfigMappingsType } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
@@ -30,18 +30,18 @@ export type L1ContractAddresses = {
 };
 
 export const L1ContractAddressesSchema = z.object({
-  rollupAddress: schemas.EthAddress,
-  registryAddress: schemas.EthAddress,
-  inboxAddress: schemas.EthAddress,
-  outboxAddress: schemas.EthAddress,
-  feeJuiceAddress: schemas.EthAddress,
-  stakingAssetAddress: schemas.EthAddress,
-  feeJuicePortalAddress: schemas.EthAddress,
-  coinIssuerAddress: schemas.EthAddress,
-  rewardDistributorAddress: schemas.EthAddress,
-  governanceProposerAddress: schemas.EthAddress,
-  governanceAddress: schemas.EthAddress,
-  slashFactoryAddress: schemas.EthAddress,
+  rollupAddress: EthAddress.schema,
+  registryAddress: EthAddress.schema,
+  inboxAddress: EthAddress.schema,
+  outboxAddress: EthAddress.schema,
+  feeJuiceAddress: EthAddress.schema,
+  stakingAssetAddress: EthAddress.schema,
+  feeJuicePortalAddress: EthAddress.schema,
+  coinIssuerAddress: EthAddress.schema,
+  rewardDistributorAddress: EthAddress.schema,
+  governanceProposerAddress: EthAddress.schema,
+  governanceAddress: EthAddress.schema,
+  slashFactoryAddress: EthAddress.schema,
 }) satisfies ZodFor<L1ContractAddresses>;
 
 const parseEnv = (val: string) => EthAddress.fromString(val);
