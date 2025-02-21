@@ -135,7 +135,7 @@ function test_cmds_internal {
 }
 
 function ultra_honk_wasm_memory {
-  VERBOSE=1 BIN=../ts/dest/node/main.js SYS=ultra_honk FLOW=prove_then_verify ./run_test.sh verify_honk_proof > ./bench-out/ultra_honk_rec_wasm_memory.txt
+  VERBOSE=1 BIN=../ts/dest/node/main.js SYS=ultra_honk_deprecated FLOW=prove_then_verify ./run_test.sh verify_honk_proof &> ./bench-out/ultra_honk_rec_wasm_memory.txt
 }
 
 function run_benchmark {
