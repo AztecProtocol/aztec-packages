@@ -134,30 +134,10 @@ function test_cmds_internal {
   echo FLOW=prove_then_verify_client_ivc $run_test databus_two_calldata
 }
 
-function ultra_honk_wasm_memory {
-  VERBOSE=1 BIN=../ts/dest/node/main.js SYS=ultra_honk_deprecated FLOW=prove_then_verify ./run_test.sh verify_honk_proof &> ./bench-out/ultra_honk_rec_wasm_memory.txt
-}
-
-function run_benchmark {
-  local start_core=$(( ($1 - 1) * HARDWARE_CONCURRENCY ))
-  local end_core=$(( start_core + (HARDWARE_CONCURRENCY - 1) ))
-  echo taskset -c $start_core-$end_core bash -c "$2"
-  taskset -c $start_core-$end_core bash -c "$2"
-}
-
 # TODO(https://github.com/AztecProtocol/barretenberg/issues/1254): More complete testing, including failure tests
 function bench {
   # TODO: Move to scripts dir along with run_test.sh.
   LOG_FILE=bench-acir.jsonl ./bench_acir_tests.sh
-
-  export HARDWARE_CONCURRENCY=16
-
-  rm -rf bench-out && mkdir -p bench-out
-  export -f ultra_honk_wasm_memory run_benchmark
-  local num_cpus=$(get_num_cpus)
-  local jobs=$((num_cpus / HARDWARE_CONCURRENCY))
-  parallel -v --line-buffer --tag --jobs "$jobs" run_benchmark {#} {} ::: \
-    ultra_honk_wasm_memory
 }
 
 case "$cmd" in

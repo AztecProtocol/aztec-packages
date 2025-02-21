@@ -272,6 +272,17 @@ function bench {
     client_ivc_op_count_time \
     client_ivc_wasm
 
+  ./scripts/ci/combine_benchmarks.py \
+    native ./bench-out/client_ivc_17_in_20_release.json \
+    native ./bench-out/client_ivc_release.json \
+    native ./bench-out/ultra_honk_release.json \
+    wasm ./bench-out/client_ivc_wasm.json \
+    wasm ./bench-out/ultra_honk_wasm.json \
+    "" ./bench-out/client_ivc_op_count.json \
+    "" ./bench-out/client_ivc_op_count_time.json \
+    > ./bench-out/bb-bench.json
+
+    cache_upload barretenberg-bench-results-$COMMIT_HASH.tar.gz ./bench-out/bb-bench.json
 }
 
 # Upload assets to release.
