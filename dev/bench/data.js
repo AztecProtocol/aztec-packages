@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740153021272,
+  "lastUpdate": 1740154370429,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "codygunton@gmail.com",
-            "name": "Cody Gunton",
-            "username": "codygunton"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a86b797d059502fbd402550492f9ad13bd4ede1c",
-          "message": "feat: IVC gates command in WASM (#11792)\n\nAdded the `gates()` command to the `AztecClientBackend`. It outputs an\narray of sizes of the client circuits being folded during the IVC. Also,\nslightly extended wasm client ivc integration test to demonstrate this\nfunctionality.\n\n---------\n\nCo-authored-by: iakovenkos <sergey.s.yakovenko@gmail.com>\nCo-authored-by: thunkar <gregojquiros@gmail.com>\nCo-authored-by: sergei iakovenko <105737703+iakovenkos@users.noreply.github.com>",
-          "timestamp": "2025-02-19T12:15:12+01:00",
-          "tree_id": "38527c20cc9b62f6efb12842e228afeb8858f5e4",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a86b797d059502fbd402550492f9ad13bd4ede1c"
-        },
-        "date": 1739965431016,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18258.754501999872,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16070.852406 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18800.292337999963,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16260.287520000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3907.935529000042,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3105.6485729999995 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55208.66538499999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55208663000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11243.639180999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11243644000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1846749942,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1846749942 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 134918550,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 134918550 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3300,6 +3234,72 @@ window.BENCHMARK_DATA = {
             "value": 129431981,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 129431981 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ilyas@aztecprotocol.com",
+            "name": "Ilyas Ridhuan",
+            "username": "IlyasRidhuan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "88b5878dd4b95d691b855cd84153ba884adf25f8",
+          "message": "feat(avm): sha256 round read (#12032)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\nline.",
+          "timestamp": "2025-02-21T15:52:29Z",
+          "tree_id": "6fe56b94d2cf2aaea82ca579e5980fd2962d95bd",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/88b5878dd4b95d691b855cd84153ba884adf25f8"
+        },
+        "date": 1740154363122,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18254.840671000013,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16120.123538999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18729.343554000025,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16254.613828 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3943.7366560000555,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3114.3202209999995 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54873.541017999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54873544000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11184.966275,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11184968000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1813920169,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1813920169 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 131297462,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 131297462 ns\nthreads: 1"
           }
         ]
       }
