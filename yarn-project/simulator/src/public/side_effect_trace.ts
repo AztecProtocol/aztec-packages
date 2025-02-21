@@ -1,4 +1,3 @@
-import { PublicDataUpdateRequest, PublicDataWrite } from '@aztec/circuits.js/avm';
 import {
   AvmAccumulatedData,
   AvmAppendTreeHint,
@@ -11,6 +10,8 @@ import {
   AvmNullifierWriteTreeHint,
   AvmPublicDataReadTreeHint,
   AvmPublicDataWriteTreeHint,
+  PublicDataUpdateRequest,
+  PublicDataWrite,
 } from '@aztec/circuits.js/avm';
 import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type ContractClassIdPreimage, SerializableContractInstance } from '@aztec/circuits.js/contract';
@@ -26,8 +27,7 @@ import {
 import { PublicLog } from '@aztec/circuits.js/logs';
 import { L2ToL1Message, ScopedL2ToL1Message } from '@aztec/circuits.js/messaging';
 import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
-import type { TreeSnapshots } from '@aztec/circuits.js/tx';
-import type { GlobalVariables } from '@aztec/circuits.js/tx';
+import type { GlobalVariables, TreeSnapshots } from '@aztec/circuits.js/tx';
 import {
   L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_ENQUEUED_CALLS_PER_TX,

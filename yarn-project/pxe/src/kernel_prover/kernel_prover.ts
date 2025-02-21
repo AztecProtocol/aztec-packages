@@ -12,7 +12,6 @@ import {
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { computeContractAddressFromInstance } from '@aztec/circuits.js/contract';
 import { hashVK } from '@aztec/circuits.js/hash';
-import { type ScopedPrivateLogData } from '@aztec/circuits.js/kernel';
 import {
   PrivateCallData,
   PrivateKernelCircuitPublicInputs,
@@ -22,6 +21,7 @@ import {
   PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
   PrivateVerificationKeyHints,
+  type ScopedPrivateLogData,
 } from '@aztec/circuits.js/kernel';
 import type { PrivateLog } from '@aztec/circuits.js/logs';
 import { ClientIvcProof } from '@aztec/circuits.js/proofs';

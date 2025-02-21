@@ -1,5 +1,6 @@
 import { type PublicExecutionRequest, type SimulationError } from '@aztec/circuit-types';
 import {
+  type AvmExecutionHints,
   type ContractStorageRead,
   type ContractStorageUpdateRequest,
   PublicCallStackItemCompressed,
@@ -7,7 +8,6 @@ import {
   PublicInnerCallRequest,
   RevertCode,
 } from '@aztec/circuits.js/avm';
-import { type AvmExecutionHints } from '@aztec/circuits.js/avm';
 import { Gas } from '@aztec/circuits.js/gas';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import type { NoteHash, Nullifier, ReadRequest, TreeLeafReadRequest } from '@aztec/circuits.js/kernel';

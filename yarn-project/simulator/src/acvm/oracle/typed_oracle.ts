@@ -10,8 +10,7 @@ import { type FunctionSelector, type NoteSelector } from '@aztec/circuits.js/abi
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type CompleteAddress, type ContractInstance } from '@aztec/circuits.js/contract';
 import { type KeyValidationRequest } from '@aztec/circuits.js/kernel';
-import { type LogWithTxData } from '@aztec/circuits.js/logs';
-import { type IndexedTaggingSecret } from '@aztec/circuits.js/logs';
+import { type IndexedTaggingSecret, type LogWithTxData } from '@aztec/circuits.js/logs';
 import { type BlockHeader } from '@aztec/circuits.js/tx';
 import { type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';

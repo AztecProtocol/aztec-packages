@@ -1,10 +1,10 @@
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { CompleteAddress, type PartialAddress } from '@aztec/circuits.js/contract';
 import { KeyValidationRequest } from '@aztec/circuits.js/kernel';
-import { type PublicKey } from '@aztec/circuits.js/keys';
 import {
   KEY_PREFIXES,
   type KeyPrefix,
+  type PublicKey,
   computeAppSecretKey,
   deriveKeys,
   derivePublicKeyFromSecretKey,

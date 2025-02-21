@@ -6,6 +6,11 @@ import {
 import {
   KeyValidationHint,
   type PrivateCircuitPublicInputs,
+  type PrivateKernelCircuitPublicInputs,
+  PrivateKernelData,
+  PrivateKernelResetCircuitPrivateInputs,
+  PrivateKernelResetDimensions,
+  PrivateKernelResetHints,
   type ReadRequest,
   ReadRequestResetStates,
   ReadRequestState,
@@ -13,6 +18,7 @@ import {
   ScopedNoteHash,
   ScopedNullifier,
   ScopedReadRequest,
+  TransientDataIndexHint,
   buildNoteHashReadRequestHintsFromResetStates,
   buildNullifierReadRequestHintsFromResetStates,
   buildTransientDataHints,
@@ -21,14 +27,6 @@ import {
   getNonEmptyItems,
   getNoteHashReadRequestResetStates,
   getNullifierReadRequestResetStates,
-} from '@aztec/circuits.js/kernel';
-import {
-  type PrivateKernelCircuitPublicInputs,
-  PrivateKernelData,
-  PrivateKernelResetCircuitPrivateInputs,
-  PrivateKernelResetDimensions,
-  PrivateKernelResetHints,
-  TransientDataIndexHint,
   privateKernelResetDimensionNames,
 } from '@aztec/circuits.js/kernel';
 import {

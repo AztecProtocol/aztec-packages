@@ -5,8 +5,6 @@ import { type NoteHashReadRequestHints, noteHashReadRequestHintsFromBuffer } fro
 import { type NullifierReadRequestHints, nullifierReadRequestHintsFromBuffer } from './nullifier_read_request_hints.js';
 import { TransientDataIndexHint } from './transient_data_index_hint.js';
 
-export { TransientDataIndexHint } from './transient_data_index_hint.js';
-
 export class PrivateKernelResetHints<
   NH_RR_PENDING extends number,
   NH_RR_SETTLED extends number,

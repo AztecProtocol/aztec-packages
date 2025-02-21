@@ -1,10 +1,10 @@
-import { PublicDataUpdateRequest } from '@aztec/circuits.js/avm';
 import {
   AvmAppendTreeHint,
   AvmNullifierReadTreeHint,
   AvmNullifierWriteTreeHint,
   AvmPublicDataReadTreeHint,
   AvmPublicDataWriteTreeHint,
+  PublicDataUpdateRequest,
 } from '@aztec/circuits.js/avm';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type ContractClassIdPreimage, SerializableContractInstance } from '@aztec/circuits.js/contract';

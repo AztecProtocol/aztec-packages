@@ -36,7 +36,6 @@ import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { inspect } from 'util';
 import { z } from 'zod';
 
-import type { Tx } from './index.js';
 import { ContractClassTxL2Logs, type TxL2Logs } from './logs/index.js';
 import { TxHash } from './tx/tx_hash.js';
 

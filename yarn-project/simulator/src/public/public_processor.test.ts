@@ -5,8 +5,7 @@ import {
   type TreeInfo,
 } from '@aztec/circuit-types/interfaces/server';
 import { mockTx } from '@aztec/circuit-types/testing';
-import { PublicDataWrite, RevertCode } from '@aztec/circuits.js/avm';
-import { AvmCircuitInputs } from '@aztec/circuits.js/avm';
+import { AvmCircuitInputs, PublicDataWrite, RevertCode } from '@aztec/circuits.js/avm';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { Gas, GasFees } from '@aztec/circuits.js/gas';
 import { GlobalVariables } from '@aztec/circuits.js/tx';
