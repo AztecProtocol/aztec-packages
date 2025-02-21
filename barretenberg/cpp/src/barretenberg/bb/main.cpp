@@ -29,6 +29,32 @@ void print_active_subcommands(const CLI::App& app, const std::string& prefix = "
     }
 }
 
+// Recursive helper to find the deepest parsed subcommand.
+CLI::App* find_deepest_subcommand(CLI::App* app)
+{
+    for (auto& sub : app->get_subcommands()) {
+        if (sub->parsed()) {
+            // Check recursively if this subcommand has a deeper parsed subcommand.
+            if (CLI::App* deeper = find_deepest_subcommand(sub); deeper != nullptr) {
+                return deeper;
+            }
+            return sub;
+        }
+    }
+    return nullptr;
+}
+
+// Helper function to print options for a given subcommand.
+void print_subcommand_options(const CLI::App* sub)
+{
+    for (const auto& opt : sub->get_options()) {
+        if (opt->count() > 0) { // Only print options that were set.
+            ASSERT(opt->results().size() == 1);
+            vinfo("  ", opt->get_name(), ": ", opt->results()[0]);
+        }
+    }
+}
+
 int main(int argc, char* argv[])
 {
     std::string name = "Barretenberg\nYour favo(u)rite zkSNARK library written in C++, a perfectly good computer "
@@ -611,11 +637,13 @@ int main(int argc, char* argv[])
      ***************************************************************************************************************/
 
     CLI11_PARSE(app, argc, argv);
-    print_active_subcommands(app);
-    vinfo(flags);
-
     debug_logging = flags.debug;
     verbose_logging = debug_logging || flags.verbose;
+
+    print_active_subcommands(app);
+    if (CLI::App* deepest = find_deepest_subcommand(&app)) {
+        print_subcommand_options(deepest);
+    }
 
     // prob this construction is too much
     const auto execute_command = [&](API& api) {
