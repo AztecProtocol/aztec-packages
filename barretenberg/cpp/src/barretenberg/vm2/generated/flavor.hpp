@@ -33,6 +33,7 @@
 // Lookup and permutation relations
 #include "relations/lookups_bc_decomposition.hpp"
 #include "relations/lookups_bitwise.hpp"
+#include "relations/lookups_instr_fetching.hpp"
 #include "relations/lookups_poseidon2_hash.hpp"
 #include "relations/lookups_range_check.hpp"
 #include "relations/lookups_sha256.hpp"
@@ -77,23 +78,13 @@ class AvmFlavor {
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
 
-<<<<<<< HEAD
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 16;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 694;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 83;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
-    // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 793;
-=======
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 53;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 700;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 703;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 84;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 837;
->>>>>>> 05299aaf0d (Witness generation and unit tests)
+    static constexpr size_t NUM_ALL_ENTITIES = 840;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -122,6 +113,8 @@ class AvmFlavor {
         lookup_bc_decomposition_bytes_to_read_as_unary_relation<FF_>,
         lookup_bitwise_byte_operations_relation<FF_>,
         lookup_bitwise_integral_tag_length_relation<FF_>,
+        lookup_instr_fetching_bytes_from_bc_dec_relation<FF_>,
+        lookup_instr_fetching_wire_instruction_info_relation<FF_>,
         lookup_poseidon2_hash_poseidon2_perm_relation<FF_>,
         lookup_range_check_dyn_diff_is_u16_relation<FF_>,
         lookup_range_check_dyn_rng_chk_pow_2_relation<FF_>,

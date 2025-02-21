@@ -65,7 +65,7 @@ class lookup_sha256_round_constant_settings {
     {
         return std::forward_as_tuple(in._lookup_sha256_round_constant_inv(),
                                      in._lookup_sha256_round_constant_counts(),
-                                     in._sha256_sel(),
+                                     in._sha256_perform_round(),
                                      in._precomputed_sel_sha256_compression(),
                                      in._sha256_round_count(),
                                      in._sha256_round_constant(),
