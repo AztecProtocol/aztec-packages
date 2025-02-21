@@ -191,8 +191,8 @@ std::unordered_map<WireOpCode, std::array<OperandLayout, NUM_OF_OPERANDS>> gen_o
 {
     std::unordered_map<WireOpCode, std::array<OperandLayout, NUM_OF_OPERANDS>> mapping;
 
-    const auto operand_type_sizes = simulation::get_operand_type_sizes();
-    const auto wire_formats = simulation::get_instruction_wire_formats();
+    const auto& operand_type_sizes = simulation::testonly::get_operand_type_sizes();
+    const auto& wire_formats = simulation::testonly::get_instruction_wire_formats();
 
     for (const auto& [opcode, format] : wire_formats) {
         std::array<OperandLayout, 8> operands_layout_array;
@@ -307,7 +307,7 @@ TEST(DecompositionSelectors, CodeGen)
     info("const std::unordered_map<WireOpCode, std::array<uint8_t, NUM_OP_DC_SELECTORS>> WireOpCode_DC_SELECTORS = "
          "{");
 
-    const auto wire_formats = simulation::get_instruction_wire_formats();
+    const auto& wire_formats = simulation::testonly::get_instruction_wire_formats();
     for (int i = 0; i < static_cast<int>(WireOpCode::LAST_OPCODE_SENTINEL); i++) {
         const auto wire_opcode = static_cast<WireOpCode>(i);
         if (wire_formats.contains(wire_opcode)) {

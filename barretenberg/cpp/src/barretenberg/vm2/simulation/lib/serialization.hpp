@@ -17,8 +17,12 @@ namespace bb::avm2::simulation {
 // INDIRECT is parsed as UINT8 where the bits represent the operands that have indirect mem access.
 enum class OperandType : uint8_t { INDIRECT8, INDIRECT16, TAG, UINT8, UINT16, UINT32, UINT64, UINT128, FF };
 
-std::unordered_map<WireOpCode, std::vector<enum OperandType>> get_instruction_wire_formats();
-std::unordered_map<OperandType, uint32_t> get_operand_type_sizes();
+namespace testonly {
+
+const std::unordered_map<WireOpCode, std::vector<OperandType>>& get_instruction_wire_formats();
+const std::unordered_map<OperandType, uint32_t>& get_operand_type_sizes();
+
+} // namespace testonly
 
 class Operand {
   private:

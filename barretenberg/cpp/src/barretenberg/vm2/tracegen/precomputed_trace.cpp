@@ -198,9 +198,10 @@ void PrecomputedTraceBuilder::process_wire_instruction_spec(TraceContainer& trac
     }
 
     // Fill the lookup tables with the operand decomposition selectors.
-    for (const auto& [wire_opcode, selectors] : WireOpCode_DC_SELECTORS) {
+    for (const auto& [wire_opcode, wire_instruction_spec] : WIRE_INSTRUCTION_SPEC) {
         for (size_t i = 0; i < NUM_OP_DC_SELECTORS; i++) {
-            trace.set(sel_op_dc_columns[i], static_cast<uint32_t>(wire_opcode), selectors[i]);
+            trace.set(
+                sel_op_dc_columns[i], static_cast<uint32_t>(wire_opcode), wire_instruction_spec.op_dc_selectors[i]);
         }
     }
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <unordered_map>
 
@@ -25,10 +26,16 @@ struct ExecInstructionSpec {
     bool operator==(const ExecInstructionSpec& other) const = default;
 };
 
+struct WireInstructionSpec {
+    ExecutionOpCode exec_opcode;
+    std::array<uint8_t, NUM_OP_DC_SELECTORS> op_dc_selectors;
+
+    bool operator==(const WireInstructionSpec& other) const = default;
+};
+
 // These are "extern" because the definition is in a different file.
-// Note: in the circuit, we can choose to merge these tables.
-extern const std::unordered_map<WireOpCode, ExecutionOpCode> OPCODE_MAP;
+// Note: in the circuit, we can choose to merge both tables.
 extern const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_SPEC;
-extern const std::unordered_map<WireOpCode, std::array<uint8_t, NUM_OP_DC_SELECTORS>> WireOpCode_DC_SELECTORS;
+extern const std::unordered_map<WireOpCode, WireInstructionSpec> WIRE_INSTRUCTION_SPEC;
 
 } // namespace bb::avm2

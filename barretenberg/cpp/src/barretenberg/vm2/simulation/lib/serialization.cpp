@@ -185,15 +185,19 @@ const std::unordered_map<WireOpCode, std::vector<OperandType>> WireOpCode_WIRE_F
         OperandType::UINT16 } },
 };
 
-std::unordered_map<WireOpCode, std::vector<OperandType>> get_instruction_wire_formats()
+namespace testonly {
+
+const std::unordered_map<WireOpCode, std::vector<OperandType>>& get_instruction_wire_formats()
 {
     return WireOpCode_WIRE_FORMAT;
 }
 
-std::unordered_map<OperandType, uint32_t> get_operand_type_sizes()
+const std::unordered_map<OperandType, uint32_t>& get_operand_type_sizes()
 {
     return OPERAND_TYPE_SIZE_BYTES;
 }
+
+} // namespace testonly
 
 Operand::Operand(const Operand& other)
 {
