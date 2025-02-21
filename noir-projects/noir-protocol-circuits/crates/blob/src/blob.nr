@@ -7,14 +7,11 @@ use bigint::{BigNum, BigNumTrait};
 use std::ops::{Mul, Neg};
 use types::{
     abis::sponge_blob::SpongeBlob,
-    constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB, TWO_POW_64},
+    constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
     hash::poseidon2_hash_subarray,
     traits::Empty,
     utils::arrays::array_splice,
 };
-
-global LIMB_MAX: Field = 0x1000000000000000000000000000000; // 2^120
-global TWO_POW_56: u64 = 0x100000000000000; // u64 to aid integer only modulo in __field_to_bignum_limbs
 
 fn convert_blob_fields(blob_as_fields: [Field; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB] {
     let mut blob: [F; FIELDS_PER_BLOB] = [BigNum::zero(); FIELDS_PER_BLOB];
@@ -610,7 +607,7 @@ mod tests {
         // evaluate the blob at z = 2 to yield y:
         let y = barycentric_evaluate_blob_at_z(z, ys);
 
-        let mut expected_y: [Field; 3] = [0; 3];
+        let mut expected_y: [u128; 3] = [0; 3];
         if (FIELDS_PER_BLOB == 4096) {
             // Computed with the eth consensus specs py lib
             expected_y =
@@ -627,11 +624,11 @@ mod tests {
     }
 
     // Helper function used to populate the hard-coded double_modulus value in the bls12381Fr.nr file in the bignum library.
-    unconstrained fn compute_double_modulus() -> [Field; 3] {
+    unconstrained fn compute_double_modulus() -> [u128; 3] {
         let two_p = [0x7b4805fffcb7fdfffffffe00000002, 0x4ea6533afa906673b0101343b00aa7, 0x00e7db];
         let NUM_LIMBS = 3; // must be >= 3
-        let two_pow_120 = 2.pow_32(120);
-        let mut double_modulus: [Field; 3] = [0; 3];
+        let two_pow_120: u128 = 2.pow_32(120) as u128;
+        let mut double_modulus: [u128; 3] = [0; 3];
 
         double_modulus[0] = two_p[0] + two_pow_120;
         for i in 1..NUM_LIMBS - 1 {
