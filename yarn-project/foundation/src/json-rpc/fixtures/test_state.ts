@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { type ApiSchemaFor, optional } from '../../schemas/index.js';
+import { type ApiSchemaFor, optional, schemas } from '../../schemas/index.js';
 import { sleep } from '../../sleep/index.js';
 
 /**
@@ -129,19 +129,15 @@ export class TestState implements TestStateApi {
   }
 }
 
-// Taken from stdlib/schemas
-const integerSchema = z.union([z.bigint(), z.number(), z.string()]).pipe(z.coerce.number().int());
-const bigintSchema = z.union([z.bigint(), z.number(), z.string()]).pipe(z.coerce.bigint());
-
 export const TestStateSchema: ApiSchemaFor<TestStateApi> = {
   getNote: z.function().args(z.number()).returns(TestNote.schema.optional()),
-  getNotes: z.function().args(optional(integerSchema)).returns(z.array(TestNote.schema)),
-  getNotes2: z.function().args(optional(bigintSchema)).returns(z.array(TestNote.schema)),
-  getNotes3: z.function().args(optional(integerSchema)).returns(z.array(TestNote.schema)),
+  getNotes: z.function().args(optional(schemas.Integer)).returns(z.array(TestNote.schema)),
+  getNotes2: z.function().args(optional(schemas.BigInt)).returns(z.array(TestNote.schema)),
+  getNotes3: z.function().args(optional(schemas.Integer)).returns(z.array(TestNote.schema)),
   clear: z.function().returns(z.void()),
   addNotes: z.function().args(z.array(TestNote.schema)).returns(z.array(TestNote.schema)),
   fail: z.function().returns(z.void()),
   count: z.function().returns(z.number()),
-  getStatus: z.function().returns(z.object({ status: z.string(), count: bigintSchema })),
+  getStatus: z.function().returns(z.object({ status: z.string(), count: schemas.BigInt })),
   getTuple: z.function().returns(z.tuple([z.string(), optional(z.string()), z.number()])),
 };
