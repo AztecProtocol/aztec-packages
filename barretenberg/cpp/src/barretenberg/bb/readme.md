@@ -79,7 +79,7 @@ Barretenberg UltraHonk comes with the capability to verify proofs in Solidity, i
    bb prove --scheme ultra_honk --oracle-hash keccak -b ./target/hello_world.json -w ./target/witness-name.gz -o ./target/proof
    ```
 
-   > **Note:** `--oracle-hash keccak` flag is used to generate UltraHonk proofs with Keccak hashes, as it is what the Solidity verifier is designed to be compatible with given the better gas efficiency when verifying on-chain; The default `--oracle-hash poseidon` in comparison generates proofs with Poseidon hashes, which is more efficient in recursions but not on-chain verifications.
+   > **Note:** `--oracle-hash keccak` flag is used to generate UltraHonk proofs with Keccak hashes, as it is what the Solidity verifier is designed to be compatible with given the better gas efficiency when verifying on-chain; The default `--oracle-hash poseidon` in comparison generates proofs with Poseidon hashes, which is more efficient in recursions but not for on-chain verifications.
 
 2. Compute the verification key for your Noir program running:
 
