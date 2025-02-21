@@ -121,13 +121,13 @@ Account contracts are also expected, though not required by the protocol, to imp
 
 When executing a private function, this authorization is checked by requesting an authentication witness from the execution oracle, which is usually a signed message. Authentication Witness is a scheme for authenticating actions on Aztec, so users can allow third-parties (e.g. protocols or other users) to execute an action on their behalf.
 
-The user's [Private eXecution Environment (PXE)](../concepts/pxe/index.md) is responsible for storing these auth witnesses and returning them to the requesting account contract. Auth witnesses can belong to the current user executing the local transaction, or to another user who shared it out-of-band.
+The user's [Private eXecution Environment (PXE)](../pxe/index.md) is responsible for storing these auth witnesses and returning them to the requesting account contract. Auth witnesses can belong to the current user executing the local transaction, or to another user who shared it out-of-band.
 
 However, during a public function execution, it is not possible to retrieve a value from the local [oracle](../../smart_contracts/oracles/index.md). To support authorizations in public functions, account contracts should save in a public authwit registry what actions have been pre-authorized by their owner.
 
 These two patterns combined allow an account contract to answer whether an action `is_valid_impl` for a given user both in private and public contexts.
 
-You can read more about authorizing actions with authorization witnesses on [this page](./authwit.md).
+You can read more about authorizing actions with authorization witnesses on [this page](../advanced/authwit.md).
 
 :::info
 
