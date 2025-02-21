@@ -591,10 +591,7 @@ export class TXEService {
 
     const plaintextBuffer = await this.typedOracle.aes128Decrypt(ciphertextBuffer, ivBuffer, symKeyBuffer);
 
-    const result = toForeignCallResult(arrayToBoundedVec(bufferToU8Array(plaintextBuffer), ciphertextBuffer.length));
-    this.logger.debug('result', result);
-
-    return result;
+    return toForeignCallResult(arrayToBoundedVec(bufferToU8Array(plaintextBuffer), ciphertextBuffer.length));
   }
 
   // AVM opcodes
