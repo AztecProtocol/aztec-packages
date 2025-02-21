@@ -634,8 +634,6 @@ int main(int argc, char* argv[])
     debug_logging = flags.debug;
     verbose_logging = debug_logging || flags.verbose;
 
-    vinfo(flags);
-
     // prob this construction is too much
     const auto execute_command = [&](API& api) {
         if (check->parsed()) {
@@ -655,7 +653,9 @@ int main(int argc, char* argv[])
             return 0;
         }
         if (verify->parsed()) {
-            return api.verify(flags, proof_path, vk_path) ? 0 : 1;
+            const bool verified = api.verify(flags, proof_path, vk_path);
+            vinfo("verified: ", verified);
+            return verified ? 0 : 1;
         }
         if (write_contract->parsed()) {
             api.write_contract(flags, output_path, vk_path);
