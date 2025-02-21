@@ -43,6 +43,9 @@ function build {
     cache_upload $tests_tar acir_tests
   fi
 
+  # WORKTODO: remove this when Adam's component is finished
+  cp -r token_transfer ./acir_tests
+
   # TODO: Revisit. Update yarn.lock so it can be committed.
   # Be lenient about bb.js hash changing, even if we try to minimize the occurrences.
   denoise "cd browser-test-app && yarn add --dev @aztec/bb.js@portal:../../ts && yarn"
@@ -77,6 +80,9 @@ function test_cmds_internal {
   local run_test=$(realpath --relative-to=$root ./run_test.sh)
   local run_test_browser=$(realpath --relative-to=$root ./run_test_browser.sh)
   local bbjs_bin="../ts/dest/node/main.js"
+
+  # WORKTODO: remove this when Adam's component is finished
+  echo FLOW=prove_then_verify_client_ivc $run_test token_transfer
 
   # barretenberg-acir-tests-sol:
   echo FLOW=sol $run_test assert_statement
@@ -127,11 +133,6 @@ function test_cmds_internal {
   echo SYS=ultra_honk FLOW=prove_then_verify RECURSIVE=true $run_test double_verify_honk_proof
   echo SYS=ultra_honk FLOW=prove_then_verify HASH=keccak $run_test assert_statement
   echo SYS=ultra_honk FLOW=prove_then_verify ROLLUP=true $run_test verify_rollup_honk_proof
-
-  # barretenberg-acir-tests-bb-client-ivc:
-  echo FLOW=prove_then_verify_client_ivc $run_test 6_array
-  echo FLOW=prove_then_verify_client_ivc $run_test databus
-  echo FLOW=prove_then_verify_client_ivc $run_test databus_two_calldata
 }
 
 # TODO(https://github.com/AztecProtocol/barretenberg/issues/1254): More complete testing, including failure tests
