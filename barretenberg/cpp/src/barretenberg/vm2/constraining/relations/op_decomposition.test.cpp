@@ -191,13 +191,16 @@ std::unordered_map<WireOpCode, std::array<OperandLayout, NUM_OF_OPERANDS>> gen_o
 {
     std::unordered_map<WireOpCode, std::array<OperandLayout, NUM_OF_OPERANDS>> mapping;
 
-    for (const auto& [opcode, format] : simulation::WireOpCode_WIRE_FORMAT) {
+    const auto operand_type_sizes = simulation::get_operand_type_sizes();
+    const auto wire_formats = simulation::get_instruction_wire_formats();
+
+    for (const auto& [opcode, format] : wire_formats) {
         std::array<OperandLayout, 8> operands_layout_array;
         uint8_t op_idx = 1; // We start at index 1 because the index zero is reserved for indirect value.
         uint8_t byte_offset = 0;
 
         for (const auto& operand : format) {
-            const auto operand_len = static_cast<uint8_t>(simulation::OPERAND_TYPE_SIZE_BYTES.at(operand));
+            const auto operand_len = static_cast<uint8_t>(operand_type_sizes.at(operand));
             const auto op_layout = OperandLayout{ .offset = byte_offset, .len = operand_len };
 
             if (operand == OperandType::INDIRECT8 || operand == OperandType::INDIRECT16) {
@@ -303,9 +306,11 @@ TEST(DecompositionSelectors, CodeGen)
 
     info("const std::unordered_map<WireOpCode, std::array<uint8_t, NUM_OP_DC_SELECTORS>> WireOpCode_DC_SELECTORS = "
          "{");
+
+    const auto wire_formats = simulation::get_instruction_wire_formats();
     for (int i = 0; i < static_cast<int>(WireOpCode::LAST_OPCODE_SENTINEL); i++) {
         const auto wire_opcode = static_cast<WireOpCode>(i);
-        if (simulation::WireOpCode_WIRE_FORMAT.contains(wire_opcode)) {
+        if (wire_formats.contains(wire_opcode)) {
             info("{WireOpCode::", wire_opcode, ", ", render_selector_array(wire_opcode, bitmasks_vector), "},");
         }
     }
