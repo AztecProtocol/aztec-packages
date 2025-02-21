@@ -117,23 +117,23 @@ class AvmFlavor {
     template <typename FF_>
     using LookupRelations_ = std::tuple<
         // Lookups
-        abs_diff_is_u16_relation<FF_>,
-        byte_operations_relation<FF_>,
-        bytes_are_bytes_relation<FF_>,
-        bytes_to_read_as_unary_relation<FF_>,
-        dyn_diff_is_u16_relation<FF_>,
-        dyn_rng_chk_pow_2_relation<FF_>,
-        integral_tag_length_relation<FF_>,
-        poseidon2_perm_relation<FF_>,
-        r0_is_u16_relation<FF_>,
-        r1_is_u16_relation<FF_>,
-        r2_is_u16_relation<FF_>,
-        r3_is_u16_relation<FF_>,
-        r4_is_u16_relation<FF_>,
-        r5_is_u16_relation<FF_>,
-        r6_is_u16_relation<FF_>,
-        r7_is_u16_relation<FF_>,
-        round_constant_relation<FF_>>;
+        lookup_bc_decomposition_abs_diff_is_u16_relation<FF_>,
+        lookup_bc_decomposition_bytes_are_bytes_relation<FF_>,
+        lookup_bc_decomposition_bytes_to_read_as_unary_relation<FF_>,
+        lookup_bitwise_byte_operations_relation<FF_>,
+        lookup_bitwise_integral_tag_length_relation<FF_>,
+        lookup_poseidon2_hash_poseidon2_perm_relation<FF_>,
+        lookup_range_check_dyn_diff_is_u16_relation<FF_>,
+        lookup_range_check_dyn_rng_chk_pow_2_relation<FF_>,
+        lookup_range_check_r0_is_u16_relation<FF_>,
+        lookup_range_check_r1_is_u16_relation<FF_>,
+        lookup_range_check_r2_is_u16_relation<FF_>,
+        lookup_range_check_r3_is_u16_relation<FF_>,
+        lookup_range_check_r4_is_u16_relation<FF_>,
+        lookup_range_check_r5_is_u16_relation<FF_>,
+        lookup_range_check_r6_is_u16_relation<FF_>,
+        lookup_range_check_r7_is_u16_relation<FF_>,
+        lookup_sha256_round_constant_relation<FF_>>;
 
     using LookupRelations = LookupRelations_<FF>;
 

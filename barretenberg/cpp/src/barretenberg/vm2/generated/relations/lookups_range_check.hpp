@@ -10,11 +10,11 @@
 
 namespace bb::avm2 {
 
-/////////////////// dyn_rng_chk_pow_2 ///////////////////
+/////////////////// lookup_range_check_dyn_rng_chk_pow_2 ///////////////////
 
-class dyn_rng_chk_pow_2_lookup_settings {
+class lookup_range_check_dyn_rng_chk_pow_2_settings {
   public:
-    static constexpr std::string_view NAME = "DYN_RNG_CHK_POW_2";
+    static constexpr std::string_view NAME = "LOOKUP_RANGE_CHECK_DYN_RNG_CHK_POW_2";
     static constexpr std::string_view RELATION_NAME = "range_check";
 
     static constexpr size_t READ_TERMS = 1;
@@ -29,8 +29,8 @@ class dyn_rng_chk_pow_2_lookup_settings {
     // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::range_check_sel;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_8;
-    static constexpr Column COUNTS = Column::dyn_rng_chk_pow_2_counts;
-    static constexpr Column INVERSES = Column::dyn_rng_chk_pow_2_inv;
+    static constexpr Column COUNTS = Column::lookup_range_check_dyn_rng_chk_pow_2_counts;
+    static constexpr Column INVERSES = Column::lookup_range_check_dyn_rng_chk_pow_2_inv;
     static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::range_check_dyn_rng_chk_bits,
                                                                            Column::range_check_dyn_rng_chk_pow_2 };
     static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::precomputed_clk,
@@ -62,8 +62,8 @@ class dyn_rng_chk_pow_2_lookup_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._dyn_rng_chk_pow_2_inv(),
-                                     in._dyn_rng_chk_pow_2_counts(),
+        return std::forward_as_tuple(in._lookup_range_check_dyn_rng_chk_pow_2_inv(),
+                                     in._lookup_range_check_dyn_rng_chk_pow_2_counts(),
                                      in._range_check_sel(),
                                      in._precomputed_sel_range_8(),
                                      in._range_check_dyn_rng_chk_bits(),
@@ -74,15 +74,16 @@ class dyn_rng_chk_pow_2_lookup_settings {
 };
 
 template <typename FF_>
-class dyn_rng_chk_pow_2_relation : public GenericLookupRelation<dyn_rng_chk_pow_2_lookup_settings, FF_> {
+class lookup_range_check_dyn_rng_chk_pow_2_relation
+    : public GenericLookupRelation<lookup_range_check_dyn_rng_chk_pow_2_settings, FF_> {
   public:
-    using Settings = dyn_rng_chk_pow_2_lookup_settings;
-    static constexpr std::string_view NAME = dyn_rng_chk_pow_2_lookup_settings::NAME;
-    static constexpr std::string_view RELATION_NAME = dyn_rng_chk_pow_2_lookup_settings::RELATION_NAME;
+    using Settings = lookup_range_check_dyn_rng_chk_pow_2_settings;
+    static constexpr std::string_view NAME = lookup_range_check_dyn_rng_chk_pow_2_settings::NAME;
+    static constexpr std::string_view RELATION_NAME = lookup_range_check_dyn_rng_chk_pow_2_settings::RELATION_NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.dyn_rng_chk_pow_2_inv.is_zero();
+        return in.lookup_range_check_dyn_rng_chk_pow_2_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)
@@ -96,11 +97,11 @@ class dyn_rng_chk_pow_2_relation : public GenericLookupRelation<dyn_rng_chk_pow_
     }
 };
 
-/////////////////// dyn_diff_is_u16 ///////////////////
+/////////////////// lookup_range_check_dyn_diff_is_u16 ///////////////////
 
-class dyn_diff_is_u16_lookup_settings {
+class lookup_range_check_dyn_diff_is_u16_settings {
   public:
-    static constexpr std::string_view NAME = "DYN_DIFF_IS_U16";
+    static constexpr std::string_view NAME = "LOOKUP_RANGE_CHECK_DYN_DIFF_IS_U16";
     static constexpr std::string_view RELATION_NAME = "range_check";
 
     static constexpr size_t READ_TERMS = 1;
@@ -115,8 +116,8 @@ class dyn_diff_is_u16_lookup_settings {
     // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::range_check_sel;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
-    static constexpr Column COUNTS = Column::dyn_diff_is_u16_counts;
-    static constexpr Column INVERSES = Column::dyn_diff_is_u16_inv;
+    static constexpr Column COUNTS = Column::lookup_range_check_dyn_diff_is_u16_counts;
+    static constexpr Column INVERSES = Column::lookup_range_check_dyn_diff_is_u16_inv;
     static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::range_check_dyn_diff };
     static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::precomputed_clk };
 
@@ -146,8 +147,8 @@ class dyn_diff_is_u16_lookup_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._dyn_diff_is_u16_inv(),
-                                     in._dyn_diff_is_u16_counts(),
+        return std::forward_as_tuple(in._lookup_range_check_dyn_diff_is_u16_inv(),
+                                     in._lookup_range_check_dyn_diff_is_u16_counts(),
                                      in._range_check_sel(),
                                      in._precomputed_sel_range_16(),
                                      in._range_check_dyn_diff(),
@@ -156,15 +157,16 @@ class dyn_diff_is_u16_lookup_settings {
 };
 
 template <typename FF_>
-class dyn_diff_is_u16_relation : public GenericLookupRelation<dyn_diff_is_u16_lookup_settings, FF_> {
+class lookup_range_check_dyn_diff_is_u16_relation
+    : public GenericLookupRelation<lookup_range_check_dyn_diff_is_u16_settings, FF_> {
   public:
-    using Settings = dyn_diff_is_u16_lookup_settings;
-    static constexpr std::string_view NAME = dyn_diff_is_u16_lookup_settings::NAME;
-    static constexpr std::string_view RELATION_NAME = dyn_diff_is_u16_lookup_settings::RELATION_NAME;
+    using Settings = lookup_range_check_dyn_diff_is_u16_settings;
+    static constexpr std::string_view NAME = lookup_range_check_dyn_diff_is_u16_settings::NAME;
+    static constexpr std::string_view RELATION_NAME = lookup_range_check_dyn_diff_is_u16_settings::RELATION_NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.dyn_diff_is_u16_inv.is_zero();
+        return in.lookup_range_check_dyn_diff_is_u16_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)
@@ -178,11 +180,11 @@ class dyn_diff_is_u16_relation : public GenericLookupRelation<dyn_diff_is_u16_lo
     }
 };
 
-/////////////////// r0_is_u16 ///////////////////
+/////////////////// lookup_range_check_r0_is_u16 ///////////////////
 
-class r0_is_u16_lookup_settings {
+class lookup_range_check_r0_is_u16_settings {
   public:
-    static constexpr std::string_view NAME = "R0_IS_U16";
+    static constexpr std::string_view NAME = "LOOKUP_RANGE_CHECK_R0_IS_U16";
     static constexpr std::string_view RELATION_NAME = "range_check";
 
     static constexpr size_t READ_TERMS = 1;
@@ -197,8 +199,8 @@ class r0_is_u16_lookup_settings {
     // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::range_check_sel_r0_16_bit_rng_lookup;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
-    static constexpr Column COUNTS = Column::r0_is_u16_counts;
-    static constexpr Column INVERSES = Column::r0_is_u16_inv;
+    static constexpr Column COUNTS = Column::lookup_range_check_r0_is_u16_counts;
+    static constexpr Column INVERSES = Column::lookup_range_check_r0_is_u16_inv;
     static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::range_check_u16_r0 };
     static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::precomputed_clk };
 
@@ -228,8 +230,8 @@ class r0_is_u16_lookup_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._r0_is_u16_inv(),
-                                     in._r0_is_u16_counts(),
+        return std::forward_as_tuple(in._lookup_range_check_r0_is_u16_inv(),
+                                     in._lookup_range_check_r0_is_u16_counts(),
                                      in._range_check_sel_r0_16_bit_rng_lookup(),
                                      in._precomputed_sel_range_16(),
                                      in._range_check_u16_r0(),
@@ -237,15 +239,16 @@ class r0_is_u16_lookup_settings {
     }
 };
 
-template <typename FF_> class r0_is_u16_relation : public GenericLookupRelation<r0_is_u16_lookup_settings, FF_> {
+template <typename FF_>
+class lookup_range_check_r0_is_u16_relation : public GenericLookupRelation<lookup_range_check_r0_is_u16_settings, FF_> {
   public:
-    using Settings = r0_is_u16_lookup_settings;
-    static constexpr std::string_view NAME = r0_is_u16_lookup_settings::NAME;
-    static constexpr std::string_view RELATION_NAME = r0_is_u16_lookup_settings::RELATION_NAME;
+    using Settings = lookup_range_check_r0_is_u16_settings;
+    static constexpr std::string_view NAME = lookup_range_check_r0_is_u16_settings::NAME;
+    static constexpr std::string_view RELATION_NAME = lookup_range_check_r0_is_u16_settings::RELATION_NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.r0_is_u16_inv.is_zero();
+        return in.lookup_range_check_r0_is_u16_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)
@@ -259,11 +262,11 @@ template <typename FF_> class r0_is_u16_relation : public GenericLookupRelation<
     }
 };
 
-/////////////////// r1_is_u16 ///////////////////
+/////////////////// lookup_range_check_r1_is_u16 ///////////////////
 
-class r1_is_u16_lookup_settings {
+class lookup_range_check_r1_is_u16_settings {
   public:
-    static constexpr std::string_view NAME = "R1_IS_U16";
+    static constexpr std::string_view NAME = "LOOKUP_RANGE_CHECK_R1_IS_U16";
     static constexpr std::string_view RELATION_NAME = "range_check";
 
     static constexpr size_t READ_TERMS = 1;
@@ -278,8 +281,8 @@ class r1_is_u16_lookup_settings {
     // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::range_check_sel_r1_16_bit_rng_lookup;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
-    static constexpr Column COUNTS = Column::r1_is_u16_counts;
-    static constexpr Column INVERSES = Column::r1_is_u16_inv;
+    static constexpr Column COUNTS = Column::lookup_range_check_r1_is_u16_counts;
+    static constexpr Column INVERSES = Column::lookup_range_check_r1_is_u16_inv;
     static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::range_check_u16_r1 };
     static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::precomputed_clk };
 
@@ -309,8 +312,8 @@ class r1_is_u16_lookup_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._r1_is_u16_inv(),
-                                     in._r1_is_u16_counts(),
+        return std::forward_as_tuple(in._lookup_range_check_r1_is_u16_inv(),
+                                     in._lookup_range_check_r1_is_u16_counts(),
                                      in._range_check_sel_r1_16_bit_rng_lookup(),
                                      in._precomputed_sel_range_16(),
                                      in._range_check_u16_r1(),
@@ -318,15 +321,16 @@ class r1_is_u16_lookup_settings {
     }
 };
 
-template <typename FF_> class r1_is_u16_relation : public GenericLookupRelation<r1_is_u16_lookup_settings, FF_> {
+template <typename FF_>
+class lookup_range_check_r1_is_u16_relation : public GenericLookupRelation<lookup_range_check_r1_is_u16_settings, FF_> {
   public:
-    using Settings = r1_is_u16_lookup_settings;
-    static constexpr std::string_view NAME = r1_is_u16_lookup_settings::NAME;
-    static constexpr std::string_view RELATION_NAME = r1_is_u16_lookup_settings::RELATION_NAME;
+    using Settings = lookup_range_check_r1_is_u16_settings;
+    static constexpr std::string_view NAME = lookup_range_check_r1_is_u16_settings::NAME;
+    static constexpr std::string_view RELATION_NAME = lookup_range_check_r1_is_u16_settings::RELATION_NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.r1_is_u16_inv.is_zero();
+        return in.lookup_range_check_r1_is_u16_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)
@@ -340,11 +344,11 @@ template <typename FF_> class r1_is_u16_relation : public GenericLookupRelation<
     }
 };
 
-/////////////////// r2_is_u16 ///////////////////
+/////////////////// lookup_range_check_r2_is_u16 ///////////////////
 
-class r2_is_u16_lookup_settings {
+class lookup_range_check_r2_is_u16_settings {
   public:
-    static constexpr std::string_view NAME = "R2_IS_U16";
+    static constexpr std::string_view NAME = "LOOKUP_RANGE_CHECK_R2_IS_U16";
     static constexpr std::string_view RELATION_NAME = "range_check";
 
     static constexpr size_t READ_TERMS = 1;
@@ -359,8 +363,8 @@ class r2_is_u16_lookup_settings {
     // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::range_check_sel_r2_16_bit_rng_lookup;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
-    static constexpr Column COUNTS = Column::r2_is_u16_counts;
-    static constexpr Column INVERSES = Column::r2_is_u16_inv;
+    static constexpr Column COUNTS = Column::lookup_range_check_r2_is_u16_counts;
+    static constexpr Column INVERSES = Column::lookup_range_check_r2_is_u16_inv;
     static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::range_check_u16_r2 };
     static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::precomputed_clk };
 
@@ -390,8 +394,8 @@ class r2_is_u16_lookup_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._r2_is_u16_inv(),
-                                     in._r2_is_u16_counts(),
+        return std::forward_as_tuple(in._lookup_range_check_r2_is_u16_inv(),
+                                     in._lookup_range_check_r2_is_u16_counts(),
                                      in._range_check_sel_r2_16_bit_rng_lookup(),
                                      in._precomputed_sel_range_16(),
                                      in._range_check_u16_r2(),
@@ -399,15 +403,16 @@ class r2_is_u16_lookup_settings {
     }
 };
 
-template <typename FF_> class r2_is_u16_relation : public GenericLookupRelation<r2_is_u16_lookup_settings, FF_> {
+template <typename FF_>
+class lookup_range_check_r2_is_u16_relation : public GenericLookupRelation<lookup_range_check_r2_is_u16_settings, FF_> {
   public:
-    using Settings = r2_is_u16_lookup_settings;
-    static constexpr std::string_view NAME = r2_is_u16_lookup_settings::NAME;
-    static constexpr std::string_view RELATION_NAME = r2_is_u16_lookup_settings::RELATION_NAME;
+    using Settings = lookup_range_check_r2_is_u16_settings;
+    static constexpr std::string_view NAME = lookup_range_check_r2_is_u16_settings::NAME;
+    static constexpr std::string_view RELATION_NAME = lookup_range_check_r2_is_u16_settings::RELATION_NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.r2_is_u16_inv.is_zero();
+        return in.lookup_range_check_r2_is_u16_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)
@@ -421,11 +426,11 @@ template <typename FF_> class r2_is_u16_relation : public GenericLookupRelation<
     }
 };
 
-/////////////////// r3_is_u16 ///////////////////
+/////////////////// lookup_range_check_r3_is_u16 ///////////////////
 
-class r3_is_u16_lookup_settings {
+class lookup_range_check_r3_is_u16_settings {
   public:
-    static constexpr std::string_view NAME = "R3_IS_U16";
+    static constexpr std::string_view NAME = "LOOKUP_RANGE_CHECK_R3_IS_U16";
     static constexpr std::string_view RELATION_NAME = "range_check";
 
     static constexpr size_t READ_TERMS = 1;
@@ -440,8 +445,8 @@ class r3_is_u16_lookup_settings {
     // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::range_check_sel_r3_16_bit_rng_lookup;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
-    static constexpr Column COUNTS = Column::r3_is_u16_counts;
-    static constexpr Column INVERSES = Column::r3_is_u16_inv;
+    static constexpr Column COUNTS = Column::lookup_range_check_r3_is_u16_counts;
+    static constexpr Column INVERSES = Column::lookup_range_check_r3_is_u16_inv;
     static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::range_check_u16_r3 };
     static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::precomputed_clk };
 
@@ -471,8 +476,8 @@ class r3_is_u16_lookup_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._r3_is_u16_inv(),
-                                     in._r3_is_u16_counts(),
+        return std::forward_as_tuple(in._lookup_range_check_r3_is_u16_inv(),
+                                     in._lookup_range_check_r3_is_u16_counts(),
                                      in._range_check_sel_r3_16_bit_rng_lookup(),
                                      in._precomputed_sel_range_16(),
                                      in._range_check_u16_r3(),
@@ -480,15 +485,16 @@ class r3_is_u16_lookup_settings {
     }
 };
 
-template <typename FF_> class r3_is_u16_relation : public GenericLookupRelation<r3_is_u16_lookup_settings, FF_> {
+template <typename FF_>
+class lookup_range_check_r3_is_u16_relation : public GenericLookupRelation<lookup_range_check_r3_is_u16_settings, FF_> {
   public:
-    using Settings = r3_is_u16_lookup_settings;
-    static constexpr std::string_view NAME = r3_is_u16_lookup_settings::NAME;
-    static constexpr std::string_view RELATION_NAME = r3_is_u16_lookup_settings::RELATION_NAME;
+    using Settings = lookup_range_check_r3_is_u16_settings;
+    static constexpr std::string_view NAME = lookup_range_check_r3_is_u16_settings::NAME;
+    static constexpr std::string_view RELATION_NAME = lookup_range_check_r3_is_u16_settings::RELATION_NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.r3_is_u16_inv.is_zero();
+        return in.lookup_range_check_r3_is_u16_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)
@@ -502,11 +508,11 @@ template <typename FF_> class r3_is_u16_relation : public GenericLookupRelation<
     }
 };
 
-/////////////////// r4_is_u16 ///////////////////
+/////////////////// lookup_range_check_r4_is_u16 ///////////////////
 
-class r4_is_u16_lookup_settings {
+class lookup_range_check_r4_is_u16_settings {
   public:
-    static constexpr std::string_view NAME = "R4_IS_U16";
+    static constexpr std::string_view NAME = "LOOKUP_RANGE_CHECK_R4_IS_U16";
     static constexpr std::string_view RELATION_NAME = "range_check";
 
     static constexpr size_t READ_TERMS = 1;
@@ -521,8 +527,8 @@ class r4_is_u16_lookup_settings {
     // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::range_check_sel_r4_16_bit_rng_lookup;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
-    static constexpr Column COUNTS = Column::r4_is_u16_counts;
-    static constexpr Column INVERSES = Column::r4_is_u16_inv;
+    static constexpr Column COUNTS = Column::lookup_range_check_r4_is_u16_counts;
+    static constexpr Column INVERSES = Column::lookup_range_check_r4_is_u16_inv;
     static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::range_check_u16_r4 };
     static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::precomputed_clk };
 
@@ -552,8 +558,8 @@ class r4_is_u16_lookup_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._r4_is_u16_inv(),
-                                     in._r4_is_u16_counts(),
+        return std::forward_as_tuple(in._lookup_range_check_r4_is_u16_inv(),
+                                     in._lookup_range_check_r4_is_u16_counts(),
                                      in._range_check_sel_r4_16_bit_rng_lookup(),
                                      in._precomputed_sel_range_16(),
                                      in._range_check_u16_r4(),
@@ -561,15 +567,16 @@ class r4_is_u16_lookup_settings {
     }
 };
 
-template <typename FF_> class r4_is_u16_relation : public GenericLookupRelation<r4_is_u16_lookup_settings, FF_> {
+template <typename FF_>
+class lookup_range_check_r4_is_u16_relation : public GenericLookupRelation<lookup_range_check_r4_is_u16_settings, FF_> {
   public:
-    using Settings = r4_is_u16_lookup_settings;
-    static constexpr std::string_view NAME = r4_is_u16_lookup_settings::NAME;
-    static constexpr std::string_view RELATION_NAME = r4_is_u16_lookup_settings::RELATION_NAME;
+    using Settings = lookup_range_check_r4_is_u16_settings;
+    static constexpr std::string_view NAME = lookup_range_check_r4_is_u16_settings::NAME;
+    static constexpr std::string_view RELATION_NAME = lookup_range_check_r4_is_u16_settings::RELATION_NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.r4_is_u16_inv.is_zero();
+        return in.lookup_range_check_r4_is_u16_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)
@@ -583,11 +590,11 @@ template <typename FF_> class r4_is_u16_relation : public GenericLookupRelation<
     }
 };
 
-/////////////////// r5_is_u16 ///////////////////
+/////////////////// lookup_range_check_r5_is_u16 ///////////////////
 
-class r5_is_u16_lookup_settings {
+class lookup_range_check_r5_is_u16_settings {
   public:
-    static constexpr std::string_view NAME = "R5_IS_U16";
+    static constexpr std::string_view NAME = "LOOKUP_RANGE_CHECK_R5_IS_U16";
     static constexpr std::string_view RELATION_NAME = "range_check";
 
     static constexpr size_t READ_TERMS = 1;
@@ -602,8 +609,8 @@ class r5_is_u16_lookup_settings {
     // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::range_check_sel_r5_16_bit_rng_lookup;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
-    static constexpr Column COUNTS = Column::r5_is_u16_counts;
-    static constexpr Column INVERSES = Column::r5_is_u16_inv;
+    static constexpr Column COUNTS = Column::lookup_range_check_r5_is_u16_counts;
+    static constexpr Column INVERSES = Column::lookup_range_check_r5_is_u16_inv;
     static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::range_check_u16_r5 };
     static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::precomputed_clk };
 
@@ -633,8 +640,8 @@ class r5_is_u16_lookup_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._r5_is_u16_inv(),
-                                     in._r5_is_u16_counts(),
+        return std::forward_as_tuple(in._lookup_range_check_r5_is_u16_inv(),
+                                     in._lookup_range_check_r5_is_u16_counts(),
                                      in._range_check_sel_r5_16_bit_rng_lookup(),
                                      in._precomputed_sel_range_16(),
                                      in._range_check_u16_r5(),
@@ -642,15 +649,16 @@ class r5_is_u16_lookup_settings {
     }
 };
 
-template <typename FF_> class r5_is_u16_relation : public GenericLookupRelation<r5_is_u16_lookup_settings, FF_> {
+template <typename FF_>
+class lookup_range_check_r5_is_u16_relation : public GenericLookupRelation<lookup_range_check_r5_is_u16_settings, FF_> {
   public:
-    using Settings = r5_is_u16_lookup_settings;
-    static constexpr std::string_view NAME = r5_is_u16_lookup_settings::NAME;
-    static constexpr std::string_view RELATION_NAME = r5_is_u16_lookup_settings::RELATION_NAME;
+    using Settings = lookup_range_check_r5_is_u16_settings;
+    static constexpr std::string_view NAME = lookup_range_check_r5_is_u16_settings::NAME;
+    static constexpr std::string_view RELATION_NAME = lookup_range_check_r5_is_u16_settings::RELATION_NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.r5_is_u16_inv.is_zero();
+        return in.lookup_range_check_r5_is_u16_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)
@@ -664,11 +672,11 @@ template <typename FF_> class r5_is_u16_relation : public GenericLookupRelation<
     }
 };
 
-/////////////////// r6_is_u16 ///////////////////
+/////////////////// lookup_range_check_r6_is_u16 ///////////////////
 
-class r6_is_u16_lookup_settings {
+class lookup_range_check_r6_is_u16_settings {
   public:
-    static constexpr std::string_view NAME = "R6_IS_U16";
+    static constexpr std::string_view NAME = "LOOKUP_RANGE_CHECK_R6_IS_U16";
     static constexpr std::string_view RELATION_NAME = "range_check";
 
     static constexpr size_t READ_TERMS = 1;
@@ -683,8 +691,8 @@ class r6_is_u16_lookup_settings {
     // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::range_check_sel_r6_16_bit_rng_lookup;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
-    static constexpr Column COUNTS = Column::r6_is_u16_counts;
-    static constexpr Column INVERSES = Column::r6_is_u16_inv;
+    static constexpr Column COUNTS = Column::lookup_range_check_r6_is_u16_counts;
+    static constexpr Column INVERSES = Column::lookup_range_check_r6_is_u16_inv;
     static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::range_check_u16_r6 };
     static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::precomputed_clk };
 
@@ -714,8 +722,8 @@ class r6_is_u16_lookup_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._r6_is_u16_inv(),
-                                     in._r6_is_u16_counts(),
+        return std::forward_as_tuple(in._lookup_range_check_r6_is_u16_inv(),
+                                     in._lookup_range_check_r6_is_u16_counts(),
                                      in._range_check_sel_r6_16_bit_rng_lookup(),
                                      in._precomputed_sel_range_16(),
                                      in._range_check_u16_r6(),
@@ -723,15 +731,16 @@ class r6_is_u16_lookup_settings {
     }
 };
 
-template <typename FF_> class r6_is_u16_relation : public GenericLookupRelation<r6_is_u16_lookup_settings, FF_> {
+template <typename FF_>
+class lookup_range_check_r6_is_u16_relation : public GenericLookupRelation<lookup_range_check_r6_is_u16_settings, FF_> {
   public:
-    using Settings = r6_is_u16_lookup_settings;
-    static constexpr std::string_view NAME = r6_is_u16_lookup_settings::NAME;
-    static constexpr std::string_view RELATION_NAME = r6_is_u16_lookup_settings::RELATION_NAME;
+    using Settings = lookup_range_check_r6_is_u16_settings;
+    static constexpr std::string_view NAME = lookup_range_check_r6_is_u16_settings::NAME;
+    static constexpr std::string_view RELATION_NAME = lookup_range_check_r6_is_u16_settings::RELATION_NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.r6_is_u16_inv.is_zero();
+        return in.lookup_range_check_r6_is_u16_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)
@@ -745,11 +754,11 @@ template <typename FF_> class r6_is_u16_relation : public GenericLookupRelation<
     }
 };
 
-/////////////////// r7_is_u16 ///////////////////
+/////////////////// lookup_range_check_r7_is_u16 ///////////////////
 
-class r7_is_u16_lookup_settings {
+class lookup_range_check_r7_is_u16_settings {
   public:
-    static constexpr std::string_view NAME = "R7_IS_U16";
+    static constexpr std::string_view NAME = "LOOKUP_RANGE_CHECK_R7_IS_U16";
     static constexpr std::string_view RELATION_NAME = "range_check";
 
     static constexpr size_t READ_TERMS = 1;
@@ -764,8 +773,8 @@ class r7_is_u16_lookup_settings {
     // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::range_check_sel;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
-    static constexpr Column COUNTS = Column::r7_is_u16_counts;
-    static constexpr Column INVERSES = Column::r7_is_u16_inv;
+    static constexpr Column COUNTS = Column::lookup_range_check_r7_is_u16_counts;
+    static constexpr Column INVERSES = Column::lookup_range_check_r7_is_u16_inv;
     static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::range_check_u16_r7 };
     static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::precomputed_clk };
 
@@ -795,8 +804,8 @@ class r7_is_u16_lookup_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._r7_is_u16_inv(),
-                                     in._r7_is_u16_counts(),
+        return std::forward_as_tuple(in._lookup_range_check_r7_is_u16_inv(),
+                                     in._lookup_range_check_r7_is_u16_counts(),
                                      in._range_check_sel(),
                                      in._precomputed_sel_range_16(),
                                      in._range_check_u16_r7(),
@@ -804,15 +813,16 @@ class r7_is_u16_lookup_settings {
     }
 };
 
-template <typename FF_> class r7_is_u16_relation : public GenericLookupRelation<r7_is_u16_lookup_settings, FF_> {
+template <typename FF_>
+class lookup_range_check_r7_is_u16_relation : public GenericLookupRelation<lookup_range_check_r7_is_u16_settings, FF_> {
   public:
-    using Settings = r7_is_u16_lookup_settings;
-    static constexpr std::string_view NAME = r7_is_u16_lookup_settings::NAME;
-    static constexpr std::string_view RELATION_NAME = r7_is_u16_lookup_settings::RELATION_NAME;
+    using Settings = lookup_range_check_r7_is_u16_settings;
+    static constexpr std::string_view NAME = lookup_range_check_r7_is_u16_settings::NAME;
+    static constexpr std::string_view RELATION_NAME = lookup_range_check_r7_is_u16_settings::RELATION_NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.r7_is_u16_inv.is_zero();
+        return in.lookup_range_check_r7_is_u16_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)

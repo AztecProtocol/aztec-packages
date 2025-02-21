@@ -10,11 +10,11 @@
 
 namespace bb::avm2 {
 
-/////////////////// poseidon2_perm ///////////////////
+/////////////////// lookup_poseidon2_hash_poseidon2_perm ///////////////////
 
-class poseidon2_perm_lookup_settings {
+class lookup_poseidon2_hash_poseidon2_perm_settings {
   public:
-    static constexpr std::string_view NAME = "POSEIDON2_PERM";
+    static constexpr std::string_view NAME = "LOOKUP_POSEIDON2_HASH_POSEIDON2_PERM";
     static constexpr std::string_view RELATION_NAME = "poseidon2_hash";
 
     static constexpr size_t READ_TERMS = 1;
@@ -29,8 +29,8 @@ class poseidon2_perm_lookup_settings {
     // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::poseidon2_hash_sel;
     static constexpr Column DST_SELECTOR = Column::poseidon2_perm_sel;
-    static constexpr Column COUNTS = Column::poseidon2_perm_counts;
-    static constexpr Column INVERSES = Column::poseidon2_perm_inv;
+    static constexpr Column COUNTS = Column::lookup_poseidon2_hash_poseidon2_perm_counts;
+    static constexpr Column INVERSES = Column::lookup_poseidon2_hash_poseidon2_perm_inv;
     static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         Column::poseidon2_hash_a_0, Column::poseidon2_hash_a_1, Column::poseidon2_hash_a_2, Column::poseidon2_hash_a_3,
         Column::poseidon2_hash_b_0, Column::poseidon2_hash_b_1, Column::poseidon2_hash_b_2, Column::poseidon2_hash_b_3
@@ -66,8 +66,8 @@ class poseidon2_perm_lookup_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._poseidon2_perm_inv(),
-                                     in._poseidon2_perm_counts(),
+        return std::forward_as_tuple(in._lookup_poseidon2_hash_poseidon2_perm_inv(),
+                                     in._lookup_poseidon2_hash_poseidon2_perm_counts(),
                                      in._poseidon2_hash_sel(),
                                      in._poseidon2_perm_sel(),
                                      in._poseidon2_hash_a_0(),
@@ -90,15 +90,16 @@ class poseidon2_perm_lookup_settings {
 };
 
 template <typename FF_>
-class poseidon2_perm_relation : public GenericLookupRelation<poseidon2_perm_lookup_settings, FF_> {
+class lookup_poseidon2_hash_poseidon2_perm_relation
+    : public GenericLookupRelation<lookup_poseidon2_hash_poseidon2_perm_settings, FF_> {
   public:
-    using Settings = poseidon2_perm_lookup_settings;
-    static constexpr std::string_view NAME = poseidon2_perm_lookup_settings::NAME;
-    static constexpr std::string_view RELATION_NAME = poseidon2_perm_lookup_settings::RELATION_NAME;
+    using Settings = lookup_poseidon2_hash_poseidon2_perm_settings;
+    static constexpr std::string_view NAME = lookup_poseidon2_hash_poseidon2_perm_settings::NAME;
+    static constexpr std::string_view RELATION_NAME = lookup_poseidon2_hash_poseidon2_perm_settings::RELATION_NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.poseidon2_perm_inv.is_zero();
+        return in.lookup_poseidon2_hash_poseidon2_perm_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)
