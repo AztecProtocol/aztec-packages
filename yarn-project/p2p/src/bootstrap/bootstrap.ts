@@ -42,7 +42,7 @@ export class BootstrapNode implements P2PBootstrapApi {
     const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey);
     this.peerId = peerId;
 
-    const enr = await createBootnodeENR(peerIdPrivateKey, udpAnnounceAddress, config.aztecNetworkId);
+    const enr = await createBootnodeENR(peerIdPrivateKey, udpAnnounceAddress);
 
     this.logger.debug(`Starting bootstrap node ${peerId} listening on ${listenAddrUdp.toString()}`);
 
@@ -72,7 +72,6 @@ export class BootstrapNode implements P2PBootstrapApi {
         peerId,
         enr: enr.encodeTxt(),
         addr: listenAddrUdp.toString(),
-        versions,
       });
     } catch (e) {
       this.logger.error('Error starting Discv5', e);

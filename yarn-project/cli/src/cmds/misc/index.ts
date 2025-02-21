@@ -36,16 +36,9 @@ export function injectCommands(program: Command, log: LogFn) {
     .description('Generates the encoded ENR record for a bootnode.')
     .argument('<privateKey>', 'The peer id private key of the bootnode')
     .argument('<udpAnnounceAddress>', 'The bootnode UDP announce address')
-    .argument('<network>', `The network name, must be one of ${Object.keys(AztecENR).filter(k => isNaN(Number(k)))}`)
-    .action(async (privateKey: string, udpAnnounceAddress: string, network: string) => {
-      const keys = Object.keys(AztecENR).filter(k => isNaN(Number(k)));
-      if (!keys.includes(network)) {
-        log(`Invalid network: ${network}`);
-        return;
-      }
-      const valid = network as keyof typeof AztecENR;
+    .action(async (privateKey: string, udpAnnounceAddress: string) => {
       const { generateEncodedBootnodeENR } = await import('./generate_bootnode_enr.js');
-      await generateEncodedBootnodeENR(privateKey, udpAnnounceAddress, valid, log);
+      await generateEncodedBootnodeENR(privateKey, udpAnnounceAddress, log);
     });
 
   program

@@ -349,10 +349,6 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
       'The number of transactions that will be archived. If the limit is set to 0 then archiving will be disabled.',
     ...numberConfigHelper(0),
   },
-  aztecNetworkId: {
-    env: 'AZTEC_NETWORK_ID',
-    description: 'The aztec network identifier.',
-  },
   ...p2pReqRespConfigMappings,
   ...chainConfigMappings,
 };
@@ -372,10 +368,7 @@ export function getP2PDefaultConfig(): P2PConfig {
 /**
  * Required P2P config values for a bootstrap node.
  */
-export type BootnodeConfig = Pick<
-  P2PConfig,
-  'udpAnnounceAddress' | 'peerIdPrivateKey' | 'aztecNetworkId' | 'bootstrapNodes'
-> &
+export type BootnodeConfig = Pick<P2PConfig, 'udpAnnounceAddress' | 'peerIdPrivateKey' | 'bootstrapNodes'> &
   Required<Pick<P2PConfig, 'udpListenAddress'>> &
   Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKB'> &
   ChainConfig;
@@ -386,7 +379,6 @@ const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
   'udpListenAddress',
   'dataDirectory',
   'dataStoreMapSizeKB',
-  'aztecNetworkId',
   'bootstrapNodes',
 ];
 

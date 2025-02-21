@@ -7,8 +7,3 @@ variable "p2p_udp_ports" {
   description = "List of allowed P2P UDP ports"
   type        = list(string)
 }
-
-variable "chain_id" {
-  description = "A chain identifier"
-  type        = string
-}
