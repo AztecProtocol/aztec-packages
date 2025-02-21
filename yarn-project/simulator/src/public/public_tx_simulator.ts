@@ -8,7 +8,11 @@ import {
 } from '@aztec/circuit-types';
 import { type AvmProvingRequest, type MerkleTreeReadOperations } from '@aztec/circuit-types/interfaces/server';
 import { type AvmSimulationStats } from '@aztec/circuit-types/stats';
-import { type Fr, type Gas, type GlobalVariables, type PublicCallRequest, type RevertCode } from '@aztec/circuits.js';
+import type { RevertCode } from '@aztec/circuits.js/avm';
+import type { Gas } from '@aztec/circuits.js/gas';
+import type { PublicCallRequest } from '@aztec/circuits.js/kernel';
+import { type GlobalVariables } from '@aztec/circuits.js/tx';
+import type { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';

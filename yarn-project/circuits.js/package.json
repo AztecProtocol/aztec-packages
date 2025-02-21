@@ -32,7 +32,8 @@
     "./proofs": "./dest/proofs/index.js",
     "./messaging": "./dest/messaging/index.js",
     "./gas": "./dest/gas/index.js",
-    "./tx": "./dest/tx/index.js"
+    "./tx": "./dest/tx/index.js",
+    "./fees": "./dest/fees/index.js"
   },
   "typedocOptions": {
     "entryPoints": [

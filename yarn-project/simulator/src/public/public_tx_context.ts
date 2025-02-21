@@ -11,27 +11,20 @@ import {
   type MerkleTreeReadOperations,
   ProvingRequestType,
 } from '@aztec/circuit-types/interfaces/server';
-import {
-  type AztecAddress,
-  Fr,
-  Gas,
-  type GasSettings,
-  type GlobalVariables,
-  PublicCallRequest,
-  PublicDataWrite,
-  RevertCode,
-  type StateReference,
-  TreeSnapshots,
-  computeTransactionFee,
-  countAccumulatedItems,
-  mergeAccumulatedData,
-} from '@aztec/circuits.js';
+import { PublicDataWrite, RevertCode } from '@aztec/circuits.js/avm';
 import { AvmCircuitInputs, type AvmCircuitPublicInputs } from '@aztec/circuits.js/avm';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { computeTransactionFee } from '@aztec/circuits.js/fees';
+import { Gas, GasSettings } from '@aztec/circuits.js/gas';
 import {
   PrivateToAvmAccumulatedData,
   PrivateToAvmAccumulatedDataArrayLengths,
   type PrivateToPublicAccumulatedData,
+  PublicCallRequest,
+  countAccumulatedItems,
+  mergeAccumulatedData,
 } from '@aztec/circuits.js/kernel';
+import { type GlobalVariables, type StateReference, TreeSnapshots } from '@aztec/circuits.js/tx';
 import {
   MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
   MAX_L2_TO_L1_MSGS_PER_TX,
@@ -41,6 +34,7 @@ import {
   NULLIFIER_SUBTREE_HEIGHT,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
 

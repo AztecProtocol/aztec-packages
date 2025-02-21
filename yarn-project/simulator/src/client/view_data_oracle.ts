@@ -1,21 +1,17 @@
 import {
   type AuthWitness,
   type Capsule,
-  type CompleteAddress,
   type MerkleTreeId,
   type NoteStatus,
   type PublicDataWitness,
 } from '@aztec/circuit-types';
 import { type AztecNode, type NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/client';
-import {
-  type BlockHeader,
-  type ContractInstance,
-  type IndexedTaggingSecret,
-  type KeyValidationRequest,
-} from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { CompleteAddress, ContractInstance } from '@aztec/circuits.js/contract';
 import { siloNullifier } from '@aztec/circuits.js/hash';
-import { LogWithTxData } from '@aztec/circuits.js/logs';
+import type { KeyValidationRequest } from '@aztec/circuits.js/kernel';
+import { IndexedTaggingSecret, LogWithTxData } from '@aztec/circuits.js/logs';
+import { type BlockHeader } from '@aztec/circuits.js/tx';
 import { Aes128 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { applyStringFormatting, createLogger } from '@aztec/foundation/log';

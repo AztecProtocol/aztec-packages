@@ -4,3 +4,8 @@ export * from './avm_circuit_public_inputs.js';
 export * from './revert_code.js';
 export * from './public_data_write.js';
 export * from './public_data_hint.js';
+export * from './public_data_update_request.js';
+export * from './contract_storage_update_request.js';
+export * from './contract_storage_read.js';
+export * from './public_inner_call_request.js';
+export * from './public_call_stack_item_compressed.js';

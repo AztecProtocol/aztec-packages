@@ -4,7 +4,6 @@ import {
   collectNested,
 } from '@aztec/circuit-types/interfaces/client';
 import {
-  type Fr,
   KeyValidationHint,
   type PrivateCircuitPublicInputs,
   type ReadRequest,
@@ -22,7 +21,7 @@ import {
   getNonEmptyItems,
   getNoteHashReadRequestResetStates,
   getNullifierReadRequestResetStates,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/kernel';
 import {
   type PrivateKernelCircuitPublicInputs,
   PrivateKernelData,
@@ -43,6 +42,7 @@ import {
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import type { Fr } from '@aztec/foundation/fields';
 import { type Tuple, assertLength } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import { privateKernelResetDimensionsConfig } from '@aztec/noir-protocol-circuits-types/client';
