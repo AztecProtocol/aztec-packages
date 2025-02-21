@@ -58,7 +58,7 @@ int main(int argc, char* argv[])
     std::filesystem::path vk_path{ "./target/vk" };
     flags.scheme = "";
     flags.oracle_hash_type = "poseidon2";
-    flags.output_data_type = "bytes";
+    flags.output_format = "bytes";
     flags.crs_path = []() {
         char* home = std::getenv("HOME");
         std::filesystem::path base = home != nullptr ? std::filesystem::path(home) : "./";
@@ -117,11 +117,11 @@ int main(int argc, char* argv[])
             ->check(CLI::IsMember({ "poseidon2", "keccak" }).name("is_member"));
     };
 
-    const auto add_output_data_option = [&](CLI::App* subcommand) {
+    const auto add_output_format_option = [&](CLI::App* subcommand) {
         return subcommand
             ->add_option(
-                "--output_data",
-                flags.output_data_type,
+                "--output_format",
+                flags.output_format,
                 "The type of the data to be written by the command. If bytes, output the raw bytes prefixed with "
                 "header information for deserialization. If fields, output a string representation of an array of "
                 "field elements. If bytes_and_fields do both. If fields_msgpack, outputs a msgpack buffer of Fr "
@@ -129,12 +129,9 @@ int main(int argc, char* argv[])
             ->check(CLI::IsMember({ "bytes", "fields", "bytes_and_fields", "fields_msgpack" }).name("is_member"));
     };
 
-    const auto add_output_content_option = [&](CLI::App* subcommand) {
-        return subcommand
-            ->add_option("--output_content",
-                         flags.output_content_type,
-                         "The data to be written. Options are: a proof, a verification key, or both.")
-            ->check(CLI::IsMember({ "proof", "vk", "proof_and_vk" }).name("is_member"));
+    const auto add_write_vk_flag = [&](CLI::App* subcommand) {
+        return subcommand->add_flag(
+            "--write_vk", flags.write_vk, "Should the prove command additionally write the verification key?");
     };
 
     const auto add_input_type_option = [&](CLI::App* subcommand) {
@@ -238,8 +235,8 @@ int main(int argc, char* argv[])
     add_debug_flag(prove);
     add_crs_path_option(prove);
     add_oracle_hash_option(prove);
-    add_output_data_option(prove);
-    add_output_content_option(prove)->default_val("proof");
+    add_output_format_option(prove);
+    add_write_vk_flag(prove);
     add_input_type_option(prove);
     add_zk_option(prove);
     add_init_kzg_accumulator_option(prove);
@@ -264,7 +261,7 @@ int main(int argc, char* argv[])
 
     add_verbose_flag(write_vk);
     add_debug_flag(write_vk);
-    add_output_data_option(write_vk);
+    add_output_format_option(write_vk);
     add_input_type_option(write_vk);
     add_crs_path_option(write_vk);
     add_init_kzg_accumulator_option(write_vk);
