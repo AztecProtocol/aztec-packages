@@ -14,8 +14,9 @@ import {
   type KeyValidationRequest,
 } from '@aztec/circuits.js';
 import { type FunctionSelector, type NoteSelector } from '@aztec/circuits.js/abi';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type LogWithTxData } from '@aztec/circuits.js/logs';
 import { type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
 import { type MessageLoadOracleInputs } from '../../common/message_load_oracle_inputs.js';
@@ -240,6 +241,10 @@ export abstract class TypedOracle {
     _recipient: AztecAddress,
   ): Promise<void> {
     return Promise.reject(new OracleMethodNotAvailableError('deliverNote'));
+  }
+
+  getLogByTag(_tag: Fr): Promise<LogWithTxData | null> {
+    throw new OracleMethodNotAvailableError('getLogByTag');
   }
 
   storeCapsule(_contractAddress: AztecAddress, _key: Fr, _capsule: Fr[]): Promise<void> {

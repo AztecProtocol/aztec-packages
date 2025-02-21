@@ -126,7 +126,7 @@ export const setupL1Contracts = async (
   chain: Chain = foundry,
 ) => {
   const l1Data = await deployL1Contracts(l1RpcUrl, account, chain, logger, {
-    l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
+    l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice.toField(),
     vkTreeRoot: getVKTreeRoot(),
     protocolContractTreeRoot,
     genesisArchiveRoot: args.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
@@ -782,7 +782,6 @@ export async function createAndSyncProverNode(
     ...aztecNodeConfig,
     proverCoordinationNodeUrl: undefined,
     dataDirectory: undefined,
-    proverId: new Fr(42),
     realProofs: false,
     proverAgentCount: 2,
     publisherPrivateKey: proverNodePrivateKey,

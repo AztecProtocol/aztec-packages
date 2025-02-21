@@ -5,8 +5,8 @@ import {
   type SerializableContractInstance,
 } from '@aztec/circuits.js';
 import { type AvmNullifierReadTreeHint, type AvmPublicDataReadTreeHint } from '@aztec/circuits.js/avm';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type NullifierLeafPreimage, type PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
 
 export interface PublicSideEffectTraceInterface {

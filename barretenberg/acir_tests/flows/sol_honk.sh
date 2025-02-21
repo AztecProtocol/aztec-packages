@@ -1,28 +1,34 @@
 #!/bin/sh
-set -eux
+set -eu
 
 VFLAG=${VERBOSE:+-v}
 BFLAG="-b ./target/program.json"
-FLAGS="-c $CRS_PATH $VFLAG"
+FLAGS="-c $CRS_PATH $VFLAG --scheme ultra_honk"
+[ "${RECURSIVE}" = "true" ] && FLAGS+=" --recursive"
+PROVE_FLAGS="$FLAGS $BFLAG --oracle_hash keccak --output_data bytes_and_fields --output_content proof_and_vk --input_type single_circuit"
+VERIFY_FLAGS="$FLAGS --oracle_hash keccak"
 
-export PROOF="$PWD/sol_honk_proof"
-export PROOF_AS_FIELDS="$PWD/sol_honk_proof_fields.json"
-export VK="$PWD/sol_honk_vk"
-
-# Create a proof, write the solidity contract, write the proof as fields in order to extract the public inputs
-$BIN prove_ultra_keccak_honk -o $PROOF $FLAGS $BFLAG
-$BIN write_vk_ultra_keccak_honk -o $VK $FLAGS $BFLAG
-$BIN verify_ultra_keccak_honk -k $VK -p $PROOF $FLAGS
-$BIN proof_as_fields_honk $FLAGS -p $PROOF -o $PROOF_AS_FIELDS
-$BIN contract_ultra_honk -k $VK $FLAGS -o Verifier.sol
+outdir=$(mktemp -d)
+trap "rm -rf $outdir" EXIT
 
 # Export the paths to the environment variables for the js test runner
-export VERIFIER_PATH="$PWD/Verifier.sol"
+export PROOF="$outdir/proof"
+export PROOF_AS_FIELDS="$outdir/proof_fields.json"
+export VK="$outdir/vk"
+export VERIFIER_CONTRACT="$outdir/Verifier.sol"
+
+# Create a proof, write the solidity contract, write the proof as fields in order to extract the public inputs
+$BIN prove $PROVE_FLAGS -o $outdir
+$BIN verify $VERIFY_FLAGS -k $VK -p $PROOF
+$BIN write_contract $FLAGS -k $VK -o $VERIFIER_CONTRACT
+
+# Export the paths to the environment variables for the js test runner
+export VERIFIER_PATH="$outdir/Verifier.sol"
 export TEST_PATH=$(realpath "../../sol-test/HonkTest.sol")
 export TESTING_HONK="true"
 
 # Use solcjs to compile the generated key contract with the template verifier and test contract
 # index.js will start an anvil, on a random port
 # Deploy the verifier then send a test transaction
-export TEST_NAME=$(basename $PWD)
+export TEST_NAME=$(basename $outdir)
 node ../../sol-test/src/index.js

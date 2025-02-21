@@ -8,6 +8,7 @@
   ],
   "exports": {
     ".": "./dest/index.js",
+    "./aztec-address": "./dest/aztec-address/index.js",
     "./abi": "./dest/abi/index.js",
     "./hash": "./dest/hash/index.js",
     "./keys": "./dest/keys/index.js",
@@ -15,6 +16,7 @@
     "./testing": "./dest/tests/index.js",
     "./testing/fixtures": "./dest/tests/fixtures.js",
     "./interfaces": "./dest/interfaces/index.js",
+    "./network": "./dest/network/index.js",
     "./utils": "./dest/utils/index.js",
     "./types": "./dest/types/index.js",
     "./contract": "./dest/contract/index.js",
@@ -22,6 +24,7 @@
     "./rollup": "./dest/structs/rollup/index.js",
     "./kernel": "./dest/structs/kernel/index.js",
     "./trees": "./dest/structs/trees/index.js",
+    "./logs": "./dest/structs/logs/index.js",
     "./avm": "./dest/structs/avm/index.js",
     "./schemas": "./dest/schemas/index.js",
     "./noir": "./dest/noir/index.js",
