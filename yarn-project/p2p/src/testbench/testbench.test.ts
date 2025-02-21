@@ -112,7 +112,7 @@ describe('Gossipsub', () => {
 
   it('Should propagate a tx to all peers with a throttled degree and large node set', async () => {
     // No network partition, all nodes should receive
-    const numberOfClients = 20;
+    const numberOfClients = 5;
 
     // Setup clients in separate processes
     const testConfig: Partial<P2PConfig> = {

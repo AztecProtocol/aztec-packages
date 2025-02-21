@@ -1,33 +1,34 @@
-// TODO:
-// Read in the given log file as input
-// skip to the line in the log file where the sent message is logged
-// Index which peers have which node iDs - readable from their index in the log file
-// Sort each of the rpc events
-// Work out how many nodes received the message on each heartbeat interval
-// get the time for propagation
+// Parse Log File
+// 1. Determine when a message was sent from the Sent Message log
+// 2. Parse all Received Tx logs, extracting the timestamp and peer ID
+// 3. Compute the delay for each peer relative to the timestamp of the sent message
+// 4. Print the delays
 import * as fs from 'fs';
-import * as path from 'path';
 
 interface LogEvent {
   timestamp: number; // in milliseconds (from start of log)
   peerId: string;
 }
 
-/**
- * Parses a timestamp string in "HH:MM:SS.mmm" format and returns the
- * time in milliseconds.
- */
-function parseTimestamp(timeStr: string): number {
-  const parts = timeStr.split(':');
-  if (parts.length !== 3) {
-    throw new Error(`Invalid time format: ${timeStr}`);
+interface BenchmarkResult {
+  delays: {
+    peerId: string;
+    delay: number;
+  }[];
+  stats: {
+    minDelay: number;
+    maxDelay: number;
+    averageDelay: number;
+    medianDelay: number;
+  };
+}
+
+function getTimestamp(line: string): number | null {
+  const timestampMatch = line.match(/"time":(\d+)/);
+  if (!timestampMatch) {
+    return null;
   }
-  const hours = parseInt(parts[0], 10);
-  const minutes = parseInt(parts[1], 10);
-  const secParts = parts[2].split('.');
-  const seconds = parseInt(secParts[0], 10);
-  const milliseconds = secParts[1] ? parseInt(secParts[1], 10) : 0;
-  return hours * 3600000 + minutes * 60000 + seconds * 1000 + milliseconds;
+  return parseInt(timestampMatch[1], 10);
 }
 
 /**
@@ -39,26 +40,21 @@ function parseReceivedTx(line: string): LogEvent | null {
     return null;
   }
 
-  // Extract timestamp from the beginning of the line: e.g. [18:36:00.926]
-  const timestampMatch = line.match(/^\[(.*?)\]/);
-  if (!timestampMatch) {
-    return null;
-  }
-  const timeStr = timestampMatch[1];
-  let timestamp: number;
-  try {
-    timestamp = parseTimestamp(timeStr);
-  } catch (err) {
+  // Extract timestamp from the line: e.g. {"time":1740142435845}
+  const timestamp = getTimestamp(line);
+  if (!timestamp) {
+    console.log('No timestamp found in received tx log');
     return null;
   }
 
   // TODO: this is not correct - it is just the tx hash for now
   // Extract the peer ID after "Received tx"
-  const peerMatch = line.match(/Received tx\s+(\S+)/);
-  if (!peerMatch) {
+  const peerIdMatch = line.match(/p2p:(\d+):/);
+  if (!peerIdMatch) {
+    console.log('No peer Number found in received tx log');
     return null;
   }
-  const peerId = peerMatch[1];
+  const peerId = peerIdMatch[1];
 
   return {
     timestamp,
@@ -71,16 +67,9 @@ function parseSentMessage(line: string): number | null {
     return null;
   }
 
-  // Get the timestamp at which the first message was sent
-  const timestampMatch = line.match(/^\[(.*?)\]/);
-  if (!timestampMatch) {
-    return null;
-  }
-  const timeStr = timestampMatch[1];
-  let timestamp: number;
-  try {
-    timestamp = parseTimestamp(timeStr);
-  } catch (err) {
+  const timestamp = getTimestamp(line);
+  if (!timestamp) {
+    console.log('No timestamp found in sent message log');
     return null;
   }
 
@@ -92,7 +81,7 @@ function parseSentMessage(line: string): number | null {
  * propagation delay for each peer relative to the earliest event, and prints
  * some benchmark statistics.
  */
-function processLogFile(logFilePath: string) {
+function processLogFile(logFilePath: string, outputJsonPath?: string) {
   const content = fs.readFileSync(logFilePath, 'utf-8');
   const lines = content.split('\n');
   const events: LogEvent[] = [];
@@ -118,7 +107,7 @@ function processLogFile(logFilePath: string) {
   }
 
   if (events.length === 0) {
-    console.log('No rpc.from events found in log file.');
+    console.log('No message received events found in log file.');
     return;
   }
 
@@ -150,13 +139,29 @@ function processLogFile(logFilePath: string) {
   console.log(`Max delay: ${maxDelay} ms`);
   console.log(`Average delay: ${avgDelay.toFixed(2)} ms`);
   console.log(`Median delay: ${medianDelay} ms`);
+
+  // If output JSON path is provided, write results to file
+  if (outputJsonPath) {
+    const result: BenchmarkResult = {
+      delays,
+      stats: {
+        minDelay,
+        maxDelay,
+        averageDelay: Number(avgDelay.toFixed(2)),
+        medianDelay,
+      },
+    };
+
+    fs.writeFileSync(outputJsonPath, JSON.stringify(result, null, 2));
+    console.log(`\nResults written to ${outputJsonPath}`);
+  }
 }
 
-// Get the log file path from command-line arguments
-const logFilePath = process.argv[2];
+// Get the log file path and optional output JSON path from command-line arguments
+const [logFilePath, outputJsonPath] = process.argv.slice(2);
 if (!logFilePath) {
-  console.error('Usage: ts-node parse_log_file.ts <logFilePath>');
+  console.error('Usage: ts-node parse_log_file.ts <logFilePath> [outputJsonPath]');
   process.exit(1);
 }
 
-processLogFile(logFilePath);
+processLogFile(logFilePath, outputJsonPath);
