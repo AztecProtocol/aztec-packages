@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740143942683,
+  "lastUpdate": 1740147129278,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f1ba0153115ed913a036d1509c861c0a96706715",
-          "message": "fix: aws_handle_evict recovery & termination (#12086)\n\nThis should gracefully handle both recovering from spot evict and\nterminating in time.",
-          "timestamp": "2025-02-18T20:26:55Z",
-          "tree_id": "26f316b1a3b2b95a7e11f1c4c0217f1191a506e9",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f1ba0153115ed913a036d1509c861c0a96706715"
-        },
-        "date": 1739911921281,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18042.46969299993,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15778.143476 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18510.60002100007,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16299.096609999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3871.3426449999133,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3053.968264 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55066.977741999995,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55066979000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9816.247989000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9816257000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1820944555,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1820944555 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 127686960,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 127686960 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3300,6 +3234,72 @@ window.BENCHMARK_DATA = {
             "value": 129553719,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 129553719 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49558828+AztecBot@users.noreply.github.com",
+            "name": "Aztec Bot",
+            "username": "AztecBot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ad5b3e9271a2cb4caa3e225f0e1350cf7e9f6c03",
+          "message": "chore: redo typo PR by gap-editor (#12184)\n\nThanks gap-editor for\nhttps://github.com/AztecProtocol/aztec-packages/pull/12183. Our policy\nis to redo typo changes to dissuade metric farming. This is an automated\nscript.",
+          "timestamp": "2025-02-21T13:59:37Z",
+          "tree_id": "932c92e7e878d4101033f291106ed78a9ce52c1a",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ad5b3e9271a2cb4caa3e225f0e1350cf7e9f6c03"
+        },
+        "date": 1740147122148,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18105.028485000046,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16027.11738 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18654.110237000055,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16283.502813000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3842.821866999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3039.6774360000004 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54477.764682,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54477765000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9578.987156000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9578988000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1830918490,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1830918490 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 130736503,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 130736503 ns\nthreads: 1"
           }
         ]
       }
