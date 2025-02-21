@@ -182,7 +182,7 @@ describe('journal', () => {
         expectedContractClassPreimage,
       );
     });
-    it('Can get undefined contract instance', async () => {
+    it('Can get undefined bytecode', async () => {
       await persistableState.getBytecode(address);
       expect(trace.traceGetBytecode).toHaveBeenCalledTimes(1);
       expect(trace.traceGetBytecode).toHaveBeenCalledWith(address, /*exists=*/ false);
