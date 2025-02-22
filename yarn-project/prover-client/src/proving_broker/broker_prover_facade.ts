@@ -11,8 +11,8 @@ import {
   type ServerCircuitProver,
   makeProvingJobId,
 } from '@aztec/circuit-types/interfaces/server';
-import { type BaseParityInputs, type ParityPublicInputs, type RootParityInputs } from '@aztec/circuits.js';
 import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
+import { type BaseParityInputs, type ParityPublicInputs, type RootParityInputs } from '@aztec/circuits.js/parity';
 import {
   type BaseOrMergeRollupPublicInputs,
   type BlockMergeRollupInputs,

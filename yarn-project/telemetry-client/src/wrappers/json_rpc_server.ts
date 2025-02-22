@@ -1,5 +1,5 @@
+import { type ApiSchemaFor } from '@aztec/circuits.js/schemas';
 import { type SafeJsonRpcServerOptions, createSafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
-import { type ApiSchemaFor } from '@aztec/foundation/schemas';
 
 import { getOtelJsonRpcPropagationMiddleware } from '../otel_propagation.js';
 

@@ -8,17 +8,9 @@ import {
   makePublicInputsAndRecursiveProof,
 } from '@aztec/circuit-types/interfaces/server';
 import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
-import {
-  type BaseParityInputs,
-  Fr,
-  type ParityPublicInputs,
-  Proof,
-  RecursiveProof,
-  type RootParityInputs,
-  type VerificationKeyData,
-  makeRecursiveProofFromBinary,
-} from '@aztec/circuits.js';
 import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
+import { type BaseParityInputs, type ParityPublicInputs, type RootParityInputs } from '@aztec/circuits.js/parity';
+import { Proof, RecursiveProof, makeRecursiveProofFromBinary } from '@aztec/circuits.js/proofs';
 import {
   type BaseOrMergeRollupPublicInputs,
   type BlockMergeRollupInputs,
@@ -33,6 +25,7 @@ import {
   type SingleTxBlockRootRollupInputs,
   type TubeInputs,
 } from '@aztec/circuits.js/rollup';
+import type { VerificationKeyData } from '@aztec/circuits.js/vks';
 import {
   AGGREGATION_OBJECT_LENGTH,
   AVM_PROOF_LENGTH_IN_FIELDS,
@@ -42,6 +35,7 @@ import {
   RECURSIVE_PROOF_LENGTH,
   TUBE_PROOF_LENGTH,
 } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';

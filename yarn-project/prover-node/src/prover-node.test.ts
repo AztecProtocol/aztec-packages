@@ -13,8 +13,9 @@ import {
   WorldStateRunningState,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types/interfaces/server';
-import { type ContractDataSource, EthAddress } from '@aztec/circuits.js';
+import { type ContractDataSource } from '@aztec/circuits.js/contract';
 import { timesParallel } from '@aztec/foundation/collection';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { type PublicProcessorFactory } from '@aztec/simulator/server';
 
 import { type MockProxy, mock } from 'jest-mock-extended';

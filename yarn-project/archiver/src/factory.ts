@@ -1,12 +1,12 @@
 import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { getComponentsVersionsFromConfig } from '@aztec/circuit-types';
 import { type ArchiverApi, type Service } from '@aztec/circuit-types/interfaces/server';
+import { FunctionType, decodeFunctionSignature } from '@aztec/circuits.js/abi';
 import {
   type ContractClassPublic,
   computePublicBytecodeCommitment,
   getContractClassFromArtifact,
-} from '@aztec/circuits.js';
-import { FunctionType, decodeFunctionSignature } from '@aztec/circuits.js/abi';
+} from '@aztec/circuits.js/contract';
 import { createLogger } from '@aztec/foundation/log';
 import { type Maybe } from '@aztec/foundation/types';
 import { type DataStoreConfig } from '@aztec/kv-store/config';

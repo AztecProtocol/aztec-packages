@@ -1,6 +1,5 @@
 import { L2Block, MerkleTreeId } from '@aztec/circuit-types';
 import { type MerkleTreeReadOperations, type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
-import { Fr } from '@aztec/circuits.js';
 import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
 import {
   MAX_NOTE_HASHES_PER_TX,
@@ -9,6 +8,7 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
 
 import { type NativeWorldStateService } from '../native/native_world_state.js';
 

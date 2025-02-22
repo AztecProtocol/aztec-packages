@@ -1,5 +1,5 @@
-import { type PublicLog } from '@aztec/circuits.js';
 import { type AbiType, AbiTypeSchema, type EventSelector, decodeFromAbi } from '@aztec/circuits.js/abi';
+import { type PublicLog } from '@aztec/circuits.js/logs';
 import { schemas } from '@aztec/circuits.js/schemas';
 
 import { z } from 'zod';

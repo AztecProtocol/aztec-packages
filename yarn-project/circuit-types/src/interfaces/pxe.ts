@@ -1,20 +1,4 @@
 import {
-  type AztecAddress,
-  CompleteAddress,
-  type ContractClassWithId,
-  ContractClassWithIdSchema,
-  type ContractInstanceWithAddress,
-  ContractInstanceWithAddressSchema,
-  type Fr,
-  GasFees,
-  type NodeInfo,
-  NodeInfoSchema,
-  type PartialAddress,
-  type Point,
-  type ProtocolContractAddresses,
-  ProtocolContractAddressesSchema,
-} from '@aztec/circuits.js';
-import {
   type AbiDecoded,
   type AbiType,
   AbiTypeSchema,
@@ -22,9 +6,24 @@ import {
   ContractArtifactSchema,
   type EventSelector,
 } from '@aztec/circuits.js/abi';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import {
+  CompleteAddress,
+  type ContractClassWithId,
+  ContractClassWithIdSchema,
+  type ContractInstanceWithAddress,
+  ContractInstanceWithAddressSchema,
+  type NodeInfo,
+  NodeInfoSchema,
+  type PartialAddress,
+  type ProtocolContractAddresses,
+  ProtocolContractAddressesSchema,
+} from '@aztec/circuits.js/contract';
+import { GasFees } from '@aztec/circuits.js/gas';
 import { AbiDecodedSchema, schemas } from '@aztec/circuits.js/schemas';
+import { type ApiSchemaFor, type ZodFor, optional } from '@aztec/circuits.js/schemas';
 import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import { type ApiSchemaFor, type ZodFor, optional } from '@aztec/foundation/schemas';
+import type { Fr, Point } from '@aztec/foundation/fields';
 
 import { z } from 'zod';
 

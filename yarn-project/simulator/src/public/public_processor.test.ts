@@ -5,9 +5,12 @@ import {
   type TreeInfo,
 } from '@aztec/circuit-types/interfaces/server';
 import { mockTx } from '@aztec/circuit-types/testing';
-import { AztecAddress, Fr, Gas, GasFees, GlobalVariables, PublicDataWrite, RevertCode } from '@aztec/circuits.js';
-import { AvmCircuitInputs } from '@aztec/circuits.js/avm';
+import { AvmCircuitInputs, PublicDataWrite, RevertCode } from '@aztec/circuits.js/avm';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { Gas, GasFees } from '@aztec/circuits.js/gas';
+import { GlobalVariables } from '@aztec/circuits.js/tx';
 import { timesParallel } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';

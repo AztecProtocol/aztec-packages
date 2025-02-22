@@ -32,14 +32,6 @@ import {
   type PrivateKernelProver,
   type PrivateKernelSimulateOutput,
 } from '@aztec/circuit-types/interfaces/client';
-import type {
-  CompleteAddress,
-  ContractClassWithId,
-  ContractInstanceWithAddress,
-  GasFees,
-  NodeInfo,
-  PartialAddress,
-} from '@aztec/circuits.js';
 import {
   type AbiDecoded,
   type ContractArtifact,
@@ -50,7 +42,15 @@ import {
   encodeArguments,
 } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type {
+  CompleteAddress,
+  ContractClassWithId,
+  ContractInstanceWithAddress,
+  NodeInfo,
+  PartialAddress,
+} from '@aztec/circuits.js/contract';
 import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/circuits.js/contract';
+import type { GasFees } from '@aztec/circuits.js/gas';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
 import { computeAddressSecret } from '@aztec/circuits.js/keys';

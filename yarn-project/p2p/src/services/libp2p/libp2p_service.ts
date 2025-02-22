@@ -19,8 +19,8 @@ import {
   type PeerInfo,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types/interfaces/server';
-import { Fr } from '@aztec/circuits.js';
 import { type EpochCacheInterface } from '@aztec/epoch-cache';
+import { Fr } from '@aztec/foundation/fields';
 import { createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';

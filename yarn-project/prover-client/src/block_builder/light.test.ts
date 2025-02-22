@@ -3,22 +3,10 @@ import { Blob, SpongeBlob } from '@aztec/blob-lib';
 import { MerkleTreeId, type ProcessedTx, toNumBlobFields } from '@aztec/circuit-types';
 import { type MerkleTreeWriteOperations, type ServerCircuitProver } from '@aztec/circuit-types/interfaces/server';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/testing';
-import {
-  AztecAddress,
-  BaseParityInputs,
-  Fr,
-  type GlobalVariables,
-  type ParityPublicInputs,
-  PartialStateReference,
-  PublicDataWrite,
-  type RecursiveProof,
-  RootParityInput,
-  RootParityInputs,
-  StateReference,
-  type VerificationKeyAsFields,
-  VkWitnessData,
-  makeEmptyRecursiveProof,
-} from '@aztec/circuits.js';
+import { PublicDataWrite } from '@aztec/circuits.js/avm';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { BaseParityInputs, ParityPublicInputs, RootParityInput, RootParityInputs } from '@aztec/circuits.js/parity';
+import { type RecursiveProof, makeEmptyRecursiveProof } from '@aztec/circuits.js/proofs';
 import {
   type BaseOrMergeRollupPublicInputs,
   BlockRootRollupBlobData,
@@ -35,6 +23,8 @@ import {
 } from '@aztec/circuits.js/rollup';
 import { makeGlobalVariables } from '@aztec/circuits.js/testing';
 import { type AppendOnlyTreeSnapshot, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
+import { GlobalVariables, PartialStateReference, StateReference } from '@aztec/circuits.js/tx';
+import { VerificationKeyAsFields, VkWitnessData } from '@aztec/circuits.js/vks';
 import {
   BLOBS_PER_BLOCK,
   FIELDS_PER_BLOB,
@@ -49,6 +39,7 @@ import {
 } from '@aztec/constants';
 import { padArrayEnd, times, timesParallel } from '@aztec/foundation/collection';
 import { sha256ToField } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type Tuple, assertLength } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';

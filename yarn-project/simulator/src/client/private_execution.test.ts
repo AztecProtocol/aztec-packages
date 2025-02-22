@@ -12,25 +12,6 @@ import {
   type L2BlockNumber,
 } from '@aztec/circuit-types/interfaces/client';
 import {
-  BlockHeader,
-  CallContext,
-  CompleteAddress,
-  type ContractInstance,
-  GasFees,
-  GasSettings,
-  type GrumpkinScalar,
-  IndexedTaggingSecret,
-  KeyValidationRequest,
-  PartialStateReference,
-  StateReference,
-  TxContext,
-  computeAppNullifierSecretKey,
-  deriveKeys,
-  getContractClassFromArtifact,
-  getContractInstanceFromDeployParams,
-  getNonEmptyItems,
-} from '@aztec/circuits.js';
-import {
   type ContractArtifact,
   type FunctionArtifact,
   FunctionSelector,
@@ -41,6 +22,13 @@ import {
 } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
+  CompleteAddress,
+  type ContractInstance,
+  getContractClassFromArtifact,
+  getContractInstanceFromDeployParams,
+} from '@aztec/circuits.js/contract';
+import { GasFees, GasSettings } from '@aztec/circuits.js/gas';
+import {
   computeNoteHashNonce,
   computeSecretHash,
   computeUniqueNoteHash,
@@ -48,8 +36,12 @@ import {
   deriveStorageSlotInMap,
   siloNoteHash,
 } from '@aztec/circuits.js/hash';
+import { KeyValidationRequest, getNonEmptyItems } from '@aztec/circuits.js/kernel';
+import { computeAppNullifierSecretKey, deriveKeys } from '@aztec/circuits.js/keys';
+import { IndexedTaggingSecret } from '@aztec/circuits.js/logs';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
+import { BlockHeader, CallContext, PartialStateReference, StateReference, TxContext } from '@aztec/circuits.js/tx';
 import {
   GeneratorIndex,
   L1_TO_L2_MSG_TREE_HEIGHT,
@@ -61,7 +53,7 @@ import { asyncMap } from '@aztec/foundation/async-map';
 import { times } from '@aztec/foundation/collection';
 import { poseidon2Hash, poseidon2HashWithSeparator, randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type FieldsOf } from '@aztec/foundation/types';
 import { openTmpStore } from '@aztec/kv-store/lmdb';

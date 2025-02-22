@@ -7,14 +7,8 @@ import {
   type ServerCircuitProver,
 } from '@aztec/circuit-types/interfaces/server';
 import { type CircuitName } from '@aztec/circuit-types/stats';
-import {
-  BaseParityInputs,
-  type BlockHeader,
-  Fr,
-  type GlobalVariables,
-  VerificationKeyData,
-  makeEmptyRecursiveProof,
-} from '@aztec/circuits.js';
+import { BaseParityInputs } from '@aztec/circuits.js/parity';
+import { makeEmptyRecursiveProof } from '@aztec/circuits.js/proofs';
 import {
   type BaseRollupHints,
   EmptyBlockRootRollupInputs,
@@ -23,6 +17,8 @@ import {
   TubeInputs,
 } from '@aztec/circuits.js/rollup';
 import { type AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
+import { type BlockHeader, type GlobalVariables } from '@aztec/circuits.js/tx';
+import { VerificationKeyData } from '@aztec/circuits.js/vks';
 import {
   AVM_PROOF_LENGTH_IN_FIELDS,
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
@@ -34,6 +30,7 @@ import {
 } from '@aztec/constants';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { AbortError } from '@aztec/foundation/error';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { assertLength } from '@aztec/foundation/serialize';
