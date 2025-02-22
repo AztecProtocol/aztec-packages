@@ -67,6 +67,9 @@ Go to `main.nr` and start with this contract initialization:
 
 This defines a contract called `Counter`.
 
+> **Note:** If you are not planning to write tests for this contract, you may need to remove the `mod test;` line from `main.nr` to avoid compilation errors.
+> The `mod test;` line is only required if you are writing test cases. If you see an error related to it during compilation, try removing that line and recompiling.
+
 ## Imports
 
 We need to define some imports.
