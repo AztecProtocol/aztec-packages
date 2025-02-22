@@ -71,15 +71,17 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
 
     HintedRawDataDB db(inputs.hints);
     AddressDerivation address_derivation(address_derivation_emitter);
+    Poseidon2 poseidon2(poseidon2_hash_emitter, poseidon2_perm_emitter);
+    BytecodeHasher bytecode_hasher(poseidon2, bytecode_hashing_emitter);
     ClassIdDerivation class_id_derivation(class_id_derivation_emitter);
     Siloing siloing(siloing_emitter);
     // TODO: I'm not using the siloing gadget yet here.
     // It should probably not be in bytecode_manager, but in sth related to the contract instance.
     TxBytecodeManager bytecode_manager(db,
                                        address_derivation,
+                                       bytecode_hasher,
                                        class_id_derivation,
                                        bytecode_retrieval_emitter,
-                                       bytecode_hashing_emitter,
                                        bytecode_decomposition_emitter,
                                        instruction_fetching_emitter);
     ContextProvider context_provider(bytecode_manager, memory_emitter);
@@ -92,7 +94,6 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     TxExecution tx_execution(execution);
     Sha256 sha256(sha256_compression_emitter);
     Ecc ecc_add(ecc_add_emitter);
-    Poseidon2 poseidon2(poseidon2_hash_emitter, poseidon2_perm_emitter);
 
     tx_execution.simulate({ .enqueued_calls = inputs.enqueuedCalls });
 
