@@ -139,8 +139,7 @@ export async function executeBbClientIvcProof(
       'client_ivc',
       '--input_type',
       'runtime_stack',
-      '--output_content',
-      'proof_and_vk',
+      '--write_vk',
     ];
 
     const timer = new Timer();
@@ -231,10 +230,9 @@ export async function generateProof(
     // Write the bytecode to the working directory
     await fs.writeFile(bytecodePath, bytecode);
     const args = getArgs(flavor).concat([
-      '--output_data',
+      '--output_format',
       'bytes_and_fields',
-      '--output_content',
-      'proof_and_vk',
+      '--write_vk',
       '-o',
       outputPath,
       '-b',
