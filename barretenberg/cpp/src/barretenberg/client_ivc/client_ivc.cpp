@@ -155,12 +155,10 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
  * folding proof. Also execute the merge protocol to produce a merge proof.
  *
  * @param circuit
- * @param _one_circuit Receives the signal that the initial stack to be accumulated consists of only one circuit. In
  * this case, just produce a Honk proof for that circuit and do no folding.
  * @param precomputed_vk
  */
 void ClientIVC::accumulate(ClientCircuit& circuit,
-                           const bool _one_circuit,
                            const std::shared_ptr<MegaVerificationKey>& precomputed_vk,
                            const bool mock_vk)
 {
@@ -194,20 +192,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
         vinfo("set honk vk metadata");
     }
 
-    if (_one_circuit) {
-        // The initial stack consisted of only one circuit, so construct a proof for it.
-        one_circuit = _one_circuit;
-        MegaProver prover{ proving_key };
-        vinfo("computing mega proof...");
-        mega_proof = prover.prove();
-        vinfo("mega proof computed");
-
-        proving_key->is_accumulator = true; // indicate to PG that it should not run oink on this key
-        // Initialize the gate challenges to zero for use in first round of folding
-        proving_key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
-
-        fold_output.accumulator = proving_key;
-    } else if (!initialized) {
+    if (!initialized) {
         // If this is the first circuit in the IVC, use oink to complete the decider proving key and generate an oink
         // proof
         MegaOinkProver oink_prover{ proving_key };
@@ -237,13 +222,10 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
 }
 
 /**
- * @brief Construct the hiding circuit, which recursively verifies the last folding proof and decider proof, and
- * then produce a proof of the circuit's correctness with MegaHonk.
- *
- * @details The aim of this intermediate stage is to reduce the cost of producing a zero-knowledge ClientIVCProof.
- * @return HonkProof - a Mega proof
+ * @brief Construct the proving key of the hiding circuit, which recursively verifies the last folding proof and the
+ * decider proof.
  */
-HonkProof ClientIVC::construct_and_prove_hiding_circuit()
+std::shared_ptr<ClientIVC::DeciderProvingKey> ClientIVC::construct_hiding_circuit_key()
 {
     trace_usage_tracker.print(); // print minimum structured sizes for each block
     ASSERT(verification_queue.size() == 1);
@@ -295,12 +277,28 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
 
     auto decider_pk = std::make_shared<DeciderProvingKey>(builder, TraceSettings(), bn254_commitment_key);
     honk_vk = std::make_shared<MegaVerificationKey>(decider_pk->proving_key);
+
+    return decider_pk;
+}
+
+/**
+ * @brief Construct the hiding circuit  then produce a proof of the circuit's correctness with MegaHonk.
+ *
+ * @return HonkProof - a Mega proof
+ */
+HonkProof ClientIVC::construct_and_prove_hiding_circuit()
+{
+    auto decider_pk = construct_hiding_circuit_key();
     MegaProver prover(decider_pk);
-
     HonkProof proof = prover.construct_proof();
-
     return proof;
 }
+
+void ClientIVC::construct_vk()
+{
+    construct_hiding_circuit_key();
+    goblin.construct_vks();
+};
 
 /**
  * @brief Construct a proof for the IVC, which, if verified, fully establishes its correctness
@@ -309,10 +307,8 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
  */
 ClientIVC::Proof ClientIVC::prove()
 {
-    if (!one_circuit) {
-        mega_proof = construct_and_prove_hiding_circuit();
-        ASSERT(merge_verification_queue.size() == 1); // ensure only a single merge proof remains in the queue
-    }
+    mega_proof = construct_and_prove_hiding_circuit();
+    ASSERT(merge_verification_queue.size() == 1); // ensure only a single merge proof remains in the queue
 
     MergeProof& merge_proof = merge_verification_queue[0];
     return { mega_proof, goblin.prove(merge_proof) };

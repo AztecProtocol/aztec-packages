@@ -130,10 +130,6 @@ class ClientIVC {
 
     GoblinProver goblin;
 
-    // We dynamically detect whether the input stack consists of one circuit, in which case we do not construct the
-    // hiding circuit and instead simply prove the single input circuit.
-    bool one_circuit = false;
-
     bool initialized = false; // Is the IVC accumulator initialized
 
     ClientIVC(TraceSettings trace_settings = {})
@@ -168,12 +164,13 @@ class ClientIVC {
      * @param mock_vk A boolean to say whether the precomputed vk should have its metadata set.
      */
     void accumulate(ClientCircuit& circuit,
-                    const bool _one_circuit = false,
                     const std::shared_ptr<MegaVerificationKey>& precomputed_vk = nullptr,
                     const bool mock_vk = false);
 
+    void construct_vk();
     Proof prove();
 
+    std::shared_ptr<ClientIVC::DeciderProvingKey> construct_hiding_circuit_key();
     HonkProof construct_and_prove_hiding_circuit();
 
     static bool verify(const Proof& proof, const VerificationKey& vk);

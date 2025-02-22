@@ -77,7 +77,7 @@ function process_function() {
       echo_stderr "Generating vk for function: $name..."
       # Bb outputs to output_dir/vk by default
       mkdir -p $tmp_dir/$hash-dir
-      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk --scheme client_ivc -b - -o $tmp_dir/$hash-dir -v
+      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk --scheme client_ivc --verifier_type standalone -b - -o $tmp_dir/$hash-dir -v
       mv $tmp_dir/$hash-dir/vk $tmp_dir/$hash
       cache_upload vk-$hash.tar.gz $tmp_dir/$hash
     fi

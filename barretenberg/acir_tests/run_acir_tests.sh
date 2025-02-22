@@ -125,7 +125,10 @@ else
       continue
     fi
 
-    if [[ ! -f ./$TEST_NAME/target/program.json || ! -f ./$TEST_NAME/target/witness.gz ]]; then
+    if [[ ( ! -f ./$TEST_NAME/target/program.json && \
+            ! -f ./$TEST_NAME/target/acir.msgpack ) || \
+          ( ! -f ./$TEST_NAME/target/witness.gz   && \
+            ! -f ./$TEST_NAME/target/witness.msgpack ) ]]; then
       echo -e "\033[33mSKIPPED\033[0m (uncompiled)"
       continue
     fi

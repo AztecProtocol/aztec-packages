@@ -143,7 +143,8 @@ int main(int argc, char* argv[])
                 ->add_option("--input_type",
                              flags.input_type,
                              "Is the input a single circuit, a compile-time stack or a run-time stack?")
-                ->check(CLI::IsMember({ "single_circuit", "compiletime_stack", "runtime_stack" }).name("is_member"));
+                ->check(CLI::IsMember({ "single_circuit", "compiletime_stack", "runtime_stack" }).name("is_member"))
+                ->default_val("single_circuit");
         return input_type_option;
     };
 
@@ -180,6 +181,19 @@ int main(int argc, char* argv[])
     const auto add_vk_path_option = [&](CLI::App* subcommand) {
         return subcommand->add_option("--vk_path, -k", vk_path, "Path to a verification key.")
             /* ->check(CLI::ExistingFile) */;
+    };
+
+    const auto add_verifier_type_option = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_option("--verifier_type",
+                         flags.verifier_type,
+                         "Is a verification key for use a standalone single circuit verifier (e.g. a SNARK or folding "
+                         "recursive verifier) or is it for an ivc verifier? `standalone` produces a verification key "
+                         "is sufficient for verifying proofs about a single circuit (including the non-encsapsulated "
+                         "use case where an IVC scheme is manually constructed via recursive UltraHonk proof "
+                         "verification). `ivc` produces a verification key for verifying the stack of run though a "
+                         "dedicated ivc verifier class (currently the only option is the ClientIVC class) ")
+            ->check(CLI::IsMember({ "standalone", "ivc" }).name("is_member"));
     };
 
     const auto add_verbose_flag = [&](CLI::App* subcommand) {
@@ -272,6 +286,7 @@ int main(int argc, char* argv[])
     add_ipa_accumulation_flag(write_vk);
     add_honk_recursion_option(write_vk);
     add_recursive_flag(write_vk);
+    add_verifier_type_option(write_vk)->default_val("standalone");
 
     /***************************************************************************************************************
      * Subcommand: verify
@@ -615,8 +630,7 @@ int main(int argc, char* argv[])
 
     CLI11_PARSE(app, argc, argv);
     print_active_subcommands(app);
-    vinfo(flags);
-
+    info("Scheme is: ", flags.scheme);
     debug_logging = flags.debug;
     verbose_logging = debug_logging || flags.verbose;
 
@@ -639,7 +653,9 @@ int main(int argc, char* argv[])
             return 0;
         }
         if (verify->parsed()) {
-            return api.verify(flags, proof_path, vk_path) ? 0 : 1;
+            const bool verified = api.verify(flags, proof_path, vk_path);
+            vinfo("verified: ", verified);
+            return verified ? 0 : 1;
         }
         if (write_contract->parsed()) {
             api.write_contract(flags, output_path, vk_path);

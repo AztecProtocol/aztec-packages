@@ -224,15 +224,10 @@ ECCVMProof ECCVMProver::construct_proof()
     PROFILE_THIS_NAME("ECCVMProver::construct_proof");
 
     execute_preamble_round();
-
     execute_wire_commitments_round();
-
     execute_log_derivative_commitments_round();
-
     execute_grand_product_computation_round();
-
     execute_relation_check_rounds();
-
     execute_pcs_rounds();
 
     return export_proof();
