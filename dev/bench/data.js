@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740181415600,
+  "lastUpdate": 1740185338484,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "15848336+TomAFrench@users.noreply.github.com",
-            "name": "Tom French",
-            "username": "TomAFrench"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "fc9f1c42128140b7bef794e7ae494fd1566cdb73",
-          "message": "chore: fix error in oracle definition (#12090)\n\nThis is breaking a compiler check that we're wanting to promote to an\nerror.",
-          "timestamp": "2025-02-19T15:41:54Z",
-          "tree_id": "bbc14758038651a9759873f21d9cace227af3db1",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/fc9f1c42128140b7bef794e7ae494fd1566cdb73"
-        },
-        "date": 1739981248812,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18479.34057400016,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16180.573521999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18777.162584000052,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16186.855306000001 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3940.244743000221,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3154.769091 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55020.636714,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55020636000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10007.225221,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10007231000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1837606682,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1837606682 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 130570026,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 130570026 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3300,6 +3234,78 @@ window.BENCHMARK_DATA = {
             "value": 134342920,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 134342920 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b35a61df37a8c26b5fa8cb8b60520ea982e04a65",
+          "message": "feat: add wasm memory benchmark to bench.json (redo) (#12205)\n\nReinstates #11551 with e2e-all flag to test bench running.",
+          "timestamp": "2025-02-21T19:34:11-05:00",
+          "tree_id": "18dd13bc16a1b679bcb70b69731f42d4b535d817",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b35a61df37a8c26b5fa8cb8b60520ea982e04a65"
+        },
+        "date": 1740185330636,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18058.540739000022,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15802.331154 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18571.705784999947,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16320.107383 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3851.2579190000906,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3074.8108449999995 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54723.253657,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54723253000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11264.470395,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11264474000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1818322940,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1818322940 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 127788707,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 127788707 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
         ]
       }
