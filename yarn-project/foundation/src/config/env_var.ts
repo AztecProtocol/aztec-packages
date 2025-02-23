@@ -64,7 +64,7 @@ export type EnvVar =
   | 'LOG_LEVEL' // controls the default log level. Use `LOG_LEVEL` with one of `silent`, `fatal`, `error`, `warn`, `info`, `verbose`, `debug`, or `trace`. To tweak log levels per module, add a list of module prefixes with their overridden level. For example, LOG_LEVEL="info; verbose: aztec:sequencer, aztec:archiver; debug: aztec:kv-store" sets `info` as the default log level, `verbose` for the sequencer and archiver, and `debug` for the kv-store. Module name match is done by prefix.
   | 'MNEMONIC' // The mnemonic for the faucet account. Also used as the publisher private key if none is supplied. If no publisher pk is supplied, this is used as the pk for the l1 deployer (l1 contracts)
   | 'NETWORK_NAME' // The network ID of the telemetry service
-  | 'NETWORK' // TODO: delete this env variable
+  | 'NETWORK' // External Aztec network to connect to. e.g. devnet TODO: check if this is still being used today
   | 'NO_PXE' // If true, does not expose a PXE on sandbox start. TODO: delete this variable, don't think its being used.
   | 'COIN_ISSUER_CONTRACT_ADDRESS' // Address of the Coin Issuer contract
   | 'USE_GCLOUD_LOGGING' // If USE_GCLOUD_LOGGING is true, the pino logger will be configured with the settings defined in GoogleCloudLoggerConfig
