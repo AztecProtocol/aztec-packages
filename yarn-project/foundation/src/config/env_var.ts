@@ -131,7 +131,6 @@ export type EnvVar =
   | 'PROVER_PUBLISH_RETRY_INTERVAL_MS' // The interval to wait between publish retries
   | 'PROVER_PUBLISHER_PRIVATE_KEY' // The private key to be used by the prover publisher.
   | 'PROVER_REAL_PROOFS' // Whether to construct real proofs.
-  | 'PROVER_REQUIRED_CONFIRMATIONS' // TODO: Delete this env variable. It's not being used.
   | 'PROVER_TEST_DELAY_MS' // Used in TestCircuitProver to simulate "fake work" i.e. sleep(PROVER_TEST_DELAY_MS)
   | 'PXE_L2_STARTING_BLOCK' // Starting L2 block for the L2BlockStream in the PXE
   | 'PXE_PROVER_ENABLED' // Whether the PXE produces real ClientIVC proofs or not
@@ -145,7 +144,6 @@ export type EnvVar =
   | 'SEQ_MAX_L2_BLOCK_GAS' // The maximum L2 block gas.
   | 'SEQ_PUBLISH_RETRY_INTERVAL_MS' // The interval to wait between publish retries.
   | 'SEQ_PUBLISHER_PRIVATE_KEY' // The private key to be used by the publisher
-  | 'SEQ_REQUIRED_CONFIRMATIONS' // TODO: Delete this env var
   | 'SEQ_TX_POLLING_INTERVAL_MS' // The number of ms to wait between polling for pending txs.
   | 'SEQ_ENFORCE_TIME_TABLE' // 'Whether to enforce the time table when building blocks
   | 'SEQ_MAX_L1_TX_INCLUSION_TIME_INTO_SLOT' // Timetable option: How many seconds into an L1 slot we can still send a tx and get it mined.
