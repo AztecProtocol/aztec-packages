@@ -7,8 +7,12 @@ hash=$(../bootstrap.sh hash)
 
 function bench {
   mkdir -p bench-out
-  ./testbench/run_testbench.sh degree-1-strict.json ./bench-out/p2p-bench.json
-  cache_upload yarn-project-p2p-bench-results-$COMMIT_HASH.tar.gz ./bench-out/p2p-bench.json
+
+  for config in ./testbench/configurations/*.json; do
+    config_name=${config##*/}
+    ./testbench/run_testbench.sh $config_name ./bench-out/$config_name
+  done
+  cache_upload yarn-project-p2p-bench-results-$COMMIT_HASH.tar.gz ./bench-out/
 }
 
 case "$cmd" in
