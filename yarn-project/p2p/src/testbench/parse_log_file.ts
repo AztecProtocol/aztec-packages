@@ -16,6 +16,7 @@ interface BenchmarkResult {
     delay: number;
   }[];
   stats: {
+    numberReceived: number;
     minDelay: number;
     maxDelay: number;
     averageDelay: number;
@@ -115,6 +116,7 @@ function processLogFile(logFilePath: string, outputJsonPath?: string) {
   events.sort((a, b) => a.timestamp - b.timestamp);
 
   // Compute delay for each event relative to t0
+  const numberReceived = events.length;
   const delays = events.map(e => ({
     peerId: e.peerId,
     delay: e.timestamp - t0,
@@ -145,6 +147,7 @@ function processLogFile(logFilePath: string, outputJsonPath?: string) {
     const result: BenchmarkResult = {
       delays,
       stats: {
+        numberReceived,
         minDelay,
         maxDelay,
         averageDelay: Number(avgDelay.toFixed(2)),
