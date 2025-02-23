@@ -119,7 +119,6 @@ export type EnvVar =
   | 'PROVER_BROKER_BATCH_INTERVAL_MS' // How often to flush batches to disk
   | 'PROVER_BROKER_BATCH_SIZE' // Writes jobs to disk in batches of this size
   | 'PROVER_COORDINATION_NODE_URL' // If config.p2pEnabled is false, createProverCoordination request information from the AztecNode. Proving Coordination is how the prover node requests transaction data needed to produce proofs.
-  | 'PROVER_DISABLED' // TODO: Delete this env variable
   | 'PROVER_FAILED_PROOF_STORE' // Store for inputs of failed proof.
   | 'PROVER_ID' // Identifier of the prover. Takes a field input.
   | 'PROVER_JOB_POLL_INTERVAL_MS' // TODO: Delete this env variable
