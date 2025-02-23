@@ -12,7 +12,10 @@ function bench {
     config_name=${config##*/}
     ./testbench/run_testbench.sh $config_name ./bench-out/$config_name
   done
-  cache_upload yarn-project-p2p-bench-results-$COMMIT_HASH.tar.gz ./bench-out/
+
+  ./testbench/consolidate_benchmarks.sh
+
+  cache_upload yarn-project-p2p-bench-results-$COMMIT_HASH.tar.gz ./bench-out/consolidated.json
 }
 
 case "$cmd" in
