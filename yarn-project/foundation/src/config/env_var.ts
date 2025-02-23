@@ -113,7 +113,7 @@ export type EnvVar =
   | 'PROVER_AGENT_POLL_INTERVAL_MS' // TODO: Less sure about this one but remove this env var. Right now hardcoding the interval in the prover-agent.ts file.
   | 'PROVER_BROKER_HOST' // The URL from where a proving agent takes jobs from
   | 'PROVER_BROKER_ENABLED' // TODO: Remove this env var
-  | 'PROVER_BROKER_JOB_TIMEOUT_MS' // Jobs are retried if not kept alive for this long. TODO: Remove this env var, right now the value is being hardcoded everywhere and not pulled from config.
+  | 'PROVER_BROKER_JOB_TIMEOUT_MS' // Jobs are retried if not kept alive for this long.
   | 'PROVER_BROKER_POLL_INTERVAL_MS' // The interval to check job health status.
   | 'PROVER_BROKER_JOB_MAX_RETRIES' // If starting a prover broker locally, the max number of retries per proving job
   | 'PROVER_BROKER_BATCH_INTERVAL_MS' // How often to flush batches to disk
@@ -121,7 +121,6 @@ export type EnvVar =
   | 'PROVER_COORDINATION_NODE_URL' // If config.p2pEnabled is false, createProverCoordination request information from the AztecNode. Proving Coordination is how the prover node requests transaction data needed to produce proofs.
   | 'PROVER_FAILED_PROOF_STORE' // Store for inputs of failed proof.
   | 'PROVER_ID' // Identifier of the prover. Takes a field input.
-  | 'PROVER_JOB_TIMEOUT_MS' // TODO: Delete this env variable
   | 'PROVER_NODE_POLLING_INTERVAL_MS' // The interval in milliseconds to poll for new jobs
   | 'PROVER_NODE_MAX_PENDING_JOBS' // The maximum number of pending jobs for the prover node
   | 'PROVER_NODE_MAX_PARALLEL_BLOCKS_PER_EPOCH' // The Maximum number of blocks to process in parallel while proving an epoch
