@@ -1,49 +1,32 @@
-#!/usr/bin/env bash
+#! /bin/bash
+
 set -e
 
 REPO=$(git rev-parse --show-toplevel)
 
-# Create output directory if it doesn't exist
-mkdir -p bench-out
+output_file="$REPO/yarn-project/p2p/bench-out/consolidated.json"
+result="[]"
 
-# Create temporary file for storing entries
-temp_file=$(mktemp)
-entries_file=$(mktemp)
+# Loop over each JSON file in bench-out
+for file in "$REPO/yarn-project/p2p/bench-out"/*.json; do
+  # Extract the base filename (without directory and .json extension)
+  base=$(basename "$file" .json)
+  # Skip if the file is the consolidated file
+  if [[ "$base" == "consolidated" ]]; then
+    continue
+  fi
 
-# Process each JSON file in bench-out directory
-for file in $REPO/yarn-project/p2p/bench-out/*.json; do
-    # Skip consolidated.json itself
-    if [[ "$file" == "$REPO/yarn-project/p2p/bench-out/consolidated.json" ]]; then
-        continue
-    fi
+  # - name: "$base - <key>"
+  # - unit: "ms"
+  # - value: the value from the stats object
+  file_entries=$(jq --arg fname "$base" 'if .stats then
+      .stats | to_entries | map({name: ($fname + " - " + .key), unit: "ma", value: .value})
+    else [] end' "$file")
 
-    # Get filename without path and extension
-    filename=$(basename "$file" .json)
-
-    # Process each stat and create benchmark entries
-    jq -r '.stats | to_entries[] | @json' "$file" | while read -r stat_json; do
-        # Extract key and value using jq
-        key=$(echo "$stat_json" | jq -r '.key')
-        value=$(echo "$stat_json" | jq -r '.value')
-
-        # Create benchmark entry
-        jq -n \
-            --arg name "$filename: $key" \
-            --arg value "$value" \
-            --arg unit "ms" \
-            '{
-                name: $name,
-                unit: $unit,
-                value: ($value | tonumber)
-            }' >> "$entries_file"
-    done
+  # Append the current file's entries to the overall result array.
+  result=$(echo "$result" "$file_entries" | jq -s 'add')
 done
 
-# Combine all entries
-jq -s '.' "$entries_file" > "$temp_file"
-
-# Format and consolidate
-jq '.' "$temp_file" > "$REPO/yarn-project/p2p/bench-out/consolidated.json"
-
-# Clean up
-rm "$temp_file" "$entries_file"
+# Write the consolidated array
+echo "$result" > "$output_file"
+echo "Consolidated benchmarks written to $output_file"
