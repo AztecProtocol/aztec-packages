@@ -10,7 +10,7 @@ export type L1AssetConfig = {
 export type FaucetConfig = L1ReaderConfig & {
   l1Mnemonic: string;
   mnemonicAccountIndex: number;
-  interval: number;
+  faucetInterval: number;
   ethAmount: string;
   l1Assets: L1AssetConfig[];
 };
@@ -26,7 +26,7 @@ export const faucetConfigMapping: ConfigMappingsType<FaucetConfig> = {
     description: 'The account to use',
     ...numberConfigHelper(0),
   },
-  interval: {
+  faucetInterval: {
     env: 'FAUCET_INTERVAL_MS',
     description: 'How often the faucet can be dripped',
     ...numberConfigHelper(1 * 60 * 60 * 1000), // 1 hour
