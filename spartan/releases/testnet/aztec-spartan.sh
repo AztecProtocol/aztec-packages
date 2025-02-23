@@ -158,6 +158,10 @@ get_node_info() {
     FEE_JUICE_PORTAL_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.feeJuicePortalAddress')
     INBOX_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.inboxAddress')
     OUTBOX_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.outboxAddress')
+    STAKING_ASSET_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.stakingContractAddress')
+    SLASH_FACTORY_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.slashingContractAddress')
+
+
 
     echo -e "${GREEN}Node info fetched successfully${NC}"
     return 0
@@ -172,22 +176,23 @@ configure_environment() {
     if [ -n "$NETWORK" ]; then
         NETWORK="$NETWORK"
     else
-        read -p "Network [unhinged-unicorn]: " NETWORK
-        NETWORK=${NETWORK:-unhinged-unicorn}
+        read -p "Network [mitch]: " NETWORK
+        NETWORK=${NETWORK:-mitch}
     fi
 
     # if the network is `unhinged-unicorn`
-    if [ "$NETWORK" = "unhinged-unicorn" ]; then
-        BOOTNODE_URL="${BOOTNODE_URL:-http://34.169.19.201:8080}"
-        ETHEREUM_HOST="${ETHEREUM_HOST:-http://34.82.214.254:8545}"
-        IMAGE="${IMAGE:-aztecprotocol/aztec:unhinged-unicorn}"
+    if [ "$NETWORK" = "mitch" ]; then
+        BOOTNODE_URL="${BOOTNODE_URL:-http://34.145.47.90:8080}"
+        ETHEREUM_HOST="${ETHEREUM_HOST:-http://34.169.138.115:8545}"
+        L1_CONSENSUS_HOST_URL="${L1_CONSENSUS_HOST_URL:-35.227.182.215:5052}"
+        IMAGE="${IMAGE:-aztecprotocol/aztec:430adc4a99ff8f1cbe8cf0865ab65164260bc0ab}"
     else
         # unknown network
         echo -e "${RED}Unknown network: $NETWORK${NC}"
     fi
 
     # Check that bootnode, ethereum host, and image are set
-    if [ -z "$BOOTNODE_URL" ] || [ -z "$ETHEREUM_HOST" ] || [ -z "$IMAGE" ]; then
+    if [ -z "$BOOTNODE_URL" ] || [ -z "$ETHEREUM_HOST" ] || [ -z "$IMAGE" ] || [ -z "$L1_CONSENSUS_HOST_URL"]; then
         echo -e "${RED}Bootnode, Ethereum host, and image are required${NC}"
         exit 1
     fi
@@ -294,6 +299,7 @@ AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS=13
 ETHEREUM_HOST=${ETHEREUM_HOST}
 BOOTSTRAP_NODES=${BOOTSTRAP_NODES}
 REGISTRY_CONTRACT_ADDRESS=${REGISTRY_CONTRACT_ADDRESS}
+STAKING_ASSET_CONTRACT_ADDRESS=${}
 GOVERNANCE_PROPOSER_CONTRACT_ADDRESS=${GOVERNANCE_PROPOSER_CONTRACT_ADDRESS}
 FEE_JUICE_CONTRACT_ADDRESS=${FEE_JUICE_CONTRACT_ADDRESS}
 ROLLUP_CONTRACT_ADDRESS=${ROLLUP_CONTRACT_ADDRESS}

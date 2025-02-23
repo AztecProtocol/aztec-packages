@@ -140,7 +140,7 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   gossipsubMcacheLength: number;
 
   /**
-   * How many message cache windows to include when gossiping with other pears.
+   * How many message cache windows to include when gossiping with other peers.
    */
   gossipsubMcacheGossip: number;
 
