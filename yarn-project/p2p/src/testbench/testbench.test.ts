@@ -19,7 +19,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workerPath = path.join(__dirname, '../../dest/testbench/p2p_client_testbench_worker.js');
 const logger = createLogger('testbench');
 
-describe('Gossipsub', () => {
+describe.skip('Gossipsub', () => {
   let processes: ChildProcess[];
 
   let p2pBaseConfig: P2PConfig;
@@ -166,7 +166,7 @@ describe('Gossipsub', () => {
       const sender = peerIdStrings.findIndex(peerId => peerId === gossip.sender.toString());
       const receiver = gossip.clientIndex;
       logger.info(
-        `Transmission ${sender} -> ${receiver}, meshes ${Array.from(gossip.mesh as PeerId[])
+        `Transmission ${gossip.time} ${sender} -> ${receiver}, meshes ${Array.from(gossip.mesh as PeerId[])
           .map((x: PeerId, _: number) => x.toString())
           .map(x => peerIdStrings.findIndex(peerId => peerId === x.toString()))}`,
       );

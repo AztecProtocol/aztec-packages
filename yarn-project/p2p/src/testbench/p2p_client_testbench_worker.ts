@@ -108,7 +108,14 @@ process.on('message', async msg => {
         gossipMessageCount++;
         const sender = source;
         const mesh = (client as any).p2pService.node.services.pubsub.getMeshPeers(createTopicString(TopicType.tx));
-        process.send!({ type: 'GOSSIP_RECEIVED', count: gossipMessageCount, sender, clientIndex, mesh });
+        process.send!({
+          type: 'GOSSIP_RECEIVED',
+          count: gossipMessageCount,
+          sender,
+          clientIndex,
+          mesh,
+          time: new Date(),
+        });
         return (client as any).p2pService.constructor.prototype.handleNewGossipMessage.apply(
           (client as any).p2pService,
           [msg, msgId, source],
