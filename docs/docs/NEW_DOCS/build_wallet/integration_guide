@@ -1,0 +1,20 @@
+protocol things you need to know about
+
+like this:
+https://docs.google.com/document/d/1A1ZF1xQpR0iNP92cV-njtD6iDIRWiemWYsFSUGRXxBE/edit?tab=t.0#heading=h.24zre5eeja9n
+
+Accounts
+AuthWits
+Keys and addresses
+note tagging
+Modularised PXE
+Fees and Gas and FPC integ (also refer to wallet RFP for content on chosing fpcs)
+How do we expect dapps to connect to wallet and wallet connect
+Authorization: https://github.com/AztecProtocol/aztec-packages/issues/9128
+Private RPC Queries
+capsules
+
+
+NOTE - almost all of this can be hyperlinked to specific parts in the protocol_concepts dir OR tailored to info wallets should know
+I (rahul) think it should be former for easy maintenance. So engineering know what protocol concepts to change.
+

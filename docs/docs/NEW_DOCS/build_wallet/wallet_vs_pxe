@@ -1,0 +1,19 @@
+What is a PXE?
+https://hackmd.io/9fieewjIT_ihIYZ7ts-dNQ
+(exisitng pxe docs are stale as pxe is changing completely! but for reference:
+https://github.com/AztecProtocol/aztec-packages/blob/55564aaca2a8fba46e0704c560a1aef18adef10d/docs/docs/aztec/concepts/pxe/index.md#L1
+)
+
+Wallet vs PXE
+signing keys: stored by wallet
+other keys: by PXE
+
+Auth Scopes between PXE and Wallet
+
+Insert Joe's presentation from engg offsite
+
+## Starting a PXE
+CLI Command
+and JS variant
+
+## OPEN QUESTION: Should pxe live here vs protocol_concepts/pxe? It can only be either-or.
