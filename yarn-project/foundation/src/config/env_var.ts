@@ -65,7 +65,7 @@ export type EnvVar =
   | 'MNEMONIC' // The mnemonic for the faucet account. Also used as the publisher private key if none is supplied. If no publisher pk is supplied, this is used as the pk for the l1 deployer (l1 contracts)
   | 'NETWORK_NAME' // The network ID of the telemetry service
   | 'NETWORK' // External Aztec network to connect to. e.g. devnet TODO: check if this is still being used today
-  | 'NO_PXE' // If true, does not expose a PXE on sandbox start. TODO: delete this variable, don't think its being used.
+  | 'NO_PXE' // If true, does not expose a PXE on sandbox start.
   | 'COIN_ISSUER_CONTRACT_ADDRESS' // Address of the Coin Issuer contract
   | 'USE_GCLOUD_LOGGING' // If USE_GCLOUD_LOGGING is true, the pino logger will be configured with the settings defined in GoogleCloudLoggerConfig
   | 'USE_GCLOUD_METRICS' // Whether to use GCP metrics and traces
