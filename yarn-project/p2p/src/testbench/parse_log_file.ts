@@ -3,7 +3,11 @@
 // 2. Parse all Received Tx logs, extracting the timestamp and peer ID
 // 3. Compute the delay for each peer relative to the timestamp of the sent message
 // 4. Print the delays
+import { createLogger } from '@aztec/foundation/log';
+
 import * as fs from 'fs';
+
+const logger = createLogger('parse_log_file');
 
 interface LogEvent {
   timestamp: number; // in milliseconds (from start of log)
@@ -44,7 +48,7 @@ function parseReceivedTx(line: string): LogEvent | null {
   // Extract timestamp from the line: e.g. {"time":1740142435845}
   const timestamp = getTimestamp(line);
   if (!timestamp) {
-    console.log('No timestamp found in received tx log');
+    logger.error('No timestamp found in received tx log');
     return null;
   }
 
@@ -52,7 +56,7 @@ function parseReceivedTx(line: string): LogEvent | null {
   // Extract the peer ID after "Received tx"
   const peerIdMatch = line.match(/p2p:(\d+):/);
   if (!peerIdMatch) {
-    console.log('No peer Number found in received tx log');
+    logger.error('No peer Number found in received tx log');
     return null;
   }
   const peerId = peerIdMatch[1];
@@ -70,7 +74,7 @@ function parseSentMessage(line: string): number | null {
 
   const timestamp = getTimestamp(line);
   if (!timestamp) {
-    console.log('No timestamp found in sent message log');
+    logger.error('No timestamp found in sent message log');
     return null;
   }
 
@@ -108,7 +112,7 @@ function processLogFile(logFilePath: string, outputJsonPath?: string) {
   }
 
   if (events.length === 0) {
-    console.log('No message received events found in log file.');
+    logger.error('No message received events found in log file.');
     return;
   }
 
@@ -122,9 +126,9 @@ function processLogFile(logFilePath: string, outputJsonPath?: string) {
     delay: e.timestamp - t0,
   }));
 
-  console.log('Propagation delays (in ms) per peer:');
+  logger.info('Propagation delays (in ms) per peer:');
   for (const d of delays) {
-    console.log(`${d.peerId}: ${d.delay} ms`);
+    logger.info(`${d.peerId}: ${d.delay} ms`);
   }
 
   // Compute basic statistics
@@ -136,11 +140,12 @@ function processLogFile(logFilePath: string, outputJsonPath?: string) {
   const sortedDelays = delayValues.slice().sort((a, b) => a - b);
   const medianDelay = sortedDelays[Math.floor(sortedDelays.length / 2)];
 
-  console.log('\nBenchmark Statistics:');
-  console.log(`Min delay: ${minDelay} ms`);
-  console.log(`Max delay: ${maxDelay} ms`);
-  console.log(`Average delay: ${avgDelay.toFixed(2)} ms`);
-  console.log(`Median delay: ${medianDelay} ms`);
+  logger.info('\nBenchmark Statistics:');
+  logger.info(`Number of messages received: ${numberReceived}`);
+  logger.info(`Min delay: ${minDelay} ms`);
+  logger.info(`Max delay: ${maxDelay} ms`);
+  logger.info(`Average delay: ${avgDelay.toFixed(2)} ms`);
+  logger.info(`Median delay: ${medianDelay} ms`);
 
   // If output JSON path is provided, write results to file
   if (outputJsonPath) {
@@ -156,14 +161,14 @@ function processLogFile(logFilePath: string, outputJsonPath?: string) {
     };
 
     fs.writeFileSync(outputJsonPath, JSON.stringify(result, null, 2));
-    console.log(`\nResults written to ${outputJsonPath}`);
+    logger.info(`\nResults written to ${outputJsonPath}`);
   }
 }
 
 // Get the log file path and optional output JSON path from command-line arguments
 const [logFilePath, outputJsonPath] = process.argv.slice(2);
 if (!logFilePath) {
-  console.error('Usage: ts-node parse_log_file.ts <logFilePath> [outputJsonPath]');
+  logger.error('Usage: ts-node parse_log_file.ts <logFilePath> [outputJsonPath]');
   process.exit(1);
 }
 

@@ -45,8 +45,8 @@ async function cleanup() {
 }
 
 // Handle cleanup on process termination
-process.on('SIGINT', cleanup);
-process.on('SIGTERM', cleanup);
+process.on('SIGINT', () => void cleanup());
+process.on('SIGTERM', () => void cleanup());
 
 /**
  * Creates a number of worker clients in separate processes
@@ -62,7 +62,7 @@ async function makeWorkerClients(numberOfClients: number, p2pConfig: Partial<P2P
   const peerEnrs = await makeEnrs(peerIdPrivateKeys, ports, testChainConfig);
 
   processes = [];
-  let readySignals = [];
+  const readySignals: Promise<void>[] = [];
   for (let i = 0; i < numberOfClients; i++) {
     logger.info(`Creating client ${i}`);
     const addr = `127.0.0.1:${ports[i]}`;
@@ -115,7 +115,6 @@ async function main() {
   try {
     // Read configuration file name from command line args
     const configFile = process.argv[2];
-    console.log('configFile', configFile);
     if (!configFile) {
       throw new Error('Configuration file must be provided as first argument');
     }
@@ -124,8 +123,6 @@ async function main() {
     const config = await import(configPath, { assert: { type: 'json' } });
     const testConfig = { ...testChainConfig, ...config.default };
     const numberOfClients = config.default.numberOfClients;
-
-    console.log('testConfig', testConfig);
 
     // Setup clients in separate processes
     await makeWorkerClients(numberOfClients, testConfig);

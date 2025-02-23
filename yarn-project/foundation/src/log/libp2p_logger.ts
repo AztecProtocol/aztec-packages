@@ -17,7 +17,9 @@ export function createLibp2pComponentLogger(namespace: string): ComponentLogger 
 // Lipp2p libraries use arbitrary string substitutions, so we need to replace them with %s, this is slow so avoid doing it unless trace debugging
 function replaceFormatting(message: string) {
   // Message can sometimes not be a string, e.g. an error object, just return it as is
-  if (!message?.replace) return message;
+  if (!message?.replace) {
+    return message;
+  }
 
   return message.replace(/(%p|%a)/g, '%s');
 }
@@ -27,7 +29,9 @@ function createLibp2pLogger(component: string): Logger {
   const log = logger.child({ module: component }, { level: getLogLevelFromFilters(logFilters, component) });
 
   const logIfEnabled = (level: LogLevel, message: string, ...args: unknown[]) => {
-    if (!log.isLevelEnabled(level)) return;
+    if (!log.isLevelEnabled(level)) {
+      return;
+    }
 
     log[level](replaceFormatting(message), ...args);
   };

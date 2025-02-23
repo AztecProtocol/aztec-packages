@@ -181,6 +181,7 @@ function bench {
   fi
   denoise "barretenberg/bootstrap.sh bench"
   denoise "yarn-project/end-to-end/bootstrap.sh bench"
+  denoise "yarn-project/p2p/bootstrap.sh bench"
 }
 
 function release_github {
