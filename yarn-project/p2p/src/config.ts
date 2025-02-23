@@ -315,11 +315,6 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'The weight of the tx invalid message deliveries for the gossipsub protocol.',
     ...numberConfigHelper(-20),
   },
-  gossipsubTxInvalidMessageDeliveriesDecay: {
-    env: 'P2P_GOSSIPSUB_TX_INVALID_MESSAGE_DELIVERIES_DECAY',
-    description: 'Determines how quickly the penalty for invalid message deliveries decays over time. Between 0 and 1.',
-    ...numberConfigHelper(0.5),
-  },
   peerPenaltyValues: {
     env: 'P2P_PEER_PENALTY_VALUES',
     parseEnv: (val: string) => val.split(',').map(Number),
