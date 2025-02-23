@@ -25,7 +25,6 @@ export type EnvVar =
   | 'BOT_L2_GAS_LIMIT' // L2 gas limit for the tx (empty to have the bot trigger an estimate gas). If any of BOT_L2_GAS_LIMIT or BOT_DA_GAS_LIMIT are empty, the bot triggers an estimate gas.
   | 'BOT_MAX_PENDING_TXS' // The bot will not send a tx if the node's tx pool already has this many pending txs. This is the Boot Node usually.
   | 'BOT_NO_START' // Do not start the bot automatically if you run aztec node start
-  | 'BOT_NO_WAIT_FOR_TRANSFERS' // TODO this env variable is not used anymore.
   | 'BOT_PRIVATE_KEY' // Bot's signing key
   | 'BOT_PRIVATE_TRANSFERS_PER_TX' // How many private transfers included in a bot transaction?
   | 'BOT_PUBLIC_TRANSFERS_PER_TX' // How many public transfers included in a bot transaction?
