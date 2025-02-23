@@ -100,7 +100,6 @@ export type EnvVar =
   | 'P2P_TCP_ANNOUNCE_ADDR' // The announce address for TCP. Format: <IP_ADDRESS>:<PORT>
   | 'P2P_TX_POOL_KEEP_PROVEN_FOR' // How many blocks have to pass after a block is proven before its txs are deleted (zero to delete immediately once proven)
   | 'P2P_ATTESTATION_POOL_KEEP_FOR' // How many slots to keep attestations for.
-  | 'P2P_TX_PROTOCOL' // Protocol identifier for transaction gossiping. TODO: delete this env var
   | 'P2P_UDP_ANNOUNCE_ADDR' // The announce address for UDP. Format: <IP_ADDRESS>:<PORT>
   | 'P2P_UDP_LISTEN_ADDR' // The listen address for UDP. Format: <IP_ADDRESS>:<PORT>
   | 'P2P_ARCHIVED_TX_LIMIT' // Archives a list of txs for future reference. The number of archived txs is limited by the specified archivedTxLimit

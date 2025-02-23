@@ -79,11 +79,6 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   bootstrapNodeEnrVersionCheck: boolean;
 
   /**
-   * Protocol identifier for transaction gossiping.
-   */
-  transactionProtocol: string;
-
-  /**
    * The maximum number of peers (a peer count above this will cause the node to refuse connection attempts)
    */
   maxPeerCount: number;
@@ -227,11 +222,6 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_BOOTSTRAP_NODE_ENR_VERSION_CHECK',
     description: 'Whether to check the version of the bootstrap node ENR.',
     ...booleanConfigHelper(),
-  },
-  transactionProtocol: {
-    env: 'P2P_TX_PROTOCOL',
-    description: 'Protocol identifier for transaction gossiping.',
-    defaultValue: '/aztec/0.1.0',
   },
   maxPeerCount: {
     env: 'P2P_MAX_PEERS',

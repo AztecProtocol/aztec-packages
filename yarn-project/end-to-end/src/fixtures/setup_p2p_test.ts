@@ -120,7 +120,6 @@ export async function createValidatorConfig(
     p2pEnabled: true,
     peerCheckIntervalMS: TEST_PEER_CHECK_INTERVAL_MS,
     blockCheckIntervalMS: 1000,
-    transactionProtocol: '',
     dataDirectory,
     bootstrapNodes: bootstrapNodeEnr ? [bootstrapNodeEnr] : [],
   };
