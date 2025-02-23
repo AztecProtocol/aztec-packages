@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740346400703,
+  "lastUpdate": 1740346404238,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -3326,6 +3326,78 @@ window.BENCHMARK_DATA = {
             "value": "2249.31",
             "unit": "MiB/iter",
             "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      }
+    ],
+    "P2P Testbench": [
+      {
+        "commit": {
+          "author": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "committer": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "id": "912f2c539bcf382e28df4afa0fc44fec89f3cd85",
+          "message": "feat(p2p): gossipsub scoring adjustments + testbench",
+          "timestamp": "2025-02-23T02:27:21Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/pull/12075/commits/912f2c539bcf382e28df4afa0fc44fec89f3cd85"
+        },
+        "date": 1740346403428,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "degree-1-strict - numberReceived",
+            "value": 3,
+            "unit": "ma"
+          },
+          {
+            "name": "degree-1-strict - minDelay",
+            "value": 383,
+            "unit": "ma"
+          },
+          {
+            "name": "degree-1-strict - maxDelay",
+            "value": 5276,
+            "unit": "ma"
+          },
+          {
+            "name": "degree-1-strict - averageDelay",
+            "value": 2716.33,
+            "unit": "ma"
+          },
+          {
+            "name": "degree-1-strict - medianDelay",
+            "value": 2490,
+            "unit": "ma"
+          },
+          {
+            "name": "normal-degree-50-nodes - numberReceived",
+            "value": 26,
+            "unit": "ma"
+          },
+          {
+            "name": "normal-degree-50-nodes - minDelay",
+            "value": 50,
+            "unit": "ma"
+          },
+          {
+            "name": "normal-degree-50-nodes - maxDelay",
+            "value": 7221,
+            "unit": "ma"
+          },
+          {
+            "name": "normal-degree-50-nodes - averageDelay",
+            "value": 2146.35,
+            "unit": "ma"
+          },
+          {
+            "name": "normal-degree-50-nodes - medianDelay",
+            "value": 925,
+            "unit": "ma"
           }
         ]
       }
