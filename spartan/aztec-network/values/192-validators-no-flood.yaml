@@ -4,6 +4,9 @@ telemetry:
 
 validator:
   replicas: 192
+  resources:
+    requests:
+      memory: 1Gi
   p2p:
     floodPublish: false
   validator:
