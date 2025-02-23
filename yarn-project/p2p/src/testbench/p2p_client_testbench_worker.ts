@@ -4,7 +4,7 @@
  * Used when running testbench commands
  */
 import { MockL2BlockSource } from '@aztec/archiver/test';
-import { P2PClientType, Tx, TxStatus } from '@aztec/circuit-types';
+import { P2PClientType, TopicType, Tx, TxStatus, createTopicString } from '@aztec/circuit-types';
 import { type WorldStateSynchronizer } from '@aztec/circuit-types/interfaces/server';
 import { type EpochCacheInterface } from '@aztec/epoch-cache';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -12,6 +12,8 @@ import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+
+import type { Message, PeerId } from '@libp2p/interface';
 
 import { type P2PConfig } from '../config.js';
 import { createP2PClient } from '../index.js';
@@ -102,12 +104,14 @@ process.on('message', async msg => {
 
       // Create spy for gossip messages
       let gossipMessageCount = 0;
-      (client as any).p2pService.handleNewGossipMessage = (...args: any[]) => {
+      (client as any).p2pService.handleNewGossipMessage = (msg: Message, msgId: string, source: PeerId) => {
         gossipMessageCount++;
-        process.send!({ type: 'GOSSIP_RECEIVED', count: gossipMessageCount });
+        const sender = source;
+        const mesh = (client as any).p2pService.node.services.pubsub.getMeshPeers(createTopicString(TopicType.tx));
+        process.send!({ type: 'GOSSIP_RECEIVED', count: gossipMessageCount, sender, clientIndex, mesh });
         return (client as any).p2pService.constructor.prototype.handleNewGossipMessage.apply(
           (client as any).p2pService,
-          args,
+          [msg, msgId, source],
         );
       };
 
@@ -122,15 +126,30 @@ process.on('message', async msg => {
         await sleep(1000);
       }
 
+      if (clientIndex == 0) {
+        setInterval(() => {
+          logger.info(
+            `Scores for client ${clientIndex}: ${JSON.stringify(
+              (client as any).p2pService.node.services.pubsub.dumpPeerScoreStats(),
+            )}`,
+          );
+          const mesh = (client as any).p2pService.node.services.pubsub.getMeshPeers(createTopicString(TopicType.tx));
+          logger.info(`Mesh peers for client ${clientIndex}: ${mesh.map((x: PeerId) => x.toString())}`);
+        }, 1000);
+      }
+
       // Listen for commands from parent
       // eslint-disable-next-line @typescript-eslint/no-misused-promises
       process.on('message', async (cmd: any) => {
+        let mesh;
         switch (cmd.type) {
           case 'STOP':
             await client.stop();
             process.exit(0);
             break;
           case 'SEND_TX':
+            mesh = (client as any).p2pService.node.services.pubsub.getMeshPeers(createTopicString(TopicType.tx));
+            logger.info(`Mesh peers: ${mesh.map((x: PeerId) => x.toString())}`);
             await client.sendTx(Tx.fromBuffer(Buffer.from(cmd.tx)));
             process.send!({ type: 'TX_SENT' });
             break;

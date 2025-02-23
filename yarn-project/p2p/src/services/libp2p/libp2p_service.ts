@@ -6,7 +6,6 @@ import {
   MerkleTreeId,
   P2PClientType,
   PeerErrorSeverity,
-  type RawGossipMessage,
   TopicTypeMap,
   Tx,
   type TxHash,
@@ -402,11 +401,10 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
   }
 
   private handleGossipSubEvent(e: CustomEvent<GossipsubMessage>) {
-    const { msg } = e.detail;
     this.logger.trace(`Received PUBSUB message.`);
 
     void this.jobQueue
-      .put(() => this.handleNewGossipMessage(msg))
+      .put(() => this.handleNewGossipMessage(e.detail.msg, e.detail.msgId, e.detail.propagationSource))
       .catch(err => this.logger.error(`Error processing gossip message`, err));
   }
 
@@ -484,21 +482,34 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
    * @param topic - The message's topic.
    * @param data - The message data
    */
-  private async handleNewGossipMessage(message: RawGossipMessage) {
-    if (message.topic === Tx.p2pTopic) {
-      const tx = Tx.fromBuffer(Buffer.from(message.data));
-      await this.processTxFromPeer(tx);
+  private async handleNewGossipMessage(msg: Message, msgId: string, source: PeerId) {
+    if (msg.topic === Tx.p2pTopic) {
+      await this.handleGossipedTx(msg, msgId, source);
     }
-    if (message.topic === BlockAttestation.p2pTopic && this.clientType === P2PClientType.Full) {
-      const attestation = BlockAttestation.fromBuffer(Buffer.from(message.data));
+    if (msg.topic === BlockAttestation.p2pTopic && this.clientType === P2PClientType.Full) {
+      const attestation = BlockAttestation.fromBuffer(Buffer.from(msg.data));
       await this.processAttestationFromPeer(attestation);
     }
-    if (message.topic == BlockProposal.p2pTopic) {
-      const block = BlockProposal.fromBuffer(Buffer.from(message.data));
+    if (msg.topic == BlockProposal.p2pTopic) {
+      const block = BlockProposal.fromBuffer(Buffer.from(msg.data));
       await this.processBlockFromPeer(block);
     }
 
     return;
+  }
+
+  private async handleGossipedTx(msg: Message, msgId: string, source: PeerId) {
+    const tx = Tx.fromBuffer(Buffer.from(msg.data));
+    const isValid = await this.validatePropagatedTx(tx, source);
+    const result = isValid ? TopicValidatorResult.Accept : TopicValidatorResult.Reject;
+    this.node.services.pubsub.reportMessageValidationResult(msgId, source.toString(), result);
+    if (!isValid) {
+      return;
+    }
+    const txHash = await tx.getTxHash();
+    const txHashString = txHash.toString();
+    this.logger.verbose(`Received tx ${txHashString} from external peer ${source.toString()}.`);
+    await this.processTxFromPeer(tx);
   }
 
   /**Process Attestation From Peer
