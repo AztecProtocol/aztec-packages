@@ -4,7 +4,7 @@ set -e
 
 REPO=$(git rev-parse --show-toplevel)
 
-output_file="$REPO/yarn-project/p2p/bench-out/consolidated.json"
+output_file="$REPO/yarn-project/p2p/bench-out/p2p-bench.json"
 result="[]"
 
 # Loop over each JSON file in bench-out
@@ -12,7 +12,7 @@ for file in "$REPO/yarn-project/p2p/bench-out"/*.json; do
   # Extract the base filename (without directory and .json extension)
   base=$(basename "$file" .json)
   # Skip if the file is the consolidated file
-  if [[ "$base" == "consolidated" ]]; then
+  if [[ "$base" == "p2p-bench" ]]; then
     continue
   fi
 
