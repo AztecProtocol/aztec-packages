@@ -1,0 +1,6 @@
+[package]
+name = "bench_schnorr"
+type = "bin"
+authors = [""]
+
+[dependencies]
