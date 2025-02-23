@@ -197,7 +197,6 @@ describe('Discv5Service', () => {
       peerCheckIntervalMS: 50,
       transactionProtocol: 'aztec/1.0.0',
       p2pEnabled: true,
-      l2QueueSize: 100,
       keepProvenTxsInPoolFor: 0,
       ...overrides,
     };

@@ -89,7 +89,6 @@ export type EnvVar =
   | 'P2P_GOSSIPSUB_INTERVAL_MS' // The interval of the gossipsub heartbeat to perform maintenance tasks.
   | 'P2P_GOSSIPSUB_MCACHE_GOSSIP' // How many message cache windows to include when gossiping with other peers.
   | 'P2P_GOSSIPSUB_MCACHE_LENGTH' // he number of gossipsub interval message cache windows to keep
-  | 'P2P_L2_QUEUE_SIZE' // Size of queue of L2 blocks to store. Todo: delete this env variable, it's not being used.
   | 'P2P_MAX_PEERS' // The maximum number of peers to connect to
   | 'P2P_PEER_CHECK_INTERVAL_MS' // The frequency with which to check for new peers.
   | 'P2P_PEER_PENALTY_VALUES' // The values for the peer scoring system. Passed as a comma separated list of values in order: low, mid, high tolerance errors.'
