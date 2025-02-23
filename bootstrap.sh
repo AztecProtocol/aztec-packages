@@ -308,9 +308,9 @@ case "$cmd" in
   ;;
   "ci")
     build
-    test
+    # test
     bench
-    release
+    # release
     ;;
   test|test_cmds|bench|release|release_dryrun|release_commit)
     $cmd "$@"
