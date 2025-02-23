@@ -1,5 +1,7 @@
-import { type PXE, type TxHash, type TxReceipt } from '@aztec/circuit-types';
-import { type AztecAddress, type ContractInstanceWithAddress } from '@aztec/circuits.js';
+import { type TxHash, type TxReceipt } from '@aztec/circuit-types';
+import { type PXE } from '@aztec/circuit-types/interfaces/client';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type ContractInstanceWithAddress } from '@aztec/circuits.js/contract';
 import { createLogger } from '@aztec/foundation/log';
 import { type FieldsOf } from '@aztec/foundation/types';
 

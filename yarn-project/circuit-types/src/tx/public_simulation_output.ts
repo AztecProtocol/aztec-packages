@@ -1,5 +1,7 @@
-import { CombinedConstantData, Fr, Gas } from '@aztec/circuits.js';
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+import { Gas } from '@aztec/circuits.js/gas';
+import { CombinedConstantData } from '@aztec/circuits.js/kernel';
+import { type ZodFor, schemas } from '@aztec/circuits.js/schemas';
+import { Fr } from '@aztec/foundation/fields';
 
 import times from 'lodash.times';
 import { z } from 'zod';
@@ -54,7 +56,7 @@ export class PublicSimulationOutput {
     public gasUsed: GasUsed,
   ) {}
 
-  static get schema() {
+  static get schema(): ZodFor<PublicSimulationOutput> {
     return z
       .object({
         revertReason: SimulationError.schema.optional(),

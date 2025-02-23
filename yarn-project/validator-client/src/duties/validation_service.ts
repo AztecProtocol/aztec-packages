@@ -5,7 +5,7 @@ import {
   SignatureDomainSeparator,
   type TxHash,
 } from '@aztec/circuit-types';
-import { type BlockHeader } from '@aztec/circuits.js';
+import { type BlockHeader } from '@aztec/circuits.js/tx';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto';
 import { type Fr } from '@aztec/foundation/fields';

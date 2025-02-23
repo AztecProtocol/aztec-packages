@@ -72,11 +72,12 @@ bootNode:
   coinbaseAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   sequencer:
     maxSecondsBetweenBlocks: 0
-    minTxsPerBlock: 1
+    minTxsPerBlock: 0
   validator:
     disabled: true
   p2p:
     enabled: "true"
+    floodPublish: true
   resources:
     requests:
       memory: "5Gi"
@@ -114,7 +115,7 @@ validator:
   logLevel: "debug; info: aztec:simulator, json-rpc"
   sequencer:
     maxSecondsBetweenBlocks: 0
-    minTxsPerBlock: 1
+    minTxsPerBlock: 0
     maxTxsPerBlock: 4
     enforceTimeTable: true
   validator:
@@ -122,6 +123,7 @@ validator:
     reexecute: true
   p2p:
     enabled: "true"
+    floodPublish: true
   startupProbe:
     periodSeconds: 10
     # Only if we fail for 20 minutes straight do we call it botched
@@ -144,7 +146,9 @@ validator:
 proverNode:
   externalHost: ""
   replicas: 1
-  p2pEnabled: true
+  p2p:
+    enabled: true
+    floodPublish: true
   service:
     p2pTcpPort: 40400
     p2pUdpPort: 40400
@@ -279,7 +283,10 @@ proverAgent:
   enabled: true
   replicas: 1
   pollIntervalMs: 1000
-  proofTypes: ["foo", "bar", "baz"]
+  proofTypes: []
+  testDelayType: "fixed"
+  testDelayMs: 100 # each fake proof takes 100ms
+  testDelayFactor: 1
   gke:
     spotEnabled: true
   logLevel: "debug; info: aztec:simulator, json-rpc"

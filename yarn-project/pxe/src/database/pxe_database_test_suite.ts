@@ -1,13 +1,11 @@
-import { NoteStatus, type NotesFilter, randomTxHash } from '@aztec/circuit-types';
-import {
-  AztecAddress,
-  CompleteAddress,
-  INITIAL_L2_BLOCK_NUM,
-  PublicKeys,
-  SerializableContractInstance,
-} from '@aztec/circuits.js';
+import { NoteStatus, type NotesFilter } from '@aztec/circuit-types';
+import { randomTxHash } from '@aztec/circuit-types/testing';
+import { FunctionType } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { CompleteAddress, SerializableContractInstance } from '@aztec/circuits.js/contract';
+import { PublicKeys } from '@aztec/circuits.js/keys';
 import { makeHeader } from '@aztec/circuits.js/testing';
-import { FunctionType } from '@aztec/foundation/abi';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';

@@ -1,10 +1,14 @@
-import { AztecAddress, type ContractInstanceWithAddress, Fr } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { ContractInstanceWithAddress } from '@aztec/circuits.js/contract';
+import { Fr } from '@aztec/foundation/fields';
+import { createLogger } from '@aztec/foundation/log';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 
 import { PublicTxSimulationTester } from '../fixtures/public_tx_simulation_tester.js';
 import { type PublicTxResult } from '../public_tx_simulator.js';
 
 describe('Public TX simulator apps tests: TokenContract', () => {
+  const logger = createLogger('public-tx-apps-tests-token');
   const admin = AztecAddress.fromNumber(42);
   const sender = AztecAddress.fromNumber(111);
   const receiver = AztecAddress.fromNumber(222);
@@ -32,6 +36,8 @@ describe('Public TX simulator apps tests: TokenContract', () => {
   });
 
   it('token mint, transfer, burn (and check balances)', async () => {
+    const startTime = performance.now();
+
     const mintAmount = 100n;
     const transferAmount = 50n;
     const nonce = new Fr(0);
@@ -80,6 +86,9 @@ describe('Public TX simulator apps tests: TokenContract', () => {
     );
     expect(burnResult.revertCode.isOK()).toBe(true);
     await checkBalance(receiver, 0n);
+
+    const endTime = performance.now();
+    logger.verbose(`TokenContract public tx simulator test took ${endTime - startTime}ms\n`);
   });
 
   const checkBalance = async (account: AztecAddress, expectedBalance: bigint) => {

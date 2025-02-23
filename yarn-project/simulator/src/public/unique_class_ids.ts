@@ -1,4 +1,4 @@
-import { MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS } from '@aztec/circuits.js';
+import { MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS } from '@aztec/constants';
 
 import { strict as assert } from 'assert';
 

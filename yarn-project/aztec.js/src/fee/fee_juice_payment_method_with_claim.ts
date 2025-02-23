@@ -1,6 +1,7 @@
 import { type FunctionCall } from '@aztec/circuit-types';
-import { type AztecAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
-import { FunctionType, U128 } from '@aztec/foundation/abi';
+import { FunctionSelector, FunctionType, U128 } from '@aztec/circuits.js/abi';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { Fr } from '@aztec/foundation/fields';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 

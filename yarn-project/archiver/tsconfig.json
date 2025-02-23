@@ -19,6 +19,9 @@
       "path": "../circuits.js"
     },
     {
+      "path": "../constants"
+    },
+    {
       "path": "../ethereum"
     },
     {
@@ -41,9 +44,6 @@
     },
     {
       "path": "../telemetry-client"
-    },
-    {
-      "path": "../types"
     }
   ],
   "include": ["src"]

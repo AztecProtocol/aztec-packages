@@ -1,10 +1,6 @@
-import {
-  type BlockHeader,
-  type Fr,
-  type NullifierLeaf,
-  type PublicDataTreeLeaf,
-  type StateReference,
-} from '@aztec/circuits.js';
+import { type NullifierLeaf, type PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
+import type { BlockHeader, StateReference } from '@aztec/circuits.js/tx';
+import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
@@ -214,7 +210,24 @@ export interface MerkleTreeReadOperations {
   ): Promise<(bigint | undefined)[]>;
 }
 
-export interface MerkleTreeWriteOperations extends MerkleTreeReadOperations {
+export interface MerkleTreeCheckpointOperations {
+  /**
+   * Checkpoints the current fork state
+   */
+  createCheckpoint(): Promise<void>;
+
+  /**
+   * Commits the current checkpoint
+   */
+  commitCheckpoint(): Promise<void>;
+
+  /**
+   * Reverts the current checkpoint
+   */
+  revertCheckpoint(): Promise<void>;
+}
+
+export interface MerkleTreeWriteOperations extends MerkleTreeReadOperations, MerkleTreeCheckpointOperations {
   /**
    * Appends leaves to a given tree.
    * @param treeId - The tree to be updated.
@@ -258,21 +271,6 @@ export interface MerkleTreeWriteOperations extends MerkleTreeReadOperations {
    * Closes the database, discarding any uncommitted changes.
    */
   close(): Promise<void>;
-
-  /**
-   * Checkpoints the current fork state
-   */
-  createCheckpoint(): Promise<void>;
-
-  /**
-   * Commits the current checkpoint
-   */
-  commitCheckpoint(): Promise<void>;
-
-  /**
-   * Reverts the current checkpoint
-   */
-  revertCheckpoint(): Promise<void>;
 }
 
 /**

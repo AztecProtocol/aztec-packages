@@ -45,10 +45,8 @@ namespace sha256;
     pol commit sel;
     sel * (1 - sel) = 0;
 
-    // TODO: This skippable condition makes verification fail.
-    // Re-check after https://github.com/AztecProtocol/aztec-packages/pull/10598 is merged.
-    // #[skippable_if]
-    // sel = 0;
+    #[skippable_if]
+    sel = 0;
 
     // These are needed while we can't use constant values in lookups.
     // For the XOR lookups
@@ -61,8 +59,10 @@ namespace sha256;
     // Start Row
     pol commit start;
     start * (1 - start) = 0;
-    // If the current row is latched and the next row is "on", the next row is the start of the new computation
-    start' - (latch * sel') = 0;
+    // If the current row is latched (or the first row) and the next row is "on", the next row is the start of the new computation
+    // We add the first row conditions so we dont need to latch the first row.
+    // TODO: Revisit this condition once we agree on how to handle the first_row <> latch interaction
+    start' - ((latch + precomputed.first_row)  * sel') = 0;
 
     // Selector to stop after 64 rounds
     pol commit latch;
@@ -71,9 +71,7 @@ namespace sha256;
     // We perform a compression operation if we are not at a latched row
     pol commit perform_round;
     perform_round - (sel * (1 - latch)) = 0;
-    // Temp while we don't have the lookups enabled
-    pol commit dummy_zero;
-    dummy_zero = 0;
+
     pol LAST = sel * latch;
 
     // Counter
@@ -267,8 +265,8 @@ namespace sha256;
     // ===== COMPUTING TMP 1 ===========
     // Lookup round constants
     pol commit round_constant;
-    #[LOOKUP_SHA256_ROUND_CONSTANT]
-    sel {round_count, round_constant}
+    #[ROUND_CONSTANT]
+    perform_round {round_count, round_constant}
     in
     precomputed.sel_sha256_compression {precomputed.clk, precomputed.sha256_compression_round_constant};
 

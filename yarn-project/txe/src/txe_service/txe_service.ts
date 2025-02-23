@@ -1,18 +1,14 @@
+import { type ContractInstanceWithAddress, Fr } from '@aztec/aztec.js';
 import { MerkleTreeId, SimulationError } from '@aztec/circuit-types';
-import {
-  type ContractInstanceWithAddress,
-  DEPLOYER_CONTRACT_ADDRESS,
-  Fr,
-  FunctionSelector,
-  PublicDataWrite,
-  computePartialAddress,
-} from '@aztec/circuits.js';
+import { type ContractArtifact, FunctionSelector, NoteSelector } from '@aztec/circuits.js/abi';
+import { PublicDataWrite } from '@aztec/circuits.js/avm';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { computePartialAddress } from '@aztec/circuits.js/contract';
 import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
-import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
 import { type Logger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { protocolContractNames } from '@aztec/protocol-contracts';
 import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
 import { enrichPublicSimulationError } from '@aztec/pxe';
@@ -25,6 +21,8 @@ import {
   type ForeignCallArray,
   type ForeignCallSingle,
   addressFromSingle,
+  arrayToBoundedVec,
+  bufferToU8Array,
   fromArray,
   fromSingle,
   fromUintArray,
@@ -39,7 +37,7 @@ export class TXEService {
   constructor(private logger: Logger, private typedOracle: TypedOracle) {}
 
   static async init(logger: Logger) {
-    const store = openTmpStore(true);
+    const store = await openTmpStore('test');
     const executionCache = new HashedValuesCache();
     const nativeWorldStateService = await NativeWorldStateService.tmp();
     const baseFork = await nativeWorldStateService.fork();
@@ -587,14 +585,9 @@ export class TXEService {
     const ivBuffer = fromUintArray(iv, 8);
     const symKeyBuffer = fromUintArray(symKey, 8);
 
-    // TODO(AD): this is a hack to shut up linter - this shouldn't be async!
-    const paddedPlaintext = await Promise.resolve(
-      this.typedOracle.aes128Decrypt(ciphertextBuffer, ivBuffer, symKeyBuffer),
-    );
+    const plaintextBuffer = await this.typedOracle.aes128Decrypt(ciphertextBuffer, ivBuffer, symKeyBuffer);
 
-    // We convert each byte of the buffer to its own Field, so that the Noir
-    // function correctly receives [u8; N].
-    return toForeignCallResult([toArray(Array.from(paddedPlaintext).map(byte => new Fr(byte)))]);
+    return toForeignCallResult(arrayToBoundedVec(bufferToU8Array(plaintextBuffer), ciphertextBuffer.length));
   }
 
   // AVM opcodes

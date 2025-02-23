@@ -39,7 +39,7 @@ if [ "$REF_NAME" == "master" ]; then
   # Allow parallelism on master by having the instance name be the commit.
   instance_name="$current_commit"_$arch
 else
-  instance_name=$(echo -n "$REF_NAME" | tr -c 'a-zA-Z0-9-' '_')_$arch
+  instance_name=$(echo -n "$REF_NAME" | head -c 50 | tr -c 'a-zA-Z0-9-' '_')_$arch
 fi
 
 [ -n "${INSTANCE_POSTFIX:-}" ] && instance_name+="_$INSTANCE_POSTFIX"
@@ -102,7 +102,7 @@ container_script=$(cat <<EOF
   export DRY_RUN=${DRY_RUN:-0}
   source ci3/source
 
-  if [ -n "${DOCKERHUB_PASSWORD:-}" ] && ([ "$REF_NAME" == "master" ] || semver check "$REF_NAME"); then
+  if [ -n "${DOCKERHUB_PASSWORD:-}" ]; then
     echo ${DOCKERHUB_PASSWORD:-} | docker login -u aztecprotocolci --password-stdin
   fi
   echo "env: REF_NAME=$REF_NAME COMMIT_HASH=$COMMIT_HASH CURRENT_VERSION=$CURRENT_VERSION CI_FULL=$CI_FULL DRY_RUN=${DRY_RUN:-0}"

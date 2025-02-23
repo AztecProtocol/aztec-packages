@@ -1,8 +1,8 @@
+import { type ApiSchemaFor } from '@aztec/circuits.js/schemas';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createSafeJsonRpcClient } from '@aztec/foundation/json-rpc/client';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
-import { type ApiSchemaFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 

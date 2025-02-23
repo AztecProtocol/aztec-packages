@@ -7,7 +7,7 @@ import { type ChildProcess, fork } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import { mockTx } from '../../../circuit-types/src/mocks.js';
+import { mockTx } from '../../../circuit-types/src/test/mocks.js';
 import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
 import { generatePeerIdPrivateKeys } from '../test-helpers/generate-peer-id-private-keys.js';
 import { getPorts } from '../test-helpers/get-ports.js';
