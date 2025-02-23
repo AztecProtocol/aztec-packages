@@ -121,7 +121,6 @@ export type EnvVar =
   | 'PROVER_COORDINATION_NODE_URL' // If config.p2pEnabled is false, createProverCoordination request information from the AztecNode. Proving Coordination is how the prover node requests transaction data needed to produce proofs.
   | 'PROVER_FAILED_PROOF_STORE' // Store for inputs of failed proof.
   | 'PROVER_ID' // Identifier of the prover. Takes a field input.
-  | 'PROVER_JOB_POLL_INTERVAL_MS' // TODO: Delete this env variable
   | 'PROVER_JOB_TIMEOUT_MS' // TODO: Delete this env variable
   | 'PROVER_NODE_POLLING_INTERVAL_MS' // The interval in milliseconds to poll for new jobs
   | 'PROVER_NODE_MAX_PENDING_JOBS' // The maximum number of pending jobs for the prover node
