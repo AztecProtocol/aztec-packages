@@ -59,7 +59,6 @@ export type EnvVar =
   | 'L1_CONSENSUS_HOST_API_KEY' // The API key for the L1 consensus client. Added end of URL as "?key=<api-key>" unless a header is defined
   | 'L1_CONSENSUS_HOST_API_KEY_HEADER' // The header name for the L1 consensus client API key, if needed. Added as "<api-key-header>: <api-key>
   | 'L1_PRIVATE_KEY' // Private key of account for publishing L1 contracts in aztec start. TODO: Change L1_PRIVATE_KEY in Sean's get-private-key.sh
-  | 'L2_QUEUE_SIZE' // TODO: delete this env variable, it's unused.
   | 'LOG_ELAPSED_TIME' // TODO: delete this env variable, it's unused.
   | 'LOG_JSON' // using pino-pretty for console logging if LOG_JSON is not set. vanilla stdio if it is. TODO: Check if JSON logging is implemented.
   | 'LOG_MULTILINE' //pino-pretty options: Whether to print each log on a single line or not. (errors will still be multi-line). TODO: Rename this to Single Line.
