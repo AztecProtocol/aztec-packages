@@ -1,4 +1,4 @@
-import { PeerScoreThresholds } from '@chainsafe/libp2p-gossipsub/score';
+import type { PeerScoreThresholds } from '@chainsafe/libp2p-gossipsub/score';
 
 /**
  * The following params is implemented by Lighthouse at
