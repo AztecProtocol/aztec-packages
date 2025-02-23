@@ -305,11 +305,6 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'How many message cache windows to include when gossiping with other pears.',
     ...numberConfigHelper(3),
   },
-  gossipsubTxTopicWeight: {
-    env: 'P2P_GOSSIPSUB_TX_TOPIC_WEIGHT',
-    description: 'The weight of the tx topic for the gossipsub protocol.',
-    ...numberConfigHelper(1),
-  },
   peerPenaltyValues: {
     env: 'P2P_PEER_PENALTY_VALUES',
     parseEnv: (val: string) => val.split(',').map(Number),
