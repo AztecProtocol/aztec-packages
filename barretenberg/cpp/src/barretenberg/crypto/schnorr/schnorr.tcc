@@ -86,7 +86,7 @@ schnorr_signature schnorr_construct_signature(const std::string& message, const 
     // that give std::random_device access to an entropy source that produces a string of non-deterministic
     // uniformly random bits. For example, when compiling into a wasm binary, it is essential that the random_get
     // method is overloaded to utilise a suitable entropy source
-    // (see https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md)
+    // (see https://github.com/WebAssembly/WASI/blob/main/legacy/preview1/docs.md)
     //
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/895): securely erase `k`
     Fr k = Fr::random_element();

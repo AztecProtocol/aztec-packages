@@ -2,7 +2,7 @@ import { createDebugOnlyLogger } from '../log/index.js';
 
 /**
  * Dummy implementation of a necessary part of the wasi api:
- * https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md
+ * https://github.com/WebAssembly/WASI/blob/main/legacy/preview1/docs.md
  * We don't use these functions, but the environment expects them.
  * TODO find a way to update off of wasi 12.
  */
@@ -25,7 +25,7 @@ export const getEmptyWasiSdk = (debug = createDebugOnlyLogger('wasm:empty_wasi_s
    * In this dummy implementation, no actual actions are performed, but the debug logger logs 'environ_get' when called.
    * Environment variables are not used in this context, so the real implementation is not required.
    *
-   * @see https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#environ_get
+   * @see https://github.com/WebAssembly/WASI/blob/main/legacy/preview1/docs.md#environ_get
    */
   environ_get() {
     debug('environ_get');
@@ -44,7 +44,7 @@ export const getEmptyWasiSdk = (debug = createDebugOnlyLogger('wasm:empty_wasi_s
    * satisfy the requirements of the WebAssembly System Interface (WASI) API,
    * which expects certain functions to be present for compatibility purposes.
    *
-   * @see https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md
+   * @see https://github.com/WebAssembly/WASI/blob/main/legacy/preview1/docs.md
    */
   fd_close() {
     debug('fd_close');
@@ -61,7 +61,7 @@ export const getEmptyWasiSdk = (debug = createDebugOnlyLogger('wasm:empty_wasi_s
   /**
    * Handles the file descriptor write operation.
    * This dummy implementation of the WASI 'fd_write' function is part of the wasi API:
-   * https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md
+   * https://github.com/WebAssembly/WASI/blob/main/legacy/preview1/docs.md
    * The environment expects this function, but it is not used in the current implementation.
    * It is used to write data from WebAssembly memory to a file descriptor.
    */
