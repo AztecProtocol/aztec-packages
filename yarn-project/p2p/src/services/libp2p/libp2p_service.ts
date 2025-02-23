@@ -242,7 +242,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
           dataTransform: new SnappyTransform(),
           metricsRegister: otelMetricsAdapter,
           metricsTopicStrToLabel: metricsTopicStrToLabels(),
-          asyncValidation: true,
+          // asyncValidation: true,
           scoreThresholds: gossipScoreThresholds,
           scoreParams: createPeerScoreParams({
             // IPColocation factor can be disabled for local testing - default to -5
