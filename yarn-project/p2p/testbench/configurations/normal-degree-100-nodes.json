@@ -8,7 +8,7 @@
   "gossipsubD": 6,
   "gossipsubDlo": 4,
   "gossipsubDhi": 12,
-  "gossipsubDLazy": 6,
+  "gossipsubDLazy": 8,
   "peerCheckIntervalMS": 5000,
   "gossipsubMcacheGossip": 12,
   "gossipsubMcacheLength": 12
