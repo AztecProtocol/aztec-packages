@@ -176,9 +176,9 @@ function build {
 
 function bench {
   # TODO bench for arm64.
-  if [ "$CI_FULL" -eq 0 ] || [ $(arch) == arm64 ]; then
-    return
-  fi
+  # if [ "$CI_FULL" -eq 0 ] || [ $(arch) == arm64 ]; then
+  #   return
+  # fi
   denoise "barretenberg/bootstrap.sh bench"
   denoise "yarn-project/end-to-end/bootstrap.sh bench"
   denoise "yarn-project/p2p/bootstrap.sh bench"
