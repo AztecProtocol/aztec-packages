@@ -504,6 +504,10 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return rollupStore.provingCostPerMana;
   }
 
+  function getSlashFactory() external view override(IRollup) returns (address) {
+    return rollupStore.slashFactory;
+  }
+
   function getProvingCostPerManaInFeeAsset()
     external
     view
