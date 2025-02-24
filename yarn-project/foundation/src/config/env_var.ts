@@ -159,7 +159,7 @@ export type EnvVar =
   | 'WS_BLOCK_REQUEST_BATCH_SIZE' // Size of the batch for each get-blocks request from the synchronizer to the archiver.
   | 'VERIFIER_VIEM_POLLING_INTERVAL_MS' // The polling interval the proof verifier uses
   | 'L1_READER_VIEM_POLLING_INTERVAL_MS' // The polling interval the L1 Reader uses in ms
-  | 'PROVER_VIEM_POLLING_INTERVAL_MS' // TODO: Delete this env variable
+  | 'PROVER_VIEM_POLLING_INTERVAL_MS' //
   | 'SEQ_VIEM_POLLING_INTERVAL_MS' // Used in the .values file of the helm chart to configure polling intervals for the seq and bootnode.
   | 'WS_DB_MAP_SIZE_KB' // The maximum possible size of the world state DB
   | 'WS_DATA_DIRECTORY' // Optional directory for the world state database
@@ -175,7 +175,6 @@ export type EnvVar =
   | 'AZTEC_GOVERNANCE_PROPOSER_QUORUM' // This many signals from sequencers are required in any AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE L1 slots to advance a governance proposal to the voting phase.
   | 'AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE' // The number of consecutive L1 slots that make up a single round. For a governance proposal to pass, AZTEC_GOVERNANCE_PROPOSER_QUORUM signals must be registered for the proposal to advance to the voting phase.
   | 'L1_GAS_LIMIT_BUFFER_PERCENTAGE' // How much to increase calculated gas limit by (percentage) in bumpGasLimit()
-  | 'L1_GAS_PRICE_MIN' // Min L1 gas in gwei. TODO: Delete env variable
   | 'L1_GAS_PRICE_MAX' // Max L1 gas in gwei.
   | 'L1_BLOB_FEE_PER_GAS_MAX' // Maximum blob fee per gas in gwei
   | 'L1_PRIORITY_FEE_BUMP_PERCENTAGE' // How much to increase priority fee by each attempt (percentage)'
