@@ -34,25 +34,23 @@ import {
   type WorldStateSynchronizer,
   tryStop,
 } from '@aztec/circuit-types/interfaces/server';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
-  type BlockHeader,
   type ContractClassPublic,
   type ContractDataSource,
   type ContractInstanceWithAddress,
-  EthAddress,
-  Fr,
-  type GasFees,
   type NodeInfo,
-  type PrivateLog,
   type ProtocolContractAddresses,
-} from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+} from '@aztec/circuits.js/contract';
+import type { GasFees } from '@aztec/circuits.js/gas';
 import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
+import type { PrivateLog } from '@aztec/circuits.js/logs';
 import {
   type NullifierLeafPreimage,
   type PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js/trees';
+import type { BlockHeader } from '@aztec/circuits.js/tx';
 import {
   type ARCHIVE_HEIGHT,
   INITIAL_L2_BLOCK_NUM,
@@ -65,6 +63,8 @@ import {
 import { EpochCache } from '@aztec/epoch-cache';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { compactArray } from '@aztec/foundation/collection';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { type AztecKVStore } from '@aztec/kv-store';

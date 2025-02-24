@@ -7,8 +7,13 @@
 #include <stdexcept>
 #include <vector>
 
+#include "barretenberg/crypto/poseidon2/poseidon2.hpp"
+#include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
+
+using Poseidon2 = bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>;
 
 namespace bb::avm2::tracegen {
 namespace {
@@ -98,6 +103,7 @@ void BytecodeTraceBuilder::process_decomposition(
                     { C::bc_decomposition_bytes_pc_plus_33, bytecode_at(i + 33) },
                     { C::bc_decomposition_bytes_pc_plus_34, bytecode_at(i + 34) },
                     { C::bc_decomposition_bytes_pc_plus_35, bytecode_at(i + 35) },
+                    { C::bc_decomposition_bytes_pc_plus_36, bytecode_at(i + 36) },
                     // Bytecode overflow selectors.
                     { C::bc_decomposition_sel_pc_plus_1, bytecode_exists_at(i + 1) },
                     { C::bc_decomposition_sel_pc_plus_2, bytecode_exists_at(i + 2) },
@@ -134,6 +140,7 @@ void BytecodeTraceBuilder::process_decomposition(
                     { C::bc_decomposition_sel_pc_plus_33, bytecode_exists_at(i + 33) },
                     { C::bc_decomposition_sel_pc_plus_34, bytecode_exists_at(i + 34) },
                     { C::bc_decomposition_sel_pc_plus_35, bytecode_exists_at(i + 35) },
+                    { C::bc_decomposition_sel_pc_plus_36, bytecode_exists_at(i + 36) },
                 } });
         }
 
@@ -164,9 +171,34 @@ void BytecodeTraceBuilder::process_decomposition(
 }
 
 void BytecodeTraceBuilder::process_hashing(
-    const simulation::EventEmitterInterface<simulation::BytecodeHashingEvent>::Container&, TraceContainer&)
+    const simulation::EventEmitterInterface<simulation::BytecodeHashingEvent>::Container& events, TraceContainer& trace)
 {
-    // TODO.
+    using C = Column;
+    uint32_t row = 1;
+
+    for (const auto& event : events) {
+        const auto id = event.bytecode_id;
+        const auto& fields = event.bytecode_fields;
+
+        uint32_t pc_index = 0;
+        FF incremental_hash = event.bytecode_length;
+        for (uint32_t i = 0; i < fields.size(); i++) {
+            FF output_hash = Poseidon2::hash({ fields[i], incremental_hash });
+            bool end_of_bytecode = i == fields.size() - 1;
+            trace.set(row,
+                      { { { C::bc_hashing_sel, 1 },
+                          { C::bc_hashing_start, i == 0 ? 1 : 0 },
+                          { C::bc_hashing_latch, end_of_bytecode },
+                          { C::bc_hashing_bytecode_id, id },
+                          { C::bc_hashing_pc_index, pc_index },
+                          { C::bc_hashing_packed_field, fields[i] },
+                          { C::bc_hashing_incremental_hash, incremental_hash },
+                          { C::bc_hashing_output_hash, output_hash } } });
+            incremental_hash = output_hash;
+            pc_index += 31;
+            row++;
+        }
+    }
 }
 
 void BytecodeTraceBuilder::process_retrieval(
@@ -220,6 +252,9 @@ void BytecodeTraceBuilder::process_instruction_fetching(
         };
         auto bytecode_at = [&](size_t i) -> uint8_t { return i < event.bytecode->size() ? (*event.bytecode)[i] : 0; };
 
+        const uint8_t wire_opcode = bytecode_at(event.pc);
+        const auto w_opcode = static_cast<WireOpCode>(wire_opcode);
+
         trace.set(row,
                   { {
                       { C::instr_fetching_sel, 1 },
@@ -231,12 +266,17 @@ void BytecodeTraceBuilder::process_instruction_fetching(
                       { C::instr_fetching_op2, get_operand(1) },
                       { C::instr_fetching_op3, get_operand(2) },
                       { C::instr_fetching_op4, get_operand(3) },
+                      { C::instr_fetching_op5, get_operand(4) },
+                      { C::instr_fetching_op6, get_operand(5) },
+                      { C::instr_fetching_op7, get_operand(6) },
                       // From instruction table.
                       // FIXME: This one is wrong, it's the wire opcode.
                       // { C::instr_fetching_ex_opcode, event.instruction.opcode },
                       // TODO: add the rest.
                       // Single bytes.
-                      { C::instr_fetching_bd0, bytecode_at(event.pc) },
+                      { C::instr_fetching_bd0, wire_opcode },
+                      { C::instr_fetching_exec_opcode,
+                        static_cast<uint32_t>(WIRE_INSTRUCTION_SPEC.at(w_opcode).exec_opcode) },
                       { C::instr_fetching_bd1, bytecode_at(event.pc + 1) },
                       { C::instr_fetching_bd2, bytecode_at(event.pc + 2) },
                       { C::instr_fetching_bd3, bytecode_at(event.pc + 3) },
@@ -272,6 +312,27 @@ void BytecodeTraceBuilder::process_instruction_fetching(
                       { C::instr_fetching_bd33, bytecode_at(event.pc + 33) },
                       { C::instr_fetching_bd34, bytecode_at(event.pc + 34) },
                       { C::instr_fetching_bd35, bytecode_at(event.pc + 35) },
+                      { C::instr_fetching_bd36, bytecode_at(event.pc + 36) },
+
+                      // Fill operand decomposition selectors
+                      { C::instr_fetching_sel_op_dc_0, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(0) },
+                      { C::instr_fetching_sel_op_dc_1, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(1) },
+                      { C::instr_fetching_sel_op_dc_2, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(2) },
+                      { C::instr_fetching_sel_op_dc_3, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(3) },
+                      { C::instr_fetching_sel_op_dc_4, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(4) },
+                      { C::instr_fetching_sel_op_dc_5, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(5) },
+                      { C::instr_fetching_sel_op_dc_6, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(6) },
+                      { C::instr_fetching_sel_op_dc_7, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(7) },
+                      { C::instr_fetching_sel_op_dc_8, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(8) },
+                      { C::instr_fetching_sel_op_dc_9, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(9) },
+                      { C::instr_fetching_sel_op_dc_10, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(10) },
+                      { C::instr_fetching_sel_op_dc_11, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(11) },
+                      { C::instr_fetching_sel_op_dc_12, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(12) },
+                      { C::instr_fetching_sel_op_dc_13, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(13) },
+                      { C::instr_fetching_sel_op_dc_14, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(14) },
+                      { C::instr_fetching_sel_op_dc_15, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(15) },
+                      { C::instr_fetching_sel_op_dc_16, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(16) },
+                      { C::instr_fetching_sel_op_dc_17, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(17) },
                   } });
         row++;
     }

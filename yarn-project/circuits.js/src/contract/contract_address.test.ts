@@ -2,7 +2,8 @@ import { Fr } from '@aztec/foundation/fields';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 
 import { type FunctionAbi, FunctionType } from '../abi/index.js';
-import { AztecAddress, deriveKeys } from '../index.js';
+import { AztecAddress } from '../aztec-address/index.js';
+import { deriveKeys } from '../keys/derivation.js';
 import {
   computeContractAddressFromInstance,
   computeInitializationHash,

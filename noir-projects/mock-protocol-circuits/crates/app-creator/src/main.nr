@@ -7,4 +7,3 @@ fn main(commitments_to_create: [Field; MAX_COMMITMENTS_PER_CALL]) -> return_data
     result.commitments = commitments_to_create;
     result
 }
-

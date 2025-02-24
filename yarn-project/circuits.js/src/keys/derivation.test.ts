@@ -1,8 +1,8 @@
 import { Fr, Point } from '@aztec/foundation/fields';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
-import { PublicKeys } from '../types/public_keys.js';
 import { computeAddress, computePreaddress } from './derivation.js';
+import { PublicKeys } from './public_keys.js';
 
 describe('🔑', () => {
   it('computing public keys hash matches Noir', async () => {

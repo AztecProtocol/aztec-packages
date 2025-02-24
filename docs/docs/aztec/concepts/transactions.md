@@ -57,7 +57,7 @@ Transaction requests are how transactions are constructed and sent to the networ
 
 In Aztec.js:
 
-#include_code constructor yarn-project/circuits.js/src/structs/tx_request.ts javascript
+#include_code constructor yarn-project/circuits.js/src/tx/tx_request.ts javascript
 
 Where:
 

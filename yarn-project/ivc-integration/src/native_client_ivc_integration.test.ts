@@ -5,7 +5,7 @@ import {
   verifyClientIvcProof,
   writeToOutputDirectory,
 } from '@aztec/bb-prover';
-import { type ClientIvcProof } from '@aztec/circuits.js';
+import { type ClientIvcProof } from '@aztec/circuits.js/proofs';
 import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';

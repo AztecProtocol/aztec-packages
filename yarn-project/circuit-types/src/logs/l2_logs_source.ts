@@ -1,4 +1,5 @@
-import { type Fr, type PrivateLog } from '@aztec/circuits.js';
+import type { PrivateLog } from '@aztec/circuits.js/logs';
+import type { Fr } from '@aztec/foundation/fields';
 
 import {
   type GetContractClassLogsResponse,

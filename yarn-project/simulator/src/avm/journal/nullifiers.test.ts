@@ -2,50 +2,47 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type CommitmentsDB } from '../../server.js';
+import { type WorldStateDB } from '../../server.js';
 import { NullifierManager } from './nullifiers.js';
 
 describe('avm nullifier caching', () => {
-  let commitmentsDb: MockProxy<CommitmentsDB>;
+  let worldStateDB: MockProxy<WorldStateDB>;
   let nullifiers: NullifierManager;
 
   beforeEach(() => {
-    commitmentsDb = mock<CommitmentsDB>();
-    nullifiers = new NullifierManager(commitmentsDb);
+    worldStateDB = mock<WorldStateDB>();
+    nullifiers = new NullifierManager(worldStateDB);
   });
 
   describe('Nullifier caching and existence checks', () => {
     it('Reading a non-existent nullifier works (gets zero & DNE)', async () => {
       const nullifier = new Fr(2);
       // never written!
-      const [exists, isPending, gotIndex] = await nullifiers.checkExists(nullifier);
+      const { exists, cacheHit } = await nullifiers.checkExists(nullifier);
       // doesn't exist, not pending, index is zero (non-existent)
       expect(exists).toEqual(false);
-      expect(isPending).toEqual(false);
-      expect(gotIndex).toEqual(Fr.ZERO);
+      expect(cacheHit).toEqual(false);
     });
     it('Should cache nullifier, existence check works after creation', async () => {
       const nullifier = new Fr(2);
 
       // Write to cache
       await nullifiers.append(nullifier);
-      const [exists, isPending, gotIndex] = await nullifiers.checkExists(nullifier);
-      // exists (in cache), isPending, index is zero (not in tree)
+      const { exists, cacheHit } = await nullifiers.checkExists(nullifier);
+      // exists (in cache), cacheHit, index is zero (not in tree)
       expect(exists).toEqual(true);
-      expect(isPending).toEqual(true);
-      expect(gotIndex).toEqual(Fr.ZERO);
+      expect(cacheHit).toEqual(true);
     });
     it('Existence check works on fallback to host (gets index, exists, not-pending)', async () => {
       const nullifier = new Fr(2);
       const storedLeafIndex = BigInt(420);
 
-      commitmentsDb.getNullifierIndex.mockResolvedValue(storedLeafIndex);
+      worldStateDB.getNullifierIndex.mockResolvedValue(storedLeafIndex);
 
-      const [exists, isPending, gotIndex] = await nullifiers.checkExists(nullifier);
+      const { exists, cacheHit } = await nullifiers.checkExists(nullifier);
       // exists (in host), not pending, tree index retrieved from host
       expect(exists).toEqual(true);
-      expect(isPending).toEqual(false);
-      expect(gotIndex).toEqual(gotIndex);
+      expect(cacheHit).toEqual(false);
     });
     it('Existence check works on fallback to parent (gets value, exists, is pending)', async () => {
       const nullifier = new Fr(2);
@@ -54,11 +51,10 @@ describe('avm nullifier caching', () => {
       // Write to parent cache
       await nullifiers.append(nullifier);
       // Get from child cache
-      const [exists, isPending, gotIndex] = await childNullifiers.checkExists(nullifier);
-      // exists (in parent), isPending, index is zero (not in tree)
+      const { exists, cacheHit } = await childNullifiers.checkExists(nullifier);
+      // exists (in parent), cacheHit, index is zero (not in tree)
       expect(exists).toEqual(true);
-      expect(isPending).toEqual(true);
-      expect(gotIndex).toEqual(Fr.ZERO);
+      expect(cacheHit).toEqual(true);
     });
     it('Existence check works on fallback to grandparent (gets value, exists, is pending)', async () => {
       const nullifier = new Fr(2);
@@ -68,11 +64,10 @@ describe('avm nullifier caching', () => {
       // Write to parent cache
       await nullifiers.append(nullifier);
       // Get from child cache
-      const [exists, isPending, gotIndex] = await grandChildNullifiers.checkExists(nullifier);
-      // exists (in parent), isPending, index is zero (not in tree)
+      const { exists, cacheHit } = await grandChildNullifiers.checkExists(nullifier);
+      // exists (in parent), cacheHit, index is zero (not in tree)
       expect(exists).toEqual(true);
-      expect(isPending).toEqual(true);
-      expect(gotIndex).toEqual(Fr.ZERO);
+      expect(cacheHit).toEqual(true);
     });
   });
 
@@ -103,7 +98,7 @@ describe('avm nullifier caching', () => {
       const storedLeafIndex = BigInt(420);
 
       // Nullifier exists in host
-      commitmentsDb.getNullifierIndex.mockResolvedValue(storedLeafIndex);
+      worldStateDB.getNullifierIndex.mockResolvedValue(storedLeafIndex);
       // Can't append to cache
       await expect(nullifiers.append(nullifier)).rejects.toThrow(
         `Siloed nullifier ${nullifier} already exists in parent cache or host.`,
@@ -128,9 +123,9 @@ describe('avm nullifier caching', () => {
 
       // After merge, parent has both nullifiers
       const results0 = await nullifiers.checkExists(nullifier0);
-      expect(results0).toEqual([/*exists=*/ true, /*isPending=*/ true, /*leafIndex=*/ Fr.ZERO]);
+      expect(results0).toEqual({ exists: true, cacheHit: true });
       const results1 = await nullifiers.checkExists(nullifier1);
-      expect(results1).toEqual([/*exists=*/ true, /*isPending=*/ true, /*leafIndex=*/ Fr.ZERO]);
+      expect(results1).toEqual({ exists: true, cacheHit: true });
     });
     it('Cant merge two nullifier caches with colliding entries', async () => {
       const nullifier = new Fr(2);
@@ -139,7 +134,7 @@ describe('avm nullifier caching', () => {
       await nullifiers.append(nullifier);
 
       // Create child cache, don't derive from parent so we can concoct a collision on merge
-      const childNullifiers = new NullifierManager(commitmentsDb);
+      const childNullifiers = new NullifierManager(worldStateDB);
       // Append a nullifier to child
       await childNullifiers.append(nullifier);
 

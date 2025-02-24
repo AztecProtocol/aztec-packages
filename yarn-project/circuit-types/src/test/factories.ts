@@ -1,20 +1,16 @@
 import {
-  AztecAddress,
-  type BlockHeader,
-  Fr,
-  Gas,
-  GasFees,
-  GasSettings,
-  GlobalVariables,
+  AvmCircuitInputs,
+  AvmCircuitPublicInputs,
+  AvmExecutionHints,
   PublicDataWrite,
-  PublicLog,
   RevertCode,
-  ScopedLogHash,
-  mergeAccumulatedData,
-} from '@aztec/circuits.js';
-import { AvmCircuitInputs, AvmCircuitPublicInputs, AvmExecutionHints } from '@aztec/circuits.js/avm';
-import { TxConstantData } from '@aztec/circuits.js/kernel';
+} from '@aztec/circuits.js/avm';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { Gas, GasFees, GasSettings } from '@aztec/circuits.js/gas';
+import { ScopedLogHash, mergeAccumulatedData } from '@aztec/circuits.js/kernel';
+import { PublicLog } from '@aztec/circuits.js/logs';
 import { makePrivateToPublicAccumulatedData, makePrivateToRollupAccumulatedData } from '@aztec/circuits.js/testing';
+import { BlockHeader, GlobalVariables, TxConstantData } from '@aztec/circuits.js/tx';
 import {
   FIXED_DA_GAS,
   FIXED_L2_GAS,
@@ -22,6 +18,7 @@ import {
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
+import { Fr } from '@aztec/foundation/fields';
 
 import { type MerkleTreeReadOperations } from '../interfaces/merkle_tree_operations.js';
 import { ProvingRequestType } from '../interfaces/proving-job.js';
@@ -63,7 +60,7 @@ export async function makeBloatedProcessedTx({
   feePayer ??= await AztecAddress.random();
 
   const txConstantData = TxConstantData.empty();
-  txConstantData.historicalHeader = header;
+  txConstantData.historicalHeader = header!;
   txConstantData.txContext.chainId = chainId;
   txConstantData.txContext.version = version;
   txConstantData.txContext.gasSettings = gasSettings;

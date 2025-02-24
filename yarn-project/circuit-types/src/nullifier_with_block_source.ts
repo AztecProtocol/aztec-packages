@@ -1,4 +1,4 @@
-import { type Fr } from '@aztec/circuits.js';
+import { type Fr } from '@aztec/foundation/fields';
 
 import { type InBlock } from './index.js';
 

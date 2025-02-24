@@ -1,4 +1,4 @@
-import { BlockHeader } from '@aztec/circuits.js';
+import { BlockHeader } from '@aztec/circuits.js/tx';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { hexToBuffer } from '@aztec/foundation/string';

@@ -3,8 +3,8 @@ import { type Fr } from '@aztec/foundation/fields';
 import { z } from 'zod';
 
 import { type AztecAddress } from '../../aztec-address/index.js';
+import { PublicKeys } from '../../keys/public_keys.js';
 import { type ZodFor, schemas } from '../../schemas/index.js';
-import { PublicKeys } from '../../types/public_keys.js';
 
 const VERSION = 1 as const;
 

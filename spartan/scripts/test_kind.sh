@@ -149,7 +149,6 @@ export AZTEC_EPOCH_DURATION="$aztec_epoch_duration"
 export AZTEC_PROOF_SUBMISSION_WINDOW="$aztec_proof_submission_window"
 set +x
 export L1_ACCOUNT_MNEMONIC="$l1_account_mnemonic"
-export BOT_L1_MNEMONIC="$l1_account_mnemonic"
 set -x
 
 yarn --cwd ../../yarn-project/end-to-end test --forceExit "$test"

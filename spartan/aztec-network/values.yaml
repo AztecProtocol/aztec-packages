@@ -60,6 +60,8 @@ aztec:
   ## The number of extra accounts to prefund
   extraAccountsStartIndex: 2000
   extraAccounts: 10
+
+  botKeyIndexStart: 3000
   l1Salt: "" # leave empty for random salt
 
 bootNode:
@@ -79,6 +81,7 @@ bootNode:
     disabled: true
   p2p:
     enabled: "true"
+    floodPublish: true
   resources:
     requests:
       memory: "5Gi"
@@ -124,6 +127,7 @@ validator:
     reexecute: true
   p2p:
     enabled: "true"
+    floodPublish: true
   startupProbe:
     periodSeconds: 10
     # Only if we fail for 20 minutes straight do we call it botched
@@ -146,7 +150,9 @@ validator:
 proverNode:
   externalHost: ""
   replicas: 1
-  p2pEnabled: true
+  p2p:
+    enabled: true
+    floodPublish: true
   service:
     p2pTcpPort: 40400
     p2pUdpPort: 40400
@@ -202,7 +208,6 @@ bot:
   logLevel: "debug; info: aztec:simulator, json-rpc"
   replicas: 1
   botPrivateKey: "0xcafe"
-  l1Mnemonic: "test test test test test test test test test test test junk"
   txIntervalSeconds: 24
   privateTransfersPerTx: 0
   publicTransfersPerTx: 1

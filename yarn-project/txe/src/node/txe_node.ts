@@ -1,4 +1,3 @@
-import { createLogger } from '@aztec/aztec.js';
 import {
   type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
@@ -27,19 +26,18 @@ import {
   type SequencerConfig,
   type WorldStateSyncStatus,
 } from '@aztec/circuit-types/interfaces/server';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
-  type AztecAddress,
-  type BlockHeader,
   type ContractClassPublic,
   type ContractInstanceWithAddress,
-  type GasFees,
   type NodeInfo,
-  type PrivateLog,
   type ProtocolContractAddresses,
-  type PublicLog,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/contract';
+import type { GasFees } from '@aztec/circuits.js/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import type { PrivateLog, PublicLog } from '@aztec/circuits.js/logs';
 import { type PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
+import type { BlockHeader } from '@aztec/circuits.js/tx';
 import {
   type ARCHIVE_HEIGHT,
   type L1_TO_L2_MSG_TREE_HEIGHT,
@@ -51,6 +49,7 @@ import {
 import { type L1ContractAddresses } from '@aztec/ethereum';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
+import { createLogger } from '@aztec/foundation/log';
 import { type NativeWorldStateService } from '@aztec/world-state';
 
 export class TXENode implements AztecNode {

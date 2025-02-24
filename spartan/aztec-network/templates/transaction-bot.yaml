@@ -1,6 +1,6 @@
 {{- if .Values.bot.enabled }}
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: {{ include "aztec-network.fullname" . }}-bot
   labels:
@@ -102,9 +102,7 @@ spec:
             - |
               source /shared/config/service-addresses
               cat /shared/config/service-addresses
-              {{- if .Values.aztec.botKeyIndexStart }}
               source /shared/config/keys.env
-              {{- end }}
               {{- if .Values.bot.nodeUrl }}
               export AZTEC_NODE_URL={{ .Values.bot.nodeUrl }}
               {{- else if .Values.network.public }}
@@ -135,8 +133,6 @@ spec:
               value: "1"
             - name: LOG_LEVEL
               value: "{{ .Values.bot.logLevel }}"
-            - name: BOT_L1_MNEMONIC
-              value: "{{ .Values.bot.l1Mnemonic }}"
             - name: BOT_PRIVATE_KEY
               value: "{{ .Values.bot.botPrivateKey }}"
             - name: BOT_TX_INTERVAL_SECONDS
