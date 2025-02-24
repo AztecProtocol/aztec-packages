@@ -61,7 +61,7 @@ export class RegistryContract {
     Pick<L1ContractAddresses, 'governanceProposerAddress' | 'governanceAddress'>
   > {
     const governanceAddress = await this.registry.read.getGovernance();
-    const governance = new GovernanceContract(this.client, governanceAddress);
+    const governance = new GovernanceContract(governanceAddress, this.client, undefined);
     const governanceProposer = await governance.getProposer();
     return {
       governanceAddress: governance.address,

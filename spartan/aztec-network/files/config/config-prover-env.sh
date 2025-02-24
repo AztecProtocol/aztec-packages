@@ -7,7 +7,11 @@ output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js get-no
 
 echo "$output"
 
-boot_node_enr=$(echo "$output" | grep -oP 'Node ENR: \Kenr:[a-zA-Z0-9\-\_\.]+')
+boot_node_enr=""
+if [ "$P2P_ENABLED" = "true" ]; then
+  # Only look for boot node ENR if P2P is enabled
+  boot_node_enr=$(echo "$output" | grep -oP 'Node ENR: \Kenr:[a-zA-Z0-9\-\_\.]+')
+fi
 rollup_address=$(echo "$output" | grep -oP 'Rollup Address: \K0x[a-fA-F0-9]{40}')
 registry_address=$(echo "$output" | grep -oP 'Registry Address: \K0x[a-fA-F0-9]{40}')
 inbox_address=$(echo "$output" | grep -oP 'L1 -> L2 Inbox Address: \K0x[a-fA-F0-9]{40}')
