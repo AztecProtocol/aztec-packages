@@ -42,9 +42,9 @@ impl Empty for u64 {
         0
     }
 }
-impl Empty for U128 {
+impl Empty for u128 {
     fn empty() -> Self {
-        U128::from_integer(0)
+        0
     }
 }
 
@@ -116,11 +116,6 @@ impl ToField for u64 {
         self as Field
     }
 }
-impl ToField for U128 {
-    fn to_field(self) -> Field {
-        self.to_integer()
-    }
-}
 impl<let N: u32> ToField for str<N> {
     fn to_field(self) -> Field {
         assert(N < 32, "String doesn't fit in a field, consider using Serialize instead");
@@ -163,9 +158,9 @@ impl FromField for u64 {
         value as u64
     }
 }
-impl FromField for U128 {
+impl FromField for u128 {
     fn from_field(value: Field) -> Self {
-        U128::from_integer(value)
+        value as u128
     }
 }
 

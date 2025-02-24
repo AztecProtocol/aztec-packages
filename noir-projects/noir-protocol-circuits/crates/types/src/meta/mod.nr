@@ -39,12 +39,12 @@ comptime fn get_trait_impl_method(
 /// Given the following setup:
 /// ```
 /// struct UintNote {
-///     value: U128,
+///     value: u128,
 ///     owner: AztecAddress,
 ///     randomness: Field,
 /// }
 ///
-/// struct U128 {
+/// struct u128 {
 ///     lo: Field,
 ///     hi: Field,
 /// }
@@ -57,9 +57,9 @@ comptime fn get_trait_impl_method(
 /// If `UintNote` is the input type, the function will generate the following deserialization code:
 /// ```
 /// UintNote {
-///     value: U128 {
-///         lo: fields[0],     // First field becomes low part of U128
-///         hi: fields[1],     // Second field becomes high part of U128
+///     value: u128 {
+///         lo: fields[0],     // First field becomes low part of u128
+///         hi: fields[1],     // Second field becomes high part of u128
 ///     },
 ///     owner: AztecAddress {
 ///         inner: fields[2],  // Third field becomes inner address
@@ -68,7 +68,7 @@ comptime fn get_trait_impl_method(
 /// }
 /// ```
 /// # Nested Struct Example with Unpacking
-/// - given the same setup as above and given that U128, AztecAddress and Field implement the `Packable` trait
+/// - given the same setup as above and given that u128, AztecAddress and Field implement the `Packable` trait
 ///   the result we get is:
 /// ```
 /// UintNote {
@@ -140,7 +140,7 @@ pub comptime fn generate_deserialize_from_fields(
             // We increment the consumed counter by the number of fields consumed in the recursion
             consumed_counter += num_consumed_in_recursion;
             // We add the deserialized field to the list of deserialized fields.
-            // E.g. `value: U128 { lo: fields[0], hi: fields[1] }`
+            // E.g. `value: u128 { lo: fields[0], hi: fields[1] }`
             deserialized_fields_list =
                 deserialized_fields_list.push_back(quote { $field_name: $deserialized_field });
         }
@@ -244,7 +244,7 @@ pub comptime fn generate_deserialize_from_fields(
 /// ## Struct
 /// Given the following struct:
 /// ```rust
-/// struct U128 {
+/// struct u128 {
 ///     lo: Field,
 ///     hi: Field,
 /// }
@@ -252,7 +252,7 @@ pub comptime fn generate_deserialize_from_fields(
 ///
 /// Serializing the struct:
 /// ```rust
-/// generate_serialize_to_fields(quote { my_u128 }, U128, &[], false)
+/// generate_serialize_to_fields(quote { my_u128 }, u128, &[], false)
 /// // Returns:
 /// // ([`my_u128.lo`, `my_u128.hi`], [])
 /// ```
@@ -261,7 +261,7 @@ pub comptime fn generate_deserialize_from_fields(
 /// For a more complex struct:
 /// ```rust
 /// struct UintNote {
-///     value: U128,
+///     value: u128,
 ///     randomness: Field,
 /// }
 /// ```
@@ -291,12 +291,12 @@ pub comptime fn generate_deserialize_from_fields(
 /// ```
 ///
 /// ## Nested Struct with Omitted Field and packing enabled
-/// - U128 has a `Packable` implementation hence it will be packed.
+/// - u128 has a `Packable` implementation hence it will be packed.
 ///
 /// For a more complex struct:
 /// ```rust
 /// struct MyStruct {
-///     value: U128,
+///     value: u128,
 ///     value2: Field,
 /// }
 /// ```
@@ -541,8 +541,8 @@ pub struct Fancier {
 }
 
 #[derive(Eq, Packable)]
-pub struct ContainsU128 {
-    a: U128,
+pub struct Containsu128 {
+    a: u128,
     b: Field,
 }
 
@@ -591,10 +591,10 @@ fn fancier_test() {
 
 #[test]
 fn contains_u128_test() {
-    let contains_u128 = ContainsU128 { a: U128::from_integer(5), b: 3 };
+    let contains_u128 = Containsu128 { a: 5 as u128, b: 3 };
     let packed = contains_u128.pack();
     assert_eq(packed, [5, 3], "Packed does not match the expected");
 
-    let unpacked = ContainsU128::unpack(packed);
+    let unpacked = Containsu128::unpack(packed);
     assert_eq(unpacked, contains_u128, "Unpacked does not match the original");
 }
