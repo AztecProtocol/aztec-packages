@@ -162,7 +162,7 @@ describe('Accrued Substate', () => {
         const addressOffset = 1;
 
         if (exists) {
-          mockNullifierExists(worldStateDB, leafIndex, value0);
+          mockGetNullifierIndex(worldStateDB, leafIndex, value0);
         }
 
         context.machineState.memory.set(value0Offset, new Field(value0)); // nullifier
@@ -219,7 +219,7 @@ describe('Accrued Substate', () => {
     });
 
     it('Nullifier collision reverts (nullifier exists in host state)', async () => {
-      mockNullifierExists(worldStateDB, leafIndex); // db will say that nullifier already exists
+      mockGetNullifierIndex(worldStateDB, leafIndex); // db will say that nullifier already exists
       context.machineState.memory.set(value0Offset, new Field(value0));
       await expect(new EmitNullifier(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context)).rejects.toThrow(
         new InstructionExecutionError(

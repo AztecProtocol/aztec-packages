@@ -48,6 +48,7 @@ struct ContractInstanceHint {
 };
 
 struct ContractClassHint {
+    FF classId;
     FF artifactHash;
     FF privateFunctionsRoot;
     FF publicBytecodeCommitment;
@@ -55,7 +56,7 @@ struct ContractClassHint {
 
     bool operator==(const ContractClassHint& other) const = default;
 
-    MSGPACK_FIELDS(artifactHash, privateFunctionsRoot, publicBytecodeCommitment, packedBytecode);
+    MSGPACK_FIELDS(classId, artifactHash, privateFunctionsRoot, publicBytecodeCommitment, packedBytecode);
 };
 
 struct TreeRoots {

@@ -96,6 +96,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     expect(simRes.revertCode.isOK()).toBe(expectRevert ? false : true);
 
     const avmCircuitInputs = simRes.avmProvingRequest.inputs;
+    console.log(avmCircuitInputs.avmHints.contractClasses.toFriendlyJSON());
     const provingRes = await this.prove(avmCircuitInputs);
     expect(provingRes.status).toEqual(BB_RESULT.SUCCESS);
 

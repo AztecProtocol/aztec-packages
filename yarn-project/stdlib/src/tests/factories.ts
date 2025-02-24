@@ -58,7 +58,7 @@ import {
   AvmAppendTreeHint,
   AvmCircuitInputs,
   AvmCircuitPublicInputs,
-  AvmContractBytecodeHints,
+  AvmContractClassHint,
   AvmContractInstanceHint,
   AvmEnqueuedCallHint,
   AvmExecutionHints,
@@ -1285,33 +1285,6 @@ export async function makeContractInstanceFromClassId(
   }).withAddress(address);
 }
 
-export async function makeAvmBytecodeHints(seed = 0): Promise<AvmContractBytecodeHints> {
-  const { artifactHash, privateFunctionsRoot, packedBytecode, id } = await makeContractClassPublic(seed);
-  const instance = await makeContractInstanceFromClassId(id, seed + 0x1000);
-
-  const avmHintInstance = new AvmContractInstanceHint(
-    instance.address,
-    true,
-    instance.salt,
-    instance.deployer,
-    instance.currentContractClassId,
-    instance.originalContractClassId,
-    instance.initializationHash,
-    instance.publicKeys,
-    makeAvmNullifierReadTreeHints(seed + 0x2000),
-    makeAvmPublicDataReadTreeHints(seed + 0x3000),
-    makeArray(4, i => new Fr(i), seed + 0x4000),
-  );
-
-  const publicBytecodeCommitment = await computePublicBytecodeCommitment(packedBytecode);
-
-  return new AvmContractBytecodeHints(packedBytecode, avmHintInstance, {
-    artifactHash,
-    privateFunctionsRoot,
-    publicBytecodeCommitment,
-  });
-}
-
 export function makeAvmTreeHints(seed = 0): AvmAppendTreeHint {
   return new AvmAppendTreeHint(
     new Fr(seed),
@@ -1380,9 +1353,24 @@ export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
       new Point(new Fr(seed + 0x11), new Fr(seed + 0x12), false),
       new Point(new Fr(seed + 0x13), new Fr(seed + 0x14), false),
     ),
-    makeAvmNullifierReadTreeHints(seed + 0x1000),
     makeAvmPublicDataReadTreeHints(seed + 0x2000),
     makeArray(4, i => new Fr(i), seed + 0x3000),
+  );
+}
+
+/* Makes arbitrary AvmContractClassHint.
+ * @param seed - The seed to use for generating the state reference.
+ * @returns AvmContractClassHint.
+ */
+export async function makeAvmContractClassHint(seed = 0): Promise<AvmContractClassHint> {
+  const bytecode = makeBytes(32, seed + 0x5);
+  return new AvmContractClassHint(
+    new Fr(seed),
+    true /* exists */,
+    new Fr(seed + 0x2),
+    new Fr(seed + 0x3),
+    await computePublicBytecodeCommitment(bytecode),
+    bytecode,
   );
 }
 
@@ -1409,14 +1397,7 @@ export async function makeAvmExecutionHints(
   return AvmExecutionHints.from({
     enqueuedCalls: makeVector(baseLength, makeAvmEnqueuedCallHint, seed + 0x4100),
     contractInstances: makeVector(baseLength + 5, makeAvmContractInstanceHint, seed + 0x4700),
-    contractBytecodeHints: await makeMapAsync(
-      baseLength + 6,
-      async i => {
-        const h = await makeAvmBytecodeHints(i);
-        return [h.contractInstanceHint.address.toString(), h];
-      },
-      seed + 0x4900,
-    ),
+    contractClasses: await makeVectorAsync(baseLength + 5, makeAvmContractClassHint, seed + 0x4900),
     publicDataReads: makeVector(baseLength + 7, makeAvmStorageReadTreeHints, seed + 0x4900),
     publicDataWrites: makeVector(baseLength + 8, makeAvmStorageUpdateTreeHints, seed + 0x4a00),
     nullifierReads: makeVector(baseLength + 9, makeAvmNullifierReadTreeHints, seed + 0x4b00),

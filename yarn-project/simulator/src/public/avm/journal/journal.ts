@@ -571,139 +571,95 @@ export class AvmPersistableStateManager {
     const exists = instanceWithAddress !== undefined;
 
     const instance = exists ? new SerializableContractInstance(instanceWithAddress) : undefined;
-    if (exists) {
-      this.log.trace(`Got contract instance (address=${contractAddress}): instance=${jsonStringify(instance!)}`);
-    } else {
+    if (!exists) {
       this.log.debug(`Contract instance NOT FOUND (address=${contractAddress})`);
+      this.trace.traceGetContractInstance(contractAddress, exists);
+      return undefined;
     }
 
-    if (!this.doMerkleOperations || contractAddressIsCanonical(contractAddress)) {
-      // Canonical addresses do not trigger nullifier & public storage checks
-      if (exists) {
-        this.trace.traceGetContractInstance(contractAddress, exists, instance);
-      } else {
-        this.trace.traceGetContractInstance(contractAddress, exists);
-      }
-    } else {
-      const contractAddressNullifier = await siloNullifier(
-        AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
-        contractAddress.toField(),
-      );
-      const {
-        exists: nullifierExistsInTree,
-        leafOrLowLeafPreimage: nullifierLeafOrLowLeafPreimage,
-        leafOrLowLeafIndex: nullifierLeafOrLowLeafIndex,
-        leafOrLowLeafPath: nullifierLeafOrLowLeafPath,
-      } = await this.getNullifierMembership(/*siloedNullifier=*/ contractAddressNullifier);
-      const nullifierMembership = new AvmNullifierReadTreeHint(
-        nullifierLeafOrLowLeafPreimage,
-        new Fr(nullifierLeafOrLowLeafIndex),
-        nullifierLeafOrLowLeafPath,
-      );
-      assert(
-        exists == nullifierExistsInTree,
-        'WorldStateDB contains contract instance, but nullifier tree does not contain contract address (or vice versa).... This is a bug!',
-      );
+    this.log.trace(`Got contract instance (address=${contractAddress}): instance=${jsonStringify(instance!)}`);
+    // Canonical addresses do not trigger nullifier & public storage checks
+    if (contractAddressIsCanonical(contractAddress)) {
+      this.trace.traceGetContractInstance(contractAddress, exists, instance);
+      return instance;
+    }
 
+    // This will decide internally whether to check the nullifier tree or not depending on doMerkleOperations.
+    const nullifierExistsInTree = await this.checkNullifierExists(
+      AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+      contractAddress.toField(),
+    );
+    assert(
+      exists == nullifierExistsInTree,
+      'WorldStateDB contains contract instance, but nullifier tree does not contain contract address (or vice versa).... This is a bug!',
+    );
+
+    if (this.doMerkleOperations) {
+      // TODO(fcarreiro): this should be done via a public read.
       const { updateMembership, updatePreimage } = await this.getContractUpdateHints(contractAddress);
 
-      this.trace.traceGetContractInstance(
-        contractAddress,
-        exists,
-        instance,
-        nullifierMembership,
-        updateMembership,
-        updatePreimage,
-      );
+      this.trace.traceGetContractInstance(contractAddress, exists, instance, updateMembership, updatePreimage);
+    } else {
+      this.trace.traceGetContractInstance(contractAddress, exists, instance);
     }
+
     return instance;
   }
 
   /**
-   * Get a contract's bytecode from the contracts DB, also trace the contract class and instance
+   * Get a contract class.
+   * @param classId - class id to retrieve.
+   * @returns the contract class or undefined if it does not exist.
+   */
+  public async getContractClass(classId: Fr): Promise<ContractClassWithCommitment | undefined> {
+    this.log.trace(`Getting contract class for id ${classId}`);
+    const klass = await this.worldStateDB.getContractClass(classId);
+    const exists = klass !== undefined;
+    let extendedClass: ContractClassWithCommitment | undefined = undefined;
+
+    // Note: We currently do not generate info to check the nullifier tree, because
+    // this is not needed for our use cases.
+    if (exists) {
+      this.log.trace(`Got contract class (id=${classId})`);
+      // Extend class information with public bytecode commitment.
+      const bytecodeCommitment = await this.worldStateDB.getBytecodeCommitment(classId);
+      assert(
+        bytecodeCommitment,
+        `Bytecode commitment was not found in DB for contract class (${classId}). This should not happen!`,
+      );
+      extendedClass = {
+        ...klass,
+        publicBytecodeCommitment: bytecodeCommitment,
+      };
+    } else {
+      this.log.debug(`Contract instance NOT FOUND (id=${classId})`);
+    }
+
+    this.trace.traceGetContractClass(classId, exists, extendedClass);
+    return extendedClass;
+  }
+
+  /**
+   * Get a contract's bytecode from the contracts DB, also trace the contract class and instance indirectly.
    */
   public async getBytecode(contractAddress: AztecAddress): Promise<Buffer | undefined> {
     this.log.debug(`Getting bytecode for contract address ${contractAddress}`);
-    const instanceWithAddress = await this.worldStateDB.getContractInstance(contractAddress);
-    const exists = instanceWithAddress !== undefined;
+    const contractInstance = await this.getContractInstance(contractAddress);
 
-    let instance: SerializableContractInstance | undefined;
-    let bytecode: Buffer | undefined;
-    let contractClassPreimage: ContractClassIdPreimage | undefined;
-
-    if (exists) {
-      instance = new SerializableContractInstance(instanceWithAddress);
-      const contractClass = await this.worldStateDB.getContractClass(instance.currentContractClassId);
-      const bytecodeCommitment = await this.worldStateDB.getBytecodeCommitment(instance.currentContractClassId);
-
-      assert(
-        contractClass,
-        `Contract class not found in DB, but a contract instance was found with this class ID (${instance.currentContractClassId}). This should not happen!`,
-      );
-
-      assert(
-        bytecodeCommitment,
-        `Bytecode commitment was not found in DB for contract class (${instance.currentContractClassId}). This should not happen!`,
-      );
-
-      bytecode = contractClass.packedBytecode;
-      contractClassPreimage = {
-        artifactHash: contractClass.artifactHash,
-        privateFunctionsRoot: contractClass.privateFunctionsRoot,
-        publicBytecodeCommitment: bytecodeCommitment,
-      };
+    if (!contractInstance) {
+      return undefined;
     }
 
-    if (exists) {
-      this.log.trace(`Got contract instance (address=${contractAddress}): instance=${jsonStringify(instance!)}`);
-    } else {
-      this.log.debug(`Contract instance NOT FOUND (address=${contractAddress})`);
-    }
+    const contractClass = await this.getContractClass(contractInstance.currentContractClassId);
+    assert(
+      contractClass,
+      `Contract class not found in DB, but a contract instance was found with this class ID (${contractInstance.currentContractClassId}). This should not happen!`,
+    );
 
-    if (!this.doMerkleOperations || contractAddressIsCanonical(contractAddress)) {
-      // Canonical addresses do not trigger nullifier check
-      if (exists) {
-        this.trace.traceGetBytecode(contractAddress, exists, bytecode, instance, contractClassPreimage);
-      } else {
-        this.trace.traceGetBytecode(contractAddress, exists);
-      }
-    } else {
-      const contractAddressNullifier = await siloNullifier(
-        AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
-        contractAddress.toField(),
-      );
-      const {
-        exists: nullifierExistsInTree,
-        leafOrLowLeafPreimage: nullifierLeafOrLowLeafPreimage,
-        leafOrLowLeafIndex: nullifierLeafOrLowLeafIndex,
-        leafOrLowLeafPath: nullifierLeafOrLowLeafPath,
-      } = await this.getNullifierMembership(/*siloedNullifier=*/ contractAddressNullifier);
-      assert(
-        exists == nullifierExistsInTree,
-        'WorldStateDB contains contract instance, but nullifier tree does not contain contract address (or vice versa).... This is a bug!',
-      );
-      const nullifierMembership = new AvmNullifierReadTreeHint(
-        nullifierLeafOrLowLeafPreimage,
-        new Fr(nullifierLeafOrLowLeafIndex),
-        nullifierLeafOrLowLeafPath,
-      );
-
-      const { updateMembership, updatePreimage } = await this.getContractUpdateHints(contractAddress);
-      this.trace.traceGetBytecode(
-        contractAddress,
-        exists,
-        bytecode,
-        instance,
-        contractClassPreimage,
-        nullifierMembership,
-        updateMembership,
-        updatePreimage,
-      );
-    }
     // NOTE: If the contract instance is not found, we assume it has not been deployed.
     // It doesnt matter what the values of the contract instance are in this case, as long as we tag it with exists=false.
     // This will hint to the avm circuit to just perform the non-membership check on the address and disregard the bytecode hash
-    return bytecode;
+    return contractClass.packedBytecode;
   }
 
   async getContractUpdateHints(contractAddress: AztecAddress) {
