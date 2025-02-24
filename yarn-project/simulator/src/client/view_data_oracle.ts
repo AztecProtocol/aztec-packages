@@ -1,10 +1,5 @@
-import {
-  type AuthWitness,
-  type Capsule,
-  type MerkleTreeId,
-  type NoteStatus,
-  type PublicDataWitness,
-} from '@aztec/circuit-types';
+import { type Capsule, type MerkleTreeId, type NoteStatus, type PublicDataWitness } from '@aztec/circuit-types';
+import { type AuthWitness } from '@aztec/circuit-types/auth-witness';
 import { type AztecNode, type NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/client';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/circuits.js/contract';

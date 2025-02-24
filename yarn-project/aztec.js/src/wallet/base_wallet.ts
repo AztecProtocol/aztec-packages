@@ -1,5 +1,4 @@
 import {
-  type AuthWitness,
   type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
   type L2Block,
@@ -14,6 +13,7 @@ import {
   type TxSimulationResult,
   type UniqueNote,
 } from '@aztec/circuit-types';
+import { type AuthWitness } from '@aztec/circuit-types/auth-witness';
 import {
   type ContractClassMetadata,
   type ContractMetadata,

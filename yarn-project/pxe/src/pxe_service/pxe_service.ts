@@ -1,5 +1,4 @@
 import {
-  type AuthWitness,
   EventMetadata,
   type FunctionCall,
   type GetContractClassLogsResponse,
@@ -23,6 +22,7 @@ import {
   UniqueNote,
   getNonNullifiedL1ToL2MessageWitness,
 } from '@aztec/circuit-types';
+import { type AuthWitness } from '@aztec/circuit-types/auth-witness';
 import {
   type AztecNode,
   type EventMetadataDefinition,

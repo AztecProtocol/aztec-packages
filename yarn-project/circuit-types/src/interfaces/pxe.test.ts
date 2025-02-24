@@ -28,7 +28,7 @@ import omit from 'lodash.omit';
 import times from 'lodash.times';
 import { resolve } from 'path';
 
-import { AuthWitness } from '../auth_witness.js';
+import { AuthWitness } from '../auth_witness/auth_witness.js';
 import { type InBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import {

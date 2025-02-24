@@ -27,7 +27,7 @@ import type { Fr, Point } from '@aztec/foundation/fields';
 
 import { z } from 'zod';
 
-import { AuthWitness } from '../auth_witness.js';
+import { AuthWitness } from '../auth_witness/auth_witness.js';
 import { type InBlock, inBlockSchemaFor } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import {

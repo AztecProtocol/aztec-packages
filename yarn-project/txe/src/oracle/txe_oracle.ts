@@ -1,5 +1,4 @@
 import {
-  AuthWitness,
   Body,
   L2Block,
   MerkleTreeId,
@@ -12,6 +11,7 @@ import {
   TxHash,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
+import { AuthWitness } from '@aztec/circuit-types/auth-witness';
 import {
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,

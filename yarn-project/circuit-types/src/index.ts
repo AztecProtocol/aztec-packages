@@ -1,4 +1,3 @@
-export * from './auth_witness.js';
 export * from './body.js';
 export * from './capsule.js';
 export * from './epoch-helpers/index.js';

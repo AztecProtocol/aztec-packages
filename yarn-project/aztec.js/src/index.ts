@@ -61,8 +61,9 @@ export {
   deriveMasterNullifierSecretKey,
 } from '@aztec/circuits.js/keys';
 
+export { AuthWitness } from '@aztec/circuit-types/auth-witness';
+
 export {
-  AuthWitness,
   Body,
   Capsule,
   Comparator,
