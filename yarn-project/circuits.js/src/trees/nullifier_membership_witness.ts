@@ -1,11 +1,11 @@
-import { schemas } from '@aztec/circuits.js/schemas';
-import { NullifierLeafPreimage } from '@aztec/circuits.js/trees';
 import { NULLIFIER_TREE_HEIGHT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
+import { SiblingPath } from '@aztec/foundation/trees';
 
 import { z } from 'zod';
 
-import { SiblingPath } from '../sibling_path/index.js';
+import { schemas } from '../schemas/index.js';
+import { NullifierLeafPreimage } from './nullifier_leaf.js';
 
 /**
  * Nullifier membership witness.
