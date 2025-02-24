@@ -561,8 +561,8 @@ describe('e2e_synching', () => {
           expect(await worldState.getLatestBlockNumber()).toEqual(Number(pendingBlockNumber));
 
           // We prune the last token and schnorr contract
-          const assumeProvenThrough = pendingBlockNumber - 2n;
-          await opts.cheatCodes!.rollup.markAsProven(assumeProvenThrough);
+          const provenThrough = pendingBlockNumber - 2n;
+          await opts.cheatCodes!.rollup.markAsProven(provenThrough);
 
           const timeliness = (await rollup.read.getEpochDuration()) * 2n;
           const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
@@ -570,7 +570,7 @@ describe('e2e_synching', () => {
 
           await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
 
-          expect(await archiver.getBlockNumber()).toBeGreaterThan(Number(assumeProvenThrough));
+          expect(await archiver.getBlockNumber()).toBeGreaterThan(Number(provenThrough));
           const blockTip = (await archiver.getBlock(await archiver.getBlockNumber()))!;
           const txHash = blockTip.body.txEffects[0].txHash;
 
@@ -590,7 +590,7 @@ describe('e2e_synching', () => {
 
           // We need to sleep a bit to make sure that we have caught the prune and deleted blocks.
           await sleep(3000);
-          expect(await archiver.getBlockNumber()).toBe(Number(assumeProvenThrough));
+          expect(await archiver.getBlockNumber()).toBe(Number(provenThrough));
 
           const contractClassIdsAfter = await archiver.getContractClassIds();
 
@@ -612,11 +612,9 @@ describe('e2e_synching', () => {
           );
 
           // Check world state reverted as well
-          expect(await worldState.getLatestBlockNumber()).toEqual(Number(assumeProvenThrough));
-          const worldStateLatestBlockHash = await worldState.getL2BlockHash(Number(assumeProvenThrough));
-          const archiverLatestBlockHash = await archiver
-            .getBlockHeader(Number(assumeProvenThrough))
-            .then(b => b?.hash());
+          expect(await worldState.getLatestBlockNumber()).toEqual(Number(provenThrough));
+          const worldStateLatestBlockHash = await worldState.getL2BlockHash(Number(provenThrough));
+          const archiverLatestBlockHash = await archiver.getBlockHeader(Number(provenThrough)).then(b => b?.hash());
           expect(worldStateLatestBlockHash).toEqual(archiverLatestBlockHash?.toString());
 
           await tryStop(archiver);
