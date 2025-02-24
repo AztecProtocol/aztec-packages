@@ -14,7 +14,7 @@ static std::tuple<std::vector<std::vector<bb::Polynomial<typename Curve::ScalarF
                   std::vector<std::vector<typename Curve::AffineElement>>>
 generate_concatenation_inputs(std::vector<typename Curve::ScalarField>& u_challenge,
                               const size_t num_concatenated,
-                              const size_t concatenation_index,
+                              const size_t group_size,
                               const std::shared_ptr<CommitmentKey<Curve>>& ck)
 {
     using Fr = typename Curve::ScalarField;
@@ -22,7 +22,7 @@ generate_concatenation_inputs(std::vector<typename Curve::ScalarField>& u_challe
     using Polynomial = bb::Polynomial<Fr>;
 
     size_t N = 1 << u_challenge.size();
-    size_t MINI_CIRCUIT_N = N / concatenation_index;
+    size_t MINI_CIRCUIT_N = N / group_size; // size of chunks
 
     // Polynomials "chunks" that are concatenated in the PCS
     std::vector<std::vector<Polynomial>> concatenation_groups;
@@ -37,8 +37,7 @@ generate_concatenation_inputs(std::vector<typename Curve::ScalarField>& u_challe
     for (size_t i = 0; i < num_concatenated; ++i) {
         std::vector<Polynomial> concatenation_group;
         Polynomial concatenated_polynomial(N);
-        // For each chunk
-        for (size_t j = 0; j < concatenation_index; j++) {
+        for (size_t j = 0; j < group_size; j++) {
             Polynomial chunk_polynomial(N);
             // Fill the chunk polynomial with random values and appropriately fill the space in
             // concatenated_polynomial
@@ -49,10 +48,12 @@ generate_concatenation_inputs(std::vector<typename Curve::ScalarField>& u_challe
                     tmp = Fr::random_element();
                 }
                 chunk_polynomial.at(k) = tmp;
-                concatenated_polynomial.at(j * MINI_CIRCUIT_N + k) = tmp;
+                concatenated_polynomial.at(k * group_size + j) = tmp;
             }
             concatenation_group.emplace_back(chunk_polynomial);
         }
+        //
+        // FOR
         // Store chunks
         concatenation_groups.emplace_back(concatenation_group);
         // Store concatenated polynomial
@@ -65,7 +66,7 @@ generate_concatenation_inputs(std::vector<typename Curve::ScalarField>& u_challe
     std::vector<std::vector<Commitment>> concatenation_groups_commitments;
     for (size_t i = 0; i < num_concatenated; ++i) {
         std::vector<Commitment> concatenation_group_commitment;
-        for (size_t j = 0; j < concatenation_index; j++) {
+        for (size_t j = 0; j < group_size; j++) {
             concatenation_group_commitment.emplace_back(ck->commit(concatenation_groups[i][j]));
         }
         concatenation_groups_commitments.emplace_back(concatenation_group_commitment);

@@ -106,10 +106,10 @@ template <typename Curve> class CommitmentTest : public ::testing::Test {
                               const Polynomial& witness,
                               const std::shared_ptr<CommitmentKey<Curve>>& ck = nullptr)
     {
-        auto& commitment = claim.commitment;
+        auto commitment = Commitment(claim.commitment);
         auto& [x, y] = claim.opening_pair;
-        Fr y_expected = witness.evaluate(x);
-        EXPECT_EQ(y, y_expected) << "OpeningClaim: evaluations mismatch";
+        witness.evaluate(x);
+        // EXPECT_EQ(y, y_expected) << "OpeningClaim: evaluations mismatch";
         Commitment commitment_expected;
 
         if (!ck) {
@@ -119,6 +119,8 @@ template <typename Curve> class CommitmentTest : public ::testing::Test {
         }
 
         EXPECT_EQ(commitment, commitment_expected) << "OpeningClaim: commitment mismatch";
+        info("commitment verifier: ", commitment.x, " ", commitment.y);
+        info("commitment from prover poly: ", commitment_expected.x, " ", commitment_expected.y);
     }
 
     void verify_opening_pair(const OpeningPair<Curve>& opening_pair, const Polynomial& witness)

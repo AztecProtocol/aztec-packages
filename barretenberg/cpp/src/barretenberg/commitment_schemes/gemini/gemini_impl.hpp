@@ -111,6 +111,8 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
         }
     }
     const Fr r_challenge = transcript->template get_challenge<Fr>("Gemini:r");
+    info("A_0(r) ", A_0.evaluate(r_challenge));
+    info("A_0(-r) ", A_0.evaluate(-r_challenge));
 
     const bool gemini_challenge_in_small_subgroup = (has_zk) && (r_challenge.pow(Curve::SUBGROUP_SIZE) == Fr(1));
 
@@ -125,27 +127,31 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     // auto [A_0_pos, A_0_neg] =
     //     compute_partially_evaluated_batch_polynomials(log_n, polynomial_batcher, r_challenge, batched_group);
     auto [A_0_pos, A_0_neg] = polynomial_batcher.compute_partially_evaluated_batch_polynomials(r_challenge);
-    Polynomial P_pos;
-    Polynomial P_neg;
+    Polynomial P_pos(batched_group[0]);
+    Polynomial P_neg(batched_group[0]);
     if (has_concatenations) {
-        Fr current_r_shift_pos = Fr(1);
-        Fr current_r_shift_neg = Fr(1);
-        for (size_t i = 0; i < batched_concatenated.size(); i++) {
-            P_pos.add_scaled(batched_concatenated[i], current_r_shift_pos);
-            P_neg.add_scaled(batched_concatenated[i], current_r_shift_neg);
+        Fr current_r_shift_pos = r_challenge;
+        Fr current_r_shift_neg = -r_challenge;
+        for (size_t i = 1; i < batched_group.size(); i++) {
+            P_pos.add_scaled(batched_group[i], current_r_shift_pos);
+            P_neg.add_scaled(batched_group[i], current_r_shift_neg);
             current_r_shift_pos *= r_challenge;
             current_r_shift_neg *= -r_challenge;
         }
     }
+    Fr full_pos = A_0_pos.evaluate(r_challenge) + P_pos.evaluate(r_challenge.pow(batched_group.size()));
+    Fr full_neg = A_0_neg.evaluate(-r_challenge) + P_neg.evaluate(r_challenge.pow(batched_group.size()));
+    info("Is it the same with this at r? ", full_pos);
+    info("Is it the same with this at -r? ", full_neg);
     // Construct claims for the d + 1 univariate evaluations A₀₊(r), A₀₋(-r), and Foldₗ(−r^{2ˡ}), l = 1, ..., d-1
     std::vector<Claim> claims = construct_univariate_opening_claims(log_n,
                                                                     std::move(A_0_pos),
                                                                     std::move(A_0_neg),
                                                                     std::move(fold_polynomials),
                                                                     r_challenge,
-                                                                    P_pos,
-                                                                    P_neg,
-                                                                    batched_concatenated.size());
+                                                                    std::move(P_pos),
+                                                                    std::move(P_neg),
+                                                                    batched_group.size());
 
     for (size_t l = 1; l <= CONST_PROOF_SIZE_LOG_N; l++) {
         std::string label = "Gemini:a_" + std::to_string(l);
@@ -156,8 +162,10 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
         }
     }
     if (has_concatenations) {
-        transcript->send_to_verifier("Gemini:P_pos", claims[CONST_PROOF_SIZE_LOG_N + 1].opening_pair.evaluation);
-        transcript->send_to_verifier("Gemini:P_neg", claims[CONST_PROOF_SIZE_LOG_N + 2].opening_pair.evaluation);
+        transcript->send_to_verifier("Gemini:P_pos", claims[log_n + 1].opening_pair.evaluation);
+        info("P_pos sent?", claims[log_n + 1].opening_pair.evaluation);
+        transcript->send_to_verifier("Gemini:P_neg", claims[log_n + 2].opening_pair.evaluation);
+        info("P_neg sent? ", claims[log_n + 2].opening_pair.evaluation);
     }
 
     return claims;
@@ -335,7 +343,9 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::construc
     if (!P_pos.is_empty()) {
         Fr r_pow = r_challenge.pow(group_size);
         Fr P_pos_eval = P_pos.evaluate(r_pow);
-        Fr P_neg_eval = P_neg.evaluate(-r_pow);
+        info("P_pos_eval ", P_pos_eval);
+        Fr P_neg_eval = P_neg.evaluate(r_pow);
+        info("P_neg_eval ", P_neg_eval);
         claims.emplace_back(Claim{ std::move(P_pos), { r_pow, P_pos_eval } });
         claims.emplace_back(Claim{ std::move(P_neg), { r_pow, P_neg_eval } });
     }

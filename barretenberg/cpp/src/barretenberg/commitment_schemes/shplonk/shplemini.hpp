@@ -246,7 +246,10 @@ template <typename Curve> class ShpleminiVerifier_ {
         const Fr gemini_evaluation_challenge = transcript->template get_challenge<Fr>("Gemini:r");
 
         // - Get evaluations (A₀(−r), A₁(−r²), ... , Aₙ₋₁(−r²⁽ⁿ⁻¹⁾))
-        const std::vector<Fr> gemini_evaluations = GeminiVerifier::get_gemini_evaluations(log_circuit_size, transcript);
+        std::vector<Fr> gemini_evaluations = GeminiVerifier::get_gemini_evaluations(transcript);
+        gemini_evaluations.emplace_back(transcript->template receive_from_prover<Fr>("Gemini:P_pos"));
+        gemini_evaluations.emplace_back(transcript->template receive_from_prover<Fr>("Gemini:P_neg"));
+
         // - Compute vector (r, r², ... , r²⁽ⁿ⁻¹⁾), where n = log_circuit_size
         const std::vector<Fr> gemini_eval_challenge_powers =
             gemini::powers_of_evaluation_challenge(gemini_evaluation_challenge, CONST_PROOF_SIZE_LOG_N);

@@ -343,8 +343,10 @@ template <typename Curve> class GeminiVerifier_ {
         Fr p_0_neg = Fr(0);
         Fr p_0_pos = Fr(0);
         if (has_concatenations) {
-            p_0_neg = transcript->template receive_from_prover<Fr>("Gemini:P_0_neg");
             p_0_pos = transcript->template receive_from_prover<Fr>("Gemini:P_0_pos");
+            info("P_0_pos received? ", p_0_pos);
+            p_0_neg = transcript->template receive_from_prover<Fr>("Gemini:P_0_neg");
+            info("P_0_neg received? ", p_0_neg);
             evaluations[0] += p_0_neg;
         }
 
@@ -365,7 +367,7 @@ template <typename Curve> class GeminiVerifier_ {
         // contribution as well to to C₀_r_pos and C₀_r_neg
         GroupElement C_P_pos = GroupElement::zero();
         GroupElement C_P_neg = GroupElement::zero();
-        if (!has_concatenations) {
+        if (has_concatenations) {
             size_t concatenation_group_size = concatenation_group_commitments[0].size();
             // The "real" size of polynomials in concatenation groups (i.e. the number of non-zero values)
             // const size_t mini_circuit_size = N / concatenation_group_size;
@@ -444,7 +446,6 @@ template <typename Curve> class GeminiVerifier_ {
             const Fr evaluation = transcript->template receive_from_prover<Fr>("Gemini:a_" + std::to_string(i));
             gemini_evaluations.emplace_back(evaluation);
         }
-
         return gemini_evaluations;
     }
 
