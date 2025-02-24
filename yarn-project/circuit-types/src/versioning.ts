@@ -45,6 +45,7 @@ export function compressComponentVersions(versions: ComponentsVersions): string 
   ) {
     throw new Error(`Component versions are not set: ${jsonStringify(versions)}`);
   }
+
   return [
     '00',
     versions.l1ChainId,

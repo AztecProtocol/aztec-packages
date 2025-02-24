@@ -7,10 +7,13 @@
 #include <stdexcept>
 #include <vector>
 
+#include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
+
+using Poseidon2 = bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>;
 
 namespace bb::avm2::tracegen {
 namespace {
@@ -168,9 +171,34 @@ void BytecodeTraceBuilder::process_decomposition(
 }
 
 void BytecodeTraceBuilder::process_hashing(
-    const simulation::EventEmitterInterface<simulation::BytecodeHashingEvent>::Container&, TraceContainer&)
+    const simulation::EventEmitterInterface<simulation::BytecodeHashingEvent>::Container& events, TraceContainer& trace)
 {
-    // TODO.
+    using C = Column;
+    uint32_t row = 1;
+
+    for (const auto& event : events) {
+        const auto id = event.bytecode_id;
+        const auto& fields = event.bytecode_fields;
+
+        uint32_t pc_index = 0;
+        FF incremental_hash = event.bytecode_length;
+        for (uint32_t i = 0; i < fields.size(); i++) {
+            FF output_hash = Poseidon2::hash({ fields[i], incremental_hash });
+            bool end_of_bytecode = i == fields.size() - 1;
+            trace.set(row,
+                      { { { C::bc_hashing_sel, 1 },
+                          { C::bc_hashing_start, i == 0 ? 1 : 0 },
+                          { C::bc_hashing_latch, end_of_bytecode },
+                          { C::bc_hashing_bytecode_id, id },
+                          { C::bc_hashing_pc_index, pc_index },
+                          { C::bc_hashing_packed_field, fields[i] },
+                          { C::bc_hashing_incremental_hash, incremental_hash },
+                          { C::bc_hashing_output_hash, output_hash } } });
+            incremental_hash = output_hash;
+            pc_index += 31;
+            row++;
+        }
+    }
 }
 
 void BytecodeTraceBuilder::process_retrieval(
