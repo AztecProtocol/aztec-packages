@@ -11,7 +11,7 @@ key=$(hash_str_orig "$cmd")
 if [ "${USE_TEST_CACHE:-0}" -eq 1 ] && [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   log_key=$(redis_cli GET $key)
   if [ -n "$log_key" ]; then
-    log_info=" ${yellow}$log_key${reset}"
+    log_info=" (${yellow}http://ci.aztec-labs.com/$log_key${reset})"
     echo -e "${blue}SKIPPED${reset}${log_info:-}: $test_cmd"
     exit 0
   fi
@@ -30,6 +30,8 @@ cat <<EOF >$tmp_file
 Command: $cmd
 Commit: https://github.com/AztecProtocol/aztec-packages/commit/$COMMIT_HASH
 Env: REF_NAME=$REF_NAME CURRENT_VERSION=$CURRENT_VERSION CI_FULL=$CI_FULL
+Date: $(date)
+
 EOF
 
 trap "rm -f $tmp_file" EXIT
