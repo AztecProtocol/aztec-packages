@@ -85,7 +85,7 @@ export type EnvVar =
   | 'P2P_GOSSIPSUB_DHI'  // Upper bound for gossipsub outbound degree
   | 'P2P_GOSSIPSUB_DLO' // lower bound for gossipsub outbound degree
   | 'P2P_GOSSIPSUB_DLAZY' // Optional) the outbound degree for gossip emission.
-  | 'P2P_GOSSIPSUB_FLOOD_PUBLISH' // Whether to flood publish messages. - For testing purposes only. TODO: Delete this env variable, i don't think its being used.
+  | 'P2P_GOSSIPSUB_FLOOD_PUBLISH' // Whether to flood publish messages. - For testing purposes only.
   | 'P2P_GOSSIPSUB_INTERVAL_MS' // The interval of the gossipsub heartbeat to perform maintenance tasks.
   | 'P2P_GOSSIPSUB_MCACHE_GOSSIP' // How many message cache windows to include when gossiping with other peers.
   | 'P2P_GOSSIPSUB_MCACHE_LENGTH' // he number of gossipsub interval message cache windows to keep
