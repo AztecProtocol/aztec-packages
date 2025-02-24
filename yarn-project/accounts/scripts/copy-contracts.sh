@@ -5,7 +5,7 @@ mkdir -p ./artifacts
 contracts=(schnorr_account_contract-SchnorrAccount ecdsa_k_account_contract-EcdsaKAccount ecdsa_r_account_contract-EcdsaRAccount schnorr_single_key_account_contract-SchnorrSingleKeyAccount)
 
 decl=$(cat <<EOF
-import { type NoirCompiledContract } from '@aztec/types/noir';
+import { type NoirCompiledContract } from '@aztec/circuits.js/noir';
 const circuit: NoirCompiledContract;
 export = circuit;
 EOF

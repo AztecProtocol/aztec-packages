@@ -9,8 +9,11 @@ import {
   createLogger,
   sleep,
 } from '@aztec/aztec.js';
-import { EthAddress, FEE_FUNDING_FOR_TESTER_ACCOUNT, GasSettings, computePartialAddress } from '@aztec/circuits.js';
+import { computePartialAddress } from '@aztec/circuits.js/contract';
+import { GasSettings } from '@aztec/circuits.js/gas';
+import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import { createL1Clients } from '@aztec/ethereum';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestERC20Abi } from '@aztec/l1-artifacts';
 import { AppSubscriptionContract } from '@aztec/noir-contracts.js/AppSubscription';
 import { CounterContract } from '@aztec/noir-contracts.js/Counter';

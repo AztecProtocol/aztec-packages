@@ -1,4 +1,4 @@
-import { type ClientIvcProof } from '@aztec/circuits.js';
+import { type ClientIvcProof } from '@aztec/circuits.js/proofs';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { BundleArtifactProvider } from '@aztec/noir-protocol-circuits-types/client/bundle';
@@ -113,6 +113,7 @@ export class BBNativePrivateKernelProver extends BBPrivateKernelProver {
           throw err;
         }),
       this.skipCleanup,
+      this.log,
     );
   }
 }

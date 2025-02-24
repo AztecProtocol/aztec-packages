@@ -1,4 +1,5 @@
-import { L2Block, type L2BlockSource, PeerErrorSeverity, TxHash, mockTx } from '@aztec/circuit-types';
+import { L2Block, type L2BlockSource, PeerErrorSeverity, TxHash } from '@aztec/circuit-types';
+import { mockTx } from '@aztec/circuit-types/testing';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -143,7 +144,9 @@ describe('ReqResp', () => {
     expect(rateLimitResponse).toBeDefined();
 
     // Make sure the error message is logged
-    const errorMessage = `Rate limit exceeded for ${ReqRespSubProtocol.PING} from ${nodes[0].p2p.peerId.toString()}`;
+    const errorMessage = `Rate limit exceeded DeniedPeer for ${
+      ReqRespSubProtocol.PING
+    } from ${nodes[0].p2p.peerId.toString()}`;
     expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining(errorMessage));
   });
 

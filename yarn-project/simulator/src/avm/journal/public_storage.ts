@@ -1,7 +1,7 @@
-import { type AztecAddress } from '@aztec/circuits.js';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
-import type { PublicStateDB } from '../../server.js';
+import { type PublicStateDB } from '../../server.js';
 
 type PublicStorageReadResult = {
   value: Fr;

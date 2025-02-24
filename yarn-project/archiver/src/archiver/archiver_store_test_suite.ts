@@ -1,27 +1,28 @@
 import { InboxLeaf, L2Block, LogId, TxEffect, TxHash, wrapInBlock } from '@aztec/circuit-types';
 import '@aztec/circuit-types/jest';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
-  AztecAddress,
   type ContractClassPublic,
   type ContractInstanceWithAddress,
-  Fr,
-  INITIAL_L2_BLOCK_NUM,
-  L1_TO_L2_MSG_SUBTREE_HEIGHT,
-  MAX_NULLIFIERS_PER_TX,
-  PRIVATE_LOG_SIZE_IN_FIELDS,
-  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
-  PrivateLog,
-  PublicLog,
   SerializableContractInstance,
   computePublicBytecodeCommitment,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/contract';
+import { PrivateLog, PublicLog } from '@aztec/circuits.js/logs';
 import {
   makeContractClassPublic,
   makeExecutablePrivateFunctionWithMembershipProof,
   makeUnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js/testing';
+import {
+  INITIAL_L2_BLOCK_NUM,
+  L1_TO_L2_MSG_SUBTREE_HEIGHT,
+  MAX_NULLIFIERS_PER_TX,
+  PRIVATE_LOG_SIZE_IN_FIELDS,
+  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
+} from '@aztec/constants';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
 
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from './archiver_store.js';
 import { type L1Published } from './structs/published.js';

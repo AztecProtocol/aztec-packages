@@ -1,6 +1,6 @@
-import { Fr } from '@aztec/circuits.js';
+import { type ZodFor, schemas } from '@aztec/circuits.js/schemas';
 import { type ConfigMappingsType, booleanConfigHelper, numberConfigHelper } from '@aztec/foundation/config';
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+import { Fr } from '@aztec/foundation/fields';
 
 import { z } from 'zod';
 
@@ -11,8 +11,12 @@ import { type ProvingJobConsumer } from './prover-broker.js';
 export type ActualProverConfig = {
   /** Whether to construct real proofs */
   realProofs: boolean;
-  /** Artificial delay to introduce to all operations to the test prover. */
+  /** The type of artificial delay to introduce */
+  proverTestDelayType: 'fixed' | 'realistic';
+  /** If using fixed delay, the time each operation takes. */
   proverTestDelayMs: number;
+  /** If using realistic delays, what percentage of realistic times to apply. */
+  proverTestDelayFactor: number;
 };
 
 /**
@@ -33,7 +37,9 @@ export const ProverConfigSchema = z.object({
   nodeUrl: z.string().optional(),
   realProofs: z.boolean(),
   proverId: schemas.Fr,
+  proverTestDelayType: z.enum(['fixed', 'realistic']),
   proverTestDelayMs: z.number(),
+  proverTestDelayFactor: z.number(),
   proverAgentCount: z.number(),
 }) satisfies ZodFor<ProverConfig>;
 
@@ -53,10 +59,19 @@ export const proverConfigMappings: ConfigMappingsType<ProverConfig> = {
     description: 'Identifier of the prover',
     defaultValue: Fr.ZERO,
   },
+  proverTestDelayType: {
+    env: 'PROVER_TEST_DELAY_TYPE',
+    description: 'The type of artificial delay to introduce',
+  },
   proverTestDelayMs: {
     env: 'PROVER_TEST_DELAY_MS',
     description: 'Artificial delay to introduce to all operations to the test prover.',
     ...numberConfigHelper(0),
+  },
+  proverTestDelayFactor: {
+    env: 'PROVER_TEST_DELAY_FACTOR',
+    description: 'If using realistic delays, what percentage of realistic times to apply.',
+    ...numberConfigHelper(1),
   },
   proverAgentCount: {
     env: 'PROVER_AGENT_COUNT',
@@ -86,6 +101,8 @@ export interface EpochProverManager {
   stop(): Promise<void>;
 
   getProvingJobSource(): ProvingJobConsumer;
+
+  getProverId(): Fr;
 
   updateProverConfig(config: Partial<ProverConfig>): Promise<void>;
 }

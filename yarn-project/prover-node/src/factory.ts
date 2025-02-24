@@ -1,7 +1,7 @@
 import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
-import { type ProverCoordination, type ProvingJobBroker } from '@aztec/circuit-types';
-import { type PublicDataTreeLeaf } from '@aztec/circuits.js';
+import { type ProverCoordination, type ProvingJobBroker } from '@aztec/circuit-types/interfaces/server';
+import { type PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { EpochCache } from '@aztec/epoch-cache';
 import { L1TxUtils, RollupContract, createEthereumChain, createL1Clients } from '@aztec/ethereum';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -82,7 +82,7 @@ export async function createProverNode(
     txGatheringTimeoutMs: config.txGatheringTimeoutMs,
   };
 
-  const epochMonitor = new EpochMonitor(archiver, proverNodeConfig, telemetry);
+  const epochMonitor = await EpochMonitor.create(archiver, proverNodeConfig, telemetry);
 
   return new ProverNode(
     prover,

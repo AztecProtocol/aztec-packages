@@ -1,5 +1,5 @@
+import { ProvingError } from '@aztec/circuit-types';
 import {
-  ProvingError,
   type ProvingJob,
   type ProvingJobConsumer,
   type ProvingJobId,
@@ -7,7 +7,7 @@ import {
   type ProvingJobResultsMap,
   ProvingRequestType,
   type ServerCircuitProver,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { truncate } from '@aztec/foundation/string';

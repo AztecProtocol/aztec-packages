@@ -1,5 +1,5 @@
+import { type NoirCompiledCircuit } from '@aztec/circuits.js/noir';
 import { foreignCallHandler } from '@aztec/noir-protocol-circuits-types/server';
-import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import { type ExecutionError, executeCircuit } from '@noir-lang/acvm_js';
 import { type WitnessMap } from '@noir-lang/types';

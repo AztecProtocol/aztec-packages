@@ -1,18 +1,15 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
+import { BaseParityInputs, ParityPublicInputs, RootParityInput, RootParityInputs } from '@aztec/circuits.js/parity';
+import { makeRecursiveProof } from '@aztec/circuits.js/proofs';
+import { VerificationKeyAsFields } from '@aztec/circuits.js/vks';
 import {
-  BaseParityInputs,
-  Fr,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
-  ParityPublicInputs,
   RECURSIVE_PROOF_LENGTH,
-  RootParityInput,
-  RootParityInputs,
-  VerificationKeyAsFields,
-  makeRecursiveProof,
-} from '@aztec/circuits.js';
+} from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { randomBytes } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import {
   ProtocolCircuitVkIndexes,

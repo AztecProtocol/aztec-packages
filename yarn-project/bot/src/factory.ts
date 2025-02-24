@@ -2,18 +2,22 @@ import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { getDeployedTestAccountsWallets, getInitialTestAccounts } from '@aztec/accounts/testing';
 import {
   type AccountWallet,
+  AztecAddress,
+  type AztecNode,
   BatchCall,
   type DeployMethod,
   type DeployOptions,
   FeeJuicePaymentMethodWithClaim,
   L1FeeJuicePortalManager,
+  type PXE,
   createLogger,
   createPXEClient,
   retryUntil,
 } from '@aztec/aztec.js';
-import { type AztecNode, type FunctionCall, type PXE } from '@aztec/circuit-types';
-import { type AztecAddress, Fr, deriveSigningKey } from '@aztec/circuits.js';
+import { type FunctionCall } from '@aztec/circuit-types';
+import { deriveSigningKey } from '@aztec/circuits.js/keys';
 import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
+import { Fr } from '@aztec/foundation/fields';
 import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { makeTracedFetch } from '@aztec/telemetry-client';
@@ -96,10 +100,7 @@ export class BotFactory {
       const sentTx = account.deploy({ fee: { paymentMethod } });
       const txHash = await sentTx.getTxHash();
       this.log.info(`Sent tx with hash ${txHash.toString()}`);
-      if (this.config.flushSetupTransactions) {
-        this.log.verbose('Flushing transactions');
-        await this.node!.flushTxs();
-      }
+      await this.tryFlushTxs();
       this.log.verbose('Waiting for account deployment to settle');
       await sentTx.wait({ timeout: this.config.txMinedWaitSeconds });
       this.log.info(`Account deployed at ${address}`);
@@ -158,10 +159,7 @@ export class BotFactory {
       const sentTx = deploy.send(deployOpts);
       const txHash = await sentTx.getTxHash();
       this.log.info(`Sent tx with hash ${txHash.toString()}`);
-      if (this.config.flushSetupTransactions) {
-        this.log.verbose('Flushing transactions');
-        await this.node!.flushTxs();
-      }
+      await this.tryFlushTxs();
       this.log.verbose('Waiting for token setup to settle');
       return sentTx.deployed({ timeout: this.config.txMinedWaitSeconds });
     }
@@ -205,10 +203,7 @@ export class BotFactory {
     const sentTx = new BatchCall(token.wallet, calls).send();
     const txHash = await sentTx.getTxHash();
     this.log.info(`Sent tx with hash ${txHash.toString()}`);
-    if (this.config.flushSetupTransactions) {
-      this.log.verbose('Flushing transactions');
-      await this.node!.flushTxs();
-    }
+    await this.tryFlushTxs();
     this.log.verbose('Waiting for token mint to settle');
     await sentTx.wait({ timeout: this.config.txMinedWaitSeconds });
   }
@@ -242,7 +237,18 @@ export class BotFactory {
 
   private async advanceL2Block() {
     const initialBlockNumber = await this.node!.getBlockNumber();
-    await this.node!.flushTxs();
+    await this.tryFlushTxs();
     await retryUntil(async () => (await this.node!.getBlockNumber()) >= initialBlockNumber + 1);
+  }
+
+  private async tryFlushTxs() {
+    if (this.config.flushSetupTransactions) {
+      this.log.verbose('Flushing transactions');
+      try {
+        await this.node!.flushTxs();
+      } catch (err) {
+        this.log.error(`Failed to flush transactions: ${err}`);
+      }
+    }
   }
 }

@@ -1,4 +1,5 @@
-import { type ComponentsVersions, type PXE } from '@aztec/circuit-types';
+import { type ComponentsVersions } from '@aztec/circuit-types';
+import { type PXE } from '@aztec/circuit-types/interfaces/client';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { NoRetryError, makeBackoff, retry } from '@aztec/foundation/retry';

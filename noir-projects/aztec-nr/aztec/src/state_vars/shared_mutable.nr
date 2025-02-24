@@ -46,14 +46,6 @@ where
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { context, storage_slot }
     }
-
-    fn get_value_change_storage_slot(self) -> Field {
-        SharedMutableValues::<T, INITIAL_DELAY>::get_value_change_storage_slot(self.storage_slot)
-    }
-
-    fn get_delay_change_storage_slot(self) -> Field {
-        SharedMutableValues::<T, INITIAL_DELAY>::get_delay_change_storage_slot(self.storage_slot)
-    }
 }
 
 impl<T, let INITIAL_DELAY: u32, let N: u32> SharedMutable<T, INITIAL_DELAY, &mut PublicContext>
@@ -111,11 +103,22 @@ where
     }
 
     fn read_value_change(self) -> ScheduledValueChange<T> {
-        self.context.storage_read(self.get_value_change_storage_slot())
+        // We don't read ScheduledValueChange directly by having it implement Packable because ScheduledValueChange
+        // and ScheduledDelayChange are packed together (sdc and svc.block_of_change are stored in the same slot).
+        let packed = self.context.storage_read(self.storage_slot);
+        SharedMutableValues::unpack_value_change(packed)
     }
 
     fn read_delay_change(self) -> ScheduledDelayChange<INITIAL_DELAY> {
-        self.context.storage_read(self.get_delay_change_storage_slot())
+        // Since all ScheduledDelayChange member are packed into a single field, we can read a single storage slot
+        // here and skip the ones that correspond to ScheduledValueChange members. We are abusing the fact that
+        // the field containing the ScheduledDelayChange data is the first one in the storage layout - otherwise we'd
+        // need to offset the storage slot to get the position where it'd land.
+        // We don't read ScheduledDelayChange directly by having it implement Packable because
+        // ScheduledValueChange and ScheduledDelayChange are packed together (sdc and svc.block_of_change are
+        // stored in the same slot).
+        let packed = self.context.storage_read(self.storage_slot);
+        SharedMutableValues::<T, INITIAL_DELAY>::unpack_delay_change(packed)
     }
 
     fn write(
@@ -186,12 +189,10 @@ where
     T: Packable<N> + Eq,
 {
     pub unconstrained fn get_current_value(self) -> T {
-        let value_change: ScheduledValueChange<T> = WithHash::unconstrained_public_storage_read(
-            self.context,
-            self.get_value_change_storage_slot(),
-        );
+        let smv: SharedMutableValues<T, INITIAL_DELAY> =
+            WithHash::unconstrained_public_storage_read(self.context, self.storage_slot);
 
         let block_number = self.context.block_number() as u32;
-        value_change.get_current_at(block_number)
+        smv.svc.get_current_at(block_number)
     }
 }

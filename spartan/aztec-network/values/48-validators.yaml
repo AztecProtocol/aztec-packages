@@ -9,7 +9,6 @@ telemetry:
 
 validator:
   replicas: 48
-
   resources:
     requests:
       memory: "512Mi"

@@ -1,4 +1,6 @@
-import { AztecAddress, type Fr, SerializableContractInstance } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { SerializableContractInstance } from '@aztec/circuits.js/contract';
+import type { Fr } from '@aztec/foundation/fields';
 
 import { mock } from 'jest-mock-extended';
 

@@ -1,7 +1,6 @@
 import type { AvmContext } from '../avm_context.js';
 import { type AvmContractCallResult } from '../avm_contract_call_result.js';
 import { type Field, TypeTag, Uint1 } from '../avm_memory_types.js';
-import { AvmSimulator } from '../avm_simulator.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
@@ -60,9 +59,9 @@ abstract class ExternalCall extends Instruction {
     context.machineState.consumeGas(allocatedGas);
 
     const aztecAddress = callAddress.toAztecAddress();
-    const nestedContext = context.createNestedContractCallContext(aztecAddress, calldata, allocatedGas, callType);
+    const nestedContext = await context.createNestedContractCallContext(aztecAddress, calldata, allocatedGas, callType);
 
-    const simulator = await AvmSimulator.build(nestedContext);
+    const simulator = await context.provideSimulator!(nestedContext);
     const nestedCallResults: AvmContractCallResult = await simulator.execute();
     const success = !nestedCallResults.reverted;
 
@@ -90,9 +89,9 @@ abstract class ExternalCall extends Instruction {
 
     // Merge nested call's state and trace based on whether it succeeded.
     if (success) {
-      context.persistableState.merge(nestedContext.persistableState);
+      await context.persistableState.merge(nestedContext.persistableState);
     } else {
-      context.persistableState.reject(nestedContext.persistableState);
+      await context.persistableState.reject(nestedContext.persistableState);
     }
   }
 

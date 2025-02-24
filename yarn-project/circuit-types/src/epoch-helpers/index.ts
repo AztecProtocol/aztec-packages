@@ -1,4 +1,4 @@
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+import { type ZodFor, schemas } from '@aztec/circuits.js/schemas';
 
 import { z } from 'zod';
 
@@ -36,7 +36,12 @@ export function getEpochNumberAtTimestamp(
   ts: bigint,
   constants: Pick<L1RollupConstants, 'epochDuration' | 'slotDuration' | 'l1GenesisTime'>,
 ) {
-  return getSlotAtTimestamp(ts, constants) / BigInt(constants.epochDuration);
+  return getEpochAtSlot(getSlotAtTimestamp(ts, constants), constants);
+}
+
+/** Returns the epoch number for a given slot. */
+export function getEpochAtSlot(slot: bigint, constants: Pick<L1RollupConstants, 'epochDuration'>) {
+  return slot / BigInt(constants.epochDuration);
 }
 
 /** Returns the range of L2 slots (inclusive) for a given epoch number. */

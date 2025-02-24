@@ -1,5 +1,5 @@
-import { type AztecAddress } from '@aztec/circuits.js';
-import { schemas } from '@aztec/foundation/schemas';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type ZodFor, schemas } from '@aztec/circuits.js/schemas';
 
 import { z } from 'zod';
 
@@ -23,7 +23,7 @@ export type LogFilter = {
   contractAddress?: AztecAddress;
 };
 
-export const LogFilterSchema = z.object({
+export const LogFilterSchema: ZodFor<LogFilter> = z.object({
   txHash: TxHash.schema.optional(),
   fromBlock: schemas.Integer.optional(),
   toBlock: schemas.Integer.optional(),

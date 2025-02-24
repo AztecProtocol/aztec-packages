@@ -1,7 +1,9 @@
-import { Note, TxHash, randomTxHash } from '@aztec/circuit-types';
-import { AztecAddress, Fr, Point, type PublicKey } from '@aztec/circuits.js';
-import { NoteSelector } from '@aztec/foundation/abi';
+import { Note, TxHash } from '@aztec/circuit-types';
+import { NoteSelector } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { PublicKey } from '@aztec/circuits.js/keys';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 /**
@@ -102,7 +104,7 @@ export class OutgoingNoteDao {
   static async random({
     note = Note.random(),
     contractAddress = undefined,
-    txHash = randomTxHash(),
+    txHash = TxHash.random(),
     storageSlot = Fr.random(),
     noteTypeId = NoteSelector.random(),
     nonce = Fr.random(),

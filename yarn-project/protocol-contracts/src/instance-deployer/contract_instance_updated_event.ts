@@ -1,5 +1,6 @@
-import { type ContractInstanceUpdateWithAddress, type PublicLog } from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { ContractInstanceUpdateWithAddress } from '@aztec/circuits.js/contract';
+import type { PublicLog } from '@aztec/circuits.js/logs';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
 

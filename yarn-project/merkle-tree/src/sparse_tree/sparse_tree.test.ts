@@ -1,10 +1,10 @@
 import { SiblingPath } from '@aztec/circuit-types';
+import { type Hasher } from '@aztec/circuits.js/interfaces';
 import { randomBigInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
-import { type Hasher } from '@aztec/types/interfaces';
 
 import { INITIAL_LEAF, newTree } from '../index.js';
 import { type UpdateOnlyTree } from '../interfaces/update_only_tree.js';

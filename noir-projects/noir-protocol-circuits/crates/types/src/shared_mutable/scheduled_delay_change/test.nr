@@ -2,76 +2,6 @@ use crate::shared_mutable::scheduled_delay_change::ScheduledDelayChange;
 
 global TEST_INITIAL_DELAY: u32 = 13;
 
-unconstrained fn assert_equal_after_conversion(original: ScheduledDelayChange<TEST_INITIAL_DELAY>) {
-    // We have to do explicit type annotations because Noir lacks turbofish support.
-    // TODO: improve syntax once https://github.com/noir-lang/noir/issues/4710 is implemented.
-    let converted: ScheduledDelayChange<TEST_INITIAL_DELAY> =
-        ScheduledDelayChange::unpack(original.pack());
-
-    assert_eq(original, converted); // This also tests the Eq impl
-    assert_eq(original.pre, converted.pre);
-    assert_eq(original.post, converted.post);
-    assert_eq(original.block_of_change, converted.block_of_change);
-}
-
-#[test]
-unconstrained fn test_packable() {
-    let pre = 1;
-    let post = 2;
-    let block_of_change = 50;
-
-    assert_equal_after_conversion(ScheduledDelayChange::new(
-        Option::some(pre),
-        Option::some(post),
-        block_of_change,
-    ));
-    assert_equal_after_conversion(ScheduledDelayChange::new(
-        Option::some(pre),
-        Option::none(),
-        block_of_change,
-    ));
-    assert_equal_after_conversion(ScheduledDelayChange::new(
-        Option::none(),
-        Option::some(post),
-        block_of_change,
-    ));
-    assert_equal_after_conversion(ScheduledDelayChange::new(
-        Option::none(),
-        Option::none(),
-        block_of_change,
-    ));
-}
-
-#[test]
-unconstrained fn test_packable_large_values() {
-    let max_u32: u64 = (1 << 32) - 1;
-
-    let pre = max_u32 as u32;
-    let post = (max_u32 - 1) as u32;
-    let block_of_change = (max_u32 - 2) as u32;
-
-    assert_equal_after_conversion(ScheduledDelayChange::new(
-        Option::some(pre),
-        Option::some(post),
-        block_of_change,
-    ));
-    assert_equal_after_conversion(ScheduledDelayChange::new(
-        Option::some(pre),
-        Option::none(),
-        block_of_change,
-    ));
-    assert_equal_after_conversion(ScheduledDelayChange::new(
-        Option::none(),
-        Option::some(post),
-        block_of_change,
-    ));
-    assert_equal_after_conversion(ScheduledDelayChange::new(
-        Option::none(),
-        Option::none(),
-        block_of_change,
-    ));
-}
-
 unconstrained fn get_non_initial_delay_change(
     pre: u32,
     post: u32,
@@ -81,7 +11,7 @@ unconstrained fn get_non_initial_delay_change(
 }
 
 unconstrained fn get_initial_delay_change() -> ScheduledDelayChange<TEST_INITIAL_DELAY> {
-    ScheduledDelayChange::unpack([0])
+    std::mem::zeroed()
 }
 
 #[test]

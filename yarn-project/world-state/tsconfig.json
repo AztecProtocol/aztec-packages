@@ -13,6 +13,9 @@
       "path": "../circuits.js"
     },
     {
+      "path": "../constants"
+    },
+    {
       "path": "../foundation"
     },
     {
@@ -29,9 +32,6 @@
     },
     {
       "path": "../telemetry-client"
-    },
-    {
-      "path": "../types"
     },
     {
       "path": "../archiver"
