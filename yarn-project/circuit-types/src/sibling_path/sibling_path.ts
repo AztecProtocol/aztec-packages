@@ -1,7 +1,7 @@
 import { type Hasher } from '@aztec/circuits.js/interfaces';
+import { schemas } from '@aztec/circuits.js/schemas';
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
-import { schemas } from '@aztec/foundation/schemas';
 import {
   type Tuple,
   assertLength,

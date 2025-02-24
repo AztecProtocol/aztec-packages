@@ -59,7 +59,7 @@ abstract class ExternalCall extends Instruction {
     context.machineState.consumeGas(allocatedGas);
 
     const aztecAddress = callAddress.toAztecAddress();
-    const nestedContext = context.createNestedContractCallContext(aztecAddress, calldata, allocatedGas, callType);
+    const nestedContext = await context.createNestedContractCallContext(aztecAddress, calldata, allocatedGas, callType);
 
     const simulator = await context.provideSimulator!(nestedContext);
     const nestedCallResults: AvmContractCallResult = await simulator.execute();
@@ -89,9 +89,9 @@ abstract class ExternalCall extends Instruction {
 
     // Merge nested call's state and trace based on whether it succeeded.
     if (success) {
-      context.persistableState.merge(nestedContext.persistableState);
+      await context.persistableState.merge(nestedContext.persistableState);
     } else {
-      context.persistableState.reject(nestedContext.persistableState);
+      await context.persistableState.reject(nestedContext.persistableState);
     }
   }
 

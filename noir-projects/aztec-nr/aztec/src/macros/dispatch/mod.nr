@@ -182,4 +182,3 @@ comptime fn get_type<T>() -> Type {
     let t: T = std::mem::zeroed();
     std::meta::type_of(t)
 }
-

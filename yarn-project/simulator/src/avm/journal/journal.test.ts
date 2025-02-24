@@ -1,4 +1,5 @@
-import { AztecAddress, SerializableContractInstance, computePublicBytecodeCommitment } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { SerializableContractInstance, computePublicBytecodeCommitment } from '@aztec/circuits.js/contract';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
 import { makeContractClassPublic } from '@aztec/circuits.js/testing';
 import { Fr } from '@aztec/foundation/fields';
@@ -182,7 +183,7 @@ describe('journal', () => {
         expectedContractClassPreimage,
       );
     });
-    it('Can get undefined contract instance', async () => {
+    it('Can get undefined bytecode', async () => {
       await persistableState.getBytecode(address);
       expect(trace.traceGetBytecode).toHaveBeenCalledTimes(1);
       expect(trace.traceGetBytecode).toHaveBeenCalledWith(address, /*exists=*/ false);

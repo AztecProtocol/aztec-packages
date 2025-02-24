@@ -152,6 +152,9 @@ function build {
 
   check_toolchains
 
+  # Ensure we have yarn set up.
+  corepack enable
+
   projects=(
     noir
     barretenberg
@@ -176,7 +179,7 @@ function bench {
   if [ "$CI_FULL" -eq 0 ] || [ $(arch) == arm64 ]; then
     return
   fi
-  denoise "barretenberg/cpp/bootstrap.sh bench"
+  denoise "barretenberg/bootstrap.sh bench"
   denoise "yarn-project/end-to-end/bootstrap.sh bench"
 }
 
@@ -299,6 +302,7 @@ case "$cmd" in
     echo "Toolchains look good! 🎉"
   ;;
   ""|"fast"|"full")
+    install_hooks
     build $cmd
   ;;
   "ci")

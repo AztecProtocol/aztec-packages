@@ -14,7 +14,7 @@ import {
 } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
 import { PXESchema } from '@aztec/circuit-types/interfaces/client';
-import { deriveSigningKey } from '@aztec/circuits.js';
+import { deriveSigningKey } from '@aztec/circuits.js/keys';
 import { createNamespacedSafeJsonRpcServer, startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
 import { type Logger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';

@@ -1,8 +1,8 @@
 import { type AztecNodeConfig, aztecNodeConfigMappings } from '@aztec/aztec-node';
 import { createLogger } from '@aztec/aztec.js';
-import { EthAddress } from '@aztec/circuits.js';
 import { startAnvil } from '@aztec/ethereum/test';
 import { getDefaultConfig } from '@aztec/foundation/config';
+import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { type Anvil } from '@viem/anvil';
 import { mnemonicToAccount } from 'viem/accounts';

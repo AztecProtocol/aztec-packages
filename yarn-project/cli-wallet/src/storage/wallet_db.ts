@@ -1,5 +1,7 @@
 import { type AuthWitness, type TxHash } from '@aztec/circuit-types';
-import { type AztecAddress, Fr, GasSettings } from '@aztec/circuits.js';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { GasSettings } from '@aztec/circuits.js/gas';
+import { Fr } from '@aztec/foundation/fields';
 import { type LogFn } from '@aztec/foundation/log';
 import { type AztecAsyncKVStore, type AztecAsyncMap } from '@aztec/kv-store';
 
@@ -53,7 +55,7 @@ export class WalletDB {
 
   async popBridgedFeeJuice(recipient: AztecAddress, log: LogFn) {
     let stackPointer = (await this.#bridgedFeeJuice.getAsync(`${recipient.toString()}:stackPointer`))?.readInt8() || 0;
-    const result = this.#bridgedFeeJuice.getAsync(`${recipient.toString()}:${stackPointer}`);
+    const result = await this.#bridgedFeeJuice.getAsync(`${recipient.toString()}:${stackPointer}`);
     if (!result) {
       throw new Error(
         `No stored fee juice available for recipient ${recipient.toString()}. Please provide claim amount and secret. Stack pointer ${stackPointer}`,

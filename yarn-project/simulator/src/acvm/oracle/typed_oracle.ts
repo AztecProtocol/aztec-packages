@@ -1,5 +1,4 @@
 import {
-  type CompleteAddress,
   type MerkleTreeId,
   type Note,
   type NoteStatus,
@@ -7,15 +6,13 @@ import {
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import { type NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/server';
-import {
-  type BlockHeader,
-  type ContractInstance,
-  type IndexedTaggingSecret,
-  type KeyValidationRequest,
-} from '@aztec/circuits.js';
 import { type FunctionSelector, type NoteSelector } from '@aztec/circuits.js/abi';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type CompleteAddress, type ContractInstance } from '@aztec/circuits.js/contract';
+import { type KeyValidationRequest } from '@aztec/circuits.js/kernel';
+import { type IndexedTaggingSecret, type LogWithTxData } from '@aztec/circuits.js/logs';
+import { type BlockHeader } from '@aztec/circuits.js/tx';
 import { type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
 import { type MessageLoadOracleInputs } from '../../common/message_load_oracle_inputs.js';
@@ -242,6 +239,10 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('deliverNote'));
   }
 
+  getLogByTag(_tag: Fr): Promise<LogWithTxData | null> {
+    throw new OracleMethodNotAvailableError('getLogByTag');
+  }
+
   storeCapsule(_contractAddress: AztecAddress, _key: Fr, _capsule: Fr[]): Promise<void> {
     return Promise.reject(new OracleMethodNotAvailableError('storeCapsule'));
   }
@@ -259,6 +260,6 @@ export abstract class TypedOracle {
   }
 
   aes128Decrypt(_ciphertext: Buffer, _iv: Buffer, _symKey: Buffer): Promise<Buffer> {
-    throw new OracleMethodNotAvailableError('aes128Decrypt');
+    return Promise.reject(new OracleMethodNotAvailableError('aes128Decrypt'));
   }
 }

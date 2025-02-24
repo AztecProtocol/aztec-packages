@@ -1,3 +1,4 @@
+import type { ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
@@ -24,7 +25,7 @@ export class ExtendedUnencryptedL2Log {
     return new ExtendedUnencryptedL2Log(LogId.random(), await UnencryptedL2Log.random());
   }
 
-  static get schema() {
+  static get schema(): ZodFor<ExtendedUnencryptedL2Log> {
     return z
       .object({
         id: LogId.schema,

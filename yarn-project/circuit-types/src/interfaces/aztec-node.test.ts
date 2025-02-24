@@ -1,20 +1,18 @@
-import {
-  AztecAddress,
-  BlockHeader,
-  type ContractClassPublic,
-  type ContractInstanceWithAddress,
-  EthAddress,
-  Fr,
-  GasFees,
-  type NodeInfo,
-  PrivateLog,
-  type ProtocolContractAddresses,
-  ProtocolContractsNames,
-  PublicKeys,
-  getContractClassFromArtifact,
-} from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/circuits.js/abi';
 import { loadContractArtifact } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import {
+  type ContractClassPublic,
+  type ContractInstanceWithAddress,
+  type NodeInfo,
+  type ProtocolContractAddresses,
+  ProtocolContractsNames,
+  getContractClassFromArtifact,
+} from '@aztec/circuits.js/contract';
+import { GasFees } from '@aztec/circuits.js/gas';
+import { PublicKeys } from '@aztec/circuits.js/keys';
+import { PrivateLog } from '@aztec/circuits.js/logs';
+import { BlockHeader } from '@aztec/circuits.js/tx';
 import {
   ARCHIVE_HEIGHT,
   L1_TO_L2_MSG_TREE_HEIGHT,
@@ -24,6 +22,8 @@ import {
 } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
 import { memoize } from '@aztec/foundation/decorators';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 import { fileURLToPath } from '@aztec/foundation/url';
 
@@ -55,6 +55,7 @@ import { type AztecNode, AztecNodeApiSchema } from './aztec-node.js';
 import { type SequencerConfig } from './configs.js';
 import { NullifierMembershipWitness } from './nullifier_membership_witness.js';
 import { type ProverConfig } from './prover-client.js';
+import type { WorldStateSyncStatus } from './world_state.js';
 
 describe('AztecNodeApiSchema', () => {
   let handler: MockAztecNode;
@@ -353,10 +354,25 @@ describe('AztecNodeApiSchema', () => {
     const contractClass = await getContractClassFromArtifact(artifact);
     await context.client.addContractClass({ ...contractClass, unconstrainedFunctions: [], privateFunctions: [] });
   });
+
+  it('getWorldStateSyncStatus', async () => {
+    const response = await context.client.getWorldStateSyncStatus();
+    expect(response).toEqual(await handler.getWorldStateSyncStatus());
+  });
 });
 
 class MockAztecNode implements AztecNode {
   constructor(private artifact: ContractArtifact) {}
+
+  getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
+    return Promise.resolve({
+      finalisedBlockNumber: 1,
+      latestBlockHash: '0x',
+      latestBlockNumber: 1,
+      oldestHistoricBlockNumber: 1,
+      treesAreSynched: true,
+    });
+  }
 
   getL2Tips(): Promise<L2Tips> {
     return Promise.resolve({

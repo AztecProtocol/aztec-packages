@@ -9,8 +9,10 @@ import {
   type PublicInputsAndRecursiveProof,
   makePublicInputsAndRecursiveProof,
 } from '@aztec/circuit-types/interfaces/server';
-import { type ParityPublicInputs, VerificationKeyData, makeRecursiveProof } from '@aztec/circuits.js';
+import type { ParityPublicInputs } from '@aztec/circuits.js/parity';
+import { makeRecursiveProof } from '@aztec/circuits.js/proofs';
 import { makeBaseParityInputs, makeParityPublicInputs } from '@aztec/circuits.js/testing';
+import { VerificationKeyData } from '@aztec/circuits.js/vks';
 import { RECURSIVE_PROOF_LENGTH } from '@aztec/constants';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { AbortError } from '@aztec/foundation/error';

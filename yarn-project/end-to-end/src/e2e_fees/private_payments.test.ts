@@ -1,5 +1,5 @@
 import { type AccountWallet, type AztecAddress, BatchCall, PrivateFeePaymentMethod, sleep } from '@aztec/aztec.js';
-import { GasSettings } from '@aztec/circuits.js';
+import { GasSettings } from '@aztec/circuits.js/gas';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { type TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 

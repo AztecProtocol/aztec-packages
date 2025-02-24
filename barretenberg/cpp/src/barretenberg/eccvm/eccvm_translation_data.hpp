@@ -18,7 +18,6 @@ template <typename Transcript> class TranslationData {
     using Polynomial = typename Flavor::Polynomial;
     using TranslationEvaluations = bb::TranslationEvaluations_<FF, BF>;
     static constexpr size_t SUBGROUP_SIZE = Flavor::Curve::SUBGROUP_SIZE;
-    static constexpr size_t NUM_TRANSCRIPT_POLYNOMIALS = 5;
 
     Polynomial concatenated_masking_term;
     Polynomial concatenated_masking_term_lagrange;
@@ -31,7 +30,7 @@ template <typename Transcript> class TranslationData {
                     const std::shared_ptr<CommitmentKey>& commitment_key)
         : concatenated_masking_term(SUBGROUP_SIZE + 2)
         , concatenated_masking_term_lagrange(SUBGROUP_SIZE)
-        , constant_term(FF{ 0 })
+        , constant_term(FF::random_element())
     {
         // Create interpolation domain
         interpolation_domain[0] = FF{ 1 };
@@ -61,7 +60,7 @@ template <typename Transcript> class TranslationData {
         }
 
         // Extract the Lagrange coefficients of the concatenated masking term from the transcript polynomials
-        for (size_t poly_idx = 0; poly_idx < NUM_TRANSCRIPT_POLYNOMIALS; poly_idx++) {
+        for (size_t poly_idx = 0; poly_idx < NUM_TRANSLATION_EVALUATIONS; poly_idx++) {
             for (size_t idx = 0; idx < MASKING_OFFSET; idx++) {
                 size_t idx_to_populate = 1 + poly_idx * MASKING_OFFSET + idx;
                 coeffs_lagrange_subgroup[idx_to_populate] =

@@ -1,8 +1,10 @@
 import { isNoirCallStackUnresolved } from '@aztec/circuit-types';
-import { GasFees, GlobalVariables } from '@aztec/circuits.js';
+import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import { type ContractArtifact, type FunctionArtifact, FunctionSelector } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { GasFees } from '@aztec/circuits.js/gas';
+import { GlobalVariables } from '@aztec/circuits.js/tx';
 import { MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/constants';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmGadgetsTestContractArtifact } from '@aztec/noir-contracts.js/AvmGadgetsTest';
@@ -19,7 +21,6 @@ import { AvmContext } from '../avm_context.js';
 import { AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { AvmMachineState } from '../avm_machine_state.js';
 import { Field, Uint8, Uint32, Uint64 } from '../avm_memory_types.js';
-import { type AvmEphemeralForest } from '../avm_tree.js';
 import { type AvmRevertReason } from '../errors.js';
 import { AvmPersistableStateManager } from '../journal/journal.js';
 import { NullifierManager } from '../journal/nullifiers.js';
@@ -51,7 +52,7 @@ export function initPersistableStateManager(overrides?: {
   publicStorage?: PublicStorage;
   nullifiers?: NullifierManager;
   doMerkleOperations?: boolean;
-  merkleTrees?: AvmEphemeralForest;
+  db?: MerkleTreeWriteOperations;
   firstNullifier?: Fr;
 }): AvmPersistableStateManager {
   const worldStateDB = overrides?.worldStateDB || mock<WorldStateDB>();
@@ -61,7 +62,7 @@ export function initPersistableStateManager(overrides?: {
     overrides?.publicStorage || new PublicStorage(worldStateDB),
     overrides?.nullifiers || new NullifierManager(worldStateDB),
     overrides?.doMerkleOperations || false,
-    overrides?.merkleTrees || mock<AvmEphemeralForest>(),
+    overrides?.db || mock<MerkleTreeWriteOperations>(),
     overrides?.firstNullifier || new Fr(27),
   );
 }

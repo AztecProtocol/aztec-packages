@@ -31,7 +31,7 @@ template <typename Curve> class ShpleminiProver_ {
                               std::span<FF> multilinear_challenge,
                               const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
                               const std::shared_ptr<Transcript>& transcript,
-                              const std::array<Polynomial, NUM_LIBRA_EVALUATIONS>& libra_polynomials = {},
+                              const std::array<Polynomial, NUM_SMALL_IPA_EVALUATIONS>& libra_polynomials = {},
                               const std::vector<Polynomial>& sumcheck_round_univariates = {},
                               const std::vector<std::array<FF, 3>>& sumcheck_round_evaluations = {},
                               RefSpan<Polynomial> concatenated_polynomials = {},
@@ -77,7 +77,7 @@ template <typename Curve> class ShpleminiProver_ {
     template <typename Transcript>
     static std::vector<OpeningClaim> compute_libra_opening_claims(
         const FF gemini_r,
-        const std::array<Polynomial, NUM_LIBRA_EVALUATIONS>& libra_polynomials,
+        const std::array<Polynomial, NUM_SMALL_IPA_EVALUATIONS>& libra_polynomials,
         const std::shared_ptr<Transcript>& transcript)
     {
         OpeningClaim new_claim;
@@ -86,10 +86,10 @@ template <typename Curve> class ShpleminiProver_ {
 
         static constexpr FF subgroup_generator = Curve::subgroup_generator;
 
-        std::array<std::string, NUM_LIBRA_EVALUATIONS> libra_eval_labels = {
+        std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> libra_eval_labels = {
             "Libra:concatenation_eval", "Libra:shifted_big_sum_eval", "Libra:big_sum_eval", "Libra:quotient_eval"
         };
-        const std::array<FF, NUM_LIBRA_EVALUATIONS> evaluation_points = {
+        const std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points = {
             gemini_r, gemini_r * subgroup_generator, gemini_r, gemini_r
         };
         for (size_t idx = 0; idx < 4; idx++) {
@@ -251,7 +251,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         const std::vector<Fr> gemini_eval_challenge_powers =
             gemini::powers_of_evaluation_challenge(gemini_evaluation_challenge, CONST_PROOF_SIZE_LOG_N);
 
-        std::array<Fr, NUM_LIBRA_EVALUATIONS> libra_evaluations;
+        std::array<Fr, NUM_SMALL_IPA_EVALUATIONS> libra_evaluations;
         if (has_zk) {
             libra_evaluations[0] = transcript->template receive_from_prover<Fr>("Libra:concatenation_eval");
             libra_evaluations[1] = transcript->template receive_from_prover<Fr>("Libra:shifted_big_sum_eval");
@@ -664,7 +664,7 @@ template <typename Curve> class ShpleminiVerifier_ {
                             std::vector<Fr>& scalars,
                             Fr& constant_term_accumulator,
                             const std::array<Commitment, NUM_LIBRA_COMMITMENTS>& libra_commitments,
-                            const std::array<Fr, NUM_LIBRA_EVALUATIONS>& libra_evaluations,
+                            const std::array<Fr, NUM_SMALL_IPA_EVALUATIONS>& libra_evaluations,
                             const Fr& gemini_evaluation_challenge,
                             const Fr& shplonk_batching_challenge,
                             const Fr& shplonk_evaluation_challenge)
@@ -682,8 +682,8 @@ template <typename Curve> class ShpleminiVerifier_ {
         }
 
         // compute corresponding scalars and the correction to the constant term
-        std::array<Fr, NUM_LIBRA_EVALUATIONS> denominators;
-        std::array<Fr, NUM_LIBRA_EVALUATIONS> batching_scalars;
+        std::array<Fr, NUM_SMALL_IPA_EVALUATIONS> denominators;
+        std::array<Fr, NUM_SMALL_IPA_EVALUATIONS> batching_scalars;
         // compute Shplonk denominators and invert them
         denominators[0] = Fr(1) / (shplonk_evaluation_challenge - gemini_evaluation_challenge);
         denominators[1] =
@@ -693,7 +693,7 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // compute the scalars to be multiplied against the commitments [libra_concatenated], [big_sum], [big_sum], and
         // [libra_quotient]
-        for (size_t idx = 0; idx < NUM_LIBRA_EVALUATIONS; idx++) {
+        for (size_t idx = 0; idx < NUM_SMALL_IPA_EVALUATIONS; idx++) {
             Fr scaling_factor = denominators[idx] * shplonk_challenge_power;
             batching_scalars[idx] = -scaling_factor;
             shplonk_challenge_power *= shplonk_batching_challenge;
@@ -763,7 +763,7 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // Compute the next power of Shplonk batching challenge \nu
         Fr shplonk_challenge_power = Fr{ 1 };
-        for (size_t j = 0; j < CONST_PROOF_SIZE_LOG_N + 2 + NUM_LIBRA_EVALUATIONS; ++j) {
+        for (size_t j = 0; j < CONST_PROOF_SIZE_LOG_N + 2 + NUM_SMALL_IPA_EVALUATIONS; ++j) {
             shplonk_challenge_power *= shplonk_batching_challenge;
         }
 

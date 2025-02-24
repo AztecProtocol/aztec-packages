@@ -29,10 +29,9 @@ template <typename Flavor> class ECCVMRecursiveVerifier_ {
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Transcript> ipa_transcript;
 
-    static constexpr size_t NUM_TRANSCRIPT_WIRES = 5;
-    std::vector<Commitment> transcript_commitments;
+    std::vector<Commitment> translation_commitments;
 
-    OpeningClaim<Curve> reduce_verify_translation_evaluations(const std::vector<Commitment>& transcript_commitments);
+    OpeningClaim<Curve> reduce_verify_translation_evaluations(const std::vector<Commitment>& translation_commitments);
 
     // Translation evaluations challenges. They are propagated to the TranslatorVerifier
     FF evaluation_challenge_x;

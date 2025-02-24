@@ -1,9 +1,9 @@
 import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
-  Fr,
   computePublicBytecodeCommitment,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/contract';
+import { Fr } from '@aztec/foundation/fields';
 
 import { type jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';

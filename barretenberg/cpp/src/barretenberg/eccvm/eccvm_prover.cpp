@@ -204,11 +204,11 @@ ProverOpeningClaim<typename ECCVMFlavor::Curve> ECCVMProver::reduce_translation_
 {
     static constexpr FF subgroup_generator = ECCVMFlavor::Curve::subgroup_generator;
     // Collect the polynomials and evaluations to be batched
-    RefArray univariate_polynomials{ key->polynomials.transcript_op,
-                                     key->polynomials.transcript_Px,
-                                     key->polynomials.transcript_Py,
-                                     key->polynomials.transcript_z1,
-                                     key->polynomials.transcript_z2 };
+    RefArray translation_polynomials{ key->polynomials.transcript_op,
+                                      key->polynomials.transcript_Px,
+                                      key->polynomials.transcript_Py,
+                                      key->polynomials.transcript_z1,
+                                      key->polynomials.transcript_z2 };
 
     TranslationData translation_data(univariate_polynomials, transcript, key->commitment_key);
 
@@ -217,7 +217,7 @@ ProverOpeningClaim<typename ECCVMFlavor::Curve> ECCVMProver::reduce_translation_
 
     // Evaluate the transcript polynomials as univariates and add their evaluations at x to the transcript
     for (auto [eval, poly, label] :
-         zip_view(translation_evaluations.get_all(), univariate_polynomials, translation_labels)) {
+         zip_view(translation_evaluations.get_all(), translation_polynomials, translation_labels)) {
         *eval = poly.evaluate(evaluation_challenge_x);
         transcript->template send_to_verifier(label, *eval);
     }
@@ -257,15 +257,16 @@ ProverOpeningClaim<typename ECCVMFlavor::Curve> ECCVMProver::reduce_translation_
             { .polynomial = witness_poly, .opening_pair = { evaluation_points[idx], eval } });
     }
     // Construct the batched polynomial and batched evaluation to produce the batched opening claim
-    Polynomial batched_univariate{ key->circuit_size };
-    FF batched_evaluation{ 0 };
+    Polynomial batched_translation_univariate{ key->circuit_size };
+    FF batched_translation_evaluation{ 0 };
     FF batching_scalar = FF(1);
-    for (auto [polynomial, eval] : zip_view(univariate_polynomials, translation_evaluations.get_all())) {
-        batched_univariate.add_scaled(polynomial, batching_scalar);
-        batched_evaluation += *eval * batching_scalar;
+    for (auto [polynomial, eval] : zip_view(translation_polynomials, translation_evaluations.get_all())) {
+        batched_translation_univariate.add_scaled(polynomial, batching_scalar);
+        batched_translation_evaluation += *eval * batching_scalar;
         batching_scalar *= translation_batching_challenge_v;
     }
 
-    return { .polynomial = batched_univariate, .opening_pair = { evaluation_challenge_x, batched_evaluation } };
+    return { .polynomial = batched_translation_univariate,
+             .opening_pair = { evaluation_challenge_x, batched_translation_evaluation } };
 }
 } // namespace bb

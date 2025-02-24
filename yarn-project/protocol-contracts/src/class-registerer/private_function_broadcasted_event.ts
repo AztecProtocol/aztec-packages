@@ -1,5 +1,5 @@
-import { type ExecutablePrivateFunctionWithMembershipProof, type PrivateFunction } from '@aztec/circuits.js';
 import { FunctionSelector, bufferFromFields } from '@aztec/circuits.js/abi';
+import type { ExecutablePrivateFunctionWithMembershipProof, PrivateFunction } from '@aztec/circuits.js/contract';
 import {
   ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
   FUNCTION_TREE_HEIGHT,

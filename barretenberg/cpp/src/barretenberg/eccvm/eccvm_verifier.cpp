@@ -100,13 +100,13 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
         PCS::reduce_batch_opening_claim(sumcheck_batch_opening_claims);
 
     // Produce the opening claim for batch opening of 'op', 'Px', 'Py', 'z1', and 'z2' wires as univariate polynomials
-    transcript_commitments = { commitments.transcript_op,
-                               commitments.transcript_Px,
-                               commitments.transcript_Py,
-                               commitments.transcript_z1,
-                               commitments.transcript_z2 };
+    translation_commitments = { commitments.transcript_op,
+                                commitments.transcript_Px,
+                                commitments.transcript_Py,
+                                commitments.transcript_z1,
+                                commitments.transcript_z2 };
 
-    const OpeningClaim translation_opening_claim = reduce_verify_translation_evaluations(transcript_commitments);
+    const OpeningClaim translation_opening_claim = reduce_verify_translation_evaluations(translation_commitments);
 
     const std::array<OpeningClaim, 2> opening_claims = { multivariate_to_univariate_opening_claim,
                                                          translation_opening_claim };
@@ -126,11 +126,11 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
  * @brief To link the ECCVM Transcript wires 'op', 'Px', 'Py', 'z1', and 'z2' to the accumulator computed by the
  * translator, we verify their evaluations as univariates. For efficiency reasons, we batch these evaluations.
  *
- * @param transcript_commitments Commitments to  'op', 'Px', 'Py', 'z1', and 'z2'
+ * @param translation_commitments Commitments to  'op', 'Px', 'Py', 'z1', and 'z2'
  * @return OpeningClaim<typename ECCVMFlavor::Curve>
  */
 OpeningClaim<typename ECCVMFlavor::Curve> ECCVMVerifier::reduce_verify_translation_evaluations(
-    const std::array<Commitment, NUM_TRANSCRIPT_WIRES>& transcript_commitments)
+    const std::array<Commitment, NUM_TRANSLATION_EVALUATIONS>& translation_commitments)
 {
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> small_ipa_commitments;
 
@@ -141,7 +141,7 @@ OpeningClaim<typename ECCVMFlavor::Curve> ECCVMVerifier::reduce_verify_translati
 
     // Construct arrays of commitments and evaluations to be batched, the evaluations being received from the prover
 
-    std::array<FF, NUM_TRANSCRIPT_WIRES> transcript_evaluations = {
+    std::array<FF, NUM_TRANSLATION_EVALUATIONS> translation_evaluations = {
         transcript->template receive_from_prover<FF>("Translation:op"),
         transcript->template receive_from_prover<FF>("Translation:Px"),
         transcript->template receive_from_prover<FF>("Translation:Py"),
@@ -157,15 +157,15 @@ OpeningClaim<typename ECCVMFlavor::Curve> ECCVMVerifier::reduce_verify_translati
     std::array<FF, NUM_LIBRA_EVALUATIONS> small_ipa_evaluations;
 
     // Compute the batched commitment and batched evaluation for the univariate opening claim
-    Commitment batched_commitment = transcript_commitments[0];
-    FF batched_transcript_eval = transcript_evaluations[0];
+    Commitment batched_commitment = translation_commitments[0];
+    FF batched_translation_evaluation = translation_evaluations[0];
     FF batching_scalar = batching_challenge_v;
-    for (size_t idx = 1; idx < NUM_TRANSCRIPT_WIRES; ++idx) {
-        batched_commitment = batched_commitment + transcript_commitments[idx] * batching_scalar;
-        batched_transcript_eval += batching_scalar * transcript_evaluations[idx];
+    for (size_t idx = 1; idx < NUM_TRANSLATION_EVALUATIONS; ++idx) {
+        batched_commitment = batched_commitment + translation_commitments[idx] * batching_scalar;
+        batched_translation_evaluation += batching_scalar * translation_evaluations[idx];
         batching_scalar *= batching_challenge_v;
     }
 
-    return { { evaluation_challenge_x, batched_transcript_eval }, batched_commitment };
+    return { { evaluation_challenge_x, batched_translation_evaluation }, batched_commitment };
 };
 } // namespace bb

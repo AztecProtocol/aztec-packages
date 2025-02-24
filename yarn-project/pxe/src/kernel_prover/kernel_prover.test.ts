@@ -5,19 +5,19 @@ import {
   PrivateExecutionResult,
   type PrivateKernelProver,
 } from '@aztec/circuit-types/interfaces/client';
+import { FunctionSelector, NoteSelector } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
-  FunctionSelector,
   NoteHash,
   PrivateCircuitPublicInputs,
-  PublicKeys,
+  PrivateKernelCircuitPublicInputs,
+  PrivateKernelTailCircuitPublicInputs,
   ScopedNoteHash,
-  type TxRequest,
-  VerificationKey,
-  VerificationKeyAsFields,
-} from '@aztec/circuits.js';
-import { NoteSelector } from '@aztec/circuits.js/abi';
-import { PrivateKernelCircuitPublicInputs, PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
+} from '@aztec/circuits.js/kernel';
+import { PublicKeys } from '@aztec/circuits.js/keys';
 import { makeTxRequest } from '@aztec/circuits.js/testing';
+import type { TxRequest } from '@aztec/circuits.js/tx';
+import { VerificationKey, VerificationKeyAsFields } from '@aztec/circuits.js/vks';
 import {
   CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   MAX_NOTE_HASHES_PER_CALL,
@@ -25,7 +25,6 @@ import {
   VK_TREE_HEIGHT,
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { MembershipWitness } from '@aztec/foundation/trees';
 
