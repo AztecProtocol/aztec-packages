@@ -44,7 +44,7 @@ describe('e2e_blacklist_token_contract mint', () => {
       });
 
       it('mint >u128 tokens to overflow', async () => {
-        const amount = 2n ** 128n; // U128::max() + 1;
+        const amount = 2n ** 128n; // u128::max() + 1;
         await expect(asset.methods.mint_public(wallets[0].getAddress(), amount).prove()).rejects.toThrow(
           BITSIZE_TOO_BIG_ERROR,
         );
