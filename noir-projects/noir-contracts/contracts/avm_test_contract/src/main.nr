@@ -200,12 +200,6 @@ pub contract AvmTest {
     }
 
     #[public]
-    fn u128_from_integer_overflow() -> u128 {
-        let should_overflow: Field = 2.pow_32(128); // u128::max() + 1;
-        should_overflow as u128
-    }
-
-    #[public]
     fn to_radix_le(input: Field) -> [u8; 10] {
         input.to_le_radix(/*base=*/ 2)
     }

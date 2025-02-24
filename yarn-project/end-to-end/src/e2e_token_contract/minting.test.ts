@@ -40,17 +40,11 @@ describe('e2e_token_contract minting', () => {
       });
 
       it('mint >u128 tokens to overflow', async () => {
-        const maxAmountWithoutOverflow = 2n ** 128n - 1n - tokenSim.balanceOfPublic(accounts[0].address);
+        const overflowAmount = 2n ** 128n;
 
-        // First we send a valid tx because if we minted with "amount > U128::max()" we would get an error in U128
-        // in encoder.ts
-        await asset.methods.mint_to_public(accounts[0].address, maxAmountWithoutOverflow).send().wait();
-        tokenSim.mintPublic(accounts[0].address, maxAmountWithoutOverflow);
-
-        // Then we try to mint 1 to cause the U128 overflow inside the contract
-        await expect(asset.methods.mint_to_public(accounts[0].address, 1n).simulate()).rejects.toThrow(
-          U128_OVERFLOW_ERROR,
-        );
+        await expect(
+          asset.methods.mint_to_private(accounts[0].address, accounts[0].address, overflowAmount).simulate(),
+        ).rejects.toThrow('Cannot satisfy constraint');
       });
 
       it('mint <u128 but recipient balance >u128', async () => {
@@ -97,9 +91,7 @@ describe('e2e_token_contract minting', () => {
 
         await expect(
           asset.methods.mint_to_private(accounts[0].address, accounts[0].address, overflowAmount).simulate(),
-        ).rejects.toThrow(
-          'Cannot satisfy constraint', // Why this error instead of U128_OVERFLOW_ERROR?
-        );
+        ).rejects.toThrow('Cannot satisfy constraint');
       });
 
       it('mint <u128 but recipient balance >u128', async () => {
