@@ -809,7 +809,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
    * @param attestation - The attestation to validate.
    * @returns True if the attestation is valid, false otherwise.
    */
-  @trackSpan('Libp2pService.processAttestationFromPeer', async (_, attestation) => ({
+  @trackSpan('Libp2pService.validateAttestation', async (_, attestation) => ({
     [Attributes.BLOCK_NUMBER]: attestation.payload.header.globalVariables.blockNumber.toNumber(),
     [Attributes.SLOT_NUMBER]: attestation.payload.header.globalVariables.slotNumber.toNumber(),
     [Attributes.BLOCK_ARCHIVE]: attestation.archive.toString(),
