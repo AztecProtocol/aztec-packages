@@ -106,15 +106,10 @@ process.on('message', async msg => {
       let gossipMessageCount = 0;
       (client as any).p2pService.handleNewGossipMessage = (msg: Message, msgId: string, source: PeerId) => {
         gossipMessageCount++;
-        const sender = source;
-        const mesh = (client as any).p2pService.node.services.pubsub.getMeshPeers(createTopicString(TopicType.tx));
         process.send!({
           type: 'GOSSIP_RECEIVED',
           count: gossipMessageCount,
-          sender,
           clientIndex,
-          mesh,
-          time: new Date(),
         });
         return (client as any).p2pService.constructor.prototype.handleNewGossipMessage.apply(
           (client as any).p2pService,
@@ -133,30 +128,15 @@ process.on('message', async msg => {
         await sleep(1000);
       }
 
-      if (clientIndex == 0) {
-        setInterval(() => {
-          logger.info(
-            `Scores for client ${clientIndex}: ${JSON.stringify(
-              (client as any).p2pService.node.services.pubsub.dumpPeerScoreStats(),
-            )}`,
-          );
-          const mesh = (client as any).p2pService.node.services.pubsub.getMeshPeers(createTopicString(TopicType.tx));
-          logger.info(`Mesh peers for client ${clientIndex}: ${mesh.map((x: PeerId) => x.toString())}`);
-        }, 1000);
-      }
-
       // Listen for commands from parent
       // eslint-disable-next-line @typescript-eslint/no-misused-promises
       process.on('message', async (cmd: any) => {
-        let mesh;
         switch (cmd.type) {
           case 'STOP':
             await client.stop();
             process.exit(0);
             break;
           case 'SEND_TX':
-            mesh = (client as any).p2pService.node.services.pubsub.getMeshPeers(createTopicString(TopicType.tx));
-            logger.info(`Mesh peers: ${mesh.map((x: PeerId) => x.toString())}`);
             await client.sendTx(Tx.fromBuffer(Buffer.from(cmd.tx)));
             process.send!({ type: 'TX_SENT' });
             break;
