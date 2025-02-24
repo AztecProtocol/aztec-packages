@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740402607263,
+  "lastUpdate": 1740407864065,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "68168980+just-mitch@users.noreply.github.com",
-            "name": "just-mitch",
-            "username": "just-mitch"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2e83891b1b1d080febe5f3eac5dfe51e5844cf06",
-          "message": "fix: allow empty blocks in aztec chart (#12120)\n\nUn-bricks aztec network deployments which had been bricked with the\nfollowing while deploying the bot:\n\n![Screenshot 2025-02-19 at\n14.49.19.png](https://graphite-user-uploaded-assets-prod.s3.amazonaws.com/RJpsSZ0TcXRNQxCJ6yLa/556c579d-4ab1-4283-a004-923800b5d852.png)",
-          "timestamp": "2025-02-19T21:25:30Z",
-          "tree_id": "bbcaa1f719ff0f8ed676e13f6bf3c2978bf78d25",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2e83891b1b1d080febe5f3eac5dfe51e5844cf06"
-        },
-        "date": 1740001499100,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18049.59291800003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15872.206561 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18677.755866999974,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16207.680209999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3873.2843420000336,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3086.994440000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54812.938266,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54812938000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10738.042378999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10738047000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1815968992,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1815968992 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 129169519,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 129169519 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3334,6 +3268,78 @@ window.BENCHMARK_DATA = {
             "value": 128774542,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 128774542 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sirasistant@gmail.com",
+            "name": "Álvaro Rodríguez",
+            "username": "sirasistant"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ec7d34987bca0c42c5e0ba5cced2f29d42cc65db",
+          "message": "chore!: Remove msm opcode (#12192)\n\nThe MSM opcode is now transpiled to a procedure that implements it via\necadd. We can safely remove it now.",
+          "timestamp": "2025-02-24T15:04:12+01:00",
+          "tree_id": "8b62fd6280f24370f78325850652091d5f84751b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ec7d34987bca0c42c5e0ba5cced2f29d42cc65db"
+        },
+        "date": 1740407856241,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18435.85760200017,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16323.372298999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18743.88933099999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16384.951856 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3978.705810000065,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3119.5890900000004 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55025.413647999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55025408000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10711.259893,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10711265000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1812277723,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1812277723 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 132411961,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 132411961 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
