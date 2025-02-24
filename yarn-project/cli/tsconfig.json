@@ -16,13 +16,16 @@
       "path": "../circuit-types"
     },
     {
+      "path": "../constants"
+    },
+    {
       "path": "../foundation"
     },
     {
       "path": "../l1-artifacts"
     },
     {
-      "path": "../types"
+      "path": "../world-state"
     },
     {
       "path": "../accounts"

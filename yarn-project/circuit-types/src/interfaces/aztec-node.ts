@@ -1,26 +1,28 @@
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
-  ARCHIVE_HEIGHT,
-  BlockHeader,
   type ContractClassPublic,
   ContractClassPublicSchema,
   type ContractInstanceWithAddress,
   ContractInstanceWithAddressSchema,
-  GasFees,
+  type NodeInfo,
+  NodeInfoSchema,
+  type ProtocolContractAddresses,
+  ProtocolContractAddressesSchema,
+} from '@aztec/circuits.js/contract';
+import { GasFees } from '@aztec/circuits.js/gas';
+import { PrivateLog } from '@aztec/circuits.js/logs';
+import { type ApiSchemaFor, optional, schemas } from '@aztec/circuits.js/schemas';
+import { BlockHeader } from '@aztec/circuits.js/tx';
+import {
+  ARCHIVE_HEIGHT,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
-  type NodeInfo,
-  NodeInfoSchema,
   PUBLIC_DATA_TREE_HEIGHT,
-  PrivateLog,
-  type ProtocolContractAddresses,
-  ProtocolContractAddressesSchema,
-} from '@aztec/circuits.js';
+} from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum/l1-contract-addresses';
-import type { AztecAddress } from '@aztec/foundation/aztec-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
-import { type ApiSchemaFor, optional, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
@@ -54,6 +56,7 @@ import { type L2BlockNumber, L2BlockNumberSchema } from './l2_block_number.js';
 import { NullifierMembershipWitness } from './nullifier_membership_witness.js';
 import { type ProverConfig, ProverConfigSchema } from './prover-client.js';
 import { type ProverCoordination } from './prover-coordination.js';
+import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_state.js';
 
 /**
  * The aztec node.
@@ -66,6 +69,11 @@ export interface AztecNode
    * Returns the tips of the L2 chain.
    */
   getL2Tips(): Promise<L2Tips>;
+
+  /**
+   * Returns the sync status of the node's world state
+   */
+  getWorldStateSyncStatus(): Promise<WorldStateSyncStatus>;
 
   /**
    * Find the indexes of the given leaves in the given tree.
@@ -402,7 +410,7 @@ export interface AztecNode
    * This currently just checks that the transaction execution succeeds.
    * @param tx - The transaction to simulate.
    **/
-  simulatePublicCalls(tx: Tx, enforceFeePayment?: boolean): Promise<PublicSimulationOutput>;
+  simulatePublicCalls(tx: Tx, skipFeeEnforcement?: boolean): Promise<PublicSimulationOutput>;
 
   /**
    * Returns true if the transaction is valid for inclusion at the current state. Valid transactions can be
@@ -410,8 +418,9 @@ export interface AztecNode
    * due to e.g. the max_block_number property.
    * @param tx - The transaction to validate for correctness.
    * @param isSimulation - True if the transaction is a simulated one without generated proofs. (Optional)
+   * @param skipFeeEnforcement - True if the validation of the fee should be skipped. Useful when the simulation is for estimating fee (Optional)
    */
-  isValidTx(tx: Tx, isSimulation?: boolean): Promise<TxValidationResult>;
+  isValidTx(tx: Tx, options?: { isSimulation?: boolean; skipFeeEnforcement?: boolean }): Promise<TxValidationResult>;
 
   /**
    * Updates the configuration of this node.
@@ -449,6 +458,8 @@ export interface AztecNode
 
 export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getL2Tips: z.function().args().returns(L2TipsSchema),
+
+  getWorldStateSyncStatus: z.function().args().returns(WorldStateSyncStatusSchema),
 
   findLeavesIndexes: z
     .function()
@@ -569,7 +580,13 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   simulatePublicCalls: z.function().args(Tx.schema, optional(z.boolean())).returns(PublicSimulationOutput.schema),
 
-  isValidTx: z.function().args(Tx.schema, optional(z.boolean())).returns(TxValidationResultSchema),
+  isValidTx: z
+    .function()
+    .args(
+      Tx.schema,
+      optional(z.object({ isSimulation: optional(z.boolean()), skipFeeEnforcement: optional(z.boolean()) })),
+    )
+    .returns(TxValidationResultSchema),
 
   setConfig: z.function().args(SequencerConfigSchema.merge(ProverConfigSchema).partial()).returns(z.void()),
 

@@ -158,6 +158,7 @@ resource "aws_ecs_task_definition" "aztec-bot" {
         }
       ]
       environment = [
+        { name = "BOT_L1_PRIVATE_KEY", value = var.BOT_L1_PRIVATE_KEY },
         { name = "BOT_PRIVATE_KEY", value = var.BOT_PRIVATE_KEY },
         { name = "BOT_NO_START", value = var.BOT_NO_START },
         { name = "BOT_TX_INTERVAL_SECONDS", value = var.BOT_TX_INTERVAL_SECONDS },

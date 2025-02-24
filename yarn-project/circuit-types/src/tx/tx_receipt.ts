@@ -1,6 +1,6 @@
-import { PublicDataWrite, RevertCode } from '@aztec/circuits.js';
+import { PublicDataWrite, RevertCode } from '@aztec/circuits.js/avm';
+import { type ZodFor, schemas } from '@aztec/circuits.js/schemas';
 import { type Fr } from '@aztec/foundation/fields';
-import { schemas } from '@aztec/foundation/schemas';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
@@ -48,7 +48,7 @@ export class TxReceipt {
     return new TxReceipt(TxHash.zero(), TxStatus.DROPPED, '');
   }
 
-  static get schema() {
+  static get schema(): ZodFor<TxReceipt> {
     return z
       .object({
         txHash: TxHash.schema,

@@ -37,4 +37,3 @@ fn main(
         PRIVATE_LOG_SILOING_AMOUNT,
     )
 }
-

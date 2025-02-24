@@ -129,43 +129,6 @@ This process allows the return values to be included in the function's computati
 
 In public functions, the return value is directly used, and the function's return type remains as specified by the developer.
 
-## Computing note hash and nullifier
-
-A function called `compute_note_hash_and_optionally_a_nullifier` is automatically generated and injected into all contracts that use notes. This function tells Aztec how to compute hashes and nullifiers for notes used in the contract. You can optionally write this function yourself if you want notes to be handled a specific way.
-
-The function is automatically generated based on the note types defined in the contract. Here's how it works:
-
-- The function takes several parameters:
-   ```rust
-   fn compute_note_hash_and_optionally_a_nullifier(
-       contract_address: AztecAddress,
-       nonce: Field,
-       storage_slot: Field,
-       note_type_id: Field,
-       compute_nullifier: bool,
-       serialized_note: [Field; MAX_NOTE_FIELDS_LENGTH],
-   ) -> [Field; 4]
-   ```
-
-- It creates a `NoteHeader` using the provided args:
-   ```rust
-   let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-   ```
-
-- The function then checks the `note_type_id` against all note types defined in the contract. For each note type, it includes a condition like this:
-   ```rust
-   if (note_type_id == NoteType::get_note_type_id()) {
-       aztec::note::utils::compute_note_hash_and_optionally_a_nullifier(
-           NoteType::unpack_content,
-           note_header,
-           compute_nullifier,
-           packed_note_content
-       )
-   }
-   ```
-
-- The function returns an array of 4 Field elements, which represent the note hash and, if computed, the nullifier.
-
 ## Function signature generation
 
 Unique function signatures are generated for each contract function.

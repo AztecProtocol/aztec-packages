@@ -1,15 +1,10 @@
-import { getUnsafeSchnorrAccount, getUnsafeSchnorrWallet } from '@aztec/accounts/single_key';
-import {
-  type AccountWallet,
-  type ContractInstanceWithAddress,
-  ExtendedNote,
-  Note,
-  type TxHash,
-  computeSecretHash,
-} from '@aztec/aztec.js';
-import { type Salt } from '@aztec/aztec.js/account';
-import { type AztecAddress, type CompleteAddress, Fr, deriveSigningKey } from '@aztec/circuits.js';
+import { getSchnorrAccount, getSchnorrWallet } from '@aztec/accounts/schnorr';
+import { type InitialAccountData, deployFundedSchnorrAccount } from '@aztec/accounts/testing';
+import { type AccountWallet, type ContractInstanceWithAddress, type TxHash, computeSecretHash } from '@aztec/aztec.js';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { MAX_NOTE_HASHES_PER_TX } from '@aztec/constants';
 import { type DeployL1Contracts } from '@aztec/ethereum';
+import { Fr } from '@aztec/foundation/fields';
 // We use TokenBlacklist because we want to test the persistence of manually added notes and standard token no longer
 // implements TransparentNote shield flow.
 import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
@@ -41,9 +36,10 @@ describe('Aztec persistence', () => {
   // the test contract and account deploying it
   let contractInstance: ContractInstanceWithAddress;
   let contractAddress: AztecAddress;
-  let ownerSecretKey: Fr;
-  let ownerAddress: CompleteAddress;
-  let ownerSalt: Salt;
+  let owner: InitialAccountData;
+
+  // Data of the funded accounts that can deploy themselves.
+  let initialFundedAccounts: InitialAccountData[];
 
   // a directory where data will be persisted by components
   // passing this through to the Node or PXE will control whether they use persisted data or not
@@ -58,14 +54,13 @@ describe('Aztec persistence', () => {
   beforeAll(async () => {
     dataDirectory = await mkdtemp(join(tmpdir(), 'aztec-node-'));
 
-    const initialContext = await setup(0, { dataDirectory }, { dataDirectory });
+    const initialContext = await setup(0, { dataDirectory, numberOfInitialFundedAccounts: 3 }, { dataDirectory });
     deployL1ContractsValues = initialContext.deployL1ContractsValues;
 
-    ownerSecretKey = Fr.random();
-    const ownerAccount = await getUnsafeSchnorrAccount(initialContext.pxe, ownerSecretKey, Fr.ZERO);
-    const ownerWallet = await ownerAccount.waitSetup();
-    ownerAddress = ownerWallet.getCompleteAddress();
-    ownerSalt = ownerWallet.salt;
+    initialFundedAccounts = initialContext.initialFundedAccounts;
+    owner = initialFundedAccounts[0];
+    const ownerAccount = await deployFundedSchnorrAccount(initialContext.pxe, owner);
+    const ownerWallet = await ownerAccount.getWallet();
 
     const contract = await TokenBlacklistContract.deploy(ownerWallet, ownerWallet.getAddress()).send().deployed();
     contractInstance = contract.instance;
@@ -86,14 +81,14 @@ describe('Aztec persistence', () => {
       .wait();
 
     await addPendingShieldNoteToPXE(
+      contract,
       ownerWallet,
-      contractAddress,
       1000n,
       await computeSecretHash(secret),
       mintTxReceipt.txHash,
     );
 
-    await contract.methods.redeem_shield(ownerAddress.address, 1000n, secret).send().wait();
+    await contract.methods.redeem_shield(owner.address, 1000n, secret).send().wait();
 
     await progressBlocksPastDelay(contract);
 
@@ -102,7 +97,7 @@ describe('Aztec persistence', () => {
 
   const progressBlocksPastDelay = async (contract: TokenBlacklistContract) => {
     for (let i = 0; i < BlacklistTokenContractTest.DELAY; ++i) {
-      await contract.methods.get_roles(ownerAddress.address).send().wait();
+      await contract.methods.get_roles(owner.address).send().wait();
     }
   };
 
@@ -110,13 +105,13 @@ describe('Aztec persistence', () => {
     [
       // ie we were shutdown and now starting back up. Initial sync should be ~instant
       'when starting Node and PXE with existing databases',
-      () => setup(0, { dataDirectory, deployL1ContractsValues }, { dataDirectory }),
+      () => setup(0, { dataDirectory, deployL1ContractsValues, initialFundedAccounts }, { dataDirectory }),
       1000,
     ],
     [
       // ie our PXE was restarted, data kept intact and now connects to a "new" Node. Initial synch will synch from scratch
       'when starting a PXE with an existing database, connected to a Node with database synched from scratch',
-      () => setup(0, { deployL1ContractsValues }, { dataDirectory }),
+      () => setup(0, { deployL1ContractsValues, initialFundedAccounts }, { dataDirectory }),
       10_000,
     ],
   ])('%s', (_, contextSetup, timeout) => {
@@ -125,8 +120,7 @@ describe('Aztec persistence', () => {
 
     beforeEach(async () => {
       context = await contextSetup();
-      const signingKey = deriveSigningKey(ownerSecretKey);
-      ownerWallet = await getUnsafeSchnorrWallet(context.pxe, ownerAddress.address, signingKey);
+      ownerWallet = await getSchnorrWallet(context.pxe, owner.address, owner.signingKey);
       contract = await TokenBlacklistContract.at(contractAddress, ownerWallet);
     }, timeout);
 
@@ -154,8 +148,8 @@ describe('Aztec persistence', () => {
         .send()
         .wait();
       await addPendingShieldNoteToPXE(
+        contract,
         ownerWallet,
-        contractAddress,
         1000n,
         await computeSecretHash(secret),
         mintTxReceipt.txHash,
@@ -169,8 +163,8 @@ describe('Aztec persistence', () => {
     });
 
     it('allows spending of private notes', async () => {
-      const otherAccount = await getUnsafeSchnorrAccount(context.pxe, Fr.random(), Fr.ZERO);
-      const otherWallet = await otherAccount.waitSetup();
+      const otherAccount = await deployFundedSchnorrAccount(context.pxe, initialFundedAccounts[1]);
+      const otherWallet = await otherAccount.getWallet();
 
       const initialOwnerBalance = await contract.methods.balance_of_private(ownerWallet.getAddress()).simulate();
 
@@ -190,13 +184,13 @@ describe('Aztec persistence', () => {
     [
       // ie. I'm setting up a new full node, sync from scratch and restore wallets/notes
       'when starting the Node and PXE with empty databases',
-      () => setup(0, { deployL1ContractsValues }, {}),
+      () => setup(0, { deployL1ContractsValues, initialFundedAccounts }, {}),
       10_000,
     ],
     [
       // ie. I'm setting up a new PXE, restore wallets/notes from a Node
       'when starting a PXE with an empty database connected to a Node with an existing database',
-      () => setup(0, { dataDirectory, deployL1ContractsValues }, {}),
+      () => setup(0, { dataDirectory, deployL1ContractsValues, initialFundedAccounts }, {}),
       10_000,
     ],
   ])('%s', (_, contextSetup, timeout) => {
@@ -212,8 +206,10 @@ describe('Aztec persistence', () => {
     });
 
     it('pxe does not know of the deployed contract', async () => {
-      const account = await getUnsafeSchnorrAccount(context.pxe, Fr.random(), Fr.ZERO);
-      const wallet = await account.waitSetup();
+      const account = initialFundedAccounts[0];
+      const wallet = await (
+        await getSchnorrAccount(context.pxe, account.secret, account.signingKey, account.salt)
+      ).register();
       await expect(TokenBlacklistContract.at(contractAddress, wallet)).rejects.toThrow(/has not been registered/);
     });
 
@@ -223,10 +219,12 @@ describe('Aztec persistence', () => {
         instance: contractInstance,
       });
 
-      const account = await getUnsafeSchnorrAccount(context.pxe, Fr.random(), Fr.ZERO);
-      const wallet = await account.waitSetup();
+      const account = initialFundedAccounts[1]; // Not the owner account.
+      const wallet = await (
+        await getSchnorrAccount(context.pxe, account.secret, account.signingKey, account.salt)
+      ).register();
       const contract = await TokenBlacklistContract.at(contractAddress, wallet);
-      await expect(contract.methods.balance_of_private(ownerAddress.address).simulate()).resolves.toEqual(0n);
+      await expect(contract.methods.balance_of_private(owner.address).simulate()).resolves.toEqual(0n);
     });
 
     it('has access to public storage', async () => {
@@ -235,8 +233,10 @@ describe('Aztec persistence', () => {
         instance: contractInstance,
       });
 
-      const account = await getUnsafeSchnorrAccount(context.pxe, Fr.random(), Fr.ZERO);
-      const wallet = await account.waitSetup();
+      const account = initialFundedAccounts[1]; // Not the owner account.
+      const wallet = await (
+        await getSchnorrAccount(context.pxe, account.secret, account.signingKey, account.salt)
+      ).register();
       const contract = await TokenBlacklistContract.at(contractAddress, wallet);
 
       await expect(contract.methods.total_supply().simulate()).resolves.toBeGreaterThan(0n);
@@ -248,13 +248,13 @@ describe('Aztec persistence', () => {
         instance: contractInstance,
       });
 
-      const ownerAccount = await getUnsafeSchnorrAccount(context.pxe, ownerSecretKey, ownerSalt);
+      const ownerAccount = await getSchnorrAccount(context.pxe, owner.secret, owner.signingKey, owner.salt);
       await ownerAccount.register();
       const ownerWallet = await ownerAccount.getWallet();
       const contract = await TokenBlacklistContract.at(contractAddress, ownerWallet);
 
       // check that notes total more than 0 so that this test isn't dependent on run order
-      await expect(contract.methods.balance_of_private(ownerAddress.address).simulate()).resolves.toBeGreaterThan(0n);
+      await expect(contract.methods.balance_of_private(owner.address).simulate()).resolves.toBeGreaterThan(0n);
     });
   });
 
@@ -277,7 +277,7 @@ describe('Aztec persistence', () => {
         instance: contractInstance,
       });
 
-      const ownerAccount = await getUnsafeSchnorrAccount(temporaryContext.pxe, ownerSecretKey, ownerSalt);
+      const ownerAccount = await getSchnorrAccount(temporaryContext.pxe, owner.secret, owner.signingKey, owner.salt);
       await ownerAccount.register();
       const ownerWallet = await ownerAccount.getWallet();
 
@@ -294,7 +294,7 @@ describe('Aztec persistence', () => {
 
       // publicly reveal that I have 1000 tokens
       revealedAmount = 1000n;
-      await contract.methods.unshield(ownerAddress, ownerAddress, revealedAmount, 0).send().wait();
+      await contract.methods.unshield(owner.address, owner.address, revealedAmount, 0).send().wait();
 
       // shut everything down
       await temporaryContext.teardown();
@@ -305,8 +305,7 @@ describe('Aztec persistence', () => {
 
     beforeEach(async () => {
       context = await setup(0, { dataDirectory, deployL1ContractsValues }, { dataDirectory });
-      const signingKey = deriveSigningKey(ownerSecretKey);
-      ownerWallet = await getUnsafeSchnorrWallet(context.pxe, ownerAddress.address, signingKey);
+      ownerWallet = await getSchnorrWallet(context.pxe, owner.address, owner.signingKey);
       contract = await TokenBlacklistContract.at(contractAddress, ownerWallet);
     });
 
@@ -315,20 +314,12 @@ describe('Aztec persistence', () => {
     });
 
     it("restores owner's public balance", async () => {
-      await expect(contract.methods.balance_of_public(ownerAddress.address).simulate()).resolves.toEqual(
-        revealedAmount,
-      );
+      await expect(contract.methods.balance_of_public(owner.address).simulate()).resolves.toEqual(revealedAmount);
     });
 
     it('allows consuming transparent note created on another PXE', async () => {
       // this was created in the temporary PXE in `beforeAll`
-      await addPendingShieldNoteToPXE(
-        ownerWallet,
-        contractAddress,
-        mintAmount,
-        await computeSecretHash(secret),
-        mintTxHash,
-      );
+      await addPendingShieldNoteToPXE(contract, ownerWallet, mintAmount, await computeSecretHash(secret), mintTxHash);
 
       const balanceBeforeRedeem = await contract.methods.balance_of_private(ownerWallet.getAddress()).simulate();
 
@@ -340,23 +331,29 @@ describe('Aztec persistence', () => {
   });
 });
 
+function toBoundedVec(arr: Fr[], maxLen: number) {
+  return { len: arr.length, storage: arr.concat(new Array(maxLen - arr.length).fill(new Fr(0))) };
+}
+
 async function addPendingShieldNoteToPXE(
+  contract: TokenBlacklistContract,
   wallet: AccountWallet,
-  asset: AztecAddress,
   amount: bigint,
   secretHash: Fr,
   txHash: TxHash,
 ) {
-  // docs:start:pxe_add_note
-  const note = new Note([new Fr(amount), secretHash]);
-  const extendedNote = new ExtendedNote(
-    note,
-    wallet.getAddress(),
-    asset,
-    TokenBlacklistContract.storage.pending_shields.slot,
-    TokenBlacklistContract.notes.TransparentNote.id,
-    txHash,
-  );
-  await wallet.addNote(extendedNote);
-  // docs:end:pxe_add_note
+  // docs:start:offchain_delivery
+  const txEffects = await wallet.getTxEffect(txHash);
+  await contract.methods
+    .deliver_transparent_note(
+      contract.address,
+      new Fr(amount),
+      secretHash,
+      txHash.hash,
+      toBoundedVec(txEffects!.data.noteHashes, MAX_NOTE_HASHES_PER_TX),
+      txEffects!.data.nullifiers[0],
+      wallet.getAddress(),
+    )
+    .simulate();
+  // docs:end:offchain_delivery
 }

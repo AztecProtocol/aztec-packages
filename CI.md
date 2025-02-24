@@ -385,6 +385,11 @@ CI_FULL=1 ci ec2-test
 
 This will create a new instance, bootstrap, and run all tests that would run on master.
 
+### How does swc compare to tsc (typescript compiler?)
+1. swc is stricter than tsc when it comes to hoisting ESM imports. This means that circular dependencies that were not causing issues previously may now do. madge seems like a good tool for spotting them (npx madge --circular path-to-file), since eslint no-circular-imports not always spots them. When dealing with circular deps, keep in mind type imports are removed, so you don't need to worry about those.
+2. swc is a lot faster than tsc, but it does not type check. When running bootstrap eg after a rebase, a successful run does not mean the project types are correct. You need to run bootstrap with TYPECHECK=1 for that. If you want to keep a running process that alerts you of type errors, do yarn tsc -b -w --emitDeclarationOnly at the root of yarn project.
+3. There is some combination of swc+tsc+jest that breaks things. If you happen to build your project with `tsc -b`, some test suites (such as prover-client or e2e) will fail to run with a parse error. Workaround is to re-build with swc before running tests by running `./bootstrap.sh compile` on yarn-project, and make sure you are not running `tsc -b -w` (or if you do, you set `--emitDeclarationOnly` as described above).
+
 ## Contributing
 
 Please involve me (Charlie) in any changes to the scripts that make up CI3. I've added myself as a CODEOWNER to the main scripts and `ci3` folder, so I should at least be reviewing changes. However ideally if you're running into some use-case I've broken, or require some feature, just raise it with me before starting to make changes as I may already be working on it or have an idea about how I want it solved.

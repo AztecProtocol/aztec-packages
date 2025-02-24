@@ -1,5 +1,9 @@
-import { AztecAddress, Fr, FunctionData, FunctionSelector, TxContext, TxRequest, Vector } from '@aztec/circuits.js';
-import { schemas } from '@aztec/foundation/schemas';
+import { FunctionSelector } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type ZodFor, schemas } from '@aztec/circuits.js/schemas';
+import { FunctionData, TxContext, TxRequest } from '@aztec/circuits.js/tx';
+import { Vector } from '@aztec/circuits.js/types';
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
@@ -8,6 +12,7 @@ import { inspect } from 'util';
 import { z } from 'zod';
 
 import { AuthWitness } from './auth_witness.js';
+import { Capsule } from './capsule.js';
 import { HashedValues } from './hashed_values.js';
 
 /**
@@ -43,9 +48,13 @@ export class TxExecutionRequest {
      * These witnesses are not expected to be stored in the local witnesses database of the PXE.
      */
     public authWitnesses: AuthWitness[],
+    /**
+     * Read-only data passed through the oracle calls during this tx execution.
+     */
+    public capsules: Capsule[],
   ) {}
 
-  static get schema() {
+  static get schema(): ZodFor<TxExecutionRequest> {
     return z
       .object({
         origin: schemas.AztecAddress,
@@ -54,6 +63,7 @@ export class TxExecutionRequest {
         txContext: TxContext.schema,
         argsOfCalls: z.array(HashedValues.schema),
         authWitnesses: z.array(AuthWitness.schema),
+        capsules: z.array(Capsule.schema),
       })
       .transform(TxExecutionRequest.from);
   }
@@ -76,6 +86,7 @@ export class TxExecutionRequest {
       fields.txContext,
       fields.argsOfCalls,
       fields.authWitnesses,
+      fields.capsules,
     ] as const;
   }
 
@@ -95,6 +106,7 @@ export class TxExecutionRequest {
       this.txContext,
       new Vector(this.argsOfCalls),
       new Vector(this.authWitnesses),
+      new Vector(this.capsules),
     );
   }
 
@@ -120,6 +132,7 @@ export class TxExecutionRequest {
       reader.readObject(TxContext),
       reader.readVector(HashedValues),
       reader.readVector(AuthWitness),
+      reader.readVector(Capsule),
     );
   }
 
@@ -140,6 +153,10 @@ export class TxExecutionRequest {
       TxContext.empty(),
       [await HashedValues.random()],
       [AuthWitness.random()],
+      [
+        new Capsule(await AztecAddress.random(), Fr.random(), [Fr.random(), Fr.random()]),
+        new Capsule(await AztecAddress.random(), Fr.random(), [Fr.random()]),
+      ],
     );
   }
 

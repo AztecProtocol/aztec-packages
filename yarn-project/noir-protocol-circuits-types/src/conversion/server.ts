@@ -1,36 +1,25 @@
+import { BlobPublicInputs, BlockBlobPublicInputs, Poseidon2Sponge, SpongeBlob } from '@aztec/blob-lib';
 import {
-  type AVM_PROOF_LENGTH_IN_FIELDS,
-  AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  AZTEC_MAX_EPOCH_DURATION,
   type AvmAccumulatedData,
   type AvmCircuitPublicInputs,
-  BLOBS_PER_BLOCK,
-  type BaseParityInputs,
-  Fr,
-  HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  type MembershipWitness,
-  type NESTED_RECURSIVE_PROOF_LENGTH,
-  type NULLIFIER_TREE_HEIGHT,
-  ParityPublicInputs,
+  PublicDataHint,
+  RevertCode,
+} from '@aztec/circuits.js/avm';
+import {
   type PrivateToAvmAccumulatedData,
   type PrivateToAvmAccumulatedDataArrayLengths,
   type PrivateToPublicAccumulatedData,
   type PrivateToPublicKernelCircuitPublicInputs,
   PrivateToRollupKernelCircuitPublicInputs,
-  type PublicDataHint,
-  type RECURSIVE_PROOF_LENGTH,
-  ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  type RecursiveProof,
-  RevertCode,
   RollupValidationRequests,
+} from '@aztec/circuits.js/kernel';
+import {
+  BaseParityInputs,
+  ParityPublicInputs,
   type RootParityInput,
-  type RootParityInputs,
-  type TUBE_PROOF_LENGTH,
-  type TreeSnapshots,
-  TxConstantData,
-  type VkWitnessData,
-} from '@aztec/circuits.js';
-import { BlobPublicInputs, BlockBlobPublicInputs, Poseidon2Sponge, SpongeBlob } from '@aztec/circuits.js/blobs';
+  RootParityInputs,
+} from '@aztec/circuits.js/parity';
+import type { RecursiveProof } from '@aztec/circuits.js/proofs';
 import {
   type AvmProofData,
   BaseOrMergeRollupPublicInputs,
@@ -54,8 +43,24 @@ import {
   RootRollupPublicInputs,
   type SingleTxBlockRootRollupInputs,
 } from '@aztec/circuits.js/rollup';
+import { TreeSnapshots, TxConstantData } from '@aztec/circuits.js/tx';
+import type { VkWitnessData } from '@aztec/circuits.js/vks';
+import {
+  type AVM_PROOF_LENGTH_IN_FIELDS,
+  AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  AZTEC_MAX_EPOCH_DURATION,
+  BLOBS_PER_BLOCK,
+  HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  type NESTED_RECURSIVE_PROOF_LENGTH,
+  type NULLIFIER_TREE_HEIGHT,
+  type RECURSIVE_PROOF_LENGTH,
+  ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  type TUBE_PROOF_LENGTH,
+} from '@aztec/constants';
 import { toHex } from '@aztec/foundation/bigint-buffer';
+import { Fr } from '@aztec/foundation/fields';
 import { mapTuple } from '@aztec/foundation/serialize';
+import type { MembershipWitness } from '@aztec/foundation/trees';
 
 import type {
   AvmAccumulatedData as AvmAccumulatedDataNoir,

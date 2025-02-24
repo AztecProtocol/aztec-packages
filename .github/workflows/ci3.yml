@@ -1,4 +1,5 @@
 # CI for Aztec. At a high-level, runs ./bootstrap.sh ci in root. See root README.md for more details.
+# Only for internal devs. For external devs, see ci3-external.yml.
 name: CI3
 
 on:
@@ -10,71 +11,82 @@ on:
       - "v*"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
-  # For external devs. Workflow file edits won't take effect in the PR.
-  pull_request_target:
-    types: [opened, synchronize, reopened, ready_for_review, labeled]
 
 concurrency:
-  # On master (handled by push event) the group id is the unique run_id so we get parallel runs.
+  # On master or workflow_dispatch (checked via event_name) the group id is the unique run_id so we get parallel runs.
   # On PR's the group id is the ref_name so only 1 can run at a time.
-  group: ci3-${{ github.event_name == 'push' && github.run_id || github.ref_name }}
+  group: |
+    ci3-${{(github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.run_id || github.head_ref }}
   cancel-in-progress: true
 
 jobs:
-  ci-amd64:
+  ci:
     runs-on: ubuntu-latest
-    # condition:
-    #   - Always allow 'push' and 'workflow_dispatch' jobs.
-    #   - Otherwise, only run pull_request events on internal PRs and pull_request_target on external PRs.
-    #     Then, we must either not be in draft mode, or have just labeled this as 'trigger-workflow'.
-    if: >
-      github.event_name == 'push' ||
-      github.event_name == 'workflow_dispatch' ||
-      (
-        (
-          (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
-          (github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository)
-        ) &&
-        (
-          github.event.pull_request.draft == false ||
-          (github.event.action == 'labeled' && github.event.label.name == 'trigger-workflow')
-        )
-      )
+    # exclusive with ci3-external.yml: if it is a pull request target only run if it is NOT a fork.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    strategy:
+      fail-fast: false
+      matrix:
+        # Only run arm64 build with arm64-ci label.
+        # The way to do conditions here is to parse full strings as JSON.
+        settings:  >-
+          ${{ fromJson(contains(github.event.pull_request.labels.*.name, 'arm64-ci') &&
+            '[{"arch":"amd64"},{"arch":"arm64"}]' ||
+            '[{"arch":"amd64"}]') }}
     steps:
+      #############
+      # Prepare Env
+      #############
       - name: Checkout
         uses: actions/checkout@v4
         with:
           # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - name: Validate External Changes
-        if: github.event_name == 'pull_request_target'
-        run: |
-          git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1
-          git diff --name-only ${{ github.event.pull_request.base.ref }} HEAD ci3 ci.sh | grep -q . && { echo "Error: External PRs can't contain CI changes."; exit 1; }
+
+      - name: Fail If Draft
+        if: github.event.pull_request.draft && (github.event.action != 'labeled' || github.event.label.name != 'trigger-workflow')
+        run: echo "CI is not run on drafts." && exit 1
+
+      - name: CI Full Override
+        # TODO consolidate legacy labels to just ci-full.
+        if: |
+          contains(github.event.pull_request.labels.*.name, 'e2e-all') ||
+          contains(github.event.pull_request.labels.*.name, 'network-all') ||
+          contains(github.event.pull_request.labels.*.name, 'ci-full')
+        run: echo "CI_FULL=1" >> $GITHUB_ENV
+
       - name: Setup
         run: |
           # Ensure we can SSH into the spot instances we request.
           mkdir -p ~/.ssh
           echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
+
+      #############
+      # Run
+      #############
       - name: Run
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          ARCH: amd64
+          ARCH: ${{ matrix.settings.arch }}
           LOG_ID: ${{ github.run_id }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
         run: |
           ./ci.sh ec2
+
       - name: Download benchmarks
-        if: github.ref_name == 'master'
+        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
         run: |
           ./ci3/cache_download barretenberg-bench-results-$(git rev-parse HEAD).tar.gz
           ./ci3/cache_download yarn-project-bench-results-$(git rev-parse HEAD).tar.gz
+          ./ci3/cache_download yarn-project-p2p-bench-results-$(git rev-parse HEAD).tar.gz
+
       - name: Store barretenberg benchmark result
-        if: github.ref_name == 'master'
+        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
         continue-on-error: true
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
@@ -88,8 +100,9 @@ jobs:
           fail-on-alert: false
           alert-comment-cc-users: "@ludamad @codygunton"
           max-items-in-chart: 50
+
       - name: Store yarn project benchmark result
-        if: github.ref_name == 'master'
+        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
         continue-on-error: true
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
@@ -105,62 +118,34 @@ jobs:
           alert-comment-cc-users: "@philwindle @spalladino"
           max-items-in-chart: 50
 
-  ci-arm64:
-    runs-on: ubuntu-latest
-    # condition:
-    #   - Always allow 'push' and 'workflow_dispatch' jobs.
-    #   - Otherwise, only run pull_request events on internal PRs and pull_request_target on external PRs.
-    #     Then, we must either not be in draft mode, or have just labeled this as 'trigger-workflow'.
-    #     Then, **unlike ci-amd64**, if we aren't labeled 'arm64-ci', do nothing.
-    if: >
-      github.event_name == 'push' ||
-      github.event_name == 'workflow_dispatch' ||
-      (
-        (
-          (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
-          (github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository)
-        ) &&
-        (
-          github.event.pull_request.draft == false ||
-          (github.event.action == 'labeled' && github.event.label.name == 'trigger-workflow')
-        ) &&
-        contains(github.event.pull_request.labels.*.name, 'arm64-ci')
-      )
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Store p2p benchmark result
+        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
+        continue-on-error: true
+        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
-          # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - name: Validate External Changes
-        if: github.event_name == 'pull_request_target'
-        run: |
-          git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1
-          git diff --name-only ${{ github.event.pull_request.base.ref }} HEAD ci3 ci.sh | grep -q . && { echo "Error: External PRs can't contain CI changes."; exit 1; }
-      - name: Setup
-        run: |
-          # Ensure we can SSH into the spot instances we request.
-          mkdir -p ~/.ssh
-          echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
-          chmod 600 ~/.ssh/build_instance_key
-      - name: Run
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          ARCH: arm64
-          LOG_ID: ${{ github.run_id }}
-        run: |
-          ./ci.sh ec2
+          name: "P2P Testbench"
+          tool: "customSmallerIsBetter"
+          benchmark-data-dir-path: "dev/p2p-bench"
+          output-file-path: ./bench-out/p2p-bench.json
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          auto-push: true
+          alert-threshold: "105%"
+          comment-on-alert: true
+          fail-on-alert: false
+          alert-comment-cc-users: "@Maddiaa0"
+          max-items-in-chart: 50
 
   ci-grind:
     runs-on: ubuntu-latest
-    needs: ci-amd64
     if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')
     strategy:
-      fail-fast: false
       matrix:
         number: [1, 2, 3, 4, 5]
+      fail-fast: false
     steps:
+      #############
+      # Prepare Env
+      #############
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -172,6 +157,9 @@ jobs:
           mkdir -p ~/.ssh
           echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
+      #############
+      # Run
+      #############
       - name: Run
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -179,17 +167,29 @@ jobs:
           ARCH: amd64
           LOG_ID: ${{ github.run_id }}
           INSTANCE_POSTFIX: ${{ matrix.number }}
+          DRY_RUN: 1
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           ./ci.sh ec2-test
+
+  # Necessary as github actions won't allow checks on matrix builds.
+  merge-check:
+    runs-on: ubuntu-20.04
+    needs: ci
+    if: always()
+    steps:
+      - name: Failing deploy
+        if: ${{ contains(needs.*.result, 'failure') }}
+        run: exit 1
 
   notify:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && failure()
     needs:
+      - ci
       - ci-grind
-      - ci-amd64
     steps:
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Get Context
@@ -201,16 +201,16 @@ jobs:
           echo "commit_title=${title}" >> $GITHUB_OUTPUT
           failed_jobs=""
           [ "${{ needs.ci-grind.result }}" = "failure" ] && failed_jobs+="ci-grind"
-          [ "${{ needs.ci-amd64.result }}" = "failure" ] && failed_jobs+="ci-amd64"
+          [ "${{ needs.ci.result }}" = "failure" ] && failed_jobs+="ci"
           echo "failed_jobs=${failed_jobs}" >> $GITHUB_OUTPUT
           cat $GITHUB_OUTPUT
 
-      - name: Send notification to aztec3-ci channel if workflow failed on master
+      - name: Send Notification
         uses: slackapi/slack-github-action@v1.25.0
         with:
           payload: |
             {
-              "text": "Failure on (${{ github.ref_name }})\nCommit: ${{ steps.get_context.outputs.commit_title }}",
+              "text": "Failure on ${{ github.ref_name }}\nCommit: ${{ steps.get_context.outputs.commit_title }}",
               "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
               "authors": "${{ steps.get_context.outputs.authors }}",
               "failed_jobs": "${{ steps.get_context.outputs.failed_jobs }}"

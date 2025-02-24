@@ -1,4 +1,6 @@
-import { AztecAddress, type Fr, SerializableContractInstance } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { SerializableContractInstance } from '@aztec/circuits.js/contract';
+import type { Fr } from '@aztec/foundation/fields';
 
 import { mock } from 'jest-mock-extended';
 
@@ -27,7 +29,7 @@ describe('Contract opcodes', () => {
     address = await AztecAddress.random();
     contractInstance = await SerializableContractInstance.random();
     deployer = contractInstance.deployer;
-    contractClassId = contractInstance.contractClassId;
+    contractClassId = contractInstance.currentContractClassId;
     initializationHash = contractInstance.initializationHash;
     worldStateDB = mock<WorldStateDB>();
     trace = mock<PublicSideEffectTraceInterface>();

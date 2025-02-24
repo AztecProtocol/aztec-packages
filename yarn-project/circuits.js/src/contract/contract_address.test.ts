@@ -1,8 +1,9 @@
-import { type FunctionAbi, FunctionType } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 
-import { AztecAddress, deriveKeys } from '../index.js';
+import { type FunctionAbi, FunctionType } from '../abi/index.js';
+import { AztecAddress } from '../aztec-address/index.js';
+import { deriveKeys } from '../keys/derivation.js';
 import {
   computeContractAddressFromInstance,
   computeInitializationHash,
@@ -14,7 +15,7 @@ describe('ContractAddress', () => {
   setupCustomSnapshotSerializers(expect);
   it('computePartialAddress', async () => {
     const mockInstance = {
-      contractClassId: new Fr(1),
+      originalContractClassId: new Fr(1),
       saltedInitializationHash: new Fr(2),
     };
     const result = await computePartialAddress(mockInstance);
@@ -64,7 +65,8 @@ describe('ContractAddress', () => {
       await computeContractAddressFromInstance({
         publicKeys,
         salt,
-        contractClassId,
+        originalContractClassId: contractClassId,
+        currentContractClassId: contractClassId,
         initializationHash,
         deployer,
         version: 1,

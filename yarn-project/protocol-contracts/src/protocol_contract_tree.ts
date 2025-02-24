@@ -1,10 +1,8 @@
-import {
-  type AztecAddress,
-  type IndexedMerkleTree,
-  type PROTOCOL_CONTRACT_TREE_HEIGHT,
-  type ProtocolContractLeafPreimage,
-} from '@aztec/circuits.js';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { ProtocolContractLeafPreimage } from '@aztec/circuits.js/trees';
+import { type PROTOCOL_CONTRACT_TREE_HEIGHT } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { type IndexedMerkleTree } from '@aztec/foundation/trees';
 
 import { buildProtocolContractTree } from './build_protocol_contract_tree.js';
 import { isProtocolContract } from './protocol_contract.js';
@@ -25,16 +23,20 @@ async function getTree() {
   return protocolContractTree;
 }
 
-export async function getProtocolContractLeafAndMembershipWitness(address: AztecAddress) {
+// Computed address can be different from contract address due to upgrades
+export async function getProtocolContractLeafAndMembershipWitness(
+  contractAddress: AztecAddress,
+  computedAddress: AztecAddress,
+) {
   const tree = await getTree();
   let lowLeaf;
   let witness;
-  if (isProtocolContract(address)) {
-    const index = address.toField().toNumber();
+  if (isProtocolContract(contractAddress)) {
+    const index = contractAddress.toField().toNumber();
     lowLeaf = tree.leafPreimages[index];
     witness = tree.getMembershipWitness(index);
   } else {
-    lowLeaf = tree.getLowLeaf(address.toBigInt());
+    lowLeaf = tree.getLowLeaf(computedAddress.toBigInt());
     const hashed = (await poseidon2Hash(lowLeaf.toHashInputs())).toBuffer();
     witness = tree.getMembershipWitness(hashed);
   }

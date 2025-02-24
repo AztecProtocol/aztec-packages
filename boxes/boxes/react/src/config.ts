@@ -1,29 +1,27 @@
-import { Fr, createPXEClient, deriveMasterIncomingViewingSecretKey } from '@aztec/aztec.js';
+import { createPXEClient, PXE } from '@aztec/aztec.js';
 import { BoxReactContractArtifact } from '../artifacts/BoxReact';
-import { AccountManager } from '@aztec/aztec.js/account';
-import { SingleKeyAccountContract } from '@aztec/accounts/single_key';
-
-const SECRET_KEY = Fr.random();
+import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 
 export class PrivateEnv {
-  private constructor(private accountManager: AccountManager) {}
+  private constructor(private pxe: PXE) {}
 
-  static async create(secretKey: Fr, pxeURL: string) {
+  static async create(pxeURL: string) {
     const pxe = createPXEClient(pxeURL);
-    const encryptionPrivateKey = deriveMasterIncomingViewingSecretKey(secretKey);
-    const accountContract = new SingleKeyAccountContract(encryptionPrivateKey);
-    const accountManager = await AccountManager.create(pxe, secretKey, accountContract);
-
-    return new PrivateEnv(accountManager);
+    return new PrivateEnv(pxe);
   }
 
   async getWallet() {
-    // taking advantage that register is no-op if already registered
-    return await this.accountManager.register();
+    const wallet = (await getDeployedTestAccountsWallets(this.pxe))[0];
+    if (!wallet) {
+      console.error(
+        'Wallet not found. Please connect the app to a testing environment with deployed and funded test accounts.',
+      );
+    }
+    return wallet;
   }
 }
 
-export const deployerEnv = await PrivateEnv.create(SECRET_KEY, process.env.PXE_URL || 'http://localhost:8080');
+export const deployerEnv = await PrivateEnv.create(process.env.PXE_URL || 'http://localhost:8080');
 
-const IGNORE_FUNCTIONS = ['constructor', 'compute_note_hash_and_optionally_a_nullifier'];
+const IGNORE_FUNCTIONS = ['constructor'];
 export const filteredInterface = BoxReactContractArtifact.functions.filter(f => !IGNORE_FUNCTIONS.includes(f.name));

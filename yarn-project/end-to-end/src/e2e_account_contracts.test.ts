@@ -5,12 +5,13 @@ import {
   type AccountContract,
   AccountManager,
   AccountWallet,
-  type CompleteAddress,
+  FeeJuicePaymentMethod,
   Fr,
   GrumpkinScalar,
   type Logger,
   type PXE,
   type Wallet,
+  getAccountContractAddress,
 } from '@aztec/aztec.js';
 import { deriveSigningKey } from '@aztec/circuits.js/keys';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -18,30 +19,45 @@ import { ChildContract } from '@aztec/noir-contracts.js/Child';
 
 import { setup } from './fixtures/utils.js';
 
-function itShouldBehaveLikeAnAccountContract(
+const itShouldBehaveLikeAnAccountContract = (
   getAccountContract: (encryptionKey: GrumpkinScalar) => AccountContract,
-  walletSetup: (pxe: PXE, secretKey: Fr, accountContract: AccountContract) => Promise<Wallet>,
-  walletAt: (pxe: PXE, accountContract: AccountContract, address: CompleteAddress) => Promise<Wallet>,
-) {
+) => {
   describe(`behaves like an account contract`, () => {
-    let child: ChildContract;
-    let wallet: Wallet;
-    let secretKey: Fr;
-
     let pxe: PXE;
     let logger: Logger;
     let teardown: () => Promise<void>;
+    let wallet: Wallet;
+    let child: ChildContract;
 
-    beforeEach(async () => {
-      ({ logger, pxe, teardown } = await setup(0));
-      secretKey = Fr.random();
-      const signingKey = deriveSigningKey(secretKey);
+    beforeAll(async () => {
+      const secret = Fr.random();
+      const salt = Fr.random();
+      const signingKey = deriveSigningKey(secret);
+      const accountContract = getAccountContract(signingKey);
+      const address = await getAccountContractAddress(accountContract, secret, salt);
+      const accountData = {
+        secret,
+        signingKey,
+        salt,
+        address,
+      };
 
-      wallet = await walletSetup(pxe, secretKey, getAccountContract(signingKey));
+      ({ logger, pxe, teardown, wallet } = await setup(0, { initialFundedAccounts: [accountData] }));
+
+      const account = await AccountManager.create(pxe, secret, accountContract, salt);
+      if (await account.isDeployable()) {
+        // The account is pre-funded and can pay for its own fee.
+        const paymentMethod = new FeeJuicePaymentMethod(address);
+        await account.deploy({ fee: { paymentMethod } }).wait();
+      } else {
+        await account.register();
+      }
+
+      wallet = await account.getWallet();
       child = await ChildContract.deploy(wallet).send().deployed();
     });
 
-    afterEach(() => teardown());
+    afterAll(() => teardown());
 
     it('calls a private function', async () => {
       logger.info('Calling private function...');
@@ -57,42 +73,26 @@ function itShouldBehaveLikeAnAccountContract(
 
     it('fails to call a function using an invalid signature', async () => {
       const accountAddress = wallet.getCompleteAddress();
-      const invalidWallet = await walletAt(pxe, getAccountContract(GrumpkinScalar.random()), accountAddress);
+      const nodeInfo = await pxe.getNodeInfo();
+      const randomContract = getAccountContract(GrumpkinScalar.random());
+      const entrypoint = randomContract.getInterface(accountAddress, nodeInfo);
+      const invalidWallet = new AccountWallet(pxe, entrypoint);
       const childWithInvalidWallet = await ChildContract.at(child.address, invalidWallet);
       await expect(childWithInvalidWallet.methods.value(42).prove()).rejects.toThrow(/Cannot satisfy constraint.*/);
     });
   });
-}
+};
 
 describe('e2e_account_contracts', () => {
-  const walletSetup = async (pxe: PXE, secretKey: Fr, accountContract: AccountContract) => {
-    const account = await AccountManager.create(pxe, secretKey, accountContract);
-    return await account.waitSetup();
-  };
-
-  const walletAt = async (pxe: PXE, accountContract: AccountContract, address: CompleteAddress) => {
-    const nodeInfo = await pxe.getNodeInfo();
-    const entrypoint = accountContract.getInterface(address, nodeInfo);
-    return new AccountWallet(pxe, entrypoint);
-  };
-
   describe('schnorr single-key account', () => {
-    itShouldBehaveLikeAnAccountContract(
-      (encryptionKey: GrumpkinScalar) => new SingleKeyAccountContract(encryptionKey),
-      walletSetup,
-      walletAt,
-    );
+    itShouldBehaveLikeAnAccountContract((encryptionKey: GrumpkinScalar) => new SingleKeyAccountContract(encryptionKey));
   });
 
   describe('schnorr multi-key account', () => {
-    itShouldBehaveLikeAnAccountContract(
-      () => new SchnorrAccountContract(GrumpkinScalar.random()),
-      walletSetup,
-      walletAt,
-    );
+    itShouldBehaveLikeAnAccountContract(() => new SchnorrAccountContract(GrumpkinScalar.random()));
   });
 
   describe('ecdsa stored-key account', () => {
-    itShouldBehaveLikeAnAccountContract(() => new EcdsaKAccountContract(randomBytes(32)), walletSetup, walletAt);
+    itShouldBehaveLikeAnAccountContract(() => new EcdsaKAccountContract(randomBytes(32)));
   });
 });

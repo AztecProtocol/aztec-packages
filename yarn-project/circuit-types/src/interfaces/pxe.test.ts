@@ -1,26 +1,25 @@
+import { type AbiDecoded, type ContractArtifact, EventSelector } from '@aztec/circuits.js/abi';
+import { loadContractArtifact } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
-  AztecAddress,
-  ClientIvcProof,
   CompleteAddress,
   type ContractInstanceWithAddress,
-  EthAddress,
-  Fr,
-  GasFees,
-  L1_TO_L2_MSG_TREE_HEIGHT,
   type NodeInfo,
-  Point,
-  PrivateKernelTailCircuitPublicInputs,
   type ProtocolContractAddresses,
   ProtocolContractsNames,
-  PublicKeys,
   getContractClassFromArtifact,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/contract';
+import { GasFees } from '@aztec/circuits.js/gas';
+import { PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
+import { PublicKeys } from '@aztec/circuits.js/keys';
+import { ClientIvcProof } from '@aztec/circuits.js/proofs';
+import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
-import { type AbiDecoded, type ContractArtifact, EventSelector } from '@aztec/foundation/abi';
 import { memoize } from '@aztec/foundation/decorators';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 import { fileURLToPath } from '@aztec/foundation/url';
-import { loadContractArtifact } from '@aztec/types/abi';
 
 import { jest } from '@jest/globals';
 import { deepStrictEqual } from 'assert';
@@ -39,7 +38,7 @@ import {
   type GetPublicLogsResponse,
   type LogFilter,
 } from '../logs/index.js';
-import { ExtendedNote, UniqueNote } from '../notes/index.js';
+import { UniqueNote } from '../notes/index.js';
 import { type NotesFilter } from '../notes/notes_filter.js';
 import { PrivateExecutionResult } from '../private_execution_result.js';
 import { SiblingPath } from '../sibling_path/sibling_path.js';
@@ -76,7 +75,8 @@ describe('PXESchema', () => {
     address = await AztecAddress.random();
     instance = {
       version: 1,
-      contractClassId: Fr.random(),
+      currentContractClassId: Fr.random(),
+      originalContractClassId: Fr.random(),
       deployer: await AztecAddress.random(),
       initializationHash: Fr.random(),
       publicKeys: await PublicKeys.random(),
@@ -144,6 +144,10 @@ describe('PXESchema', () => {
 
   it('registerContract', async () => {
     await context.client.registerContract({ instance, artifact });
+  });
+
+  it('updateContract', async () => {
+    await context.client.updateContract(instance.address, artifact);
   });
 
   it('getContracts', async () => {
@@ -225,14 +229,6 @@ describe('PXESchema', () => {
   it('getL2ToL1MembershipWitness', async () => {
     const result = await context.client.getL2ToL1MembershipWitness(42, Fr.random());
     expect(result).toEqual([expect.any(BigInt), expect.any(SiblingPath)]);
-  });
-
-  it('addNote', async () => {
-    await context.client.addNote(await ExtendedNote.random(), address);
-  });
-
-  it('addNullifiedNote', async () => {
-    await context.client.addNullifiedNote(await ExtendedNote.random());
   });
 
   it('getBlock', async () => {
@@ -384,6 +380,10 @@ class MockPXE implements PXE {
     deepStrictEqual(contract.artifact, this.artifact);
     return Promise.resolve();
   }
+  updateContract(contractAddress: AztecAddress, _artifact: ContractArtifact): Promise<void> {
+    expect(contractAddress).toEqual(this.address);
+    return Promise.resolve();
+  }
   getContracts(): Promise<AztecAddress[]> {
     return Promise.resolve([this.address]);
   }
@@ -448,15 +448,6 @@ class MockPXE implements PXE {
     expect(typeof blockNumber).toEqual('number');
     expect(l2Tol1Message).toBeInstanceOf(Fr);
     return Promise.resolve([1n, SiblingPath.random<number>(4)]);
-  }
-  addNote(note: ExtendedNote, scope?: AztecAddress | undefined): Promise<void> {
-    expect(note).toBeInstanceOf(ExtendedNote);
-    expect(scope).toEqual(this.address);
-    return Promise.resolve();
-  }
-  addNullifiedNote(note: ExtendedNote): Promise<void> {
-    expect(note).toBeInstanceOf(ExtendedNote);
-    return Promise.resolve();
   }
   getBlock(number: number): Promise<L2Block | undefined> {
     return Promise.resolve(L2Block.random(number));

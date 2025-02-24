@@ -1,11 +1,13 @@
-import { AztecAddress, Fr, deriveKeys, derivePublicKeyFromSecretKey } from '@aztec/circuits.js';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { deriveKeys, derivePublicKeyFromSecretKey } from '@aztec/circuits.js/keys';
+import { Fr } from '@aztec/foundation/fields';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
 import { KeyStore } from './key_store.js';
 
 describe('KeyStore', () => {
   it('Adds account and returns keys', async () => {
-    const keyStore = new KeyStore(openTmpStore());
+    const keyStore = new KeyStore(await openTmpStore('test'));
 
     // Arbitrary fixed values
     const sk = new Fr(8923n);

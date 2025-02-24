@@ -26,13 +26,7 @@ Furthermore, if not emitting the note, one should explicitly `discard` the value
 
 ### Successfully process the encrypted event
 
-One of the functions of the PXE is constantly loading encrypted logs from the `AztecNode` and decrypting them.
-When new encrypted logs are obtained, the PXE will try to decrypt them using the private encryption key of all the accounts registered inside PXE.
-If the decryption is successful, the PXE will store the decrypted note inside a database.
-If the decryption fails, the specific log will be discarded.
-
-For the PXE to successfully process the decrypted note we need to compute the note's 'note hash' and 'nullifier'.
-Aztec.nr enables smart contract developers to design custom notes, meaning developers can also customize how a note's note hash and nullifier should be computed. Because of this customizability, and because there will be a potentially-unlimited number of smart contracts deployed to Aztec, an PXE needs to be 'taught' how to compute the custom note hashes and nullifiers for a particular contract. This is done by a function called `compute_note_hash_and_optionally_a_nullifier`, which is automatically injected into every contract when compiled.
+Contracts created using aztec-nr will try to discover newly created notes by searching for logs emitted for any of the accounts registered inside PXE, decrypting their contents and notifying PXE of any notes found. This process is automatic and occurs whenever a contract function is invoked.
 
 ## Unencrypted Events
 

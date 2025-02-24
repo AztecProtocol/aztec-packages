@@ -1,24 +1,15 @@
+import { type L2Block, MerkleTreeId } from '@aztec/circuit-types';
 import {
   type IndexedTreeId,
-  type L2Block,
-  MerkleTreeId,
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
-} from '@aztec/circuit-types';
-import {
-  BlockHeader,
-  EthAddress,
-  Fr,
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  NullifierLeaf,
-  type NullifierLeafPreimage,
-  PartialStateReference,
-  PublicDataTreeLeaf,
-  StateReference,
-} from '@aztec/circuits.js';
+} from '@aztec/circuit-types/interfaces/server';
+import { NullifierLeaf, type NullifierLeafPreimage, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
+import { BlockHeader, PartialStateReference, StateReference } from '@aztec/circuits.js/tx';
+import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -68,6 +59,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     rollupAddress: EthAddress,
     dataDir: string,
     dbMapSizeKb: number,
+    prefilledPublicData: PublicDataTreeLeaf[] = [],
     instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
     log = createLogger('world-state:database'),
     cleanup = () => Promise.resolve(),
@@ -92,7 +84,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     await mkdir(worldStateDirectory, { recursive: true });
     await newWorldStateVersion.writeVersionFile(versionFile);
 
-    const instance = new NativeWorldState(worldStateDirectory, dbMapSizeKb, instrumentation);
+    const instance = new NativeWorldState(worldStateDirectory, dbMapSizeKb, prefilledPublicData, instrumentation);
     const worldState = new this(instance, instrumentation, log, cleanup);
     try {
       await worldState.init();
@@ -107,6 +99,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   static async tmp(
     rollupAddress = EthAddress.ZERO,
     cleanupTmpDir = true,
+    prefilledPublicData: PublicDataTreeLeaf[] = [],
     instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
   ): Promise<NativeWorldStateService> {
     const log = createLogger('world-state:database');
@@ -124,7 +117,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       }
     };
 
-    return this.new(rollupAddress, dataDir, dbMapSizeKb, instrumentation, log, cleanup);
+    return this.new(rollupAddress, dataDir, dbMapSizeKb, prefilledPublicData, instrumentation, log, cleanup);
   }
 
   protected async init() {

@@ -1,6 +1,6 @@
-import { GeneratorIndex, type Point } from '@aztec/circuits.js';
-import { Aes128 } from '@aztec/circuits.js/barretenberg';
-import { sha256 } from '@aztec/foundation/crypto';
+import { GeneratorIndex } from '@aztec/constants';
+import { Aes128, sha256 } from '@aztec/foundation/crypto';
+import { type Point } from '@aztec/foundation/fields';
 import { numToUInt8 } from '@aztec/foundation/serialize';
 
 function extractCloseToUniformlyRandom256BitsFromEcdhSharedSecretUsingSha256(sharedSecret: Point): Buffer {

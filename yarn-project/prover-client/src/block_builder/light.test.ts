@@ -1,40 +1,12 @@
 import { TestCircuitProver } from '@aztec/bb-prover';
-import { Blob } from '@aztec/blob-lib';
-import {
-  MerkleTreeId,
-  type MerkleTreeWriteOperations,
-  type ProcessedTx,
-  type ServerCircuitProver,
-  toNumBlobFields,
-} from '@aztec/circuit-types';
-import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
-import {
-  type AppendOnlyTreeSnapshot,
-  BLOBS_PER_BLOCK,
-  BaseParityInputs,
-  FIELDS_PER_BLOB,
-  Fr,
-  type GlobalVariables,
-  L1_TO_L2_MSG_SUBTREE_HEIGHT,
-  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-  MembershipWitness,
-  NESTED_RECURSIVE_PROOF_LENGTH,
-  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  NUM_BASE_PARITY_PER_ROOT_PARITY,
-  type ParityPublicInputs,
-  PartialStateReference,
-  type RecursiveProof,
-  RootParityInput,
-  RootParityInputs,
-  StateReference,
-  TUBE_VK_INDEX,
-  VK_TREE_HEIGHT,
-  type VerificationKeyAsFields,
-  VkWitnessData,
-  makeEmptyRecursiveProof,
-} from '@aztec/circuits.js';
-import { SpongeBlob } from '@aztec/circuits.js/blobs';
+import { Blob, SpongeBlob } from '@aztec/blob-lib';
+import { MerkleTreeId, type ProcessedTx, toNumBlobFields } from '@aztec/circuit-types';
+import { type MerkleTreeWriteOperations, type ServerCircuitProver } from '@aztec/circuit-types/interfaces/server';
+import { makeBloatedProcessedTx } from '@aztec/circuit-types/testing';
+import { PublicDataWrite } from '@aztec/circuits.js/avm';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { BaseParityInputs, ParityPublicInputs, RootParityInput, RootParityInputs } from '@aztec/circuits.js/parity';
+import { type RecursiveProof, makeEmptyRecursiveProof } from '@aztec/circuits.js/proofs';
 import {
   type BaseOrMergeRollupPublicInputs,
   BlockRootRollupBlobData,
@@ -50,10 +22,27 @@ import {
   SingleTxBlockRootRollupInputs,
 } from '@aztec/circuits.js/rollup';
 import { makeGlobalVariables } from '@aztec/circuits.js/testing';
+import { type AppendOnlyTreeSnapshot, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
+import { GlobalVariables, PartialStateReference, StateReference } from '@aztec/circuits.js/tx';
+import { VerificationKeyAsFields, VkWitnessData } from '@aztec/circuits.js/vks';
+import {
+  BLOBS_PER_BLOCK,
+  FIELDS_PER_BLOB,
+  L1_TO_L2_MSG_SUBTREE_HEIGHT,
+  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  NESTED_RECURSIVE_PROOF_LENGTH,
+  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  NUM_BASE_PARITY_PER_ROOT_PARITY,
+  TUBE_VK_INDEX,
+  VK_TREE_HEIGHT,
+} from '@aztec/constants';
 import { padArrayEnd, times, timesParallel } from '@aztec/foundation/collection';
 import { sha256ToField } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type Tuple, assertLength } from '@aztec/foundation/serialize';
+import { MembershipWitness } from '@aztec/foundation/trees';
 import {
   ProtocolCircuitVks,
   TubeVk,
@@ -62,6 +51,7 @@ import {
   getVKTreeRoot,
 } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 import { type MerkleTreeAdminDatabase, NativeWorldStateService } from '@aztec/world-state';
 
@@ -93,16 +83,31 @@ describe('LightBlockBuilder', () => {
   let emptyProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
   let emptyRollupProof: RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>;
 
-  beforeAll(async () => {
+  let feePayer: AztecAddress;
+  let feePayerSlot: Fr;
+  let feePayerBalance: Fr;
+  const expectedTxFee = new Fr(0x2200);
+
+  beforeAll(() => {
     logger = createLogger('prover-client:test:block-builder');
     simulator = new TestCircuitProver();
     vkTreeRoot = getVKTreeRoot();
     emptyProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
     emptyRollupProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH);
-    db = await NativeWorldStateService.tmp();
   });
 
   beforeEach(async () => {
+    feePayer = await AztecAddress.random();
+    feePayerBalance = new Fr(10n ** 20n);
+    feePayerSlot = await computeFeePayerBalanceLeafSlot(feePayer);
+    const prefilledPublicData = [new PublicDataTreeLeaf(feePayerSlot, feePayerBalance)];
+
+    db = await NativeWorldStateService.tmp(
+      undefined /* rollupAddress */,
+      true /* cleanupTmpDir */,
+      prefilledPublicData,
+    );
+
     globalVariables = makeGlobalVariables(1, { chainId: Fr.ZERO, version: Fr.ZERO });
     l1ToL2Messages = times(7, i => new Fr(i + 1));
     fork = await db.fork();
@@ -199,15 +204,21 @@ describe('LightBlockBuilder', () => {
     expect(header).toEqual(expectedHeader);
   });
 
-  const makeTx = (i: number) =>
-    makeBloatedProcessedTx({
+  const makeTx = (i: number) => {
+    feePayerBalance = new Fr(feePayerBalance.toBigInt() - expectedTxFee.toBigInt());
+    const feePaymentPublicDataWrite = new PublicDataWrite(feePayerSlot, feePayerBalance);
+
+    return makeBloatedProcessedTx({
       header: fork.getInitialHeader(),
       globalVariables,
       vkTreeRoot,
       protocolContractTreeRoot,
       seed: i + 1,
+      feePayer,
+      feePaymentPublicDataWrite,
       privateOnly: true,
     });
+  };
 
   // Builds the block header using the ts block builder
   const buildHeader = async (txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
@@ -287,6 +298,8 @@ describe('LightBlockBuilder', () => {
       const hints = await buildBaseRollupHints(tx, globalVariables, expectsFork, spongeBlobState);
       const inputs = new PrivateBaseRollupInputs(tubeData, hints as PrivateBaseRollupHints);
       const result = await simulator.getPrivateBaseRollupProof(inputs);
+      // Update `expectedTxFee` if the fee changes.
+      expect(result.inputs.accumulatedFees).toEqual(expectedTxFee);
       rollupOutputs.push(result.inputs);
     }
     return rollupOutputs;

@@ -1,27 +1,30 @@
 import {
   type AuthWitness,
-  type AztecNode,
-  CountedContractClassLog,
-  CountedPublicExecutionRequest,
+  type Capsule,
   Note,
-  NoteAndSlot,
   type NoteStatus,
-  type PrivateCallExecutionResult,
   PublicExecutionRequest,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
-  type BlockHeader,
-  CallContext,
+  type AztecNode,
+  CountedContractClassLog,
+  CountedPublicExecutionRequest,
+  NoteAndSlot,
+  type PrivateCallExecutionResult,
+} from '@aztec/circuit-types/interfaces/client';
+import {
+  type FunctionAbi,
+  type FunctionArtifact,
   FunctionSelector,
-  PRIVATE_CONTEXT_INPUTS_LENGTH,
-  PUBLIC_DISPATCH_SELECTOR,
-  PrivateContextInputs,
-  type TxContext,
-} from '@aztec/circuits.js';
+  type NoteSelector,
+  countArgumentsSize,
+} from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
-import { type FunctionAbi, type FunctionArtifact, type NoteSelector, countArgumentsSize } from '@aztec/foundation/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { PrivateContextInputs } from '@aztec/circuits.js/kernel';
+import { type BlockHeader, CallContext, type TxContext } from '@aztec/circuits.js/tx';
+import { PRIVATE_CONTEXT_INPUTS_LENGTH, PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 
@@ -31,7 +34,7 @@ import { type SimulationProvider } from '../server.js';
 import { type DBOracle } from './db_oracle.js';
 import { type ExecutionNoteCache } from './execution_note_cache.js';
 import { pickNotes } from './pick_notes.js';
-import { executePrivateFunction } from './private_execution.js';
+import { executePrivateFunction, verifyCurrentClassId } from './private_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';
 
 /**
@@ -70,6 +73,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     protected readonly historicalHeader: BlockHeader,
     /** List of transient auth witnesses to be used during this simulation */
     authWitnesses: AuthWitness[],
+    capsules: Capsule[],
     private readonly executionCache: HashedValuesCache,
     private readonly noteCache: ExecutionNoteCache,
     db: DBOracle,
@@ -79,7 +83,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     log = createLogger('simulator:client_execution_context'),
     scopes?: AztecAddress[],
   ) {
-    super(callContext.contractAddress, authWitnesses, db, node, log, scopes);
+    super(callContext.contractAddress, authWitnesses, capsules, db, node, log, scopes);
   }
 
   // We still need this function until we can get user-defined ordering of structs for fn arguments
@@ -278,6 +282,13 @@ export class ClientExecutionContext extends ViewDataOracle {
     noteHash: Fr,
     counter: number,
   ) {
+    this.log.debug(`Notified of new note with inner hash ${noteHash}`, {
+      contractAddress: this.callContext.contractAddress,
+      storageSlot,
+      noteTypeId,
+      counter,
+    });
+
     const note = new Note(noteItems);
     this.noteCache.addNewNote(
       {
@@ -366,10 +377,17 @@ export class ClientExecutionContext extends ViewDataOracle {
     isStaticCall: boolean,
   ) {
     this.log.debug(
-      `Calling private function ${this.contractAddress}:${functionSelector} from ${this.callContext.contractAddress}`,
+      `Calling private function ${targetContractAddress}:${functionSelector} from ${this.callContext.contractAddress}`,
     );
 
     isStaticCall = isStaticCall || this.callContext.isStaticCall;
+
+    await verifyCurrentClassId(
+      targetContractAddress,
+      await this.db.getContractInstance(targetContractAddress),
+      this.node,
+      this.historicalHeader.globalVariables.blockNumber.toNumber(),
+    );
 
     const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
 
@@ -383,6 +401,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       derivedCallContext,
       this.historicalHeader,
       this.authWitnesses,
+      this.capsules,
       this.executionCache,
       this.noteCache,
       this.db,

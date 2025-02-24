@@ -1,8 +1,11 @@
 mod types;
 
+use dep::aztec::macros::aztec;
+
 // NOTE: This contract is stale and is kept around only as a reference of how to implement a blacklist.
 // Don't take into consideration the interface of this contract. The TransparentNote "shield" flow is
 // deprecated and has been replaced with partial notes in the standard token contract.
+// TODO(#11970): https://github.com/AztecProtocol/aztec-packages/issues/11970
 //
 // Minimal token implementation that supports `AuthWit` accounts and SharedMutable variables.
 // The auth message follows a similar pattern to the cross-chain message and includes a designated caller.
@@ -11,18 +14,17 @@ mod types;
 // To be read as `caller` calls function at `contract` defined by `selector` with `args`
 // Including a nonce in the message hash ensures that the message can only be used once.
 // The SharedMutables are used for access control related to minters and blacklist.
-
-use dep::aztec::macros::aztec;
-
 #[aztec]
 pub contract TokenBlacklist {
     // Libs
     use dep::aztec::{
+        discovery::private_logs::do_process_log,
         encrypted_logs::log_assembly_strategies::default_aes128::note::{
             encode_and_encrypt_note, encode_and_encrypt_note_unconstrained,
         },
         hash::compute_secret_hash,
         macros::{functions::{initializer, internal, private, public, view}, storage::storage},
+        note::note_interface::NoteInterface,
         prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable, SharedMutable},
         utils::comparison::Comparator,
     };
@@ -34,6 +36,9 @@ pub contract TokenBlacklist {
     use crate::types::{
         balances_map::BalancesMap, roles::UserFlags, token_note::TokenNote,
         transparent_note::TransparentNote,
+    };
+    use aztec::protocol_types::{
+        constants::MAX_NOTE_HASHES_PER_TX, traits::Packable, utils::arrays::array_concat,
     };
 
     // Changing an address' roles has a certain block delay before it goes into effect.
@@ -104,11 +109,16 @@ pub contract TokenBlacklist {
         assert(caller_roles.is_minter, "caller is not minter");
 
         let pending_shields = storage.pending_shields;
-        let mut note = TransparentNote::new(amount, secret_hash);
+        let note = TransparentNote::new(amount, secret_hash);
         let supply = storage.total_supply.read().add(U128::from_integer(amount));
 
         storage.total_supply.write(supply);
-        pending_shields.insert_from_public(&mut note);
+
+        // We insert the note hash into the pending_shields. Since the TransparentNote flow is deprecated (use partial
+        // notes instead), we no longer have utility a function exposed on the PrivateSet to insert the note hash from
+        // public context. Hence we need to manually get the slot and insert the note hash into the context.
+        let note_hash = note.compute_note_hash(pending_shields.storage_slot);
+        context.push_note_hash(note_hash);
     }
 
     #[public]
@@ -127,10 +137,15 @@ pub contract TokenBlacklist {
         let from_balance = storage.public_balances.at(from).read().sub(amount);
 
         let pending_shields = storage.pending_shields;
-        let mut note = TransparentNote::new(amount.to_field(), secret_hash);
+        let note = TransparentNote::new(amount.to_field(), secret_hash);
 
         storage.public_balances.at(from).write(from_balance);
-        pending_shields.insert_from_public(&mut note);
+
+        // We insert the note hash into the pending_shields. Since the TransparentNote flow is deprecated (use partial
+        // notes instead), we no longer have utility a function exposed on the PrivateSet to insert the note hash from
+        // public context. Hence we need to manually get the slot and insert the note hash into the context.
+        let note_hash = note.compute_note_hash(pending_shields.storage_slot);
+        context.push_note_hash(note_hash);
     }
 
     #[public]
@@ -289,5 +304,39 @@ pub contract TokenBlacklist {
     /// Unconstrained ///
     unconstrained fn balance_of_private(owner: AztecAddress) -> pub Field {
         storage.balances.balance_of(owner).to_field()
+    }
+
+    // docs:start:deliver_note_contract_method
+    unconstrained fn deliver_transparent_note(
+        contract_address: AztecAddress,
+        amount: Field,
+        secret_hash: Field,
+        tx_hash: Field,
+        unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
+        first_nullifier_in_tx: Field,
+        recipient: AztecAddress,
+    ) {
+        // docs:end:deliver_note_contract_method
+
+        // do_process_log expects a standard aztec-nr encoded note, which has the following shape:
+        // [ storage_slot, note_type_id, ...packed_note ]
+        let note = TransparentNote::new(amount, secret_hash);
+        let log_plaintext = BoundedVec::from_array(array_concat(
+            [
+                TokenBlacklist::storage_layout().pending_shields.slot,
+                TransparentNote::get_note_type_id(),
+            ],
+            note.pack(),
+        ));
+
+        do_process_log(
+            contract_address,
+            log_plaintext,
+            tx_hash,
+            unique_note_hashes_in_tx,
+            first_nullifier_in_tx,
+            recipient,
+            _compute_note_hash_and_nullifier,
+        );
     }
 }

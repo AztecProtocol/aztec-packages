@@ -1,10 +1,10 @@
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
-import { PublicKeys } from '../../types/public_keys.js';
+import { type AztecAddress } from '../../aztec-address/index.js';
+import { PublicKeys } from '../../keys/public_keys.js';
+import { type ZodFor, schemas } from '../../schemas/index.js';
 
 const VERSION = 1 as const;
 
@@ -21,7 +21,9 @@ export interface ContractInstance {
   /** Optional deployer address or zero if this was a universal deploy. */
   deployer: AztecAddress;
   /** Identifier of the contract class for this instance. */
-  contractClassId: Fr;
+  currentContractClassId: Fr;
+  /** Identifier of the original (at deployment) contract class for this instance */
+  originalContractClassId: Fr;
   /** Hash of the selector and arguments to the constructor. */
   initializationHash: Fr;
   /** Public keys associated with this instance. */
@@ -34,7 +36,8 @@ export const ContractInstanceSchema = z.object({
   version: z.literal(VERSION),
   salt: schemas.Fr,
   deployer: schemas.AztecAddress,
-  contractClassId: schemas.Fr,
+  currentContractClassId: schemas.Fr,
+  originalContractClassId: schemas.Fr,
   initializationHash: schemas.Fr,
   publicKeys: PublicKeys.schema,
 }) satisfies ZodFor<ContractInstance>;

@@ -1,8 +1,8 @@
 import { getIdentities } from '@aztec/accounts/utils';
 import { createCompatibleClient } from '@aztec/aztec.js/rpc';
 import { TxHash } from '@aztec/aztec.js/tx_hash';
-import { createAztecNodeClient } from '@aztec/circuit-types';
-import { GasFees } from '@aztec/circuits.js';
+import { createAztecNodeClient } from '@aztec/circuit-types/interfaces/client';
+import { GasFees } from '@aztec/circuits.js/gas';
 import {
   ETHEREUM_HOST,
   PRIVATE_KEY,
@@ -51,6 +51,23 @@ export function injectCommands(
   db?: WalletDB,
   pxeWrapper?: PXEWrapper,
 ) {
+  program
+    .command('import-test-accounts')
+    .description('Import test accounts from pxe.')
+    .addOption(pxeOption)
+    .option('--json', 'Emit output as json')
+    .action(async options => {
+      if (!db) {
+        throw new Error(`A db is required to store the imported test accounts.`);
+      }
+
+      const { importTestAccounts } = await import('./import_test_accounts.js');
+      const { rpcUrl, json } = options;
+
+      const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
+      await importTestAccounts(client, db, json, log);
+    });
+
   const createAccountCommand = program
     .command('create-account')
     .description(
@@ -369,63 +386,6 @@ export function injectCommands(
     });
 
   program
-    .command('add-note')
-    .description('Adds a note to the database in the PXE.')
-    .argument('[name]', 'The Note name')
-    .argument(
-      '[storageFieldName]',
-      'The name of the variable in the storage field that contains the note. WARNING: Maps are not supported',
-    )
-    .requiredOption('-a, --address <string>', 'The Aztec address of the note owner.', address =>
-      aliasedAddressParser('accounts', address, db),
-    )
-    .addOption(createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)))
-    .requiredOption('-t, --transaction-hash <string>', 'The hash of the tx containing the note.', txHash =>
-      aliasedTxHashParser(txHash, db),
-    )
-    .addOption(createContractAddressOption(db))
-    .addOption(createArtifactOption(db))
-    .addOption(
-      new Option('-b, --body [noteFields...]', 'The members of a Note')
-        .argParser((arg, prev: string[]) => {
-          const next = db?.tryRetrieveAlias(arg) || arg;
-          prev.push(next);
-          return prev;
-        })
-        .default([]),
-    )
-    .addOption(pxeOption)
-    .action(async (noteName, storageFieldName, _options, command) => {
-      const { addNote } = await import('./add_note.js');
-      const options = command.optsWithGlobals();
-      const {
-        contractArtifact: artifactPathPromise,
-        contractAddress,
-        address,
-        secretKey,
-        rpcUrl,
-        body,
-        transactionHash,
-      } = options;
-      const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
-      const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
-      const account = await createOrRetrieveAccount(client, address, db, undefined, secretKey);
-      const wallet = await getWalletWithScopes(account, db);
-
-      await addNote(
-        wallet,
-        address,
-        contractAddress,
-        noteName,
-        storageFieldName,
-        artifactPath,
-        transactionHash,
-        body,
-        log,
-      );
-    });
-
-  program
     .command('create-authwit')
     .description(
       'Creates an authorization witness that can be privately sent to a caller so they can perform an action on behalf of the provided account',
@@ -555,14 +515,14 @@ export function injectCommands(
       if (txHash) {
         await checkTx(client, txHash, false, log);
       } else if (db) {
-        const aliases = db.listAliases('transactions');
+        const aliases = await db.listAliases('transactions');
         const totalPages = Math.ceil(aliases.length / pageSize);
         page = Math.min(page - 1, totalPages - 1);
         const dataRows = await Promise.all(
           aliases.slice(page * pageSize, pageSize * (1 + page)).map(async ({ key, value }) => ({
             alias: key,
             txHash: value,
-            cancellable: db.retrieveTxData(TxHash.fromString(value)).cancellable,
+            cancellable: (await db.retrieveTxData(TxHash.fromString(value))).cancellable,
             status: await checkTx(client, TxHash.fromString(value), true, log),
           })),
         );
@@ -589,7 +549,7 @@ export function injectCommands(
       createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
     )
     .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
-    .addOption(FeeOpts.paymentMethodOption().default('method=none'))
+    .addOption(FeeOpts.paymentMethodOption().default('method=fee_juice'))
     .option(
       '-i --increased-fees <da=1,l2=1>',
       'The amounts by which the fees are increased',
@@ -606,7 +566,7 @@ export function injectCommands(
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
       const wallet = await getWalletWithScopes(account, db);
 
-      const txData = db?.retrieveTxData(txHash);
+      const txData = await db?.retrieveTxData(txHash);
       if (!txData) {
         throw new Error('Transaction data not found in the database, cannot reuse nonce');
       }

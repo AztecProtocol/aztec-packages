@@ -1,7 +1,0 @@
-{
-  "scripts": {
-    "build": "yarn clean && yarn generate && tsc -b",
-    "generate": "yarn generate:noir-contracts",
-    "generate:noir-contracts": "./scripts/copy-contracts.sh"
-  }
-}

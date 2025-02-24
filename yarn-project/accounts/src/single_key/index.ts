@@ -4,10 +4,11 @@
  *
  * @packageDocumentation
  */
+import type { AztecAddress, Fr, GrumpkinScalar } from '@aztec/aztec.js';
 import { AccountManager, type Salt } from '@aztec/aztec.js/account';
 import { type AccountWallet, getWallet } from '@aztec/aztec.js/wallet';
-import { type GrumpkinScalar, type PXE } from '@aztec/circuit-types';
-import { type AztecAddress, type Fr, deriveMasterIncomingViewingSecretKey } from '@aztec/circuits.js';
+import { type PXE } from '@aztec/circuit-types/interfaces/client';
+import { deriveMasterIncomingViewingSecretKey } from '@aztec/circuits.js/keys';
 
 import { SingleKeyAccountContract } from './account_contract.js';
 

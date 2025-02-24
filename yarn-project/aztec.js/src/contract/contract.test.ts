@@ -6,16 +6,17 @@ import {
   type TxReceipt,
   type TxSimulationResult,
 } from '@aztec/circuit-types';
+import { type AbiDecoded, type ContractArtifact, FunctionType } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
-  AztecAddress,
   CompleteAddress,
   type ContractInstanceWithAddress,
-  EthAddress,
-  GasFees,
   type NodeInfo,
-} from '@aztec/circuits.js';
+  getContractClassFromArtifact,
+} from '@aztec/circuits.js/contract';
+import { GasFees } from '@aztec/circuits.js/gas';
 import { type L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
-import { type AbiDecoded, type ContractArtifact, FunctionType } from '@aztec/foundation/abi';
+import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -79,14 +80,23 @@ describe('Contract Class', () => {
         returnTypes: [],
         errorTypes: {},
         bytecode: Buffer.alloc(8, 0xfa),
+        verificationKey: 'fake-verification-key',
       },
       {
-        name: 'baz',
+        name: 'public_dispatch',
         isInitializer: false,
         isStatic: false,
         functionType: FunctionType.PUBLIC,
         isInternal: false,
-        parameters: [],
+        parameters: [
+          {
+            name: 'selector',
+            type: {
+              kind: 'field',
+            },
+            visibility: 'public',
+          },
+        ],
         returnTypes: [],
         errorTypes: {},
         bytecode: Buffer.alloc(8, 0xfb),
@@ -131,7 +141,12 @@ describe('Contract Class', () => {
   beforeEach(async () => {
     contractAddress = await AztecAddress.random();
     account = await CompleteAddress.random();
-    contractInstance = { address: contractAddress } as ContractInstanceWithAddress;
+    const contractClass = await getContractClassFromArtifact(defaultArtifact);
+    contractInstance = {
+      address: contractAddress,
+      currentContractClassId: contractClass.id,
+      originalContractClassId: contractClass.id,
+    } as ContractInstanceWithAddress;
 
     const mockNodeInfo: NodeInfo = {
       nodeVersion: 'vx.x.x',

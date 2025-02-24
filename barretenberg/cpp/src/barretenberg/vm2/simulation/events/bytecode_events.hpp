@@ -23,7 +23,8 @@ struct BytecodeDecompositionEvent {
 
 struct BytecodeHashingEvent {
     BytecodeId bytecode_id;
-    std::shared_ptr<std::vector<uint8_t>> bytecode;
+    uint32_t bytecode_length;
+    std::vector<FF> bytecode_fields;
 };
 
 // This is the event that is emitted when the simulator needs to retrieve bytecode.
@@ -44,6 +45,10 @@ struct InstructionFetchingEvent {
     // TODO: Do we want to have a dep on Instruction here or do we redefine what we need?
     Instruction instruction;
     std::shared_ptr<std::vector<uint8_t>> bytecode;
+
+    // To be used with deduplicating event emitters.
+    using Key = std::tuple<BytecodeId, uint32_t>;
+    Key get_key() const { return { bytecode_id, pc }; }
 };
 
 } // namespace bb::avm2::simulation

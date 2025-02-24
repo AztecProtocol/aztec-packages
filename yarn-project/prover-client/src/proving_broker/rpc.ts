@@ -1,5 +1,5 @@
+import { type ComponentsVersions, getVersioningResponseHandler } from '@aztec/circuit-types';
 import {
-  type ComponentsVersions,
   type GetProvingJobResponse,
   ProofUri,
   ProvingJob,
@@ -9,11 +9,10 @@ import {
   type ProvingJobProducer,
   ProvingJobStatus,
   ProvingRequestType,
-  getVersioningResponseHandler,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
+import { type ApiSchemaFor, optional } from '@aztec/circuits.js/schemas';
 import { createSafeJsonRpcClient } from '@aztec/foundation/json-rpc/client';
 import { type SafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
-import { type ApiSchemaFor, optional } from '@aztec/foundation/schemas';
 import { createTracedJsonRpcServer, makeTracedFetch } from '@aztec/telemetry-client';
 
 import { z } from 'zod';

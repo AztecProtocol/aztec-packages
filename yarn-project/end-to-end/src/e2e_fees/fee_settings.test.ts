@@ -5,7 +5,8 @@ import {
   type CheatCodes,
   FeeJuicePaymentMethod,
 } from '@aztec/aztec.js';
-import { Fr, type GasSettings } from '@aztec/circuits.js';
+import { type GasSettings } from '@aztec/circuits.js/gas';
+import { Fr } from '@aztec/foundation/fields';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 
 import { inspect } from 'util';
@@ -21,11 +22,10 @@ describe('e2e_fees fee settings', () => {
   let paymentMethod: FeeJuicePaymentMethod;
   let testContract: TestContract;
 
-  const t = new FeesTest('fee_juice');
+  const t = new FeesTest('fee_juice', 1);
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
-    await t.applyFundAliceWithFeeJuice();
 
     ({ aliceAddress, aliceWallet, gasSettings, cheatCodes, aztecNode } = await t.setup());
 

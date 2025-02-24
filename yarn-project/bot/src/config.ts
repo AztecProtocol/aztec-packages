@@ -1,5 +1,5 @@
 import { type ComponentsVersions } from '@aztec/circuit-types';
-import { Fr } from '@aztec/circuits.js';
+import { type ZodFor, schemas } from '@aztec/circuits.js/schemas';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
@@ -8,7 +8,7 @@ import {
   numberConfigHelper,
   optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+import { Fr } from '@aztec/foundation/fields';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
@@ -27,8 +27,14 @@ export type BotConfig = {
   nodeUrl: string | undefined;
   /** URL to the PXE for sending txs, or undefined if an in-proc PXE is used. */
   pxeUrl: string | undefined;
+  /** Url of the ethereum host. */
+  l1RpcUrl: string | undefined;
+  /** The mnemonic for the account to bridge fee juice from L1. */
+  l1Mnemonic: string | undefined;
+  /** The private key for the account to bridge fee juice from L1. */
+  l1PrivateKey: string | undefined;
   /** Signing private key for the sender account. */
-  senderPrivateKey: Fr;
+  senderPrivateKey: Fr | undefined;
   /** Encryption secret for a recipient account. */
   recipientEncryptionSecret: Fr;
   /** Salt for the token contract deployment. */
@@ -40,7 +46,7 @@ export type BotConfig = {
   /** How many public token transfers are executed per tx. */
   publicTransfersPerTx: number;
   /** How to handle fee payments. */
-  feePaymentMethod: 'fee_juice' | 'none';
+  feePaymentMethod: 'fee_juice';
   /** True to not automatically setup or start the bot on initialization. */
   noStart: boolean;
   /** How long to wait for a tx to be mined before reporting an error. */
@@ -69,13 +75,16 @@ export const BotConfigSchema = z
   .object({
     nodeUrl: z.string().optional(),
     pxeUrl: z.string().optional(),
-    senderPrivateKey: schemas.Fr,
+    l1RpcUrl: z.string().optional(),
+    l1Mnemonic: z.string().optional(),
+    l1PrivateKey: z.string().optional(),
+    senderPrivateKey: schemas.Fr.optional(),
     recipientEncryptionSecret: schemas.Fr,
     tokenSalt: schemas.Fr,
     txIntervalSeconds: z.number(),
     privateTransfersPerTx: z.number(),
     publicTransfersPerTx: z.number(),
-    feePaymentMethod: z.union([z.literal('fee_juice'), z.literal('none')]),
+    feePaymentMethod: z.literal('fee_juice'),
     noStart: z.boolean(),
     txMinedWaitSeconds: z.number(),
     followChain: z.enum(BotFollowChain),
@@ -91,6 +100,10 @@ export const BotConfigSchema = z
   .transform(config => ({
     nodeUrl: undefined,
     pxeUrl: undefined,
+    l1RpcUrl: undefined,
+    l1Mnemonic: undefined,
+    l1PrivateKey: undefined,
+    senderPrivateKey: undefined,
     l2GasLimit: undefined,
     daGasLimit: undefined,
     ...config,
@@ -105,11 +118,22 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
     env: 'BOT_PXE_URL',
     description: 'URL to the PXE for sending txs, or undefined if an in-proc PXE is used.',
   },
+  l1RpcUrl: {
+    env: 'ETHEREUM_HOST',
+    description: 'URL of the ethereum host.',
+  },
+  l1Mnemonic: {
+    env: 'BOT_L1_MNEMONIC',
+    description: 'The mnemonic for the account to bridge fee juice from L1.',
+  },
+  l1PrivateKey: {
+    env: 'BOT_L1_PRIVATE_KEY',
+    description: 'The private key for the account to bridge fee juice from L1.',
+  },
   senderPrivateKey: {
     env: 'BOT_PRIVATE_KEY',
     description: 'Signing private key for the sender account.',
-    parseEnv: (val: string) => Fr.fromHexString(val),
-    defaultValue: Fr.random(),
+    parseEnv: (val: string) => (val ? Fr.fromHexString(val) : undefined),
   },
   recipientEncryptionSecret: {
     env: 'BOT_RECIPIENT_ENCRYPTION_SECRET',
@@ -140,9 +164,9 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   },
   feePaymentMethod: {
     env: 'BOT_FEE_PAYMENT_METHOD',
-    description: 'How to handle fee payments. (Options: fee_juice, none)',
-    parseEnv: val => (val as 'fee_juice' | 'none') || undefined,
-    defaultValue: 'none',
+    description: 'How to handle fee payments. (Options: fee_juice)',
+    parseEnv: val => (val as 'fee_juice') || undefined,
+    defaultValue: 'fee_juice',
   },
   noStart: {
     env: 'BOT_NO_START',

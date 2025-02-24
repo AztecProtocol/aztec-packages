@@ -5,8 +5,8 @@ import { useContext, useEffect, useState } from "react";
 import {
   AuthWitness,
   Contract,
-  ContractArtifact,
-  ContractInstanceWithAddress,
+  type ContractArtifact,
+  type ContractInstanceWithAddress,
   loadContractArtifact,
 } from "@aztec/aztec.js";
 import { AztecContext } from "../../aztecEnv";
@@ -41,7 +41,7 @@ import { CreateAuthwitDialog } from "./components/createAuthwitDialog";
 
 const container = css({
   display: "flex",
-  height: "100vh",
+  height: "calc(100vh - 50px)",
   width: "100%",
   overflow: "hidden",
   justifyContent: "center",
@@ -124,7 +124,6 @@ const loadingArtifactContainer = css({
 
 const FORBIDDEN_FUNCTIONS = [
   "process_log",
-  "compute_note_hash_and_optionally_a_nullifier",
   "sync_notes",
 ];
 

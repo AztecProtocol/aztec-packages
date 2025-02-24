@@ -1,5 +1,8 @@
-import { type AztecAddress, type EthAddress, type Fr, type FunctionSelector } from '@aztec/circuits.js';
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+import type { FunctionSelector } from '@aztec/circuits.js/abi';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type ZodFor, schemas } from '@aztec/circuits.js/schemas';
+import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { Fr } from '@aztec/foundation/fields';
 
 import { z } from 'zod';
 
@@ -36,8 +39,6 @@ export interface SequencerConfig {
   allowedInSetup?: AllowedElement[];
   /** Max block size */
   maxBlockSizeInBytes?: number;
-  /** Whether to require every tx to have a fee payer */
-  enforceFees?: boolean;
   /** Payload address to vote for */
   governanceProposerPayload?: EthAddress;
   /** Whether to enforce the time table when building blocks */
@@ -65,7 +66,6 @@ export const SequencerConfigSchema = z.object({
   acvmBinaryPath: z.string().optional(),
   allowedInSetup: z.array(AllowedElementSchema).optional(),
   maxBlockSizeInBytes: z.number().optional(),
-  enforceFees: z.boolean().optional(),
   governanceProposerPayload: schemas.EthAddress.optional(),
   maxL1TxInclusionTimeIntoSlot: z.number().optional(),
   enforceTimeTable: z.boolean().optional(),

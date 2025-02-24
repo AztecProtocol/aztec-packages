@@ -1,29 +1,29 @@
 import {
-  type AztecAddress,
-  CompleteAddress,
-  type ContractClassWithId,
-  ContractClassWithIdSchema,
-  type ContractInstanceWithAddress,
-  ContractInstanceWithAddressSchema,
-  type Fr,
-  GasFees,
-  L1_TO_L2_MSG_TREE_HEIGHT,
-  type NodeInfo,
-  NodeInfoSchema,
-  type PartialAddress,
-  type Point,
-  type ProtocolContractAddresses,
-  ProtocolContractAddressesSchema,
-} from '@aztec/circuits.js';
-import {
   type AbiDecoded,
   type AbiType,
   AbiTypeSchema,
   type ContractArtifact,
   ContractArtifactSchema,
   type EventSelector,
-} from '@aztec/foundation/abi';
-import { AbiDecodedSchema, type ApiSchemaFor, type ZodFor, optional, schemas } from '@aztec/foundation/schemas';
+} from '@aztec/circuits.js/abi';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import {
+  CompleteAddress,
+  type ContractClassWithId,
+  ContractClassWithIdSchema,
+  type ContractInstanceWithAddress,
+  ContractInstanceWithAddressSchema,
+  type NodeInfo,
+  NodeInfoSchema,
+  type PartialAddress,
+  type ProtocolContractAddresses,
+  ProtocolContractAddressesSchema,
+} from '@aztec/circuits.js/contract';
+import { GasFees } from '@aztec/circuits.js/gas';
+import { AbiDecodedSchema, schemas } from '@aztec/circuits.js/schemas';
+import { type ApiSchemaFor, type ZodFor, optional } from '@aztec/circuits.js/schemas';
+import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
+import type { Fr, Point } from '@aztec/foundation/fields';
 
 import { z } from 'zod';
 
@@ -38,7 +38,7 @@ import {
   type LogFilter,
   LogFilterSchema,
 } from '../logs/index.js';
-import { ExtendedNote, UniqueNote } from '../notes/index.js';
+import { UniqueNote } from '../notes/index.js';
 import { type NotesFilter, NotesFilterSchema } from '../notes/notes_filter.js';
 import { PrivateExecutionResult } from '../private_execution_result.js';
 import { SiblingPath } from '../sibling_path/sibling_path.js';
@@ -151,6 +151,15 @@ export interface PXE {
   registerContract(contract: { instance: ContractInstanceWithAddress; artifact?: ContractArtifact }): Promise<void>;
 
   /**
+   * Updates a deployed contract in the PXE Service. This is used to update the contract artifact when
+   * an update has happened, so the new code can be used in the simulation of local transactions.
+   * This is called by aztec.js when instantiating a contract in a given address with a mismatching artifact.
+   * @param contractAddress - The address of the contract to update.
+   * @param artifact - The updated artifact for the contract.
+   */
+  updateContract(contractAddress: AztecAddress, artifact: ContractArtifact): Promise<void>;
+
+  /**
    * Retrieves the addresses of contracts added to this PXE Service.
    * @returns An array of contracts addresses registered on this PXE Service.
    */
@@ -195,7 +204,7 @@ export interface PXE {
     simulatePublic: boolean,
     msgSender?: AztecAddress,
     skipTxValidation?: boolean,
-    enforceFeePayment?: boolean,
+    skipFeeEnforcement?: boolean,
     profile?: boolean,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult>;
@@ -265,24 +274,6 @@ export interface PXE {
    * @returns The membership witness for the message
    */
   getL2ToL1MembershipWitness(blockNumber: number, l2Tol1Message: Fr): Promise<[bigint, SiblingPath<number>]>;
-
-  /**
-   * Adds a note to the database.
-   * @throws If the note hash of the note doesn't exist in the tree.
-   * @param note - The note to add.
-   * @param scope - The scope to add the note under. Currently optional.
-   */
-  addNote(note: ExtendedNote, scope?: AztecAddress): Promise<void>;
-
-  /**
-   * Adds a nullified note to the database.
-   * @throws If the note hash of the note doesn't exist in the tree.
-   * @param note - The note to add.
-   * @dev We are not deriving a nullifier in this function since that would require having the nullifier secret key
-   * which is undesirable. Instead, we are just adding the note to the database as nullified and the nullifier is set
-   * to 0 in the db.
-   */
-  addNullifiedNote(note: ExtendedNote): Promise<void>;
 
   /**
    * Get the given block.
@@ -479,6 +470,7 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .function()
     .args(z.object({ instance: ContractInstanceWithAddressSchema, artifact: z.optional(ContractArtifactSchema) }))
     .returns(z.void()),
+  updateContract: z.function().args(schemas.AztecAddress, ContractArtifactSchema).returns(z.void()),
   getContracts: z.function().returns(z.array(schemas.AztecAddress)),
   proveTx: z.function().args(TxExecutionRequest.schema, PrivateExecutionResult.schema).returns(TxProvingResult.schema),
   simulateTx: z
@@ -509,8 +501,6 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .function()
     .args(z.number(), schemas.Fr)
     .returns(z.tuple([schemas.BigInt, SiblingPath.schema])),
-  addNote: z.function().args(ExtendedNote.schema, optional(schemas.AztecAddress)).returns(z.void()),
-  addNullifiedNote: z.function().args(ExtendedNote.schema).returns(z.void()),
   getBlock: z
     .function()
     .args(z.number())

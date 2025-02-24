@@ -1,17 +1,10 @@
 import {
   type AuthWitness,
-  type ContractClassMetadata,
-  type ContractMetadata,
-  type EventMetadataDefinition,
-  type ExtendedNote,
   type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
   type L2Block,
   type LogFilter,
   type NotesFilter,
-  type PXE,
-  type PXEInfo,
-  type PrivateExecutionResult,
   type SiblingPath,
   type Tx,
   type TxExecutionRequest,
@@ -22,17 +15,24 @@ import {
   type UniqueNote,
 } from '@aztec/circuit-types';
 import {
-  type AztecAddress,
-  type CompleteAddress,
-  type ContractInstanceWithAddress,
-  type Fr,
-  type GasFees,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-  type NodeInfo,
-  type PartialAddress,
-  type Point,
-} from '@aztec/circuits.js';
-import type { AbiDecoded, ContractArtifact } from '@aztec/foundation/abi';
+  type ContractClassMetadata,
+  type ContractMetadata,
+  type EventMetadataDefinition,
+  type PXE,
+  type PXEInfo,
+  type PrivateExecutionResult,
+} from '@aztec/circuit-types/interfaces/client';
+import type { AbiDecoded, ContractArtifact } from '@aztec/circuits.js/abi';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type {
+  CompleteAddress,
+  ContractInstanceWithAddress,
+  NodeInfo,
+  PartialAddress,
+} from '@aztec/circuits.js/contract';
+import type { GasFees } from '@aztec/circuits.js/gas';
+import { type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
+import type { Fr, Point } from '@aztec/foundation/fields';
 
 import { type Wallet } from '../account/wallet.js';
 import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
@@ -94,6 +94,9 @@ export abstract class BaseWallet implements Wallet {
   registerContractClass(artifact: ContractArtifact): Promise<void> {
     return this.pxe.registerContractClass(artifact);
   }
+  updateContract(contractAddress: AztecAddress, artifact: ContractArtifact): Promise<void> {
+    return this.pxe.updateContract(contractAddress, artifact);
+  }
   getContracts(): Promise<AztecAddress[]> {
     return this.pxe.getContracts();
   }
@@ -105,7 +108,7 @@ export abstract class BaseWallet implements Wallet {
     simulatePublic: boolean,
     msgSender?: AztecAddress,
     skipTxValidation?: boolean,
-    enforceFeePayment?: boolean,
+    skipFeeEnforcement?: boolean,
     profile?: boolean,
   ): Promise<TxSimulationResult> {
     return this.pxe.simulateTx(
@@ -113,7 +116,7 @@ export abstract class BaseWallet implements Wallet {
       simulatePublic,
       msgSender,
       skipTxValidation,
-      enforceFeePayment,
+      skipFeeEnforcement,
       profile,
       this.scopes,
     );
@@ -132,12 +135,6 @@ export abstract class BaseWallet implements Wallet {
   }
   getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any> {
     return this.pxe.getPublicStorageAt(contract, storageSlot);
-  }
-  addNote(note: ExtendedNote): Promise<void> {
-    return this.pxe.addNote(note, this.getAddress());
-  }
-  addNullifiedNote(note: ExtendedNote): Promise<void> {
-    return this.pxe.addNullifiedNote(note);
   }
   getBlock(number: number): Promise<L2Block | undefined> {
     return this.pxe.getBlock(number);

@@ -41,6 +41,13 @@ UltraProver_<Flavor>::UltraProver_(Builder& circuit)
     , commitment_key(proving_key->proving_key.commitment_key)
 {}
 
+template <IsUltraFlavor Flavor>
+UltraProver_<Flavor>::UltraProver_(Builder&& circuit)
+    : proving_key(std::make_shared<DeciderProvingKey>(circuit))
+    , transcript(std::make_shared<Transcript>())
+    , commitment_key(proving_key->proving_key.commitment_key)
+{}
+
 template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::export_proof()
 {
     proof = transcript->proof_data;

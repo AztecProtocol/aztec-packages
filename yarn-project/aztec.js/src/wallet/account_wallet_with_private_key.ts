@@ -1,5 +1,6 @@
-import { type PXE } from '@aztec/circuit-types';
-import { type Fr, computeAddressSecret, deriveMasterIncomingViewingSecretKey } from '@aztec/circuits.js';
+import { type PXE } from '@aztec/circuit-types/interfaces/client';
+import { computeAddressSecret, deriveMasterIncomingViewingSecretKey } from '@aztec/circuits.js/keys';
+import type { Fr } from '@aztec/foundation/fields';
 
 import { type Salt } from '../account/index.js';
 import { type AccountInterface } from '../account/interface.js';

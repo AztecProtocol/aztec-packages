@@ -11,23 +11,14 @@ import { getLogLevelFromFilters, parseEnv } from './log-filters.js';
 import { type LogLevel } from './log-levels.js';
 import { type LogData, type LogFn } from './log_fn.js';
 
-export function createLogger(module: string, fixedTerms = {}): Logger {
+export function createLogger(module: string): Logger {
   module = logNameHandlers.reduce((moduleName, handler) => handler(moduleName), module.replace(/^aztec:/, ''));
   const pinoLogger = logger.child({ module }, { level: getLogLevelFromFilters(logFilters, module) });
-
-  // Only perform copy of data if fixed terms are provided
-  const hasFixedTerms = Object.keys(fixedTerms).length > 0;
 
   // We check manually for isLevelEnabled to avoid calling processLogData unnecessarily.
   // Note that isLevelEnabled is missing from the browser version of pino.
   const logFn = (level: LogLevel, msg: string, data?: unknown) =>
-    isLevelEnabled(pinoLogger, level) &&
-    pinoLogger[level](
-      hasFixedTerms
-        ? processLogData({ ...fixedTerms, ...(data ?? {}) } as LogData)
-        : processLogData((data as LogData) ?? {}),
-      msg,
-    );
+    isLevelEnabled(pinoLogger, level) && pinoLogger[level](processLogData((data as LogData) ?? {}), msg);
 
   return {
     silent: () => {},
@@ -83,6 +74,15 @@ export function removeLogNameHandler(handler: LogNameHandler) {
   }
 }
 
+/** Creates all loggers within the given callback with the suffix appended to the module name. */
+export async function withLogNameSuffix<T>(suffix: string, callback: () => Promise<T>): Promise<T> {
+  const logNameHandler = (module: string) => `${module}:${suffix}`;
+  addLogNameHandler(logNameHandler);
+  const result = await callback();
+  removeLogNameHandler(logNameHandler);
+  return result;
+}
+
 // Patch isLevelEnabled missing from pino/browser.
 function isLevelEnabled(logger: pino.Logger<'verbose', boolean>, level: LogLevel): boolean {
   return typeof logger.isLevelEnabled === 'function'
@@ -92,7 +92,7 @@ function isLevelEnabled(logger: pino.Logger<'verbose', boolean>, level: LogLevel
 
 // Load log levels from environment variables.
 const defaultLogLevel = process.env.NODE_ENV === 'test' ? 'silent' : 'info';
-const [logLevel, logFilters] = parseEnv(process.env.LOG_LEVEL, defaultLogLevel);
+export const [logLevel, logFilters] = parseEnv(process.env.LOG_LEVEL, defaultLogLevel);
 
 // Define custom logging levels for pino.
 const customLevels = { verbose: 25 };
@@ -178,7 +178,7 @@ function makeLogger() {
   }
 }
 
-const logger = makeLogger();
+export const logger = makeLogger();
 
 // Log the logger configuration.
 logger.verbose(

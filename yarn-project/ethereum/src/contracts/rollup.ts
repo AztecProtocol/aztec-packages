@@ -231,14 +231,6 @@ export class RollupContract {
     return this.rollup.read.getEpochProofPublicInputs(args);
   }
 
-  public async getEpochToProve(): Promise<bigint | undefined> {
-    try {
-      return await this.rollup.read.getEpochToProve();
-    } catch (err: unknown) {
-      throw formatViemError(err);
-    }
-  }
-
   public async validateHeader(
     args: readonly [
       `0x${string}`,
@@ -287,5 +279,10 @@ export class RollupContract {
     } catch (err: unknown) {
       throw formatViemError(err);
     }
+  }
+
+  /** Calls getHasSubmitted directly. Returns whether the given prover has submitted a proof with the given length for the given epoch. */
+  public getHasSubmittedProof(epochNumber: number, numberOfBlocksInEpoch: number, prover: EthAddress) {
+    return this.rollup.read.getHasSubmitted([BigInt(epochNumber), BigInt(numberOfBlocksInEpoch), prover.toString()]);
   }
 }

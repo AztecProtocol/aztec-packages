@@ -1,24 +1,24 @@
 import { TestCircuitVerifier } from '@aztec/bb-prover';
 import {
-  type AztecNode,
   type L1ToL2MessageSource,
   type L2BlockSource,
   type L2LogsSource,
   MerkleTreeId,
-  type MerkleTreeReadOperations,
   type NullifierWithBlockSource,
-  type WorldStateSynchronizer,
-  mockTxForRollup,
 } from '@aztec/circuit-types';
-import {
-  type ContractDataSource,
-  EthAddress,
-  Fr,
-  GasFees,
-  MaxBlockNumber,
-  RollupValidationRequests,
-} from '@aztec/circuits.js';
+import { type AztecNode } from '@aztec/circuit-types/interfaces/client';
+import { type MerkleTreeReadOperations, type WorldStateSynchronizer } from '@aztec/circuit-types/interfaces/server';
+import { mockTx } from '@aztec/circuit-types/testing';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { ContractDataSource } from '@aztec/circuits.js/contract';
+import { GasFees } from '@aztec/circuits.js/gas';
+import { RollupValidationRequests } from '@aztec/circuits.js/kernel';
+import { PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
+import { MaxBlockNumber } from '@aztec/circuits.js/tx';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 import { type P2P } from '@aztec/p2p';
+import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { type GlobalVariableBuilder } from '@aztec/sequencer-client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -30,15 +30,27 @@ describe('aztec node', () => {
   let p2p: MockProxy<P2P>;
   let globalVariablesBuilder: MockProxy<GlobalVariableBuilder>;
   let merkleTreeOps: MockProxy<MerkleTreeReadOperations>;
-
   let lastBlockNumber: number;
-
   let node: AztecNode;
+  let feePayer: AztecAddress;
 
   const chainId = new Fr(12345);
 
-  beforeEach(() => {
+  const mockTxForRollup = async (seed: number) => {
+    return await mockTx(seed, {
+      numberOfNonRevertiblePublicCallRequests: 0,
+      numberOfRevertiblePublicCallRequests: 0,
+      feePayer,
+    });
+  };
+
+  beforeEach(async () => {
     lastBlockNumber = 0;
+
+    feePayer = await AztecAddress.random();
+    const feePayerSlot = await computeFeePayerBalanceLeafSlot(feePayer);
+    const feePayerSlotIndex = 87654n;
+    const feePayerBalance = 10n ** 20n;
 
     p2p = mock<P2P>();
 
@@ -51,6 +63,22 @@ describe('aztec node', () => {
         return Promise.resolve([1n]);
       } else {
         return Promise.resolve([undefined]);
+      }
+    });
+    merkleTreeOps.getPreviousValueIndex.mockImplementation((treeId: MerkleTreeId, value: bigint) => {
+      if (treeId === MerkleTreeId.PUBLIC_DATA_TREE && value === feePayerSlot.toBigInt()) {
+        return Promise.resolve({ index: feePayerSlotIndex, alreadyPresent: true });
+      } else {
+        return Promise.resolve(undefined);
+      }
+    });
+    merkleTreeOps.getLeafPreimage.mockImplementation((treeId: MerkleTreeId, index: bigint) => {
+      if (treeId === MerkleTreeId.PUBLIC_DATA_TREE && index === feePayerSlotIndex) {
+        return Promise.resolve(
+          new PublicDataTreeLeafPreimage(feePayerSlot, new Fr(feePayerBalance), Fr.random(), feePayerSlotIndex + 1n),
+        );
+      } else {
+        return Promise.resolve(undefined);
       }
     });
 

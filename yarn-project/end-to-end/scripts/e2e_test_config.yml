@@ -13,6 +13,7 @@ tests:
   e2e_bot: {}
   e2e_card_game: {}
   e2e_cheat_codes: {}
+  e2e_contract_updates: {}
   e2e_cross_chain_messaging: {}
   e2e_crowdfunding_and_claim: {}
   e2e_deploy_contract: {}
@@ -44,8 +45,8 @@ tests:
   e2e_multiple_accounts_1_enc_key: {}
   e2e_nested_contract: {}
   e2e_nft: {}
-  e2e_non_contract_account: {}
   e2e_note_getter: {}
+  e2e_offchain_note_delivery: {}
   e2e_ordering: {}
   e2e_outbox: {}
   # TODO reenable in https://github.com/AztecProtocol/aztec-packages/pull/9727

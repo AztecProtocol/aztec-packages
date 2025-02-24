@@ -122,9 +122,11 @@ class AvmExecutionTests : public ::testing::Test {
         auto tagging_key = grumpkin::g1::affine_one;
         PublicKeysHint public_keys{ nullifier_key, incoming_viewing_key, outgoing_viewing_key, tagging_key };
         ContractInstanceHint contract_instance = {
-            FF::one() /* temp address */,    true /* exists */, FF(2) /* salt */, FF(3) /* deployer_addr */, class_id,
+            FF::one() /* temp address */,    true /* exists */, FF(2) /* salt */, FF(3) /* deployer_addr */, class_id, class_id,
             FF(8) /* initialisation_hash */, public_keys,
             /*membership_hint=*/ { .low_leaf_preimage = { .nullifier = 0, .next_nullifier = 0, .next_index = 0, }, .low_leaf_index = 0, .low_leaf_sibling_path = {} },
+            /* update_hint*/ { .leaf_preimage = { .slot = 0, .value = 0,  .next_index = 0, .next_slot = 0, }, .leaf_index = 0, .sibling_path = {} },
+            /* update_preimage */ {},
         };
         FF address = AvmBytecodeTraceBuilder::compute_address_from_instance(contract_instance);
         contract_instance.address = address;
@@ -1232,101 +1234,6 @@ TEST_F(AvmExecutionTests, embeddedCurveAddOpCode)
     validate_trace(std::move(trace), public_inputs, calldata, returndata);
 }
 
-// Positive test with MSM
-TEST_F(AvmExecutionTests, msmOpCode)
-{
-    grumpkin::g1::affine_element a = grumpkin::g1::affine_element::random_element();
-    FF a_is_inf = a.is_point_at_infinity();
-    grumpkin::g1::affine_element b = grumpkin::g1::affine_element::random_element();
-    FF b_is_inf = b.is_point_at_infinity();
-
-    grumpkin::g1::Fr scalar_a = grumpkin::g1::Fr::random_element();
-    FF scalar_a_lo = uint256_t::from_uint128(uint128_t(scalar_a));
-    FF scalar_a_hi = uint256_t(scalar_a) >> 128;
-    grumpkin::g1::Fr scalar_b = grumpkin::g1::Fr::random_element();
-    FF scalar_b_lo = uint256_t::from_uint128(uint128_t(scalar_b));
-    FF scalar_b_hi = uint256_t(scalar_b) >> 128;
-    auto expected_result = a * scalar_a + b * scalar_b;
-    std::vector<FF> expected_output = { expected_result.x, expected_result.y, expected_result.is_point_at_infinity() };
-    // Send all the input as Fields and cast them to U8 later
-    std::vector<FF> calldata = { FF(a.x),  FF(a.y),     a_is_inf,    FF(b.x),     FF(b.y),
-                                 b_is_inf, scalar_a_lo, scalar_a_hi, scalar_b_lo, scalar_b_hi };
-
-    std::string bytecode_hex = to_hex(OpCode::SET_8) +          // opcode SET
-                               "00"                             // Indirect flag
-                               "00"                             // dst_offset
-                               + to_hex(AvmMemoryTag::U32) +    //
-                               "00"                             // val
-                               + to_hex(OpCode::SET_8) +        // opcode SET
-                               "00"                             // Indirect flag
-                               "01"                             //
-                               + to_hex(AvmMemoryTag::U32) +    //
-                               "0A"                             // val
-                               + to_hex(OpCode::CALLDATACOPY) + // Calldatacopy
-                               "00"                             // Indirect flag
-                               "0000"                           // cd_offset 0
-                               "0001"                           // copy_size (10 elements)
-                               "0000"                           // dst_offset 0
-                               + to_hex(OpCode::CAST_8) +       // opcode CAST inf to U8
-                               "00"                             // Indirect flag
-                               "02"                             // a_is_inf
-                               "02"                             //
-                               + to_hex(AvmMemoryTag::U1) +     //
-                               to_hex(OpCode::CAST_8) +         // opcode CAST inf to U8
-                               "00"                             // Indirect flag
-                               "05"                             // b_is_inf
-                               "05"                             //
-                               + to_hex(AvmMemoryTag::U1) +     //
-                               to_hex(OpCode::SET_8) +          // opcode SET for length
-                               "00"                             // Indirect flag
-                               "0b"                             // dst offset (11)
-                               + to_hex(AvmMemoryTag::U32) +    //
-                               "06"                             // Length of point elements (6)
-                               + to_hex(OpCode::SET_8) +        // SET Indirects
-                               "00"                             // Indirect flag
-                               "0d"                             // dst offset +
-                               + to_hex(AvmMemoryTag::U32) +    //
-                               "00"                             // points offset
-                               + to_hex(OpCode::SET_8) +        // SET Indirects
-                               "00"                             // Indirect flag
-                               "0e"                             // dst offset
-                               + to_hex(AvmMemoryTag::U32) +    //
-                               "06"                             // scalars offset
-                               + to_hex(OpCode::SET_8) +        // SET Indirects
-                               "00"                             // Indirect flag
-                               "0f"                             // dst offset
-                               + to_hex(AvmMemoryTag::U32) +    //
-                               "0c"                             // output offset
-                               + to_hex(OpCode::MSM) +          // opcode MSM
-                               "07"                             // Indirect flag (first 3 indirect)
-                               "000d"                           // points offset
-                               "000e"                           // scalars offset
-                               "000f"                           // output offset
-                               "000b"                           // length offset
-                               + to_hex(OpCode::SET_16) +       // opcode SET (for return size)
-                               "00"                             // Indirect flag
-                               "0200"                           // dst_offset=512
-                               + to_hex(AvmMemoryTag::U32) +    //
-                               "0003"                           // val: 3
-                               + to_hex(OpCode::RETURN) +       // opcode RETURN
-                               "00"                             // Indirect flag
-                               "000c"                           // ret offset 12 (this overwrites)
-                               "0200";                          // ret size offset 512
-
-    auto bytecode = hex_to_bytes(bytecode_hex);
-    auto [instructions, error] = Deserialization::parse_bytecode_statically(bytecode);
-    ASSERT_TRUE(is_ok(error));
-
-    // Assign a vector that we will mutate internally in gen_trace to store the return values;
-    std::vector<FF> returndata;
-    ExecutionHints execution_hints;
-    auto trace = gen_trace(bytecode, calldata, public_inputs, returndata, execution_hints);
-
-    EXPECT_EQ(returndata, expected_output);
-
-    validate_trace(std::move(trace), public_inputs, calldata, returndata);
-}
-
 // Positive test for Kernel Input opcodes
 TEST_F(AvmExecutionTests, getEnvOpcode)
 {
@@ -2293,10 +2200,13 @@ TEST_F(AvmExecutionTests, opGetContractInstanceOpcode)
         .exists = true,
         .salt = 2,
         .deployer_addr = 42,
-        .contract_class_id = 66,
+        .current_contract_class_id = 66,
+        .original_contract_class_id = 66,
         .initialisation_hash = 99,
         .public_keys = public_keys_hints,
-        .membership_hint = { .low_leaf_preimage = { .nullifier = 0, .next_nullifier = 0, .next_index = 0, }, .low_leaf_index = 0, .low_leaf_sibling_path = {} },
+        .initialization_membership_hint = { .low_leaf_preimage = { .nullifier = 0, .next_nullifier = 0, .next_index = 0, }, .low_leaf_index = 0, .low_leaf_sibling_path = {} },
+        .update_membership_hint = { .leaf_preimage = { .slot = 0, .value = 0,  .next_index = 0, .next_slot = 0, }, .leaf_index = 0, .sibling_path = {} },
+        .update_preimage = {}
     };
     auto execution_hints = ExecutionHints().with_contract_instance_hints({ { address, instance } });
 
@@ -2341,7 +2251,7 @@ TEST_F(AvmExecutionTests, opGetContractInstanceOpcode)
     std::vector<FF> const calldata{};
     // alternating member value, exists bool
     std::vector<FF> const expected_returndata = {
-        instance.deployer_addr, 1, instance.contract_class_id, 1, instance.initialisation_hash, 1,
+        instance.deployer_addr, 1, instance.current_contract_class_id, 1, instance.initialisation_hash, 1,
     };
 
     std::vector<FF> returndata{};

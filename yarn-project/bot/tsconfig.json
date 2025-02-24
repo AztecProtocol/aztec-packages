@@ -22,6 +22,9 @@
       "path": "../entrypoints"
     },
     {
+      "path": "../ethereum"
+    },
+    {
       "path": "../foundation"
     },
     {
@@ -35,9 +38,6 @@
     },
     {
       "path": "../telemetry-client"
-    },
-    {
-      "path": "../types"
     }
   ],
   "include": ["src"]

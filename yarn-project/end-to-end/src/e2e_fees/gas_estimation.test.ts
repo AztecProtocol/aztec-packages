@@ -6,7 +6,7 @@ import {
   type FeePaymentMethod,
   PublicFeePaymentMethod,
 } from '@aztec/aztec.js';
-import { GasSettings } from '@aztec/circuits.js';
+import { GasSettings } from '@aztec/circuits.js/gas';
 import { type Logger } from '@aztec/foundation/log';
 import { type FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
@@ -30,7 +30,6 @@ describe('e2e_fees gas_estimation', () => {
     await t.applyBaseSnapshots();
     await t.applyFPCSetupSnapshot();
     await t.applyFundAliceWithBananas();
-    await t.applyFundAliceWithFeeJuice();
     ({ aliceWallet, aliceAddress, bobAddress, bananaCoin, bananaFPC, gasSettings, logger } = await t.setup());
 
     // We let Alice see Bob's notes because the expect uses Alice's wallet to interact with the contracts to "get" state.

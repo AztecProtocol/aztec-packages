@@ -45,7 +45,10 @@ function compile_all {
   if cache_download yarn-project-$hash.tar.gz; then
     return
   fi
-  compile_project ::: foundation circuits.js types builder ethereum l1-artifacts
+  # hack, after running prettier foundation may fail to resolve hash.js dependency.
+  # it is only currently foundation, presumably because hash.js looks like a js file.
+  rm -rf foundation/node_modules
+  compile_project ::: constants foundation circuits.js builder ethereum l1-artifacts
 
   # Call all projects that have a generation stage.
   parallel --joblog joblog.txt --line-buffered --tag 'cd {} && yarn generate' ::: \
@@ -53,14 +56,12 @@ function compile_all {
     circuit-types \
     circuits.js \
     ivc-integration \
-    kv-store \
     l1-artifacts \
     native \
     noir-contracts.js \
     noir-protocol-circuits-types \
     protocol-contracts \
-    pxe \
-    types
+    pxe
   cat joblog.txt
 
   get_projects | compile_project
@@ -89,7 +90,14 @@ export -f compile_project format lint get_projects compile_all hash
 function build {
   echo_header "yarn-project build"
   denoise "./bootstrap.sh clean-lite"
-  denoise "retry yarn install"
+  if [ "${CI:-0}" = 1 ]; then
+    # If in CI mode, retry as bcrypto can sometimes fail mysteriously.
+    # We set immutable since we don't expect the yarn.lock to change. Note that we have also added all package.json
+    # files to yarn immutablePatterns, so if they are also changed, this step will fail.
+    denoise "retry yarn install --immutable"
+  else
+    denoise "yarn install"
+  fi
   denoise "compile_all"
   echo -e "${green}Yarn project successfully built!${reset}"
 }
@@ -112,6 +120,7 @@ function test_cmds {
 
   # Uses mocha for browser tests, so we have to treat it differently.
   echo "$hash cd yarn-project/kv-store && yarn test"
+  echo "$hash cd yarn-project/ivc-integration && yarn test:browser"
 }
 
 function test {

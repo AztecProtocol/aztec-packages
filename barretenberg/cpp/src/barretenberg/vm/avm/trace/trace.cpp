@@ -171,9 +171,57 @@ std::vector<uint8_t> AvmTraceBuilder::get_bytecode_from_hints(const FF contract_
     // TODO: still need to make sure that the contract address does correspond to this class id
     const AvmContractBytecode bytecode_hint =
         *std::ranges::find_if(execution_hints.all_contract_bytecode, [contract_class_id](const auto& contract) {
-            return contract.contract_instance.contract_class_id == contract_class_id;
+            return contract.contract_instance.current_contract_class_id == contract_class_id;
         });
     return bytecode_hint.bytecode;
+}
+
+void AvmTraceBuilder::validate_contract_instance_current_class_id(uint32_t clk, const ContractInstanceHint& instance)
+{
+    if (is_canonical(instance.address)) {
+        return;
+    }
+    // First validate the update_preimage against the public data tree
+    PublicDataReadTreeHint read_hint = instance.update_membership_hint;
+
+    const FF shared_mutable_slot = Poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, instance.address });
+    const FF hash_slot = shared_mutable_slot + UPDATES_SHARED_MUTABLE_VALUES_LEN;
+    const FF hash_leaf_slot =
+        AvmMerkleTreeTraceBuilder::unconstrained_compute_public_tree_leaf_slot(DEPLOYER_CONTRACT_ADDRESS, hash_slot);
+    bool exists = read_hint.leaf_preimage.slot == hash_leaf_slot;
+
+    bool is_member = merkle_tree_trace_builder.perform_storage_read(
+        clk, read_hint.leaf_preimage, read_hint.leaf_index, read_hint.sibling_path);
+    // membership check must always pass
+    ASSERT(is_member);
+
+    if (exists) {
+        const FF reproduced_hash = Poseidon2::hash(instance.update_preimage);
+        ASSERT(reproduced_hash == read_hint.leaf_preimage.value);
+    } else {
+        AvmMerkleTreeTraceBuilder::assert_public_data_non_membership_check(read_hint.leaf_preimage, hash_leaf_slot);
+        // ensure instance.update_preimage is all zeroes
+        ASSERT(std::all_of(
+            instance.update_preimage.begin(), instance.update_preimage.end(), [](const auto& x) { return x == 0; }));
+    }
+
+    // update_preimage is validated, now validate the contract class id
+    FF expected_current_class_id;
+    const FF prev_value = instance.update_preimage[1];
+    const FF next_value = instance.update_preimage[2];
+    // block_of_change is packed into the first field along with ScheduledDelayChange as [ sdc.pre_inner: u32 |
+    // sdc.pre_is_some: u8 | sdc.post_inner: u32 | sdc.post_is_some: u8 | sdc.block_of_change: u32 |
+    // svc.block_of_change: u32 ]. Extract just the lowest 32 bits which contain svc.block_of_change by casting to u32
+    const uint32_t block_of_change = static_cast<uint32_t>(instance.update_preimage[0]);
+
+    // Fourth item is related to update delays which we don't care.
+    if (static_cast<uint32_t>(public_inputs.global_variables.block_number) < block_of_change) {
+        // original class id was validated against the address
+        expected_current_class_id = prev_value == 0 ? instance.original_contract_class_id : prev_value;
+    } else {
+        expected_current_class_id = next_value == 0 ? instance.original_contract_class_id : next_value;
+    }
+    ASSERT(expected_current_class_id == instance.current_contract_class_id);
 }
 
 std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address, bool check_membership)
@@ -182,11 +230,11 @@ std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address, bo
 
     ASSERT(execution_hints.contract_instance_hints.contains(contract_address));
     const ContractInstanceHint instance_hint = execution_hints.contract_instance_hints.at(contract_address);
-    const FF contract_class_id = instance_hint.contract_class_id;
+    const FF contract_class_id = instance_hint.current_contract_class_id;
 
     bool exists = true;
     if (check_membership && !is_canonical(contract_address)) {
-        if (bytecode_membership_cache.find(contract_address) != bytecode_membership_cache.end()) {
+        if (contract_instance_membership_cache.find(contract_address) != contract_instance_membership_cache.end()) {
             // If we have already seen the contract address, we can skip the membership check and used the cached
             // membership proof
             vinfo("Found bytecode for contract address in cache: ", contract_address);
@@ -195,7 +243,7 @@ std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address, bo
         const auto contract_address_nullifier = AvmMerkleTreeTraceBuilder::unconstrained_silo_nullifier(
             DEPLOYER_CONTRACT_ADDRESS, /*nullifier=*/contract_address);
         // nullifier read hint for the contract address
-        NullifierReadTreeHint nullifier_read_hint = instance_hint.membership_hint;
+        NullifierReadTreeHint nullifier_read_hint = instance_hint.initialization_membership_hint;
 
         // If the hinted preimage matches the contract address nullifier, the membership check will prove its existence,
         // otherwise the membership check will prove that a low-leaf exists that skips the contract address nullifier.
@@ -212,7 +260,7 @@ std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address, bo
             // This was a membership proof!
             // Assert that the hint's exists flag matches. The flag isn't really necessary...
             ASSERT(instance_hint.exists);
-            bytecode_membership_cache.insert(contract_address);
+            contract_instance_membership_cache.insert(contract_address);
 
             // The cache contains all the unique contract class ids we have seen so far
             // If this bytecode retrievals have reached the number of unique contract class IDs, can't make
@@ -223,7 +271,8 @@ std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address, bo
                      MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS);
                 throw std::runtime_error("Limit reached for contract calls to unique class id.");
             }
-            contract_class_id_cache.insert(instance_hint.contract_class_id);
+            contract_class_id_cache.insert(instance_hint.current_contract_class_id);
+            validate_contract_instance_current_class_id(clk, instance_hint);
             return get_bytecode_from_hints(contract_class_id);
         } else {
             // This was a non-membership proof!
@@ -311,11 +360,6 @@ void AvmTraceBuilder::pay_fee()
     auto total_fee_per_l2_gas = gas_fees.fee_per_l2_gas + priority_fee_per_l2_gas;
     auto tx_fee = (total_fee_per_da_gas * public_inputs.end_gas_used.da_gas) +
                   (total_fee_per_l2_gas * public_inputs.end_gas_used.l2_gas);
-
-    if (public_inputs.fee_payer == 0) {
-        vinfo("No one is paying the fee of ", tx_fee);
-        return;
-    }
 
     // ** Compute the storage slot **
     // using the base slot of the balances map and the fee payer address (map key)
@@ -3507,12 +3551,13 @@ AvmError AvmTraceBuilder::op_get_contract_instance(
         // Read the contract instance hint
         ContractInstanceHint instance = execution_hints.contract_instance_hints.at(contract_address);
 
-        if (is_canonical(contract_address)) {
-            // skip membership check for canonical contracts
+        if (is_canonical(contract_address) ||
+            (contract_instance_membership_cache.find(contract_address) != contract_instance_membership_cache.end())) {
+            // skip membership check for canonical contracts and contracts already verified
             exists = true;
         } else {
             // nullifier read hint for the contract address
-            NullifierReadTreeHint nullifier_read_hint = instance.membership_hint;
+            NullifierReadTreeHint nullifier_read_hint = instance.initialization_membership_hint;
 
             // If the hinted preimage matches the contract address nullifier, the membership check will prove its
             // existence, otherwise the membership check will prove that a low-leaf exists that skips the contract
@@ -3539,6 +3584,9 @@ AvmError AvmTraceBuilder::op_get_contract_instance(
                        (nullifier_read_hint.low_leaf_preimage.next_nullifier == FF::zero() ||
                         contract_address_nullifier > nullifier_read_hint.low_leaf_preimage.next_nullifier));
             }
+            validate_contract_instance_current_class_id(clk, instance);
+
+            contract_instance_membership_cache.insert(contract_address);
         }
 
         if (exists) {
@@ -3547,7 +3595,7 @@ AvmError AvmTraceBuilder::op_get_contract_instance(
                 member_value = instance.deployer_addr;
                 break;
             case ContractInstanceMember::CLASS_ID:
-                member_value = instance.contract_class_id;
+                member_value = instance.current_contract_class_id;
                 break;
             case ContractInstanceMember::INIT_HASH:
                 member_value = instance.initialisation_hash;
@@ -4784,162 +4832,6 @@ AvmError AvmTraceBuilder::op_ec_add(uint16_t indirect,
     // Crucial to perform this operation after having incremented pc because write_to_memory
     // is implemented with opcodes (SET and JUMP).
     // Write point coordinates
-    write_to_memory(resolved_output_offset, result.x, AvmMemoryTag::FF);
-    write_to_memory(resolved_output_offset + 1, result.y, AvmMemoryTag::FF);
-    write_to_memory(resolved_output_offset + 2, result.is_point_at_infinity(), AvmMemoryTag::U1);
-
-    return AvmError::NO_ERROR;
-}
-
-AvmError AvmTraceBuilder::op_variable_msm(uint8_t indirect,
-                                          uint32_t points_offset,
-                                          uint32_t scalars_offset,
-                                          uint32_t output_offset,
-                                          uint32_t point_length_offset)
-{
-    // We keep the first encountered error
-    AvmError error = AvmError::NO_ERROR;
-
-    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    auto [resolved_addrs, res_error] =
-        Addressing<4>::fromWire(indirect, call_ptr)
-            .resolve({ points_offset, scalars_offset, output_offset, point_length_offset }, mem_trace_builder);
-    auto [resolved_points_offset, resolved_scalars_offset, resolved_output_offset, resolved_point_length_offset] =
-        resolved_addrs;
-    error = res_error;
-
-    if (is_ok(error) && !check_tag(AvmMemoryTag::U32, resolved_point_length_offset)) {
-        error = AvmError::CHECK_TAG_ERROR;
-    }
-
-    const FF points_length = is_ok(error) ? unconstrained_read_from_memory(resolved_point_length_offset) : 0;
-
-    // Unconstrained check that points_length must be a multiple of 3.
-    if (is_ok(error) && static_cast<uint32_t>(points_length) % 3 != 0) {
-        error = AvmError::MSM_POINTS_LEN_INVALID;
-    }
-
-    if (is_ok(error) && !check_slice_mem_range(resolved_points_offset, static_cast<uint32_t>(points_length))) {
-        error = AvmError::MEM_SLICE_OUT_OF_RANGE;
-    }
-
-    // Points are stored as [x1, y1, inf1, x2, y2, inf2, ...] with the types [FF, FF, U8, FF, FF, U8, ...]
-    const uint32_t num_points = uint32_t(points_length) / 3; // 3 elements per point
-    // We need to split up the reads due to the memory tags,
-    std::vector<FF> points_coords_vec;
-    std::vector<FF> points_inf_vec;
-    std::vector<FF> scalars_vec;
-
-    for (uint32_t i = 0; i < num_points; i++) {
-        if (is_ok(error) && !check_tag_range(AvmMemoryTag::FF, resolved_points_offset + 3 * i, 2)) {
-            error = AvmError::CHECK_TAG_ERROR;
-        }
-
-        if (is_ok(error) && !check_tag(AvmMemoryTag::U1, resolved_points_offset + 3 * i + 2)) {
-            error = AvmError::CHECK_TAG_ERROR;
-        }
-    }
-
-    // Scalar read length is num_points* 2 since scalars are stored as lo and hi limbs
-    uint32_t scalar_read_length = num_points * 2;
-
-    if (is_ok(error) && !check_slice_mem_range(resolved_scalars_offset, static_cast<uint32_t>(scalar_read_length))) {
-        error = AvmError::MEM_SLICE_OUT_OF_RANGE;
-    }
-
-    if (is_ok(error) && !check_tag_range(AvmMemoryTag::FF, resolved_scalars_offset, scalar_read_length)) {
-        error = AvmError::CHECK_TAG_ERROR;
-    }
-
-    // TODO(dbanks12): length needs to fit into u32 here or it will certainly
-    // run out of gas. Casting/truncating here is not secure.
-    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::MSM, static_cast<uint32_t>(points_length));
-    if (out_of_gas && is_ok(error)) {
-        error = AvmError::OUT_OF_GAS;
-    }
-
-    if (!is_ok(error)) {
-        main_trace.push_back(Row{
-            .main_clk = clk,
-            .main_call_ptr = call_ptr,
-            .main_internal_return_ptr = FF(internal_return_ptr),
-            .main_op_err = FF(1),
-            .main_pc = FF(pc),
-            .main_sel_op_msm = 1,
-        });
-
-        return error;
-    }
-
-    // Loading the points is a bit more complex since we need to read the coordinates and the infinity flags
-    // separately The current circuit constraints does not allow for multiple memory tags to be loaded from within
-    // the same row. If we could we would be able to replace the following loops with a single read_slice_to_memory
-    // call. For now we load the coordinates first and then the infinity flags, and finally splice them together
-    // when creating the points
-
-    // Read the coordinates first, +2 since we read 2 points per row, the first load could be indirect
-    for (uint32_t i = 0; i < num_points; i++) {
-        auto point_x1 = unconstrained_read_from_memory(resolved_points_offset + 3 * i);
-        auto point_y1 = unconstrained_read_from_memory(resolved_points_offset + 3 * i + 1);
-        auto infty = unconstrained_read_from_memory(resolved_points_offset + 3 * i + 2);
-        points_coords_vec.insert(points_coords_vec.end(), { point_x1, point_y1 });
-        points_inf_vec.emplace_back(infty);
-    }
-
-    // Scalars are easy to read since they are stored as [lo1, hi1, lo2, hi2, ...] with the types [FF, FF, FF,FF,
-    // ...]
-    const auto slice_err = read_slice_from_memory(resolved_scalars_offset, scalar_read_length, scalars_vec);
-
-    // This slice is not out of memory range, otherwise an error would be returned above. (check_slice_mem_range())
-    ASSERT(slice_err == AvmError::NO_ERROR);
-
-    // Reconstruct Grumpkin points
-    std::vector<grumpkin::g1::affine_element> points;
-    for (size_t i = 0; i < num_points; i++) {
-        grumpkin::g1::Fq x = points_coords_vec[i * 2];
-        grumpkin::g1::Fq y = points_coords_vec[i * 2 + 1];
-        bool is_inf = points_inf_vec[i] == 1;
-        if (is_inf) {
-            points.emplace_back(grumpkin::g1::affine_element::infinity());
-        } else {
-            points.emplace_back(x, y);
-            // Unconstrained check that this point lies on the Grumpkin curve.
-            if (!points.back().on_curve()) {
-                return AvmError::MSM_POINT_NOT_ON_CURVE;
-            }
-        }
-    }
-    // Reconstruct Grumpkin scalars
-    // Scalars are stored as [lo1, hi1, lo2, hi2, ...] with the types [FF, FF, FF, FF, ...]
-    std::vector<grumpkin::fr> scalars;
-    for (size_t i = 0; i < num_points; i++) {
-        FF lo = scalars_vec[i * 2];
-        FF hi = scalars_vec[i * 2 + 1];
-        // hi is shifted 128 bits
-        uint256_t scalar = (uint256_t(hi) << 128) + uint256_t(lo);
-        scalars.emplace_back(scalar);
-    }
-    // Perform the variable MSM - could just put the logic in here since there are no constraints.
-    auto result = ecc_trace_builder.variable_msm(points, scalars, clk);
-
-    main_trace.push_back(Row{
-        .main_clk = clk,
-        .main_call_ptr = call_ptr,
-        .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_pc = FF(pc),
-        .main_sel_op_msm = 1,
-        .main_tag_err = FF(0),
-    });
-
-    pc += Deserialization::get_pc_increment(OpCode::MSM);
-
-    if (!check_slice_mem_range(resolved_output_offset, 3)) {
-        return AvmError::MEM_SLICE_OUT_OF_RANGE;
-    }
-
-    // Crucial to perform this operation after having incremented pc because write_to_memory
-    // is implemented with opcodes (SET and JUMP).
-    // Write the result back to memory [x, y, inf] with tags [FF, FF, U8]
     write_to_memory(resolved_output_offset, result.x, AvmMemoryTag::FF);
     write_to_memory(resolved_output_offset + 1, result.y, AvmMemoryTag::FF);
     write_to_memory(resolved_output_offset + 2, result.is_point_at_infinity(), AvmMemoryTag::U1);

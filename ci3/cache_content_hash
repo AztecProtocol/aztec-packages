@@ -45,6 +45,10 @@ diff="$({
 
 # Check for uncommitted files/changes
 if [ -n "$diff" ]; then
+  # Fail. We shouldn't be writing files during the build.
+  if [ "${CI:-0}" = 1 ]; then
+    echo_stderr "WARNING: Noticed changes to rebuild patterns: $diff"
+  fi
   # Signal to cache_upload and cache_download to not touch this file.
   echo "disabled-cache"
   exit 0

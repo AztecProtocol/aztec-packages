@@ -1,5 +1,5 @@
-import { type EthAddress } from '@aztec/circuits.js';
 import { type Buffer32 } from '@aztec/foundation/buffer';
+import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type Signature } from '@aztec/foundation/eth-signature';
 
 /** Key Store

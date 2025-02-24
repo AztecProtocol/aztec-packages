@@ -1,10 +1,8 @@
+import { FunctionSelector } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
-  AztecAddress,
-  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type ContractClass,
   type ContractInstance,
-  FunctionSelector,
-  PublicKeys,
   computeContractAddressFromInstance,
   computeContractClassId,
   computeContractClassIdPreimage,
@@ -12,8 +10,10 @@ import {
   computePartialAddress,
   computePrivateFunctionsTree,
   computeSaltedInitializationHash,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/contract';
 import { hashVK } from '@aztec/circuits.js/hash';
+import { PublicKeys } from '@aztec/circuits.js/keys';
+import { CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 
@@ -61,7 +61,14 @@ describe('Data generation for noir tests', () => {
       contractClass,
     );
     const deployer = AztecAddress.ZERO;
-    const instance: ContractInstance = { ...contract, version: 1, initializationHash, contractClassId, deployer };
+    const instance: ContractInstance = {
+      ...contract,
+      version: 1,
+      initializationHash,
+      currentContractClassId: contractClassId,
+      originalContractClassId: contractClassId,
+      deployer,
+    };
     const address = await computeContractAddressFromInstance(instance);
     const saltedInitializationHash = await computeSaltedInitializationHash(instance);
     const partialAddress = await computePartialAddress(instance);

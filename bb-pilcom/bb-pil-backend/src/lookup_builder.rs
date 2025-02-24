@@ -21,6 +21,8 @@ use crate::utils::sanitize_name;
 pub struct Lookup {
     /// The name of the lookup
     pub name: String,
+    /// The relation in which the lookup was declared
+    pub owning_relation: String,
     /// The file name of the lookup
     pub file_name: String,
     /// The inverse column name
@@ -65,26 +67,26 @@ impl LookupBuilder for BBFiles {
             .iter()
             .filter(|identity| matches!(identity.kind, IdentityKind::Plookup))
             .map(|lookup| {
-                let name = lookup
+                let label = lookup
                     .attribute
                     .clone()
                     .expect(
                         "Inverse column name must be provided within lookup attribute - #[<here>]",
                     )
                     .to_lowercase();
-                let file_name = format!(
-                    "lookups_{}.hpp",
-                    lookup
-                        .source
-                        .file_name
-                        .as_ref()
-                        .and_then(|file_name| Path::new(file_name.as_ref()).file_stem())
-                        .map(|stem| stem.to_string_lossy().into_owned())
-                        .unwrap_or_default()
-                        .replace(".pil", "")
-                );
+                let relation = lookup
+                    .source
+                    .file_name
+                    .as_ref()
+                    .and_then(|file_name| Path::new(file_name.as_ref()).file_stem())
+                    .map(|stem| stem.to_string_lossy().into_owned())
+                    .unwrap_or_default()
+                    .replace(".pil", "");
+                let file_name = format!("lookups_{}.hpp", relation);
+                let name = format!("lookup_{}_{}", relation, label);
                 Lookup {
                     name: name.clone(),
+                    owning_relation: relation,
                     file_name: file_name,
                     inverse: format!("{}_inv", &name),
                     counts_poly: format!("{}_counts", &name),
@@ -175,6 +177,7 @@ fn create_lookup_settings_data(lookup: &Lookup) -> Json {
 
     json!({
         "lookup_name": lookup.name,
+        "relation_name": lookup.owning_relation,
         "lhs_selector": lhs_selector,
         "rhs_selector": rhs_selector,
         "lhs_cols": lhs_cols,

@@ -1,6 +1,6 @@
-import { type ContractArtifact } from '@aztec/aztec.js';
-import { type ExtendedNote, NoteStatus, type PXE, type TxHash } from '@aztec/circuit-types';
-import { type AztecAddress, type Fr } from '@aztec/circuits.js';
+import { type AztecAddress, type ContractArtifact, type Fr } from '@aztec/aztec.js';
+import { type ExtendedNote, NoteStatus, type TxHash } from '@aztec/circuit-types';
+import { type PXE } from '@aztec/circuit-types/interfaces/client';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { type LogFn } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -184,7 +184,7 @@ async function getKnownArtifacts(pxe: PXE): Promise<ArtifactMap> {
   const knownContracts = (
     await Promise.all(knownContractAddresses.map(contractAddress => pxe.getContractMetadata(contractAddress)))
   ).map(contractMetadata => contractMetadata.contractInstance);
-  const classIds = [...new Set(knownContracts.map(contract => contract?.contractClassId))];
+  const classIds = [...new Set(knownContracts.map(contract => contract?.currentContractClassId))];
   const knownArtifacts = (
     await Promise.all(classIds.map(classId => (classId ? pxe.getContractClassMetadata(classId) : undefined)))
   ).map(contractClassMetadata =>
@@ -196,7 +196,7 @@ async function getKnownArtifacts(pxe: PXE): Promise<ArtifactMap> {
   for (const instance of knownContracts) {
     if (instance) {
       const artifact = knownArtifacts.find(a =>
-        a?.classId?.equals(instance.contractClassId),
+        a?.classId?.equals(instance.currentContractClassId),
       ) as ContractArtifactWithClassId;
       if (artifact) {
         map[instance.address.toString()] = artifact;

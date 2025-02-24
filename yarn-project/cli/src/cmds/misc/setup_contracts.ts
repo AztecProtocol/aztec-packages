@@ -1,5 +1,6 @@
-import { DefaultWaitOpts, type EthAddress, NoFeePaymentMethod, type Wallet } from '@aztec/aztec.js';
-import { FEE_JUICE_INITIAL_MINT, Gas } from '@aztec/circuits.js';
+import { DefaultWaitOpts, type EthAddress, FeeJuicePaymentMethod, type Wallet } from '@aztec/aztec.js';
+import { Gas } from '@aztec/circuits.js/gas';
+import { FEE_JUICE_INITIAL_MINT } from '@aztec/constants';
 import { type LogFn } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
@@ -25,9 +26,10 @@ export async function setupCanonicalL2FeeJuice(
 
   if (portalAddress.isZero()) {
     log('setupCanonicalL2FeeJuice: Calling initialize on fee juice contract...');
+    const paymentMethod = new FeeJuicePaymentMethod(ProtocolContractAddress.FeeJuice);
     await feeJuiceContract.methods
       .initialize(feeJuicePortalAddress, FEE_JUICE_INITIAL_MINT)
-      .send({ fee: { paymentMethod: new NoFeePaymentMethod(), gasSettings: { teardownGasLimits: Gas.empty() } } })
+      .send({ fee: { paymentMethod, gasSettings: { teardownGasLimits: Gas.empty() } } })
       .wait(waitOpts);
   } else {
     log(

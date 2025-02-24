@@ -1,11 +1,12 @@
-import { type TxExecutionRequest, type TxProvingResult } from '@aztec/circuit-types';
-import { type Fr, GasSettings } from '@aztec/circuits.js';
+import { type Capsule, type TxExecutionRequest, type TxProvingResult } from '@aztec/circuit-types';
+import { GasSettings } from '@aztec/circuits.js/gas';
+import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 
 import { type Wallet } from '../account/wallet.js';
 import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
 import { type FeeOptions, type UserFeeOptions } from '../entrypoint/payload.js';
-import { NoFeePaymentMethod } from '../fee/no_fee_payment_method.js';
+import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
 import { getGasLimits } from './get_gas_limits.js';
 import { ProvenTx } from './proven_tx.js';
 import { SentTx } from './sent_tx.js';
@@ -31,6 +32,8 @@ export type SendMethodOptions = {
  */
 export abstract class BaseContractInteraction {
   protected log = createLogger('aztecjs:contract_interaction');
+
+  private capsules: Capsule[] = [];
 
   constructor(protected wallet: Wallet) {}
 
@@ -102,7 +105,7 @@ export abstract class BaseContractInteraction {
       true /*simulatePublic*/,
       undefined /* msgSender */,
       undefined /* skipTxValidation */,
-      false /* enforceFeePayment */,
+      true /* skipFeeEnforcement */,
     );
     const { totalGas: gasLimits, teardownGas: teardownGasLimits } = getGasLimits(
       simulationResult,
@@ -118,7 +121,7 @@ export abstract class BaseContractInteraction {
   protected async getDefaultFeeOptions(fee: UserFeeOptions | undefined): Promise<FeeOptions> {
     const maxFeesPerGas =
       fee?.gasSettings?.maxFeesPerGas ?? (await this.wallet.getCurrentBaseFees()).mul(1 + (fee?.baseFeePadding ?? 0.5));
-    const paymentMethod = fee?.paymentMethod ?? new NoFeePaymentMethod();
+    const paymentMethod = fee?.paymentMethod ?? new FeeJuicePaymentMethod(this.wallet.getAddress());
     const gasSettings: GasSettings = GasSettings.default({ ...fee?.gasSettings, maxFeesPerGas });
     this.log.debug(`Using L2 gas settings`, gasSettings);
     return { gasSettings, paymentMethod };
@@ -149,7 +152,7 @@ export abstract class BaseContractInteraction {
         true /*simulatePublic*/,
         undefined /* msgSender */,
         undefined /* skipTxValidation */,
-        false /* enforceFeePayment */,
+        true /* skipFeeEnforcement */,
       );
       const { totalGas: gasLimits, teardownGas: teardownGasLimits } = getGasLimits(
         simulationResult,
@@ -162,5 +165,28 @@ export abstract class BaseContractInteraction {
     }
 
     return { gasSettings, paymentMethod };
+  }
+
+  /**
+   * Add data passed to the oracle calls during this contract interaction.
+   * @param capsule - Data passed to oracle calls.
+   */
+  public addCapsule(capsule: Capsule) {
+    this.capsules.push(capsule);
+  }
+
+  /**
+   * Add data passed to the oracle calls during this contract interaction.
+   * @param capsules - Data passed to oracle calls.
+   */
+  public addCapsules(capsules: Capsule[]) {
+    this.capsules.push(...capsules);
+  }
+
+  /**
+   * Return all capsules added for this function interaction.
+   */
+  public getCapsules() {
+    return this.capsules;
   }
 }

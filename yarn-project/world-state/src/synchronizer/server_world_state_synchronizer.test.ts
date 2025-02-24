@@ -1,23 +1,19 @@
-import {
-  type L1ToL2MessageSource,
-  L2Block,
-  type L2BlockSource,
-  type L2BlockStream,
-  type MerkleTreeReadOperations,
-  WorldStateRunningState,
-} from '@aztec/circuit-types';
-import { Fr, MerkleTreeCalculator } from '@aztec/circuits.js';
-import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js/constants';
+import { type L1ToL2MessageSource, L2Block, type L2BlockSource, type L2BlockStream } from '@aztec/circuit-types';
+import { type MerkleTreeReadOperations, WorldStateRunningState } from '@aztec/circuit-types/interfaces/server';
+import type { BlockHeader } from '@aztec/circuits.js/tx';
+import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/constants';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { MerkleTreeCalculator } from '@aztec/foundation/trees';
 import { SHA256Trunc } from '@aztec/merkle-tree';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { type MerkleTreeAdminDatabase, type WorldStateConfig } from '../index.js';
-import { buildEmptyWorldStateStatusFull } from '../native/message.js';
+import { type WorldStateStatusSummary, buildEmptyWorldStateStatusFull } from '../native/message.js';
 import { ServerWorldStateSynchronizer } from './server_world_state_synchronizer.js';
 
 describe('ServerWorldStateSynchronizer', () => {
@@ -57,6 +53,10 @@ describe('ServerWorldStateSynchronizer', () => {
     blockAndMessagesSource.getL1ToL2Messages.mockResolvedValue(l1ToL2Messages);
 
     merkleTreeRead = mock<MerkleTreeReadOperations>();
+    merkleTreeRead.getInitialHeader.mockReturnValue({
+      hash: () => Promise.resolve(Fr.random()),
+    } as BlockHeader);
+    merkleTreeRead.getLeafValue.mockResolvedValue(Fr.random());
 
     merkleTreeDb = mock<MerkleTreeAdminDatabase>();
     merkleTreeDb.getCommitted.mockReturnValue(merkleTreeRead);
@@ -65,6 +65,13 @@ describe('ServerWorldStateSynchronizer', () => {
       return Promise.resolve(buildEmptyWorldStateStatusFull());
     });
     latestHandledBlockNumber = 0;
+
+    merkleTreeDb.getStatusSummary.mockResolvedValue({
+      unfinalisedBlockNumber: BigInt(latestHandledBlockNumber),
+      finalisedBlockNumber: 0n,
+      oldestHistoricalBlock: 0n,
+      treesAreSynched: true,
+    } satisfies WorldStateStatusSummary);
 
     l2BlockStream = mock<L2BlockStream>();
 

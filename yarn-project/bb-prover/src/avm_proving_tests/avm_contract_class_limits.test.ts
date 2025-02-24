@@ -1,9 +1,7 @@
-import {
-  AztecAddress,
-  type ContractInstanceWithAddress,
-  MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
-} from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type ContractInstanceWithAddress } from '@aztec/circuits.js/contract';
 import { makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
+import { MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS } from '@aztec/constants';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 
 import { AvmProvingTester } from './avm_proving_tester.js';
@@ -25,6 +23,7 @@ describe('AVM WitGen & Circuit – check circuit - contract class limits', () =>
         /*constructorArgs=*/ [],
         deployer,
         /*contractArtifact=*/ AvmTestContractArtifact,
+        /*skipNullifierInsertion=*/ false,
         /*seed=*/ i,
       );
       instances.push(instance);
@@ -44,7 +43,7 @@ describe('AVM WitGen & Circuit – check circuit - contract class limits', () =>
 
       // include another contract address that reuses a class ID to ensure that we can call it even after the limit is reached
       const instanceSameClassAsFirstContract = await makeContractInstanceFromClassId(
-        instances[0].contractClassId,
+        instances[0].currentContractClassId,
         /*seed=*/ 1000,
       );
       instanceAddresses.push(instanceSameClassAsFirstContract.address);

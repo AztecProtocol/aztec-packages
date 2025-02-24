@@ -1,15 +1,14 @@
+import { type ContractArtifact, FunctionSelector } from '@aztec/circuits.js/abi';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
-  type AztecAddress,
   type ContractClassPublic,
   type ContractDataSource,
   type ContractInstanceWithAddress,
-  Fr,
-  FunctionSelector,
-  PUBLIC_DISPATCH_SELECTOR,
   type PublicFunction,
   computePublicBytecodeCommitment,
-} from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/foundation/abi';
+} from '@aztec/circuits.js/contract';
+import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 import { PrivateFunctionsTree } from '@aztec/pxe';
 
 import { type TXE } from '../oracle/txe_oracle.js';
@@ -71,7 +70,7 @@ export class TXEPublicContractDataSource implements ContractDataSource {
 
   async getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
     const instance = await this.txeOracle.getContractDataOracle().getContractInstance(address);
-    return this.txeOracle.getContractDataOracle().getContractArtifact(instance.contractClassId);
+    return this.txeOracle.getContractDataOracle().getContractArtifact(instance.currentContractClassId);
   }
 
   async getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {

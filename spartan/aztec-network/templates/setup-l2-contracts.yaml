@@ -8,7 +8,7 @@ metadata:
   annotations:
     "helm.sh/hook": post-install
     "helm.sh/hook-weight": "0"
-    "helm.sh/hook-delete-policy": before-hook-creation
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed,before-hook-creation
 spec:
   template:
     metadata:
@@ -65,7 +65,7 @@ spec:
               done
               echo "PXE service is ready!"
               set -e
-              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js setup-protocol-contracts --skipProofWait --l1-chain-id {{ .Values.ethereum.chainId }}
+              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js setup-protocol-contracts --skipProofWait
               echo "L2 contracts initialized"
           env:
             - name: K8S_POD_UID

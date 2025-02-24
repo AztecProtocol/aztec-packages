@@ -1,14 +1,10 @@
-import {
-  type ClientIvcProof,
-  CombinedConstantData,
-  Fr,
-  Gas,
-  type GlobalVariables,
-  type PrivateKernelTailCircuitPublicInputs,
-  type PublicDataWrite,
-  RevertCode,
-} from '@aztec/circuits.js';
+import { type PublicDataWrite, RevertCode } from '@aztec/circuits.js/avm';
+import { Gas } from '@aztec/circuits.js/gas';
 import { siloL2ToL1Message } from '@aztec/circuits.js/hash';
+import { CombinedConstantData, type PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
+import type { ClientIvcProof } from '@aztec/circuits.js/proofs';
+import type { GlobalVariables } from '@aztec/circuits.js/tx';
+import { Fr } from '@aztec/foundation/fields';
 
 import { type AvmProvingRequest } from '../interfaces/proving-job.js';
 import { type SimulationError } from '../simulation_error.js';
@@ -79,12 +75,10 @@ export type FailedTx = {
 export async function makeProcessedTxFromPrivateOnlyTx(
   tx: Tx,
   transactionFee: Fr,
-  feePaymentPublicDataWrite: PublicDataWrite | undefined,
+  feePaymentPublicDataWrite: PublicDataWrite,
   globalVariables: GlobalVariables,
 ): Promise<ProcessedTx> {
   const constants = CombinedConstantData.combine(tx.data.constants, globalVariables);
-
-  const publicDataWrites = feePaymentPublicDataWrite ? [feePaymentPublicDataWrite] : [];
 
   const data = tx.data.forRollup!;
   const txEffect = new TxEffect(
@@ -96,7 +90,7 @@ export async function makeProcessedTxFromPrivateOnlyTx(
     data.end.l2ToL1Msgs
       .map(message => siloL2ToL1Message(message, constants.txContext.version, constants.txContext.chainId))
       .filter(h => !h.isZero()),
-    publicDataWrites,
+    [feePaymentPublicDataWrite],
     data.end.privateLogs.filter(l => !l.isEmpty()),
     [],
     data.end.contractClassLogPreimagesLength,
@@ -104,7 +98,9 @@ export async function makeProcessedTxFromPrivateOnlyTx(
   );
 
   const gasUsed = {
+    // Billed gas is the same as total gas since there is no teardown execution
     totalGas: tx.data.gasUsed,
+    billedGas: tx.data.gasUsed,
     teardownGas: Gas.empty(),
     publicGas: Gas.empty(),
   } satisfies GasUsed;

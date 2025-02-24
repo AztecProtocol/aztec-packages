@@ -1,20 +1,22 @@
 import {
-  type EpochProverManager,
-  EpochProvingJobTerminalState,
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockSource,
   type P2PClientType,
+  type Tx,
+  type TxHash,
+  getTimestampRangeForEpoch,
+} from '@aztec/circuit-types';
+import {
+  type EpochProverManager,
+  EpochProvingJobTerminalState,
   type ProverCoordination,
   type ProverNodeApi,
   type Service,
-  type Tx,
-  type TxHash,
   type WorldStateSynchronizer,
-  getTimestampRangeForEpoch,
   tryStop,
-} from '@aztec/circuit-types';
-import { type ContractDataSource } from '@aztec/circuits.js';
+} from '@aztec/circuit-types/interfaces/server';
+import { type ContractDataSource } from '@aztec/circuits.js/contract';
 import { compact } from '@aztec/foundation/collection';
 import { memoize } from '@aztec/foundation/decorators';
 import { createLogger } from '@aztec/foundation/log';
@@ -94,6 +96,10 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     this.txFetcher = new RunningPromise(() => this.checkForTxs(), this.log, this.options.txGatheringIntervalMs);
   }
 
+  public getProverId() {
+    return this.prover.getProverId();
+  }
+
   public getP2P() {
     const asP2PClient = this.coordination as P2P<P2PClientType.Prover>;
     if (typeof asP2PClient.isP2PClient === 'function' && asP2PClient.isP2PClient()) {
@@ -106,7 +112,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
    * Handles an epoch being completed by starting a proof for it if there are no active jobs for it.
    * @param epochNumber - The epoch number that was just completed.
    */
-  async handleEpochCompleted(epochNumber: bigint): Promise<void> {
+  async handleEpochReadyToProve(epochNumber: bigint): Promise<void> {
     try {
       this.log.debug('jobs', JSON.stringify(this.jobs, null, 2));
       const activeJobs = await this.getActiveJobsForEpoch(epochNumber);
@@ -216,7 +222,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
 
     // Fast forward world state to right before the target block and get a fork
     this.log.verbose(`Creating proving job for epoch ${epochNumber} for block range ${fromBlock} to ${toBlock}`);
-    await this.worldState.syncImmediate(fromBlock - 1);
+    await this.worldState.syncImmediate(toBlock);
 
     // Create a processor using the forked world state
     const publicProcessorFactory = new PublicProcessorFactory(

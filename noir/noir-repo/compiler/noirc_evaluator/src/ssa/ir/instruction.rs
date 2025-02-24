@@ -1,3 +1,4 @@
+use binary::{truncate, truncate_field};
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 
@@ -605,7 +606,7 @@ impl Instruction {
                     BinaryOp::Div | BinaryOp::Mod => {
                         // Div and Mod require a predicate if the RHS may be zero.
                         dfg.get_numeric_constant(binary.rhs)
-                            .map(|rhs| !rhs.is_zero())
+                            .map(|rhs| rhs.is_zero())
                             .unwrap_or(true)
                     }
                     BinaryOp::Add { unchecked: true }
@@ -910,8 +911,10 @@ impl Instruction {
                     // would be incorrect however since the extra bits on the field would not be flipped.
                     Value::NumericConstant { constant, typ } if typ.is_unsigned() => {
                         // As we're casting to a `u128`, we need to clear out any upper bits that the NOT fills.
-                        let value = !constant.to_u128() % (1 << typ.bit_size());
-                        SimplifiedTo(dfg.make_constant(value.into(), *typ))
+                        let bit_size = typ.bit_size();
+                        assert!(bit_size <= 128);
+                        let not_value: u128 = truncate(!constant.to_u128(), bit_size);
+                        SimplifiedTo(dfg.make_constant(not_value.into(), *typ))
                     }
                     Value::Instruction { instruction, .. } => {
                         // !!v => v
@@ -968,9 +971,8 @@ impl Instruction {
                     return SimplifiedTo(*value);
                 }
                 if let Some((numeric_constant, typ)) = dfg.get_numeric_constant_with_type(*value) {
-                    let integer_modulus = 2_u128.pow(*bit_size);
-                    let truncated = numeric_constant.to_u128() % integer_modulus;
-                    SimplifiedTo(dfg.make_constant(truncated.into(), typ))
+                    let truncated_field = truncate_field(numeric_constant, *bit_size);
+                    SimplifiedTo(dfg.make_constant(truncated_field, typ))
                 } else if let Value::Instruction { instruction, .. } = &dfg[dfg.resolve(*value)] {
                     match &dfg[*instruction] {
                         Instruction::Truncate { bit_size: src_bit_size, .. } => {

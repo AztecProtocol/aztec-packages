@@ -5,7 +5,7 @@
 
 #include <cstdint>
 
-#include "barretenberg/bb/file_io.hpp"
+#include "barretenberg/api/file_io.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 
@@ -52,7 +52,8 @@ TEST(AvmInputsTest, Deserialization)
                     .exists = true,
                     .salt = FF(0xdeadbeef),
                     .deployer = AztecAddress(0x000010),
-                    .contractClassId = ContractClassId(0x41181337),
+                    .currentContractClassId = ContractClassId(0x41181337),
+                    .originalContractClassId = ContractClassId(0x41181337),
                     .initializationHash = FF(0x111111),
                     .publicKeys = {
                         .masterNullifierPublicKey = AffinePoint(
@@ -74,7 +75,8 @@ TEST(AvmInputsTest, Deserialization)
                     .exists = false,
                     .salt = FF(0xdead0000),
                     .deployer = AztecAddress(0x000020),
-                    .contractClassId = ContractClassId(0x51181337),
+                    .currentContractClassId = ContractClassId(0x51181337),
+                    .originalContractClassId = ContractClassId(0x51181337),
                     .initializationHash = FF(0x222222),
                     .publicKeys = {
                         .masterNullifierPublicKey = AffinePoint(

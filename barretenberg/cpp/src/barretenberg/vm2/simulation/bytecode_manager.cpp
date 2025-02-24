@@ -1,6 +1,7 @@
 #include "barretenberg/vm2/simulation/bytecode_manager.hpp"
 
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/vm/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
@@ -15,18 +16,21 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     }
 
     // TODO: catch errors etc.
-    // TODO: we should trigger the proper merkle checks etc. The raw DB doesn't.
-    ContractInstance instance = db.get_contract_instance(address);
-    address_derivation.assert_derivation(address, instance);
-    ContractClass klass = db.get_contract_class(instance.contract_class_id);
-    class_id_derivation.assert_derivation(instance.contract_class_id, klass);
+    ContractInstance instance = contract_db.get_contract_instance(address);
+    auto siloed_address = siloing.silo_nullifier(address, DEPLOYER_CONTRACT_ADDRESS);
+    // TODO: check nullifier in the merkle tree.
+    ContractClass klass = contract_db.get_contract_class(instance.contract_class_id);
+    // Note: we don't need to silo and check the class id because the deployer contract guarrantees
+    // that if a contract instance exists, the class has been registered.
     auto bytecode_id = next_bytecode_id++;
     info("Bytecode for ", address, " successfully retrieved!");
 
+    FF bytecode_commitment = bytecode_hasher.compute_public_bytecode_commitment(bytecode_id, klass.packed_bytecode);
+    (void)bytecode_commitment; // Avoid GCC unused parameter warning when asserts are disabled.
+    assert(bytecode_commitment == klass.public_bytecode_commitment);
     // We convert the bytecode to a shared_ptr because it will be shared by some events.
     auto shared_bytecode = std::make_shared<std::vector<uint8_t>>(std::move(klass.packed_bytecode));
     decomposition_events.emit({ .bytecode_id = bytecode_id, .bytecode = shared_bytecode });
-    hash_events.emit({ .bytecode_id = bytecode_id, .bytecode = shared_bytecode });
 
     // We now save the bytecode so that we don't repeat this process.
     resolved_addresses[address] = bytecode_id;
@@ -34,10 +38,10 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     retrieval_events.emit({
         .bytecode_id = bytecode_id,
         .address = address,
-        .siloed_address = address, // FIXME: compute, check.
+        .siloed_address = siloed_address,
         .contract_instance = instance,
         .contract_class = klass, // WARNING: this class has the whole bytecode.
-        .nullifier_root = db.get_tree_roots().nullifierTree,
+        .nullifier_root = merkle_db.get_tree_roots().nullifierTree,
     });
 
     return bytecode_id;
@@ -55,6 +59,7 @@ Instruction TxBytecodeManager::read_instruction(BytecodeId bytecode_id, uint32_t
     // TODO: catch errors etc.
     Instruction instruction = decode_instruction(bytecode, pc);
 
+    // The event will be deduplicated internally.
     fetching_events.emit(
         { .bytecode_id = bytecode_id, .pc = pc, .instruction = instruction, .bytecode = bytecode_ptr });
 

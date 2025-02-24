@@ -1,7 +1,9 @@
-import { Note, TxHash, randomTxHash } from '@aztec/circuit-types';
-import { AztecAddress, Fr, Point, type PublicKey } from '@aztec/circuits.js';
-import { NoteSelector } from '@aztec/foundation/abi';
+import { Note, TxHash } from '@aztec/circuit-types';
+import { NoteSelector } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { PublicKey } from '@aztec/circuits.js/keys';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type NoteData } from '@aztec/simulator/client';
 
@@ -27,7 +29,7 @@ export class NoteDao implements NoteData {
 
     // Computed values
     /**
-     * The inner hash (non-unique, non-siloed) of the note. Each contract determines how the note content is hashed. Can
+     * The inner hash (non-unique, non-siloed) of the note. Each contract determines how the note is hashed. Can
      * be used alongside contractAddress and nonce to compute the uniqueNoteHash and the siloedNoteHash.
      */
     public noteHash: Fr,
@@ -50,11 +52,11 @@ export class NoteDao implements NoteData {
     public l2BlockHash: string,
     /** The index of the leaf in the global note hash tree the note is stored at */
     public index: bigint,
-    /** The public key with which the note content was encrypted during delivery. */
+    /** The public key with which the note log was encrypted during delivery. */
     public addressPoint: PublicKey,
 
     /** The note type identifier for the contract.
-     * TODO: remove
+     * TODO(#12013): remove
      */
     public noteTypeId: NoteSelector,
   ) {}
@@ -134,7 +136,7 @@ export class NoteDao implements NoteData {
     nonce = Fr.random(),
     noteHash = Fr.random(),
     siloedNullifier = Fr.random(),
-    txHash = randomTxHash(),
+    txHash = TxHash.random(),
     l2BlockNumber = Math.floor(Math.random() * 1000),
     l2BlockHash = Fr.random().toString(),
     index = Fr.random().toBigInt(),

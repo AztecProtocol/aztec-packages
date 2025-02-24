@@ -1,6 +1,7 @@
 import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
-import { type ProverCoordination, type ProvingJobBroker } from '@aztec/circuit-types';
+import { type ProverCoordination, type ProvingJobBroker } from '@aztec/circuit-types/interfaces/server';
+import { type PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { EpochCache } from '@aztec/epoch-cache';
 import { L1TxUtils, RollupContract, createEthereumChain, createL1Clients } from '@aztec/ethereum';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -29,6 +30,9 @@ export async function createProverNode(
     broker?: ProvingJobBroker;
     l1TxUtils?: L1TxUtils;
   } = {},
+  options: {
+    prefilledPublicData?: PublicDataTreeLeaf[];
+  } = {},
 ) {
   const telemetry = deps.telemetry ?? getTelemetryClient();
   const blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config);
@@ -37,7 +41,12 @@ export async function createProverNode(
   log.verbose(`Created archiver and synced to block ${await archiver.getBlockNumber()}`);
 
   const worldStateConfig = { ...config, worldStateProvenBlocksOnly: false };
-  const worldStateSynchronizer = await createWorldStateSynchronizer(worldStateConfig, archiver, telemetry);
+  const worldStateSynchronizer = await createWorldStateSynchronizer(
+    worldStateConfig,
+    archiver,
+    options.prefilledPublicData,
+    telemetry,
+  );
   await worldStateSynchronizer.start();
 
   const broker = deps.broker ?? (await createAndStartProvingBroker(config, telemetry));
@@ -73,7 +82,7 @@ export async function createProverNode(
     txGatheringTimeoutMs: config.txGatheringTimeoutMs,
   };
 
-  const epochMonitor = new EpochMonitor(archiver, proverNodeConfig, telemetry);
+  const epochMonitor = await EpochMonitor.create(archiver, proverNodeConfig, telemetry);
 
   return new ProverNode(
     prover,

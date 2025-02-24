@@ -1,46 +1,46 @@
+import { FunctionSelector } from '@aztec/circuits.js/abi';
+import type { PublicDataWrite } from '@aztec/circuits.js/avm';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { Gas, GasFees, GasSettings } from '@aztec/circuits.js/gas';
+import {
+  LogHash,
+  OptionalNumber,
+  PrivateToRollupAccumulatedData,
+  PublicCallRequest,
+  ScopedLogHash,
+} from '@aztec/circuits.js/kernel';
+import { PrivateLog, PublicLog } from '@aztec/circuits.js/logs';
+import { L2ToL1Message, ScopedL2ToL1Message } from '@aztec/circuits.js/messaging';
 import {
   AppendOnlyTreeSnapshot,
-  AztecAddress,
+  type NullifierLeafPreimage,
+  type ProtocolContractLeafPreimage,
+  type PublicDataTreeLeafPreimage,
+} from '@aztec/circuits.js/trees';
+import {
   BlockHeader,
   ContentCommitment,
-  EthAddress,
-  Fr,
-  FunctionSelector,
-  Gas,
-  GasFees,
-  GasSettings,
   GlobalVariables,
-  GrumpkinScalar,
-  L2ToL1Message,
-  LogHash,
+  MaxBlockNumber,
+  NUM_BYTES_PER_SHA256,
+  PartialStateReference,
+  StateReference,
+  TxContext,
+} from '@aztec/circuits.js/tx';
+import type { VerificationKeyAsFields } from '@aztec/circuits.js/vks';
+import {
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
-  MaxBlockNumber,
-  type MembershipWitness,
-  NUM_BYTES_PER_SHA256,
-  type NullifierLeafPreimage,
-  OptionalNumber,
   type PRIVATE_LOG_SIZE_IN_FIELDS,
-  PartialStateReference,
-  Point,
-  PrivateLog,
-  PrivateToRollupAccumulatedData,
-  type ProtocolContractLeafPreimage,
-  PublicCallRequest,
-  type PublicDataTreeLeafPreimage,
-  type PublicDataWrite,
-  PublicLog,
-  ScopedL2ToL1Message,
-  ScopedLogHash,
-  StateReference,
-  TxContext,
-  type VerificationKeyAsFields,
-} from '@aztec/circuits.js';
+} from '@aztec/constants';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import { type Tuple, mapTuple, toTruncField } from '@aztec/foundation/serialize';
+import type { MembershipWitness } from '@aztec/foundation/trees';
 
 import type {
   AppendOnlyTreeSnapshot as AppendOnlyTreeSnapshotNoir,

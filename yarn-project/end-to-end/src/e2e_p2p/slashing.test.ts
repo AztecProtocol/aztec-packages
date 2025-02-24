@@ -38,13 +38,14 @@ describe('e2e_p2p_slashing', () => {
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
         aztecEpochDuration: 1,
-        aztecProofSubmissionWindow: 2,
+        aztecProofSubmissionWindow: 1,
         slashingQuorum,
         slashingRoundSize,
       },
-      assumeProvenThrough: 1,
+      assumeProvenThrough: 2,
     });
 
+    await t.setupAccount();
     await t.applyBaseSnapshots();
     await t.setup();
     await t.removeInitialNode();
@@ -122,6 +123,7 @@ describe('e2e_p2p_slashing', () => {
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
+      t.prefilledPublicData,
       DATA_DIR,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       shouldCollectMetrics(),
@@ -166,7 +168,7 @@ describe('e2e_p2p_slashing', () => {
     for (let i = 0; i < slashingRoundSize; i++) {
       t.logger.info('Submitting transactions');
       const bn = await nodes[0].getBlockNumber();
-      await createPXEServiceAndSubmitTransactions(t.logger, nodes[0], 1);
+      await createPXEServiceAndSubmitTransactions(t.logger, nodes[0], 1, t.fundedAccount);
 
       t.logger.info(`Waiting for block number to change`);
       while (bn === (await nodes[0].getBlockNumber())) {

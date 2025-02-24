@@ -1,6 +1,6 @@
+import { type Hasher } from '@aztec/circuits.js/interfaces';
 import { type Bufferable, type FromBuffer } from '@aztec/foundation/serialize';
 import { type AztecKVStore } from '@aztec/kv-store';
-import { type Hasher } from '@aztec/types/interfaces';
 
 import { type TreeBase } from './tree_base.js';
 
