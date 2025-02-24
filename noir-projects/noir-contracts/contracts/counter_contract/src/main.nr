@@ -6,6 +6,10 @@ use dep::aztec::macros::aztec;
 pub contract Counter {
     // docs:end:setup
     // docs:start:imports
+    use aztec::history::contract_inclusion::{
+        ProveContractDeployment, ProveContractInitialization, ProveContractNonDeployment,
+        ProveContractNonInitialization,
+    };
     use aztec::macros::{functions::{initializer, private}, storage::storage};
     use aztec::prelude::{AztecAddress, Map};
     use easy_private_state::EasyPrivateUint;
@@ -90,12 +94,8 @@ pub contract Counter {
     // docs:end:get_counter
     // docs:start:test_imports
     use crate::test;
-    use dep::aztec::note::lifecycle::destroy_note;
-    use dep::aztec::note::note_getter::{get_notes, MAX_NOTES_PER_PAGE, view_notes};
-    use dep::aztec::note::note_getter_options::NoteGetterOptions;
+    use dep::aztec::note::note_getter::{MAX_NOTES_PER_PAGE, view_notes};
     use dep::aztec::note::note_viewer_options::NoteViewerOptions;
-    use dep::aztec::note::retrieved_note::RetrievedNote;
-    use dep::aztec::protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL;
     use dep::aztec::protocol_types::storage::map::derive_storage_slot_in_map;
     use dep::aztec::test::helpers::test_environment::TestEnvironment;
 
@@ -138,57 +138,6 @@ pub contract Counter {
         );
     }
     // docs:end:txe_test_increment
-
-    #[test]
-    unconstrained fn inclusion_proofs() {
-        let initial_value = 5;
-        let (env, contract_address, owner) = test::setup(initial_value);
-        env.impersonate(contract_address);
-
-        env.advance_block_by(1);
-        sync_notes();
-
-        let counter_slot = Counter::storage_layout().counters.slot;
-        let owner_storage_slot = derive_storage_slot_in_map(counter_slot, owner);
-
-        // We use get_notes(...) instead of view_notes(...) here even though view_notes(...) is generally
-        // used in a private context because we need the additional information of the RetrievedNote struct
-        // and view_notes(...) does not provide that.
-        let mut options = NoteGetterOptions::new();
-        let mut context = env.private();
-        let (retrieved_notes, _): (BoundedVec<RetrievedNote<ValueNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, _) =
-            get_notes(&mut context, owner_storage_slot, options);
-
-        let initial_note_value = retrieved_notes.get(0).note.value;
-        assert(
-            initial_note_value == initial_value,
-            f"Expected {initial_value} but got {initial_note_value}",
-        );
-
-        let old_retrieved_note = retrieved_notes.get(0);
-
-        env.private().get_block_header().prove_note_validity(
-            old_retrieved_note,
-            owner_storage_slot,
-            &mut env.private(),
-        );
-
-        destroy_note(&mut env.private(), old_retrieved_note, owner_storage_slot);
-        env.advance_block_by(1);
-        sync_notes();
-
-        env.private().get_block_header().prove_note_is_nullified(
-            old_retrieved_note,
-            owner_storage_slot,
-            &mut env.private(),
-        );
-        env.private().get_block_header().prove_note_inclusion(old_retrieved_note, owner_storage_slot);
-
-        let (retrieved_notes, _): (BoundedVec<RetrievedNote<ValueNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, _) =
-            get_notes(&mut env.private(), owner_storage_slot, options);
-
-        assert(retrieved_notes.len() == 0);
-    }
 
     #[test]
     unconstrained fn extended_incrementing_and_decrementing() {
@@ -271,33 +220,72 @@ pub contract Counter {
         assert(notes.len() == 4);
     }
 
-    #[test(should_fail)]
-    unconstrained fn inclusion_proofs_failure() {
+    // TODO (12225): These tests need to be here instead of a saner place like aztec-nr/aztec/src/history/contract_inclusion/test.nr
+    // because we are unable to define nor deploy a contract from that location. Putting it here is a hacky workaround that
+    // temporarily solves the problem.
+    #[test]
+    unconstrained fn contract_historical_proofs_happy_path() {
         let initial_value = 5;
-        let (env, contract_address, owner) = test::setup(initial_value);
+        let (env, contract_address) = test::setup(initial_value);
 
-        env.impersonate(contract_address);
-        let counter_slot = Counter::storage_layout().counters.slot;
-        let owner_storage_slot = derive_storage_slot_in_map(counter_slot, owner);
+        // We advance a block here because we need the initialization and deployment nullifiers to be added to state.
+        env.advance_block_by(1);
 
-        // We use get_notes(...) instead of view_notes(...) here even though view_notes(...) is generally
-        // used in a private context because we need the additional information of the RetrievedNote struct
-        // and view_notes(...) does not provide that.
-        let options = NoteGetterOptions::new();
-        let (retrieved_notes, _): (BoundedVec<RetrievedNote<ValueNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, _) =
-            get_notes(&mut env.private(), owner_storage_slot, options);
-        let initial_note_value = retrieved_notes.get(0).note.value;
-        assert(
-            initial_note_value == initial_value,
-            f"Expected {initial_value} but got {initial_note_value}",
-        );
+        let context = env.private();
+        let header_at_block_before_deployment = context.get_block_header_at(2);
+        let current_header = context.historical_header;
 
-        let old_note = retrieved_notes.get(0);
+        header_at_block_before_deployment.prove_contract_non_deployment(contract_address);
+        header_at_block_before_deployment.prove_contract_non_initialization(contract_address);
 
-        env.private().get_block_header().prove_note_validity(
-            old_note,
-            owner_storage_slot,
-            &mut env.private(),
-        );
+        current_header.prove_contract_deployment(contract_address);
+        current_header.prove_contract_initialization(contract_address);
+    }
+
+    #[test(should_fail_with = "Nullifier membership witness not found at block 2.")]
+    unconstrained fn proving_contract_deployment_fails() {
+        let initial_value = 5;
+        let (env, contract_address) = test::setup(initial_value);
+
+        let context = env.private();
+        let header_at_block_before_deployment = context.get_block_header_at(2);
+
+        header_at_block_before_deployment.prove_contract_deployment(contract_address);
+    }
+
+    #[test(should_fail_with = "Nullifier membership witness not found at block 2.")]
+    unconstrained fn proving_contract_initialization_fails() {
+        let initial_value = 5;
+        let (env, contract_address) = test::setup(initial_value);
+
+        let context = env.private();
+        let header_at_block_before_deployment = context.get_block_header_at(2);
+
+        header_at_block_before_deployment.prove_contract_initialization(contract_address);
+    }
+
+    #[test(should_fail_with = "Proving nullifier non-inclusion failed")]
+    unconstrained fn proving_contract_non_deployment_fails() {
+        let initial_value = 5;
+        let (env, contract_address) = test::setup(initial_value);
+        // In this test and below test, we advance a block here because we need the initialization and deployment nullifiers to be added to state.
+        env.advance_block_by(1);
+
+        let context = env.private();
+        let current_header = context.historical_header;
+
+        current_header.prove_contract_non_deployment(contract_address);
+    }
+
+    #[test(should_fail_with = "Proving nullifier non-inclusion failed")]
+    unconstrained fn proving_contract_non_initialization_fails() {
+        let initial_value = 5;
+        let (env, contract_address) = test::setup(initial_value);
+        env.advance_block_by(1);
+
+        let context = env.private();
+        let current_header = context.historical_header;
+
+        current_header.prove_contract_non_initialization(contract_address);
     }
 }

@@ -71,15 +71,21 @@ impl NoteInterface for MockNote {
 pub(crate) struct MockNoteBuilder {
     value: Field,
     contract_address: Option<AztecAddress>,
+    nonce: Option<Field>,
 }
 
 impl MockNoteBuilder {
     pub(crate) fn new(value: Field) -> Self {
-        MockNoteBuilder { value, contract_address: Option::none() }
+        MockNoteBuilder { value, contract_address: Option::none(), nonce: Option::none() }
     }
 
     pub(crate) fn contract_address(&mut self, contract_address: AztecAddress) -> &mut Self {
         self.contract_address = Option::some(contract_address);
+        self
+    }
+
+    pub(crate) fn nonce(&mut self, nonce: Field) -> &mut Self {
+        self.nonce = Option::some(nonce);
         self
     }
 
@@ -91,7 +97,7 @@ impl MockNoteBuilder {
         RetrievedNote {
             note: MockNote { value: self.value },
             contract_address: self.contract_address.unwrap_or(AztecAddress::zero()),
-            nonce: 0,
+            nonce: self.nonce.unwrap_or(0),
             note_hash_counter: 0,
         }
     }

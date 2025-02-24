@@ -15,7 +15,7 @@ import { GasSettings } from '@aztec/circuits.js/gas';
 import { TxContext } from '@aztec/circuits.js/tx';
 import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
 import { CrowdfundingContract } from '@aztec/noir-contracts.js/Crowdfunding';
-import { InclusionProofsContract } from '@aztec/noir-contracts.js/InclusionProofs';
+import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
@@ -279,21 +279,21 @@ describe('e2e_crowdfunding_and_claim', () => {
   it('cannot claim with existing note which was not emitted by the crowdfunding contract', async () => {
     const owner = wallets[0].getAddress();
 
-    // 1) Deploy IncludeProofs contract
-    const inclusionsProofsContract = await InclusionProofsContract.deploy(wallets[0], 0n).send().deployed();
+    // 1) Deploy a Test contract
+    const testContract = await TestContract.deploy(wallets[0]).send().deployed();
 
     // 2) Create a note
     let note: any;
     {
-      const receipt = await inclusionsProofsContract.methods.create_note(owner, 5n).send().wait({ debug: true });
-      await inclusionsProofsContract.methods.sync_notes().simulate();
+      const receipt = await testContract.methods.call_create_note(5n, owner, owner, 69).send().wait({ debug: true });
+      await testContract.methods.sync_notes().simulate();
       const notes = await wallets[0].getNotes({ txHash: receipt.txHash });
       expect(notes.length).toEqual(1);
       note = processUniqueNote(notes[0]);
     }
 
     // 3) Test the note was included
-    await inclusionsProofsContract.methods.test_note_inclusion(owner, false, 0n, true).send().wait();
+    await testContract.methods.test_note_inclusion(owner, 69).send().wait();
 
     // 4) Finally, check that the claim process fails
     await expect(
