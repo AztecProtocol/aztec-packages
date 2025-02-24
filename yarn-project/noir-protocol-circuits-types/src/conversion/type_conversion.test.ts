@@ -1,5 +1,9 @@
-import { AztecAddress, EthAddress, Fr, FunctionData, FunctionSelector, Point } from '@aztec/circuits.js';
+import { FunctionSelector } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { makeHeader } from '@aztec/circuits.js/testing';
+import { FunctionData } from '@aztec/circuits.js/tx';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr, Point } from '@aztec/foundation/fields';
 
 import { mapFunctionDataFromNoir, mapFunctionDataToNoir } from './client.js';
 import {

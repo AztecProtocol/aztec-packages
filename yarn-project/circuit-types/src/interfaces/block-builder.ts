@@ -1,4 +1,5 @@
-import { type BlockHeader, type Fr, type GlobalVariables } from '@aztec/circuits.js';
+import type { BlockHeader, GlobalVariables } from '@aztec/circuits.js/tx';
+import type { Fr } from '@aztec/foundation/fields';
 
 import { type L2Block } from '../l2_block.js';
 import { type ProcessedTx } from '../tx/processed_tx.js';

@@ -8,7 +8,7 @@ import {
   getHashedSignaturePayload,
 } from '@aztec/circuit-types';
 import type { L1PublishBlockStats } from '@aztec/circuit-types/stats';
-import { type BlockHeader, EthAddress } from '@aztec/circuits.js';
+import { type BlockHeader } from '@aztec/circuits.js/tx';
 import { type EpochCache } from '@aztec/epoch-cache';
 import {
   FormattedViemError,
@@ -27,6 +27,7 @@ import {
 } from '@aztec/ethereum';
 import { type L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { toHex } from '@aztec/foundation/bigint-buffer';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Signature } from '@aztec/foundation/eth-signature';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';

@@ -21,23 +21,19 @@ import {
   type WorldStateSynchronizerStatus,
 } from '@aztec/circuit-types/interfaces/server';
 import { mockTxForRollup } from '@aztec/circuit-types/testing';
-import {
-  AztecAddress,
-  BlockHeader,
-  type ContractDataSource,
-  EthAddress,
-  Fr,
-  type Gas,
-  GasFees,
-  GlobalVariables,
-  PublicDataWrite,
-} from '@aztec/circuits.js';
+import { PublicDataWrite } from '@aztec/circuits.js/avm';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { ContractDataSource } from '@aztec/circuits.js/contract';
+import { Gas, GasFees } from '@aztec/circuits.js/gas';
 import { makeAppendOnlyTreeSnapshot } from '@aztec/circuits.js/testing';
+import { BlockHeader, GlobalVariables } from '@aztec/circuits.js/tx';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times, timesParallel } from '@aztec/foundation/collection';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { TestDateProvider, type Timer } from '@aztec/foundation/timer';

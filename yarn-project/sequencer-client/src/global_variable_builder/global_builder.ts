@@ -1,7 +1,10 @@
 import { type GlobalVariableBuilder as GlobalVariableBuilderInterface } from '@aztec/circuit-types';
-import { type AztecAddress, type EthAddress, GasFees, GlobalVariables } from '@aztec/circuits.js';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { GasFees } from '@aztec/circuits.js/gas';
+import { GlobalVariables } from '@aztec/circuits.js/tx';
 import { type L1ContractsConfig, type L1ReaderConfig, createEthereumChain } from '@aztec/ethereum';
 import { type ViemPublicClient } from '@aztec/ethereum';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';

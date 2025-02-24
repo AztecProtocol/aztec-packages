@@ -4,16 +4,12 @@ import {
   type ServerCircuitProver,
   makePublicInputsAndRecursiveProof,
 } from '@aztec/circuit-types/interfaces/server';
-import {
-  type BlockHeader,
-  ClientIvcProof,
-  Fr,
-  type GlobalVariables,
-  type ParityPublicInputs,
-  makeRecursiveProof,
-} from '@aztec/circuits.js';
+import type { ParityPublicInputs } from '@aztec/circuits.js/parity';
+import { ClientIvcProof, makeRecursiveProof } from '@aztec/circuits.js/proofs';
 import { makeParityPublicInputs } from '@aztec/circuits.js/testing';
+import { type BlockHeader, type GlobalVariables } from '@aztec/circuits.js/tx';
 import { NESTED_RECURSIVE_PROOF_LENGTH, RECURSIVE_PROOF_LENGTH } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';

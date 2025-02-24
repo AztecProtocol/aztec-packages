@@ -1,11 +1,7 @@
-import {
-  AztecAddress,
-  CompleteAddress,
-  IndexedTaggingSecret,
-  type PrivateLog,
-  computeAddressSecret,
-  deriveKeys,
-} from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { CompleteAddress } from '@aztec/circuits.js/contract';
+import { computeAddressSecret, deriveKeys } from '@aztec/circuits.js/keys';
+import { IndexedTaggingSecret, PrivateLog } from '@aztec/circuits.js/logs';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';

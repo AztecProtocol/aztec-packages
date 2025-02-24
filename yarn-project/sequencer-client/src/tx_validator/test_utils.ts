@@ -1,6 +1,8 @@
 import { type Tx } from '@aztec/circuit-types';
-import { type AztecAddress, type Fr, type FunctionSelector } from '@aztec/circuits.js';
+import type { FunctionSelector } from '@aztec/circuits.js/abi';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
+import type { Fr } from '@aztec/foundation/fields';
 
 export function patchNonRevertibleFn(
   tx: Tx,

@@ -140,4 +140,3 @@ unconstrained fn absorb_incorrect_in_len() {
     // The below should fail, as we try to absorb 10 inputs but only provide 3
     spongeblob.absorb(input_3, 10);
 }
-

@@ -16,7 +16,7 @@ struct ExecutionEvent {
     uint32_t pc;
     BytecodeId bytecode_id;
     Instruction wire_instruction;
-    const InstructionSpec& instruction_spec;
+    const ExecInstructionSpec& instruction_spec;
     ExecutionOpCode opcode;
     std::vector<Operand> resolved_operands;
 };

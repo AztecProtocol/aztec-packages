@@ -1,12 +1,14 @@
 import { Blob, BlobDeserializationError } from '@aztec/blob-lib';
 import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { Body, InboxLeaf, L2Block } from '@aztec/circuit-types';
-import { BlockHeader, Fr, Proof } from '@aztec/circuits.js';
+import { Proof } from '@aztec/circuits.js/proofs';
 import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
+import { BlockHeader } from '@aztec/circuits.js/tx';
 import { type ViemPublicClient } from '@aztec/ethereum';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type ViemSignature } from '@aztec/foundation/eth-signature';
+import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
 import { ForwarderAbi, type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';

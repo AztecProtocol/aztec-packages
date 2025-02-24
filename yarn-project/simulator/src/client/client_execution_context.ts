@@ -14,15 +14,16 @@ import {
   type PrivateCallExecutionResult,
 } from '@aztec/circuit-types/interfaces/client';
 import {
-  type BlockHeader,
-  CallContext,
+  type FunctionAbi,
+  type FunctionArtifact,
   FunctionSelector,
-  PrivateContextInputs,
-  type TxContext,
-} from '@aztec/circuits.js';
-import { type FunctionAbi, type FunctionArtifact, type NoteSelector, countArgumentsSize } from '@aztec/circuits.js/abi';
+  type NoteSelector,
+  countArgumentsSize,
+} from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
+import { PrivateContextInputs } from '@aztec/circuits.js/kernel';
+import { type BlockHeader, CallContext, type TxContext } from '@aztec/circuits.js/tx';
 import { PRIVATE_CONTEXT_INPUTS_LENGTH, PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';

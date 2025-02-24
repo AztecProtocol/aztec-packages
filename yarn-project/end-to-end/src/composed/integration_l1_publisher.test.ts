@@ -5,8 +5,9 @@ import { Blob, BlockBlobPublicInputs } from '@aztec/blob-lib';
 // eslint-disable-next-line no-restricted-imports
 import { type L2Tips, type ProcessedTx } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/testing';
-import { type BlockHeader, EthAddress, GasFees, GasSettings } from '@aztec/circuits.js';
+import { GasFees, GasSettings } from '@aztec/circuits.js/gas';
 import { fr } from '@aztec/circuits.js/testing';
+import { type BlockHeader } from '@aztec/circuits.js/tx';
 import { GENESIS_ARCHIVE_ROOT, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
@@ -24,6 +25,7 @@ import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { range } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';
 import { sha256, sha256ToField } from '@aztec/foundation/crypto';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { ForwarderAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';

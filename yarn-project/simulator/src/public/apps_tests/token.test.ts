@@ -1,4 +1,6 @@
-import { AztecAddress, type ContractInstanceWithAddress, Fr } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { ContractInstanceWithAddress } from '@aztec/circuits.js/contract';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 

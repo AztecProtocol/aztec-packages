@@ -3,3 +3,4 @@ crs
 **/.yarn/*
 !**/.yarn/releases
 *.jsonl
+bench-out

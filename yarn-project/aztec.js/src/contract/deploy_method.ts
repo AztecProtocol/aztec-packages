@@ -1,13 +1,13 @@
 import { type Capsule, type FunctionCall, type TxExecutionRequest } from '@aztec/circuit-types';
+import { type ContractArtifact, type FunctionArtifact, getInitializer } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
-  AztecAddress,
   type ContractInstanceWithAddress,
-  type PublicKeys,
   computePartialAddress,
   getContractClassFromArtifact,
   getContractInstanceFromDeployParams,
-} from '@aztec/circuits.js';
-import { type ContractArtifact, type FunctionArtifact, getInitializer } from '@aztec/circuits.js/abi';
+} from '@aztec/circuits.js/contract';
+import { type PublicKeys } from '@aztec/circuits.js/keys';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { type Wallet } from '../account/index.js';

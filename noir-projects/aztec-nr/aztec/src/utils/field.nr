@@ -198,4 +198,3 @@ unconstrained fn test_is_square() {
 unconstrained fn test_is_not_square() {
     assert(!is_square(10));
 }
-

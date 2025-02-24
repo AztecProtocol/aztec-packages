@@ -16,7 +16,7 @@ import {
   type WorldStateSynchronizer,
   tryStop,
 } from '@aztec/circuit-types/interfaces/server';
-import { type ContractDataSource } from '@aztec/circuits.js';
+import { type ContractDataSource } from '@aztec/circuits.js/contract';
 import { compact } from '@aztec/foundation/collection';
 import { memoize } from '@aztec/foundation/decorators';
 import { createLogger } from '@aztec/foundation/log';
