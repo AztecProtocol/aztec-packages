@@ -107,7 +107,7 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
       {
         name: 'fee_entrypoint_private',
         to: this.paymentContract,
-        selector: await FunctionSelector.fromSignature('fee_entrypoint_private(Field,u128)'),
+        selector: await FunctionSelector.fromSignature('fee_entrypoint_private(u128,Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
         args: [maxFee, nonce],

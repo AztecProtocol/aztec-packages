@@ -91,11 +91,10 @@ pub contract FPC {
         let refund_slot = token.prepare_private_balance_increase(user, user).call(&mut context);
 
         // Set a public teardown function in which the refund will be paid back to the user by finalizing the partial note.
-        let max_fee_serialized = max_fee.serialize();
         context.set_public_teardown_function(
             context.this_address(),
-            comptime { FunctionSelector::from_signature("complete_refund((Field),Field,Field)") },
-            [accepted_asset.to_field(), refund_slot, max_fee_serialized[0], max_fee_serialized[1]],
+            comptime { FunctionSelector::from_signature("complete_refund((Field),Field,u128)") },
+            [accepted_asset.to_field(), refund_slot, max_fee as Field],
         );
 
         // Set the FPC as the fee payer of the tx.
@@ -159,16 +158,10 @@ pub contract FPC {
         context.set_as_fee_payer();
         // TODO(#6277) for improving interface:
         // FPC::at(context.this_address()).pay_refund(...).set_public_teardown_function(&mut context);
-        let max_fee_serialized = max_fee.serialize();
         context.set_public_teardown_function(
             context.this_address(),
-            comptime { FunctionSelector::from_signature("pay_refund((Field),Field,(Field))") },
-            [
-                context.msg_sender().to_field(),
-                max_fee_serialized[0],
-                max_fee_serialized[1],
-                config.accepted_asset.to_field(),
-            ],
+            comptime { FunctionSelector::from_signature("pay_refund((Field),u128,(Field))") },
+            [context.msg_sender().to_field(), max_fee as Field, config.accepted_asset.to_field()],
         );
     }
 
