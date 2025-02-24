@@ -48,8 +48,9 @@ import {
 } from '@aztec/aztec.js';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 // eslint-disable-next-line no-restricted-imports
-import { L2Block, tryStop } from '@aztec/circuit-types';
-import { type AztecAddress, EthAddress } from '@aztec/circuits.js';
+import { L2Block } from '@aztec/circuit-types';
+import { tryStop } from '@aztec/circuit-types/interfaces/server';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
   GovernanceProposerContract,
@@ -58,6 +59,7 @@ import {
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
 import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { SchnorrHardcodedAccountContract } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';

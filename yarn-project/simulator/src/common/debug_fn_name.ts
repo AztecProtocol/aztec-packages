@@ -1,4 +1,6 @@
-import { type AztecAddress, type Fr, FunctionSelector } from '@aztec/circuits.js';
+import { FunctionSelector } from '@aztec/circuits.js/abi';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { Fr } from '@aztec/foundation/fields';
 
 import { type WorldStateDB } from '../public/public_db_sources.js';
 

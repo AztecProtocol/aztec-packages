@@ -1,4 +1,4 @@
-import { computePublicBytecodeCommitment } from '@aztec/circuits.js';
+import { computePublicBytecodeCommitment } from '@aztec/circuits.js/contract';
 
 import { getSampleContractClassRegisteredEventPayload } from '../tests/fixtures.js';
 import { ContractClassRegisteredEvent } from './contract_class_registered_event.js';

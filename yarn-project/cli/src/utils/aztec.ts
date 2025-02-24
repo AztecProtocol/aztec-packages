@@ -1,7 +1,7 @@
 import { type ContractArtifact, type FunctionArtifact, loadContractArtifact } from '@aztec/aztec.js/abi';
-import { type PXE } from '@aztec/circuit-types';
+import { type PXE } from '@aztec/circuit-types/interfaces/client';
+import { FunctionType } from '@aztec/circuits.js/abi';
 import { type DeployL1Contracts, type L1ContractsConfig } from '@aztec/ethereum';
-import { FunctionType } from '@aztec/foundation/abi';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type Fr } from '@aztec/foundation/fields';
 import { type LogFn, type Logger } from '@aztec/foundation/log';
@@ -74,7 +74,7 @@ export async function deployAztecContracts(
     chain.chainInfo,
     debugLogger,
     {
-      l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
+      l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice.toField(),
       vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
       genesisArchiveRoot,

@@ -1,4 +1,4 @@
-use crate::{traits::{Empty, Packable, ToField}, utils::arrays};
+use crate::traits::Empty;
 use std::cmp::min;
 
 mod test;
@@ -9,10 +9,10 @@ mod test;
 // both the current value and the smallest block number at which the value might change - this is called the
 // 'block horizon'.
 pub struct ScheduledValueChange<T> {
-    pre: T,
-    post: T,
+    pub(crate) pre: T,
+    pub(crate) post: T,
     // Block at which `post` value is used instead of `pre`
-    block_of_change: u32,
+    pub(crate) block_of_change: u32,
 }
 
 impl<T> ScheduledValueChange<T> {
@@ -136,33 +136,6 @@ impl<T> ScheduledValueChange<T> {
         self.pre = self.get_current_at(current_block_number);
         self.post = new_value;
         self.block_of_change = block_of_change;
-    }
-}
-
-// We store 2 Ts and one extra field for the block of change.
-impl<T, let N: u32> Packable<2 * N + 1> for ScheduledValueChange<T>
-where
-    T: Packable<N>,
-{
-    fn pack(self) -> [Field; 2 * N + 1] {
-        let mut packed = [0; 2 * N + 1];
-        let pre_packed = self.pre.pack();
-        let post_packed = self.post.pack();
-
-        for i in 0..N {
-            packed[i] = pre_packed[i];
-            packed[N + i] = post_packed[i];
-        }
-        packed[2 * N] = self.block_of_change.to_field();
-        packed
-    }
-
-    fn unpack(input: [Field; 2 * N + 1]) -> Self {
-        Self {
-            pre: T::unpack(arrays::subarray(input, 0)),
-            post: T::unpack(arrays::subarray(input, N)),
-            block_of_change: input[2 * N] as u32,
-        }
     }
 }
 

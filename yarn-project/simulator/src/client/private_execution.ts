@@ -1,18 +1,12 @@
-import { type AztecNode, PrivateCallExecutionResult } from '@aztec/circuit-types';
+import { type AztecNode, PrivateCallExecutionResult } from '@aztec/circuit-types/interfaces/client';
 import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
-import {
-  type ContractInstance,
-  Fr,
-  PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-  PRIVATE_CONTEXT_INPUTS_LENGTH,
-  PrivateCircuitPublicInputs,
-  ScheduledValueChange,
-  UPDATED_CLASS_IDS_SLOT,
-  UPDATES_VALUE_SIZE,
-} from '@aztec/circuits.js';
-import { deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
-import { type FunctionArtifact, type FunctionSelector, countArgumentsSize } from '@aztec/foundation/abi';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { type FunctionArtifact, type FunctionSelector, countArgumentsSize } from '@aztec/circuits.js/abi';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type ContractInstance } from '@aztec/circuits.js/contract';
+import { PrivateCircuitPublicInputs } from '@aztec/circuits.js/kernel';
+import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/circuits.js/shared-mutable';
+import { PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH, PRIVATE_CONTEXT_INPUTS_LENGTH } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -128,11 +122,11 @@ export async function readCurrentClassId(
   node: AztecNode,
   blockNumber: number,
 ) {
-  const sharedMutableSlot = await deriveStorageSlotInMap(new Fr(UPDATED_CLASS_IDS_SLOT), contractAddress);
-  const valueChange = await ScheduledValueChange.readFromTree(sharedMutableSlot, UPDATES_VALUE_SIZE, slot =>
+  const { sharedMutableSlot } = await SharedMutableValuesWithHash.getContractUpdateSlots(contractAddress);
+  const sharedMutableValues = await SharedMutableValues.readFromTree(sharedMutableSlot, slot =>
     node.getPublicStorageAt(ProtocolContractAddress.ContractInstanceDeployer, slot, blockNumber),
   );
-  let currentClassId = valueChange.getCurrentAt(blockNumber)[0];
+  let currentClassId = sharedMutableValues.svc.getCurrentAt(blockNumber)[0];
   if (currentClassId.isZero()) {
     currentClassId = instance.originalContractClassId;
   }

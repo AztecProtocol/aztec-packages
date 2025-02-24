@@ -1,10 +1,7 @@
-import {
-  AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  Fr,
-  VerificationKeyAsFields,
-  VerificationKeyData,
-} from '@aztec/circuits.js';
 import { hashVK } from '@aztec/circuits.js/hash';
+import { VerificationKeyAsFields, VerificationKeyData } from '@aztec/circuits.js/vks';
+import { AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 
 import { strict as assert } from 'assert';
 import { promises as fs } from 'fs';

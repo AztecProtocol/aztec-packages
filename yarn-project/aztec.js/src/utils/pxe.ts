@@ -1,4 +1,4 @@
-import { type PXE } from '@aztec/circuit-types';
+import { type PXE } from '@aztec/circuit-types/interfaces/client';
 import { type Logger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 

@@ -1,5 +1,7 @@
-import { CombinedConstantData, Fr, Gas } from '@aztec/circuits.js';
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+import { Gas } from '@aztec/circuits.js/gas';
+import { CombinedConstantData } from '@aztec/circuits.js/kernel';
+import { type ZodFor, schemas } from '@aztec/circuits.js/schemas';
+import { Fr } from '@aztec/foundation/fields';
 
 import times from 'lodash.times';
 import { z } from 'zod';
@@ -54,14 +56,19 @@ export class PublicSimulationOutput {
     public gasUsed: GasUsed,
   ) {}
 
-  static get schema() {
+  static get schema(): ZodFor<PublicSimulationOutput> {
     return z
       .object({
         revertReason: SimulationError.schema.optional(),
         constants: CombinedConstantData.schema,
         txEffect: TxEffect.schema,
         publicReturnValues: z.array(NestedProcessReturnValues.schema),
-        gasUsed: z.object({ totalGas: Gas.schema, teardownGas: Gas.schema, publicGas: Gas.schema }),
+        gasUsed: z.object({
+          totalGas: Gas.schema,
+          teardownGas: Gas.schema,
+          publicGas: Gas.schema,
+          billedGas: Gas.schema,
+        }),
       })
       .transform(
         fields =>
@@ -81,7 +88,7 @@ export class PublicSimulationOutput {
       CombinedConstantData.empty(),
       TxEffect.empty(),
       times(2, NestedProcessReturnValues.random),
-      { teardownGas: Gas.random(), totalGas: Gas.random(), publicGas: Gas.random() },
+      { teardownGas: Gas.random(), totalGas: Gas.random(), publicGas: Gas.random(), billedGas: Gas.random() },
     );
   }
 }

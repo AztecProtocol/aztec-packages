@@ -1,22 +1,14 @@
-import { createLogger } from '@aztec/aztec.js';
 import {
-  type AztecNode,
   type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
   type InBlock,
   type L2Block,
   L2BlockHash,
-  type L2BlockNumber,
   type L2Tips,
   type LogFilter,
   MerkleTreeId,
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
-  type NullifierMembershipWitness,
-  type ProverConfig,
   type PublicDataWitness,
   type PublicSimulationOutput,
-  type SequencerConfig,
   type SiblingPath,
   type Tx,
   type TxEffect,
@@ -25,28 +17,39 @@ import {
   TxScopedL2Log,
   type TxValidationResult,
 } from '@aztec/circuit-types';
+import { type AztecNode, type L2BlockNumber } from '@aztec/circuit-types/interfaces/client';
 import {
-  type ARCHIVE_HEIGHT,
-  type AztecAddress,
-  type BlockHeader,
+  type MerkleTreeReadOperations,
+  type MerkleTreeWriteOperations,
+  type NullifierMembershipWitness,
+  type ProverConfig,
+  type SequencerConfig,
+  type WorldStateSyncStatus,
+} from '@aztec/circuit-types/interfaces/server';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
-  type GasFees,
+  type NodeInfo,
+  type ProtocolContractAddresses,
+} from '@aztec/circuits.js/contract';
+import type { GasFees } from '@aztec/circuits.js/gas';
+import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import type { PrivateLog, PublicLog } from '@aztec/circuits.js/logs';
+import { type PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
+import type { BlockHeader } from '@aztec/circuits.js/tx';
+import {
+  type ARCHIVE_HEIGHT,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type NOTE_HASH_TREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
-  type NodeInfo,
   type PUBLIC_DATA_TREE_HEIGHT,
   PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
-  type PrivateLog,
-  type ProtocolContractAddresses,
-  type PublicDataTreeLeafPreimage,
-  type PublicLog,
-} from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+} from '@aztec/constants';
 import { type L1ContractAddresses } from '@aztec/ethereum';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
+import { createLogger } from '@aztec/foundation/log';
 import { type NativeWorldStateService } from '@aztec/world-state';
 
 export class TXENode implements AztecNode {
@@ -716,5 +719,12 @@ export class TXENode implements AztecNode {
    */
   getNodeInfo(): Promise<NodeInfo> {
     throw new Error('TXE Node method getNodeInfo not implemented');
+  }
+
+  /**
+   * Returns the sync status of the node's world state
+   */
+  getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
+    throw new Error('TXE Node method getWorldStateSyncStatus not implemented');
   }
 }

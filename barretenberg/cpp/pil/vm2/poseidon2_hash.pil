@@ -24,7 +24,7 @@ namespace poseidon2_hash;
     // Only used at the start of a new poseidon2 hash
     pol IV = TWOPOW64 * input_len;
 
-    
+
     // Start of a poseidon2 computation
     pol commit start;
     start * (1 - start) = 0;
@@ -84,9 +84,9 @@ namespace poseidon2_hash;
     pol commit b_2;
     pol commit b_3;
 
-    #[LOOKUP_POS2_PERM]
+    #[POSEIDON2_PERM]
     sel { a_0, a_1, a_2, a_3, b_0, b_1, b_2, b_3}
     in
-    poseidon2_perm.sel 
-        { poseidon2_perm.a_0, poseidon2_perm.a_1, poseidon2_perm.a_2, poseidon2_perm.a_3, 
+    poseidon2_perm.sel
+        { poseidon2_perm.a_0, poseidon2_perm.a_1, poseidon2_perm.a_2, poseidon2_perm.a_3,
           poseidon2_perm.b_0, poseidon2_perm.b_1, poseidon2_perm.b_2, poseidon2_perm.b_3 };

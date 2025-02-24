@@ -1,6 +1,7 @@
 import { type L1PublishProofStats } from '@aztec/circuit-types/stats';
-import { AGGREGATION_OBJECT_LENGTH, AZTEC_MAX_EPOCH_DURATION, type Proof } from '@aztec/circuits.js';
+import { type Proof } from '@aztec/circuits.js/proofs';
 import { type FeeRecipient, type RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
+import { AGGREGATION_OBJECT_LENGTH, AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
 import { type L1TxUtils, type RollupContract } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
 import { areArraysEqual, times } from '@aztec/foundation/collection';

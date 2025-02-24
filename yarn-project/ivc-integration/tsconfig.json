@@ -11,10 +11,10 @@
       "path": "../circuits.js"
     },
     {
-      "path": "../foundation"
+      "path": "../constants"
     },
     {
-      "path": "../types"
+      "path": "../foundation"
     },
     {
       "path": "../bb-prover"
