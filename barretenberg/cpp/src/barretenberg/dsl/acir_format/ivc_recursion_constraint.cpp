@@ -236,12 +236,12 @@ std::shared_ptr<ClientIVC::DeciderVerificationKey> create_mock_decider_vk()
  *
  * @return ClientIVC::MergeProof
  */
-// WORKTODO: Make sure there is a test to check that this produces a correctly sized mock merge proof
 ClientIVC::MergeProof create_dummy_merge_proof()
 {
     using FF = ClientIVC::FF;
 
     std::vector<FF> proof;
+    proof.reserve(MERGE_PROOF_SIZE);
 
     FF mock_val(5);
     auto mock_commitment = curve::BN254::AffineElement::one();
@@ -268,6 +268,8 @@ ClientIVC::MergeProof create_dummy_merge_proof()
     for (const FF& val : mock_commitment_frs) {
         proof.emplace_back(val);
     }
+
+    ASSERT(proof.size() == MERGE_PROOF_SIZE);
 
     return proof;
 }

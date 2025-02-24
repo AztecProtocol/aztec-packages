@@ -56,6 +56,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         // Set indices to constants corresponding to Goblin ECC op codes
         set_goblin_ecc_op_code_constant_variables();
     };
+
     MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in)
         : MegaCircuitBuilder_(0, op_queue_in)
     {}
