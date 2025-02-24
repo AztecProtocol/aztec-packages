@@ -1,9 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-if [ ! -z ${AWS_ACCESS_KEY_ID:-} ] && [ ! -z ${AWS_SECRET_ACCESS_KEY:-} ]; then
-  exit 0
-elif [ -f ~/.aws/credentials ]; then
-  exit 0
-else
-  exit 1
-fi
