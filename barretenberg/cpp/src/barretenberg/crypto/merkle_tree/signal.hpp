@@ -4,7 +4,7 @@
 
 namespace bb::crypto::merkle_tree {
 /**
- * @brief Used in parallel insertions in the the IndexedTree. Workers signal to other following workes as they move up
+ * @brief Used in parallel insertions in the IndexedTree. Workers signal to other following workes as they move up
  * the level of the tree.
  *
  */
