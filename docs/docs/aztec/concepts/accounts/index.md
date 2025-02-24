@@ -78,7 +78,7 @@ Since the `entrypoint` interface is not enshrined, there is nothing that differe
 
 For example, a lottery contract, where at some point a prize needs to be paid out to its winners. This `pay` action does not require authentication and does not need to be executed by any user in particular, so anyone could submit a transaction that defines the lottery contract itself as `origin` and `pay` as `entrypoint` function.
 
-For an example of this behavior see our [non_contract_account test](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/end-to-end/src/e2e_non_contract_account.test.ts) and the [SignerLess wallet](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec.js/src/wallet/signerless_wallet.ts) implementation. Notice that the Signerless wallet doesn't invoke an `entrypoint` function of an account contract but instead invokes the target contract function directly.
+For an example of this behavior see our [e2e_crowdfunding_and_claim test](https://github.com/AztecProtocol/aztec-packages/blob/88b5878dd4b95d691b855cd84153ba884adf25f8/yarn-project/end-to-end/src/e2e_crowdfunding_and_claim.test.ts#L322) and the [SignerLess wallet](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec.js/src/wallet/signerless_wallet.ts) implementation. Notice that the Signerless wallet doesn't invoke an `entrypoint` function of an account contract but instead invokes the target contract function directly.
 
 :::info
 Entrypoints for the following cases:
