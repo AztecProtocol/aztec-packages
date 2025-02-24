@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740412097218,
+  "lastUpdate": 1740416158722,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "santiago@aztecprotocol.com",
-            "name": "Santiago Palladino",
-            "username": "spalladino"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "cca368a7610994f4f7395c30dc346f957d0838e4",
-          "message": "chore: Do not allow changes to package json during CI yarn install (#12125)\n\nRunning `yarn install` will format the package.json for all packages in\nthe workspace. This will cause `cache_content_hash` to fail on CI due to\nchanged files, which (before #12124) caused the build to terminate\nabruptly (see\n[here](https://github.com/AztecProtocol/aztec-packages/actions/runs/13422411604/job/37497960586?pr=12096#step:7:109)\nfor an example).\n\nThis PR adds all package.json files to yarn's `immutablePatterns`, so if\nit detects that the install process changed them it, it will fail with\n`The checksum for **/package.json has been modified by this install,\nwhich is explicitly forbidden.` and a nice exit code, which should be\nvisible on the CI run. This only applies to CI runs.",
-          "timestamp": "2025-02-19T23:11:56Z",
-          "tree_id": "fb5225cc530e0d469ae4f2e9901f35d4e80e9eeb",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/cca368a7610994f4f7395c30dc346f957d0838e4"
-        },
-        "date": 1740008015863,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18090.115338000032,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15987.573651000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18616.665270000114,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16186.237868999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3950.5706100001134,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3125.853458000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54824.953991,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54824950000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9451.156151000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9451159000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1810676778,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1810676778 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 128231432,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 128231432 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3346,6 +3280,78 @@ window.BENCHMARK_DATA = {
             "value": 130552186,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 130552186 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "gregojquiros@gmail.com",
+            "name": "Gregorio Juliana",
+            "username": "Thunkar"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4bd5678f840694333725aed44e00ced576ef9950",
+          "message": "chore: @aztec/stdlib pt.5 -> started circuit-types minification (#12232)\n\nInitial cleanup of `circuit-types`. Attempted to do more in one go, but\nthe trees were pretty much all over the place.",
+          "timestamp": "2025-02-24T17:24:46+01:00",
+          "tree_id": "7ec7da89509a7e6936083fe1932136b10a2128b1",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4bd5678f840694333725aed44e00ced576ef9950"
+        },
+        "date": 1740416151262,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18341.654283000025,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16176.527652 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18830.065332000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16320.225928 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3961.3667069997973,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3148.826145 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54966.396415,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54966397000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10471.9078,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10471919000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1829405466,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1829405466 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 132137704,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 132137704 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
