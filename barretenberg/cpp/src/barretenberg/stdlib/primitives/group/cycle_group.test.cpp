@@ -85,6 +85,22 @@ TYPED_TEST(CycleGroupTest, TestBasicTagLogic)
 }
 
 /**
+ * @brief Checks that a point at infinity passes the constant_witness initialization
+ *
+ */
+TYPED_TEST(CycleGroupTest, TestInfConstantWintnessRegression)
+{
+    STDLIB_TYPE_ALIASES;
+    Builder builder;
+
+    auto lhs = TestFixture::generators[0] * 0;
+    cycle_group_ct a = cycle_group_ct::from_constant_witness(&builder, lhs);
+    (void)a;
+    EXPECT_FALSE(builder.failed());
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+/**
  * @brief Checks that a point on the curve passes the validate_is_on_curve check
  *
  */
