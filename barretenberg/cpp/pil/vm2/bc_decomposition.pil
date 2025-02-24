@@ -15,7 +15,7 @@ sel = 0;
 
 // Size of the sliding window.
 // This includes the "current byte" and the WINDOW_SIZE - 1 lookahead bytes.
-pol WINDOW_SIZE = 36;
+pol WINDOW_SIZE = 37;
 
 // Internal bytecode identifier which is defined in bc_retrieval.pil
 pol commit id;
@@ -69,7 +69,7 @@ sel * (1 - last_of_contract) * (bytes_remaining' - bytes_remaining + 1) = 0;
 sel * (1 - last_of_contract) * (id' - id) = 0;
 
 // This constrains that the bytes are in the range 0 to 255.
-#[LOOKUP_BYTECODE_BYTES_ARE_BYTES]
+#[BYTES_ARE_BYTES]
 sel { bytes } in precomputed.sel_range_8 { precomputed.clk };
 
 // These are helper columns that will be used for bytecode decomposition.
@@ -79,7 +79,8 @@ pol commit bytes_pc_plus_1, bytes_pc_plus_2, bytes_pc_plus_3, bytes_pc_plus_4, b
            bytes_pc_plus_16, bytes_pc_plus_17, bytes_pc_plus_18, bytes_pc_plus_19, bytes_pc_plus_20,
            bytes_pc_plus_21, bytes_pc_plus_22, bytes_pc_plus_23, bytes_pc_plus_24, bytes_pc_plus_25,
            bytes_pc_plus_26, bytes_pc_plus_27, bytes_pc_plus_28, bytes_pc_plus_29, bytes_pc_plus_30,
-           bytes_pc_plus_31, bytes_pc_plus_32, bytes_pc_plus_33, bytes_pc_plus_34, bytes_pc_plus_35;
+           bytes_pc_plus_31, bytes_pc_plus_32, bytes_pc_plus_33, bytes_pc_plus_34, bytes_pc_plus_35,
+           bytes_pc_plus_36;
 
 // DECOMPOSITION DOES NOT GO OVER THE END OF THE BYTECODE
 //
@@ -135,14 +136,14 @@ sel * (2 * sel_overflow_correction_needed * (WINDOW_SIZE - bytes_remaining) - WI
 // than the trace size 2^21 (and bytecode hashing/validation could not pass). This provides guarantee that
 // abs_diff cannot be the result of an underflow. This would be only possible for bytes_remaining being very close
 // to the field order.
-#[LOOKUP_BYTECODE_REMAINING_ABS_DIFF_U16]
+#[ABS_DIFF_IS_U16]
 sel { abs_diff } in precomputed.sel_range_16 { precomputed.clk };
 
 #[BC_DEC_OVERFLOW_CORRECTION_VALUE]
 sel * ((1 - sel_overflow_correction_needed) * (bytes_to_read - WINDOW_SIZE) + sel_overflow_correction_needed * (bytes_to_read - bytes_remaining)) = 0;
 
 pol commit bytes_to_read_unary;
-#[LOOKUP_BYTECODE_TO_READ_UNARY]
+#[BYTES_TO_READ_AS_UNARY]
 sel { bytes_to_read, bytes_to_read_unary } in precomputed.sel_unary { precomputed.clk, precomputed.as_unary };
 
 // We don't need sel_pc_plus_0 because we always read the current byte.
@@ -152,7 +153,8 @@ pol commit sel_pc_plus_1, sel_pc_plus_2, sel_pc_plus_3, sel_pc_plus_4, sel_pc_pl
            sel_pc_plus_16, sel_pc_plus_17, sel_pc_plus_18, sel_pc_plus_19, sel_pc_plus_20,
            sel_pc_plus_21, sel_pc_plus_22, sel_pc_plus_23, sel_pc_plus_24, sel_pc_plus_25,
            sel_pc_plus_26, sel_pc_plus_27, sel_pc_plus_28, sel_pc_plus_29, sel_pc_plus_30,
-           sel_pc_plus_31, sel_pc_plus_32, sel_pc_plus_33, sel_pc_plus_34, sel_pc_plus_35;
+           sel_pc_plus_31, sel_pc_plus_32, sel_pc_plus_33, sel_pc_plus_34, sel_pc_plus_35,
+           sel_pc_plus_36;
 
 // Remark: We should investigate whether a lookup with 35 precomputed columns might be more efficient.
 sel_pc_plus_1 * (1 - sel_pc_plus_1) = 0;
@@ -190,6 +192,7 @@ sel_pc_plus_32 * (1 - sel_pc_plus_32) = 0;
 sel_pc_plus_33 * (1 - sel_pc_plus_33) = 0;
 sel_pc_plus_34 * (1 - sel_pc_plus_34) = 0;
 sel_pc_plus_35 * (1 - sel_pc_plus_35) = 0;
+sel_pc_plus_36 * (1 - sel_pc_plus_36) = 0;
 
 #[BC_DEC_UNARY_RECONSTRUCTION]
 sel * (/*sel_pc_plus_0*/ 2**0 + sel_pc_plus_1  * 2**1  + sel_pc_plus_2  * 2**2  + sel_pc_plus_3  * 2**3  + sel_pc_plus_4  * 2**4  +
@@ -199,7 +202,7 @@ sel * (/*sel_pc_plus_0*/ 2**0 + sel_pc_plus_1  * 2**1  + sel_pc_plus_2  * 2**2  
        sel_pc_plus_20 * 2**20 + sel_pc_plus_21 * 2**21 + sel_pc_plus_22 * 2**22 + sel_pc_plus_23 * 2**23 + sel_pc_plus_24 * 2**24 +
        sel_pc_plus_25 * 2**25 + sel_pc_plus_26 * 2**26 + sel_pc_plus_27 * 2**27 + sel_pc_plus_28 * 2**28 + sel_pc_plus_29 * 2**29 +
        sel_pc_plus_30 * 2**30 + sel_pc_plus_31 * 2**31 + sel_pc_plus_32 * 2**32 + sel_pc_plus_33 * 2**33 + sel_pc_plus_34 * 2**34 +
-       sel_pc_plus_35 * 2**35 - bytes_to_read_unary) = 0;
+       sel_pc_plus_35 * 2**35 + sel_pc_plus_36 * 2**36 - bytes_to_read_unary) = 0;
 
 // Constrain shifted columns.
 bytes_pc_plus_1 = sel_pc_plus_1 * bytes';
@@ -237,6 +240,7 @@ bytes_pc_plus_32 = sel_pc_plus_32 * bytes_pc_plus_31';
 bytes_pc_plus_33 = sel_pc_plus_33 * bytes_pc_plus_32';
 bytes_pc_plus_34 = sel_pc_plus_34 * bytes_pc_plus_33';
 bytes_pc_plus_35 = sel_pc_plus_35 * bytes_pc_plus_34';
+bytes_pc_plus_36 = sel_pc_plus_36 * bytes_pc_plus_35';
 
 // For bytecode hashing, we need to re-pack 31 bytes at some PCs into a field.
 // We will have a selector for the PCs that are packed. This only needs to happen
@@ -274,5 +278,5 @@ sel_packed * (
 //       Above relation would then become stgh like:
 //       (1 - last_of_contract) * (bytes_pc_plus_i - bytes_pc_plus_{i+1}') = 0;
 //
-//       Note also that we could then remove #[LOOKUP_BYTECODE_TO_READ_UNARY] and
+//       Note also that we could then remove #[TO_READ_AS_UNARY] and
 //       #[BC_DEC_UNARY_RECONSTRUCTION].

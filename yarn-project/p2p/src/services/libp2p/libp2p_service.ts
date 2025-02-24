@@ -1,24 +1,26 @@
 import {
   BlockAttestation,
   BlockProposal,
-  type ClientProtocolCircuitVerifier,
   type Gossipable,
   type L2BlockSource,
   MerkleTreeId,
   P2PClientType,
   PeerErrorSeverity,
-  type PeerInfo,
   type RawGossipMessage,
   TopicTypeMap,
   Tx,
   type TxHash,
   type TxValidationResult,
-  type WorldStateSynchronizer,
   getTopicTypeForClientType,
   metricsTopicStrToLabels,
 } from '@aztec/circuit-types';
-import { Fr } from '@aztec/circuits.js';
+import {
+  type ClientProtocolCircuitVerifier,
+  type PeerInfo,
+  type WorldStateSynchronizer,
+} from '@aztec/circuit-types/interfaces/server';
 import { type EpochCacheInterface } from '@aztec/epoch-cache';
+import { Fr } from '@aztec/foundation/fields';
 import { createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -255,7 +257,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
                 invalidMessageDeliveriesWeight: -20,
                 invalidMessageDeliveriesDecay: 0.5,
               }),
-              [BlockAttestation.p2pTopic]: createTopicScoreParams({
+              [BlockProposal.p2pTopic]: createTopicScoreParams({
                 topicWeight: 1,
                 invalidMessageDeliveriesWeight: -20,
                 invalidMessageDeliveriesDecay: 0.5,

@@ -1,20 +1,17 @@
 import { getSchnorrAccountContractAddress } from '@aztec/accounts/schnorr';
 import { Fr, type Wallet, getContractClassFromArtifact } from '@aztec/aztec.js';
 import { registerContractClass } from '@aztec/aztec.js/deployment';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { getContractInstanceFromDeployParams } from '@aztec/circuits.js/contract';
+import { computePublicDataTreeLeafSlot, deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
+import { deriveSigningKey } from '@aztec/circuits.js/keys';
 import {
-  type AztecAddress,
-  MINIMUM_UPDATE_DELAY,
-  PublicDataTreeLeaf,
   ScheduledDelayChange,
   ScheduledValueChange,
-  UPDATED_CLASS_IDS_SLOT,
-  UPDATES_SCHEDULED_VALUE_CHANGE_LEN,
-  computeSharedMutableHashSlot,
-  deriveSigningKey,
-  getContractInstanceFromDeployParams,
-} from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot, deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
+  SharedMutableValuesWithHash,
+} from '@aztec/circuits.js/shared-mutable';
+import { PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
+import { MINIMUM_UPDATE_DELAY, UPDATED_CLASS_IDS_SLOT } from '@aztec/constants';
 import { UpdatableContract } from '@aztec/noir-contracts.js/Updatable';
 import { UpdatedContract, UpdatedContractArtifact } from '@aztec/noir-contracts.js/Updated';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -49,17 +46,12 @@ describe('e2e_contract_updates', () => {
         ),
       );
     };
+
     const valueChange = ScheduledValueChange.empty(1);
-    const delayChange = new ScheduledDelayChange(undefined, 0, DEFAULT_TEST_UPDATE_DELAY);
-    await valueChange.writeToTree(sharedMutableSlot, writeToTree);
-    await delayChange.writeToTree(sharedMutableSlot, writeToTree);
+    const delayChange = new ScheduledDelayChange(undefined, DEFAULT_TEST_UPDATE_DELAY, 0);
+    const sharedMutableValuesWithHash = new SharedMutableValuesWithHash(valueChange, delayChange);
 
-    const updatePreimage = [delayChange.toField(), ...valueChange.toFields()];
-    const updateHash = await poseidon2Hash(updatePreimage);
-
-    const hashSlot = computeSharedMutableHashSlot(sharedMutableSlot, UPDATES_SCHEDULED_VALUE_CHANGE_LEN);
-
-    await writeToTree(hashSlot, updateHash);
+    await sharedMutableValuesWithHash.writeToTree(sharedMutableSlot, writeToTree);
 
     return leaves;
   };

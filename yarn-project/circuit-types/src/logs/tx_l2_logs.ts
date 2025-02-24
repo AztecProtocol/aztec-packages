@@ -1,5 +1,7 @@
-import { Fr, type LogHash, MAX_CONTRACT_CLASS_LOGS_PER_TX, type ScopedLogHash } from '@aztec/circuits.js';
+import { type LogHash, type ScopedLogHash } from '@aztec/circuits.js/kernel';
+import { MAX_CONTRACT_CLASS_LOGS_PER_TX } from '@aztec/constants';
 import { sha256Trunc } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
 
 import isEqual from 'lodash.isequal';

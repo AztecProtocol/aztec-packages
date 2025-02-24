@@ -10,12 +10,9 @@ import {
   TxScopedL2Log,
   UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import { type Fr, PrivateLog, PublicLog } from '@aztec/circuits.js';
-import {
-  INITIAL_L2_BLOCK_NUM,
-  MAX_NOTE_HASHES_PER_TX,
-  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
-} from '@aztec/circuits.js/constants';
+import { PrivateLog, PublicLog } from '@aztec/circuits.js/logs';
+import { INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX, PUBLIC_LOG_DATA_SIZE_IN_FIELDS } from '@aztec/constants';
+import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader, numToUInt32BE } from '@aztec/foundation/serialize';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';

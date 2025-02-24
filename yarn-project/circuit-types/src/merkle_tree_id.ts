@@ -9,7 +9,7 @@ import {
   NULLIFIER_TREE_ID,
   PUBLIC_DATA_TREE_HEIGHT,
   PUBLIC_DATA_TREE_ID,
-} from '@aztec/circuits.js';
+} from '@aztec/constants';
 
 /**
  * Defines the possible Merkle tree IDs.

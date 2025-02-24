@@ -457,8 +457,7 @@ pub(crate) comptime fn derive_deserialize(s: StructDefinition) -> Quoted {
 ///
 /// Note: We are having this function separate from `derive_packable` because we use this in the note macros to get
 /// the packed length of a note as well as the `Packable` implementation. We need the length to be able to register
-/// the note in the global `NOTES` map. There the length is used to generate
-/// `compute_note_hash_and_optionally_a_nullifier` function on contracts.
+/// the note in the global `NOTES` map. There the length is used to generate partial note helper functions.
 pub comptime fn derive_packable_and_get_packed_len(s: StructDefinition) -> (Quoted, u32) {
     let packing_enabled = true;
 

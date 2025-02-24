@@ -1,5 +1,9 @@
 include(FetchContent)
 
+# Find the path where we will download the Tracy github repository
+# we need this to find where the Tracy header files are for inclusion.
+set(LIBDEFLATE_INCLUDE "${CMAKE_BINARY_DIR}/_deps/libdeflate-src/")
+
 FetchContent_Declare(
   libdeflate
   GIT_REPOSITORY https://github.com/ebiggers/libdeflate.git

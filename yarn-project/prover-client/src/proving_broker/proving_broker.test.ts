@@ -4,7 +4,7 @@ import {
   type ProvingJobId,
   type ProvingJobStatus,
   ProvingRequestType,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
 import { sleep } from '@aztec/foundation/sleep';
 
 import { jest } from '@jest/globals';

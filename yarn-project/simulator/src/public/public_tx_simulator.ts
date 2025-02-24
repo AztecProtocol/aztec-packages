@@ -1,15 +1,18 @@
 import {
-  type AvmProvingRequest,
   type GasUsed,
-  type MerkleTreeReadOperations,
   NestedProcessReturnValues,
   type PublicExecutionRequest,
   type SimulationError,
   type Tx,
   TxExecutionPhase,
 } from '@aztec/circuit-types';
+import { type AvmProvingRequest, type MerkleTreeReadOperations } from '@aztec/circuit-types/interfaces/server';
 import { type AvmSimulationStats } from '@aztec/circuit-types/stats';
-import { type Fr, type Gas, type GlobalVariables, type PublicCallRequest, type RevertCode } from '@aztec/circuits.js';
+import type { RevertCode } from '@aztec/circuits.js/avm';
+import type { Gas } from '@aztec/circuits.js/gas';
+import type { PublicCallRequest } from '@aztec/circuits.js/kernel';
+import { type GlobalVariables } from '@aztec/circuits.js/tx';
+import type { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -70,6 +73,8 @@ export class PublicTxSimulator {
    * @returns The result of the transaction's public execution.
    */
   public async simulate(tx: Tx): Promise<PublicTxResult> {
+    const startTime = process.hrtime.bigint();
+
     const txHash = await tx.getTxHash();
     this.log.debug(`Simulating ${tx.enqueuedPublicFunctionCalls.length} public calls for tx ${txHash}`, { txHash });
 
@@ -114,7 +119,7 @@ export class PublicTxSimulator {
       processedPhases.push(teardownResult);
     }
 
-    context.halt();
+    await context.halt();
     await this.payFee(context);
 
     const endStateReference = await this.db.getStateReference();
@@ -131,6 +136,9 @@ export class PublicTxSimulator {
       // FIXME(dbanks12): should not be changing immutable tx
       tx.filterRevertedLogs(tx.data.forPublic!.nonRevertibleAccumulatedData);
     }
+
+    const endTime = process.hrtime.bigint();
+    this.log.debug(`Public TX simulator took ${Number(endTime - startTime) / 1_000_000} ms\n`);
 
     return {
       avmProvingRequest,
@@ -167,11 +175,11 @@ export class PublicTxSimulator {
 
     if (result.reverted) {
       // Drop the currently active forked state manager and rollback to end of setup.
-      context.state.discardForkedState();
+      await context.state.discardForkedState();
     } else {
       if (!context.hasPhase(TxExecutionPhase.TEARDOWN)) {
         // Nothing to do after this (no teardown), so merge state updates now instead of letting teardown handle it.
-        context.state.mergeForkedState();
+        await context.state.mergeForkedState();
       }
     }
 
@@ -187,17 +195,17 @@ export class PublicTxSimulator {
     if (!context.state.isForked()) {
       // If state isn't forked (app logic reverted), fork now
       // so we can rollback to the end of setup if teardown reverts.
-      context.state.fork();
+      await context.state.fork();
     }
 
     const result = await this.simulatePhase(TxExecutionPhase.TEARDOWN, context);
 
     if (result.reverted) {
       // Drop the currently active forked state manager and rollback to end of setup.
-      context.state.discardForkedState();
+      await context.state.discardForkedState();
     } else {
       // Merge state updates from teardown,
-      context.state.mergeForkedState();
+      await context.state.mergeForkedState();
     }
 
     return result;
@@ -396,7 +404,7 @@ export class PublicTxSimulator {
    */
   public async insertRevertiblesFromPrivate(context: PublicTxContext) {
     // Fork the state manager so we can rollback to end of setup if app logic reverts.
-    context.state.fork();
+    await context.state.fork();
     const stateManager = context.state.getActiveStateManager();
     try {
       await stateManager.writeSiloedNullifiersFromPrivate(context.revertibleAccumulatedDataFromPrivate.nullifiers);

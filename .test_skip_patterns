@@ -88,39 +88,6 @@ e2e_prover/full fake
 #     at Object.getContractInstanceFromDeployParams (flakey_e2e_inclusion_proofs_contract.test.ts:275:24)
 simple flakey_e2e_inclusion_proofs_contract
 
-# FAIL prover-coordination/e2e_prover_coordination.test.ts (302.744 s)
-#   ● e2e_prover_coordination › Can claim proving rights after a prune
-#
-#     expect(received).not.toEqual(expected) // deep equality
-#
-#     Expected: not "0x28ddfbc5e8fcf013d263fe4977086379ee406c118ab9a083fbde70396cb81988"
-#
-#       436 |     expect(tx2AfterReorg.status).toEqual(TxStatus.SUCCESS);
-#       437 |     expect(tx2AfterReorg.blockNumber).toEqual(tx2BeforeReorg.blockNumber);
-#     > 438 |     expect(tx2AfterReorg.blockHash).not.toEqual(tx2BeforeReorg.blockHash);
-#           |                                         ^
-#       439 |
-#       440 |     // the tx from epoch 3 is not valid anymore, since it was built against a reorged block
-#       441 |     // should be dropped
-#
-#       at Object.toEqual (prover-coordination/e2e_prover_coordination.test.ts:438:41)
-simple e2e_prover_coordination
-
-# Vite tests just hang.
-boxes/scripts/run_test.sh vite
-
-# FAIL  src/orchestrator/orchestrator_workflow.test.ts (17.926 s)
-#  prover/orchestrator
-#    workflow
-#      with mock prover
-#        ✕ calls root parity circuit only when ready (488 ms)
-#      with simulated prover
-#        ✓ waits for block to be completed before enqueueing block root proof (7702 ms)
-#        ✓ can start tube proofs before adding processed txs (7547 ms)
-#
-#  ● prover/orchestrator › workflow › with mock prover › calls root parity circuit only when ready
-src/orchestrator/orchestrator_workflow.test.ts
-
 # FAIL  src/test/bb_prover_parity.test.ts (34.059 s)
 #  prover/bb_prover/parity
 #    ✕ proves the parity circuits (30003 ms)
@@ -130,7 +97,6 @@ src/orchestrator/orchestrator_workflow.test.ts
 #    thrown: "Exceeded timeout of 30000 ms for a test.
 #    Add a timeout value to this test to increase the timeout, if this is a long-running test. See https://jestjs.io/docs/api#testname-fn-timeout."
 prover-client/src/test/bb_prover_parity.test.ts
-
 
 # yarn-project tests
 p2p/src/services/reqresp/reqresp.test.ts

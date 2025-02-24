@@ -1,8 +1,11 @@
 import { times } from '@aztec/foundation/collection';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
-import { AztecAddress, EthAddress, Fr, L2ToL1Message, ScopedL2ToL1Message } from '../index.js';
+import { AztecAddress } from '../aztec-address/index.js';
+import { L2ToL1Message, ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import { makeAztecAddress } from '../tests/factories.js';
 import {
   computeNoteHashNonce,

@@ -74,6 +74,15 @@ export function removeLogNameHandler(handler: LogNameHandler) {
   }
 }
 
+/** Creates all loggers within the given callback with the suffix appended to the module name. */
+export async function withLogNameSuffix<T>(suffix: string, callback: () => Promise<T>): Promise<T> {
+  const logNameHandler = (module: string) => `${module}:${suffix}`;
+  addLogNameHandler(logNameHandler);
+  const result = await callback();
+  removeLogNameHandler(logNameHandler);
+  return result;
+}
+
 // Patch isLevelEnabled missing from pino/browser.
 function isLevelEnabled(logger: pino.Logger<'verbose', boolean>, level: LogLevel): boolean {
   return typeof logger.isLevelEnabled === 'function'

@@ -1,24 +1,21 @@
+import { MerkleTreeId, SiblingPath } from '@aztec/circuit-types';
 import {
   type BatchInsertionResult,
   type IndexedTreeId,
-  MerkleTreeId,
   type MerkleTreeLeafType,
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
   type SequentialInsertionResult,
-  SiblingPath,
   type TreeInfo,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
 import {
-  type BlockHeader,
-  Fr,
   NullifierLeaf,
   NullifierLeafPreimage,
-  PartialStateReference,
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
-  StateReference,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/trees';
+import { type BlockHeader, PartialStateReference, StateReference } from '@aztec/circuits.js/tx';
+import { Fr } from '@aztec/foundation/fields';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 

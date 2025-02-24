@@ -1,5 +1,6 @@
-import { type AztecAddress, type Fr } from '@aztec/circuits.js';
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type ZodFor, schemas } from '@aztec/circuits.js/schemas';
+import type { Fr } from '@aztec/foundation/fields';
 
 import { z } from 'zod';
 

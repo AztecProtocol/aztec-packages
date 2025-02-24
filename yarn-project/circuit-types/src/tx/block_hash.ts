@@ -1,6 +1,6 @@
-import { Fr } from '@aztec/circuits.js';
+import { schemas } from '@aztec/circuits.js/schemas';
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { schemas } from '@aztec/foundation/schemas';
+import { Fr } from '@aztec/foundation/fields';
 
 /** Hash of an L2 block. */
 export class L2BlockHash extends Buffer32 {

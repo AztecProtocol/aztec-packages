@@ -1,5 +1,5 @@
 import { type AccountWalletWithSecretKey, type AztecAddress, Contract, Fr } from '@aztec/aztec.js';
-import { GasSettings } from '@aztec/circuits.js';
+import { GasSettings } from '@aztec/circuits.js/gas';
 import { prepTx } from '@aztec/cli/utils';
 import { type LogFn } from '@aztec/foundation/log';
 

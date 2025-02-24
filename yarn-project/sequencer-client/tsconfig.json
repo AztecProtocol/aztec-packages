@@ -25,6 +25,9 @@
       "path": "../circuits.js"
     },
     {
+      "path": "../constants"
+    },
+    {
       "path": "../epoch-cache"
     },
     {
@@ -59,9 +62,6 @@
     },
     {
       "path": "../telemetry-client"
-    },
-    {
-      "path": "../types"
     },
     {
       "path": "../validator-client"

@@ -1,5 +1,10 @@
-import { type AccountWallet, type AuthWitnessProvider } from '@aztec/aztec.js';
-import { type AztecAddress, type CompleteAddress, type NodeInfo } from '@aztec/circuits.js';
+import {
+  type AccountWallet,
+  type AuthWitnessProvider,
+  AztecAddress,
+  CompleteAddress,
+  type NodeInfo,
+} from '@aztec/aztec.js';
 import { DefaultDappEntrypoint } from '@aztec/entrypoints/dapp';
 
 import { DefaultAccountInterface } from '../defaults/account_interface.js';

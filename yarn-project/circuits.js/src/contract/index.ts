@@ -8,3 +8,7 @@ export * from './private_function.js';
 export * from './private_function_membership_proof.js';
 export * from './unconstrained_function_membership_proof.js';
 export * from './interfaces/index.js';
+export * from './contract_function_dao.js';
+export * from './partial_address.js';
+export * from './deployment_info.js';
+export * from './complete_address.js';

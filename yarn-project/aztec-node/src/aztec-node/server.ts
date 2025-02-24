@@ -2,26 +2,19 @@ import { createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import {
-  type AztecNode,
-  type ClientProtocolCircuitVerifier,
   type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
   type InBlock,
   type L1ToL2MessageSource,
   type L2Block,
-  type L2BlockNumber,
   type L2BlockSource,
   type L2LogsSource,
   type LogFilter,
   MerkleTreeId,
-  NullifierMembershipWitness,
   type NullifierWithBlockSource,
   P2PClientType,
-  type ProverConfig,
   PublicDataWitness,
   PublicSimulationOutput,
-  type SequencerConfig,
-  type Service,
   SiblingPath,
   type Tx,
   type TxEffect,
@@ -30,36 +23,48 @@ import {
   type TxScopedL2Log,
   TxStatus,
   type TxValidationResult,
+} from '@aztec/circuit-types';
+import { type AztecNode, type L2BlockNumber, NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/client';
+import {
+  type ClientProtocolCircuitVerifier,
+  type ProverConfig,
+  type SequencerConfig,
+  type Service,
+  type WorldStateSyncStatus,
   type WorldStateSynchronizer,
   tryStop,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/server';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
-  type ARCHIVE_HEIGHT,
-  type BlockHeader,
   type ContractClassPublic,
   type ContractDataSource,
   type ContractInstanceWithAddress,
-  EthAddress,
-  Fr,
-  type GasFees,
+  type NodeInfo,
+  type ProtocolContractAddresses,
+} from '@aztec/circuits.js/contract';
+import type { GasFees } from '@aztec/circuits.js/gas';
+import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
+import type { PrivateLog } from '@aztec/circuits.js/logs';
+import {
+  type NullifierLeafPreimage,
+  type PublicDataTreeLeaf,
+  type PublicDataTreeLeafPreimage,
+} from '@aztec/circuits.js/trees';
+import type { BlockHeader } from '@aztec/circuits.js/tx';
+import {
+  type ARCHIVE_HEIGHT,
   INITIAL_L2_BLOCK_NUM,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type NOTE_HASH_TREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
-  type NodeInfo,
-  type NullifierLeafPreimage,
   type PUBLIC_DATA_TREE_HEIGHT,
-  type PrivateLog,
-  type ProtocolContractAddresses,
-  type PublicDataTreeLeaf,
-  type PublicDataTreeLeafPreimage,
   REGISTERER_CONTRACT_ADDRESS,
-} from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
+} from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { compactArray } from '@aztec/foundation/collection';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { type AztecKVStore } from '@aztec/kv-store';
@@ -121,6 +126,11 @@ export class AztecNodeService implements AztecNode, Traceable {
     this.tracer = telemetry.getTracer('AztecNodeService');
 
     this.log.info(`Aztec Node started on chain 0x${l1ChainId.toString(16)}`, config.l1Contracts);
+  }
+
+  public async getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
+    const status = await this.worldStateSynchronizer.status();
+    return status.syncSummary;
   }
 
   public getL2Tips() {

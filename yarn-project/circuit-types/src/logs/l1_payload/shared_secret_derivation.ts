@@ -1,5 +1,7 @@
-import { type AztecAddress, type GrumpkinScalar, type Point, type PublicKey } from '@aztec/circuits.js';
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { PublicKey } from '@aztec/circuits.js/keys';
+import { Grumpkin } from '@aztec/foundation/crypto';
+import { type GrumpkinScalar, type Point } from '@aztec/foundation/fields';
 
 /**
  * Derive an Elliptic Curve Diffie-Hellman (ECDH) Shared Secret.

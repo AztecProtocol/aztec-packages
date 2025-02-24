@@ -1,7 +1,5 @@
 // Reexport all folders at the root for packages targeting CommonJS
-export * as abi from './abi/index.js';
 export * as asyncMap from './async-map/index.js';
-export * as aztecAddress from './aztec-address/index.js';
 export * as bigintBuffer from './bigint-buffer/index.js';
 export * as collection from './collection/index.js';
 export * as committable from './committable/index.js';
