@@ -478,7 +478,7 @@ void test_reverts_remove_all_deeper_commits(uint64_t max_index, uint32_t depth, 
 
     CacheType final_cache = cache;
 
-    // commit everything except the the first checkpoint
+    // commit everything except the first checkpoint
     for (uint64_t i = 1; i < num_levels; i++) {
         cache.commit();
     }
