@@ -1,4 +1,4 @@
-// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js
+// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.27;
