@@ -59,6 +59,7 @@ import {
 import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
 import { AztecDatastore } from '../data_store.js';
 import { SnappyTransform, fastMsgIdFn, getMsgIdFn, msgIdToStrFn } from '../encoding.js';
+import { gossipScoreThresholds } from '../gossipsub/scoring.js';
 import { PeerManager } from '../peer-manager/peer_manager.js';
 import { PeerScoring } from '../peer-manager/peer_scoring.js';
 import { DEFAULT_SUB_PROTOCOL_VALIDATORS, ReqRespSubProtocol, type SubProtocolMap } from '../reqresp/interface.js';
@@ -215,6 +216,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
         maxConnections: maxPeerCount,
 
         maxParallelDials: 100,
+        dialTimeout: 30_000,
         maxPeerAddrsToDial: 5,
         maxIncomingPendingConnections: 5,
       },
@@ -234,8 +236,6 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
           heartbeatInterval: config.gossipsubInterval,
           mcacheLength: config.gossipsubMcacheLength,
           mcacheGossip: config.gossipsubMcacheGossip,
-          // Increased from default 3s to give time for input lag: configuration and rationale from lodestar
-          gossipsubIWantFollowupMs: 12 * 1000,
           msgIdFn: getMsgIdFn,
           msgIdToStrFn: msgIdToStrFn,
           fastMsgIdFn: fastMsgIdFn,
@@ -243,6 +243,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
           metricsRegister: otelMetricsAdapter,
           metricsTopicStrToLabel: metricsTopicStrToLabels(),
           asyncValidation: true,
+          scoreThresholds: gossipScoreThresholds,
           scoreParams: createPeerScoreParams({
             // IPColocation factor can be disabled for local testing - default to -5
             IPColocationFactorWeight: config.debugDisableColocationPenalty ? 0 : -5.0,
