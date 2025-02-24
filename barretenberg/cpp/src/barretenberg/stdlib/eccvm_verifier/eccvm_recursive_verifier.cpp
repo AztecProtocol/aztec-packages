@@ -141,21 +141,41 @@ template <typename Flavor>
 OpeningClaim<typename Flavor::Curve> ECCVMRecursiveVerifier_<Flavor>::reduce_verify_translation_evaluations(
     const std::vector<Commitment>& translation_commitments)
 {
+    using SmallIPAVerifier = SmallSubgroupIPAVerifier<typename ECCVMFlavor::Curve>;
+
+    std::array<OpeningClaim<typename ECCVMFlavor::Curve>, NUM_SMALL_IPA_EVALUATIONS + 1> opening_claims;
+
+    small_ipa_commitments[0] =
+        transcript->template receive_from_prover<Commitment>("Translation:masking_term_commitment");
+
     evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
 
     // Construct the array of evaluations to be batched, the evaluations being received from the prover
-    std::array<FF, NUM_TRANSLATION_EVALUATIONS> translation_evaluations = {
-        transcript->template receive_from_prover<FF>("Translation:op"),
-        transcript->template receive_from_prover<FF>("Translation:Px"),
-        transcript->template receive_from_prover<FF>("Translation:Py"),
-        transcript->template receive_from_prover<FF>("Translation:z1"),
-        transcript->template receive_from_prover<FF>("Translation:z2")
-    };
-
+    for (auto [eval, label] : zip_view(translation_evaluations.get_all(), translation_evaluations.labels)) {
+        *eval = transcript->template receive_from_prover<FF>(label);
+    }
     // Get the batching challenge for commitments and evaluations
     batching_challenge_v = transcript->template get_challenge<FF>("Translation:batching_challenge_v");
 
     FF claimed_masking_term_eval = transcript->template receive_from_prover<FF>("Translation:masking_term_eval");
+
+    small_ipa_commitments[1] = transcript->template receive_from_prover<Commitment>("Translation:big_sum_commitment");
+    small_ipa_commitments[2] = small_ipa_commitments[1];
+    small_ipa_commitments[3] = transcript->template receive_from_prover<Commitment>("Translation:quotient_commitment");
+
+    FF small_ipa_evaluation_challenge =
+        transcript->template get_challenge<FF>("Translation:small_ipa_evaluation_challenge");
+
+    std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations;
+    labels = SmallIPAVerifier::evaluation_labels();
+
+    evaluation_points = SmallIPAVerifier::evaluation_points(small_ipa_evaluation_challenge);
+
+    for (size_t idx = 0; idx < NUM_SMALL_IPA_EVALUATIONS; idx++) {
+        small_ipa_evaluations[idx] = transcript->template receive_from_prover<FF>(labels[idx]);
+        opening_claims[idx + 1] = { { evaluation_points[idx], small_ipa_evaluations[idx] },
+                                    small_ipa_commitments[idx] };
+    }
 
     // Compute the batched commitment and batched evaluation for the univariate opening claim
     auto batched_translation_evaluation = translation_evaluations[0];

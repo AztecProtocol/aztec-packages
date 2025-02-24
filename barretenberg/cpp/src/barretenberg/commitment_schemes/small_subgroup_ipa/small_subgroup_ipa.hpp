@@ -759,9 +759,9 @@ static std::vector<FF> compute_challenge_polynomial_coeffs(const std::vector<FF>
  * @return std::vector<FF>
  */
 template <typename FF>
-static std::vector<FF> compute_eccvm_challenge_coeffs(const FF& evaluation_challenge_x,
-                                                      const FF& batching_challenge_v,
-                                                      const size_t& subgroup_size)
+std::vector<FF> compute_eccvm_challenge_coeffs(const FF& evaluation_challenge_x,
+                                               const FF& batching_challenge_v,
+                                               const size_t& subgroup_size)
 {
     std::vector<FF> coeffs_lagrange_basis(subgroup_size, FF(0));
 
@@ -783,8 +783,8 @@ static std::vector<FF> compute_eccvm_challenge_coeffs(const FF& evaluation_chall
 }
 
 template <typename FF>
-static std::array<FF, NUM_SMALL_IPA_EVALUATIONS> compute_evaluation_points(const FF& small_ipa_evaluation_challenge,
-                                                                           const FF& subgroup_generator)
+std::array<FF, NUM_SMALL_IPA_EVALUATIONS> compute_evaluation_points(const FF& small_ipa_evaluation_challenge,
+                                                                    const FF& subgroup_generator)
 {
     return { small_ipa_evaluation_challenge,
              small_ipa_evaluation_challenge * subgroup_generator,

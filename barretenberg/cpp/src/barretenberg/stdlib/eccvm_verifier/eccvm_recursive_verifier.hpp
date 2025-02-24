@@ -31,6 +31,10 @@ template <typename Flavor> class ECCVMRecursiveVerifier_ {
 
     std::vector<Commitment> translation_commitments;
 
+    std::array<Commitment, NUM_SMALL_IPA_EVALUATIONS> small_ipa_commitments;
+    std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points;
+    std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> labels;
+
     OpeningClaim<Curve> reduce_verify_translation_evaluations(const std::vector<Commitment>& translation_commitments);
 
     // Translation evaluations challenges. They are propagated to the TranslatorVerifier

@@ -157,6 +157,9 @@ std::array<OpeningClaim<typename ECCVMFlavor::Curve>, NUM_SMALL_IPA_EVALUATIONS 
     batching_challenge_v = transcript->template get_challenge<FF>("Translation:batching_challenge_v");
 
     translation_masking_term_eval = transcript->template receive_from_prover<FF>("Translation:masking_term_eval");
+
+    info("masking term eval ", translation_masking_term_eval);
+
     small_ipa_commitments[1] = transcript->template receive_from_prover<Commitment>("Translation:big_sum_commitment");
     small_ipa_commitments[2] = small_ipa_commitments[1];
     small_ipa_commitments[3] = transcript->template receive_from_prover<Commitment>("Translation:quotient_commitment");
@@ -177,7 +180,7 @@ std::array<OpeningClaim<typename ECCVMFlavor::Curve>, NUM_SMALL_IPA_EVALUATIONS 
     // Compute the batched commitment and batched evaluation for the univariate opening claim
     Commitment batched_commitment = translation_commitments[0];
     FF batched_translation_evaluation = *translation_evaluations.get_all()[0];
-    FF batching_scalar;
+    FF batching_scalar = batching_challenge_v;
     for (size_t idx = 1; idx < NUM_TRANSLATION_EVALUATIONS; ++idx) {
         batched_commitment = batched_commitment + translation_commitments[idx] * batching_scalar;
         const FF current_eval = *translation_evaluations.get_all()[idx];
@@ -193,6 +196,7 @@ std::array<OpeningClaim<typename ECCVMFlavor::Curve>, NUM_SMALL_IPA_EVALUATIONS 
                                                               evaluation_challenge_x,
                                                               batching_challenge_v,
                                                               translation_masking_term_eval);
+    info(translation_masking_consistency_checked);
 
     return opening_claims;
 };
