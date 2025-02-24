@@ -2,15 +2,11 @@ import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
+import { type AsyncHasher, type Hasher } from './hasher.js';
 import { IndexedMerkleTree } from './indexed_merkle_tree.js';
 
 interface LeafPreimageFactory<T extends IndexedTreeLeafPreimage> {
   fromBuffer(buffer: Buffer): T;
-}
-
-interface Hasher {
-  hash(lhs: Buffer, rhs: Buffer): Promise<Buffer>;
-  hashInputs(inputs: Buffer[]): Promise<Buffer>;
 }
 
 /**
@@ -20,13 +16,13 @@ export class IndexedMerkleTreeCalculator<T extends IndexedTreeLeafPreimage, N ex
   private constructor(
     private height: N,
     private zeroHashes: Buffer[],
-    private hasher: Hasher,
+    private hasher: AsyncHasher,
     private factory: LeafPreimageFactory<T>,
   ) {}
 
   static async create<T extends IndexedTreeLeafPreimage, N extends number>(
     height: N,
-    hasher: Hasher,
+    hasher: AsyncHasher,
     factory: LeafPreimageFactory<T>,
     zeroLeaf = Buffer.alloc(32),
   ) {

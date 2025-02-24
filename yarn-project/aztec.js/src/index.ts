@@ -37,6 +37,8 @@ export { EthAddress } from '@aztec/foundation/eth-address';
 
 export { Fq, Fr, Point, GrumpkinScalar } from '@aztec/foundation/fields';
 
+export { SiblingPath } from '@aztec/foundation/trees';
+
 export {
   type PartialAddress,
   type ContractClassWithId,
@@ -45,6 +47,8 @@ export {
   getContractInstanceFromDeployParams,
   type NodeInfo,
 } from '@aztec/circuits.js/contract';
+
+export { MerkleTreeId, merkleTreeIds } from '@aztec/circuits.js/trees';
 
 export { GlobalVariables } from '@aztec/circuits.js/tx';
 
@@ -81,10 +85,7 @@ export {
   L2Actor,
   L2Block,
   LogId,
-  MerkleTreeId,
-  merkleTreeIds,
   Note,
-  SiblingPath,
   Tx,
   TxExecutionRequest,
   TxHash,

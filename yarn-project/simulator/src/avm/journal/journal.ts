@@ -1,4 +1,3 @@
-import { MerkleTreeId } from '@aztec/circuit-types';
 import { type IndexedTreeId, type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import { AvmNullifierReadTreeHint, AvmPublicDataReadTreeHint, PublicDataWrite } from '@aztec/circuits.js/avm';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
@@ -12,6 +11,7 @@ import {
 } from '@aztec/circuits.js/hash';
 import type { PublicCallRequest } from '@aztec/circuits.js/kernel';
 import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/circuits.js/shared-mutable';
+import { MerkleTreeId } from '@aztec/circuits.js/trees';
 import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
 import {
   CANONICAL_AUTH_REGISTRY_ADDRESS,

@@ -3,7 +3,6 @@ import {
   BlockProposal,
   type Gossipable,
   type L2BlockSource,
-  MerkleTreeId,
   P2PClientType,
   PeerErrorSeverity,
   type RawGossipMessage,
@@ -19,6 +18,7 @@ import {
   type PeerInfo,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types/interfaces/server';
+import { MerkleTreeId } from '@aztec/circuits.js/trees';
 import { type EpochCacheInterface } from '@aztec/epoch-cache';
 import { Fr } from '@aztec/foundation/fields';
 import { createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';

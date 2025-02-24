@@ -1,8 +1,8 @@
-import { type NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/client';
 import type { FunctionSelector } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { UpdatedClassIdHints } from '@aztec/circuits.js/kernel';
 import type { PublicKeys } from '@aztec/circuits.js/keys';
+import { type NullifierMembershipWitness } from '@aztec/circuits.js/trees';
 import type { VerificationKeyAsFields } from '@aztec/circuits.js/vks';
 import { type FUNCTION_TREE_HEIGHT, type NOTE_HASH_TREE_HEIGHT, type VK_TREE_HEIGHT } from '@aztec/constants';
 import type { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';

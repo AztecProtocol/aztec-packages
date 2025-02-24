@@ -24,6 +24,7 @@ import { AbiDecodedSchema, schemas } from '@aztec/circuits.js/schemas';
 import { type ApiSchemaFor, type ZodFor, optional } from '@aztec/circuits.js/schemas';
 import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import type { Fr, Point } from '@aztec/foundation/fields';
+import { SiblingPath } from '@aztec/foundation/trees';
 
 import { z } from 'zod';
 
@@ -41,7 +42,6 @@ import {
 import { UniqueNote } from '../notes/index.js';
 import { type NotesFilter, NotesFilterSchema } from '../notes/notes_filter.js';
 import { PrivateExecutionResult } from '../private_execution_result.js';
-import { SiblingPath } from '../sibling_path/sibling_path.js';
 import { Tx, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '../tx/index.js';
 import { TxEffect } from '../tx_effect.js';
 import { TxExecutionRequest } from '../tx_execution_request.js';
