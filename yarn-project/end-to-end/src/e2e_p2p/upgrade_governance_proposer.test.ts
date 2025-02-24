@@ -11,6 +11,8 @@ import {
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { getAddress, getContract } from 'viem';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
@@ -23,7 +25,7 @@ const NUM_NODES = 4;
 // interfere with each other.
 const BOOT_NODE_UDP_PORT = 45000;
 
-const DATA_DIR = './data/upgrade_governance_proposer';
+const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'upgrade-'));
 
 jest.setTimeout(1000 * 60 * 10);
 
