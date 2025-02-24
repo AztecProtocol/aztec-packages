@@ -17,13 +17,13 @@ export async function getDefaultAllowedSetupFunctions(): Promise<AllowedElement[
       {
         address: ProtocolContractAddress.FeeJuice,
         // We can't restrict the selector because public functions get routed via dispatch.
-        // selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
+        // selector: FunctionSelector.fromSignature('_increase_public_balance((Field),u128)'),
       },
       // needed for private transfers via FPC
       {
         classId: (await getContractClassFromArtifact(TokenContractArtifact)).id,
         // We can't restrict the selector because public functions get routed via dispatch.
-        // selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
+        // selector: FunctionSelector.fromSignature('_increase_public_balance((Field),u128)'),
       },
       {
         classId: (await getContractClassFromArtifact(FPCContract.artifact)).id,

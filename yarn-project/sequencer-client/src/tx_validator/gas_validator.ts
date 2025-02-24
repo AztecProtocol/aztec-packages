@@ -67,7 +67,7 @@ export class GasTxValidator implements TxValidator<Tx> {
     // If there is a claim in this tx that increases the fee payer balance in Fee Juice, add it to balance
     const setupFns = getExecutionRequestsByPhase(tx, TxExecutionPhase.SETUP);
     const increasePublicBalanceSelector = await FunctionSelector.fromSignature(
-      '_increase_public_balance((Field),Field)',
+      '_increase_public_balance((Field),u128)',
     );
     const claimFunctionCall = setupFns.find(
       fn =>
@@ -80,8 +80,11 @@ export class GasTxValidator implements TxValidator<Tx> {
         !fn.callContext.isStaticCall,
     );
 
-    // `amount` is the second argument in the claim function call arguments.
-    const balance = claimFunctionCall ? initialBalance.add(claimFunctionCall.args[1]) : initialBalance;
+    // The claim amount is at index 2 in the args array because:
+    // - Index 0: Target function selector (due to dispatch routing)
+    // - Index 1: Amount recipient
+    // - Index 2: Amount being claimed
+    const balance = claimFunctionCall ? initialBalance.add(claimFunctionCall.args[2]) : initialBalance;
     if (balance.lt(feeLimit)) {
       this.#log.warn(`Rejecting transaction due to not enough fee payer balance`, {
         feePayer,

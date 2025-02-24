@@ -326,7 +326,7 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
         action: {
           name: 'transfer_in_public',
           args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), maxFee, nonce],
-          selector: await FunctionSelector.fromSignature('transfer_in_public((Field),(Field),Field,Field)'),
+          selector: await FunctionSelector.fromSignature('transfer_in_public((Field),(Field),u128,Field)'),
           type: FunctionType.PUBLIC,
           isStatic: false,
           to: asset,
