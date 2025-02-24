@@ -5,7 +5,7 @@ aztec:
   realProofs: true
   l1DeploymentMnemonic: ""
   validatorKeyIndexStart: 0
-  proverKeyIndexStart: 48
+  proverKeyIndexStart: 3
 
 network:
   setupL2Contracts: false

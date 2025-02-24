@@ -126,7 +126,6 @@ jobs:
               export EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${{ secrets.SEPOLIA_API_KEY }}
               export EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER=${{ env.GCP_API_KEY_HEADER }}
               export L1_DEPLOYMENT_PRIVATE_KEY=${{ secrets.SEPOLIA_L1_DEPLOYMENT_PRIVATE_KEY }}
-              export L1_ACCOUNTS_MNEMONIC="${{ secrets.SEPOLIA_ACCOUNTS_MNEMONIC }}"
               SEPOLIA_RUN=true INSTALL_METRICS=false ./spartan/scripts/test_kind.sh "./src/spartan/${{ matrix.config.test }}" "${{ matrix.config.values }}"
               ci3/cache_upload_flag "$artifact"
             fi
