@@ -210,7 +210,7 @@ export class Tx extends Gossipable {
               ? 'fpc_public'
               : 'fpc_private'
             : 'fee_juice'
-          : 'none',
+          : 'fee_juice',
       classRegisteredCount: this.contractClassLogs.unrollLogs().length,
       contractClassLogSize: this.contractClassLogs.getSerializedLength(),
     };

@@ -40,7 +40,7 @@ export type BotConfig = {
   /** How many public token transfers are executed per tx. */
   publicTransfersPerTx: number;
   /** How to handle fee payments. */
-  feePaymentMethod: 'fee_juice' | 'none';
+  feePaymentMethod: 'fee_juice';
   /** True to not automatically setup or start the bot on initialization. */
   noStart: boolean;
   /** How long to wait for a tx to be mined before reporting an error. */
@@ -75,7 +75,7 @@ export const BotConfigSchema = z
     txIntervalSeconds: z.number(),
     privateTransfersPerTx: z.number(),
     publicTransfersPerTx: z.number(),
-    feePaymentMethod: z.union([z.literal('fee_juice'), z.literal('none')]),
+    feePaymentMethod: z.literal('fee_juice'),
     noStart: z.boolean(),
     txMinedWaitSeconds: z.number(),
     followChain: z.enum(BotFollowChain),
@@ -140,9 +140,9 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   },
   feePaymentMethod: {
     env: 'BOT_FEE_PAYMENT_METHOD',
-    description: 'How to handle fee payments. (Options: fee_juice, none)',
-    parseEnv: val => (val as 'fee_juice' | 'none') || undefined,
-    defaultValue: 'none',
+    description: 'How to handle fee payments. (Options: fee_juice)',
+    parseEnv: val => (val as 'fee_juice') || undefined,
+    defaultValue: 'fee_juice',
   },
   noStart: {
     env: 'BOT_NO_START',
