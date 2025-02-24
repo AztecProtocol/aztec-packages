@@ -4,7 +4,7 @@
  * Used when running testbench commands
  */
 import { MockL2BlockSource } from '@aztec/archiver/test';
-import { P2PClientType, TopicType, Tx, TxStatus, createTopicString } from '@aztec/circuit-types';
+import { P2PClientType, Tx, TxStatus } from '@aztec/circuit-types';
 import { type WorldStateSynchronizer } from '@aztec/circuit-types/interfaces/server';
 import { type EpochCacheInterface } from '@aztec/epoch-cache';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -109,7 +109,6 @@ process.on('message', async msg => {
         process.send!({
           type: 'GOSSIP_RECEIVED',
           count: gossipMessageCount,
-          clientIndex,
         });
         return (client as any).p2pService.constructor.prototype.handleNewGossipMessage.apply(
           (client as any).p2pService,
