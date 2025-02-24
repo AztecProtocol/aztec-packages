@@ -242,4 +242,3 @@ comptime fn create_public_static_void_stub(f: FunctionDefinition) -> Quoted {
         }
     }
 }
-

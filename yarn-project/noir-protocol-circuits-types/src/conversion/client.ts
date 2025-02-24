@@ -1,13 +1,45 @@
 import {
-  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  CallContext,
   CountedPublicCallRequest,
-  Fr,
-  FunctionData,
-  type KeyValidationHint,
+  KeyValidationHint,
   KeyValidationRequest,
   KeyValidationRequestAndGenerator,
   LogHash,
+  NoteHash,
+  type NoteHashReadRequestHints,
+  Nullifier,
+  type NullifierReadRequestHints,
+  PartialPrivateTailPublicInputsForPublic,
+  PartialPrivateTailPublicInputsForRollup,
+  PendingReadHint,
+  PrivateAccumulatedData,
+  type PrivateCallData,
+  PrivateCallRequest,
+  PrivateCircuitPublicInputs,
+  PrivateKernelCircuitPublicInputs,
+  type PrivateKernelData,
+  PrivateKernelResetHints,
+  PrivateKernelTailCircuitPublicInputs,
+  PrivateLogData,
+  PrivateToPublicAccumulatedData,
+  PrivateValidationRequests,
+  type PrivateVerificationKeyHints,
+  ReadRequest,
+  ReadRequestStatus,
+  RollupValidationRequests,
+  ScopedKeyValidationRequestAndGenerator,
+  ScopedLogHash,
+  ScopedNoteHash,
+  ScopedNullifier,
+  ScopedPrivateLogData,
+  ScopedReadRequest,
+  SettledReadHint,
+  TransientDataIndexHint,
+} from '@aztec/circuits.js/kernel';
+import type { PublicKeys } from '@aztec/circuits.js/keys';
+import { type NullifierLeafPreimage } from '@aztec/circuits.js/trees';
+import { CallContext, FunctionData, TxConstantData, TxRequest } from '@aztec/circuits.js/tx';
+import {
+  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_ENQUEUED_CALLS_PER_TX,
   MAX_KEY_VALIDATION_REQUESTS_PER_TX,
@@ -20,42 +52,9 @@ import {
   MAX_PRIVATE_LOGS_PER_TX,
   type NOTE_HASH_TREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
-  NoteHash,
-  type NoteHashReadRequestHints,
-  Nullifier,
-  type NullifierLeafPreimage,
-  type NullifierReadRequestHints,
-  PartialPrivateTailPublicInputsForPublic,
-  PartialPrivateTailPublicInputsForRollup,
-  type PendingReadHint,
-  PrivateAccumulatedData,
-  type PrivateCallData,
-  PrivateCallRequest,
-  type PrivateCircuitPublicInputs,
-  PrivateKernelCircuitPublicInputs,
-  type PrivateKernelData,
-  type PrivateKernelResetHints,
-  PrivateKernelTailCircuitPublicInputs,
-  PrivateLogData,
-  PrivateToPublicAccumulatedData,
-  PrivateValidationRequests,
-  type PrivateVerificationKeyHints,
-  type PublicKeys,
-  ReadRequest,
-  type ReadRequestStatus,
-  RollupValidationRequests,
-  ScopedKeyValidationRequestAndGenerator,
-  ScopedLogHash,
-  ScopedNoteHash,
-  ScopedNullifier,
-  ScopedPrivateLogData,
-  ScopedReadRequest,
-  type SettledReadHint,
-  type TransientDataIndexHint,
-  TxConstantData,
-  type TxRequest,
-  UPDATES_SCHEDULED_VALUE_CHANGE_LEN,
-} from '@aztec/circuits.js';
+  UPDATES_SHARED_MUTABLE_VALUES_LEN,
+} from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 import { assertLength, mapTuple } from '@aztec/foundation/serialize';
 
 import type {
@@ -611,9 +610,9 @@ export function mapFunctionDataFromNoir(functionData: FunctionDataNoir): Functio
 export function mapPrivateVerificationKeyHintsToNoir(
   privateVerificationKeyHints: PrivateVerificationKeyHints,
 ): PrivateVerificationKeyHintsNoir {
-  const updatedClassIdValueChangeAsFields = assertLength(
-    privateVerificationKeyHints.updatedClassIdHints.updatedClassIdValueChange.toFields(),
-    UPDATES_SCHEDULED_VALUE_CHANGE_LEN,
+  const updatedClassIdSharedMutableValuesFields = assertLength(
+    privateVerificationKeyHints.updatedClassIdHints.updatedClassIdValues.toFields(),
+    UPDATES_SHARED_MUTABLE_VALUES_LEN,
   );
 
   return {
@@ -637,10 +636,7 @@ export function mapPrivateVerificationKeyHintsToNoir(
     updated_class_id_leaf: mapPublicDataTreePreimageToNoir(
       privateVerificationKeyHints.updatedClassIdHints.updatedClassIdLeaf,
     ),
-    updated_class_id_value_change: mapTuple(updatedClassIdValueChangeAsFields, mapFieldToNoir),
-    updated_class_id_delay_change: [
-      mapFieldToNoir(privateVerificationKeyHints.updatedClassIdHints.updatedClassIdDelayChange.toField()),
-    ],
+    updated_class_id_shared_mutable_values: mapTuple(updatedClassIdSharedMutableValuesFields, mapFieldToNoir),
   };
 }
 

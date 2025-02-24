@@ -8,12 +8,11 @@ import {
   collectNoteHashNullifierCounterMap,
   collectPublicTeardownFunctionCall,
   getFinalMinRevertibleSideEffectCounter,
-} from '@aztec/circuit-types';
+} from '@aztec/circuit-types/interfaces/client';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { computeContractAddressFromInstance } from '@aztec/circuits.js/contract';
+import { hashVK } from '@aztec/circuits.js/hash';
 import {
-  AztecAddress,
-  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  ClientIvcProof,
-  Fr,
   PrivateCallData,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelData,
@@ -21,16 +20,16 @@ import {
   PrivateKernelInnerCircuitPrivateInputs,
   PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
-  type PrivateLog,
   PrivateVerificationKeyHints,
   type ScopedPrivateLogData,
-  type TxRequest,
-  VK_TREE_HEIGHT,
-  VerificationKeyAsFields,
-  computeContractAddressFromInstance,
-} from '@aztec/circuits.js';
-import { hashVK } from '@aztec/circuits.js/hash';
+} from '@aztec/circuits.js/kernel';
+import type { PrivateLog } from '@aztec/circuits.js/logs';
+import { ClientIvcProof } from '@aztec/circuits.js/proofs';
+import type { TxRequest } from '@aztec/circuits.js/tx';
+import { VerificationKeyAsFields } from '@aztec/circuits.js/vks';
+import { CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, VK_TREE_HEIGHT } from '@aztec/constants';
 import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';

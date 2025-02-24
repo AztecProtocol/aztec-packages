@@ -1,6 +1,8 @@
-import { type ClientProtocolCircuitVerifier, Tx } from '@aztec/circuit-types';
+import { Tx } from '@aztec/circuit-types';
+import { type ClientProtocolCircuitVerifier } from '@aztec/circuit-types/interfaces/server';
 import { type CircuitVerificationStats } from '@aztec/circuit-types/stats';
-import { type Proof, type VerificationKeyData } from '@aztec/circuits.js';
+import { type Proof } from '@aztec/circuits.js/proofs';
+import { type VerificationKeyData } from '@aztec/circuits.js/vks';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type ClientProtocolArtifact, type ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
@@ -62,7 +64,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
         proofType: 'ultra-honk',
       } satisfies CircuitVerificationStats);
     };
-    await runInDirectory(this.config.bbWorkingDirectory, operation, this.config.bbSkipCleanup);
+    await runInDirectory(this.config.bbWorkingDirectory, operation, this.config.bbSkipCleanup, this.logger);
   }
 
   public async verifyProof(tx: Tx): Promise<boolean> {
@@ -83,7 +85,12 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
         };
 
         await writeToOutputDirectory(tx.clientIvcProof, bbWorkingDirectory);
-        const result = await verifyClientIvcProof(this.config.bbBinaryPath, bbWorkingDirectory, logFunction);
+        const result = await verifyClientIvcProof(
+          this.config.bbBinaryPath,
+          bbWorkingDirectory.concat('/proof'),
+          bbWorkingDirectory.concat('/vk'),
+          logFunction,
+        );
 
         if (result.status === BB_RESULT.FAILURE) {
           const errorMessage = `Failed to verify ${circuit} proof!`;
@@ -97,7 +104,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
           proofType: 'client-ivc',
         } satisfies CircuitVerificationStats);
       };
-      await runInDirectory(this.config.bbWorkingDirectory, operation, this.config.bbSkipCleanup);
+      await runInDirectory(this.config.bbWorkingDirectory, operation, this.config.bbSkipCleanup, this.logger);
       return true;
     } catch (err) {
       this.logger.warn(`Failed to verify ClientIVC proof for tx ${Tx.getHash(tx)}: ${String(err)}`);

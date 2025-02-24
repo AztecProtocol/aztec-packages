@@ -440,8 +440,11 @@ impl FixtureBuilder {
             acir_hash: self.acir_hash,
             updated_class_id_witness: self.updated_class_id_witness,
             updated_class_id_leaf: self.updated_class_id_leaf,
-            updated_class_id_value_change: self.updated_class_id_value_change.pack(),
-            updated_class_id_delay_change: self.updated_class_id_delay_change.pack(),
+            updated_class_id_shared_mutable_values: SharedMutableValues::new(
+                self.updated_class_id_value_change,
+                self.updated_class_id_delay_change,
+            )
+                .pack(),
         }
     }
 

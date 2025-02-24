@@ -64,13 +64,13 @@
   "dependencies": {
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
+    "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/merkle-tree": "workspace:^",
     "@aztec/native": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
-    "@aztec/types": "workspace:^",
     "tslib": "^2.4.0",
     "zod": "^3.23.8"
   },

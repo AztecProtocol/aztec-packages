@@ -1,10 +1,11 @@
-import { type L2Block, MerkleTreeId, type MerkleTreeWriteOperations, type SiblingPath } from '@aztec/circuit-types';
+import { type L2Block, MerkleTreeId, type SiblingPath } from '@aztec/circuit-types';
+import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
+import { PublicDataWrite } from '@aztec/circuits.js/avm';
+import { makeContentCommitment, makeGlobalVariables } from '@aztec/circuits.js/testing';
+import { AppendOnlyTreeSnapshot, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
+import { BlockHeader } from '@aztec/circuits.js/tx';
 import {
   ARCHIVE_HEIGHT,
-  AppendOnlyTreeSnapshot,
-  BlockHeader,
-  EthAddress,
-  Fr,
   L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
@@ -13,10 +14,9 @@ import {
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
-  PublicDataTreeLeaf,
-  PublicDataWrite,
-} from '@aztec/circuits.js';
-import { makeContentCommitment, makeGlobalVariables } from '@aztec/circuits.js/testing';
+} from '@aztec/constants';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 
 import { jest } from '@jest/globals';
 import { mkdtemp, rm } from 'fs/promises';

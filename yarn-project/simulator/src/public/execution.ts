@@ -3,21 +3,17 @@ import {
   type AvmExecutionHints,
   type ContractStorageRead,
   type ContractStorageUpdateRequest,
-  type Fr,
-  Gas,
-  type L2ToL1Message,
-  type NoteHash,
-  type Nullifier,
   PublicCallStackItemCompressed,
   type PublicDataUpdateRequest,
   PublicInnerCallRequest,
-  type PublicLog,
-  type ReadRequest,
   RevertCode,
-  type ScopedL2ToL1Message,
-  type TreeLeafReadRequest,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/avm';
+import { Gas } from '@aztec/circuits.js/gas';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
+import type { NoteHash, Nullifier, ReadRequest, TreeLeafReadRequest } from '@aztec/circuits.js/kernel';
+import type { PublicLog } from '@aztec/circuits.js/logs';
+import type { L2ToL1Message, ScopedL2ToL1Message } from '@aztec/circuits.js/messaging';
+import type { Fr } from '@aztec/foundation/fields';
 
 export interface PublicSideEffects {
   /** The contract storage update requests performed. */

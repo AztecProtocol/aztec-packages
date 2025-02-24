@@ -1,20 +1,17 @@
-import { type PublicKey } from '@aztec/circuit-types';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { CompleteAddress, type PartialAddress } from '@aztec/circuits.js/contract';
+import { KeyValidationRequest } from '@aztec/circuits.js/kernel';
 import {
-  AztecAddress,
-  CompleteAddress,
-  Fr,
-  GeneratorIndex,
-  GrumpkinScalar,
   KEY_PREFIXES,
   type KeyPrefix,
-  KeyValidationRequest,
-  type PartialAddress,
-  Point,
+  type PublicKey,
   computeAppSecretKey,
   deriveKeys,
   derivePublicKeyFromSecretKey,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/keys';
+import { GeneratorIndex } from '@aztec/constants';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import { type Bufferable, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type AztecAsyncKVStore, type AztecAsyncMap } from '@aztec/kv-store';

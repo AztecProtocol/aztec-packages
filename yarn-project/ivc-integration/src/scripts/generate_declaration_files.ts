@@ -4,7 +4,7 @@ import { readdir, writeFile } from 'fs/promises';
 import { join } from 'path';
 
 const contract = `\
-import { type NoirCompiledCircuit } from '@aztec/types/noir';
+import { type NoirCompiledCircuit } from '@aztec/circuits.js/noir';
 const circuit: NoirCompiledCircuit;
 export = circuit;
 `;

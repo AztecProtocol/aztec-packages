@@ -1,13 +1,11 @@
-import {
-  ClientIvcProof,
-  Fr,
-  type GasSettings,
-  PrivateKernelTailCircuitPublicInputs,
-  PrivateLog,
-  type PrivateToPublicAccumulatedData,
-} from '@aztec/circuits.js';
+import type { GasSettings } from '@aztec/circuits.js/gas';
+import { PrivateKernelTailCircuitPublicInputs, type PrivateToPublicAccumulatedData } from '@aztec/circuits.js/kernel';
+import { PrivateLog } from '@aztec/circuits.js/logs';
+import { ClientIvcProof } from '@aztec/circuits.js/proofs';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
+import type { ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeArrayOfBufferableToVector, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
@@ -132,7 +130,7 @@ export class Tx extends Gossipable {
     ]);
   }
 
-  static get schema() {
+  static get schema(): ZodFor<Tx> {
     return z
       .object({
         data: PrivateKernelTailCircuitPublicInputs.schema,

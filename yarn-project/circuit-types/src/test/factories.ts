@@ -2,33 +2,30 @@ import {
   AvmCircuitInputs,
   AvmCircuitPublicInputs,
   AvmExecutionHints,
-  AztecAddress,
-  type BlockHeader,
+  PublicDataWrite,
+  RevertCode,
+} from '@aztec/circuits.js/avm';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { Gas, GasFees, GasSettings } from '@aztec/circuits.js/gas';
+import { ScopedLogHash, mergeAccumulatedData } from '@aztec/circuits.js/kernel';
+import { PublicLog } from '@aztec/circuits.js/logs';
+import { makePrivateToPublicAccumulatedData, makePrivateToRollupAccumulatedData } from '@aztec/circuits.js/testing';
+import { BlockHeader, GlobalVariables, TxConstantData } from '@aztec/circuits.js/tx';
+import {
   FIXED_DA_GAS,
   FIXED_L2_GAS,
-  Fr,
-  Gas,
-  GasFees,
-  GasSettings,
-  GlobalVariables,
   MAX_NULLIFIERS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  PublicDataWrite,
-  PublicLog,
-  RevertCode,
-  ScopedLogHash,
-  TxConstantData,
-  mergeAccumulatedData,
-} from '@aztec/circuits.js';
-import { makePrivateToPublicAccumulatedData, makePrivateToRollupAccumulatedData } from '@aztec/circuits.js/testing';
+} from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
+import { Fr } from '@aztec/foundation/fields';
 
 import { type MerkleTreeReadOperations } from '../interfaces/merkle_tree_operations.js';
 import { ProvingRequestType } from '../interfaces/proving-job.js';
 import { makeHeader } from '../l2_block_code_to_purge.js';
-import { mockTx } from '../mocks.js';
 import { type GasUsed } from '../tx/gas_used.js';
 import { makeProcessedTxFromPrivateOnlyTx, makeProcessedTxFromTxWithPublicCalls } from '../tx/processed_tx.js';
+import { mockTx } from './mocks.js';
 
 /** Makes a bloated processed tx for testing purposes. */
 export async function makeBloatedProcessedTx({
@@ -63,7 +60,7 @@ export async function makeBloatedProcessedTx({
   feePayer ??= await AztecAddress.random();
 
   const txConstantData = TxConstantData.empty();
-  txConstantData.historicalHeader = header;
+  txConstantData.historicalHeader = header!;
   txConstantData.txContext.chainId = chainId;
   txConstantData.txContext.version = version;
   txConstantData.txContext.gasSettings = gasSettings;

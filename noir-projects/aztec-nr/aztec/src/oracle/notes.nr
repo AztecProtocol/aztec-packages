@@ -3,7 +3,7 @@ use crate::{note::{note_interface::NoteInterface, retrieved_note::RetrievedNote}
 use dep::protocol_types::{
     address::AztecAddress,
     indexed_tagging_secret::{INDEXED_TAGGING_SECRET_LENGTH, IndexedTaggingSecret},
-    traits::Packable,
+    traits::{Deserialize, FromField, Packable},
 };
 
 /// Notifies the simulator that a note has been created, so that it can be returned in future read requests in the same
@@ -32,14 +32,15 @@ pub fn notify_created_note<let N: u32>(
 /// the same transaction. This note should only be removed to the non-volatile database if its nullifier is found in an
 /// actual block.
 pub fn notify_nullified_note(nullifier: Field, note_hash: Field, counter: u32) {
-    // Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
-    // to call.
+    // Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to
+    // call.
     unsafe { notify_nullified_note_oracle_wrapper(nullifier, note_hash, counter) };
 }
 
 /// Notifies the simulator that a non-note nullifier has been created, so that it can be used for note nonces.
 pub fn notify_created_nullifier(nullifier: Field) {
-    // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
+    // Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to
+    // call.
     unsafe { notify_created_nullifier_oracle_wrapper(nullifier) };
 }
 
@@ -164,7 +165,6 @@ pub unconstrained fn get_notes<Note, let N: u32, let M: u32, let S: u32, let NS:
 where
     Note: NoteInterface + Packable<N>,
 {
-    sync_notes_oracle_wrapper();
     let fields = get_notes_oracle_wrapper(
         storage_slot,
         num_selects,
@@ -263,20 +263,3 @@ unconstrained fn increment_app_tagging_secret_index_as_sender_oracle(
     _sender: AztecAddress,
     _recipient: AztecAddress,
 ) {}
-
-/// Finds new notes that may have been sent to all registered accounts in PXE in the current contract and makes them available
-/// for later querying via the `get_notes` oracle.
-pub fn sync_notes() {
-    // Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
-    // to call.
-    unsafe {
-        sync_notes_oracle_wrapper();
-    }
-}
-
-unconstrained fn sync_notes_oracle_wrapper() {
-    sync_notes_oracle();
-}
-
-#[oracle(syncNotes)]
-unconstrained fn sync_notes_oracle() {}

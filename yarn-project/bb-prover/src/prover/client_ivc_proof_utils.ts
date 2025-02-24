@@ -1,10 +1,10 @@
-import { ClientIvcProof } from '@aztec/circuits.js';
+import { ClientIvcProof } from '@aztec/circuits.js/proofs';
 
 import { promises as fs } from 'fs';
 import { join } from 'path';
 
-export const CLIENT_IVC_VK_FILE_NAME = 'client_ivc_vk';
-export const CLIENT_IVC_PROOF_FILE_NAME = 'client_ivc_proof';
+export const CLIENT_IVC_VK_FILE_NAME = 'vk';
+export const CLIENT_IVC_PROOF_FILE_NAME = 'proof';
 
 /**
  * TODO(#7371): eventually remove client_ivc_prove_output_all_msgpack and properly handle these accumulators and VKs

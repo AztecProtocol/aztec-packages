@@ -1,5 +1,6 @@
-import { MAX_CONTRACT_CLASS_LOGS_PER_CALL } from '@aztec/circuits.js';
+import { MAX_CONTRACT_CLASS_LOGS_PER_CALL } from '@aztec/constants';
 import { sha256Trunc } from '@aztec/foundation/crypto';
+import type { ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';
@@ -56,7 +57,7 @@ export class UnencryptedFunctionL2Logs {
     return sha256Trunc(preimage);
   }
 
-  static get schema() {
+  static get schema(): ZodFor<UnencryptedFunctionL2Logs> {
     return z
       .object({ logs: z.array(UnencryptedL2Log.schema) })
       .transform(({ logs }) => new UnencryptedFunctionL2Logs(logs));

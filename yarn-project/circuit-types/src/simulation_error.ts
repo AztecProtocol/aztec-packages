@@ -1,6 +1,7 @@
-import { AztecAddress, type Fr, FunctionSelector } from '@aztec/circuits.js';
-import { type OpcodeLocation } from '@aztec/foundation/abi';
-import { schemas } from '@aztec/foundation/schemas';
+import { FunctionSelector, type OpcodeLocation } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type ZodFor, schemas } from '@aztec/circuits.js/schemas';
+import type { Fr } from '@aztec/foundation/fields';
 
 import { z } from 'zod';
 
@@ -229,7 +230,7 @@ export class SimulationError extends Error {
     };
   }
 
-  static get schema() {
+  static get schema(): ZodFor<SimulationError> {
     return z
       .object({
         originalMessage: z.string(),

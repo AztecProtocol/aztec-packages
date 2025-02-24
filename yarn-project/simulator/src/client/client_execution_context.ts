@@ -1,28 +1,30 @@
 import {
   type AuthWitness,
-  type AztecNode,
   type Capsule,
-  CountedContractClassLog,
-  CountedPublicExecutionRequest,
   Note,
-  NoteAndSlot,
   type NoteStatus,
-  type PrivateCallExecutionResult,
   PublicExecutionRequest,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
-  type BlockHeader,
-  CallContext,
+  type AztecNode,
+  CountedContractClassLog,
+  CountedPublicExecutionRequest,
+  NoteAndSlot,
+  type PrivateCallExecutionResult,
+} from '@aztec/circuit-types/interfaces/client';
+import {
+  type FunctionAbi,
+  type FunctionArtifact,
   FunctionSelector,
-  PRIVATE_CONTEXT_INPUTS_LENGTH,
-  PUBLIC_DISPATCH_SELECTOR,
-  PrivateContextInputs,
-  type TxContext,
-} from '@aztec/circuits.js';
+  type NoteSelector,
+  countArgumentsSize,
+} from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
-import { type FunctionAbi, type FunctionArtifact, type NoteSelector, countArgumentsSize } from '@aztec/foundation/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { PrivateContextInputs } from '@aztec/circuits.js/kernel';
+import { type BlockHeader, CallContext, type TxContext } from '@aztec/circuits.js/tx';
+import { PRIVATE_CONTEXT_INPUTS_LENGTH, PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 
@@ -280,6 +282,13 @@ export class ClientExecutionContext extends ViewDataOracle {
     noteHash: Fr,
     counter: number,
   ) {
+    this.log.debug(`Notified of new note with inner hash ${noteHash}`, {
+      contractAddress: this.callContext.contractAddress,
+      storageSlot,
+      noteTypeId,
+      counter,
+    });
+
     const note = new Note(noteItems);
     this.noteCache.addNewNote(
       {

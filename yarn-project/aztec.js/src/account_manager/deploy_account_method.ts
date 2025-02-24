@@ -1,11 +1,11 @@
-import { type PublicKeys } from '@aztec/circuits.js';
 import {
   type ContractArtifact,
   type FunctionArtifact,
   FunctionSelector,
   encodeArguments,
   getFunctionArtifactByName,
-} from '@aztec/foundation/abi';
+} from '@aztec/circuits.js/abi';
+import { type PublicKeys } from '@aztec/circuits.js/keys';
 
 import { type AuthWitnessProvider } from '../account/interface.js';
 import { type Wallet } from '../account/wallet.js';

@@ -1,16 +1,6 @@
-import {
-  AVM_PROOF_LENGTH_IN_FIELDS,
-  AvmCircuitInputs,
-  BaseParityInputs,
-  NESTED_RECURSIVE_PROOF_LENGTH,
-  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-  ParityPublicInputs,
-  RECURSIVE_PROOF_LENGTH,
-  RecursiveProof,
-  RootParityInputs,
-  TUBE_PROOF_LENGTH,
-  VerificationKeyData,
-} from '@aztec/circuits.js';
+import { AvmCircuitInputs } from '@aztec/circuits.js/avm';
+import { BaseParityInputs, ParityPublicInputs, RootParityInputs } from '@aztec/circuits.js/parity';
+import { RecursiveProof } from '@aztec/circuits.js/proofs';
 import {
   BaseOrMergeRollupPublicInputs,
   BlockMergeRollupInputs,
@@ -25,7 +15,15 @@ import {
   SingleTxBlockRootRollupInputs,
   TubeInputs,
 } from '@aztec/circuits.js/rollup';
-import { type ZodFor } from '@aztec/foundation/schemas';
+import { type ZodFor } from '@aztec/circuits.js/schemas';
+import { VerificationKeyData } from '@aztec/circuits.js/vks';
+import {
+  AVM_PROOF_LENGTH_IN_FIELDS,
+  NESTED_RECURSIVE_PROOF_LENGTH,
+  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+  RECURSIVE_PROOF_LENGTH,
+  TUBE_PROOF_LENGTH,
+} from '@aztec/constants';
 
 import { z } from 'zod';
 

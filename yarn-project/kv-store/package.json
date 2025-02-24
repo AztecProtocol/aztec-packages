@@ -13,14 +13,12 @@
   "scripts": {
     "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
-    "clean:cpp": "rm -rf $(git rev-parse --show-toplevel)/barretenberg/cpp/build-pic",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "test:node": "NODE_NO_WARNINGS=1 mocha --config ./.mocharc.json",
     "test:browser": "wtr --config ./web-test-runner.config.mjs",
-    "test": "yarn test:node && yarn test:browser && true",
-    "generate": "mkdir -p build && cp -v ../../barretenberg/cpp/build-pic/lib/nodejs_module.node build"
+    "test": "yarn test:node && yarn test:browser && true"
   },
   "inherits": [
     "../package.common.json",

@@ -30,7 +30,7 @@ Barretenberg (or `bb` for short) is an optimized elliptic curve library for the 
       - [Testing locally in docker](#testing-locally-in-docker)
   - [Docs Build](#docs-build)
   - [Benchmarks](#benchmarks)
-    - [x86\_64](#x86_64)
+    - [x86_64](#x86_64)
     - [WASM](#wasm)
     - [How to run](#how-to-run)
   - [Debugging](#debugging)
@@ -38,8 +38,7 @@ Barretenberg (or `bb` for short) is an optimized elliptic curve library for the 
     - [Improving LLDB Debugging](#improving-lldb-debugging)
     - [Using Tracy to Profile Memory/CPU](#using-tracy-to-profile-memorycpu)
 
-> [!CAUTION]
-> **This code is highly experimental, use at your own risk!**
+> [!CAUTION] > **This code is highly experimental, use at your own risk!**
 
 ## Installation
 
@@ -66,14 +65,14 @@ All available `bb` commands:
 Prove the valid execution of your program:
 
 ```bash
-bb prove_ultra_honk -b ./target/hello_world.json -w ./target/witness-name.gz -o ./target/proof
+bb prove --scheme ultra_honk -b ./target/hello_world.json -w ./target/witness-name.gz -o ./target/proof
 ```
 
 You can then compute the verification key for your Noir program and verify the proof:
 
 ```bash
-bb write_vk_ultra_honk -b ./target/hello_world.json -o ./target/vk
-bb verify_ultra_honk -k ./target/vk -p ./target/proof
+bb write_vk --scheme ultra_honk -b ./target/hello_world.json -o ./target/vk
+bb verify --scheme ultra_honk -k ./target/vk -p ./target/proof
 
 ```
 
@@ -83,7 +82,7 @@ If successful, the verification will complete in silence.
 
 The usage with MegaHonk is similar to the above UltraHonk. Refer to all the available `bb` commands, using the `bb <command>_mega_honk` syntax.
 
->[!WARNING]
+> [!WARNING]
 > MegaHonk generates insecure recursion circuits when Goblin recursive verifiers are not present.
 
 ### Solidity verifier
@@ -93,21 +92,20 @@ Barretenberg can generate a smart contract that verifies proofs in Solidity (i.e
 First, prove the valid execution of your Noir program and export the verification key:
 
 ```bash
-bb prove_ultra_keccak_honk -b ./target/hello_world.json -w ./target/witness-name.gz -o ./target/proof
-bb write_vk_ultra_honk -b ./target/hello_world.json -o ./target/vk
+bb prove --sceme ultra_honk -b ./target/hello_world.json -w ./target/witness-name.gz -o ./target/proof
+bb write_vk --scheme ultra_honk -b ./target/hello_world.json -o ./target/vk
 ```
 
-> [!IMPORTANT]
-> `prove_ultra_keccak_honk` is used to generate UltraHonk proofs with Keccak hashes, making them gas-efficient. `prove_ultra_honk` in comparison generates proofs with Poseidon hashes, more efficient in recursions but not on-chain verifications.
+> [!IMPORTANT] > `prove --scheme ultra_honk --oracle_hash keccak` is used to generate UltraHonk proofs with Keccak hashes, making them gas-efficient. `prove --scheme ultra_honk` in comparison generates proofs with Poseidon hashes, more efficient in recursions but not on-chain verifications.
 
 You can now use the verification key to generate a Solidity verifier contract:
 
 ```bash
-bb contract_ultra_honk -k ./target/vk -c $CRS_PATH -b ./target/hello_world.json -o ./target/Verifier.sol
+bb write_contract --scheme ultra_honk -k ./target/vk -c $CRS_PATH -b ./target/hello_world.json -o ./target/Verifier.sol
 ```
 
->[!CAUTION]
-> Solidity verifier contracts are work-in-progress. Expect significant optimizations and breaking changes, and *do NOT use it in production!*
+> [!CAUTION]
+> Solidity verifier contracts are work-in-progress. Expect significant optimizations and breaking changes, and _do NOT use it in production!_
 
 ## Development
 
@@ -270,7 +268,7 @@ Alternatively you can build separate test binaries, e.g. honk_tests or numeric_t
 
 Code is formatted using `clang-format` and the `./cpp/format.sh` script which is called via a git pre-commit hook.
 
->[!TIP]
+> [!TIP]
 > A default configuration for VS Code is provided by the file [`barretenberg.code-workspace`](barretenberg.code-workspace). These settings can be overridden by placing configuration files in `.vscode/`.
 > If you've installed the C++ Vscode extension, configure it to format on save!
 
@@ -410,7 +408,7 @@ Usage instructions:
 Caveats:
 
 - This works best for code that is not overly generic, i.e. where just the sequence of function calls carries a lot of information. It is possible to tag extra data along with the stack trace, this can be done as a followup, please leave feedback if desired.
-- There are certain functions like `assert_equals` that can cause gates that occur *before* them to fail. If this would be useful to automatically report, please leave feedback.
+- There are certain functions like `assert_equals` that can cause gates that occur _before_ them to fail. If this would be useful to automatically report, please leave feedback.
 
 Example:
 

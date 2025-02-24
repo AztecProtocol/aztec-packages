@@ -3,7 +3,7 @@ title: Communicating with L1
 tags: [contracts, portals]
 ---
 
-Follow the [token bridge tutorial](../../../../../tutorials/codealong/contract_tutorials/token_bridge.md) for hands-on experience writing and deploying a Portal contract.
+Follow the [token bridge tutorial](../../../../../developers/tutorials/codealong/contract_tutorials/token_bridge.md) for hands-on experience writing and deploying a Portal contract.
 
 ## Passing data to the rollup
 
@@ -41,7 +41,7 @@ Note that while the `secret` and the `content` are both hashed, they are actuall
 
 ### Token bridge example
 
-Computing the `content` must currently be done manually, as we are still adding a number of bytes utilities. A good example exists within the [Token bridge example (codealong tutorial)](../../../../../tutorials/codealong/contract_tutorials/token_bridge.md).
+Computing the `content` must currently be done manually, as we are still adding a number of bytes utilities. A good example exists within the [Token bridge example (codealong tutorial)](../../../../../developers/tutorials/codealong/contract_tutorials/token_bridge.md).
 
 #include_code claim_public /noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr rust
 
@@ -181,5 +181,5 @@ Designated callers are enforced at the contract level for contracts that are not
 ## Examples of portals
 
 - Token bridge (Portal contract built for L1 -> L2, i.e., a non-native L2 asset)
-  - [Portal contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/test/portals/TokenPortal.sol)
-  - [Aztec contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr)
+  - [Portal contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/l1-contracts/test/portals/TokenPortal.sol)
+  - [Aztec contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr)

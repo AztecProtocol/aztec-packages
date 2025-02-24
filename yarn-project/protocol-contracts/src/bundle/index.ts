@@ -1,5 +1,5 @@
-import { getContractClassFromArtifact, getContractInstanceFromDeployParams } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type ContractArtifact } from '@aztec/circuits.js/abi';
+import { getContractClassFromArtifact, getContractInstanceFromDeployParams } from '@aztec/circuits.js/contract';
 
 import { AuthRegistryArtifact } from '../auth-registry/index.js';
 import { ContractClassRegistererArtifact } from '../class-registerer/index.js';

@@ -1,22 +1,18 @@
 import {
   type AuthWitness,
-  type AztecNode,
   type Capsule,
-  type CompleteAddress,
   type MerkleTreeId,
   type NoteStatus,
-  type NullifierMembershipWitness,
   type PublicDataWitness,
 } from '@aztec/circuit-types';
-import {
-  type BlockHeader,
-  type ContractInstance,
-  type IndexedTaggingSecret,
-  type KeyValidationRequest,
-} from '@aztec/circuits.js';
-import { Aes128 } from '@aztec/circuits.js/barretenberg';
+import { type AztecNode, type NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/client';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { CompleteAddress, ContractInstance } from '@aztec/circuits.js/contract';
 import { siloNullifier } from '@aztec/circuits.js/hash';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import type { KeyValidationRequest } from '@aztec/circuits.js/kernel';
+import { IndexedTaggingSecret, LogWithTxData } from '@aztec/circuits.js/logs';
+import { type BlockHeader } from '@aztec/circuits.js/tx';
+import { Aes128 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
 
@@ -322,6 +318,10 @@ export class ViewDataOracle extends TypedOracle {
     await this.db.deliverNote(contractAddress, storageSlot, nonce, content, noteHash, nullifier, txHash, recipient);
   }
 
+  public override getLogByTag(tag: Fr): Promise<LogWithTxData | null> {
+    return this.db.getLogByTag(tag);
+  }
+
   public override storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
@@ -364,11 +364,7 @@ export class ViewDataOracle extends TypedOracle {
 
   // TODO(#11849): consider replacing this oracle with a pure Noir implementation of aes decryption.
   public override aes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer> {
-    // Noir can't predict the amount of padding that gets trimmed,
-    // but it needs to know the length of the returned value.
-    // So we tell Noir that the length is the (predictable) length
-    // of the padded plaintext, we return that padded plaintext, and have Noir interpret the padding to do the trimming.
     const aes128 = new Aes128();
-    return aes128.decryptBufferCBCKeepPadding(ciphertext, iv, symKey);
+    return aes128.decryptBufferCBC(ciphertext, iv, symKey);
   }
 }
