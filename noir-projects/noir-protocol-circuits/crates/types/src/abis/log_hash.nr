@@ -9,7 +9,7 @@ use crate::{
 pub struct LogHash {
     pub value: Field,
     pub counter: u32,
-    pub length: u32, // TODO(MW): is this still required?
+    pub length: u32,
 }
 
 impl Ordered for LogHash {

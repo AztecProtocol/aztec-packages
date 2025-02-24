@@ -50,7 +50,7 @@ import {
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   AZTEC_MAX_EPOCH_DURATION,
   BLOBS_PER_BLOCK,
-  CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
+  CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS,
   HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type NESTED_RECURSIVE_PROOF_LENGTH,
   type NULLIFIER_TREE_HEIGHT,
@@ -312,9 +312,9 @@ export function mapContractClassLogToNoir(log: ContractClassLog): ContractClassL
   return {
     log: {
       // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
-      fields: Array.from({ length: CONTRACT_CLASS_LOG_SIZE_IN_FIELDS }, (_, idx) =>
+      fields: Array.from({ length: CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS }, (_, idx) =>
         mapFieldToNoir(log.fields[idx]),
-      ) as Tuple<string, typeof CONTRACT_CLASS_LOG_SIZE_IN_FIELDS>,
+      ) as Tuple<string, typeof CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS>,
     },
     contract_address: mapAztecAddressToNoir(log.contractAddress),
   };

@@ -35,14 +35,8 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
-  REGISTERER_CONTRACT_ADDRESS,
 } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
-import {
-  REGISTERER_CONTRACT_CLASS_REGISTERED_TAG,
-  REGISTERER_PRIVATE_FUNCTION_BROADCASTED_TAG,
-  REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_TAG,
-} from '@aztec/protocol-contracts';
 
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
 import { type DataRetrieval } from '../structs/data_retrieval.js';
@@ -723,20 +717,12 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       if (blockLogs) {
         for (let logIndex = 0; logIndex < blockLogs.length; logIndex++) {
           const log = blockLogs[logIndex];
-          // TODO(MW): this is a hack
-          const thisContractAddress = [
-            REGISTERER_CONTRACT_CLASS_REGISTERED_TAG,
-            REGISTERER_PRIVATE_FUNCTION_BROADCASTED_TAG,
-            REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_TAG,
-          ].includes(log.fields[0])
-            ? AztecAddress.fromNumber(REGISTERER_CONTRACT_ADDRESS)
-            : AztecAddress.ZERO;
           const thisTxEffect = block.data.body.txEffects.filter(effect => effect.contractClassLogs.includes(log))[0];
           const thisTxIndexInBlock = block.data.body.txEffects.indexOf(thisTxEffect);
           const thisLogIndexInTx = thisTxEffect.contractClassLogs.indexOf(log);
           if (
             (!txHash || thisTxEffect.txHash.equals(txHash)) &&
-            (!contractAddress || thisContractAddress.equals(contractAddress)) &&
+            (!contractAddress || log.contractAddress.equals(contractAddress)) &&
             thisTxIndexInBlock >= txIndexInBlock &&
             thisLogIndexInTx >= logIndexInTx
           ) {
