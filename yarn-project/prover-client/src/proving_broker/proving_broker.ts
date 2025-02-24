@@ -24,7 +24,7 @@ import {
 
 import assert from 'assert';
 
-import type { ProverBrokerConfig } from './config.js';
+import { type ProverBrokerConfig, defaultProverBrokerConfig } from './config.js';
 import { type ProvingBrokerDatabase } from './proving_broker_database.js';
 import { type MonitorCallback, ProvingBrokerInstrumentation } from './proving_broker_instrumentation.js';
 
@@ -112,16 +112,24 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
       proverBrokerPollIntervalMs,
       proverBrokerJobMaxRetries,
       proverBrokerMaxEpochsToKeepResultsFor,
-    }: ProverBrokerConfig,
+    }: Required<
+      Pick<
+        ProverBrokerConfig,
+        | 'proverBrokerJobTimeoutMs'
+        | 'proverBrokerPollIntervalMs'
+        | 'proverBrokerJobMaxRetries'
+        | 'proverBrokerMaxEpochsToKeepResultsFor'
+      >
+    > = defaultProverBrokerConfig,
     client: TelemetryClient = getTelemetryClient(),
     private logger = createLogger('prover-client:proving-broker'),
   ) {
     this.tracer = client.getTracer('ProvingBroker');
     this.instrumentation = new ProvingBrokerInstrumentation(client);
     this.cleanupPromise = new RunningPromise(this.cleanupPass.bind(this), this.logger, proverBrokerPollIntervalMs);
-    this.jobTimeoutMs = proverBrokerJobTimeoutMs;
-    this.maxRetries = proverBrokerJobMaxRetries;
-    this.maxEpochsToKeepResultsFor = proverBrokerMaxEpochsToKeepResultsFor;
+    this.jobTimeoutMs = proverBrokerJobTimeoutMs!;
+    this.maxRetries = proverBrokerJobMaxRetries!;
+    this.maxEpochsToKeepResultsFor = proverBrokerMaxEpochsToKeepResultsFor!;
   }
 
   private measureQueueDepth: MonitorCallback = (type: ProvingRequestType) => {

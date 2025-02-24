@@ -12,7 +12,7 @@ import { mkdtemp } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { type ProverBrokerConfig } from './config.js';
+import { type ProverBrokerConfig, defaultProverBrokerConfig } from './config.js';
 import { makeInputsUri, makeOutputsUri, makeRandomProvingJobId } from './fixtures.js';
 import { ProvingBroker } from './proving_broker.js';
 import { type ProvingBrokerDatabase } from './proving_broker_database.js';
@@ -24,6 +24,7 @@ describe.each([
   async () => {
     const directory = await mkdtemp(join(tmpdir(), 'proving-broker-test'));
     const config: ProverBrokerConfig = {
+      ...defaultProverBrokerConfig,
       dataStoreMapSizeKB: 1024 * 1024 * 1024, // 1GB
       dataDirectory: directory,
       proverBrokerJobMaxRetries: 1,
@@ -55,9 +56,10 @@ describe.each([
     ({ database, cleanup } = await createDb());
 
     broker = new ProvingBroker(database, {
-      jobTimeoutMs,
-      timeoutIntervalMs: brokerIntervalMs,
-      maxRetries,
+      proverBrokerJobTimeoutMs: jobTimeoutMs,
+      proverBrokerPollIntervalMs: brokerIntervalMs,
+      proverBrokerJobMaxRetries: maxRetries,
+      proverBrokerMaxEpochsToKeepResultsFor: 1,
     });
   });
 

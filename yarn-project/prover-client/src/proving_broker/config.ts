@@ -1,5 +1,10 @@
 import { ProvingRequestType } from '@aztec/circuit-types/interfaces/server';
-import { type ConfigMappingsType, booleanConfigHelper, numberConfigHelper } from '@aztec/foundation/config';
+import {
+  type ConfigMappingsType,
+  booleanConfigHelper,
+  getDefaultConfig,
+  numberConfigHelper,
+} from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 
 import { z } from 'zod';
@@ -59,6 +64,8 @@ export const proverBrokerConfigMappings: ConfigMappingsType<ProverBrokerConfig> 
   },
   ...dataConfigMappings,
 };
+
+export const defaultProverBrokerConfig: ProverBrokerConfig = getDefaultConfig(proverBrokerConfigMappings);
 
 export const ProverAgentConfig = z.object({
   /** The number of prover agents to start */
