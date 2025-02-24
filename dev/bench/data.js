@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740393348336,
+  "lastUpdate": 1740397268082,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47112877+dbanks12@users.noreply.github.com",
-            "name": "David Banks",
-            "username": "dbanks12"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c1cc3edaa4cb31c4df8a5f9255abb96afca61a53",
-          "message": "chore: prep for switching AVM to checkpointed native trees - TS test cleanup and refactors (#12023)\n\nThis PR is mostly setup for switching the AVM to use checkpointed native\ntrees. Originally I had that in the same branch, but there were enough\nof these prerequisite changes to pull them out.\n\n## Orchestrator testing\n\nprover-client's `TestContext` no longer mocks AVM simulation.\n\nContext: while trying to transition the AVM to use native checkpointed\ntrees, I ran into issues with the orchestrator public functions tests\nbecause the public processor will no longer update the trees for public\nfunctions. So, I think we should stop mocking the AVM simulation for\nthese tests and let the AVM do its tree updates. We can then do two\ntypes of tests:\n1. A quick test that doesn't actually deploy/run any real contract\nfunctions and instead tests the orchestrator with a mocked/garbage TX\nthat has 1 _revertible_ enqueued call. The AVM will fail to retrieve\nit's bytecode, but the TX can still be included.\n`orchestrator_public_functions.test.ts` now does this.\n2. A real test that creates TXs that actually do a bunch of real token\noperations via non-revertible and revertible enqueued calls.\n`orchestrator_multi_public_functions.test.ts` now does this.\n\n## AVM & PublicProcessor testing\n- `PublicTxSimulationTester` lets you `createTx` separately from\n`simulateTx` (useful for testing `PublicProcessor`)\n- Add `PublicTxSimulator` test for avm bulk test\n- Add a `PublicProcessor` test of the token contract (construct, mint,\nmany transfers)\n- Consolidate some duplicate helper functions in `simulator/src/avm` and\n`simulator/src/public`\n- Simplify process of registering/deploying contracts via avm `*Tester`\nclasses, and optional contract address nullifier insertion\n- Contract Updates test now use the tester's `register*()` function\ninstead of manually constructing contract classes and instances\n- Remove unused function from avm test contract\n\n## Misc\n- Making contract classes for tests is now deterministic (no more random\npublic keys)\n- Use new/proper sha256 in benchmarking test contract",
-          "timestamp": "2025-02-19T20:24:12Z",
-          "tree_id": "4d23da1790d2796003b102e152ea35edaa5e4143",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c1cc3edaa4cb31c4df8a5f9255abb96afca61a53"
-        },
-        "date": 1739998122077,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18174.130155999817,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16046.827890000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18674.065616000007,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16425.904902 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4012.7862280000954,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3194.9403589999997 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55113.677690000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55113676000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9599.509925,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9599513000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1796932290,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1796932290 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 128071619,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 128071619 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3322,6 +3256,78 @@ window.BENCHMARK_DATA = {
             "value": 156147752,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 156147752 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47148561+Maddiaa0@users.noreply.github.com",
+            "name": "Maddiaa",
+            "username": "Maddiaa0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "208404e1b3823ed21781a4c3bcace7619411b0f9",
+          "message": "fix(blob-sink): type check next slot (#12117)",
+          "timestamp": "2025-02-24T11:17:17Z",
+          "tree_id": "c3a62148825c023c5b68359e086ec0af6651763a",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/208404e1b3823ed21781a4c3bcace7619411b0f9"
+        },
+        "date": 1740397260690,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18435.80145200008,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16102.147178 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18828.950947000067,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16502.334918 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4028.1630810000024,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3209.2624869999995 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54967.090252999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54967090000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11751.065045,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11751076000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1832845950,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1832845950 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 131226984,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 131226984 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
