@@ -39,12 +39,7 @@ export const proofVerifierConfigMappings: ConfigMappingsType<ProofVerifierConfig
     parseEnv: (val: string) => +val,
     defaultValue: 31337,
     description: 'The chain ID of the ethereum host.',
-  },
-  l1StartBlock: {
-    env: 'PROOF_VERIFIER_L1_START_BLOCK',
-    description: 'Start block number',
-    ...numberConfigHelper(1),
-  },
+  }
   rollupAddress: {
     env: 'ROLLUP_CONTRACT_ADDRESS',
     description: 'The address of the Rollup contract',
