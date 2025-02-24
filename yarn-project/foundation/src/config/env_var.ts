@@ -110,7 +110,6 @@ export type EnvVar =
   | 'PROVER_AGENT_PROOF_TYPES' // TODO: Remove this env var
   | 'PROVER_AGENT_POLL_INTERVAL_MS' // TODO: Less sure about this one but remove this env var. Right now hardcoding the interval in the prover-agent.ts file.
   | 'PROVER_BROKER_HOST' // The URL from where a proving agent takes jobs from
-  | 'PROVER_BROKER_ENABLED' // TODO: Remove this env var
   | 'PROVER_BROKER_JOB_TIMEOUT_MS' // Jobs are retried if not kept alive for this long.
   | 'PROVER_BROKER_POLL_INTERVAL_MS' // The interval to check job health status.
   | 'PROVER_BROKER_JOB_MAX_RETRIES' // If starting a prover broker locally, the max number of retries per proving job
