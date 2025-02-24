@@ -1,5 +1,5 @@
+import { Tx } from '@aztec/circuit-types';
 import { type ChainConfig } from '@aztec/circuit-types/config';
-import { mockTx } from '@aztec/circuit-types/testing';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -132,7 +132,7 @@ async function main() {
     logger.info('Workers Ready');
 
     // Send tx from client 0
-    const tx = await mockTx();
+    const tx = await Tx.random(/* randomProof */ true);
     processes[0].send({ type: 'SEND_TX', tx: tx.toBuffer() });
     logger.info('Transaction sent from client 0');
 

@@ -13,6 +13,8 @@ import { sleep } from '@aztec/foundation/sleep';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
+import type { Message, PeerId } from '@libp2p/interface';
+
 import { type P2PConfig } from '../config.js';
 import { createP2PClient } from '../index.js';
 import { type AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
@@ -102,12 +104,15 @@ process.on('message', async msg => {
 
       // Create spy for gossip messages
       let gossipMessageCount = 0;
-      (client as any).p2pService.handleNewGossipMessage = (...args: any[]) => {
+      (client as any).p2pService.handleNewGossipMessage = (msg: Message, msgId: string, source: PeerId) => {
         gossipMessageCount++;
-        process.send!({ type: 'GOSSIP_RECEIVED', count: gossipMessageCount });
+        process.send!({
+          type: 'GOSSIP_RECEIVED',
+          count: gossipMessageCount,
+        });
         return (client as any).p2pService.constructor.prototype.handleNewGossipMessage.apply(
           (client as any).p2pService,
-          args,
+          [msg, msgId, source],
         );
       };
 

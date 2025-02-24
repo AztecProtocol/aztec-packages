@@ -1,11 +1,9 @@
 import {
-  type AuthWitness,
   type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
   type L2Block,
   type LogFilter,
   type NotesFilter,
-  type SiblingPath,
   type Tx,
   type TxExecutionRequest,
   type TxHash,
@@ -14,6 +12,7 @@ import {
   type TxSimulationResult,
   type UniqueNote,
 } from '@aztec/circuit-types';
+import { type AuthWitness } from '@aztec/circuit-types/auth-witness';
 import {
   type ContractClassMetadata,
   type ContractMetadata,
@@ -33,6 +32,7 @@ import type {
 import type { GasFees } from '@aztec/circuits.js/gas';
 import { type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import type { Fr, Point } from '@aztec/foundation/fields';
+import type { SiblingPath } from '@aztec/foundation/trees';
 
 import { type Wallet } from '../account/wallet.js';
 import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';

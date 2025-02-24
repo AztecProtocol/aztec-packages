@@ -1,4 +1,5 @@
-import { type AuthWitness, type TxExecutionRequest } from '@aztec/circuit-types';
+import { type TxExecutionRequest } from '@aztec/circuit-types';
+import { type AuthWitness } from '@aztec/circuit-types/auth-witness';
 import { type PXE } from '@aztec/circuit-types/interfaces/client';
 import { type ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
