@@ -486,18 +486,19 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     msgId: string,
     source: PeerId,
   ): Promise<{ result: boolean; obj: T | undefined }> {
+    let resultAndObj: { result: boolean; obj: T | undefined } = { result: false, obj: undefined };
     try {
-      const { result, obj } = await validationFunc();
-      this.node.services.pubsub.reportMessageValidationResult(
-        msgId,
-        source.toString(),
-        result ? TopicValidatorResult.Accept : TopicValidatorResult.Reject,
-      );
-      return { result, obj };
+      resultAndObj = await validationFunc();
     } catch (err) {
       this.logger.error(`Error deserialising and validating message `, err);
-      return { result: false, obj: undefined };
     }
+
+    this.node.services.pubsub.reportMessageValidationResult(
+      msgId,
+      source.toString(),
+      resultAndObj.result && resultAndObj.obj ? TopicValidatorResult.Accept : TopicValidatorResult.Reject,
+    );
+    return resultAndObj;
   }
 
   private async handleGossipedTx(msg: Message, msgId: string, source: PeerId) {
