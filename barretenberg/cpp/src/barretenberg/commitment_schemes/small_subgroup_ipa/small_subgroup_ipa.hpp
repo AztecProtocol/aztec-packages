@@ -162,51 +162,27 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
      * \f$G\f$ and \f$F\f$.
      * @return True if the consistency check passes, false otherwise.
      */
-    static bool check_evaluations_consistency(const std::array<FF, NUM_SMALL_IPA_EVALUATIONS>& libra_evaluations,
-                                              const FF& gemini_evaluation_challenge,
-                                              const std::vector<FF>& multilinear_challenge,
-                                              const FF& inner_product_eval_claim)
+    static bool check_consistency(const std::array<FF, NUM_SMALL_IPA_EVALUATIONS>& small_ipa_evaluations,
+                                  const FF& small_ipa_eval_challenge,
+                                  const std::vector<FF>& challenge_polynomial,
+                                  const FF& inner_product_eval_claim,
+                                  const FF& vanishing_poly_eval)
     {
-
-        // Compute the evaluation of the vanishing polynomia Z_H(X) at X =
-        // gemini_evaluation_challenge
-        const FF vanishing_poly_eval = gemini_evaluation_challenge.pow(SUBGROUP_SIZE) - FF(1);
-
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1194).
-        // Handle edge cases in PCS
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1186).
-        // Insecure pattern.
-        bool gemini_challenge_in_small_subgroup = false;
-        if constexpr (Curve::is_stdlib_type) {
-            gemini_challenge_in_small_subgroup = (vanishing_poly_eval.get_value() == FF(0).get_value());
-        } else {
-            gemini_challenge_in_small_subgroup = (vanishing_poly_eval == FF(0));
-        }
-        // The probability of this event is negligible but it has to be
-        // processed correctly
-        if (gemini_challenge_in_small_subgroup) {
-            throw_or_abort("Gemini evaluation challenge is in the SmallSubgroup.");
-        }
-        // Construct the challenge polynomial from the sumcheck challenge,
-        // the verifier has to evaluate it on its own
-        const std::vector<FF> challenge_polynomial_lagrange =
-            compute_challenge_polynomial_coeffs(multilinear_challenge, SUBGROUP_SIZE, LIBRA_UNIVARIATES_LENGTH);
-
-        // Compute the evaluations of the challenge polynomial, Lagrange
+        handle_edge_cases(vanishing_poly_eval);
         // first, and Lagrange last for the fixed small subgroup
         auto [challenge_poly, lagrange_first, lagrange_last] = compute_batched_barycentric_evaluations(
-            challenge_polynomial_lagrange, gemini_evaluation_challenge, vanishing_poly_eval);
+            challenge_polynomial, small_ipa_eval_challenge, vanishing_poly_eval);
 
-        const FF& concatenated_at_r = libra_evaluations[0];
-        const FF& big_sum_shifted_eval = libra_evaluations[1];
-        const FF& big_sum_eval = libra_evaluations[2];
-        const FF& quotient_eval = libra_evaluations[3];
+        const FF& concatenated_at_r = small_ipa_evaluations[0];
+        const FF& big_sum_shifted_eval = small_ipa_evaluations[1];
+        const FF& big_sum_eval = small_ipa_evaluations[2];
+        const FF& quotient_eval = small_ipa_evaluations[3];
 
         // Compute the evaluation of
         // L_1(X) * A(X) + (X - 1/g) (A(gX) - A(X) - F(X) G(X)) +
         // L_{|H|}(X)(A(X) - s) - Z_H(X) * Q(X)
         FF diff = lagrange_first * big_sum_eval;
-        diff += (gemini_evaluation_challenge - Curve::subgroup_generator_inverse) *
+        diff += (small_ipa_eval_challenge - Curve::subgroup_generator_inverse) *
                 (big_sum_shifted_eval - big_sum_eval - concatenated_at_r * challenge_poly);
         diff += lagrange_last * (big_sum_eval - inner_product_eval_claim) - vanishing_poly_eval * quotient_eval;
 
@@ -222,6 +198,22 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
         } else {
             return (diff == FF(0));
         };
+    };
+    static bool check_libra_evaluations_consistency(const std::array<FF, NUM_SMALL_IPA_EVALUATIONS>& libra_evaluations,
+                                                    const FF& gemini_evaluation_challenge,
+                                                    const std::vector<FF>& multilinear_challenge,
+                                                    const FF& inner_product_eval_claim)
+    {
+
+        // Compute the evaluation of the vanishing polynomia Z_H(X) at X =
+        // gemini_evaluation_challenge
+        const FF vanishing_poly_eval = gemini_evaluation_challenge.pow(SUBGROUP_SIZE) - FF(1);
+
+        return check_consistency(libra_evaluations,
+                                 gemini_evaluation_challenge,
+                                 compute_challenge_polynomial_coeffs<Curve>(multilinear_challenge),
+                                 inner_product_eval_claim,
+                                 vanishing_poly_eval);
     }
 
     static bool check_eccvm_evaluations_consistency(
@@ -235,6 +227,21 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
         // Compute the evaluation of the vanishing polynomia Z_H(X) at X =
         // gemini_evaluation_challenge
         const FF vanishing_poly_eval = evaluation_challenge.pow(SUBGROUP_SIZE) - FF(1);
+
+        return check_consistency(small_ipa_evaluations,
+                                 evaluation_challenge,
+                                 compute_eccvm_challenge_coeffs<Curve>(evaluation_challenge_x, batching_challenge_v),
+                                 inner_product_eval_claim,
+                                 vanishing_poly_eval);
+    }
+
+    /**
+     * @brief Check if the random evaluation challenge is in the SmallSubgroup.
+     *
+     * @param vanishing_poly_eval \f$ Z_H(r) = r^{\text{SUBGROUP_SIZE}} \f$.
+     */
+    static void handle_edge_cases(const FF& vanishing_poly_eval)
+    {
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1194).
         // Handle edge cases in PCS
@@ -251,43 +258,7 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
         if (evaluation_challenge_in_small_subgroup) {
             throw_or_abort("Evaluation challenge is in the SmallSubgroup.");
         }
-        // Construct the challenge polynomial from the evaluation and
-        // batching challenges, the verifier has to evaluate it on its own
-        const std::vector<FF> challenge_polynomial_lagrange =
-            compute_eccvm_challenge_coeffs(evaluation_challenge_x, batching_challenge_v, SUBGROUP_SIZE);
-
-        // Compute the evaluations of the challenge polynomial, Lagrange
-        // first, and Lagrange last for the fixed small subgroup
-        auto [challenge_poly, lagrange_first, lagrange_last] = compute_batched_barycentric_evaluations(
-            challenge_polynomial_lagrange, evaluation_challenge, vanishing_poly_eval);
-
-        const FF& concatenated_at_r = small_ipa_evaluations[0];
-        const FF& big_sum_shifted_eval = small_ipa_evaluations[1];
-        const FF& big_sum_eval = small_ipa_evaluations[2];
-        const FF& quotient_eval = small_ipa_evaluations[3];
-
-        // Compute the evaluation of
-        // L_1(X) * A(X) + (X - 1/g) (A(gX) - A(X) - F(X) G(X)) +
-        // L_{|H|}(X)(A(X) - s) - Z_H(X) * Q(X)
-        FF diff = lagrange_first * big_sum_eval;
-        diff += (evaluation_challenge - Curve::subgroup_generator_inverse) *
-                (big_sum_shifted_eval - big_sum_eval - concatenated_at_r * challenge_poly);
-        diff += lagrange_last * (big_sum_eval - inner_product_eval_claim) - vanishing_poly_eval * quotient_eval;
-
-        if constexpr (Curve::is_stdlib_type) {
-            if constexpr (std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>) {
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1197)
-                diff.self_reduce();
-            }
-            diff.assert_equal(FF(0));
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1186).
-            // Insecure pattern.
-            return (diff.get_value() == FF(0).get_value());
-        } else {
-            return (diff == FF(0));
-        };
     }
-
     /**
      * @brief Efficient batch evaluation of the challenge polynomial,
      * Lagrange first, and Lagrange last
@@ -354,12 +325,14 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
  * @param multivariate_challenge
  * @return Polynomial<FF>
  */
-template <typename FF>
-static std::vector<FF> compute_challenge_polynomial_coeffs(const std::vector<FF>& multivariate_challenge,
-                                                           const size_t subgroup_size,
-                                                           const size_t libra_univariates_length)
+template <typename Curve>
+static std::vector<typename Curve::ScalarField> compute_challenge_polynomial_coeffs(
+    const std::vector<typename Curve::ScalarField>& multivariate_challenge)
 {
-    std::vector<FF> challenge_polynomial_lagrange(subgroup_size);
+    using FF = typename Curve::ScalarField;
+
+    std::vector<FF> challenge_polynomial_lagrange(Curve::SUBGROUP_SIZE);
+    static constexpr size_t libra_univariates_length = Curve::LIBRA_UNIVARIATES_LENGTH;
 
     challenge_polynomial_lagrange[0] = FF{ 1 };
 
@@ -392,16 +365,16 @@ static std::vector<FF> compute_challenge_polynomial_coeffs(const std::vector<FF>
  * @param subgroup_size
  * @return std::vector<FF>
  */
-template <typename FF>
-std::vector<FF> compute_eccvm_challenge_coeffs(const FF& evaluation_challenge_x,
-                                               const FF& batching_challenge_v,
-                                               const size_t& subgroup_size)
+template <typename Curve>
+std::vector<typename Curve::ScalarField> compute_eccvm_challenge_coeffs(
+    const typename Curve::ScalarField& evaluation_challenge_x, const typename Curve::ScalarField& batching_challenge_v)
 {
-    std::vector<FF> coeffs_lagrange_basis(subgroup_size, FF(0));
+    using FF = typename Curve::ScalarField;
+    std::vector<FF> coeffs_lagrange_basis(Curve::SUBGROUP_SIZE, FF{ 0 });
 
     coeffs_lagrange_basis[0] = FF{ 1 };
 
-    FF v_power = FF(1);
+    FF v_power = FF{ 1 };
     for (size_t poly_idx = 0; poly_idx < NUM_SMALL_IPA_EVALUATIONS; poly_idx++) {
         const size_t start = 1 + MASKING_OFFSET * poly_idx;
         coeffs_lagrange_basis[start] = v_power;

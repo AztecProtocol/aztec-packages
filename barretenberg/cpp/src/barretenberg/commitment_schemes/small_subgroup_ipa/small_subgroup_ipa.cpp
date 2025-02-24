@@ -205,7 +205,7 @@ template <typename Flavor>
 void SmallSubgroupIPAProver<Flavor>::compute_challenge_polynomial(const std::vector<FF>& multivariate_challenge)
 {
     std::vector<FF> coeffs_lagrange_basis =
-        compute_challenge_polynomial_coeffs(multivariate_challenge, SUBGROUP_SIZE, LIBRA_UNIVARIATES_LENGTH);
+        compute_challenge_polynomial_coeffs<typename Flavor::Curve>(multivariate_challenge);
 
     challenge_polynomial_lagrange = Polynomial<FF>(coeffs_lagrange_basis);
 
@@ -234,7 +234,7 @@ void SmallSubgroupIPAProver<Flavor>::compute_eccvm_challenge_polynomial(const FF
 {
 
     std::vector<FF> coeffs_lagrange_basis =
-        compute_eccvm_challenge_coeffs(evaluation_challenge_x, batching_challenge_v, SUBGROUP_SIZE);
+        compute_eccvm_challenge_coeffs<typename Flavor::Curve>(evaluation_challenge_x, batching_challenge_v);
 
     challenge_polynomial_lagrange = Polynomial<FF>(coeffs_lagrange_basis);
 
@@ -293,9 +293,7 @@ template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::compute_big_sum_
  * \f$ is the fixed generator of \f$ H \f$.
  *
  */
-template <typename Flavor>
-void SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver<Flavor>::compute_batched_polynomial(
-    const FF& claimed_evaluation)
+template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::compute_batched_polynomial(const FF& claimed_evaluation)
 {
     // Compute shifted big sum polynomial A(gX)
     Polynomial<FF> shifted_big_sum(SUBGROUP_SIZE + 3);
@@ -440,7 +438,7 @@ typename Flavor::Curve::ScalarField SmallSubgroupIPAProver<Flavor>::compute_clai
     FF claimed_inner_product{ 0 };
     if constexpr (IsAnyOf<Flavor, ECCVMFlavor, GrumpkinSettings>) {
         const std::vector<FF> coeffs_lagrange_basis =
-            compute_eccvm_challenge_coeffs(evaluation_challenge_x, batching_challenge_v, SUBGROUP_SIZE);
+            compute_eccvm_challenge_coeffs<typename Flavor::Curve>(evaluation_challenge_x, batching_challenge_v);
 
         Polynomial<FF> challenge_polynomial_lagrange(coeffs_lagrange_basis);
 
