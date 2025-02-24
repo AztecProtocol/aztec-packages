@@ -2,24 +2,11 @@
 
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/eccvm/eccvm_builder_types.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
+#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_ops_table.hpp"
 #include "barretenberg/stdlib_circuit_builders/op_queue/eccvm_row_tracker.hpp"
 namespace bb {
-
-enum EccOpCode { NULL_OP, ADD_ACCUM, MUL_ACCUM, EQUALITY };
-
-struct UltraOp {
-    using Fr = curve::BN254::ScalarField;
-    EccOpCode op_code = NULL_OP;
-    Fr op;
-    Fr x_lo;
-    Fr x_hi;
-    Fr y_lo;
-    Fr y_hi;
-    Fr z_1;
-    Fr z_2;
-    bool return_is_infinity;
-};
 
 /**
  * @brief Used to construct execution trace representations of elliptic curve operations.
@@ -41,13 +28,11 @@ class ECCOpQueue {
 
     static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS = stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
 
-    std::vector<bb::eccvm::VMOperation<Curve::Group>> raw_ops;
-    std::array<std::vector<Fr>, 4> ultra_ops; // ops encoded in the width-4 Ultra format
+    RawEccOpsTable raw_ops_table;
+    UltraEccOpsTable ultra_ops_table;
 
-    size_t current_ultra_ops_size = 0;  // M_i
-    size_t previous_ultra_ops_size = 0; // M_{i-1}
-
-    std::array<Point, 4> ultra_ops_commitments;
+    // Storage for the reconstructed raw ops table in contiguous memory
+    std::vector<bb::eccvm::VMOperation<Curve::Group>> raw_ops_reconstructed;
 
     // Tracks numer of muls and size of eccvm in real time as the op queue is updated
     EccvmRowTracker eccvm_row_tracker;
@@ -55,7 +40,40 @@ class ECCOpQueue {
   public:
     using ECCVMOperation = bb::eccvm::VMOperation<Curve::Group>;
 
-    const std::vector<ECCVMOperation>& get_raw_ops() { return raw_ops; }
+    void initialize_new_subtable()
+    {
+        raw_ops_table.create_new_subtable();
+        ultra_ops_table.create_new_subtable();
+    }
+
+    std::array<Polynomial<Fr>, 4> get_ultra_ops_table_columns() const
+    {
+        return ultra_ops_table.construct_table_columns();
+    }
+
+    std::array<Polynomial<Fr>, 4> get_previous_ultra_ops_table_columns() const
+    {
+        return ultra_ops_table.construct_previous_table_columns();
+    }
+
+    std::array<Polynomial<Fr>, 4> get_current_subtable_columns() const
+    {
+        return ultra_ops_table.construct_current_subtable_columns();
+    }
+
+    // Reconstruct the full table of raw ops in contiguous memory from the independent subtables
+    void construct_full_raw_ops_table() { raw_ops_reconstructed = raw_ops_table.get_reconstructed(); }
+
+    size_t get_ultra_ops_table_size() const { return ultra_ops_table.ultra_table_size(); }
+    size_t get_current_ultra_ops_subtable_size() const { return ultra_ops_table.current_ultra_subtable_size(); }
+
+    std::vector<ECCVMOperation>& get_raw_ops()
+    {
+        if (raw_ops_reconstructed.empty()) {
+            construct_full_raw_ops_table();
+        }
+        return raw_ops_reconstructed;
+    }
 
     /**
      * @brief Get the number of rows in the 'msm' column section, for all msms in the circuit
@@ -89,7 +107,7 @@ class ECCOpQueue {
      * @brief A fuzzing only method for setting raw ops directly
      *
      */
-    void set_raw_ops_for_fuzzing(std::vector<ECCVMOperation>& raw_ops_in) { raw_ops = raw_ops_in; }
+    void set_raw_ops_for_fuzzing(std::vector<ECCVMOperation>& raw_ops_in) { raw_ops_reconstructed = raw_ops_in; }
 
     /**
      * @brief A testing only method that adds an erroneous equality op to the raw ops
@@ -98,7 +116,7 @@ class ECCOpQueue {
      */
     void add_erroneous_equality_op_for_testing()
     {
-        raw_ops.emplace_back(ECCVMOperation{ .eq = true, .reset = true, .base_point = Point::random_element() });
+        append_raw_op(ECCVMOperation{ .eq = true, .reset = true, .base_point = Point::random_element() });
     }
 
     /**
@@ -106,63 +124,9 @@ class ECCOpQueue {
      * @warning This is for testing purposes only. Currently no valid use case.
      *
      */
-    void empty_row_for_testing()
-    {
-        raw_ops.emplace_back(ECCVMOperation{ .base_point = point_at_infinity });
-
-        eccvm_row_tracker.update_cached_msms(raw_ops.back());
-    }
+    void empty_row_for_testing() { append_raw_op(ECCVMOperation{ .base_point = point_at_infinity }); }
 
     Point get_accumulator() { return accumulator; }
-
-    /**
-     * @brief Set the current and previous size of the ultra_ops transcript
-     *
-     * @details previous_ultra_ops_size = M_{i-1} is needed by the prover to extract the previous aggregate op
-     * queue transcript T_{i-1} from the current one T_i. This method should be called when a circuit is 'finalized'.
-     */
-    void set_size_data()
-    {
-        previous_ultra_ops_size = current_ultra_ops_size;
-        current_ultra_ops_size = ultra_ops[0].size();
-    }
-
-    [[nodiscard]] size_t get_previous_size() const { return previous_ultra_ops_size; }
-    [[nodiscard]] size_t get_current_size() const { return current_ultra_ops_size; }
-
-    void set_commitment_data(std::array<Point, 4>& commitments) { ultra_ops_commitments = commitments; }
-    const auto& get_ultra_ops_commitments() { return ultra_ops_commitments; }
-
-    /**
-     * @brief Get a 'view' of the current ultra ops object
-     *
-     * @return std::vector<std::span<Fr>>
-     */
-    std::vector<std::span<Fr>> get_aggregate_transcript()
-    {
-        std::vector<std::span<Fr>> result;
-        result.reserve(ultra_ops.size());
-        for (auto& entry : ultra_ops) {
-            result.emplace_back(entry);
-        }
-        return result;
-    }
-
-    /**
-     * @brief Get a 'view' of the previous ultra ops object
-     *
-     * @return std::vector<std::span<Fr>>
-     */
-    std::vector<std::span<Fr>> get_previous_aggregate_transcript()
-    {
-        std::vector<std::span<Fr>> result;
-        result.reserve(ultra_ops.size());
-        // Construct T_{i-1} as a view of size M_{i-1} into T_i
-        for (auto& entry : ultra_ops) {
-            result.emplace_back(entry.begin(), previous_ultra_ops_size);
-        }
-        return result;
-    }
 
     /**
      * @brief Write point addition op to queue and natively perform addition
@@ -175,8 +139,7 @@ class ECCOpQueue {
         accumulator = accumulator + to_add;
 
         // Store the raw operation
-        raw_ops.emplace_back(ECCVMOperation{ .add = true, .base_point = to_add });
-        eccvm_row_tracker.update_cached_msms(raw_ops.back());
+        append_raw_op(ECCVMOperation{ .add = true, .base_point = to_add });
 
         // Construct and store the operation in the ultra op format
         return construct_and_populate_ultra_ops(ADD_ACCUM, to_add);
@@ -196,14 +159,13 @@ class ECCOpQueue {
         UltraOp ultra_op = construct_and_populate_ultra_ops(MUL_ACCUM, to_mul, scalar);
 
         // Store the raw operation
-        raw_ops.emplace_back(ECCVMOperation{
+        append_raw_op(ECCVMOperation{
             .mul = true,
             .base_point = to_mul,
             .z1 = ultra_op.z_1,
             .z2 = ultra_op.z_2,
             .mul_scalar_full = scalar,
         });
-        eccvm_row_tracker.update_cached_msms(raw_ops.back());
 
         return ultra_op;
     }
@@ -215,8 +177,7 @@ class ECCOpQueue {
     UltraOp no_op()
     {
         // Store raw operation
-        raw_ops.emplace_back(ECCVMOperation{});
-        eccvm_row_tracker.update_cached_msms(raw_ops.back());
+        append_raw_op(ECCVMOperation{});
 
         // Construct and store the operation in the ultra op format
         return construct_and_populate_ultra_ops(NULL_OP, accumulator);
@@ -233,14 +194,18 @@ class ECCOpQueue {
         accumulator.self_set_infinity();
 
         // Store raw operation
-        raw_ops.emplace_back(ECCVMOperation{ .eq = true, .reset = true, .base_point = expected });
-        eccvm_row_tracker.update_cached_msms(raw_ops.back());
+        append_raw_op(ECCVMOperation{ .eq = true, .reset = true, .base_point = expected });
 
         // Construct and store the operation in the ultra op format
         return construct_and_populate_ultra_ops(EQUALITY, expected);
     }
 
   private:
+    void append_raw_op(const ECCVMOperation& op)
+    {
+        eccvm_row_tracker.update_cached_msms(op);
+        raw_ops_table.push(op);
+    }
     /**
      * @brief Given an ecc operation and its inputs, decompose into ultra format and populate ultra_ops
      *
@@ -286,28 +251,9 @@ class ECCOpQueue {
             ultra_op.z_2 = z_2.to_montgomery_form();
         }
 
-        append_to_ultra_ops(ultra_op);
+        ultra_ops_table.push(ultra_op);
 
         return ultra_op;
-    }
-
-    /**
-     * @brief Populate two rows of the ultra ops,representing a complete ECC operation
-     * @note Only the first 'op' field is utilized so the second is explicitly set to 0
-     *
-     * @param tuple
-     */
-    void append_to_ultra_ops(UltraOp tuple)
-    {
-        ultra_ops[0].emplace_back(tuple.op);
-        ultra_ops[1].emplace_back(tuple.x_lo);
-        ultra_ops[2].emplace_back(tuple.x_hi);
-        ultra_ops[3].emplace_back(tuple.y_lo);
-
-        ultra_ops[0].emplace_back(0);
-        ultra_ops[1].emplace_back(tuple.y_hi);
-        ultra_ops[2].emplace_back(tuple.z_1);
-        ultra_ops[3].emplace_back(tuple.z_2);
     }
 };
 
