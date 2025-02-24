@@ -1,7 +1,9 @@
 import { type Tx } from '@aztec/circuit-types';
 import { mockTx } from '@aztec/circuit-types/testing';
-import { AztecAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
+import { FunctionSelector } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { timesParallel } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
 
 import { DataTxValidator } from './data_validator.js';
 

@@ -4,9 +4,13 @@ import {
   collectNested,
 } from '@aztec/circuit-types/interfaces/client';
 import {
-  type Fr,
   KeyValidationHint,
   type PrivateCircuitPublicInputs,
+  type PrivateKernelCircuitPublicInputs,
+  PrivateKernelData,
+  PrivateKernelResetCircuitPrivateInputs,
+  PrivateKernelResetDimensions,
+  PrivateKernelResetHints,
   type ReadRequest,
   ReadRequestResetStates,
   ReadRequestState,
@@ -14,6 +18,7 @@ import {
   ScopedNoteHash,
   ScopedNullifier,
   ScopedReadRequest,
+  TransientDataIndexHint,
   buildNoteHashReadRequestHintsFromResetStates,
   buildNullifierReadRequestHintsFromResetStates,
   buildTransientDataHints,
@@ -22,14 +27,6 @@ import {
   getNonEmptyItems,
   getNoteHashReadRequestResetStates,
   getNullifierReadRequestResetStates,
-} from '@aztec/circuits.js';
-import {
-  type PrivateKernelCircuitPublicInputs,
-  PrivateKernelData,
-  PrivateKernelResetCircuitPrivateInputs,
-  PrivateKernelResetDimensions,
-  PrivateKernelResetHints,
-  TransientDataIndexHint,
   privateKernelResetDimensionNames,
 } from '@aztec/circuits.js/kernel';
 import {
@@ -43,6 +40,7 @@ import {
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import type { Fr } from '@aztec/foundation/fields';
 import { type Tuple, assertLength } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import { privateKernelResetDimensionsConfig } from '@aztec/noir-protocol-circuits-types/client';

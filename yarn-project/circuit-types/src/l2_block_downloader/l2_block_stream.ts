@@ -144,7 +144,7 @@ export class L2BlockStream {
   }
 }
 
-/** Interface to the local view of the chain. Implemented by world-state. */
+/** Interface to the local view of the chain. Implemented by world-state and l2-tips-store. */
 export interface L2BlockStreamLocalDataProvider {
   getL2BlockHash(number: number): Promise<string | undefined>;
   getL2Tips(): Promise<L2Tips>;

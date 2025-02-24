@@ -10,18 +10,18 @@ import {
   type TxReceipt,
   type TxScopedL2Log,
 } from '@aztec/circuit-types';
+import { type FunctionSelector } from '@aztec/circuits.js/abi';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
-  type BlockHeader,
   type ContractClassPublic,
   type ContractInstanceUpdateWithAddress,
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
-  type Fr,
-  type PrivateLog,
   type UnconstrainedFunctionWithMembershipProof,
-} from '@aztec/circuits.js';
-import { type FunctionSelector } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
+} from '@aztec/circuits.js/contract';
+import type { PrivateLog } from '@aztec/circuits.js/logs';
+import type { BlockHeader } from '@aztec/circuits.js/tx';
+import type { Fr } from '@aztec/foundation/fields';
 
 import { type DataRetrieval } from './structs/data_retrieval.js';
 import { type L1Published } from './structs/published.js';

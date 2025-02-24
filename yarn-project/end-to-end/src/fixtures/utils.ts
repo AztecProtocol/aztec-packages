@@ -33,7 +33,8 @@ import { deployInstance, registerContractClass } from '@aztec/aztec.js/deploymen
 import { type BBNativePrivateKernelProver } from '@aztec/bb-prover';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
-import { Fr, Gas, getContractClassFromArtifact } from '@aztec/circuits.js';
+import { getContractClassFromArtifact } from '@aztec/circuits.js/contract';
+import { Gas } from '@aztec/circuits.js/gas';
 import { type PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { FEE_JUICE_INITIAL_MINT, GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH } from '@aztec/constants';
 import {
@@ -48,6 +49,7 @@ import {
 import { DelayedTxUtils, EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
@@ -126,7 +128,7 @@ export const setupL1Contracts = async (
   chain: Chain = foundry,
 ) => {
   const l1Data = await deployL1Contracts(l1RpcUrl, account, chain, logger, {
-    l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
+    l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice.toField(),
     vkTreeRoot: getVKTreeRoot(),
     protocolContractTreeRoot,
     genesisArchiveRoot: args.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
@@ -782,7 +784,6 @@ export async function createAndSyncProverNode(
     ...aztecNodeConfig,
     proverCoordinationNodeUrl: undefined,
     dataDirectory: undefined,
-    proverId: new Fr(42),
     realProofs: false,
     proverAgentCount: 2,
     publisherPrivateKey: proverNodePrivateKey,

@@ -1,9 +1,9 @@
 import { PeerErrorSeverity } from '@aztec/circuit-types';
 import { makeBlockProposal } from '@aztec/circuit-types/testing';
-import { Fr } from '@aztec/circuits.js';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
 
 import { mock } from 'jest-mock-extended';
 

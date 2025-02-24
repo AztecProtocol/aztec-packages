@@ -1,4 +1,4 @@
-import type { VerificationKeyData } from '@aztec/circuits.js';
+import type { VerificationKeyData } from '@aztec/circuits.js/vks';
 import {
   BASE_PARITY_INDEX,
   BLOCK_MERGE_ROLLUP_INDEX,

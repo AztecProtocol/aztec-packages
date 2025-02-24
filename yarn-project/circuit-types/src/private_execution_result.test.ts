@@ -1,4 +1,5 @@
-import { Fr, PrivateCircuitPublicInputs } from '@aztec/circuits.js';
+import { PrivateCircuitPublicInputs } from '@aztec/circuits.js/kernel';
+import { Fr } from '@aztec/foundation/fields';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 
 import {

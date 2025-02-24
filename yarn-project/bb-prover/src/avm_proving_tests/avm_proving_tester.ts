@@ -1,7 +1,7 @@
 import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
-import { VerificationKeyData } from '@aztec/circuits.js';
 import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { VerificationKeyData } from '@aztec/circuits.js/vks';
 import { PublicTxSimulationTester, type TestEnqueuedCall } from '@aztec/simulator/public/fixtures';
 import { WorldStateDB } from '@aztec/simulator/server';
 import { NativeWorldStateService } from '@aztec/world-state';

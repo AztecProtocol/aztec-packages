@@ -1,7 +1,9 @@
 import { type L2Block, type ProcessedTx, type Tx } from '@aztec/circuit-types';
 import { type EpochProver } from '@aztec/circuit-types/interfaces/server';
-import { type BlockHeader, type Fr, type GlobalVariables, type Proof } from '@aztec/circuits.js';
+import type { Proof } from '@aztec/circuits.js/proofs';
 import { type RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
+import { type BlockHeader, type GlobalVariables } from '@aztec/circuits.js/tx';
+import type { Fr } from '@aztec/foundation/fields';
 
 import { type ProvingOrchestrator } from '../orchestrator/orchestrator.js';
 import { type BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';

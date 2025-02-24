@@ -1,15 +1,14 @@
+import { type ContractArtifact, FunctionSelector } from '@aztec/circuits.js/abi';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
-  type AztecAddress,
   type ContractClassPublic,
   type ContractDataSource,
   type ContractInstanceWithAddress,
-  Fr,
-  FunctionSelector,
   type PublicFunction,
   computePublicBytecodeCommitment,
-} from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/circuits.js/abi';
+} from '@aztec/circuits.js/contract';
 import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 import { PrivateFunctionsTree } from '@aztec/pxe';
 
 import { type TXE } from '../oracle/txe_oracle.js';

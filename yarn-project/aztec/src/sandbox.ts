@@ -5,7 +5,8 @@ import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec
 import { AnvilTestWatcher, EthCheatCodes, SignerlessWallet, type Wallet } from '@aztec/aztec.js';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type AztecNode, type PXE } from '@aztec/circuit-types/interfaces/client';
-import { type ContractInstanceWithAddress, getContractInstanceFromDeployParams } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type ContractInstanceWithAddress, getContractInstanceFromDeployParams } from '@aztec/circuits.js/contract';
 import { type PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { setupCanonicalL2FeeJuice } from '@aztec/cli/setup-contracts';
 import { GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH } from '@aztec/constants';
@@ -16,7 +17,6 @@ import {
   getL1ContractsConfigEnvVars,
   waitForPublicClient,
 } from '@aztec/ethereum';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type LogFn, createLogger } from '@aztec/foundation/log';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
@@ -67,7 +67,7 @@ export async function deployContractsToL1(
     {
       ...getL1ContractsConfigEnvVars(), // TODO: We should not need to be loading config from env again, caller should handle this
       ...aztecNodeConfig,
-      l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
+      l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice.toField(),
       vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
       genesisArchiveRoot: opts.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
