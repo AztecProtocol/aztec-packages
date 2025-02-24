@@ -23,7 +23,9 @@ const mockTxsWithCCLog = (numTxs: number) =>
       numberOfRevertiblePublicCallRequests: 2,
       hasPublicTeardownCallRequest: true,
     });
-    const contractClassLogs = Array(MAX_CONTRACT_CLASS_LOGS_PER_TX).fill(0).map(ContractClassLog.random);
+    const contractClassLogs = await Promise.all(
+      Array(MAX_CONTRACT_CLASS_LOGS_PER_TX).fill(0).map(ContractClassLog.random),
+    );
     const logHashes = await Promise.all(
       contractClassLogs.map(async l =>
         ScopedLogHash.fromFields([

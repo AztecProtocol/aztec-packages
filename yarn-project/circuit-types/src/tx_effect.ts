@@ -221,7 +221,7 @@ export class TxEffect {
       makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, () => new PublicDataWrite(Fr.random(), Fr.random())),
       makeTuple(MAX_PRIVATE_LOGS_PER_TX, () => new PrivateLog(makeTuple(PRIVATE_LOG_SIZE_IN_FIELDS, Fr.random))),
       await makeTupleAsync(numPublicCallsPerTx * numPublicLogsPerCall, PublicLog.random),
-      makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, () => ContractClassLog.random()),
+      await makeTupleAsync(MAX_CONTRACT_CLASS_LOGS_PER_TX, ContractClassLog.random),
     );
   }
 
@@ -360,11 +360,17 @@ export class TxEffect {
     }
     if (this.contractClassLogs.length) {
       const totalLogLen = this.contractClassLogs.reduce(
-        (total, log) => total + (log.getEmittedLength() == 0 ? 0 : log.getEmittedLength() + 1),
+        (total, log) => total + (log.getEmittedLength() == 0 ? 0 : log.getEmittedLength() + 2),
         0,
       );
       flattened.push(this.toPrefix(CONTRACT_CLASS_LOGS_PREFIX, totalLogLen));
-      flattened.push(...this.contractClassLogs.flatMap(l => [new Fr(l.getEmittedLength()), ...l.getEmittedFields()]));
+      flattened.push(
+        ...this.contractClassLogs.flatMap(l => [
+          new Fr(l.getEmittedLength()),
+          l.contractAddress.toField(),
+          ...l.getEmittedFields(),
+        ]),
+      );
     }
 
     // The first value appended to each list of fields representing a tx effect is:
@@ -448,7 +454,8 @@ export class TxEffect {
           let i = 0;
           while (i < length) {
             const logLen = flatContractClassLogs[i++].toNumber();
-            const logFields = flatContractClassLogs.slice(i, (i += logLen));
+            // +1 for address
+            const logFields = flatContractClassLogs.slice(i, (i += logLen + 1));
             effect.contractClassLogs.push(
               ContractClassLog.fromFields(
                 logFields.concat(new Array(CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - logLen).fill(Fr.ZERO)),

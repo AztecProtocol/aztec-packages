@@ -282,9 +282,9 @@ export class Oracle {
     return newValues.map(toACVMField);
   }
 
-  emitContractClassLog([_contractAddress]: ACVMField[], message: ACVMField[], [counter]: ACVMField[]): void {
+  emitContractClassLog([contractAddress]: ACVMField[], message: ACVMField[], [counter]: ACVMField[]): void {
     const logPayload = message.map(fromACVMField);
-    const log = new ContractClassLog(logPayload);
+    const log = new ContractClassLog(new AztecAddress(fromACVMField(contractAddress)), logPayload);
 
     this.typedOracle.emitContractClassLog(log, +counter);
   }

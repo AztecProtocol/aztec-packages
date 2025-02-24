@@ -4,7 +4,7 @@ import {
   AVM_PROOF_LENGTH_IN_FIELDS,
   AZTEC_MAX_EPOCH_DURATION,
   BLOBS_PER_BLOCK,
-  CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
+  CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS,
   FIELDS_PER_BLOB,
   GeneratorIndex,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -197,7 +197,10 @@ function makeNullifier(seed: number) {
 
 function makeContractClassLog(seed: number) {
   // The '* 1' removes the 'Type instantiation is excessively deep and possibly infinite. ts(2589)' err
-  return new ContractClassLog(makeTuple(CONTRACT_CLASS_LOG_SIZE_IN_FIELDS * 1, fr, seed));
+  return new ContractClassLog(
+    makeAztecAddress(seed),
+    makeTuple(CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS * 1, fr, seed + 1),
+  );
 }
 
 function makePrivateLog(seed: number) {

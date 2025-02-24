@@ -178,11 +178,12 @@ describe('public_tx_simulator', () => {
         Math.ceil(publicContractClass.packedBytecode.length / 32) + 1,
       ),
     ];
-    const contractClassLog = new ContractClassLog(
-      contractClassLogFields.concat(
+    const contractClassLog = ContractClassLog.fromFields([
+      new Fr(REGISTERER_CONTRACT_ADDRESS),
+      ...contractClassLogFields.concat(
         new Array(CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - contractClassLogFields.length).fill(Fr.ZERO),
       ),
-    );
+    ]);
     tx.contractClassLogs.push(contractClassLog);
     const contractClassLogHash = ScopedLogHash.fromFields([
       await contractClassLog.hash(),

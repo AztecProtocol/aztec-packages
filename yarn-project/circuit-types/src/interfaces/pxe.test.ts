@@ -481,9 +481,9 @@ class MockPXE implements PXE {
     expect(filter.contractAddress).toEqual(this.address);
     return { logs: [await ExtendedPublicLog.random()], maxLogsHit: true };
   }
-  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
+  async getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     expect(filter.contractAddress).toEqual(this.address);
-    return Promise.resolve({ logs: [ExtendedContractClassLog.random()], maxLogsHit: true });
+    return Promise.resolve({ logs: [await ExtendedContractClassLog.random()], maxLogsHit: true });
   }
   getBlockNumber(): Promise<number> {
     return Promise.resolve(1);
