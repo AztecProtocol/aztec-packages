@@ -1,12 +1,12 @@
 import {
-  BlockHeader,
   ContractClassPublicSchema,
   type ContractDataSource,
   ContractInstanceWithAddressSchema,
-  PrivateLog,
   PublicFunctionSchema,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/contract';
+import { PrivateLog } from '@aztec/circuits.js/logs';
 import { type ApiSchemaFor, optional, schemas } from '@aztec/circuits.js/schemas';
+import { BlockHeader } from '@aztec/circuits.js/tx';
 
 import { z } from 'zod';
 

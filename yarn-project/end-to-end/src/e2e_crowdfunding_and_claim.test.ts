@@ -9,8 +9,10 @@ import {
   type UniqueNote,
   deriveKeys,
 } from '@aztec/aztec.js';
-import { GasSettings, TxContext, computePartialAddress } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { computePartialAddress } from '@aztec/circuits.js/contract';
+import { GasSettings } from '@aztec/circuits.js/gas';
+import { TxContext } from '@aztec/circuits.js/tx';
 import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
 import { CrowdfundingContract } from '@aztec/noir-contracts.js/Crowdfunding';
 import { InclusionProofsContract } from '@aztec/noir-contracts.js/InclusionProofs';

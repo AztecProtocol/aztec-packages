@@ -1,5 +1,5 @@
 import { type BlockAttestation, type BlockProposal, type L2Block, type Tx, type TxHash } from '@aztec/circuit-types';
-import { type BlockHeader, type GlobalVariables } from '@aztec/circuits.js';
+import { type BlockHeader, type GlobalVariables } from '@aztec/circuits.js/tx';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { type Fr } from '@aztec/foundation/fields';

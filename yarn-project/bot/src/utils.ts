@@ -1,4 +1,4 @@
-import { type AztecAddress } from '@aztec/circuits.js';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 import { type TokenContract } from '@aztec/noir-contracts.js/Token';
 

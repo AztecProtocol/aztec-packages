@@ -123,7 +123,6 @@ const BASE_GAS_COSTS: Record<Opcode, Gas> = {
   [Opcode.SHA256COMPRESSION]: makeCost(c.AVM_SHA256COMPRESSION_BASE_L2_GAS, 0),
   [Opcode.KECCAKF1600]: makeCost(c.AVM_KECCAKF1600_BASE_L2_GAS, 0),
   [Opcode.ECADD]: makeCost(c.AVM_ECADD_BASE_L2_GAS, 0),
-  [Opcode.MSM]: makeCost(c.AVM_MSM_BASE_L2_GAS, 0),
   [Opcode.TORADIXBE]: makeCost(c.AVM_TORADIXBE_BASE_L2_GAS, 0),
 };
 
@@ -137,7 +136,6 @@ const DYNAMIC_GAS_COSTS = new Map<Opcode, Gas>([
   [Opcode.REVERT_8, makeCost(c.AVM_REVERT_DYN_L2_GAS, 0)],
   [Opcode.REVERT_16, makeCost(c.AVM_REVERT_DYN_L2_GAS, 0)],
   [Opcode.DEBUGLOG, makeCost(c.AVM_DEBUGLOG_DYN_L2_GAS, 0)],
-  [Opcode.MSM, makeCost(c.AVM_MSM_DYN_L2_GAS, 0)],
   [Opcode.TORADIXBE, makeCost(c.AVM_TORADIXBE_DYN_L2_GAS, 0)],
 ]);
 

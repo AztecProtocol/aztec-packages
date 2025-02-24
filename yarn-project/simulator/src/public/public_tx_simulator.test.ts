@@ -8,27 +8,18 @@ import {
 } from '@aztec/circuit-types';
 import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import { mockTx } from '@aztec/circuit-types/testing';
-import {
-  AztecAddress,
-  BlockHeader,
-  type ContractDataSource,
-  Fr,
-  Gas,
-  GasFees,
-  GasSettings,
-  GlobalVariables,
-  PartialStateReference,
-  PublicDataWrite,
-  RevertCode,
-  ScopedLogHash,
-  StateReference,
-  countAccumulatedItems,
-} from '@aztec/circuits.js';
 import { bufferAsFields } from '@aztec/circuits.js/abi';
+import { PublicDataWrite, RevertCode } from '@aztec/circuits.js/avm';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { ContractDataSource } from '@aztec/circuits.js/contract';
+import { Gas, GasFees, GasSettings } from '@aztec/circuits.js/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { ScopedLogHash, countAccumulatedItems } from '@aztec/circuits.js/kernel';
 import { fr, makeContractClassPublic } from '@aztec/circuits.js/testing';
 import { AppendOnlyTreeSnapshot, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
+import { BlockHeader, GlobalVariables, PartialStateReference, StateReference } from '@aztec/circuits.js/tx';
 import { NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, REGISTERER_CONTRACT_ADDRESS } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';

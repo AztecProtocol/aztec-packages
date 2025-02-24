@@ -1,14 +1,9 @@
-import {
-  AztecAddress,
-  Fr,
-  type GrumpkinScalar,
-  NotOnCurveError,
-  Point,
-  PrivateLog,
-  derivePublicKeyFromSecretKey,
-} from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { derivePublicKeyFromSecretKey } from '@aztec/circuits.js/keys';
+import { PrivateLog } from '@aztec/circuits.js/logs';
 import { PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { randomBytes } from '@aztec/foundation/crypto';
+import { Fr, type GrumpkinScalar, NotOnCurveError, Point } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, numToUInt16BE, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import {

@@ -1,6 +1,6 @@
+import { hexSchemaFor } from '@aztec/circuits.js/schemas';
 import { Vector } from '@aztec/circuits.js/types';
 import { Fr } from '@aztec/foundation/fields';
-import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 

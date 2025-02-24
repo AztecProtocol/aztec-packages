@@ -1,5 +1,5 @@
-import { Fr } from '@aztec/circuits.js';
-import { schemas } from '@aztec/foundation/schemas';
+import { schemas } from '@aztec/circuits.js/schemas';
+import { Fr } from '@aztec/foundation/fields';
 
 import { type ZodTypeAny, z } from 'zod';
 

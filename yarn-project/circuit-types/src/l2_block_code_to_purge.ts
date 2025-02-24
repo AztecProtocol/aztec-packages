@@ -1,17 +1,17 @@
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { GasFees } from '@aztec/circuits.js/gas';
+import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
 import {
-  AztecAddress,
   BlockHeader,
   ContentCommitment,
-  EthAddress,
-  Fr,
-  GasFees,
   GlobalVariables,
   NUM_BYTES_PER_SHA256,
   PartialStateReference,
   StateReference,
-} from '@aztec/circuits.js';
-import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
+} from '@aztec/circuits.js/tx';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 
 /**
  * Makes header.

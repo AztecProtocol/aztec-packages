@@ -1,5 +1,5 @@
 import { type SiblingPath } from '@aztec/circuit-types';
-import { Fr } from '@aztec/circuits.js';
+import { Fr } from '@aztec/foundation/fields';
 
 export class MessageLoadOracleInputs<N extends number> {
   constructor(

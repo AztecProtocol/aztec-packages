@@ -22,18 +22,17 @@ import {
   type PXEInfo,
   type PrivateExecutionResult,
 } from '@aztec/circuit-types/interfaces/client';
-import {
-  type AztecAddress,
-  type CompleteAddress,
-  type ContractInstanceWithAddress,
-  type Fr,
-  type GasFees,
-  type NodeInfo,
-  type PartialAddress,
-  type Point,
-} from '@aztec/circuits.js';
 import type { AbiDecoded, ContractArtifact } from '@aztec/circuits.js/abi';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type {
+  CompleteAddress,
+  ContractInstanceWithAddress,
+  NodeInfo,
+  PartialAddress,
+} from '@aztec/circuits.js/contract';
+import type { GasFees } from '@aztec/circuits.js/gas';
 import { type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
+import type { Fr, Point } from '@aztec/foundation/fields';
 
 import { type Wallet } from '../account/wallet.js';
 import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';

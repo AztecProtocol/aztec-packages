@@ -1,15 +1,13 @@
 import { InboxLeaf, L2Block, LogId, TxEffect, TxHash, wrapInBlock } from '@aztec/circuit-types';
 import '@aztec/circuit-types/jest';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
-  AztecAddress,
   type ContractClassPublic,
   type ContractInstanceWithAddress,
-  Fr,
-  PrivateLog,
-  PublicLog,
   SerializableContractInstance,
   computePublicBytecodeCommitment,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/contract';
+import { PrivateLog, PublicLog } from '@aztec/circuits.js/logs';
 import {
   makeContractClassPublic,
   makeExecutablePrivateFunctionWithMembershipProof,
@@ -24,6 +22,7 @@ import {
 } from '@aztec/constants';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
 
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from './archiver_store.js';
 import { type L1Published } from './structs/published.js';

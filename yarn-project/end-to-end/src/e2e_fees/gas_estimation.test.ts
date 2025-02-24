@@ -6,7 +6,7 @@ import {
   type FeePaymentMethod,
   PublicFeePaymentMethod,
 } from '@aztec/aztec.js';
-import { GasSettings } from '@aztec/circuits.js';
+import { GasSettings } from '@aztec/circuits.js/gas';
 import { type Logger } from '@aztec/foundation/log';
 import { type FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
