@@ -20,7 +20,7 @@ export type EnvVar =
   | 'BLOB_SINK_URL' // The blob sink is a simple HTTP server that can be run alongside the e2e tests. It will store the blobs in a local file system and provide an API to query for them. Blob sink url is provided: If requesting from the blob sink, we send the blobkHash. Consensus host url is provided: If requesting from the beacon node, we send the slot number
   | 'BOT_DA_GAS_LIMIT' // DA gas limit for the tx (empty to have the bot trigger an estimate gas).
   | 'BOT_FEE_PAYMENT_METHOD' // How to handle fee payments. (Options: fee_juice).
-  | 'BOT_FLUSH_SETUP_TRANSACTIONS' // Whether to flush after sending each 'setup' transaction . Forces the sequencer to bypass all time and tx count checks for the next block and build anyway. TODO: What is a setup tx?
+  | 'BOT_FLUSH_SETUP_TRANSACTIONS' // Whether to flush after sending each 'setup' transaction . Forces the sequencer to bypass all time and tx count checks for the next block and build anyway. A setup transaction is a contract deployment.
   | 'BOT_FOLLOW_CHAIN' // whether the bot waits for the transaction to be confirmed on the blockchain or simply logs that the transaction has been sent without waiting for confirmation. Possible values: PENDING, PROVEN, NONE.
   | 'BOT_L2_GAS_LIMIT' // L2 gas limit for the tx (empty to have the bot trigger an estimate gas). If any of BOT_L2_GAS_LIMIT or BOT_DA_GAS_LIMIT are empty, the bot triggers an estimate gas.
   | 'BOT_MAX_PENDING_TXS' // The bot will not send a tx if the node's tx pool already has this many pending txs. This is the Boot Node usually.
@@ -58,7 +58,7 @@ export type EnvVar =
   | 'L1_CONSENSUS_HOST_URL' // URL to the L1 consensus client
   | 'L1_CONSENSUS_HOST_API_KEY' // The API key for the L1 consensus client. Added end of URL as "?key=<api-key>" unless a header is defined
   | 'L1_CONSENSUS_HOST_API_KEY_HEADER' // The header name for the L1 consensus client API key, if needed. Added as "<api-key-header>: <api-key>
-  | 'L1_PRIVATE_KEY' // Private key of account for publishing L1 contracts in aztec start. TODO: Change L1_PRIVATE_KEY in Sean's get-private-key.sh
+  | 'L1_PRIVATE_KEY' // Private key of account for publishing L1 contracts in aztec start.
   | 'LOG_JSON' // using pino-pretty for console logging if LOG_JSON is not set. vanilla stdio if it is. TODO: Check if JSON logging is implemented.
   | 'LOG_MULTILINE' //pino-pretty options: Whether to print each log on a single line or not. (errors will still be multi-line). TODO: Rename this to Single Line.
   | 'LOG_LEVEL' // controls the default log level. Use `LOG_LEVEL` with one of `silent`, `fatal`, `error`, `warn`, `info`, `verbose`, `debug`, or `trace`. To tweak log levels per module, add a list of module prefixes with their overridden level. For example, LOG_LEVEL="info; verbose: aztec:sequencer, aztec:archiver; debug: aztec:kv-store" sets `info` as the default log level, `verbose` for the sequencer and archiver, and `debug` for the kv-store. Module name match is done by prefix.
