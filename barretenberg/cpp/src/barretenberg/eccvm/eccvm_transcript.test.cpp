@@ -235,6 +235,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
     ECCVMCircuitBuilder generate_trace(numeric::RNG* engine = nullptr)
     {
         std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
+        op_queue->initialize_new_subtable();
         using G1 = typename Flavor::CycleGroup;
         using Fr = typename G1::Fr;
 
