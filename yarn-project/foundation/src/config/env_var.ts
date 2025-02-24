@@ -2,8 +2,8 @@ export type EnvVar =
   | 'ACVM_BINARY_PATH' //The path to the ACVM binary. For simulation provider, if this binary path is not supplied, defaults to WASM Simulator.
   | 'ACVM_WORKING_DIRECTORY' // The working directory to use for simulation
   | 'GOVERNANCE_CONTRACT_ADDRESS' // Governance Contract Address
-  | 'API_KEY' // API Key for startPXE and addPXE from CLI. Suspect it's not being used and that we're using AZTEC_NODE_URL instead. Confirmed with Esau that they're not using it. TODO: Delete this env variable
-  | 'API_PREFIX' // SAFE TO DELETE. Not being used except for in aztec-packages/yarn-project/aztec-node/src/bin/index.ts . Was removed here https://github.com/AztecProtocol/aztec-packages/issues/3599. TODO: Delete this env variable
+  | 'API_KEY' // Used for gated deployments such as devnet. API Key for startPXE and addPXE from CLI. Suspect it's not being used and that we're using AZTEC_NODE_URL instead. Confirmed with Esau that they're not using it. TODO: Delete this env variable
+  | 'API_PREFIX' // Base path for all the routes defined in the JSON RPC server. TODO: Instead of reading from process.env, actually use config.
   | 'ARCHIVER_MAX_LOGS' // The max number of logs that can be obtained in 1 "getPublicLogs" call
   | 'ARCHIVER_POLLING_INTERVAL_MS' // The polling interval in ms for retrieving new L2 blocks and encrypted log. This is the interval between successive calls to eth_blockNumber via viem.
   | 'ARCHIVER_URL' // URL for an archiver service. If set, will return an archiver client as opposed to starting a new one. */
