@@ -33,7 +33,8 @@ template <typename Flavor> class SmallSubgroupIPATest : public ::testing::Test {
     }
 
     // A helper to evaluate the four IPA witness polynomials at x, x*g, x, x
-    std::array<FF, 4> evaluate_small_ipa_witnesses(const std::array<Polynomial<FF>, 4>& witness_polynomials)
+    std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluate_small_ipa_witnesses(
+        const std::array<Polynomial<FF>, NUM_SMALL_IPA_EVALUATIONS>& witness_polynomials)
     {
         // Hard-coded pattern of evaluation: (x, x*g, x, x)
         return { witness_polynomials[0].evaluate(evaluation_challenge),
@@ -273,7 +274,7 @@ TYPED_TEST(SmallSubgroupIPATest, TranslationEvaluationsMaskingTerm)
         std::vector<Polynomial<FF>> transcript_polynomials;
 
         for (size_t idx = 0; idx < num_wires; idx++) {
-            transcript_polynomials.push_back(Polynomial<FF>::random(this->circuit_size));
+            transcript_polynomials.push_back(Polynomial<FF>(this->circuit_size));
         }
 
         TranslationData<typename TypeParam::Transcript> translation_data(

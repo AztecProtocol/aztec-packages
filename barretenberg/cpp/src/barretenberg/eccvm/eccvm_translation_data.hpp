@@ -30,7 +30,7 @@ template <typename Transcript> class TranslationData {
                     const std::shared_ptr<CommitmentKey>& commitment_key)
         : concatenated_masking_term(SUBGROUP_SIZE + 2)
         , concatenated_masking_term_lagrange(SUBGROUP_SIZE)
-        , constant_term(FF::random_element())
+        , constant_term(FF{ 0 })
     {
         // Create interpolation domain
         interpolation_domain[0] = FF{ 1 };
