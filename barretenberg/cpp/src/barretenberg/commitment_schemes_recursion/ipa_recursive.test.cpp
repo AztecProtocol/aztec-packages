@@ -84,7 +84,7 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
     }
 
     /**
-     * @brief Checks the the IPA Recursive Verifier circuit is fixed no matter the ECCVM trace size.
+     * @brief Checks the IPA Recursive Verifier circuit is fixed no matter the ECCVM trace size.
      * @details Compares the builder blocks and locates which index in which block is different. Also compares the vks
      * to find which commitment is different.
      */
