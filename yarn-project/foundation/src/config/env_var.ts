@@ -104,7 +104,6 @@ export type EnvVar =
   | 'P2P_UDP_LISTEN_ADDR' // The listen address for UDP. Format: <IP_ADDRESS>:<PORT>
   | 'P2P_ARCHIVED_TX_LIMIT' // Archives a list of txs for future reference. The number of archived txs is limited by the specified archivedTxLimit
   | 'PEER_ID_PRIVATE_KEY' // An optional peer id private key. If blank, will generate a random key.
-  | 'PROOF_VERIFIER_L1_START_BLOCK' // Start block number given to Verifier. TODO: consider renaming this since the lower case name is the same as the l1constant block.number which is recorded in the rollup constructor. TODO: Consider removing this and instead reading from l1 constants in the aztec-packages/yarn-project/proof-verifier/src/config.ts
   | 'PROOF_VERIFIER_POLL_INTERVAL_MS' // How often to poll L1 for proof submission
   | 'PROVER_AGENT_ENABLED' // TODO: Remove this env var
   | 'PROVER_AGENT_CONCURRENCY' // TODO: Remove this env var. Also look for \bhardwareConcurrency\b and remove it from the values files.

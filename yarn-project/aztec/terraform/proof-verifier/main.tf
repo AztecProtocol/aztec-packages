@@ -153,8 +153,6 @@ resource "aws_ecs_task_definition" "aztec-proof-verifier" {
         }
       ]
       environment = [
-        { name = "PROOF_VERIFIER_L1_START_BLOCK", value = "15918000" },
-        { name = "PROOF_VERIFIER_POLL_INTERVAL_MS", value = tostring(var.PROOF_VERIFIER_POLL_INTERVAL_MS) },
         { name = "ETHEREUM_HOST", value = var.ETHEREUM_HOST },
         { name = "L1_CHAIN_ID", value = tostring(var.L1_CHAIN_ID) },
         { name = "ROLLUP_CONTRACT_ADDRESS", value = var.ROLLUP_CONTRACT_ADDRESS },
