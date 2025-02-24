@@ -774,7 +774,7 @@ impl Elaborator<'_> {
         // This is simplified such that the first (consecutive) duplicates
         // we find we move to an else case. Each case afterward is then compared
         // to the else case. This could be improved in a couple ways:
-        // - Instead of the the first consecutive duplicates we find, we could
+        // - Instead of the first consecutive duplicates we find, we could
         //   expand the check to find non-consecutive duplicates as well.
         // - We should also ideally move the most duplicated case to the else
         //   case, not just the first duplicated case we find. I suspect in most
