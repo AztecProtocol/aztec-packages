@@ -5,8 +5,7 @@ namespace bb {
 
 /**
  * @brief Create MergeProver
- * @details We require an SRS at least as large as the current op queue size in order to commit to the shifted
- * per-circuit contribution t^{shift}
+ * @details We require an SRS at least as large as the current ultra ecc ops table
  *
  */
 template <class Flavor>
@@ -20,7 +19,7 @@ MergeProver_<Flavor>::MergeProver_(const std::shared_ptr<ECCOpQueue>& op_queue,
 }
 
 /**
- * @brief Prove proper construction of the aggregate Goblin ECC op queue polynomials T^(j), j = 1,2,3,4.
+ * @brief Prove proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4.
  * @details Let T_j be the jth column of the aggregate ecc op table after prepending the subtable columns t_j containing
  * the contribution from the present circuit. T_{j,prev} corresponds to the columns of the aggregate table at the
  * previous stage. For each column we have the relationship T_j = t_j + right_shift(T_{j,prev}, k), where k is the
@@ -51,7 +50,6 @@ template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
     const size_t current_subtable_size = t_current[0].size();
 
     transcript->send_to_verifier("subtable_size", static_cast<uint32_t>(current_subtable_size));
-    info("subtable_size: ", current_subtable_size);
 
     // Compute/get commitments [t^{shift}], [T_prev], and [T] and add to transcript
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
@@ -69,7 +67,6 @@ template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
     // Compute evaluations T_j(\kappa), T_{j,prev}(\kappa), t_j(\kappa), add to transcript. For each polynomial we add a
     // univariate opening claim {p(X), (\kappa, p(\kappa))} to the set of claims to be checked via batched KZG.
     FF kappa = transcript->template get_challenge<FF>("kappa");
-    info("kappa: ", kappa);
 
     // Add univariate opening claims for each polynomial.
     std::vector<OpeningClaim> opening_claims;
@@ -93,7 +90,6 @@ template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
     }
 
     FF alpha = transcript->template get_challenge<FF>("alpha");
-    info("alpha: ", alpha);
 
     // Construct batched polynomial to opened via KZG
     Polynomial batched_polynomial(current_table_size);
@@ -104,10 +100,6 @@ template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
         batched_eval += alpha_pow * claim.opening_pair.evaluation;
         alpha_pow *= alpha;
     }
-
-    info("Prover: batched_eval: ", batched_eval);
-    info("reconstructed batched_eval: ", batched_polynomial.evaluate(kappa));
-    info("batched_commitment: ", pcs_commitment_key->commit(batched_polynomial));
 
     // Construct and commit to KZG quotient polynomial q = (f - v) / (X - kappa)
     OpeningClaim batched_claim = { std::move(batched_polynomial), { kappa, batched_eval } };

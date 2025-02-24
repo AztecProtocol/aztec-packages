@@ -10,25 +10,25 @@ MergeVerifier_<Flavor>::MergeVerifier_()
     , pcs_verification_key(std::make_unique<VerifierCommitmentKey>()){};
 
 /**
- * @brief Verify proper construction of the aggregate Goblin ECC op queue polynomials T_i^(j), j = 1,2,3,4.
- * @details Let T_i^(j) be the jth column of the aggregate op queue after incorporating the contribution from the
- * present circuit. T_{i-1}^(j) corresponds to the aggregate op queue at the previous stage and $t_i^(j)$ represents
- * the contribution from the present circuit only. For each j, we have the relationship T_i = T_{i-1} + right_shift(t_i,
- * M_{i-1}), where the shift magnitude M_{i-1} is the honest length of T_{i-1}. This protocol verfies, assuming the
- * length of T_{i-1} is at most M_{i-1}, that the aggregate op queue has been constructed correctly via a simple
- * Schwartz-Zippel check. Evaluations are checked via batched KZG.
+ * @brief Verify proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4.
+ * @details Let T_j be the jth column of the aggregate ecc op table after prepending the subtable columns t_j containing
+ * the contribution from the present circuit. T_{j,prev} corresponds to the columns of the aggregate table at the
+ * previous stage. For each column we have the relationship T_j = t_j + right_shift(T_{j,prev}, k), where k is the
+ * length of the subtable columns t_j. This protocol demonstrates, assuming the length of t is at most k, that the
+ * aggregate ecc op table has been constructed correctly via the simple Schwartz-Zippel check:
+ *
+ *      T_j(\kappa) = t_j(\kappa) + \kappa^k * (T_{j,prev}(\kappa)).
  *
  * @tparam Flavor
- * @return bool
+ * @return bool Verification result
  */
 template <typename Flavor> bool MergeVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
     transcript = std::make_shared<Transcript>(proof);
 
     uint32_t subtable_size = transcript->template receive_from_prover<uint32_t>("subtable_size");
-    info("subtable_size: ", subtable_size);
 
-    // Receive commitments [t_i^{shift}], [T_{i-1}], and [T_i]
+    // Receive table column polynomial commitments [t_j], [T_{j,prev}], and [T_j], j = 1,2,3,4
     std::array<Commitment, Flavor::NUM_WIRES> t_commitments;
     std::array<Commitment, Flavor::NUM_WIRES> T_prev_commitments;
     std::array<Commitment, Flavor::NUM_WIRES> T_commitments;
@@ -40,9 +40,8 @@ template <typename Flavor> bool MergeVerifier_<Flavor>::verify_proof(const HonkP
     }
 
     FF kappa = transcript->template get_challenge<FF>("kappa");
-    info("kappa: ", kappa);
 
-    // Receive transcript poly evaluations and add corresponding univariate opening claims {(\kappa, p(\kappa), [p(X)]}
+    // Receive evaluations t_j(\kappa), T_{j,prev}(\kappa), T_j(\kappa), j = 1,2,3,4
     std::array<FF, Flavor::NUM_WIRES> t_evals;
     std::array<FF, Flavor::NUM_WIRES> T_prev_evals;
     std::array<FF, Flavor::NUM_WIRES> T_evals;
@@ -56,17 +55,15 @@ template <typename Flavor> bool MergeVerifier_<Flavor>::verify_proof(const HonkP
         T_evals[idx] = transcript->template receive_from_prover<FF>("T_eval_" + std::to_string(idx));
     }
 
-    // Check the identity T(\kappa) = t(\kappa) + \kappa^m * T_prev_(\kappa). If it fails, return false
+    // Check the identity T_j(\kappa) = t_j(\kappa) + \kappa^m * T_{j,prev}(\kappa). If it fails, return false
     bool identity_checked = true;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         FF T_prev_shifted_eval_reconstructed = T_prev_evals[idx] * kappa.pow(subtable_size);
         bool current_check = T_evals[idx] == t_evals[idx] + T_prev_shifted_eval_reconstructed;
-        info("current_check: ", current_check);
         identity_checked = identity_checked && current_check;
     }
 
     FF alpha = transcript->template get_challenge<FF>("alpha");
-    info("alpha: ", alpha);
 
     // Construct batched commitment and evaluation from constituents
     Commitment batched_commitment = t_commitments[0];
@@ -89,9 +86,6 @@ template <typename Flavor> bool MergeVerifier_<Flavor>::verify_proof(const HonkP
     }
 
     OpeningClaim batched_claim = { { kappa, batched_eval }, batched_commitment };
-
-    info("Verifier: batched_eval: ", batched_eval);
-    info("batched_commitment: ", batched_commitment);
 
     auto pairing_points = PCS::reduce_verify(batched_claim, transcript);
     auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);

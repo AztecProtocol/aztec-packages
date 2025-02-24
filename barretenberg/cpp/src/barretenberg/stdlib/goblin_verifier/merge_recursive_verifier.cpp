@@ -8,9 +8,17 @@ MergeRecursiveVerifier_<CircuitBuilder>::MergeRecursiveVerifier_(CircuitBuilder*
 {}
 
 /**
- * @brief Construct recursive verifier for Goblin Merge protocol, up to but not including the pairing
+ * @brief Reduce verification of proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4
+ * to a set of inputs to a pairing check.
+ * @details Let T_j be the jth column of the aggregate ecc op table after prepending the subtable columns t_j containing
+ * the contribution from the present circuit. T_{j,prev} corresponds to the columns of the aggregate table at the
+ * previous stage. For each column we have the relationship T_j = t_j + right_shift(T_{j,prev}, k), where k is the
+ * length of the subtable columns t_j. This protocol demonstrates, assuming the length of t is at most k, that the
+ * aggregate ecc op table has been constructed correctly via the simple Schwartz-Zippel check:
  *
- * @tparam Flavor
+ *      T_j(\kappa) = t_j(\kappa) + \kappa^k * (T_{j,prev}(\kappa)).
+ *
+ * @tparam CircuitBuilder
  * @param proof
  * @return std::array<typename Flavor::GroupElement, 2> Inputs to final pairing
  */
@@ -18,13 +26,13 @@ template <typename CircuitBuilder>
 std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<CircuitBuilder>::verify_proof(
     const HonkProof& proof)
 {
-    // transform it into stdlib proof
+    // Transform proof into a stdlib object
     StdlibProof<CircuitBuilder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof);
     transcript = std::make_shared<Transcript>(stdlib_proof);
 
     FF subtable_size = transcript->template receive_from_prover<FF>("subtable_size");
 
-    // Receive commitments [t], [T_prev], and [T]
+    // Receive table column polynomial commitments [t_j], [T_{j,prev}], and [T_j], j = 1,2,3,4
     std::array<Commitment, NUM_WIRES> C_t;
     std::array<Commitment, NUM_WIRES> C_T_prev;
     std::array<Commitment, NUM_WIRES> C_T;
@@ -36,7 +44,7 @@ std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<C
 
     FF kappa = transcript->template get_challenge<FF>("kappa");
 
-    // Receive transcript poly evaluations and add corresponding univariate opening claims {(\kappa, p(\kappa), [p(X)]}
+    // Receive evaluations t_j(\kappa), T_{j,prev}(\kappa), T_j(\kappa), j = 1,2,3,4
     std::array<FF, NUM_WIRES> t_evals;
     std::array<FF, NUM_WIRES> T_prev_evals;
     std::array<FF, NUM_WIRES> T_current_evals;
@@ -55,7 +63,7 @@ std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<C
         opening_claims.emplace_back(OpeningClaim{ { kappa, T_current_evals[idx] }, C_T[idx] });
     }
 
-    // Check the identity T(\kappa) = t(\kappa) + \kappa^m * T_prev(\kappa)
+    // Check the identity T_j(\kappa) = t_j(\kappa) + \kappa^m * T_{j,prev}(\kappa)
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         FF T_prev_shifted_eval_reconstructed = T_prev_evals[idx] * kappa.pow(subtable_size);
         T_current_evals[idx].assert_equal(t_evals[idx] + T_prev_shifted_eval_reconstructed);
@@ -63,7 +71,7 @@ std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<C
 
     FF alpha = transcript->template get_challenge<FF>("alpha");
 
-    // Constuct batched commitment and batched evaluation from constituents using batching challenge \alpha
+    // Constuct inputs to batched commitment and batched evaluation from constituents using batching challenge \alpha
     std::vector<FF> scalars;
     std::vector<Commitment> commitments;
     scalars.emplace_back(FF(builder, 1));
