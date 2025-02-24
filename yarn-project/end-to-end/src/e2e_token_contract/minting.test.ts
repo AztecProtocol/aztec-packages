@@ -68,4 +68,53 @@ describe('e2e_token_contract minting', () => {
       });
     });
   });
+
+  describe('Private', () => {
+    it('as minter', async () => {
+      const amount = 10000n;
+      await asset.methods.mint_to_private(accounts[0].address, accounts[0].address, amount).send().wait();
+
+      tokenSim.mintPrivate(accounts[0].address, amount);
+      expect(await asset.methods.balance_of_private(accounts[0].address).simulate()).toEqual(
+        tokenSim.balanceOfPrivate(accounts[0].address),
+      );
+      expect(await asset.methods.total_supply().simulate()).toEqual(tokenSim.totalSupply);
+    });
+
+    describe('failure cases', () => {
+      it('as non-minter', async () => {
+        const amount = 10000n;
+        await expect(
+          asset
+            .withWallet(wallets[1])
+            .methods.mint_to_private(accounts[1].address, accounts[0].address, amount)
+            .simulate(),
+        ).rejects.toThrow('Assertion failed: caller is not minter');
+      });
+
+      it('mint >u128 tokens to overflow', async () => {
+        const overflowAmount = 2n ** 128n;
+
+        await expect(
+          asset.methods.mint_to_private(accounts[0].address, accounts[0].address, overflowAmount).simulate(),
+        ).rejects.toThrow(
+          'Cannot satisfy constraint', // Why this error instead of U128_OVERFLOW_ERROR?
+        );
+      });
+
+      it('mint <u128 but recipient balance >u128', async () => {
+        const amount = 2n ** 128n - tokenSim.balanceOfPrivate(accounts[0].address);
+        await expect(
+          asset.methods.mint_to_private(accounts[0].address, accounts[0].address, amount).simulate(),
+        ).rejects.toThrow(U128_OVERFLOW_ERROR);
+      });
+
+      it('mint <u128 but such that total supply >u128', async () => {
+        const amount = 2n ** 128n - tokenSim.balanceOfPrivate(accounts[0].address);
+        await expect(
+          asset.methods.mint_to_private(accounts[0].address, accounts[1].address, amount).simulate(),
+        ).rejects.toThrow(U128_OVERFLOW_ERROR);
+      });
+    });
+  });
 });
