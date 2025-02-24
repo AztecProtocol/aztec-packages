@@ -3,7 +3,6 @@ import {
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockSource,
-  MerkleTreeId,
   Tx,
   type TxHash,
 } from '@aztec/circuit-types';
@@ -18,7 +17,7 @@ import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import type { ContractDataSource } from '@aztec/circuits.js/contract';
 import { Gas } from '@aztec/circuits.js/gas';
 import { pickFromSchema } from '@aztec/circuits.js/schemas';
-import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
+import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/circuits.js/trees';
 import { BlockHeader, ContentCommitment, type GlobalVariables, StateReference } from '@aztec/circuits.js/tx';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { omit } from '@aztec/foundation/collection';
