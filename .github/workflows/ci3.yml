@@ -128,8 +128,9 @@ jobs:
           output-file-path: ./bench-out/p2p-bench.json
           github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           auto-push: true
-          alert-threshold: "105%"
-          comment-on-alert: true
+          # alert-threshold: "105%"
+          summary-always: true
+          # comment-on-alert: true
           fail-on-alert: false
           alert-comment-cc-users: "@Maddiaa0"
           max-items-in-chart: 50
