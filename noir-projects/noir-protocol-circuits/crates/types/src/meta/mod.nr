@@ -44,11 +44,6 @@ comptime fn get_trait_impl_method(
 ///     randomness: Field,
 /// }
 ///
-/// struct u128 {
-///     lo: Field,
-///     hi: Field,
-/// }
-///
 /// struct AztecAddress {
 ///     inner: Field,
 /// }
@@ -57,14 +52,11 @@ comptime fn get_trait_impl_method(
 /// If `UintNote` is the input type, the function will generate the following deserialization code:
 /// ```
 /// UintNote {
-///     value: u128 {
-///         lo: fields[0],     // First field becomes low part of u128
-///         hi: fields[1],     // Second field becomes high part of u128
-///     },
+///     value: fields[0] as u128,
 ///     owner: AztecAddress {
-///         inner: fields[2],  // Third field becomes inner address
+///         inner: fields[1],
 ///     },
-///     randomness: fields[3], // Fourth field as randomness
+///     randomness: fields[2],
 /// }
 /// ```
 /// # Nested Struct Example with Unpacking
@@ -244,33 +236,33 @@ pub comptime fn generate_deserialize_from_fields(
 /// ## Struct
 /// Given the following struct:
 /// ```rust
-/// struct u128 {
-///     lo: Field,
-///     hi: Field,
+/// struct MockStruct {
+///     a: Field,
+///     b: Field,
 /// }
 /// ```
 ///
 /// Serializing the struct:
 /// ```rust
-/// generate_serialize_to_fields(quote { my_u128 }, u128, &[], false)
+/// generate_serialize_to_fields(quote { my_mock_struct }, MockStruct, &[], false)
 /// // Returns:
-/// // ([`my_u128.lo`, `my_u128.hi`], [])
+/// // ([`my_mock_struct.a`, `my_mock_struct.b`], [])
 /// ```
 ///
 /// ## Nested Struct
 /// For a more complex struct:
 /// ```rust
-/// struct UintNote {
-///     value: u128,
-///     randomness: Field,
+/// struct NestedStruct {
+///     m1: MockStruct,
+///     m2: MockStruct,
 /// }
 /// ```
 ///
 /// Serialization output:
 /// ```rust
-/// generate_serialize_to_fields(quote { self }, UintNote, &[\], false)
+/// generate_serialize_to_fields(quote { self }, NestedStruct, &[], false)
 /// // Returns:
-/// // ([`self.value.lo`, `self.value.hi`, `self.randomness`], [])
+/// // ([`self.m1.a`, `self.m1.b`, `self.m2.a`, `self.m2.b`], [])
 /// ```
 ///
 /// ## Array
@@ -540,12 +532,6 @@ pub struct Fancier {
     d: str<16>,
 }
 
-#[derive(Eq, Packable)]
-pub struct Containsu128 {
-    a: u128,
-    b: Field,
-}
-
 fn main() {
     assert(false);
 }
@@ -587,14 +573,4 @@ fn fancier_test() {
     );
     let deserialized = Fancier::deserialize(serialized);
     assert(deserialized == fancier);
-}
-
-#[test]
-fn contains_u128_test() {
-    let contains_u128 = Containsu128 { a: 5 as u128, b: 3 };
-    let packed = contains_u128.pack();
-    assert_eq(packed, [5, 3], "Packed does not match the expected");
-
-    let unpacked = Containsu128::unpack(packed);
-    assert_eq(unpacked, contains_u128, "Unpacked does not match the original");
 }

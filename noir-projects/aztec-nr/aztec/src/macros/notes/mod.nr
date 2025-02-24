@@ -978,7 +978,6 @@ comptime fn register_note(
 
 /// Separates note struct members into fixed and nullable ones. It also stores the index of where each struct member
 /// starts in the serialized note. Note that each struct member can occupy multiple fields (as in Field type).
-/// An example of a struct member occupying multiple fields is `amount` in `TokenNote` that uses `u128` type.
 comptime fn index_note_fields(
     s: StructDefinition,
     nullable_fields: [Quoted],

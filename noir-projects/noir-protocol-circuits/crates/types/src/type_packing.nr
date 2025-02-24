@@ -1,4 +1,4 @@
-use crate::traits::{Packable, ToField};
+use crate::traits::Packable;
 
 global BOOL_PACKED_LEN: u32 = 1;
 global U8_PACKED_LEN: u32 = 1;

@@ -568,7 +568,7 @@ pub global MEM_TAG_U8: Field = 2;
 pub global MEM_TAG_U16: Field = 3;
 pub global MEM_TAG_U32: Field = 4;
 pub global MEM_TAG_U64: Field = 5;
-pub global MEM_TAG_u128: Field = 6;
+pub global MEM_TAG_U128: Field = 6;
 
 // AVM CIRCUIT - PUBLIC KERNEL INPUTS COLUMN OFFSETS
 // Keep the number of offsets aligned with KERNEL_INPUTS_LENGTH defined in constants.hpp
