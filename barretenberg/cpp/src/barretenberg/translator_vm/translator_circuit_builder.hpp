@@ -188,7 +188,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     // For context, minicircuit is the part of the final polynomials fed into the proving system, where we have all the
     // arithmetic logic. However, the full circuit is several times larger (we use a trick to bring down the degree of
     // the permutation argument)
-    static constexpr size_t DEFAULT_TRANSLATOR_VM_LENGTH = 2048;
+    static constexpr size_t DEFAULT_TRANSLATOR_VM_LENGTH = 8192;
 
     // Maximum size of a single limb is 68 bits
     static constexpr size_t NUM_LIMB_BITS = 68;

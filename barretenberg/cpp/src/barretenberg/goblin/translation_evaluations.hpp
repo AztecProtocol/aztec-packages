@@ -14,6 +14,8 @@ template <typename BF, typename FF> struct TranslationEvaluations_ {
     static constexpr uint32_t NUM_EVALUATIONS = 5;
     static size_t size() { return field_conversion::calc_num_bn254_frs<BF>() * NUM_EVALUATIONS; }
 
+    std::array<BF*, NUM_EVALUATIONS> get_all() { return { &op, &Px, &Py, &z1, &z2 }; }
+
     MSGPACK_FIELDS(op, Px, Py, z1, z2);
 };
 } // namespace bb

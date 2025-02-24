@@ -2,6 +2,7 @@
 
 #include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
+#include "barretenberg/eccvm/eccvm_translation_data.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
@@ -123,7 +124,7 @@ template <typename Flavor> class SmallSubgroupIPAProver {
     SmallSubgroupIPAProver(ZKSumcheckData<Flavor>& zk_sumcheck_data,
                            const std::vector<FF>& multivariate_challenge,
                            const FF claimed_ipa_eval,
-                           std::shared_ptr<typename Flavor::Transcript> transcript,
+                           std::shared_ptr<typename Flavor::Transcript>& transcript,
                            std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key)
         : interpolation_domain(zk_sumcheck_data.interpolation_domain)
         , concatenated_polynomial(zk_sumcheck_data.libra_concatenated_monomial_form)
@@ -168,8 +169,54 @@ template <typename Flavor> class SmallSubgroupIPAProver {
         }
     }
 
+    // Construct prover from TranslationData. Used by ECCVMProver.
+    SmallSubgroupIPAProver(TranslationData<typename Flavor::Transcript>& translation_data,
+                           const FF evaluation_challenge_x,
+                           const FF batching_challenge_v,
+                           const FF claimed_ipa_eval,
+                           std::shared_ptr<typename Flavor::Transcript>& transcript,
+                           std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key)
+        : interpolation_domain(translation_data.interpolation_domain)                    // need to initialize
+        , concatenated_polynomial(std::move(translation_data.concatenated_masking_term)) // need to create
+        , libra_concatenated_lagrange_form(
+              std::move(translation_data.concatenated_masking_term_lagrange)) // same as above
+        , challenge_polynomial(SUBGROUP_SIZE)                                 // will have a different form
+        , challenge_polynomial_lagrange(SUBGROUP_SIZE)
+        , big_sum_polynomial_unmasked(SUBGROUP_SIZE)
+        , big_sum_polynomial(SUBGROUP_SIZE + 3) // + 3 to account for masking
+        , batched_polynomial(BATCHED_POLYNOMIAL_LENGTH)
+        , batched_quotient(QUOTIENT_LENGTH)
+
+    {
+        // Reallocate the commitment key if necessary. This is an edge case with SmallSubgroupIPA since it has
+        // polynomials that may exceed the circuit size.
+        if (commitment_key->dyadic_size < SUBGROUP_SIZE + 3) {
+            commitment_key = std::make_shared<typename Flavor::CommitmentKey>(SUBGROUP_SIZE + 3);
+        }
+
+        // Construct the challenge polynomial in Lagrange basis, compute its monomial coefficients
+        compute_eccvm_challenge_polynomial(evaluation_challenge_x, batching_challenge_v);
+
+        // Construct unmasked big sum polynomial in Lagrange basis, compute its monomial coefficients and mask it
+        compute_big_sum_polynomial();
+
+        // Send masked commitment [A + Z_H * R] to the verifier, where R is of degree 2
+        transcript->template send_to_verifier("Translation:big_sum_commitment",
+                                              commitment_key->commit(big_sum_polynomial));
+
+        // Compute C(X)
+        compute_batched_polynomial(claimed_ipa_eval);
+
+        // Compute Q(X)
+        compute_batched_quotient();
+
+        // Send commitment [Q] to the verifier
+        transcript->template send_to_verifier("Translation:quotient_commitment",
+                                              commitment_key->commit(batched_quotient));
+    }
+
     // Getter to pass the witnesses to ShpleminiProver. Big sum polynomial is evaluated at 2 points (and is small)
-    std::array<bb::Polynomial<FF>, NUM_LIBRA_EVALUATIONS> get_witness_polynomials() const
+    std::array<bb::Polynomial<FF>, NUM_SMALL_IPA_EVALUATIONS> get_witness_polynomials() const
     {
         return { concatenated_polynomial, big_sum_polynomial, big_sum_polynomial, batched_quotient };
     }
@@ -203,19 +250,8 @@ template <typename Flavor> class SmallSubgroupIPAProver {
      */
     void compute_challenge_polynomial(const std::vector<FF>& multivariate_challenge)
     {
-        std::vector<FF> coeffs_lagrange_basis(SUBGROUP_SIZE);
-        coeffs_lagrange_basis[0] = FF(1);
-
-        for (size_t challenge_idx = 0; challenge_idx < CONST_PROOF_SIZE_LOG_N; challenge_idx++) {
-            // We concatenate 1 with CONST_PROOF_SIZE_LOG_N Libra Univariates of length LIBRA_UNIVARIATES_LENGTH
-            const size_t poly_to_concatenate_start = 1 + LIBRA_UNIVARIATES_LENGTH * challenge_idx;
-            coeffs_lagrange_basis[poly_to_concatenate_start] = FF(1);
-            for (size_t idx = poly_to_concatenate_start + 1; idx < poly_to_concatenate_start + LIBRA_UNIVARIATES_LENGTH;
-                 idx++) {
-                // Recursively compute the powers of the challenge
-                coeffs_lagrange_basis[idx] = coeffs_lagrange_basis[idx - 1] * multivariate_challenge[challenge_idx];
-            }
-        }
+        std::vector<FF> coeffs_lagrange_basis =
+            compute_challenge_polynomial_coeffs(multivariate_challenge, SUBGROUP_SIZE, LIBRA_UNIVARIATES_LENGTH);
 
         challenge_polynomial_lagrange = Polynomial<FF>(coeffs_lagrange_basis);
 
@@ -229,7 +265,26 @@ template <typename Flavor> class SmallSubgroupIPAProver {
             challenge_polynomial = Polynomial<FF>(challenge_polynomial_ifft);
         }
     }
+    /**
+     * @brief Compute a (public) challenge polynomial from the evaluation and batching challenges.
+     * @details While proving the batched evaluation of the masking term used to blind the ECCVM Transcript wires, the
+     * prover needs to compute the polynomial whose coefficients in the Lagrange basis over the small subgroup are given
+     * by \f$ (1, x , \ldots, x^{MASKING_OFFSET - 1}, v, x \cdot v, \ldots, x^{MASKING_OFFSET - 1}\cdot
+     * v^{NUM_TRANSLATION_EVALUATIONS - 1}, 0, \ldots, 0) \f$.
+     * @param evaluation_challenge_x
+     * @param batching_challenge_v
+     */
+    void compute_eccvm_challenge_polynomial(const FF evaluation_challenge_x, const FF batching_challenge_v)
+    {
 
+        std::vector<FF> coeffs_lagrange_basis =
+            compute_eccvm_challenge_coeffs(evaluation_challenge_x, batching_challenge_v, SUBGROUP_SIZE);
+
+        challenge_polynomial_lagrange = Polynomial<FF>(coeffs_lagrange_basis);
+
+        // Compute monomial coefficients
+        challenge_polynomial = Polynomial<FF>(interpolation_domain, coeffs_lagrange_basis, SUBGROUP_SIZE);
+    }
     /**
      * @brief Computes the big sum polynomial A(X)
      *
@@ -406,6 +461,31 @@ template <typename Flavor> class SmallSubgroupIPAProver {
         claimed_inner_product += zk_sumcheck_data.constant_term;
         return claimed_inner_product;
     }
+    /**
+     * @brief For test purposes: compute the batched evaluation of the last MASKING_OFFSET rows of the ECCVM transcript
+     * polynomials Op, Px, Py, z1, z2.
+     *
+     * @param translation_data Contains concatenated ECCVM Transcript polynomials.
+     * @param evaluation_challenge_x We evaluate the transcript polynomials at x as univariates.
+     * @param batching_challenge_v The evaluations at x are batched using v.
+     */
+    static FF compute_claimed_inner_product(TranslationData<typename Flavor::Transcript>& translation_data,
+                                            const FF& evaluation_challenge_x,
+                                            const FF& batching_challenge_v)
+    {
+        FF claimed_inner_product{ 0 };
+
+        const std::vector<FF> coeffs_lagrange_basis =
+            compute_eccvm_challenge_coeffs(evaluation_challenge_x, batching_challenge_v, SUBGROUP_SIZE);
+
+        Polynomial<FF> challenge_polynomial_lagrange(coeffs_lagrange_basis);
+
+        for (size_t idx = 0; idx < SUBGROUP_SIZE; idx++) {
+            claimed_inner_product +=
+                translation_data.concatenated_masking_term_lagrange.at(idx) * challenge_polynomial_lagrange.at(idx);
+        }
+        return claimed_inner_product;
+    }
 };
 
 /**
@@ -451,7 +531,7 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
      * @param eval_claim The claimed inner proudct of the coefficients of \f$G\f$ and \f$F\f$.
      * @return True if the consistency check passes, false otherwise.
      */
-    static bool check_evaluations_consistency(const std::array<FF, NUM_LIBRA_EVALUATIONS>& libra_evaluations,
+    static bool check_evaluations_consistency(const std::array<FF, NUM_SMALL_IPA_EVALUATIONS>& libra_evaluations,
                                               const FF& gemini_evaluation_challenge,
                                               const std::vector<FF>& multilinear_challenge,
                                               const FF& inner_product_eval_claim)
@@ -473,7 +553,8 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
             throw_or_abort("Gemini evaluation challenge is in the SmallSubgroup.");
         }
         // Construct the challenge polynomial from the sumcheck challenge, the verifier has to evaluate it on its own
-        const std::vector<FF> challenge_polynomial_lagrange = compute_challenge_polynomial(multilinear_challenge);
+        const std::vector<FF> challenge_polynomial_lagrange =
+            compute_challenge_polynomial_coeffs(multilinear_challenge, SUBGROUP_SIZE, LIBRA_UNIVARIATES_LENGTH);
 
         // Compute the evaluations of the challenge polynomial, Lagrange first, and Lagrange last for the fixed small
         // subgroup
@@ -505,33 +586,62 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
         };
     }
 
-    /**
-     * @brief Given the sumcheck multivariate challenge \f$ (u_0,\ldots, u_{D-1})\f$, where \f$ D =
-     * \text{CONST_PROOF_SIZE_LOG_N}\f$, the verifier has to construct and evaluate the polynomial whose
-     * coefficients are given by \f$ (1, u_0, u_0^2, u_1,\ldots, 1, u_{D-1}, u_{D-1}^2) \f$. We spend \f$ D \f$
-     * multiplications to construct the coefficients.
-     *
-     * @param multivariate_challenge
-     * @return Polynomial<FF>
-     */
-    static std::vector<FF> compute_challenge_polynomial(const std::vector<FF>& multivariate_challenge)
+    static bool check_eccvm_evaluations_consistency(
+        const std::array<FF, NUM_SMALL_IPA_EVALUATIONS>& small_ipa_evaluations,
+        const FF& evaluation_challenge,
+        const FF& evaluation_challenge_x,
+        const FF& batching_challenge_v,
+        const FF& inner_product_eval_claim)
     {
-        std::vector<FF> challenge_polynomial_lagrange(SUBGROUP_SIZE);
 
-        challenge_polynomial_lagrange[0] = FF{ 1 };
+        // Compute the evaluation of the vanishing polynomia Z_H(X) at X = gemini_evaluation_challenge
+        const FF vanishing_poly_eval = evaluation_challenge.pow(SUBGROUP_SIZE) - FF(1);
 
-        // Populate the vector with the powers of the challenges
-        size_t round_idx = 0;
-        for (auto challenge : multivariate_challenge) {
-            size_t current_idx = 1 + LIBRA_UNIVARIATES_LENGTH * round_idx; // Compute the current index into the vector
-            challenge_polynomial_lagrange[current_idx] = FF(1);
-            for (size_t idx = current_idx + 1; idx < current_idx + LIBRA_UNIVARIATES_LENGTH; idx++) {
-                // Recursively compute the powers of the challenge up to the length of libra univariates
-                challenge_polynomial_lagrange[idx] = challenge_polynomial_lagrange[idx - 1] * challenge;
-            }
-            round_idx++;
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1194). Handle edge cases in PCS
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1186). Insecure pattern.
+        bool evaluation_challenge_in_small_subgroup = false;
+        if constexpr (Curve::is_stdlib_type) {
+            evaluation_challenge_in_small_subgroup = (vanishing_poly_eval.get_value() == FF(0).get_value());
+        } else {
+            evaluation_challenge_in_small_subgroup = (vanishing_poly_eval == FF(0));
         }
-        return challenge_polynomial_lagrange;
+        // The probability of this event is negligible but it has to be processed correctly
+        if (evaluation_challenge_in_small_subgroup) {
+            throw_or_abort("Evaluation challenge is in the SmallSubgroup.");
+        }
+        // Construct the challenge polynomial from the evaluation and batching challenges, the verifier has to evaluate
+        // it on its own
+        const std::vector<FF> challenge_polynomial_lagrange =
+            compute_eccvm_challenge_coeffs(evaluation_challenge_x, batching_challenge_v, SUBGROUP_SIZE);
+
+        // Compute the evaluations of the challenge polynomial, Lagrange first, and Lagrange last for the fixed small
+        // subgroup
+        auto [challenge_poly, lagrange_first, lagrange_last] = compute_batched_barycentric_evaluations(
+            challenge_polynomial_lagrange, evaluation_challenge, vanishing_poly_eval);
+
+        const FF& concatenated_at_r = small_ipa_evaluations[0];
+        const FF& big_sum_shifted_eval = small_ipa_evaluations[1];
+        const FF& big_sum_eval = small_ipa_evaluations[2];
+        const FF& quotient_eval = small_ipa_evaluations[3];
+
+        // Compute the evaluation of
+        // L_1(X) * A(X) + (X - 1/g) (A(gX) - A(X) - F(X) G(X)) + L_{|H|}(X)(A(X) - s) - Z_H(X) * Q(X)
+        FF diff = lagrange_first * big_sum_eval;
+        diff += (evaluation_challenge - Curve::subgroup_generator_inverse) *
+                (big_sum_shifted_eval - big_sum_eval - concatenated_at_r * challenge_poly);
+        diff += lagrange_last * (big_sum_eval - inner_product_eval_claim) - vanishing_poly_eval * quotient_eval;
+
+        if constexpr (Curve::is_stdlib_type) {
+            if constexpr (std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>) {
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1197)
+                diff.self_reduce();
+            }
+            diff.assert_equal(FF(0));
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1186). Insecure pattern.
+            return (diff.get_value() == FF(0).get_value());
+        } else {
+            return (diff == FF(0));
+        };
     }
 
     /**
@@ -580,4 +690,72 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
         return result;
     }
 };
+
+/**
+ * @brief Given the sumcheck multivariate challenge \f$ (u_0,\ldots, u_{D-1})\f$, where \f$ D =
+ * \text{CONST_PROOF_SIZE_LOG_N}\f$, the verifier has to construct and evaluate the polynomial whose
+ * coefficients are given by \f$ (1, u_0, u_0^2, u_1,\ldots, 1, u_{D-1}, u_{D-1}^2) \f$. We spend \f$ D \f$
+ * multiplications to construct the coefficients.
+ *
+ * @param multivariate_challenge
+ * @return Polynomial<FF>
+ */
+template <typename FF>
+static std::vector<FF> compute_challenge_polynomial_coeffs(const std::vector<FF>& multivariate_challenge,
+                                                           const size_t subgroup_size,
+                                                           const size_t libra_univariates_length)
+{
+    std::vector<FF> challenge_polynomial_lagrange(subgroup_size);
+
+    challenge_polynomial_lagrange[0] = FF{ 1 };
+
+    // Populate the vector with the powers of the challenges
+    size_t round_idx = 0;
+    for (auto challenge : multivariate_challenge) {
+        size_t current_idx = 1 + libra_univariates_length * round_idx; // Compute the current index into the vector
+        challenge_polynomial_lagrange[current_idx] = FF(1);
+        for (size_t idx = current_idx + 1; idx < current_idx + libra_univariates_length; idx++) {
+            // Recursively compute the powers of the challenge up to the length of libra univariates
+            challenge_polynomial_lagrange[idx] = challenge_polynomial_lagrange[idx - 1] * challenge;
+        }
+        round_idx++;
+    }
+    return challenge_polynomial_lagrange;
+}
+
+/**
+ * @brief Denote \f$ M = \text{MASKING_OFFSET} \f$ and \f$ N = NUM_SMALL_IPA_EVALUTIONS\f$. Given an evaluation
+ * challenge \f$ x \f$ and a batching challenge \f$v\f$, compute the polynomial whose  coefficients are given by the
+ * vector \f$ (1, x , x^2 , \ldots, x^{M - 1 }, v\cdot x, \ldots, v^{N-1} \cdot x^{M-2}, v^{N-1}, \cdot x^{M-1}, 0,
+ * \ldots, 0)\f$ in the Lagrange basis over the Small Subgroup.
+ *
+ * @tparam FF
+ * @param evaluation_challenge_x
+ * @param batching_challenge_v
+ * @param subgroup_size
+ * @return std::vector<FF>
+ */
+template <typename FF>
+std::vector<FF> compute_eccvm_challenge_coeffs(const FF& evaluation_challenge_x,
+                                               const FF& batching_challenge_v,
+                                               const size_t& subgroup_size)
+{
+    std::vector<FF> coeffs_lagrange_basis(subgroup_size, FF(0));
+
+    coeffs_lagrange_basis[0] = FF{ 1 };
+
+    FF v_power = FF(1);
+    for (size_t poly_idx = 0; poly_idx < NUM_SMALL_IPA_EVALUATIONS; poly_idx++) {
+        const size_t start = 1 + MASKING_OFFSET * poly_idx;
+        coeffs_lagrange_basis[start] = v_power;
+
+        for (size_t idx = start + 1; idx < start + MASKING_OFFSET; idx++) {
+            coeffs_lagrange_basis[idx] = coeffs_lagrange_basis[idx - 1] * evaluation_challenge_x;
+        }
+
+        v_power *= batching_challenge_v;
+    }
+
+    return coeffs_lagrange_basis;
+}
 } // namespace bb
