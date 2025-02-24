@@ -2,12 +2,12 @@ import { toBigIntBE } from '../bigint-buffer/index.js';
 import { poseidon2Hash } from '../crypto/poseidon/index.js';
 import { Fr } from '../fields/fields.js';
 import { BufferReader } from '../serialize/buffer_reader.js';
-import type { IndexedTreeLeaf, IndexedTreeLeafPreimage } from './index.js';
+import type { AsyncHasher, IndexedTreeLeaf, IndexedTreeLeafPreimage } from './index.js';
 import { type IndexedMerkleTree } from './indexed_merkle_tree.js';
 import { IndexedMerkleTreeCalculator } from './indexed_merkle_tree_calculator.js';
 import type { MembershipWitness } from './membership_witness.js';
 
-class TestHasher {
+class TestHasher implements AsyncHasher {
   public async hash(lhs: Buffer, rhs: Buffer): Promise<Buffer> {
     return (await poseidon2Hash([lhs, rhs])).toBuffer();
   }

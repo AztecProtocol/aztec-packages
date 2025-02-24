@@ -3,7 +3,6 @@ import {
   type InBlock,
   L1NotePayload,
   type L2Block,
-  MerkleTreeId,
   Note,
   type NoteStatus,
   type PublicDataWitness,
@@ -11,11 +10,7 @@ import {
   type TxScopedL2Log,
   getNonNullifiedL1ToL2MessageWitness,
 } from '@aztec/circuit-types';
-import {
-  type AztecNode,
-  type L2BlockNumber,
-  type NullifierMembershipWitness,
-} from '@aztec/circuit-types/interfaces/client';
+import { type AztecNode, type L2BlockNumber } from '@aztec/circuit-types/interfaces/client';
 import {
   type FunctionArtifact,
   FunctionSelector,
@@ -30,6 +25,7 @@ import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/circu
 import type { KeyValidationRequest } from '@aztec/circuits.js/kernel';
 import { computeAddressSecret, computeTaggingSecretPoint } from '@aztec/circuits.js/keys';
 import { IndexedTaggingSecret, LogWithTxData, PrivateLog, PublicLog } from '@aztec/circuits.js/logs';
+import { MerkleTreeId, type NullifierMembershipWitness } from '@aztec/circuits.js/trees';
 import type { BlockHeader } from '@aztec/circuits.js/tx';
 import {
   type L1_TO_L2_MSG_TREE_HEIGHT,

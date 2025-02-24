@@ -1,5 +1,5 @@
-import { SiblingPath } from '@aztec/circuit-types';
 import { type Bufferable, type FromBuffer, serializeToBuffer } from '@aztec/foundation/serialize';
+import { SiblingPath } from '@aztec/foundation/trees';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
 import { type TreeBase } from '../tree_base.js';

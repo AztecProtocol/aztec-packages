@@ -1,5 +1,6 @@
 import { MockPrefilledArchiver } from '@aztec/archiver/test';
-import { type L2Block, MerkleTreeId } from '@aztec/circuit-types';
+import { type L2Block } from '@aztec/circuit-types';
+import { MerkleTreeId } from '@aztec/circuits.js/trees';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';

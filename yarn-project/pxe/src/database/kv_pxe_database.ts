@@ -1,4 +1,4 @@
-import { type InBlock, MerkleTreeId, NoteStatus, type NotesFilter } from '@aztec/circuit-types';
+import { type InBlock, NoteStatus, type NotesFilter } from '@aztec/circuit-types';
 import { type ContractArtifact, FunctionSelector, FunctionType } from '@aztec/circuits.js/abi';
 import { contractArtifactFromBuffer, contractArtifactToBuffer } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
@@ -9,6 +9,7 @@ import {
 } from '@aztec/circuits.js/contract';
 import type { PublicKey } from '@aztec/circuits.js/keys';
 import type { IndexedTaggingSecret } from '@aztec/circuits.js/logs';
+import { MerkleTreeId } from '@aztec/circuits.js/trees';
 import { BlockHeader } from '@aztec/circuits.js/tx';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr, type Point } from '@aztec/foundation/fields';

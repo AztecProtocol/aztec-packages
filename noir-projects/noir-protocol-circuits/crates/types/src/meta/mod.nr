@@ -1,5 +1,25 @@
 use super::traits::{Deserialize, Packable, Serialize};
 
+/// Returns the typed expression of a trait method implementation.
+///
+/// This helper function is preferred over directly inlining with `$typ::target_method()` in a quote,
+/// as direct inlining would result in missing import warnings in the generated code (specifically,
+/// warnings that the trait implementation is not in scope).
+///
+/// # Note
+/// A copy of this function exists in `aztec-nr/aztec/src/macros/utils.nr`. We maintain separate copies
+/// because importing it there from here would cause the `target_trait` to be interpreted in the context
+/// of this crate, making it impossible to compile code for traits from that crate (e.g. NoteInterface).
+comptime fn get_trait_impl_method(
+    typ: Type,
+    target_trait: Quoted,
+    target_method: Quoted,
+) -> TypedExpr {
+    let trait_constraint = target_trait.as_trait_constraint();
+    typ.get_trait_impl(trait_constraint).unwrap().methods().filter(|m| m.name() == target_method)[0]
+        .as_typed_expr()
+}
+
 /// Generates code that deserializes a struct, primitive type, array or string from a field array.
 ///
 /// # Parameters
@@ -91,7 +111,8 @@ pub comptime fn generate_deserialize_from_fields(
         let packed_fields = packed_fields_quotes.join(quote {,});
 
         // Now we call unpack on the type
-        result = quote { Packable::unpack([ $packed_fields ]) };
+        let unpack_method = get_trait_impl_method(typ, quote { Packable<_> }, quote { unpack });
+        result = quote { $unpack_method([ $packed_fields ]) };
 
         consumed_counter = packed_len;
     } else if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
@@ -476,9 +497,10 @@ pub comptime fn derive_packable_and_get_packed_len(s: StructDefinition) -> (Quot
 
     let field_packings = fields.join(quote {,});
     let packed_len = fields.len();
+    let packable_trait: TraitConstraint = quote { Packable<$packed_len> }.as_trait_constraint();
     (
         quote {
-        impl Packable<$packed_len> for $typ {
+        impl $packable_trait for $typ {
             fn pack(self) -> [Field; $packed_len] {
                 $aux_vars_for_packing
                 [ $field_packings ]
