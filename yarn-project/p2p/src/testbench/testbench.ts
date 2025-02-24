@@ -1,6 +1,5 @@
 import { Tx } from '@aztec/circuit-types';
 import { type ChainConfig } from '@aztec/circuit-types/config';
-import { mockTx } from '@aztec/circuit-types/testing';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
