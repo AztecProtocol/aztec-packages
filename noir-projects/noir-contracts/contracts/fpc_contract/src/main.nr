@@ -75,7 +75,7 @@ pub contract FPC {
     /// - the asset which was used to make the payment.
     // docs:start:fee_entrypoint_private
     #[private]
-    fn fee_entrypoint_private(max_fee: U128, nonce: Field) {
+    fn fee_entrypoint_private(max_fee: u128, nonce: Field) {
         let accepted_asset = storage.config.read().accepted_asset;
 
         let user = context.msg_sender();
@@ -110,8 +110,8 @@ pub contract FPC {
     // docs:start:complete_refund
     #[public]
     #[internal]
-    fn complete_refund(accepted_asset: AztecAddress, refund_slot: Field, max_fee: U128) {
-        let tx_fee = U128::from_integer(context.transaction_fee());
+    fn complete_refund(accepted_asset: AztecAddress, refund_slot: Field, max_fee: u128) {
+        let tx_fee = context.transaction_fee() as u128;
 
         // 1. Check that user funded the fee payer contract with at least the transaction fee.
         // TODO(#10805): Nuke this check once we have a proper max_fee check in the fee_entrypoint_private.
@@ -148,7 +148,7 @@ pub contract FPC {
     /// Protocol-enshrined fee-payment phase:
     /// 4. The protocol deducts the actual fee denominated in fee juice from the FPC's balance.
     #[private]
-    fn fee_entrypoint_public(max_fee: U128, nonce: Field) {
+    fn fee_entrypoint_public(max_fee: u128, nonce: Field) {
         let config = storage.config.read();
 
         // We pull the max fee from the user's balance of the accepted asset to this contract.
@@ -181,8 +181,8 @@ pub contract FPC {
     /// It's passed as an argument to avoid the need for another read from public storage.
     #[public]
     #[internal]
-    fn pay_refund(refund_recipient: AztecAddress, max_fee: U128, accepted_asset: AztecAddress) {
-        let actual_fee = U128::from_integer(context.transaction_fee());
+    fn pay_refund(refund_recipient: AztecAddress, max_fee: u128, accepted_asset: AztecAddress) {
+        let actual_fee = context.transaction_fee() as u128;
         assert(actual_fee <= max_fee, "Max fee paid to the paymaster does not cover actual fee");
         // TODO(#10805): Introduce a real exchange rate
         let refund = max_fee - actual_fee;

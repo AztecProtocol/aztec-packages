@@ -135,7 +135,7 @@ pub contract AvmTest {
     }
 
     #[public]
-    fn add_u128(a: U128, b: U128) -> U128 {
+    fn add_u128(a: u128, b: u128) -> u128 {
         a + b
     }
 
@@ -193,16 +193,16 @@ pub contract AvmTest {
      ************************************************************************/
 
     #[public]
-    fn u128_addition_overflow() -> U128 {
-        let max_u128: U128 = U128::from_hex("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
-        let one: U128 = U128::from_integer(1);
+    fn u128_addition_overflow() -> u128 {
+        let max_u128: u128 = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
+        let one: u128 = 1;
         max_u128 + one
     }
 
     #[public]
-    fn u128_from_integer_overflow() -> U128 {
-        let should_overflow: Field = 2.pow_32(128); // U128::max() + 1;
-        U128::from_integer(should_overflow)
+    fn u128_from_integer_overflow() -> u128 {
+        let should_overflow: Field = 2.pow_32(128); // u128::max() + 1;
+        should_overflow as u128
     }
 
     #[public]

@@ -8,12 +8,12 @@ pub fn filter_notes_min_sum(
 ) -> [Option<RetrievedNote<ValueNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
     let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
 
-    let mut sum = U128::from_integer(0);
+    let mut sum = 0 as u128;
     for i in 0..notes.len() {
-        if notes[i].is_some() & (sum < U128::from_integer(min_sum)) {
+        if notes[i].is_some() & (sum < min_sum as u128) {
             let retrieved_note = notes[i].unwrap_unchecked();
             selected[i] = Option::some(retrieved_note);
-            sum += U128::from_integer(retrieved_note.note.value);
+            sum += retrieved_note.note.value as u128;
         }
     }
 
