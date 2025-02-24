@@ -115,7 +115,7 @@ However, if Alice wants to spend her notes (i.e. to prove that the nullifier key
 - [partial address](keys.md#address-keys),
 - contract address.
 
-### Authorizing actions
+## Authorizing actions
 
 Account contracts are also expected, though not required by the protocol, to implement a set of methods for authorizing actions on behalf of the user. During a transaction, a contract may call into the account contract and request the user authorization for a given action, identified by a hash. This pattern is used, for instance, for transferring tokens from an account that is not the caller.
 
