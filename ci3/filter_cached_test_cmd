@@ -12,7 +12,7 @@ function process_batch {
   local hashes=()
 
   for line in "${lines[@]}"; do
-    hashes+=($(hash_str "$line"))
+    hashes+=($(hash_str_orig "$line"))
   done
 
   # Batch resolve existence in redis.
@@ -23,7 +23,7 @@ function process_batch {
     if [ -z "${results[$i]}" ]; then
       echo "${lines[$i]}"
     else
-      echo -e "${blue}SKIPPING${reset} (${yellow}http://ci.aztec-labs.com/${results[$i]}${reset}): ${lines[$i]}" >&3
+      echo -e "${blue}SKIPPED${reset} (${yellow}http://ci.aztec-labs.com/${results[$i]}${reset}): ${lines[$i]}" >&3
     fi
   done
 }

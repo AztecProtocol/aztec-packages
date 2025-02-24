@@ -12,7 +12,7 @@ if [ "${USE_TEST_CACHE:-0}" -eq 1 ] && [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   log_key=$(redis_cli GET $key)
   if [ -n "$log_key" ]; then
     log_info=" (${yellow}http://ci.aztec-labs.com/$log_key${reset})"
-    echo -e "${blue}SKIPPED${reset}${log_info:-}: $test_cmd"
+    echo -e "${blue}SKIPPED${reset}${log_info:-}: $cmd"
     exit 0
   fi
 fi
