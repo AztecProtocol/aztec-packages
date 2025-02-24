@@ -33,13 +33,14 @@ std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<C
     FF subtable_size = transcript->template receive_from_prover<FF>("subtable_size");
 
     // Receive table column polynomial commitments [t_j], [T_{j,prev}], and [T_j], j = 1,2,3,4
-    std::array<Commitment, NUM_WIRES> C_t;
-    std::array<Commitment, NUM_WIRES> C_T_prev;
-    std::array<Commitment, NUM_WIRES> C_T;
+    std::array<Commitment, NUM_WIRES> t_commitments;
+    std::array<Commitment, NUM_WIRES> T_prev_commitments;
+    std::array<Commitment, NUM_WIRES> T_commitments;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        C_t[idx] = transcript->template receive_from_prover<Commitment>("t_CURRENT_" + std::to_string(idx + 1));
-        C_T_prev[idx] = transcript->template receive_from_prover<Commitment>("T_PREV_" + std::to_string(idx + 1));
-        C_T[idx] = transcript->template receive_from_prover<Commitment>("T_CURRENT_" + std::to_string(idx + 1));
+        std::string suffix = std::to_string(idx);
+        t_commitments[idx] = transcript->template receive_from_prover<Commitment>("t_CURRENT_" + suffix);
+        T_prev_commitments[idx] = transcript->template receive_from_prover<Commitment>("T_PREV_" + suffix);
+        T_commitments[idx] = transcript->template receive_from_prover<Commitment>("T_CURRENT_" + suffix);
     }
 
     FF kappa = transcript->template get_challenge<FF>("kappa");
@@ -51,16 +52,16 @@ std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<C
     std::vector<OpeningClaim> opening_claims;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         t_evals[idx] = transcript->template receive_from_prover<FF>("t_eval_" + std::to_string(idx + 1));
-        opening_claims.emplace_back(OpeningClaim{ { kappa, t_evals[idx] }, C_t[idx] });
+        opening_claims.emplace_back(OpeningClaim{ { kappa, t_evals[idx] }, t_commitments[idx] });
     }
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         T_prev_evals[idx] = transcript->template receive_from_prover<FF>("T_prev_eval_" + std::to_string(idx + 1));
-        opening_claims.emplace_back(OpeningClaim{ { kappa, T_prev_evals[idx] }, C_T_prev[idx] });
+        opening_claims.emplace_back(OpeningClaim{ { kappa, T_prev_evals[idx] }, T_prev_commitments[idx] });
     }
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         T_current_evals[idx] =
             transcript->template receive_from_prover<FF>("T_current_eval_" + std::to_string(idx + 1));
-        opening_claims.emplace_back(OpeningClaim{ { kappa, T_current_evals[idx] }, C_T[idx] });
+        opening_claims.emplace_back(OpeningClaim{ { kappa, T_current_evals[idx] }, T_commitments[idx] });
     }
 
     // Check the identity T_j(\kappa) = t_j(\kappa) + \kappa^m * T_{j,prev}(\kappa)
