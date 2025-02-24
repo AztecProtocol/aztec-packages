@@ -41,4 +41,13 @@ function redis_cli {
     redis-cli --raw -h $CI_REDIS "$@"
   fi
 }
-export -f redis_cli
+
+function redis_setexz {
+  gzip | redis_cli -x SETEX $1 $2 &>/dev/null
+}
+
+function redis_getz {
+  redis_cli GET $1 | head -c -1 | gunzip
+}
+
+export -f redis_cli redis_setexz redis_getz
