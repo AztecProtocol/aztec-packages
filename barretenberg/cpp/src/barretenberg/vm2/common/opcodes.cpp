@@ -222,14 +222,59 @@ std::ostream& operator<<(std::ostream& os, const ExecutionOpCode& op)
     case ExecutionOpCode::ADD:
         os << "ADD";
         break;
-    case ExecutionOpCode::SET:
-        os << "SET";
+    case ExecutionOpCode::SUB:
+        os << "SUB";
         break;
-    case ExecutionOpCode::MOV:
-        os << "MOV";
+    case ExecutionOpCode::MUL:
+        os << "MUL";
         break;
-    case ExecutionOpCode::CALL:
-        os << "CALL";
+    case ExecutionOpCode::DIV:
+        os << "DIV";
+        break;
+    case ExecutionOpCode::FDIV:
+        os << "FDIV";
+        break;
+    case ExecutionOpCode::EQ:
+        os << "EQ";
+        break;
+    case ExecutionOpCode::LT:
+        os << "LT";
+        break;
+    case ExecutionOpCode::LTE:
+        os << "LTE";
+        break;
+    case ExecutionOpCode::AND:
+        os << "AND";
+        break;
+    case ExecutionOpCode::OR:
+        os << "OR";
+        break;
+    case ExecutionOpCode::XOR:
+        os << "XOR";
+        break;
+    case ExecutionOpCode::NOT:
+        os << "NOT";
+        break;
+    case ExecutionOpCode::SHL:
+        os << "SHL";
+        break;
+    case ExecutionOpCode::SHR:
+        os << "SHR";
+        break;
+    case ExecutionOpCode::CAST:
+        os << "CAST";
+        break;
+    case ExecutionOpCode::GETENVVAR:
+        os << "GETENVVAR";
+        break;
+    case ExecutionOpCode::CALLDATACOPY:
+        os << "CALLDATACOPY";
+        break;
+    case ExecutionOpCode::RETURNDATASIZE:
+        os << "RETURNDATASIZE";
+        break;
+    case ExecutionOpCode::RETURNDATACOPY:
+        os << "RETURNDATACOPY";
         break;
     case ExecutionOpCode::JUMP:
         os << "JUMP";
@@ -237,8 +282,80 @@ std::ostream& operator<<(std::ostream& os, const ExecutionOpCode& op)
     case ExecutionOpCode::JUMPI:
         os << "JUMPI";
         break;
+    case ExecutionOpCode::INTERNALCALL:
+        os << "INTERNALCALL";
+        break;
+    case ExecutionOpCode::INTERNALRETURN:
+        os << "INTERNALRETURN";
+        break;
+    case ExecutionOpCode::SET:
+        os << "SET";
+        break;
+    case ExecutionOpCode::MOV:
+        os << "MOV";
+        break;
+    case ExecutionOpCode::SLOAD:
+        os << "SLOAD";
+        break;
+    case ExecutionOpCode::SSTORE:
+        os << "SSTORE";
+        break;
+    case ExecutionOpCode::NOTEHASHEXISTS:
+        os << "NOTEHASHEXISTS";
+        break;
+    case ExecutionOpCode::EMITNOTEHASH:
+        os << "EMITNOTEHASH";
+        break;
+    case ExecutionOpCode::NULLIFIEREXISTS:
+        os << "NULLIFIEREXISTS";
+        break;
+    case ExecutionOpCode::EMITNULLIFIER:
+        os << "EMITNULLIFIER";
+        break;
+    case ExecutionOpCode::L1TOL2MSGEXISTS:
+        os << "L1TOL2MSGEXISTS";
+        break;
+    case ExecutionOpCode::GETCONTRACTINSTANCE:
+        os << "GETCONTRACTINSTANCE";
+        break;
+    case ExecutionOpCode::EMITUNENCRYPTEDLOG:
+        os << "EMITUNENCRYPTEDLOG";
+        break;
+    case ExecutionOpCode::SENDL2TOL1MSG:
+        os << "SENDL2TOL1MSG";
+        break;
+    case ExecutionOpCode::CALL:
+        os << "CALL";
+        break;
+    case ExecutionOpCode::STATICCALL:
+        os << "STATICCALL";
+        break;
     case ExecutionOpCode::RETURN:
         os << "RETURN";
+        break;
+    case ExecutionOpCode::REVERT:
+        os << "REVERT";
+        break;
+    case ExecutionOpCode::DEBUGLOG:
+        os << "DEBUGLOG";
+        break;
+    case ExecutionOpCode::POSEIDON2PERM:
+        os << "POSEIDON2PERM";
+        break;
+    case ExecutionOpCode::SHA256COMPRESSION:
+        os << "SHA256COMPRESSION";
+        break;
+    case ExecutionOpCode::KECCAKF1600:
+        os << "KECCAKF1600";
+        break;
+    case ExecutionOpCode::ECADD:
+        os << "ECADD";
+        break;
+    case ExecutionOpCode::MSM:
+        os << "MSM";
+        break;
+    case ExecutionOpCode::TORADIXBE:
+        os << "TORADIXBE";
         break;
     }
     return os;

@@ -1,4 +1,4 @@
-import { type BaseParityInputs, type ParityPublicInputs, type RootParityInputs } from '@aztec/circuits.js';
+import { type BaseParityInputs, type ParityPublicInputs, type RootParityInputs } from '@aztec/circuits.js/parity';
 import {
   type BaseOrMergeRollupPublicInputs,
   type BlockMergeRollupInputs,

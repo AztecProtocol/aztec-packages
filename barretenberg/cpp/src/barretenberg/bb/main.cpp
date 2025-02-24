@@ -29,6 +29,34 @@ void print_active_subcommands(const CLI::App& app, const std::string& prefix = "
     }
 }
 
+// Recursive helper to find the deepest parsed subcommand.
+CLI::App* find_deepest_subcommand(CLI::App* app)
+{
+    for (auto& sub : app->get_subcommands()) {
+        if (sub->parsed()) {
+            // Check recursively if this subcommand has a deeper parsed subcommand.
+            if (CLI::App* deeper = find_deepest_subcommand(sub); deeper != nullptr) {
+                return deeper;
+            }
+            return sub;
+        }
+    }
+    return nullptr;
+}
+
+// Helper function to print options for a given subcommand.
+void print_subcommand_options(const CLI::App* sub)
+{
+    for (const auto& opt : sub->get_options()) {
+        if (opt->count() > 0) { // Only print options that were set.
+            if (opt->results().size() > 1) {
+                vinfo("  Warning: the following option is called more than once");
+            }
+            vinfo("  ", opt->get_name(), ": ", opt->results()[0]);
+        }
+    }
+}
+
 int main(int argc, char* argv[])
 {
     std::string name = "Barretenberg\nYour favo(u)rite zkSNARK library written in C++, a perfectly good computer "
@@ -58,7 +86,7 @@ int main(int argc, char* argv[])
     std::filesystem::path vk_path{ "./target/vk" };
     flags.scheme = "";
     flags.oracle_hash_type = "poseidon2";
-    flags.output_data_type = "bytes";
+    flags.output_format = "bytes";
     flags.crs_path = []() {
         char* home = std::getenv("HOME");
         std::filesystem::path base = home != nullptr ? std::filesystem::path(home) : "./";
@@ -117,11 +145,11 @@ int main(int argc, char* argv[])
             ->check(CLI::IsMember({ "poseidon2", "keccak" }).name("is_member"));
     };
 
-    const auto add_output_data_option = [&](CLI::App* subcommand) {
+    const auto add_output_format_option = [&](CLI::App* subcommand) {
         return subcommand
             ->add_option(
-                "--output_data",
-                flags.output_data_type,
+                "--output_format",
+                flags.output_format,
                 "The type of the data to be written by the command. If bytes, output the raw bytes prefixed with "
                 "header information for deserialization. If fields, output a string representation of an array of "
                 "field elements. If bytes_and_fields do both. If fields_msgpack, outputs a msgpack buffer of Fr "
@@ -129,12 +157,9 @@ int main(int argc, char* argv[])
             ->check(CLI::IsMember({ "bytes", "fields", "bytes_and_fields", "fields_msgpack" }).name("is_member"));
     };
 
-    const auto add_output_content_option = [&](CLI::App* subcommand) {
-        return subcommand
-            ->add_option("--output_content",
-                         flags.output_content_type,
-                         "The data to be written. Options are: a proof, a verification key, or both.")
-            ->check(CLI::IsMember({ "proof", "vk", "proof_and_vk" }).name("is_member"));
+    const auto add_write_vk_flag = [&](CLI::App* subcommand) {
+        return subcommand->add_flag(
+            "--write_vk", flags.write_vk, "Should the prove command additionally write the verification key?");
     };
 
     const auto add_input_type_option = [&](CLI::App* subcommand) {
@@ -238,8 +263,8 @@ int main(int argc, char* argv[])
     add_debug_flag(prove);
     add_crs_path_option(prove);
     add_oracle_hash_option(prove);
-    add_output_data_option(prove);
-    add_output_content_option(prove)->default_val("proof");
+    add_output_format_option(prove);
+    add_write_vk_flag(prove);
     add_input_type_option(prove);
     add_zk_option(prove);
     add_init_kzg_accumulator_option(prove);
@@ -264,7 +289,7 @@ int main(int argc, char* argv[])
 
     add_verbose_flag(write_vk);
     add_debug_flag(write_vk);
-    add_output_data_option(write_vk);
+    add_output_format_option(write_vk);
     add_input_type_option(write_vk);
     add_crs_path_option(write_vk);
     add_init_kzg_accumulator_option(write_vk);
@@ -614,11 +639,13 @@ int main(int argc, char* argv[])
      ***************************************************************************************************************/
 
     CLI11_PARSE(app, argc, argv);
-    print_active_subcommands(app);
-    vinfo(flags);
-
     debug_logging = flags.debug;
     verbose_logging = debug_logging || flags.verbose;
+
+    print_active_subcommands(app);
+    if (CLI::App* deepest = find_deepest_subcommand(&app)) {
+        print_subcommand_options(deepest);
+    }
 
     // prob this construction is too much
     const auto execute_command = [&](API& api) {

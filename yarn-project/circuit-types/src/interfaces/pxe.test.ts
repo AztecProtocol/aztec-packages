@@ -1,24 +1,23 @@
-import {
-  AztecAddress,
-  ClientIvcProof,
-  CompleteAddress,
-  type ContractInstanceWithAddress,
-  EthAddress,
-  Fr,
-  GasFees,
-  type NodeInfo,
-  Point,
-  type ProtocolContractAddresses,
-  ProtocolContractsNames,
-  PublicKeys,
-  getContractClassFromArtifact,
-} from '@aztec/circuits.js';
 import { type AbiDecoded, type ContractArtifact, EventSelector } from '@aztec/circuits.js/abi';
 import { loadContractArtifact } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import {
+  CompleteAddress,
+  type ContractInstanceWithAddress,
+  type NodeInfo,
+  type ProtocolContractAddresses,
+  ProtocolContractsNames,
+  getContractClassFromArtifact,
+} from '@aztec/circuits.js/contract';
+import { GasFees } from '@aztec/circuits.js/gas';
 import { PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
+import { PublicKeys } from '@aztec/circuits.js/keys';
+import { ClientIvcProof } from '@aztec/circuits.js/proofs';
 import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
 import { memoize } from '@aztec/foundation/decorators';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 import { fileURLToPath } from '@aztec/foundation/url';
 

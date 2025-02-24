@@ -1,4 +1,6 @@
-import { AztecAddress, Fr, deriveKeys, derivePublicKeyFromSecretKey } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { deriveKeys, derivePublicKeyFromSecretKey } from '@aztec/circuits.js/keys';
+import { Fr } from '@aztec/foundation/fields';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
 import { KeyStore } from './key_store.js';

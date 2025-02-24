@@ -1,6 +1,6 @@
 import { deployL1Contract, fileURLToPath } from '@aztec/aztec.js';
 import { BBCircuitVerifier } from '@aztec/bb-prover';
-import { Proof } from '@aztec/circuits.js';
+import { Proof } from '@aztec/circuits.js/proofs';
 import { RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 import { createL1Clients } from '@aztec/ethereum';
 import { type Logger } from '@aztec/foundation/log';

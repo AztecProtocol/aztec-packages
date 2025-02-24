@@ -1,5 +1,5 @@
-import type { CompleteAddress, NodeInfo } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/circuits.js/abi';
+import type { CompleteAddress, NodeInfo } from '@aztec/circuits.js/contract';
 import { getContractInstanceFromDeployParams } from '@aztec/circuits.js/contract';
 import { deriveKeys } from '@aztec/circuits.js/keys';
 import { Fr } from '@aztec/foundation/fields';

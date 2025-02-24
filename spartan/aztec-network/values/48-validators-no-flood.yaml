@@ -1,0 +1,23 @@
+
+telemetry:
+  enabled: true
+
+validator:
+  replicas: 48
+  p2p:
+    floodPublish: false
+  resources:
+    requests:
+      memory: "512Mi"
+  validator:
+    disabled: false
+
+bootNode:
+  p2p:
+    floodPublish: false
+  validator:
+    disabled: true
+
+proverNode:
+  p2p:
+    floodPublish: false

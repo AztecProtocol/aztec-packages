@@ -8,4 +8,4 @@ export {
 
 export { AccountManager } from '../account_manager/index.js';
 
-export { CompleteAddress } from '@aztec/circuit-types';
+export { CompleteAddress } from '@aztec/circuits.js/contract';

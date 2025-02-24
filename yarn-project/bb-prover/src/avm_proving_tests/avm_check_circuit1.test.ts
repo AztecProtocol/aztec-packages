@@ -1,5 +1,5 @@
-import { type ContractInstanceWithAddress } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type ContractInstanceWithAddress } from '@aztec/circuits.js/contract';
 import {
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,

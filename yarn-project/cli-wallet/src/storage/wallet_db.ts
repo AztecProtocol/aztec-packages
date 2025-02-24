@@ -1,5 +1,7 @@
 import { type AuthWitness, type TxHash } from '@aztec/circuit-types';
-import { type AztecAddress, Fr, GasSettings } from '@aztec/circuits.js';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { GasSettings } from '@aztec/circuits.js/gas';
+import { Fr } from '@aztec/foundation/fields';
 import { type LogFn } from '@aztec/foundation/log';
 import { type AztecAsyncKVStore, type AztecAsyncMap } from '@aztec/kv-store';
 

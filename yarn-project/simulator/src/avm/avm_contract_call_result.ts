@@ -1,5 +1,5 @@
 import { type SimulationError } from '@aztec/circuit-types';
-import { Gas } from '@aztec/circuits.js';
+import { Gas } from '@aztec/circuits.js/gas';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { inspect } from 'util';

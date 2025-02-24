@@ -1,4 +1,4 @@
-import { ClientIvcProof } from '@aztec/circuits.js';
+import { ClientIvcProof } from '@aztec/circuits.js/proofs';
 
 import { promises as fs } from 'fs';
 import { join } from 'path';

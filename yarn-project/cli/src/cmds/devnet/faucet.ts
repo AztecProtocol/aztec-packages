@@ -1,4 +1,4 @@
-import { type EthAddress } from '@aztec/circuits.js';
+import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type LogFn } from '@aztec/foundation/log';
 
 import { prettyPrintJSON } from '../../utils/commands.js';
