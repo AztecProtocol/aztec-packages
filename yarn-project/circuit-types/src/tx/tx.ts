@@ -1,10 +1,6 @@
 import type { GasSettings } from '@aztec/circuits.js/gas';
 import { siloContractClassLog } from '@aztec/circuits.js/hash';
-import {
-  PrivateKernelTailCircuitPublicInputs,
-  type PrivateToPublicAccumulatedData,
-  ScopedLogHash,
-} from '@aztec/circuits.js/kernel';
+import { PrivateKernelTailCircuitPublicInputs, ScopedLogHash } from '@aztec/circuits.js/kernel';
 import { ContractClassLog, PrivateLog } from '@aztec/circuits.js/logs';
 import { ClientIvcProof } from '@aztec/circuits.js/proofs';
 import { Buffer32 } from '@aztec/foundation/buffer';
