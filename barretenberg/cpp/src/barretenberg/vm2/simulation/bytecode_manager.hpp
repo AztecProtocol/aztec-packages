@@ -14,7 +14,7 @@
 #include "barretenberg/vm2/simulation/class_id_derivation.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/simulation/lib/raw_data_db.hpp"
+#include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/simulation/siloing.hpp"
 
@@ -36,17 +36,17 @@ class TxBytecodeManagerInterface {
 
 class TxBytecodeManager : public TxBytecodeManagerInterface {
   public:
-    TxBytecodeManager(RawDataDBInterface& db,
-                      AddressDerivationInterface& address_derivation,
+    TxBytecodeManager(ContractDBInterface& contract_db,
+                      MerkleDBInterface& merkle_db,
+                      SiloingInterface& siloing,
                       BytecodeHasher& bytecode_hasher,
-                      ClassIdDerivationInterface& class_id_derivation,
                       EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events,
                       EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events,
                       EventEmitterInterface<InstructionFetchingEvent>& fetching_events)
-        : db(db)
-        , address_derivation(address_derivation)
+        : contract_db(contract_db)
+        , merkle_db(merkle_db)
+        , siloing(siloing)
         , bytecode_hasher(bytecode_hasher)
-        , class_id_derivation(class_id_derivation)
         , retrieval_events(retrieval_events)
         , decomposition_events(decomposition_events)
         , fetching_events(fetching_events)
@@ -56,10 +56,10 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
     Instruction read_instruction(BytecodeId bytecode_id, uint32_t pc) override;
 
   private:
-    RawDataDBInterface& db;
-    AddressDerivationInterface& address_derivation;
+    ContractDBInterface& contract_db;
+    MerkleDBInterface& merkle_db;
+    SiloingInterface& siloing;
     BytecodeHasher& bytecode_hasher;
-    ClassIdDerivationInterface& class_id_derivation;
     EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events;
     EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events;
     EventEmitterInterface<InstructionFetchingEvent>& fetching_events;
