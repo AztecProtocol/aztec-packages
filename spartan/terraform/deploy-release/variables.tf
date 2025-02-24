@@ -67,3 +67,14 @@ variable "L1_DEPLOYMENT_SALT" {
   type        = string
   default     = ""
 }
+
+variable "EXPOSE_HTTPS_BOOTNODE" {
+  description = "Whether to expose the bootnode with HTTPS"
+  type        = boolean
+  default     = false
+}
+
+variable "BOOTNODE_IP_REGION" {
+  default = "us-west1"
+  type    = string
+}
