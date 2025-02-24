@@ -282,8 +282,8 @@ TYPED_TEST(SmallSubgroupIPATest, TranslationEvaluationsMaskingTerm)
         const FF evaluation_challenge_x = FF::random_element();
         const FF batching_challenge_v = FF::random_element();
 
-        const FF claimed_inner_product =
-            Prover::compute_claimed_inner_product(translation_data, evaluation_challenge_x, batching_challenge_v);
+        const FF claimed_inner_product = Prover::compute_claimed_translation_inner_product(
+            translation_data, evaluation_challenge_x, batching_challenge_v);
 
         Prover small_subgroup_ipa_prover(translation_data,
                                          evaluation_challenge_x,
