@@ -125,6 +125,7 @@ jobs:
         with:
           name: "P2P Testbench"
           tool: "customSmallerIsBetter"
+          benchmark-data-dir-path: "dev/p2p-bench"
           output-file-path: ./bench-out/p2p-bench.json
           github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           auto-push: true
