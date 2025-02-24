@@ -6,9 +6,6 @@ validator:
   replicas: 48
   p2p:
     floodPublish: false
-  resources:
-    requests:
-      memory: "512Mi"
   validator:
     disabled: false
 
