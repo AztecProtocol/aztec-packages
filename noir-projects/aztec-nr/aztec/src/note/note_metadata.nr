@@ -27,6 +27,10 @@ global NoteStage: NoteStageEnum =
 
 /// The metadata required to both prove a note's existence and destroy it, by computing the correct note hash for kernel
 /// read requests, as well as the correct nullifier to avoid double-spends.
+///
+/// This represents a note in any of the tree valid stages (transient revertible, transient non-revertible or settled),
+/// in order to access the underlying fields callers must first find the appropriate stage (e.g. via `is_settled()`) and
+/// then convert this into the appropriate type (e.g. via `to_settled()`).
 #[derive(Eq, Serialize)]
 pub struct NoteMetadata {
     stage: u8,
@@ -80,11 +84,13 @@ impl NoteMetadata {
         self.stage == NoteStage.SETTLED
     }
 
-    pub fn to_transient(self) -> TransientRevertibleNoteMetadata {
+    /// Asserts that the metadata is that of a transient revertible note and converts it accordingly.
+    pub fn to_transient_revertible(self) -> TransientRevertibleNoteMetadata {
         assert_eq(self.stage, NoteStage.TRANSIENT_REVERTIBLE);
         TransientRevertibleNoteMetadata { note_hash_counter: self.maybe_note_hash_counter }
     }
 
+    /// Asserts that the metadata is that of a transient non-revertible note and converts it accordingly.
     pub fn to_transient_non_revertible(self) -> TransientNonRevertibleNoteMetadata {
         assert_eq(self.stage, NoteStage.TRANSIENT_NON_REVERTIBLE);
         TransientNonRevertibleNoteMetadata {
@@ -93,6 +99,7 @@ impl NoteMetadata {
         }
     }
 
+    /// Asserts that the metadata is that of a settled note and converts it accordingly.
     pub fn to_settled(self) -> SettledNoteMetadata {
         assert_eq(self.stage, NoteStage.SETTLED);
         SettledNoteMetadata { nonce: self.maybe_nonce }
@@ -117,10 +124,20 @@ impl From<SettledNoteMetadata> for NoteMetadata {
     }
 }
 
+/// The metadata required to both prove a note's existence and destroy it, by computing the correct note hash for kernel
+/// read requests, as well as the correct nullifier to avoid double-spends.
+///
+/// This represents a transient revertible note, i.e. a note that was created in the transaction that is currently being
+/// executed during the revertible phase.
 pub struct TransientRevertibleNoteMetadata {
     note_hash_counter: u32,
 }
 
+/// The metadata required to both prove a note's existence and destroy it, by computing the correct note hash for kernel
+/// read requests, as well as the correct nullifier to avoid double-spends.
+///
+/// This represents a transient non-revertible note, i.e. a note that was created in a prior transaction and is
+/// therefore in the note hash tree.
 impl TransientRevertibleNoteMetadata {
     pub fn new(note_hash_counter: u32) -> Self {
         Self { note_hash_counter }
@@ -150,6 +167,11 @@ impl TransientNonRevertibleNoteMetadata {
     }
 }
 
+/// The metadata required to both prove a note's existence and destroy it, by computing the correct note hash for kernel
+/// read requests, as well as the correct nullifier to avoid double-spends.
+///
+/// This represents a settled note, i.e. a note that was created in the transaction that is currently
+/// being executed during the non-revertible phase.
 pub struct SettledNoteMetadata {
     nonce: Field,
 }
