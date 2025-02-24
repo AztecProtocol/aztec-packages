@@ -168,6 +168,7 @@ template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::prove()
     // Send commitment [Q] to the verifier
     transcript->template send_to_verifier("Translation:quotient_commitment", commitment_key->commit(batched_quotient));
 }
+
 /**
  * @brief Computes the challenge polynomial F(X) based on the provided multivariate challenges.
  *

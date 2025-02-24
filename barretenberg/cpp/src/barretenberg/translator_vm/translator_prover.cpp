@@ -150,6 +150,7 @@ void TranslatorProver::execute_pcs_rounds()
                                                sumcheck_output.claimed_libra_evaluation,
                                                transcript,
                                                key->proving_key->commitment_key);
+    small_subgroup_ipa_prover.prove();
 
     PolynomialBatcher polynomial_batcher(key->proving_key->circuit_size);
     polynomial_batcher.set_unshifted(key->proving_key->polynomials.get_unshifted_without_concatenated());

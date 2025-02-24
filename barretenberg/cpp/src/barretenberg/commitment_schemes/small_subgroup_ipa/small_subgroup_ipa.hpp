@@ -31,6 +31,7 @@ template <typename Flavor> class SmallSubgroupIPAProver {
     // Fixed generator of H
     static constexpr FF subgroup_generator = Curve::subgroup_generator;
 
+    // The SmallSubgroupIPA claim
     FF claimed_inner_product;
 
     // Interpolation domain {1, g, \ldots, g^{SUBGROUP_SIZE - 1}} used by ECCVM
@@ -42,10 +43,6 @@ template <typename Flavor> class SmallSubgroupIPAProver {
     Polynomial<FF> concatenated_polynomial;
     // Lagrange coefficeints of the concatenated Libra masking polynomial = constant_term || g_0 || ... || g_{d-1}
     Polynomial<FF> libra_concatenated_lagrange_form;
-
-    // Claimed evaluation s = constant_term + g_0(u_0) + ... + g_{d-1}(u_{d-1}), where g_i is the i'th Libra masking
-    // univariate
-    FF claimed_evaluation;
 
     // The polynomial obtained by concatenated powers of sumcheck challenges
     Polynomial<FF> challenge_polynomial;
@@ -62,10 +59,14 @@ template <typename Flavor> class SmallSubgroupIPAProver {
     // Quotient of the batched polynomial C(X) by the subgroup vanishing polynomial X^{|H|} - 1
     Polynomial<FF> batched_quotient;
 
+    std::shared_ptr<typename Flavor::Transcript> transcript;
+    std::shared_ptr<typename Flavor::CommitmentKey> commitment_key;
+
   public:
+    // Construct prover from ZKSumcheckData. Used by all ZK-Provers.
     SmallSubgroupIPAProver(ZKSumcheckData<Flavor>& zk_sumcheck_data,
                            const std::vector<FF>& multivariate_challenge,
-                           const FF claimed_ipa_eval,
+                           const FF claimed_inner_product,
                            std::shared_ptr<typename Flavor::Transcript>& transcript,
                            std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key);
 
@@ -73,9 +74,11 @@ template <typename Flavor> class SmallSubgroupIPAProver {
     SmallSubgroupIPAProver(TranslationData<typename Flavor::Transcript>& translation_data,
                            const FF evaluation_challenge_x,
                            const FF batching_challenge_v,
-                           const FF claimed_ipa_eval,
+                           const FF claimed_inner_product,
                            std::shared_ptr<typename Flavor::Transcript>& transcript,
                            std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key);
+
+    void prove();
 
     // Getter to pass the witnesses to ShpleminiProver. Big sum polynomial is evaluated at 2 points (and is small)
     std::array<bb::Polynomial<FF>, NUM_SMALL_IPA_EVALUATIONS> get_witness_polynomials() const
@@ -92,7 +95,7 @@ template <typename Flavor> class SmallSubgroupIPAProver {
 
     void compute_big_sum_polynomial();
 
-    void compute_batched_polynomial(const FF& claimed_evaluation);
+    void compute_batched_polynomial();
 
     std::array<Polynomial<FF>, 2> static compute_lagrange_polynomials(
         const std::array<FF, SUBGROUP_SIZE>& interpolation_domain, const EvaluationDomain<FF>& bn_evaluation_domain);
@@ -130,7 +133,7 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
 
   public:
     /*!
-     * @brief Verifies the consistency of polynomial evaluations provided by
+     * @brief Verifies the consistency of polynomial evaluations provided by the
      * the prover.
      *
      * @details
@@ -149,18 +152,18 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
      * evaluations computed by the verifier
      * - \f$ L_1 \f$ and \f$ L_{|H|} \f$ are the Lagrange polynomials
      * corresponding to \f$ 1 \f$ and \f$ g^{-1} \f$.
-     * - \f$ F(r) \f$ is the evaluation of the polynomial obtained by
-     * concatenating powers of sumcheck round challenges
+     * - \f$ F(r) \f$ is the evaluation of a public polynomial formed from the challenges. It is specified by one of the
+     * constructors below.
      * - \f$ Z_H(r) \f$ is the vanishing polynomial \f$ X^{|H|} - 1\f$
      * evaluated at the challenge point.
      *
-     * @param libra_evaluations A vector of polynomial evaluations
+     * @param small_ipa_evaluations An array of polynomial evaluations
      * containing:
      *   - \f$ G(r), A(g\cdot r), A(r), T(r) \f$.
-     * @param gemini_evaluation_challenge The challenge point \f$ r \f$ at
+     * @param small_ipa_eval_challenge The challenge point \f$ r \f$ at
      * which evaluations are verified.
-     * @param multilinear_challenge A vector of sumcheck round challenges.
-     * @param eval_claim The claimed inner proudct of the coefficients of
+     * @param challenge_polynomial Lagrange coefficients of \f$ F \f$.
+     * @param inner_product_eval_claim The claimed inner proudct of the coefficients of
      * \f$G\f$ and \f$F\f$.
      * @return True if the consistency check passes, false otherwise.
      */
@@ -201,6 +204,19 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
             return (diff == FF(0));
         };
     };
+
+    /**
+     * @brief A method required by ZKSumcheck. The challenge polynomial is concatenated from the powers of the sumcheck
+     * challenges.
+     *
+     * @param libra_evaluations Evaluations of the SmallSubgroupIPA witness polynomials when \f$ G \f$ is a
+     * concatenation of a masking constant term and Libra univariates.
+     * @param gemini_evaluation_challenge Random challenge \f$ r \f$ at which the Gemini fold polynomials are evaluated.
+     * @param multilinear_challenge Sumcheck challenge \f$ (u_0, \ldots, u_{d-1})\f$.
+     * @param inner_product_eval_claim Claimed inner product of \f$ F \f$ and \f$ G\f$.
+     * @return true
+     * @return false
+     */
     static bool check_libra_evaluations_consistency(const std::array<FF, NUM_SMALL_IPA_EVALUATIONS>& libra_evaluations,
                                                     const FF& gemini_evaluation_challenge,
                                                     const std::vector<FF>& multilinear_challenge,
@@ -217,7 +233,17 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
                                  inner_product_eval_claim,
                                  vanishing_poly_eval);
     }
-
+    /**
+     * @brief A method required for the verification Translation Evaluations in the ECCVMVerifier. The challenge
+     * polynomial is concatenated from the products \f$ x^i \cdot v^j\f$. See the corresponding method for details.
+     *
+     * @param small_ipa_evaluations Evaluations of the SmallSubgroupIPA witness polynomials when \f$ G \f$ is a
+     * concatenation of the last MASKING_OFFSET entries in the NUM_TRANSLATION_EVALUATIONS polynomials.
+     * @param evaluation_challenge A random challenge sampled to obtain `small_ipa_evaluations`
+     * @param evaluation_challenge_x Evaluation challenge for NUM_TRANSLATION_EVALUATIONS univariate polynomials
+     * @param batching_challenge_v A challenge used to batch the evaluations at \f$ x \f$ .
+     * @param inner_product_eval_claim Claimed inner product of \f$ F \f$ and \f$ G\f$.
+     */
     static bool check_eccvm_evaluations_consistency(
         const std::array<FF, NUM_SMALL_IPA_EVALUATIONS>& small_ipa_evaluations,
         const FF& evaluation_challenge,
@@ -226,8 +252,7 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
         const FF& inner_product_eval_claim)
     {
 
-        // Compute the evaluation of the vanishing polynomia Z_H(X) at X =
-        // gemini_evaluation_challenge
+        // Compute the evaluation of the vanishing polynomia Z_H(X) at `evaluation_challenge`
         const FF vanishing_poly_eval = evaluation_challenge.pow(SUBGROUP_SIZE) - FF(1);
 
         return check_consistency(small_ipa_evaluations,

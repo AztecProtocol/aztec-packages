@@ -323,6 +323,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     // Instantiate SmallSubgroupIPAProver, this prover sends commitments to Big Sum and Quotient polynomials
     SmallSubgroupIPAProver<TypeParam> small_subgroup_ipa_prover(
         zk_sumcheck_data, const_size_mle_opening_point, claimed_inner_product, prover_transcript, ck);
+    small_subgroup_ipa_prover.prove();
 
     // Reduce to KZG or IPA based on the curve used in the test Flavor
     const auto opening_claim = ShpleminiProver::prove(this->n,
@@ -430,6 +431,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
     // Instantiate SmallSubgroupIPAProver, this prover sends commitments to Big Sum and Quotient polynomials
     SmallSubgroupIPAProver<TypeParam> small_subgroup_ipa_prover(
         zk_sumcheck_data, challenge, claimed_inner_product, prover_transcript, ck);
+    small_subgroup_ipa_prover.prove();
 
     // Reduce proving to a single claimed fed to KZG or IPA
     const auto opening_claim = ShpleminiProver::prove(this->n,

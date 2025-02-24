@@ -73,6 +73,8 @@ TYPED_TEST(SmallSubgroupIPATest, ProverComputationsCorrectness)
     SmallSubgroupIPA small_subgroup_ipa_prover =
         SmallSubgroupIPA(zk_sumcheck_data, multivariate_challenge, claimed_inner_product, prover_transcript, ck);
 
+    small_subgroup_ipa_prover.prove();
+
     const Polynomial batched_polynomial = small_subgroup_ipa_prover.get_batched_polynomial();
     const Polynomial libra_concatenated_polynomial = small_subgroup_ipa_prover.get_witness_polynomials()[0];
     const Polynomial batched_quotient = small_subgroup_ipa_prover.get_witness_polynomials()[3];
@@ -168,7 +170,7 @@ TYPED_TEST(SmallSubgroupIPATest, VerifierEvaluations)
 
 // Simulate the interaction between the prover and the verifier leading to the consistency check performed by the
 // verifier.
-TYPED_TEST(SmallSubgroupIPATest, ProverAndVerifierSimple)
+TYPED_TEST(SmallSubgroupIPATest, LibraEvaluationsConsistency)
 {
     using FF = typename TypeParam::FF;
     using Curve = typename TypeParam::Curve;
@@ -193,6 +195,8 @@ TYPED_TEST(SmallSubgroupIPATest, ProverAndVerifierSimple)
 
     Prover small_subgroup_ipa_prover =
         Prover(zk_sumcheck_data, multivariate_challenge, claimed_inner_product, prover_transcript, ck);
+
+    small_subgroup_ipa_prover.prove();
 
     const std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations =
         this->evaluate_small_ipa_witnesses(small_subgroup_ipa_prover.get_witness_polynomials());
@@ -204,7 +208,7 @@ TYPED_TEST(SmallSubgroupIPATest, ProverAndVerifierSimple)
 }
 
 // Check that consistency check fails when some of the prover's data is corrupted.
-TYPED_TEST(SmallSubgroupIPATest, ProverAndVerifierSimpleFailure)
+TYPED_TEST(SmallSubgroupIPATest, LibraEvaluationsConsistencyFailure)
 {
     using FF = typename TypeParam::FF;
     using Curve = typename TypeParam::Curve;
@@ -229,6 +233,8 @@ TYPED_TEST(SmallSubgroupIPATest, ProverAndVerifierSimpleFailure)
 
     Prover small_subgroup_ipa_prover =
         Prover(zk_sumcheck_data, multivariate_challenge, claimed_inner_product, prover_transcript, ck);
+
+    small_subgroup_ipa_prover.prove();
 
     std::array<Polynomial<FF>, NUM_SMALL_IPA_EVALUATIONS> witness_polynomials =
         small_subgroup_ipa_prover.get_witness_polynomials();
@@ -248,7 +254,7 @@ TYPED_TEST(SmallSubgroupIPATest, ProverAndVerifierSimpleFailure)
 
 // Simulate the interaction between the prover and the verifier leading to the consistency check performed by the
 // verifier.
-TYPED_TEST(SmallSubgroupIPATest, TranslationEvaluationsMaskingTerm)
+TYPED_TEST(SmallSubgroupIPATest, TranslationMaskingTermConsistency)
 {
     // TranslationData class is Grumpkin-specific
     if constexpr (std::is_same_v<TypeParam, BN254Settings>) {
@@ -291,6 +297,7 @@ TYPED_TEST(SmallSubgroupIPATest, TranslationEvaluationsMaskingTerm)
                                          claimed_inner_product,
                                          prover_transcript,
                                          ck);
+        small_subgroup_ipa_prover.prove();
 
         const std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations =
             this->evaluate_small_ipa_witnesses(small_subgroup_ipa_prover.get_witness_polynomials());
@@ -303,6 +310,63 @@ TYPED_TEST(SmallSubgroupIPATest, TranslationEvaluationsMaskingTerm)
 
         EXPECT_TRUE(consistency_checked);
     }
-}
+};
+// Simulate the interaction between the prover and the verifier leading to the consistency check performed by the
+// verifier.
+TYPED_TEST(SmallSubgroupIPATest, TranslationMaskingTermConsistencyFailure)
+{
+    // TranslationData class is Grumpkin-specific
+    if constexpr (std::is_same_v<TypeParam, BN254Settings>) {
+        GTEST_SKIP();
+    } else {
+        using Curve = typename TypeParam::Curve;
+        using FF = typename Curve::ScalarField;
+        using Verifier = SmallSubgroupIPAVerifier<Curve>;
+        using Prover = SmallSubgroupIPAProver<TypeParam>;
+        using CK = typename TypeParam::CommitmentKey;
 
+        auto prover_transcript = TypeParam::Transcript::prover_init_empty();
+        // Must satisfy num_wires * MASKING_OFFSET + 1 < SUBGROUP_SIZE
+        const size_t num_wires = 5;
+
+        // SmallSubgroupIPAProver requires at least CURVE::SUBGROUP_SIZE + 3 elements in the ck.
+        static constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
+        std::shared_ptr<CK> ck =
+            create_commitment_key<CK>(std::max<size_t>(this->circuit_size, 1ULL << (log_subgroup_size + 1)));
+
+        // Generate transcript polynomials
+        std::vector<Polynomial<FF>> transcript_polynomials;
+
+        for (size_t idx = 0; idx < num_wires; idx++) {
+            transcript_polynomials.push_back(Polynomial<FF>::random(this->circuit_size));
+        }
+
+        TranslationData<typename TypeParam::Transcript> translation_data(
+            RefVector<Polynomial<FF>>(transcript_polynomials), prover_transcript, ck);
+
+        const FF evaluation_challenge_x = FF::random_element();
+        const FF batching_challenge_v = FF::random_element();
+
+        const FF claimed_inner_product = FF::random_element();
+
+        Prover small_subgroup_ipa_prover(translation_data,
+                                         evaluation_challenge_x,
+                                         batching_challenge_v,
+                                         claimed_inner_product,
+                                         prover_transcript,
+                                         ck);
+        small_subgroup_ipa_prover.prove();
+
+        const std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations =
+            this->evaluate_small_ipa_witnesses(small_subgroup_ipa_prover.get_witness_polynomials());
+
+        bool consistency_checked = Verifier::check_eccvm_evaluations_consistency(small_ipa_evaluations,
+                                                                                 this->evaluation_challenge,
+                                                                                 evaluation_challenge_x,
+                                                                                 batching_challenge_v,
+                                                                                 claimed_inner_product);
+
+        EXPECT_TRUE(!consistency_checked);
+    }
+}
 } // namespace bb
