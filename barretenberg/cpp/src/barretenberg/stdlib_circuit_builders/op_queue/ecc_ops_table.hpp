@@ -121,36 +121,23 @@ class UltraEccOpsTable {
     void push(const UltraOp& op) { table.push(op); }
 
     /**
-     * @brief Populate the provided array of columns with the width-4 representation of the table data
+     * @brief Construct polynomials corresponding to the columns of the reconstructed ultra ops table for the given
+     * range of subtables
      * @todo multithreaded this functionality
      * @param target_columns
      */
-    void populate_column_data(std::array<std::span<Fr>, TABLE_WIDTH>& target_columns) const
+    ColumnPolynomials construct_column_polynomials_from_subtables(const size_t poly_size,
+                                                                  const size_t subtable_start_idx,
+                                                                  const size_t subtable_end_idx) const
     {
-        size_t i = 0;
-        for (const auto& subtable : table.get()) {
-            for (const auto& op : subtable) {
-                target_columns[0][i] = op.op;
-                target_columns[1][i] = op.x_lo;
-                target_columns[2][i] = op.x_hi;
-                target_columns[3][i] = op.y_lo;
-                i++;
-                target_columns[0][i] = 0; // only the first 'op' field is utilized
-                target_columns[1][i] = op.y_hi;
-                target_columns[2][i] = op.z_1;
-                target_columns[3][i] = op.z_2;
-                i++;
-            }
+        ColumnPolynomials column_polynomials;
+        for (auto& poly : column_polynomials) {
+            poly = Polynomial<Fr>(poly_size);
         }
-    }
 
-    void populate_column_data_from_subtables(ColumnPolynomials& column_polynomials,
-                                             const size_t start_idx,
-                                             const size_t end_idx) const
-    {
         size_t i = 0;
-        for (size_t j = start_idx; j < end_idx; ++j) {
-            const auto& subtable = table.get()[j];
+        for (size_t subtable_idx = subtable_start_idx; subtable_idx < subtable_end_idx; ++subtable_idx) {
+            const auto& subtable = table.get()[subtable_idx];
             for (const auto& op : subtable) {
                 column_polynomials[0].at(i) = op.op;
                 column_polynomials[1].at(i) = op.x_lo;
@@ -164,48 +151,34 @@ class UltraEccOpsTable {
                 i++;
             }
         }
+        return column_polynomials;
     }
 
     ColumnPolynomials construct_table_columns() const
     {
-        ColumnPolynomials column_polynomials;
-        for (auto& poly : column_polynomials) {
-            poly = Polynomial<Fr>(ultra_table_size());
-        }
+        const size_t poly_size = ultra_table_size();
+        const size_t subtable_start_idx = 0;
+        const size_t subtable_end_idx = table.num_subtables();
 
-        const size_t start_idx = 0;
-        const size_t end_idx = table.num_subtables();
-        populate_column_data_from_subtables(column_polynomials, start_idx, end_idx);
-
-        return column_polynomials;
+        return construct_column_polynomials_from_subtables(poly_size, subtable_start_idx, subtable_end_idx);
     }
 
     ColumnPolynomials construct_previous_table_columns() const
     {
-        ColumnPolynomials column_polynomials;
-        for (auto& poly : column_polynomials) {
-            poly = Polynomial<Fr>(previous_ultra_table_size());
-        }
+        const size_t poly_size = previous_ultra_table_size();
+        const size_t subtable_start_idx = 1;
+        const size_t subtable_end_idx = table.num_subtables();
 
-        const size_t start_idx = 1;
-        const size_t end_idx = table.num_subtables();
-        populate_column_data_from_subtables(column_polynomials, start_idx, end_idx);
-
-        return column_polynomials;
+        return construct_column_polynomials_from_subtables(poly_size, subtable_start_idx, subtable_end_idx);
     }
 
     ColumnPolynomials construct_current_subtable_columns() const
     {
-        ColumnPolynomials column_polynomials;
-        for (auto& poly : column_polynomials) {
-            poly = Polynomial<Fr>(current_ultra_subtable_size());
-        }
+        const size_t poly_size = current_ultra_subtable_size();
+        const size_t subtable_start_idx = 0;
+        const size_t subtable_end_idx = 1;
 
-        const size_t start_idx = 0;
-        const size_t end_idx = 1;
-        populate_column_data_from_subtables(column_polynomials, start_idx, end_idx);
-
-        return column_polynomials;
+        return construct_column_polynomials_from_subtables(poly_size, subtable_start_idx, subtable_end_idx);
     }
 };
 

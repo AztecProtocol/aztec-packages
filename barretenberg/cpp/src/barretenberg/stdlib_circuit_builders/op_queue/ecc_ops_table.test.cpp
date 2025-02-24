@@ -88,8 +88,6 @@ TEST(EccOpsTableTest, UltraOpsTable)
 {
     using Fr = fr;
 
-    constexpr size_t NUM_ROWS_PER_OP = 2; // Each ECC op is represented by two rows in the ultra ops table
-
     // Construct sets of ultra ops, each representing those added by a single circuit
     const size_t NUM_SUBTABLES = 3;
     std::array<std::vector<UltraOp>, NUM_SUBTABLES> subtable_ultra_ops;
@@ -117,14 +115,7 @@ TEST(EccOpsTableTest, UltraOpsTable)
     EXPECT_EQ(ultra_ops_table.size(), expected_num_ops);
 
     // Construct polynomials corresponding to the columns of the ultra ops table
-    const size_t expected_table_size = expected_num_ops * NUM_ROWS_PER_OP;
-    std::array<Polynomial<Fr>, 4> ultra_ops_table_polynomials;
-    std::array<std::span<fr>, 4> column_spans;
-    for (auto [column_span, column] : zip_view(column_spans, ultra_ops_table_polynomials)) {
-        column = Polynomial<Fr>(expected_table_size);
-        column_span = column.coeffs();
-    }
-    ultra_ops_table.populate_column_data(column_spans);
+    std::array<Polynomial<Fr>, 4> ultra_ops_table_polynomials = ultra_ops_table.construct_table_columns();
 
     // Check that the ultra ops table constructed by the op queue matches the expected table
     for (auto [expected_column, poly] : zip_view(expected_ultra_ops_table.columns, ultra_ops_table_polynomials)) {
