@@ -473,7 +473,11 @@ cycle_group<Builder> cycle_group<Builder>::checked_unconditional_add(const cycle
                                                                      const std::optional<AffineElement> hint) const
 {
     field_t x_delta = x - other.x;
-    x_delta.assert_is_not_zero("cycle_group::checked_unconditional_add, x-coordinate collision");
+    if (!x_delta.is_constant()) {
+        x_delta.assert_is_not_zero("cycle_group::checked_unconditional_add, x-coordinate collision");
+    } else {
+        ASSERT(x_delta.get_value() != 0);
+    }
     return unconditional_add(other, hint);
 }
 
@@ -495,7 +499,11 @@ cycle_group<Builder> cycle_group<Builder>::checked_unconditional_subtract(const 
                                                                           const std::optional<AffineElement> hint) const
 {
     field_t x_delta = x - other.x;
-    x_delta.assert_is_not_zero("cycle_group::checked_unconditional_subtract, x-coordinate collision");
+    if (!x_delta.is_constant()) {
+        x_delta.assert_is_not_zero("cycle_group::checked_unconditional_subtract, x-coordinate collision");
+    } else {
+        ASSERT(x_delta.get_value() != 0);
+    }
     return unconditional_subtract(other, hint);
 }
 
