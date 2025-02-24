@@ -9,13 +9,13 @@ import {
   type GetContractReturnType,
   type HttpTransport,
   type LocalAccount,
-  http as ViemHttp,
   type WalletClient,
   createPublicClient,
   createWalletClient,
   fallback,
   getContract,
   parseEther,
+  http as viemHttp,
 } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
@@ -44,12 +44,12 @@ export class Faucet {
     this.walletClient = createWalletClient({
       account: this.account,
       chain: chain.chainInfo,
-      transport: fallback([ViemHttp(chain.rpcUrls[0])]),
+      transport: fallback(chain.rpcUrls.map(url => viemHttp(url))),
     });
 
     this.publicClient = createPublicClient({
       chain: chain.chainInfo,
-      transport: fallback([ViemHttp(chain.rpcUrls[0])]),
+      transport: fallback(chain.rpcUrls.map(url => viemHttp(url))),
     });
   }
 

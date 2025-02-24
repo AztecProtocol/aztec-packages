@@ -60,11 +60,11 @@ services:
       OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: ${OTEL_EXPORTER_OTLP_METRICS_ENDPOINT:-http://otel-collector:4318/v1/metrics}
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-http://otel-collector:4318/v1/traces}
     secrets:
-      - ethereum-host
+      - ethereum-hosts
       - p2p-boot-node
     entrypoint: |
       /bin/sh -c '
-        export ETHEREUM_HOSTS=$$(cat /var/run/secrets/ethereum-host)
+        export ETHEREUM_HOSTS=$$(cat /var/run/secrets/ethereum-hosts)
         export BOOTSTRAP_NODES=$$(cat /var/run/secrets/p2p-boot-node)
 
         test -z "$$PEER_ID_PRIVATE_KEY" -a ! -f /var/lib/aztec/p2p-private-key && node /usr/src/yarn-project/cli/dest/bin/index.js generate-p2p-private-key | head -1 | cut -d" " -f 3 | tee /var/lib/aztec/p2p-private-key || echo "Re-using existing P2P private key"
@@ -121,7 +121,7 @@ services:
 secrets:
   aztec-node-url:
     environment: AZTEC_NODE_URL
-  ethereum-host:
+  ethereum-hosts:
     environment: ETHEREUM_HOSTS
   p2p-boot-node:
     environment: BOOTSTRAP_NODES

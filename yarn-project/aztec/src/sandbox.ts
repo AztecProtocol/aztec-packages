@@ -162,7 +162,10 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
   // sandbox is meant for test envs. We should only need one l1RpcUrl
   const l1RpcUrl = config.l1RpcUrls?.[0];
   if (!l1RpcUrl) {
-    throw new Error('At least one L1 RPC URL is required');
+    throw new Error('An L1 RPC URL is required');
+  }
+  if ((config.l1RpcUrls?.length || 0) > 1) {
+    logger.warn(`Multiple L1 RPC URLs provided. Sandbox will only use the first one: ${l1RpcUrl}`);
   }
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
   const hdAccount = mnemonicToAccount(config.l1Mnemonic || DefaultMnemonic);

@@ -209,12 +209,18 @@ nodeSelector:
 if [ -n "${EXTERNAL_ETHEREUM_HOSTS}" ]; then
   export ETHEREUM_HOSTS="${EXTERNAL_ETHEREUM_HOSTS}"
 fi
-echo "Awaiting ethereum node at ${ETHEREUM_HOSTS}"
-until curl -s -X POST -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":67}' \
-  ${ETHEREUM_HOSTS} | grep 0x; do
-  echo "Waiting for Ethereum node ${ETHEREUM_HOSTS}..."
+echo "Awaiting any ethereum node from: ${ETHEREUM_HOSTS}"
+IFS=',' read -ra HOSTS <<< "${ETHEREUM_HOSTS}"
+while true; do
+  for HOST in "${HOSTS[@]}"; do
+    if curl -s -X POST -H 'Content-Type: application/json' \
+      -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":67}' \
+      ${HOST} | grep -q 0x; then
+      echo "Ethereum node ${HOST} is ready!"
+      exit 0
+    fi
+    echo "Waiting for Ethereum node ${HOST}..."
+  done
   sleep 5
 done
-echo "Ethereum node is ready!"
 {{- end -}}

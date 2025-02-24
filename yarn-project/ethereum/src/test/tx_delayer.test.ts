@@ -2,44 +2,20 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 
 import { type Anvil } from '@viem/anvil';
-import {
-  type Chain,
-  type Client,
-  type HttpTransport,
-  type PrivateKeyAccount,
-  type PublicActions,
-  type PublicRpcSchema,
-  type WalletActions,
-  type WalletRpcSchema,
-  createWalletClient,
-  getContract,
-  http,
-  publicActions,
-} from 'viem';
+import { type PrivateKeyAccount, createWalletClient, fallback, getContract, http, publicActions } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
+import type { ExtendedViemWalletClient } from '../types.js';
 import { startAnvil } from './start_anvil.js';
 import { type Delayer, withDelayer } from './tx_delayer.js';
-
-/**
- * Type for a viem wallet and public client using a local private key.
- * Created as: `createWalletClient({ account: privateKeyToAccount(key), transport: http(url), chain }).extend(publicActions)`
- */
-export type ViemClient = Client<
-  HttpTransport,
-  Chain,
-  PrivateKeyAccount,
-  [...PublicRpcSchema, ...WalletRpcSchema],
-  PublicActions<HttpTransport, Chain> & WalletActions<Chain, PrivateKeyAccount>
->;
 
 describe('tx_delayer', () => {
   let anvil: Anvil;
   let rpcUrl: string;
   let logger: Logger;
   let account: PrivateKeyAccount;
-  let client: ViemClient;
+  let client: ExtendedViemWalletClient;
   let delayer: Delayer;
 
   const ETHEREUM_SLOT_DURATION = 2;
@@ -50,12 +26,13 @@ describe('tx_delayer', () => {
   });
 
   beforeEach(() => {
-    const transport = http(rpcUrl);
     account = privateKeyToAccount('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80');
-    ({ client, delayer } = withDelayer(
-      createWalletClient({ transport, chain: foundry, account }).extend(publicActions),
-      { ethereumSlotDuration: ETHEREUM_SLOT_DURATION },
-    ));
+    const _client = createWalletClient({
+      transport: fallback([http(rpcUrl)]),
+      chain: foundry,
+      account,
+    }).extend(publicActions);
+    ({ client, delayer } = withDelayer(_client, { ethereumSlotDuration: ETHEREUM_SLOT_DURATION }));
   });
 
   const receiptNotFound = expect.objectContaining({ name: 'TransactionReceiptNotFoundError' });

@@ -283,7 +283,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
       batchSize = 5;
 
       config = {
-        dataStoreMapSizeKB: 1024 * 1024 * 1024, // 1GB
+        dataStoreMapSizeKB: 1024 * 1024, // 1GB
         dataDirectory: directory,
         proverBrokerJobMaxRetries: 1,
         proverBrokerJobTimeoutMs: 1000,

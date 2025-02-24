@@ -162,7 +162,7 @@ describe('End-to-end tests for devnet', () => {
       claimSecret: { value: string };
       messageLeafIndex: string;
     }>('bridge-fee-juice', [amount, l2Account.getAddress()], {
-      'l1-rpc-url': ETHEREUM_HOSTS!,
+      'l1-rpc-urls': ETHEREUM_HOSTS!,
       'l1-chain-id': l1ChainId.toString(),
       'l1-private-key': l1Account.privateKey,
       'rpc-url': pxeUrl,
@@ -279,7 +279,7 @@ describe('End-to-end tests for devnet', () => {
 
   async function getL1Balance(address: string, token?: EthAddress): Promise<bigint> {
     const { balance } = await cli<{ balance: string }>('get-l1-balance', [address], {
-      'l1-rpc-url': ETHEREUM_HOSTS!,
+      'l1-rpc-urls': ETHEREUM_HOSTS!,
       'l1-chain-id': l1ChainId.toString(),
       token,
     });

@@ -3,7 +3,7 @@ services:
   end-to-end:
     image: aztecprotocol/end-to-end:${AZTEC_DOCKER_TAG:-latest}
     secrets:
-      - ethereum-host
+      - ethereum-hosts
       - aztec-node-url
       - faucet-url
     environment:
@@ -12,7 +12,7 @@ services:
       JOB_NAME: ${JOB_NAME:-''}
       PXE_PROVER_ENABLED: ${PXE_PROVER_ENABLED:-1}
     command: |
-      export ETHEREUM_HOSTS=$$(cat /var/run/secrets/ethereum-host)
+      export ETHEREUM_HOSTS=$$(cat /var/run/secrets/ethereum-hosts)
       export FAUCET_URL=$$(cat /var/run/secrets/faucet-url)
       export AZTEC_NODE_URL=$$(cat /var/run/secrets/aztec-node-url)
       ${TEST:-./src/devnet/e2e_smoke.test.ts}
@@ -22,7 +22,7 @@ services:
 secrets:
   aztec-node-url:
     environment: AZTEC_NODE_URL
-  ethereum-host:
+  ethereum-hosts:
     environment: ETHEREUM_HOSTS
   faucet-url:
     environment: FAUCET_URL

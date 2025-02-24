@@ -27,15 +27,28 @@ export PRIVATE_KEY=${PRIVATE_KEY:-""}
 export SALT=${SALT:-"1337"}
 
 echo "Waiting for Ethereum node to be up..."
-until curl -s -X POST -H 'Content-Type: application/json' \
-  --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
-  $ETHEREUM_HOSTS 2>/dev/null | grep -q 'result'; do
+found_node=0
+for HOST in $(echo "${ETHEREUM_HOSTS}" | tr ',' '\n'); do
+  if curl -s -X POST -H 'Content-Type: application/json' \
+    --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+    "$HOST" 2>/dev/null | grep -q 'result'; then
+    echo "Node $HOST is ready"
+    found_node=1
+    break
+  fi
   sleep 1
 done
+
+if [ $found_node -eq 0 ]; then
+  echo "No Ethereum nodes available"
+  exit 1
+fi
 echo "Done waiting."
 
 # Fetch chain ID from the Ethereum node
 source "$REPO"/yarn-project/end-to-end/scripts/native-network/utils/get-chain-id.sh
+
+echo "L1_CHAIN_ID: $L1_CHAIN_ID"
 
 # Construct base command
 COMMAND="node --no-warnings $(git rev-parse --show-toplevel)/yarn-project/aztec/dest/bin/index.js \

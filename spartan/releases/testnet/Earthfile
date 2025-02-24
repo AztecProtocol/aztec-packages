@@ -123,7 +123,7 @@ test-p2p-key:
         echo "✅ P2P private key test passed" || \
         (echo "❌ P2P private key test failed" && exit 1)
 
-test-ethereum-host:
+test-ethereum-hosts:
     FROM +test-setup
     RUN echo -e "\n\n" | ./aztec-spartan.sh config \
         -n "troll-turtle" \
@@ -160,4 +160,4 @@ test-all:
     BUILD +test-update
     BUILD +test-data-dir
     BUILD +test-p2p-key
-    BUILD +test-ethereum-host
+    BUILD +test-ethereum-hosts

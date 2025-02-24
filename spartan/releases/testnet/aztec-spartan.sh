@@ -38,7 +38,7 @@ parse_args() {
       IMAGE="$2"
       shift 2
       ;;
-    -e | --ethereum-host)
+    -e | --ethereum-hosts)
       ETHEREUM_HOSTS="$2"
       shift 2
       ;;

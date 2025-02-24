@@ -59,14 +59,6 @@ export SEQ_PUBLISHER_PRIVATE_KEY=$VALIDATOR_PRIVATE_KEY
 export DEBUG=${DEBUG:-""}
 export LOG_LEVEL=${LOG_LEVEL:-"verbose"}
 export L1_CONSENSUS_HOST_URL=${L1_CONSENSUS_HOST_URL:-}
-
-# Automatically detect if we're using Anvil
-if curl -s -H "Content-Type: application/json" -X POST --data '{"method":"web3_clientVersion","params":[],"id":49,"jsonrpc":"2.0"}' $ETHEREUM_HOSTS | jq .result | grep -q anvil; then
-  IS_ANVIL="true"
-else
-  IS_ANVIL="false"
-fi
-
 export P2P_ENABLED="true"
 export VALIDATOR_DISABLED="false"
 export SEQ_MAX_SECONDS_BETWEEN_BLOCKS="0"
