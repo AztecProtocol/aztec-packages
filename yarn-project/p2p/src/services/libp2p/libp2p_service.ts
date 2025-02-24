@@ -326,26 +326,6 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       [ReqRespSubProtocol.BLOCK]: blockHandler.bind(this),
     };
 
-    // Add p2p topic validators
-    // As they are stored within a kv pair, there is no need to register them conditionally
-    // based on the client type
-    // const topicValidators = {
-    //   [Tx.p2pTopic]: this.validatePropagatedTxFromMessage.bind(this),
-    //   [BlockAttestation.p2pTopic]: this.validatePropagatedAttestationFromMessage.bind(this),
-    //   [BlockProposal.p2pTopic]: this.validatePropagatedBlockFromMessage.bind(this),
-    // };
-    // // When running bandwidth benchmarks, we use send blobs of data we do not want to validate
-    // // NEVER switch this off in production
-    // if (!this.config.debugDisableMessageValidation) {
-    //   for (const [topic, validator] of Object.entries(topicValidators)) {
-    //     this.node.services.pubsub.topicValidators.set(topic, validator);
-    //   }
-    // } else {
-    //   this.logger.warn(
-    //     'MESSAGE VALIDATION DISABLED - IF YOU SEE THIS LOG AND ARE NOT DEBUGGING AND ARE RUNNING IN A PRODUCTION ENVIRONMENT, PLEASE RE-ENABLE MESSAGE VALIDATION',
-    //   );
-    // }
-
     // add GossipSub listener
     this.node.services.pubsub.addEventListener(GossipSubEvent.MESSAGE, this.handleGossipSubEvent.bind(this));
 
@@ -501,7 +481,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     return;
   }
 
-  private async validate<T>(
+  private async validateReceivedMessage<T>(
     validationFunc: () => Promise<{ result: boolean; obj: T }>,
     msgId: string,
     source: PeerId,
@@ -527,7 +507,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       return { result, obj: tx };
     };
 
-    const { result, obj: tx } = await this.validate<Tx>(validationFunc, msgId, source);
+    const { result, obj: tx } = await this.validateReceivedMessage<Tx>(validationFunc, msgId, source);
     if (!result || !tx) {
       return;
     }
@@ -553,7 +533,11 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       return { result, obj: attestation };
     };
 
-    const { result, obj: attestation } = await this.validate<BlockAttestation>(validationFunc, msgId, source);
+    const { result, obj: attestation } = await this.validateReceivedMessage<BlockAttestation>(
+      validationFunc,
+      msgId,
+      source,
+    );
     if (!result || !attestation) {
       return;
     }
@@ -580,7 +564,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       return { result, obj: block };
     };
 
-    const { result, obj: block } = await this.validate<BlockProposal>(validationFunc, msgId, source);
+    const { result, obj: block } = await this.validateReceivedMessage<BlockProposal>(validationFunc, msgId, source);
     if (!result || !block) {
       return;
     }
@@ -684,63 +668,6 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
 
     return true;
   }
-
-  // /**
-  //  * Validate a tx from a peer.
-  //  * @param propagationSource - The peer ID of the peer that sent the tx.
-  //  * @param msg - The tx message.
-  //  * @returns True if the tx is valid, false otherwise.
-  //  */
-  // private async validatePropagatedTxFromMessage(
-  //   propagationSource: PeerId,
-  //   msg: Message,
-  // ): Promise<TopicValidatorResult> {
-  //   const tx = Tx.fromBuffer(Buffer.from(msg.data));
-  //   const isValid = await this.validatePropagatedTx(tx, propagationSource);
-  //   this.logger.trace(`validatePropagatedTx: ${isValid}`, {
-  //     [Attributes.TX_HASH]: (await tx.getTxHash()).toString(),
-  //     [Attributes.P2P_ID]: propagationSource.toString(),
-  //   });
-  //   return isValid ? TopicValidatorResult.Accept : TopicValidatorResult.Reject;
-  // }
-
-  // /**
-  //  * Validate an attestation from a peer.
-  //  * @param propagationSource - The peer ID of the peer that sent the attestation.
-  //  * @param msg - The attestation message.
-  //  * @returns True if the attestation is valid, false otherwise.
-  //  */
-  // private async validatePropagatedAttestationFromMessage(
-  //   propagationSource: PeerId,
-  //   msg: Message,
-  // ): Promise<TopicValidatorResult> {
-  //   const attestation = BlockAttestation.fromBuffer(Buffer.from(msg.data));
-  //   const isValid = await this.validateAttestation(propagationSource, attestation);
-  //   this.logger.trace(`validatePropagatedAttestation: ${isValid}`, {
-  //     [Attributes.SLOT_NUMBER]: attestation.payload.header.globalVariables.slotNumber.toString(),
-  //     [Attributes.P2P_ID]: propagationSource.toString(),
-  //   });
-  //   return isValid ? TopicValidatorResult.Accept : TopicValidatorResult.Reject;
-  // }
-
-  // /**
-  //  * Validate a block proposal from a peer.
-  //  * @param propagationSource - The peer ID of the peer that sent the block.
-  //  * @param msg - The block proposal message.
-  //  * @returns True if the block proposal is valid, false otherwise.
-  //  */
-  // private async validatePropagatedBlockFromMessage(
-  //   propagationSource: PeerId,
-  //   msg: Message,
-  // ): Promise<TopicValidatorResult> {
-  //   const block = BlockProposal.fromBuffer(Buffer.from(msg.data));
-  //   const isValid = await this.validateBlockProposal(propagationSource, block);
-  //   this.logger.trace(`validatePropagatedBlock: ${isValid}`, {
-  //     [Attributes.SLOT_NUMBER]: block.payload.header.globalVariables.slotNumber.toString(),
-  //     [Attributes.P2P_ID]: propagationSource.toString(),
-  //   });
-  //   return isValid ? TopicValidatorResult.Accept : TopicValidatorResult.Reject;
-  // }
 
   @trackSpan('Libp2pService.validatePropagatedTx', async tx => ({
     [Attributes.TX_HASH]: (await tx.getTxHash()).toString(),

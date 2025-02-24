@@ -192,7 +192,7 @@ export class ValidatorClient extends WithTracer implements Validator {
       return undefined;
     }
 
-    // Check that all of the tranasctions in the proposal are available in the tx pool before attesting
+    // Check that all of the transactions in the proposal are available in the tx pool before attesting
     this.log.verbose(`Processing attestation for slot ${slotNumber}`, proposalInfo);
     try {
       await this.ensureTransactionsAreAvailable(proposal);
