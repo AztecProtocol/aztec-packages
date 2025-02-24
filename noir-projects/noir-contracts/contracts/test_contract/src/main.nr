@@ -1,5 +1,4 @@
 mod test;
-mod test_note;
 
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
 use dep::aztec::macros::aztec;
@@ -33,7 +32,7 @@ pub contract Test {
     use dep::aztec::{
         deploy::deploy_contract as aztec_deploy_contract,
         discovery::private_logs::do_process_log,
-        hash::{ArgsHasher, compute_secret_hash, pedersen_hash},
+        hash::{ArgsHasher, pedersen_hash},
         macros::{events::event, functions::{internal, private, public}, storage::storage},
         note::{
             lifecycle::{create_note, destroy_note_unsafe},
@@ -43,18 +42,16 @@ pub contract Test {
             retrieved_note::RetrievedNote,
         },
         test::mocks::mock_struct::MockStruct,
-        utils::comparison::Comparator,
     };
     use dep::token_portal_content_hash_lib::{
         get_mint_to_private_content_hash, get_mint_to_public_content_hash,
     };
-    use dep::value_note::value_note::ValueNote;
     use std::meta::derive;
 
-    use crate::test_note::TestNote;
-
-    // Imported just to test note type ids
-    use dep::uint_note::uint_note::UintNote;
+    // We are importing different kinds of notes to test the note type ids
+    use address_note::address_note::AddressNote;
+    use uint_note::uint_note::UintNote;
+    use value_note::value_note::ValueNote;
 
     #[derive(Serialize)]
     #[event]
@@ -81,9 +78,9 @@ pub contract Test {
     // test function must also be updated accordingly.
     #[storage]
     struct Storage<Context> {
-        example_constant: PrivateImmutable<TestNote, Context>,
+        example_constant: PrivateImmutable<UintNote, Context>,
         example_struct_in_shared_mutable: SharedMutable<ExampleStruct, SHARED_MUTABLE_INITIAL_DELAY, Context>,
-        example_set: PrivateSet<TestNote, Context>,
+        example_set: PrivateSet<AddressNote, Context>,
         example_struct: PrivateImmutable<ExampleStruct, Context>,
         example_struct_in_public_immutable: PublicImmutable<ExampleStruct, Context>,
         example_struct_in_map: Map<AztecAddress, PrivateImmutable<ExampleStruct, Context>, Context>,
@@ -429,8 +426,10 @@ pub contract Test {
     }
 
     #[private]
-    fn set_constant(value: Field) {
-        let note = TestNote::new(value);
+    fn set_constant(value: U128, owner: AztecAddress, randomness: Field) {
+        // TODO(#8999): Once we nuke randomness from notes we can just use UintNote::new(value, owner) here and we'll
+        // get rid of the warnings.
+        let note = UintNote { value, owner, randomness };
         // We don't broadcast the fact that we created a note, it must be manually delivered by calling the deliver_note
         // function. Note that we can only do this because the note contains no contract-generated values (e.g.
         // randomness), if it did then we'd need to extract those out of the contract so that the app can get them (e.g.
@@ -440,7 +439,9 @@ pub contract Test {
 
     unconstrained fn deliver_note(
         contract_address: AztecAddress,
-        value: Field,
+        value: U128,
+        owner: AztecAddress,
+        randomness: Field,
         tx_hash: Field,
         unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
         first_nullifier_in_tx: Field,
@@ -448,9 +449,12 @@ pub contract Test {
     ) {
         // do_process_log expects a standard aztec-nr encoded note, which has the following shape:
         // [ storage_slot, note_type_id, ...packed_note ]
-        let note = TestNote::new(value);
+
+        // TODO(#8999): Once we nuke randomness from notes we can just use UintNote::new(value, owner) here and we'll
+        // get rid of the warnings.
+        let note = UintNote { value, owner, randomness };
         let log_plaintext = BoundedVec::from_array(array_concat(
-            [Test::storage_layout().example_constant.slot, TestNote::get_note_type_id()],
+            [Test::storage_layout().example_constant.slot, UintNote::get_note_type_id()],
             note.pack(),
         ));
 
@@ -504,21 +508,9 @@ pub contract Test {
         aztec_deploy_contract(&mut context, target);
     }
 
-    #[private]
-    // Adapted from TokenContract#redeem_shield but without an initcheck so it can be run in simulator/src/client/private_execution.test.ts
-    fn consume_note_from_secret(secret: Field) {
-        let notes_set = storage.example_set;
-        let secret_hash = compute_secret_hash(secret);
-        let mut options = NoteGetterOptions::new();
-        options =
-            options.select(TestNote::properties().value, Comparator.EQ, secret_hash).set_limit(1);
-        let notes = notes_set.pop_notes(options);
-        assert(notes.len() == 1, "note not popped");
-    }
-
-    unconstrained fn get_constant() -> pub Field {
+    unconstrained fn get_constant() -> pub U128 {
         let constant = storage.example_constant.view_note();
-        constant.value
+        constant.get_value()
     }
 
     #[private]

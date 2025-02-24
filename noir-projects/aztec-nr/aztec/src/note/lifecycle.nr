@@ -1,7 +1,7 @@
 use crate::context::PrivateContext;
 use crate::note::{
     note_emission::NoteEmission,
-    note_interface::{NoteInterface, NullifiableNote},
+    note_interface::{NoteHashing, NoteInterface},
     retrieved_note::RetrievedNote,
     utils::{compute_note_hash_for_nullify_internal, compute_note_hash_for_read_request},
 };
@@ -14,7 +14,7 @@ pub fn create_note<Note, let N: u32>(
     note: Note,
 ) -> NoteEmission<Note>
 where
-    Note: NoteInterface + NullifiableNote + Packable<N>,
+    Note: NoteInterface + NoteHashing + Packable<N>,
 {
     let note_hash_counter = context.side_effect_counter;
 
@@ -41,7 +41,7 @@ pub fn destroy_note<Note>(
     storage_slot: Field,
 )
 where
-    Note: NoteInterface + NullifiableNote,
+    Note: NoteHashing,
 {
     let note_hash_for_read_request =
         compute_note_hash_for_read_request(retrieved_note, storage_slot);
@@ -55,7 +55,7 @@ pub fn destroy_note_unsafe<Note>(
     note_hash_for_read_request: Field,
 )
 where
-    Note: NoteInterface + NullifiableNote,
+    Note: NoteHashing,
 {
     let note_hash_for_nullify =
         compute_note_hash_for_nullify_internal(retrieved_note, note_hash_for_read_request);

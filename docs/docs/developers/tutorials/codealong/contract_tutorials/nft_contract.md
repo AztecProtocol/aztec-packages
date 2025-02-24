@@ -172,15 +172,11 @@ Below the dependencies, paste the following Storage struct:
 
 ## Custom Notes
 
-The contract storage uses a [custom note](../../../guides/smart_contracts/writing_contracts/notes/custom_note.md) implementation. Custom notes are useful for defining your own data types. You can think of a custom note as a "chunk" of private data, the entire thing is added, updated or nullified (deleted) together. This NFT note is very simple and stores only the owner and the `token_id` and uses `randomness` to hide its contents.
+The contract storage uses a [custom note](../../../guides/smart_contracts/writing_contracts/notes/implementing_a_note.md) implementation. Custom notes are useful for defining your own data types. You can think of a custom note as a "chunk" of private data, the entire thing is added, updated or nullified (deleted) together. This NFT note is very simple and stores only the owner and the `token_id` and uses `randomness` to hide its contents.
 
 Randomness is required because notes are stored as commitments (hashes) in the note hash tree. Without randomness, the contents of a note may be derived through brute force (e.g. without randomness, if you know my Aztec address, you may be able to figure out which note hash in the tree is mine by hashing my address with many potential `token_id`s).
 
 #include_code nft_note /noir-projects/noir-contracts/contracts/nft_contract/src/types/nft_note.nr rust
-
-The custom note implementation also includes the nullifier computation function. This tells the protocol how the note should be nullified.
-
-#include_code compute_nullifier /noir-projects/noir-contracts/contracts/nft_contract/src/types/nft_note.nr rust
 
 ## Functions
 
