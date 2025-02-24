@@ -1,17 +1,17 @@
-#include "barretenberg/vm2/simulation/lib/raw_data_db.hpp"
+#include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 
 #include <cassert>
 
 namespace bb::avm2::simulation {
 
-HintedRawDataDB::HintedRawDataDB(const ExecutionHints& hints)
+// HintedRawContractDB starts.
+HintedRawContractDB::HintedRawContractDB(const ExecutionHints& hints)
     : contract_instances(hints.contractInstances)
     , contract_classes(hints.contractClasses)
-    , tree_roots(hints.initialTreeRoots)
 {}
 
-ContractInstance HintedRawDataDB::get_contract_instance(const AztecAddress& address) const
+ContractInstance HintedRawContractDB::get_contract_instance(const AztecAddress& address) const
 {
     assert(contract_instances_idx < contract_instances.size());
     auto contract_instance_hint = contract_instances[contract_instances_idx];
@@ -34,7 +34,7 @@ ContractInstance HintedRawDataDB::get_contract_instance(const AztecAddress& addr
     };
 }
 
-ContractClass HintedRawDataDB::get_contract_class(const ContractClassId& class_id) const
+ContractClass HintedRawContractDB::get_contract_class(const ContractClassId& class_id) const
 {
     assert(contract_classes_idx < contract_classes.size());
     auto contract_class_hint = contract_classes[contract_classes_idx++];
@@ -50,5 +50,10 @@ ContractClass HintedRawDataDB::get_contract_class(const ContractClassId& class_i
         .packed_bytecode = contract_class_hint.packedBytecode,
     };
 }
+
+// Hinted MerkleDB starts.
+HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints)
+    : tree_roots(hints.initialTreeRoots)
+{}
 
 } // namespace bb::avm2::simulation

@@ -10,12 +10,10 @@ import {
   type L2BlockSource,
   type L2LogsSource,
   type LogFilter,
-  MerkleTreeId,
   type NullifierWithBlockSource,
   P2PClientType,
   PublicDataWitness,
   PublicSimulationOutput,
-  SiblingPath,
   type Tx,
   type TxEffect,
   type TxHash,
@@ -24,7 +22,7 @@ import {
   TxStatus,
   type TxValidationResult,
 } from '@aztec/circuit-types';
-import { type AztecNode, type L2BlockNumber, NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/client';
+import { type AztecNode, type L2BlockNumber } from '@aztec/circuit-types/interfaces/client';
 import {
   type ClientProtocolCircuitVerifier,
   type ProverConfig,
@@ -45,6 +43,7 @@ import {
 import type { GasFees } from '@aztec/circuits.js/gas';
 import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
 import type { PrivateLog } from '@aztec/circuits.js/logs';
+import { MerkleTreeId, NullifierMembershipWitness } from '@aztec/circuits.js/trees';
 import {
   type NullifierLeafPreimage,
   type PublicDataTreeLeaf,
@@ -67,6 +66,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
+import { SiblingPath } from '@aztec/foundation/trees';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { SHA256Trunc, StandardTree, UnbalancedTree } from '@aztec/merkle-tree';

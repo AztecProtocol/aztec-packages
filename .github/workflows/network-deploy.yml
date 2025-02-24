@@ -196,7 +196,6 @@ jobs:
               -var="L1_DEPLOYMENT_PRIVATE_KEY=${{ secrets.SEPOLIA_L1_DEPLOYMENT_PRIVATE_KEY }}" \
               -var="L1_DEPLOYMENT_MNEMONIC=$L1_DEPLOYMENT_MNEMONIC" \
               -var="EXTERNAL_ETHEREUM_HOSTS=${{ env.EXTERNAL_ETHEREUM_HOSTS }}" \
-              -var="BOT_L1_MNEMONIC=$L1_DEPLOYMENT_MNEMONIC" \
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST=${{ env.EXTERNAL_ETHEREUM_CONSENSUS_HOST }}" \
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${{ secrets.SEPOLIA_API_KEY }}" \
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER=${{ env.GCP_API_KEY_HEADER }}" \
@@ -208,7 +207,6 @@ jobs:
               -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
               -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
               -var="L1_DEPLOYMENT_MNEMONIC=${{ steps.get-mnemonic.outputs.mnemonic }}" \
-              -var="BOT_L1_MNEMONIC=$L1_DEPLOYMENT_MNEMONIC" \
               -lock=${{ inputs.respect_tf_lock }}
           fi
 
@@ -224,7 +222,6 @@ jobs:
               -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
               -var="L1_DEPLOYMENT_PRIVATE_KEY=${{ secrets.SEPOLIA_L1_DEPLOYMENT_PRIVATE_KEY }}" \
               -var="L1_DEPLOYMENT_MNEMONIC=$L1_DEPLOYMENT_MNEMONIC" \
-              -var="BOT_L1_MNEMONIC=$L1_DEPLOYMENT_MNEMONIC" \
               -var="L1_DEPLOYMENT_SALT=${DEPLOYMENT_SALT:-$RANDOM}" \
               -var="EXTERNAL_ETHEREUM_HOSTS=${{ env.EXTERNAL_ETHEREUM_HOSTS }}" \
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST=${{ env.EXTERNAL_ETHEREUM_CONSENSUS_HOST }}" \
@@ -240,7 +237,6 @@ jobs:
               -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
               -var="L1_DEPLOYMENT_MNEMONIC=${{ steps.get-mnemonic.outputs.mnemonic }}" \
               -var="L1_DEPLOYMENT_SALT=${DEPLOYMENT_SALT:-$RANDOM}" \
-              -var="BOT_L1_MNEMONIC=$L1_DEPLOYMENT_MNEMONIC" \
               -out=tfplan \
               -lock=${{ inputs.respect_tf_lock }}
           fi

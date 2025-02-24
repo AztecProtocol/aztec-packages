@@ -34,6 +34,7 @@
 // Lookup and permutation relations
 #include "relations/lookups_bc_decomposition.hpp"
 #include "relations/lookups_bc_hashing.hpp"
+#include "relations/lookups_bc_retrieval.hpp"
 #include "relations/lookups_bitwise.hpp"
 #include "relations/lookups_instr_fetching.hpp"
 #include "relations/lookups_poseidon2_hash.hpp"
@@ -81,12 +82,12 @@ class AvmFlavor {
     static constexpr bool HasZK = false;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 36;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 735;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 737;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 89;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 860;
+    static constexpr size_t NUM_ALL_ENTITIES = 862;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -117,6 +118,7 @@ class AvmFlavor {
         lookup_bc_hashing_get_packed_field_relation<FF_>,
         lookup_bc_hashing_iv_is_len_relation<FF_>,
         lookup_bc_hashing_poseidon2_hash_relation<FF_>,
+        lookup_bc_retrieval_bytecode_hash_is_correct_relation<FF_>,
         lookup_bitwise_byte_operations_relation<FF_>,
         lookup_bitwise_integral_tag_length_relation<FF_>,
         lookup_instr_fetching_bytes_from_bc_dec_relation<FF_>,

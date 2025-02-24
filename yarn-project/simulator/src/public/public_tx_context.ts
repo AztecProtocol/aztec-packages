@@ -1,5 +1,4 @@
 import {
-  MerkleTreeId,
   type PublicExecutionRequest,
   type SimulationError,
   type Tx,
@@ -24,6 +23,7 @@ import {
   countAccumulatedItems,
   mergeAccumulatedData,
 } from '@aztec/circuits.js/kernel';
+import { MerkleTreeId } from '@aztec/circuits.js/trees';
 import { type GlobalVariables, type StateReference, TreeSnapshots } from '@aztec/circuits.js/tx';
 import {
   MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
