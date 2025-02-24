@@ -2,7 +2,7 @@ import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
-import { type AsyncHasher, type Hasher } from './hasher.js';
+import { type AsyncHasher } from './hasher.js';
 import { IndexedMerkleTree } from './indexed_merkle_tree.js';
 
 interface LeafPreimageFactory<T extends IndexedTreeLeafPreimage> {

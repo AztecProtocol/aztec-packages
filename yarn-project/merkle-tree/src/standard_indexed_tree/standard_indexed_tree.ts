@@ -4,8 +4,7 @@ import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { type FromBuffer } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
 import { SiblingPath } from '@aztec/foundation/trees';
-import { type Hasher } from '@aztec/foundation/trees';
-import { type IndexedTreeLeaf, type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
+import { type Hasher, type IndexedTreeLeaf, type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
 import { type IndexedTree, type PreimageFactory } from '../interfaces/indexed_tree.js';

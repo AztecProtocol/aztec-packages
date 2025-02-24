@@ -12,8 +12,7 @@ import {
 import { GasFees } from '@aztec/circuits.js/gas';
 import { PrivateLog } from '@aztec/circuits.js/logs';
 import { type ApiSchemaFor, optional, schemas } from '@aztec/circuits.js/schemas';
-import { MerkleTreeId } from '@aztec/circuits.js/trees';
-import { NullifierMembershipWitness } from '@aztec/circuits.js/trees';
+import { MerkleTreeId, NullifierMembershipWitness } from '@aztec/circuits.js/trees';
 import { BlockHeader } from '@aztec/circuits.js/tx';
 import {
   ARCHIVE_HEIGHT,

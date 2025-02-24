@@ -11,8 +11,7 @@ import {
 } from '@aztec/circuits.js/hash';
 import type { PublicCallRequest } from '@aztec/circuits.js/kernel';
 import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/circuits.js/shared-mutable';
-import { MerkleTreeId } from '@aztec/circuits.js/trees';
-import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
+import { MerkleTreeId, NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
 import {
   CANONICAL_AUTH_REGISTRY_ADDRESS,
   DEPLOYER_CONTRACT_ADDRESS,
