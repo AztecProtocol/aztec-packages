@@ -1,18 +1,9 @@
 import { type AztecAddress, type CheatCodes, EthAddress, Fr, type Wallet } from '@aztec/aztec.js';
+import type { ViemPublicClient, ViemWalletClient } from '@aztec/ethereum';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
-import {
-  type Account,
-  type Chain,
-  type GetContractReturnType,
-  type HttpTransport,
-  type PublicClient,
-  type WalletClient,
-  getContract,
-  parseEther,
-} from 'viem';
-import type * as chains from 'viem/chains';
+import { type GetContractReturnType, getContract, parseEther } from 'viem';
 
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
@@ -23,9 +14,9 @@ describe('e2e_cheat_codes', () => {
   let cc: CheatCodes;
   let teardown: () => Promise<void>;
 
-  let rollup: GetContractReturnType<typeof RollupAbi, WalletClient<HttpTransport, chains.Chain, Account>>;
-  let walletClient: WalletClient<HttpTransport, Chain, Account>;
-  let publicClient: PublicClient<HttpTransport, Chain>;
+  let rollup: GetContractReturnType<typeof RollupAbi, ViemWalletClient>;
+  let walletClient: ViemWalletClient;
+  let publicClient: ViemPublicClient;
   let token: TokenContract;
 
   beforeAll(async () => {

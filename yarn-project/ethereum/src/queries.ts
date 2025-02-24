@@ -1,15 +1,14 @@
 import { type EthAddress } from '@aztec/foundation/eth-address';
 
-import { type Chain, type HttpTransport, type PublicClient } from 'viem';
-
 import { type L1ContractsConfig } from './config.js';
 import { GovernanceContract } from './contracts/governance.js';
 import { RollupContract } from './contracts/rollup.js';
 import { type L1ContractAddresses } from './l1_contract_addresses.js';
+import { type ViemPublicClient } from './types.js';
 
 /** Given the Governance contract address, reads the addresses from all other contracts from L1. */
 export async function getL1ContractsAddresses(
-  publicClient: PublicClient<HttpTransport, Chain>,
+  publicClient: ViemPublicClient,
   governanceAddress: EthAddress,
 ): Promise<Omit<L1ContractAddresses, 'slashFactoryAddress' | 'coinIssuerAddress'>> {
   const governance = new GovernanceContract(publicClient, governanceAddress.toString());
@@ -26,7 +25,7 @@ export async function getL1ContractsAddresses(
 
 /** Reads the L1ContractsConfig from L1 contracts. */
 export async function getL1ContractsConfig(
-  publicClient: PublicClient<HttpTransport, Chain>,
+  publicClient: ViemPublicClient,
   addresses: { governanceAddress: EthAddress; rollupAddress?: EthAddress },
 ): Promise<Omit<L1ContractsConfig, 'ethereumSlotDuration'> & { l1StartBlock: bigint; l1GenesisTime: bigint }> {
   const governance = new GovernanceContract(publicClient, addresses.governanceAddress.toString());

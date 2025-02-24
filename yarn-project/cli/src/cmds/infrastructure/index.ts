@@ -2,7 +2,7 @@ import { type LogFn, type Logger } from '@aztec/foundation/log';
 
 import { type Command } from 'commander';
 
-import { ETHEREUM_HOST, l1ChainIdOption, parseOptionalInteger, pxeOption } from '../../utils/commands.js';
+import { ETHEREUM_HOSTS, l1ChainIdOption, parseOptionalInteger, pxeOption } from '../../utils/commands.js';
 
 export function injectCommands(program: Command, log: LogFn, debugLogger: Logger) {
   program
@@ -22,10 +22,11 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .argument('<command>', 'Command to run: list, add, remove, who-next')
     .argument('[who]', 'Who to add/remove')
     .description('Manages or queries registered sequencers on the L1 rollup contract.')
-    .requiredOption(
-      '--l1-rpc-url <string>',
-      'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
-      ETHEREUM_HOST,
+    .requiredOption<string[]>(
+      '--l1-rpc-urls <string>',
+      'List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated)',
+      (arg: string) => arg.split(','),
+      [ETHEREUM_HOSTS],
     )
     .option(
       '-m, --mnemonic <string>',
@@ -42,7 +43,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         who,
         mnemonic: options.mnemonic,
         rpcUrl: options.rpcUrl,
-        l1RpcUrl: options.l1RpcUrl,
+        l1RpcUrls: options.l1RpcUrls.split(','),
         chainId: options.l1ChainId,
         blockNumber: options.blockNumber,
         log,

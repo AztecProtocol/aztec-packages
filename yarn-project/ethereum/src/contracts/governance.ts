@@ -1,16 +1,10 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { GovernanceAbi } from '@aztec/l1-artifacts';
 
-import {
-  type Chain,
-  type GetContractReturnType,
-  type Hex,
-  type HttpTransport,
-  type PublicClient,
-  getContract,
-} from 'viem';
+import { type GetContractReturnType, type Hex, getContract } from 'viem';
 
 import { type L1ContractAddresses } from '../l1_contract_addresses.js';
+import { type ViemPublicClient } from '../types.js';
 import { GovernanceProposerContract } from './governance_proposer.js';
 
 export type L1GovernanceContractAddresses = Pick<
@@ -19,9 +13,9 @@ export type L1GovernanceContractAddresses = Pick<
 >;
 
 export class GovernanceContract {
-  private readonly governance: GetContractReturnType<typeof GovernanceAbi, PublicClient<HttpTransport, Chain>>;
+  private readonly governance: GetContractReturnType<typeof GovernanceAbi, ViemPublicClient>;
 
-  constructor(public readonly client: PublicClient<HttpTransport, Chain>, address: Hex) {
+  constructor(public readonly client: ViemPublicClient, address: Hex) {
     this.governance = getContract({ address, abi: GovernanceAbi, client });
   }
 

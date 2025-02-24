@@ -1,4 +1,4 @@
-import { createEthereumChain } from '@aztec/ethereum';
+import { type ViemPublicClient, type ViemWalletClient, createEthereumChain } from '@aztec/ethereum';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { TestERC20Abi } from '@aztec/l1-artifacts';
@@ -9,11 +9,11 @@ import {
   type GetContractReturnType,
   type HttpTransport,
   type LocalAccount,
-  type PublicClient,
   http as ViemHttp,
   type WalletClient,
   createPublicClient,
   createWalletClient,
+  fallback,
   getContract,
   parseEther,
 } from 'viem';
@@ -27,8 +27,8 @@ type L1Asset = {
 };
 
 export class Faucet {
-  private walletClient: WalletClient<HttpTransport, Chain, Account>;
-  private publicClient: PublicClient<HttpTransport, Chain>;
+  private walletClient: ViemWalletClient;
+  private publicClient: ViemPublicClient;
 
   private dripHistory = new Map<string, Map<string, number>>();
   private l1Assets = new Map<string, L1Asset>();
@@ -39,17 +39,17 @@ export class Faucet {
     private timeFn: () => number = Date.now,
     private log = createLogger('aztec:faucet'),
   ) {
-    const chain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
+    const chain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
 
     this.walletClient = createWalletClient({
       account: this.account,
       chain: chain.chainInfo,
-      transport: ViemHttp(chain.rpcUrl),
+      transport: fallback([ViemHttp(chain.rpcUrls[0])]),
     });
 
     this.publicClient = createPublicClient({
       chain: chain.chainInfo,
-      transport: ViemHttp(chain.rpcUrl),
+      transport: fallback([ViemHttp(chain.rpcUrls[0])]),
     });
   }
 

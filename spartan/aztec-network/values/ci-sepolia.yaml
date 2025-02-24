@@ -11,7 +11,7 @@ ethereum:
   l1GasPriceMax: 500
   l1FixedPriorityFeePerGas: 3
   execution:
-    externalHost: ""
+    externalHosts: ""
   beacon:
     externalHost: ""
     apiKey: ""

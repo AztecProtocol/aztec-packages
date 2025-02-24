@@ -74,7 +74,7 @@ trap cleanup SIGINT SIGTERM EXIT
 stern_pid=""
 function copy_stern_to_log {
   # Start stern in a subshell, capture its PID, and pipe output to cache_log so it is uploaded
-  stern spartan -n "$namespace" > "logs/kind-$namespace.log" &>/dev/null &
+  stern spartan -n "$namespace" >"logs/kind-$namespace.log" &>/dev/null &
   stern_pid=$!
 }
 

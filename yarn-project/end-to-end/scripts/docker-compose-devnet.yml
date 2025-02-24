@@ -8,11 +8,11 @@ services:
       - faucet-url
     environment:
       LOG_LEVEL: ${LOG_LEVEL:-verbose}
-      ETHEREUM_HOST:
+      ETHEREUM_HOSTS:
       JOB_NAME: ${JOB_NAME:-''}
       PXE_PROVER_ENABLED: ${PXE_PROVER_ENABLED:-1}
     command: |
-      export ETHEREUM_HOST=$$(cat /var/run/secrets/ethereum-host)
+      export ETHEREUM_HOSTS=$$(cat /var/run/secrets/ethereum-host)
       export FAUCET_URL=$$(cat /var/run/secrets/faucet-url)
       export AZTEC_NODE_URL=$$(cat /var/run/secrets/aztec-node-url)
       ${TEST:-./src/devnet/e2e_smoke.test.ts}
@@ -23,6 +23,6 @@ secrets:
   aztec-node-url:
     environment: AZTEC_NODE_URL
   ethereum-host:
-    environment: ETHEREUM_HOST
+    environment: ETHEREUM_HOSTS
   faucet-url:
     environment: FAUCET_URL

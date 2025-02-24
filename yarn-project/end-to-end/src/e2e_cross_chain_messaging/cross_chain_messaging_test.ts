@@ -10,12 +10,12 @@ import {
   type PXE,
   createLogger,
 } from '@aztec/aztec.js';
-import { createL1Clients } from '@aztec/ethereum';
+import { type ViemPublicClient, createL1Clients } from '@aztec/ethereum';
 import { InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 
-import { type Chain, type HttpTransport, type PublicClient, getContract } from 'viem';
+import { getContract } from 'viem';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import {
@@ -38,7 +38,7 @@ export class CrossChainMessagingTest {
   pxe!: PXE;
   aztecNodeConfig!: AztecNodeConfig;
 
-  publicClient!: PublicClient<HttpTransport, Chain> | undefined;
+  publicClient!: ViemPublicClient | undefined;
 
   user1Wallet!: AccountWallet;
   user2Wallet!: AccountWallet;
@@ -113,7 +113,7 @@ export class CrossChainMessagingTest {
         this.logger.verbose(`Public deploy accounts...`);
         await publicDeployAccounts(this.wallets[0], this.accounts.slice(0, 3));
 
-        const { publicClient, walletClient } = createL1Clients(this.aztecNodeConfig.l1RpcUrl, MNEMONIC);
+        const { publicClient, walletClient } = createL1Clients(this.aztecNodeConfig.l1RpcUrls, MNEMONIC);
 
         this.logger.verbose(`Setting up cross chain harness...`);
         this.crossChainTestHarness = await CrossChainTestHarness.new(
@@ -138,7 +138,7 @@ export class CrossChainMessagingTest {
         this.ownerAddress = AztecAddress.fromString(crossChainContext.ownerAddress.toString());
         const tokenPortalAddress = EthAddress.fromString(crossChainContext.tokenPortal.toString());
 
-        const { publicClient, walletClient } = createL1Clients(this.aztecNodeConfig.l1RpcUrl, MNEMONIC);
+        const { publicClient, walletClient } = createL1Clients(this.aztecNodeConfig.l1RpcUrls, MNEMONIC);
 
         const inbox = getContract({
           address: this.aztecNodeConfig.l1Contracts.inboxAddress.toString(),

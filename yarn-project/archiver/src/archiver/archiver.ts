@@ -38,7 +38,7 @@ import {
 } from '@aztec/circuits.js/contract';
 import { type PrivateLog, type PublicLog } from '@aztec/circuits.js/logs';
 import { type BlockHeader } from '@aztec/circuits.js/tx';
-import { createEthereumChain } from '@aztec/ethereum';
+import { type ViemPublicClient, createEthereumChain } from '@aztec/ethereum';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -58,15 +58,7 @@ import {
 import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import groupBy from 'lodash.groupby';
-import {
-  type Chain,
-  type GetContractReturnType,
-  type HttpTransport,
-  type PublicClient,
-  createPublicClient,
-  getContract,
-  http,
-} from 'viem';
+import { type GetContractReturnType, createPublicClient, fallback, getContract, http } from 'viem';
 
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from './archiver_store.js';
 import { type ArchiverConfig } from './config.js';
@@ -96,8 +88,8 @@ export class Archiver implements ArchiveSource, Traceable {
    */
   private runningPromise?: RunningPromise;
 
-  private rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
-  private inbox: GetContractReturnType<typeof InboxAbi, PublicClient<HttpTransport, Chain>>;
+  private rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>;
+  private inbox: GetContractReturnType<typeof InboxAbi, ViemPublicClient>;
 
   private store: ArchiverStoreHelper;
 
@@ -117,7 +109,7 @@ export class Archiver implements ArchiveSource, Traceable {
    * @param log - A logger.
    */
   constructor(
-    private readonly publicClient: PublicClient<HttpTransport, Chain>,
+    private readonly publicClient: ViemPublicClient,
     private readonly l1Addresses: { rollupAddress: EthAddress; inboxAddress: EthAddress; registryAddress: EthAddress },
     readonly dataStore: ArchiverDataStore,
     private readonly config: { pollingIntervalMs: number; batchSize: number },
@@ -155,10 +147,10 @@ export class Archiver implements ArchiveSource, Traceable {
     deps: { telemetry: TelemetryClient; blobSinkClient: BlobSinkClientInterface },
     blockUntilSynced = true,
   ): Promise<Archiver> {
-    const chain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
+    const chain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
     const publicClient = createPublicClient({
       chain: chain.chainInfo,
-      transport: http(chain.rpcUrl),
+      transport: fallback(config.l1RpcUrls.map(url => http(url))),
       pollingInterval: config.viemPollingIntervalMS,
     });
 

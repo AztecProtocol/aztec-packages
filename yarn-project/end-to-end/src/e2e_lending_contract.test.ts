@@ -1,4 +1,10 @@
-import { type AccountWallet, type CheatCodes, type DeployL1Contracts, Fr, type Logger } from '@aztec/aztec.js';
+import {
+  type AccountWallet,
+  type CheatCodes,
+  type DeployL1ContractsReturnType,
+  Fr,
+  type Logger,
+} from '@aztec/aztec.js';
 import { type TestDateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { LendingContract } from '@aztec/noir-contracts.js/Lending';
@@ -15,7 +21,7 @@ import { LendingAccount, LendingSimulator, TokenSimulator } from './simulators/i
 describe('e2e_lending_contract', () => {
   jest.setTimeout(100_000);
   let wallet: AccountWallet;
-  let deployL1ContractsValues: DeployL1Contracts;
+  let deployL1ContractsValues: DeployL1ContractsReturnType;
 
   let logger: Logger;
   let teardown: () => Promise<void>;

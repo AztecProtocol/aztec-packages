@@ -10,7 +10,7 @@ import {
   type AztecNode,
   type CheatCodes,
   type CompleteAddress,
-  type DeployL1Contracts,
+  type DeployL1ContractsReturnType,
   EthAddress,
   type Logger,
   type PXE,
@@ -79,7 +79,7 @@ export class FullProverTest {
   private context!: SubsystemsContext;
   private proverNode!: ProverNode;
   private simulatedProverNode!: ProverNode;
-  public l1Contracts!: DeployL1Contracts;
+  public l1Contracts!: DeployL1ContractsReturnType;
   public proverAddress!: EthAddress;
 
   constructor(

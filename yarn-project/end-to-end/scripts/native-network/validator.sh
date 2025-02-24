@@ -30,7 +30,7 @@ done
 echo "Done waiting."
 
 # Ethereum host required for the chain id script
-export ETHEREUM_HOST=${ETHEREUM_HOST:-"http://127.0.0.1:8545"}
+export ETHEREUM_HOSTS=${ETHEREUM_HOSTS:-"http://127.0.0.1:8545"}
 
 # Get the chain ID from the Ethereum node
 source "$REPO"/yarn-project/end-to-end/scripts/native-network/utils/get-chain-id.sh
@@ -60,10 +60,8 @@ export DEBUG=${DEBUG:-""}
 export LOG_LEVEL=${LOG_LEVEL:-"verbose"}
 export L1_CONSENSUS_HOST_URL=${L1_CONSENSUS_HOST_URL:-}
 
-
-
 # Automatically detect if we're using Anvil
-if curl -s -H "Content-Type: application/json" -X POST --data '{"method":"web3_clientVersion","params":[],"id":49,"jsonrpc":"2.0"}' $ETHEREUM_HOST | jq .result | grep -q anvil; then
+if curl -s -H "Content-Type: application/json" -X POST --data '{"method":"web3_clientVersion","params":[],"id":49,"jsonrpc":"2.0"}' $ETHEREUM_HOSTS | jq .result | grep -q anvil; then
   IS_ANVIL="true"
 else
   IS_ANVIL="false"

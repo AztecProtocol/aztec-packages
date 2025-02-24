@@ -28,7 +28,7 @@ export type BotConfig = {
   /** URL to the PXE for sending txs, or undefined if an in-proc PXE is used. */
   pxeUrl: string | undefined;
   /** Url of the ethereum host. */
-  l1RpcUrl: string | undefined;
+  l1RpcUrls: string[] | undefined;
   /** The mnemonic for the account to bridge fee juice from L1. */
   l1Mnemonic: string | undefined;
   /** The private key for the account to bridge fee juice from L1. */
@@ -75,7 +75,7 @@ export const BotConfigSchema = z
   .object({
     nodeUrl: z.string().optional(),
     pxeUrl: z.string().optional(),
-    l1RpcUrl: z.string().optional(),
+    l1RpcUrls: z.array(z.string()).optional(),
     l1Mnemonic: z.string().optional(),
     l1PrivateKey: z.string().optional(),
     senderPrivateKey: schemas.Fr.optional(),
@@ -100,7 +100,7 @@ export const BotConfigSchema = z
   .transform(config => ({
     nodeUrl: undefined,
     pxeUrl: undefined,
-    l1RpcUrl: undefined,
+    l1RpcUrls: undefined,
     l1Mnemonic: undefined,
     l1PrivateKey: undefined,
     senderPrivateKey: undefined,
@@ -118,9 +118,10 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
     env: 'BOT_PXE_URL',
     description: 'URL to the PXE for sending txs, or undefined if an in-proc PXE is used.',
   },
-  l1RpcUrl: {
-    env: 'ETHEREUM_HOST',
+  l1RpcUrls: {
+    env: 'ETHEREUM_HOSTS',
     description: 'URL of the ethereum host.',
+    parseEnv: (val: string) => val.split(',').map(url => url.trim()),
   },
   l1Mnemonic: {
     env: 'BOT_L1_MNEMONIC',

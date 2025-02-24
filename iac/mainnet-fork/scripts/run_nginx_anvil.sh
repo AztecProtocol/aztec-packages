@@ -17,7 +17,7 @@ trap 'kill $(jobs -p)' SIGTERM
 # Anvil defaults - Nginx assumes these values to be as they are
 HOST="0.0.0.0"
 PORT=8544
-ETHEREUM_HOST=$HOST:$PORT
+ETHEREUM_HOSTS=$HOST:$PORT
 # Stripping double quotations from the mnemonic seed phrase
 echo "stripping double quotations from the mnemonic seed phrase: ${MNEMONIC:0:10}..."
 MNEMONIC_STRIPPED=${MNEMONIC//\"/}
@@ -32,12 +32,12 @@ mkdir -p /var/log/anvil/
 # Run anvil logging to stdout
 .foundry/bin/anvil --block-time 12 --host $HOST -p $PORT -m "$MNEMONIC_STRIPPED" -f=https://mainnet.infura.io/v3/$INFURA_API_KEY --chain-id=$L1_CHAIN_ID --fork-block-number=15918000 --block-base-fee-per-gas=10 -s=$SNAPSHOT_FREQUENCY --state=./data/state --balance=1000000000000000000 &
 
-echo "Waiting for ethereum host at $ETHEREUM_HOST..."
-while ! curl -s $ETHEREUM_HOST >/dev/null; do sleep 1; done
+echo "Waiting for ethereum host at $ETHEREUM_HOSTS..."
+while ! curl -s $ETHEREUM_HOSTS >/dev/null; do sleep 1; done
 
 # Fix anvil's fork timestamp
-curl -s -H "Content-Type: application/json" -XPOST -d"{\"id\":1,\"jsonrpc\":\"2.0\",\"method\":\"evm_setNextBlockTimestamp\",\"params\":[\"$(date +%s | xargs printf '0x%x')\"]}" $ETHEREUM_HOST > /dev/null
-curl -s -H "Content-Type: application/json" -XPOST -d"{\"id\":2,\"jsonrpc\":\"2.0\",\"method\":\"evm_mine\",\"params\":[]}" $ETHEREUM_HOST > /dev/null
+curl -s -H "Content-Type: application/json" -XPOST -d"{\"id\":1,\"jsonrpc\":\"2.0\",\"method\":\"evm_setNextBlockTimestamp\",\"params\":[\"$(date +%s | xargs printf '0x%x')\"]}" $ETHEREUM_HOSTS >/dev/null
+curl -s -H "Content-Type: application/json" -XPOST -d"{\"id\":2,\"jsonrpc\":\"2.0\",\"method\":\"evm_mine\",\"params\":[]}" $ETHEREUM_HOSTS >/dev/null
 
 echo "Starting nginx..."
 nginx &

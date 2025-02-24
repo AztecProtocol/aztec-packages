@@ -7,7 +7,7 @@ import { getGenesisValues } from '@aztec/world-state/testing';
 import { deployAztecContracts } from '../../utils/aztec.js';
 
 export async function deployL1Contracts(
-  rpcUrl: string,
+  rpcUrls: string[],
   chainId: number,
   privateKey: string | undefined,
   mnemonic: string,
@@ -25,7 +25,7 @@ export async function deployL1Contracts(
   const { genesisBlockHash, genesisArchiveRoot } = await getGenesisValues(initialFundedAccounts.map(a => a.address));
 
   const { l1ContractAddresses } = await deployAztecContracts(
-    rpcUrl,
+    rpcUrls,
     chainId,
     privateKey,
     mnemonic,
