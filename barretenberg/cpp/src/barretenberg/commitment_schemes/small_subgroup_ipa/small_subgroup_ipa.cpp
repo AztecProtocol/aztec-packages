@@ -82,10 +82,11 @@ namespace bb {
 template <typename Flavor>
 SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(ZKSumcheckData<Flavor>& zk_sumcheck_data,
                                                        const std::vector<FF>& multivariate_challenge,
-                                                       const FF claimed_ipa_eval,
+                                                       const FF claimed_inner_product,
                                                        std::shared_ptr<typename Flavor::Transcript>& transcript,
                                                        std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key)
-    : interpolation_domain(zk_sumcheck_data.interpolation_domain)
+    : claimed_inner_product(claimed_inner_product)
+    , interpolation_domain(zk_sumcheck_data.interpolation_domain)
     , concatenated_polynomial(zk_sumcheck_data.libra_concatenated_monomial_form)
     , libra_concatenated_lagrange_form(zk_sumcheck_data.libra_concatenated_lagrange_form)
     , challenge_polynomial(SUBGROUP_SIZE)
@@ -94,6 +95,8 @@ SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(ZKSumcheckData<Flavor>& z
     , big_sum_polynomial(SUBGROUP_SIZE + 3) // + 3 to account for masking
     , batched_polynomial(BATCHED_POLYNOMIAL_LENGTH)
     , batched_quotient(QUOTIENT_LENGTH)
+    , transcript(transcript)
+    , commitment_key(commitment_key)
 
 {
     // Reallocate the commitment key if necessary. This is an edge case with SmallSubgroupIPA since it has
@@ -108,23 +111,6 @@ SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(ZKSumcheckData<Flavor>& z
 
     // Construct the challenge polynomial in Lagrange basis, compute its monomial coefficients
     compute_challenge_polynomial(multivariate_challenge);
-
-    // Construct unmasked big sum polynomial in Lagrange basis, compute its monomial coefficients and mask it
-    compute_big_sum_polynomial();
-
-    // Send masked commitment [A + Z_H * R] to the verifier, where R is of degree 2
-    transcript->template send_to_verifier("Libra:big_sum_commitment", commitment_key->commit(big_sum_polynomial));
-
-    // Compute C(X)
-    compute_batched_polynomial(claimed_ipa_eval);
-
-    // Compute Q(X)
-    compute_batched_quotient();
-
-    // Send commitment [Q] to the verifier
-    if (commitment_key) {
-        transcript->template send_to_verifier("Libra:quotient_commitment", commitment_key->commit(batched_quotient));
-    }
 }
 
 // Construct prover from TranslationData. Used by ECCVMProver.
@@ -132,18 +118,21 @@ template <typename Flavor>
 SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(TranslationData<typename Flavor::Transcript>& translation_data,
                                                        const FF evaluation_challenge_x,
                                                        const FF batching_challenge_v,
-                                                       const FF claimed_ipa_eval,
+                                                       const FF claimed_inner_product,
                                                        std::shared_ptr<typename Flavor::Transcript>& transcript,
                                                        std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key)
-    : interpolation_domain{}
+    : claimed_inner_product(claimed_inner_product)
+    , interpolation_domain{}
     , concatenated_polynomial(Polynomial<FF>(SUBGROUP_SIZE + 2))
     , libra_concatenated_lagrange_form(Polynomial<FF>(SUBGROUP_SIZE))
-    , challenge_polynomial(SUBGROUP_SIZE) // will have a different form
+    , challenge_polynomial(SUBGROUP_SIZE)
     , challenge_polynomial_lagrange(SUBGROUP_SIZE)
     , big_sum_polynomial_unmasked(SUBGROUP_SIZE)
     , big_sum_polynomial(SUBGROUP_SIZE + 3) // + 3 to account for masking
     , batched_polynomial(BATCHED_POLYNOMIAL_LENGTH)
     , batched_quotient(QUOTIENT_LENGTH)
+    , transcript(transcript)
+    , commitment_key(commitment_key)
 
 {
     if constexpr (IsAnyOf<Flavor, ECCVMFlavor, GrumpkinSettings>) {
@@ -160,7 +149,10 @@ SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(TranslationData<typename 
 
     // Construct the challenge polynomial in Lagrange basis, compute its monomial coefficients
     compute_eccvm_challenge_polynomial(evaluation_challenge_x, batching_challenge_v);
+}
 
+template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::prove()
+{
     // Construct unmasked big sum polynomial in Lagrange basis, compute its monomial coefficients and mask it
     compute_big_sum_polynomial();
 
@@ -168,7 +160,7 @@ SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(TranslationData<typename 
     transcript->template send_to_verifier("Translation:big_sum_commitment", commitment_key->commit(big_sum_polynomial));
 
     // Compute C(X)
-    compute_batched_polynomial(claimed_ipa_eval);
+    compute_batched_polynomial();
 
     // Compute Q(X)
     compute_batched_quotient();
@@ -176,7 +168,6 @@ SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(TranslationData<typename 
     // Send commitment [Q] to the verifier
     transcript->template send_to_verifier("Translation:quotient_commitment", commitment_key->commit(batched_quotient));
 }
-
 /**
  * @brief Computes the challenge polynomial F(X) based on the provided multivariate challenges.
  *
@@ -293,7 +284,7 @@ template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::compute_big_sum_
  * \f$ is the fixed generator of \f$ H \f$.
  *
  */
-template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::compute_batched_polynomial(const FF& claimed_evaluation)
+template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::compute_batched_polynomial()
 {
     // Compute shifted big sum polynomial A(gX)
     Polynomial<FF> shifted_big_sum(SUBGROUP_SIZE + 3);
@@ -336,7 +327,7 @@ template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::compute_batched_
     }
     // Subtract L_{|H|} * s
     for (size_t idx = 0; idx < SUBGROUP_SIZE; idx++) {
-        batched_polynomial.at(idx) -= lagrange_last.at(idx) * claimed_evaluation;
+        batched_polynomial.at(idx) -= lagrange_last.at(idx) * claimed_inner_product;
     }
 }
 /**

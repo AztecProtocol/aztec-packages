@@ -197,7 +197,7 @@ TYPED_TEST(SmallSubgroupIPATest, ProverAndVerifierSimple)
     const std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations =
         this->evaluate_small_ipa_witnesses(small_subgroup_ipa_prover.get_witness_polynomials());
 
-    bool consistency_checked = Verifier::check_evaluations_consistency(
+    bool consistency_checked = Verifier::check_libra_evaluations_consistency(
         small_ipa_evaluations, this->evaluation_challenge, multivariate_challenge, claimed_inner_product);
 
     EXPECT_TRUE(consistency_checked);
@@ -239,7 +239,7 @@ TYPED_TEST(SmallSubgroupIPATest, ProverAndVerifierSimpleFailure)
     const std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations =
         this->evaluate_small_ipa_witnesses(witness_polynomials);
 
-    bool consistency_checked = Verifier::check_evaluations_consistency(
+    bool consistency_checked = Verifier::check_libra_evaluations_consistency(
         small_ipa_evaluations, this->evaluation_challenge, multivariate_challenge, claimed_inner_product);
 
     // Since witness polynomials were modified, the consistency check must fail

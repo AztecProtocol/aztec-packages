@@ -373,7 +373,7 @@ template <typename Curve> class ShpleminiVerifier_ {
                         shplonk_batching_challenge,
                         shplonk_evaluation_challenge);
 
-            *consistency_checked = SmallSubgroupIPAVerifier<Curve>::check_evaluations_consistency(
+            *consistency_checked = SmallSubgroupIPAVerifier<Curve>::check_libra_evaluations_consistency(
                 libra_evaluations, gemini_evaluation_challenge, multivariate_challenge, libra_univariate_evaluation);
         }
 

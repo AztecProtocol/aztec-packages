@@ -31,6 +31,7 @@ template <typename Flavor> class SmallSubgroupIPAProver {
     // Fixed generator of H
     static constexpr FF subgroup_generator = Curve::subgroup_generator;
 
+    FF claimed_inner_product;
     // Interpolation domain {1, g, \ldots, g^{SUBGROUP_SIZE - 1}} used by ECCVM
     std::array<FF, SUBGROUP_SIZE> interpolation_domain;
     // We use IFFT over BN254 scalar field
@@ -40,10 +41,6 @@ template <typename Flavor> class SmallSubgroupIPAProver {
     Polynomial<FF> concatenated_polynomial;
     // Lagrange coefficeints of the concatenated Libra masking polynomial = constant_term || g_0 || ... || g_{d-1}
     Polynomial<FF> libra_concatenated_lagrange_form;
-
-    // Claimed evaluation s = constant_term + g_0(u_0) + ... + g_{d-1}(u_{d-1}), where g_i is the i'th Libra masking
-    // univariate
-    FF claimed_evaluation;
 
     // The polynomial obtained by concatenated powers of sumcheck challenges
     Polynomial<FF> challenge_polynomial;
@@ -60,10 +57,13 @@ template <typename Flavor> class SmallSubgroupIPAProver {
     // Quotient of the batched polynomial C(X) by the subgroup vanishing polynomial X^{|H|} - 1
     Polynomial<FF> batched_quotient;
 
+    std::shared_ptr<typename Flavor::Transcript> transcript;
+    std::shared_ptr<typename Flavor::CommitmentKey> commitment_key;
+
   public:
     SmallSubgroupIPAProver(ZKSumcheckData<Flavor>& zk_sumcheck_data,
                            const std::vector<FF>& multivariate_challenge,
-                           const FF claimed_ipa_eval,
+                           const FF claimed_inner_product,
                            std::shared_ptr<typename Flavor::Transcript>& transcript,
                            std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key);
 
@@ -71,10 +71,10 @@ template <typename Flavor> class SmallSubgroupIPAProver {
     SmallSubgroupIPAProver(TranslationData<typename Flavor::Transcript>& translation_data,
                            const FF evaluation_challenge_x,
                            const FF batching_challenge_v,
-                           const FF claimed_ipa_eval,
+                           const FF claimed_inner_product,
                            std::shared_ptr<typename Flavor::Transcript>& transcript,
                            std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key);
-
+    void prove();
     // Getter to pass the witnesses to ShpleminiProver. Big sum polynomial is evaluated at 2 points (and is small)
     std::array<bb::Polynomial<FF>, NUM_SMALL_IPA_EVALUATIONS> get_witness_polynomials() const
     {
@@ -90,7 +90,7 @@ template <typename Flavor> class SmallSubgroupIPAProver {
 
     void compute_big_sum_polynomial();
 
-    void compute_batched_polynomial(const FF& claimed_evaluation);
+    void compute_batched_polynomial();
 
     std::array<Polynomial<FF>, 2> static compute_lagrange_polynomials(
         const std::array<FF, SUBGROUP_SIZE>& interpolation_domain, const EvaluationDomain<FF>& bn_evaluation_domain);
