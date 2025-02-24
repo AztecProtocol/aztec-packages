@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <typeinfo>
 
 /*
  * this class describes arithmetic circuit as an undirected graph, where vertices are variables from circuit.
@@ -16,6 +17,38 @@
  * constrained properly. if number of connected components > 1, it means that there were missed some connections between
  * variables.
  */
+
+namespace cdg {
+
+/*
+ * we add a new feature for static analyzer, now it contains gates where it found every variable. This may be helpful, if we want to do functions that
+ * remove false-positive variables from the analyzer using selectors in the gate + some additional knowledge about this variable, for example, tau or range tags.
+ * this info contains in unordered map with key as std::pair<uint32_t, size_t>, where uint32_t -- real variable index and size_t -- index of UltraTraceBlock in 
+ * Reference Array with all TraceBlocks, that Ultra Circuit Builder contains inside. But there was a problem with unordered map -- it doesn't have default hash function and 
+ * function for checking equivalence for std::pair as a key, so we had to implement it ourselves. We decided to choose approach based on function hash_combine from boost library
+ * for C++, and it's not so difficult to hash 2 elements in pair and check their equivalence. 
+*/   
+using UltraBlock = bb::UltraCircuitBuilder::Arithmetization::UltraTraceBlock;
+using KeyPair = std::pair<uint32_t, size_t>;
+
+struct KeyHasher{
+    size_t operator()(const KeyPair& pair) const {
+        size_t combined_hash = 0;
+        auto hash_combiner = [](size_t lhs, size_t rhs) {
+            return lhs ^ (rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2));
+        };
+        combined_hash = hash_combiner(combined_hash, std::hash<uint32_t>()(pair.first));
+        combined_hash = hash_combiner(combined_hash, std::hash<size_t>()(pair.second));
+        return combined_hash;
+    }
+};
+
+struct KeyEquals{
+    bool operator()(const KeyPair& p1, const KeyPair& p2) const {
+        return (p1.first == p2.first && p1.second == p2.second);
+    }
+};
+
 template <typename FF> class Graph_ {
   public:
     Graph_() = default;
@@ -25,24 +58,36 @@ template <typename FF> class Graph_ {
     Graph_&& operator=(Graph_&& other) = delete;
     Graph_(const bb::StandardCircuitBuilder_<FF>& circuit_constructor);
     Graph_(bb::UltraCircuitBuilder& ultra_circuit_constructor);
-
+    
     uint32_t to_real(bb::UltraCircuitBuilder& ultra_circuit_constructor, const uint32_t& variable_index)
     {
         return ultra_circuit_constructor.real_variable_index[variable_index];
     };
+    size_t find_block_index(bb::UltraCircuitBuilder& ultra_builder, const UltraBlock& block);
     void process_gate_variables(bb::UltraCircuitBuilder& ultra_circuit_constructor,
-                                std::vector<uint32_t>& gate_variables);
-
+                                std::vector<uint32_t>& gate_variables,
+                                size_t gate_index,
+                                size_t blk_idx);
     std::unordered_map<uint32_t, size_t> get_variables_gate_counts() { return this->variables_gate_counts; };
 
-    std::vector<uint32_t> get_arithmetic_gate_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                                                  size_t index);
+    std::vector<std::vector<uint32_t>> get_arithmetic_gate_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
+                                                                  size_t index, size_t block_idx, UltraBlock& blk);
     std::vector<uint32_t> get_elliptic_gate_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                                                size_t index);
+                                                                size_t index, size_t block_idx, UltraBlock& blk);
     std::vector<uint32_t> get_plookup_gate_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                                               size_t index);
+                                                               size_t index, size_t block_idx, UltraBlock& blk);
     std::vector<uint32_t> get_sort_constraint_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                                                  size_t index);
+                                                                  size_t index, size_t block_idx, UltraBlock& blk);
+    std::vector<uint32_t> get_poseido2s_gate_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
+                                                                 size_t index,
+                                                                 size_t block_idx,
+                                                                 UltraBlock& blk);
+    std::vector<uint32_t> get_auxiliary_gate_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
+                                                                 size_t index, size_t block_idx, UltraBlock& blk);
+    std::vector<uint32_t> get_rom_table_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
+                                                            const bb::UltraCircuitBuilder::RomTranscript& rom_array);
+    std::vector<uint32_t> get_ram_table_connected_component(bb::UltraCircuitBuilder& ultra_builder,
+                                                            const bb::UltraCircuitBuilder::RamTranscript& ram_array);
 
     void add_new_edge(const uint32_t& first_variable_index, const uint32_t& second_variable_index);
     std::vector<uint32_t> get_variable_adjacency_list(const uint32_t& variable_index)
@@ -89,6 +134,7 @@ template <typename FF> class Graph_ {
                                                 const std::unordered_set<uint32_t>& decompose_variables);
     void remove_unnecessary_plookup_variables(bb::UltraCircuitBuilder& ultra_circuit_builder,
                                               std::unordered_set<uint32_t>& variables_in_on_gate);
+    void remove_unnecessary_range_constrains_variables(bb::UltraCircuitBuilder& ultra_builder);
     std::unordered_set<uint32_t> show_variables_in_one_gate(bb::UltraCircuitBuilder& ultra_circuit_builder);
 
     void remove_unnecessary_aes_plookup_variables(std::unordered_set<uint32_t>& variables_in_one_gate,
@@ -99,11 +145,13 @@ template <typename FF> class Graph_ {
                                                      bb::UltraCircuitBuilder& ultra_circuit_builder,
                                                      bb::plookup::BasicTableId& table_id,
                                                      size_t gate_index);
+    void remove_record_witness_variables(bb::UltraCircuitBuilder& ultra_builder);
 
     void print_graph();
     void print_connected_components();
     void print_variables_gate_counts();
     void print_variables_edge_counts();
+    void print_variables_in_one_gate(bb::UltraCircuitBuilder& ultra_builder);
     ~Graph_() = default;
 
   private:
@@ -114,6 +162,11 @@ template <typename FF> class Graph_ {
         variables_gate_counts; // we use this data structure to count, how many gates use every variable
     std::unordered_map<uint32_t, size_t>
         variables_degree; // we use this data structure to count, how many every variable have edges
+    std::unordered_map<KeyPair, std::vector<size_t>, KeyHasher, KeyEquals> variable_gates; //we use this data structure to store gates and TraceBlocks for every variables, where static analyzer found them in the circuit.
+    std::unordered_set<uint32_t> variables_in_one_gate;
+    std::unordered_set<uint32_t> fixed_variables;
 };
 
 using Graph = Graph_<bb::fr>;
+
+} //namespace cgd
