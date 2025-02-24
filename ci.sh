@@ -24,7 +24,7 @@ function print_usage {
   echo_cmd "ec2-grind"    "Same as ec2-test, but run over N instances."
   echo_cmd "ec2-shell"    "Launch an ec2 instance, clone the repo and drop into a shell."
   echo_cmd "local"        "Clone your last commit into a fresh container and bootstrap on local hardware."
-  echo_cmd "run"          "Same as calling trigger, then log."
+  echo_cmd "run"          "Same as calling trigger, then rlog."
   echo_cmd "shell"        "Jump into a new shell on the current running build instance.\n" \
                           "Can provide a command to run instead of dropping into a shell, e.g. 'ci shell ls'."
   echo_cmd "trigger"      "Trigger the GA workflow on the PR associated with the current branch.\n" \

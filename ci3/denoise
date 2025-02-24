@@ -49,7 +49,7 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   {
     echo "Command: $1 (exit: $status)"
     cat "$outfile"
-  } | redis_cli -x SETEX $key 604800 &>/dev/null
+  } | redis_cli -x SETEX $key $CI_REDIS_EXPIRE &>/dev/null
 fi
 
 # Handle non-zero exit status
