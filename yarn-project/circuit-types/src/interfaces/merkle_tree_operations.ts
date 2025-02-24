@@ -1,10 +1,8 @@
-import { type BlockHeader, type Fr, type StateReference } from '@aztec/circuits.js';
-import { type NullifierLeaf, type PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
+import { type MerkleTreeId, type NullifierLeaf, type PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
+import type { BlockHeader, StateReference } from '@aztec/circuits.js/tx';
+import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
-
-import { type MerkleTreeId } from '../merkle_tree_id.js';
-import { type SiblingPath } from '../sibling_path/sibling_path.js';
+import { type IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';
 
 /**
  * Type alias for the nullifier tree ID.

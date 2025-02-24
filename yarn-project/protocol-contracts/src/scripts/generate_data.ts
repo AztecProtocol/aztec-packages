@@ -1,5 +1,6 @@
-import { AztecAddress, Fr, getContractInstanceFromDeployParams } from '@aztec/circuits.js';
 import { loadContractArtifact } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { getContractInstanceFromDeployParams } from '@aztec/circuits.js/contract';
 import { type NoirCompiledContract } from '@aztec/circuits.js/noir';
 import {
   CANONICAL_AUTH_REGISTRY_ADDRESS,
@@ -15,6 +16,7 @@ import {
   ROUTER_ADDRESS,
 } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
 import { createConsoleLogger } from '@aztec/foundation/log';
 
 import { promises as fs } from 'fs';

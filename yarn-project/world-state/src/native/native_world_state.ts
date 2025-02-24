@@ -1,13 +1,15 @@
-import { type L2Block, MerkleTreeId } from '@aztec/circuit-types';
+import { type L2Block } from '@aztec/circuit-types';
 import {
   type IndexedTreeId,
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
 } from '@aztec/circuit-types/interfaces/server';
-import { BlockHeader, EthAddress, Fr, PartialStateReference, StateReference } from '@aztec/circuits.js';
-import { NullifierLeaf, type NullifierLeafPreimage, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
+import { MerkleTreeId, NullifierLeaf, type NullifierLeafPreimage, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
+import { BlockHeader, PartialStateReference, StateReference } from '@aztec/circuits.js/tx';
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 

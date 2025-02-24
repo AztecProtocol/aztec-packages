@@ -1,16 +1,8 @@
 import { Blob, type SpongeBlob } from '@aztec/blob-lib';
-import { Body, MerkleTreeId, type ProcessedTx, TxEffect, getTreeHeight } from '@aztec/circuit-types';
+import { Body, type ProcessedTx, TxEffect } from '@aztec/circuit-types';
 import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
-import {
-  BlockHeader,
-  ContentCommitment,
-  Fr,
-  type GlobalVariables,
-  type ParityPublicInputs,
-  PartialStateReference,
-  PublicDataHint,
-  StateReference,
-} from '@aztec/circuits.js';
+import { PublicDataHint } from '@aztec/circuits.js/avm';
+import type { ParityPublicInputs } from '@aztec/circuits.js/parity';
 import {
   type BaseOrMergeRollupPublicInputs,
   type BlockRootOrBlockMergePublicInputs,
@@ -21,10 +13,19 @@ import {
 } from '@aztec/circuits.js/rollup';
 import {
   AppendOnlyTreeSnapshot,
+  MerkleTreeId,
   NullifierLeafPreimage,
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
+  getTreeHeight,
 } from '@aztec/circuits.js/trees';
+import {
+  BlockHeader,
+  ContentCommitment,
+  type GlobalVariables,
+  PartialStateReference,
+  StateReference,
+} from '@aztec/circuits.js/tx';
 import {
   ARCHIVE_HEIGHT,
   MAX_NOTE_HASHES_PER_TX,
@@ -40,6 +41,7 @@ import {
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
 import { type Logger } from '@aztec/foundation/log';
 import { type Tuple, assertLength, serializeToBuffer, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { MembershipWitness, MerkleTreeCalculator, computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';

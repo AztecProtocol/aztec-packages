@@ -1,25 +1,25 @@
-import {
-  AztecAddress,
-  ClientIvcProof,
-  CompleteAddress,
-  type ContractInstanceWithAddress,
-  EthAddress,
-  Fr,
-  GasFees,
-  type NodeInfo,
-  Point,
-  type ProtocolContractAddresses,
-  ProtocolContractsNames,
-  PublicKeys,
-  getContractClassFromArtifact,
-} from '@aztec/circuits.js';
 import { type AbiDecoded, type ContractArtifact, EventSelector } from '@aztec/circuits.js/abi';
 import { loadContractArtifact } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import {
+  CompleteAddress,
+  type ContractInstanceWithAddress,
+  type NodeInfo,
+  type ProtocolContractAddresses,
+  ProtocolContractsNames,
+  getContractClassFromArtifact,
+} from '@aztec/circuits.js/contract';
+import { GasFees } from '@aztec/circuits.js/gas';
 import { PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
+import { PublicKeys } from '@aztec/circuits.js/keys';
+import { ClientIvcProof } from '@aztec/circuits.js/proofs';
 import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
 import { memoize } from '@aztec/foundation/decorators';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
+import { SiblingPath } from '@aztec/foundation/trees';
 import { fileURLToPath } from '@aztec/foundation/url';
 
 import { jest } from '@jest/globals';
@@ -29,7 +29,7 @@ import omit from 'lodash.omit';
 import times from 'lodash.times';
 import { resolve } from 'path';
 
-import { AuthWitness } from '../auth_witness.js';
+import { AuthWitness } from '../auth_witness/auth_witness.js';
 import { type InBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import {
@@ -42,7 +42,6 @@ import {
 import { UniqueNote } from '../notes/index.js';
 import { type NotesFilter } from '../notes/notes_filter.js';
 import { PrivateExecutionResult } from '../private_execution_result.js';
-import { SiblingPath } from '../sibling_path/sibling_path.js';
 import { Tx, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '../tx/index.js';
 import { TxEffect } from '../tx_effect.js';
 import { TxExecutionRequest } from '../tx_execution_request.js';

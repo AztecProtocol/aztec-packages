@@ -1,16 +1,13 @@
 import { pedersenHash } from '@aztec/foundation/crypto';
 
+import type { AsyncHasher } from './hasher.js';
 import { MerkleTree } from './merkle_tree.js';
 
 /**
  * Merkle tree calculator.
  */
 export class MerkleTreeCalculator {
-  private constructor(
-    private height: number,
-    private zeroHashes: Buffer[],
-    private hasher: (left: Buffer, right: Buffer) => Promise<Buffer>,
-  ) {
+  private constructor(private height: number, private zeroHashes: Buffer[], private hasher: AsyncHasher['hash']) {
     this.hasher = hasher;
   }
 

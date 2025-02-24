@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
 import { Fr, Point, fromBuffer } from '@aztec/foundation/fields';
-import { hexSchemaFor } from '@aztec/foundation/schemas';
+import { type ZodFor, hexSchemaFor } from '@aztec/foundation/schemas';
 import { type BufferReader, FieldReader, TypeRegistry } from '@aztec/foundation/serialize';
 import { hexToBuffer } from '@aztec/foundation/string';
 
@@ -136,7 +136,7 @@ export class AztecAddress {
     return this.toString();
   }
 
-  static get schema() {
+  static get schema(): ZodFor<AztecAddress> {
     return hexSchemaFor(AztecAddress, AztecAddress.isAddress);
   }
 }

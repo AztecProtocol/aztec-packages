@@ -9,8 +9,9 @@ import {
   TxStatus,
   getSlotRangeForEpoch,
 } from '@aztec/circuit-types';
-import { type BlockHeader, EthAddress } from '@aztec/circuits.js';
+import { type BlockHeader } from '@aztec/circuits.js/tx';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 
 /**

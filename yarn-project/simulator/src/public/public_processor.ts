@@ -1,6 +1,5 @@
 import {
   type FailedTx,
-  MerkleTreeId,
   NestedProcessReturnValues,
   type ProcessedTx,
   Tx,
@@ -10,16 +9,15 @@ import {
   makeProcessedTxFromTxWithPublicCalls,
 } from '@aztec/circuit-types';
 import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
-import {
-  type AztecAddress,
-  type ContractDataSource,
-  Fr,
-  Gas,
-  type GlobalVariables,
-  PublicDataWrite,
-} from '@aztec/circuits.js';
+import { PublicDataWrite } from '@aztec/circuits.js/avm';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { ContractDataSource } from '@aztec/circuits.js/contract';
+import { Gas } from '@aztec/circuits.js/gas';
+import { MerkleTreeId } from '@aztec/circuits.js/trees';
+import type { GlobalVariables } from '@aztec/circuits.js/tx';
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NULLIFIER_SUBTREE_HEIGHT } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { type DateProvider, Timer, elapsed, executeTimeout } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';

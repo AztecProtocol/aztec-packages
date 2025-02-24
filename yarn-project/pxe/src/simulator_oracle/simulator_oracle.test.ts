@@ -11,22 +11,15 @@ import {
 } from '@aztec/circuit-types';
 import { type AztecNode } from '@aztec/circuit-types/interfaces/client';
 import { randomContractArtifact, randomContractInstanceWithAddress } from '@aztec/circuit-types/testing';
-import {
-  AztecAddress,
-  CompleteAddress,
-  type Fq,
-  Fr,
-  GrumpkinScalar,
-  IndexedTaggingSecret,
-  PublicLog,
-  computeAddress,
-  computeTaggingSecretPoint,
-  deriveKeys,
-} from '@aztec/circuits.js';
 import { type FunctionArtifact, FunctionSelector, FunctionType } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { CompleteAddress } from '@aztec/circuits.js/contract';
+import { computeAddress, computeTaggingSecretPoint, deriveKeys } from '@aztec/circuits.js/keys';
+import { IndexedTaggingSecret, PublicLog } from '@aztec/circuits.js/logs';
 import { INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX, PUBLIC_LOG_DATA_SIZE_IN_FIELDS } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { pedersenHash, poseidon2Hash } from '@aztec/foundation/crypto';
+import { Fq, Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { type AcirSimulator, type SimulationProvider, WASMSimulator } from '@aztec/simulator/client';

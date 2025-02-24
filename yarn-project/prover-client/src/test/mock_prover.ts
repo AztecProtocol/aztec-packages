@@ -9,14 +9,9 @@ import {
   makeProofAndVerificationKey,
   makePublicInputsAndRecursiveProof,
 } from '@aztec/circuit-types/interfaces/server';
-import {
-  type BaseParityInputs,
-  type RootParityInputs,
-  VerificationKeyData,
-  makeEmptyRecursiveProof,
-  makeRecursiveProof,
-} from '@aztec/circuits.js';
 import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
+import { type BaseParityInputs, type RootParityInputs } from '@aztec/circuits.js/parity';
+import { makeEmptyRecursiveProof, makeRecursiveProof } from '@aztec/circuits.js/proofs';
 import {
   type BaseOrMergeRollupPublicInputs,
   type BlockMergeRollupInputs,
@@ -36,6 +31,7 @@ import {
   makeParityPublicInputs,
   makeRootRollupPublicInputs,
 } from '@aztec/circuits.js/testing';
+import { VerificationKeyData } from '@aztec/circuits.js/vks';
 import {
   AVM_PROOF_LENGTH_IN_FIELDS,
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,

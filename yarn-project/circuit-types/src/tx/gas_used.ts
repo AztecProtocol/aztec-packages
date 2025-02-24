@@ -1,4 +1,4 @@
-import { type Gas } from '@aztec/circuits.js';
+import { type Gas } from '@aztec/circuits.js/gas';
 
 export interface GasUsed {
   /**

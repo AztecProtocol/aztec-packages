@@ -5,7 +5,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { LogId } from '@aztec/aztec.js/log_id';
 import { TxHash } from '@aztec/aztec.js/tx_hash';
 import { type PXE } from '@aztec/circuit-types/interfaces/client';
-import { PublicKeys } from '@aztec/circuits.js/types';
+import { PublicKeys } from '@aztec/circuits.js/keys';
 import { type LogFn } from '@aztec/foundation/log';
 
 import { type Command, CommanderError, InvalidArgumentError, Option } from 'commander';

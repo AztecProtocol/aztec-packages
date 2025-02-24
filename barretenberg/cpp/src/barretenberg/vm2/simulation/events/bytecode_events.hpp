@@ -23,7 +23,8 @@ struct BytecodeDecompositionEvent {
 
 struct BytecodeHashingEvent {
     BytecodeId bytecode_id;
-    std::shared_ptr<std::vector<uint8_t>> bytecode;
+    uint32_t bytecode_length;
+    std::vector<FF> bytecode_fields;
 };
 
 // This is the event that is emitted when the simulator needs to retrieve bytecode.

@@ -1,5 +1,5 @@
-import { type ContractInstanceWithAddress } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type ContractInstanceWithAddress } from '@aztec/circuits.js/contract';
 import {
   ScheduledDelayChange,
   ScheduledValueChange,

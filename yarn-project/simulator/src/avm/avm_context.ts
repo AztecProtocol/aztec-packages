@@ -1,4 +1,4 @@
-import { type AztecAddress } from '@aztec/circuits.js';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { type AvmExecutionEnvironment } from './avm_execution_environment.js';

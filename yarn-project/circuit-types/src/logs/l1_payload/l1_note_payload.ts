@@ -1,5 +1,7 @@
-import { AztecAddress, type PrivateLog, type PublicLog, Vector } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { PrivateLog, PublicLog } from '@aztec/circuits.js/logs';
+import { Vector } from '@aztec/circuits.js/types';
 import { randomInt } from '@aztec/foundation/crypto';
 import { type Fq, Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
