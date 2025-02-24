@@ -1,11 +1,12 @@
-import { type IsEmpty, PrivateCircuitPublicInputs, sortByCounter } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/circuits.js/abi';
+import type { IsEmpty } from '@aztec/circuits.js/interfaces';
+import { PrivateCircuitPublicInputs, sortByCounter } from '@aztec/circuits.js/kernel';
 import { ContractClassLog } from '@aztec/circuits.js/logs';
 import { schemas } from '@aztec/circuits.js/schemas';
+import { type ZodFor, mapSchema } from '@aztec/circuits.js/schemas';
 import { timesParallel } from '@aztec/foundation/collection';
 import { randomBytes, randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { type ZodFor, mapSchema } from '@aztec/foundation/schemas';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
@@ -48,7 +49,7 @@ export class NoteAndSlot {
 export class CountedContractClassLog implements IsEmpty {
   constructor(public log: ContractClassLog, public counter: number) {}
 
-  static get schema() {
+  static get schema(): ZodFor<CountedContractClassLog> {
     return z
       .object({
         log: ContractClassLog.schema,
@@ -69,7 +70,7 @@ export class CountedContractClassLog implements IsEmpty {
 export class CountedPublicExecutionRequest {
   constructor(public request: PublicExecutionRequest, public counter: number) {}
 
-  static get schema() {
+  static get schema(): ZodFor<CountedPublicExecutionRequest> {
     return z
       .object({
         request: PublicExecutionRequest.schema,

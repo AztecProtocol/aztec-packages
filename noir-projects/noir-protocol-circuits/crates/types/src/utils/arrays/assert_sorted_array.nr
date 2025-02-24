@@ -94,4 +94,3 @@ mod tests {
         assert_sorted_array(original, sorted, indexes, |a: Field, b: Field| a.lt(b));
     }
 }
-

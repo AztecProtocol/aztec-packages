@@ -1,8 +1,8 @@
 import { retrieveL2ProofVerifiedEvents } from '@aztec/archiver';
 import { createAztecNodeClient } from '@aztec/circuit-types/interfaces/client';
-import { EthAddress } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
 import { compactArray, mapValues, unique } from '@aztec/foundation/collection';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { type LogFn, type Logger, createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 

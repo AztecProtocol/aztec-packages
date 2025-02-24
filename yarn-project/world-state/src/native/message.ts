@@ -1,6 +1,7 @@
-import { MerkleTreeId } from '@aztec/circuit-types';
-import { Fr, type StateReference, type UInt32 } from '@aztec/circuits.js';
-import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
+import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/circuits.js/trees';
+import type { StateReference } from '@aztec/circuits.js/tx';
+import type { UInt32 } from '@aztec/circuits.js/types';
+import { Fr } from '@aztec/foundation/fields';
 import { type Tuple } from '@aztec/foundation/serialize';
 
 export enum WorldStateMessageType {

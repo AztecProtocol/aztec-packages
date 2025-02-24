@@ -1,47 +1,41 @@
 import {
-  CallContext,
   CountedPublicCallRequest,
-  Fr,
-  FunctionData,
-  type KeyValidationHint,
+  KeyValidationHint,
   KeyValidationRequest,
   KeyValidationRequestAndGenerator,
   NoteHash,
   type NoteHashReadRequestHints,
   Nullifier,
   type NullifierReadRequestHints,
-  type PendingReadHint,
+  PartialPrivateTailPublicInputsForPublic,
+  PartialPrivateTailPublicInputsForRollup,
+  PendingReadHint,
+  PrivateAccumulatedData,
+  type PrivateCallData,
   PrivateCallRequest,
-  type PrivateCircuitPublicInputs,
+  PrivateCircuitPublicInputs,
+  PrivateKernelCircuitPublicInputs,
+  type PrivateKernelData,
+  PrivateKernelResetHints,
+  PrivateKernelTailCircuitPublicInputs,
   PrivateLogData,
+  PrivateToPublicAccumulatedData,
   PrivateValidationRequests,
-  type PublicKeys,
+  type PrivateVerificationKeyHints,
   ReadRequest,
-  type ReadRequestStatus,
+  ReadRequestStatus,
   RollupValidationRequests,
   ScopedKeyValidationRequestAndGenerator,
   ScopedNoteHash,
   ScopedNullifier,
   ScopedPrivateLogData,
   ScopedReadRequest,
-  type SettledReadHint,
-  type TxRequest,
-} from '@aztec/circuits.js';
-import {
-  PartialPrivateTailPublicInputsForPublic,
-  PartialPrivateTailPublicInputsForRollup,
-  PrivateAccumulatedData,
-  type PrivateCallData,
-  PrivateKernelCircuitPublicInputs,
-  type PrivateKernelData,
-  type PrivateKernelResetHints,
-  PrivateKernelTailCircuitPublicInputs,
-  PrivateToPublicAccumulatedData,
-  type PrivateVerificationKeyHints,
-  type TransientDataIndexHint,
-  TxConstantData,
+  SettledReadHint,
+  TransientDataIndexHint,
 } from '@aztec/circuits.js/kernel';
+import type { PublicKeys } from '@aztec/circuits.js/keys';
 import { type NullifierLeafPreimage } from '@aztec/circuits.js/trees';
+import { CallContext, FunctionData, TxConstantData, TxRequest } from '@aztec/circuits.js/tx';
 import {
   CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
@@ -58,6 +52,7 @@ import {
   type NULLIFIER_TREE_HEIGHT,
   UPDATES_SHARED_MUTABLE_VALUES_LEN,
 } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 import { assertLength, mapTuple } from '@aztec/foundation/serialize';
 
 import type {

@@ -90,7 +90,7 @@ template <typename T> T unpack_from_file(const std::filesystem::path& filename)
  * @param bytecode_path
  * @param witness_path
  */
-void write_vk_for_ivc(const std::string& output_data_type,
+void write_vk_for_ivc(const std::string& output_format,
                       const std::string& bytecode_path,
                       const std::string& output_path)
 {
@@ -124,7 +124,7 @@ void write_vk_for_ivc(const std::string& output_data_type,
     init_bn254_crs(prover.proving_key->proving_key.circuit_size);
     ProofAndKey<VerificationKey> to_write{ {}, std::make_shared<VerificationKey>(prover.proving_key->proving_key) };
 
-    write(to_write, output_data_type, "vk", output_path);
+    write(to_write, output_format, "vk", output_path);
 }
 
 std::vector<acir_format::AcirProgram> _build_folding_stack(const std::string& input_type,
@@ -270,7 +270,7 @@ void ClientIVCAPI::write_vk(const Flags& flags,
                             const std::filesystem::path& bytecode_path,
                             const std::filesystem::path& output_path)
 {
-    write_vk_for_ivc(flags.output_data_type, bytecode_path, output_path);
+    write_vk_for_ivc(flags.output_format, bytecode_path, output_path);
 }
 
 bool ClientIVCAPI::check([[maybe_unused]] const Flags& flags,

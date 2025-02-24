@@ -7,8 +7,8 @@ import {
   type ProvingJobResultsMap,
   type ProvingRequestType,
 } from '@aztec/circuit-types/interfaces/server';
+import { type ZodFor } from '@aztec/circuits.js/schemas';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
-import { type ZodFor } from '@aztec/foundation/schemas';
 
 import { type ProofStore } from './proof_store.js';
 

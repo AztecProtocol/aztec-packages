@@ -1,14 +1,8 @@
-import { type FunctionCall, type Note, type TxExecutionRequest } from '@aztec/circuit-types';
+import { type FunctionCall, type TxExecutionRequest } from '@aztec/circuit-types';
 import { type AztecNode, PrivateExecutionResult } from '@aztec/circuit-types/interfaces/client';
-import { CallContext } from '@aztec/circuits.js';
-import {
-  type FunctionArtifact,
-  FunctionSelector,
-  FunctionType,
-  type NoteSelector,
-  encodeArguments,
-} from '@aztec/circuits.js/abi';
+import { FunctionSelector, FunctionType } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { CallContext } from '@aztec/circuits.js/tx';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 
@@ -153,80 +147,5 @@ export class AcirSimulator {
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
     }
-  }
-
-  /**
-   * Computes the note hash and inner nullifier of a note.
-   * @param contractAddress - The address of the contract.
-   * @param nonce - The nonce of the note hash, is not used when calculating the base note hash.
-   * @param storageSlot - The storage slot.
-   * @param noteTypeId - The note type identifier.
-   * @param note - The note.
-   * @returns The note hash (and intermediary forms) and inner nullifier.
-   */
-  public async computeNoteHashAndNullifier(
-    contractAddress: AztecAddress,
-    nonce: Fr,
-    storageSlot: Fr,
-    noteTypeId: NoteSelector,
-    note: Note,
-  ) {
-    const artifact: FunctionArtifact | undefined = await this.db.getFunctionArtifactByName(
-      contractAddress,
-      'compute_note_hash_and_optionally_a_nullifier',
-    );
-    if (!artifact) {
-      throw new Error(
-        `Mandatory implementation of "compute_note_hash_and_optionally_a_nullifier" missing in noir contract ${contractAddress.toString()}.`,
-      );
-    }
-
-    if (artifact.parameters.length != 6) {
-      throw new Error(
-        `Expected 6 parameters in mandatory implementation of "compute_note_hash_and_optionally_a_nullifier", but found ${
-          artifact.parameters.length
-        } in noir contract ${contractAddress.toString()}.`,
-      );
-    }
-
-    // This constant is not exposed anywhere (because it doesn't have to - it's internal to aztec-nr). It's only here as
-    // a temporary stopgap until we delete this function fully.
-    const MAX_NOTE_PACKED_LEN = 16;
-    const maxNoteFields = MAX_NOTE_PACKED_LEN;
-
-    if (maxNoteFields < note.items.length) {
-      throw new Error(
-        `The note being processed has ${note.items.length} fields, while "compute_note_hash_and_optionally_a_nullifier" can only handle a maximum of ${maxNoteFields} fields. Please reduce the number of fields in your note.`,
-      );
-    }
-
-    const noteItemsBoundedVec = {
-      len: note.items.length,
-      storage: note.items.concat(Array(maxNoteFields - note.items.length).fill(Fr.ZERO)),
-    };
-    const selector = await FunctionSelector.fromNameAndParameters(artifact);
-    const execRequest: FunctionCall = {
-      name: artifact.name,
-      to: contractAddress,
-      selector,
-      type: FunctionType.UNCONSTRAINED,
-      isStatic: artifact.isStatic,
-      args: encodeArguments(artifact, [contractAddress, nonce, storageSlot, noteTypeId, true, noteItemsBoundedVec]),
-      returnTypes: artifact.returnTypes,
-    };
-
-    const [noteHash, uniqueNoteHash, siloedNoteHash, innerNullifier] = (await this.runUnconstrained(
-      execRequest,
-      contractAddress,
-      selector,
-      // We can omit scopes here, because "compute_note_hash_and_optionally_a_nullifier" does not need access to any notes.
-    )) as bigint[];
-
-    return {
-      noteHash: new Fr(noteHash),
-      uniqueNoteHash: new Fr(uniqueNoteHash),
-      siloedNoteHash: new Fr(siloedNoteHash),
-      innerNullifier: new Fr(innerNullifier),
-    };
   }
 }

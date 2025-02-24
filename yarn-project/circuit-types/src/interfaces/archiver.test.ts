@@ -1,18 +1,17 @@
+import { type ContractArtifact, FunctionSelector, loadContractArtifact } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
-  AztecAddress,
-  BlockHeader,
   type ContractClassPublic,
   type ContractInstanceWithAddress,
-  EthAddress,
-  Fr,
-  FunctionSelector,
-  PrivateLog,
   type PublicFunction,
-  PublicKeys,
   computePublicBytecodeCommitment,
   getContractClassFromArtifact,
-} from '@aztec/circuits.js';
-import { type ContractArtifact, loadContractArtifact } from '@aztec/circuits.js/abi';
+} from '@aztec/circuits.js/contract';
+import { PublicKeys } from '@aztec/circuits.js/keys';
+import { PrivateLog } from '@aztec/circuits.js/logs';
+import { BlockHeader } from '@aztec/circuits.js/tx';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 import { fileURLToPath } from '@aztec/foundation/url';
 

@@ -4,89 +4,97 @@ include "poseidon2_perm.pil";
 // It is **mostly** well-constrained
 namespace poseidon2_hash;
 
+    pol commit sel;
+    sel * (1 - sel) = 0;
+
     #[skippable_if]
     sel = 0;
+
+    // === Input Values ===
+    // Unpadded Length of the inputs to be hashed
+    pol commit input_len;
+    // Compute the IV using the unpadded length. Only used at the start of a new poseidon2 hash
+    pol TWOPOW64 = 18446744073709551616;
+    pol IV = TWOPOW64 * input_len;
 
     // These are the inputs to be hashed this round, we hash chunks of 3 field elements
     pol commit input_0;
     pol commit input_1;
     pol commit input_2;
 
-    // Output of the hash it is matched with the result of the last permutation round
+    // Output of the hash, not permutation round, it is matched with the result of the last permutation round
     pol commit output;
+    // We enforce that the output has to be kept the same per row until we hit the "end" of the computation
+    // The latch condition (see below for definition) will be on at the first_row (customary pil relations) or when num_perm_rounds_rem - 1 = 0
+    sel * (1 - LATCH_CONDITION) * (output' - output) = 0;
 
-    pol commit sel;
-    sel * (1 - sel) = 0;
-    sel = execute_perm + end;
-    pol TWOPOW64 = 18446744073709551616;
-
-    pol commit input_len;
-    // Only used at the start of a new poseidon2 hash
-    pol IV = TWOPOW64 * input_len;
-
-    
+    // === Control Flow within Subtrace ===
     // Start of a poseidon2 computation
     pol commit start;
     start * (1 - start) = 0;
     // When we end a poseidon, the next row must naturally have a start
-    sel' * (1 - precomputed.first_row) * (start' - end) = 0;
+    sel' * (start' - LATCH_CONDITION) = 0;
 
-    // We track the num of rounds remaining, excluding the first round that has to be performed by the start selector.
-    // We use the padded length to calculate the num of rounds to perform and the unpadded length is used in the IV.
-    pol commit num_perm_rounds_rem;
-    pol commit padding;
-    // Padding can either be 0, 1 or 2
-    padding * (padding - 1) * (padding - 2) = 0;
-    pol PADDED_LEN = input_len + padding;
-    start * ((num_perm_rounds_rem + 1) * 3 - PADDED_LEN) = 0;
-
-
-    // The row with the final result of the poseidon computation
+    // The last row of hashing for the given input
     pol commit end;
     end * (1 - end) = 0;
-    // The final result of the output of the hash should match the output from the last permutation (b_0)
-    end * (output - b_0) = 0;
-    pol commit num_perm_rounds_rem_inv;
-    // end == 1 when the num_perm_rounds_rem == 0
-    sel * (num_perm_rounds_rem * (end * (1 - num_perm_rounds_rem_inv) + num_perm_rounds_rem_inv) - 1 + end) = 0;
+    // End and first row are NAND - they cannot both be one.
+    end * precomputed.first_row = 0;
+    // Our latch condition can either be the designated end of the computation or the first row
+    // The previous relation ensures they cannot both be 1
+    pol LATCH_CONDITION = end + precomputed.first_row;
 
-    // We perform the "squeeze" / perm operation until end
-    pol commit execute_perm;
-    execute_perm * (1 - execute_perm) = 0;
-    // The squeeze and end selector must be mutually exclusive
-    sel * (1 - end - execute_perm) = 0;
-    // Need an additional helper that holds the inverse of the num_perm_rounds_rem;
+    // === Permutation/Round Counting ===
+    // We use the padded length to calculate the num of rounds to perform
+    pol commit num_perm_rounds_rem;
+    pol commit padding;
+    // The amount of padding can be 0, 1 or 2.
+    // Note the padded values are not enforced to be zero here, the calling function SHOULD enforce this
+    padding * (padding - 1) * (padding - 2) = 0;
+    pol PADDED_LEN = input_len + padding;
+    // Check that the PADDED_LEN = num_rounds * 3 at the start of the computation
+    sel * start * (num_perm_rounds_rem * 3 - PADDED_LEN) = 0;
     // If we still have rounds to perform, the num_perm_rounds_rem is decremented
-    execute_perm * (num_perm_rounds_rem' - num_perm_rounds_rem + 1) = 0;
+    sel * (1 - LATCH_CONDITION) * (num_perm_rounds_rem' - num_perm_rounds_rem + 1) = 0;
+    // Need an additional helper that holds the inverse of the num_perm_rounds_rem;
+    pol commit num_perm_rounds_rem_inv;
+    pol NEXT_ROUND_COUNT = num_perm_rounds_rem - 1;
+    // end == 1 when the (num_perm_rounds_rem - 1) == 0
+    sel * (NEXT_ROUND_COUNT * (end * (1 - num_perm_rounds_rem_inv) + num_perm_rounds_rem_inv) - 1 + end) = 0;
 
-
-    // The input values are represented by a_0, a_1, a_2, a_3
+    //=== Output Chaining ===
+    // The permutation input values are represented by a_0, a_1, a_2, a_3
+    // The permutation output values are represented by b_0, b_1, b_2, b_3
     // This most definitely could be simplified to a lower degree check
-    // the next perm input is constrained to be the previous perm output + the new values to be hashed.
-    // This occurs when we execute_perm = 1 and we are not the start or the end of the poseidon perm
-    pol NEXT_INPUT_IS_PREV_OUTPUT_SEL = execute_perm' * (1 - start) * execute_perm;
+    // The next perm input is constrained to be the previous perm output + the new values to be hashed if we
+    // are not at the start or the end of hashing
+    pol NEXT_INPUT_IS_PREV_OUTPUT_SEL = (1 - LATCH_CONDITION) * (1 - start);
     pol commit a_0;
-    start * (a_0 - input_0) = 0;
-    sel * NEXT_INPUT_IS_PREV_OUTPUT_SEL * (a_0' - b_0 - input_0') = 0;
     pol commit a_1;
-    start * (a_1 - input_1) = 0;
-    sel * NEXT_INPUT_IS_PREV_OUTPUT_SEL * (a_1' - b_1 - input_1') = 0;
     pol commit a_2;
-    start * (a_2 - input_2) = 0;
-    sel * NEXT_INPUT_IS_PREV_OUTPUT_SEL * (a_2' - b_2 - input_2') = 0;
     pol commit a_3;
-    start * (a_3 - IV) = 0; // IV is placed in the last slot if this is the start
+
+    sel * start * (a_0 - input_0) = 0;
+    sel * NEXT_INPUT_IS_PREV_OUTPUT_SEL * (a_0' - b_0 - input_0') = 0;
+    sel * start * (a_1 - input_1) = 0;
+    sel * NEXT_INPUT_IS_PREV_OUTPUT_SEL * (a_1' - b_1 - input_1') = 0;
+    sel * start * (a_2 - input_2) = 0;
+    sel * NEXT_INPUT_IS_PREV_OUTPUT_SEL * (a_2' - b_2 - input_2') = 0;
+    sel * start * (a_3 - IV) = 0; // IV is placed in the last slot if this is the start
     sel * NEXT_INPUT_IS_PREV_OUTPUT_SEL * (a_3' - b_3) = 0;
 
-    // Output value represented by b_0
+    // The Hash output value represented by b_0
     pol commit b_0;
     pol commit b_1;
     pol commit b_2;
     pol commit b_3;
 
-    #[LOOKUP_POS2_PERM]
-    sel { a_0, a_1, a_2, a_3, b_0, b_1, b_2, b_3}
+    // The final result of the output of the hash should match the output from the last permutation (b_0)
+    sel * LATCH_CONDITION * (output - b_0) = 0;
+
+    #[POSEIDON2_PERM]
+    sel { a_0, a_1, a_2, a_3, b_0, b_1, b_2, b_3 }
     in
-    poseidon2_perm.sel 
-        { poseidon2_perm.a_0, poseidon2_perm.a_1, poseidon2_perm.a_2, poseidon2_perm.a_3, 
+    poseidon2_perm.sel
+        { poseidon2_perm.a_0, poseidon2_perm.a_1, poseidon2_perm.a_2, poseidon2_perm.a_3,
           poseidon2_perm.b_0, poseidon2_perm.b_1, poseidon2_perm.b_2, poseidon2_perm.b_3 };

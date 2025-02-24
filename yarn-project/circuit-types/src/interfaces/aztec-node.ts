@@ -1,18 +1,19 @@
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
-  BlockHeader,
   type ContractClassPublic,
   ContractClassPublicSchema,
   type ContractInstanceWithAddress,
   ContractInstanceWithAddressSchema,
-  GasFees,
   type NodeInfo,
   NodeInfoSchema,
-  PrivateLog,
   type ProtocolContractAddresses,
   ProtocolContractAddressesSchema,
-} from '@aztec/circuits.js';
-import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+} from '@aztec/circuits.js/contract';
+import { GasFees } from '@aztec/circuits.js/gas';
+import { PrivateLog } from '@aztec/circuits.js/logs';
 import { type ApiSchemaFor, optional, schemas } from '@aztec/circuits.js/schemas';
+import { MerkleTreeId, NullifierMembershipWitness } from '@aztec/circuits.js/trees';
+import { BlockHeader } from '@aztec/circuits.js/tx';
 import {
   ARCHIVE_HEIGHT,
   L1_TO_L2_MSG_TREE_HEIGHT,
@@ -23,6 +24,7 @@ import {
 import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum/l1-contract-addresses';
 import type { Fr } from '@aztec/foundation/fields';
 import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
+import { SiblingPath } from '@aztec/foundation/trees';
 
 import { z } from 'zod';
 
@@ -38,9 +40,7 @@ import {
   LogFilterSchema,
   TxScopedL2Log,
 } from '../logs/index.js';
-import { MerkleTreeId } from '../merkle_tree_id.js';
 import { PublicDataWitness } from '../public_data_witness.js';
-import { SiblingPath } from '../sibling_path/index.js';
 import {
   PublicSimulationOutput,
   Tx,
@@ -53,9 +53,9 @@ import { TxEffect } from '../tx_effect.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning.js';
 import { type SequencerConfig, SequencerConfigSchema } from './configs.js';
 import { type L2BlockNumber, L2BlockNumberSchema } from './l2_block_number.js';
-import { NullifierMembershipWitness } from './nullifier_membership_witness.js';
 import { type ProverConfig, ProverConfigSchema } from './prover-client.js';
 import { type ProverCoordination } from './prover-coordination.js';
+import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_state.js';
 
 /**
  * The aztec node.
@@ -68,6 +68,11 @@ export interface AztecNode
    * Returns the tips of the L2 chain.
    */
   getL2Tips(): Promise<L2Tips>;
+
+  /**
+   * Returns the sync status of the node's world state
+   */
+  getWorldStateSyncStatus(): Promise<WorldStateSyncStatus>;
 
   /**
    * Find the indexes of the given leaves in the given tree.
@@ -452,6 +457,8 @@ export interface AztecNode
 
 export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getL2Tips: z.function().args().returns(L2TipsSchema),
+
+  getWorldStateSyncStatus: z.function().args().returns(WorldStateSyncStatusSchema),
 
   findLeavesIndexes: z
     .function()

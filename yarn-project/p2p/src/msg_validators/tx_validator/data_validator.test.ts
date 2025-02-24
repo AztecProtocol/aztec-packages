@@ -1,9 +1,12 @@
 import { type Tx } from '@aztec/circuit-types';
 import { mockTx } from '@aztec/circuit-types/testing';
-import { AztecAddress, Fr, FunctionSelector, ScopedLogHash } from '@aztec/circuits.js';
+import { FunctionSelector } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { ScopedLogHash } from '@aztec/circuits.js/kernel';
 import { ContractClassLog } from '@aztec/circuits.js/logs';
 import { MAX_CONTRACT_CLASS_LOGS_PER_TX } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
 
 import { DataTxValidator } from './data_validator.js';
 

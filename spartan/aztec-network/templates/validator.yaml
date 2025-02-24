@@ -185,6 +185,8 @@ spec:
               value: "1"
             - name: P2P_ENABLED
               value: "{{ .Values.validator.p2p.enabled }}"
+            - name: P2P_GOSSIPSUB_FLOOD_PUBLISH
+              value: "{{ .Values.validator.p2p.floodPublish }}"
             - name: VALIDATOR_DISABLED
               value: "{{ .Values.validator.validator.disabled }}"
             - name: VALIDATOR_REEXECUTE

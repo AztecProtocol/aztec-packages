@@ -1,6 +1,6 @@
-import { Fr } from '@aztec/circuits.js';
+import { type ZodFor, schemas } from '@aztec/circuits.js/schemas';
 import { type ConfigMappingsType, booleanConfigHelper, numberConfigHelper } from '@aztec/foundation/config';
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+import { Fr } from '@aztec/foundation/fields';
 
 import { z } from 'zod';
 
@@ -101,6 +101,8 @@ export interface EpochProverManager {
   stop(): Promise<void>;
 
   getProvingJobSource(): ProvingJobConsumer;
+
+  getProverId(): Fr;
 
   updateProverConfig(config: Partial<ProverConfig>): Promise<void>;
 }

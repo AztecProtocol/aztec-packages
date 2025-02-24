@@ -1,5 +1,5 @@
-import { type UnconstrainedFunction, type UnconstrainedFunctionWithMembershipProof } from '@aztec/circuits.js';
 import { FunctionSelector, bufferFromFields } from '@aztec/circuits.js/abi';
+import { type UnconstrainedFunction, type UnconstrainedFunctionWithMembershipProof } from '@aztec/circuits.js/contract';
 import { type ContractClassLog } from '@aztec/circuits.js/logs';
 import {
   ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,

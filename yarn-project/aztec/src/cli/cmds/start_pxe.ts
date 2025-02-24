@@ -1,4 +1,5 @@
 import {
+  AztecAddress,
   type ContractArtifact,
   type ContractInstanceWithAddress,
   Fr,
@@ -11,7 +12,6 @@ import { getContractArtifact } from '@aztec/cli/cli-utils';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
 import {
-  AztecAddress,
   type CliPXEOptions,
   type PXEService,
   type PXEServiceConfig,

@@ -8,16 +8,17 @@ import {
   type L2BlockStreamEventHandler,
   type L2BlockStreamLocalDataProvider,
   type L2Tips,
-  MerkleTreeId,
 } from '@aztec/circuit-types';
 import {
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
   WorldStateRunningState,
+  type WorldStateSyncStatus,
   type WorldStateSynchronizer,
   type WorldStateSynchronizerStatus,
 } from '@aztec/circuit-types/interfaces/server';
 import { type L2BlockHandledStats } from '@aztec/circuit-types/stats';
+import { MerkleTreeId } from '@aztec/circuits.js/trees';
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/constants';
 import { type Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -130,8 +131,16 @@ export class ServerWorldStateSynchronizer
   }
 
   public async status(): Promise<WorldStateSynchronizerStatus> {
+    const summary = await this.merkleTreeDb.getStatusSummary();
+    const status: WorldStateSyncStatus = {
+      latestBlockNumber: Number(summary.unfinalisedBlockNumber),
+      latestBlockHash: (await this.getL2BlockHash(Number(summary.unfinalisedBlockNumber))) ?? '',
+      finalisedBlockNumber: Number(summary.finalisedBlockNumber),
+      oldestHistoricBlockNumber: Number(summary.oldestHistoricalBlock),
+      treesAreSynched: summary.treesAreSynched,
+    };
     return {
-      syncedToL2Block: (await this.getL2Tips()).latest,
+      syncSummary: status,
       state: this.currentState,
     };
   }
@@ -283,7 +292,8 @@ export class ServerWorldStateSynchronizer
       return;
     }
     this.log.verbose(`Pruning historic blocks to ${newHistoricBlock}`);
-    await this.merkleTreeDb.removeHistoricalBlocks(newHistoricBlock);
+    const status = await this.merkleTreeDb.removeHistoricalBlocks(newHistoricBlock);
+    this.log.debug(`World state summary `, status.summary);
   }
 
   private handleChainProven(blockNumber: number) {

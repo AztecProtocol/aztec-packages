@@ -1,6 +1,5 @@
 import {
   type FailedTx,
-  MerkleTreeId,
   NestedProcessReturnValues,
   type ProcessedTx,
   Tx,
@@ -10,16 +9,15 @@ import {
   makeProcessedTxFromTxWithPublicCalls,
 } from '@aztec/circuit-types';
 import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
-import {
-  type AztecAddress,
-  type ContractDataSource,
-  Fr,
-  Gas,
-  type GlobalVariables,
-  PublicDataWrite,
-} from '@aztec/circuits.js';
+import { PublicDataWrite } from '@aztec/circuits.js/avm';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { ContractDataSource } from '@aztec/circuits.js/contract';
+import { Gas } from '@aztec/circuits.js/gas';
+import { MerkleTreeId } from '@aztec/circuits.js/trees';
+import type { GlobalVariables } from '@aztec/circuits.js/tx';
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NULLIFIER_SUBTREE_HEIGHT } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { type DateProvider, Timer, elapsed, executeTimeout } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -33,6 +31,7 @@ import {
   getTelemetryClient,
   trackSpan,
 } from '@aztec/telemetry-client';
+import { ForkCheckpoint } from '@aztec/world-state/native';
 
 import { WorldStateDB } from './public_db_sources.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
@@ -220,6 +219,11 @@ export class PublicProcessor implements Traceable {
         }
       }
 
+      // We checkpoint the transaction here, then within the try/catch we
+      // 1. Revert the checkpoint if the tx fails or needs to be discarded for any reason
+      // 2. Commit the transaction in the finally block. Note that by using the ForkCheckpoint lifecycle only the first commit/revert takes effect
+      const checkpoint = await ForkCheckpoint.new(this.worldStateDB);
+
       try {
         const [processedTx, returnValues] = await this.processTx(tx, deadline);
 
@@ -232,6 +236,8 @@ export class PublicProcessor implements Traceable {
             totalSizeInBytes,
             maxBlockSize,
           });
+          // Need to revert the checkpoint here and don't go any further
+          await checkpoint.revert();
           continue;
         }
 
@@ -247,14 +253,20 @@ export class PublicProcessor implements Traceable {
             const reason = result.reason.join(', ');
             this.log.error(`Rejecting tx ${processedTx.hash} after processing: ${reason}.`);
             failed.push({ tx, error: new Error(`Tx failed post-process validation: ${reason}`) });
+            // Need to revert the checkpoint here and don't go any further
+            await checkpoint.revert();
             continue;
           } else {
             this.log.trace(`Tx ${(await tx.getTxHash()).toString()} is valid post processing.`);
           }
         }
 
-        // Otherwise, commit tx state for the next tx to be processed
-        await this.commitTxState(processedTx);
+        if (!tx.hasPublicCalls()) {
+          // If there are no public calls, perform all tree insertions for side effects from private
+          // When there are public calls, the PublicTxSimulator & AVM handle tree insertions.
+          await this.doTreeInsertionsForPrivateOnlyTx(processedTx);
+        }
+
         nullifierCache?.addNullifiers(processedTx.txEffect.nullifiers.map(n => n.toBuffer()));
         result.push(processedTx);
         returns = returns.concat(returnValues);
@@ -263,6 +275,8 @@ export class PublicProcessor implements Traceable {
         totalBlockGas = totalBlockGas.add(processedTx.gasUsed.totalGas);
         totalSizeInBytes += txSize;
       } catch (err: any) {
+        // Roll back state to start of TX before proceeding to next TX
+        await checkpoint.revert();
         if (err?.name === 'PublicProcessorTimeoutError') {
           this.log.warn(`Stopping tx processing due to timeout.`);
           break;
@@ -272,6 +286,9 @@ export class PublicProcessor implements Traceable {
 
         failed.push({ tx, error: err instanceof Error ? err : new Error(errorMessage) });
         returns.push(new NestedProcessReturnValues([]));
+      } finally {
+        // Base case is we always commit the checkpoint. Using the ForkCheckpoint means this has no effect if the tx was reverted
+        await checkpoint.commit();
       }
     }
 
@@ -318,10 +335,11 @@ export class PublicProcessor implements Traceable {
     return [processedTx, returnValues ?? []];
   }
 
-  private async commitTxState(processedTx: ProcessedTx, txValidator?: TxValidator<ProcessedTx>): Promise<void> {
-    // Commit the state updates from this transaction
-    // TODO(palla/txs): It seems like this doesn't do anything...?
-    await this.worldStateDB.commit();
+  private async doTreeInsertionsForPrivateOnlyTx(
+    processedTx: ProcessedTx,
+    txValidator?: TxValidator<ProcessedTx>,
+  ): Promise<void> {
+    const treeInsertionStart = process.hrtime.bigint();
 
     // Update the state so that the next tx in the loop has the correct .startState
     // NB: before this change, all .startStates were actually incorrect, but the issue was never caught because we either:
@@ -329,7 +347,6 @@ export class PublicProcessor implements Traceable {
     // b) always had a txHandler with the same db passed to it as this.db, which updated the db in buildBaseRollupHints in this loop
     // To see how this ^ happens, move back to one shared db in test_context and run orchestrator_multi_public_functions.test.ts
     // The below is taken from buildBaseRollupHints:
-    const treeInsertionStart = process.hrtime.bigint();
     await this.db.appendLeaves(
       MerkleTreeId.NOTE_HASH_TREE,
       padArrayEnd(processedTx.txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
@@ -350,6 +367,7 @@ export class PublicProcessor implements Traceable {
       }
     }
 
+    // The only public data write should be for fee payment
     await this.db.sequentialInsert(
       MerkleTreeId.PUBLIC_DATA_TREE,
       processedTx.txEffect.publicDataWrites.map(x => x.toBuffer()),

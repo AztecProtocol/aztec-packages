@@ -1,5 +1,5 @@
-import { AuthWitness } from '@aztec/circuit-types';
-import { type AztecAddress } from '@aztec/circuits.js';
+import { AuthWitness } from '@aztec/circuit-types/auth-witness';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { parseAztecAddress, parseSecretKey, parseTxHash } from '@aztec/cli/utils';
 
 import { Option } from 'commander';

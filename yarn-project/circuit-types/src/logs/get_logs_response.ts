@@ -1,5 +1,5 @@
-import { Fr } from '@aztec/circuits.js';
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+import { type ZodFor, schemas } from '@aztec/circuits.js/schemas';
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, boolToBuffer, numToUInt32BE } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';
@@ -16,10 +16,10 @@ export type GetContractClassLogsResponse = {
   maxLogsHit: boolean;
 };
 
-export const GetContractClassLogsResponseSchema = z.object({
+export const GetContractClassLogsResponseSchema: ZodFor<GetContractClassLogsResponse> = z.object({
   logs: z.array(ExtendedContractClassLog.schema),
   maxLogsHit: z.boolean(),
-}) satisfies ZodFor<GetContractClassLogsResponse>;
+});
 
 /** Response for the getPublicLogs archiver call. */
 export type GetPublicLogsResponse = {

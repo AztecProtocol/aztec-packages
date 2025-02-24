@@ -88,7 +88,6 @@ const std::unordered_map<OpCode, FixedGasTable::GasRow> GAS_COST_TABLE = {
     { OpCode::SHA256COMPRESSION, make_cost(AVM_SHA256COMPRESSION_BASE_L2_GAS, 0, 0, 0) },
     { OpCode::KECCAKF1600, make_cost(AVM_KECCAKF1600_BASE_L2_GAS, 0, 0, 0) },
     { OpCode::ECADD, make_cost(AVM_ECADD_BASE_L2_GAS, 0, 0, 0) },
-    { OpCode::MSM, make_cost(AVM_MSM_BASE_L2_GAS, 0, AVM_MSM_DYN_L2_GAS, 0) },
     { OpCode::TORADIXBE, make_cost(AVM_TORADIXBE_BASE_L2_GAS, 0, AVM_TORADIXBE_DYN_L2_GAS, 0) },
 };
 

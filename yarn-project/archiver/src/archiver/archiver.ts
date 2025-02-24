@@ -22,23 +22,21 @@ import {
   getSlotRangeForEpoch,
   getTimestampRangeForEpoch,
 } from '@aztec/circuit-types';
+import { type FunctionSelector } from '@aztec/circuits.js/abi';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
-  type BlockHeader,
   type ContractClassPublic,
   type ContractDataSource,
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
-  type FunctionSelector,
-  type PrivateLog,
   type PublicFunction,
-  type PublicLog,
   type UnconstrainedFunctionWithMembershipProof,
   computePublicBytecodeCommitment,
   isValidPrivateFunctionMembershipProof,
   isValidUnconstrainedFunctionMembershipProof,
-} from '@aztec/circuits.js';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { type ContractClassLog } from '@aztec/circuits.js/logs';
+} from '@aztec/circuits.js/contract';
+import { type ContractClassLog, type PrivateLog, type PublicLog } from '@aztec/circuits.js/logs';
+import { type BlockHeader } from '@aztec/circuits.js/tx';
 import { createEthereumChain } from '@aztec/ethereum';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';

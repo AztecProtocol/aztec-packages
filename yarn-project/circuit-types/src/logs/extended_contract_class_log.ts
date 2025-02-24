@@ -1,4 +1,5 @@
 import { ContractClassLog } from '@aztec/circuits.js/logs';
+import type { ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
@@ -23,7 +24,7 @@ export class ExtendedContractClassLog {
     return new ExtendedContractClassLog(LogId.random(), await ContractClassLog.random());
   }
 
-  static get schema() {
+  static get schema(): ZodFor<ExtendedContractClassLog> {
     return z
       .object({
         id: LogId.schema,

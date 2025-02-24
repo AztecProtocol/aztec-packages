@@ -1,4 +1,8 @@
-import type { AztecAddress, EthAddress, Fr, GasFees, GlobalVariables } from '@aztec/circuits.js';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { GasFees } from '@aztec/circuits.js/gas';
+import type { GlobalVariables } from '@aztec/circuits.js/tx';
+import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { Fr } from '@aztec/foundation/fields';
 
 /**
  * Interface for building global variables for Aztec blocks.

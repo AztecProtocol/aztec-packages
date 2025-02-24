@@ -1,9 +1,16 @@
-import { ClientIvcProof, Fr, type GasSettings, PrivateLog, ScopedLogHash } from '@aztec/circuits.js';
+import type { GasSettings } from '@aztec/circuits.js/gas';
 import { siloContractClassLog } from '@aztec/circuits.js/hash';
-import { PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
-import { ContractClassLog } from '@aztec/circuits.js/logs';
+import {
+  PrivateKernelTailCircuitPublicInputs,
+  type PrivateToPublicAccumulatedData,
+  ScopedLogHash,
+} from '@aztec/circuits.js/kernel';
+import { ContractClassLog, PrivateLog } from '@aztec/circuits.js/logs';
+import { ClientIvcProof } from '@aztec/circuits.js/proofs';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
+import type { ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeArrayOfBufferableToVector, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
@@ -127,7 +134,7 @@ export class Tx extends Gossipable {
     ]);
   }
 
-  static get schema() {
+  static get schema(): ZodFor<Tx> {
     return z
       .object({
         data: PrivateKernelTailCircuitPublicInputs.schema,
@@ -309,10 +316,15 @@ export class Tx extends Gossipable {
     return clonedTx;
   }
 
-  static async random() {
+  /**
+   * Creates a random tx.
+   * @param randomProof - Whether to create a random proof - this will be random bytes of the full size.
+   * @returns A random tx.
+   */
+  static async random(randomProof = false) {
     return new Tx(
       PrivateKernelTailCircuitPublicInputs.emptyWithNullifier(),
-      ClientIvcProof.empty(),
+      randomProof ? ClientIvcProof.random() : ClientIvcProof.empty(),
       [await ContractClassLog.random()],
       [await PublicExecutionRequest.random()],
       await PublicExecutionRequest.random(),

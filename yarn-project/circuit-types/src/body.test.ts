@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/circuits.js';
+import { Fr } from '@aztec/foundation/fields';
 
 import { Body } from './body.js';
 

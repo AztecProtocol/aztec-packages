@@ -126,20 +126,19 @@ void UltraHonkAPI::prove(const Flags& flags,
                          const std::filesystem::path& output_dir)
 {
     const auto _write = [&](auto&& _prove_output) {
-        write(_prove_output, flags.output_data_type, flags.output_content_type, output_dir);
+        write(_prove_output, flags.output_format, flags.write_vk ? "proof_and_vk" : "proof", output_dir);
     };
 
     const bool init = flags.init_kzg_accumulator;
-    const bool compute_vk = flags.output_content_type == "proof_and_vk";
 
     if (flags.ipa_accumulation) {
-        _write(_prove<UltraRollupFlavor>(compute_vk, init, bytecode_path, witness_path));
+        _write(_prove<UltraRollupFlavor>(flags.write_vk, init, bytecode_path, witness_path));
     } else if (flags.oracle_hash_type == "poseidon2") {
-        _write(_prove<UltraFlavor>(compute_vk, init, bytecode_path, witness_path));
+        _write(_prove<UltraFlavor>(flags.write_vk, init, bytecode_path, witness_path));
     } else if (flags.oracle_hash_type == "keccak" && !flags.zk) {
-        _write(_prove<UltraKeccakFlavor>(compute_vk, init, bytecode_path, witness_path));
+        _write(_prove<UltraKeccakFlavor>(flags.write_vk, init, bytecode_path, witness_path));
     } else if (flags.oracle_hash_type == "keccak" && flags.zk) {
-        _write(_prove<UltraKeccakZKFlavor>(compute_vk, init, bytecode_path, witness_path));
+        _write(_prove<UltraKeccakZKFlavor>(flags.write_vk, init, bytecode_path, witness_path));
     } else {
         throw_or_abort("Invalid proving options specified in _prove");
     }
@@ -177,7 +176,7 @@ void UltraHonkAPI::write_vk(const Flags& flags,
                             const std::filesystem::path& bytecode_path,
                             const std::filesystem::path& output_path)
 {
-    const auto _write = [&](auto&& _prove_output) { write(_prove_output, flags.output_data_type, "vk", output_path); };
+    const auto _write = [&](auto&& _prove_output) { write(_prove_output, flags.output_format, "vk", output_path); };
 
     const bool init = flags.init_kzg_accumulator;
 
@@ -197,7 +196,7 @@ void UltraHonkAPI::write_vk(const Flags& flags,
 void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,
                          [[maybe_unused]] const std::filesystem::path& bytecode_path)
 {
-    ASSERT("API function not implemented");
+    throw_or_abort("API function not implemented");
 }
 
 void UltraHonkAPI::write_contract(const Flags& flags,

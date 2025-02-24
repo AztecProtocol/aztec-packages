@@ -7,7 +7,8 @@ import {
   type PXE,
   deriveKeys,
 } from '@aztec/aztec.js';
-import { type PublicKeys, computePartialAddress } from '@aztec/circuits.js';
+import { computePartialAddress } from '@aztec/circuits.js/contract';
+import { type PublicKeys } from '@aztec/circuits.js/keys';
 import { EscrowContract } from '@aztec/noir-contracts.js/Escrow';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 

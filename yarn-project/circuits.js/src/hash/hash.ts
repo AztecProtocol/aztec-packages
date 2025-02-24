@@ -3,8 +3,8 @@ import { poseidon2Hash, poseidon2HashWithSeparator, sha256Trunc } from '@aztec/f
 import { Fr } from '@aztec/foundation/fields';
 
 import { type AztecAddress } from '../aztec-address/index.js';
-import { type ScopedL2ToL1Message } from '../structs/l2_to_l1_message.js';
-import { type ContractClassLog } from '../structs/logs/index.js';
+import { type ContractClassLog } from '../logs/index.js';
+import { type ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 
 /**
  * Computes a hash of a given verification key.
@@ -29,18 +29,18 @@ export function computeNoteHashNonce(nullifierZero: Fr, noteHashIndex: number): 
  * Computes a siloed note hash, given the contract address and the note hash itself.
  * A siloed note hash effectively namespaces a note hash to a specific contract.
  * @param contract - The contract address
- * @param uniqueNoteHash - The unique note hash to silo.
+ * @param noteHash - The note hash to silo.
  * @returns A siloed note hash.
  */
-export function siloNoteHash(contract: AztecAddress, uniqueNoteHash: Fr): Promise<Fr> {
-  return poseidon2HashWithSeparator([contract, uniqueNoteHash], GeneratorIndex.SILOED_NOTE_HASH);
+export function siloNoteHash(contract: AztecAddress, noteHash: Fr): Promise<Fr> {
+  return poseidon2HashWithSeparator([contract, noteHash], GeneratorIndex.SILOED_NOTE_HASH);
 }
 
 /**
  * Computes a unique note hash.
  * @dev Includes a nonce which contains data that guarantees the resulting note hash will be unique.
  * @param nonce - A nonce (typically derived from tx hash and note hash index in the tx).
- * @param siloedNoteHash - A note hash.
+ * @param siloedNoteHash - A siloed note hash.
  * @returns A unique note hash.
  */
 export function computeUniqueNoteHash(nonce: Fr, siloedNoteHash: Fr): Promise<Fr> {
