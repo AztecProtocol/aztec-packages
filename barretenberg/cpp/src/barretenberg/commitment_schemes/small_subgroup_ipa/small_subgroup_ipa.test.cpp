@@ -282,11 +282,10 @@ TYPED_TEST(SmallSubgroupIPATest, TranslationEvaluationsMaskingTerm)
         const FF evaluation_challenge_x = FF::random_element();
         const FF batching_challenge_v = FF::random_element();
 
-        const FF claimed_inner_product = Prover::compute_claimed_inner_product(
-            translation_data, evaluation_challenge_x, batching_challenge_v, num_wires);
+        const FF claimed_inner_product =
+            Prover::compute_claimed_inner_product(translation_data, evaluation_challenge_x, batching_challenge_v);
 
         Prover small_subgroup_ipa_prover(translation_data,
-                                         num_wires,
                                          evaluation_challenge_x,
                                          batching_challenge_v,
                                          claimed_inner_product,
@@ -297,7 +296,6 @@ TYPED_TEST(SmallSubgroupIPATest, TranslationEvaluationsMaskingTerm)
             this->evaluate_small_ipa_witnesses(small_subgroup_ipa_prover.get_witness_polynomials());
 
         bool consistency_checked = Verifier::check_eccvm_evaluations_consistency(small_ipa_evaluations,
-                                                                                 num_wires,
                                                                                  this->evaluation_challenge,
                                                                                  evaluation_challenge_x,
                                                                                  batching_challenge_v,
