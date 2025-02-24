@@ -50,6 +50,7 @@ function process_function() {
   set -euo pipefail
   local func name bytecode_b64 hash vk
 
+  contract_hash=$1
   # Read the function json.
   func="$(cat)"
   name=$(echo "$func" | jq -r '.name')
@@ -132,7 +133,7 @@ function compile {
   # .[1] is the updated functions on stdin (-)
   # * merges their fields.
   jq -c '.functions[]' $json_path | \
-    parallel $PARALLEL_FLAGS --keep-order -N1 --block 8M --pipe process_function | \
+    parallel $PARALLEL_FLAGS --keep-order -N1 --block 8M --pipe process_function $contract_hash | \
     jq -s '{functions: .}' | jq -s '.[0] * {functions: .[1].functions}' $json_path - > $tmp_dir/$filename
   mv $tmp_dir/$filename $json_path
 }
