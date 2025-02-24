@@ -24,11 +24,10 @@ class ECCVMVerifier {
 
     bool verify_proof(const ECCVMProof& proof);
 
-    static constexpr size_t NUM_TRANSCRIPT_WIRES = 5;
-    std::array<Commitment, NUM_TRANSCRIPT_WIRES> transcript_commitments;
+    std::array<Commitment, NUM_TRANSLATION_EVALUATIONS> translation_commitments;
 
     OpeningClaim<typename ECCVMFlavor::Curve> reduce_verify_translation_evaluations(
-        const std::array<Commitment, NUM_TRANSCRIPT_WIRES>& transcript_commitments);
+        const std::array<Commitment, NUM_TRANSLATION_EVALUATIONS>& translation_commitments);
 
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;

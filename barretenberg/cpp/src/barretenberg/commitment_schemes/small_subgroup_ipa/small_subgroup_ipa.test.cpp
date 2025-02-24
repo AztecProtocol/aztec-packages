@@ -194,7 +194,7 @@ TYPED_TEST(SmallSubgroupIPATest, ProverAndVerifierSimple)
     Prover small_subgroup_ipa_prover =
         Prover(zk_sumcheck_data, multivariate_challenge, claimed_inner_product, prover_transcript, ck);
 
-    const std::array<FF, NUM_LIBRA_EVALUATIONS> small_ipa_evaluations =
+    const std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations =
         this->evaluate_small_ipa_witnesses(small_subgroup_ipa_prover.get_witness_polynomials());
 
     bool consistency_checked = Verifier::check_evaluations_consistency(
@@ -230,13 +230,13 @@ TYPED_TEST(SmallSubgroupIPATest, ProverAndVerifierSimpleFailure)
     Prover small_subgroup_ipa_prover =
         Prover(zk_sumcheck_data, multivariate_challenge, claimed_inner_product, prover_transcript, ck);
 
-    std::array<Polynomial<FF>, NUM_LIBRA_EVALUATIONS> witness_polynomials =
+    std::array<Polynomial<FF>, NUM_SMALL_IPA_EVALUATIONS> witness_polynomials =
         small_subgroup_ipa_prover.get_witness_polynomials();
 
     // Tamper with witness polynomials
     witness_polynomials[0].at(0) = FF::random_element();
 
-    const std::array<FF, NUM_LIBRA_EVALUATIONS> small_ipa_evaluations =
+    const std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations =
         this->evaluate_small_ipa_witnesses(witness_polynomials);
 
     bool consistency_checked = Verifier::check_evaluations_consistency(
@@ -293,7 +293,7 @@ TYPED_TEST(SmallSubgroupIPATest, TranslationEvaluationsMaskingTerm)
                                          prover_transcript,
                                          ck);
 
-        const std::array<FF, NUM_LIBRA_EVALUATIONS> small_ipa_evaluations =
+        const std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations =
             this->evaluate_small_ipa_witnesses(small_subgroup_ipa_prover.get_witness_polynomials());
 
         bool consistency_checked = Verifier::check_eccvm_evaluations_consistency(small_ipa_evaluations,
