@@ -1,6 +1,6 @@
-import { EthAddress } from '@aztec/circuits.js';
 import { l1ContractAddressesMapping } from '@aztec/ethereum/l1-contract-addresses';
 import { type ConfigMappingsType, numberConfigHelper } from '@aztec/foundation/config';
+import { EthAddress } from '@aztec/foundation/eth-address';
 
 export { type AllowedElement, type SequencerConfig, SequencerConfigSchema } from './interfaces/configs.js';
 

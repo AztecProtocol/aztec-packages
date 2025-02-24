@@ -8,9 +8,9 @@ import {
   type ProvingJobConsumer,
   type ProvingJobProducer,
   type ServerCircuitProver,
-} from '@aztec/circuit-types/interfaces';
-import { Fr } from '@aztec/circuits.js';
+} from '@aztec/circuit-types/interfaces/server';
 import { times } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { NativeACVMSimulator } from '@aztec/simulator/server';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';

@@ -1,4 +1,7 @@
-import { ClientIvcProof, Gas, PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js';
+import { Gas } from '@aztec/circuits.js/gas';
+import { PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
+import { ClientIvcProof } from '@aztec/circuits.js/proofs';
+import type { ZodFor } from '@aztec/foundation/schemas';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
@@ -66,7 +69,7 @@ export class TxSimulationResult extends PrivateSimulationResult {
     );
   }
 
-  static get schema() {
+  static get schema(): ZodFor<TxSimulationResult> {
     return z
       .object({
         privateExecutionResult: PrivateExecutionResult.schema,

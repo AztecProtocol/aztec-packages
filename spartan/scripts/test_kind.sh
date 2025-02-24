@@ -86,8 +86,8 @@ if [ "$fresh_install" != "no-deploy" ]; then
   OVERRIDES="$OVERRIDES" ./deploy_kind.sh $namespace $values_file $sepolia_run
 fi
 
-# Find 4 free ports between 9000 and 10000
-free_ports="$(find_ports 5)"
+# Find 6 free ports between 9000 and 10000
+free_ports="$(find_ports 6)"
 
 # Extract the free ports from the list
 forwarded_pxe_port=$(echo $free_ports | awk '{print $1}')
@@ -95,6 +95,7 @@ forwarded_anvil_port=$(echo $free_ports | awk '{print $2}')
 forwarded_metrics_port=$(echo $free_ports | awk '{print $3}')
 forwarded_node_port=$(echo $free_ports | awk '{print $4}')
 forwarded_sequencer_port=$(echo $free_ports | awk '{print $5}')
+forwarded_prover_node_port=$(echo $free_ports | awk '{print $6}')
 
 if [ "$install_metrics" = "true" ]; then
   grafana_password=$(kubectl get secrets -n metrics metrics-grafana -o jsonpath='{.data.admin-password}' | base64 --decode)
@@ -125,6 +126,8 @@ export HOST_NODE_PORT="$forwarded_node_port"
 export CONTAINER_NODE_PORT="8080"
 export HOST_SEQUENCER_PORT=$forwarded_sequencer_port
 export CONTAINER_SEQUENCER_PORT="8080"
+export HOST_PROVER_NODE_PORT=$forwarded_prover_node_port
+export CONTAINER_PROVER_NODE_PORT="8080"
 export HOST_METRICS_PORT="$forwarded_metrics_port"
 export CONTAINER_METRICS_PORT="80"
 export GRAFANA_PASSWORD="$grafana_password"
@@ -136,6 +139,5 @@ export AZTEC_SLOT_DURATION="$aztec_slot_duration"
 export AZTEC_EPOCH_DURATION="$aztec_epoch_duration"
 export AZTEC_PROOF_SUBMISSION_WINDOW="$aztec_proof_submission_window"
 export L1_ACCOUNT_MNEMONIC="$l1_account_mnemonic"
-export BOT_L1_MNEMONIC="$l1_account_mnemonic"
 
 yarn --cwd ../../yarn-project/end-to-end test --forceExit "$test"

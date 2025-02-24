@@ -74,7 +74,7 @@
 
 // /**
 //  * @brief Prove and verify accumulation of an arbitrary set of circuits using precomputed verification keys
-//  * @details The tests precomputed the keys via one pass of the ivc prover, then it usese then in a second pass.
+//  * @details The test precomputes the keys via one pass of the ivc prover, then it uses them in a second pass.
 //  */
 // TEST_F(UltraVanillaClientIVCTests, PrecomputedVerificationKeys)
 // {

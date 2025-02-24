@@ -1,11 +1,8 @@
 import { Capsule } from '@aztec/circuit-types';
-import {
-  Fr,
-  MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
-  REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
-  getContractClassFromArtifact,
-} from '@aztec/circuits.js';
-import { type ContractArtifact, bufferAsFields } from '@aztec/foundation/abi';
+import { type ContractArtifact, bufferAsFields } from '@aztec/circuits.js/abi';
+import { getContractClassFromArtifact } from '@aztec/circuits.js/contract';
+import { MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import { type ContractFunctionInteraction } from '../contract/contract_function_interaction.js';

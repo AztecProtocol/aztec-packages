@@ -1,22 +1,16 @@
-import { MerkleTreeId, type MerkleTreeWriteOperations } from '@aztec/circuit-types';
-import {
-  type ContractClassPublic,
-  type ContractInstanceWithAddress,
-  DEPLOYER_CONTRACT_ADDRESS,
-  PUBLIC_DISPATCH_SELECTOR,
-  PublicDataWrite,
-  computeInitializationHash,
-} from '@aztec/circuits.js';
+import { MerkleTreeId } from '@aztec/circuit-types';
+import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
+import { type ContractArtifact } from '@aztec/circuits.js/abi';
+import { PublicDataWrite } from '@aztec/circuits.js/avm';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type ContractClassPublic, type ContractInstanceWithAddress } from '@aztec/circuits.js/contract';
 import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
-import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
-import { type ContractArtifact, FunctionSelector } from '@aztec/foundation/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 
-import { PUBLIC_DISPATCH_FN_NAME, getContractFunctionArtifact } from './index.js';
 import { type SimpleContractDataSource } from './simple_contract_data_source.js';
 
 /**
@@ -36,8 +30,6 @@ export abstract class BaseAvmSimulationTester {
   constructor(
     public contractDataSource: SimpleContractDataSource,
     public merkleTrees: MerkleTreeWriteOperations,
-    /* May want to skip contract deployment tree ops to test failed contract address nullifier checks on CALL */
-    private skipContractDeployments = false,
     private initialFeePayerBalance = new Fr(10 ** 10),
   ) {}
 
@@ -62,24 +54,25 @@ export abstract class BaseAvmSimulationTester {
     constructorArgs: any[],
     deployer: AztecAddress,
     contractArtifact: ContractArtifact,
+    skipNullifierInsertion = false,
     seed = 0,
+    originalContractClassId?: Fr, // if previously upgraded
   ): Promise<ContractInstanceWithAddress> {
-    const bytecode = getContractFunctionArtifact(PUBLIC_DISPATCH_FN_NAME, contractArtifact)!.bytecode;
-    const contractClass = await makeContractClassPublic(
-      seed,
-      /*publicDispatchFunction=*/ { bytecode, selector: new FunctionSelector(PUBLIC_DISPATCH_SELECTOR) },
-    );
-
-    const constructorAbi = getContractFunctionArtifact('constructor', contractArtifact);
-    const initializationHash = await computeInitializationHash(constructorAbi, constructorArgs);
-    const contractInstance = await makeContractInstanceFromClassId(contractClass.id, seed, {
+    const contractInstance = await this.contractDataSource.registerAndDeployContract(
+      constructorArgs,
       deployer,
-      initializationHash,
-    });
-
-    await this.addContractClass(contractClass, contractArtifact);
-    await this.addContractInstance(contractInstance);
+      contractArtifact,
+      seed,
+      originalContractClassId,
+    );
+    if (!skipNullifierInsertion) {
+      await this.insertContractAddressNullifier(contractInstance.address);
+    }
     return contractInstance;
+  }
+
+  async registerFeeJuiceContract(): Promise<ContractInstanceWithAddress> {
+    return await this.contractDataSource.registerFeeJuiceContract();
   }
 
   getFirstContractInstance(): ContractInstanceWithAddress {
@@ -92,14 +85,18 @@ export abstract class BaseAvmSimulationTester {
     return this.contractDataSource.addContractClass(contractClass);
   }
 
-  async addContractInstance(contractInstance: ContractInstanceWithAddress) {
-    if (!this.skipContractDeployments) {
-      const contractAddressNullifier = await siloNullifier(
-        AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
-        contractInstance.address.toField(),
-      );
-      await this.merkleTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, [contractAddressNullifier.toBuffer()], 0);
+  async addContractInstance(contractInstance: ContractInstanceWithAddress, skipNullifierInsertion = false) {
+    if (!skipNullifierInsertion) {
+      await this.insertContractAddressNullifier(contractInstance.address);
     }
     await this.contractDataSource.addContractInstance(contractInstance);
+  }
+
+  private async insertContractAddressNullifier(contractAddress: AztecAddress) {
+    const contractAddressNullifier = await siloNullifier(
+      AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+      contractAddress.toField(),
+    );
+    await this.merkleTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, [contractAddressNullifier.toBuffer()], 0);
   }
 }

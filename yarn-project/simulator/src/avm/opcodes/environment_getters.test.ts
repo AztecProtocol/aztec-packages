@@ -1,5 +1,5 @@
-import { GasFees } from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { GasFees } from '@aztec/circuits.js/gas';
 import { Fr } from '@aztec/foundation/fields';
 
 import { randomInt } from 'crypto';

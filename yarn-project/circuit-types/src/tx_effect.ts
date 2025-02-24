@@ -1,6 +1,8 @@
+import { PublicDataWrite, RevertCode } from '@aztec/circuits.js/avm';
+import { PrivateLog, PublicLog } from '@aztec/circuits.js/logs';
+import { type ZodFor, schemas } from '@aztec/circuits.js/schemas';
 import {
   CONTRACT_CLASS_LOGS_PREFIX,
-  Fr,
   L2_L1_MSGS_PREFIX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
@@ -14,19 +16,15 @@ import {
   PUBLIC_DATA_UPDATE_REQUESTS_PREFIX,
   PUBLIC_LOGS_PREFIX,
   PUBLIC_LOG_SIZE_IN_FIELDS,
-  PrivateLog,
-  PublicDataWrite,
-  PublicLog,
   REVERT_CODE_PREFIX,
-  RevertCode,
   TX_FEE_PREFIX,
-} from '@aztec/circuits.js';
+} from '@aztec/constants';
 import { type FieldsOf, makeTuple, makeTupleAsync } from '@aztec/foundation/array';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
-import { schemas } from '@aztec/foundation/schemas';
 import {
   BufferReader,
   FieldReader,
@@ -40,8 +38,6 @@ import { z } from 'zod';
 
 import { ContractClassTxL2Logs, type TxL2Logs } from './logs/index.js';
 import { TxHash } from './tx/tx_hash.js';
-
-export { RevertCodeEnum } from '@aztec/circuits.js';
 
 // This will appear as 0x74785f7374617274 in logs
 export const TX_START_PREFIX = 8392562855083340404n;
@@ -515,7 +511,7 @@ export class TxEffect {
     );
   }
 
-  static get schema() {
+  static get schema(): ZodFor<TxEffect> {
     return z
       .object({
         revertCode: RevertCode.schema,

@@ -1,12 +1,14 @@
-import { type AztecAddress, type ContractClass, type ContractInstance } from '@aztec/circuits.js';
 import {
   type ContractArtifact,
   type FunctionArtifact,
   type FunctionDebugMetadata,
   type FunctionSelector,
   getFunctionDebugMetadata,
-} from '@aztec/foundation/abi';
+} from '@aztec/circuits.js/abi';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type ContractClass, type ContractInstance } from '@aztec/circuits.js/contract';
 import { type Fr } from '@aztec/foundation/fields';
+import type { MembershipWitness } from '@aztec/foundation/trees';
 import { ContractClassNotFoundError, ContractNotFoundError } from '@aztec/simulator/client';
 
 import { type ContractArtifactDatabase } from '../database/contracts/contract_artifact_db.js';
@@ -120,7 +122,10 @@ export class ContractDataOracle {
    * @param selector - The function selector.
    * @returns A promise that resolves with the MembershipWitness instance for the specified contract's function.
    */
-  public async getFunctionMembershipWitness(contractClassId: Fr, selector: FunctionSelector) {
+  public async getFunctionMembershipWitness(
+    contractClassId: Fr,
+    selector: FunctionSelector,
+  ): Promise<MembershipWitness<5>> {
     const tree = await this.getTreeForClassId(contractClassId);
     return tree.getFunctionMembershipWitness(selector);
   }

@@ -1,11 +1,9 @@
+import { type L2BlockSource, type P2PClientType, type Tx } from '@aztec/circuit-types';
+import { type ChainConfig, emptyChainConfig } from '@aztec/circuit-types/config';
 import {
   type ClientProtocolCircuitVerifier,
-  type L2BlockSource,
-  type P2PClientType,
-  type Tx,
   type WorldStateSynchronizer,
-} from '@aztec/circuit-types';
-import { type ChainConfig, emptyChainConfig } from '@aztec/circuit-types/config';
+} from '@aztec/circuit-types/interfaces/server';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { timesParallel } from '@aztec/foundation/collection';
 import { type DataStoreConfig } from '@aztec/kv-store/config';

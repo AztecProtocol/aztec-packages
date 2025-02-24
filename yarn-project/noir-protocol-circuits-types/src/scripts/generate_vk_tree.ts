@@ -1,6 +1,7 @@
-import { MerkleTreeCalculator, TUBE_VK_INDEX, VK_TREE_HEIGHT } from '@aztec/circuits.js';
+import { TUBE_VK_INDEX, VK_TREE_HEIGHT } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { createConsoleLogger } from '@aztec/foundation/log';
+import { MerkleTreeCalculator } from '@aztec/foundation/trees';
 import { fileURLToPath } from '@aztec/foundation/url';
 
 import { promises as fs } from 'fs';
@@ -34,7 +35,7 @@ async function main() {
   const vkTree = await buildVKTree();
   const vkTreePath = resolveRelativePath('../vk_tree.ts');
   const vkTreeFileContents = `
-import { MerkleTree } from '@aztec/circuits.js';
+import { MerkleTree } from '@aztec/foundation/trees';
 
 export const vkTree = new MerkleTree(${vkTree.height}, [${vkTree.nodes
     .map(node => `'${node.toString('hex')}'`)

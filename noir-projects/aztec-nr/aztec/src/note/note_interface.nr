@@ -16,8 +16,8 @@ where
 }
 
 pub trait NullifiableNote {
-    /// Returns the non-siloed nullifier, which will be later siloed by contract address by the kernels before being
-    /// committed to the state tree.
+    /// Returns the non-siloed nullifier (also called inner-nullifier), which will be later siloed by contract address
+    /// by the kernels before being committed to the state tree.
     ///
     /// This function MUST be called with the correct note hash for consumption! It will otherwise silently fail and
     /// compute an incorrect value. The reason why we receive this as an argument instead of computing it ourselves
@@ -30,7 +30,8 @@ pub trait NullifiableNote {
     fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field;
 
     /// Same as compute_nullifier, but unconstrained. This version does not take a note hash because it'll only be
-    /// invoked in unconstrained contexts, where there is no gate count.
+    /// invoked in unconstrained contexts, where there is no gate count. Note that it also takes a contract address:
+    /// this is because nullifier computation typically involves contract siloed nullifying keys.
     unconstrained fn compute_nullifier_without_context(
         self,
         storage_slot: Field,

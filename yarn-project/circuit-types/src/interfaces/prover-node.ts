@@ -1,4 +1,4 @@
-import { type ApiSchemaFor, schemas } from '@aztec/foundation/schemas';
+import { type ApiSchemaFor, schemas } from '@aztec/circuits.js/schemas';
 
 import { z } from 'zod';
 

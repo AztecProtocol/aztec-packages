@@ -1,13 +1,6 @@
-import { type MerkleTreeId, type ProcessedTx, type ProofAndVerificationKey } from '@aztec/circuit-types';
+import { type MerkleTreeId, type ProcessedTx } from '@aztec/circuit-types';
+import { type ProofAndVerificationKey } from '@aztec/circuit-types/interfaces/server';
 import { type CircuitName } from '@aztec/circuit-types/stats';
-import {
-  type AVM_PROOF_LENGTH_IN_FIELDS,
-  AVM_VK_INDEX,
-  type AppendOnlyTreeSnapshot,
-  type TUBE_PROOF_LENGTH,
-  TUBE_VK_INDEX,
-  VkWitnessData,
-} from '@aztec/circuits.js';
 import {
   AvmProofData,
   type BaseRollupHints,
@@ -19,6 +12,9 @@ import {
   PublicTubeData,
   TubeInputs,
 } from '@aztec/circuits.js/rollup';
+import { type AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
+import { VkWitnessData } from '@aztec/circuits.js/vks';
+import { type AVM_PROOF_LENGTH_IN_FIELDS, AVM_VK_INDEX, type TUBE_PROOF_LENGTH, TUBE_VK_INDEX } from '@aztec/constants';
 import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vks';
 
 /**

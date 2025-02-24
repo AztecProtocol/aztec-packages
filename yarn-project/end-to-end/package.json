@@ -8,8 +8,7 @@
     "./package.local.json"
   ],
   "scripts": {
-    "build": "yarn clean && tsc -b && webpack",
-    "build:e2e": "yarn clean && tsc -b",
+    "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
@@ -38,6 +37,7 @@
     "@aztec/bot": "workspace:^",
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
+    "@aztec/constants": "workspace:^",
     "@aztec/entrypoints": "workspace:^",
     "@aztec/epoch-cache": "workspace:^",
     "@aztec/ethereum": "workspace:^",
@@ -55,7 +55,6 @@
     "@aztec/sequencer-client": "workspace:^",
     "@aztec/simulator": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
-    "@aztec/types": "workspace:^",
     "@aztec/validator-client": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "@iarna/toml": "^2.2.5",

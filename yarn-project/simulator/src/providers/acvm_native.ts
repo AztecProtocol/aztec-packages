@@ -1,7 +1,7 @@
+import { type NoirCompiledCircuit } from '@aztec/circuits.js/noir';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import { type WitnessMap } from '@noir-lang/types';
 import * as proc from 'child_process';
@@ -158,7 +158,7 @@ export class NativeACVMSimulator implements SimulationProvider {
       return result.witness;
     };
 
-    return await runInDirectory(this.workingDirectory, operation, false);
+    return await runInDirectory(this.workingDirectory, operation, false, logger);
   }
 
   executeUserCircuit(

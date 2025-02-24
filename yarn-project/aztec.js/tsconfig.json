@@ -13,6 +13,9 @@
       "path": "../circuits.js"
     },
     {
+      "path": "../constants"
+    },
+    {
       "path": "../ethereum"
     },
     {
@@ -23,9 +26,6 @@
     },
     {
       "path": "../protocol-contracts"
-    },
-    {
-      "path": "../types"
     }
   ],
   "include": ["src", "src/**/*.json"]

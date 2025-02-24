@@ -13,6 +13,9 @@
       "path": "../circuits.js"
     },
     {
+      "path": "../constants"
+    },
+    {
       "path": "../foundation"
     },
     {
@@ -38,9 +41,6 @@
     },
     {
       "path": "../protocol-contracts"
-    },
-    {
-      "path": "../types"
     }
   ],
   "include": ["src"]
