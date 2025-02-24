@@ -45,7 +45,7 @@ class ECCVMProver {
 
     ECCVMProof export_proof();
     ECCVMProof construct_proof();
-    OpeningClaim reduce_translation_evaluations();
+    std::array<OpeningClaim, NUM_SMALL_IPA_EVALUATIONS + 1> reduce_translation_evaluations();
 
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Transcript> ipa_transcript;
@@ -54,9 +54,8 @@ class ECCVMProver {
 
     TranslationEvaluations translation_evaluations;
 
-    std::array<std::string, 5> translation_labels = {
-        "Translation:op", "Translation:Px", "Translation:Py", "Translation:z1", "Translation:z2"
-    };
+    std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> evaluation_labels;
+    std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points;
 
     std::vector<FF> public_inputs;
 

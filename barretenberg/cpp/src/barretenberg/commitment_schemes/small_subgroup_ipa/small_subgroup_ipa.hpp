@@ -486,6 +486,19 @@ template <typename Flavor> class SmallSubgroupIPAProver {
         }
         return claimed_inner_product;
     }
+
+    std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points(const FF& small_ipa_evaluation_challenge)
+    {
+        return compute_evaluation_points(small_ipa_evaluation_challenge, Curve::subgroup_generator);
+    }
+
+    std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> evaluation_labels()
+    {
+        return { "Translation:concatenation_eval",
+                 "Translation:big_sum_shift_eval",
+                 "Translation:big_sum_eval",
+                 "Translation:quotient_eval" };
+    };
 };
 
 /**
@@ -689,8 +702,18 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
             result.begin(), result.end(), result.begin(), [&](FF& denominator) { return denominator * numerator; });
         return result;
     }
+    static std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points(const FF& small_ipa_evaluation_challenge)
+    {
+        return compute_evaluation_points(small_ipa_evaluation_challenge, Curve::subgroup_generator);
+    }
+    static std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> evaluation_labels()
+    {
+        return { "Translation:concatenation_eval",
+                 "Translation:big_sum_shift_eval",
+                 "Translation:big_sum_eval",
+                 "Translation:quotient_eval" };
+    };
 };
-
 /**
  * @brief Given the sumcheck multivariate challenge \f$ (u_0,\ldots, u_{D-1})\f$, where \f$ D =
  * \text{CONST_PROOF_SIZE_LOG_N}\f$, the verifier has to construct and evaluate the polynomial whose
@@ -736,9 +759,9 @@ static std::vector<FF> compute_challenge_polynomial_coeffs(const std::vector<FF>
  * @return std::vector<FF>
  */
 template <typename FF>
-std::vector<FF> compute_eccvm_challenge_coeffs(const FF& evaluation_challenge_x,
-                                               const FF& batching_challenge_v,
-                                               const size_t& subgroup_size)
+static std::vector<FF> compute_eccvm_challenge_coeffs(const FF& evaluation_challenge_x,
+                                                      const FF& batching_challenge_v,
+                                                      const size_t& subgroup_size)
 {
     std::vector<FF> coeffs_lagrange_basis(subgroup_size, FF(0));
 
@@ -758,4 +781,15 @@ std::vector<FF> compute_eccvm_challenge_coeffs(const FF& evaluation_challenge_x,
 
     return coeffs_lagrange_basis;
 }
+
+template <typename FF>
+static std::array<FF, NUM_SMALL_IPA_EVALUATIONS> compute_evaluation_points(const FF& small_ipa_evaluation_challenge,
+                                                                           const FF& subgroup_generator)
+{
+    return { small_ipa_evaluation_challenge,
+             small_ipa_evaluation_challenge * subgroup_generator,
+             small_ipa_evaluation_challenge,
+             small_ipa_evaluation_challenge };
+}
+
 } // namespace bb
