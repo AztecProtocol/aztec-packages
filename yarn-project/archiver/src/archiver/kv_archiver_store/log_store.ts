@@ -423,8 +423,7 @@ export class LogStore {
     let logIndex = typeof filter.afterLog?.logIndex === 'number' ? filter.afterLog.logIndex + 1 : 0;
     for (; logIndex < txLogs.length; logIndex++) {
       const log = txLogs[logIndex];
-      // TODO(MW): fix hack for contract class
-      if (!filter.contractAddress || (log instanceof PublicLog && log.contractAddress.equals(filter.contractAddress))) {
+      if (!filter.contractAddress || log.contractAddress.equals(filter.contractAddress)) {
         if (log instanceof ContractClassLog) {
           results.push(new ExtendedContractClassLog(new LogId(blockNumber, txIndex, logIndex), log));
         } else {

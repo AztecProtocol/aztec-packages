@@ -19,8 +19,8 @@ export class ExtendedContractClassLog {
     public readonly log: ContractClassLog,
   ) {}
 
-  static random() {
-    return new ExtendedContractClassLog(LogId.random(), ContractClassLog.random());
+  static async random() {
+    return new ExtendedContractClassLog(LogId.random(), await ContractClassLog.random());
   }
 
   static get schema() {
