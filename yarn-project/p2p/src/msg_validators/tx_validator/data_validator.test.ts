@@ -3,7 +3,7 @@ import { mockTx } from '@aztec/circuit-types/testing';
 import { FunctionSelector } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
-import { MAX_ARGS_TO_ALL_ENQUEUED_CALLS } from '@aztec/constants';
+import { MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -76,7 +76,7 @@ describe('TxDataValidator', () => {
     };
     const goodTx0 = await mockTx(1, goodTx0Settings);
     goodTx0.enqueuedPublicFunctionCalls[0].args = Array.from(
-      { length: MAX_ARGS_TO_ALL_ENQUEUED_CALLS },
+      { length: MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS },
       () => new Fr(1),
     );
     await fixPublicCallRequests(goodTx0, goodTx0Settings);
@@ -92,11 +92,11 @@ describe('TxDataValidator', () => {
     };
     const badTx0 = await mockTx(2, badTx0Settings);
     badTx0.enqueuedPublicFunctionCalls[0].args = Array.from(
-      { length: MAX_ARGS_TO_ALL_ENQUEUED_CALLS / 2 },
+      { length: MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS / 2 },
       () => new Fr(1),
     );
     badTx0.enqueuedPublicFunctionCalls[1].args = Array.from(
-      { length: MAX_ARGS_TO_ALL_ENQUEUED_CALLS / 2 },
+      { length: MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS / 2 },
       () => new Fr(1),
     );
     badTx0.publicTeardownFunctionCall.args = [new Fr(1)];
@@ -109,7 +109,7 @@ describe('TxDataValidator', () => {
     };
     const badTx1 = await mockTx(3, badTx1Settings);
     badTx1.enqueuedPublicFunctionCalls[0].args = Array.from(
-      { length: MAX_ARGS_TO_ALL_ENQUEUED_CALLS + 1 },
+      { length: MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS + 1 },
       () => new Fr(1),
     );
     await fixPublicCallRequests(badTx1, badTx1Settings);
