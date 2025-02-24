@@ -3861,7 +3861,7 @@ AvmError AvmTraceBuilder::constrain_external_call(OpCode opcode,
     auto args_size =
         is_ok(error) ? static_cast<uint32_t>(unconstrained_read_from_memory(resolved_args_size_offset)) : 0;
 
-    // We need to consume the the gas cost of call, and then handle the amount allocated to the call
+    // We need to consume the gas cost of call, and then handle the amount allocated to the call
     // TODO: is cast okay? Should gas be read from memory as u32?
     bool out_of_gas = gas_trace_builder.constrain_gas(clk, opcode, /*dyn_gas_multiplier=*/args_size);
     // NOTE: we don't run out of gas if the gas specified by user code is > gas left.
