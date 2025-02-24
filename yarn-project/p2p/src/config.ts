@@ -298,12 +298,12 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   gossipsubMcacheLength: {
     env: 'P2P_GOSSIPSUB_MCACHE_LENGTH',
     description: 'The number of gossipsub interval message cache windows to keep.',
-    ...numberConfigHelper(6),
+    ...numberConfigHelper(12),
   },
   gossipsubMcacheGossip: {
     env: 'P2P_GOSSIPSUB_MCACHE_GOSSIP',
     description: 'How many message cache windows to include when gossiping with other pears.',
-    ...numberConfigHelper(3),
+    ...numberConfigHelper(12),
   },
   gossipsubTxTopicWeight: {
     env: 'P2P_GOSSIPSUB_TX_TOPIC_WEIGHT',
