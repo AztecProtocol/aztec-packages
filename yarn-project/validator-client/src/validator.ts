@@ -48,7 +48,7 @@ export interface Validator {
   registerBlockProposalHandler(): void;
   registerBlockBuilder(blockBuilder: BlockBuilderCallback): void;
 
-  // Block validation responsiblities
+  // Block validation responsibilities
   createBlockProposal(header: BlockHeader, archive: Fr, txs: TxHash[]): Promise<BlockProposal | undefined>;
   attestToProposal(proposal: BlockProposal): void;
 
