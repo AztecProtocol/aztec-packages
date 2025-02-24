@@ -38,7 +38,7 @@ These options are:
 - `SECRET_KEY` -> `-sk, --secret-key` for all commands that require an Aztec secret key.
 - `PUBLIC_KEY` -> `-k, --public-key` for all commands that require a public key.
 - `PXE_URL` -> `-u, --rpc-url` for commands that require a PXE
-- `ETHEREUM_RPC_HOST` -> `-u, --rpc-url` for `deploy-l1-contracts`.
+- `ETHEREUM_HOSTS` -> `-u, --rpc-urls` or `--l1-rpc-urls` for `deploy-l1-contracts`.
 
 So if for example you are running your Private eXecution Environment (PXE) remotely you can do:
 

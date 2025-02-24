@@ -21,7 +21,7 @@ To change them, you can open `~/.aztec/docker-compose.sandbox.yml` and edit them
 ```sh
 LOG_LEVEL=debug # Options are 'fatal', 'error', 'warn', 'info', 'verbose', 'debug', 'trace'
 HOST_WORKDIR='${PWD}' # The location to store log outputs. Will use ~/.aztec where the docker-compose.yml file is stored by default.
-ETHEREUM_HOST=http://ethereum:8545 # The Ethereum JSON RPC URL. We use an anvil instance that runs in parallel to the sandbox on docker by default.
+ETHEREUM_HOSTS=http://ethereum:8545 # List of Ethereum JSON RPC URLs. We use an anvil instance that runs in parallel to the sandbox on docker by default.
 L1_CHAIN_ID=31337 # The Chain ID that the Ethereum host is using.
 TEST_ACCOUNTS='true' # Option to deploy 3 test account when sandbox starts. (default: true)
 MODE='sandbox' # Option to start the sandbox or a standalone part of the system. (default: sandbox)
