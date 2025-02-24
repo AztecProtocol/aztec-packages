@@ -8,11 +8,12 @@ import {
   PublicFeePaymentMethod,
   TxStatus,
 } from '@aztec/aztec.js';
-import { FunctionType, U128 } from '@aztec/circuits.js/abi';
+import { FunctionType } from '@aztec/circuits.js/abi';
 import { Gas, GasSettings } from '@aztec/circuits.js/gas';
 import { type FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { type TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 
+import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
 import { expectMapping } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
 
@@ -59,7 +60,7 @@ describe('e2e_fees failures', () => {
           },
         })
         .wait(),
-    ).rejects.toThrow(/attempt to subtract with underflow 'hi == high'/);
+    ).rejects.toThrow(U128_UNDERFLOW_ERROR);
 
     // we did not pay the fee, because we did not submit the TX
     await expectMapping(
@@ -150,7 +151,7 @@ describe('e2e_fees failures', () => {
           },
         })
         .wait(),
-    ).rejects.toThrow(/attempt to subtract with underflow 'hi == high'/);
+    ).rejects.toThrow(U128_UNDERFLOW_ERROR);
 
     // we did not pay the fee, because we did not submit the TX
     await expectMapping(
@@ -313,10 +314,10 @@ describe('e2e_fees failures', () => {
 
 class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
   override async getFunctionCalls(gasSettings: GasSettings): Promise<FunctionCall[]> {
-    const maxFee = new U128(gasSettings.getFeeLimit().toBigInt());
+    const maxFee = gasSettings.getFeeLimit();
     const nonce = Fr.random();
 
-    const tooMuchFee = new U128(maxFee.toInteger() * 2n);
+    const tooMuchFee = new Fr(maxFee.toBigInt() * 2n);
 
     const asset = await this.getAsset();
 
@@ -325,8 +326,8 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
         caller: this.paymentContract,
         action: {
           name: 'transfer_in_public',
-          args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), ...maxFee.toFields(), nonce],
-          selector: await FunctionSelector.fromSignature('transfer_in_public((Field),(Field),(Field,Field),Field)'),
+          args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), maxFee, nonce],
+          selector: await FunctionSelector.fromSignature('transfer_in_public((Field),(Field),u128,Field)'),
           type: FunctionType.PUBLIC,
           isStatic: false,
           to: asset,
@@ -341,10 +342,10 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
       {
         name: 'fee_entrypoint_public',
         to: this.paymentContract,
-        selector: await FunctionSelector.fromSignature('fee_entrypoint_public((Field,Field),Field)'),
+        selector: await FunctionSelector.fromSignature('fee_entrypoint_public(u128,Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
-        args: [...tooMuchFee.toFields(), nonce],
+        args: [tooMuchFee, nonce],
         returnTypes: [],
       },
     ];

@@ -1,6 +1,6 @@
 import { type Tx } from '@aztec/circuit-types';
 import { mockTx } from '@aztec/circuit-types/testing';
-import { FunctionSelector, U128 } from '@aztec/circuits.js/abi';
+import { FunctionSelector } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { GasFees, GasSettings } from '@aztec/circuits.js/gas';
 import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
@@ -70,11 +70,11 @@ describe('GasTxValidator', () => {
 
   it('allows fee paying txs if fee payer claims enough balance during setup', async () => {
     mockBalance(feeLimit - 1n);
-    const selector = await FunctionSelector.fromSignature('_increase_public_balance((Field),(Field,Field))');
+    const selector = await FunctionSelector.fromSignature('_increase_public_balance((Field),u128)');
     await patchNonRevertibleFn(tx, 0, {
       address: ProtocolContractAddress.FeeJuice,
       selector: FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
-      args: [selector.toField(), payer.toField(), ...new U128(1n).toFields()],
+      args: [selector.toField(), payer.toField(), new Fr(1n)],
       msgSender: ProtocolContractAddress.FeeJuice,
     });
     await expectValid(tx);
@@ -92,8 +92,8 @@ describe('GasTxValidator', () => {
   it('rejects txs if fee payer claims balance outside setup', async () => {
     mockBalance(feeLimit - 1n);
     await patchRevertibleFn(tx, 0, {
-      selector: await FunctionSelector.fromSignature('_increase_public_balance((Field),(Field,Field))'),
-      args: [payer.toField(), ...new U128(1n).toFields()],
+      selector: await FunctionSelector.fromSignature('_increase_public_balance((Field),u128)'),
+      args: [payer.toField(), new Fr(1n)],
     });
     await expectInvalid(tx, 'Insufficient fee payer balance');
   });

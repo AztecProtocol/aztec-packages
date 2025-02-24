@@ -11,8 +11,8 @@ use std::meta::derive;
 /// up rewriting all the values.
 #[derive(Deserialize, Packable, Serialize)]
 pub struct Asset {
-    interest_accumulator: U128,
+    interest_accumulator: u128,
     last_updated_ts: u64,
-    loan_to_value: U128,
+    loan_to_value: u128,
     oracle: AztecAddress,
 }

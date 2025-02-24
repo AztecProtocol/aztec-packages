@@ -8,6 +8,22 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### `U128` type replaced with native `u128`
+
+The `U128` type has been replaced with the native `u128` type. This means that you can no longer use the `U128` type in your code. Instead, you should use the `u128` type.
+Doing the changes is as straightforward as:
+
+```diff
+    #[public]
+    #[view]
+-    fn balance_of_public(owner: AztecAddress) -> U128 {
++    fn balance_of_public(owner: AztecAddress) -> u128 {
+        storage.public_balances.at(owner).read()
+    }
+```
+
+`UintNote` has also been updated to use the native `u128` type.
+
 ### [aztec-nr] Removed `compute_note_hash_and_optionally_a_nullifer`
 
 This function is no longer mandatory for contracts, and the `#[aztec]` macro no longer injects it.
@@ -63,7 +79,7 @@ await contract.methods
     txHash.hash,
     toBoundedVec(txEffects!.data.noteHashes, MAX_NOTE_HASHES_PER_TX),
     txEffects!.data.nullifiers[0],
-    wallet.getAddress(),
+    wallet.getAddress()
   )
   .simulate();
 ```
@@ -85,8 +101,11 @@ The 3 test accounts deployed in the sandbox are pre-funded with 10 ^ 22 fee juic
 In addition to the native fee juice, users can pay the transaction fees using tokens that have a corresponding FPC contract. The sandbox now includes `BananaCoin` and `BananaFPC`. Users can use a funded test account to mint banana coin for a new account. The new account can then start sending transactions and pay fees with banana coin.
 
 ```typescript
-import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
-import { getDeployedBananaCoinAddress, getDeployedBananaFPCAddress } from '@aztec/aztec';
+import { getDeployedTestAccountsWallets } from "@aztec/accounts/testing";
+import {
+  getDeployedBananaCoinAddress,
+  getDeployedBananaFPCAddress,
+} from "@aztec/aztec";
 
 // Fetch the funded test accounts.
 const [fundedWallet] = await getDeployedTestAccountsWallets(pxe);
@@ -105,21 +124,29 @@ await alice.deploy({ deployWallet: fundedWallet }).wait();
 const bananaCoinAddress = await getDeployedBananaCoinAddress(pxe);
 const bananaCoin = await TokenContract.at(bananaCoinAddress, fundedWallet);
 const mintAmount = 10n ** 20n;
-await bananaCoin.methods.mint_to_private(fundedWallet.getAddress(), aliceAddress, mintAmount).send().wait();
+await bananaCoin.methods
+  .mint_to_private(fundedWallet.getAddress(), aliceAddress, mintAmount)
+  .send()
+  .wait();
 
 // Use the new account to send a tx and pay with banana coin.
 const transferAmount = 100n;
 const bananaFPCAddress = await getDeployedBananaFPCAddress(pxe);
-const paymentMethod = new PrivateFeePaymentMethod(bananaFPCAddress, aliceWallet);
+const paymentMethod = new PrivateFeePaymentMethod(
+  bananaFPCAddress,
+  aliceWallet
+);
 const receipt = await bananaCoin
-    .withWallet(aliceWallet)
-    .methods.transfer(recipient, transferAmount)
-    .send({ fee: { paymentMethod } })
-    .wait();
+  .withWallet(aliceWallet)
+  .methods.transfer(recipient, transferAmount)
+  .send({ fee: { paymentMethod } })
+  .wait();
 const transactionFee = receipt.transactionFee!;
 
 // Check the new account's balance.
-const aliceBalance = await bananaCoin.methods.balance_of_private(aliceAddress).simulate();
+const aliceBalance = await bananaCoin.methods
+  .balance_of_private(aliceAddress)
+  .simulate();
 expect(aliceBalance).toEqual(mintAmount - transferAmount - transactionFee);
 ```
 
@@ -152,6 +179,7 @@ The new check an indexed tree allows is non-membership of addresses of non proto
 ```
 
 ### [Aztec.nr] Changes to `NoteInterface`
+
 We removed `NoteHeader` from notes, we've introduced a `RetrievedNote` struct and instead of the `pack_content` and `unpack_content` functions we make notes implement the standard `Packable` trait.
 This led us to do the following changes to `NoteInterface`:
 
@@ -177,7 +205,7 @@ If you are using `#[note]` or `#[partial_note(...)]` macros this should not affe
 If you use `#[note_custom_interface]` macro you will need to update your notes.
 These are the changes that needed to be done to our `EcdsaPublicKeyNote`:
 
-```diff
+````diff
 + use dep::aztec::protocol_types::utils::arrays::array_concat;
 -use dep::aztec::prelude::{NoteHeader};
 +use dep::aztec::prelude::{RetrievedNote};
@@ -222,7 +250,7 @@ If you need to keep the custom implementation of the packing functionality, manu
 +        ...
 +    }
 +}
-```
+````
 
 If you don't provide a custom implementation of the `Packable` trait, a default one will be generated.
 
@@ -246,7 +274,9 @@ impl NullifiableNote for EcdsaPublicKeyNote {
     }
 }
 ```
+
 ### [Aztec.nr] Changes to state variables
+
 Since we've removed `NoteHeader` from notes we no longer need to modify the header in the notes when working with state variables.
 This means that we no longer need to be passing a mutable note reference which led to the following changes in the API.
 

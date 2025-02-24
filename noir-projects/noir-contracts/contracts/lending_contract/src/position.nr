@@ -3,7 +3,7 @@ use std::meta::derive;
 
 #[derive(Serialize, Deserialize)]
 pub struct Position {
-    collateral: U128,
-    static_debt: U128,
-    debt: U128,
+    collateral: u128,
+    static_debt: u128,
+    debt: u128,
 }

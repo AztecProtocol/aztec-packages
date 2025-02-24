@@ -104,8 +104,8 @@ impl<let SUBTREE_ITEMS: u32, let TREE_HEIGHT: u32, let SUPERTREE_HEIGHT: u32, le
             "tree height must be the sum of supertree and subtree height",
         );
         assert_eq(
-            U128::from_integer(SUBTREE_ITEMS),
-            U128::from_integer(1 << SUBTREE_HEIGHT as u8),
+            SUBTREE_ITEMS as u128,
+            (1 << SUBTREE_HEIGHT as u8) as u128,
             "subtree items must be 2^subtree height",
         );
         let subtree = MerkleTree::new(non_zero_leaves);
