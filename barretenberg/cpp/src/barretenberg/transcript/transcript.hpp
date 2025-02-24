@@ -351,6 +351,31 @@ template <typename TranscriptParams> class BaseTranscript {
     }
 
     /**
+     * @brief Adds an element to the transcript.
+     * @details Serializes the element to frs and adds it to the current_round_data buffer.
+     *
+     * @param label Human-readable name for the challenge.
+     * @param element Element to be added.
+     */
+    template <class T> void consume_element(const std::string& label, const T& element)
+    {
+        DEBUG_LOG(label, element);
+
+        // TODO(Adrian): Ensure that serialization of affine elements (including point at infinity) is consistent.
+        // TODO(Adrian): Consider restricting serialization (via concepts) to types T for which sizeof(T) reliably
+        // returns the size of T in frs. (E.g. this is true for std::array but not for std::vector).
+        // convert element to field elements
+        auto element_frs = TranscriptParams::convert_to_bn254_frs(element);
+
+#ifdef LOG_INTERACTIONS
+        if constexpr (Loggable<T>) {
+            info("consumed:     ", label, ": ", element);
+        }
+#endif
+        BaseTranscript::consume_prover_element_frs(label, element_frs);
+    }
+
+    /**
      * @brief Adds a prover message to the transcript, only intended to be used by the prover.
      *
      * @details Serializes the provided object into `proof_data`, and updates the current round state in
