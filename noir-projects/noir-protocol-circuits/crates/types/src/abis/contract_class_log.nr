@@ -42,4 +42,3 @@ pub fn validate_and_silo_contract_class_log(
     // Silo log
     silo_contract_class_log(log)
 }
-
