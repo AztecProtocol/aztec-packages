@@ -70,7 +70,7 @@ describe('GasTxValidator', () => {
 
   it('allows fee paying txs if fee payer claims enough balance during setup', async () => {
     mockBalance(feeLimit - 1n);
-    const selector = await FunctionSelector.fromSignature('_increase_public_balance((Field),Field)');
+    const selector = await FunctionSelector.fromSignature('_increase_public_balance((Field),u128)');
     await patchNonRevertibleFn(tx, 0, {
       address: ProtocolContractAddress.FeeJuice,
       selector: FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
@@ -92,7 +92,7 @@ describe('GasTxValidator', () => {
   it('rejects txs if fee payer claims balance outside setup', async () => {
     mockBalance(feeLimit - 1n);
     await patchRevertibleFn(tx, 0, {
-      selector: await FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
+      selector: await FunctionSelector.fromSignature('_increase_public_balance((Field),u128)'),
       args: [payer.toField(), new Fr(1n)],
     });
     await expectInvalid(tx, 'Insufficient fee payer balance');
