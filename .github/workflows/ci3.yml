@@ -79,7 +79,7 @@ jobs:
           ./ci.sh ec2
 
       - name: Download benchmarks
-        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'md/master'
+        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
         run: |
           ./ci3/cache_download barretenberg-bench-results-$(git rev-parse HEAD).tar.gz
           ./ci3/cache_download yarn-project-bench-results-$(git rev-parse HEAD).tar.gz
