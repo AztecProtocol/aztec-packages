@@ -104,7 +104,6 @@ export type EnvVar =
   | 'P2P_UDP_LISTEN_ADDR' // The listen address for UDP. Format: <IP_ADDRESS>:<PORT>
   | 'P2P_ARCHIVED_TX_LIMIT' // Archives a list of txs for future reference. The number of archived txs is limited by the specified archivedTxLimit
   | 'PEER_ID_PRIVATE_KEY' // An optional peer id private key. If blank, will generate a random key.
-  | 'PROOF_VERIFIER_POLL_INTERVAL_MS' // How often to poll L1 for proof submission
   | 'PROVER_AGENT_ENABLED' // TODO: Remove this env var
   | 'PROVER_AGENT_CONCURRENCY' // TODO: Remove this env var. Also look for \bhardwareConcurrency\b and remove it from the values files.
   | 'PROVER_AGENT_COUNT' // How many local prover agents to run on the prover node.

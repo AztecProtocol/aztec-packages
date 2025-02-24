@@ -39,16 +39,11 @@ export const proofVerifierConfigMappings: ConfigMappingsType<ProofVerifierConfig
     parseEnv: (val: string) => +val,
     defaultValue: 31337,
     description: 'The chain ID of the ethereum host.',
-  }
+  },
   rollupAddress: {
     env: 'ROLLUP_CONTRACT_ADDRESS',
     description: 'The address of the Rollup contract',
     parseEnv: EthAddress.fromString,
-  },
-  pollIntervalMs: {
-    env: 'PROOF_VERIFIER_POLL_INTERVAL_MS',
-    description: 'How often to poll L1 for proof submission',
-    ...numberConfigHelper(60_000),
   },
   bbBinaryPath: {
     env: 'BB_BINARY_PATH',
