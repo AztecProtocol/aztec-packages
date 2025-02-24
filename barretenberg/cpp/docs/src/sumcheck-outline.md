@@ -16,7 +16,7 @@ The implementation consists of several components.
   At the stage of proving their evaluations at the challenge point, the multilinear witness polynomials fed to Sumcheck must not reveal any private information.
   We use a modification of Construction 3 described in <a href=" https://eprint.iacr.org/2019/317">Libra</a> allowing the prover to open a new multilinear polynomial in \f$d\f$ variables, where \f$2^d\f$ is the circuit size, which is derived from the witnesses by adding a product of a random scalar and a public quadratic polynomial in \f$d\f$ variables
 
-- [Total Costs:](#ZKCosts) The effect of adding Libra technique and masking evaluations of multilinear witnesses is assessed, and the theoretical upper bound on prover's work is compared to the implementation costs.
+- [Total Costs:](#ZKCosts) The effect of adding Libra technique and masking evaluations of multilinear witnesses is assessed, and the oretical upper bound on prover's work is compared to the implementation costs.
 
 # Non ZK-Sumcheck Outline {#NonZKSumcheck}
 
