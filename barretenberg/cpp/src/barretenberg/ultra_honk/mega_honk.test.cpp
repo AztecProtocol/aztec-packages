@@ -277,47 +277,6 @@ TYPED_TEST(MegaHonkTests, MultipleCircuitsMergeOnly)
     }
 }
 
-// WORKTODO: move to op queue test suite?
-TYPED_TEST(MegaHonkTests, NewMergePolyconstruction)
-{
-    using Flavor = TypeParam;
-    using Fr = typename Flavor::Curve::ScalarField;
-    // Instantiate EccOpQueue. This will be shared across all circuits in the series
-    auto op_queue = std::make_shared<bb::ECCOpQueue>();
-
-    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
-
-    auto builder = typename Flavor::CircuitBuilder{ op_queue };
-    GoblinMockCircuits::construct_simple_circuit(builder);
-
-    std::array<Polynomial<Fr>, 4> table_polynomials = op_queue->get_ultra_ops_table_columns();
-    std::array<Polynomial<Fr>, 4> previous_table_polynomials = op_queue->get_previous_ultra_ops_table_columns();
-    std::array<Polynomial<Fr>, 4> subtable_polynomials = op_queue->get_current_subtable_columns();
-
-    const size_t current_subtable_size = op_queue->get_current_ultra_ops_subtable_size();
-
-    Fr eval_challenge = Fr::random_element();
-
-    std::array<Fr, 4> table_evals;
-    std::array<Fr, 4> shifted_previous_table_evals;
-    std::array<Fr, 4> subtable_evals;
-    for (auto [eval, poly] : zip_view(table_evals, table_polynomials)) {
-        eval = poly.evaluate(eval_challenge);
-    }
-    for (auto [eval, poly] : zip_view(shifted_previous_table_evals, previous_table_polynomials)) {
-        eval = poly.evaluate(eval_challenge);
-        eval *= eval_challenge.pow(current_subtable_size);
-    }
-    for (auto [eval, poly] : zip_view(subtable_evals, subtable_polynomials)) {
-        eval = poly.evaluate(eval_challenge);
-    }
-
-    for (auto [table_eval, shifted_previous_table_eval, subtable_eval] :
-         zip_view(table_evals, shifted_previous_table_evals, subtable_evals)) {
-        EXPECT_EQ(table_eval, subtable_eval + shifted_previous_table_eval);
-    }
-}
-
 /**
  * @brief Test Honk proof construction/verification for multiple circuits with ECC op gates, public inputs, and
  * basic arithmetic gates
