@@ -32,6 +32,7 @@ impl NullifiableNote for UintNote {
         context: &mut PrivateContext,
         note_hash_for_nullify: Field,
     ) -> Field {
+        // TODO: don't hash this; just pass the full pk_m around, to avoid the `.hash()` constraints. (And the same for all other notes).
         let owner_npk_m_hash = get_public_keys(self.owner).npk_m.hash();
         let secret = context.request_nsk_app(owner_npk_m_hash);
         poseidon2_hash_with_separator(

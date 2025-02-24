@@ -345,7 +345,6 @@ mod test {
     fn test_3_small_fields_to_fewer_be_bytes() {
         let input = [1, 2, 3];
         let output: [u8; 63] = fields_to_be_bytes_31(input);
-        println(f"output: {output}");
 
         // First 2 fields should occupy 31 bytes with the non-zero value being placed in the last one while the last
         // field should occupy 1 byte. There is not information destruction here because the last field fits into

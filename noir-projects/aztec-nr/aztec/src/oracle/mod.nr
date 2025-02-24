@@ -6,6 +6,7 @@ pub mod aes128_decrypt;
 pub mod block_header;
 pub mod call_private_function;
 pub mod capsules;
+pub mod compute_plume_proof;
 pub mod enqueue_public_function_call;
 pub mod execution;
 pub mod execution_cache;

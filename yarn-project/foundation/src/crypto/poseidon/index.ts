@@ -1,6 +1,7 @@
 import { BarretenbergSync, Fr as FrBarretenberg } from '@aztec/bb.js';
 
 import { Fr } from '../../fields/fields.js';
+import type { Point } from '../../fields/point.js';
 import { type Fieldable, serializeToFields } from '../../serialize/serialize.js';
 
 /**
@@ -74,4 +75,13 @@ export async function poseidon2HashBytes(input: Buffer): Promise<Fr> {
   );
 
   return Fr.fromBuffer(Buffer.from(res.toBuffer()));
+}
+
+/**
+ * Create a poseidon hash (field) from an array of input fields.
+ * @param input - The input fields to hash.
+ * @returns The poseidon hash.
+ */
+export async function poseidon2HashPoints(points: Point[]): Promise<Fr> {
+  return await poseidon2Hash(points.flatMap(p => [p.x, p.y]));
 }

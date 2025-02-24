@@ -17,7 +17,7 @@ import { type FunctionSelector, type NoteSelector } from '@aztec/circuits.js/abi
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type LogWithTxData } from '@aztec/circuits.js/logs';
 import { type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fq, Fr, Point } from '@aztec/foundation/fields';
 
 import { type MessageLoadOracleInputs } from '../../common/message_load_oracle_inputs.js';
 
@@ -83,6 +83,10 @@ export abstract class TypedOracle {
 
   getKeyValidationRequest(_pkMHash: Fr): Promise<KeyValidationRequest> {
     return Promise.reject(new OracleMethodNotAvailableError('getKeyValidationRequest'));
+  }
+
+  computePlumeProof(_msg: Fr[], _pkM: Point): Promise<[Point, Point, Point, Fq]> {
+    return Promise.reject(new OracleMethodNotAvailableError('computePlumeProof'));
   }
 
   getContractInstance(_address: AztecAddress): Promise<ContractInstance> {

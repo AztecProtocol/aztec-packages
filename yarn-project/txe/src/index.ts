@@ -175,6 +175,11 @@ class TXEDispatcher {
         await this.#processDeployInputs(callData);
         break;
       }
+      // Is this where the oracle call to `addAccount` ends up? The destination of
+      // the oracle call can't be TxeService.addAccount, because the params aren't the
+      // same -- the oracle call only has a `secret` as a param, which matches the
+      // param of processAddAccountInputs.
+      // If so, how is TxeService.addAccount reached?
       case 'addAccount': {
         await this.#processAddAccountInputs(callData);
         break;
@@ -182,6 +187,8 @@ class TXEDispatcher {
     }
 
     const txeService = TXESessions.get(sessionId);
+    // Why are some functionNames captured by the `switch` statement above, before
+    // being called here? Comments needed, please.
     const response = await (txeService as any)[functionName](...inputs);
     return response;
   }

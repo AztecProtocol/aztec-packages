@@ -21,6 +21,8 @@ use crate::{
 };
 use super::{constants::TWO_POW_64, utils::{arrays::array_concat, field::field_from_bytes}};
 
+use std::embedded_curve_ops::EmbeddedCurvePoint as Point;
+
 pub fn sha256_to_field<let N: u32>(bytes_to_hash: [u8; N]) -> Field {
     let sha256_hashed = sha256::digest(bytes_to_hash);
     let hash_in_a_field = field_from_bytes_32_trunc(sha256_hashed);
@@ -452,6 +454,19 @@ pub fn poseidon2_hash_bytes<let N: u32>(inputs: [u8; N]) -> Field {
         fields[field_index] = field_from_bytes(current_field, false);
     }
     poseidon2_hash(fields)
+}
+
+pub fn poseidon2_hash_points<let N: u32>(points: [Point; N]) -> Field {
+    // I experimented with compressing the points, to save on poseidon2 rounds,
+    // but it costs more because of the check for each point that y < (p-1)/2
+    // (each comparison costs ~190 gates).
+    let mut input = [0; 2 * N];
+    for i in 0..N {
+        let j = 2 * i;
+        input[j] = points[i].x;
+        input[j + 1] = points[i].y;
+    }
+    poseidon2_hash(input)
 }
 
 #[test]

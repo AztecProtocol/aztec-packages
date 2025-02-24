@@ -867,7 +867,7 @@ export class PXEService implements PXE {
 
     const vsks = await Promise.all(
       vpks.map(async vpk => {
-        const [keyPrefix, account] = await this.keyStore.getKeyPrefixAndAccount(vpk);
+        const [keyPrefix, account] = await this.keyStore.getKeyPrefixAndAccountAddress(vpk);
         let secretKey = await this.keyStore.getMasterSecretKey(vpk);
         if (keyPrefix === 'iv') {
           const registeredAccount = (await this.getRegisteredAccounts()).find(completeAddress =>

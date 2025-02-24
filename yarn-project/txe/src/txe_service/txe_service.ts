@@ -28,6 +28,7 @@ import {
   fromArray,
   fromSingle,
   fromUintArray,
+  pointFromArray,
   toArray,
   toForeignCallResult,
   toSingle,
@@ -137,16 +138,64 @@ export class TXEService {
   }
 
   async createAccount(secret: ForeignCallSingle) {
+    this.logger.debug('HIIIIIIIII');
+
     const keyStore = (this.typedOracle as TXE).getKeyStore();
     const secretFr = fromSingle(secret);
     // This is a footgun !
-    const completeAddress = await keyStore.addAccount(secretFr, secretFr);
+    // TODO: explain why this is a footgun? Oh, is it because you're re-using the secret
+    // in the place of the partialAddress, which means the partialAddress isn't
+    // a meaningful, useful value that can be used in tests?
+    const completeAddress = await keyStore.addAccount(secretFr, /* partialAddress: */ secretFr);
     const accountStore = (this.typedOracle as TXE).getTXEDatabase();
     await accountStore.setAccount(completeAddress.address, completeAddress);
     this.logger.debug(`Created account ${completeAddress.address}`);
     return toForeignCallResult([
       toSingle(completeAddress.address),
       ...completeAddress.publicKeys.toFields().map(toSingle),
+    ]);
+  }
+
+  async unsafeCreateAccount(secret: ForeignCallSingle) {
+    // Some duplicated work here (as deriveKeys is also called from within
+    // `addAccount`) because:
+    // We don't want to corrupt the proper keystore with code that leaks
+    // a secret key, so we keep this unsafe behaviour contained here.
+    const {
+      masterNullifierSecretKey,
+      masterIncomingViewingSecretKey,
+      masterOutgoingViewingSecretKey,
+      masterTaggingSecretKey,
+      publicKeys,
+    } = await (this.typedOracle as TXE).deriveKeys(fromSingle(secret));
+
+    // What follows is as per createAccount, except for the returned data.
+
+    const keyStore = (this.typedOracle as TXE).getKeyStore();
+    const secretFr = fromSingle(secret);
+    // This is a footgun !
+    // TODO: explain why this is a footgun? Oh, is it because you're re-using the secret
+    // in the place of the partialAddress, which means the partialAddress isn't
+    // a meaningful, useful value that can be used in tests?
+    const completeAddress = await keyStore.addAccount(secretFr, /* partialAddress: */ secretFr);
+    const accountStore = (this.typedOracle as TXE).getTXEDatabase();
+    await accountStore.setAccount(completeAddress.address, completeAddress);
+
+    if (JSON.stringify(publicKeys) !== JSON.stringify(completeAddress.publicKeys)) {
+      throw new Error('Something has gone wrong. publicKeys should have been derived in the same way both times.');
+    }
+
+    return toForeignCallResult([
+      toSingle(completeAddress.address),
+      ...completeAddress.publicKeys.toFields().map(toSingle),
+      ...[
+        masterNullifierSecretKey,
+        masterIncomingViewingSecretKey,
+        masterOutgoingViewingSecretKey,
+        masterTaggingSecretKey,
+      ]
+        .map(Fr.fromFq)
+        .map(toSingle),
     ]);
   }
 
@@ -408,6 +457,16 @@ export class TXEService {
   async getKeyValidationRequest(pkMHash: ForeignCallSingle) {
     const keyValidationRequest = await this.typedOracle.getKeyValidationRequest(fromSingle(pkMHash));
     return toForeignCallResult([toArray(keyValidationRequest.toFields())]);
+  }
+
+  async computePlumeProof(msg: ForeignCallArray, pkM: ForeignCallArray) {
+    const [nullifierPoint, a2, b2, s] = await this.typedOracle.computePlumeProof(fromArray(msg), pointFromArray(pkM));
+    return toForeignCallResult([
+      toArray([nullifierPoint.x, nullifierPoint.y]),
+      toArray([a2.x, a2.y]),
+      toArray([b2.x, b2.y]),
+      toArray([s.lo, s.hi]),
+    ]);
   }
 
   async callPrivateFunction(

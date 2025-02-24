@@ -2,6 +2,7 @@ import { type PublicKey } from '@aztec/circuit-types';
 import {
   AztecAddress,
   CompleteAddress,
+  Fq,
   Fr,
   GrumpkinScalar,
   KEY_PREFIXES,
@@ -14,7 +15,7 @@ import {
   derivePublicKeyFromSecretKey,
 } from '@aztec/circuits.js';
 import { GeneratorIndex } from '@aztec/constants';
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { Grumpkin, poseidon2HashPoints, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { toArray } from '@aztec/foundation/iterable';
 import { type Bufferable, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type AztecAsyncKVStore, type AztecAsyncMap } from '@aztec/kv-store';
@@ -69,7 +70,7 @@ export class KeyStore {
     await this.#keys.set(`${account.toString()}-tpk_m`, publicKeys.masterTaggingPublicKey.toBuffer());
 
     // We store pk_m_hash under `account-{n/iv/ov/t}pk_m_hash` key to be able to obtain address and key prefix
-    // using the #getKeyPrefixAndAccount function later on
+    // using the #getKeyPrefixAndAccountAddress function later on
     const masterNullifierPublicKeyHash = await publicKeys.masterNullifierPublicKey.hash();
     await this.#keys.set(`${account.toString()}-npk_m_hash`, masterNullifierPublicKeyHash.toBuffer());
     const masterIncomingViewingPublicKeyHash = await publicKeys.masterIncomingViewingPublicKey.hash();
@@ -102,7 +103,7 @@ export class KeyStore {
    * @returns The key validation request.
    */
   public async getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest> {
-    const [keyPrefix, account] = await this.getKeyPrefixAndAccount(pkMHash);
+    const [keyPrefix, account] = await this.getKeyPrefixAndAccountAddress(pkMHash);
 
     // Now we find the master public key for the account
     const pkMBuffer = await this.#keys.getAsync(`${account.toString()}-${keyPrefix}pk_m`);
@@ -138,6 +139,81 @@ export class KeyStore {
     const skApp = await computeAppSecretKey(skM, contractAddress, keyPrefix!);
 
     return new KeyValidationRequest(pkM, skApp);
+  }
+
+  /**
+   * Gets the key validation request for a given master public key and contract address.
+   * @throws If the account corresponding to the master public key does not exist in the key store.
+   * @param pkM - The master public key.
+   * @param appAddress - The address of the contract which made the oracle call. Used to silo the `msg`.
+   * @param msg - The data to hash-to-curve.
+   * @returns The key validation request.
+   */
+  public async computePlumeProof(appAddress: AztecAddress, msg: Fr[], pkM: Point): Promise<[Point, Point, Point, Fq]> {
+    // Public keys are seemingly stored against a hash of the public key:
+    const pkMHash = await pkM.hash();
+
+    const [keyPrefix, accountAddress] = await this.getKeyPrefixAndAccountAddress(pkMHash);
+
+    // Now we find the secret key for the public key.
+    // DO NOT LOG THIS VALUE:
+    const skMBuffer = await this.#keys.getAsync(`${accountAddress.toString()}-${keyPrefix}sk_m`);
+    if (!skMBuffer) {
+      throw new Error(
+        `Could not find ${keyPrefix}sk_m for account address ${accountAddress.toString()} which was successfully obtained with ${keyPrefix}pk_m_hash ${pkMHash.toString()}.`,
+      );
+    }
+
+    // DO NOT LOG THIS VALUE:
+    const skM: Fq = GrumpkinScalar.fromBuffer(skMBuffer);
+
+    // We sanity check that it's possible to derive the public key from the secret key.
+    const derivedPkM = await derivePublicKeyFromSecretKey(skM);
+    if (!derivedPkM.equals(pkM)) {
+      throw new Error(`Could not derive ${keyPrefix}pkM from ${keyPrefix}skM.`);
+    }
+
+    // At last we compute the nullifier:
+    // Silo the msg, to prevent an app contract from making unlimited calls
+    // to this function (thereby deducing other contracts' nullifiers).
+    const siloedMsg = [appAddress.toField(), ...msg, pkM.x, pkM.y];
+    // The name `H` is in line with corresponding explanations in nr.
+    const h = await Grumpkin.swiftHashToCurve(siloedMsg);
+    const curve = new Grumpkin();
+
+    // TODO: ensure this randomness is safe.
+    const r = Fq.random();
+    const g = Grumpkin.generator;
+
+    const [nullifierPoint, a2, b2] = await Promise.all([curve.mul(h, skM), curve.mul(g, r), curve.mul(h, r)]);
+
+    const cFr = await poseidon2HashPoints([g, h, pkM, nullifierPoint, a2, b2]);
+    const c = Fq.fromFr(cFr);
+
+    // These Fq ops already perform modular reduction:
+    const s = r.add(skM.mul(c));
+
+    const negA = new Point(pkM.x, pkM.y.negate(), false);
+    const negB = new Point(nullifierPoint.x, nullifierPoint.y.negate(), false);
+
+    // Check the plume proof that we've constructed:
+    // A2 == sG - cA
+    // B2 == sH - cB
+    const [sG, cNegA, sH, cNegB] = await Promise.all([
+      curve.mul(g, s),
+      curve.mul(negA, c),
+      curve.mul(h, s),
+      curve.mul(negB, c),
+    ]);
+
+    if (!a2.equals(await curve.add(sG, cNegA))) {
+      throw new Error('Validation of generated plume proof failed. A2 != sG - cA');
+    }
+    if (!b2.equals(await curve.add(sH, cNegB))) {
+      throw new Error('Validation of generated plume proof failed. B2 != sH - cB');
+    }
+
+    return [nullifierPoint, a2, b2, s];
   }
 
   /**
@@ -250,7 +326,7 @@ export class KeyStore {
    * @dev Used when feeding the sk_m to the kernel circuit for keys verification.
    */
   public async getMasterSecretKey(pkM: PublicKey): Promise<GrumpkinScalar> {
-    const [keyPrefix, account] = await this.getKeyPrefixAndAccount(pkM);
+    const [keyPrefix, account] = await this.getKeyPrefixAndAccountAddress(pkM);
 
     const secretKeyBuffer = await this.#keys.getAsync(`${account.toString()}-${keyPrefix}sk_m`);
     if (!secretKeyBuffer) {
@@ -274,7 +350,7 @@ export class KeyStore {
    * @dev Note that this is quite inefficient but it should not matter because there should never be too many keys
    * in the key store.
    */
-  public async getKeyPrefixAndAccount(value: Bufferable): Promise<[KeyPrefix, AztecAddress]> {
+  public async getKeyPrefixAndAccountAddress(value: Bufferable): Promise<[KeyPrefix, AztecAddress]> {
     const valueBuffer = serializeToBuffer(value);
     for await (const [key, val] of this.#keys.entriesAsync()) {
       // Browser returns Uint8Array, Node.js returns Buffer

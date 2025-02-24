@@ -46,6 +46,16 @@ pub fn point_from_x_coord(x: Field) -> Point {
     Point { x, y, is_infinite: false }
 }
 
+pub fn assert_point_is_on_curve(point: Point) {
+    let Point { x, y, is_infinite } = point;
+    // y ^ 2 = x ^ 3 - 17
+    if is_infinite {
+        assert((x == 0) & (y == 0), "Badly formatted point at infinity");
+    } else {
+        assert(y * y == x * x * x - 17, "Point is not on the grumpkin curve");
+    }
+}
+
 mod test {
     use crate::utils::point::point_to_bytes;
     use dep::protocol_types::point::Point;

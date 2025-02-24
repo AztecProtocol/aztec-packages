@@ -6,6 +6,22 @@ global C1: u32 = 28;
 global C3: Field = 40770029410420498293352137776570907027550720424234931066070132305055;
 global C5: Field = 19103219067921713944291392827692070036145651957329286315305642004821462161904;
 
+// modulus minus 1 divided by 2
+global BN254_FR_MODULUS_DIV_2: Field =
+    10944121435919637611123202872628637544274182200208017171849102093287904247808;
+
+#[test]
+fn test_sqrt_constants() {
+    assert((0 - 1) / 2 == BN254_FR_MODULUS_DIV_2);
+
+    let C2 = (0 - 1) / 2.pow_32(C1 as Field);
+    assert((C2 - 1) / 2 == C3);
+
+    // TODO: I couldn't figure out how C5 was derived in the Noir library
+    // code from which these constants were taken.
+    // assert(5.pow_32(C2) == C5);
+}
+
 // Power function of two Field arguments of arbitrary size.
 // Adapted from std::field::pow_32.
 pub fn pow(x: Field, y: Field) -> Field {
@@ -50,6 +66,17 @@ unconstrained fn tonelli_shanks_sqrt(x: Field) -> Field {
         t *= if b == 1 { 1 } else { c };
 
         b = t;
+    }
+
+    // We have a problem: the C++ version of sqrt (which Aztec's TypeScript code
+    // uses) intermittently sometimes computes a different sqrt (the negative)
+    // vs the Noir version of sqrt.
+    // I'm not sure why the C++ version of Tonelli-Shanks is so complex vs the
+    // Noir approach. Anyway, how to resolve this? We choose the sqrt that
+    // is <= (p-1)/2.
+
+    if (!z.lt(BN254_FR_MODULUS_DIV_2)) {
+        z = -z;
     }
 
     z

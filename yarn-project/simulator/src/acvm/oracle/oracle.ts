@@ -2,7 +2,7 @@ import { MerkleTreeId, UnencryptedL2Log } from '@aztec/circuit-types';
 import { FunctionSelector, NoteSelector } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { LogWithTxData } from '@aztec/circuits.js/logs';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 
 import { type ACVMField } from '../acvm_types.js';
 import { frToBoolean, frToNumber, fromACVMField, fromBoundedVec } from '../deserialize.js';
@@ -51,6 +51,24 @@ export class Oracle {
     const { pkM, skApp } = await this.typedOracle.getKeyValidationRequest(fromACVMField(pkMHash));
 
     return [toACVMField(pkM.x), toACVMField(pkM.y), toACVMField(pkM.isInfinite), toACVMField(skApp)];
+  }
+
+  async computePlumeProof(msg: ACVMField[], pkM: ACVMField[]): Promise<ACVMField[]> {
+    // We assume the public key is not 0, because that would be insanity.
+    const pkMPoint = new Point(fromACVMField(pkM[0]), fromACVMField(pkM[1]), /*isInfinite:*/ false);
+
+    const [nullifierPoint, a2, b2, s] = await this.typedOracle.computePlumeProof(msg.map(fromACVMField), pkMPoint);
+
+    return [
+      toACVMField(nullifierPoint.x),
+      toACVMField(nullifierPoint.y),
+      toACVMField(a2.x),
+      toACVMField(a2.y),
+      toACVMField(b2.x),
+      toACVMField(b2.y),
+      toACVMField(s.lo),
+      toACVMField(s.hi),
+    ];
   }
 
   async getContractInstance([address]: ACVMField[]) {

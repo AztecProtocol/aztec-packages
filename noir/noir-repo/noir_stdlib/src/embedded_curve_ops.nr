@@ -62,6 +62,7 @@ pub struct EmbeddedCurveScalar {
 }
 
 impl EmbeddedCurveScalar {
+    // TODO: this is not safe, because it doesn't check that the inputs are within range.
     pub fn new(lo: Field, hi: Field) -> Self {
         EmbeddedCurveScalar { lo, hi }
     }
@@ -117,16 +118,20 @@ pub(crate) fn multi_scalar_mul_array_return<let N: u32>(
     scalars: [EmbeddedCurveScalar; N],
 ) -> [Field; 3] {}
 
+// TODO: Evidence how this was derived, through an unconstrained function that derives it.
+// TODO: Consider not using this generator for anything, and deriving properly
+// domain-separated generators.
+pub global FIXED_BASE_SCALAR_MUL_GENERATOR: EmbeddedCurvePoint = EmbeddedCurvePoint {
+    x: 1,
+    y: 17631683881184975370165255887551781615748388533673675138860,
+    is_infinite: false,
+};
+
 // docs:start:fixed_base_scalar_mul
 pub fn fixed_base_scalar_mul(scalar: EmbeddedCurveScalar) -> EmbeddedCurvePoint
 // docs:end:fixed_base_scalar_mul
 {
-    let g1 = EmbeddedCurvePoint {
-        x: 1,
-        y: 17631683881184975370165255887551781615748388533673675138860,
-        is_infinite: false,
-    };
-    multi_scalar_mul([g1], [scalar])
+    multi_scalar_mul([FIXED_BASE_SCALAR_MUL_GENERATOR], [scalar])
 }
 
 /// This function only assumes that the points are on the curve

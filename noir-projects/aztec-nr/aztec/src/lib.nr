@@ -6,6 +6,7 @@ mod history;
 mod keys;
 mod messaging;
 mod note;
+mod nullifier;
 mod event;
 mod oracle;
 mod state_vars;

@@ -21,10 +21,12 @@ import {
   type BlockHeader,
   type CompleteAddress,
   type ContractInstance,
+  Fq,
   Fr,
   FunctionSelector,
   IndexedTaggingSecret,
   type KeyValidationRequest,
+  Point,
   PrivateLog,
   PublicLog,
   computeAddressSecret,
@@ -79,6 +81,10 @@ export class SimulatorOracle implements DBOracle {
 
   getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest> {
     return this.keyStore.getKeyValidationRequest(pkMHash, contractAddress);
+  }
+
+  computePlumeProof(appAddress: AztecAddress, msg: Fr[], pkM: Point): Promise<[Point, Point, Point, Fq]> {
+    return this.keyStore.computePlumeProof(appAddress, msg, pkM);
   }
 
   async getCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {

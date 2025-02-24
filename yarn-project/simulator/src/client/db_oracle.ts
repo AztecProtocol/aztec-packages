@@ -16,7 +16,7 @@ import {
 import { type FunctionArtifact, type FunctionSelector } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { LogWithTxData } from '@aztec/circuits.js/logs';
-import { type Fr } from '@aztec/foundation/fields';
+import { Fq, type Fr, Point } from '@aztec/foundation/fields';
 
 import { type NoteData } from '../acvm/index.js';
 import { type CommitmentsDB } from '../public/db_interfaces.js';
@@ -72,6 +72,16 @@ export interface DBOracle extends CommitmentsDB {
    * @throws If the keys are not registered in the key store.
    */
   getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest>;
+
+  /**
+   * Operate on the secret key of pkM, to compute a plume nullifier.
+   * @param pkM - The master public key.
+   * @param contractAddress - the address of the app making this oracle call.
+   * @param msg - The data to be hashed-to-curve.
+   * @returns sk * hash_to_curve([app_address, ...msg]);
+   * @throws If the public key is not registered in the key store.
+   */
+  computePlumeProof(appAddress: AztecAddress, msg: Fr[], npkM: Point): Promise<[Point, Point, Point, Fq]>;
 
   /**
    * Retrieves a set of notes stored in the database for a given contract address and storage slot.
