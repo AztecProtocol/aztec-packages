@@ -45,6 +45,29 @@ spec:
           emptyDir: {}
       initContainers:
         {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
+        - name: get-private-key
+          image: {{ .Values.images.foundry.image }}
+          imagePullPolicy: {{ .Values.images.foundry.pullPolicy }}
+          command:
+            - "/bin/sh"
+            - "-c"
+            - |
+              source /scripts/get-private-key.sh
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+            - name: config
+              mountPath: /shared/config
+          env:
+            - name: KEY_INDEX_START
+              value: {{ .Values.aztec.botKeyIndexStart | quote }}
+            - name: MNEMONIC
+              value: {{ .Values.aztec.l1DeploymentMnemonic }}
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+
         - name: wait-for-aztec-node
           image: "{{ .Values.images.curl.image }}"
           command:
@@ -79,6 +102,7 @@ spec:
             - |
               source /shared/config/service-addresses
               cat /shared/config/service-addresses
+              source /shared/config/keys.env
               {{- if .Values.bot.nodeUrl }}
               export AZTEC_NODE_URL={{ .Values.bot.nodeUrl }}
               {{- else if .Values.network.public }}
@@ -109,8 +133,6 @@ spec:
               value: "1"
             - name: LOG_LEVEL
               value: "{{ .Values.bot.logLevel }}"
-            - name: BOT_L1_MNEMONIC
-              value: "{{ .Values.aztec.l1DeploymentMnemonic }}"
             - name: BOT_PRIVATE_KEY
               value: "{{ .Values.bot.botPrivateKey }}"
             - name: BOT_TX_INTERVAL_SECONDS

@@ -58,6 +58,8 @@ aztec:
   ## The number of extra accounts to prefund
   extraAccountsStartIndex: 2000
   extraAccounts: 10
+
+  botKeyIndexStart: 3000
   l1Salt: "" # leave empty for random salt
 
 bootNode:
