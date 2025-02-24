@@ -481,9 +481,13 @@ export class PXEService implements PXE {
 
   public async sendTx(tx: Tx): Promise<TxHash> {
     const txHash = await tx.getTxHash();
-    if (await this.node.getTxEffect(txHash)) {
+    const existingTxEffect = await this.node.getTxEffect(txHash);
+
+    // Only throw if the tx is actually settled
+    if (existingTxEffect?.block) {
       throw new Error(`A settled tx with equal hash ${txHash.toString()} exists.`);
     }
+
     this.log.debug(`Sending transaction ${txHash}`);
     await this.node.sendTx(tx).catch(err => {
       throw this.contextualizeError(err, inspect(tx));
