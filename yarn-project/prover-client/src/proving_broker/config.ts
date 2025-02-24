@@ -19,6 +19,8 @@ export const ProverBrokerConfig = z.object({
   proverBrokerBatchSize: z.number(),
   /** How often the job batches get flushed */
   proverBrokerBatchIntervalMs: z.number(),
+  /** The maximum number of epochs to keep results for */
+  proverBrokerMaxEpochsToKeepResultsFor: z.number(),
 });
 
 export type ProverBrokerConfig = z.infer<typeof ProverBrokerConfig> &
@@ -49,6 +51,11 @@ export const proverBrokerConfigMappings: ConfigMappingsType<ProverBrokerConfig> 
     env: 'PROVER_BROKER_BATCH_INTERVAL_MS',
     description: 'How often to flush batches to disk',
     ...numberConfigHelper(50),
+  },
+  proverBrokerMaxEpochsToKeepResultsFor: {
+    env: 'PROVER_BROKER_MAX_EPOCHS_TO_KEEP_RESULTS_FOR',
+    description: 'The maximum number of epochs to keep results for',
+    ...numberConfigHelper(1),
   },
   ...dataConfigMappings,
 };
