@@ -85,7 +85,7 @@ template <typename OpFormat> class EccOpsTable {
     }
 };
 
-using RawEccOpsTable = EccOpsTable<eccvm::VMOperation<curve::BN254::Group>>;
+using EccvmOpsTable = EccOpsTable<eccvm::VMOperation<curve::BN254::Group>>;
 
 /**
  * @brief Stores a table of elliptic curve operations represented in the Ultra format

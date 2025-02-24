@@ -31,9 +31,9 @@ TEST(ECCOpQueueTest, Basic)
     op_queue.initialize_new_subtable();
     op_queue.add_accumulate(bb::g1::affine_one);
     op_queue.empty_row_for_testing();
-    const auto& raw_ops = op_queue.get_raw_ops();
-    EXPECT_EQ(raw_ops[0].base_point, G1::one());
-    EXPECT_EQ(raw_ops[1].add, false);
+    const auto& eccvm_ops = op_queue.get_eccvm_ops();
+    EXPECT_EQ(eccvm_ops[0].base_point, G1::one());
+    EXPECT_EQ(eccvm_ops[1].add, false);
 }
 
 TEST(ECCOpQueueTest, InternalAccumulatorCorrectness)

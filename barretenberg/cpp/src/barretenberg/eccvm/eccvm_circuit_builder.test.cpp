@@ -482,7 +482,7 @@ TEST(ECCVMCircuitBuilderTests, InfinityFailure)
 
     auto eccvm_builder = ECCVMCircuitBuilder(op_queue);
 
-    auto transcript_rows = ECCVMTranscriptBuilder::compute_rows(op_queue->get_raw_ops(), 1);
+    auto transcript_rows = ECCVMTranscriptBuilder::compute_rows(op_queue->get_eccvm_ops(), 1);
 
     // check that the corresponding op is mul
     bool row_op_code_correct = transcript_rows[1].opcode == 4;

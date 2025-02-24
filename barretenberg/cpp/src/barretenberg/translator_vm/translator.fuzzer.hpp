@@ -23,15 +23,15 @@ using G1 = curve::BN254::AffineElement;
  */
 std::vector<ECCOpQueue::ECCVMOperation> parse_operations(const unsigned char* data, size_t size)
 {
-    std::vector<ECCOpQueue::ECCVMOperation> raw_ops;
+    std::vector<ECCOpQueue::ECCVMOperation> eccvm_ops;
 
     size_t size_left = size;
     // Just iterate and parse until there's no data left
     while (size_left >= sizeof(ECCOpQueue::ECCVMOperation)) {
-        raw_ops.emplace_back((ECCOpQueue::ECCVMOperation*)(data + (size - size_left)));
+        eccvm_ops.emplace_back((ECCOpQueue::ECCVMOperation*)(data + (size - size_left)));
         size_left -= sizeof(ECCOpQueue::ECCVMOperation);
     }
-    return raw_ops;
+    return eccvm_ops;
 }
 
 /**
@@ -44,7 +44,7 @@ std::vector<ECCOpQueue::ECCVMOperation> parse_operations(const unsigned char* da
 std::optional<std::tuple<Fq, Fq, std::shared_ptr<ECCOpQueue>>> parse_and_construct_opqueue(const unsigned char* data,
                                                                                            size_t size)
 {
-    std::vector<ECCOpQueue::ECCVMOperation> raw_ops;
+    std::vector<ECCOpQueue::ECCVMOperation> eccvm_ops;
 
     // Try to parse batching challenge
     size_t size_left = size;
@@ -65,8 +65,8 @@ std::optional<std::tuple<Fq, Fq, std::shared_ptr<ECCOpQueue>>> parse_and_constru
     size_left -= sizeof(uint256_t);
 
     // Try to parse operations
-    raw_ops = parse_operations(data + (size - size_left), size_left);
-    if (raw_ops.empty()) {
+    eccvm_ops = parse_operations(data + (size - size_left), size_left);
+    if (eccvm_ops.empty()) {
         return {};
     }
 
@@ -76,7 +76,7 @@ std::optional<std::tuple<Fq, Fq, std::shared_ptr<ECCOpQueue>>> parse_and_constru
     auto padding_element = G1(p_x, p_y);
     auto padding_scalar = -Fr::one();
     auto ecc_op_queue = std::make_shared<ECCOpQueue>();
-    ecc_op_queue->set_raw_ops_for_fuzzing(raw_ops);
+    ecc_op_queue->set_eccvm_ops_for_fuzzing(eccvm_ops);
     ecc_op_queue->mul_accumulate(padding_element, padding_scalar);
 
     // Return the batching challenge, evaluation challenge and the constructed queue

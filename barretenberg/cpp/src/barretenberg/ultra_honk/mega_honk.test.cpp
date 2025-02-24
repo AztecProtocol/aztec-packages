@@ -333,17 +333,6 @@ TYPED_TEST(MegaHonkTests, MultipleCircuitsHonkAndMerge)
         auto merge_verified = this->construct_and_verify_merge_proof(op_queue);
         EXPECT_TRUE(merge_verified);
     }
-
-    // // Compute the commitments to the aggregate op queue directly and check that they match those that were computed
-    // // iteratively during transcript aggregation by the provers and stored in the op queue.
-    // size_t aggregate_op_queue_size = op_queue->get_current_size();
-    // auto ultra_ops = op_queue->get_aggregate_transcript();
-    // auto commitment_key = std::make_shared<typename Flavor::CommitmentKey>(aggregate_op_queue_size);
-    // size_t idx = 0;
-    // for (const auto& result : op_queue->get_ultra_ops_commitments()) {
-    //     auto expected = commitment_key->commit({ /* start index */ 0, ultra_ops[idx++] });
-    //     EXPECT_EQ(result, expected);
-    // }
 }
 
 /**

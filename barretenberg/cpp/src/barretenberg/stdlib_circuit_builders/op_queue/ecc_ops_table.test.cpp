@@ -45,14 +45,13 @@ class EccOpsTableTest : public ::testing::Test {
 
     // Mock raw ops table that constructs a concatenated table from successively prepended subtables
     struct MockRawOpsTable {
-        std::vector<ECCVMOperation> raw_ops;
-        void append(const ECCVMOperation& op) { raw_ops.push_back(op); }
+        std::vector<ECCVMOperation> eccvm_ops;
 
         MockRawOpsTable(const auto& subtable_ops)
         {
             for (auto& ops : std::ranges::reverse_view(subtable_ops)) {
                 for (const auto& op : ops) {
-                    append(op);
+                    eccvm_ops.push_back(op);
                 }
             }
         }
@@ -73,7 +72,7 @@ class EccOpsTableTest : public ::testing::Test {
         return op;
     }
 
-    static ECCVMOperation random_raw_op()
+    static ECCVMOperation random_eccvm_op()
     {
         return ECCVMOperation{ .mul = true,
                                .base_point = curve::BN254::Group::affine_element::random_element(),
@@ -132,35 +131,35 @@ TEST(EccOpsTableTest, RawOpsTable)
 
     // Construct sets of raw ops, each representing those added by a single circuit
     const size_t NUM_SUBTABLES = 3;
-    std::array<std::vector<ECCVMOperation>, NUM_SUBTABLES> subtable_raw_ops;
+    std::array<std::vector<ECCVMOperation>, NUM_SUBTABLES> subtable_eccvm_ops;
     std::array<size_t, NUM_SUBTABLES> subtable_op_counts = { 4, 2, 7 };
-    for (auto [subtable_ops, op_count] : zip_view(subtable_raw_ops, subtable_op_counts)) {
+    for (auto [subtable_ops, op_count] : zip_view(subtable_eccvm_ops, subtable_op_counts)) {
         for (size_t i = 0; i < op_count; ++i) {
-            subtable_ops.push_back(EccOpsTableTest::random_raw_op());
+            subtable_ops.push_back(EccOpsTableTest::random_eccvm_op());
         }
     }
 
     // Construct the mock raw ops table which contains the subtables ordered in reverse (as if prepended)
-    EccOpsTableTest::MockRawOpsTable expected_raw_ops_table(subtable_raw_ops);
+    EccOpsTableTest::MockRawOpsTable expected_eccvm_ops_table(subtable_eccvm_ops);
 
     // Construct the concatenated raw ops table
-    RawEccOpsTable raw_ops_table;
-    for (const auto& subtable_ops : subtable_raw_ops) {
-        raw_ops_table.create_new_subtable();
+    EccvmOpsTable eccvm_ops_table;
+    for (const auto& subtable_ops : subtable_eccvm_ops) {
+        eccvm_ops_table.create_new_subtable();
         for (const auto& op : subtable_ops) {
-            raw_ops_table.push(op);
+            eccvm_ops_table.push(op);
         }
     }
 
     // Check that the table has the correct size
     auto expected_num_ops = std::accumulate(subtable_op_counts.begin(), subtable_op_counts.end(), size_t(0));
-    EXPECT_EQ(raw_ops_table.size(), expected_num_ops);
+    EXPECT_EQ(eccvm_ops_table.size(), expected_num_ops);
 
     // Check that accessing the table values via operator[] matches the manually constructed mock table
     for (size_t i = 0; i < expected_num_ops; ++i) {
-        EXPECT_EQ(expected_raw_ops_table.raw_ops[i], raw_ops_table[i]);
+        EXPECT_EQ(expected_eccvm_ops_table.eccvm_ops[i], eccvm_ops_table[i]);
     }
 
     // Check that the copy-based reconstruction of the raw ops table matches the expected table
-    EXPECT_EQ(expected_raw_ops_table.raw_ops, raw_ops_table.get_reconstructed());
+    EXPECT_EQ(expected_eccvm_ops_table.eccvm_ops, eccvm_ops_table.get_reconstructed());
 }
