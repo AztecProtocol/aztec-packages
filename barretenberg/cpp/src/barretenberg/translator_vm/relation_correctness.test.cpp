@@ -565,6 +565,7 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
     auto& engine = numeric::get_debug_randomness();
 
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
+    op_queue->initialize_new_subtable();
 
     // Generate random EccOpQueue actions
     for (size_t i = 0; i < ((mini_circuit_size >> 1) - 1); i++) {

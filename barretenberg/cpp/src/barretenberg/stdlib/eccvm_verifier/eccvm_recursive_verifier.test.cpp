@@ -52,6 +52,7 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
         using Fr = Curve::ScalarField;
 
         std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
+        op_queue->initialize_new_subtable();
         G1 a = G1::random_element(engine);
         G1 b = G1::random_element(engine);
         G1 c = G1::random_element(engine);

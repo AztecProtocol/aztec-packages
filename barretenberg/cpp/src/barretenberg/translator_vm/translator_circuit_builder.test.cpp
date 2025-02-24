@@ -88,6 +88,7 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
 
     // Add the same operations to the ECC op queue; the native computation is performed under the hood.
     auto op_queue = std::make_shared<ECCOpQueue>();
+    op_queue->initialize_new_subtable();
     op_queue->add_accumulate(P1);
     op_queue->mul_accumulate(P2, z);
     Fq op_accumulator = 0;
