@@ -278,10 +278,15 @@ export class Tx extends Gossipable {
     return clonedTx;
   }
 
-  static async random() {
+  /**
+   * Creates a random tx.
+   * @param randomProof - Whether to create a random proof - this will be random bytes of the full size.
+   * @returns A random tx.
+   */
+  static async random(randomProof = false) {
     return new Tx(
       PrivateKernelTailCircuitPublicInputs.emptyWithNullifier(),
-      ClientIvcProof.empty(),
+      randomProof ? ClientIvcProof.random() : ClientIvcProof.empty(),
       await ContractClassTxL2Logs.random(1, 1),
       [await PublicExecutionRequest.random()],
       await PublicExecutionRequest.random(),
