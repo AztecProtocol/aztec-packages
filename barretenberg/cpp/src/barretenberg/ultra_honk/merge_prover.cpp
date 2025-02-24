@@ -6,7 +6,7 @@ namespace bb {
 /**
  * @brief Create MergeProver
  * @details We require an SRS at least as large as the current ultra ecc ops table
- *
+ * TODO(https://github.com/AztecProtocol/barretenberg/issues/1267): consider possible efficiency improvements
  */
 template <class Flavor>
 MergeProver_<Flavor>::MergeProver_(const std::shared_ptr<ECCOpQueue>& op_queue,

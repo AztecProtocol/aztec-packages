@@ -10,11 +10,12 @@ namespace bb {
 
 /**
  * @brief Used to construct execution trace representations of elliptic curve operations.
- *
- * @details Currently the targets in execution traces are: four advice wires in UltraCircuitBuilder and 5 wires in the
- * ECCVM. In each case, the variable values are stored in this class, since the same values will need to be used later
- * by the TranslationVMCircuitBuilder. The circuit builders will store witness indices which are indices in the
- * ultra (resp. eccvm) ops members of this class (rather than in the builder's variables array).
+ * @details Constrcuts and stores tables of ECC operations in two formats: the ECCVM format and the
+ * Ultra-arithmetization (width-4) format. The ECCVM format is used to construct the execution trace for the ECCVM
+ * circuit, while the Ultra-arithmetization is used in the Mega circuits and the Translator VM. Both tables are
+ * constructed via successive pre-pending of subtables of the same format, where each subtable represents the operations
+ * of a single circuit.
+ * TODO(https://github.com/AztecProtocol/barretenberg/issues/1267): consider possible efficiency improvements
  */
 class ECCOpQueue {
     using Curve = curve::BN254;
@@ -31,7 +32,8 @@ class ECCOpQueue {
     EccvmOpsTable eccvm_ops_table;    // table of ops in the ECCVM format
     UltraEccOpsTable ultra_ops_table; // table of ops in the Ultra-arithmetization format
 
-    // Storage for the reconstructed raw ops table in contiguous memory
+    // Storage for the reconstructed raw ops table in contiguous memory. (Intended to be constructed once and for all
+    // prior to ECCVM constrcution to avoid repeated prepending of subtables in physical memory).
     std::vector<bb::eccvm::VMOperation<Curve::Group>> eccvm_ops_reconstructed;
 
     // Tracks numer of muls and size of eccvm in real time as the op queue is updated
