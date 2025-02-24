@@ -19,7 +19,7 @@ export type EnvVar =
   | 'BLOB_SINK_PORT' // The port to run the blob sink server on
   | 'BLOB_SINK_URL' // The blob sink is a simple HTTP server that can be run alongside the e2e tests. It will store the blobs in a local file system and provide an API to query for them. Blob sink url is provided: If requesting from the blob sink, we send the blobkHash. Consensus host url is provided: If requesting from the beacon node, we send the slot number
   | 'BOT_DA_GAS_LIMIT' // DA gas limit for the tx (empty to have the bot trigger an estimate gas).
-  | 'BOT_FEE_PAYMENT_METHOD' // How to handle fee payments. (Options: fee_juice, none). TODO: what happens if set to None? Why is there more options at https://github.com/AztecProtocol/aztec-packages/blob/1c7d2089abfad068ed56cf66258457278766a3bc/yarn-project/circuit-types/src/stats/stats.ts#L228
+  | 'BOT_FEE_PAYMENT_METHOD' // How to handle fee payments. (Options: fee_juice).
   | 'BOT_FLUSH_SETUP_TRANSACTIONS' // Whether to flush after sending each 'setup' transaction . Forces the sequencer to bypass all time and tx count checks for the next block and build anyway. TODO: What is a setup tx?
   | 'BOT_FOLLOW_CHAIN' // whether the bot waits for the transaction to be confirmed on the blockchain or simply logs that the transaction has been sent without waiting for confirmation. Possible values: PENDING, PROVEN, NONE.
   | 'BOT_L2_GAS_LIMIT' // L2 gas limit for the tx (empty to have the bot trigger an estimate gas). If any of BOT_L2_GAS_LIMIT or BOT_DA_GAS_LIMIT are empty, the bot triggers an estimate gas.
