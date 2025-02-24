@@ -50,6 +50,7 @@ function process_function() {
   set -euo pipefail
   local func name bytecode_b64 hash vk
 
+  contract_hash=$1
   # Read the function json.
   func="$(cat)"
   name=$(echo "$func" | jq -r '.name')
@@ -76,9 +77,10 @@ function process_function() {
       # It's not in the cache. Generate the vk file and upload it to the cache.
       echo_stderr "Generating vk for function: $name..."
       # Bb outputs to output_dir/vk by default
-      mkdir -p $tmp_dir/$hash-dir
-      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk --scheme client_ivc -b - -o $tmp_dir/$hash-dir -v
-      mv $tmp_dir/$hash-dir/vk $tmp_dir/$hash
+      local outdir=$tmp_dir/$contract_hash/$hash
+      mkdir -p $outdir
+      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk --scheme client_ivc -b - -o $outdir -v
+      mv $outdir/vk $tmp_dir/$hash
       cache_upload vk-$hash.tar.gz $tmp_dir/$hash
     fi
 
@@ -132,7 +134,7 @@ function compile {
   # .[1] is the updated functions on stdin (-)
   # * merges their fields.
   jq -c '.functions[]' $json_path | \
-    parallel $PARALLEL_FLAGS --keep-order -N1 --block 8M --pipe process_function | \
+    parallel $PARALLEL_FLAGS --keep-order -N1 --block 8M --pipe process_function $contract_hash | \
     jq -s '{functions: .}' | jq -s '.[0] * {functions: .[1].functions}' $json_path - > $tmp_dir/$filename
   mv $tmp_dir/$filename $json_path
 }
@@ -145,8 +147,12 @@ function build {
   rm -rf target
   mkdir -p $tmp_dir
   echo_stderr "Compiling contracts (bb-hash: $BB_HASH)..."
-  grep -oP '(?<=contracts/)[^"]+' Nargo.toml | \
-    parallel $PARALLEL_FLAGS --joblog joblog.txt -v --line-buffer --tag compile {}
+  if [ "$#" -eq 0 ]; then
+    local contracts=$(grep -oP '(?<=contracts/)[^"]+' Nargo.toml)
+  else
+    local contracts="$@"
+  fi
+  parallel $PARALLEL_FLAGS --joblog joblog.txt -v --line-buffer --tag compile {} ::: ${contracts[@]}
   code=$?
   cat joblog.txt
   return $code
@@ -201,7 +207,7 @@ case "$cmd" in
     ;;
   "compile")
     shift
-    VERBOSE=1 compile $1
+    VERBOSE=${VERBOSE:-1} build "$@"
     ;;
   test|test_cmds)
     $cmd
