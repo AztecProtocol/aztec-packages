@@ -137,7 +137,7 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   /**
    * The 'age' (in # of L2 blocks) of a processed tx after which we heavily penalize a peer for re-sending it.
    */
-  severePeerPenaltyBlockLength: number;
+  doubleSpendSeverePeerPenaltyWindow: number;
 
   /**
    * The weight of the tx topic for the gossipsub protocol.  This determines how much the score for this specific topic contributes to the overall peer score.
@@ -268,7 +268,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   gossipsubDLazy: {
     env: 'P2P_GOSSIPSUB_DLAZY',
     description: 'The Dlazy parameter for the gossipsub protocol.',
-    ...numberConfigHelper(6),
+    ...numberConfigHelper(8),
   },
   gossipsubFloodPublish: {
     env: 'P2P_GOSSIPSUB_FLOOD_PUBLISH',
@@ -292,8 +292,8 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
       'The values for the peer scoring system. Passed as a comma separated list of values in order: low, mid, high tolerance errors.',
     defaultValue: [2, 10, 50],
   },
-  severePeerPenaltyBlockLength: {
-    env: 'P2P_SEVERE_PEER_PENALTY_BLOCK_LENGTH',
+  doubleSpendSeverePeerPenaltyWindow: {
+    env: 'P2P_DOUBLE_SPEND_SEVERE_PEER_PENALTY_WINDOW',
     description: 'The "age" (in L2 blocks) of a tx after which we heavily penalize a peer for sending it.',
     ...numberConfigHelper(30),
   },

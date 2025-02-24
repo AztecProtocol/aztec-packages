@@ -110,7 +110,7 @@ variable "P2P_GOSSIPSUB_MCACHE_GOSSIP" {
   default = 3
 }
 
-variable "P2P_SEVERE_PEER_PENALTY_BLOCK_LENGTH" {
+variable "P2P_DOUBLE_SPEND_SEVERE_PEER_PENALTY_WINDOW" {
   type    = number
   default = 30
 }

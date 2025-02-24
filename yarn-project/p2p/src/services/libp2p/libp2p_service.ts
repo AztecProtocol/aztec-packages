@@ -705,14 +705,11 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       return true;
     }
 
-    const { name, severity } = outcome.failure;
+    let { name, severity } = outcome.failure;
 
     // Double spend validator has a special case handler
     if (name === 'doubleSpendValidator') {
-      const isValid = await this.handleDoubleSpendFailure(tx, blockNumber, peerId);
-      if (isValid) {
-        return true;
-      }
+      severity = await this.handleDoubleSpendFailure(tx, blockNumber, peerId);
     }
 
     this.peerManager.penalizePeer(peerId, severity);
@@ -800,30 +797,28 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
    * @param tx - The tx that failed the double spend validator.
    * @param blockNumber - The block number of the tx.
    * @param peerId - The peer ID of the peer that sent the tx.
-   * @returns True if the tx is valid, false otherwise.
+   * @returns Severity
    */
-  private async handleDoubleSpendFailure(tx: Tx, blockNumber: number, peerId: PeerId): Promise<boolean> {
-    if (blockNumber <= this.config.severePeerPenaltyBlockLength) {
-      return false;
+  private async handleDoubleSpendFailure(tx: Tx, blockNumber: number, peerId: PeerId): Promise<PeerErrorSeverity> {
+    if (blockNumber <= this.config.doubleSpendSeverePeerPenaltyWindow) {
+      return PeerErrorSeverity.HighToleranceError;
     }
 
     const snapshotValidator = new DoubleSpendTxValidator({
       nullifiersExist: async (nullifiers: Buffer[]) => {
         const merkleTree = this.worldStateSynchronizer.getSnapshot(
-          blockNumber - this.config.severePeerPenaltyBlockLength,
+          blockNumber - this.config.doubleSpendSeverePeerPenaltyWindow,
         );
         const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
         return indices.map(index => index !== undefined);
       },
     });
-
     const validSnapshot = await snapshotValidator.validateTx(tx);
     if (validSnapshot.result !== 'valid') {
-      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
-      return false;
+      return PeerErrorSeverity.LowToleranceError;
     }
 
-    return true;
+    return PeerErrorSeverity.HighToleranceError;
   }
 
   /**

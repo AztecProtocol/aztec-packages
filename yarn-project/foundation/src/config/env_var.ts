@@ -95,7 +95,7 @@ export type EnvVar =
   | 'P2P_QUERY_FOR_IP' // If announceUdpAddress or announceTcpAddress are not provided, query for the IP address of the machine. Default is false.
   | 'P2P_REQRESP_INDIVIDUAL_REQUEST_TIMEOUT_MS' // The timeout for an individual request response peer interaction. i.e. timeout for sending to one peer.
   | 'P2P_REQRESP_OVERALL_REQUEST_TIMEOUT_MS' // The overall timeout for a request response operation. i.e. timeout for sending to all peers.
-  | 'P2P_SEVERE_PEER_PENALTY_BLOCK_LENGTH' // The "age" (in L2 blocks) of a tx after which we heavily penalize a peer for sending it. TODO: consider renaming this var to something more descriptive. Also this seems to only be used in the `handleDoubleSpendFailure` function.
+  | 'P2P_DOUBLE_SPEND_SEVERE_PEER_PENALTY_WINDOW' // The "age" (in L2 blocks) of a tx after which we heavily penalize a peer for sending it. TODO: consider renaming this var to something more descriptive. Also this seems to only be used in the `handleDoubleSpendFailure` function.
   | 'P2P_TCP_LISTEN_ADDR' // The listen address for TCP. Format: <IP_ADDRESS>:<PORT>
   | 'P2P_TCP_ANNOUNCE_ADDR' // The announce address for TCP. Format: <IP_ADDRESS>:<PORT>
   | 'P2P_TX_POOL_KEEP_PROVEN_FOR' // How many blocks have to pass after a block is proven before its txs are deleted (zero to delete immediately once proven)
