@@ -20,7 +20,6 @@ import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
   BlockHeader,
   CallContext,
-  type ContractClassLog,
   type ContractInstance,
   type ContractInstanceWithAddress,
   Gas,
@@ -50,7 +49,7 @@ import {
   siloNoteHash,
   siloNullifier,
 } from '@aztec/circuits.js/hash';
-import { LogWithTxData } from '@aztec/circuits.js/logs';
+import { type ContractClassLog, LogWithTxData } from '@aztec/circuits.js/logs';
 import {
   makeAppendOnlyTreeSnapshot,
   makeContentCommitment,

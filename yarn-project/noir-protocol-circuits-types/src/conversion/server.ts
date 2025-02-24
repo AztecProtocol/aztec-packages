@@ -1,7 +1,6 @@
 import { BlobPublicInputs, BlockBlobPublicInputs, Poseidon2Sponge, SpongeBlob } from '@aztec/blob-lib';
 import {
   type BaseParityInputs,
-  type ContractClassLog,
   Fr,
   ParityPublicInputs,
   type PublicDataHint,
@@ -22,6 +21,7 @@ import {
   PrivateToRollupKernelCircuitPublicInputs,
   TxConstantData,
 } from '@aztec/circuits.js/kernel';
+import { type ContractClassLog } from '@aztec/circuits.js/logs';
 import {
   type AvmProofData,
   BaseOrMergeRollupPublicInputs,

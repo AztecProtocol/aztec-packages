@@ -4,7 +4,6 @@ import { mockTx } from '@aztec/circuit-types/testing';
 import {
   AztecAddress,
   BlockHeader,
-  ContractClassLog,
   type ContractDataSource,
   Fr,
   Gas,
@@ -20,6 +19,7 @@ import {
 } from '@aztec/circuits.js';
 import { bufferAsFields } from '@aztec/circuits.js/abi';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { ContractClassLog } from '@aztec/circuits.js/logs';
 import { fr, makeContractClassPublic } from '@aztec/circuits.js/testing';
 import { AppendOnlyTreeSnapshot, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import {

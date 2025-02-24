@@ -8,14 +8,13 @@ import {
 import { type NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/server';
 import {
   type BlockHeader,
-  type ContractClassLog,
   type ContractInstance,
   type IndexedTaggingSecret,
   type KeyValidationRequest,
 } from '@aztec/circuits.js';
 import { type FunctionSelector, type NoteSelector } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { type LogWithTxData } from '@aztec/circuits.js/logs';
+import { type ContractClassLog, type LogWithTxData } from '@aztec/circuits.js/logs';
 import { type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 

@@ -1,9 +1,6 @@
-import {
-  ContractClassLog,
-  type ExecutablePrivateFunctionWithMembershipProof,
-  type PrivateFunction,
-} from '@aztec/circuits.js';
+import { type ExecutablePrivateFunctionWithMembershipProof, type PrivateFunction } from '@aztec/circuits.js';
 import { FunctionSelector, bufferFromFields } from '@aztec/circuits.js/abi';
+import { type ContractClassLog } from '@aztec/circuits.js/logs';
 import {
   ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
   FUNCTION_TREE_HEIGHT,

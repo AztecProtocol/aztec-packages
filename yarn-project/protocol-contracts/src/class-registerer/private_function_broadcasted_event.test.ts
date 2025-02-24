@@ -1,4 +1,4 @@
-import { ContractClassLog } from '@aztec/circuits.js';
+import { ContractClassLog } from '@aztec/circuits.js/logs';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 
 import { getSamplePrivateFunctionBroadcastedEventPayload } from '../tests/fixtures.js';

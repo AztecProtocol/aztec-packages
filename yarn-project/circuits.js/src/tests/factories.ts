@@ -121,7 +121,6 @@ import { GasFees } from '../structs/gas_fees.js';
 import { GasSettings } from '../structs/gas_settings.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 import {
-  ContractClassLog,
   CountedPublicCallRequest,
   PrivateLog,
   PrivateLogData,
@@ -144,6 +143,7 @@ import {
   TxConstantData,
 } from '../structs/kernel/index.js';
 import { PrivateToRollupKernelCircuitPublicInputs } from '../structs/kernel/private_to_rollup_kernel_circuit_public_inputs.js';
+import { ContractClassLog } from '../structs/logs/contract_class_log.js';
 import { AvmProofData } from '../structs/rollup/avm_proof_data.js';
 import { BaseOrMergeRollupPublicInputs } from '../structs/rollup/base_or_merge_rollup_public_inputs.js';
 import { PrivateBaseRollupHints, PublicBaseRollupHints } from '../structs/rollup/base_rollup_hints.js';

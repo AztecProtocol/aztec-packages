@@ -24,7 +24,6 @@ import {
 } from '@aztec/circuit-types';
 import {
   type BlockHeader,
-  type ContractClassLog,
   type ContractClassPublic,
   type ContractDataSource,
   type ContractInstanceWithAddress,
@@ -39,6 +38,7 @@ import {
   isValidUnconstrainedFunctionMembershipProof,
 } from '@aztec/circuits.js';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type ContractClassLog } from '@aztec/circuits.js/logs';
 import { createEthereumChain } from '@aztec/ethereum';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';

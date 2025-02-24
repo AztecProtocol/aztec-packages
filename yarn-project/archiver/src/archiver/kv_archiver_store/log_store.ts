@@ -8,7 +8,8 @@ import {
   LogId,
   TxScopedL2Log,
 } from '@aztec/circuit-types';
-import { ContractClassLog, type Fr, PrivateLog, PublicLog } from '@aztec/circuits.js';
+import { type Fr, PrivateLog, PublicLog } from '@aztec/circuits.js';
+import { ContractClassLog } from '@aztec/circuits.js/logs';
 import { INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX, PUBLIC_LOG_DATA_SIZE_IN_FIELDS } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader, numToUInt32BE } from '@aztec/foundation/serialize';

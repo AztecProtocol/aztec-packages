@@ -17,7 +17,6 @@ import {
 } from '@aztec/circuit-types';
 import {
   type BlockHeader,
-  type ContractClassLog,
   type ContractClassPublic,
   type ContractClassPublicWithBlockNumber,
   type ContractInstanceUpdateWithAddress,
@@ -30,6 +29,7 @@ import {
 } from '@aztec/circuits.js';
 import { FunctionSelector } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type ContractClassLog } from '@aztec/circuits.js/logs';
 import {
   INITIAL_L2_BLOCK_NUM,
   MAX_NOTE_HASHES_PER_TX,

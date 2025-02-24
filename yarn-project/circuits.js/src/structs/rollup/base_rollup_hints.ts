@@ -6,7 +6,7 @@ import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import { ContractClassLog } from '../contract_class_log.js';
+import { ContractClassLog } from '../logs/contract_class_log.js';
 import { PartialStateReference } from '../partial_state_reference.js';
 import { PublicDataHint } from '../public_data_hint.js';
 import { ConstantRollupData } from './constant_rollup_data.js';

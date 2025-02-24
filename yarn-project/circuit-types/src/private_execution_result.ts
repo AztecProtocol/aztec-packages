@@ -1,5 +1,6 @@
-import { ContractClassLog, type IsEmpty, PrivateCircuitPublicInputs, sortByCounter } from '@aztec/circuits.js';
+import { type IsEmpty, PrivateCircuitPublicInputs, sortByCounter } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/circuits.js/abi';
+import { ContractClassLog } from '@aztec/circuits.js/logs';
 import { schemas } from '@aztec/circuits.js/schemas';
 import { timesParallel } from '@aztec/foundation/collection';
 import { randomBytes, randomInt } from '@aztec/foundation/crypto';

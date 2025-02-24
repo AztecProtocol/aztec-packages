@@ -7,7 +7,7 @@ import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/
 import { inspect } from 'util';
 import { z } from 'zod';
 
-import { AztecAddress } from './index.js';
+import { AztecAddress } from '../index.js';
 
 export class ContractClassLog {
   static SIZE_IN_BYTES = Fr.SIZE_IN_BYTES * CONTRACT_CLASS_LOG_SIZE_IN_FIELDS;

@@ -9,7 +9,6 @@ import {
 import {
   type BlockHeader,
   CallContext,
-  ContractClassLog,
   FunctionSelector,
   PrivateContextInputs,
   type TxContext,
@@ -17,6 +16,7 @@ import {
 import { type FunctionAbi, type FunctionArtifact, type NoteSelector, countArgumentsSize } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
+import { ContractClassLog } from '@aztec/circuits.js/logs';
 import { PRIVATE_CONTEXT_INPUTS_LENGTH, PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';

@@ -1,4 +1,5 @@
-import { ContractClassLog, Fr, PrivateLog, PublicDataWrite, PublicLog, RevertCode } from '@aztec/circuits.js';
+import { Fr, PrivateLog, PublicDataWrite, PublicLog, RevertCode } from '@aztec/circuits.js';
+import { ContractClassLog } from '@aztec/circuits.js/logs';
 import {
   CONTRACT_CLASS_LOGS_PREFIX,
   CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,

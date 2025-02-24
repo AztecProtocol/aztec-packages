@@ -1,9 +1,6 @@
-import {
-  ContractClassLog,
-  type UnconstrainedFunction,
-  type UnconstrainedFunctionWithMembershipProof,
-} from '@aztec/circuits.js';
+import { type UnconstrainedFunction, type UnconstrainedFunctionWithMembershipProof } from '@aztec/circuits.js';
 import { FunctionSelector, bufferFromFields } from '@aztec/circuits.js/abi';
+import { type ContractClassLog } from '@aztec/circuits.js/logs';
 import {
   ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
   MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS,
