@@ -1,4 +1,5 @@
 import { P2PBootstrapApiSchema } from '@aztec/circuit-types/interfaces/server';
+import { EthAddress } from '@aztec/circuits.js';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type LogFn, createLogger } from '@aztec/foundation/log';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
@@ -15,6 +16,9 @@ export async function startP2PBootstrap(
 ) {
   // Start a P2P bootstrap node.
   const config = extractRelevantOptions<BootnodeConfig>(options, bootnodeConfigMappings, 'p2p');
+  if (config.l1Contracts.rollupAddress === undefined) {
+    config.l1Contracts.rollupAddress = EthAddress.ZERO;
+  }
   const telemetryClient = initTelemetryClient(getTelemetryClientConfig());
   const store = await createStore('p2p-bootstrap', config, createLogger('p2p:bootstrap:store'));
   const node = new BootstrapNode(store, telemetryClient);

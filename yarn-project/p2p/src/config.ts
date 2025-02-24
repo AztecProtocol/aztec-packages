@@ -171,11 +171,6 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
 
   /** Limit of transactions to archive in the tx pool. Once the archived tx limit is reached, the oldest archived txs will be purged. */
   archivedTxLimit: number;
-
-  /**
-   * The aztec network identifier.
-   */
-  aztecNetworkId: keyof typeof AztecENR;
 }
 
 export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
