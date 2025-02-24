@@ -5,8 +5,12 @@
 
 namespace bb {
 
-// We won't compile this class with Standard, but we will like want to compile it (at least for testing)
-// with a flavor that uses the curve Grumpkin, or a flavor that does/does not have zk, etc.
+/**
+ * @brief A class designed to accept the ECCVM `Transcript Polynomials`, concatenate their masking terms in Lagrange
+ * basis over the SmallSubgroup, and commit to the concatenation.
+ *
+ * @tparam Transcript
+ */
 template <typename Transcript> class TranslationData {
   public:
     using Flavor = ECCVMFlavor;
@@ -21,7 +25,6 @@ template <typename Transcript> class TranslationData {
 
     Polynomial concatenated_masking_term;
     Polynomial concatenated_masking_term_lagrange;
-    FF constant_term;
 
     std::array<FF, SUBGROUP_SIZE> interpolation_domain;
 
@@ -30,32 +33,33 @@ template <typename Transcript> class TranslationData {
                     const std::shared_ptr<CommitmentKey>& commitment_key)
         : concatenated_masking_term(SUBGROUP_SIZE + 2)
         , concatenated_masking_term_lagrange(SUBGROUP_SIZE)
-        , constant_term(FF{ 0 })
     {
-        // Create interpolation domain
+        // Create interpolation domain required for Lagrange interpolation
         interpolation_domain[0] = FF{ 1 };
 
         for (size_t idx = 1; idx < SUBGROUP_SIZE; idx++) {
             interpolation_domain[idx] = interpolation_domain[idx - 1] * Flavor::Curve::subgroup_generator;
         }
-
-        // Let m_0,..., m_4 be the vectors of last 4 coeffs in each transcript poly, we compute the concatenation
-        // (constant_term || m_0 || ... || m_4) in Lagrange and monomial basis and mask the latter.
+        // Concatenate the last entries of the `transcript_polynomials`.
         compute_concatenated_polynomials(transcript_polynomials);
 
-        // Commit to the concatenated masking term
+        // Commit to the concatenated masking term.
         transcript->template send_to_verifier("Translation:masking_term_commitment",
                                               commitment_key->commit(concatenated_masking_term));
-    };
-
+    }
+    /**
+     * @brief   Let m_0, ..., m_4 be the vectors of last 4 coeffs in each transcript poly,  we compute the concatenation
+     * \f$ (0 || m_0 || ... || m_4)\f$ in Lagrange and monomial basis and mask the latter.
+     *
+     * @param transcript_polynomials
+     */
     void compute_concatenated_polynomials(const RefVector<Polynomial>& transcript_polynomials)
     {
         const size_t circuit_size = transcript_polynomials[0].size();
 
         std::array<FF, SUBGROUP_SIZE> coeffs_lagrange_subgroup;
-        coeffs_lagrange_subgroup[0] = constant_term;
 
-        for (size_t idx = 1; idx < SUBGROUP_SIZE; idx++) {
+        for (size_t idx = 0; idx < SUBGROUP_SIZE; idx++) {
             coeffs_lagrange_subgroup[idx] = FF{ 0 };
         }
 
