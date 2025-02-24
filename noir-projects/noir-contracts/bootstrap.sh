@@ -3,7 +3,7 @@
 # - First of all, I'm sorry. It's a beautiful script but it's no fun to debug. I got carried away.
 # - You can enable BUILD_SYSTEM_DEBUG=1 but the output is quite verbose that it's not much use by default.
 # - This flag however, isn't carried into exported functions. You need to do "set -x" in those functions manually.
-# - You can call ./bootstrap.sh compile <package name> to compile and process a single contract.
+# - You can call ./bootstrap.sh compile <contract names> to compile and process select contracts.
 # - You can disable further parallelism by setting passing 1 as arg to 'parallelise' and with PARALLELISM=1.
 # - The exported functions called by parallel must enable their own flags at the start e.g. set -euo pipefail
 # - The exported functions are using stdin/stdout, so be very careful about what's printed where.
@@ -50,14 +50,12 @@ function process_function() {
   set -euo pipefail
   local func name bytecode_b64 hash vk
 
-  contract_hash=$1
   # Read the function json.
   func="$(cat)"
   name=$(echo "$func" | jq -r '.name')
-  bytecode_b64=$(echo "$func" | jq -r '.bytecode')
-  # echo "Processing function $name..." >&2
 
   # Check if the function is neither public nor unconstrained.
+  # TODO: Why do we need to gen keys for functions that are not marked private?
   # We allow the jq call to error (set +e) because it returns an error code if the result is false.
   # We then differentiate between a real error, and the result being false.
   set +e
@@ -72,13 +70,13 @@ function process_function() {
     # It's a private function.
     # Build hash, check if in cache.
     # If it's in the cache it's extracted to $tmp_dir/$hash
+    bytecode_b64=$(echo "$func" | jq -r '.bytecode')
     hash=$((echo "$BB_HASH"; echo "$bytecode_b64") | sha256sum | tr -d ' -')
+
     if ! cache_download vk-$hash.tar.gz &> /dev/null; then
       # It's not in the cache. Generate the vk file and upload it to the cache.
       echo_stderr "Generating vk for function: $name..."
-      # Bb outputs to output_dir/vk by default
-      local outdir=$tmp_dir/$contract_hash/$hash
-      mkdir -p $outdir
+      local outdir=$(mktemp -d -p $tmp_dir)
       echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk --scheme client_ivc -b - -o $outdir -v
       mv $outdir/vk $tmp_dir/$hash
       cache_upload vk-$hash.tar.gz $tmp_dir/$hash
@@ -134,7 +132,7 @@ function compile {
   # .[1] is the updated functions on stdin (-)
   # * merges their fields.
   jq -c '.functions[]' $json_path | \
-    parallel $PARALLEL_FLAGS --keep-order -N1 --block 8M --pipe process_function $contract_hash | \
+    parallel $PARALLEL_FLAGS --keep-order -N1 --block 8M --pipe process_function | \
     jq -s '{functions: .}' | jq -s '.[0] * {functions: .[1].functions}' $json_path - > $tmp_dir/$filename
   mv $tmp_dir/$filename $json_path
 }
@@ -143,22 +141,19 @@ export -f compile
 # If given an argument, it's the contract to compile.
 # Otherwise parse out all relevant contracts from the root Nargo.toml and process them in parallel.
 function build {
-  set +e
-  rm -rf target
-  mkdir -p $tmp_dir
   echo_stderr "Compiling contracts (bb-hash: $BB_HASH)..."
   if [ "$#" -eq 0 ]; then
+    rm -rf target
+    mkdir -p $tmp_dir
     local contracts=$(grep -oP '(?<=contracts/)[^"]+' Nargo.toml)
   else
     local contracts="$@"
   fi
+  set +e
   parallel $PARALLEL_FLAGS --joblog joblog.txt -v --line-buffer --tag compile {} ::: ${contracts[@]}
   code=$?
   cat joblog.txt
   return $code
-
-  # For testing. Small parallel case.
-  # echo -e "uniswap_contract\ncontract_class_registerer_contract" | parallel --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
 }
 
 function test_cmds {
