@@ -116,6 +116,11 @@ impl ToField for u64 {
         self as Field
     }
 }
+impl ToField for u128 {
+    fn to_field(self) -> Field {
+        self as Field
+    }
+}
 impl<let N: u32> ToField for str<N> {
     fn to_field(self) -> Field {
         assert(N < 32, "String doesn't fit in a field, consider using Serialize instead");
