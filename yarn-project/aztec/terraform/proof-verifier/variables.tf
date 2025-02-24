@@ -22,8 +22,3 @@ variable "L1_CHAIN_ID" {
 variable "ROLLUP_CONTRACT_ADDRESS" {
   type = string
 }
-
-variable "PROOF_VERIFIER_POLL_INTERVAL_MS" {
-  type    = number
-  default = 60000
-}
