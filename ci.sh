@@ -32,8 +32,8 @@ function print_usage {
   echo_cmd "rlog"         "Will tail the logs of the latest GA run, or tail/dump the given GA run id."
   echo_cmd "ilog"         "Will tail the logs of the current running build instance."
   echo_cmd "dlog"         "Display the log of the given denoise log id."
+  echo_cmd "llog"         "Tail the live log of a given log id."
   echo_cmd "tlog"         "Display the last log of the given test command as output by test_cmds."
-  echo_cmd "tilog"        "Tail the live log of a given test command as output by test_cmds."
   echo_cmd "shell-host"   "Connect to host instance of the current running build."
   echo_cmd "draft"        "Mark current PR as draft (no automatic CI runs when pushing)."
   echo_cmd "ready"        "Mark current PR as ready (enable automatic CI runs when pushing)."
@@ -165,8 +165,17 @@ case "$cmd" in
     fi
     ;;
   "tilog")
-    key=$(hash_str "$1")
-    ./ci.sh shell tail -F /tmp/$key
+    # Given a test cmd, tail it's a live log.
+    ./ci.sh llog $(hash_str "$1")
+  ;;
+  "llog")
+    # If the log file exists locally, tail it, otherwise assume it's remote.
+    key=$1
+    if [ -f /tmp/$key ]; then
+      tail -f /tmp/$key
+    else
+      ./ci.sh shell tail -f /tmp/$key
+    fi
   ;;
   "shell-host")
     get_ip_for_instance
