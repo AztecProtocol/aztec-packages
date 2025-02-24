@@ -1,6 +1,5 @@
-import { CompleteAddress } from '@aztec/circuit-types';
 import { type PXE } from '@aztec/circuit-types/interfaces/client';
-import { type ContractInstanceWithAddress } from '@aztec/circuits.js';
+import { CompleteAddress, type ContractInstanceWithAddress } from '@aztec/circuits.js/contract';
 import { getContractInstanceFromDeployParams } from '@aztec/circuits.js/contract';
 import { deriveKeys } from '@aztec/circuits.js/keys';
 import { Fr } from '@aztec/foundation/fields';
@@ -226,3 +225,6 @@ export class AccountManager {
     return (await this.accountContract.getDeploymentArgs()) !== undefined;
   }
 }
+
+export { DeployAccountMethod } from './deploy_account_method.js';
+export { type DeployAccountTxReceipt, DeployAccountSentTx } from './deploy_account_sent_tx.js';

@@ -1,6 +1,5 @@
 import { type PrivateKernelProver, type PrivateKernelSimulateOutput } from '@aztec/circuit-types/interfaces/client';
 import { type CircuitSimulationStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
-import { type ClientIvcProof } from '@aztec/circuits.js';
 import {
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
@@ -10,6 +9,7 @@ import {
   type PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/circuits.js/kernel';
 import { type NoirCompiledCircuit } from '@aztec/circuits.js/noir';
+import { type ClientIvcProof } from '@aztec/circuits.js/proofs';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {

@@ -4,7 +4,11 @@ import {
   type ClientProtocolCircuitVerifier,
   type MerkleTreeReadOperations,
 } from '@aztec/circuit-types/interfaces/server';
-import { type AztecAddress, type ContractDataSource, Fr, type GasFees, type GlobalVariables } from '@aztec/circuits.js';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type ContractDataSource } from '@aztec/circuits.js/contract';
+import type { GasFees } from '@aztec/circuits.js/gas';
+import type { GlobalVariables } from '@aztec/circuits.js/tx';
+import { Fr } from '@aztec/foundation/fields';
 import {
   AggregateTxValidator,
   BlockHeaderTxValidator,

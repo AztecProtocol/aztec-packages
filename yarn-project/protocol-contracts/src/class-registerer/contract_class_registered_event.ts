@@ -1,10 +1,10 @@
+import { FunctionSelector, bufferFromFields } from '@aztec/circuits.js/abi';
 import {
   type ContractClassPublic,
   type PublicFunction,
   computeContractClassId,
   computePublicBytecodeCommitment,
-} from '@aztec/circuits.js';
-import { FunctionSelector, bufferFromFields } from '@aztec/circuits.js/abi';
+} from '@aztec/circuits.js/contract';
 import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';

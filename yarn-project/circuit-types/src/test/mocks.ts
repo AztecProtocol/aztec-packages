@@ -1,25 +1,23 @@
+import { type ContractArtifact, NoteSelector } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
-  AztecAddress,
-  type BlockHeader,
-  CallContext,
-  ClientIvcProof,
   type ContractInstanceWithAddress,
-  GasFees,
-  GasSettings,
-  Nullifier,
-  PrivateCircuitPublicInputs,
   SerializableContractInstance,
   computeContractAddressFromInstance,
   getContractClassFromArtifact,
-} from '@aztec/circuits.js';
-import { type ContractArtifact, NoteSelector } from '@aztec/circuits.js/abi';
+} from '@aztec/circuits.js/contract';
+import { GasFees, GasSettings } from '@aztec/circuits.js/gas';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import {
+  Nullifier,
   PartialPrivateTailPublicInputsForPublic,
+  PrivateCircuitPublicInputs,
   PrivateKernelTailCircuitPublicInputs,
   PrivateToPublicAccumulatedDataBuilder,
 } from '@aztec/circuits.js/kernel';
+import { ClientIvcProof } from '@aztec/circuits.js/proofs';
 import { makeCombinedConstantData, makeGas, makeHeader, makePublicCallRequest } from '@aztec/circuits.js/testing';
+import { BlockHeader, CallContext } from '@aztec/circuits.js/tx';
 import { MAX_ENQUEUED_CALLS_PER_TX } from '@aztec/constants';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer, randomBytes } from '@aztec/foundation/crypto';

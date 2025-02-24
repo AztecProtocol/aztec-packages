@@ -1,10 +1,10 @@
-import { type ContractInstanceWithAddress } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type ContractInstanceWithAddress } from '@aztec/circuits.js/contract';
 import {
   ScheduledDelayChange,
   ScheduledValueChange,
   SharedMutableValuesWithHash,
 } from '@aztec/circuits.js/shared-mutable';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';

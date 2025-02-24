@@ -1,10 +1,10 @@
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
-import { PublicKeys } from '../../types/public_keys.js';
+import { type AztecAddress } from '../../aztec-address/index.js';
+import { PublicKeys } from '../../keys/public_keys.js';
+import { type ZodFor, schemas } from '../../schemas/index.js';
 
 const VERSION = 1 as const;
 

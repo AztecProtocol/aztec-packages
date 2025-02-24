@@ -1,16 +1,15 @@
+import { type ContractArtifact, FunctionSelector } from '@aztec/circuits.js/abi';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
   type ContractClassPublic,
   type ContractDataSource,
   type ContractInstanceWithAddress,
-  FunctionSelector,
   type PublicFunction,
   computeInitializationHash,
   computePublicBytecodeCommitment,
-} from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/circuits.js/abi';
+} from '@aztec/circuits.js/contract';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
 import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';

@@ -1,5 +1,5 @@
 import { type AnyTx, Tx, type TxValidationResult, type TxValidator } from '@aztec/circuit-types';
-import { type Fr } from '@aztec/circuits.js';
+import { type Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 
 export interface ArchiveSource {

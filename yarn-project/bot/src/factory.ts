@@ -2,19 +2,22 @@ import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { getDeployedTestAccountsWallets, getInitialTestAccounts } from '@aztec/accounts/testing';
 import {
   type AccountWallet,
+  AztecAddress,
+  type AztecNode,
   BatchCall,
   type DeployMethod,
   type DeployOptions,
   FeeJuicePaymentMethodWithClaim,
   L1FeeJuicePortalManager,
+  type PXE,
   createLogger,
   createPXEClient,
   retryUntil,
 } from '@aztec/aztec.js';
 import { type FunctionCall } from '@aztec/circuit-types';
-import { type AztecNode, type PXE } from '@aztec/circuit-types/interfaces/client';
-import { type AztecAddress, Fr, deriveSigningKey } from '@aztec/circuits.js';
+import { deriveSigningKey } from '@aztec/circuits.js/keys';
 import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
+import { Fr } from '@aztec/foundation/fields';
 import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { makeTracedFetch } from '@aztec/telemetry-client';

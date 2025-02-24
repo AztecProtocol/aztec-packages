@@ -14,24 +14,19 @@ import {
   type WorldStateSynchronizerStatus,
 } from '@aztec/circuit-types/interfaces/server';
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
-import {
-  BlockHeader,
-  ContentCommitment,
-  type ContractDataSource,
-  Gas,
-  type GlobalVariables,
-  StateReference,
-} from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { ContractDataSource } from '@aztec/circuits.js/contract';
+import { Gas } from '@aztec/circuits.js/gas';
+import { pickFromSchema } from '@aztec/circuits.js/schemas';
 import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
+import { BlockHeader, ContentCommitment, type GlobalVariables, StateReference } from '@aztec/circuits.js/tx';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { omit } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
-import { pickFromSchema } from '@aztec/foundation/schemas';
 import { type DateProvider, Timer, elapsed } from '@aztec/foundation/timer';
 import { type P2P } from '@aztec/p2p';
 import { type BlockBuilderFactory } from '@aztec/prover-client/block-builder';
@@ -687,7 +682,12 @@ export class Sequencer {
    */
   protected async getChainTip(): Promise<{ blockNumber: number; archive: Fr } | undefined> {
     const syncedBlocks = await Promise.all([
-      this.worldState.status().then((s: WorldStateSynchronizerStatus) => s.syncedToL2Block),
+      this.worldState.status().then((s: WorldStateSynchronizerStatus) => {
+        return {
+          number: s.syncSummary.latestBlockNumber,
+          hash: s.syncSummary.latestBlockHash,
+        };
+      }),
       this.l2BlockSource.getL2Tips().then(t => t.latest),
       this.p2pClient.getStatus().then(p2p => p2p.syncedToL2Block),
       this.l1ToL2MessageSource.getBlockNumber(),
