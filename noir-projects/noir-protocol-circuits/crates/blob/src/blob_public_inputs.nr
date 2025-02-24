@@ -58,9 +58,9 @@ impl Serialize<BLOB_PUBLIC_INPUTS> for BlobPublicInputs {
     fn serialize(self) -> [Field; BLOB_PUBLIC_INPUTS] {
         [
             self.z,
-            self.y.limbs[0],
-            self.y.limbs[1],
-            self.y.limbs[2],
+            self.y.limbs[0] as Field,
+            self.y.limbs[1] as Field,
+            self.y.limbs[2] as Field,
             self.kzg_commitment.inner[0],
             self.kzg_commitment.inner[1],
         ]
@@ -71,7 +71,7 @@ impl Deserialize<BLOB_PUBLIC_INPUTS> for BlobPublicInputs {
     fn deserialize(fields: [Field; BLOB_PUBLIC_INPUTS]) -> Self {
         Self {
             z: fields[0],
-            y: BigNum { limbs: [fields[1], fields[2], fields[3]] },
+            y: BigNum { limbs: [fields[1] as u128, fields[2] as u128, fields[3] as u128] },
             kzg_commitment: BlobCommitment { inner: [fields[4], fields[5]] },
         }
     }
