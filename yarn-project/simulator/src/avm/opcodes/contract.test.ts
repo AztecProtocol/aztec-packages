@@ -67,7 +67,7 @@ describe('Contract opcodes', () => {
       it(`Should read '${ContractInstanceMember[memberEnum]}' correctly`, async () => {
         const value = valueGetter();
         mockGetContractInstance(worldStateDB, contractInstance.withAddress(address));
-        mockNullifierExists(worldStateDB, address.toField());
+        mockGetNullifierIndex(worldStateDB, address.toField());
 
         context.machineState.memory.set(0, new Field(address.toField()));
         await new GetContractInstance(

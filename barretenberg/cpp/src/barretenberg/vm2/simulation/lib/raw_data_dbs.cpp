@@ -7,16 +7,23 @@ namespace bb::avm2::simulation {
 
 // HintedRawContractDB starts.
 HintedRawContractDB::HintedRawContractDB(const ExecutionHints& hints)
-    : contract_instances(hints.contractInstances)
-    , contract_classes(hints.contractClasses)
-{}
+{
+    for (const auto& contract_instance_hint : hints.contractInstances) {
+        // TODO(fcarreiro): We are currently generating duplicates in TS.
+        // assert(!contract_instances.contains(contract_instance_hint.address));
+        contract_instances[contract_instance_hint.address] = contract_instance_hint;
+    }
+
+    for (const auto& contract_class_hint : hints.contractClasses) {
+        assert(!contract_classes.contains(contract_class_hint.classId));
+        contract_classes[contract_class_hint.classId] = contract_class_hint;
+    }
+}
 
 ContractInstance HintedRawContractDB::get_contract_instance(const AztecAddress& address) const
 {
-    assert(contract_instances_idx < contract_instances.size());
-    auto contract_instance_hint = contract_instances[contract_instances_idx];
-    assert(contract_instance_hint.address == address);
-    (void)address; // Avoid GCC unused parameter warning when asserts are disabled.
+    assert(contract_instances.contains(address));
+    auto contract_instance_hint = contract_instances.at(address);
 
     return {
         .address = contract_instance_hint.address,
@@ -36,12 +43,8 @@ ContractInstance HintedRawContractDB::get_contract_instance(const AztecAddress& 
 
 ContractClass HintedRawContractDB::get_contract_class(const ContractClassId& class_id) const
 {
-    assert(contract_classes_idx < contract_classes.size());
-    auto contract_class_hint = contract_classes[contract_classes_idx++];
-    assert(class_id == compute_contract_class_id(contract_class_hint.artifactHash,
-                                                 contract_class_hint.privateFunctionsRoot,
-                                                 contract_class_hint.publicBytecodeCommitment));
-    (void)class_id; // Avoid GCC unused parameter warning when asserts are disabled.
+    assert(contract_classes.contains(class_id));
+    auto contract_class_hint = contract_classes.at(class_id);
 
     return {
         .artifact_hash = contract_class_hint.artifactHash,
