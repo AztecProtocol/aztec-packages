@@ -13,6 +13,7 @@ import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token
 import { FunctionType } from '@aztec/stdlib/abi';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
 
+import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
 import { expectMapping } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
 
@@ -65,7 +66,7 @@ describe('e2e_fees failures', () => {
           },
         })
         .wait(),
-    ).rejects.toThrow(/attempt to subtract with underflow 'hi == high'/);
+    ).rejects.toThrow(U128_UNDERFLOW_ERROR);
 
     // we did not pay the fee, because we did not submit the TX
     await expectMapping(
@@ -161,7 +162,7 @@ describe('e2e_fees failures', () => {
           },
         })
         .wait(),
-    ).rejects.toThrow(/attempt to subtract with underflow 'hi == high'/);
+    ).rejects.toThrow(U128_UNDERFLOW_ERROR);
 
     // we did not pay the fee, because we did not submit the TX
     await expectMapping(
