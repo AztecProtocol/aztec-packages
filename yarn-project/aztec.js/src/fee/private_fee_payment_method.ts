@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
-import { type FunctionCall, FunctionSelector, FunctionType, U128 } from '@aztec/stdlib/abi';
+import { type FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
 
@@ -87,15 +87,15 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
   async getFunctionCalls(gasSettings: GasSettings): Promise<FunctionCall[]> {
     // We assume 1:1 exchange rate between fee juice and token. But in reality you would need to convert feeLimit
     // (maxFee) to be in token denomination.
-    const maxFee = new U128(this.setMaxFeeToOne ? 1n : gasSettings.getFeeLimit().toBigInt());
+    const maxFee = this.setMaxFeeToOne ? 1n : gasSettings.getFeeLimit().toBigInt();
     const nonce = Fr.random();
 
     await this.wallet.createAuthWit({
       caller: this.paymentContract,
       action: {
         name: 'transfer_to_public',
-        args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), ...maxFee.toFields(), nonce],
-        selector: await FunctionSelector.fromSignature('transfer_to_public((Field),(Field),(Field,Field),Field)'),
+        args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), new Fr(maxFee), nonce],
+        selector: await FunctionSelector.fromSignature('transfer_to_public((Field),(Field),Field,Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
         to: await this.getAsset(),
@@ -107,10 +107,10 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
       {
         name: 'fee_entrypoint_private',
         to: this.paymentContract,
-        selector: await FunctionSelector.fromSignature('fee_entrypoint_private((Field,Field),Field)'),
+        selector: await FunctionSelector.fromSignature('fee_entrypoint_private(Field,Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
-        args: [...maxFee.toFields(), nonce],
+        args: [new Fr(maxFee), nonce],
         returnTypes: [],
       },
     ];

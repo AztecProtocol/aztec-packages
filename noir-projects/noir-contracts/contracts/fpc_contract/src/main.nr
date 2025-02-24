@@ -94,9 +94,7 @@ pub contract FPC {
         let max_fee_serialized = max_fee.serialize();
         context.set_public_teardown_function(
             context.this_address(),
-            comptime {
-                FunctionSelector::from_signature("complete_refund((Field),Field,(Field,Field))")
-            },
+            comptime { FunctionSelector::from_signature("complete_refund((Field),Field,Field)") },
             [accepted_asset.to_field(), refund_slot, max_fee_serialized[0], max_fee_serialized[1]],
         );
 
@@ -164,9 +162,7 @@ pub contract FPC {
         let max_fee_serialized = max_fee.serialize();
         context.set_public_teardown_function(
             context.this_address(),
-            comptime {
-                FunctionSelector::from_signature("pay_refund((Field),(Field,Field),(Field))")
-            },
+            comptime { FunctionSelector::from_signature("pay_refund((Field),Field,(Field))") },
             [
                 context.msg_sender().to_field(),
                 max_fee_serialized[0],
