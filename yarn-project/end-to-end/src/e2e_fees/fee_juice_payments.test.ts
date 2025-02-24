@@ -86,8 +86,8 @@ describe('e2e_fees Fee Juice payments', () => {
   describe('with initial funds', () => {
     it('sends tx with payment in Fee Juice with public calls', async () => {
       const initialBalance = await feeJuiceContract.methods.balance_of_public(aliceAddress).simulate();
-      const paymentMethod = new FeeJuicePaymentMethod(aliceAddress);
       // docs:start:pay_fee_juice_send
+      const paymentMethod = new FeeJuicePaymentMethod(aliceAddress);
       const { transactionFee } = await bananaCoin.methods
         .transfer_in_public(aliceAddress, bobAddress, 1n, 0n)
         .send({ fee: { gasSettings, paymentMethod } })
