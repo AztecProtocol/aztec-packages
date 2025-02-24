@@ -16,6 +16,7 @@ library Constants {
   uint256 internal constant MAX_FIELD_VALUE =
     21888242871839275222246405745257275088548364400416034343698204186575808495616;
   uint256 internal constant ARGS_LENGTH = 16;
+  uint256 internal constant MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS = 16000;
   uint256 internal constant MAX_NOTE_HASHES_PER_CALL = 16;
   uint256 internal constant MAX_NULLIFIERS_PER_CALL = 16;
   uint256 internal constant MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL = 5;
