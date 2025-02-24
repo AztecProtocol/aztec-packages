@@ -1,8 +1,8 @@
 use crate::{
     context::PrivateContext,
     note::{
-        note_interface::NoteInterface, retrieved_note::RetrievedNote,
-        utils::compute_note_hash_for_nullify,
+        note_interface::NoteInterface, note_metadata::SettledNoteMetadata,
+        retrieved_note::RetrievedNote, utils::compute_note_hash_for_nullify,
     },
 };
 
@@ -40,9 +40,11 @@ impl NullifiableNote for MockNote {
         contract_address: AztecAddress,
         note_nonce: Field,
     ) -> Field {
-        // We set the note_hash_counter to 0 as the note is assumed to be committed (and hence not transient).
-        let retrieved_note =
-            RetrievedNote { note: self, contract_address, nonce: note_nonce, note_hash_counter: 0 };
+        let retrieved_note = RetrievedNote {
+            note: self,
+            contract_address,
+            metadata: SettledNoteMetadata::new(note_nonce).into(),
+        };
         // We don't use any kind of secret here since this is only a mock note and having it here would make tests
         // more cumbersome
         let note_hash_for_nullify = compute_note_hash_for_nullify(retrieved_note, storage_slot);
@@ -91,8 +93,9 @@ impl MockNoteBuilder {
         RetrievedNote {
             note: MockNote { value: self.value },
             contract_address: self.contract_address.unwrap_or(AztecAddress::zero()),
-            nonce: 0,
-            note_hash_counter: 0,
+            // This is invalid note metadata, which would result in the kernel failing to prove note existence. Because
+            // our tests don't interact with the kernel this is not a problem.
+            metadata: std::mem::zeroed(),
         }
     }
 }

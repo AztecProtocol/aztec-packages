@@ -1,4 +1,9 @@
-use crate::{note::{note_interface::NoteInterface, retrieved_note::RetrievedNote}, utils::array};
+use crate::{
+    note::{
+        note_interface::NoteInterface, note_metadata::NoteMetadata, retrieved_note::RetrievedNote,
+    },
+    utils::array,
+};
 
 use dep::protocol_types::{
     address::AztecAddress,
@@ -191,12 +196,16 @@ where
             let extra_preimage_length: u32 = 2; // nonce & note_hash_counter.
             let read_offset: u32 = return_header_length + i * (N + extra_preimage_length);
 
-            let nonce = fields[read_offset];
-            let note_hash_counter = fields[read_offset + 1] as u32;
+            let maybe_nonce = fields[read_offset];
+            let maybe_note_hash_counter = fields[read_offset + 1] as u32;
             let packed_note = array::subarray(fields, read_offset + 2);
 
             let note = Note::unpack(packed_note);
-            let retrieved_note = RetrievedNote { note, contract_address, nonce, note_hash_counter };
+            let retrieved_note = RetrievedNote {
+                note,
+                contract_address,
+                metadata: NoteMetadata::from_raw_data(maybe_note_hash_counter, maybe_nonce),
+            };
 
             placeholder_opt_notes[i] = Option::some(retrieved_note);
         };

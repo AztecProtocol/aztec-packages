@@ -3,7 +3,7 @@ use crate::note::{
     note_emission::NoteEmission,
     note_interface::{NoteInterface, NullifiableNote},
     retrieved_note::RetrievedNote,
-    utils::{compute_note_hash_for_nullify_internal, compute_note_hash_for_read_request},
+    utils::{compute_note_hash_for_nullify_from_read_request, compute_note_hash_for_read_request},
 };
 use crate::oracle::notes::notify_created_note;
 use protocol_types::traits::Packable;
@@ -58,11 +58,10 @@ where
     Note: NoteInterface + NullifiableNote,
 {
     let note_hash_for_nullify =
-        compute_note_hash_for_nullify_internal(retrieved_note, note_hash_for_read_request);
+        compute_note_hash_for_nullify_from_read_request(retrieved_note, note_hash_for_read_request);
     let nullifier = retrieved_note.note.compute_nullifier(context, note_hash_for_nullify);
 
-    let note_hash_counter = retrieved_note.note_hash_counter;
-    let notification_note_hash = if (note_hash_counter == 0) {
+    let note_hash = if retrieved_note.metadata.is_settled() {
         // Counter is zero, so we're nullifying a settled note and we don't populate the note_hash with real value.
         0
     } else {
@@ -74,5 +73,5 @@ where
         note_hash_for_nullify
     };
 
-    context.push_nullifier_for_note_hash(nullifier, notification_note_hash)
+    context.push_nullifier_for_note_hash(nullifier, note_hash)
 }

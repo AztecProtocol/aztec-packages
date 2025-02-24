@@ -2,7 +2,10 @@ use dep::aztec::{
     hash::poseidon2_hash_with_separator,
     keys::getters::{get_nsk_app, get_public_keys},
     macros::notes::note,
-    note::{retrieved_note::RetrievedNote, utils::compute_note_hash_for_nullify},
+    note::{
+        note_metadata::SettledNoteMetadata, retrieved_note::RetrievedNote,
+        utils::compute_note_hash_for_nullify,
+    },
     oracle::random::random,
     prelude::{NullifiableNote, PrivateContext},
     protocol_types::{address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER},
@@ -40,9 +43,11 @@ impl NullifiableNote for SubscriptionNote {
         contract_address: AztecAddress,
         note_nonce: Field,
     ) -> Field {
-        // We set the note_hash_counter to 0 as the note is assumed to be committed (and hence not transient).
-        let retrieved_note =
-            RetrievedNote { note: self, contract_address, nonce: note_nonce, note_hash_counter: 0 };
+        let retrieved_note = RetrievedNote {
+            note: self,
+            contract_address,
+            metadata: SettledNoteMetadata::new(note_nonce).into(),
+        };
         let note_hash_for_nullify = compute_note_hash_for_nullify(retrieved_note, storage_slot);
         let owner_npk_m_hash: Field = get_public_keys(self.owner).npk_m.hash();
         let secret = get_nsk_app(owner_npk_m_hash);
