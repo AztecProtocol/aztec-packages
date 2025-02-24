@@ -20,7 +20,7 @@ for file in "$REPO/yarn-project/p2p/bench-out"/*.json; do
   # - unit: "ms"
   # - value: the value from the stats object
   file_entries=$(jq --arg fname "$base" 'if .stats then
-      .stats | to_entries | map({name: ($fname + " - " + .key), unit: "ma", value: .value})
+      .stats | to_entries | map({name: ($fname + " - " + .key), unit: "ms", value: .value})
     else [] end' "$file")
 
   # Append the current file's entries to the overall result array.
