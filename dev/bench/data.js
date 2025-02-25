@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740487190864,
+  "lastUpdate": 1740498314172,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "alexghr@users.noreply.github.com",
-            "name": "Alex Gherghisan",
-            "username": "alexghr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b088422d7a1d04b7b666e34e631d783dac01612e",
-          "message": "refactor: replace kv-store backend in pxe, key store and wallet (#12087)\n\nFix #11658",
-          "timestamp": "2025-02-20T10:52:10Z",
-          "tree_id": "519e4b192ac47d4f436eead8d842cbaaaf347184",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b088422d7a1d04b7b666e34e631d783dac01612e"
-        },
-        "date": 1740049498367,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18112.526052000023,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15982.122671 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18523.48228300002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16019.026635 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3908.309978000034,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3059.261392 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54759.235129,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54759234000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10971.710576000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10971714000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1833658780,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1833658780 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 130442489,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 130442489 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3370,6 +3304,78 @@ window.BENCHMARK_DATA = {
             "value": 134469195,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 134469195 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "karl.lye@gmail.com",
+            "name": "Charlie Lye",
+            "username": "charlielye"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1a34cdf8c456533cdc7a3e3bf59e396a5e139f0e",
+          "message": "feat: Cl/ci3.4 (#12018)\n\n* Introduces \"skipped\" test log so you can see a list of all skipped\ntests, with log links to their successful run.\n* Test logs have metadata added in the header (command, commit link, env\nvars, date).\n* CI docs around approach to reproducing flakes.\n* Denoise logs can now be \"live tailed\" with `ci llog <id>`.\n* Logs for local (non CI) runs expire within 8 hours. CI logs retained\nfor 14 days.\n* Denoise logs use a temp file rather than ephermeral file descriptor,\nwhich I'm moon-shot hoping will fix the \"hanging CI machine after\nfailure\" issue (existing code never closed the fd).\n* Only put anvil in release-image rather than all of foundry (slight\nimage space save).\n* Make the p2p e2e tests \"grindable\" by using unique data dirs.",
+          "timestamp": "2025-02-25T15:14:53Z",
+          "tree_id": "829b3b41216372fff7c0a32050a837d600237bb0",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1a34cdf8c456533cdc7a3e3bf59e396a5e139f0e"
+        },
+        "date": 1740498304299,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18307.49617299989,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16145.352753999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18832.08790999993,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16291.062576000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4003.163303000065,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3188.78763 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55098.13765,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55098139000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11267.503283,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11267513000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1834150075,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1834150075 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 131077952,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 131077952 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
