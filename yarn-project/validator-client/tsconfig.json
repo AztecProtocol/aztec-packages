@@ -7,9 +7,6 @@
   },
   "references": [
     {
-      "path": "../stdlib"
-    },
-    {
       "path": "../epoch-cache"
     },
     {
@@ -20,6 +17,9 @@
     },
     {
       "path": "../p2p"
+    },
+    {
+      "path": "../stdlib"
     },
     {
       "path": "../telemetry-client"

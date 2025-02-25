@@ -10,13 +10,13 @@
       "path": "../aztec.js"
     },
     {
-      "path": "../stdlib"
-    },
-    {
       "path": "../foundation"
     },
     {
       "path": "../protocol-contracts"
+    },
+    {
+      "path": "../stdlib"
     }
   ],
   "include": ["src", "src/**/*.json"]

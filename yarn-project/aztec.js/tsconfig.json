@@ -7,9 +7,6 @@
   },
   "references": [
     {
-      "path": "../stdlib"
-    },
-    {
       "path": "../constants"
     },
     {
@@ -23,6 +20,9 @@
     },
     {
       "path": "../protocol-contracts"
+    },
+    {
+      "path": "../stdlib"
     }
   ],
   "include": ["src", "src/**/*.json"]
