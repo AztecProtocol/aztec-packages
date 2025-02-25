@@ -36,7 +36,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
   });
 
   afterEach(async () => {
-    await rm(directory, { recursive: true, force: true });
+    await rm(directory, { recursive: true, force: true, maxRetries: 3 });
   });
 
   it('can add a proving job', async () => {

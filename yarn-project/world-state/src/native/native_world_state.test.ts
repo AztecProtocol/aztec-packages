@@ -43,7 +43,7 @@ describe('NativeWorldState', () => {
   });
 
   afterAll(async () => {
-    await rm(dataDir, { recursive: true });
+    await rm(dataDir, { recursive: true, maxRetries: 3 });
   });
 
   describe('persistence', () => {
@@ -543,7 +543,7 @@ describe('NativeWorldState', () => {
     let publicTree: number;
 
     beforeAll(async () => {
-      await rm(dataDir, { recursive: true });
+      await rm(dataDir, { recursive: true, maxRetries: 3 });
     });
 
     it('correctly reports block numbers', async () => {
@@ -601,7 +601,7 @@ describe('NativeWorldState', () => {
     let messages: Fr[];
 
     beforeAll(async () => {
-      await rm(dataDir, { recursive: true });
+      await rm(dataDir, { recursive: true, maxRetries: 3 });
     });
 
     it('correctly reports status', async () => {

@@ -156,7 +156,7 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
 
   async delete(): Promise<void> {
     await this.close();
-    await rm(this.dataDir, { recursive: true, force: true });
+    await rm(this.dataDir, { recursive: true, force: true, maxRetries: 3 });
     this.log.verbose(`Deleted database files at ${this.dataDir}`);
     await this.cleanup?.();
   }

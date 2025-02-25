@@ -211,7 +211,7 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
     await this.drop();
     await this.close();
     if (this.path) {
-      await fs.rm(this.path, { recursive: true, force: true });
+      await fs.rm(this.path, { recursive: true, force: true, maxRetries: 3 });
       this.#log.verbose(`Deleted database files at ${this.path}`);
     }
   }

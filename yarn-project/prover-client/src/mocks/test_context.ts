@@ -158,7 +158,11 @@ export class TestContext {
     await this.brokerProverFacade.stop();
     await this.broker.stop();
     for (const dir of this.directoriesToCleanup.filter(x => x !== '')) {
-      await fs.rm(dir, { recursive: true, force: true });
+      try {
+        await fs.rm(dir, { recursive: true, force: true, maxRetries: 3 });
+      } catch (err) {
+        this.logger.warn(`Failed to delete tmp directory $dir}: ${err}`);
+      }
     }
   }
 

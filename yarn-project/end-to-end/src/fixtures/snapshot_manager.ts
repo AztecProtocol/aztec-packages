@@ -264,7 +264,11 @@ async function teardown(context: SubsystemsContext | undefined) {
     await context.watcher.stop();
     await context.blobSink.stop();
     if (context.directoryToCleanup) {
-      await fs.rm(context.directoryToCleanup, { recursive: true, force: true });
+      try {
+        await fs.rm(context.directoryToCleanup, { recursive: true, force: true, maxRetries: 3 });
+      } catch (err) {
+        getLogger().warn(`Failed to delete tmp directory ${context.directoryToCleanup}: ${err}`);
+      }
     }
   } catch (err) {
     getLogger().error('Error during teardown', err);

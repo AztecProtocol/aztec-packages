@@ -62,7 +62,7 @@ describe('In-Memory Slasher Client', () => {
       await client.stop();
     }
 
-    await rm(tmpDir, { recursive: true, force: true });
+    await rm(tmpDir, { recursive: true, force: true, maxRetries: 3 });
   });
 
   it('can start & stop', async () => {

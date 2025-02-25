@@ -185,7 +185,11 @@ export async function setupPXEService(
 
   const teardown = async () => {
     if (!configuredDataDirectory) {
-      await fs.rm(pxeServiceConfig.dataDirectory!, { recursive: true, force: true });
+      try {
+        await fs.rm(pxeServiceConfig.dataDirectory!, { recursive: true, force: true, maxRetries: 3 });
+      } catch (err) {
+        logger.warn(`Failed to delete tmp PXE data directory ${pxeServiceConfig.dataDirectory}: ${err}`);
+      }
     }
   };
 
@@ -586,8 +590,12 @@ export async function setup(
     await blobSink?.stop();
 
     if (directoryToCleanup) {
-      logger.verbose(`Cleaning up data directory at ${directoryToCleanup}`);
-      await fs.rm(directoryToCleanup, { recursive: true, force: true });
+      try {
+        logger.verbose(`Cleaning up data directory at ${directoryToCleanup}`);
+        await fs.rm(directoryToCleanup, { recursive: true, force: true, maxRetries: 3 });
+      } catch (err) {
+        logger.warn(`Failed to delete data directory at ${directoryToCleanup}: ${err}`);
+      }
     }
   };
 
