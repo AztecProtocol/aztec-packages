@@ -3,6 +3,7 @@ import { type AztecNodeService } from '@aztec/aztec-node';
 import {
   type AccountWallet,
   AccountWalletWithSecretKey,
+  AnvilTestWatcher,
   type AztecAddress,
   type AztecNode,
   type CheatCodes,
@@ -57,6 +58,7 @@ describe('e2e_block_building', () => {
   let sequencer: TestSequencerClient;
   let dateProvider: TestDateProvider | undefined;
   let cheatCodes: CheatCodes;
+  let watcher: AnvilTestWatcher | undefined;
   let teardown: () => Promise<void>;
 
   const { aztecProofSubmissionWindow } = getL1ContractsConfigEnvVars();
@@ -539,12 +541,21 @@ describe('e2e_block_building', () => {
     let teardown: () => Promise<void>;
 
     beforeEach(async () => {
-      ({ teardown, aztecNode, pxe, logger, wallet: owner, cheatCodes } = await setup(1));
+      ({ teardown, aztecNode, pxe, logger, wallet: owner, cheatCodes, watcher } = await setup(1));
 
       ownerAddress = owner.getCompleteAddress().address;
       contract = await StatefulTestContract.deploy(owner, ownerAddress, ownerAddress, 1).send().deployed();
       initialBlockNumber = await pxe.getBlockNumber();
       logger.info(`Stateful test contract deployed at ${contract.address}`);
+
+      await cheatCodes.rollup.advanceToNextEpoch();
+
+      const bn = await aztecNode.getBlockNumber();
+      while ((await aztecNode.getProvenBlockNumber()) < bn) {
+        await sleep(1000);
+      }
+
+      watcher!.setIsMarkingAsProven(false);
     });
 
     afterEach(() => teardown());

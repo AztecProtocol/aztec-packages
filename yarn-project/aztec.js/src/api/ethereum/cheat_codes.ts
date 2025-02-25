@@ -122,8 +122,8 @@ export class RollupCheatCodes {
       return;
     }
 
-    // @note @LHerskind this is heavily dependent on the storage layout and size of vaues
-    // The rollupStore is a struct and if the size of elements or the struct changes, this will break
+    // @note @LHerskind this is heavily dependent on the storage layout and size of values
+    // The rollupStore is a struct and if the size of elements or the struct changes, this can break
     const storageSlot = RollupStorage.find(
       // eslint-disable-next-line jsdoc/require-jsdoc
       (storage: { label: string; slot: string }) => storage.label === 'rollupStore',
