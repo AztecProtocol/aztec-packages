@@ -27,6 +27,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
       proverBrokerPollIntervalMs: 1000,
       proverBrokerBatchSize: 1,
       proverBrokerBatchIntervalMs: 10,
+      proverBrokerMaxEpochsToKeepResultsFor: 1,
     };
     db = await KVBrokerDatabase.new(config);
   });
@@ -286,6 +287,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
         proverBrokerPollIntervalMs: 1000,
         proverBrokerBatchSize: batchSize,
         proverBrokerBatchIntervalMs: 10,
+        proverBrokerMaxEpochsToKeepResultsFor: 1,
       };
       db = await KVBrokerDatabase.new(config);
       commitSpy = jest.spyOn(db, 'commitWrites');
