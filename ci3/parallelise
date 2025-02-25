@@ -22,9 +22,7 @@ if [ -t 1 ]; then
   fi
   set -e
 else
-  # TODO reinstate denoise once it can print out a log link early.
-  # denoise "parallel $parallel_args 'run_test_cmd {}'"
-  parallel $parallel_args 'run_test_cmd {}'
+  denoise "parallel $parallel_args 'run_test_cmd {}'"
 fi
 
 slow_jobs=$(cat joblog.txt | \

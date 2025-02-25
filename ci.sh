@@ -34,6 +34,7 @@ function print_usage {
   echo_cmd "dlog"         "Display the log of the given denoise log id."
   echo_cmd "llog"         "Tail the live log of a given log id."
   echo_cmd "tlog"         "Display the last log of the given test command as output by test_cmds."
+  echo_cmd "tilog"        "Tail the live log of a given test command as output by test_cmds."
   echo_cmd "shell-host"   "Connect to host instance of the current running build."
   echo_cmd "draft"        "Mark current PR as draft (no automatic CI runs when pushing)."
   echo_cmd "ready"        "Mark current PR as ready (enable automatic CI runs when pushing)."

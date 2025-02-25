@@ -8,14 +8,13 @@ function process_batch {
   # Read all lines from stdin into an array.
   mapfile -t lines
 
-  # Arrays to hold hashes and corresponding lines.
+  # Build array of hashes to query for.
   local hashes=()
-
   for line in "${lines[@]}"; do
     hashes+=($(hash_str_orig "$line"))
   done
 
-  # Batch resolve existence in redis.
+  # Batch resolve in redis.
   readarray -t results < <(redis_cli MGET ${hashes[@]})
 
   # Iterate over the results and output lines whose hashes don't exist in redis.
