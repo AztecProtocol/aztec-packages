@@ -53,7 +53,6 @@ export class EpochsTestContext {
     // Set up system without any account nor protocol contracts
     // and with faster block times and shorter epochs.
     const context = await setup(0, {
-      assumeProvenThrough: undefined,
       checkIntervalMs: 50,
       archiverPollingIntervalMS: ARCHIVER_POLL_INTERVAL,
       worldStateBlockCheckIntervalMS: WORLD_STATE_BLOCK_CHECK_INTERVAL,
