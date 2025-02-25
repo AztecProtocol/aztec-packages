@@ -20,8 +20,7 @@ import {
   PrivateTubeData,
   SingleTxBlockRootRollupInputs,
 } from '@aztec/circuits.js/rollup';
-import { makeBloatedProcessedTx } from '@aztec/circuits.js/testing';
-import { makeGlobalVariables } from '@aztec/circuits.js/testing';
+import { makeBloatedProcessedTx, makeGlobalVariables } from '@aztec/circuits.js/testing';
 import { type AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { GlobalVariables, PartialStateReference, StateReference } from '@aztec/circuits.js/tx';
 import { VerificationKeyAsFields, VkWitnessData } from '@aztec/circuits.js/vks';

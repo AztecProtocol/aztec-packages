@@ -9,8 +9,7 @@ import {
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js/contract';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/circuits.js/interfaces/client';
-import { type LogFilter, type TxScopedL2Log } from '@aztec/circuits.js/logs';
-import type { PrivateLog } from '@aztec/circuits.js/logs';
+import { type LogFilter, PrivateLog, type TxScopedL2Log } from '@aztec/circuits.js/logs';
 import type { InboxLeaf } from '@aztec/circuits.js/messaging';
 import type { BlockHeader, TxHash, TxReceipt } from '@aztec/circuits.js/tx';
 import type { Fr } from '@aztec/foundation/fields';

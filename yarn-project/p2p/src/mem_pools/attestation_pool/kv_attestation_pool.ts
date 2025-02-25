@@ -1,4 +1,4 @@
-import { BlockAttestation } from '@aztec/circuits.js';
+import { BlockAttestation } from '@aztec/circuits.js/p2p';
 import { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';

@@ -1,6 +1,5 @@
 import { FunctionType } from '@aztec/circuits.js/abi';
-import { HashedValues, TxExecutionRequest } from '@aztec/circuits.js/tx';
-import { TxContext } from '@aztec/circuits.js/tx';
+import { HashedValues, TxContext, TxExecutionRequest } from '@aztec/circuits.js/tx';
 
 import { type EntrypointInterface, type ExecutionRequestInit } from './entrypoint.js';
 

@@ -2,10 +2,10 @@ import {
   BlockAttestation,
   ConsensusPayload,
   SignatureDomainSeparator,
-  TxHash,
   getHashedSignaturePayloadEthSignedMessage,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/p2p';
 import { makeHeader } from '@aztec/circuits.js/testing';
+import { TxHash } from '@aztec/circuits.js/tx';
 import { type Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 

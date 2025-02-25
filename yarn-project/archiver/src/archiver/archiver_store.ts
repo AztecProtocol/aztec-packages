@@ -11,8 +11,7 @@ import {
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/circuits.js/interfaces/client';
 import type { LogFilter, PrivateLog, TxScopedL2Log } from '@aztec/circuits.js/logs';
 import type { InboxLeaf } from '@aztec/circuits.js/messaging';
-import { type TxEffect, type TxHash, type TxReceipt } from '@aztec/circuits.js/tx';
-import type { BlockHeader } from '@aztec/circuits.js/tx';
+import { BlockHeader, type TxEffect, type TxHash, type TxReceipt } from '@aztec/circuits.js/tx';
 import type { Fr } from '@aztec/foundation/fields';
 
 import { type DataRetrieval } from './structs/data_retrieval.js';

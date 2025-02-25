@@ -1,4 +1,4 @@
-import { PeerErrorSeverity } from '@aztec/circuits.js';
+import { PeerErrorSeverity } from '@aztec/circuits.js/p2p';
 
 import { jest } from '@jest/globals';
 import { type PeerId } from '@libp2p/interface';

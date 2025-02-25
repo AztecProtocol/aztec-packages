@@ -7,8 +7,7 @@ import {
 } from '@aztec/aztec.js/entrypoint';
 import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { HashedValues, TxExecutionRequest } from '@aztec/circuits.js/tx';
-import { TxContext } from '@aztec/circuits.js/tx';
+import { HashedValues, TxContext, TxExecutionRequest } from '@aztec/circuits.js/tx';
 
 import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from './constants.js';
 

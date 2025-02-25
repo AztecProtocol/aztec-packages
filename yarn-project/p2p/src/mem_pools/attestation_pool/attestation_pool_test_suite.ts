@@ -1,4 +1,5 @@
-import { type BlockAttestation, TxHash } from '@aztec/circuits.js';
+import { type BlockAttestation } from '@aztec/circuits.js/p2p';
+import { TxHash } from '@aztec/circuits.js/tx';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 

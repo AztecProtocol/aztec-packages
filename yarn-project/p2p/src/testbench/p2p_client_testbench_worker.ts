@@ -4,8 +4,9 @@
  * Used when running testbench commands
  */
 import { MockL2BlockSource } from '@aztec/archiver/test';
-import { P2PClientType, Tx, TxStatus } from '@aztec/circuits.js';
 import { type WorldStateSynchronizer } from '@aztec/circuits.js/interfaces/server';
+import { P2PClientType } from '@aztec/circuits.js/p2p';
+import { Tx, TxStatus } from '@aztec/circuits.js/tx';
 import { type EpochCacheInterface } from '@aztec/epoch-cache';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';

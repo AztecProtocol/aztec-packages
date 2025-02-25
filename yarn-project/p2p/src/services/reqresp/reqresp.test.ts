@@ -1,5 +1,7 @@
-import { L2Block, type L2BlockSource, PeerErrorSeverity, TxHash } from '@aztec/circuits.js';
+import { L2Block, type L2BlockSource } from '@aztec/circuits.js/block';
+import { PeerErrorSeverity } from '@aztec/circuits.js/p2p';
 import { mockTx } from '@aztec/circuits.js/testing';
+import { TxHash } from '@aztec/circuits.js/tx';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';

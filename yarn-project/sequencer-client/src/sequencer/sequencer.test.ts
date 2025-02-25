@@ -23,8 +23,7 @@ import {
   type WorldStateSynchronizer,
   type WorldStateSynchronizerStatus,
 } from '@aztec/circuits.js/interfaces/server';
-import { mockTxForRollup } from '@aztec/circuits.js/testing';
-import { makeAppendOnlyTreeSnapshot } from '@aztec/circuits.js/testing';
+import { makeAppendOnlyTreeSnapshot, mockTxForRollup } from '@aztec/circuits.js/testing';
 import { type MerkleTreeId } from '@aztec/circuits.js/trees';
 import { BlockHeader, GlobalVariables } from '@aztec/circuits.js/tx';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
