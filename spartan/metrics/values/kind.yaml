@@ -1,8 +1,21 @@
 opentelemetry-collector:
+  resources:
+    requests:
+      memory: 2Gi
+      cpu: "1"
   config:
+    processors:
+      memory_limiter:
+        check_interval: 1s
+        limit_percentage: 80
+        spike_limit_percentage: 15
+
+      filter:
+        metrics:
+          datapoint:
+            - metric.type == METRIC_DATA_TYPE_HISTOGRAM and Len(explicit_bounds) > 20
+
     exporters:
-      # debug:
-      #   verbosity: detailed
       otlphttp/logs:
         endpoint: http://metrics-loki.metrics:3100/otlp
       otlp/tempo:
@@ -34,6 +47,8 @@ opentelemetry-collector:
           receivers:
             - otlp
           processors:
+            - memory_limiter
+            - filter
             - batch
           exporters:
             - prometheus
