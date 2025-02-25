@@ -69,6 +69,9 @@ export class KernelOracle implements ProvingDataOracle {
 
   async getNoteHashTreeRoot(): Promise<Fr> {
     const header = await this.node.getBlockHeader(this.blockNumber);
+    if (!header) {
+      throw new Error(`No block header found for block number ${this.blockNumber}`);
+    }
     return header.state.partial.noteHashTree.root;
   }
 

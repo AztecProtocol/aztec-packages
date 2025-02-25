@@ -307,24 +307,9 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .argument('[blockNumber]', 'The target block number, defaults to the latest pending block number.', parseBigint)
     .addOption(l1RpcUrlsOption)
     .addOption(pxeOption)
-    .option(
-      '-m, --mnemonic <string>',
-      'The mnemonic to use for deriving the Ethereum address that will mint and bridge',
-      'test test test test test test test test test test test junk',
-    )
-    .addOption(l1ChainIdOption)
-    .option('--l1-private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
     .action(async (blockNumber, options) => {
       const { assumeProvenThrough } = await import('./assume_proven_through.js');
-      await assumeProvenThrough(
-        blockNumber,
-        options.l1RpcUrls,
-        options.rpcUrl,
-        options.l1ChainId,
-        options.l1PrivateKey,
-        options.mnemonic,
-        log,
-      );
+      await assumeProvenThrough(blockNumber, options.l1RpcUrls, options.rpcUrl, log);
     });
 
   program

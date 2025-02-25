@@ -50,7 +50,7 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   {
     echo "Command: $1 (exit: $status)"
     echo "$output"
-  } | redis_cli -x SETEX $key 604800 &>/dev/null
+  } | redis_setexz $key 604800
 fi
 
 # Handle non-zero exit status

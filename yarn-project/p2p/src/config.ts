@@ -31,11 +31,6 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   blockRequestBatchSize: number;
 
   /**
-   * DEBUG: Disable message validation - for testing purposes only
-   */
-  debugDisableMessageValidation: boolean;
-
-  /**
    * DEBUG: Disable colocation penalty - for testing purposes only
    */
   debugDisableColocationPenalty: boolean;
@@ -183,11 +178,6 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_BLOCK_CHECK_INTERVAL_MS',
     description: 'The frequency in which to check for new L2 blocks.',
     ...numberConfigHelper(100),
-  },
-  debugDisableMessageValidation: {
-    env: 'DEBUG_P2P_DISABLE_MESSAGE_VALIDATION',
-    description: 'DEBUG: Disable message validation - NEVER set to true in production',
-    ...booleanConfigHelper(false),
   },
   debugDisableColocationPenalty: {
     env: 'DEBUG_P2P_DISABLE_COLOCATION_PENALTY',

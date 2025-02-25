@@ -1,9 +1,8 @@
 import { type AztecAddress, type CheatCodes, EthAddress, Fr, type Wallet } from '@aztec/aztec.js';
 import type { ViemPublicClient, ViemWalletClient } from '@aztec/ethereum';
-import { RollupAbi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
-import { type GetContractReturnType, getContract, parseEther } from 'viem';
+import { parseEther } from 'viem';
 
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
@@ -14,7 +13,6 @@ describe('e2e_cheat_codes', () => {
   let cc: CheatCodes;
   let teardown: () => Promise<void>;
 
-  let rollup: GetContractReturnType<typeof RollupAbi, ViemWalletClient>;
   let walletClient: ViemWalletClient;
   let publicClient: ViemPublicClient;
   let token: TokenContract;
@@ -27,17 +25,7 @@ describe('e2e_cheat_codes', () => {
     publicClient = deployL1ContractsValues.publicClient;
     admin = wallet.getAddress();
 
-    rollup = getContract({
-      address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-      abi: RollupAbi,
-      client: deployL1ContractsValues.walletClient,
-    });
-
     token = await TokenContract.deploy(wallet, admin, 'TokenName', 'TokenSymbol', 18).send().deployed();
-  });
-
-  beforeEach(async () => {
-    await rollup.write.setAssumeProvenThroughBlockNumber([(await rollup.read.getPendingBlockNumber()) + 1n]);
   });
 
   afterAll(() => teardown());

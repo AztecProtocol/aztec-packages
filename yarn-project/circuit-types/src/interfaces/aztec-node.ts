@@ -402,7 +402,7 @@ export interface AztecNode
    * Returns the currently committed block header.
    * @returns The current committed block header.
    */
-  getBlockHeader(blockNumber?: L2BlockNumber): Promise<BlockHeader>;
+  getBlockHeader(blockNumber?: L2BlockNumber): Promise<BlockHeader | undefined>;
 
   /**
    * Simulates the public part of a transaction with the current state.
@@ -575,7 +575,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getPublicStorageAt: z.function().args(schemas.AztecAddress, schemas.Fr, L2BlockNumberSchema).returns(schemas.Fr),
 
-  getBlockHeader: z.function().args(optional(L2BlockNumberSchema)).returns(BlockHeader.schema),
+  getBlockHeader: z.function().args(optional(L2BlockNumberSchema)).returns(BlockHeader.schema.optional()),
 
   simulatePublicCalls: z.function().args(Tx.schema, optional(z.boolean())).returns(PublicSimulationOutput.schema),
 
