@@ -1,5 +1,5 @@
 import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
-import { type ViemPublicClient, type ViemWalletClient, createEthereumChain } from '@aztec/ethereum';
+import { type ViemPublicClient, createEthereumChain } from '@aztec/ethereum';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
