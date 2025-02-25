@@ -34,7 +34,6 @@
     { "path": "pxe/tsconfig.json" },
     { "path": "aztec/tsconfig.json" },
     { "path": "circuits.js/tsconfig.json" },
-    { "path": "circuit-types/tsconfig.json" },
     { "path": "end-to-end/tsconfig.json" },
     { "path": "foundation/tsconfig.json" },
     { "path": "key-store/tsconfig.json" },

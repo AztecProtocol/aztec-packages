@@ -20,7 +20,7 @@ npm install @aztec/accounts
 
 ```typescript
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { GrumpkinScalar } from '@aztec/circuit-types';
+import { GrumpkinScalar } from '@aztec/foundation/fields';
 import { Fr } from '@aztec/circuits.js';
 
 const encryptionSecretKey = Fr.random();

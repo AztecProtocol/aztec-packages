@@ -5,8 +5,13 @@ import type { L2Block } from '@aztec/circuits.js/block';
 import { type ServerCircuitProver } from '@aztec/circuits.js/interfaces/server';
 import { makeBloatedProcessedTx } from '@aztec/circuits.js/testing';
 import { type AppendOnlyTreeSnapshot, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
-import { type ProcessedTx, type Tx } from '@aztec/circuits.js/tx';
-import { type BlockHeader, type GlobalVariables, TreeSnapshots } from '@aztec/circuits.js/tx';
+import {
+  type BlockHeader,
+  type GlobalVariables,
+  type ProcessedTx,
+  TreeSnapshots,
+  type Tx,
+} from '@aztec/circuits.js/tx';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger } from '@aztec/foundation/log';

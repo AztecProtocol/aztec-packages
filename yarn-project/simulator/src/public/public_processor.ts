@@ -6,6 +6,7 @@ import { type MerkleTreeWriteOperations } from '@aztec/circuits.js/interfaces/se
 import { MerkleTreeId } from '@aztec/circuits.js/trees';
 import {
   type FailedTx,
+  GlobalVariables,
   NestedProcessReturnValues,
   type ProcessedTx,
   Tx,
@@ -14,7 +15,6 @@ import {
   makeProcessedTxFromPrivateOnlyTx,
   makeProcessedTxFromTxWithPublicCalls,
 } from '@aztec/circuits.js/tx';
-import type { GlobalVariables } from '@aztec/circuits.js/tx';
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NULLIFIER_SUBTREE_HEIGHT } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';

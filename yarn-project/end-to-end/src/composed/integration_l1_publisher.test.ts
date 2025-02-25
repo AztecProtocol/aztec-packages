@@ -4,8 +4,7 @@ import { AztecAddress, Fr, GlobalVariables, type L2Block, createLogger } from '@
 import { Blob, BlockBlobPublicInputs } from '@aztec/blob-lib';
 import { GasFees, GasSettings } from '@aztec/circuits.js/gas';
 import { fr, makeBloatedProcessedTx } from '@aztec/circuits.js/testing';
-import { type ProcessedTx } from '@aztec/circuits.js/tx';
-import { type BlockHeader } from '@aztec/circuits.js/tx';
+import { type BlockHeader, type ProcessedTx } from '@aztec/circuits.js/tx';
 import { GENESIS_ARCHIVE_ROOT, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import {

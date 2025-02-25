@@ -19,13 +19,13 @@ import { ClientIvcProof } from '@aztec/circuits.js/proofs';
 import {
   type PrivateCallExecutionResult,
   type PrivateExecutionResult,
+  TxRequest,
   collectEnqueuedPublicFunctionCalls,
   collectNoteHashLeafIndexMap,
   collectNoteHashNullifierCounterMap,
   collectPublicTeardownFunctionCall,
   getFinalMinRevertibleSideEffectCounter,
 } from '@aztec/circuits.js/tx';
-import type { TxRequest } from '@aztec/circuits.js/tx';
 import { VerificationKeyAsFields } from '@aztec/circuits.js/vks';
 import { CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, VK_TREE_HEIGHT } from '@aztec/constants';
 import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';

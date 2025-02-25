@@ -2,8 +2,7 @@ import type { L2Block } from '@aztec/circuits.js/block';
 import { type EpochProver } from '@aztec/circuits.js/interfaces/server';
 import type { Proof } from '@aztec/circuits.js/proofs';
 import { type RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
-import { type ProcessedTx, type Tx } from '@aztec/circuits.js/tx';
-import { type BlockHeader, type GlobalVariables } from '@aztec/circuits.js/tx';
+import { type BlockHeader, type GlobalVariables, type ProcessedTx, type Tx } from '@aztec/circuits.js/tx';
 import type { Fr } from '@aztec/foundation/fields';
 
 import { type ProvingOrchestrator } from '../orchestrator/orchestrator.js';

@@ -6,8 +6,7 @@ import {
 import type { ParityPublicInputs } from '@aztec/circuits.js/parity';
 import { ClientIvcProof, makeRecursiveProof } from '@aztec/circuits.js/proofs';
 import { makeParityPublicInputs } from '@aztec/circuits.js/testing';
-import { type Tx } from '@aztec/circuits.js/tx';
-import { type BlockHeader, type GlobalVariables } from '@aztec/circuits.js/tx';
+import { type BlockHeader, type GlobalVariables, type Tx } from '@aztec/circuits.js/tx';
 import { NESTED_RECURSIVE_PROOF_LENGTH, RECURSIVE_PROOF_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';

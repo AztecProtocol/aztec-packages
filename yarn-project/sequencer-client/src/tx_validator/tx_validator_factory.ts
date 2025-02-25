@@ -6,8 +6,7 @@ import {
   type ClientProtocolCircuitVerifier,
   type MerkleTreeReadOperations,
 } from '@aztec/circuits.js/interfaces/server';
-import { type ProcessedTx, type Tx, type TxValidator } from '@aztec/circuits.js/tx';
-import type { GlobalVariables } from '@aztec/circuits.js/tx';
+import { GlobalVariables, type ProcessedTx, type Tx, type TxValidator } from '@aztec/circuits.js/tx';
 import { Fr } from '@aztec/foundation/fields';
 import {
   AggregateTxValidator,

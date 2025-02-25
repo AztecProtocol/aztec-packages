@@ -14,8 +14,14 @@ import type { L1ToL2MessageSource } from '@aztec/circuits.js/messaging';
 import { pickFromSchema } from '@aztec/circuits.js/schemas';
 import { type L2BlockBuiltStats } from '@aztec/circuits.js/stats';
 import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/circuits.js/trees';
-import { Tx, type TxHash } from '@aztec/circuits.js/tx';
-import { BlockHeader, ContentCommitment, type GlobalVariables, StateReference } from '@aztec/circuits.js/tx';
+import {
+  BlockHeader,
+  ContentCommitment,
+  type GlobalVariables,
+  StateReference,
+  Tx,
+  type TxHash,
+} from '@aztec/circuits.js/tx';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { omit } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';

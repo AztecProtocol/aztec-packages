@@ -68,7 +68,6 @@
   },
   "dependencies": {
     "@aztec/bb.js": "portal:../../barretenberg/ts",
-    "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",

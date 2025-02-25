@@ -66,7 +66,6 @@
   "dependencies": {
     "@aztec/blob-lib": "workspace:^",
     "@aztec/blob-sink": "workspace:^",
-    "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/ethereum": "workspace:^",

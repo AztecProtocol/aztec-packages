@@ -91,7 +91,6 @@ deploy_package foundation
 deploy_package blob-lib
 deploy_package native
 deploy_package circuits.js
-deploy_package circuit-types
 deploy_package telemetry-client
 deploy_package protocol-contracts
 deploy_package aztec.js

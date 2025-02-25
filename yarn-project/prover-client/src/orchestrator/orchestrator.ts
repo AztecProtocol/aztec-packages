@@ -17,8 +17,13 @@ import {
 } from '@aztec/circuits.js/rollup';
 import { type CircuitName } from '@aztec/circuits.js/stats';
 import { type AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/circuits.js/trees';
-import { type ProcessedTx, type Tx, toNumBlobFields } from '@aztec/circuits.js/tx';
-import { type BlockHeader, type GlobalVariables } from '@aztec/circuits.js/tx';
+import {
+  type BlockHeader,
+  type GlobalVariables,
+  type ProcessedTx,
+  type Tx,
+  toNumBlobFields,
+} from '@aztec/circuits.js/tx';
 import { VerificationKeyData } from '@aztec/circuits.js/vks';
 import {
   AVM_PROOF_LENGTH_IN_FIELDS,

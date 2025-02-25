@@ -6,9 +6,9 @@ import {
   SerializableContractInstance,
   computePublicBytecodeCommitment,
 } from '@aztec/circuits.js/contract';
-import '@aztec/circuits.js/jest';
 import { LogId, PrivateLog, PublicLog } from '@aztec/circuits.js/logs';
 import { InboxLeaf } from '@aztec/circuits.js/messaging';
+import '@aztec/circuits.js/test';
 import {
   makeContractClassPublic,
   makeExecutablePrivateFunctionWithMembershipProof,

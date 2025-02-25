@@ -19,13 +19,14 @@ import {
   PublicDataTreeLeafPreimage,
   getTreeHeight,
 } from '@aztec/circuits.js/trees';
-import { type ProcessedTx, TxEffect } from '@aztec/circuits.js/tx';
 import {
   BlockHeader,
   ContentCommitment,
   type GlobalVariables,
   PartialStateReference,
+  type ProcessedTx,
   StateReference,
+  TxEffect,
 } from '@aztec/circuits.js/tx';
 import {
   ARCHIVE_HEIGHT,

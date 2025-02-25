@@ -28,6 +28,7 @@ import {
   PublicDataWitness,
 } from '@aztec/circuits.js/trees';
 import {
+  BlockHeader,
   type PublicSimulationOutput,
   type Tx,
   type TxEffect,
@@ -35,7 +36,6 @@ import {
   TxReceipt,
   type TxValidationResult,
 } from '@aztec/circuits.js/tx';
-import type { BlockHeader } from '@aztec/circuits.js/tx';
 import {
   type ARCHIVE_HEIGHT,
   type L1_TO_L2_MSG_TREE_HEIGHT,
