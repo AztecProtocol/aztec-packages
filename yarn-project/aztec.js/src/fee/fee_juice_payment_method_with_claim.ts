@@ -1,4 +1,4 @@
-import { type FunctionCall } from '@aztec/circuit-types';
+import { type FunctionCall } from '@aztec/circuits.js/abi';
 import { FunctionSelector, FunctionType, U128 } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { Fr } from '@aztec/foundation/fields';

@@ -4,9 +4,9 @@ import { deployFundedSchnorrAccounts, getInitialTestAccounts } from '@aztec/acco
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { AnvilTestWatcher, EthCheatCodes, SignerlessWallet, type Wallet } from '@aztec/aztec.js';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
-import { type AztecNode, type PXE } from '@aztec/circuit-types/interfaces/client';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type ContractInstanceWithAddress, getContractInstanceFromDeployParams } from '@aztec/circuits.js/contract';
+import { type AztecNode, type PXE } from '@aztec/circuits.js/interfaces/client';
 import { type PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { setupCanonicalL2FeeJuice } from '@aztec/cli/setup-contracts';
 import { GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH } from '@aztec/constants';

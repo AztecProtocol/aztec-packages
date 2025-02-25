@@ -5,6 +5,8 @@ import {
   AZTEC_MAX_EPOCH_DURATION,
   BLOBS_PER_BLOCK,
   FIELDS_PER_BLOB,
+  FIXED_DA_GAS,
+  FIXED_L2_GAS,
   GeneratorIndex,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
@@ -63,6 +65,7 @@ import {
   AvmNullifierWriteTreeHint,
   AvmPublicDataReadTreeHint,
   AvmPublicDataWriteTreeHint,
+  RevertCode,
 } from '../avm/index.js';
 import { PublicDataHint } from '../avm/public_data_hint.js';
 import { PublicDataRead } from '../avm/public_data_read.js';
@@ -79,7 +82,8 @@ import {
   computeContractClassId,
   computePublicBytecodeCommitment,
 } from '../contract/index.js';
-import { Gas, GasFees, GasSettings } from '../gas/index.js';
+import { Gas, GasFees, GasSettings, type GasUsed } from '../gas/index.js';
+import type { MerkleTreeReadOperations } from '../interfaces/merkle_tree_operations.js';
 import { KeyValidationRequest } from '../kernel/hints/key_validation_request.js';
 import { KeyValidationRequestAndGenerator } from '../kernel/hints/key_validation_request_and_generator.js';
 import { ReadRequest } from '../kernel/hints/read_request.js';
@@ -94,6 +98,7 @@ import {
   PrivateToPublicAccumulatedData,
   PrivateToPublicKernelCircuitPublicInputs,
   PrivateToRollupAccumulatedData,
+  mergeAccumulatedData,
 } from '../kernel/index.js';
 import { LogHash, ScopedLogHash } from '../kernel/log_hash.js';
 import { NoteHash } from '../kernel/note_hash.js';
@@ -112,6 +117,7 @@ import { ParityPublicInputs } from '../parity/parity_public_inputs.js';
 import { RootParityInput } from '../parity/root_parity_input.js';
 import { RootParityInputs } from '../parity/root_parity_inputs.js';
 import { Proof } from '../proofs/proof.js';
+import { ProvingRequestType } from '../proofs/proving_request_type.js';
 import { makeRecursiveProof } from '../proofs/recursive_proof.js';
 import { AvmProofData } from '../rollup/avm_proof_data.js';
 import { BaseOrMergeRollupPublicInputs } from '../rollup/base_or_merge_rollup_public_inputs.js';
@@ -145,6 +151,7 @@ import { FunctionData } from '../tx/function_data.js';
 import { GlobalVariables } from '../tx/global_variables.js';
 import { MaxBlockNumber } from '../tx/max_block_number.js';
 import { PartialStateReference } from '../tx/partial_state_reference.js';
+import { makeProcessedTxFromPrivateOnlyTx, makeProcessedTxFromTxWithPublicCalls } from '../tx/processed_tx.js';
 import { StateReference } from '../tx/state_reference.js';
 import { TreeSnapshots } from '../tx/tree_snapshots.js';
 import { TxConstantData } from '../tx/tx_constant_data.js';
@@ -153,6 +160,7 @@ import { TxRequest } from '../tx/tx_request.js';
 import { RollupTypes, Vector } from '../types/index.js';
 import { VerificationKey, VerificationKeyAsFields, VerificationKeyData } from '../vks/verification_key.js';
 import { VkWitnessData } from '../vks/vk_witness_data.js';
+import { mockTx } from './mocks.js';
 
 /**
  * Creates an arbitrary side effect object with the given seed.
@@ -1431,4 +1439,120 @@ export async function makeAvmCircuitInputs(
  */
 export function fr(n: number): Fr {
   return new Fr(BigInt(n));
+}
+
+/** Makes a bloated processed tx for testing purposes. */
+export async function makeBloatedProcessedTx({
+  seed = 1,
+  header,
+  db,
+  chainId = Fr.ZERO,
+  version = Fr.ZERO,
+  gasSettings = GasSettings.default({ maxFeesPerGas: new GasFees(10, 10) }),
+  vkTreeRoot = Fr.ZERO,
+  protocolContractTreeRoot = Fr.ZERO,
+  globalVariables = GlobalVariables.empty(),
+  feePayer,
+  feePaymentPublicDataWrite,
+  privateOnly = false,
+}: {
+  seed?: number;
+  header?: BlockHeader;
+  db?: MerkleTreeReadOperations;
+  chainId?: Fr;
+  version?: Fr;
+  gasSettings?: GasSettings;
+  vkTreeRoot?: Fr;
+  globalVariables?: GlobalVariables;
+  protocolContractTreeRoot?: Fr;
+  feePayer?: AztecAddress;
+  feePaymentPublicDataWrite?: PublicDataWrite;
+  privateOnly?: boolean;
+} = {}) {
+  seed *= 0x1000; // Avoid clashing with the previous mock values if seed only increases by 1.
+  header ??= db?.getInitialHeader() ?? makeHeader(seed);
+  feePayer ??= await AztecAddress.random();
+
+  const txConstantData = TxConstantData.empty();
+  txConstantData.historicalHeader = header!;
+  txConstantData.txContext.chainId = chainId;
+  txConstantData.txContext.version = version;
+  txConstantData.txContext.gasSettings = gasSettings;
+  txConstantData.vkTreeRoot = vkTreeRoot;
+  txConstantData.protocolContractTreeRoot = protocolContractTreeRoot;
+
+  const tx = !privateOnly
+    ? await mockTx(seed, { feePayer })
+    : await mockTx(seed, {
+        numberOfNonRevertiblePublicCallRequests: 0,
+        numberOfRevertiblePublicCallRequests: 0,
+        feePayer,
+      });
+  tx.data.constants = txConstantData;
+
+  // No side effects were created in mockTx. The default gasUsed is the tx overhead.
+  tx.data.gasUsed = Gas.from({ daGas: FIXED_DA_GAS, l2Gas: FIXED_L2_GAS });
+
+  if (privateOnly) {
+    const data = makePrivateToRollupAccumulatedData(seed + 0x1000);
+
+    const transactionFee = tx.data.gasUsed.computeFee(globalVariables.gasFees);
+    feePaymentPublicDataWrite ??= new PublicDataWrite(Fr.random(), Fr.random());
+
+    clearLogs(data);
+
+    tx.data.forRollup!.end = data;
+
+    return makeProcessedTxFromPrivateOnlyTx(tx, transactionFee, feePaymentPublicDataWrite, globalVariables);
+  } else {
+    const nonRevertibleData = tx.data.forPublic!.nonRevertibleAccumulatedData;
+    const revertibleData = makePrivateToPublicAccumulatedData(seed + 0x1000);
+
+    revertibleData.nullifiers[MAX_NULLIFIERS_PER_TX - 1] = Fr.ZERO; // Leave one space for the tx hash nullifier in nonRevertibleAccumulatedData.
+
+    clearLogs(revertibleData);
+
+    tx.data.forPublic!.revertibleAccumulatedData = revertibleData;
+
+    const avmOutput = AvmCircuitPublicInputs.empty();
+    avmOutput.globalVariables = globalVariables;
+    avmOutput.accumulatedData.noteHashes = revertibleData.noteHashes;
+    avmOutput.accumulatedData.nullifiers = mergeAccumulatedData(
+      nonRevertibleData.nullifiers,
+      revertibleData.nullifiers,
+      MAX_NULLIFIERS_PER_TX,
+    );
+    avmOutput.accumulatedData.l2ToL1Msgs = revertibleData.l2ToL1Msgs;
+    avmOutput.accumulatedData.publicDataWrites = makeTuple(
+      MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+      i => new PublicDataWrite(new Fr(i), new Fr(i + 10)),
+      seed + 0x2000,
+    );
+
+    const avmCircuitInputs = new AvmCircuitInputs('', [], AvmExecutionHints.empty(), avmOutput);
+
+    const gasUsed = {
+      totalGas: Gas.empty(),
+      teardownGas: Gas.empty(),
+      publicGas: Gas.empty(),
+      billedGas: Gas.empty(),
+    } satisfies GasUsed;
+
+    return makeProcessedTxFromTxWithPublicCalls(
+      tx,
+      {
+        type: ProvingRequestType.PUBLIC_VM,
+        inputs: avmCircuitInputs,
+      },
+      gasUsed,
+      RevertCode.OK,
+      undefined /* revertReason */,
+    );
+  }
+}
+
+// Remove all logs as it's ugly to mock them at the moment and we are going to change it to have the preimages be part of the public inputs soon.
+function clearLogs(data: { publicLogs?: PublicLog[]; contractClassLogsHashes: ScopedLogHash[] }) {
+  data.publicLogs?.forEach((_, i) => (data.publicLogs![i] = PublicLog.empty()));
+  data.contractClassLogsHashes.forEach((_, i) => (data.contractClassLogsHashes[i] = ScopedLogHash.empty()));
 }

@@ -14,7 +14,7 @@ import {
   createPXEClient,
   retryUntil,
 } from '@aztec/aztec.js';
-import { type FunctionCall } from '@aztec/circuit-types';
+import { type FunctionCall } from '@aztec/circuits.js/abi';
 import { deriveSigningKey } from '@aztec/circuits.js/keys';
 import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';

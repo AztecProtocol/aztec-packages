@@ -1,4 +1,4 @@
-import { type MerkleTreeCheckpointOperations } from '@aztec/circuit-types/interfaces/server';
+import { type MerkleTreeCheckpointOperations } from '@aztec/circuits.js/interfaces/server';
 
 export class ForkCheckpoint {
   private completed = false;

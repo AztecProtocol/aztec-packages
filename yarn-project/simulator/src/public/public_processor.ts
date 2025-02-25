@@ -1,5 +1,12 @@
+import { PublicDataWrite } from '@aztec/circuits.js/avm';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { ContractDataSource } from '@aztec/circuits.js/contract';
+import { Gas } from '@aztec/circuits.js/gas';
+import { type MerkleTreeWriteOperations } from '@aztec/circuits.js/interfaces/server';
+import { MerkleTreeId } from '@aztec/circuits.js/trees';
 import {
   type FailedTx,
+  GlobalVariables,
   NestedProcessReturnValues,
   type ProcessedTx,
   Tx,
@@ -7,14 +14,7 @@ import {
   type TxValidator,
   makeProcessedTxFromPrivateOnlyTx,
   makeProcessedTxFromTxWithPublicCalls,
-} from '@aztec/circuit-types';
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
-import { PublicDataWrite } from '@aztec/circuits.js/avm';
-import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import type { ContractDataSource } from '@aztec/circuits.js/contract';
-import { Gas } from '@aztec/circuits.js/gas';
-import { MerkleTreeId } from '@aztec/circuits.js/trees';
-import type { GlobalVariables } from '@aztec/circuits.js/tx';
+} from '@aztec/circuits.js/tx';
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NULLIFIER_SUBTREE_HEIGHT } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';

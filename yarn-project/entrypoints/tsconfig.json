@@ -10,9 +10,6 @@
       "path": "../aztec.js"
     },
     {
-      "path": "../circuit-types"
-    },
-    {
       "path": "../circuits.js"
     },
     {

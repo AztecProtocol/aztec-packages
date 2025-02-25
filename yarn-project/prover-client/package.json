@@ -68,7 +68,6 @@
   "dependencies": {
     "@aztec/bb-prover": "workspace:^",
     "@aztec/blob-lib": "workspace:^",
-    "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",

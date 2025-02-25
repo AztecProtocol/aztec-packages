@@ -1,6 +1,6 @@
-import { type PXE } from '@aztec/circuit-types/interfaces/client';
 import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { computeSecretHash } from '@aztec/circuits.js/hash';
+import { type PXE } from '@aztec/circuits.js/interfaces/client';
 import type { ViemPublicClient, ViemWalletClient } from '@aztec/ethereum';
 import { extractEvent } from '@aztec/ethereum/utils';
 import { sha256ToField } from '@aztec/foundation/crypto';

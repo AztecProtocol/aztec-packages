@@ -1,4 +1,3 @@
-import { type CircuitName } from '@aztec/circuit-types/stats';
 import { type Timer } from '@aztec/foundation/timer';
 import {
   Attributes,
@@ -9,6 +8,8 @@ import {
   type Tracer,
   ValueType,
 } from '@aztec/telemetry-client';
+
+import { type CircuitName } from '../../circuits.js/src/stats/index.js';
 
 /**
  * Instrumentation class for Prover implementations.

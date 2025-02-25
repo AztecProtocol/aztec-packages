@@ -1,4 +1,4 @@
-import { InboxLeaf } from '@aztec/circuit-types';
+import { InboxLeaf } from '@aztec/circuits.js/messaging';
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';

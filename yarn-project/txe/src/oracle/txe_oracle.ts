@@ -1,18 +1,4 @@
-import {
-  Body,
-  L2Block,
-  Note,
-  type NoteStatus,
-  PublicDataWitness,
-  PublicExecutionRequest,
-  SimulationError,
-  TxEffect,
-  TxHash,
-  type UnencryptedL2Log,
-} from '@aztec/circuit-types';
-import { AuthWitness } from '@aztec/circuit-types/auth-witness';
-import { type MerkleTreeReadOperations, type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
-import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
+import { Body, L2Block, Note } from '@aztec/aztec.js';
 import {
   type ContractArtifact,
   type FunctionAbi,
@@ -20,9 +6,11 @@ import {
   type NoteSelector,
   countArgumentsSize,
 } from '@aztec/circuits.js/abi';
+import { AuthWitness } from '@aztec/circuits.js/auth-witness';
 import { PublicDataWrite } from '@aztec/circuits.js/avm';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type ContractInstance, type ContractInstanceWithAddress } from '@aztec/circuits.js/contract';
+import { SimulationError } from '@aztec/circuits.js/errors';
 import { Gas, GasFees } from '@aztec/circuits.js/gas';
 import {
   computeNoteHashNonce,
@@ -31,10 +19,13 @@ import {
   siloNoteHash,
   siloNullifier,
 } from '@aztec/circuits.js/hash';
+import { type MerkleTreeReadOperations, type MerkleTreeWriteOperations } from '@aztec/circuits.js/interfaces/server';
 import { type KeyValidationRequest, PrivateContextInputs } from '@aztec/circuits.js/kernel';
 import { computeTaggingSecretPoint, deriveKeys } from '@aztec/circuits.js/keys';
-import { LogWithTxData } from '@aztec/circuits.js/logs';
+import { LogWithTxData, UnencryptedL2Log } from '@aztec/circuits.js/logs';
 import { IndexedTaggingSecret, type PrivateLog, type PublicLog } from '@aztec/circuits.js/logs';
+import type { NoteStatus } from '@aztec/circuits.js/note';
+import { type CircuitWitnessGenerationStats } from '@aztec/circuits.js/stats';
 import {
   makeAppendOnlyTreeSnapshot,
   makeContentCommitment,
@@ -48,8 +39,16 @@ import {
   NullifierMembershipWitness,
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
+  PublicDataWitness,
 } from '@aztec/circuits.js/trees';
-import { BlockHeader, CallContext, GlobalVariables } from '@aztec/circuits.js/tx';
+import {
+  BlockHeader,
+  CallContext,
+  GlobalVariables,
+  PublicExecutionRequest,
+  TxEffect,
+  TxHash,
+} from '@aztec/circuits.js/tx';
 import {
   type L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_NOTE_HASHES_PER_TX,

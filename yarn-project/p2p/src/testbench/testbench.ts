@@ -1,6 +1,6 @@
-import { type ChainConfig } from '@aztec/circuit-types/config';
-import { mockTx } from '@aztec/circuit-types/testing';
+import { type ChainConfig } from '@aztec/circuits.js/config';
 import { ClientIvcProof } from '@aztec/circuits.js/proofs';
+import { mockTx } from '@aztec/circuits.js/testing';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';

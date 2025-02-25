@@ -1,4 +1,4 @@
-import { type FunctionCall } from '@aztec/circuit-types';
+import { type FunctionCall } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type GasSettings } from '@aztec/circuits.js/gas';
 

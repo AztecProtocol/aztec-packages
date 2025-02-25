@@ -69,7 +69,7 @@
   "dependencies": {
     "@aztec/archiver": "workspace:^",
     "@aztec/aztec.js": "workspace:^",
-    "@aztec/circuit-types": "workspace:^",
+    "@aztec/circuits.js": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
@@ -86,7 +86,6 @@
   },
   "devDependencies": {
     "@aztec/accounts": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "@jest/globals": "^29.5.0",

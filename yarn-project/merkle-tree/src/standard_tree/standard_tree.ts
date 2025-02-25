@@ -1,4 +1,4 @@
-import { type TreeInsertionStats } from '@aztec/circuit-types/stats';
+import { type TreeInsertionStats } from '@aztec/circuits.js/stats';
 import { type Bufferable, serializeToBuffer } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
 

@@ -34,9 +34,6 @@
       "path": "../bot"
     },
     {
-      "path": "../circuit-types"
-    },
-    {
       "path": "../circuits.js"
     },
     {

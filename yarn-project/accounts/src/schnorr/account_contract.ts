@@ -1,7 +1,7 @@
 import { CompleteAddress, getAccountContractAddress } from '@aztec/aztec.js';
 import { type AuthWitnessProvider } from '@aztec/aztec.js/account';
-import { AuthWitness } from '@aztec/circuit-types/auth-witness';
 import { type ContractArtifact } from '@aztec/circuits.js/abi';
+import { AuthWitness } from '@aztec/circuits.js/auth-witness';
 import { deriveSigningKey } from '@aztec/circuits.js/keys';
 import { Schnorr } from '@aztec/foundation/crypto';
 import { type Fr, GrumpkinScalar } from '@aztec/foundation/fields';

@@ -1,7 +1,7 @@
 import { getIdentities } from '@aztec/accounts/utils';
 import { type AccountManager, type AccountWalletWithSecretKey } from '@aztec/aztec.js';
-import { type PXE } from '@aztec/circuit-types/interfaces/client';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type PXE } from '@aztec/circuits.js/interfaces/client';
 import { deriveSigningKey } from '@aztec/circuits.js/keys';
 import { Fr } from '@aztec/foundation/fields';
 

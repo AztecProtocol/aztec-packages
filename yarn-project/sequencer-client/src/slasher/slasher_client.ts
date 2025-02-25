@@ -5,7 +5,7 @@ import {
   L2BlockStream,
   type L2BlockStreamEvent,
   type L2Tips,
-} from '@aztec/circuit-types';
+} from '@aztec/circuits.js/block';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import {
   type L1ContractsConfig,

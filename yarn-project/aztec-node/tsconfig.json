@@ -16,9 +16,6 @@
       "path": "../blob-sink"
     },
     {
-      "path": "../circuit-types"
-    },
-    {
       "path": "../circuits.js"
     },
     {
