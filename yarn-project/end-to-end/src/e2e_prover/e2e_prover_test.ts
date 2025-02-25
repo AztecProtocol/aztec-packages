@@ -93,7 +93,7 @@ export class FullProverTest {
       `full_prover_integration/${testName}`,
       dataPath,
       { startProverNode: true, fundRewardDistributor: true, coinbase },
-      { assumeProvenThrough: undefined },
+      {},
     );
   }
 
@@ -157,6 +157,10 @@ export class FullProverTest {
 
   async setup() {
     this.context = await this.snapshotManager.setup();
+
+    // We don't wish to mark as proven automatically, so we set the flag to false
+    this.context.watcher.setIsMarkingAsProven(false);
+
     this.simulatedProverNode = this.context.proverNode!;
     ({
       pxe: this.pxe,

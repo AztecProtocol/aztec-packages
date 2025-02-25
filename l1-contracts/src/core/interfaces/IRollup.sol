@@ -58,9 +58,9 @@ struct EpochRewards {
 // The below blobPublicInputsHashes are filled when proposing a block, then used to verify an epoch proof.
 // TODO(#8955): When implementing batched kzg proofs, store one instance per epoch rather than block
 struct RollupStore {
+  ChainTips tips; // put first such that the struct slot structure is easy to follow for cheatcodes
   mapping(uint256 blockNumber => BlockLog log) blocks;
   mapping(uint256 blockNumber => bytes32) blobPublicInputsHashes;
-  ChainTips tips;
   bytes32 vkTreeRoot;
   bytes32 protocolContractTreeRoot;
   L1GasOracleValues l1GasOracleValues;
@@ -84,7 +84,6 @@ interface ITestRollup {
   function setEpochVerifier(address _verifier) external;
   function setVkTreeRoot(bytes32 _vkTreeRoot) external;
   function setProtocolContractTreeRoot(bytes32 _protocolContractTreeRoot) external;
-  function setAssumeProvenThroughBlockNumber(uint256 _blockNumber) external;
   function cheat__InitialiseValidatorSet(CheatDepositArgs[] memory _args) external;
   function getManaBaseFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
     external
