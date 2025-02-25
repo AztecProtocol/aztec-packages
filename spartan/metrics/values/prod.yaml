@@ -41,6 +41,7 @@ opentelemetry-collector:
           receivers:
             - otlp
           processors:
+            - memory_limiter
             - filter
             - batch
           exporters:
