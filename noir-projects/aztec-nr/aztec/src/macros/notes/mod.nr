@@ -86,7 +86,7 @@ comptime fn generate_note_interface(s: StructDefinition, note_type_id: Field) ->
 ///     ) -> Field { ... }
 /// }
 /// ```
-comptime fn generate_note_hashing(s: StructDefinition) -> Quoted {
+comptime fn generate_note_hash_trait_impl(s: StructDefinition) -> Quoted {
     let name = s.name();
 
     quote {
@@ -159,7 +159,7 @@ comptime fn generate_note_hashing(s: StructDefinition) -> Quoted {
 ///     }
 /// }
 ///
-/// # On differences from `generate_note_hashing`
+/// # On differences from `generate_note_hash_trait_impl`
 /// We use multi-scalar multiplication (MSM) instead of Poseidon2 here since this is a partial note and therefore
 /// does require MSM's additive homomorphism property (the property is used to add to the commitment in public).
 /// We don't use this implementation for standard notes as well because Poseidon2 is significantly cheaper
@@ -177,7 +177,7 @@ comptime fn generate_note_hashing(s: StructDefinition) -> Quoted {
 ///
 /// Since -l would be -3 (an extraordinarily large number that cannot be a valid preimage length),
 /// including the length protects against these collisions.
-comptime fn generate_note_hashing_for_partial_note(
+comptime fn generate_note_hash_trait_impl_for_partial_note(
     s: StructDefinition,
     indexed_fixed_fields: [(Quoted, Type, u32)],
     indexed_nullable_fields: [(Quoted, Type, u32)],
@@ -1030,8 +1030,11 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
     let (finalization_payload_impl, finalization_payload_name) =
         generate_finalization_payload(s, indexed_fixed_fields, indexed_nullable_fields);
     let note_interface_impl = generate_note_interface(s, note_type_id);
-    let note_hashing_impl =
-        generate_note_hashing_for_partial_note(s, indexed_fixed_fields, indexed_nullable_fields);
+    let note_hash_impl = generate_note_hash_trait_impl_for_partial_note(
+        s,
+        indexed_fixed_fields,
+        indexed_nullable_fields,
+    );
     let partial_note_impl =
         generate_partial_note_impl(s, setup_payload_name, finalization_payload_name);
     let (packable_impl, note_packed_len) = derive_packable_if_not_implemented_and_get_len(s);
@@ -1049,7 +1052,7 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
         $setup_payload_impl
         $finalization_payload_impl
         $note_interface_impl
-        $note_hashing_impl
+        $note_hash_impl
         $partial_note_impl
         $packable_impl
     }
@@ -1072,7 +1075,7 @@ pub comptime fn note(s: StructDefinition) -> Quoted {
     let note_properties = generate_note_properties(s);
     let note_type_id = get_next_note_type_id();
     let note_interface_impl = generate_note_interface(s, note_type_id);
-    let note_hashing_impl = generate_note_hashing(s);
+    let note_hash_impl = generate_note_hash_trait_impl(s);
     let (packable_impl, note_packed_len) = derive_packable_if_not_implemented_and_get_len(s);
 
     register_note(
@@ -1086,7 +1089,7 @@ pub comptime fn note(s: StructDefinition) -> Quoted {
     quote {
         $note_properties
         $note_interface_impl
-        $note_hashing_impl
+        $note_hash_impl
         $packable_impl
     }
 }
