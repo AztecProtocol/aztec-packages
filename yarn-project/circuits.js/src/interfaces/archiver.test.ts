@@ -1,14 +1,10 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
-import { fileURLToPath } from '@aztec/foundation/url';
 
-import { readFileSync } from 'fs';
 import omit from 'lodash.omit';
-import { resolve } from 'path';
 
 import type { ContractArtifact } from '../abi/abi.js';
-import { loadContractArtifact } from '../abi/contract_artifact.js';
 import { FunctionSelector } from '../abi/function_selector.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import { type InBlock, randomInBlock } from '../block/in_block.js';
@@ -43,8 +39,8 @@ describe('ArchiverApiSchema', () => {
 
   const tested: Set<string> = new Set();
 
-  beforeAll(async () => {
-    artifact = await getTokenContractArtifact();
+  beforeAll(() => {
+    artifact = getTokenContractArtifact();
   });
 
   beforeEach(async () => {

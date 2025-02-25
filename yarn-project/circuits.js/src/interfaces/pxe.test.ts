@@ -5,17 +5,13 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 import { SiblingPath } from '@aztec/foundation/trees';
-import { fileURLToPath } from '@aztec/foundation/url';
 
 import { jest } from '@jest/globals';
 import { deepStrictEqual } from 'assert';
-import { readFileSync } from 'fs';
 import omit from 'lodash.omit';
 import times from 'lodash.times';
-import { resolve } from 'path';
 
 import type { ContractArtifact } from '../abi/abi.js';
-import { loadContractArtifact } from '../abi/contract_artifact.js';
 import type { AbiDecoded } from '../abi/decoder.js';
 import { EventSelector } from '../abi/event_selector.js';
 import { AuthWitness } from '../auth_witness/auth_witness.js';
@@ -65,8 +61,8 @@ describe('PXESchema', () => {
 
   const tested = new Set<string>();
 
-  beforeAll(async () => {
-    artifact = await getTokenContractArtifact();
+  beforeAll(() => {
+    artifact = getTokenContractArtifact();
   });
 
   beforeEach(async () => {

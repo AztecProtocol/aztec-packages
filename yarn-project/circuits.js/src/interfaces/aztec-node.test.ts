@@ -11,14 +11,10 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 import { SiblingPath } from '@aztec/foundation/trees';
-import { fileURLToPath } from '@aztec/foundation/url';
 
-import { readFileSync } from 'fs';
 import omit from 'lodash.omit';
-import { resolve } from 'path';
 
 import type { ContractArtifact } from '../abi/abi.js';
-import { loadContractArtifact } from '../abi/contract_artifact.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import { type InBlock, randomInBlock } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
@@ -62,8 +58,8 @@ describe('AztecNodeApiSchema', () => {
 
   const tested: Set<string> = new Set();
 
-  beforeAll(async () => {
-    artifact = await getTokenContractArtifact();
+  beforeAll(() => {
+    artifact = getTokenContractArtifact();
   });
 
   beforeEach(async () => {
