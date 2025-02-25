@@ -137,10 +137,13 @@ describe('e2e_crowdfunding_and_claim', () => {
       },
       // eslint-disable-next-line camelcase
       contract_address: uniqueNote.contractAddress,
-      // eslint-disable-next-line camelcase
-      nonce: uniqueNote.nonce,
-      // eslint-disable-next-line camelcase
-      note_hash_counter: 0, // set as 0 as note is not transient
+      metadata: {
+        stage: 3, // aztec::note::note_metadata::NoteStage::SETTLED
+        // eslint-disable-next-line camelcase
+        maybe_note_hash_counter: 0, // 0 as this is settled
+        // eslint-disable-next-line camelcase
+        maybe_nonce: uniqueNote.nonce,
+      },
     };
   };
 
