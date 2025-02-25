@@ -11,8 +11,10 @@ import {
 import { GasFees } from '@aztec/circuits.js/gas';
 import { PublicKeys } from '@aztec/circuits.js/keys';
 import { PrivateLog } from '@aztec/circuits.js/logs';
-import { MerkleTreeId, NullifierMembershipWitness } from '@aztec/circuits.js/trees';
+import { ExtendedPublicLog, ExtendedUnencryptedL2Log, type LogFilter, TxScopedL2Log } from '@aztec/circuits.js/logs';
+import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/circuits.js/trees';
 import { BlockHeader } from '@aztec/circuits.js/tx';
+import { TxHash } from '@aztec/circuits.js/tx';
 import {
   ARCHIVE_HEIGHT,
   L1_TO_L2_MSG_TREE_HEIGHT,
@@ -35,23 +37,14 @@ import { resolve } from 'path';
 import { type InBlock, randomInBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { type L2Tips } from '../l2_block_source.js';
-import { ExtendedPublicLog } from '../logs/extended_public_log.js';
-import { ExtendedUnencryptedL2Log } from '../logs/extended_unencrypted_l2_log.js';
-import {
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  TxScopedL2Log,
-} from '../logs/get_logs_response.js';
-import { type LogFilter } from '../logs/log_filter.js';
-import { PublicDataWitness } from '../public_data_witness.js';
 import { type TxValidationResult } from '../tx/index.js';
 import { PublicSimulationOutput } from '../tx/public_simulation_output.js';
 import { Tx } from '../tx/tx.js';
-import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
 import { TxEffect } from '../tx_effect.js';
 import { type AztecNode, AztecNodeApiSchema } from './aztec-node.js';
 import { type SequencerConfig } from './configs.js';
+import { type GetContractClassLogsResponse, type GetPublicLogsResponse } from './get_logs_response.js';
 import { type ProverConfig } from './prover-client.js';
 import type { WorldStateSyncStatus } from './world_state.js';
 

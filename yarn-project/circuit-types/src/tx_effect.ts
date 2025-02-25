@@ -1,6 +1,7 @@
 import { PublicDataWrite, RevertCode } from '@aztec/circuits.js/avm';
-import { PrivateLog, PublicLog } from '@aztec/circuits.js/logs';
+import { ContractClassTxL2Logs, PrivateLog, PublicLog, TxL2Logs } from '@aztec/circuits.js/logs';
 import { type ZodFor, schemas } from '@aztec/circuits.js/schemas';
+import { TxHash } from '@aztec/circuits.js/tx';
 import {
   CONTRACT_CLASS_LOGS_PREFIX,
   L2_L1_MSGS_PREFIX,
@@ -35,9 +36,6 @@ import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { inspect } from 'util';
 import { z } from 'zod';
-
-import { ContractClassTxL2Logs, type TxL2Logs } from './logs/index.js';
-import { TxHash } from './tx/tx_hash.js';
 
 // This will appear as 0x74785f7374617274 in logs
 export const TX_START_PREFIX = 8392562855083340404n;

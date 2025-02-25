@@ -8,8 +8,15 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/circuits.js/contract';
 import { PublicKeys } from '@aztec/circuits.js/keys';
-import { PrivateLog } from '@aztec/circuits.js/logs';
+import {
+  ExtendedPublicLog,
+  ExtendedUnencryptedL2Log,
+  type LogFilter,
+  PrivateLog,
+  TxScopedL2Log,
+} from '@aztec/circuits.js/logs';
 import { BlockHeader } from '@aztec/circuits.js/tx';
+import { TxHash } from '@aztec/circuits.js/tx';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
@@ -23,18 +30,10 @@ import { EmptyL1RollupConstants, type L1RollupConstants } from '../epoch-helpers
 import { type InBlock, randomInBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { type L2Tips } from '../l2_block_source.js';
-import { ExtendedPublicLog } from '../logs/extended_public_log.js';
-import { ExtendedUnencryptedL2Log } from '../logs/extended_unencrypted_l2_log.js';
-import {
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  TxScopedL2Log,
-} from '../logs/get_logs_response.js';
-import { type LogFilter } from '../logs/log_filter.js';
-import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
 import { TxEffect } from '../tx_effect.js';
 import { type ArchiverApi, ArchiverApiSchema } from './archiver.js';
+import { type GetContractClassLogsResponse, type GetPublicLogsResponse } from './get_logs_response.js';
 
 describe('ArchiverApiSchema', () => {
   let handler: MockArchiver;

@@ -1,9 +1,9 @@
 import { type AbiType, AbiTypeSchema, type EventSelector, decodeFromAbi } from '@aztec/circuits.js/abi';
 import { type PublicLog } from '@aztec/circuits.js/logs';
-import { schemas } from '@aztec/circuits.js/schemas';
 
 import { z } from 'zod';
 
+import { schemas } from '../schemas/index.js';
 import { L1EventPayload } from './l1_payload/l1_event_payload.js';
 
 /**

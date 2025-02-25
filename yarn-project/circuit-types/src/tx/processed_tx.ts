@@ -6,12 +6,12 @@ import type { ClientIvcProof } from '@aztec/circuits.js/proofs';
 import type { GlobalVariables } from '@aztec/circuits.js/tx';
 import { Fr } from '@aztec/foundation/fields';
 
+import { type TxHash } from '../../../circuits.js/src/tx/tx_hash.js';
 import { type AvmProvingRequest } from '../interfaces/proving-job.js';
 import { type SimulationError } from '../simulation_error.js';
 import { TxEffect } from '../tx_effect.js';
 import { type GasUsed } from './gas_used.js';
 import { type Tx } from './tx.js';
-import { type TxHash } from './tx_hash.js';
 
 export enum TxExecutionPhase {
   SETUP,

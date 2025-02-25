@@ -1,12 +1,12 @@
 import { PublicDataWrite, RevertCode } from '@aztec/circuits.js/avm';
 import { type ZodFor, schemas } from '@aztec/circuits.js/schemas';
+import { TxHash } from '@aztec/circuits.js/tx';
 import { type Fr } from '@aztec/foundation/fields';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
 import { L2BlockHash } from './block_hash.js';
-import { TxHash } from './tx_hash.js';
 
 /**
  * Possible status of a transaction.

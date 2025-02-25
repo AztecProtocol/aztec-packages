@@ -1,38 +1,10 @@
-import { type ZodFor, schemas } from '@aztec/circuits.js/schemas';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, boolToBuffer, numToUInt32BE } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';
 
+import { schemas } from '../schemas/schemas.js';
 import { TxHash } from '../tx/tx_hash.js';
-import { ExtendedPublicLog } from './extended_public_log.js';
-import { ExtendedUnencryptedL2Log } from './extended_unencrypted_l2_log.js';
-
-/** Response for the getContractClassLogs archiver call. */
-export type GetContractClassLogsResponse = {
-  /** An array of ExtendedUnencryptedL2Log elements. */
-  logs: ExtendedUnencryptedL2Log[];
-  /** Indicates if a limit has been reached. */
-  maxLogsHit: boolean;
-};
-
-export const GetContractClassLogsResponseSchema: ZodFor<GetContractClassLogsResponse> = z.object({
-  logs: z.array(ExtendedUnencryptedL2Log.schema),
-  maxLogsHit: z.boolean(),
-});
-
-/** Response for the getPublicLogs archiver call. */
-export type GetPublicLogsResponse = {
-  /** An array of ExtendedPublicLog elements. */
-  logs: ExtendedPublicLog[];
-  /** Indicates if a limit has been reached. */
-  maxLogsHit: boolean;
-};
-
-export const GetPublicLogsResponseSchema = z.object({
-  logs: z.array(ExtendedPublicLog.schema),
-  maxLogsHit: z.boolean(),
-}) satisfies ZodFor<GetPublicLogsResponse>;
 
 export class TxScopedL2Log {
   constructor(

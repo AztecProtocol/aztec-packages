@@ -4,7 +4,7 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { z } from 'zod';
 
-import { type TxHash } from '../tx/tx_hash.js';
+import { type TxHash } from '../../../circuits.js/src/tx/tx_hash.js';
 import { type EpochProver } from './epoch-prover.js';
 import { type ProvingJobConsumer } from './prover-broker.js';
 

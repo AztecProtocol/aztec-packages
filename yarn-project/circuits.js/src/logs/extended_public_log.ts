@@ -1,4 +1,3 @@
-import { PublicLog } from '@aztec/circuits.js/logs';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
@@ -7,6 +6,7 @@ import isEqual from 'lodash.isequal';
 import { z } from 'zod';
 
 import { LogId } from './log_id.js';
+import { PublicLog } from './public_log.js';
 
 /**
  * Represents an individual public log entry extended with info about the block and tx it was emitted in.

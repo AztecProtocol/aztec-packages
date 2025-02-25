@@ -1,5 +1,3 @@
-import { schemas } from '@aztec/circuits.js/schemas';
-import { PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
 import { PUBLIC_DATA_TREE_HEIGHT } from '@aztec/constants';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
@@ -8,6 +6,9 @@ import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { SiblingPath } from '@aztec/foundation/trees';
 
 import { z } from 'zod';
+
+import { schemas } from '../schemas/schemas.js';
+import { PublicDataTreeLeafPreimage } from './public_data_leaf.js';
 
 /**
  * Public data witness.

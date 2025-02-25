@@ -20,8 +20,11 @@ import {
   ProtocolContractAddressesSchema,
 } from '@aztec/circuits.js/contract';
 import { GasFees } from '@aztec/circuits.js/gas';
+import { type LogFilter, LogFilterSchema } from '@aztec/circuits.js/logs';
+import { type NotesFilter, NotesFilterSchema, UniqueNote } from '@aztec/circuits.js/notes';
 import { AbiDecodedSchema, schemas } from '@aztec/circuits.js/schemas';
 import { type ApiSchemaFor, type ZodFor, optional } from '@aztec/circuits.js/schemas';
+import { PrivateExecutionResult } from '@aztec/circuits.js/tx';
 import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import type { Fr, Point } from '@aztec/foundation/fields';
 import { SiblingPath } from '@aztec/foundation/trees';
@@ -31,20 +34,15 @@ import { z } from 'zod';
 import { AuthWitness } from '../auth_witness/auth_witness.js';
 import { type InBlock, inBlockSchemaFor } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
+import { Tx, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '../tx/index.js';
+import { TxEffect } from '../tx_effect.js';
+import { TxExecutionRequest } from '../tx_execution_request.js';
 import {
   type GetContractClassLogsResponse,
   GetContractClassLogsResponseSchema,
   type GetPublicLogsResponse,
   GetPublicLogsResponseSchema,
-  type LogFilter,
-  LogFilterSchema,
-} from '../logs/index.js';
-import { UniqueNote } from '../notes/index.js';
-import { type NotesFilter, NotesFilterSchema } from '../notes/notes_filter.js';
-import { PrivateExecutionResult } from '../private_execution_result.js';
-import { Tx, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '../tx/index.js';
-import { TxEffect } from '../tx_effect.js';
-import { TxExecutionRequest } from '../tx_execution_request.js';
+} from './get_logs_response.js';
 
 // docs:start:pxe-interface
 /**

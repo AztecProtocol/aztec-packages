@@ -1,4 +1,5 @@
 import { BlockHeader } from '@aztec/circuits.js/tx';
+import { TxHash } from '@aztec/circuits.js/tx';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { hexToBuffer } from '@aztec/foundation/string';
@@ -7,7 +8,6 @@ import { type FieldsOf } from '@aztec/foundation/types';
 import { encodeAbiParameters, parseAbiParameters } from 'viem';
 import { z } from 'zod';
 
-import { TxHash } from '../tx/tx_hash.js';
 import { type Signable, type SignatureDomainSeparator } from './signature_utils.js';
 
 export class ConsensusPayload implements Signable {

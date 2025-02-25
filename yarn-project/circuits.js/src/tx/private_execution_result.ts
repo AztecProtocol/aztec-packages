@@ -1,8 +1,6 @@
 import { NoteSelector } from '@aztec/circuits.js/abi';
 import type { IsEmpty } from '@aztec/circuits.js/interfaces';
 import { PrivateCircuitPublicInputs, sortByCounter } from '@aztec/circuits.js/kernel';
-import { schemas } from '@aztec/circuits.js/schemas';
-import { type ZodFor, mapSchema } from '@aztec/circuits.js/schemas';
 import { timesParallel } from '@aztec/foundation/collection';
 import { randomBytes, randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
@@ -10,7 +8,11 @@ import { type FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
-import { Note, UnencryptedFunctionL2Logs, UnencryptedL2Log } from './logs/index.js';
+import { UnencryptedFunctionL2Logs } from '../logs/function_l2_logs.js';
+import { Note } from '../logs/index.js';
+import { UnencryptedL2Log } from '../logs/unencrypted_l2_log.js';
+import { schemas } from '../schemas/index.js';
+import { type ZodFor, mapSchema } from '../schemas/index.js';
 import { PublicExecutionRequest } from './public_execution_request.js';
 
 /**

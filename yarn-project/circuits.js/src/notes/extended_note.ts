@@ -1,13 +1,13 @@
-import { NoteSelector } from '@aztec/circuits.js/abi';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { type ZodFor, schemas } from '@aztec/circuits.js/schemas';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { z } from 'zod';
 
+import { NoteSelector } from '../abi/note_selector.js';
+import { AztecAddress } from '../aztec-address/index.js';
 import { Note } from '../logs/l1_payload/payload.js';
+import { type ZodFor, schemas } from '../schemas/index.js';
 import { TxHash } from '../tx/tx_hash.js';
 
 /**

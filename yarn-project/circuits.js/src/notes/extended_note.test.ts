@@ -1,6 +1,6 @@
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
-import { randomExtendedNote, randomUniqueNote } from '../test/mocks.js';
+import { randomExtendedNote, randomUniqueNote } from '../tests/factories.js';
 import { ExtendedNote, UniqueNote } from './extended_note.js';
 
 describe('ExtendedNote', () => {

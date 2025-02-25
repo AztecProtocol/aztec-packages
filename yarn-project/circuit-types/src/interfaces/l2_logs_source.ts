@@ -1,12 +1,7 @@
-import type { PrivateLog } from '@aztec/circuits.js/logs';
+import { type LogFilter, PrivateLog, TxScopedL2Log } from '@aztec/circuits.js/logs';
 import type { Fr } from '@aztec/foundation/fields';
 
-import {
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  type TxScopedL2Log,
-} from './get_logs_response.js';
-import { type LogFilter } from './log_filter.js';
+import type { GetContractClassLogsResponse, GetPublicLogsResponse } from './get_logs_response.js';
 
 /**
  * Interface of classes allowing for the retrieval of logs.

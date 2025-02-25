@@ -1,9 +1,10 @@
-import { schemas } from '@aztec/circuits.js/schemas';
 import { Vector } from '@aztec/circuits.js/types';
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
+
+import { schemas } from '../../schemas/index.js';
 
 /**
  * The Note class represents a Note emitted from a Noir contract as a vector of Fr (finite field) elements.

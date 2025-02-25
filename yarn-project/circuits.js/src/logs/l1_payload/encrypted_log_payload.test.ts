@@ -1,11 +1,11 @@
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { CompleteAddress } from '@aztec/circuits.js/contract';
-import { computeAddressSecret, deriveKeys } from '@aztec/circuits.js/keys';
-import { IndexedTaggingSecret, PrivateLog } from '@aztec/circuits.js/logs';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
+import { AztecAddress } from '../../aztec-address/index.js';
+import { CompleteAddress } from '../../contract/complete_address.js';
+import { computeAddressSecret, deriveKeys } from '../../keys/derivation.js';
+import { IndexedTaggingSecret, PrivateLog } from '../index.js';
 import { EncryptedLogPayload } from './encrypted_log_payload.js';
 
 // placeholder value until tagging is implemented

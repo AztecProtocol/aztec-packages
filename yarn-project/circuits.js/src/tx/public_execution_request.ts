@@ -1,14 +1,15 @@
-import { computeVarArgsHash } from '@aztec/circuits.js/hash';
-import { PublicCallRequest } from '@aztec/circuits.js/kernel';
-import { type ZodFor, schemas } from '@aztec/circuits.js/schemas';
-import { CallContext } from '@aztec/circuits.js/tx';
-import { Vector } from '@aztec/circuits.js/types';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
 import { z } from 'zod';
+
+import { computeVarArgsHash } from '../hash/index.js';
+import { PublicCallRequest } from '../kernel/public_call_request.js';
+import { type ZodFor, schemas } from '../schemas/index.js';
+import { Vector } from '../types/index.js';
+import { CallContext } from './call_context.js';
 
 /**
  * The execution request of a public function.

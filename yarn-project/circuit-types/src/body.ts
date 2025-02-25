@@ -1,3 +1,4 @@
+import { ContractClass2BlockL2Logs } from '@aztec/circuits.js/logs';
 import { type ZodFor } from '@aztec/circuits.js/schemas';
 import { timesParallel } from '@aztec/foundation/collection';
 import { type Fr } from '@aztec/foundation/fields';
@@ -6,7 +7,6 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { inspect } from 'util';
 import { z } from 'zod';
 
-import { ContractClass2BlockL2Logs } from './logs/index.js';
 import { TxEffect } from './tx_effect.js';
 
 export class Body {

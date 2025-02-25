@@ -1,11 +1,11 @@
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { derivePublicKeyFromSecretKey } from '@aztec/circuits.js/keys';
-import { PrivateLog } from '@aztec/circuits.js/logs';
 import { PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { Fr, type GrumpkinScalar, NotOnCurveError, Point } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, numToUInt16BE, serializeToBuffer } from '@aztec/foundation/serialize';
 
+import { AztecAddress } from '../../aztec-address/index.js';
+import { derivePublicKeyFromSecretKey } from '../../keys/derivation.js';
+import { PrivateLog } from '../private_log.js';
 import {
   aes128Decrypt,
   aes128Encrypt,

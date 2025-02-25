@@ -1,9 +1,10 @@
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { type ZodFor, schemas } from '@aztec/circuits.js/schemas';
 import { randomBytes, sha256Trunc } from '@aztec/foundation/crypto';
 import { BufferReader, prefixBufferWithLength, toHumanReadable } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';
+
+import { AztecAddress } from '../aztec-address/index.js';
+import { type ZodFor, schemas } from '../schemas/index.js';
 
 /**
  * Represents an individual unencrypted log entry.

@@ -11,8 +11,9 @@ import {
 } from '@aztec/circuits.js/contract';
 import { GasFees } from '@aztec/circuits.js/gas';
 import { PrivateLog } from '@aztec/circuits.js/logs';
+import { type LogFilter, LogFilterSchema, TxScopedL2Log } from '@aztec/circuits.js/logs';
 import { type ApiSchemaFor, optional, schemas } from '@aztec/circuits.js/schemas';
-import { MerkleTreeId, NullifierMembershipWitness } from '@aztec/circuits.js/trees';
+import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/circuits.js/trees';
 import { BlockHeader } from '@aztec/circuits.js/tx';
 import {
   ARCHIVE_HEIGHT,
@@ -32,16 +33,6 @@ import { type InBlock, inBlockSchemaFor } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { type L2BlockSource, type L2Tips, L2TipsSchema } from '../l2_block_source.js';
 import {
-  type GetContractClassLogsResponse,
-  GetContractClassLogsResponseSchema,
-  type GetPublicLogsResponse,
-  GetPublicLogsResponseSchema,
-  type LogFilter,
-  LogFilterSchema,
-  TxScopedL2Log,
-} from '../logs/index.js';
-import { PublicDataWitness } from '../public_data_witness.js';
-import {
   PublicSimulationOutput,
   Tx,
   TxHash,
@@ -52,6 +43,12 @@ import {
 import { TxEffect } from '../tx_effect.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning.js';
 import { type SequencerConfig, SequencerConfigSchema } from './configs.js';
+import {
+  type GetContractClassLogsResponse,
+  GetContractClassLogsResponseSchema,
+  type GetPublicLogsResponse,
+  GetPublicLogsResponseSchema,
+} from './get_logs_response.js';
 import { type L2BlockNumber, L2BlockNumberSchema } from './l2_block_number.js';
 import { type ProverConfig, ProverConfigSchema } from './prover-client.js';
 import { type ProverCoordination } from './prover-coordination.js';

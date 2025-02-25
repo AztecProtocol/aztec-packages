@@ -12,7 +12,9 @@ import {
 import { GasFees } from '@aztec/circuits.js/gas';
 import { PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
 import { PublicKeys } from '@aztec/circuits.js/keys';
+import { ExtendedPublicLog, ExtendedUnencryptedL2Log, type LogFilter } from '@aztec/circuits.js/logs';
 import { ClientIvcProof } from '@aztec/circuits.js/proofs';
+import { PrivateExecutionResult } from '@aztec/circuits.js/tx';
 import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
 import { memoize } from '@aztec/foundation/decorators';
@@ -29,22 +31,15 @@ import omit from 'lodash.omit';
 import times from 'lodash.times';
 import { resolve } from 'path';
 
+import { UniqueNote } from '../../../circuits.js/src/notes/index.js';
+import { type NotesFilter } from '../../../circuits.js/src/notes/notes_filter.js';
 import { AuthWitness } from '../auth_witness/auth_witness.js';
 import { type InBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
-import {
-  ExtendedPublicLog,
-  ExtendedUnencryptedL2Log,
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  type LogFilter,
-} from '../logs/index.js';
-import { UniqueNote } from '../notes/index.js';
-import { type NotesFilter } from '../notes/notes_filter.js';
-import { PrivateExecutionResult } from '../private_execution_result.js';
 import { Tx, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '../tx/index.js';
 import { TxEffect } from '../tx_effect.js';
 import { TxExecutionRequest } from '../tx_execution_request.js';
+import { type GetContractClassLogsResponse, type GetPublicLogsResponse } from './get_logs_response.js';
 import {
   type ContractClassMetadata,
   type ContractMetadata,

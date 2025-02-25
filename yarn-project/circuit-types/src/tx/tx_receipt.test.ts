@@ -1,7 +1,7 @@
+import { TxHash } from '@aztec/circuits.js/tx';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
 import { L2BlockHash } from './block_hash.js';
-import { TxHash } from './tx_hash.js';
 import { TxReceipt, TxStatus } from './tx_receipt.js';
 
 describe('TxReceipt', () => {

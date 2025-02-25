@@ -1,8 +1,8 @@
 import { type P2PClientType } from '@aztec/circuit-types';
-import { TxHash } from '@aztec/circuit-types/tx_hash';
 
 import { type PeerId } from '@libp2p/interface';
 
+import { TxHash } from '../../../../../circuits.js/src/tx/tx_hash.js';
 import { type MemPools } from '../../../mem_pools/interface.js';
 import { type ReqRespSubProtocolHandler } from '../interface.js';
 

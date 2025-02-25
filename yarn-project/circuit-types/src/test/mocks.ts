@@ -15,30 +15,28 @@ import {
   PrivateKernelTailCircuitPublicInputs,
   PrivateToPublicAccumulatedDataBuilder,
 } from '@aztec/circuits.js/kernel';
+import { ContractClassTxL2Logs, Note } from '@aztec/circuits.js/logs';
 import { ClientIvcProof } from '@aztec/circuits.js/proofs';
 import { makeCombinedConstantData, makeGas, makeHeader, makePublicCallRequest } from '@aztec/circuits.js/testing';
-import { BlockHeader, CallContext } from '@aztec/circuits.js/tx';
+import {
+  BlockHeader,
+  CallContext,
+  CountedPublicExecutionRequest,
+  PrivateCallExecutionResult,
+  PrivateExecutionResult,
+  PublicExecutionRequest,
+} from '@aztec/circuits.js/tx';
 import { MAX_ENQUEUED_CALLS_PER_TX } from '@aztec/constants';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer, randomBytes } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
-import { ContractClassTxL2Logs, Note } from '../logs/index.js';
-import { ExtendedNote, UniqueNote } from '../notes/index.js';
 import { BlockAttestation } from '../p2p/block_attestation.js';
 import { BlockProposal } from '../p2p/block_proposal.js';
 import { ConsensusPayload } from '../p2p/consensus_payload.js';
 import { SignatureDomainSeparator, getHashedSignaturePayloadEthSignedMessage } from '../p2p/signature_utils.js';
-import {
-  CountedPublicExecutionRequest,
-  PrivateCallExecutionResult,
-  PrivateExecutionResult,
-} from '../private_execution_result.js';
-import { PublicExecutionRequest } from '../public_execution_request.js';
 import { PublicSimulationOutput, Tx, TxHash, TxSimulationResult, accumulatePrivateReturnValues } from '../tx/index.js';
 import { TxEffect } from '../tx_effect.js';
-
-export const randomTxHash = (): TxHash => TxHash.random();
 
 export const mockPrivateCallExecutionResult = async (
   seed = 1,
@@ -218,44 +216,6 @@ export const randomDeployedContract = async () => {
   const artifact = randomContractArtifact();
   const { id: contractClassId } = await getContractClassFromArtifact(artifact);
   return { artifact, instance: await randomContractInstanceWithAddress({ contractClassId }) };
-};
-
-export const randomExtendedNote = async ({
-  note = Note.random(),
-  owner = undefined,
-  contractAddress = undefined,
-  txHash = randomTxHash(),
-  storageSlot = Fr.random(),
-  noteTypeId = NoteSelector.random(),
-}: Partial<ExtendedNote> = {}) => {
-  return new ExtendedNote(
-    note,
-    owner ?? (await AztecAddress.random()),
-    contractAddress ?? (await AztecAddress.random()),
-    storageSlot,
-    noteTypeId,
-    txHash,
-  );
-};
-
-export const randomUniqueNote = async ({
-  note = Note.random(),
-  owner = undefined,
-  contractAddress = undefined,
-  txHash = randomTxHash(),
-  storageSlot = Fr.random(),
-  noteTypeId = NoteSelector.random(),
-  nonce = Fr.random(),
-}: Partial<UniqueNote> = {}) => {
-  return new UniqueNote(
-    note,
-    owner ?? (await AztecAddress.random()),
-    contractAddress ?? (await AztecAddress.random()),
-    storageSlot,
-    noteTypeId,
-    txHash,
-    nonce,
-  );
 };
 
 export interface MakeConsensusPayloadOptions {

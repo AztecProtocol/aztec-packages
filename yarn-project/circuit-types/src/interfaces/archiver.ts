@@ -4,9 +4,10 @@ import {
   ContractInstanceWithAddressSchema,
   PublicFunctionSchema,
 } from '@aztec/circuits.js/contract';
-import { PrivateLog } from '@aztec/circuits.js/logs';
+import { LogFilterSchema, PrivateLog, TxScopedL2Log } from '@aztec/circuits.js/logs';
 import { type ApiSchemaFor, optional, schemas } from '@aztec/circuits.js/schemas';
 import { BlockHeader } from '@aztec/circuits.js/tx';
+import { TxHash } from '@aztec/circuits.js/tx';
 
 import { z } from 'zod';
 
@@ -14,18 +15,12 @@ import { L1RollupConstantsSchema } from '../epoch-helpers/index.js';
 import { inBlockSchemaFor } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { type L2BlockSource, L2TipsSchema } from '../l2_block_source.js';
-import {
-  GetContractClassLogsResponseSchema,
-  GetPublicLogsResponseSchema,
-  TxScopedL2Log,
-} from '../logs/get_logs_response.js';
-import { type L2LogsSource } from '../logs/l2_logs_source.js';
-import { LogFilterSchema } from '../logs/log_filter.js';
 import { type L1ToL2MessageSource } from '../messaging/l1_to_l2_message_source.js';
 import { type NullifierWithBlockSource } from '../nullifier_with_block_source.js';
-import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
 import { TxEffect } from '../tx_effect.js';
+import { GetContractClassLogsResponseSchema, GetPublicLogsResponseSchema } from './get_logs_response.js';
+import type { L2LogsSource } from './l2_logs_source.js';
 
 export type ArchiverApi = Omit<
   L2BlockSource & L2LogsSource & ContractDataSource & L1ToL2MessageSource & NullifierWithBlockSource,

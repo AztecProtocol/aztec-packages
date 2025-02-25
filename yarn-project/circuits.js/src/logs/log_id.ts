@@ -1,9 +1,10 @@
-import { schemas } from '@aztec/circuits.js/schemas';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { BufferReader } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';
+
+import { schemas } from '../schemas/index.js';
 
 /** A globally unique log id. */
 export class LogId {

@@ -1,8 +1,7 @@
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { type ZodFor, schemas } from '@aztec/circuits.js/schemas';
-
 import { z } from 'zod';
 
+import { type AztecAddress } from '../aztec-address/index.js';
+import { type ZodFor, schemas } from '../schemas/index.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { LogId } from './log_id.js';
 
