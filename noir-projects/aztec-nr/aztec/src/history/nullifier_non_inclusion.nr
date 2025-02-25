@@ -1,7 +1,8 @@
 use crate::{
     context::PrivateContext,
     note::{
-        note_interface::NoteHash, retrieved_note::RetrievedNote, utils::compute_siloed_note_nullifier,
+        note_interface::NoteHash, retrieved_note::RetrievedNote,
+        utils::compute_siloed_note_nullifier,
     },
     oracle::get_nullifier_membership_witness::get_low_nullifier_membership_witness,
 };

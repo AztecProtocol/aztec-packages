@@ -1,7 +1,8 @@
 use crate::{
     context::PrivateContext,
     note::{
-        note_interface::{NoteHash, NoteType}, note_metadata::SettledNoteMetadata,
+        note_interface::{NoteHash, NoteType},
+        note_metadata::SettledNoteMetadata,
         retrieved_note::RetrievedNote,
         utils::compute_note_hash_for_nullify,
     },

@@ -1,6 +1,7 @@
 use dep::aztec::{
     macros::notes::custom_note,
-note::{note_metadata::SettledNoteMetadata, utils::compute_note_hash_for_nullify},    prelude::{NoteHash, PrivateContext, RetrievedNote},
+    note::{note_metadata::SettledNoteMetadata, utils::compute_note_hash_for_nullify},
+    prelude::{NoteHash, PrivateContext, RetrievedNote},
     protocol_types::{
         address::AztecAddress,
         constants::{GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER},
