@@ -41,4 +41,21 @@ function redis_cli {
     redis-cli --raw -h $CI_REDIS "$@"
   fi
 }
-export -f redis_cli
+
+function redis_setexz {
+  gzip | redis_cli -x SETEX $1 $2 &>/dev/null
+}
+
+function redis_getz {
+  hex=$(redis_cli --raw GET "$1" | head -c -1 | xxd -p)
+  if [ -z "$hex" ]; then
+    echo "Key not found."
+  fi
+  if [[ "${hex:0:4}" == "1f8b" ]]; then
+    echo "$hex" | xxd -r -p | gunzip
+  else
+    echo "$hex" | xxd -r -p
+  fi
+}
+
+export -f redis_cli redis_setexz redis_getz
