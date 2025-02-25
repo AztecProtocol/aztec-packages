@@ -1,3 +1,4 @@
+import { RevertCode } from '@aztec/circuits.js/avm';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/circuits.js/contract';
 import { GasFees } from '@aztec/circuits.js/gas';
@@ -111,5 +112,83 @@ describe('Public Processor app tests: TokenContract', () => {
 
     const endTime = performance.now();
     logger.verbose(`TokenContract public processor test took ${endTime - startTime}ms\n`);
+  });
+
+  it('new contract cannot get removed from ContractDataSource by a later failing transaction', async () => {
+    const mintAmount = 1_000_000n;
+    const constructorArgs = [admin, /*name=*/ 'Token', /*symbol=*/ 'TOK', /*decimals=*/ new Fr(18)];
+
+    token = await tester.registerAndDeployContract(constructorArgs, /*deployer=*/ admin, TokenContractArtifact);
+
+    // another token instance, same contract class
+    const otherAdmin = AztecAddress.fromNumber(43);
+    const anotherToken = await tester.registerAndDeployContract(
+      constructorArgs,
+      /*deployer=*/ otherAdmin,
+      TokenContractArtifact,
+    );
+
+    // First transaction - deploys and initializes first token contract
+    const passingConstructorTx = await tester.createTx(
+      /*sender=*/ admin,
+      /*setupCalls=*/ [],
+      /*appCalls=*/ [
+        {
+          address: token.address,
+          fnName: 'constructor',
+          args: constructorArgs,
+        },
+      ],
+    );
+
+    // Second transaction - deploys second token but fails during transfer
+    const receiver = AztecAddress.fromNumber(222);
+    const transferAmount = 10n;
+    const nonce = new Fr(0);
+    const failingConstructorTx = await tester.createTx(
+      /*sender=*/ admin,
+      /*setupCalls=*/ [],
+      /*appCalls=*/ [
+        {
+          address: anotherToken.address,
+          fnName: 'constructor',
+          args: constructorArgs,
+        },
+        // The next enqueued call will fail because sender has no tokens to transfer
+        {
+          address: anotherToken.address,
+          fnName: 'transfer_in_public',
+          args: [/*from=*/ sender, /*to=*/ receiver, transferAmount, nonce],
+        },
+      ],
+    );
+
+    // Third transaction - verifies first token is still accessible by minting
+    const mintTx = await tester.createTx(
+      /*sender=*/ admin,
+      /*setupCalls=*/ [],
+      /*appCalls=*/ [
+        {
+          address: token.address,
+          fnName: 'mint_to_public',
+          args: [/*to=*/ sender, mintAmount],
+        },
+      ],
+    );
+
+    const results = await processor.process([passingConstructorTx, failingConstructorTx, mintTx]);
+    const processedTxs = results[0];
+    const failedTxs = results[1];
+    expect(processedTxs.length).toBe(3);
+    expect(failedTxs.length).toBe(0);
+
+    // First tx should succeed (constructor)
+    expect(processedTxs[0].revertCode).toEqual(RevertCode.OK);
+
+    // Second tx should revert in app logic (failed transfer)
+    expect(processedTxs[1].revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
+
+    // Third tx should succeed (mint), proving first contract is still accessible
+    expect(processedTxs[2].revertCode).toEqual(RevertCode.OK);
   });
 });

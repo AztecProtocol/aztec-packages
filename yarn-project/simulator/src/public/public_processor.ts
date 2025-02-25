@@ -474,7 +474,7 @@ export class PublicProcessor implements Traceable {
     }
 
     processedPhases.forEach(phase => {
-      if (phase.revertReason) {
+      if (phase.reverted) {
         this.metrics.recordRevertedPhase(phase.phase);
       } else {
         this.metrics.recordPhaseDuration(phase.phase, phase.durationMs);

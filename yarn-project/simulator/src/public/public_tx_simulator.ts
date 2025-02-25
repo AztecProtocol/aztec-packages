@@ -27,6 +27,7 @@ import { NullifierCollisionError } from '../avm/journal/nullifiers.js';
 import { getPublicFunctionDebugName } from '../common/debug_fn_name.js';
 import { ExecutorMetrics } from './executor_metrics.js';
 import { type WorldStateDB } from './public_db_sources.js';
+import { ContractsDataSourcePublicDB } from './public_db_sources.js';
 import { PublicTxContext } from './public_tx_context.js';
 
 export type ProcessedPhase = {
@@ -127,7 +128,9 @@ export class PublicTxSimulator {
     const avmProvingRequest = await context.generateProvingRequest(endStateReference);
 
     const revertCode = context.getFinalRevertCode();
+    this.log.error(`Did Public TX simulator revert? code: ${revertCode.toString()}`);
     if (!revertCode.isOK()) {
+      this.log.error(`Public TX simulator reverted with code ${revertCode.toString()}`);
       // TODO(#6464): Should we allow emitting contracts in the private setup phase?
       // if so, this is removing contracts deployed in private setup
       // You can't submit contracts in public, so this is only relevant for private-created side effects
@@ -135,6 +138,9 @@ export class PublicTxSimulator {
       await this.worldStateDB.removeNewContracts(tx, true);
       // FIXME(dbanks12): should not be changing immutable tx
       tx.filterRevertedLogs(tx.data.forPublic!.nonRevertibleAccumulatedData);
+    } else {
+      // Transaction succeeded, commit its caches to block-level caches
+      (this.worldStateDB as ContractsDataSourcePublicDB).commitCurrentTxCaches();
     }
 
     const endTime = process.hrtime.bigint();

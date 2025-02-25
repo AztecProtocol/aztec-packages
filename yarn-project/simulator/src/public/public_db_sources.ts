@@ -1,4 +1,4 @@
-import { ContractClassTxL2Logs, type Tx } from '@aztec/circuit-types';
+import { type Tx } from '@aztec/circuit-types';
 import {
   type MerkleTreeCheckpointOperations,
   type MerkleTreeReadOperations,
@@ -29,19 +29,26 @@ import { type PublicContractsDB, type PublicStateDB } from './db_interfaces.js';
  * Progressively records contracts in transaction as they are processed in a block.
  */
 export class ContractsDataSourcePublicDB implements PublicContractsDB {
-  private instanceCache = new Map<string, ContractInstanceWithAddress>();
-  private classCache = new Map<string, ContractClassPublic>();
-  private bytecodeCommitmentCache = new Map<string, Fr>();
+  // Block-level caches - persist across transactions in a block
+  private blockInstanceCache = new Map<string, ContractInstanceWithAddress>();
+  private blockClassCache = new Map<string, ContractClassPublic>();
+  private blockBytecodeCommitmentCache = new Map<string, Fr>();
+
+  // Current transaction caches - cleared after each transaction
+  private currentTxInstanceCache = new Map<string, ContractInstanceWithAddress>();
+  private currentTxClassCache = new Map<string, ContractClassPublic>();
+  private currentTxBytecodeCommitmentCache = new Map<string, Fr>();
 
   private log = createLogger('simulator:contracts-data-source');
 
   constructor(private dataSource: ContractDataSource) {}
+
   /**
    * Add new contracts from a transaction
    * @param tx - The transaction to add contracts from.
    */
   public async addNewContracts(tx: Tx): Promise<void> {
-    // Extract contract class and instance data from logs and add to cache for this block
+    // Extract contract class and instance data from logs and add to current tx cache
     const logs = tx.contractClassLogs.unrollLogs();
     const contractClassRegisteredEvents = logs
       .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log.data))
@@ -49,11 +56,12 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
     await Promise.all(
       contractClassRegisteredEvents.map(async event => {
         this.log.debug(`Adding class ${event.contractClassId.toString()} to public execution contract cache`);
-        this.classCache.set(event.contractClassId.toString(), await event.toContractClassPublic());
+        const contractClass = await event.toContractClassPublic();
+        this.currentTxClassCache.set(event.contractClassId.toString(), contractClass);
       }),
     );
 
-    // We store the contract instance deployed event log in private logs, contract_instance_deployer_contract/src/main.nr
+    // We store the contract instance deployed event log in private logs
     const contractInstanceEvents = tx.data
       .getNonEmptyPrivateLogs()
       .filter(log => ContractInstanceDeployedEvent.isContractInstanceDeployedEvent(log))
@@ -62,77 +70,89 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
       this.log.debug(
         `Adding instance ${e.address.toString()} with class ${e.contractClassId.toString()} to public execution contract cache`,
       );
-      this.instanceCache.set(e.address.toString(), e.toContractInstance());
+      this.currentTxInstanceCache.set(e.address.toString(), e.toContractInstance());
     });
   }
 
   /**
    * Removes new contracts added from transactions
    * @param tx - The tx's contracts to be removed
-   * @param onlyRevertible - Whether to only remove contracts added from revertible contract class logs
+   * @param _onlyRevertible - Whether to only remove contracts added from revertible contract class logs
    */
-  public removeNewContracts(tx: Tx, onlyRevertible: boolean = false): Promise<void> {
-    // TODO(@spalladino): Can this inadvertently delete a valid contract added by another tx?
-    // Let's say we have two txs adding the same contract on the same block. If the 2nd one reverts,
-    // wouldn't that accidentally remove the contract added on the first one?
-    const contractClassLogs = onlyRevertible
-      ? tx.contractClassLogs
-          .filterScoped(
-            tx.data.forPublic!.revertibleAccumulatedData.contractClassLogsHashes,
-            ContractClassTxL2Logs.empty(),
-          )
-          .unrollLogs()
-      : tx.contractClassLogs.unrollLogs();
-    contractClassLogs
-      .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log.data))
-      .forEach(log => {
-        const event = ContractClassRegisteredEvent.fromLog(log.data);
-        this.classCache.delete(event.contractClassId.toString());
-      });
-
-    // We store the contract instance deployed event log in private logs, contract_instance_deployer_contract/src/main.nr
-    const privateLogs = onlyRevertible
-      ? tx.data.forPublic!.revertibleAccumulatedData.privateLogs.filter(l => !l.isEmpty())
-      : tx.data.getNonEmptyPrivateLogs();
-    const contractInstanceEvents = privateLogs
-      .filter(log => ContractInstanceDeployedEvent.isContractInstanceDeployedEvent(log))
-      .map(ContractInstanceDeployedEvent.fromLog);
-    contractInstanceEvents.forEach(e => this.instanceCache.delete(e.address.toString()));
-
+  public removeNewContracts(tx: Tx, _onlyRevertible: boolean = false): Promise<void> {
+    // Only clear the current transaction's caches
+    this.currentTxClassCache.clear();
+    this.currentTxInstanceCache.clear();
+    this.currentTxBytecodeCommitmentCache.clear();
     return Promise.resolve();
   }
 
+  /**
+   * Commits the current transaction's caches to the block-level caches.
+   * Should be called when a transaction succeeds.
+   */
+  public commitCurrentTxCaches(): void {
+    // Merge current tx caches into block caches
+    this.currentTxClassCache.forEach((value, key) => {
+      this.blockClassCache.set(key, value);
+    });
+    this.currentTxInstanceCache.forEach((value, key) => {
+      this.blockInstanceCache.set(key, value);
+    });
+    this.currentTxBytecodeCommitmentCache.forEach((value, key) => {
+      this.blockBytecodeCommitmentCache.set(key, value);
+    });
+
+    // Clear current tx caches
+    this.currentTxClassCache.clear();
+    this.currentTxInstanceCache.clear();
+    this.currentTxBytecodeCommitmentCache.clear();
+  }
+
   public async getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
-    return this.instanceCache.get(address.toString()) ?? (await this.dataSource.getContract(address));
+    const key = address.toString();
+    // Check caches in order: current tx -> block -> data source
+    return (
+      this.currentTxInstanceCache.get(key) ??
+      this.blockInstanceCache.get(key) ??
+      (await this.dataSource.getContract(address))
+    );
   }
 
   public async getContractClass(contractClassId: Fr): Promise<ContractClassPublic | undefined> {
-    return this.classCache.get(contractClassId.toString()) ?? (await this.dataSource.getContractClass(contractClassId));
+    const key = contractClassId.toString();
+    // Check caches in order: current tx -> block -> data source
+    return (
+      this.currentTxClassCache.get(key) ??
+      this.blockClassCache.get(key) ??
+      (await this.dataSource.getContractClass(contractClassId))
+    );
   }
 
   public async getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined> {
-    // Try and retrieve from cache
     const key = contractClassId.toString();
-    const result = this.bytecodeCommitmentCache.get(key);
+    // Check caches in order: current tx -> block -> data source
+    let result = this.currentTxBytecodeCommitmentCache.get(key) ?? this.blockBytecodeCommitmentCache.get(key);
     if (result !== undefined) {
       return result;
     }
-    // Now try from the store
-    const fromStore = await this.dataSource.getBytecodeCommitment(contractClassId);
-    if (fromStore !== undefined) {
-      this.bytecodeCommitmentCache.set(key, fromStore);
-      return fromStore;
+
+    // Try from the store
+    result = await this.dataSource.getBytecodeCommitment(contractClassId);
+    if (result !== undefined) {
+      this.blockBytecodeCommitmentCache.set(key, result);
+      return result;
     }
 
-    // Not in either the store or the cache, build it here and cache
+    // Not in either the store or caches, build it here and cache
     const contractClass = await this.getContractClass(contractClassId);
     if (contractClass === undefined) {
       return undefined;
     }
 
-    const value = await computePublicBytecodeCommitment(contractClass.packedBytecode);
-    this.bytecodeCommitmentCache.set(key, value);
-    return value;
+    result = await computePublicBytecodeCommitment(contractClass.packedBytecode);
+    this.currentTxBytecodeCommitmentCache.set(key, result);
+    return result;
   }
 
   public async getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
