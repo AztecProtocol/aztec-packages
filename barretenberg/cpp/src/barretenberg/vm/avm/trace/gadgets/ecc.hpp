@@ -22,9 +22,6 @@ class AvmEccTraceBuilder {
     grumpkin::g1::affine_element embedded_curve_add(grumpkin::g1::affine_element lhs,
                                                     grumpkin::g1::affine_element rhs,
                                                     uint32_t clk);
-    grumpkin::g1::affine_element variable_msm(const std::vector<grumpkin::g1::affine_element>& points,
-                                              const std::vector<grumpkin::fr>& scalars,
-                                              uint32_t clk);
 
   private:
     std::vector<EccTraceEntry> ecc_trace;

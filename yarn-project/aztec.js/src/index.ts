@@ -33,22 +33,26 @@ export { AccountManager, type DeployAccountOptions } from './account_manager/ind
 
 export { AccountWallet, AccountWalletWithSecretKey, SignerlessWallet, type Wallet } from './wallet/index.js';
 
-// // TODO https://github.com/AztecProtocol/aztec-packages/issues/2632 --> FunctionSelector might not need to be exposed
-// // here once the issue is resolved.
+export { EthAddress } from '@aztec/foundation/eth-address';
+
+export { Fq, Fr, Point, GrumpkinScalar } from '@aztec/foundation/fields';
+
+export { SiblingPath } from '@aztec/foundation/trees';
+
 export {
+  type PartialAddress,
   type ContractClassWithId,
   type ContractInstanceWithAddress,
-  EthAddress,
-  Fq,
-  Fr,
   getContractClassFromArtifact,
   getContractInstanceFromDeployParams,
-  GlobalVariables,
-  GrumpkinScalar,
   type NodeInfo,
-  Point,
-  PublicKeys,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/contract';
+
+export { MerkleTreeId, merkleTreeIds } from '@aztec/circuits.js/trees';
+
+export { GlobalVariables } from '@aztec/circuits.js/tx';
+
+export { type PublicKey, PublicKeys } from '@aztec/circuits.js/keys';
 
 export { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 
@@ -61,8 +65,9 @@ export {
   deriveMasterNullifierSecretKey,
 } from '@aztec/circuits.js/keys';
 
+export { AuthWitness } from '@aztec/circuit-types/auth-witness';
+
 export {
-  AuthWitness,
   Body,
   Capsule,
   Comparator,
@@ -80,10 +85,7 @@ export {
   L2Actor,
   L2Block,
   LogId,
-  MerkleTreeId,
-  merkleTreeIds,
   Note,
-  SiblingPath,
   Tx,
   TxExecutionRequest,
   TxHash,
@@ -92,8 +94,6 @@ export {
   UnencryptedL2Log,
   UniqueNote,
   type LogFilter,
-  type PartialAddress,
-  type PublicKey,
 } from '@aztec/circuit-types';
 
 export { type PXE, EventType } from '@aztec/circuit-types/interfaces/client';

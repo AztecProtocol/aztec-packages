@@ -1,4 +1,6 @@
-import { AztecAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
+import { FunctionSelector } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { Fr } from '@aztec/foundation/fields';
 
 import { parseSequencerAllowList } from './config.js';
 

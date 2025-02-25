@@ -1,8 +1,8 @@
-import { type AuthWitnessProvider } from '@aztec/aztec.js/account';
-import { AuthWitness, type CompleteAddress, type GrumpkinScalar } from '@aztec/circuit-types';
+import { type AuthWitnessProvider, CompleteAddress } from '@aztec/aztec.js/account';
+import { AuthWitness } from '@aztec/circuit-types/auth-witness';
 import { type ContractArtifact } from '@aztec/circuits.js/abi';
 import { Schnorr } from '@aztec/foundation/crypto';
-import { type Fr } from '@aztec/foundation/fields';
+import { type Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 
 import { DefaultAccountContract } from '../defaults/account_contract.js';
 import { SchnorrSingleKeyAccountContractArtifact } from './artifact.js';

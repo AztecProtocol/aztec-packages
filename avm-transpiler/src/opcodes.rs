@@ -77,7 +77,6 @@ pub enum AvmOpcode {
     SHA256COMPRESSION,
     KECCAKF1600,
     ECADD,
-    MSM,
     // Conversions
     TORADIXBE,
 }
@@ -173,7 +172,6 @@ impl AvmOpcode {
             AvmOpcode::SHA256COMPRESSION => "SHA256COMPRESSION",
             AvmOpcode::KECCAKF1600 => "KECCAKF1600",
             AvmOpcode::ECADD => "ECADD",
-            AvmOpcode::MSM => "MSM",
             // Conversions
             AvmOpcode::TORADIXBE => "TORADIXBE",
         }

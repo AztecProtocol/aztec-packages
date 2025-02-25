@@ -1,7 +1,7 @@
-import { MerkleTreeId } from '@aztec/circuit-types';
-import { type AztecAddress, Fr } from '@aztec/circuits.js';
-import { PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { MerkleTreeId, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 
 import { NativeWorldStateService } from './native/index.js';

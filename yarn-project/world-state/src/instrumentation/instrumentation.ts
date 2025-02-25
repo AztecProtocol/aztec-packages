@@ -1,4 +1,4 @@
-import { MerkleTreeId } from '@aztec/circuit-types';
+import { MerkleTreeId } from '@aztec/circuits.js/trees';
 import { createLogger } from '@aztec/foundation/log';
 import {
   Attributes,

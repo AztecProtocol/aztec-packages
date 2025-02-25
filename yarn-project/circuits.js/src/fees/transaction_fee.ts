@@ -1,4 +1,8 @@
-import { type Fr, type Gas, GasFees, type GasSettings } from '../structs/index.js';
+import type { Fr } from '@aztec/foundation/fields';
+
+import type { Gas } from '../gas/gas.js';
+import { GasFees } from '../gas/gas_fees.js';
+import type { GasSettings } from '../gas/gas_settings.js';
 
 export function computeTransactionFee(gasFees: GasFees, gasSettings: GasSettings, gasUsed: Gas): Fr {
   const { maxFeesPerGas, maxPriorityFeesPerGas } = gasSettings;

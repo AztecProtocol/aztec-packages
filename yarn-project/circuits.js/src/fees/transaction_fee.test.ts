@@ -1,7 +1,10 @@
+import { Fr } from '@aztec/foundation/fields';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 import { type Writeable } from '@aztec/foundation/types';
 
-import { Fr, Gas, GasFees, GasSettings } from '../structs/index.js';
+import { Gas } from '../gas/gas.js';
+import { GasFees } from '../gas/gas_fees.js';
+import { GasSettings } from '../gas/gas_settings.js';
 import { computeTransactionFee } from './transaction_fee.js';
 
 describe('computeTransactionFee', () => {

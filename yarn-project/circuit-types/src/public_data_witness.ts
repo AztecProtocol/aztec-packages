@@ -1,14 +1,13 @@
-import { Fr } from '@aztec/circuits.js';
+import { schemas } from '@aztec/circuits.js/schemas';
 import { PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
 import { PUBLIC_DATA_TREE_HEIGHT } from '@aztec/constants';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
-import { schemas } from '@aztec/foundation/schemas';
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
+import { SiblingPath } from '@aztec/foundation/trees';
 
 import { z } from 'zod';
-
-import { SiblingPath } from './sibling_path/sibling_path.js';
 
 /**
  * Public data witness.

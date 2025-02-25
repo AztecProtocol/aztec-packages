@@ -9,9 +9,9 @@ import {
   getContractInstanceFromDeployParams,
   loadContractArtifact,
 } from '@aztec/aztec.js';
+import { type ApiSchemaFor, type ZodFor } from '@aztec/circuits.js/schemas';
 import { createSafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
 import { type Logger } from '@aztec/foundation/log';
-import { type ApiSchemaFor, type ZodFor } from '@aztec/foundation/schemas';
 
 import { readFile, readdir } from 'fs/promises';
 import { join } from 'path';

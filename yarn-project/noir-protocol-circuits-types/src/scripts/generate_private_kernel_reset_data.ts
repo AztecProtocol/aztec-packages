@@ -40,7 +40,7 @@ function generateTypeFileImports() {
 
 function generateVkFileImports() {
   return `
-    import { type VerificationKeyData } from '@aztec/circuits.js';
+    import { type VerificationKeyData } from '@aztec/circuits.js/vks';
     import { keyJsonToVKData } from './utils/vk_json.js';
 
     import { type PrivateResetArtifact } from './private_kernel_reset_types.js';

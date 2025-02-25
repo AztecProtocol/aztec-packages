@@ -1,5 +1,6 @@
-import { type BlockHeader, Fr } from '@aztec/circuits.js';
+import type { BlockHeader } from '@aztec/circuits.js/tx';
 import { compactArray } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 import times from 'lodash.times';

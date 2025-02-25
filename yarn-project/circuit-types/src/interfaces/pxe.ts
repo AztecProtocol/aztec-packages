@@ -1,20 +1,4 @@
 import {
-  type AztecAddress,
-  CompleteAddress,
-  type ContractClassWithId,
-  ContractClassWithIdSchema,
-  type ContractInstanceWithAddress,
-  ContractInstanceWithAddressSchema,
-  type Fr,
-  GasFees,
-  type NodeInfo,
-  NodeInfoSchema,
-  type PartialAddress,
-  type Point,
-  type ProtocolContractAddresses,
-  ProtocolContractAddressesSchema,
-} from '@aztec/circuits.js';
-import {
   type AbiDecoded,
   type AbiType,
   AbiTypeSchema,
@@ -22,13 +6,29 @@ import {
   ContractArtifactSchema,
   type EventSelector,
 } from '@aztec/circuits.js/abi';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import {
+  CompleteAddress,
+  type ContractClassWithId,
+  ContractClassWithIdSchema,
+  type ContractInstanceWithAddress,
+  ContractInstanceWithAddressSchema,
+  type NodeInfo,
+  NodeInfoSchema,
+  type PartialAddress,
+  type ProtocolContractAddresses,
+  ProtocolContractAddressesSchema,
+} from '@aztec/circuits.js/contract';
+import { GasFees } from '@aztec/circuits.js/gas';
 import { AbiDecodedSchema, schemas } from '@aztec/circuits.js/schemas';
+import { type ApiSchemaFor, type ZodFor, optional } from '@aztec/circuits.js/schemas';
 import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import { type ApiSchemaFor, type ZodFor, optional } from '@aztec/foundation/schemas';
+import type { Fr, Point } from '@aztec/foundation/fields';
+import { SiblingPath } from '@aztec/foundation/trees';
 
 import { z } from 'zod';
 
-import { AuthWitness } from '../auth_witness.js';
+import { AuthWitness } from '../auth_witness/auth_witness.js';
 import { type InBlock, inBlockSchemaFor } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import {
@@ -39,10 +39,9 @@ import {
   type LogFilter,
   LogFilterSchema,
 } from '../logs/index.js';
-import { ExtendedNote, UniqueNote } from '../notes/index.js';
+import { UniqueNote } from '../notes/index.js';
 import { type NotesFilter, NotesFilterSchema } from '../notes/notes_filter.js';
 import { PrivateExecutionResult } from '../private_execution_result.js';
-import { SiblingPath } from '../sibling_path/sibling_path.js';
 import { Tx, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '../tx/index.js';
 import { TxEffect } from '../tx_effect.js';
 import { TxExecutionRequest } from '../tx_execution_request.js';
@@ -277,14 +276,6 @@ export interface PXE {
   getL2ToL1MembershipWitness(blockNumber: number, l2Tol1Message: Fr): Promise<[bigint, SiblingPath<number>]>;
 
   /**
-   * Adds a note to the database.
-   * @throws If the note hash of the note doesn't exist in the tree.
-   * @param note - The note to add.
-   * @param scope - The scope to add the note under. Currently optional.
-   */
-  addNote(note: ExtendedNote, scope?: AztecAddress): Promise<void>;
-
-  /**
    * Get the given block.
    * @param number - The block number being requested.
    * @returns The blocks requested.
@@ -510,7 +501,6 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .function()
     .args(z.number(), schemas.Fr)
     .returns(z.tuple([schemas.BigInt, SiblingPath.schema])),
-  addNote: z.function().args(ExtendedNote.schema, optional(schemas.AztecAddress)).returns(z.void()),
   getBlock: z
     .function()
     .args(z.number())

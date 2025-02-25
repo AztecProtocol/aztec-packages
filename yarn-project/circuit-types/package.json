@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
+    "./auth-witness": "./dest/auth_witness/index.js",
     "./stats": "./dest/stats/index.js",
     "./jest": "./dest/jest/index.js",
     "./interfaces/client": "./dest/interfaces/client.js",
