@@ -1,7 +1,9 @@
-import { ExtendedPublicLog, ExtendedUnencryptedL2Log } from '@aztec/circuits.js/logs';
 import { type ZodFor } from '@aztec/circuits.js/schemas';
 
 import { z } from 'zod';
+
+import { ExtendedPublicLog } from '../logs/extended_public_log.js';
+import { ExtendedUnencryptedL2Log } from '../logs/extended_unencrypted_l2_log.js';
 
 /** Response for the getContractClassLogs archiver call. */
 export type GetContractClassLogsResponse = {

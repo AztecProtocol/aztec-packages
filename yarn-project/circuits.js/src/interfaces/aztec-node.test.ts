@@ -38,6 +38,7 @@ import { ExtendedUnencryptedL2Log } from '../logs/extended_unencrypted_l2_log.js
 import type { LogFilter } from '../logs/log_filter.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
+import { getTokenContractArtifact } from '../tests/fixtures.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierMembershipWitness } from '../trees/nullifier_membership_witness.js';
 import { PublicDataWitness } from '../trees/public_data_witness.js';
@@ -61,9 +62,8 @@ describe('AztecNodeApiSchema', () => {
 
   const tested: Set<string> = new Set();
 
-  beforeAll(() => {
-    const path = resolve(fileURLToPath(import.meta.url), '../../test/artifacts/token_contract-Token.json');
-    artifact = loadContractArtifact(JSON.parse(readFileSync(path, 'utf-8')));
+  beforeAll(async () => {
+    artifact = await getTokenContractArtifact();
   });
 
   beforeEach(async () => {

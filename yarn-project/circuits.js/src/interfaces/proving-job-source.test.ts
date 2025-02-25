@@ -1,9 +1,10 @@
-import { ProvingRequestType, makeRecursiveProof } from '@aztec/circuits.js/proofs';
-import { BaseOrMergeRollupPublicInputs } from '@aztec/circuits.js/rollup';
-import { VerificationKeyData } from '@aztec/circuits.js/vks';
 import { NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH } from '@aztec/constants';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 
+import { ProvingRequestType } from '../proofs/proving_request_type.js';
+import { makeRecursiveProof } from '../proofs/recursive_proof.js';
+import { BaseOrMergeRollupPublicInputs } from '../rollup/base_or_merge_rollup_public_inputs.js';
+import { VerificationKeyData } from '../vks/verification_key.js';
 import { type ProvingJobSource, ProvingJobSourceSchema } from './proving-job-source.js';
 import {
   type ProofUri,

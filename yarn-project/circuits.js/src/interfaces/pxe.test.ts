@@ -39,6 +39,7 @@ import type { LogFilter } from '../logs/log_filter.js';
 import { UniqueNote } from '../note/index.js';
 import { type NotesFilter } from '../note/notes_filter.js';
 import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
+import { getTokenContractArtifact } from '../tests/fixtures.js';
 import { PrivateExecutionResult, Tx, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '../tx/index.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxExecutionRequest } from '../tx/tx_execution_request.js';
@@ -64,9 +65,8 @@ describe('PXESchema', () => {
 
   const tested = new Set<string>();
 
-  beforeAll(() => {
-    const path = resolve(fileURLToPath(import.meta.url), '../../test/artifacts/token_contract-Token.json');
-    artifact = loadContractArtifact(JSON.parse(readFileSync(path, 'utf-8')));
+  beforeAll(async () => {
+    artifact = await getTokenContractArtifact();
   });
 
   beforeEach(async () => {
