@@ -5,8 +5,7 @@ import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { ScopedLogHash } from '@aztec/circuits.js/kernel';
 import { ContractClassLog } from '@aztec/circuits.js/logs';
-import { MAX_CONTRACT_CLASS_LOGS_PER_TX } from '@aztec/constants';
-import { MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS } from '@aztec/constants';
+import { MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 
