@@ -1,4 +1,4 @@
-import { Comparator, Note } from '@aztec/circuit-types';
+import { Comparator, Note } from '@aztec/circuits.js/note';
 import { Fr } from '@aztec/foundation/fields';
 
 import { SortOrder, pickNotes } from './pick_notes.js';

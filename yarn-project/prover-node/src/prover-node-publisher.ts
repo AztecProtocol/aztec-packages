@@ -1,4 +1,3 @@
-import { type L1PublishProofStats } from '@aztec/circuit-types/stats';
 import { type Proof } from '@aztec/circuits.js/proofs';
 import { type FeeRecipient, type RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 import { AGGREGATION_OBJECT_LENGTH, AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
@@ -17,6 +16,7 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 
 import { type Hex, type TransactionReceipt, encodeFunctionData } from 'viem';
 
+import { type L1PublishProofStats } from '../../circuits.js/src/stats/index.js';
 import { ProverNodeMetrics } from './metrics.js';
 
 /**

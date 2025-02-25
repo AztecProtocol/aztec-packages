@@ -5,8 +5,8 @@ import {
   type ProvingJobInputsMap,
   type ProvingJobResult,
   type ProvingJobResultsMap,
-  type ProvingRequestType,
-} from '@aztec/circuit-types/interfaces/server';
+} from '@aztec/circuits.js/interfaces/server';
+import type { ProvingRequestType } from '@aztec/circuits.js/proofs';
 
 /**
  * A database for storing proof inputs and outputs.

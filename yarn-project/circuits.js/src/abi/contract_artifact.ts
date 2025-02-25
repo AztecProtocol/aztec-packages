@@ -1,3 +1,5 @@
+import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
+
 import {
   type ABIParameter,
   type ABIParameterVisibility,
@@ -12,9 +14,7 @@ import {
   type IntegerValue,
   type StructValue,
   type TypedStructFieldValue,
-} from '@aztec/circuits.js/abi';
-import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
-
+} from '../abi/index.js';
 import {
   AZTEC_INITIALIZER_ATTRIBUTE,
   AZTEC_INTERNAL_ATTRIBUTE,

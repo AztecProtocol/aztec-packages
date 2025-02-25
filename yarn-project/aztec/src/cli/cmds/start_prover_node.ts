@@ -1,6 +1,6 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
-import { createAztecNodeClient } from '@aztec/circuit-types/interfaces/client';
-import { P2PApiSchema, ProverNodeApiSchema, type ProvingJobBroker } from '@aztec/circuit-types/interfaces/server';
+import { createAztecNodeClient } from '@aztec/circuits.js/interfaces/client';
+import { P2PApiSchema, ProverNodeApiSchema, type ProvingJobBroker } from '@aztec/circuits.js/interfaces/server';
 import { NULL_KEY } from '@aztec/ethereum';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
@@ -27,7 +27,7 @@ export async function startProverNode(
   signalHandlers: (() => Promise<void>)[],
   services: NamespacedApiHandlers,
   userLog: LogFn,
-) {
+): Promise<{ config: ProverNodeConfig }> {
   if (options.node || options.sequencer || options.pxe || options.p2pBootstrap || options.txe) {
     userLog(`Starting a prover-node with --node, --sequencer, --pxe, --p2p-bootstrap, or --txe is not supported.`);
     process.exit(1);

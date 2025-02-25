@@ -1,7 +1,5 @@
-import {
-  type ProofAndVerificationKey,
-  type PublicInputsAndRecursiveProof,
-} from '@aztec/circuit-types/interfaces/server';
+import { type ProofAndVerificationKey, type PublicInputsAndRecursiveProof } from '@aztec/circuits.js/interfaces/server';
+import type { Proof } from '@aztec/circuits.js/proofs';
 import {
   BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
@@ -181,7 +179,7 @@ export class EpochProvingState {
     return this.blocks.find(block => block?.blockNumber === blockNumber);
   }
 
-  public getEpochProofResult() {
+  public getEpochProofResult(): { proof: Proof; publicInputs: RootRollupPublicInputs } {
     if (!this.rootRollupProvingOutput) {
       throw new Error('Unable to get epoch proof result. Root rollup is not ready.');
     }

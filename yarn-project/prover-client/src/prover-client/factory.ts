@@ -1,4 +1,4 @@
-import { type ForkMerkleTreeOperations, type ProvingJobBroker } from '@aztec/circuit-types/interfaces/server';
+import { type ForkMerkleTreeOperations, type ProvingJobBroker } from '@aztec/circuits.js/interfaces/server';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type ProverClientConfig } from '../config.js';

@@ -34,9 +34,6 @@
       "path": "../builder"
     },
     {
-      "path": "../circuit-types"
-    },
-    {
       "path": "../circuits.js"
     },
     {

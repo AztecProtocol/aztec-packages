@@ -1,22 +1,23 @@
-import {
-  SimulationError,
-  type Tx,
-  TxExecutionPhase,
-  UnencryptedFunctionL2Logs,
-  UnencryptedL2Log,
-} from '@aztec/circuit-types';
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
-import { mockTx } from '@aztec/circuit-types/testing';
 import { bufferAsFields } from '@aztec/circuits.js/abi';
 import { PublicDataWrite, RevertCode } from '@aztec/circuits.js/avm';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import type { ContractDataSource } from '@aztec/circuits.js/contract';
+import { SimulationError } from '@aztec/circuits.js/errors';
 import { Gas, GasFees, GasSettings } from '@aztec/circuits.js/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { type MerkleTreeWriteOperations } from '@aztec/circuits.js/interfaces/server';
 import { ScopedLogHash, countAccumulatedItems } from '@aztec/circuits.js/kernel';
-import { fr, makeContractClassPublic } from '@aztec/circuits.js/testing';
+import { UnencryptedFunctionL2Logs, UnencryptedL2Log } from '@aztec/circuits.js/logs';
+import { fr, makeContractClassPublic, mockTx } from '@aztec/circuits.js/testing';
 import { AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
-import { BlockHeader, GlobalVariables, PartialStateReference, StateReference } from '@aztec/circuits.js/tx';
+import {
+  BlockHeader,
+  GlobalVariables,
+  PartialStateReference,
+  StateReference,
+  Tx,
+  TxExecutionPhase,
+} from '@aztec/circuits.js/tx';
 import { NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, REGISTERER_CONTRACT_ADDRESS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { type AztecKVStore } from '@aztec/kv-store';

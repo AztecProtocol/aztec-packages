@@ -1,16 +1,15 @@
-import { ProvingError } from '@aztec/circuit-types';
+import { ProvingError } from '@aztec/circuits.js/errors';
 import {
   type ProofUri,
   type ProvingJob,
   type ProvingJobConsumer,
   type ProvingJobId,
   type ProvingJobInputs,
-  ProvingRequestType,
   type PublicInputsAndRecursiveProof,
   makePublicInputsAndRecursiveProof,
-} from '@aztec/circuit-types/interfaces/server';
+} from '@aztec/circuits.js/interfaces/server';
 import type { ParityPublicInputs } from '@aztec/circuits.js/parity';
-import { makeRecursiveProof } from '@aztec/circuits.js/proofs';
+import { ProvingRequestType, makeRecursiveProof } from '@aztec/circuits.js/proofs';
 import { makeBaseParityInputs, makeParityPublicInputs } from '@aztec/circuits.js/testing';
 import { VerificationKeyData } from '@aztec/circuits.js/vks';
 import { RECURSIVE_PROOF_LENGTH } from '@aztec/constants';

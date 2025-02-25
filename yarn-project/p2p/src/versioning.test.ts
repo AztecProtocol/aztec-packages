@@ -1,4 +1,4 @@
-import { type ChainConfig } from '@aztec/circuit-types/config';
+import { type ChainConfig } from '@aztec/circuits.js/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { type SignableENR } from '@chainsafe/enr';

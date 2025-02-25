@@ -33,7 +33,6 @@
     "aztec",
     "aztec.js",
     "circuits.js",
-    "circuit-types",
     "cli",
     "cli-wallet",
     "constants",

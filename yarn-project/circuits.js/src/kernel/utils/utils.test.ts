@@ -3,7 +3,7 @@ import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { type Tuple } from '@aztec/foundation/serialize';
 
-import { type IsEmpty } from '../../interfaces/index.js';
+import { type IsEmpty } from './interfaces.js';
 import {
   countAccumulatedItems,
   getNonEmptyItems,
@@ -241,8 +241,6 @@ describe('utils', () => {
 
   describe('Constants', () => {
     it('fr.max and const.max should be in sync', () => {
-      // Ideally this test would live in foundation/field, but that creates a circular dependency
-      // since constants live in circuits.js
       expect(new Fr(MAX_FIELD_VALUE)).toEqual(Fr.MAX_FIELD_VALUE);
       expect(new Fr(MAX_FIELD_VALUE)).toEqual(Fr.ONE.negate());
     });

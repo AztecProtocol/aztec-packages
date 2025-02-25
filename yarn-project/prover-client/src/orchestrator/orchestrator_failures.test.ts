@@ -1,4 +1,4 @@
-import { type ServerCircuitProver } from '@aztec/circuit-types/interfaces/server';
+import { type ServerCircuitProver } from '@aztec/circuits.js/interfaces/server';
 import { timesAsync } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 

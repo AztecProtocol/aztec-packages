@@ -1,7 +1,7 @@
 import { Blob, type SpongeBlob } from '@aztec/blob-lib';
-import { Body, type ProcessedTx, TxEffect } from '@aztec/circuit-types';
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import { PublicDataHint } from '@aztec/circuits.js/avm';
+import { Body } from '@aztec/circuits.js/block';
+import { type MerkleTreeWriteOperations } from '@aztec/circuits.js/interfaces/server';
 import type { ParityPublicInputs } from '@aztec/circuits.js/parity';
 import {
   type BaseOrMergeRollupPublicInputs,
@@ -24,7 +24,9 @@ import {
   ContentCommitment,
   type GlobalVariables,
   PartialStateReference,
+  type ProcessedTx,
   StateReference,
+  TxEffect,
 } from '@aztec/circuits.js/tx';
 import {
   ARCHIVE_HEIGHT,

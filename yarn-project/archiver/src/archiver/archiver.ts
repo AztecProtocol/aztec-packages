@@ -1,30 +1,14 @@
 import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
+import { type FunctionSelector } from '@aztec/circuits.js/abi';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
   type InBlock,
-  type InboxLeaf,
-  type L1RollupConstants,
-  type L1ToL2MessageSource,
   type L2Block,
   type L2BlockId,
   type L2BlockSource,
-  type L2LogsSource,
   type L2Tips,
-  type LogFilter,
   type NullifierWithBlockSource,
-  type TxEffect,
-  type TxHash,
-  type TxReceipt,
-  type TxScopedL2Log,
-  type UnencryptedL2Log,
-  getEpochNumberAtTimestamp,
-  getSlotAtTimestamp,
-  getSlotRangeForEpoch,
-  getTimestampRangeForEpoch,
-} from '@aztec/circuit-types';
-import { type FunctionSelector } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+} from '@aztec/circuits.js/block';
 import {
   type ContractClassPublic,
   type ContractDataSource,
@@ -36,8 +20,24 @@ import {
   isValidPrivateFunctionMembershipProof,
   isValidUnconstrainedFunctionMembershipProof,
 } from '@aztec/circuits.js/contract';
-import { type PrivateLog, type PublicLog } from '@aztec/circuits.js/logs';
-import { type BlockHeader } from '@aztec/circuits.js/tx';
+import {
+  type L1RollupConstants,
+  getEpochNumberAtTimestamp,
+  getSlotAtTimestamp,
+  getSlotRangeForEpoch,
+  getTimestampRangeForEpoch,
+} from '@aztec/circuits.js/epoch-helpers';
+import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/circuits.js/interfaces/client';
+import type { L2LogsSource } from '@aztec/circuits.js/interfaces/server';
+import {
+  type LogFilter,
+  type PrivateLog,
+  type PublicLog,
+  TxScopedL2Log,
+  UnencryptedL2Log,
+} from '@aztec/circuits.js/logs';
+import type { InboxLeaf, L1ToL2MessageSource } from '@aztec/circuits.js/messaging';
+import { type BlockHeader, TxEffect, TxHash, TxReceipt } from '@aztec/circuits.js/tx';
 import { createEthereumChain } from '@aztec/ethereum';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';

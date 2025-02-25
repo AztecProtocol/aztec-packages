@@ -34,6 +34,13 @@ if [ -z "${CI_REDIS_AVAILABLE:-}" ]; then
   fi
 fi
 
+# Will set log expiry to 2 weeks in CI, and 8 hours for local runs.
+if [ "${CI:-0}" -eq 1 ]; then
+  CI_REDIS_EXPIRE=$((60 * 60 * 24 * 14))
+else
+  CI_REDIS_EXPIRE=$((60 * 60 * 8))
+fi
+
 # Help function to avoid having to constantly specify args.
 # Noop when redis is unavailable.
 function redis_cli {

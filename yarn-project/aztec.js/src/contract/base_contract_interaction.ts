@@ -1,5 +1,5 @@
-import { type Capsule, type TxExecutionRequest, type TxProvingResult } from '@aztec/circuit-types';
 import { GasSettings } from '@aztec/circuits.js/gas';
+import { type Capsule, type TxExecutionRequest, type TxProvingResult } from '@aztec/circuits.js/tx';
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 

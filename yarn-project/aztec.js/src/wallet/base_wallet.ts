@@ -1,28 +1,7 @@
-import {
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  type L2Block,
-  type LogFilter,
-  type NotesFilter,
-  type Tx,
-  type TxExecutionRequest,
-  type TxHash,
-  type TxProvingResult,
-  type TxReceipt,
-  type TxSimulationResult,
-  type UniqueNote,
-} from '@aztec/circuit-types';
-import { type AuthWitness } from '@aztec/circuit-types/auth-witness';
-import {
-  type ContractClassMetadata,
-  type ContractMetadata,
-  type EventMetadataDefinition,
-  type PXE,
-  type PXEInfo,
-  type PrivateExecutionResult,
-} from '@aztec/circuit-types/interfaces/client';
 import type { AbiDecoded, ContractArtifact } from '@aztec/circuits.js/abi';
+import { type AuthWitness } from '@aztec/circuits.js/auth-witness';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { L2Block } from '@aztec/circuits.js/block';
 import type {
   CompleteAddress,
   ContractInstanceWithAddress,
@@ -30,6 +9,26 @@ import type {
   PartialAddress,
 } from '@aztec/circuits.js/contract';
 import type { GasFees } from '@aztec/circuits.js/gas';
+import {
+  type ContractClassMetadata,
+  type ContractMetadata,
+  type EventMetadataDefinition,
+  type GetContractClassLogsResponse,
+  type GetPublicLogsResponse,
+  type PXE,
+  type PXEInfo,
+} from '@aztec/circuits.js/interfaces/client';
+import type { LogFilter } from '@aztec/circuits.js/logs';
+import type { NotesFilter, UniqueNote } from '@aztec/circuits.js/note';
+import type {
+  PrivateExecutionResult,
+  Tx,
+  TxExecutionRequest,
+  TxHash,
+  TxProvingResult,
+  TxReceipt,
+  TxSimulationResult,
+} from '@aztec/circuits.js/tx';
 import { type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import type { Fr, Point } from '@aztec/foundation/fields';
 import type { SiblingPath } from '@aztec/foundation/trees';

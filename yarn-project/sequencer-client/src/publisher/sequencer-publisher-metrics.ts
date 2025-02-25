@@ -1,4 +1,4 @@
-import type { L1PublishBlockStats, L1PublishStats } from '@aztec/circuit-types/stats';
+import type { L1PublishBlockStats, L1PublishStats } from '@aztec/circuits.js/stats';
 import {
   Attributes,
   type Histogram,

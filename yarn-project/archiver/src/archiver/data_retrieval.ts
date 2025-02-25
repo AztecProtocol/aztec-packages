@@ -1,6 +1,7 @@
 import { Blob, BlobDeserializationError } from '@aztec/blob-lib';
 import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
-import { Body, InboxLeaf, L2Block } from '@aztec/circuit-types';
+import { Body, L2Block } from '@aztec/circuits.js/block';
+import { InboxLeaf } from '@aztec/circuits.js/messaging';
 import { Proof } from '@aztec/circuits.js/proofs';
 import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
 import { BlockHeader } from '@aztec/circuits.js/tx';

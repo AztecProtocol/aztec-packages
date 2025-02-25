@@ -1,5 +1,4 @@
 import {
-  type L1ToL2MessageSource,
   type L2Block,
   type L2BlockId,
   type L2BlockSource,
@@ -8,17 +7,16 @@ import {
   type L2BlockStreamEventHandler,
   type L2BlockStreamLocalDataProvider,
   type L2Tips,
-} from '@aztec/circuit-types';
+} from '@aztec/circuits.js/block';
 import {
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
   WorldStateRunningState,
   type WorldStateSyncStatus,
   type WorldStateSynchronizer,
   type WorldStateSynchronizerStatus,
-} from '@aztec/circuit-types/interfaces/server';
-import { type L2BlockHandledStats } from '@aztec/circuit-types/stats';
-import { MerkleTreeId } from '@aztec/circuits.js/trees';
+} from '@aztec/circuits.js/interfaces/server';
+import { type L1ToL2MessageSource } from '@aztec/circuits.js/messaging';
+import { type L2BlockHandledStats } from '@aztec/circuits.js/stats';
+import { MerkleTreeId, type MerkleTreeReadOperations, type MerkleTreeWriteOperations } from '@aztec/circuits.js/trees';
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/constants';
 import { type Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';

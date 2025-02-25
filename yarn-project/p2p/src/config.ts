@@ -1,4 +1,4 @@
-import { type ChainConfig, chainConfigMappings } from '@aztec/circuit-types/config';
+import { type ChainConfig, chainConfigMappings } from '@aztec/circuits.js/config';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,

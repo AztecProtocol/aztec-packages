@@ -1,29 +1,28 @@
 import {
-  type Capsule,
-  Note,
-  type NoteStatus,
-  PublicExecutionRequest,
-  type UnencryptedL2Log,
-} from '@aztec/circuit-types';
-import { type AuthWitness } from '@aztec/circuit-types/auth-witness';
-import {
-  type AztecNode,
-  CountedContractClassLog,
-  CountedPublicExecutionRequest,
-  NoteAndSlot,
-  type PrivateCallExecutionResult,
-} from '@aztec/circuit-types/interfaces/client';
-import {
   type FunctionAbi,
   type FunctionArtifact,
   FunctionSelector,
   type NoteSelector,
   countArgumentsSize,
 } from '@aztec/circuits.js/abi';
+import { type AuthWitness } from '@aztec/circuits.js/auth-witness';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
+import { type AztecNode } from '@aztec/circuits.js/interfaces/client';
 import { PrivateContextInputs } from '@aztec/circuits.js/kernel';
-import { type BlockHeader, CallContext, type TxContext } from '@aztec/circuits.js/tx';
+import type { UnencryptedL2Log } from '@aztec/circuits.js/logs';
+import { Note, type NoteStatus } from '@aztec/circuits.js/note';
+import {
+  type BlockHeader,
+  CallContext,
+  Capsule,
+  CountedContractClassLog,
+  CountedPublicExecutionRequest,
+  NoteAndSlot,
+  PrivateCallExecutionResult,
+  PublicExecutionRequest,
+  type TxContext,
+} from '@aztec/circuits.js/tx';
 import { PRIVATE_CONTEXT_INPUTS_LENGTH, PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';

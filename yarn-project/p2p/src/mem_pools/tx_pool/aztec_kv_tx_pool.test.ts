@@ -1,4 +1,4 @@
-import { mockTx } from '@aztec/circuit-types/testing';
+import { mockTx } from '@aztec/circuits.js/testing';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
 import { AztecKVTxPool } from './aztec_kv_tx_pool.js';

@@ -1,4 +1,3 @@
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import { FunctionSelector } from '@aztec/circuits.js/abi';
 import { PublicDataWrite } from '@aztec/circuits.js/avm';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
@@ -12,6 +11,7 @@ import {
   siloNoteHash,
   siloNullifier,
 } from '@aztec/circuits.js/hash';
+import { type MerkleTreeWriteOperations } from '@aztec/circuits.js/interfaces/server';
 import { PublicKeys } from '@aztec/circuits.js/keys';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
 import { MerkleTreeId, NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
