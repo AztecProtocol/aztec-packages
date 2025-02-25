@@ -34,7 +34,7 @@ import { type Abi, type WitnessMap } from '@noir-lang/types';
 import {
   type CircuitSimulationStats,
   type CircuitWitnessGenerationStats,
-} from '../../../circuits.js/src/stats/index.js';
+} from '@aztec/circuits.js/stats'index.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 
 export abstract class BBPrivateKernelProver implements PrivateKernelProver {

@@ -21,7 +21,7 @@ import { Timer } from '@aztec/foundation/timer';
 import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
 import { ContractInstanceDeployedEvent } from '@aztec/protocol-contracts/instance-deployer';
 
-import { type PublicDBAccessStats } from '../../../circuits.js/src/stats/index.js';
+import { type PublicDBAccessStats } from '@aztec/circuits.js/stats'index.js';
 import { type PublicContractsDB, type PublicStateDB } from './db_interfaces.js';
 
 /**

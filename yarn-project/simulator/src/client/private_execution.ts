@@ -10,7 +10,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
-import { type CircuitWitnessGenerationStats } from '../../../circuits.js/src/stats/index.js';
+import { type CircuitWitnessGenerationStats } from '@aztec/circuits.js/stats'index.js';
 import { fromACVMField, witnessMapToFields } from '../acvm/deserialize.js';
 import { type ACVMWitness, Oracle, extractCallStack } from '../acvm/index.js';
 import { ExecutionError, resolveAssertionMessageFromError } from '../common/errors.js';

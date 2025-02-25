@@ -9,7 +9,7 @@ import {
 
 import { formatEther } from 'viem/utils';
 
-import type { L1PublishBlockStats, L1PublishStats } from '../../../circuits.js/src/stats/index.js';
+import type { L1PublishBlockStats, L1PublishStats } from '@aztec/circuits.js/stats'index.js';
 
 export type L1TxType = 'process';
 

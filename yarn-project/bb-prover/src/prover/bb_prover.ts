@@ -73,7 +73,7 @@ import crypto from 'crypto';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 
-import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '../../../circuits.js/src/stats/index.js';
+import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/circuits.js/stats'index.js';
 import {
   type BBFailure,
   type BBSuccess,

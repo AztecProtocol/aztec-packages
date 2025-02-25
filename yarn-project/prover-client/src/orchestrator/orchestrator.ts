@@ -48,7 +48,7 @@ import {
 
 import { inspect } from 'util';
 
-import { type CircuitName } from '../../../circuits.js/src/stats/index.js';
+import { type CircuitName } from '@aztec/circuits.js/stats'index.js';
 import {
   buildBaseRollupHints,
   buildHeaderAndBodyFromTxs,

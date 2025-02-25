@@ -27,7 +27,7 @@ import { MerkleTreeCalculator } from '@aztec/foundation/trees';
 import { SHA256Trunc } from '@aztec/merkle-tree';
 import { TraceableL2BlockStream, getTelemetryClient } from '@aztec/telemetry-client';
 
-import { type L2BlockHandledStats } from '../../../circuits.js/src/stats/index.js';
+import { type L2BlockHandledStats } from '@aztec/circuits.js/stats'index.js';
 import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import { type WorldStateStatusFull } from '../native/message.js';
 import { type MerkleTreeAdminDatabase } from '../world-state-db/merkle_tree_db.js';

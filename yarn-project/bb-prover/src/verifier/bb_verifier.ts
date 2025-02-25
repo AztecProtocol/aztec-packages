@@ -10,7 +10,7 @@ import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 
-import { type CircuitVerificationStats } from '../../../circuits.js/src/stats/index.js';
+import { type CircuitVerificationStats } from '@aztec/circuits.js/stats'index.js';
 import { BB_RESULT, PROOF_FILENAME, VK_FILENAME, verifyClientIvcProof, verifyProof } from '../bb/execute.js';
 import { type BBConfig } from '../config.js';
 import { getUltraHonkFlavorForCircuit } from '../honk.js';

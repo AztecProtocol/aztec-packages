@@ -32,7 +32,7 @@ import { type PublicProcessorFactory } from '@aztec/simulator/server';
 import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 import { type ValidatorClient } from '@aztec/validator-client';
 
-import { type L2BlockBuiltStats } from '../../../circuits.js/src/stats/index.js';
+import { type L2BlockBuiltStats } from '@aztec/circuits.js/stats'index.js';
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { type SequencerPublisher, VoteType } from '../publisher/sequencer-publisher.js';
 import { type SlasherClient } from '../slasher/slasher_client.js';

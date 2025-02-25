@@ -1,1 +1,1 @@
-export { TxHash } from '../../../circuits.js/src/tx/tx_hash.js';
+export { TxHash } from '@aztec/circuits.js/tx'tx_hash.js';

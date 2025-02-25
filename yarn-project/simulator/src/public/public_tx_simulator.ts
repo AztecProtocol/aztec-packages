@@ -20,7 +20,7 @@ import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trac
 
 import { strict as assert } from 'assert';
 
-import { type AvmSimulationStats } from '../../../circuits.js/src/stats/index.js';
+import { type AvmSimulationStats } from '@aztec/circuits.js/stats'index.js';
 import { type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmPersistableStateManager, AvmSimulator } from '../avm/index.js';
 import { NullifierCollisionError } from '../avm/journal/nullifiers.js';

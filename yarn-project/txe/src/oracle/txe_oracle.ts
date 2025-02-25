@@ -92,7 +92,7 @@ import {
 } from '@aztec/simulator/server';
 import { ForkCheckpoint, type NativeWorldStateService } from '@aztec/world-state/native';
 
-import { type CircuitWitnessGenerationStats } from '../../../circuits.js/src/stats/index.js';
+import { type CircuitWitnessGenerationStats } from '@aztec/circuits.js/stats'index.js';
 import { TXENode } from '../node/txe_node.js';
 import { type TXEDatabase } from '../util/txe_database.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';

@@ -36,7 +36,7 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 import pick from 'lodash.pick';
 import { type TransactionReceipt, encodeFunctionData } from 'viem';
 
-import type { L1PublishBlockStats } from '../../../circuits.js/src/stats/index.js';
+import type { L1PublishBlockStats } from '@aztec/circuits.js/stats'index.js';
 import { type PublisherConfig, type TxSenderConfig } from './config.js';
 import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
 
