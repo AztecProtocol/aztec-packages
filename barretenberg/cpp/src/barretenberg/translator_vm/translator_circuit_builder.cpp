@@ -8,11 +8,17 @@
  *
  */
 #include "translator_circuit_builder.hpp"
+#include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/plonk/proof_system/constants.hpp"
+#include "barretenberg/stdlib_circuit_builders/circuit_builder_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
+#include <algorithm>
 #include <cstddef>
+#include <cstdlib>
+#include <map>
 namespace bb {
 
 /**
@@ -590,6 +596,8 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::compute_wi
 }
 void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_ptr<ECCOpQueue> ecc_op_queue)
 {
+    info("Queue size: ", ecc_op_queue->get_current_size());
+    ASSERT(num_gates == 1); // We only expect the ecc_op_queue to be fed in all at once
     using Fq = bb::fq;
     const auto& raw_ops = ecc_op_queue->get_raw_ops();
     std::vector<Fq> accumulator_trace;
@@ -614,20 +622,114 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
 
     // We don't care about the last value since we'll recompute it during witness generation anyway
     accumulator_trace.pop_back();
+#ifndef NO_MULTITHREADING
+    // Create several translator builders, one per thread
 
-    for (const auto& raw_op : raw_ops) {
-        Fq previous_accumulator = 0;
-        // Pop the last value from accumulator trace and use it as previous accumulator
-        if (!accumulator_trace.empty()) {
-            previous_accumulator = accumulator_trace.back();
-            accumulator_trace.pop_back();
+    size_t min_iterations_per_thread = 1 << 6; // min number of iterations for which we'll spin up a unique thread
+    size_t num_threads = bb::calculate_num_threads(raw_ops.size(), min_iterations_per_thread);
+    if (num_threads > 1) {
+        // Zero at index 0 + 1 per cell. There are TOTAL_COUNT cells in a row and there 2*raw_ops.size() rows after
+        // zero row
+        size_t total_variable_count = (num_threads + (TOTAL_COUNT * 2 * raw_ops.size()));
+        parallel_for(5, [&](size_t member_index) {
+            switch (member_index) {
+            case 0:
+                // Resize all variables-related vectors to fit all the elements
+                variables.resize(total_variable_count);
+                break;
+            case 1:
+                // There are no equality constraints in this system, so fill next_var_index, prev_var_index and
+                // real_variable_tags with default values
+                next_var_index.resize(total_variable_count, REAL_VARIABLE);
+
+                break;
+            case 2:
+                prev_var_index.resize(total_variable_count, FIRST_VARIABLE_IN_CLASS);
+                break;
+            case 3:
+                real_variable_index.resize(total_variable_count);
+                break;
+            case 4:
+                real_variable_tags.resize(total_variable_count, DUMMY_TAG);
+                break;
+            }
+        });
+
+        // Resize each of the wires to be the 0 row + 2 * number of operations
+        parallel_for(wires.size(), [&](size_t wire_index) { wires[wire_index].resize(1 + raw_ops.size() * 2); });
+
+        std::vector<TranslatorCircuitBuilder> builders(num_threads);
+        size_t iterations_per_thread = (raw_ops.size() / num_threads) +
+                                       ((raw_ops.size() % num_threads == 0) ? 0 : 1); // actual iterations per thread
+
+        // Perform gate creation separately in each builder on a chosen chunk
+        parallel_for(num_threads, [&](size_t thread_num) {
+            TranslatorCircuitBuilder thread_builder(batching_challenge_v, evaluation_input_x);
+            bb::constexpr_for<0, TOTAL_COUNT, 1>(
+                [&]<size_t i>() { ASSERT(std::get<i>(thread_builder.wires).size() == num_gates); });
+            size_t start_index = iterations_per_thread * thread_num;
+            size_t end_index = std::min(iterations_per_thread * (thread_num + 1), raw_ops.size());
+            // Take the accumulators from the back and raw ops from the front
+            for (size_t i = start_index; i < end_index; i++) {
+                Fq previous_accumulator = 0;
+                if (i < raw_ops.size() - 1) {
+                    previous_accumulator = accumulator_trace[accumulator_trace.size() - 1 - i];
+                }
+
+                // Compute the witness values for the step
+                auto one_accumulation_step =
+                    compute_witness_values_for_one_ecc_op(raw_ops[i], previous_accumulator, v, x);
+
+                // And put them into the wires
+                thread_builder.create_accumulation_gate(one_accumulation_step);
+            }
+
+            // ASSERT(thread_builder.variables.size() == (1 + TOTAL_COUNT * 2 * (end_index - start_index)));
+
+            // Transplant values from original translators in parallel
+            size_t variables_per_thread = 1 + iterations_per_thread * 2 * TOTAL_COUNT;
+
+            // Copy values in the variables vector with a shift
+            std::copy(thread_builder.variables.begin(),
+                      thread_builder.variables.end(),
+                      std::next(variables.begin(), static_cast<long>(variables_per_thread * thread_num)));
+
+            // Update real indices at shifted positions by the same shift
+            size_t variable_offset = variables_per_thread * thread_num;
+            std::transform(thread_builder.real_variable_index.begin(),
+                           thread_builder.real_variable_index.end(),
+                           std::next(real_variable_index.begin(), static_cast<long>(variable_offset)),
+                           [&](size_t input_value) { return input_value + variable_offset; });
+
+            // Copy variable indices in wires, updating them by the shift
+            for (auto [joint_wire, input_wire] : zip_view(wires, thread_builder.wires)) {
+                // The first row in both builders is the zero row so we ignore it
+                std::transform(std::next(input_wire.begin(), 1),
+                               input_wire.end(),
+                               std::next(joint_wire.begin(), 1 + static_cast<long>(start_index * 2)),
+                               [&](size_t variable_index) { return variable_index + variable_offset; });
+            }
+        });
+        num_gates += raw_ops.size() * 2;
+    } else {
+#endif
+
+        for (const auto& raw_op : raw_ops) {
+            Fq previous_accumulator = 0;
+            // Pop the last value from accumulator trace and use it as previous accumulator
+            if (!accumulator_trace.empty()) {
+                previous_accumulator = accumulator_trace.back();
+                accumulator_trace.pop_back();
+            }
+            // Compute witness values
+            auto one_accumulation_step = compute_witness_values_for_one_ecc_op(raw_op, previous_accumulator, v, x);
+
+            // And put them into the wires
+            create_accumulation_gate(one_accumulation_step);
         }
-        // Compute witness values
-        auto one_accumulation_step = compute_witness_values_for_one_ecc_op(raw_op, previous_accumulator, v, x);
-
-        // And put them into the wires
-        create_accumulation_gate(one_accumulation_step);
+#ifndef NO_MULTITHREADING
     }
+#endif
 }
 bool TranslatorCircuitBuilder::check_circuit()
 {
