@@ -53,7 +53,7 @@
   },
   "dependencies": {
     "@aztec/blob-lib": "workspace:^",
-    "@aztec/circuit-types": "workspace:^",
+    "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:*",
     "@aztec/telemetry-client": "workspace:*",

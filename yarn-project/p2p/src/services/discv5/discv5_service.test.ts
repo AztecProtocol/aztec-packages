@@ -1,4 +1,4 @@
-import { emptyChainConfig } from '@aztec/circuit-types/config';
+import { emptyChainConfig } from '@aztec/circuits.js/config';
 import { addLogNameHandler } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type AztecAsyncKVStore } from '@aztec/kv-store';

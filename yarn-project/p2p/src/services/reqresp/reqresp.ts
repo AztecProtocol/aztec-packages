@@ -1,5 +1,5 @@
 // @attribution: lodestar impl for inspiration
-import { PeerErrorSeverity } from '@aztec/circuit-types';
+import { PeerErrorSeverity } from '@aztec/circuits.js/p2p';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { executeTimeout } from '@aztec/foundation/timer';
 import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';

@@ -1,4 +1,4 @@
-import { type AccountWallet, type AztecAddress, BatchCall, PrivateFeePaymentMethod, sleep } from '@aztec/aztec.js';
+import { type AccountWallet, type AztecAddress, BatchCall, PrivateFeePaymentMethod } from '@aztec/aztec.js';
 import { GasSettings } from '@aztec/circuits.js/gas';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { type TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
@@ -22,13 +22,17 @@ describe('e2e_fees private_payment', () => {
     await t.applyFPCSetupSnapshot();
     await t.applyFundAliceWithBananas();
     ({ aliceWallet, aliceAddress, bobAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings } = await t.setup());
+
+    // Prove up until the current state by just marking it as proven.
+    // Then turn off the watcher to prevent it from keep proving
+    await t.cheatCodes.rollup.advanceToNextEpoch();
+    await t.catchUpProvenChain();
+    t.setIsMarkingAsProven(false);
   });
 
   afterAll(async () => {
     await t.teardown();
   });
-
-  let initialSequencerL1Gas: bigint;
 
   let initialAlicePublicBananas: bigint;
   let initialAlicePrivateBananas: bigint;
@@ -48,8 +52,6 @@ describe('e2e_fees private_payment', () => {
       ...gasSettings,
       maxFeesPerGas: await aliceWallet.getCurrentBaseFees(),
     });
-
-    initialSequencerL1Gas = await t.getCoinbaseBalance();
 
     [
       [initialAlicePrivateBananas, initialBobPrivateBananas],
@@ -99,38 +101,21 @@ describe('e2e_fees private_payment', () => {
     const localTx = await interaction.prove(settings);
     expect(localTx.data.feePayer).toEqual(bananaFPC.address);
 
-    const tx = await localTx.send().wait();
+    const sequencerRewardsBefore = await t.getCoinbaseSequencerRewards();
 
-    /**
-     * at present the user is paying DA gas for:
-     * 3 nullifiers = 3 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE = 3 * 32 * 16 = 1536 DA gas
-     * 2 note hashes =  2 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE = 2 * 32 * 16 = 1024 DA gas
-     * 1160 bytes of logs = 1160 * DA_GAS_PER_BYTE = 1160 * 16 = 5568 DA gas
-     * tx overhead of 512 DA gas
-     * for a total of 21632 DA gas (without gas used during public execution)
-     * public execution uses N gas
-     * for a total of 200032492n gas
-     *
-     * The default teardown gas allocation at present is
-     * 100_000_000 for both DA and L2 gas.
-     *
-     * That produces a grand total of 200032492n.
-     *
-     * This will change because we are presently squashing notes/nullifiers across non/revertible during
-     * private execution, but we shouldn't.
-     *
-     * TODO(6583): update this comment properly now that public execution consumes gas
-     */
+    const tx = localTx.send();
+    await tx.wait({ timeout: 300, interval: 10, proven: false });
+    await t.cheatCodes.rollup.advanceToNextEpoch();
 
-    // We wait until the block is proven since that is when the payout happens.
-    const bn = await t.aztecNode.getBlockNumber();
-    while ((await t.aztecNode.getProvenBlockNumber()) < bn) {
-      await sleep(1000);
-    }
+    const receipt = await tx.wait({ timeout: 300, interval: 10, proven: true, provenTimeout: 300 });
 
-    // expect(tx.transactionFee).toEqual(200032492n);
-    await expect(t.getCoinbaseBalance()).resolves.toEqual(initialSequencerL1Gas + tx.transactionFee!);
-    const feeAmount = tx.transactionFee!;
+    // @note There is a potential race condition here if other tests send transactions that get into the same
+    // epoch and thereby pays out fees at the same time (when proven).
+    const expectedProverFee = await t.getProverFee(receipt.blockNumber!);
+    await expect(t.getCoinbaseSequencerRewards()).resolves.toEqual(
+      sequencerRewardsBefore + receipt.transactionFee! - expectedProverFee,
+    );
+    const feeAmount = receipt.transactionFee!;
 
     await expectMapping(
       t.getBananaPrivateBalanceFn,

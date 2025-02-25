@@ -56,14 +56,13 @@
     ]
   },
   "dependencies": {
-    "@aztec/circuit-types": "workspace:^",
+    "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "sha256": "^0.2.0",
     "tslib": "^2.4.0"
   },
   "devDependencies": {
-    "@aztec/circuits.js": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
     "@types/node": "^18.15.3",

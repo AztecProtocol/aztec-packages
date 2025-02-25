@@ -28,7 +28,7 @@
     "../package.common.json"
   ],
   "dependencies": {
-    "@aztec/circuit-types": "workspace:*",
+    "@aztec/circuits.js": "workspace:*",
     "@aztec/ethereum": "workspace:*",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",

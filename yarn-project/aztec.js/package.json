@@ -78,7 +78,6 @@
     ]
   },
   "dependencies": {
-    "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/ethereum": "workspace:^",

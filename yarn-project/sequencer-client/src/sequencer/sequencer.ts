@@ -1,25 +1,27 @@
-import {
-  type L1RollupConstants,
-  type L1ToL2MessageSource,
-  type L2Block,
-  type L2BlockSource,
-  MerkleTreeId,
-  Tx,
-  type TxHash,
-} from '@aztec/circuit-types';
+import type { L2Block } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { L2BlockSource } from '@aztec/circuits.js/block';
+import type { ContractDataSource } from '@aztec/circuits.js/contract';
+import type { L1RollupConstants } from '@aztec/circuits.js/epoch-helpers';
+import { Gas } from '@aztec/circuits.js/gas';
 import {
   type AllowedElement,
   SequencerConfigSchema,
   type WorldStateSynchronizer,
   type WorldStateSynchronizerStatus,
-} from '@aztec/circuit-types/interfaces/server';
-import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import type { ContractDataSource } from '@aztec/circuits.js/contract';
-import { Gas } from '@aztec/circuits.js/gas';
+} from '@aztec/circuits.js/interfaces/server';
+import type { L1ToL2MessageSource } from '@aztec/circuits.js/messaging';
 import { pickFromSchema } from '@aztec/circuits.js/schemas';
-import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
-import { BlockHeader, ContentCommitment, type GlobalVariables, StateReference } from '@aztec/circuits.js/tx';
+import { type L2BlockBuiltStats } from '@aztec/circuits.js/stats';
+import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/circuits.js/trees';
+import {
+  BlockHeader,
+  ContentCommitment,
+  type GlobalVariables,
+  StateReference,
+  Tx,
+  type TxHash,
+} from '@aztec/circuits.js/tx';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { omit } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';

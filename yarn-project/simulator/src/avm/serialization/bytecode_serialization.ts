@@ -47,7 +47,6 @@ import {
   ToRadixBE,
   Xor,
 } from '../opcodes/index.js';
-import { MultiScalarMul } from '../opcodes/multi_scalar_mul.js';
 import { BufferCursor } from './buffer_cursor.js';
 import { MAX_OPCODE_VALUE, Opcode } from './instruction_serialization.js';
 
@@ -142,7 +141,6 @@ export const INSTRUCTION_SET = new Map<Opcode, InstructionDeserializer>([
   [Poseidon2.opcode, Instruction.deserialize.bind(Poseidon2)],
   [Sha256Compression.opcode, Instruction.deserialize.bind(Sha256Compression)],
   [KeccakF1600.opcode, Instruction.deserialize.bind(KeccakF1600)],
-  [MultiScalarMul.opcode, Instruction.deserialize.bind(MultiScalarMul)],
 
   // Conversions
   [ToRadixBE.opcode, Instruction.deserialize.bind(ToRadixBE)],

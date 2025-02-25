@@ -81,7 +81,6 @@ export enum Opcode {
   SHA256COMPRESSION,
   KECCAKF1600,
   ECADD,
-  MSM,
   // Conversion
   TORADIXBE,
 }

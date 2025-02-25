@@ -1,5 +1,5 @@
-import { L2BlockStream, type L2BlockStreamEvent, type L2BlockStreamEventHandler } from '@aztec/circuit-types';
-import { type AztecNode } from '@aztec/circuit-types/interfaces/client';
+import { L2BlockStream, type L2BlockStreamEvent, type L2BlockStreamEventHandler } from '@aztec/circuits.js/block';
+import { type AztecNode } from '@aztec/circuits.js/interfaces/client';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type L2TipsStore } from '@aztec/kv-store/stores';
@@ -62,7 +62,12 @@ export class Synchronizer implements L2BlockStreamEventHandler {
         // block number in which each index is used it's all we can do.
         await this.db.resetNoteSyncData();
         // Update the header to the last block.
-        await this.db.setHeader(await this.node.getBlockHeader(event.blockNumber));
+        const newHeader = await this.node.getBlockHeader(event.blockNumber);
+        if (!newHeader) {
+          this.log.error(`Block header not found for block number ${event.blockNumber} during chain prune`);
+        } else {
+          await this.db.setHeader(newHeader);
+        }
         break;
       }
     }
@@ -82,7 +87,7 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     }
     if (!currentHeader) {
       // REFACTOR: We should know the header of the genesis block without having to request it from the node.
-      await this.db.setHeader(await this.node.getBlockHeader(0));
+      await this.db.setHeader((await this.node.getBlockHeader(0))!);
     }
     await this.blockStream.sync();
   }

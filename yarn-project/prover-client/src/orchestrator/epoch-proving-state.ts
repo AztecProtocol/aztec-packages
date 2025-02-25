@@ -1,8 +1,5 @@
-import { type MerkleTreeId } from '@aztec/circuit-types';
-import {
-  type ProofAndVerificationKey,
-  type PublicInputsAndRecursiveProof,
-} from '@aztec/circuit-types/interfaces/server';
+import { type ProofAndVerificationKey, type PublicInputsAndRecursiveProof } from '@aztec/circuits.js/interfaces/server';
+import type { Proof } from '@aztec/circuits.js/proofs';
 import {
   BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
@@ -10,7 +7,7 @@ import {
   RootRollupInputs,
   type RootRollupPublicInputs,
 } from '@aztec/circuits.js/rollup';
-import { type AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
+import { type AppendOnlyTreeSnapshot, type MerkleTreeId } from '@aztec/circuits.js/trees';
 import { type BlockHeader, type GlobalVariables } from '@aztec/circuits.js/tx';
 import {
   type ARCHIVE_HEIGHT,
@@ -182,7 +179,7 @@ export class EpochProvingState {
     return this.blocks.find(block => block?.blockNumber === blockNumber);
   }
 
-  public getEpochProofResult() {
+  public getEpochProofResult(): { proof: Proof; publicInputs: RootRollupPublicInputs } {
     if (!this.rootRollupProvingOutput) {
       throw new Error('Unable to get epoch proof result. Root rollup is not ready.');
     }

@@ -1,4 +1,4 @@
-import { type Hasher } from '@aztec/circuits.js/interfaces';
+import { type Hasher } from '@aztec/foundation/trees';
 
 import { createHistogram, performance } from 'perf_hooks';
 

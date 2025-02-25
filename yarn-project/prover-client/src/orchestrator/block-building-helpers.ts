@@ -1,7 +1,7 @@
 import { Blob, type SpongeBlob } from '@aztec/blob-lib';
-import { Body, MerkleTreeId, type ProcessedTx, TxEffect, getTreeHeight } from '@aztec/circuit-types';
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import { PublicDataHint } from '@aztec/circuits.js/avm';
+import { Body } from '@aztec/circuits.js/block';
+import { type MerkleTreeWriteOperations } from '@aztec/circuits.js/interfaces/server';
 import type { ParityPublicInputs } from '@aztec/circuits.js/parity';
 import {
   type BaseOrMergeRollupPublicInputs,
@@ -13,16 +13,20 @@ import {
 } from '@aztec/circuits.js/rollup';
 import {
   AppendOnlyTreeSnapshot,
+  MerkleTreeId,
   NullifierLeafPreimage,
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
+  getTreeHeight,
 } from '@aztec/circuits.js/trees';
 import {
   BlockHeader,
   ContentCommitment,
   type GlobalVariables,
   PartialStateReference,
+  type ProcessedTx,
   StateReference,
+  TxEffect,
 } from '@aztec/circuits.js/tx';
 import {
   ARCHIVE_HEIGHT,

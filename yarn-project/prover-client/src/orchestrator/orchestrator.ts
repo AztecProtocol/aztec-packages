@@ -1,12 +1,11 @@
-import { L2Block, MerkleTreeId, type ProcessedTx, type Tx, toNumBlobFields } from '@aztec/circuit-types';
+import { L2Block } from '@aztec/circuits.js/block';
 import {
   type EpochProver,
   type ForkMerkleTreeOperations,
   type MerkleTreeWriteOperations,
   type ProofAndVerificationKey,
   type ServerCircuitProver,
-} from '@aztec/circuit-types/interfaces/server';
-import { type CircuitName } from '@aztec/circuit-types/stats';
+} from '@aztec/circuits.js/interfaces/server';
 import { BaseParityInputs } from '@aztec/circuits.js/parity';
 import { makeEmptyRecursiveProof } from '@aztec/circuits.js/proofs';
 import {
@@ -16,8 +15,15 @@ import {
   SingleTxBlockRootRollupInputs,
   TubeInputs,
 } from '@aztec/circuits.js/rollup';
-import { type AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
-import { type BlockHeader, type GlobalVariables } from '@aztec/circuits.js/tx';
+import { type CircuitName } from '@aztec/circuits.js/stats';
+import { type AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/circuits.js/trees';
+import {
+  type BlockHeader,
+  type GlobalVariables,
+  type ProcessedTx,
+  type Tx,
+  toNumBlobFields,
+} from '@aztec/circuits.js/tx';
 import { VerificationKeyData } from '@aztec/circuits.js/vks';
 import {
   AVM_PROOF_LENGTH_IN_FIELDS,

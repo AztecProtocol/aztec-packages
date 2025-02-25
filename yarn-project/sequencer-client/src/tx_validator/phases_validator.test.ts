@@ -1,9 +1,8 @@
-import { type Tx } from '@aztec/circuit-types';
-import { mockTx } from '@aztec/circuit-types/testing';
 import type { FunctionSelector } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type ContractDataSource } from '@aztec/circuits.js/contract';
-import { makeAztecAddress, makeSelector } from '@aztec/circuits.js/testing';
+import { makeAztecAddress, makeSelector, mockTx } from '@aztec/circuits.js/testing';
+import { type Tx } from '@aztec/circuits.js/tx';
 import { Fr } from '@aztec/foundation/fields';
 
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';

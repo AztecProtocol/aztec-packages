@@ -1,10 +1,6 @@
-import {
-  EmptyL1RollupConstants,
-  type L1ToL2MessageSource,
-  L2Block,
-  type L2BlockSource,
-  type Tx,
-} from '@aztec/circuit-types';
+import { L2Block, type L2BlockSource } from '@aztec/circuits.js/block';
+import { type ContractDataSource } from '@aztec/circuits.js/contract';
+import { EmptyL1RollupConstants } from '@aztec/circuits.js/epoch-helpers';
 import {
   type EpochProverManager,
   type EpochProvingJobState,
@@ -12,8 +8,9 @@ import {
   type ProverCoordination,
   WorldStateRunningState,
   type WorldStateSynchronizer,
-} from '@aztec/circuit-types/interfaces/server';
-import { type ContractDataSource } from '@aztec/circuits.js/contract';
+} from '@aztec/circuits.js/interfaces/server';
+import type { L1ToL2MessageSource } from '@aztec/circuits.js/messaging';
+import type { Tx } from '@aztec/circuits.js/tx';
 import { timesParallel } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type PublicProcessorFactory } from '@aztec/simulator/server';

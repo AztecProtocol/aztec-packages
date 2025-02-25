@@ -1,5 +1,5 @@
-import { type Hasher } from '@aztec/circuits.js/interfaces';
 import { type Bufferable, type FromBuffer } from '@aztec/foundation/serialize';
+import { type Hasher } from '@aztec/foundation/trees';
 import { type AztecKVStore } from '@aztec/kv-store';
 
 import { type TreeBase, getTreeMeta } from './tree_base.js';

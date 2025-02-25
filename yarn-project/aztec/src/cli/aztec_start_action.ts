@@ -1,6 +1,6 @@
-import { getVersioningMiddleware } from '@aztec/circuit-types';
-import { type ChainConfig } from '@aztec/circuit-types/config';
-import { AztecNodeApiSchema, PXESchema } from '@aztec/circuit-types/interfaces/client';
+import { type ChainConfig } from '@aztec/circuits.js/config';
+import { AztecNodeApiSchema, PXESchema } from '@aztec/circuits.js/interfaces/client';
+import { getVersioningMiddleware } from '@aztec/circuits.js/versioning';
 import {
   type NamespacedApiHandlers,
   createNamespacedSafeJsonRpcServer,

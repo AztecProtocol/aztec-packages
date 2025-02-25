@@ -1,7 +1,6 @@
 import { SpongeBlob } from '@aztec/blob-lib';
-import { type L2Block, type MerkleTreeId } from '@aztec/circuit-types';
-import { type PublicInputsAndRecursiveProof } from '@aztec/circuit-types/interfaces/server';
-import { type CircuitName } from '@aztec/circuit-types/stats';
+import { type L2Block } from '@aztec/circuits.js/block';
+import { type PublicInputsAndRecursiveProof } from '@aztec/circuits.js/interfaces/server';
 import { type ParityPublicInputs, RootParityInput, RootParityInputs } from '@aztec/circuits.js/parity';
 import {
   type BaseOrMergeRollupPublicInputs,
@@ -15,7 +14,8 @@ import {
   PreviousRollupData,
   SingleTxBlockRootRollupInputs,
 } from '@aztec/circuits.js/rollup';
-import { type AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
+import { type CircuitName } from '@aztec/circuits.js/stats';
+import { type AppendOnlyTreeSnapshot, type MerkleTreeId } from '@aztec/circuits.js/trees';
 import { type BlockHeader, type GlobalVariables, StateReference } from '@aztec/circuits.js/tx';
 import {
   type ARCHIVE_HEIGHT,

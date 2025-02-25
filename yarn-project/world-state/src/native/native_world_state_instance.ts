@@ -1,4 +1,4 @@
-import { MerkleTreeId } from '@aztec/circuit-types';
+import { MerkleTreeId } from '@aztec/circuits.js/trees';
 import type { PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import {
   ARCHIVE_HEIGHT,

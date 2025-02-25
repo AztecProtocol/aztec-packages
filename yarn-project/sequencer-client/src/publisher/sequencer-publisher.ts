@@ -1,14 +1,9 @@
+import type { L2Block } from '@aztec/aztec.js';
 import { Blob } from '@aztec/blob-lib';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
-import {
-  ConsensusPayload,
-  type L2Block,
-  SignatureDomainSeparator,
-  type TxHash,
-  getHashedSignaturePayload,
-} from '@aztec/circuit-types';
-import type { L1PublishBlockStats } from '@aztec/circuit-types/stats';
-import { type BlockHeader } from '@aztec/circuits.js/tx';
+import { ConsensusPayload, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/circuits.js/p2p';
+import type { L1PublishBlockStats } from '@aztec/circuits.js/stats';
+import { type BlockHeader, TxHash } from '@aztec/circuits.js/tx';
 import { type EpochCache } from '@aztec/epoch-cache';
 import {
   FormattedViemError,

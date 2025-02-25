@@ -1,6 +1,6 @@
-import { L2Block, MerkleTreeId } from '@aztec/circuit-types';
-import { type MerkleTreeReadOperations, type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
-import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
+import { L2Block } from '@aztec/circuits.js/block';
+import { type MerkleTreeReadOperations, type MerkleTreeWriteOperations } from '@aztec/circuits.js/interfaces/server';
+import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/circuits.js/trees';
 import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,

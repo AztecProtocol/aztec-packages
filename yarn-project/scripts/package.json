@@ -8,7 +8,7 @@
     "docs-preview-comment": "./dest/bin/docs-preview.js"
   },
   "dependencies": {
-    "@aztec/circuit-types": "workspace:^",
+    "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "fs-extra": "^11.1.1",
     "lodash.pick": "^4.4.0",

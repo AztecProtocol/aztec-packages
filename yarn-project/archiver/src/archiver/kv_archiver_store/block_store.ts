@@ -1,13 +1,15 @@
-import { Body, type InBlock, L2Block, L2BlockHash, type TxEffect, type TxHash, TxReceipt } from '@aztec/circuit-types';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { Body, type InBlock, L2Block, L2BlockHash } from '@aztec/circuits.js/block';
 import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
-import { BlockHeader } from '@aztec/circuits.js/tx';
+import { BlockHeader, TxEffect, TxHash, TxReceipt } from '@aztec/circuits.js/tx';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton, Range } from '@aztec/kv-store';
 
 import { type L1Published, type L1PublishedData } from '../structs/published.js';
+
+export { type TxEffect, type TxHash, TxReceipt } from '@aztec/circuits.js/tx';
 
 type BlockIndexValue = [blockNumber: number, index: number];
 

@@ -1,6 +1,6 @@
-import { Tx, TxHash } from '@aztec/circuit-types';
-import { type TxAddedToPoolStats } from '@aztec/circuit-types/stats';
 import { ClientIvcProof } from '@aztec/circuits.js/proofs';
+import { type TxAddedToPoolStats } from '@aztec/circuits.js/stats';
+import { Tx, TxHash } from '@aztec/circuits.js/tx';
 import { toArray } from '@aztec/foundation/iterable';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';

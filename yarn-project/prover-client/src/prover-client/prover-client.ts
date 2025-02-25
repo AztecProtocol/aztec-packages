@@ -8,7 +8,7 @@ import {
   type ProvingJobConsumer,
   type ProvingJobProducer,
   type ServerCircuitProver,
-} from '@aztec/circuit-types/interfaces/server';
+} from '@aztec/circuits.js/interfaces/server';
 import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';

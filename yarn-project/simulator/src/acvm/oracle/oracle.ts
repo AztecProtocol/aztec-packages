@@ -1,7 +1,7 @@
-import { MerkleTreeId, UnencryptedL2Log } from '@aztec/circuit-types';
 import { FunctionSelector, NoteSelector } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { LogWithTxData } from '@aztec/circuits.js/logs';
+import { LogWithTxData, UnencryptedL2Log } from '@aztec/circuits.js/logs';
+import { MerkleTreeId } from '@aztec/circuits.js/trees';
 import { Fr } from '@aztec/foundation/fields';
 
 import { type ACVMField } from '../acvm_types.js';

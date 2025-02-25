@@ -1,25 +1,19 @@
-import { createPXEClient, makeFetch } from '@aztec/aztec.js';
-import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
+import { EthCheatCodes, RollupCheatCodes, createPXEClient, makeFetch } from '@aztec/aztec.js';
 import { type LogFn } from '@aztec/foundation/log';
-
-import { setAssumeProvenThrough } from '../../utils/aztec.js';
 
 export async function assumeProvenThrough(
   blockNumberOrLatest: number | undefined,
   l1RpcUrl: string,
   rpcUrl: string,
-  chainId: number,
-  privateKey: string | undefined,
-  mnemonic: string,
   log: LogFn,
 ) {
-  const chain = createEthereumChain(l1RpcUrl, chainId);
-  const { walletClient } = createL1Clients(chain.rpcUrl, privateKey ?? mnemonic, chain.chainInfo);
-
   const pxe = createPXEClient(rpcUrl, {}, makeFetch([], true));
   const rollupAddress = await pxe.getNodeInfo().then(i => i.l1ContractAddresses.rollupAddress);
   const blockNumber = blockNumberOrLatest ?? (await pxe.getBlockNumber());
 
-  await setAssumeProvenThrough(blockNumber, rollupAddress, walletClient);
+  const ethCheatCode = new EthCheatCodes(l1RpcUrl);
+  const rollupCheatCodes = new RollupCheatCodes(ethCheatCode, { rollupAddress });
+
+  await rollupCheatCodes.markAsProven(blockNumber);
   log(`Assumed proven through block ${blockNumber}`);
 }

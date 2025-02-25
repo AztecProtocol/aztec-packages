@@ -1,4 +1,4 @@
-import { L2Block } from '@aztec/circuit-types';
+import { L2Block } from '@aztec/circuits.js/block';
 import { timesParallel } from '@aztec/foundation/collection';
 
 import { type ArchiverDataStore } from '../archiver_store.js';

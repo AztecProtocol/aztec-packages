@@ -1,3 +1,5 @@
+include "bc_hashing.pil";
+
 // Bytecode retrieval.
 namespace bc_retrieval;
 
@@ -67,7 +69,14 @@ pol commit public_bytecode_commitment;
 //   class_id_derivation.public_bytecode_commitment
 // }
 
+// TODO: Gate by error flag.
+#[BYTECODE_HASH_IS_CORRECT]
+sel { bytecode_id, public_bytecode_commitment } in bc_hashing.latch { bc_hashing.bytecode_id, bc_hashing.output_hash };
+
 // TODO: Siloing, lookups to merkle, bring in error flag.
+pol commit siloed_address;
+// Note: we don't need to silo and check the class id because the deployer contract guarrantees
+// that if a contract instance exists, the class has been registered.
 
 // Dummy relation to make codegen work.
 sel = sel;

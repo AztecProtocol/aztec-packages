@@ -1,12 +1,12 @@
+import { type ContractDataSource } from '@aztec/circuits.js/contract';
+import { type AllowedElement } from '@aztec/circuits.js/interfaces/server';
 import {
   type PublicExecutionRequest,
   Tx,
   TxExecutionPhase,
   type TxValidationResult,
   type TxValidator,
-} from '@aztec/circuit-types';
-import { type AllowedElement } from '@aztec/circuit-types/interfaces/server';
-import { type ContractDataSource } from '@aztec/circuits.js/contract';
+} from '@aztec/circuits.js/tx';
 import { createLogger } from '@aztec/foundation/log';
 import { ContractsDataSourcePublicDB, getExecutionRequestsByPhase } from '@aztec/simulator/server';
 

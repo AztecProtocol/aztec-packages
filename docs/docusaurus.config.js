@@ -131,8 +131,8 @@ const config = {
       "docusaurus-plugin-typedoc",
       {
         id: "aztecjs/pxe",
-        entryPoints: ["../yarn-project/circuit-types/src/interfaces/pxe.ts"],
-        tsconfig: "../yarn-project/circuit-types/tsconfig.json",
+        entryPoints: ["../yarn-project/circuits.js/src/interfaces/pxe.ts"],
+        tsconfig: "../yarn-project/circuits.js/tsconfig.json",
         entryPointStrategy: "expand",
         out: "developers/reference/aztecjs/pxe",
         readme: "none",

@@ -10,7 +10,7 @@
       "path": "../blob-lib"
     },
     {
-      "path": "../circuit-types"
+      "path": "../circuits.js"
     },
     {
       "path": "../foundation"

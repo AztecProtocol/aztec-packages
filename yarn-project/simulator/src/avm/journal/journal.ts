@@ -1,5 +1,3 @@
-import { MerkleTreeId } from '@aztec/circuit-types';
-import { type IndexedTreeId, type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import { AvmNullifierReadTreeHint, AvmPublicDataReadTreeHint, PublicDataWrite } from '@aztec/circuits.js/avm';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type ContractClassIdPreimage, SerializableContractInstance } from '@aztec/circuits.js/contract';
@@ -10,9 +8,10 @@ import {
   siloNoteHash,
   siloNullifier,
 } from '@aztec/circuits.js/hash';
+import { type IndexedTreeId, type MerkleTreeWriteOperations } from '@aztec/circuits.js/interfaces/server';
 import type { PublicCallRequest } from '@aztec/circuits.js/kernel';
 import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/circuits.js/shared-mutable';
-import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
+import { MerkleTreeId, NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
 import {
   CANONICAL_AUTH_REGISTRY_ADDRESS,
   DEPLOYER_CONTRACT_ADDRESS,
