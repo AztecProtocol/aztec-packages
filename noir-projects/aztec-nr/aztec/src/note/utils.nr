@@ -57,7 +57,7 @@ pub fn compute_note_hash_for_nullify_from_read_request<Note>(
     // There is just one instance in which the note hash for nullification does not match the note hash used for a read
     // request, which is when dealing with pending previous phase notes. These had their existence proven using their
     // non-siloed note hash along with the note hash counter (like all pending notes), but since they will be
-    // uncondtionally inserted in the note hash tree (since they cannot be squashed) they must be nullified using the
+    // unconditionally inserted in the note hash tree (since they cannot be squashed) they must be nullified using the
     // *unique* note hash.
     // If we didn't, it'd be possible to emit a second different nullifier for the same note in a follow up transaction,
     // once the note is settled, resulting in a double spend.
