@@ -40,18 +40,18 @@ function generateTypeFileImports() {
 
 function generateVkFileImports() {
   return `
-    import { type VerificationKeyData } from '@aztec/stdlib/vks';
+    import type { VerificationKeyData } from '@aztec/stdlib/vks';
     import { keyJsonToVKData } from './utils/vk_json.js';
 
-    import { type PrivateResetArtifact } from './private_kernel_reset_types.js';
+    import type { PrivateResetArtifact } from './private_kernel_reset_types.js';
   `;
 }
 
 function generateDataFileImports() {
   return `
-    import { type NoirCompiledCircuit } from '@aztec/stdlib/noir';
+    import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
 
-    import { type PrivateResetArtifact } from './private_kernel_reset_types.js';
+    import type { PrivateResetArtifact } from './private_kernel_reset_types.js';
   `;
 }
 
