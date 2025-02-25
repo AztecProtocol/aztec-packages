@@ -106,7 +106,8 @@ export class BlockStore {
         const block = await this.getBlock(blockNumber);
 
         if (block === undefined) {
-          throw new Error(`Cannot remove block ${blockNumber} from the store, we don't have it`);
+          this.#log.warn(`Cannot remove block ${blockNumber} from the store since we don't have it`);
+          continue;
         }
         await this.#blocks.delete(block.data.number);
         await Promise.all(block.data.body.txEffects.map(tx => this.#txIndex.delete(tx.txHash.toString())));

@@ -80,7 +80,9 @@ export async function retrieveBlocksFromRollup(
     retrievedBlocks.push(...newBlocks);
     searchStartBlock = lastLog.blockNumber! + 1n;
   } while (searchStartBlock <= searchEndBlock);
-  return retrievedBlocks;
+
+  // The asyncpool from processL2BlockProposedLogs will not necessarily return the blocks in order, so we sort them before returning.
+  return retrievedBlocks.sort((a, b) => Number(a.l1.blockNumber - b.l1.blockNumber));
 }
 
 /**
