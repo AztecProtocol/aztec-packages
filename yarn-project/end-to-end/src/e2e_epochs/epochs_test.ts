@@ -1,3 +1,4 @@
+import { AztecNodeService } from '@aztec/aztec-node';
 import { Fr, type Logger, getTimestampRangeForEpoch, retryUntil, sleep } from '@aztec/aztec.js';
 import { ChainMonitor } from '@aztec/aztec.js/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
@@ -15,7 +16,13 @@ import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { join } from 'path';
 import { type Hex, type PublicClient } from 'viem';
 
-import { type EndToEndContext, createAndSyncProverNode, getPrivateKeyFromIndex, setup } from '../fixtures/utils.js';
+import {
+  type EndToEndContext,
+  type SetupOptions,
+  createAndSyncProverNode,
+  getPrivateKeyFromIndex,
+  setup,
+} from '../fixtures/utils.js';
 
 // This can be lowered to as much as 2s in non-CI
 export const L1_BLOCK_TIME_IN_S = process.env.L1_BLOCK_TIME ? parseInt(process.env.L1_BLOCK_TIME) : 8;
@@ -24,6 +31,8 @@ export const L2_SLOT_DURATION_IN_L1_SLOTS = 2;
 export const WORLD_STATE_BLOCK_HISTORY = 2;
 export const WORLD_STATE_BLOCK_CHECK_INTERVAL = 50;
 export const ARCHIVER_POLL_INTERVAL = 50;
+
+export type EpochsTestOpts = Partial<Pick<SetupOptions, 'startProverNode'>>;
 
 /**
  * Tests building of epochs using fast block times and short epochs.
@@ -41,14 +50,15 @@ export class EpochsTestContext {
   public sequencerDelayer!: Delayer;
 
   public proverNodes: ProverNode[] = [];
+  public nodes: AztecNodeService[] = [];
 
-  public static async setup() {
+  public static async setup(opts: EpochsTestOpts = {}) {
     const test = new EpochsTestContext();
-    await test.setup();
+    await test.setup(opts);
     return test;
   }
 
-  public async setup() {
+  public async setup(opts: EpochsTestOpts = {}) {
     // Set up system without any account nor protocol contracts
     // and with faster block times and shorter epochs.
     const context = await setup(0, {
@@ -71,10 +81,12 @@ export class EpochsTestContext {
       // but not so much to hang the sequencer and timeout the teardown
       txPropagationMaxQueryAttempts: 12,
       worldStateBlockHistory: WORLD_STATE_BLOCK_HISTORY,
+      ...opts,
     });
 
     this.context = context;
-    this.proverNodes = [context.proverNode!];
+    this.proverNodes = context.proverNode ? [context.proverNode] : [];
+    this.nodes = context.aztecNode ? [context.aztecNode as AztecNodeService] : [];
     this.logger = context.logger;
     this.l1Client = context.deployL1ContractsValues.publicClient;
     this.rollup = RollupContract.getFromConfig(context.config);
@@ -85,13 +97,14 @@ export class EpochsTestContext {
 
     // This is hideous.
     // We ought to have a definite reference to the l1TxUtils that we're using in both places, provided by the test context.
-    this.proverDelayer = (
-      ((context.proverNode as TestProverNode).publisher as ProverNodePublisher).l1TxUtils as DelayedTxUtils
-    ).delayer!;
+    this.proverDelayer = context.proverNode
+      ? (((context.proverNode as TestProverNode).publisher as ProverNodePublisher).l1TxUtils as DelayedTxUtils).delayer!
+      : undefined!;
     this.sequencerDelayer = (
       ((context.sequencer as TestSequencerClient).sequencer.publisher as SequencerPublisher).l1TxUtils as DelayedTxUtils
     ).delayer!;
-    if (!this.proverDelayer || !this.sequencerDelayer) {
+
+    if ((context.proverNode && !this.proverDelayer) || !this.sequencerDelayer) {
       throw new Error(`Could not find prover or sequencer delayer`);
     }
 
@@ -112,17 +125,17 @@ export class EpochsTestContext {
   public async teardown() {
     this.monitor.stop();
     await Promise.all(this.proverNodes.map(node => node.stop()));
+    await Promise.all(this.nodes.map(node => node.stop()));
     await this.context.teardown();
   }
 
   public async createProverNode() {
-    this.logger.verbose('Creating and syncing a simulated prover node...');
-    const proverNodePrivateKey = getPrivateKeyFromIndex(this.proverNodes.length + 1);
-    const proverNodePrivateKeyHex: Hex = `0x${proverNodePrivateKey!.toString('hex')}`;
+    this.logger.warn('Creating and syncing a simulated prover node...');
+    const proverNodePrivateKey = this.getNextPrivateKey();
     const suffix = (this.proverNodes.length + 1).toString();
     const proverNode = await withLogNameSuffix(suffix, () =>
       createAndSyncProverNode(
-        proverNodePrivateKeyHex,
+        proverNodePrivateKey,
         { ...this.context.config, proverId: Fr.fromString(suffix) },
         this.context.aztecNode,
         join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
@@ -130,6 +143,25 @@ export class EpochsTestContext {
     );
     this.proverNodes.push(proverNode);
     return proverNode;
+  }
+
+  public async createNonValidatorNode() {
+    this.logger.warn('Creating and syncing a node without a validator...');
+    const suffix = (this.nodes.length + 1).toString();
+    const node = await withLogNameSuffix(suffix, () =>
+      AztecNodeService.createAndSync({
+        ...this.context.config,
+        disableValidator: true,
+        dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
+      }),
+    );
+    this.nodes.push(node);
+    return node;
+  }
+
+  private getNextPrivateKey(): Hex {
+    const key = getPrivateKeyFromIndex(this.nodes.length + this.proverNodes.length + 1);
+    return `0x${key!.toString('hex')}`;
   }
 
   /** Waits until the epoch begins (ie until the immediately previous L1 block is mined). */
@@ -141,11 +173,11 @@ export class EpochsTestContext {
   }
 
   /** Waits until the given L2 block number is mined. */
-  public async waitUntilL2BlockNumber(target: number) {
+  public async waitUntilL2BlockNumber(target: number, timeout = 60) {
     await retryUntil(
       () => Promise.resolve(target === this.monitor.l2BlockNumber),
       `Wait until L2 block ${target}`,
-      60,
+      timeout,
       0.1,
     );
   }

@@ -233,6 +233,8 @@ export class ServerWorldStateSynchronizer
    * @returns Whether the block handled was produced by this same node.
    */
   private async handleL2Blocks(l2Blocks: L2Block[]) {
+    this.log.trace(`Handling L2 blocks ${l2Blocks[0].number} to ${l2Blocks.at(-1)!.number}`);
+
     const messagePromises = l2Blocks.map(block => this.l2BlockSource.getL1ToL2Messages(BigInt(block.number)));
     const l1ToL2Messages: Fr[][] = await Promise.all(messagePromises);
     let updateStatus: WorldStateStatusFull | undefined = undefined;
@@ -269,6 +271,11 @@ export class ServerWorldStateSynchronizer
     await this.verifyMessagesHashToInHash(l1ToL2Messages, l2Block.header.contentCommitment.inHash);
 
     // If the above check succeeds, we can proceed to handle the block.
+    this.log.trace(`Pushing L2 block ${l2Block.number} to merkle tree db `, {
+      blockNumber: l2Block.number,
+      blockHash: await l2Block.hash().then(h => h.toString()),
+      l1ToL2Messages: l1ToL2Messages.map(msg => msg.toString()),
+    });
     const result = await this.merkleTreeDb.handleL2BlockAndMessages(l2Block, l1ToL2Messages);
 
     if (this.currentState === WorldStateRunningState.SYNCHING && l2Block.number >= this.latestBlockNumberAtStart) {

@@ -76,6 +76,7 @@ export class L2BlockStream {
       // If we are just starting, use the starting block number from the options.
       if (latestBlockNumber === 0 && this.opts.startingBlock !== undefined) {
         latestBlockNumber = Math.max(this.opts.startingBlock - 1, 0);
+        this.log.verbose(`Starting sync from block number ${latestBlockNumber}`);
       }
 
       // Request new blocks from the source.
