@@ -1,4 +1,3 @@
-// use bigint::{BigNum, fields::bls12_381Fr::BLS12_381_Fr_Params};
 use bigint::{BigNum, BLS12_381_Fr as F};
 use types::constants::FIELDS_PER_BLOB;
 
