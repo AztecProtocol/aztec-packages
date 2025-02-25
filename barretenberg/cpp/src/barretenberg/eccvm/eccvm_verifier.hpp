@@ -23,12 +23,10 @@ class ECCVMVerifier {
         : ECCVMVerifier(std::make_shared<ECCVMFlavor::VerificationKey>(proving_key)){};
 
     bool verify_proof(const ECCVMProof& proof);
-
-    std::array<Commitment, NUM_TRANSLATION_EVALUATIONS> translation_commitments;
-
     OpeningClaim<typename ECCVMFlavor::Curve> reduce_verify_translation_evaluations(
         const std::array<Commitment, NUM_TRANSLATION_EVALUATIONS>& translation_commitments);
 
+    std::array<Commitment, NUM_TRANSLATION_EVALUATIONS> translation_commitments;
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;
     std::shared_ptr<Transcript> transcript;
