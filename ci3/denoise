@@ -48,8 +48,8 @@ status=${PIPESTATUS[0]}
 if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   {
     echo "Command: $1 (exit: $status)"
-    cat "$outfile"
-  } | redis_cli -x SETEX $key $CI_REDIS_EXPIRE &>/dev/null
+    cat $outfile
+  } | redis_setexz $key $CI_REDIS_EXPIRE
 fi
 
 # Handle non-zero exit status

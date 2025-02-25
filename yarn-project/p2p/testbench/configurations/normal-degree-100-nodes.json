@@ -3,7 +3,6 @@
   "maxPeerCount": 110,
   "gossipsubFloodPublish": false,
   "debugDisableColocationPenalty": true,
-  "debugDisableMessageValidation": true,
   "gossipsubInterval": 700,
   "gossipsubD": 6,
   "gossipsubDlo": 4,

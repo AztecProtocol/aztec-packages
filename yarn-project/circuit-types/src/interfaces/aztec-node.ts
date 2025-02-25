@@ -12,6 +12,7 @@ import {
 import { GasFees } from '@aztec/circuits.js/gas';
 import { PrivateLog } from '@aztec/circuits.js/logs';
 import { type ApiSchemaFor, optional, schemas } from '@aztec/circuits.js/schemas';
+import { MerkleTreeId, NullifierMembershipWitness } from '@aztec/circuits.js/trees';
 import { BlockHeader } from '@aztec/circuits.js/tx';
 import {
   ARCHIVE_HEIGHT,
@@ -23,6 +24,7 @@ import {
 import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum/l1-contract-addresses';
 import type { Fr } from '@aztec/foundation/fields';
 import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
+import { SiblingPath } from '@aztec/foundation/trees';
 
 import { z } from 'zod';
 
@@ -38,9 +40,7 @@ import {
   LogFilterSchema,
   TxScopedL2Log,
 } from '../logs/index.js';
-import { MerkleTreeId } from '../merkle_tree_id.js';
 import { PublicDataWitness } from '../public_data_witness.js';
-import { SiblingPath } from '../sibling_path/index.js';
 import {
   PublicSimulationOutput,
   Tx,
@@ -53,7 +53,6 @@ import { TxEffect } from '../tx_effect.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning.js';
 import { type SequencerConfig, SequencerConfigSchema } from './configs.js';
 import { type L2BlockNumber, L2BlockNumberSchema } from './l2_block_number.js';
-import { NullifierMembershipWitness } from './nullifier_membership_witness.js';
 import { type ProverConfig, ProverConfigSchema } from './prover-client.js';
 import { type ProverCoordination } from './prover-coordination.js';
 import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_state.js';

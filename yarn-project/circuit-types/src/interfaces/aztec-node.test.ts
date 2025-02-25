@@ -1,5 +1,4 @@
-import { type ContractArtifact } from '@aztec/circuits.js/abi';
-import { loadContractArtifact } from '@aztec/circuits.js/abi';
+import { type ContractArtifact, loadContractArtifact } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
   type ContractClassPublic,
@@ -12,6 +11,7 @@ import {
 import { GasFees } from '@aztec/circuits.js/gas';
 import { PublicKeys } from '@aztec/circuits.js/keys';
 import { PrivateLog } from '@aztec/circuits.js/logs';
+import { MerkleTreeId, NullifierMembershipWitness } from '@aztec/circuits.js/trees';
 import { BlockHeader } from '@aztec/circuits.js/tx';
 import {
   ARCHIVE_HEIGHT,
@@ -25,6 +25,7 @@ import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
+import { SiblingPath } from '@aztec/foundation/trees';
 import { fileURLToPath } from '@aztec/foundation/url';
 
 import { readFileSync } from 'fs';
@@ -42,9 +43,7 @@ import {
   TxScopedL2Log,
 } from '../logs/get_logs_response.js';
 import { type LogFilter } from '../logs/log_filter.js';
-import { MerkleTreeId } from '../merkle_tree_id.js';
 import { PublicDataWitness } from '../public_data_witness.js';
-import { SiblingPath } from '../sibling_path/sibling_path.js';
 import { type TxValidationResult } from '../tx/index.js';
 import { PublicSimulationOutput } from '../tx/public_simulation_output.js';
 import { Tx } from '../tx/tx.js';
@@ -53,7 +52,6 @@ import { TxReceipt } from '../tx/tx_receipt.js';
 import { TxEffect } from '../tx_effect.js';
 import { type AztecNode, AztecNodeApiSchema } from './aztec-node.js';
 import { type SequencerConfig } from './configs.js';
-import { NullifierMembershipWitness } from './nullifier_membership_witness.js';
 import { type ProverConfig } from './prover-client.js';
 import type { WorldStateSyncStatus } from './world_state.js';
 
