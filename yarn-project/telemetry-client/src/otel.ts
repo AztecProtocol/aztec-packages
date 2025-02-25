@@ -1,7 +1,5 @@
 import { type LogData, type Logger, addLogDataHandler } from '@aztec/foundation/log';
 
-import { MetricExporter as GoogleCloudMetricExporter } from '@google-cloud/opentelemetry-cloud-monitoring-exporter';
-import { TraceExporter as GoogleCloudTraceExporter } from '@google-cloud/opentelemetry-cloud-trace-exporter';
 import {
   DiagConsoleLogger,
   DiagLogLevel,
@@ -257,25 +255,6 @@ export class OpenTelemetryClient implements TelemetryClient {
     });
   }
 
-  private static getGcloudClientFactory(config: TelemetryClientConfig): OpenTelemetryClientFactory {
-    return (resource: IResource, log: Logger) => {
-      const tracerProvider = new NodeTracerProvider({
-        resource,
-        spanProcessors: [new BatchSpanProcessor(new GoogleCloudTraceExporter({ resourceFilter: /.*/ }))],
-      });
-
-      tracerProvider.register();
-
-      const meterProvider = OpenTelemetryClient.createMeterProvider(resource, {
-        exporter: new OtelFilterMetricExporter(new GoogleCloudMetricExporter(), config.otelExcludeMetrics ?? []),
-        exportTimeoutMillis: config.otelExportTimeoutMs,
-        exportIntervalMillis: config.otelCollectIntervalMs,
-      });
-
-      return new OpenTelemetryClient(resource, meterProvider, tracerProvider, undefined, log);
-    };
-  }
-
   private static getCustomClientFactory(config: TelemetryClientConfig): OpenTelemetryClientFactory {
     return (resource: IResource, log: Logger) => {
       const tracerProvider = new NodeTracerProvider({
@@ -306,9 +285,7 @@ export class OpenTelemetryClient implements TelemetryClient {
 
   public static createAndStart(config: TelemetryClientConfig, log: Logger): OpenTelemetryClient {
     const resource = getOtelResource();
-    const factory = config.useGcloudMetrics
-      ? OpenTelemetryClient.getGcloudClientFactory(config)
-      : OpenTelemetryClient.getCustomClientFactory(config);
+    const factory = OpenTelemetryClient.getCustomClientFactory(config);
 
     const service = factory(resource, log);
     service.start();
