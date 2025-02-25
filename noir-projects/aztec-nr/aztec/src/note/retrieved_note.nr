@@ -5,8 +5,8 @@ use protocol_types::{
     utils::arrays::array_concat,
 };
 
-/// A container of a note and the metadata required to constrain its existence, regardless of whether the note is
-/// historical (created in a previous transaction) or transient (created in the current transaction).
+/// A container of a note and the metadata required to prove its existence, regardless of whether the note is
+/// pending (created in the current transaction) or settled (created in a previous transaction).
 #[derive(Eq)]
 pub struct RetrievedNote<NOTE> {
     pub note: NOTE,

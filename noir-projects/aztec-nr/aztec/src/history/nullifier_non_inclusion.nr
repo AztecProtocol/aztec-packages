@@ -3,7 +3,7 @@ use crate::{
     note::{
         note_interface::{NoteInterface, NullifiableNote},
         retrieved_note::RetrievedNote,
-        utils::compute_siloed_nullifier,
+        utils::compute_siloed_note_nullifier,
     },
     oracle::get_nullifier_membership_witness::get_low_nullifier_membership_witness,
 };
@@ -77,7 +77,7 @@ impl ProveNoteNotNullified for BlockHeader {
     where
         Note: NoteInterface + NullifiableNote,
     {
-        let nullifier = compute_siloed_nullifier(retrieved_note, storage_slot, context);
+        let nullifier = compute_siloed_note_nullifier(retrieved_note, storage_slot, context);
 
         self.prove_nullifier_non_inclusion(nullifier);
     }
