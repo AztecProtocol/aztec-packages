@@ -1,11 +1,11 @@
 import {
-  type AuthWitness,
   type Capsule,
   Note,
   type NoteStatus,
   PublicExecutionRequest,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
+import { type AuthWitness } from '@aztec/circuit-types/auth-witness';
 import {
   type AztecNode,
   CountedContractClassLog,

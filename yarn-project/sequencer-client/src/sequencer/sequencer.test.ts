@@ -6,7 +6,6 @@ import {
   type L1ToL2MessageSource,
   L2Block,
   type L2BlockSource,
-  type MerkleTreeId,
   type Tx,
   TxHash,
   makeProcessedTxFromPrivateOnlyTx,
@@ -26,6 +25,7 @@ import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import type { ContractDataSource } from '@aztec/circuits.js/contract';
 import { Gas, GasFees } from '@aztec/circuits.js/gas';
 import { makeAppendOnlyTreeSnapshot } from '@aztec/circuits.js/testing';
+import { type MerkleTreeId } from '@aztec/circuits.js/trees';
 import { BlockHeader, GlobalVariables } from '@aztec/circuits.js/tx';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';

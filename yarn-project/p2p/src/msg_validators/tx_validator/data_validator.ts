@@ -1,4 +1,5 @@
 import { Tx, type TxValidationResult, type TxValidator } from '@aztec/circuit-types';
+import { MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 
 export class DataTxValidator implements TxValidator<Tx> {
@@ -20,6 +21,15 @@ export class DataTxValidator implements TxValidator<Tx> {
         }. Got ${tx.enqueuedPublicFunctionCalls.length}.`,
       );
       return { result: 'invalid', reason: ['Wrong number of execution requests for public calls'] };
+    }
+
+    if (tx.getTotalPublicArgsCount() > MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS) {
+      this.#log.warn(
+        `Rejecting tx ${await Tx.getHash(
+          tx,
+        )} because the total length of args to public enqueued calls is greater than ${MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS}`,
+      );
+      return { result: 'invalid', reason: ['Too many args in total to enqueued public calls'] };
     }
     const invalidExecutionRequestIndex = (
       await Promise.all(

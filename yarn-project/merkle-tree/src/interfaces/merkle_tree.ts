@@ -1,5 +1,5 @@
-import { type SiblingPath } from '@aztec/circuit-types';
 import { type Bufferable } from '@aztec/foundation/serialize';
+import { type SiblingPath } from '@aztec/foundation/trees';
 
 /**
  * Defines the interface for a source of sibling paths.

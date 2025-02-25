@@ -11,7 +11,7 @@ import { type FieldsOf } from '@aztec/foundation/types';
 import { inspect } from 'util';
 import { z } from 'zod';
 
-import { AuthWitness } from './auth_witness.js';
+import { AuthWitness } from './auth_witness/auth_witness.js';
 import { Capsule } from './capsule.js';
 import { HashedValues } from './hashed_values.js';
 

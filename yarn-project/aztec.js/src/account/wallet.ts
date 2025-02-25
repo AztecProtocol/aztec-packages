@@ -1,4 +1,4 @@
-import { type AuthWitness } from '@aztec/circuit-types';
+import { type AuthWitness } from '@aztec/circuit-types/auth-witness';
 import { type PXE } from '@aztec/circuit-types/interfaces/client';
 
 import { type IntentAction, type IntentInnerHash } from '../utils/authwit.js';

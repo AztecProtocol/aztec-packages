@@ -1,7 +1,7 @@
-import { type NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/server';
 import type { FunctionSelector } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type ContractInstanceWithAddress } from '@aztec/circuits.js/contract';
+import { type NullifierMembershipWitness } from '@aztec/circuits.js/trees';
 import { type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { type Fr } from '@aztec/foundation/fields';
 

@@ -121,12 +121,12 @@ case "$cmd" in
     sleep 1
     gh pr edit "$pr_number" --remove-label "trigger-workflow" &> /dev/null
     run_id=$(get_latest_run_id)
-    echo "In progress..." | redis_cli -x SETEX $run_id 3600 &> /dev/null
+    echo "In progress..." | redis_setexz $run_id 3600
     echo -e "Triggered CI for PR: $pr_number (ci rlog ${yellow}$run_id${reset})"
     ;;
   "rlog")
     [ -z "${1:-}" ] && run_id=$(get_latest_run_id) || run_id=$1
-    output=$(redis_cli GET $run_id)
+    output=$(redis_getz $run_id)
     if [ -z "$output" ] || [ "$output" == "In progress..." ]; then
       # If we're in progress, tail live logs from launched instance.
       exec $0 ilog
@@ -147,7 +147,7 @@ case "$cmd" in
     fi
     pager=${PAGER:-less}
     [ ! -t 0 ] && pager=cat
-    redis_cli GET $1 | $pager
+    redis_getz $1 | $pager
     ;;
   "tlog")
     if [ "$CI_REDIS_AVAILABLE" -ne 1 ]; then
@@ -158,7 +158,7 @@ case "$cmd" in
     key=$(hash_str "$1")
     log_key=$(redis_cli --raw GET $key)
     if [ -n "$log_key" ]; then
-      redis_cli GET $log_key | $pager
+      redis_getz $log_key | $pager
     else
       echo "No test log found for: $key"
       exit 1

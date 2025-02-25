@@ -5,10 +5,9 @@ import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
+import { SiblingPath } from '@aztec/foundation/trees';
 
 import { z } from 'zod';
-
-import { SiblingPath } from './sibling_path/sibling_path.js';
 
 /**
  * Public data witness.

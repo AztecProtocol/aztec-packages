@@ -1,4 +1,3 @@
-import { type MerkleTreeId } from '@aztec/circuit-types';
 import {
   type ProofAndVerificationKey,
   type PublicInputsAndRecursiveProof,
@@ -10,7 +9,7 @@ import {
   RootRollupInputs,
   type RootRollupPublicInputs,
 } from '@aztec/circuits.js/rollup';
-import { type AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
+import { type AppendOnlyTreeSnapshot, type MerkleTreeId } from '@aztec/circuits.js/trees';
 import { type BlockHeader, type GlobalVariables } from '@aztec/circuits.js/tx';
 import {
   type ARCHIVE_HEIGHT,

@@ -1,5 +1,4 @@
 import {
-  MerkleTreeId,
   SimulationError,
   type Tx,
   TxExecutionPhase,
@@ -16,7 +15,7 @@ import { Gas, GasFees, GasSettings } from '@aztec/circuits.js/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { ScopedLogHash, countAccumulatedItems } from '@aztec/circuits.js/kernel';
 import { fr, makeContractClassPublic } from '@aztec/circuits.js/testing';
-import { AppendOnlyTreeSnapshot, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
+import { AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { BlockHeader, GlobalVariables, PartialStateReference, StateReference } from '@aztec/circuits.js/tx';
 import { NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, REGISTERER_CONTRACT_ADDRESS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';

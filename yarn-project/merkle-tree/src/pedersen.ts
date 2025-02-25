@@ -1,6 +1,6 @@
-import { type Hasher } from '@aztec/circuits.js/interfaces';
 import { pedersenHash } from '@aztec/foundation/crypto/sync';
 import { Fr } from '@aztec/foundation/fields';
+import { type Hasher } from '@aztec/foundation/trees';
 
 /**
  * A helper class encapsulating Pedersen hash functionality.

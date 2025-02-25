@@ -1,5 +1,4 @@
 import {
-  type AuthWitness,
   EventMetadata,
   type FunctionCall,
   type GetContractClassLogsResponse,
@@ -11,7 +10,6 @@ import {
   type NotesFilter,
   PrivateSimulationResult,
   type PublicSimulationOutput,
-  type SiblingPath,
   SimulationError,
   type Tx,
   type TxEffect,
@@ -23,6 +21,7 @@ import {
   UniqueNote,
   getNonNullifiedL1ToL2MessageWitness,
 } from '@aztec/circuit-types';
+import { type AuthWitness } from '@aztec/circuit-types/auth-witness';
 import {
   type AztecNode,
   type EventMetadataDefinition,
@@ -58,6 +57,7 @@ import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { Fr, type Point } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import { type SiblingPath } from '@aztec/foundation/trees';
 import { type KeyStore } from '@aztec/key-store';
 import { type L2TipsStore } from '@aztec/kv-store/stores';
 import { ProtocolContractAddress, protocolContractNames } from '@aztec/protocol-contracts';

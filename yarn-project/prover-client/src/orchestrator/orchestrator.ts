@@ -1,4 +1,4 @@
-import { L2Block, MerkleTreeId, type ProcessedTx, type Tx, toNumBlobFields } from '@aztec/circuit-types';
+import { L2Block, type ProcessedTx, type Tx, toNumBlobFields } from '@aztec/circuit-types';
 import {
   type EpochProver,
   type ForkMerkleTreeOperations,
@@ -16,7 +16,7 @@ import {
   SingleTxBlockRootRollupInputs,
   TubeInputs,
 } from '@aztec/circuits.js/rollup';
-import { type AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
+import { type AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/circuits.js/trees';
 import { type BlockHeader, type GlobalVariables } from '@aztec/circuits.js/tx';
 import { VerificationKeyData } from '@aztec/circuits.js/vks';
 import {

@@ -1,4 +1,4 @@
-import { AuthWitness } from '@aztec/circuit-types';
+import { AuthWitness } from '@aztec/circuit-types/auth-witness';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { parseAztecAddress, parseSecretKey, parseTxHash } from '@aztec/cli/utils';
 

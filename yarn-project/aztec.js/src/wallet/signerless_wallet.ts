@@ -1,4 +1,5 @@
-import { type AuthWitness, type TxExecutionRequest } from '@aztec/circuit-types';
+import { type TxExecutionRequest } from '@aztec/circuit-types';
+import { AuthWitness } from '@aztec/circuit-types/auth-witness';
 import { type PXE } from '@aztec/circuit-types/interfaces/client';
 import { type CompleteAddress } from '@aztec/circuits.js/contract';
 import type { Fr } from '@aztec/foundation/fields';
