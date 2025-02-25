@@ -1,4 +1,7 @@
-use crate::{note::{note_interface::NoteType, retrieved_note::RetrievedNote}, utils::array};
+use crate::{
+    note::{note_interface::NoteType, note_metadata::NoteMetadata, retrieved_note::RetrievedNote},
+    utils::array,
+};
 
 use dep::protocol_types::{
     address::AztecAddress,

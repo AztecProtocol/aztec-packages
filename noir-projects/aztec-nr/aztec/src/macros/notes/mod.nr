@@ -118,14 +118,17 @@ comptime fn generate_note_hashing(s: StructDefinition) -> Quoted {
                 contract_address: aztec::prelude::AztecAddress,
                 note_nonce: Field,
             ) -> Field {
-                // We set the note_hash_counter to 0 as the note is assumed to be committed (and hence not transient).
-                let retrieved_note =
-                    aztec::prelude::RetrievedNote { note: self, contract_address, nonce: note_nonce, note_hash_counter: 0 };
+                let retrieved_note = aztec::prelude::RetrievedNote {
+                    note: self,
+                    contract_address,
+                    metadata: aztec::note::note_metadata::SettledNoteMetadata::new(note_nonce).into(),
+                };
                 let note_hash_for_nullify = aztec::note::utils::compute_note_hash_for_nullify(retrieved_note, storage_slot);
                 let owner_npk_m = aztec::keys::getters::get_public_keys(self.owner).npk_m;
                 // We invoke hash as a static trait function rather than calling owner_npk_m.hash() directly
                 // in the quote to avoid "trait not in scope" compiler warnings.
-                let owner_npk_m_hash = aztec::protocol_types::traits::Hash::hash(owner_npk_m);                let secret = aztec::keys::getters::get_nsk_app(owner_npk_m_hash);
+                let owner_npk_m_hash = aztec::protocol_types::traits::Hash::hash(owner_npk_m);
+                let secret = aztec::keys::getters::get_nsk_app(owner_npk_m_hash);
                 aztec::protocol_types::hash::poseidon2_hash_with_separator(
                     [note_hash_for_nullify, secret],
                     aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER as Field,
@@ -233,9 +236,11 @@ comptime fn generate_note_hashing_for_partial_note(
                 contract_address: aztec::prelude::AztecAddress,
                 note_nonce: Field,
             ) -> Field {
-                // We set the note_hash_counter to 0 as the note is assumed to be committed (and hence not transient).
-                let retrieved_note =
-                    aztec::prelude::RetrievedNote { note: self, contract_address, nonce: note_nonce, note_hash_counter: 0 };
+                let retrieved_note = aztec::prelude::RetrievedNote {
+                    note: self,
+                    contract_address,
+                    metadata: aztec::note::note_metadata::SettledNoteMetadata::new(note_nonce).into(),
+                };
                 let note_hash_for_nullify = aztec::note::utils::compute_note_hash_for_nullify(retrieved_note, storage_slot);
                 let owner_npk_m = aztec::keys::getters::get_public_keys(self.owner).npk_m;
                 // We invoke hash as a static trait function rather than calling owner_npk_m.hash() directly in
