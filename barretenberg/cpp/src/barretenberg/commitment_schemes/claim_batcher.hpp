@@ -123,6 +123,79 @@ template <typename Curve> struct ClaimBatcher_ {
             aggregate_claim_data_and_update_batched_evaluation(*right_shifted_by_k, rho_power);
         }
     }
+
+    /**
+     * @brief The verifier needs to compute 2^{num_polys_in_group} evaluations of the multilinear Lagranges at (u_{n},
+     * u_{n+1}, ..., u_{n + num_polys_in_group -1 }). Here is the optimal solution in terms of field ops.
+     *
+     * @param extra_challenges
+     * @return std::vector<Fr>
+     */
+    static std::vector<Fr> compute_lagranges_for_multi_claim(std::vector<Fr>& extra_challenges)
+    {
+        std::vector<Fr> lagrange_coeffs(1);
+
+        lagrange_coeffs[0] = Fr{ 1 };
+
+        // Repeatedly "double" the vector by multiplying half by (1 - u_j) and half by u_j
+        for (size_t j = 0; j < extra_challenges.size(); ++j) {
+            Fr current_challenge = extra_challenges[j];
+            size_t old_size = lagrange_coeffs.size();
+            std::vector<Fr> lagrange_coeffs_next(old_size * 2);
+
+            for (size_t i = 0; i < old_size; ++i) {
+                lagrange_coeffs_next[i] = lagrange_coeffs[i] * (Fr(1) - current_challenge);
+                lagrange_coeffs_next[i + old_size] = lagrange_coeffs[i] * current_challenge;
+            }
+            lagrange_coeffs = std::move(lagrange_coeffs_next);
+        }
+
+        return lagrange_coeffs;
+    }
+
+    /**
+     * @brief The verifier needs to `parse` prover's claimed evaluations by grouping them by 2^{num_polys_in_group} and
+     * taking the sums of elements in each group multiplied by the corresponding Lagrange coefficient. I.e. the
+     * evaluation of the i'th poly in a group is multiplied by L_i evaluated at the `extra_challenges`.
+     *
+     * @param num_polys_in_group
+     * @param lagrange_coeffs
+     */
+    static std::pair<RefVector<Fr>, RefVector<Fr>> combine_from_chunks(RefVector<Fr> unshifted_evaluations,
+                                                                       RefVector<Fr> shifted_evaluations,
+                                                                       const size_t num_polys_in_group,
+                                                                       std::vector<Fr>& lagrange_coeffs)
+    {
+        size_t num_unshifted_concatenated = unshifted_evaluations.size() / num_polys_in_group;
+
+        std::vector<Fr> unshifted_concatenated_evaluations;
+        for (size_t group_idx = 0; group_idx < num_unshifted_concatenated; group_idx++) {
+            Fr combined_eval = Fr{ 0 };
+            for (size_t chunk_idx = 0; chunk_idx < num_polys_in_group; chunk_idx++) {
+                combined_eval +=
+                    unshifted_evaluations[chunk_idx + num_polys_in_group * group_idx] * lagrange_coeffs[chunk_idx];
+            }
+
+            unshifted_concatenated_evaluations.push_back(combined_eval);
+        }
+
+        const size_t num_shifted_evals = shifted_evaluations.size() / num_polys_in_group;
+        std::vector<Fr> shifted_concatenated_evaluations;
+
+        for (size_t group_idx = 0; group_idx < num_shifted_evals; group_idx++) {
+            Fr combined_eval = Fr{ 0 };
+
+            for (size_t chunk_idx = 0; chunk_idx < num_polys_in_group; chunk_idx++) {
+                combined_eval +=
+                    shifted_evaluations[chunk_idx + num_polys_in_group * group_idx] * lagrange_coeffs[chunk_idx];
+            }
+
+            shifted_concatenated_evaluations.push_back(combined_eval);
+        }
+
+        return std::make_pair<RefVector<Fr>, RefVector<Fr>>(RefVector(unshifted_concatenated_evaluations),
+                                                            RefVector(shifted_concatenated_evaluations));
+    }
 };
 
 } // namespace bb
