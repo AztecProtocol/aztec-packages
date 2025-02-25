@@ -25,4 +25,4 @@ The account interface is used for creating an _execution request_ out of one or 
 
 A wallet exposes the PXE interface to dapps by running a PXE instance. The PXE requires a keystore and a database implementation for storing keys, private state, and recipient encryption public keys.
 
-#include_code pxe-interface /yarn-project/circuit-types/src/interfaces/pxe.ts typescript
+#include_code pxe-interface /yarn-project/circuits.js/src/interfaces/pxe.ts typescript
