@@ -75,7 +75,6 @@ describe('e2e_contract_updates', () => {
     ({ teardown, wallet } = await setup(1, {
       genesisPublicData,
       initialFundedAccounts,
-      assumeProvenThrough: Number.MAX_SAFE_INTEGER,
     }));
 
     contract = await UpdatableContract.deploy(wallet, constructorArgs[0])
