@@ -36,7 +36,7 @@ export async function createStore(
             found: localRollupAddress,
           });
 
-          await rm(subDir, { recursive: true, force: true });
+          await rm(subDir, { recursive: true, force: true, maxRetries: 3 });
           await mkdir(subDir, { recursive: true });
         }
 
@@ -68,8 +68,12 @@ export async function openTmpStore(
   // pass a cleanup callback because process.on('beforeExit', cleanup) does not work under Jest
   const cleanup = async () => {
     if (ephemeral) {
-      await rm(dataDir, { recursive: true, force: true });
-      log.debug(`Deleted temporary data store: ${dataDir}`);
+      try {
+        await rm(dataDir, { recursive: true, force: true, maxRetries: 3 });
+        log.debug(`Deleted temporary data store: ${dataDir}`);
+      } catch (err) {
+        log.warn(`Failed to delete temporary data directory (LMDB v2) ${dataDir}: ${err}`);
+      }
     } else {
       log.debug(`Leaving temporary data store: ${dataDir}`);
     }

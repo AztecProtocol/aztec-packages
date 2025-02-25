@@ -70,13 +70,13 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
 
     if (!storedWorldStateVersion) {
       log.warn('No world state version found, deleting world state directory');
-      await rm(worldStateDirectory, { recursive: true, force: true });
+      await rm(worldStateDirectory, { recursive: true, force: true, maxRetries: 3 });
     } else if (!rollupAddress.equals(storedWorldStateVersion.rollupAddress)) {
       log.warn('Rollup address changed, deleting world state directory');
-      await rm(worldStateDirectory, { recursive: true, force: true });
+      await rm(worldStateDirectory, { recursive: true, force: true, maxRetries: 3 });
     } else if (storedWorldStateVersion.version != WORLD_STATE_DB_VERSION) {
       log.warn('World state version change detected, deleting world state directory');
-      await rm(worldStateDirectory, { recursive: true, force: true });
+      await rm(worldStateDirectory, { recursive: true, force: true, maxRetries: 3 });
     }
 
     const newWorldStateVersion = new WorldStateVersion(WORLD_STATE_DB_VERSION, rollupAddress);
@@ -110,7 +110,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     // pass a cleanup callback because process.on('beforeExit', cleanup) does not work under Jest
     const cleanup = async () => {
       if (cleanupTmpDir) {
-        await rm(dataDir, { recursive: true, force: true });
+        await rm(dataDir, { recursive: true, force: true, maxRetries: 3 });
         log.debug(`Deleted temporary world state database: ${dataDir}`);
       } else {
         log.debug(`Leaving temporary world state database: ${dataDir}`);

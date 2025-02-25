@@ -46,7 +46,7 @@ async function clearDestDir() {
   try {
     await fs.access(destArtifactsDir);
     // If the directory exists, remove it recursively.
-    await fs.rm(destArtifactsDir, { recursive: true, force: true });
+    await fs.rm(destArtifactsDir, { recursive: true, force: true, maxRetries: 3 });
   } catch (err: any) {
     if (err.code === 'ENOENT') {
       // If the directory does not exist, do nothing.
