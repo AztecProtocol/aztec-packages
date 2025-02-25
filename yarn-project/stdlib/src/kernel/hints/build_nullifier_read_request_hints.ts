@@ -4,8 +4,8 @@ import {
   type NULLIFIER_TREE_HEIGHT,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { type Fr } from '@aztec/foundation/fields';
-import { type Tuple } from '@aztec/foundation/serialize';
+import type { Fr } from '@aztec/foundation/fields';
+import type { Tuple } from '@aztec/foundation/serialize';
 import { type IndexedTreeLeafPreimage, MembershipWitness } from '@aztec/foundation/trees';
 
 import { AztecAddress } from '../../aztec-address/index.js';

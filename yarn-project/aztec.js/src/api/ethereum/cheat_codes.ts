@@ -1,5 +1,5 @@
 import { EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
-import { type L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { RollupAbi, RollupStorage } from '@aztec/l1-artifacts';

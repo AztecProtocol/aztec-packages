@@ -1,6 +1,6 @@
 import { addLogNameHandler } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { type AztecAsyncKVStore } from '@aztec/kv-store';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import { getTelemetryClient } from '@aztec/telemetry-client';

@@ -1,10 +1,10 @@
 import { Fr } from '@aztec/foundation/fields';
-import { type ContractArtifact } from '@aztec/stdlib/abi';
+import type { ContractArtifact } from '@aztec/stdlib/abi';
 import type { CompleteAddress, NodeInfo } from '@aztec/stdlib/contract';
 import { getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
 import { deriveKeys } from '@aztec/stdlib/keys';
 
-import { type AccountInterface, type AuthWitnessProvider } from './interface.js';
+import type { AccountInterface, AuthWitnessProvider } from './interface.js';
 
 // docs:start:account-contract-interface
 /**

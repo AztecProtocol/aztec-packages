@@ -13,17 +13,17 @@ import {
   computePublicBytecodeCommitment,
 } from '@aztec/stdlib/contract';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
-import {
-  type MerkleTreeCheckpointOperations,
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
+import type {
+  MerkleTreeCheckpointOperations,
+  MerkleTreeReadOperations,
+  MerkleTreeWriteOperations,
 } from '@aztec/stdlib/interfaces/server';
 import { ContractClassTxL2Logs } from '@aztec/stdlib/logs';
-import { type PublicDBAccessStats } from '@aztec/stdlib/stats';
+import type { PublicDBAccessStats } from '@aztec/stdlib/stats';
 import { MerkleTreeId, type PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
-import { type Tx } from '@aztec/stdlib/tx';
+import type { Tx } from '@aztec/stdlib/tx';
 
-import { type PublicContractsDB, type PublicStateDB } from './db_interfaces.js';
+import type { PublicContractsDB, PublicStateDB } from './db_interfaces.js';
 
 /**
  * Implements the PublicContractsDB using a ContractDataSource.

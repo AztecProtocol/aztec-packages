@@ -16,7 +16,7 @@ import type { AbiDecoded } from '../abi/decoder.js';
 import { EventSelector } from '../abi/event_selector.js';
 import { AuthWitness } from '../auth_witness/auth_witness.js';
 import { AztecAddress } from '../aztec-address/index.js';
-import { type InBlock } from '../block/in_block.js';
+import type { InBlock } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
 import {
   CompleteAddress,
@@ -33,13 +33,13 @@ import { ExtendedPublicLog } from '../logs/extended_public_log.js';
 import { ExtendedUnencryptedL2Log } from '../logs/extended_unencrypted_l2_log.js';
 import type { LogFilter } from '../logs/log_filter.js';
 import { UniqueNote } from '../note/index.js';
-import { type NotesFilter } from '../note/notes_filter.js';
+import type { NotesFilter } from '../note/notes_filter.js';
 import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
 import { getTokenContractArtifact } from '../tests/fixtures.js';
 import { PrivateExecutionResult, Tx, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '../tx/index.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxExecutionRequest } from '../tx/tx_execution_request.js';
-import { type GetContractClassLogsResponse, type GetPublicLogsResponse } from './get_logs_response.js';
+import type { GetContractClassLogsResponse, GetPublicLogsResponse } from './get_logs_response.js';
 import {
   type ContractClassMetadata,
   type ContractMetadata,

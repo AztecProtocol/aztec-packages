@@ -9,7 +9,7 @@ import { type FunctionArtifact, FunctionSelector, FunctionType } from '@aztec/st
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2Block, randomInBlock, wrapInBlock } from '@aztec/stdlib/block';
 import { CompleteAddress } from '@aztec/stdlib/contract';
-import { type AztecNode } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { computeAddress, computeTaggingSecretPoint, deriveKeys } from '@aztec/stdlib/keys';
 import { EncryptedLogPayload, IndexedTaggingSecret, L1NotePayload, PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { Note } from '@aztec/stdlib/note';
@@ -19,7 +19,7 @@ import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type PxeDatabase } from '../database/index.js';
+import type { PxeDatabase } from '../database/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
 import { ContractDataOracle } from '../index.js';
 import { SimulatorOracle } from './index.js';

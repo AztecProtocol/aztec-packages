@@ -7,7 +7,7 @@ import { AztecAddress } from '../aztec-address/index.js';
 import { computeAddress, computePreaddress, deriveKeys } from '../keys/index.js';
 import { PublicKeys } from '../keys/public_keys.js';
 import { computePartialAddress } from './contract_address.js';
-import { type PartialAddress } from './partial_address.js';
+import type { PartialAddress } from './partial_address.js';
 
 /**
  * A complete address is a combination of an Aztec address, a public key and a partial address.

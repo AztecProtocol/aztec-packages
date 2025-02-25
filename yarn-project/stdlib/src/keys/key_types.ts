@@ -1,4 +1,4 @@
-import { type GeneratorIndex } from '@aztec/constants';
+import type { GeneratorIndex } from '@aztec/constants';
 
 export type KeyGenerator = GeneratorIndex.NSK_M | GeneratorIndex.IVSK_M | GeneratorIndex.OVSK_M | GeneratorIndex.TSK_M;
 export type KeyPrefix = 'n' | 'iv' | 'ov' | 't';

@@ -1,13 +1,13 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256, recoverAddress } from '@aztec/foundation/crypto';
-import { type EthAddress } from '@aztec/foundation/eth-address';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
-import { type Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';
 
-import { type ZodFor } from '../schemas/index.js';
+import type { ZodFor } from '../schemas/index.js';
 import { ConsensusPayload } from './consensus_payload.js';
 import { Gossipable } from './gossipable.js';
 import { SignatureDomainSeparator, getHashedSignaturePayloadEthSignedMessage } from './signature_utils.js';

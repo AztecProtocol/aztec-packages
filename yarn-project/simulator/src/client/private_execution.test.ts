@@ -11,7 +11,7 @@ import { poseidon2Hash, poseidon2HashWithSeparator, randomInt } from '@aztec/fou
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { FieldsOf } from '@aztec/foundation/types';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import { ChildContractArtifact } from '@aztec/noir-contracts.js/Child';
@@ -46,7 +46,7 @@ import {
   deriveStorageSlotInMap,
   siloNoteHash,
 } from '@aztec/stdlib/hash';
-import { type AztecNode } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { KeyValidationRequest, getNonEmptyItems } from '@aztec/stdlib/kernel';
 import { computeAppNullifierSecretKey, deriveKeys } from '@aztec/stdlib/keys';
 import { IndexedTaggingSecret, TxScopedL2Log } from '@aztec/stdlib/logs';
@@ -73,7 +73,7 @@ import { toFunctionSelector } from 'viem';
 import { MessageLoadOracleInputs } from '../common/message_load_oracle_inputs.js';
 import { WASMSimulator } from '../providers/acvm_wasm.js';
 import { buildL1ToL2Message } from '../test/utils.js';
-import { type DBOracle } from './db_oracle.js';
+import type { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
 
 jest.setTimeout(60_000);

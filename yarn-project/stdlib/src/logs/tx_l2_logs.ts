@@ -8,7 +8,7 @@ import { z } from 'zod';
 
 import type { LogHash, ScopedLogHash } from '../kernel/log_hash.js';
 import { UnencryptedFunctionL2Logs } from './function_l2_logs.js';
-import { type UnencryptedL2Log } from './unencrypted_l2_log.js';
+import type { UnencryptedL2Log } from './unencrypted_l2_log.js';
 
 /**
  * Data container of logs emitted in 1 tx.

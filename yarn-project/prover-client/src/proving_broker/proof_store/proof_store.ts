@@ -1,10 +1,10 @@
-import {
-  type ProofUri,
-  type ProvingJobId,
-  type ProvingJobInputs,
-  type ProvingJobInputsMap,
-  type ProvingJobResult,
-  type ProvingJobResultsMap,
+import type {
+  ProofUri,
+  ProvingJobId,
+  ProvingJobInputs,
+  ProvingJobInputsMap,
+  ProvingJobResult,
+  ProvingJobResultsMap,
 } from '@aztec/stdlib/interfaces/server';
 import type { ProvingRequestType } from '@aztec/stdlib/proofs';
 

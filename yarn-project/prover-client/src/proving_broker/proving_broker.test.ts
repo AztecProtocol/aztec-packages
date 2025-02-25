@@ -1,10 +1,5 @@
 import { sleep } from '@aztec/foundation/sleep';
-import {
-  type ProofUri,
-  type ProvingJob,
-  type ProvingJobId,
-  type ProvingJobStatus,
-} from '@aztec/stdlib/interfaces/server';
+import type { ProofUri, ProvingJob, ProvingJobId, ProvingJobStatus } from '@aztec/stdlib/interfaces/server';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 
 import { jest } from '@jest/globals';
@@ -15,7 +10,7 @@ import { join } from 'path';
 import { type ProverBrokerConfig, defaultProverBrokerConfig } from './config.js';
 import { makeInputsUri, makeOutputsUri, makeRandomProvingJobId } from './fixtures.js';
 import { ProvingBroker } from './proving_broker.js';
-import { type ProvingBrokerDatabase } from './proving_broker_database.js';
+import type { ProvingBrokerDatabase } from './proving_broker_database.js';
 import { InMemoryBrokerDatabase } from './proving_broker_database/memory.js';
 import { KVBrokerDatabase } from './proving_broker_database/persisted.js';
 

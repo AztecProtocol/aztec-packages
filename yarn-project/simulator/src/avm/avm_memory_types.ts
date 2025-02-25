@@ -10,7 +10,7 @@ import {
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { type FunctionsOf } from '@aztec/foundation/types';
+import type { FunctionsOf } from '@aztec/foundation/types';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { strict as assert } from 'assert';

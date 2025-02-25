@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
-import { type ZodFor } from '../../schemas/schemas.js';
-import { type ProcessedTx } from '../processed_tx.js';
-import { type Tx } from '../tx.js';
+import type { ZodFor } from '../../schemas/schemas.js';
+import type { ProcessedTx } from '../processed_tx.js';
+import type { Tx } from '../tx.js';
 
 export type AnyTx = Tx | ProcessedTx;
 

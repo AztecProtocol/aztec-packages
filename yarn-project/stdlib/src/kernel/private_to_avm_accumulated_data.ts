@@ -18,7 +18,7 @@ import {
 import { inspect } from 'util';
 
 import { ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
-import { type UInt32 } from '../types/shared.js';
+import type { UInt32 } from '../types/shared.js';
 
 export class PrivateToAvmAccumulatedData {
   constructor(

@@ -1,6 +1,6 @@
 import { type AccountWallet, type AztecAddress, PublicFeePaymentMethod } from '@aztec/aztec.js';
-import { type FPCContract } from '@aztec/noir-contracts.js/FPC';
-import { type TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
+import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
+import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import { GasSettings } from '@aztec/stdlib/gas';
 
 import { expectMapping } from '../fixtures/utils.js';

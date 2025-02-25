@@ -1,4 +1,4 @@
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { FieldsOf } from '@aztec/foundation/types';
 
 import {
   type DimensionName,

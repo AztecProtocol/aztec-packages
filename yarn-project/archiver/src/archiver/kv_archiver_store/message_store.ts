@@ -4,7 +4,7 @@ import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@aztec/kv-store';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
 
-import { type DataRetrieval } from '../structs/data_retrieval.js';
+import type { DataRetrieval } from '../structs/data_retrieval.js';
 
 /**
  * LMDB implementation of the ArchiverDataStore interface.

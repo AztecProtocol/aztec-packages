@@ -1,6 +1,6 @@
 import { createEthereumChain } from '@aztec/ethereum';
-import { type EthAddress } from '@aztec/foundation/eth-address';
-import { type LogFn } from '@aztec/foundation/log';
+import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { LogFn } from '@aztec/foundation/log';
 import { TestERC20Abi } from '@aztec/l1-artifacts';
 
 import { createPublicClient, getContract, http } from 'viem';

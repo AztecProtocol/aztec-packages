@@ -1,4 +1,4 @@
-import { type Buffer32 } from '@aztec/foundation/buffer';
+import type { Buffer32 } from '@aztec/foundation/buffer';
 
 /**
  * Gossipable

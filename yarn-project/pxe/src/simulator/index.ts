@@ -1,9 +1,9 @@
-import { type KeyStore } from '@aztec/key-store';
+import type { KeyStore } from '@aztec/key-store';
 import { AcirSimulator, type SimulationProvider } from '@aztec/simulator/client';
-import { type AztecNode } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { type PxeDatabase } from '../database/pxe_database.js';
+import type { PxeDatabase } from '../database/pxe_database.js';
 import { SimulatorOracle } from '../simulator_oracle/index.js';
 
 /**

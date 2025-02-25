@@ -1,12 +1,12 @@
-import { type EpochCache } from '@aztec/epoch-cache';
+import type { EpochCache } from '@aztec/epoch-cache';
 import { timesParallel } from '@aztec/foundation/collection';
-import { type DataStoreConfig } from '@aztec/kv-store/config';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { type L2BlockSource } from '@aztec/stdlib/block';
+import type { L2BlockSource } from '@aztec/stdlib/block';
 import { type ChainConfig, emptyChainConfig } from '@aztec/stdlib/config';
-import { type ClientProtocolCircuitVerifier, type WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { type P2PClientType } from '@aztec/stdlib/p2p';
-import { type Tx } from '@aztec/stdlib/tx';
+import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type { P2PClientType } from '@aztec/stdlib/p2p';
+import type { Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { SignableENR } from '@chainsafe/enr';
@@ -15,7 +15,7 @@ import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
 import { identify } from '@libp2p/identify';
-import { type PeerId } from '@libp2p/interface';
+import type { PeerId } from '@libp2p/interface';
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { tcp } from '@libp2p/tcp';
 import { multiaddr } from '@multiformats/multiaddr';
@@ -23,12 +23,12 @@ import getPort from 'get-port';
 import { type Libp2p, type Libp2pOptions, createLibp2p } from 'libp2p';
 
 import { BootstrapNode } from '../bootstrap/bootstrap.js';
-import { type BootnodeConfig, type P2PConfig } from '../config.js';
-import { type MemPools } from '../mem_pools/interface.js';
+import type { BootnodeConfig, P2PConfig } from '../config.js';
+import type { MemPools } from '../mem_pools/interface.js';
 import { DiscV5Service } from '../services/discv5/discV5_service.js';
 import { LibP2PService } from '../services/libp2p/libp2p_service.js';
-import { type PeerScoring } from '../services/peer-manager/peer_scoring.js';
-import { type P2PReqRespConfig } from '../services/reqresp/config.js';
+import type { PeerScoring } from '../services/peer-manager/peer_scoring.js';
+import type { P2PReqRespConfig } from '../services/reqresp/config.js';
 import {
   ReqRespSubProtocol,
   type ReqRespSubProtocolHandlers,

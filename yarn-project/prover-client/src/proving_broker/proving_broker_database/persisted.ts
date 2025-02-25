@@ -15,8 +15,8 @@ import { Attributes, LmdbMetrics, type TelemetryClient, getTelemetryClient } fro
 import { mkdir, readdir } from 'fs/promises';
 import { join } from 'path';
 
-import { type ProverBrokerConfig } from '../config.js';
-import { type ProvingBrokerDatabase } from '../proving_broker_database.js';
+import type { ProverBrokerConfig } from '../config.js';
+import type { ProvingBrokerDatabase } from '../proving_broker_database.js';
 
 class SingleEpochDatabase {
   private jobs: AztecAsyncMap<ProvingJobId, string>;

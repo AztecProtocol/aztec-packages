@@ -1,5 +1,5 @@
-import { type NullifierSource } from '@aztec/p2p';
-import { type MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
+import type { NullifierSource } from '@aztec/p2p';
+import type { MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 /**

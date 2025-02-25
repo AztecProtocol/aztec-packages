@@ -7,7 +7,7 @@ import {
 } from '@aztec/archiver';
 import { createLogger } from '@aztec/aztec.js';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
-import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
+import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { ArchiverApiSchema } from '@aztec/stdlib/interfaces/server';

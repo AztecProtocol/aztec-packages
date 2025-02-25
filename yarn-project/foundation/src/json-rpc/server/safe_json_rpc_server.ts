@@ -4,7 +4,7 @@ import { type default as Application, default as Koa } from 'koa';
 import bodyParser from 'koa-bodyparser';
 import compress from 'koa-compress';
 import Router from 'koa-router';
-import { type AddressInfo } from 'net';
+import type { AddressInfo } from 'net';
 import { format, inspect } from 'util';
 import { ZodError } from 'zod';
 

@@ -1,7 +1,7 @@
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { type ChainConfig } from '@aztec/stdlib/config';
+import type { ChainConfig } from '@aztec/stdlib/config';
 import {
   type ComponentsVersions,
   checkCompressedComponentVersion,
@@ -9,7 +9,7 @@ import {
   getComponentsVersionsFromConfig,
 } from '@aztec/stdlib/versioning';
 
-import { type SignableENR } from '@chainsafe/enr';
+import type { SignableENR } from '@chainsafe/enr';
 import xxhashFactory from 'xxhash-wasm';
 
 import { AZTEC_ENR_KEY } from './services/types.js';

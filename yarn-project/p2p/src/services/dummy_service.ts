@@ -5,7 +5,7 @@ import { TxHash } from '@aztec/stdlib/tx';
 import type { PeerId } from '@libp2p/interface';
 import EventEmitter from 'events';
 
-import { type ReqRespSubProtocol, type SubProtocolMap } from './reqresp/interface.js';
+import type { ReqRespSubProtocol, SubProtocolMap } from './reqresp/interface.js';
 import { type P2PService, type PeerDiscoveryService, PeerDiscoveryState } from './service.js';
 
 /**

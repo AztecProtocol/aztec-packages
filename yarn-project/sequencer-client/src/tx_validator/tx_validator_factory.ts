@@ -9,13 +9,13 @@ import {
 } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { readPublicState } from '@aztec/simulator/server';
-import { type AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type ContractDataSource } from '@aztec/stdlib/contract';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { GasFees } from '@aztec/stdlib/gas';
-import {
-  type AllowedElement,
-  type ClientProtocolCircuitVerifier,
-  type MerkleTreeReadOperations,
+import type {
+  AllowedElement,
+  ClientProtocolCircuitVerifier,
+  MerkleTreeReadOperations,
 } from '@aztec/stdlib/interfaces/server';
 import { GlobalVariables, type ProcessedTx, type Tx, type TxValidator } from '@aztec/stdlib/tx';
 

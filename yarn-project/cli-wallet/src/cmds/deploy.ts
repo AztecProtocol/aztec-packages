@@ -1,6 +1,6 @@
 import { type AccountWalletWithSecretKey, ContractDeployer, type DeployMethod, Fr, type PXE } from '@aztec/aztec.js';
 import { GITHUB_TAG_PREFIX, encodeArgs, getContractArtifact } from '@aztec/cli/utils';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 import { getInitializer } from '@aztec/stdlib/abi';
 import { PublicKeys } from '@aztec/stdlib/keys';
 

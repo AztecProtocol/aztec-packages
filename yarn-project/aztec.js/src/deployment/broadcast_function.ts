@@ -15,8 +15,8 @@ import {
 } from '@aztec/stdlib/contract';
 import { Capsule } from '@aztec/stdlib/tx';
 
-import { type ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
-import { type Wallet } from '../wallet/index.js';
+import type { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
+import type { Wallet } from '../wallet/index.js';
 import { getRegistererContract } from './protocol_contracts.js';
 
 /**

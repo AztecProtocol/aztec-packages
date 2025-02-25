@@ -7,7 +7,7 @@ import { type ContractArtifact, type FunctionArtifact, FunctionSelector } from '
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { isNoirCallStackUnresolved } from '@aztec/stdlib/errors';
 import { GasFees } from '@aztec/stdlib/gas';
-import { type MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { GlobalVariables } from '@aztec/stdlib/tx';
 
 import { strict as assert } from 'assert';
@@ -15,13 +15,13 @@ import { mock } from 'jest-mock-extended';
 import merge from 'lodash.merge';
 
 import { resolveAssertionMessageFromRevertData, traverseCauseChain } from '../../common.js';
-import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
+import type { PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
 import { AvmSimulator, type WorldStateDB } from '../../server.js';
 import { AvmContext } from '../avm_context.js';
 import { AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { AvmMachineState } from '../avm_machine_state.js';
 import { Field, Uint8, Uint32, Uint64 } from '../avm_memory_types.js';
-import { type AvmRevertReason } from '../errors.js';
+import type { AvmRevertReason } from '../errors.js';
 import { AvmPersistableStateManager } from '../journal/journal.js';
 import { NullifierManager } from '../journal/nullifiers.js';
 import { PublicStorage } from '../journal/public_storage.js';

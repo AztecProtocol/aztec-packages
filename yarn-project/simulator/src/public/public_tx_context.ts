@@ -21,7 +21,7 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { SimulationError } from '@aztec/stdlib/errors';
 import { computeTransactionFee } from '@aztec/stdlib/fees';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
-import { type MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
+import type { MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
 import {
   PrivateToAvmAccumulatedData,
   PrivateToAvmAccumulatedDataArrayLengths,
@@ -46,7 +46,7 @@ import { strict as assert } from 'assert';
 import { inspect } from 'util';
 
 import { AvmPersistableStateManager } from '../avm/index.js';
-import { type WorldStateDB } from './public_db_sources.js';
+import type { WorldStateDB } from './public_db_sources.js';
 import { SideEffectArrayLengths, SideEffectTrace } from './side_effect_trace.js';
 import { getCallRequestsByPhase, getExecutionRequestsByPhase } from './utils.js';
 

@@ -1,4 +1,4 @@
-import { type EpochCache } from '@aztec/epoch-cache';
+import type { EpochCache } from '@aztec/epoch-cache';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { makeBlockAttestation, makeHeader } from '@aztec/stdlib/testing';
 

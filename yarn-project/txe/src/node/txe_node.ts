@@ -6,32 +6,28 @@ import {
   type PUBLIC_DATA_TREE_HEIGHT,
   PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
 } from '@aztec/constants';
-import { type L1ContractAddresses } from '@aztec/ethereum';
+import type { L1ContractAddresses } from '@aztec/ethereum';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { type SiblingPath } from '@aztec/foundation/trees';
+import type { SiblingPath } from '@aztec/foundation/trees';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type InBlock, L2Block, L2BlockHash, type L2BlockNumber, type L2Tips } from '@aztec/stdlib/block';
-import {
-  type ContractClassPublic,
-  type ContractInstanceWithAddress,
-  type NodeInfo,
-  type ProtocolContractAddresses,
+import type {
+  ContractClassPublic,
+  ContractInstanceWithAddress,
+  NodeInfo,
+  ProtocolContractAddresses,
 } from '@aztec/stdlib/contract';
 import type { GasFees } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
-import {
-  type AztecNode,
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-} from '@aztec/stdlib/interfaces/client';
-import {
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
-  type ProverConfig,
-  type SequencerConfig,
-  type WorldStateSyncStatus,
+import type { AztecNode, GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
+import type {
+  MerkleTreeReadOperations,
+  MerkleTreeWriteOperations,
+  ProverConfig,
+  SequencerConfig,
+  WorldStateSyncStatus,
 } from '@aztec/stdlib/interfaces/server';
 import { type LogFilter, type PrivateLog, type PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import {
@@ -49,7 +45,7 @@ import {
   TxReceipt,
   type TxValidationResult,
 } from '@aztec/stdlib/tx';
-import { type NativeWorldStateService } from '@aztec/world-state';
+import type { NativeWorldStateService } from '@aztec/world-state';
 
 export class TXENode implements AztecNode {
   #logsByTags = new Map<string, TxScopedL2Log[]>();

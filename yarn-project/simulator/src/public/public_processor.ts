@@ -10,7 +10,7 @@ import { PublicDataWrite } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { Gas } from '@aztec/stdlib/gas';
-import { type MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   type FailedTx,

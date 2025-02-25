@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { inBlockSchemaFor } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
 import { type L2BlockSource, L2TipsSchema } from '../block/l2_block_source.js';
-import { type NullifierWithBlockSource } from '../block/nullifier_with_block_source.js';
+import type { NullifierWithBlockSource } from '../block/nullifier_with_block_source.js';
 import {
   ContractClassPublicSchema,
   type ContractDataSource,
@@ -16,7 +16,7 @@ import { L1RollupConstantsSchema } from '../epoch-helpers/index.js';
 import { LogFilterSchema } from '../logs/log_filter.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
-import { type L1ToL2MessageSource } from '../messaging/l1_to_l2_message_source.js';
+import type { L1ToL2MessageSource } from '../messaging/l1_to_l2_message_source.js';
 import { optional, schemas } from '../schemas/schemas.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { TxEffect } from '../tx/tx_effect.js';

@@ -1,13 +1,13 @@
 import { COUNTED_PUBLIC_CALL_REQUEST_LENGTH, PUBLIC_CALL_REQUEST_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
 
 import { FunctionSelector } from '../abi/index.js';
 import { AztecAddress } from '../aztec-address/index.js';
-import { type UInt32 } from '../types/shared.js';
+import type { UInt32 } from '../types/shared.js';
 
 /**
  * Represents a request to call a public function.

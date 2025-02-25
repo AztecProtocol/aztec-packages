@@ -1,4 +1,4 @@
-import { type ProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
+import type { ProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
 import type { CircuitName } from '@aztec/stdlib/stats';
 
 export function mapProtocolArtifactNameToCircuitName(artifact: ProtocolArtifact): CircuitName {

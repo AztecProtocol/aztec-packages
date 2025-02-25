@@ -5,7 +5,7 @@ import isEqual from 'lodash.isequal';
 import { z } from 'zod';
 
 import { ContractClassTxL2Logs, type TxL2Logs } from './tx_l2_logs.js';
-import { type UnencryptedL2Log } from './unencrypted_l2_log.js';
+import type { UnencryptedL2Log } from './unencrypted_l2_log.js';
 
 /**
  * Data container of logs emitted in all txs in a given L2 block.

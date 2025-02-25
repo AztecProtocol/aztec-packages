@@ -1,8 +1,8 @@
 import { timesParallel } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type PublicProcessorFactory } from '@aztec/simulator/server';
+import type { PublicProcessorFactory } from '@aztec/simulator/server';
 import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
-import { type ContractDataSource } from '@aztec/stdlib/contract';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import {
   type EpochProverManager,
@@ -17,9 +17,9 @@ import type { Tx } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type EpochProvingJob } from './job/epoch-proving-job.js';
+import type { EpochProvingJob } from './job/epoch-proving-job.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
-import { type ProverNodePublisher } from './prover-node-publisher.js';
+import type { ProverNodePublisher } from './prover-node-publisher.js';
 import { ProverNode, type ProverNodeOptions } from './prover-node.js';
 
 describe('prover-node', () => {

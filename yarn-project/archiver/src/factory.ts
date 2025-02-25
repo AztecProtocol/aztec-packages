@@ -1,7 +1,7 @@
-import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
+import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { createLogger } from '@aztec/foundation/log';
-import { type Maybe } from '@aztec/foundation/types';
-import { type DataStoreConfig } from '@aztec/kv-store/config';
+import type { Maybe } from '@aztec/foundation/types';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContractArtifact } from '@aztec/noir-contracts.js/TokenBridge';
@@ -14,12 +14,12 @@ import {
   computePublicBytecodeCommitment,
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
-import { type ArchiverApi, type Service } from '@aztec/stdlib/interfaces/server';
+import type { ArchiverApi, Service } from '@aztec/stdlib/interfaces/server';
 import { getComponentsVersionsFromConfig } from '@aztec/stdlib/versioning';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { Archiver } from './archiver/archiver.js';
-import { type ArchiverConfig } from './archiver/config.js';
+import type { ArchiverConfig } from './archiver/config.js';
 import { KVArchiverDataStore } from './archiver/index.js';
 import { createArchiverClient } from './rpc/index.js';
 

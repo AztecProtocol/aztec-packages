@@ -2,16 +2,16 @@ import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { PriorityMemoryQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
-import {
-  type GetProvingJobResponse,
-  type ProofUri,
-  type ProvingJob,
-  type ProvingJobConsumer,
-  type ProvingJobFilter,
-  type ProvingJobId,
-  type ProvingJobProducer,
-  type ProvingJobSettledResult,
-  type ProvingJobStatus,
+import type {
+  GetProvingJobResponse,
+  ProofUri,
+  ProvingJob,
+  ProvingJobConsumer,
+  ProvingJobFilter,
+  ProvingJobId,
+  ProvingJobProducer,
+  ProvingJobSettledResult,
+  ProvingJobStatus,
 } from '@aztec/stdlib/interfaces/server';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import {
@@ -25,7 +25,7 @@ import {
 import assert from 'assert';
 
 import { type ProverBrokerConfig, defaultProverBrokerConfig } from './config.js';
-import { type ProvingBrokerDatabase } from './proving_broker_database.js';
+import type { ProvingBrokerDatabase } from './proving_broker_database.js';
 import { type MonitorCallback, ProvingBrokerInstrumentation } from './proving_broker_instrumentation.js';
 
 type InProgressMetadata = {

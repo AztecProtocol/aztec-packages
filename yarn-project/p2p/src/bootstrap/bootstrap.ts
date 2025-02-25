@@ -1,6 +1,6 @@
 import { createLogger } from '@aztec/foundation/log';
-import { type AztecAsyncKVStore } from '@aztec/kv-store';
-import { type P2PBootstrapApi } from '@aztec/stdlib/interfaces/server';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
+import type { P2PBootstrapApi } from '@aztec/stdlib/interfaces/server';
 import { OtelMetricsAdapter, type TelemetryClient } from '@aztec/telemetry-client';
 
 import { Discv5, type Discv5EventEmitter } from '@chainsafe/discv5';

@@ -3,7 +3,7 @@ import { schemas } from '@aztec/stdlib/schemas';
 
 import { type ZodTypeAny, z } from 'zod';
 
-import { type L2Block } from './l2_block.js';
+import type { L2Block } from './l2_block.js';
 
 export type InBlock<T> = {
   l2BlockNumber: number;

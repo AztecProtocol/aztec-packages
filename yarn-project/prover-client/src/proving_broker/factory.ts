@@ -1,6 +1,6 @@
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 
-import { type ProverBrokerConfig } from './config.js';
+import type { ProverBrokerConfig } from './config.js';
 import { ProvingBroker } from './proving_broker.js';
 import { InMemoryBrokerDatabase } from './proving_broker_database/memory.js';
 import { KVBrokerDatabase } from './proving_broker_database/persisted.js';

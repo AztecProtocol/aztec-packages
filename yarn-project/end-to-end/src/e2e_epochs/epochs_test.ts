@@ -6,15 +6,15 @@ import { DelayedTxUtils, type Delayer, waitUntilL1Timestamp } from '@aztec/ether
 import { randomBytes } from '@aztec/foundation/crypto';
 import { withLogNameSuffix } from '@aztec/foundation/log';
 import { ProverNode, ProverNodePublisher } from '@aztec/prover-node';
-import { type TestProverNode } from '@aztec/prover-node/test';
-import { type SequencerPublisher } from '@aztec/sequencer-client';
-import { type TestSequencerClient } from '@aztec/sequencer-client/test';
+import type { TestProverNode } from '@aztec/prover-node/test';
+import type { SequencerPublisher } from '@aztec/sequencer-client';
+import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import type { L2BlockNumber } from '@aztec/stdlib/block';
-import { type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import { join } from 'path';
-import { type Hex, type PublicClient } from 'viem';
+import type { Hex, PublicClient } from 'viem';
 
 import {
   type EndToEndContext,

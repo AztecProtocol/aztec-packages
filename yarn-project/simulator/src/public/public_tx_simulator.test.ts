@@ -1,6 +1,6 @@
 import { NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, REGISTERER_CONTRACT_ADDRESS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
-import { type AztecKVStore } from '@aztec/kv-store';
+import type { AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import { ProtocolContractAddress, REGISTERER_CONTRACT_CLASS_REGISTERED_TAG } from '@aztec/protocol-contracts';
@@ -12,7 +12,7 @@ import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
-import { type MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { ScopedLogHash, countAccumulatedItems } from '@aztec/stdlib/kernel';
 import { UnencryptedFunctionL2Logs, UnencryptedL2Log } from '@aztec/stdlib/logs';
 import { fr, makeContractClassPublic, mockTx } from '@aztec/stdlib/testing';
@@ -31,8 +31,8 @@ import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
 import { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
-import { type AvmPersistableStateManager } from '../avm/journal/journal.js';
-import { type InstructionSet } from '../avm/serialization/bytecode_serialization.js';
+import type { AvmPersistableStateManager } from '../avm/journal/journal.js';
+import type { InstructionSet } from '../avm/serialization/bytecode_serialization.js';
 import { WorldStateDB } from './public_db_sources.js';
 import { type PublicTxResult, PublicTxSimulator } from './public_tx_simulator.js';
 

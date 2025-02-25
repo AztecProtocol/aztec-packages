@@ -1,4 +1,4 @@
-import { type Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import { ContractClassNotFoundError, ContractNotFoundError } from '@aztec/simulator/client';
 import {
@@ -9,10 +9,10 @@ import {
   getFunctionDebugMetadata,
 } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type ContractClass, type ContractInstance } from '@aztec/stdlib/contract';
+import type { ContractClass, ContractInstance } from '@aztec/stdlib/contract';
 
-import { type ContractArtifactDatabase } from '../database/contracts/contract_artifact_db.js';
-import { type ContractInstanceDatabase } from '../database/contracts/contract_instance_db.js';
+import type { ContractArtifactDatabase } from '../database/contracts/contract_artifact_db.js';
+import type { ContractInstanceDatabase } from '../database/contracts/contract_instance_db.js';
 import { PrivateFunctionsTree } from './private_functions_tree.js';
 
 /**

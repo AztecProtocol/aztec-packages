@@ -1,5 +1,5 @@
 import { createLogger } from '@aztec/foundation/log';
-import { type ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
+import type { ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
 import { Tx, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
 
 export class TxProofValidator implements TxValidator<Tx> {

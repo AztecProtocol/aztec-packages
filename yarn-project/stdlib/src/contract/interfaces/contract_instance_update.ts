@@ -1,8 +1,8 @@
-import { type Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
 
 import { z } from 'zod';
 
-import { type AztecAddress } from '../../aztec-address/index.js';
+import type { AztecAddress } from '../../aztec-address/index.js';
 import { type ZodFor, schemas } from '../../schemas/index.js';
 
 /**

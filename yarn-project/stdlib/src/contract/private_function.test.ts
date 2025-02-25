@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 
 import { fr, makeSelector } from '../tests/factories.js';
-import { type PrivateFunction } from './interfaces/contract_class.js';
+import type { PrivateFunction } from './interfaces/contract_class.js';
 import { computePrivateFunctionsRoot, computePrivateFunctionsTree } from './private_function.js';
 
 describe('PrivateFunction', () => {
