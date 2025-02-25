@@ -204,7 +204,7 @@ where
             let retrieved_note = RetrievedNote {
                 note,
                 contract_address,
-                metadata: NoteMetadata::from_raw_data(maybe_note_hash_counter, maybe_nonce),
+                metadata: NoteMetadata::from_raw_data(maybe_note_hash_counter != 0, maybe_nonce),
             };
 
             placeholder_opt_notes[i] = Option::some(retrieved_note);

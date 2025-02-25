@@ -49,8 +49,8 @@ pub struct NoteMetadata {
 impl NoteMetadata {
     /// Constructs a `NoteMetadata` object from optional note hash counter and nonce. Both a zero note hash counter and
     /// a zero nonce are invalid, so those are used to signal non-existent values.
-    pub fn from_raw_data(maybe_note_hash_counter: u32, maybe_nonce: Field) -> Self {
-        if maybe_note_hash_counter != 0 {
+    pub fn from_raw_data(nonzero_note_hash_counter: bool, maybe_nonce: Field) -> Self {
+        if nonzero_note_hash_counter {
             if maybe_nonce == 0 {
                 Self { stage: NoteStage.PENDING_SAME_PHASE, maybe_nonce }
             } else {
@@ -60,7 +60,7 @@ impl NoteMetadata {
             Self { stage: NoteStage.SETTLED, maybe_nonce }
         } else {
             panic(
-                f"Note has no note hash counter nor nonce - existence cannot be proven",
+                f"Note has a zero note hash counter and no nonce - existence cannot be proven",
             )
         }
     }
@@ -106,19 +106,19 @@ impl NoteMetadata {
 
 impl From<PendingSamePhaseNoteMetadata> for NoteMetadata {
     fn from(_value: PendingSamePhaseNoteMetadata) -> Self {
-        NoteMetadata::from_raw_data(std::mem::zeroed(), std::mem::zeroed())
+        NoteMetadata::from_raw_data(true, std::mem::zeroed())
     }
 }
 
 impl From<PendingPreviousPhaseNoteMetadata> for NoteMetadata {
     fn from(value: PendingPreviousPhaseNoteMetadata) -> Self {
-        NoteMetadata::from_raw_data(std::mem::zeroed(), value.nonce())
+        NoteMetadata::from_raw_data(true, value.nonce())
     }
 }
 
 impl From<SettledNoteMetadata> for NoteMetadata {
     fn from(value: SettledNoteMetadata) -> Self {
-        NoteMetadata::from_raw_data(std::mem::zeroed(), value.nonce())
+        NoteMetadata::from_raw_data(false, value.nonce())
     }
 }
 
