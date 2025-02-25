@@ -55,10 +55,10 @@
     ]
   },
   "dependencies": {
-    "@aztec/stdlib": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "tslib": "^2.4.0"
   },
   "devDependencies": {

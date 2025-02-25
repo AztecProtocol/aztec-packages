@@ -69,9 +69,9 @@
     ]
   },
   "dependencies": {
-    "@aztec/stdlib": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "lodash.chunk": "^4.2.0",
     "lodash.omit": "^4.5.0",
     "tslib": "^2.4.0"

@@ -67,8 +67,8 @@
     ]
   },
   "dependencies": {
-    "@aztec/stdlib": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "commander": "^12.1.0"
   },
   "devDependencies": {

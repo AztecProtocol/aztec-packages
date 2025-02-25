@@ -69,10 +69,10 @@
   "dependencies": {
     "@aztec/archiver": "workspace:^",
     "@aztec/aztec.js": "workspace:^",
-    "@aztec/stdlib": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "@iarna/toml": "^2.2.5",
     "@libp2p/peer-id-factory": "^3.0.4",
@@ -105,12 +105,12 @@
   "peerDependencies": {
     "@aztec/accounts": "workspace:^",
     "@aztec/bb-prover": "workspace:^",
-    "@aztec/stdlib": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/noir-contracts.js": "workspace:^",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
-    "@aztec/protocol-contracts": "workspace:^"
+    "@aztec/protocol-contracts": "workspace:^",
+    "@aztec/stdlib": "workspace:^"
   },
   "files": [
     "dest",

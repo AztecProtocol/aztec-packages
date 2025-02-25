@@ -68,11 +68,11 @@
   },
   "dependencies": {
     "@aztec/bb.js": "portal:../../barretenberg/ts",
-    "@aztec/stdlib": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
     "@aztec/simulator": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "@msgpack/msgpack": "^3.0.0-beta2",

@@ -8,8 +8,8 @@
     "docs-preview-comment": "./dest/bin/docs-preview.js"
   },
   "dependencies": {
-    "@aztec/stdlib": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "fs-extra": "^11.1.1",
     "lodash.pick": "^4.4.0",
     "tslib": "^2.4.0"

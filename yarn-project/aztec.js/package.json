@@ -78,12 +78,12 @@
     ]
   },
   "dependencies": {
-    "@aztec/stdlib": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "axios": "^1.7.2",
     "tslib": "^2.4.0",
     "viem": "2.22.8"
