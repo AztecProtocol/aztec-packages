@@ -154,12 +154,18 @@ export class OpenTelemetryClient implements TelemetryClient {
         // Every histogram matching the selector (type + unit) gets these custom buckets assigned
         new View({
           instrumentType: InstrumentType.HISTOGRAM,
+          instrumentUnit: 's',
+          aggregation: new ExplicitBucketHistogramAggregation(
+            [1, 2, 4, 6, 10, 15, 30, 60, 90, 120, 180, 240, 300, 480, 600],
+            true,
+          ),
+        }),
+        new View({
+          instrumentType: InstrumentType.HISTOGRAM,
           instrumentUnit: 'ms',
           aggregation: new ExplicitBucketHistogramAggregation(
-            [
-              10, 50, 100, 250, 500, 750, 1_000, 2_500, 5_000, 7_500, 10_000, 15_000, 30_000, 45_000, 60_000, 90_000,
-              120_000, 180_000, 300_000, 600_000,
-            ],
+            // 10ms to 1 minute
+            [10, 20, 35, 50, 75, 100, 250, 500, 750, 1_000, 2_500, 5_000, 7_500, 10_000, 15_000, 30_000, 60_000],
             true,
           ),
         }),
@@ -167,27 +173,10 @@ export class OpenTelemetryClient implements TelemetryClient {
           instrumentType: InstrumentType.HISTOGRAM,
           instrumentUnit: 'us',
           aggregation: new ExplicitBucketHistogramAggregation(
+            // 1us to 500ms
             [
-              10, // 10μs
-              50,
-              100,
-              250,
-              500,
-              1000, // 1ms
-              2500,
-              5000,
-              10_000,
-              25_000,
-              50_000,
-              100_000, // 100ms
-              250_000,
-              500_000,
-              1_000_000, // 1s
-              2_500_000,
-              5_000_000,
-              10_000_000,
-              30_000_000,
-              60_000_000, // 1min
+              5, 10, 25, 50, 75, 100, 250, 500, 750, 1_000, 2_500, 5_000, 7_500, 10_000, 25_000, 50_000, 100_000,
+              150_000, 200_000, 500_000,
             ],
             true,
           ),
@@ -225,8 +214,8 @@ export class OpenTelemetryClient implements TelemetryClient {
           instrumentUnit: 'gas/s',
           aggregation: new ExplicitBucketHistogramAggregation(
             [
-              100_000, 250_000, 500_000, 1_000_000, 2_500_000, 5_000_000, 7_500_000, 10_000_000, 25_000_000, 50_000_000,
-              75_000_000, 100_000_000,
+              1_000, 5_000, 10_000, 25_000, 50_000, 100_000, 250_000, 500_000, 750_000, 1_000_000, 2_000_000, 4_000_000,
+              8_000_000, 10_000_000, 15_000_000, 30_000_000,
             ],
             true,
           ),
@@ -236,8 +225,8 @@ export class OpenTelemetryClient implements TelemetryClient {
           instrumentUnit: 'mana/s',
           aggregation: new ExplicitBucketHistogramAggregation(
             [
-              100_000, 250_000, 500_000, 1_000_000, 2_500_000, 5_000_000, 7_500_000, 10_000_000, 25_000_000, 50_000_000,
-              75_000_000, 100_000_000,
+              1_000, 5_000, 10_000, 25_000, 50_000, 100_000, 250_000, 500_000, 750_000, 1_000_000, 2_000_000, 4_000_000,
+              8_000_000, 10_000_000, 15_000_000, 30_000_000,
             ],
             true,
           ),
@@ -247,8 +236,8 @@ export class OpenTelemetryClient implements TelemetryClient {
           instrumentUnit: 'gas/block',
           aggregation: new ExplicitBucketHistogramAggregation(
             [
-              100_000, 250_000, 500_000, 1_000_000, 2_500_000, 5_000_000, 7_500_000, 10_000_000, 25_000_000, 50_000_000,
-              75_000_000, 100_000_000,
+              1_000, 5_000, 10_000, 25_000, 50_000, 100_000, 250_000, 500_000, 750_000, 1_000_000, 2_000_000, 4_000_000,
+              8_000_000, 10_000_000, 15_000_000, 30_000_000,
             ],
             true,
           ),
@@ -258,8 +247,8 @@ export class OpenTelemetryClient implements TelemetryClient {
           instrumentUnit: 'gas/tx',
           aggregation: new ExplicitBucketHistogramAggregation(
             [
-              100_000, 250_000, 500_000, 1_000_000, 2_500_000, 5_000_000, 7_500_000, 10_000_000, 25_000_000, 50_000_000,
-              75_000_000, 100_000_000,
+              25_000, 50_000, 100_000, 250_000, 500_000, 750_000, 1_000_000, 2_000_000, 4_000_000, 8_000_000,
+              10_000_000, 15_000_000, 30_000_000,
             ],
             true,
           ),
