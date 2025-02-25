@@ -98,7 +98,7 @@ export class AlertChecker {
     }
 
     if (alertTriggered) {
-      throw new Error('Test failed due to triggered alert');
+      throw new AlertTriggeredError('Test failed due to triggered alert');
     }
   }
 
@@ -124,4 +124,8 @@ export class AlertChecker {
     const alerts = this.loadAlertsConfig(filePath);
     await this.checkAlerts(alerts);
   }
+}
+
+export class AlertTriggeredError extends Error {
+  override name = 'AlertTriggeredError';
 }

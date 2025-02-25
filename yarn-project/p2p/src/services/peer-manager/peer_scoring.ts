@@ -1,6 +1,6 @@
-import { PeerErrorSeverity } from '@aztec/circuit-types';
 import { median } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
+import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 
 import { type PeerId } from '@libp2p/interface';
 

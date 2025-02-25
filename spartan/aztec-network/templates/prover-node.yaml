@@ -198,7 +198,9 @@ spec:
             - name: L1_GAS_PRICE_MAX
               value: {{ .Values.proverNode.l1GasPriceMax | quote }}
             - name: P2P_ENABLED
-              value: "{{ .Values.proverNode.p2pEnabled }}"
+              value: "{{ .Values.proverNode.p2p.enabled }}"
+            - name: P2P_GOSSIPSUB_FLOOD_PUBLISH
+              value: "{{ .Values.proverNode.p2p.floodPublish }}"
             - name: P2P_TCP_LISTEN_ADDR
               value: "0.0.0.0:{{ .Values.proverNode.service.p2pTcpPort }}"
             - name: P2P_UDP_LISTEN_ADDR

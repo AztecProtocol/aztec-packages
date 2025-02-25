@@ -4,9 +4,6 @@ import { deployFundedSchnorrAccounts, getInitialTestAccounts } from '@aztec/acco
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { AnvilTestWatcher, EthCheatCodes, SignerlessWallet, type Wallet } from '@aztec/aztec.js';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
-import { type AztecNode, type PXE } from '@aztec/circuit-types/interfaces/client';
-import { type ContractInstanceWithAddress, getContractInstanceFromDeployParams } from '@aztec/circuits.js';
-import { type PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { setupCanonicalL2FeeJuice } from '@aztec/cli/setup-contracts';
 import { GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH } from '@aztec/constants';
 import {
@@ -16,7 +13,6 @@ import {
   getL1ContractsConfigEnvVars,
   waitForPublicClient,
 } from '@aztec/ethereum';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type LogFn, createLogger } from '@aztec/foundation/log';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
@@ -24,6 +20,10 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type ContractInstanceWithAddress, getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
+import { type AztecNode, type PXE } from '@aztec/stdlib/interfaces/client';
+import { type PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
   type TelemetryClient,
   getConfigEnvVars as getTelemetryClientConfig,
@@ -67,12 +67,11 @@ export async function deployContractsToL1(
     {
       ...getL1ContractsConfigEnvVars(), // TODO: We should not need to be loading config from env again, caller should handle this
       ...aztecNodeConfig,
-      l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
+      l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice.toField(),
       vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
       genesisArchiveRoot: opts.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
       genesisBlockHash: opts.genesisBlockHash ?? new Fr(GENESIS_BLOCK_HASH),
-      assumeProvenThrough: opts.assumeProvenThroughBlockNumber,
       salt: opts.salt,
     },
   );

@@ -1,5 +1,5 @@
-import type { BlockAttestation, BlockProposal, Gossipable } from '@aztec/circuit-types';
-import type { PeerInfo } from '@aztec/circuit-types/interfaces/server';
+import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
+import type { BlockAttestation, BlockProposal, Gossipable } from '@aztec/stdlib/p2p';
 
 import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';

@@ -34,10 +34,7 @@
       "path": "../builder"
     },
     {
-      "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
+      "path": "../stdlib"
     },
     {
       "path": "../cli"
@@ -92,9 +89,6 @@
     },
     {
       "path": "../txe"
-    },
-    {
-      "path": "../types"
     },
     {
       "path": "../world-state"

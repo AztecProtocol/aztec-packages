@@ -1,16 +1,11 @@
 use crate::{
     context::PrivateContext,
     note::{note_interface::{NoteInterface, NullifiableNote}, retrieved_note::RetrievedNote},
-    utils::array,
 };
 
-use dep::protocol_types::{
-    address::AztecAddress,
-    hash::{
-        compute_siloed_note_hash,
-        compute_siloed_nullifier as compute_siloed_nullifier_from_preimage,
-        compute_unique_note_hash,
-    },
+use dep::protocol_types::hash::{
+    compute_siloed_note_hash, compute_siloed_nullifier as compute_siloed_nullifier_from_preimage,
+    compute_unique_note_hash,
 };
 
 pub fn compute_siloed_nullifier<Note>(
@@ -117,38 +112,4 @@ where
     let note_hash_for_read_request =
         compute_note_hash_for_read_request(retrieved_note, storage_slot);
     compute_note_hash_for_nullify_internal(retrieved_note, note_hash_for_read_request)
-}
-
-/// Computes the note hash and optionally a nullifier for a given note. `N` is the length of the packed note,
-/// `S` is the length of the packed note with its padding array.
-///
-/// Note: `packed_note_with_padding` is typically constructed by calling the `storage()` method on a `BoundedVec`. This
-/// function will then extract the relevant fields from the array using the `subarray` method and the actual packed
-/// note length `N`.
-pub unconstrained fn compute_note_hash_and_optionally_a_nullifier<Note, let N: u32, let S: u32>(
-    unpack_note: fn([Field; N]) -> Note,
-    contract_address: AztecAddress,
-    nonce: Field,
-    compute_nullifier: bool,
-    storage_slot: Field,
-    packed_note_with_padding: [Field; S],
-) -> [Field; 4]
-where
-    Note: NoteInterface + NullifiableNote,
-{
-    let packed_note = array::subarray(packed_note_with_padding, 0);
-    let note = unpack_note(packed_note);
-
-    let note_hash = note.compute_note_hash(storage_slot);
-    let siloed_note_hash = compute_siloed_note_hash(contract_address, note_hash);
-    let unique_note_hash = compute_unique_note_hash(nonce, siloed_note_hash);
-
-    let inner_nullifier = if compute_nullifier {
-        note.compute_nullifier_without_context(storage_slot, contract_address, nonce)
-    } else {
-        0
-    };
-    // docs:start:compute_note_hash_and_optionally_a_nullifier_returns
-    [note_hash, unique_note_hash, siloed_note_hash, inner_nullifier]
-    // docs:end:compute_note_hash_and_optionally_a_nullifier_returns
 }

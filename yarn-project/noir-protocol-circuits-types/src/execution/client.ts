@@ -1,3 +1,4 @@
+import { pushTestData } from '@aztec/foundation/testing';
 import {
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
@@ -5,8 +6,7 @@ import {
   type PrivateKernelResetCircuitPrivateInputsVariants,
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
-} from '@aztec/circuits.js/kernel';
-import { pushTestData } from '@aztec/foundation/testing';
+} from '@aztec/stdlib/kernel';
 
 import { type WitnessMap } from '@noir-lang/acvm_js';
 import { abiDecode, abiEncode } from '@noir-lang/noirc_abi';

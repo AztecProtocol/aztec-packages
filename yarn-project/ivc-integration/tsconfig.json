@@ -8,16 +8,13 @@
   },
   "references": [
     {
-      "path": "../circuits.js"
+      "path": "../stdlib"
     },
     {
       "path": "../constants"
     },
     {
       "path": "../foundation"
-    },
-    {
-      "path": "../types"
     },
     {
       "path": "../bb-prover"

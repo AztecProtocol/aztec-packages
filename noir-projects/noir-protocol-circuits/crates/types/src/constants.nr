@@ -3,7 +3,8 @@ use crate::{address::AztecAddress, traits::FromField};
 pub global MAX_FIELD_VALUE: Field =
     21888242871839275222246405745257275088548364400416034343698204186575808495616;
 pub global ARGS_LENGTH: u32 = 16;
-
+// WARNING: do not change without consulting AVM which this constant affects
+pub global MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS: u32 = 16_000;
 /**
  * Convention for constant array lengths are mainly divided in 2 classes:
  *  - FUNCTION CALL
@@ -779,10 +780,7 @@ pub global MINIMUM_UPDATE_DELAY: u32 = 25;
 
 // Updates hold contract class id, which fit in 1 field.
 pub global UPDATES_VALUE_SIZE: u32 = 1;
-pub global UPDATES_SCHEDULED_VALUE_CHANGE_LEN: u32 = 2 * UPDATES_VALUE_SIZE + 1;
-pub global SCHEDULED_DELAY_CHANGE_PCKD_LEN: u32 = 1;
-pub global UPDATES_SHARED_MUTABLE_VALUES_LEN: u32 =
-    UPDATES_SCHEDULED_VALUE_CHANGE_LEN + SCHEDULED_DELAY_CHANGE_PCKD_LEN;
+pub global UPDATES_SHARED_MUTABLE_VALUES_LEN: u32 = 2 * UPDATES_VALUE_SIZE + 1;
 
 mod test {
     use crate::constants::{

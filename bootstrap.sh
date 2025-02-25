@@ -142,8 +142,8 @@ function test {
   echo "Gathering tests to run..."
   local num_cpus=$(get_num_cpus)
   tests=$(test_cmds $@)
-  echo "Gathered $(echo "$tests" | wc -l) tests."
-  echo "$tests" | parallelise $((num_cpus / 2))
+  echo "Gathered $(echo -n "$tests" | wc -l) tests."
+  echo -n "$tests" | parallelise $((num_cpus / 2))
 }
 
 function build {
@@ -151,6 +151,9 @@ function build {
   denoise "git submodule update --init --recursive"
 
   check_toolchains
+
+  # Ensure we have yarn set up.
+  corepack enable
 
   projects=(
     noir
@@ -176,8 +179,9 @@ function bench {
   if [ "$CI_FULL" -eq 0 ] || [ $(arch) == arm64 ]; then
     return
   fi
-  denoise "barretenberg/cpp/bootstrap.sh bench"
+  denoise "barretenberg/bootstrap.sh bench"
   denoise "yarn-project/end-to-end/bootstrap.sh bench"
+  denoise "yarn-project/p2p/bootstrap.sh bench"
 }
 
 function release_github {
@@ -299,6 +303,7 @@ case "$cmd" in
     echo "Toolchains look good! 🎉"
   ;;
   ""|"fast"|"full")
+    install_hooks
     build $cmd
   ;;
   "ci")

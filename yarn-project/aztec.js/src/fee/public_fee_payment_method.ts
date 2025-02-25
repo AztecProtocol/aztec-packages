@@ -1,8 +1,8 @@
-import { type FunctionCall } from '@aztec/circuit-types';
-import { type GasSettings } from '@aztec/circuits.js';
-import { FunctionSelector, FunctionType, U128 } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
+import { type FunctionCall } from '@aztec/stdlib/abi';
+import { FunctionSelector, FunctionType, U128 } from '@aztec/stdlib/abi';
+import { type AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type GasSettings } from '@aztec/stdlib/gas';
 
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { type AccountWallet } from '../wallet/account_wallet.js';

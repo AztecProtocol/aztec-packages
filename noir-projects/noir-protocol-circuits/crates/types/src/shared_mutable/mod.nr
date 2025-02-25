@@ -10,14 +10,13 @@ pub mod shared_mutable_values;
 pub mod with_hash;
 
 pub fn compute_shared_mutable_block_horizon<T, let INITIAL_DELAY: u32>(
-    value_change: ScheduledValueChange<T>,
-    delay_change: ScheduledDelayChange<INITIAL_DELAY>,
+    shared_mutable_values: SharedMutableValues<T, INITIAL_DELAY>,
     historical_block_number: u32,
 ) -> u32
 where
     T: ToField + Eq + FromField,
 {
     let effective_minimum_delay =
-        delay_change.get_effective_minimum_delay_at(historical_block_number);
-    value_change.get_block_horizon(historical_block_number, effective_minimum_delay)
+        shared_mutable_values.sdc.get_effective_minimum_delay_at(historical_block_number);
+    shared_mutable_values.svc.get_block_horizon(historical_block_number, effective_minimum_delay)
 }

@@ -30,4 +30,3 @@ impl ProveNoteValidity for BlockHeader {
         self.prove_note_not_nullified(retrieved_note, storage_slot, context);
     }
 }
-

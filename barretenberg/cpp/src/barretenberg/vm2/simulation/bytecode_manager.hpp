@@ -10,10 +10,11 @@
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/map.hpp"
 #include "barretenberg/vm2/simulation/address_derivation.hpp"
+#include "barretenberg/vm2/simulation/bytecode_hashing.hpp"
 #include "barretenberg/vm2/simulation/class_id_derivation.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/simulation/lib/raw_data_db.hpp"
+#include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/simulation/siloing.hpp"
 
@@ -35,18 +36,18 @@ class TxBytecodeManagerInterface {
 
 class TxBytecodeManager : public TxBytecodeManagerInterface {
   public:
-    TxBytecodeManager(RawDataDBInterface& db,
-                      AddressDerivationInterface& address_derivation,
-                      ClassIdDerivationInterface& class_id_derivation,
+    TxBytecodeManager(ContractDBInterface& contract_db,
+                      MerkleDBInterface& merkle_db,
+                      SiloingInterface& siloing,
+                      BytecodeHasher& bytecode_hasher,
                       EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events,
-                      EventEmitterInterface<BytecodeHashingEvent>& hash_events,
                       EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events,
                       EventEmitterInterface<InstructionFetchingEvent>& fetching_events)
-        : db(db)
-        , address_derivation(address_derivation)
-        , class_id_derivation(class_id_derivation)
+        : contract_db(contract_db)
+        , merkle_db(merkle_db)
+        , siloing(siloing)
+        , bytecode_hasher(bytecode_hasher)
         , retrieval_events(retrieval_events)
-        , hash_events(hash_events)
         , decomposition_events(decomposition_events)
         , fetching_events(fetching_events)
     {}
@@ -55,11 +56,11 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
     Instruction read_instruction(BytecodeId bytecode_id, uint32_t pc) override;
 
   private:
-    RawDataDBInterface& db;
-    AddressDerivationInterface& address_derivation;
-    ClassIdDerivationInterface& class_id_derivation;
+    ContractDBInterface& contract_db;
+    MerkleDBInterface& merkle_db;
+    SiloingInterface& siloing;
+    BytecodeHasher& bytecode_hasher;
     EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events;
-    EventEmitterInterface<BytecodeHashingEvent>& hash_events;
     EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events;
     EventEmitterInterface<InstructionFetchingEvent>& fetching_events;
     unordered_flat_map<BytecodeId, std::shared_ptr<std::vector<uint8_t>>> bytecodes;

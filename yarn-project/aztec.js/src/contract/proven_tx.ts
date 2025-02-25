@@ -1,5 +1,5 @@
-import { Tx } from '@aztec/circuit-types';
-import { type PXE } from '@aztec/circuit-types/interfaces/client';
+import { type PXE } from '@aztec/stdlib/interfaces/client';
+import { Tx } from '@aztec/stdlib/tx';
 
 import { type Wallet } from '../account/index.js';
 import { SentTx } from './sent_tx.js';

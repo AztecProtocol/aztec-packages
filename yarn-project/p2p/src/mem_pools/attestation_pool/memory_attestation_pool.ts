@@ -1,5 +1,5 @@
-import { type BlockAttestation } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
+import { type BlockAttestation } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';

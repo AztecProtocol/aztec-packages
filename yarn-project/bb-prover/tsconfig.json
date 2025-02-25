@@ -7,10 +7,7 @@
   },
   "references": [
     {
-      "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
+      "path": "../stdlib"
     },
     {
       "path": "../constants"
@@ -41,9 +38,6 @@
     },
     {
       "path": "../protocol-contracts"
-    },
-    {
-      "path": "../types"
     }
   ],
   "include": ["src"]

@@ -1,4 +1,5 @@
-import { type BaseParityInputs, type ParityPublicInputs, type RootParityInputs } from '@aztec/circuits.js';
+import { pushTestData } from '@aztec/foundation/testing';
+import { type BaseParityInputs, type ParityPublicInputs, type RootParityInputs } from '@aztec/stdlib/parity';
 import {
   type BaseOrMergeRollupPublicInputs,
   type BlockMergeRollupInputs,
@@ -11,8 +12,7 @@ import {
   type RootRollupInputs,
   type RootRollupPublicInputs,
   type SingleTxBlockRootRollupInputs,
-} from '@aztec/circuits.js/rollup';
-import { pushTestData } from '@aztec/foundation/testing';
+} from '@aztec/stdlib/rollup';
 
 import { type WitnessMap } from '@noir-lang/acvm_js';
 import { abiDecode, abiEncode } from '@noir-lang/noirc_abi';

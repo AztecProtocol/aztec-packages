@@ -1,4 +1,4 @@
-import { type BlockProposal } from '@aztec/circuit-types';
+import { type BlockProposal } from '@aztec/stdlib/p2p';
 import {
   Attributes,
   type Gauge,

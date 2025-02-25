@@ -1,31 +1,31 @@
+import { PRIVATE_CONTEXT_INPUTS_LENGTH, PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
+import { createLogger } from '@aztec/foundation/log';
 import {
-  type AuthWitness,
-  type Capsule,
-  Note,
-  type NoteStatus,
-  PublicExecutionRequest,
-  type UnencryptedL2Log,
-} from '@aztec/circuit-types';
-import {
-  type AztecNode,
-  CountedContractClassLog,
-  CountedPublicExecutionRequest,
-  NoteAndSlot,
-  type PrivateCallExecutionResult,
-} from '@aztec/circuit-types/interfaces/client';
+  type FunctionAbi,
+  type FunctionArtifact,
+  FunctionSelector,
+  type NoteSelector,
+  countArgumentsSize,
+} from '@aztec/stdlib/abi';
+import { type AuthWitness } from '@aztec/stdlib/auth-witness';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { computeUniqueNoteHash, siloNoteHash } from '@aztec/stdlib/hash';
+import { type AztecNode } from '@aztec/stdlib/interfaces/client';
+import { PrivateContextInputs } from '@aztec/stdlib/kernel';
+import type { UnencryptedL2Log } from '@aztec/stdlib/logs';
+import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import {
   type BlockHeader,
   CallContext,
-  FunctionSelector,
-  PrivateContextInputs,
+  Capsule,
+  CountedContractClassLog,
+  CountedPublicExecutionRequest,
+  NoteAndSlot,
+  PrivateCallExecutionResult,
+  PublicExecutionRequest,
   type TxContext,
-} from '@aztec/circuits.js';
-import { type FunctionAbi, type FunctionArtifact, type NoteSelector, countArgumentsSize } from '@aztec/circuits.js/abi';
-import { computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
-import { PRIVATE_CONTEXT_INPUTS_LENGTH, PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
-import { createLogger } from '@aztec/foundation/log';
+} from '@aztec/stdlib/tx';
 
 import { type NoteData, toACVMWitness } from '../acvm/index.js';
 import { type HashedValuesCache } from '../common/hashed_values_cache.js';
@@ -281,6 +281,13 @@ export class ClientExecutionContext extends ViewDataOracle {
     noteHash: Fr,
     counter: number,
   ) {
+    this.log.debug(`Notified of new note with inner hash ${noteHash}`, {
+      contractAddress: this.callContext.contractAddress,
+      storageSlot,
+      noteTypeId,
+      counter,
+    });
+
     const note = new Note(noteItems);
     this.noteCache.addNewNote(
       {

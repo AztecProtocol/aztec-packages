@@ -1,4 +1,6 @@
-import { MerkleTreeId, SiblingPath } from '@aztec/circuit-types';
+import { Fr } from '@aztec/foundation/fields';
+import { serializeToBuffer } from '@aztec/foundation/serialize';
+import { type IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';
 import {
   type BatchInsertionResult,
   type IndexedTreeId,
@@ -7,16 +9,15 @@ import {
   type MerkleTreeWriteOperations,
   type SequentialInsertionResult,
   type TreeInfo,
-} from '@aztec/circuit-types/interfaces/server';
-import { type BlockHeader, Fr, PartialStateReference, StateReference } from '@aztec/circuits.js';
+} from '@aztec/stdlib/interfaces/server';
 import {
+  MerkleTreeId,
   NullifierLeaf,
   NullifierLeafPreimage,
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
-} from '@aztec/circuits.js/trees';
-import { serializeToBuffer } from '@aztec/foundation/serialize';
-import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
+} from '@aztec/stdlib/trees';
+import { type BlockHeader, PartialStateReference, StateReference } from '@aztec/stdlib/tx';
 
 import assert from 'assert';
 

@@ -1,28 +1,3 @@
-import { L2Block, MerkleTreeId, type ProcessedTx, type Tx, toNumBlobFields } from '@aztec/circuit-types';
-import {
-  type EpochProver,
-  type ForkMerkleTreeOperations,
-  type MerkleTreeWriteOperations,
-  type ProofAndVerificationKey,
-  type ServerCircuitProver,
-} from '@aztec/circuit-types/interfaces/server';
-import { type CircuitName } from '@aztec/circuit-types/stats';
-import {
-  BaseParityInputs,
-  type BlockHeader,
-  Fr,
-  type GlobalVariables,
-  VerificationKeyData,
-  makeEmptyRecursiveProof,
-} from '@aztec/circuits.js';
-import {
-  type BaseRollupHints,
-  EmptyBlockRootRollupInputs,
-  PrivateBaseRollupInputs,
-  SingleTxBlockRootRollupInputs,
-  TubeInputs,
-} from '@aztec/circuits.js/rollup';
-import { type AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
 import {
   AVM_PROOF_LENGTH_IN_FIELDS,
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
@@ -34,6 +9,7 @@ import {
 } from '@aztec/constants';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { AbortError } from '@aztec/foundation/error';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { assertLength } from '@aztec/foundation/serialize';
@@ -41,6 +17,27 @@ import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
 import { type TreeNodeLocation } from '@aztec/foundation/trees';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
+import { L2Block } from '@aztec/stdlib/block';
+import {
+  type EpochProver,
+  type ForkMerkleTreeOperations,
+  type MerkleTreeWriteOperations,
+  type ProofAndVerificationKey,
+  type ServerCircuitProver,
+} from '@aztec/stdlib/interfaces/server';
+import { BaseParityInputs } from '@aztec/stdlib/parity';
+import { makeEmptyRecursiveProof } from '@aztec/stdlib/proofs';
+import {
+  type BaseRollupHints,
+  EmptyBlockRootRollupInputs,
+  PrivateBaseRollupInputs,
+  SingleTxBlockRootRollupInputs,
+  TubeInputs,
+} from '@aztec/stdlib/rollup';
+import { type CircuitName } from '@aztec/stdlib/stats';
+import { type AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
+import { type BlockHeader, type GlobalVariables, type ProcessedTx, type Tx, toNumBlobFields } from '@aztec/stdlib/tx';
+import { VerificationKeyData } from '@aztec/stdlib/vks';
 import {
   Attributes,
   type TelemetryClient,

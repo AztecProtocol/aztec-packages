@@ -82,9 +82,13 @@ See [partial notes](../../../../../aztec/concepts/advanced/storage/partial_notes
 When you send someone a note, the note hash gets added to the note hash tree. To spend the note, the receiver needs to get the note itself (the note hash preimage). There are two ways you can get a hold of your notes:
 
 1. When sending someone a note, emit the note log to the recipient (the function encrypts the log in such a way that only a recipient can decrypt it). PXE then tries to decrypt all the encrypted logs, and stores the successfully decrypted one. [More info here](../how_to_emit_event.md)
-2. Manually using `pxe.addNote()` - If you choose to not emit logs to save gas or when creating a note in the public domain and want to consume it in private domain (`encrypt_and_emit_note` shouldn't be called in the public domain because everything is public), like in the previous section where we created a note in public that doesn't have a designated owner.
+2. Manually delivering it via a custom contract method, if you choose to not emit logs to save gas or when creating a note in the public domain and want to consume it in private domain (`encrypt_and_emit_note` shouldn't be called in the public domain because everything is public), like in the previous section where we created a note in public that doesn't have a designated owner.
 
-#include_code pxe_add_note yarn-project/end-to-end/src/composed/e2e_persistence.test.ts typescript
+#include_code offchain_delivery yarn-project/end-to-end/src/composed/e2e_persistence.test.ts typescript
+
+Note that this requires your contract to have an unconstrained function that processes these notes and adds them to PXE.
+
+#include_code deliver_note_contract_method noir-projects/noir-contracts/contracts/token_blacklist_contract/src/main.nr rust
 
 ### Revealing encrypted logs conditionally
 

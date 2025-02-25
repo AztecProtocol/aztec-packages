@@ -1,3 +1,14 @@
+import { type L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { type AbiDecoded, type ContractArtifact, FunctionType } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import {
+  CompleteAddress,
+  type ContractInstanceWithAddress,
+  type NodeInfo,
+  getContractClassFromArtifact,
+} from '@aztec/stdlib/contract';
+import { GasFees } from '@aztec/stdlib/gas';
 import {
   type Tx,
   type TxExecutionRequest,
@@ -5,18 +16,7 @@ import {
   type TxProvingResult,
   type TxReceipt,
   type TxSimulationResult,
-} from '@aztec/circuit-types';
-import {
-  AztecAddress,
-  CompleteAddress,
-  type ContractInstanceWithAddress,
-  EthAddress,
-  GasFees,
-  type NodeInfo,
-  getContractClassFromArtifact,
-} from '@aztec/circuits.js';
-import { type AbiDecoded, type ContractArtifact, FunctionType } from '@aztec/circuits.js/abi';
-import { type L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+} from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 

@@ -138,10 +138,6 @@ contract RollupCore is
 
   RollupStore internal rollupStore;
 
-  // @note  Assume that all blocks up to this value (inclusive) are automatically proven. Speeds up bootstrapping.
-  //        Testing only. This should be removed eventually.
-  uint256 private assumeProvenThroughBlockNumber;
-
   constructor(
     IFeeJuicePortal _fpcJuicePortal,
     IRewardDistributor _rewardDistributor,
@@ -286,19 +282,6 @@ contract RollupCore is
   function prune() external override(IRollupCore) {
     require(canPrune(), Errors.Rollup__NothingToPrune());
     _prune();
-  }
-
-  /**
-   * Sets the assumeProvenThroughBlockNumber. Only the contract deployer can set it.
-   * @param _blockNumber - New value.
-   */
-  function setAssumeProvenThroughBlockNumber(uint256 _blockNumber)
-    external
-    override(ITestRollup)
-    onlyOwner
-  {
-    _fakeBlockNumberAsProven(_blockNumber);
-    assumeProvenThroughBlockNumber = _blockNumber;
   }
 
   /**
@@ -552,26 +535,6 @@ contract RollupCore is
     OUTBOX.insert(blockNumber, header.contentCommitment.outHash, min + 1);
 
     emit L2BlockProposed(blockNumber, _args.archive, blobHashes);
-
-    // Automatically flag the block as proven if we have cheated and set assumeProvenThroughBlockNumber.
-    if (blockNumber <= assumeProvenThroughBlockNumber) {
-      _fakeBlockNumberAsProven(blockNumber);
-
-      bool isFeeCanonical = address(this) == FEE_JUICE_PORTAL.canonicalRollup();
-      bool isRewardDistributorCanonical = address(this) == REWARD_DISTRIBUTOR.canonicalRollup();
-
-      if (isFeeCanonical && header.globalVariables.coinbase != address(0) && header.totalFees > 0) {
-        // @note  This will currently fail if there are insufficient funds in the bridge
-        //        which WILL happen for the old version after an upgrade where the bridge follow.
-        //        Consider allowing a failure. See #7938.
-        FEE_JUICE_PORTAL.distributeFees(header.globalVariables.coinbase, header.totalFees);
-      }
-      if (isRewardDistributorCanonical && header.globalVariables.coinbase != address(0)) {
-        REWARD_DISTRIBUTOR.claim(header.globalVariables.coinbase);
-      }
-
-      emit L2ProofVerified(blockNumber, "CHEAT");
-    }
   }
 
   /**
@@ -660,10 +623,7 @@ contract RollupCore is
   }
 
   function canPruneAtTime(Timestamp _ts) public view override(IRollupCore) returns (bool) {
-    if (
-      rollupStore.tips.pendingBlockNumber == rollupStore.tips.provenBlockNumber
-        || rollupStore.tips.pendingBlockNumber <= assumeProvenThroughBlockNumber
-    ) {
+    if (rollupStore.tips.pendingBlockNumber == rollupStore.tips.provenBlockNumber) {
       return false;
     }
 
@@ -788,14 +748,5 @@ contract RollupCore is
         congestionCost: _congestionCost
       })
     });
-  }
-
-  function _fakeBlockNumberAsProven(uint256 _blockNumber) private {
-    if (
-      _blockNumber > rollupStore.tips.provenBlockNumber
-        && _blockNumber <= rollupStore.tips.pendingBlockNumber
-    ) {
-      rollupStore.tips.provenBlockNumber = _blockNumber;
-    }
   }
 }

@@ -1,21 +1,13 @@
-import {
-  type L2Block,
-  type MerkleTreeId,
-  type NoteStatus,
-  type PublicDataWitness,
-  type TxScopedL2Log,
-} from '@aztec/circuit-types';
-import { type NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/client';
-import {
-  type BlockHeader,
-  type CompleteAddress,
-  type ContractInstance,
-  type IndexedTaggingSecret,
-  type KeyValidationRequest,
-} from '@aztec/circuits.js';
-import { type FunctionArtifact, type FunctionSelector } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
+import { type FunctionArtifact, type FunctionSelector } from '@aztec/stdlib/abi';
+import { type AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2Block } from '@aztec/stdlib/block';
+import { type CompleteAddress, type ContractInstance } from '@aztec/stdlib/contract';
+import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
+import { IndexedTaggingSecret, LogWithTxData, TxScopedL2Log } from '@aztec/stdlib/logs';
+import type { NoteStatus } from '@aztec/stdlib/note';
+import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
+import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import { type NoteData } from '../acvm/index.js';
 import { type CommitmentsDB } from '../public/db_interfaces.js';
@@ -249,6 +241,14 @@ export interface DBOracle extends CommitmentsDB {
     txHash: Fr,
     recipient: AztecAddress,
   ): Promise<void>;
+
+  /**
+   * Searches for a log with the corresponding `tag` and returns it along with contextual transaction information.
+   * Returns null if no such log exists, and throws if more than one exists.
+   *
+   * @param tag - The log tag to search for.
+   */
+  getLogByTag(tag: Fr): Promise<LogWithTxData | null>;
 
   /**
    * Removes all of a contract's notes that have been nullified from the note database.

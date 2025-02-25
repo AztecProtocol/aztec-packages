@@ -1,8 +1,9 @@
-import { type Note } from '@aztec/circuit-types';
-import { type PXE } from '@aztec/circuit-types/interfaces/client';
-import { type AztecAddress, Fr } from '@aztec/circuits.js';
-import { deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
+import { type AztecAddress } from '@aztec/stdlib/aztec-address';
+import { deriveStorageSlotInMap } from '@aztec/stdlib/hash';
+import { type PXE } from '@aztec/stdlib/interfaces/client';
+import { type Note } from '@aztec/stdlib/note';
 
 /**
  * A class that provides utility functions for interacting with the aztec chain.

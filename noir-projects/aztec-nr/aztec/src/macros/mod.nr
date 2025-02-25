@@ -12,8 +12,10 @@ use storage::STORAGE_LAYOUT_NAME;
 use dispatch::generate_public_dispatch;
 use utils::{get_trait_impl_method, module_has_storage};
 
+use crate::discovery::MAX_NOTE_PACKED_LEN;
+
 /// Marks a contract as an Aztec contract, generating the interfaces for its functions and notes, as well as injecting
-/// the `compute_note_hash_and_optionally_a_nullifier` function PXE requires in order to validate notes.
+/// the `process_log` and `sync_notes` functions PXE requires in order to discover notes.
 /// Note: This is a module annotation, so the returned quote gets injected inside the module (contract) itself.
 pub comptime fn aztec(m: Module) -> Quoted {
     let interface = generate_contract_interface(m);
@@ -24,9 +26,9 @@ pub comptime fn aztec(m: Module) -> Quoted {
         transform_unconstrained(f);
     }
 
-    let compute_note_hash_and_optionally_a_nullifier =
-        generate_compute_note_hash_and_optionally_a_nullifier();
-    let process_logs = generate_process_log();
+    let contract_library_method_compute_note_hash_and_nullifier =
+        generate_contract_library_method_compute_note_hash_and_nullifier();
+    let process_log = generate_process_log();
     let note_exports = generate_note_exports();
     let public_dispatch = generate_public_dispatch(m);
     let sync_notes = generate_sync_notes();
@@ -34,8 +36,8 @@ pub comptime fn aztec(m: Module) -> Quoted {
     quote {
         $note_exports
         $interface
-        $compute_note_hash_and_optionally_a_nullifier
-        $process_logs
+        $contract_library_method_compute_note_hash_and_nullifier
+        $process_log
         $public_dispatch
         $sync_notes
     }
@@ -109,9 +111,13 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
     }
 }
 
-comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
-    let mut max_note_packed_len: u32 = 0;
+/// Generates a contract library method called `_compute_note_hash_and_nullifier` which is used for note
+/// discovery (to create the `aztec::discovery::ComputeNoteHashAndNullifier` function) and to implement the
+/// `compute_note_hash_and_nullifier` unconstrained contract function.
+comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -> Quoted {
     let notes = NOTES.entries();
+
+    let mut max_note_packed_len: u32 = 0;
     if notes.len() > 0 {
         max_note_packed_len = notes.fold(
             0,
@@ -124,10 +130,20 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
             },
         );
 
-        let mut if_statements_list = &[];
+        if max_note_packed_len > MAX_NOTE_PACKED_LEN {
+            panic(
+                f"One of the notes has packed len {max_note_packed_len} but the maximum is {MAX_NOTE_PACKED_LEN}",
+            );
+        }
 
+        // Contracts that do define notes produce an if-else chain where `note_type_id` is matched against the
+        // `get_note_type_id()` function of each note type that we know of, in order to identify the note type. Once we
+        // know it we call we correct `unpack` method from the `Packable` trait to obtain the underlying note type, and
+        // compute the note hash (non-siloed) and inner nullifier (also non-siloed).
+
+        let mut if_note_type_id_match_statements_list = &[];
         for i in 0..notes.len() {
-            let (typ, (_, _, _, _)) = notes[i];
+            let (typ, (_, packed_note_length, _, _)) = notes[i];
 
             let get_note_type_id = get_trait_impl_method(
                 typ,
@@ -145,129 +161,90 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
             } else {
                 quote { else if }
             };
-            if_statements_list = if_statements_list.push_back(
+
+            if_note_type_id_match_statements_list = if_note_type_id_match_statements_list.push_back(
                 quote {
-                $if_or_else_if note_type_id == $get_note_type_id() {
-                    aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($unpack, contract_address, nonce, compute_nullifier, storage_slot, packed_note)
-                }
-            },
+                    $if_or_else_if note_type_id == $get_note_type_id() {
+                        // As an extra safety check we make sure that the packed_note BoundedVec has the expected
+                        // length, since we're about to interpret it's raw storage as a fixed-size array by calling the
+                        // unpack function on it.
+                        let expected_len = $packed_note_length;
+                        let actual_len = packed_note.len();
+                        assert(
+                            actual_len == expected_len,
+                            f"Expected packed note of length {expected_len} but got {actual_len} for note type id {note_type_id}"
+                        );
+
+                        let note = $unpack(aztec::utils::array::subarray(packed_note.storage(), 0));
+
+                        let note_hash = note.compute_note_hash(storage_slot);
+                        let inner_nullifier = note.compute_nullifier_without_context(storage_slot, contract_address, nonce);
+
+                        Option::some(
+                            aztec::discovery::NoteHashAndNullifier {
+                                note_hash, inner_nullifier
+                            }
+                        )
+                    }
+                },
             );
         }
 
-        let if_statements = if_statements_list.join(quote {});
+        let if_note_type_id_match_statements = if_note_type_id_match_statements_list.join(quote {});
 
         quote {
-            unconstrained fn compute_note_hash_and_optionally_a_nullifier(
-                contract_address: aztec::protocol_types::address::AztecAddress,
-                nonce: Field,
+            /// Unpacks an array into a note corresponding to `note_type_id` and then computes its note hash
+            /// (non-siloed) and inner nullifier (non-siloed) assuming the note has been inserted into the note hash
+            /// tree with `nonce`.
+            ///
+            /// The signature of this function notably matches the `aztec::discovery::ComputeNoteHashAndNullifier` type,
+            /// and so it can be used to call functions from that module such as `discover_new_notes`, `do_process_log`
+            /// and `process_private_note_log`.
+            ///
+            /// This function is automatically injected by the `#[aztec]` macro.
+            #[contract_library_method]
+            unconstrained fn _compute_note_hash_and_nullifier(
+                packed_note: BoundedVec<Field, aztec::discovery::MAX_NOTE_PACKED_LEN>,
                 storage_slot: Field,
                 note_type_id: Field,
-                compute_nullifier: bool,
-                packed_note: [Field; $max_note_packed_len],
-            ) -> pub [Field; 4] {
-                $if_statements
+                contract_address: aztec::protocol_types::address::AztecAddress,
+                nonce: Field,
+            ) -> pub Option<aztec::discovery::NoteHashAndNullifier> {
+                $if_note_type_id_match_statements
                 else {
-                    panic(f"Unknown note type ID: {note_type_id}")
+                    Option::none()
                 }
             }
         }
     } else {
+        // Contracts with no notes still implement this function to avoid having special-casing, the implementation
+        // simply throws immediately.
         quote {
-            unconstrained fn compute_note_hash_and_optionally_a_nullifier(
-                _contract_address: aztec::protocol_types::address::AztecAddress,
-                _nonce: Field,
+            /// This contract does not use private notes, so this function should never be called as it will
+            /// unconditionally fail.
+            ///
+            /// This function is automatically injected by the `#[aztec]` macro.
+            #[contract_library_method]
+            unconstrained fn _compute_note_hash_and_nullifier(
+                _packed_note: BoundedVec<Field, aztec::discovery::MAX_NOTE_PACKED_LEN>,
                 _storage_slot: Field,
                 _note_type_id: Field,
-                _compute_nullifier: bool,
-                _packed_note: [Field; $max_note_packed_len],
-            ) -> pub [Field; 4] {
-                panic(f"No notes defined")
+                _contract_address: aztec::protocol_types::address::AztecAddress,
+            ) -> pub Option<aztec::discovery::NoteHashAndNullifier> {
+                panic(f"This contract does not use private notes")
             }
         }
     }
 }
 
 comptime fn generate_process_log() -> Quoted {
-    // This mandatory function processes a log emitted by the contract. This is currently used to recover a note and
-    // deliver it to PXE.
-    // The bulk of the work of this function is done by aztec::note::discovery::do_process_log, so all we need to do
-    // is call that function. However, one of its parameters is a lambda function that computes note hash and nullifier
-    // given packed note and metadata (e.g. note type id), since this behavior is contract-specific (as it
-    // depends on the note types implemented by each contract).
-    // The job of this macro is therefore to implement this lambda function and then call `do_process_log` with it.
+    // This mandatory function processes a log emitted by the contract. This is currently used to process private logs
+    // and perform note discovery of either private notes or partial notes.
+    // The bulk of the work of this function is done by aztec::discovery::do_process_log, so all we need to do is call
+    // that function.
 
-    // A typical implementation of the lambda looks something like this:
-    // ```
-    // |packed_note: BoundedVec<Field, MAX_NOTE_PACKED_LEN>, contract_address: AztecAddress, nonce: Field, storage_slot: Field, note_type_id: Field| {
-    //     let hashes = if note_type_id == MyNoteType::get_note_type_id() {
-    //         assert(packed_note.len() == MY_NOTE_TYPE_PACKED_LENGTH);
-    //         dep::aztec::note::utils::compute_note_hash_and_optionally_a_nullifier(
-    //             MyNoteType::unpack,
-    //             contract_address,
-    //             nonce,
-    //             true,
-    //             storage_slot,
-    //             packed_note.storage(),
-    //         )
-    //     } else {
-    //         panic(f"Unknown note type id {note_type_id}")
-    //     };
-    //
-    //     Option::some(dep::aztec::note::discovery::NoteHashesAndNullifier {
-    //         note_hash: hashes[0],
-    //         unique_note_hash: hashes[1],
-    //         inner_nullifier: hashes[3],
-    //     })
-    // }
-    // ```
-    //
-    // We create this implementation by iterating over the different note types, creating an `if` or `else if` clause
-    // for each of them and calling `compute_note_hash_and_optionally_a_nullifier` with the note's `unpack` function,
-    // and finally produce the required `NoteHashesAndNullifier` object.
-
+    // We'll produce the entire body of the function in one go and then insert it into the function.
     let notes = NOTES.entries();
-
-    let mut if_note_type_id_match_statements_list = &[];
-    for i in 0..notes.len() {
-        let (typ, (_, packed_note_length, _, _)) = notes[i];
-
-        let get_note_type_id = get_trait_impl_method(
-            typ,
-            quote { crate::note::note_interface::NoteInterface },
-            quote { get_note_type_id },
-        );
-        let unpack = get_trait_impl_method(
-            typ,
-            quote { crate::protocol_types::traits::Packable<_> },
-            quote { unpack },
-        );
-
-        let if_or_else_if = if i == 0 {
-            quote { if }
-        } else {
-            quote { else if }
-        };
-
-        if_note_type_id_match_statements_list = if_note_type_id_match_statements_list.push_back(
-            quote {
-                $if_or_else_if note_type_id == $get_note_type_id() {
-                    // As an extra safety check we make sure that the packed_note bounded vec has the
-                    // expected length, to avoid scenarios in which compute_note_hash_and_optionally_a_nullifier
-                    // silently trims the end if the log were to be longer.
-                    let expected_len = $packed_note_length;
-                    let actual_len = packed_note.len();
-                    assert(
-                        actual_len == expected_len,
-                        f"Expected packed note of length {expected_len} but got {actual_len} for note type id {note_type_id}"
-                    );
-
-                    aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($unpack, contract_address, nonce, true, storage_slot, packed_note.storage())
-                }
-            },
-        );
-    }
-
-    let if_note_type_id_match_statements = if_note_type_id_match_statements_list.join(quote {});
 
     if notes.len() > 0 {
         quote {
@@ -283,31 +260,23 @@ comptime fn generate_process_log() -> Quoted {
                 // unconstrained execution context since it will not be available otherwise.
                 let context = dep::aztec::context::unconstrained_context::UnconstrainedContext::new();
 
-                dep::aztec::note::discovery::do_process_log(
-                    context,
+                // TODO(#10727): allow other contracts to process logs and deliver notes
+                let contract_address = context.this_address();
+
+                aztec::discovery::private_logs::do_process_log(
+                    contract_address,
                     log_plaintext,
                     tx_hash,
                     unique_note_hashes_in_tx,
                     first_nullifier_in_tx,
                     recipient,
-                    |packed_note: BoundedVec<Field, _>, contract_address, nonce, storage_slot, note_type_id| {
-                        let hashes = $if_note_type_id_match_statements
-                        else {
-                            panic(f"Unknown note type id {note_type_id}")
-                        };
-
-                        Option::some(
-                            dep::aztec::note::discovery::NoteHashesAndNullifier {
-                                note_hash: hashes[0],
-                                unique_note_hash: hashes[1],
-                                inner_nullifier: hashes[3],
-                            },
-                        )
-                    }
+                    _compute_note_hash_and_nullifier,
                 );
             }
         }
     } else {
+        // Contracts with no notes still implement this function to avoid having special-casing, the implementation
+        // simply throws immediately.
         quote {
             unconstrained fn process_log(
                 _log_plaintext: BoundedVec<Field, dep::aztec::protocol_types::constants::PRIVATE_LOG_SIZE_IN_FIELDS>,
@@ -316,7 +285,7 @@ comptime fn generate_process_log() -> Quoted {
                 _first_nullifier_in_tx: Field,
                 _recipient: aztec::protocol_types::address::AztecAddress,
             ) {
-                panic(f"No notes defined")
+                panic(f"This contract does not use private notes")
             }
         }
     }
@@ -325,7 +294,7 @@ comptime fn generate_process_log() -> Quoted {
 comptime fn generate_note_exports() -> Quoted {
     let notes = NOTES.values();
     // Second value in each tuple is `note_packed_len` and that is ignored here because it's only used when
-    // generating the `compute_note_hash_and_optionally_a_nullifier` function.
+    // generating partial note helper functions.
     notes
         .map(|(s, _, note_type_id, fields): (StructDefinition, u32, Field, [(Quoted, u32, bool)])| {
             generate_note_export(s, note_type_id, fields)
@@ -336,7 +305,7 @@ comptime fn generate_note_exports() -> Quoted {
 comptime fn generate_sync_notes() -> Quoted {
     quote {
         unconstrained fn sync_notes() {
-            aztec::oracle::notes::sync_notes();
+            aztec::oracle::note_discovery::sync_notes();
         }
     }
 }

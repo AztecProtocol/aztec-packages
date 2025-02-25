@@ -1,8 +1,8 @@
-import type { CompleteAddress, NodeInfo } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/circuits.js/abi';
-import { getContractInstanceFromDeployParams } from '@aztec/circuits.js/contract';
-import { deriveKeys } from '@aztec/circuits.js/keys';
 import { Fr } from '@aztec/foundation/fields';
+import { type ContractArtifact } from '@aztec/stdlib/abi';
+import type { CompleteAddress, NodeInfo } from '@aztec/stdlib/contract';
+import { getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
+import { deriveKeys } from '@aztec/stdlib/keys';
 
 import { type AccountInterface, type AuthWitnessProvider } from './interface.js';
 

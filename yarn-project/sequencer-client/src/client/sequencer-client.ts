@@ -1,7 +1,4 @@
 import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
-import { type L1ToL2MessageSource, type L2BlockSource } from '@aztec/circuit-types';
-import { type WorldStateSynchronizer } from '@aztec/circuit-types/interfaces/server';
-import { type AztecAddress, type ContractDataSource } from '@aztec/circuits.js';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
   ForwarderContract,
@@ -19,6 +16,11 @@ import { type DateProvider } from '@aztec/foundation/timer';
 import { type P2P } from '@aztec/p2p';
 import { LightweightBlockBuilderFactory } from '@aztec/prover-client/block-builder';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
+import { type AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type L2BlockSource } from '@aztec/stdlib/block';
+import { type ContractDataSource } from '@aztec/stdlib/contract';
+import { type WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { type ValidatorClient } from '@aztec/validator-client';
 

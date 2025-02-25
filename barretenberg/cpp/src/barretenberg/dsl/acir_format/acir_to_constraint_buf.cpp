@@ -8,7 +8,7 @@
 #include <tuple>
 #include <utility>
 #ifndef __wasm__
-#include "barretenberg/bb/get_bytecode.hpp"
+#include "barretenberg/api/get_bytecode.hpp"
 #endif
 #include "barretenberg/common/map.hpp"
 namespace acir_format {
@@ -926,14 +926,22 @@ AcirProgramStack get_acir_program_stack(std::string const& bytecode_path,
                                         std::string const& witness_path,
                                         uint32_t honk_recursion)
 {
+    vinfo("in get_acir_program_stack; witness path is ", witness_path);
     std::vector<uint8_t> bytecode = get_bytecode(bytecode_path);
     std::vector<AcirFormat> constraint_systems =
         program_buf_to_acir_format(bytecode,
                                    honk_recursion); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
                                                     // Remove honk recursion flag
-
-    std::vector<uint8_t> witness_data = get_bytecode(witness_path);
-    WitnessVectorStack witness_stack = witness_buf_to_witness_stack(witness_data);
+    const WitnessVectorStack witness_stack = [&]() {
+        if (witness_path.empty()) {
+            info("producing a stack of empties");
+            WitnessVectorStack stack_of_empties{ constraint_systems.size(),
+                                                 std::make_pair(uint32_t(), WitnessVector()) };
+            return stack_of_empties;
+        }
+        std::vector<uint8_t> witness_data = get_bytecode(witness_path);
+        return witness_buf_to_witness_stack(witness_data);
+    }();
 
     return { constraint_systems, witness_stack };
 }

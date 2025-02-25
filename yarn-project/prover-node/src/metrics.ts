@@ -1,4 +1,4 @@
-import { type L1PublishProofStats, type L1PublishStats } from '@aztec/circuit-types/stats';
+import { type L1PublishProofStats, type L1PublishStats } from '@aztec/stdlib/stats';
 import {
   Attributes,
   type Histogram,

@@ -1,8 +1,9 @@
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
-import { GasFees, GlobalVariables } from '@aztec/circuits.js';
-import { encodeArguments } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
+import { encodeArguments } from '@aztec/stdlib/abi';
+import { type AztecAddress } from '@aztec/stdlib/aztec-address';
+import { GasFees } from '@aztec/stdlib/gas';
+import { type MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { GlobalVariables } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import { type AvmContractCallResult } from '../../avm/avm_contract_call_result.js';
@@ -44,7 +45,7 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
     const firstNullifier = new Fr(420000);
     // FIXME: merkle ops should work, but I'm seeing frequent (but inconsistent) bytecode retrieval
     // failures on 2nd call to simulateCall with merkle ops on
-    const stateManager = await AvmPersistableStateManager.create(
+    const stateManager = AvmPersistableStateManager.create(
       worldStateDB,
       trace,
       /*doMerkleOperations=*/ false,
@@ -83,7 +84,7 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
       sender,
       isStaticCall,
     });
-    const persistableState = this.stateManager.fork();
+    const persistableState = await this.stateManager.fork();
     const context = initContext({ env: environment, persistableState });
 
     // First we simulate (though it's not needed in this simple case).
@@ -96,7 +97,7 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
       );
     } else {
       this.logger.info(`Simulation of function ${fnName} succeeded!`);
-      this.stateManager.merge(persistableState);
+      await this.stateManager.merge(persistableState);
     }
     return result;
   }

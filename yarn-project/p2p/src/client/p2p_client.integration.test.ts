@@ -1,10 +1,11 @@
 // An integration test for the p2p client to test req resp protocols
-import { PeerErrorSeverity, type Tx } from '@aztec/circuit-types';
-import { emptyChainConfig } from '@aztec/circuit-types/config';
-import { type WorldStateSynchronizer } from '@aztec/circuit-types/interfaces/server';
-import { mockTx } from '@aztec/circuit-types/testing';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { sleep } from '@aztec/foundation/sleep';
+import { emptyChainConfig } from '@aztec/stdlib/config';
+import { type WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
+import { mockTx } from '@aztec/stdlib/testing';
+import { type Tx } from '@aztec/stdlib/tx';
 
 import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';

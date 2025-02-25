@@ -1,6 +1,6 @@
-import { type ServerCircuitProver } from '@aztec/circuit-types/interfaces/server';
 import { timesAsync } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
+import { type ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
 
 import { jest } from '@jest/globals';
 

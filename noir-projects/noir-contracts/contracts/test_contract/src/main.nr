@@ -18,7 +18,10 @@ pub contract Test {
     };
 
     use dep::aztec::protocol_types::{
-        constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, PRIVATE_LOG_SIZE_IN_FIELDS},
+        constants::{
+            MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_TX,
+            PRIVATE_LOG_SIZE_IN_FIELDS,
+        },
         point::Point,
         traits::{Hash, Packable, Serialize},
         utils::arrays::array_concat,
@@ -29,12 +32,14 @@ pub contract Test {
 
     use dep::aztec::{
         deploy::deploy_contract as aztec_deploy_contract,
+        discovery::private_logs::do_process_log,
         hash::{ArgsHasher, compute_secret_hash, pedersen_hash},
         macros::{events::event, functions::{internal, private, public}, storage::storage},
         note::{
             lifecycle::{create_note, destroy_note_unsafe},
             note_getter::{get_notes, view_notes},
             note_getter_options::NoteStatus,
+            note_interface::NoteInterface,
             retrieved_note::RetrievedNote,
         },
         test::mocks::mock_struct::MockStruct,
@@ -426,7 +431,38 @@ pub contract Test {
     #[private]
     fn set_constant(value: Field) {
         let note = TestNote::new(value);
+        // We don't broadcast the fact that we created a note, it must be manually delivered by calling the deliver_note
+        // function. Note that we can only do this because the note contains no contract-generated values (e.g.
+        // randomness), if it did then we'd need to extract those out of the contract so that the app can get them (e.g.
+        // via capsules).
         storage.example_constant.initialize(note).discard();
+    }
+
+    unconstrained fn deliver_note(
+        contract_address: AztecAddress,
+        value: Field,
+        tx_hash: Field,
+        unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
+        first_nullifier_in_tx: Field,
+        recipient: AztecAddress,
+    ) {
+        // do_process_log expects a standard aztec-nr encoded note, which has the following shape:
+        // [ storage_slot, note_type_id, ...packed_note ]
+        let note = TestNote::new(value);
+        let log_plaintext = BoundedVec::from_array(array_concat(
+            [Test::storage_layout().example_constant.slot, TestNote::get_note_type_id()],
+            note.pack(),
+        ));
+
+        do_process_log(
+            contract_address,
+            log_plaintext,
+            tx_hash,
+            unique_note_hashes_in_tx,
+            first_nullifier_in_tx,
+            recipient,
+            _compute_note_hash_and_nullifier,
+        );
     }
 
     #[private]

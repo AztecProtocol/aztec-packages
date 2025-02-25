@@ -1,8 +1,3 @@
-import { type L2Block, MerkleTreeId, type SiblingPath } from '@aztec/circuit-types';
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
-import { BlockHeader, EthAddress, Fr, PublicDataWrite } from '@aztec/circuits.js';
-import { makeContentCommitment, makeGlobalVariables } from '@aztec/circuits.js/testing';
-import { AppendOnlyTreeSnapshot, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import {
   ARCHIVE_HEIGHT,
   L1_TO_L2_MSG_TREE_HEIGHT,
@@ -14,6 +9,15 @@ import {
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
+import { type SiblingPath } from '@aztec/foundation/trees';
+import { PublicDataWrite } from '@aztec/stdlib/avm';
+import { type L2Block } from '@aztec/stdlib/block';
+import { type MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { makeContentCommitment, makeGlobalVariables } from '@aztec/stdlib/testing';
+import { AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
+import { BlockHeader } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { mkdtemp, rm } from 'fs/promises';
@@ -39,7 +43,7 @@ describe('NativeWorldState', () => {
   });
 
   afterAll(async () => {
-    await rm(dataDir, { recursive: true });
+    await rm(dataDir, { recursive: true, maxRetries: 3 });
   });
 
   describe('persistence', () => {
@@ -539,7 +543,7 @@ describe('NativeWorldState', () => {
     let publicTree: number;
 
     beforeAll(async () => {
-      await rm(dataDir, { recursive: true });
+      await rm(dataDir, { recursive: true, maxRetries: 3 });
     });
 
     it('correctly reports block numbers', async () => {
@@ -597,7 +601,7 @@ describe('NativeWorldState', () => {
     let messages: Fr[];
 
     beforeAll(async () => {
-      await rm(dataDir, { recursive: true });
+      await rm(dataDir, { recursive: true, maxRetries: 3 });
     });
 
     it('correctly reports status', async () => {

@@ -1,5 +1,5 @@
-import { type EthAddress } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
+import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type LogFn } from '@aztec/foundation/log';
 import { TestERC20Abi } from '@aztec/l1-artifacts';
 

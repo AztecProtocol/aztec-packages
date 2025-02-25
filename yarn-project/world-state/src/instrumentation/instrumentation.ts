@@ -1,5 +1,5 @@
-import { MerkleTreeId } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   Attributes,
   type Gauge,

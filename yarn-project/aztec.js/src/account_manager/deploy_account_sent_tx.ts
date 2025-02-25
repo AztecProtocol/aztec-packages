@@ -1,6 +1,6 @@
-import { type TxHash, type TxReceipt } from '@aztec/circuit-types';
-import { type PXE } from '@aztec/circuit-types/interfaces/client';
 import { type FieldsOf } from '@aztec/foundation/types';
+import { type PXE } from '@aztec/stdlib/interfaces/client';
+import { type TxHash, type TxReceipt } from '@aztec/stdlib/tx';
 
 import { type Wallet } from '../account/index.js';
 import { DefaultWaitOpts, SentTx, type WaitOpts } from '../contract/sent_tx.js';

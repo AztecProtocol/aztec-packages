@@ -7,6 +7,7 @@
 #include "barretenberg/vm2/simulation/addressing.hpp"
 #include "barretenberg/vm2/simulation/alu.hpp"
 #include "barretenberg/vm2/simulation/bytecode_manager.hpp"
+#include "barretenberg/vm2/simulation/concrete_dbs.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/context_stack.hpp"
 #include "barretenberg/vm2/simulation/ecc.hpp"
@@ -24,7 +25,7 @@
 #include "barretenberg/vm2/simulation/events/siloing_event.hpp"
 #include "barretenberg/vm2/simulation/execution.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
-#include "barretenberg/vm2/simulation/lib/raw_data_db.hpp"
+#include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
 #include "barretenberg/vm2/simulation/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/sha256.hpp"
 #include "barretenberg/vm2/simulation/siloing.hpp"
@@ -39,11 +40,13 @@ namespace {
 // Configuration for full simulation (for proving).
 struct ProvingSettings {
     template <typename E> using DefaultEventEmitter = EventEmitter<E>;
+    template <typename E> using DefaultDeduplicatingEventEmitter = DeduplicatingEventEmitter<E>;
 };
 
 // Configuration for fast simulation.
 struct FastSettings {
     template <typename E> using DefaultEventEmitter = NoopEventEmitter<E>;
+    template <typename E> using DefaultDeduplicatingEventEmitter = NoopEventEmitter<E>;
 };
 
 } // namespace
@@ -58,7 +61,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<BytecodeRetrievalEvent> bytecode_retrieval_emitter;
     typename S::template DefaultEventEmitter<BytecodeHashingEvent> bytecode_hashing_emitter;
     typename S::template DefaultEventEmitter<BytecodeDecompositionEvent> bytecode_decomposition_emitter;
-    typename S::template DefaultEventEmitter<InstructionFetchingEvent> instruction_fetching_emitter;
+    typename S::template DefaultDeduplicatingEventEmitter<InstructionFetchingEvent> instruction_fetching_emitter;
     typename S::template DefaultEventEmitter<AddressDerivationEvent> address_derivation_emitter;
     typename S::template DefaultEventEmitter<ClassIdDerivationEvent> class_id_derivation_emitter;
     typename S::template DefaultEventEmitter<SiloingEvent> siloing_emitter;
@@ -67,17 +70,21 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<Poseidon2HashEvent> poseidon2_hash_emitter;
     typename S::template DefaultEventEmitter<Poseidon2PermutationEvent> poseidon2_perm_emitter;
 
-    HintedRawDataDB db(inputs.hints);
     AddressDerivation address_derivation(address_derivation_emitter);
     ClassIdDerivation class_id_derivation(class_id_derivation_emitter);
+    HintedRawContractDB raw_contract_db(inputs.hints);
+    HintedRawMerkleDB raw_merkle_db(inputs.hints);
+    ContractDB contract_db(raw_contract_db, address_derivation, class_id_derivation);
+    MerkleDB merkle_db(raw_merkle_db);
+
+    Poseidon2 poseidon2(poseidon2_hash_emitter, poseidon2_perm_emitter);
+    BytecodeHasher bytecode_hasher(poseidon2, bytecode_hashing_emitter);
     Siloing siloing(siloing_emitter);
-    // TODO: I'm not using the siloing gadget yet here.
-    // It should probably not be in bytecode_manager, but in sth related to the contract instance.
-    TxBytecodeManager bytecode_manager(db,
-                                       address_derivation,
-                                       class_id_derivation,
+    TxBytecodeManager bytecode_manager(contract_db,
+                                       merkle_db,
+                                       siloing,
+                                       bytecode_hasher,
                                        bytecode_retrieval_emitter,
-                                       bytecode_hashing_emitter,
                                        bytecode_decomposition_emitter,
                                        instruction_fetching_emitter);
     ContextProvider context_provider(bytecode_manager, memory_emitter);
@@ -90,7 +97,6 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     TxExecution tx_execution(execution);
     Sha256 sha256(sha256_compression_emitter);
     Ecc ecc_add(ecc_add_emitter);
-    Poseidon2 poseidon2(poseidon2_hash_emitter, poseidon2_perm_emitter);
 
     tx_execution.simulate({ .enqueued_calls = inputs.enqueuedCalls });
 
