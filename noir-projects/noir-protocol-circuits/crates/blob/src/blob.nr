@@ -3,7 +3,7 @@ use crate::{
     config::{D_INV, F, LOG_FIELDS_PER_BLOB, ROOTS},
 };
 
-use bigint::{BigNum, BigNumTrait};
+use bigint::BigNumTrait;
 use std::ops::{Mul, Neg};
 use types::{
     abis::sponge_blob::SpongeBlob,
@@ -14,7 +14,7 @@ use types::{
 };
 
 fn convert_blob_fields(blob_as_fields: [Field; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB] {
-    let mut blob: [F; FIELDS_PER_BLOB] = [BigNum::zero(); FIELDS_PER_BLOB];
+    let mut blob: [F; FIELDS_PER_BLOB] = [F::zero(); FIELDS_PER_BLOB];
     for i in 0..FIELDS_PER_BLOB {
         blob[i] = F::from(blob_as_fields[i]);
     }
@@ -151,7 +151,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
         //                    i=0
 
         let NUM_PARTIAL_SUMS = FIELDS_PER_BLOB / 8;
-        // Safety: This sum is checked by the following `BigNum::evaluate_quadratic_expression` calls.
+        // Safety: This sum is checked by the following `F::evaluate_quadratic_expression` calls.
         let partial_sums: [F; FIELDS_PER_BLOB / 8] =
             unsafe { __compute_partial_sums(fracs, ROOTS) };
 
@@ -167,7 +167,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
             [fracs[0]], [fracs[1]], [fracs[2]], [fracs[3]], [fracs[4]], [fracs[5]], [fracs[6]],
             [fracs[7]],
         ];
-        BigNum::evaluate_quadratic_expression(
+        F::evaluate_quadratic_expression(
             lhs,
             [[false], [false], [false], [false], [false], [false], [false], [false]],
             rhs,
@@ -200,7 +200,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
             // => (lhs[8*i] * rhs[8*i] + ... + lhs[8*i + 7] * rhs[8*i + 7]) + partial_sums[i-1] - partial_sums[i] == 0
             let linear_terms = [partial_sums[i - 1], partial_sums[i]];
 
-            BigNum::evaluate_quadratic_expression(
+            F::evaluate_quadratic_expression(
                 /* lhs */ [
                     [ROOTS[i * 8 + 0]],
                     [ROOTS[i * 8 + 1]],
@@ -246,7 +246,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
 }
 
 unconstrained fn __compute_factor_helper(z_pow_d: F) -> F {
-    let one: F = BigNum::one();
+    let one: F = F::one();
     z_pow_d.__sub(one).__mul(D_INV)
 }
 
@@ -261,13 +261,13 @@ fn compute_factor(z: F) -> F {
     let z_pow_d = t;
 
     // Safety: We immediately check that this result is correct in the following
-    // `BigNum::evaluate_quadratic_expression` call.
+    // `F::evaluate_quadratic_expression` call.
     let factor = unsafe { __compute_factor_helper(z_pow_d) };
 
     // (z_pow_d - one) * (D_INV) - factor = 0
     // z_pow_d * D_INV - D_INV - factor = 0
     if !std::runtime::is_unconstrained() {
-        BigNum::evaluate_quadratic_expression(
+        F::evaluate_quadratic_expression(
             [[z_pow_d]],
             [[false]],
             [[D_INV]],
@@ -278,7 +278,7 @@ fn compute_factor(z: F) -> F {
     }
 
     // This version doesn't work:
-    // BigNum::evaluate_quadratic_expression(
+    // F::evaluate_quadratic_expression(
     //     [[z_pow_d, one]],
     //     [[false, true]],
     //     [[D_INV]],
@@ -295,7 +295,7 @@ unconstrained fn __compute_fracs(
     ys: [F; FIELDS_PER_BLOB],
     unconstrained_roots: [F; FIELDS_PER_BLOB],
 ) -> [F; FIELDS_PER_BLOB] {
-    let mut denoms = [BigNum::zero(); FIELDS_PER_BLOB];
+    let mut denoms = [F::zero(); FIELDS_PER_BLOB];
     for i in 0..FIELDS_PER_BLOB {
         denoms[i] = z.__sub(unconstrained_roots[i]); // (z - omega^i)
     }
@@ -313,14 +313,14 @@ unconstrained fn __compute_fracs(
 
 fn compute_fracs(z: F, ys: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB] {
     // Safety: We immediately constrain these `fracs` to be correct in the following call
-    // to `BigNum::evaluate_quadratic_expression`.
+    // to `F::evaluate_quadratic_expression`.
     let mut fracs: [F; FIELDS_PER_BLOB] = unsafe { __compute_fracs(z, ys, ROOTS) };
 
     if !std::runtime::is_unconstrained() {
         for i in 0..FIELDS_PER_BLOB {
             // frac <-- ys[i] / (z + neg_roots[i])
             // frac * (z + neg_roots[i]) - ys[i] = 0
-            BigNum::evaluate_quadratic_expression(
+            F::evaluate_quadratic_expression(
                 [[fracs[i]]],
                 [[false]],
                 [[z, ROOTS[i].neg()]],
@@ -349,7 +349,7 @@ unconstrained fn __compute_partial_sums(
     //                    k=i*8 + 0
 
     // Need to split off the first iteration.
-    let mut partial_sum: F = BigNum::zero();
+    let mut partial_sum: F = F::zero();
     for i in 0..8 {
         // y_k * ( omega^k / (z - omega^k) )
         let summand = unconstrained_roots[i].__mul(fracs[i]);
@@ -392,7 +392,7 @@ unconstrained fn __compute_sum(
     //                   /____       z - omega^i
     //                    i=0
 
-    let mut sum: F = BigNum::zero();
+    let mut sum: F = F::zero();
     for i in 0..FIELDS_PER_BLOB {
         // y_k * ( omega^k / (z - omega^k) )
         let summand = unconstrained_roots[i].__mul(fracs[i]);
@@ -413,10 +413,7 @@ mod tests {
         config::{D, D_INV, F, ROOTS},
     };
     use super::{__compute_partial_sums, __compute_sum};
-    use bigint::{
-        BigNum, bignum::BigNumTrait, fields::bls12_381Fr::BLS12_381_Fr_Params,
-        params::BigNumParamsGetter,
-    };
+    use bigint::{BigNumTrait, fields::bls12_381Fr::BLS12_381_Fr_Params, params::BigNumParamsGetter};
     use types::{
         abis::sponge_blob::SpongeBlob,
         constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
@@ -456,7 +453,7 @@ mod tests {
         //*                    d
         //
         let rhs = super::compute_factor(challenge_z);
-        let z_minus_1 = challenge_z.__sub(BigNum::one());
+        let z_minus_1 = challenge_z.__sub(F::one());
         let lhs = y.__mul(z_minus_1);
         assert_eq(lhs, rhs);
     }
@@ -514,7 +511,7 @@ mod tests {
         let output = evaluate_blob(blob, kzg_commitment_in, hashed_blob);
 
         // y is a BLS field with value 0x212c4f0c0ee5e7dd037110686a4639d191dde7b57ab99b51e4b06e7d827b6c4c
-        let expected_y: F = BigNum {
+        let expected_y: F = F {
             limbs: [0xdde7b57ab99b51e4b06e7d827b6c4c, 0x4f0c0ee5e7dd037110686a4639d191, 0x212c],
         };
         assert(expected_y == output.y);
@@ -544,7 +541,7 @@ mod tests {
         let output = evaluate_blobs(blob, [kzg_commitment_in; BLOBS_PER_BLOCK], sponge_blob);
 
         // y is a BLS field with value 0x52fd4e272015a79f3889cc9ab1d84bee4326de7d8ced52612ecc9ec137bd38ee
-        let expected_y: F = BigNum {
+        let expected_y: F = F {
             limbs: [0x26de7d8ced52612ecc9ec137bd38ee, 0x4e272015a79f3889cc9ab1d84bee43, 0x52fd],
         };
         for j in 0..BLOBS_PER_BLOCK {
@@ -595,14 +592,14 @@ mod tests {
 
     #[test]
     unconstrained fn test_barycentric() {
-        let z: F = BigNum { limbs: [2, 0, 0] };
+        let z: F = F { limbs: [2, 0, 0] };
 
         // many y's form a blob:
-        let mut ys: [F; FIELDS_PER_BLOB] = [BigNum::zero(); FIELDS_PER_BLOB];
+        let mut ys: [F; FIELDS_PER_BLOB] = [F::zero(); FIELDS_PER_BLOB];
 
-        ys[0] = BigNum { limbs: [0x1234, 0, 0] };
-        ys[1] = BigNum { limbs: [0xabcd, 0, 0] };
-        ys[2] = BigNum { limbs: [0x69, 0, 0] };
+        ys[0] = F { limbs: [0x1234, 0, 0] };
+        ys[1] = F { limbs: [0xabcd, 0, 0] };
+        ys[2] = F { limbs: [0x69, 0, 0] };
 
         // evaluate the blob at z = 2 to yield y:
         let y = barycentric_evaluate_blob_at_z(z, ys);
@@ -652,7 +649,7 @@ mod tests {
 
     #[test]
     fn compute_sum_and_compute_partial_sums_agree() {
-        let mut fields = [BigNum::zero(); FIELDS_PER_BLOB];
+        let mut fields = [F::zero(); FIELDS_PER_BLOB];
         for i in 0..FIELDS_PER_BLOB {
             fields[i] = F::from(i as Field);
         }
