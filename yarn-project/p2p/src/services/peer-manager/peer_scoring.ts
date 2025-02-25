@@ -1,4 +1,4 @@
-import { PeerErrorSeverity } from '@aztec/circuit-types';
+import { PeerErrorSeverity } from '@aztec/circuits.js/p2p';
 import { median } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 

@@ -1,4 +1,4 @@
-import { type AnyTx, Tx, type TxValidationResult, type TxValidator } from '@aztec/circuit-types';
+import { type AnyTx, Tx, type TxValidationResult, type TxValidator } from '@aztec/circuits.js/tx';
 import { type Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 

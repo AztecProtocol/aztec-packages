@@ -1,3 +1,4 @@
+import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
 import {
   type ProofAndVerificationKey,
   type ProofUri,
@@ -6,13 +7,12 @@ import {
   type ProvingJobProducer,
   type ProvingJobResultsMap,
   type ProvingJobStatus,
-  ProvingRequestType,
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
   makeProvingJobId,
-} from '@aztec/circuit-types/interfaces/server';
-import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
+} from '@aztec/circuits.js/interfaces/server';
 import { type BaseParityInputs, type ParityPublicInputs, type RootParityInputs } from '@aztec/circuits.js/parity';
+import { ProvingRequestType } from '@aztec/circuits.js/proofs';
 import {
   type BaseOrMergeRollupPublicInputs,
   type BlockMergeRollupInputs,

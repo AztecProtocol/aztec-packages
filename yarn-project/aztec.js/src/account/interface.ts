@@ -1,4 +1,4 @@
-import { type AuthWitness } from '@aztec/circuit-types/auth-witness';
+import { type AuthWitness } from '@aztec/circuits.js/auth-witness';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import type { CompleteAddress } from '@aztec/circuits.js/contract';
 import { type Fr } from '@aztec/foundation/fields';

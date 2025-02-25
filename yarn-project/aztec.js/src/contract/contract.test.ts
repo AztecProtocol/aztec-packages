@@ -1,11 +1,3 @@
-import {
-  type Tx,
-  type TxExecutionRequest,
-  type TxHash,
-  type TxProvingResult,
-  type TxReceipt,
-  type TxSimulationResult,
-} from '@aztec/circuit-types';
 import { type AbiDecoded, type ContractArtifact, FunctionType } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
@@ -15,6 +7,14 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/circuits.js/contract';
 import { GasFees } from '@aztec/circuits.js/gas';
+import {
+  type Tx,
+  type TxExecutionRequest,
+  type TxHash,
+  type TxProvingResult,
+  type TxReceipt,
+  type TxSimulationResult,
+} from '@aztec/circuits.js/tx';
 import { type L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { EthAddress } from '@aztec/foundation/eth-address';
 

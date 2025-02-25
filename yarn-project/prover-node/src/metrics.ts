@@ -1,4 +1,3 @@
-import { type L1PublishProofStats, type L1PublishStats } from '@aztec/circuit-types/stats';
 import {
   Attributes,
   type Histogram,
@@ -9,6 +8,8 @@ import {
 } from '@aztec/telemetry-client';
 
 import { formatEther } from 'viem';
+
+import { type L1PublishProofStats, type L1PublishStats } from '../../circuits.js/src/stats/index.js';
 
 export class ProverNodeMetrics {
   proverEpochExecutionDuration: Histogram;

@@ -1,18 +1,20 @@
-import { InboxLeaf, L2Block, LogId, TxEffect, TxHash, wrapInBlock } from '@aztec/circuit-types';
-import '@aztec/circuit-types/jest';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { L2Block, wrapInBlock } from '@aztec/circuits.js/block';
 import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
   SerializableContractInstance,
   computePublicBytecodeCommitment,
 } from '@aztec/circuits.js/contract';
-import { PrivateLog, PublicLog } from '@aztec/circuits.js/logs';
+import { LogId, PrivateLog, PublicLog } from '@aztec/circuits.js/logs';
+import { InboxLeaf } from '@aztec/circuits.js/messaging';
 import {
   makeContractClassPublic,
   makeExecutablePrivateFunctionWithMembershipProof,
   makeUnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js/testing';
+import '@aztec/circuits.js/testing/jest';
+import { TxEffect, TxHash } from '@aztec/circuits.js/tx';
 import {
   INITIAL_L2_BLOCK_NUM,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,

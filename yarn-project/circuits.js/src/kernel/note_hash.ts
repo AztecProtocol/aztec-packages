@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { AztecAddress } from '../aztec-address/index.js';
-import { type Ordered } from '../interfaces/index.js';
+import { type Ordered } from './utils/interfaces.js';
 
 export class NoteHash {
   constructor(public value: Fr, public counter: number) {}

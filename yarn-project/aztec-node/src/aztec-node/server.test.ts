@@ -1,17 +1,17 @@
 import { TestCircuitVerifier } from '@aztec/bb-prover';
-import {
-  type L1ToL2MessageSource,
-  type L2BlockSource,
-  type L2LogsSource,
-  type NullifierWithBlockSource,
-} from '@aztec/circuit-types';
-import { type AztecNode } from '@aztec/circuit-types/interfaces/client';
-import { type MerkleTreeReadOperations, type WorldStateSynchronizer } from '@aztec/circuit-types/interfaces/server';
-import { mockTx } from '@aztec/circuit-types/testing';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type L2BlockSource, type NullifierWithBlockSource } from '@aztec/circuits.js/block';
 import type { ContractDataSource } from '@aztec/circuits.js/contract';
 import { GasFees } from '@aztec/circuits.js/gas';
+import { type AztecNode } from '@aztec/circuits.js/interfaces/client';
+import {
+  type L2LogsSource,
+  type MerkleTreeReadOperations,
+  type WorldStateSynchronizer,
+} from '@aztec/circuits.js/interfaces/server';
 import { RollupValidationRequests } from '@aztec/circuits.js/kernel';
+import type { L1ToL2MessageSource } from '@aztec/circuits.js/messaging';
+import { mockTx } from '@aztec/circuits.js/testing';
 import { MerkleTreeId, PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
 import { BlockHeader, GlobalVariables, MaxBlockNumber } from '@aztec/circuits.js/tx';
 import { EthAddress } from '@aztec/foundation/eth-address';

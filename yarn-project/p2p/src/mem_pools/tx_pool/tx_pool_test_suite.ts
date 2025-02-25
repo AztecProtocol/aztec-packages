@@ -1,6 +1,6 @@
-import { type Tx } from '@aztec/circuit-types';
-import { mockTx } from '@aztec/circuit-types/testing';
 import { GasFees } from '@aztec/circuits.js/gas';
+import { mockTx } from '@aztec/circuits.js/testing';
+import { type Tx } from '@aztec/circuits.js/tx';
 import { unfreeze } from '@aztec/foundation/types';
 
 import { type TxPool } from './tx_pool.js';

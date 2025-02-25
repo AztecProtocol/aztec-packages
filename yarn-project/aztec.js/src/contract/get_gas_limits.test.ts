@@ -1,6 +1,6 @@
-import { type TxSimulationResult } from '@aztec/circuit-types';
-import { mockSimulatedTx, mockTxForRollup } from '@aztec/circuit-types/testing';
 import { Gas } from '@aztec/circuits.js/gas';
+import { mockSimulatedTx, mockTxForRollup } from '@aztec/circuits.js/testing';
+import { type TxSimulationResult } from '@aztec/circuits.js/tx';
 
 import { getGasLimits } from './get_gas_limits.js';
 

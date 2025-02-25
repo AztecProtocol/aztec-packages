@@ -1,5 +1,5 @@
 import { retrieveL2ProofVerifiedEvents } from '@aztec/archiver';
-import { createAztecNodeClient } from '@aztec/circuit-types/interfaces/client';
+import { createAztecNodeClient } from '@aztec/circuits.js/interfaces/client';
 import { createEthereumChain } from '@aztec/ethereum';
 import { compactArray, mapValues, unique } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';

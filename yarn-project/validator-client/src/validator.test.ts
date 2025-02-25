@@ -1,9 +1,8 @@
 /**
  * Validation logic unit tests
  */
-import { TxHash } from '@aztec/circuit-types';
-import { makeBlockAttestation, makeBlockProposal, mockTx } from '@aztec/circuit-types/testing';
-import { makeHeader } from '@aztec/circuits.js/testing';
+import { makeBlockAttestation, makeBlockProposal, makeHeader, mockTx } from '@aztec/circuits.js/testing';
+import { TxHash } from '@aztec/circuits.js/tx';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
