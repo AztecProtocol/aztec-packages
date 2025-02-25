@@ -11,10 +11,11 @@ import {
   EnumerableSet
 } from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {FeeAssetValue} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
-
-// We allow the unused imports here as they make it much simpler to import the Rollup later
-// solhint-disable no-unused-import
+import {FeeMath} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
+import {HeaderLib} from "@aztec/core/libraries/RollupLibs/HeaderLib.sol";
+import {EpochProofLib} from "./libraries/RollupLibs/EpochProofLib.sol";
 import {
   RollupCore,
   Config,
@@ -22,10 +23,6 @@ import {
   IFeeJuicePortal,
   IERC20,
   BlockLog,
-  FeeHeader,
-  ManaBaseFeeComponents,
-  SubmitEpochRootProofArgs,
-  L1FeeData,
   ValidatorSelectionLib,
   StakingLib,
   TimeLib,
@@ -34,18 +31,16 @@ import {
   Timestamp,
   Errors,
   Signature,
-  DataStructures,
   ExtRollupLib,
-  IntRollupLib,
-  EpochRewards,
-  FeeAssetPerEthE9,
   EthValue,
   PriceLib,
   STFLib,
-  RollupStore
+  RollupStore,
+  IInbox,
+  IOutbox,
+  ProposeLib,
+  EpochRewards
 } from "./RollupCore.sol";
-import {EpochProofLib} from "./libraries/RollupLibs/EpochProofLib.sol";
-// solhint-enable no-unused-import
 
 /**
  * @title Rollup
@@ -60,7 +55,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   using TimeLib for Timestamp;
   using TimeLib for Slot;
   using TimeLib for Epoch;
-  using IntRollupLib for ManaBaseFeeComponents;
   using PriceLib for EthValue;
 
   constructor(
@@ -198,8 +192,8 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     bytes32 _blobsHash,
     DataStructures.ExecutionFlags memory _flags
   ) external view override(IRollup) {
-    _validateHeader(
-      ExtRollupLib.decodeHeader(_header),
+    ProposeLib.validateHeader(
+      HeaderLib.decode(_header),
       _signatures,
       _digest,
       _currentTime,
@@ -524,6 +518,18 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return EpochProofLib.CUAUHXICALLI;
   }
 
+  function getVersion() external view override(IRollup) returns (uint256) {
+    return STFLib.getStorage().config.version;
+  }
+
+  function getInbox() external view override(IRollup) returns (IInbox) {
+    return STFLib.getStorage().config.inbox;
+  }
+
+  function getOutbox() external view override(IRollup) returns (IOutbox) {
+    return STFLib.getStorage().config.outbox;
+  }
+
   function getFeeAsset() external view override(IRollup) returns (IERC20) {
     return STFLib.getStorage().config.feeAsset;
   }
@@ -593,7 +599,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (uint256)
   {
-    return getManaBaseFeeComponentsAt(_timestamp, _inFeeAsset).summedBaseFee();
+    return FeeMath.summedBaseFee(getManaBaseFeeComponentsAt(_timestamp, _inFeeAsset));
   }
 
   /**

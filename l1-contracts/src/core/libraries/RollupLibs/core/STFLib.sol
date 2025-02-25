@@ -3,8 +3,8 @@
 pragma solidity >=0.8.27;
 
 import {RollupStore, IRollupCore} from "@aztec/core/interfaces/IRollup.sol";
-import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 
 library STFLib {
   using TimeLib for Slot;
@@ -12,6 +12,19 @@ library STFLib {
   using TimeLib for Timestamp;
 
   bytes32 private constant STF_STORAGE_POSITION = keccak256("aztec.stf.storage");
+
+  function prune() internal {
+    RollupStore storage rollupStore = STFLib.getStorage();
+    uint256 pending = rollupStore.tips.pendingBlockNumber;
+
+    // @note  We are not deleting the blocks, but we are "winding back" the pendingTip to the last block that was proven.
+    //        We can do because any new block proposed will overwrite a previous block in the block log,
+    //        so no values should "survive".
+    //        People must therefore read the chain using the pendingTip as a boundary.
+    rollupStore.tips.pendingBlockNumber = rollupStore.tips.provenBlockNumber;
+
+    emit IRollupCore.PrunedPending(rollupStore.tips.provenBlockNumber, pending);
+  }
 
   function getEpochForBlock(uint256 _blockNumber) internal view returns (Epoch) {
     RollupStore storage rollupStore = STFLib.getStorage();
@@ -33,19 +46,6 @@ library STFLib {
       oldestPendingEpoch.toSlots() + Slot.wrap(rollupStore.config.proofSubmissionWindow);
 
     return deadline < _ts.slotFromTimestamp();
-  }
-
-  function prune() internal {
-    RollupStore storage rollupStore = STFLib.getStorage();
-    uint256 pending = rollupStore.tips.pendingBlockNumber;
-
-    // @note  We are not deleting the blocks, but we are "winding back" the pendingTip to the last block that was proven.
-    //        We can do because any new block proposed will overwrite a previous block in the block log,
-    //        so no values should "survive".
-    //        People must therefore read the chain using the pendingTip as a boundary.
-    rollupStore.tips.pendingBlockNumber = rollupStore.tips.provenBlockNumber;
-
-    emit IRollupCore.PrunedPending(rollupStore.tips.provenBlockNumber, pending);
   }
 
   function getStorage() internal pure returns (RollupStore storage storageStruct) {

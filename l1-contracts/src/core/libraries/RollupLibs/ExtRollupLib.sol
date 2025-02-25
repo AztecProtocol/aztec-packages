@@ -2,46 +2,28 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
+import {SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
 
-import {BlockLog, RollupStore} from "@aztec/core/interfaces/IRollup.sol";
 import {BlobLib} from "./BlobLib.sol";
 import {EpochProofLib} from "./EpochProofLib.sol";
-import {
-  FeeMath,
-  ManaBaseFeeComponents,
-  FeeHeader,
-  L1FeeData,
-  EthValue,
-  FeeAssetPerEthE9
-} from "./FeeMath.sol";
-import {HeaderLib, Header} from "./HeaderLib.sol";
-import {ValidationLib, ValidateHeaderArgs} from "./ValidationLib.sol";
-
+import {ProposeLib, ProposeArgs, Signature} from "./ProposeLib.sol";
 // We are using this library such that we can more easily "link" just a larger external library
 // instead of a few smaller ones.
+
 library ExtRollupLib {
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external {
     EpochProofLib.submitEpochRootProof(_args);
   }
 
-  function validateHeaderForSubmissionBase(
-    ValidateHeaderArgs memory _args,
-    mapping(uint256 blockNumber => BlockLog log) storage _blocks
-  ) external view {
-    ValidationLib.validateHeaderForSubmissionBase(_args, _blocks);
-  }
-
-  function getManaBaseFeeComponentsAt(
-    FeeHeader storage _parentFeeHeader,
-    L1FeeData memory _fees,
-    EthValue _provingCostPerMana,
-    FeeAssetPerEthE9 _feeAssetPrice,
-    uint256 _epochDuration
-  ) external view returns (ManaBaseFeeComponents memory) {
-    return FeeMath.getManaBaseFeeComponentsAt(
-      _parentFeeHeader, _fees, _provingCostPerMana, _feeAssetPrice, _epochDuration
-    );
+  function propose(
+    ProposeArgs calldata _args,
+    Signature[] memory _signatures,
+    // TODO(#9101): Extract blobs from beacon chain => remove below body input
+    bytes calldata _body,
+    bytes calldata _blobInput,
+    bool _checkBlob
+  ) external {
+    ProposeLib.propose(_args, _signatures, _body, _blobInput, _checkBlob);
   }
 
   function getEpochProofPublicInputs(
@@ -71,9 +53,5 @@ library ExtRollupLib {
 
   function getBlobBaseFee() external view returns (uint256) {
     return BlobLib.getBlobBaseFee();
-  }
-
-  function decodeHeader(bytes calldata _header) external pure returns (Header memory) {
-    return HeaderLib.decode(_header);
   }
 }

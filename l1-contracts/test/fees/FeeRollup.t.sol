@@ -15,16 +15,8 @@ import {Registry} from "@aztec/governance/Registry.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {
-  Rollup,
-  Config,
-  BlockLog,
-  L1FeeData,
-  FeeHeader,
-  ManaBaseFeeComponents,
-  SubmitEpochRootProofArgs
-} from "@aztec/core/Rollup.sol";
-import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
+import {Rollup, Config, BlockLog} from "@aztec/core/Rollup.sol";
+import {IRollup, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
@@ -43,7 +35,10 @@ import {
   MANA_TARGET,
   MINIMUM_CONGESTION_MULTIPLIER,
   FeeAssetPerEthE9,
-  EthValue
+  EthValue,
+  FeeHeader,
+  L1FeeData,
+  ManaBaseFeeComponents
 } from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 
 import {

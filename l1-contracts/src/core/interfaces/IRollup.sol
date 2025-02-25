@@ -2,6 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
@@ -15,7 +16,6 @@ import {
 } from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 import {ProposeArgs} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
-import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
@@ -68,6 +68,9 @@ struct RollupConfig {
   bytes32 vkTreeRoot;
   bytes32 protocolContractTreeRoot;
   IVerifier epochProofVerifier;
+  IInbox inbox;
+  IOutbox outbox;
+  uint256 version;
 }
 
 // The below blobPublicInputsHashes are filled when proposing a block, then used to verify an epoch proof.
@@ -129,12 +132,6 @@ interface IRollupCore {
   ) external;
 
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external;
-
-  // solhint-disable-next-line func-name-mixedcase
-  function INBOX() external view returns (IInbox);
-
-  // solhint-disable-next-line func-name-mixedcase
-  function OUTBOX() external view returns (IOutbox);
 
   // solhint-disable-next-line func-name-mixedcase
   function L1_BLOCK_AT_GENESIS() external view returns (uint256);
@@ -218,4 +215,8 @@ interface IRollup is IRollupCore {
   function getFeeAssetPortal() external view returns (IFeeJuicePortal);
   function getRewardDistributor() external view returns (IRewardDistributor);
   function getCuauhxicalli() external view returns (address);
+
+  function getInbox() external view returns (IInbox);
+  function getOutbox() external view returns (IOutbox);
+  function getVersion() external view returns (uint256);
 }
