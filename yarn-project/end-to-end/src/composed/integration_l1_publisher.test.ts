@@ -2,6 +2,7 @@ import { type ArchiveSource } from '@aztec/archiver';
 import { getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, Fr, GlobalVariables, type L2Block, createLogger } from '@aztec/aztec.js';
 import { Blob, BlockBlobPublicInputs } from '@aztec/blob-lib';
+import type { L2Tips } from '@aztec/circuits.js/block';
 import { GasFees, GasSettings } from '@aztec/circuits.js/gas';
 import { fr, makeBloatedProcessedTx } from '@aztec/circuits.js/testing';
 import { type BlockHeader, type ProcessedTx } from '@aztec/circuits.js/tx';

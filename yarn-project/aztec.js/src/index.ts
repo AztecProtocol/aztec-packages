@@ -81,7 +81,7 @@ export {
   EncryptedLogPayload,
 } from '@aztec/circuits.js/logs';
 export { L1EventPayload, EventMetadata } from '@aztec/circuits.js/event';
-export { L1ToL2Message, L2Actor } from '@aztec/circuits.js/messaging';
+export { L1ToL2Message, L2Actor, L1Actor } from '@aztec/circuits.js/messaging';
 export { UniqueNote, ExtendedNote, Comparator, Note } from '@aztec/circuits.js/note';
 export { type PXE, EventType } from '@aztec/circuits.js/interfaces/client';
 
