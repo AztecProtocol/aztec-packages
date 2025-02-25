@@ -82,11 +82,11 @@ where
     // is check that the metadata is correct, and that the note exists.
     let retrieved_note = unsafe { get_note_internal::<Note, N>(storage_slot) };
 
-    // For non-transient notes, the contract address is implicitly checked since the hash returned from
-    // `compute_note_hash_for_read_request(...)` is siloed and kernels verify the siloing during note
-    // read request validation. For transient notes, however, we return an "unsiloed" hash, so we need to check
-    // that the contract address returned from the oracle matches. Since branching in circuits is expensive, we
-    // perform this check on all the note types.
+    // For settled notes, the contract address is implicitly checked since the hash returned from
+    // `compute_note_hash_for_read_request` is siloed and kernels verify the siloing during note read request
+    // validation. Pending notes however are read with the unsiloed note hash, so we need to check that the contract
+    // address returned from the oracle matches. Since branching in circuits is expensive, we perform this check on all
+    // note types.
     assert(
         retrieved_note.contract_address.eq(context.this_address()),
         "Note contract address mismatch.",
@@ -154,9 +154,11 @@ where
         if i < notes.len() {
             let retrieved_note = notes.get_unchecked(i);
 
-            // TODO: For non-transient notes, the contract address appears to be implicitly checked since we return
-            // a siloed note hash from the `compute_note_hash_for_read_request(...)` function. Investigate whether this
-            // check is needed for transient notes and if not, remove it.
+            // For settled notes, the contract address is implicitly checked since the hash returned from
+            // `compute_note_hash_for_read_request` is siloed and kernels verify the siloing during note read request
+            // validation. Pending notes however are read with the unsiloed note hash, so we need to check that the
+            // contract address returned from the oracle matches. Since branching in circuits is expensive, we perform
+            // this check on all note types.
             assert(
                 retrieved_note.contract_address.eq(context.this_address()),
                 "Note contract address mismatch.",

@@ -842,7 +842,7 @@ describe('Private Execution test suite', () => {
         {
           contractAddress,
           storageSlot,
-          nonce: Fr.ZERO,
+          nonce: Fr.random(),
           note,
           noteHash: Fr.ZERO,
           siloedNullifier: Fr.random(),

@@ -1,6 +1,6 @@
 use dep::aztec::{
     macros::notes::note,
-    note::utils::compute_note_hash_for_nullify,
+    note::{note_metadata::SettledNoteMetadata, utils::compute_note_hash_for_nullify},
     prelude::{NullifiableNote, PrivateContext, RetrievedNote},
     protocol_types::{
         address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
@@ -47,9 +47,11 @@ impl NullifiableNote for TransparentNote {
         contract_address: AztecAddress,
         note_nonce: Field,
     ) -> Field {
-        // We set the note_hash_counter to 0 as the note is assumed to be committed (and hence not transient).
-        let retrieved_note =
-            RetrievedNote { note: self, contract_address, nonce: note_nonce, note_hash_counter: 0 };
+        let retrieved_note = RetrievedNote {
+            note: self,
+            contract_address,
+            metadata: SettledNoteMetadata::new(note_nonce).into(),
+        };
         let note_hash_for_nullify = compute_note_hash_for_nullify(retrieved_note, storage_slot);
         // compute_nullifier ignores context so we can reuse it here
         self.compute_nullifier(zeroed(), note_hash_for_nullify)
