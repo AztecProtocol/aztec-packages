@@ -1,14 +1,14 @@
-import { isNoirCallStackUnresolved } from '@aztec/circuit-types';
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
-import { type ContractArtifact, type FunctionArtifact, FunctionSelector } from '@aztec/circuits.js/abi';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { GasFees } from '@aztec/circuits.js/gas';
-import { GlobalVariables } from '@aztec/circuits.js/tx';
 import { MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/constants';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmGadgetsTestContractArtifact } from '@aztec/noir-contracts.js/AvmGadgetsTest';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
+import { type ContractArtifact, type FunctionArtifact, FunctionSelector } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { isNoirCallStackUnresolved } from '@aztec/stdlib/errors';
+import { GasFees } from '@aztec/stdlib/gas';
+import { type MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { GlobalVariables } from '@aztec/stdlib/tx';
 
 import { strict as assert } from 'assert';
 import { mock } from 'jest-mock-extended';

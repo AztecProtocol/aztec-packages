@@ -1,20 +1,3 @@
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
-import { FunctionSelector } from '@aztec/circuits.js/abi';
-import { PublicDataWrite } from '@aztec/circuits.js/avm';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { SerializableContractInstance } from '@aztec/circuits.js/contract';
-import { GasFees } from '@aztec/circuits.js/gas';
-import {
-  computeNoteHashNonce,
-  computePublicDataTreeLeafSlot,
-  computeUniqueNoteHash,
-  computeVarArgsHash,
-  siloNoteHash,
-  siloNullifier,
-} from '@aztec/circuits.js/hash';
-import { PublicKeys } from '@aztec/circuits.js/keys';
-import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
-import { MerkleTreeId, NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
 import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
 import {
   Grumpkin,
@@ -27,6 +10,23 @@ import {
 } from '@aztec/foundation/crypto';
 import { Fq, Fr, Point } from '@aztec/foundation/fields';
 import { type Fieldable } from '@aztec/foundation/serialize';
+import { FunctionSelector } from '@aztec/stdlib/abi';
+import { PublicDataWrite } from '@aztec/stdlib/avm';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { SerializableContractInstance } from '@aztec/stdlib/contract';
+import { GasFees } from '@aztec/stdlib/gas';
+import {
+  computeNoteHashNonce,
+  computePublicDataTreeLeafSlot,
+  computeUniqueNoteHash,
+  computeVarArgsHash,
+  siloNoteHash,
+  siloNullifier,
+} from '@aztec/stdlib/hash';
+import { type MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { PublicKeys } from '@aztec/stdlib/keys';
+import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
+import { MerkleTreeId, NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import { randomInt } from 'crypto';

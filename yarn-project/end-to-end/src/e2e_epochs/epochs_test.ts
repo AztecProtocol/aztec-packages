@@ -1,9 +1,5 @@
 import { Fr, type Logger, getTimestampRangeForEpoch, retryUntil, sleep } from '@aztec/aztec.js';
 import { ChainMonitor } from '@aztec/aztec.js/ethereum';
-// eslint-disable-next-line no-restricted-imports
-import { type L1RollupConstants } from '@aztec/circuit-types';
-import { type L2BlockNumber } from '@aztec/circuit-types/interfaces/client';
-import { MerkleTreeId } from '@aztec/circuits.js/trees';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { DelayedTxUtils, type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -12,6 +8,9 @@ import { ProverNode, ProverNodePublisher } from '@aztec/prover-node';
 import { type TestProverNode } from '@aztec/prover-node/test';
 import { type SequencerPublisher } from '@aztec/sequencer-client';
 import { type TestSequencerClient } from '@aztec/sequencer-client/test';
+import type { L2BlockNumber } from '@aztec/stdlib/block';
+import { type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import { join } from 'path';
 import { type Hex, type PublicClient } from 'viem';
@@ -53,7 +52,6 @@ export class EpochsTestContext {
     // Set up system without any account nor protocol contracts
     // and with faster block times and shorter epochs.
     const context = await setup(0, {
-      assumeProvenThrough: undefined,
       checkIntervalMs: 50,
       archiverPollingIntervalMS: ARCHIVER_POLL_INTERVAL,
       worldStateBlockCheckIntervalMS: WORLD_STATE_BLOCK_CHECK_INTERVAL,

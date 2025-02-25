@@ -11,15 +11,7 @@ export async function createAndStartProvingBroker(
 ): Promise<ProvingBroker> {
   const database = config.dataDirectory ? await KVBrokerDatabase.new(config, client) : new InMemoryBrokerDatabase();
 
-  const broker = new ProvingBroker(
-    database,
-    {
-      jobTimeoutMs: config.proverBrokerJobTimeoutMs,
-      maxRetries: config.proverBrokerJobMaxRetries,
-      timeoutIntervalMs: config.proverBrokerPollIntervalMs,
-    },
-    client,
-  );
+  const broker = new ProvingBroker(database, config, client);
 
   await broker.start();
   return broker;

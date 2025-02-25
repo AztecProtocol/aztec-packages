@@ -1,4 +1,14 @@
 import {
+  AVM_PROOF_LENGTH_IN_FIELDS,
+  AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  NESTED_RECURSIVE_PROOF_LENGTH,
+  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+  RECURSIVE_PROOF_LENGTH,
+  TUBE_PROOF_LENGTH,
+} from '@aztec/constants';
+import { times } from '@aztec/foundation/collection';
+import { type AvmCircuitInputs } from '@aztec/stdlib/avm';
+import {
   type ProofAndVerificationKey,
   type ProvingJob,
   type ProvingJobId,
@@ -8,10 +18,9 @@ import {
   type ServerCircuitProver,
   makeProofAndVerificationKey,
   makePublicInputsAndRecursiveProof,
-} from '@aztec/circuit-types/interfaces/server';
-import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
-import { type BaseParityInputs, type RootParityInputs } from '@aztec/circuits.js/parity';
-import { makeEmptyRecursiveProof, makeRecursiveProof } from '@aztec/circuits.js/proofs';
+} from '@aztec/stdlib/interfaces/server';
+import { type BaseParityInputs, type RootParityInputs } from '@aztec/stdlib/parity';
+import { makeEmptyRecursiveProof, makeRecursiveProof } from '@aztec/stdlib/proofs';
 import {
   type BaseOrMergeRollupPublicInputs,
   type BlockMergeRollupInputs,
@@ -24,23 +33,14 @@ import {
   type RootRollupInputs,
   type RootRollupPublicInputs,
   type SingleTxBlockRootRollupInputs,
-} from '@aztec/circuits.js/rollup';
+} from '@aztec/stdlib/rollup';
 import {
   makeBaseOrMergeRollupPublicInputs,
   makeBlockRootOrBlockMergeRollupPublicInputs,
   makeParityPublicInputs,
   makeRootRollupPublicInputs,
-} from '@aztec/circuits.js/testing';
-import { VerificationKeyData } from '@aztec/circuits.js/vks';
-import {
-  AVM_PROOF_LENGTH_IN_FIELDS,
-  AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  NESTED_RECURSIVE_PROOF_LENGTH,
-  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-  RECURSIVE_PROOF_LENGTH,
-  TUBE_PROOF_LENGTH,
-} from '@aztec/constants';
-import { times } from '@aztec/foundation/collection';
+} from '@aztec/stdlib/testing';
+import { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import { InlineProofStore, type ProofStore } from '../proving_broker/proof_store/index.js';
 import { ProvingAgent } from '../proving_broker/proving_agent.js';

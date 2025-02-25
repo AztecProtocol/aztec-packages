@@ -1,7 +1,7 @@
-import { type AvmCircuitInputs, serializeWithMessagePack } from '@aztec/circuits.js/avm';
 import { sha256 } from '@aztec/foundation/crypto';
 import { type LogFn, type Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import { type AvmCircuitInputs, serializeWithMessagePack } from '@aztec/stdlib/avm';
 
 import * as proc from 'child_process';
 import { promises as fs } from 'fs';

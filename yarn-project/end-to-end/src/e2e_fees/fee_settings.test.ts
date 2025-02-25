@@ -5,9 +5,9 @@ import {
   type CheatCodes,
   FeeJuicePaymentMethod,
 } from '@aztec/aztec.js';
-import { type GasSettings } from '@aztec/circuits.js/gas';
 import { Fr } from '@aztec/foundation/fields';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
+import { type GasSettings } from '@aztec/stdlib/gas';
 
 import { inspect } from 'util';
 

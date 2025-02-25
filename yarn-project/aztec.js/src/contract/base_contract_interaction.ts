@@ -1,7 +1,7 @@
-import { type Capsule, type TxExecutionRequest, type TxProvingResult } from '@aztec/circuit-types';
-import { GasSettings } from '@aztec/circuits.js/gas';
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
+import { GasSettings } from '@aztec/stdlib/gas';
+import { type Capsule, type TxExecutionRequest, type TxProvingResult } from '@aztec/stdlib/tx';
 
 import { type Wallet } from '../account/wallet.js';
 import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';

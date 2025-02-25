@@ -1,11 +1,12 @@
-import { type FunctionCall, Note, type TxScopedL2Log } from '@aztec/circuit-types';
-import { type AztecNode } from '@aztec/circuit-types/interfaces/client';
-import { FunctionSelector, FunctionType, encodeArguments } from '@aztec/circuits.js/abi';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { CompleteAddress, type ContractInstance } from '@aztec/circuits.js/contract';
-import { BlockHeader } from '@aztec/circuits.js/tx';
 import { Fr } from '@aztec/foundation/fields';
 import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
+import { FunctionCall, FunctionSelector, FunctionType, encodeArguments } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { CompleteAddress, type ContractInstance } from '@aztec/stdlib/contract';
+import { type AztecNode } from '@aztec/stdlib/interfaces/client';
+import type { TxScopedL2Log } from '@aztec/stdlib/logs';
+import { Note } from '@aztec/stdlib/note';
+import { BlockHeader } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
 

@@ -1,29 +1,27 @@
-import {
-  BlockAttestation,
-  BlockProposal,
-  type Gossipable,
-  type L2BlockSource,
-  P2PClientType,
-  PeerErrorSeverity,
-  TopicTypeMap,
-  Tx,
-  type TxHash,
-  type TxValidationResult,
-  getTopicTypeForClientType,
-  metricsTopicStrToLabels,
-} from '@aztec/circuit-types';
-import {
-  type ClientProtocolCircuitVerifier,
-  type PeerInfo,
-  type WorldStateSynchronizer,
-} from '@aztec/circuit-types/interfaces/server';
-import { MerkleTreeId } from '@aztec/circuits.js/trees';
 import { type EpochCacheInterface } from '@aztec/epoch-cache';
 import { Fr } from '@aztec/foundation/fields';
 import { createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
+import { type L2BlockSource } from '@aztec/stdlib/block';
+import {
+  type ClientProtocolCircuitVerifier,
+  type PeerInfo,
+  type WorldStateSynchronizer,
+} from '@aztec/stdlib/interfaces/server';
+import {
+  BlockAttestation,
+  BlockProposal,
+  type Gossipable,
+  P2PClientType,
+  PeerErrorSeverity,
+  TopicTypeMap,
+  getTopicTypeForClientType,
+  metricsTopicStrToLabels,
+} from '@aztec/stdlib/p2p';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
+import { Tx, type TxHash, type TxValidationResult } from '@aztec/stdlib/tx';
 import { Attributes, OtelMetricsAdapter, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type ENR } from '@chainsafe/enr';

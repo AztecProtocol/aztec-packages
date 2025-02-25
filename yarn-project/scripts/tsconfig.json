@@ -7,7 +7,7 @@
   },
   "references": [
     {
-      "path": "../circuit-types"
+      "path": "../stdlib"
     },
     {
       "path": "../foundation"

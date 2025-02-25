@@ -1,11 +1,4 @@
 import { type BBProverConfig } from '@aztec/bb-prover';
-import { type L2Block, type ProcessedTx, type Tx } from '@aztec/circuit-types';
-import { type ServerCircuitProver } from '@aztec/circuit-types/interfaces/server';
-import { makeBloatedProcessedTx } from '@aztec/circuit-types/testing';
-import { PublicDataWrite } from '@aztec/circuits.js/avm';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { type AppendOnlyTreeSnapshot, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
-import { type BlockHeader, type GlobalVariables, TreeSnapshots } from '@aztec/circuits.js/tx';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger } from '@aztec/foundation/log';
@@ -20,6 +13,13 @@ import {
   SimpleContractDataSource,
   WorldStateDB,
 } from '@aztec/simulator/server';
+import { PublicDataWrite } from '@aztec/stdlib/avm';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2Block } from '@aztec/stdlib/block';
+import { type ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
+import { makeBloatedProcessedTx } from '@aztec/stdlib/testing';
+import { type AppendOnlyTreeSnapshot, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
+import { type BlockHeader, type GlobalVariables, type ProcessedTx, TreeSnapshots, type Tx } from '@aztec/stdlib/tx';
 import { type MerkleTreeAdminDatabase } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
@@ -158,7 +158,11 @@ export class TestContext {
     await this.brokerProverFacade.stop();
     await this.broker.stop();
     for (const dir of this.directoriesToCleanup.filter(x => x !== '')) {
-      await fs.rm(dir, { recursive: true, force: true });
+      try {
+        await fs.rm(dir, { recursive: true, force: true, maxRetries: 3 });
+      } catch (err) {
+        this.logger.warn(`Failed to delete tmp directory $dir}: ${err}`);
+      }
     }
   }
 

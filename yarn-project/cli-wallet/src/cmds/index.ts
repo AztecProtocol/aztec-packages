@@ -1,8 +1,6 @@
 import { getIdentities } from '@aztec/accounts/utils';
 import { createCompatibleClient } from '@aztec/aztec.js/rpc';
 import { TxHash } from '@aztec/aztec.js/tx_hash';
-import { createAztecNodeClient } from '@aztec/circuit-types/interfaces/client';
-import { GasFees } from '@aztec/circuits.js/gas';
 import {
   ETHEREUM_HOST,
   PRIVATE_KEY,
@@ -16,6 +14,8 @@ import {
   pxeOption,
 } from '@aztec/cli/utils';
 import { type LogFn, type Logger } from '@aztec/foundation/log';
+import { GasFees } from '@aztec/stdlib/gas';
+import { createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
 
 import { type Command, Option } from 'commander';
 import inquirer from 'inquirer';

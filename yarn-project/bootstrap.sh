@@ -48,13 +48,12 @@ function compile_all {
   # hack, after running prettier foundation may fail to resolve hash.js dependency.
   # it is only currently foundation, presumably because hash.js looks like a js file.
   rm -rf foundation/node_modules
-  compile_project ::: constants foundation circuits.js builder ethereum l1-artifacts
+  compile_project ::: constants foundation stdlib builder ethereum l1-artifacts
 
   # Call all projects that have a generation stage.
   parallel --joblog joblog.txt --line-buffered --tag 'cd {} && yarn generate' ::: \
     accounts \
-    circuit-types \
-    circuits.js \
+    stdlib \
     ivc-integration \
     l1-artifacts \
     native \

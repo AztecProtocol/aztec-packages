@@ -1,6 +1,3 @@
-import { type PXE } from '@aztec/circuit-types/interfaces/client';
-import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { computeSecretHash } from '@aztec/circuits.js/hash';
 import { extractEvent } from '@aztec/ethereum/utils';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -8,6 +5,9 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Logger } from '@aztec/foundation/log';
 import { type SiblingPath } from '@aztec/foundation/trees';
 import { FeeJuicePortalAbi, OutboxAbi, TestERC20Abi, TokenPortalAbi } from '@aztec/l1-artifacts';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { computeSecretHash } from '@aztec/stdlib/hash';
+import { type PXE } from '@aztec/stdlib/interfaces/client';
 
 import {
   type Account,

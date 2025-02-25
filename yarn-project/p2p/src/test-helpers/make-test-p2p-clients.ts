@@ -1,10 +1,10 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
-import { P2PClientType } from '@aztec/circuit-types';
-import { type WorldStateSynchronizer } from '@aztec/circuit-types/interfaces/server';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { type WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import { P2PClientType } from '@aztec/stdlib/p2p';
 
 import { createP2PClient } from '../client/index.js';
 import { type P2PClient } from '../client/p2p_client.js';

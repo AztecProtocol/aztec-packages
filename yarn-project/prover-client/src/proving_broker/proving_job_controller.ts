@@ -2,9 +2,9 @@ import {
   type ProvingJobId,
   type ProvingJobInputs,
   type ProvingJobResultsMap,
-  ProvingRequestType,
   type ServerCircuitProver,
-} from '@aztec/circuit-types/interfaces/server';
+} from '@aztec/stdlib/interfaces/server';
+import { ProvingRequestType } from '@aztec/stdlib/proofs';
 
 export enum ProvingJobControllerStatus {
   IDLE = 'idle',

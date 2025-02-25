@@ -33,9 +33,6 @@ import { deployInstance, registerContractClass } from '@aztec/aztec.js/deploymen
 import { type BBNativePrivateKernelProver } from '@aztec/bb-prover';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
-import { getContractClassFromArtifact } from '@aztec/circuits.js/contract';
-import { Gas } from '@aztec/circuits.js/gas';
-import { type PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { FEE_JUICE_INITIAL_MINT, GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH } from '@aztec/constants';
 import {
   type DeployL1ContractsArgs,
@@ -59,6 +56,9 @@ import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec
 import { type PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { type SequencerClient } from '@aztec/sequencer-client';
 import { type TestSequencerClient } from '@aztec/sequencer-client/test';
+import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
+import { Gas } from '@aztec/stdlib/gas';
+import { type PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
   type TelemetryClient,
   type TelemetryClientConfig,
@@ -135,7 +135,6 @@ export const setupL1Contracts = async (
     genesisBlockHash: args.genesisBlockHash ?? new Fr(GENESIS_BLOCK_HASH),
     salt: args.salt,
     initialValidators: args.initialValidators,
-    assumeProvenThrough: args.assumeProvenThrough,
     ...getL1ContractsConfigEnvVars(),
     ...args,
   });
@@ -185,7 +184,11 @@ export async function setupPXEService(
 
   const teardown = async () => {
     if (!configuredDataDirectory) {
-      await fs.rm(pxeServiceConfig.dataDirectory!, { recursive: true, force: true });
+      try {
+        await fs.rm(pxeServiceConfig.dataDirectory!, { recursive: true, force: true, maxRetries: 3 });
+      } catch (err) {
+        logger.warn(`Failed to delete tmp PXE data directory ${pxeServiceConfig.dataDirectory}: ${err}`);
+      }
     }
   };
 
@@ -295,8 +298,6 @@ export type SetupOptions = {
   l1StartTime?: number;
   /** The anvil time where we should at the earliest be seeing L2 blocks */
   l2StartTime?: number;
-  /** How far we should assume proven */
-  assumeProvenThrough?: number;
   /** Whether to start a prover node */
   startProverNode?: boolean;
   /** Whether to fund the rewardDistributor */
@@ -352,7 +353,6 @@ export type EndToEndContext = {
 export async function setup(
   numberOfAccounts = 1,
   opts: SetupOptions = {
-    assumeProvenThrough: Number.MAX_SAFE_INTEGER,
     customForwarderContractAddress: EthAddress.ZERO,
   },
   pxeOpts: Partial<PXEServiceConfig> = {},
@@ -586,8 +586,12 @@ export async function setup(
     await blobSink?.stop();
 
     if (directoryToCleanup) {
-      logger.verbose(`Cleaning up data directory at ${directoryToCleanup}`);
-      await fs.rm(directoryToCleanup, { recursive: true, force: true });
+      try {
+        logger.verbose(`Cleaning up data directory at ${directoryToCleanup}`);
+        await fs.rm(directoryToCleanup, { recursive: true, force: true, maxRetries: 3 });
+      } catch (err) {
+        logger.warn(`Failed to delete data directory at ${directoryToCleanup}: ${err}`);
+      }
     }
   };
 

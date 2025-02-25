@@ -1,10 +1,14 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
-import { aztecNodeConfigMappings, getConfigEnvVars as getNodeConfigEnvVars } from '@aztec/aztec-node';
-import { AztecNodeApiSchema, type PXE } from '@aztec/circuit-types/interfaces/client';
-import { P2PApiSchema } from '@aztec/circuit-types/interfaces/server';
+import {
+  type AztecNodeConfig,
+  aztecNodeConfigMappings,
+  getConfigEnvVars as getNodeConfigEnvVars,
+} from '@aztec/aztec-node';
 import { NULL_KEY } from '@aztec/ethereum';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
+import { AztecNodeApiSchema, type PXE } from '@aztec/stdlib/interfaces/client';
+import { P2PApiSchema } from '@aztec/stdlib/interfaces/server';
 import {
   type TelemetryClientConfig,
   initTelemetryClient,
@@ -23,7 +27,7 @@ export async function startNode(
   signalHandlers: (() => Promise<void>)[],
   services: NamespacedApiHandlers,
   userLog: LogFn,
-) {
+): Promise<{ config: AztecNodeConfig }> {
   // options specifically namespaced with --node.<option>
   const nodeSpecificOptions = extractNamespacedOptions(options, 'node');
   // All options that are relevant to the Aztec Node

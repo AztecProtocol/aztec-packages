@@ -13,10 +13,7 @@
       "path": "../bb-prover"
     },
     {
-      "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
+      "path": "../stdlib"
     },
     {
       "path": "../ethereum"

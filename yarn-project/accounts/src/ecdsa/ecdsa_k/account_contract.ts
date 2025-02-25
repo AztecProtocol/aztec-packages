@@ -1,9 +1,9 @@
 import { type AuthWitnessProvider } from '@aztec/aztec.js/account';
-import { AuthWitness } from '@aztec/circuit-types/auth-witness';
-import { type ContractArtifact } from '@aztec/circuits.js/abi';
-import { CompleteAddress } from '@aztec/circuits.js/contract';
 import { Ecdsa } from '@aztec/foundation/crypto';
 import { type Fr } from '@aztec/foundation/fields';
+import { type ContractArtifact } from '@aztec/stdlib/abi';
+import { AuthWitness } from '@aztec/stdlib/auth-witness';
+import { CompleteAddress } from '@aztec/stdlib/contract';
 
 import { DefaultAccountContract } from '../../defaults/account_contract.js';
 import { EcdsaKAccountContractArtifact } from './artifact.js';

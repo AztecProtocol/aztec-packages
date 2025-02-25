@@ -1,22 +1,4 @@
 import { SpongeBlob } from '@aztec/blob-lib';
-import { type L2Block } from '@aztec/circuit-types';
-import { type PublicInputsAndRecursiveProof } from '@aztec/circuit-types/interfaces/server';
-import { type CircuitName } from '@aztec/circuit-types/stats';
-import { type ParityPublicInputs, RootParityInput, RootParityInputs } from '@aztec/circuits.js/parity';
-import {
-  type BaseOrMergeRollupPublicInputs,
-  type BlockRootOrBlockMergePublicInputs,
-  BlockRootRollupBlobData,
-  BlockRootRollupData,
-  BlockRootRollupInputs,
-  ConstantRollupData,
-  EmptyBlockRootRollupInputs,
-  MergeRollupInputs,
-  PreviousRollupData,
-  SingleTxBlockRootRollupInputs,
-} from '@aztec/circuits.js/rollup';
-import { type AppendOnlyTreeSnapshot, type MerkleTreeId } from '@aztec/circuits.js/trees';
-import { type BlockHeader, type GlobalVariables, StateReference } from '@aztec/circuits.js/tx';
 import {
   type ARCHIVE_HEIGHT,
   BLOBS_PER_BLOCK,
@@ -34,6 +16,24 @@ import { type Tuple } from '@aztec/foundation/serialize';
 import { MembershipWitness, type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { type L2Block } from '@aztec/stdlib/block';
+import { type PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
+import { type ParityPublicInputs, RootParityInput, RootParityInputs } from '@aztec/stdlib/parity';
+import {
+  type BaseOrMergeRollupPublicInputs,
+  type BlockRootOrBlockMergePublicInputs,
+  BlockRootRollupBlobData,
+  BlockRootRollupData,
+  BlockRootRollupInputs,
+  ConstantRollupData,
+  EmptyBlockRootRollupInputs,
+  MergeRollupInputs,
+  PreviousRollupData,
+  SingleTxBlockRootRollupInputs,
+} from '@aztec/stdlib/rollup';
+import { type CircuitName } from '@aztec/stdlib/stats';
+import { type AppendOnlyTreeSnapshot, type MerkleTreeId } from '@aztec/stdlib/trees';
+import { type BlockHeader, type GlobalVariables, StateReference } from '@aztec/stdlib/tx';
 
 import { buildBlobHints, buildHeaderFromCircuitOutputs } from './block-building-helpers.js';
 import { type EpochProvingState } from './epoch-proving-state.js';

@@ -1,7 +1,6 @@
 import { Blob } from '@aztec/blob-lib';
 import { HttpBlobSinkClient } from '@aztec/blob-sink/client';
 import { inboundTransform } from '@aztec/blob-sink/encoding';
-import { L2Block } from '@aztec/circuit-types';
 import { type EpochCache } from '@aztec/epoch-cache';
 import {
   type ForwarderContract,
@@ -18,6 +17,7 @@ import { type L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs'
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
 import { EmpireBaseAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { L2Block } from '@aztec/stdlib/block';
 
 import express, { json } from 'express';
 import { type Server } from 'http';

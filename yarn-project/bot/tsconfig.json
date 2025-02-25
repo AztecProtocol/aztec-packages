@@ -13,10 +13,7 @@
       "path": "../aztec.js"
     },
     {
-      "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
+      "path": "../stdlib"
     },
     {
       "path": "../entrypoints"
