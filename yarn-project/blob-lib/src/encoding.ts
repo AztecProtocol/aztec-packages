@@ -3,7 +3,7 @@ import { BufferReader, FieldReader } from '@aztec/foundation/serialize';
 
 import type { Blob as BlobBuffer } from 'c-kzg';
 
-// Note duplicated from circuit-types !
+// Note duplicated from circuits.js !
 // This will appear as 0x74785f7374617274 in logs
 export const TX_START_PREFIX = 8392562855083340404n;
 // These are helper constants to decode tx effects from blob encoded fields

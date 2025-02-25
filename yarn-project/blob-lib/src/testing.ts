@@ -51,7 +51,7 @@ export function makeBlockBlobPublicInputs(seed = 1): BlockBlobPublicInputs {
   return new BlockBlobPublicInputs(makeTuple(BLOBS_PER_BLOCK, () => makeBlobPublicInputs(seed)));
 }
 
-// TODO: copied form circuit-types tx effect
+// TODO: copied form circuits.js tx effect
 function encodeFirstField(length: number): Fr {
   const lengthBuf = Buffer.alloc(2);
   lengthBuf.writeUInt16BE(length, 0);
