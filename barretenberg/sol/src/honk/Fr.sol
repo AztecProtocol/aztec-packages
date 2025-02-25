@@ -99,6 +99,55 @@ library FrLib {
     function neg(Fr value) internal pure returns (Fr) {
         return Fr.wrap(MODULUS - Fr.unwrap(value));
     }
+
+    /**
+     * @notice Batch інверсія використовуючи Montgomery trick
+     * @dev Оптимізує множинні інверсії в полі Fr
+     * @param values Масив значень для інверсії
+     * @return Масив інвертованих значень
+     */
+    function batchInvert(Fr[] memory values) internal view returns (Fr[] memory) {
+        uint256 n = values.length;
+        if (n == 0) return new Fr[](0);
+        
+        // Акумулюємо добутки
+        Fr[] memory products = new Fr[](n);
+        products[0] = values[0];
+        for (uint256 i = 1; i < n; i++) {
+            products[i] = products[i-1] * values[i];
+        }
+        
+        // Інвертуємо фінальний добуток
+        Fr inv = invert(products[n-1]);
+        
+        // Обчислюємо інверсії
+        Fr[] memory results = new Fr[](n);
+        for (uint256 i = n-1; i > 0; i--) {
+            results[i] = inv * products[i-1];
+            inv = inv * values[i];
+        }
+        results[0] = inv;
+        
+        return results;
+    }
+
+    /**
+     * @notice Batch множення елементів поля
+     * @dev Паралельне множення елементів двох масивів
+     * @param a Перший масив
+     * @param b Другий масив
+     * @return Масив добутків
+     */
+    function batchMul(Fr[] memory a, Fr[] memory b) internal pure returns (Fr[] memory) {
+        require(a.length == b.length, "Arrays length mismatch");
+        Fr[] memory results = new Fr[](a.length);
+        
+        for (uint256 i = 0; i < a.length; i++) {
+            results[i] = a[i] * b[i];
+        }
+        
+        return results;
+    }
 }
 
 // Free functions
