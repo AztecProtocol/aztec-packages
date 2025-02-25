@@ -1,18 +1,13 @@
 import { type AztecNode, type L2BlockNumber } from '@aztec/circuit-types/interfaces/client';
-import {
-  type AztecAddress,
-  Fr,
-  type FunctionSelector,
-  type GrumpkinScalar,
-  type Point,
-  type VerificationKeyAsFields,
-  computeContractClassIdPreimage,
-  computeSaltedInitializationHash,
-} from '@aztec/circuits.js';
+import type { FunctionSelector } from '@aztec/circuits.js/abi';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { computeContractClassIdPreimage, computeSaltedInitializationHash } from '@aztec/circuits.js/contract';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { UpdatedClassIdHints } from '@aztec/circuits.js/kernel';
 import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/circuits.js/shared-mutable';
+import type { VerificationKeyAsFields } from '@aztec/circuits.js/vks';
 import { type NOTE_HASH_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, VK_TREE_HEIGHT } from '@aztec/constants';
+import type { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
@@ -74,6 +69,9 @@ export class KernelOracle implements ProvingDataOracle {
 
   async getNoteHashTreeRoot(): Promise<Fr> {
     const header = await this.node.getBlockHeader(this.blockNumber);
+    if (!header) {
+      throw new Error(`No block header found for block number ${this.blockNumber}`);
+    }
     return header.state.partial.noteHashTree.root;
   }
 

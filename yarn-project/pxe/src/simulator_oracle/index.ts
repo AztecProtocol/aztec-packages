@@ -3,7 +3,6 @@ import {
   type InBlock,
   L1NotePayload,
   type L2Block,
-  MerkleTreeId,
   Note,
   type NoteStatus,
   type PublicDataWitness,
@@ -11,34 +10,23 @@ import {
   type TxScopedL2Log,
   getNonNullifiedL1ToL2MessageWitness,
 } from '@aztec/circuit-types';
-import {
-  type AztecNode,
-  type L2BlockNumber,
-  type NullifierMembershipWitness,
-} from '@aztec/circuit-types/interfaces/client';
-import {
-  type AztecAddress,
-  type BlockHeader,
-  type CompleteAddress,
-  type ContractInstance,
-  Fr,
-  FunctionSelector,
-  IndexedTaggingSecret,
-  type KeyValidationRequest,
-  PrivateLog,
-  PublicLog,
-  computeAddressSecret,
-  computeTaggingSecretPoint,
-} from '@aztec/circuits.js';
+import { type AztecNode, type L2BlockNumber } from '@aztec/circuit-types/interfaces/client';
 import {
   type FunctionArtifact,
+  FunctionSelector,
   FunctionType,
   NoteSelector,
   encodeArguments,
   getFunctionArtifact,
 } from '@aztec/circuits.js/abi';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { CompleteAddress, ContractInstance } from '@aztec/circuits.js/contract';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
-import { LogWithTxData } from '@aztec/circuits.js/logs';
+import type { KeyValidationRequest } from '@aztec/circuits.js/kernel';
+import { computeAddressSecret, computeTaggingSecretPoint } from '@aztec/circuits.js/keys';
+import { IndexedTaggingSecret, LogWithTxData, PrivateLog, PublicLog } from '@aztec/circuits.js/logs';
+import { MerkleTreeId, type NullifierMembershipWitness } from '@aztec/circuits.js/trees';
+import type { BlockHeader } from '@aztec/circuits.js/tx';
 import {
   type L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_NOTE_HASHES_PER_TX,
@@ -47,6 +35,7 @@ import {
 } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { type KeyStore } from '@aztec/key-store';
@@ -86,7 +75,7 @@ export class SimulatorOracle implements DBOracle {
     if (!completeAddress) {
       throw new Error(
         `No public key registered for address ${account}.
-        Register it by calling pxe.registerAccount(...).\nSee docs for context: https://docs.aztec.network/reference/common_errors/aztecnr-errors#simulation-error-no-public-key-registered-for-address-0x0-register-it-by-calling-pxeregisterrecipient-or-pxeregisteraccount`,
+        Register it by calling pxe.registerAccount(...).\nSee docs for context: https://docs.aztec.network/developers/reference/debugging/aztecnr-errors#simulation-error-no-public-key-registered-for-address-0x0-register-it-by-calling-pxeregisterrecipient-or-pxeregisteraccount`,
       );
     }
     return completeAddress;

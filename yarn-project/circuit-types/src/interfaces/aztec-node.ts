@@ -1,18 +1,19 @@
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
-  BlockHeader,
   type ContractClassPublic,
   ContractClassPublicSchema,
   type ContractInstanceWithAddress,
   ContractInstanceWithAddressSchema,
-  GasFees,
   type NodeInfo,
   NodeInfoSchema,
-  PrivateLog,
   type ProtocolContractAddresses,
   ProtocolContractAddressesSchema,
-} from '@aztec/circuits.js';
-import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+} from '@aztec/circuits.js/contract';
+import { GasFees } from '@aztec/circuits.js/gas';
+import { PrivateLog } from '@aztec/circuits.js/logs';
 import { type ApiSchemaFor, optional, schemas } from '@aztec/circuits.js/schemas';
+import { MerkleTreeId, NullifierMembershipWitness } from '@aztec/circuits.js/trees';
+import { BlockHeader } from '@aztec/circuits.js/tx';
 import {
   ARCHIVE_HEIGHT,
   L1_TO_L2_MSG_TREE_HEIGHT,
@@ -23,6 +24,7 @@ import {
 import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum/l1-contract-addresses';
 import type { Fr } from '@aztec/foundation/fields';
 import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
+import { SiblingPath } from '@aztec/foundation/trees';
 
 import { z } from 'zod';
 
@@ -38,9 +40,7 @@ import {
   LogFilterSchema,
   TxScopedL2Log,
 } from '../logs/index.js';
-import { MerkleTreeId } from '../merkle_tree_id.js';
 import { PublicDataWitness } from '../public_data_witness.js';
-import { SiblingPath } from '../sibling_path/index.js';
 import {
   PublicSimulationOutput,
   Tx,
@@ -53,7 +53,6 @@ import { TxEffect } from '../tx_effect.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning.js';
 import { type SequencerConfig, SequencerConfigSchema } from './configs.js';
 import { type L2BlockNumber, L2BlockNumberSchema } from './l2_block_number.js';
-import { NullifierMembershipWitness } from './nullifier_membership_witness.js';
 import { type ProverConfig, ProverConfigSchema } from './prover-client.js';
 import { type ProverCoordination } from './prover-coordination.js';
 import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_state.js';
@@ -403,7 +402,7 @@ export interface AztecNode
    * Returns the currently committed block header.
    * @returns The current committed block header.
    */
-  getBlockHeader(blockNumber?: L2BlockNumber): Promise<BlockHeader>;
+  getBlockHeader(blockNumber?: L2BlockNumber): Promise<BlockHeader | undefined>;
 
   /**
    * Simulates the public part of a transaction with the current state.
@@ -576,7 +575,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getPublicStorageAt: z.function().args(schemas.AztecAddress, schemas.Fr, L2BlockNumberSchema).returns(schemas.Fr),
 
-  getBlockHeader: z.function().args(optional(L2BlockNumberSchema)).returns(BlockHeader.schema),
+  getBlockHeader: z.function().args(optional(L2BlockNumberSchema)).returns(BlockHeader.schema.optional()),
 
   simulatePublicCalls: z.function().args(Tx.schema, optional(z.boolean())).returns(PublicSimulationOutput.schema),
 

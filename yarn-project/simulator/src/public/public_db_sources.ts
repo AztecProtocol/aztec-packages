@@ -1,22 +1,22 @@
-import { ContractClassTxL2Logs, MerkleTreeId, type Tx } from '@aztec/circuit-types';
+import { ContractClassTxL2Logs, type Tx } from '@aztec/circuit-types';
 import {
   type MerkleTreeCheckpointOperations,
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
 } from '@aztec/circuit-types/interfaces/server';
 import { type PublicDBAccessStats } from '@aztec/circuit-types/stats';
+import type { FunctionSelector } from '@aztec/circuits.js/abi';
+import { PublicDataWrite } from '@aztec/circuits.js/avm';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
-  type AztecAddress,
   type ContractClassPublic,
   type ContractDataSource,
   type ContractInstanceWithAddress,
-  Fr,
-  type FunctionSelector,
-  PublicDataWrite,
   computePublicBytecodeCommitment,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/contract';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { type PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
+import { MerkleTreeId, type PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';

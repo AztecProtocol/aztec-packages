@@ -1,4 +1,4 @@
-import { FunctionSelector } from '@aztec/circuits.js';
+import { FunctionSelector } from '@aztec/circuits.js/abi';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
 import { Fr } from '@aztec/foundation/fields';
 

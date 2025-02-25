@@ -2,6 +2,7 @@ import { assertMemberLength } from '../array/array.js';
 import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
 import { Fr } from '../fields/fields.js';
 import { BufferReader, type Tuple, serializeToBuffer } from '../serialize/index.js';
+import type { SiblingPath } from './sibling_path.js';
 
 /**
  * Contains information which can be used to prove that a leaf is a member of a Merkle tree.
@@ -92,8 +93,7 @@ export class MembershipWitness<N extends number> {
     };
   }
 
-  // import { SiblingPath } from '@aztec/merkle-tree';
-  //   static fromSiblingPath<N extends number>(leafIndex: bigint, siblingPath: SiblingPath<N>): MembershipWitness<N> {
-  //     return new MembershipWitness<N>(siblingPath.pathSize, leafIndex, siblingPath.toFields() as Tuple<Fr, N>);
-  //   }
+  static fromSiblingPath<N extends number>(leafIndex: bigint, siblingPath: SiblingPath<N>): MembershipWitness<N> {
+    return new MembershipWitness<N>(siblingPath.pathSize, leafIndex, siblingPath.toFields() as Tuple<Fr, N>);
+  }
 }

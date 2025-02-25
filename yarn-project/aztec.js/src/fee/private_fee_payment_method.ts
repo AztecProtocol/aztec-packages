@@ -1,7 +1,7 @@
 import { type FunctionCall } from '@aztec/circuit-types';
-import { type GasSettings } from '@aztec/circuits.js';
 import { FunctionSelector, FunctionType, U128 } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type GasSettings } from '@aztec/circuits.js/gas';
 import { Fr } from '@aztec/foundation/fields';
 
 import { type Wallet } from '../account/wallet.js';

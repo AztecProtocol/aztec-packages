@@ -4,8 +4,9 @@ import {
   type MerkleTreeWriteOperations,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types/interfaces/server';
-import { BlockHeader, Proof } from '@aztec/circuits.js';
+import { Proof } from '@aztec/circuits.js/proofs';
 import { RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
+import { BlockHeader } from '@aztec/circuits.js/tx';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { toArray } from '@aztec/foundation/iterable';
 import { sleep } from '@aztec/foundation/sleep';

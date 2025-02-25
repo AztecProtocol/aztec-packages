@@ -1,20 +1,4 @@
 import {
-  type AztecAddress,
-  CompleteAddress,
-  type ContractClassWithId,
-  ContractClassWithIdSchema,
-  type ContractInstanceWithAddress,
-  ContractInstanceWithAddressSchema,
-  type Fr,
-  GasFees,
-  type NodeInfo,
-  NodeInfoSchema,
-  type PartialAddress,
-  type Point,
-  type ProtocolContractAddresses,
-  ProtocolContractAddressesSchema,
-} from '@aztec/circuits.js';
-import {
   type AbiDecoded,
   type AbiType,
   AbiTypeSchema,
@@ -22,13 +6,29 @@ import {
   ContractArtifactSchema,
   type EventSelector,
 } from '@aztec/circuits.js/abi';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import {
+  CompleteAddress,
+  type ContractClassWithId,
+  ContractClassWithIdSchema,
+  type ContractInstanceWithAddress,
+  ContractInstanceWithAddressSchema,
+  type NodeInfo,
+  NodeInfoSchema,
+  type PartialAddress,
+  type ProtocolContractAddresses,
+  ProtocolContractAddressesSchema,
+} from '@aztec/circuits.js/contract';
+import { GasFees } from '@aztec/circuits.js/gas';
 import { AbiDecodedSchema, schemas } from '@aztec/circuits.js/schemas';
+import { type ApiSchemaFor, type ZodFor, optional } from '@aztec/circuits.js/schemas';
 import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import { type ApiSchemaFor, type ZodFor, optional } from '@aztec/foundation/schemas';
+import type { Fr, Point } from '@aztec/foundation/fields';
+import { SiblingPath } from '@aztec/foundation/trees';
 
 import { z } from 'zod';
 
-import { AuthWitness } from '../auth_witness.js';
+import { AuthWitness } from '../auth_witness/auth_witness.js';
 import { type InBlock, inBlockSchemaFor } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import {
@@ -42,7 +42,6 @@ import {
 import { UniqueNote } from '../notes/index.js';
 import { type NotesFilter, NotesFilterSchema } from '../notes/notes_filter.js';
 import { PrivateExecutionResult } from '../private_execution_result.js';
-import { SiblingPath } from '../sibling_path/sibling_path.js';
 import { Tx, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '../tx/index.js';
 import { TxEffect } from '../tx_effect.js';
 import { TxExecutionRequest } from '../tx_execution_request.js';

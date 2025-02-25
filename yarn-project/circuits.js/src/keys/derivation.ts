@@ -3,9 +3,9 @@ import { Grumpkin, poseidon2HashWithSeparator, sha512ToGrumpkinScalar } from '@a
 import { Fq, Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 
 import { AztecAddress } from '../aztec-address/index.js';
-import { type CompleteAddress } from '../index.js';
-import { PublicKeys } from '../types/public_keys.js';
+import type { CompleteAddress } from '../contract/complete_address.js';
 import { type KeyPrefix } from './key_types.js';
+import { PublicKeys } from './public_keys.js';
 import { getKeyGenerator } from './utils.js';
 
 export function computeAppNullifierSecretKey(masterNullifierSecretKey: GrumpkinScalar, app: AztecAddress): Promise<Fr> {

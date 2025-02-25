@@ -1,7 +1,11 @@
-import { ClientIvcProof, Fr, type GasSettings, PrivateLog } from '@aztec/circuits.js';
+import type { GasSettings } from '@aztec/circuits.js/gas';
 import { PrivateKernelTailCircuitPublicInputs, type PrivateToPublicAccumulatedData } from '@aztec/circuits.js/kernel';
+import { PrivateLog } from '@aztec/circuits.js/logs';
+import { ClientIvcProof } from '@aztec/circuits.js/proofs';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
+import type { ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeArrayOfBufferableToVector, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
@@ -79,6 +83,14 @@ export class Tx extends Gossipable {
     return this.publicTeardownFunctionCall.isEmpty() ? undefined : this.publicTeardownFunctionCall;
   }
 
+  getTotalPublicArgsCount(): number {
+    let count = this.enqueuedPublicFunctionCalls.reduce((acc, execRequest) => acc + execRequest.args.length, 0);
+    if (!this.publicTeardownFunctionCall.isEmpty()) {
+      count += this.publicTeardownFunctionCall.args.length;
+    }
+    return count;
+  }
+
   getGasSettings(): GasSettings {
     return this.data.constants.txContext.gasSettings;
   }
@@ -126,7 +138,7 @@ export class Tx extends Gossipable {
     ]);
   }
 
-  static get schema() {
+  static get schema(): ZodFor<Tx> {
     return z
       .object({
         data: PrivateKernelTailCircuitPublicInputs.schema,
@@ -274,10 +286,15 @@ export class Tx extends Gossipable {
     return clonedTx;
   }
 
-  static async random() {
+  /**
+   * Creates a random tx.
+   * @param randomProof - Whether to create a random proof - this will be random bytes of the full size.
+   * @returns A random tx.
+   */
+  static async random(randomProof = false) {
     return new Tx(
       PrivateKernelTailCircuitPublicInputs.emptyWithNullifier(),
-      ClientIvcProof.empty(),
+      randomProof ? ClientIvcProof.random() : ClientIvcProof.empty(),
       await ContractClassTxL2Logs.random(1, 1),
       [await PublicExecutionRequest.random()],
       await PublicExecutionRequest.random(),

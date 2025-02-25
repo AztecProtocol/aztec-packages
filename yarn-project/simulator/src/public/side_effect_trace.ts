@@ -1,22 +1,4 @@
 import {
-  type AztecAddress,
-  type ContractClassIdPreimage,
-  EthAddress,
-  type Gas,
-  type GasSettings,
-  type GlobalVariables,
-  L2ToL1Message,
-  NoteHash,
-  Nullifier,
-  PublicCallRequest,
-  PublicDataUpdateRequest,
-  PublicDataWrite,
-  PublicLog,
-  ScopedL2ToL1Message,
-  SerializableContractInstance,
-  type TreeSnapshots,
-} from '@aztec/circuits.js';
-import {
   AvmAccumulatedData,
   AvmAppendTreeHint,
   AvmCircuitPublicInputs,
@@ -28,10 +10,24 @@ import {
   AvmNullifierWriteTreeHint,
   AvmPublicDataReadTreeHint,
   AvmPublicDataWriteTreeHint,
+  PublicDataUpdateRequest,
+  PublicDataWrite,
 } from '@aztec/circuits.js/avm';
+import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type ContractClassIdPreimage, SerializableContractInstance } from '@aztec/circuits.js/contract';
+import type { Gas, GasSettings } from '@aztec/circuits.js/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { PrivateToAvmAccumulatedData, PrivateToAvmAccumulatedDataArrayLengths } from '@aztec/circuits.js/kernel';
+import {
+  NoteHash,
+  Nullifier,
+  PrivateToAvmAccumulatedData,
+  PrivateToAvmAccumulatedDataArrayLengths,
+  PublicCallRequest,
+} from '@aztec/circuits.js/kernel';
+import { PublicLog } from '@aztec/circuits.js/logs';
+import { L2ToL1Message, ScopedL2ToL1Message } from '@aztec/circuits.js/messaging';
 import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
+import type { GlobalVariables, TreeSnapshots } from '@aztec/circuits.js/tx';
 import {
   L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_ENQUEUED_CALLS_PER_TX,
@@ -49,6 +45,7 @@ import {
   PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';

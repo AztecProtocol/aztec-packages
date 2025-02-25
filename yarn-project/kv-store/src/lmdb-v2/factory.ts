@@ -1,4 +1,4 @@
-import { EthAddress } from '@aztec/circuits.js';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'fs/promises';

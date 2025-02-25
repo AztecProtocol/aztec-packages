@@ -1,6 +1,3 @@
-import { SiblingPath } from '@aztec/circuit-types';
-import { Fr } from '@aztec/circuits.js';
-import { type Hasher } from '@aztec/circuits.js/interfaces';
 import {
   NullifierLeaf,
   NullifierLeafPreimage,
@@ -8,7 +5,10 @@ import {
   PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js/trees';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { Fr } from '@aztec/foundation/fields';
 import { type FromBuffer } from '@aztec/foundation/serialize';
+import { SiblingPath } from '@aztec/foundation/trees';
+import { type Hasher } from '@aztec/foundation/trees';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 

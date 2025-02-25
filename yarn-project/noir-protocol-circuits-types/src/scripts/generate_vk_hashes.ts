@@ -1,5 +1,6 @@
-import { Fr, VerificationKeyData } from '@aztec/circuits.js';
 import { hashVK } from '@aztec/circuits.js/hash';
+import { VerificationKeyData } from '@aztec/circuits.js/vks';
+import { Fr } from '@aztec/foundation/fields';
 import { createConsoleLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
 

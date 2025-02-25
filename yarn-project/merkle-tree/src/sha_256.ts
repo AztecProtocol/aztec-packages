@@ -1,6 +1,6 @@
-import { type Hasher } from '@aztec/circuits.js/interfaces';
 import { sha256 } from '@aztec/foundation/crypto';
 import { truncateAndPad } from '@aztec/foundation/serialize';
+import { type Hasher } from '@aztec/foundation/trees';
 
 /**
  * A helper class encapsulating SHA256 hash functionality.

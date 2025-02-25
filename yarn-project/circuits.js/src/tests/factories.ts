@@ -43,62 +43,13 @@ import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { compact } from '@aztec/foundation/collection';
 import { SchnorrSignature, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import { type Bufferable } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 
-import { AztecAddress } from '../aztec-address/index.js';
-import {
-  type ContractClassPublic,
-  type ContractInstanceWithAddress,
-  type ExecutablePrivateFunctionWithMembershipProof,
-  type PrivateFunction,
-  type PublicFunction,
-  SerializableContractInstance,
-  type UnconstrainedFunctionWithMembershipProof,
-} from '../contract/index.js';
-import {
-  BaseParityInputs,
-  CallContext,
-  ContractStorageRead,
-  ContractStorageUpdateRequest,
-  Fr,
-  FunctionData,
-  FunctionSelector,
-  GrumpkinScalar,
-  KeyValidationRequest,
-  KeyValidationRequestAndGenerator,
-  L2ToL1Message,
-  LogHash,
-  MaxBlockNumber,
-  NoteHash,
-  Nullifier,
-  ParityPublicInputs,
-  PartialStateReference,
-  Point,
-  PrivateCallRequest,
-  PrivateCircuitPublicInputs,
-  Proof,
-  PublicCallRequest,
-  PublicDataHint,
-  PublicDataRead,
-  PublicKeys,
-  ReadRequest,
-  RollupTypes,
-  RootParityInput,
-  RootParityInputs,
-  ScopedLogHash,
-  StateReference,
-  TxContext,
-  TxRequest,
-  Vector,
-  VerificationKey,
-  VerificationKeyAsFields,
-  VerificationKeyData,
-  computeAddress,
-  computeContractClassId,
-  computePublicBytecodeCommitment,
-  makeRecursiveProof,
-} from '../index.js';
+import { FunctionSelector } from '../abi/function_selector.js';
+import { ContractStorageRead } from '../avm/contract_storage_read.js';
+import { ContractStorageUpdateRequest } from '../avm/contract_storage_update_request.js';
 import {
   AvmAccumulatedData,
   AvmAppendTreeHint,
@@ -112,23 +63,27 @@ import {
   AvmNullifierWriteTreeHint,
   AvmPublicDataReadTreeHint,
   AvmPublicDataWriteTreeHint,
-} from '../structs/avm/index.js';
-import { BlockHeader } from '../structs/block_header.js';
-import { ContentCommitment, NUM_BYTES_PER_SHA256 } from '../structs/content_commitment.js';
-import { Gas } from '../structs/gas.js';
-import { GasFees } from '../structs/gas_fees.js';
-import { GasSettings } from '../structs/gas_settings.js';
-import { GlobalVariables } from '../structs/global_variables.js';
+} from '../avm/index.js';
+import { PublicDataHint } from '../avm/public_data_hint.js';
+import { PublicDataRead } from '../avm/public_data_read.js';
+import { PublicDataWrite } from '../avm/public_data_write.js';
+import { AztecAddress } from '../aztec-address/index.js';
 import {
-  CountedPublicCallRequest,
-  PrivateLog,
-  PrivateLogData,
-  PublicDataWrite,
-  PublicLog,
-  ScopedL2ToL1Message,
-  TreeSnapshots,
-  VkWitnessData,
-} from '../structs/index.js';
+  type ContractClassPublic,
+  type ContractInstanceWithAddress,
+  type ExecutablePrivateFunctionWithMembershipProof,
+  type PrivateFunction,
+  type PublicFunction,
+  SerializableContractInstance,
+  type UnconstrainedFunctionWithMembershipProof,
+  computeContractClassId,
+  computePublicBytecodeCommitment,
+} from '../contract/index.js';
+import { Gas, GasFees, GasSettings } from '../gas/index.js';
+import { KeyValidationRequest } from '../kernel/hints/key_validation_request.js';
+import { KeyValidationRequestAndGenerator } from '../kernel/hints/key_validation_request_and_generator.js';
+import { ReadRequest } from '../kernel/hints/read_request.js';
+import { RollupValidationRequests } from '../kernel/hints/rollup_validation_requests.js';
 import {
   CombinedConstantData,
   PartialPrivateTailPublicInputsForPublic,
@@ -139,38 +94,65 @@ import {
   PrivateToPublicAccumulatedData,
   PrivateToPublicKernelCircuitPublicInputs,
   PrivateToRollupAccumulatedData,
-  TxConstantData,
-} from '../structs/kernel/index.js';
-import { PrivateToRollupKernelCircuitPublicInputs } from '../structs/kernel/private_to_rollup_kernel_circuit_public_inputs.js';
-import { AvmProofData } from '../structs/rollup/avm_proof_data.js';
-import { BaseOrMergeRollupPublicInputs } from '../structs/rollup/base_or_merge_rollup_public_inputs.js';
-import { PrivateBaseRollupHints, PublicBaseRollupHints } from '../structs/rollup/base_rollup_hints.js';
-import { BlockMergeRollupInputs } from '../structs/rollup/block_merge_rollup.js';
-import {
-  BlockRootOrBlockMergePublicInputs,
-  FeeRecipient,
-} from '../structs/rollup/block_root_or_block_merge_public_inputs.js';
+} from '../kernel/index.js';
+import { LogHash, ScopedLogHash } from '../kernel/log_hash.js';
+import { NoteHash } from '../kernel/note_hash.js';
+import { Nullifier } from '../kernel/nullifier.js';
+import { PrivateCallRequest } from '../kernel/private_call_request.js';
+import { PrivateCircuitPublicInputs } from '../kernel/private_circuit_public_inputs.js';
+import { PrivateLogData } from '../kernel/private_log_data.js';
+import { PrivateToRollupKernelCircuitPublicInputs } from '../kernel/private_to_rollup_kernel_circuit_public_inputs.js';
+import { CountedPublicCallRequest, PublicCallRequest } from '../kernel/public_call_request.js';
+import { PublicKeys, computeAddress } from '../keys/index.js';
+import { PrivateLog } from '../logs/private_log.js';
+import { PublicLog } from '../logs/public_log.js';
+import { L2ToL1Message, ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
+import { BaseParityInputs } from '../parity/base_parity_inputs.js';
+import { ParityPublicInputs } from '../parity/parity_public_inputs.js';
+import { RootParityInput } from '../parity/root_parity_input.js';
+import { RootParityInputs } from '../parity/root_parity_inputs.js';
+import { Proof } from '../proofs/proof.js';
+import { makeRecursiveProof } from '../proofs/recursive_proof.js';
+import { AvmProofData } from '../rollup/avm_proof_data.js';
+import { BaseOrMergeRollupPublicInputs } from '../rollup/base_or_merge_rollup_public_inputs.js';
+import { PrivateBaseRollupHints, PublicBaseRollupHints } from '../rollup/base_rollup_hints.js';
+import { BlockMergeRollupInputs } from '../rollup/block_merge_rollup.js';
+import { BlockRootOrBlockMergePublicInputs, FeeRecipient } from '../rollup/block_root_or_block_merge_public_inputs.js';
 import {
   BlockRootRollupBlobData,
   BlockRootRollupData,
   BlockRootRollupInputs,
   SingleTxBlockRootRollupInputs,
-} from '../structs/rollup/block_root_rollup.js';
-import { ConstantRollupData } from '../structs/rollup/constant_rollup_data.js';
-import { EmptyBlockRootRollupInputs } from '../structs/rollup/empty_block_root_rollup_inputs.js';
-import { MergeRollupInputs } from '../structs/rollup/merge_rollup.js';
-import { PreviousRollupBlockData } from '../structs/rollup/previous_rollup_block_data.js';
-import { PreviousRollupData } from '../structs/rollup/previous_rollup_data.js';
-import { PrivateBaseRollupInputs } from '../structs/rollup/private_base_rollup_inputs.js';
-import { PrivateTubeData } from '../structs/rollup/private_tube_data.js';
-import { PublicBaseRollupInputs } from '../structs/rollup/public_base_rollup_inputs.js';
-import { PublicTubeData } from '../structs/rollup/public_tube_data.js';
-import { RootRollupInputs, RootRollupPublicInputs } from '../structs/rollup/root_rollup.js';
-import { PrivateBaseStateDiffHints } from '../structs/rollup/state_diff_hints.js';
-import { RollupValidationRequests } from '../structs/rollup_validation_requests.js';
-import { AppendOnlyTreeSnapshot } from '../structs/trees/append_only_tree_snapshot.js';
-import { NullifierLeafPreimage } from '../structs/trees/nullifier_leaf.js';
-import { PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '../structs/trees/public_data_leaf.js';
+} from '../rollup/block_root_rollup.js';
+import { ConstantRollupData } from '../rollup/constant_rollup_data.js';
+import { EmptyBlockRootRollupInputs } from '../rollup/empty_block_root_rollup_inputs.js';
+import { MergeRollupInputs } from '../rollup/merge_rollup.js';
+import { PreviousRollupBlockData } from '../rollup/previous_rollup_block_data.js';
+import { PreviousRollupData } from '../rollup/previous_rollup_data.js';
+import { PrivateBaseRollupInputs } from '../rollup/private_base_rollup_inputs.js';
+import { PrivateTubeData } from '../rollup/private_tube_data.js';
+import { PublicBaseRollupInputs } from '../rollup/public_base_rollup_inputs.js';
+import { PublicTubeData } from '../rollup/public_tube_data.js';
+import { RootRollupInputs, RootRollupPublicInputs } from '../rollup/root_rollup.js';
+import { PrivateBaseStateDiffHints } from '../rollup/state_diff_hints.js';
+import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
+import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
+import { PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
+import { BlockHeader } from '../tx/block_header.js';
+import { CallContext } from '../tx/call_context.js';
+import { ContentCommitment, NUM_BYTES_PER_SHA256 } from '../tx/content_commitment.js';
+import { FunctionData } from '../tx/function_data.js';
+import { GlobalVariables } from '../tx/global_variables.js';
+import { MaxBlockNumber } from '../tx/max_block_number.js';
+import { PartialStateReference } from '../tx/partial_state_reference.js';
+import { StateReference } from '../tx/state_reference.js';
+import { TreeSnapshots } from '../tx/tree_snapshots.js';
+import { TxConstantData } from '../tx/tx_constant_data.js';
+import { TxContext } from '../tx/tx_context.js';
+import { TxRequest } from '../tx/tx_request.js';
+import { RollupTypes, Vector } from '../types/index.js';
+import { VerificationKey, VerificationKeyAsFields, VerificationKeyData } from '../vks/verification_key.js';
+import { VkWitnessData } from '../vks/vk_witness_data.js';
 
 /**
  * Creates an arbitrary side effect object with the given seed.

@@ -1,7 +1,8 @@
 import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
-import { GasFees, GlobalVariables } from '@aztec/circuits.js';
 import { encodeArguments } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { GasFees } from '@aztec/circuits.js/gas';
+import { GlobalVariables } from '@aztec/circuits.js/tx';
 import { Fr } from '@aztec/foundation/fields';
 import { NativeWorldStateService } from '@aztec/world-state';
 

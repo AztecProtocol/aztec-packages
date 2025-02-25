@@ -8,8 +8,8 @@ import {
   PublicFeePaymentMethod,
   TxStatus,
 } from '@aztec/aztec.js';
-import { Gas, GasSettings } from '@aztec/circuits.js';
 import { FunctionType, U128 } from '@aztec/circuits.js/abi';
+import { Gas, GasSettings } from '@aztec/circuits.js/gas';
 import { type FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { type TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 
