@@ -281,7 +281,7 @@ metadata:
     {{- include "aztec-network.labels" . | nindent 4 }}
     app: validator
 spec:
-  clusterIP: ""
+  clusterIP: None
   selector:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: validator
@@ -292,6 +292,23 @@ spec:
     - port: {{ .Values.validator.service.p2pUdpPort }}
       name: p2p-udp
       protocol: UDP
+    - port: {{ .Values.validator.service.nodePort }}
+      name: node
+      protocol: TCP
+---
+# If we want to send traffic to any validator, then we need a LoadBalancer service on top of a headless service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-validator-lb
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+    app: validator
+spec:
+  selector:
+    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
+    app: validator
+  ports:
     - port: {{ .Values.validator.service.nodePort }}
       name: node
       protocol: TCP

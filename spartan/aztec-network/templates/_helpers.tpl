@@ -69,7 +69,7 @@ http://{{ include "aztec-network.fullname" . }}-boot-node-0.{{ include "aztec-ne
 {{- end -}}
 
 {{- define "aztec-network.validatorUrl" -}}
-http://{{ include "aztec-network.fullname" . }}-validator.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.validator.service.nodePort }}
+http://{{ include "aztec-network.fullname" . }}-validator-lb.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.validator.service.nodePort }}
 {{- end -}}
 
 {{- define "aztec-network.blobSinkUrl" -}}
