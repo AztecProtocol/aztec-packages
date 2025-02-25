@@ -1,10 +1,11 @@
-import { type AbiType, AbiTypeSchema, type EventSelector, decodeFromAbi } from '@aztec/circuits.js/abi';
-import { type PublicLog } from '@aztec/circuits.js/logs';
-
 import { z } from 'zod';
 
+import { type AbiType, AbiTypeSchema } from '../abi/abi.js';
+import { decodeFromAbi } from '../abi/decoder.js';
+import type { EventSelector } from '../abi/event_selector.js';
 import { schemas } from '../schemas/index.js';
 import { L1EventPayload } from './l1_payload/l1_event_payload.js';
+import type { PublicLog } from './public_log.js';
 
 /**
  * Represents metadata for an event decoder, including all information needed to reconstruct it.

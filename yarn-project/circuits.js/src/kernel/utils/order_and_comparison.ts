@@ -1,6 +1,6 @@
 import { type Tuple } from '@aztec/foundation/serialize';
 
-import type { IsEmpty, Ordered } from '../../interfaces/index.js';
+import type { IsEmpty, Ordered } from './interfaces.js';
 
 // Define these utils here as their design is very specific to kernel's accumulated data and not general enough to be put in foundation.
 

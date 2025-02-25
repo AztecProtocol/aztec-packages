@@ -1,6 +1,7 @@
-import { schemas } from '@aztec/circuits.js/schemas';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
+
+import { schemas } from '../schemas/index.js';
 
 /**
  * A class representing hash of Aztec transaction.

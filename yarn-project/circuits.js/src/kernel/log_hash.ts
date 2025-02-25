@@ -5,7 +5,7 @@ import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/
 import { inspect } from 'util';
 
 import { AztecAddress } from '../aztec-address/index.js';
-import { type Ordered } from '../interfaces/index.js';
+import { type Ordered } from './utils/interfaces.js';
 
 export class LogHash implements Ordered {
   constructor(public value: Fr, public counter: number, public length: Fr) {}

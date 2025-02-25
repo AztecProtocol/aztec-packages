@@ -1,6 +1,3 @@
-import { NoteSelector } from '@aztec/circuits.js/abi';
-import type { IsEmpty } from '@aztec/circuits.js/interfaces';
-import { PrivateCircuitPublicInputs, sortByCounter } from '@aztec/circuits.js/kernel';
 import { timesParallel } from '@aztec/foundation/collection';
 import { randomBytes, randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
@@ -8,6 +5,10 @@ import { type FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
+import { NoteSelector } from '../abi/note_selector.js';
+import { sortByCounter } from '../kernel/index.js';
+import { PrivateCircuitPublicInputs } from '../kernel/private_circuit_public_inputs.js';
+import type { IsEmpty } from '../kernel/utils/interfaces.js';
 import { UnencryptedFunctionL2Logs } from '../logs/function_l2_logs.js';
 import { Note } from '../logs/index.js';
 import { UnencryptedL2Log } from '../logs/unencrypted_l2_log.js';

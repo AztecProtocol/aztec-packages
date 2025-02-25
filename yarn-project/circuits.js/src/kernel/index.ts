@@ -26,3 +26,5 @@ export * from './note_hash.js';
 export * from './private_log_data.js';
 export * from './private_call_request.js';
 export * from './private_validation_requests.js';
+export * from './private_kernel_prover_profile_result.js';
+export * from './private_kernel_simulated_output.js';

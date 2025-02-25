@@ -8,3 +8,4 @@ export * from './note_selector.js';
 export * from './utils.js';
 export * from './u128.js';
 export * from './contract_artifact.js';
+export * from './function_call.js';

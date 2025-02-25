@@ -1,12 +1,12 @@
-import {
-  type ABIParameter,
-  type ABIParameterVisibility,
-  type AbiErrorType,
-  type AbiType,
-  type AbiValue,
-  type DebugFileMap,
-  type DebugInfo,
-} from '@aztec/circuits.js/abi';
+import type {
+  ABIParameter,
+  ABIParameterVisibility,
+  AbiErrorType,
+  AbiType,
+  AbiValue,
+  DebugFileMap,
+  DebugInfo,
+} from '../abi/abi.js';
 
 export const AZTEC_PRIVATE_ATTRIBUTE = 'private';
 export const AZTEC_PUBLIC_ATTRIBUTE = 'public';

@@ -34,7 +34,13 @@
     "./gas": "./dest/gas/index.js",
     "./tx": "./dest/tx/index.js",
     "./fees": "./dest/fees/index.js",
-    "./notes": "./dest/notes/index.js"
+    "./notes": "./dest/notes/index.js",
+    "./p2p": "./dest/p2p/index.js",
+    "./errors": "./dest/errors/index.js",
+    "./stats": "./dest/stats/index.js",
+    "./auth-witness": "./dest/auth_witness/index.js",
+    "./blocks": "./dest/blocks/index.js",
+    "./versioning": "./dest/versining/index.js"
   },
   "typedocOptions": {
     "entryPoints": [
