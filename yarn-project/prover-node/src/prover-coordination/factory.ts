@@ -1,14 +1,15 @@
 import { type ArchiveSource, type Archiver } from '@aztec/archiver';
 import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
-import { P2PClientType, getComponentsVersionsFromConfig } from '@aztec/circuit-types';
-import { createAztecNodeClient } from '@aztec/circuit-types/interfaces/client';
-import { type ProverCoordination, type WorldStateSynchronizer } from '@aztec/circuit-types/interfaces/server';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { createLogger } from '@aztec/foundation/log';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { createP2PClient } from '@aztec/p2p';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
+import { type ProverCoordination, type WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import { P2PClientType } from '@aztec/stdlib/p2p';
+import { getComponentsVersionsFromConfig } from '@aztec/stdlib/versioning';
 import { type TelemetryClient, makeTracedFetch } from '@aztec/telemetry-client';
 
 import { type ProverNodeConfig } from '../config.js';

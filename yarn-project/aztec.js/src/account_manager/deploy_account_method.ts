@@ -4,8 +4,8 @@ import {
   FunctionSelector,
   encodeArguments,
   getFunctionArtifactByName,
-} from '@aztec/circuits.js/abi';
-import { type PublicKeys } from '@aztec/circuits.js/keys';
+} from '@aztec/stdlib/abi';
+import { type PublicKeys } from '@aztec/stdlib/keys';
 
 import { type AuthWitnessProvider } from '../account/interface.js';
 import { type Wallet } from '../account/wallet.js';

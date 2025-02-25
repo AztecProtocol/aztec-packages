@@ -1,4 +1,3 @@
-import type { VerificationKeyData } from '@aztec/circuits.js/vks';
 import {
   BASE_PARITY_INDEX,
   BLOCK_MERGE_ROLLUP_INDEX,
@@ -15,6 +14,7 @@ import {
   ROOT_PARITY_INDEX,
   ROOT_ROLLUP_INDEX,
 } from '@aztec/constants';
+import type { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import BaseParityVkJson from '../../artifacts/keys/parity_base.vk.data.json' assert { type: 'json' };
 import RootParityVkJson from '../../artifacts/keys/parity_root.vk.data.json' assert { type: 'json' };

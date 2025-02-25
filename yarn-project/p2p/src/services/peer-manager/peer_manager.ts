@@ -1,6 +1,6 @@
-import { type PeerErrorSeverity } from '@aztec/circuit-types';
-import { type PeerInfo } from '@aztec/circuit-types/interfaces/server';
 import { createLogger } from '@aztec/foundation/log';
+import { type PeerInfo } from '@aztec/stdlib/interfaces/server';
+import { type PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { type ENR } from '@chainsafe/enr';

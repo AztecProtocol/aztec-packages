@@ -1,13 +1,12 @@
-import { type L2BlockSource, type P2PClientType, type Tx } from '@aztec/circuit-types';
-import { type ChainConfig, emptyChainConfig } from '@aztec/circuit-types/config';
-import {
-  type ClientProtocolCircuitVerifier,
-  type WorldStateSynchronizer,
-} from '@aztec/circuit-types/interfaces/server';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { timesParallel } from '@aztec/foundation/collection';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { type L2BlockSource } from '@aztec/stdlib/block';
+import { type ChainConfig, emptyChainConfig } from '@aztec/stdlib/config';
+import { type ClientProtocolCircuitVerifier, type WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import { type P2PClientType } from '@aztec/stdlib/p2p';
+import { type Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { SignableENR } from '@chainsafe/enr';

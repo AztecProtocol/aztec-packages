@@ -1,7 +1,7 @@
-import { type MerkleTreeReadOperations } from '@aztec/circuit-types/interfaces/server';
-import { MerkleTreeId } from '@aztec/circuits.js/trees';
 import { type Fr } from '@aztec/foundation/fields';
 import { type ArchiveSource } from '@aztec/p2p';
+import { type MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 /**
  * Implements an archive source by checking a DB and an in-memory collection.

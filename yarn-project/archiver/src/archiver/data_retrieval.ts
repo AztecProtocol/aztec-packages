@@ -1,9 +1,5 @@
 import { Blob, BlobDeserializationError } from '@aztec/blob-lib';
 import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
-import { Body, InboxLeaf, L2Block } from '@aztec/circuit-types';
-import { Proof } from '@aztec/circuits.js/proofs';
-import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
-import { BlockHeader } from '@aztec/circuits.js/tx';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type ViemSignature } from '@aztec/foundation/eth-signature';
@@ -11,6 +7,11 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
 import { ForwarderAbi, type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { Body, L2Block } from '@aztec/stdlib/block';
+import { InboxLeaf } from '@aztec/stdlib/messaging';
+import { Proof } from '@aztec/stdlib/proofs';
+import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
+import { BlockHeader } from '@aztec/stdlib/tx';
 
 import {
   type Chain,
@@ -79,7 +80,9 @@ export async function retrieveBlocksFromRollup(
     retrievedBlocks.push(...newBlocks);
     searchStartBlock = lastLog.blockNumber! + 1n;
   } while (searchStartBlock <= searchEndBlock);
-  return retrievedBlocks;
+
+  // The asyncpool from processL2BlockProposedLogs will not necessarily return the blocks in order, so we sort them before returning.
+  return retrievedBlocks.sort((a, b) => Number(a.l1.blockNumber - b.l1.blockNumber));
 }
 
 /**

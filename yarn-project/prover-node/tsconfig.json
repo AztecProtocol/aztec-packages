@@ -16,10 +16,7 @@
       "path": "../blob-sink"
     },
     {
-      "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
+      "path": "../stdlib"
     },
     {
       "path": "../constants"

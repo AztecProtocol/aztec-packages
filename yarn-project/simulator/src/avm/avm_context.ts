@@ -1,5 +1,5 @@
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
+import { type AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { type AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { type Gas, gasToGasLeft } from './avm_gas.js';

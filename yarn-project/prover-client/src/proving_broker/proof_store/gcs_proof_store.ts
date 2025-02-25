@@ -5,9 +5,9 @@ import {
   type ProvingJobInputsMap,
   type ProvingJobResult,
   type ProvingJobResultsMap,
-  ProvingRequestType,
   getProvingJobInputClassFor,
-} from '@aztec/circuit-types/interfaces/server';
+} from '@aztec/stdlib/interfaces/server';
+import { ProvingRequestType } from '@aztec/stdlib/proofs';
 
 import { Storage } from '@google-cloud/storage';
 import { join } from 'path';

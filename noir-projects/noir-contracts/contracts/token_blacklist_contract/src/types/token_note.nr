@@ -10,9 +10,6 @@ use dep::aztec::{
     },
 };
 
-// TODO(#12008): Remove the need for the manual import of `Packable` trait here. This is a bug in macros.
-use aztec::protocol_types::traits::Packable;
-
 trait OwnedNote {
     fn new(amount: U128, owner: AztecAddress) -> Self;
     fn get_amount(self) -> U128;

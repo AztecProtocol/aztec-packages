@@ -21,13 +21,13 @@ import {
   deployInstance,
   registerContractClass,
 } from '@aztec/aztec.js/deployment';
-import { FunctionSelector, FunctionType } from '@aztec/circuits.js/abi';
-import { type ContractClassIdPreimage } from '@aztec/circuits.js/contract';
-import { PublicKeys } from '@aztec/circuits.js/keys';
 import { writeTestData } from '@aztec/foundation/testing/files';
 import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import { type ContractClassIdPreimage } from '@aztec/stdlib/contract';
+import { PublicKeys } from '@aztec/stdlib/keys';
 
 import { DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
 import { DeployTest, type StatefulContractCtorArgs } from './deploy_test.js';

@@ -1,6 +1,6 @@
-import { type AnyTx, Tx, type TxValidationResult, type TxValidator } from '@aztec/circuit-types';
 import { type Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
+import { type AnyTx, Tx, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
 
 export interface ArchiveSource {
   getArchiveIndices: (archives: Fr[]) => Promise<(bigint | undefined)[]>;

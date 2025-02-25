@@ -1,9 +1,3 @@
-import { type ProcessedTx } from '@aztec/circuit-types';
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { GasFees } from '@aztec/circuits.js/gas';
-import { MerkleTreeId } from '@aztec/circuits.js/trees';
-import { GlobalVariables } from '@aztec/circuits.js/tx';
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NULLIFIER_TREE_HEIGHT } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -12,6 +6,12 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Logger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
 import { NativeACVMSimulator, type SimulationProvider, WASMSimulatorWithBlobs } from '@aztec/simulator/server';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { GasFees } from '@aztec/stdlib/gas';
+import { type MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
+import { type ProcessedTx } from '@aztec/stdlib/tx';
+import { GlobalVariables } from '@aztec/stdlib/tx';
 
 import { promises as fs } from 'fs';
 import path from 'path';

@@ -38,8 +38,12 @@ export async function getACVMConfig(logger: Logger): Promise<
 
     const cleanup = async () => {
       if (directoryToCleanup) {
-        // logger(`Cleaning up ACVM temp directory ${directoryToCleanup}`);
-        await fs.rm(directoryToCleanup, { recursive: true, force: true });
+        try {
+          logger.info(`Cleaning up ACVM temp directory ${directoryToCleanup}`);
+          await fs.rm(directoryToCleanup, { recursive: true, force: true, maxRetries: 3 });
+        } catch (err) {
+          logger.warn(`Failed to delete ACVM temp directory at ${directoryToCleanup}: ${err}`);
+        }
       }
     };
 

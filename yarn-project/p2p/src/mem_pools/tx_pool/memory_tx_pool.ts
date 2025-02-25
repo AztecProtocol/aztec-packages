@@ -1,6 +1,6 @@
-import { Tx, TxHash } from '@aztec/circuit-types';
-import { type TxAddedToPoolStats } from '@aztec/circuit-types/stats';
 import { createLogger } from '@aztec/foundation/log';
+import { type TxAddedToPoolStats } from '@aztec/stdlib/stats';
+import { Tx, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';

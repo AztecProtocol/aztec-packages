@@ -1,5 +1,5 @@
-import { Comparator, type Note } from '@aztec/circuit-types';
 import { Fr } from '@aztec/foundation/fields';
+import { Comparator, type Note } from '@aztec/stdlib/note';
 
 export interface PropertySelector {
   index: number;

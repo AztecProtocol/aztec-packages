@@ -1,10 +1,10 @@
 import type { AztecAddress, NodeInfo } from '@aztec/aztec.js';
 import { type AccountInterface, type AuthWitnessProvider, CompleteAddress } from '@aztec/aztec.js/account';
 import { type EntrypointInterface, type ExecutionRequestInit } from '@aztec/aztec.js/entrypoint';
-import { type TxExecutionRequest } from '@aztec/circuit-types';
-import { type AuthWitness } from '@aztec/circuit-types/auth-witness';
 import { DefaultAccountEntrypoint } from '@aztec/entrypoints/account';
 import { Fr } from '@aztec/foundation/fields';
+import { type AuthWitness } from '@aztec/stdlib/auth-witness';
+import { type TxExecutionRequest } from '@aztec/stdlib/tx';
 
 /**
  * Default implementation for an account interface. Requires that the account uses the default

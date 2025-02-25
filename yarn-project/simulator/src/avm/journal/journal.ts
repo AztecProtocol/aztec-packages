@@ -1,17 +1,3 @@
-import { type IndexedTreeId, type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
-import { AvmNullifierReadTreeHint, AvmPublicDataReadTreeHint, PublicDataWrite } from '@aztec/circuits.js/avm';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { type ContractClassIdPreimage, SerializableContractInstance } from '@aztec/circuits.js/contract';
-import {
-  computeNoteHashNonce,
-  computePublicDataTreeLeafSlot,
-  computeUniqueNoteHash,
-  siloNoteHash,
-  siloNullifier,
-} from '@aztec/circuits.js/hash';
-import type { PublicCallRequest } from '@aztec/circuits.js/kernel';
-import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/circuits.js/shared-mutable';
-import { MerkleTreeId, NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
 import {
   CANONICAL_AUTH_REGISTRY_ADDRESS,
   DEPLOYER_CONTRACT_ADDRESS,
@@ -26,6 +12,20 @@ import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
 import type { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { AvmNullifierReadTreeHint, AvmPublicDataReadTreeHint, PublicDataWrite } from '@aztec/stdlib/avm';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type ContractClassIdPreimage, SerializableContractInstance } from '@aztec/stdlib/contract';
+import {
+  computeNoteHashNonce,
+  computePublicDataTreeLeafSlot,
+  computeUniqueNoteHash,
+  siloNoteHash,
+  siloNullifier,
+} from '@aztec/stdlib/hash';
+import { type IndexedTreeId, type MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import type { PublicCallRequest } from '@aztec/stdlib/kernel';
+import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/stdlib/shared-mutable';
+import { MerkleTreeId, NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 
 import { strict as assert } from 'assert';
 import cloneDeep from 'lodash.clonedeep';

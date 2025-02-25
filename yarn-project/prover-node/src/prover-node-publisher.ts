@@ -1,6 +1,3 @@
-import { type L1PublishProofStats } from '@aztec/circuit-types/stats';
-import { type Proof } from '@aztec/circuits.js/proofs';
-import { type FeeRecipient, type RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 import { AGGREGATION_OBJECT_LENGTH, AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
 import { type L1TxUtils, type RollupContract } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
@@ -13,6 +10,9 @@ import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { type PublisherConfig, type TxSenderConfig } from '@aztec/sequencer-client';
+import { type Proof } from '@aztec/stdlib/proofs';
+import { type FeeRecipient, type RootRollupPublicInputs } from '@aztec/stdlib/rollup';
+import { type L1PublishProofStats } from '@aztec/stdlib/stats';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type Hex, type TransactionReceipt, encodeFunctionData } from 'viem';

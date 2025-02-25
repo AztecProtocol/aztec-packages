@@ -1,17 +1,4 @@
 import {
-  type ProofAndVerificationKey,
-  type PublicInputsAndRecursiveProof,
-} from '@aztec/circuit-types/interfaces/server';
-import {
-  BlockMergeRollupInputs,
-  type BlockRootOrBlockMergePublicInputs,
-  PreviousRollupBlockData,
-  RootRollupInputs,
-  type RootRollupPublicInputs,
-} from '@aztec/circuits.js/rollup';
-import { type AppendOnlyTreeSnapshot, type MerkleTreeId } from '@aztec/circuits.js/trees';
-import { type BlockHeader, type GlobalVariables } from '@aztec/circuits.js/tx';
-import {
   type ARCHIVE_HEIGHT,
   type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
@@ -22,6 +9,17 @@ import type { Fr } from '@aztec/foundation/fields';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { MembershipWitness, type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vks';
+import { type ProofAndVerificationKey, type PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
+import type { Proof } from '@aztec/stdlib/proofs';
+import {
+  BlockMergeRollupInputs,
+  type BlockRootOrBlockMergePublicInputs,
+  PreviousRollupBlockData,
+  RootRollupInputs,
+  type RootRollupPublicInputs,
+} from '@aztec/stdlib/rollup';
+import { type AppendOnlyTreeSnapshot, type MerkleTreeId } from '@aztec/stdlib/trees';
+import { type BlockHeader, type GlobalVariables } from '@aztec/stdlib/tx';
 
 import { BlockProvingState } from './block-proving-state.js';
 
@@ -181,7 +179,7 @@ export class EpochProvingState {
     return this.blocks.find(block => block?.blockNumber === blockNumber);
   }
 
-  public getEpochProofResult() {
+  public getEpochProofResult(): { proof: Proof; publicInputs: RootRollupPublicInputs } {
     if (!this.rootRollupProvingOutput) {
       throw new Error('Unable to get epoch proof result. Root rollup is not ready.');
     }

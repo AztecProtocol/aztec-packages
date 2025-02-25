@@ -1,6 +1,6 @@
-import { TxHash, type TxReceipt, TxStatus } from '@aztec/circuit-types';
-import { type PXE } from '@aztec/circuit-types/interfaces/client';
 import { Fr } from '@aztec/foundation/fields';
+import { type PXE } from '@aztec/stdlib/interfaces/client';
+import { TxHash, type TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 

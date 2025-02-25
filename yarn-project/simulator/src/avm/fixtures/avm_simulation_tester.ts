@@ -1,9 +1,9 @@
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
-import { encodeArguments } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { GasFees } from '@aztec/circuits.js/gas';
-import { GlobalVariables } from '@aztec/circuits.js/tx';
 import { Fr } from '@aztec/foundation/fields';
+import { encodeArguments } from '@aztec/stdlib/abi';
+import { type AztecAddress } from '@aztec/stdlib/aztec-address';
+import { GasFees } from '@aztec/stdlib/gas';
+import { type MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { GlobalVariables } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import { type AvmContractCallResult } from '../../avm/avm_contract_call_result.js';
