@@ -26,7 +26,7 @@ where
             siloed_note_hash,
         )
     } else {
-        // Pending notes (both same phase and previous phase ones)  are read by their non-siloed hash (not even by
+        // Pending notes (both same phase and previous phase ones)  re read by their non-siloed hash (not even by
         // contract address), which is what is stored in the new note hashes array (at the position hinted by note hash
         // counter).
         note_hash

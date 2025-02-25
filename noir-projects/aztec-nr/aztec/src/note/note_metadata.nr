@@ -126,7 +126,7 @@ impl From<SettledNoteMetadata> for NoteMetadata {
 /// read requests, as well as the correct nullifier to avoid double-spends.
 ///
 /// This represents a pending same phase note, i.e. a note that was created in the transaction that is currently being
-/// executed during the current execution phase (either non-revertible o revertible).
+/// executed during the current execution phase (either non-revertible or revertible).
 pub struct PendingSamePhaseNoteMetadata {
     // This struct contains no fields since there is no metadata associated with a pending same phase note: it has no
     // nonce (since it may get squashed by a nullifier emitted in the same phase), and while it does have a note hash
