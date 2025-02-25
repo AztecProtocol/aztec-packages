@@ -23,7 +23,6 @@
     "@aztec/entrypoints": "link:../yarn-project/entrypoints",
     "@aztec/foundation": "link:../yarn-project/foundation",
     "@aztec/bb.js": "link:../barretenberg/ts",
-    "@aztec/circuit-types": "link:../yarn-project/circuit-types",
     "@aztec/key-store": "link:../yarn-project/key-store",
     "@aztec/kv-store": "link:../yarn-project/kv-store",
     "@aztec/pxe": "link:../yarn-project/pxe",

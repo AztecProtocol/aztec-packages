@@ -19,7 +19,7 @@
     "@aztec/accounts": "latest",
     "@aztec/aztec.js": "latest",
     "@aztec/bb-prover": "latest",
-    "@aztec/circuit-types": "latest",
+    "@aztec/circuits.js": "latest",
     "@aztec/key-store": "latest",
     "@aztec/kv-store": "latest",
     "@aztec/pxe": "latest",
