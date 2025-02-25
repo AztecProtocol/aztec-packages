@@ -125,8 +125,10 @@ namespace scalar_mul;
     end*((point_inf - 1)*bit + 1 - res_inf) = 0;
 
     // If not_end, res = bit? res + temp : res
+    // commited because it's used in the add lookup
     pol commit should_add;
     should_add - not_end*bit = 0;
+    pol should_pass = not_end*(1 - bit);
 
     #[ADD]
     should_add { res_x, res_y, res_inf, res_x', res_y', res_inf', temp_x, temp_y, temp_inf }
@@ -134,8 +136,8 @@ namespace scalar_mul;
     ecc.sel
         { ecc.r_x, ecc.r_y, ecc.r_is_inf, ecc.p_x, ecc.p_y, ecc.p_is_inf, ecc.q_x, ecc.q_y, ecc.q_is_inf };
 
-    (1 - should_add)*(res_x - res_x') = 0;
-    (1 - should_add)*(res_y - res_y') = 0;
-    (1 - should_add)*(res_inf - res_inf') = 0;
+    should_pass*(res_x - res_x') = 0;
+    should_pass*(res_y - res_y') = 0;
+    should_pass*(res_inf - res_inf') = 0;
 
 

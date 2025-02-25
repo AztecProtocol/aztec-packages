@@ -4,6 +4,7 @@
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/tracegen/lib/contract_crypto.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -93,39 +94,46 @@ void EccTraceBuilder::process_scalar_mul(
 {
     using C = Column;
 
-    uint32_t row = 0;
+    uint32_t row = 1; // We start from row 1 because this trace contains shifted columns.
     for (const auto& event : events) {
         size_t num_intermediate_states = event.intermediate_states.size();
-        AffinePoint p = event.point;
+        AffinePointStandard point = point_to_standard_form(event.point);
 
-        for (size_t i = num_intermediate_states - 1; i >= 0; i--) {
-            bool is_end = i == (num_intermediate_states - 1);
+        for (size_t i = 0; i < num_intermediate_states; ++i) {
+            // This trace uses reverse aggregation, so we need to process the bits in reverse
+            size_t intermediate_state_idx = num_intermediate_states - i - 1;
 
-            simulation::ScalarMulIntermediateState state = event.intermediate_states[i];
-            AffinePoint res = state.res;
-            if (i == 0) {
-                ASSERT(res == event.result);
+            // The first bit processed is the end of the trace for the event
+            bool is_start = i == 0;
+
+            bool is_end = intermediate_state_idx == 0;
+
+            simulation::ScalarMulIntermediateState state = event.intermediate_states[intermediate_state_idx];
+            if (is_start) {
+                ASSERT(state.res == event.result);
             }
-            AffinePoint temp = state.temp;
+            auto res = point_to_standard_form(state.res);
+
+            auto temp = point_to_standard_form(state.temp);
             bool bit = state.bit;
 
             trace.set(row,
                       { { { C::scalar_mul_sel, 1 },
                           { C::scalar_mul_scalar, event.scalar },
-                          { C::scalar_mul_point_x, p.x },
-                          { C::scalar_mul_point_y, p.y },
-                          { C::scalar_mul_point_inf, p.is_point_at_infinity() },
+                          { C::scalar_mul_point_x, point.x },
+                          { C::scalar_mul_point_y, point.y },
+                          { C::scalar_mul_point_inf, point.is_infinity },
                           { C::scalar_mul_res_x, res.x },
                           { C::scalar_mul_res_y, res.y },
-                          { C::scalar_mul_res_inf, res.is_point_at_infinity() },
-                          { C::scalar_mul_start, i == 0 },
+                          { C::scalar_mul_res_inf, res.is_infinity },
+                          { C::scalar_mul_start, is_start },
                           { C::scalar_mul_end, is_end },
                           { C::scalar_mul_not_end, !is_end },
                           { C::scalar_mul_bit, bit },
-                          { C::scalar_mul_bit_idx, i },
+                          { C::scalar_mul_bit_idx, intermediate_state_idx },
                           { C::scalar_mul_temp_x, temp.x },
                           { C::scalar_mul_temp_y, temp.y },
-                          { C::scalar_mul_temp_inf, temp.is_point_at_infinity() },
+                          { C::scalar_mul_temp_inf, temp.is_infinity },
                           {
                               C::scalar_mul_should_add,
                               (!is_end) && bit,
