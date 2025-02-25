@@ -1,5 +1,5 @@
-import { type FailingFunction, type NoirCallStack } from '@aztec/circuits.js';
 import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type FailingFunction, type NoirCallStack } from '@aztec/circuits.js/errors';
 import type { Fr, Point } from '@aztec/foundation/fields';
 
 import { ExecutionError } from '../common/errors.js';

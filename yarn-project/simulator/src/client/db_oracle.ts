@@ -1,10 +1,11 @@
-import { type L2Block, type NoteStatus, type PublicDataWitness, type TxScopedL2Log } from '@aztec/circuits.js';
 import { type FunctionArtifact, type FunctionSelector } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { L2Block } from '@aztec/circuits.js/block';
 import { type CompleteAddress, type ContractInstance } from '@aztec/circuits.js/contract';
 import type { KeyValidationRequest } from '@aztec/circuits.js/kernel';
-import { IndexedTaggingSecret, LogWithTxData } from '@aztec/circuits.js/logs';
-import { type MerkleTreeId, type NullifierMembershipWitness } from '@aztec/circuits.js/trees';
+import { IndexedTaggingSecret, LogWithTxData, TxScopedL2Log } from '@aztec/circuits.js/logs';
+import type { NoteStatus } from '@aztec/circuits.js/note';
+import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/circuits.js/trees';
 import type { BlockHeader } from '@aztec/circuits.js/tx';
 import { type Fr } from '@aztec/foundation/fields';
 

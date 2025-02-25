@@ -1,8 +1,8 @@
-import { type FunctionCall, type TxExecutionRequest } from '@aztec/circuits.js';
+import { type FunctionCall } from '@aztec/circuits.js/abi';
 import { FunctionSelector, FunctionType } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { type AztecNode, PrivateExecutionResult } from '@aztec/circuits.js/interfaces/client';
-import { CallContext } from '@aztec/circuits.js/tx';
+import { type AztecNode } from '@aztec/circuits.js/interfaces/client';
+import { CallContext, PrivateExecutionResult, TxExecutionRequest } from '@aztec/circuits.js/tx';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 

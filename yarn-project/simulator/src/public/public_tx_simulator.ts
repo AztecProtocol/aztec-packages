@@ -1,17 +1,16 @@
-import {
-  type GasUsed,
-  NestedProcessReturnValues,
-  type PublicExecutionRequest,
-  type SimulationError,
-  type Tx,
-  TxExecutionPhase,
-} from '@aztec/circuits.js';
-import type { RevertCode } from '@aztec/circuits.js/avm';
-import type { Gas } from '@aztec/circuits.js/gas';
-import { type AvmProvingRequest, type MerkleTreeReadOperations } from '@aztec/circuits.js/interfaces/server';
+import type { AvmProvingRequest, RevertCode } from '@aztec/circuits.js/avm';
+import type { SimulationError } from '@aztec/circuits.js/errors';
+import type { Gas, GasUsed } from '@aztec/circuits.js/gas';
+import { type MerkleTreeReadOperations } from '@aztec/circuits.js/interfaces/server';
 import type { PublicCallRequest } from '@aztec/circuits.js/kernel';
 import { type AvmSimulationStats } from '@aztec/circuits.js/stats';
-import { type GlobalVariables } from '@aztec/circuits.js/tx';
+import {
+  type GlobalVariables,
+  NestedProcessReturnValues,
+  PublicExecutionRequest,
+  Tx,
+  TxExecutionPhase,
+} from '@aztec/circuits.js/tx';
 import type { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';

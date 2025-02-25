@@ -1,5 +1,5 @@
-import { type TxExecutionPhase } from '@aztec/circuits.js';
 import { type Gas } from '@aztec/circuits.js/gas';
+import { type TxExecutionPhase } from '@aztec/circuits.js/tx';
 import { type ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
 import {
   Attributes,

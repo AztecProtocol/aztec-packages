@@ -1,4 +1,3 @@
-import { type PublicExecutionRequest, type SimulationError } from '@aztec/circuits.js';
 import {
   type AvmExecutionHints,
   type ContractStorageRead,
@@ -8,11 +7,13 @@ import {
   PublicInnerCallRequest,
   RevertCode,
 } from '@aztec/circuits.js/avm';
+import type { SimulationError } from '@aztec/circuits.js/errors';
 import { Gas } from '@aztec/circuits.js/gas';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import type { NoteHash, Nullifier, ReadRequest, TreeLeafReadRequest } from '@aztec/circuits.js/kernel';
 import type { PublicLog } from '@aztec/circuits.js/logs';
 import type { L2ToL1Message, ScopedL2ToL1Message } from '@aztec/circuits.js/messaging';
+import { type PublicExecutionRequest } from '@aztec/circuits.js/tx';
 import type { Fr } from '@aztec/foundation/fields';
 
 export interface PublicSideEffects {

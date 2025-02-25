@@ -1,4 +1,4 @@
-import { Comparator, type Note } from '@aztec/circuits.js';
+import { Comparator, type Note } from '@aztec/circuits.js/note';
 import { Fr } from '@aztec/foundation/fields';
 
 export interface PropertySelector {

@@ -1,6 +1,6 @@
-import { isNoirCallStackUnresolved } from '@aztec/circuits.js';
 import { type ContractArtifact, type FunctionArtifact, FunctionSelector } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { isNoirCallStackUnresolved } from '@aztec/circuits.js/errors';
 import { GasFees } from '@aztec/circuits.js/gas';
 import { type MerkleTreeWriteOperations } from '@aztec/circuits.js/interfaces/server';
 import { GlobalVariables } from '@aztec/circuits.js/tx';

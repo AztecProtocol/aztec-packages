@@ -1,8 +1,8 @@
-import { PublicExecutionRequest, type Tx } from '@aztec/circuits.js';
 import { type ContractArtifact, FunctionSelector, encodeArguments } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { GasFees } from '@aztec/circuits.js/gas';
 import { type MerkleTreeWriteOperations } from '@aztec/circuits.js/interfaces/server';
+import { PublicExecutionRequest, type Tx } from '@aztec/circuits.js/tx';
 import { CallContext, GlobalVariables } from '@aztec/circuits.js/tx';
 import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';

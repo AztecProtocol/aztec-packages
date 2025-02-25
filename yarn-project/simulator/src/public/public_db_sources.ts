@@ -1,4 +1,3 @@
-import { ContractClassTxL2Logs, type Tx } from '@aztec/circuits.js';
 import type { FunctionSelector } from '@aztec/circuits.js/abi';
 import { PublicDataWrite } from '@aztec/circuits.js/avm';
 import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
@@ -14,8 +13,10 @@ import {
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
 } from '@aztec/circuits.js/interfaces/server';
+import { ContractClassTxL2Logs } from '@aztec/circuits.js/logs';
 import { type PublicDBAccessStats } from '@aztec/circuits.js/stats';
 import { MerkleTreeId, type PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
+import { type Tx } from '@aztec/circuits.js/tx';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';

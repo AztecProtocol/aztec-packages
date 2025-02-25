@@ -1,12 +1,4 @@
 import {
-  HashedValues,
-  type L1ToL2Message,
-  Note,
-  PublicExecutionRequest,
-  TxExecutionRequest,
-  type TxScopedL2Log,
-} from '@aztec/circuits.js';
-import {
   type ContractArtifact,
   type FunctionArtifact,
   FunctionSelector,
@@ -16,6 +8,7 @@ import {
   getFunctionArtifactByName,
 } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { L2BlockNumber } from '@aztec/circuits.js/block';
 import {
   CompleteAddress,
   type ContractInstance,
@@ -31,17 +24,25 @@ import {
   deriveStorageSlotInMap,
   siloNoteHash,
 } from '@aztec/circuits.js/hash';
-import {
-  type AztecNode,
-  CountedPublicExecutionRequest,
-  type L2BlockNumber,
-} from '@aztec/circuits.js/interfaces/client';
+import { type AztecNode } from '@aztec/circuits.js/interfaces/client';
 import { KeyValidationRequest, getNonEmptyItems } from '@aztec/circuits.js/kernel';
 import { computeAppNullifierSecretKey, deriveKeys } from '@aztec/circuits.js/keys';
-import { IndexedTaggingSecret } from '@aztec/circuits.js/logs';
+import { IndexedTaggingSecret, TxScopedL2Log } from '@aztec/circuits.js/logs';
+import type { L1ToL2Message } from '@aztec/circuits.js/messaging';
+import { Note } from '@aztec/circuits.js/note';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
-import { BlockHeader, CallContext, PartialStateReference, StateReference, TxContext } from '@aztec/circuits.js/tx';
+import {
+  BlockHeader,
+  CallContext,
+  CountedPublicExecutionRequest,
+  HashedValues,
+  PartialStateReference,
+  PublicExecutionRequest,
+  StateReference,
+  TxContext,
+  TxExecutionRequest,
+} from '@aztec/circuits.js/tx';
 import {
   GeneratorIndex,
   L1_TO_L2_MSG_TREE_HEIGHT,
