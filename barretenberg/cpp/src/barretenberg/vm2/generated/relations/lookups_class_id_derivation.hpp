@@ -28,7 +28,7 @@ class lookup_class_id_derivation_class_id_poseidon2_0_settings {
 
     // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::class_id_derivation_sel;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_sel;
+    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_start;
     static constexpr Column COUNTS = Column::lookup_class_id_derivation_class_id_poseidon2_0_counts;
     static constexpr Column INVERSES = Column::lookup_class_id_derivation_class_id_poseidon2_0_inv;
     static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -44,7 +44,7 @@ class lookup_class_id_derivation_class_id_poseidon2_0_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._class_id_derivation_sel() == 1 || in._poseidon2_hash_sel() == 1);
+        return (in._class_id_derivation_sel() == 1 || in._poseidon2_hash_start() == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
@@ -52,7 +52,7 @@ class lookup_class_id_derivation_class_id_poseidon2_0_settings {
     {
         using View = typename Accumulator::View;
         const auto is_operation = View(in._class_id_derivation_sel());
-        const auto is_table_entry = View(in._poseidon2_hash_sel());
+        const auto is_table_entry = View(in._poseidon2_hash_start());
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -71,7 +71,7 @@ class lookup_class_id_derivation_class_id_poseidon2_0_settings {
         return std::forward_as_tuple(in._lookup_class_id_derivation_class_id_poseidon2_0_inv(),
                                      in._lookup_class_id_derivation_class_id_poseidon2_0_counts(),
                                      in._class_id_derivation_sel(),
-                                     in._poseidon2_hash_sel(),
+                                     in._poseidon2_hash_start(),
                                      in._class_id_derivation_temp_constant_for_lookup(),
                                      in._class_id_derivation_artifact_hash(),
                                      in._class_id_derivation_private_function_root(),
@@ -126,7 +126,7 @@ class lookup_class_id_derivation_class_id_poseidon2_1_settings {
 
     // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::class_id_derivation_sel;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_sel;
+    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
     static constexpr Column COUNTS = Column::lookup_class_id_derivation_class_id_poseidon2_1_counts;
     static constexpr Column INVERSES = Column::lookup_class_id_derivation_class_id_poseidon2_1_inv;
     static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -142,7 +142,7 @@ class lookup_class_id_derivation_class_id_poseidon2_1_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._class_id_derivation_sel() == 1 || in._poseidon2_hash_sel() == 1);
+        return (in._class_id_derivation_sel() == 1 || in._poseidon2_hash_end() == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
@@ -150,7 +150,7 @@ class lookup_class_id_derivation_class_id_poseidon2_1_settings {
     {
         using View = typename Accumulator::View;
         const auto is_operation = View(in._class_id_derivation_sel());
-        const auto is_table_entry = View(in._poseidon2_hash_sel());
+        const auto is_table_entry = View(in._poseidon2_hash_end());
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -169,7 +169,7 @@ class lookup_class_id_derivation_class_id_poseidon2_1_settings {
         return std::forward_as_tuple(in._lookup_class_id_derivation_class_id_poseidon2_1_inv(),
                                      in._lookup_class_id_derivation_class_id_poseidon2_1_counts(),
                                      in._class_id_derivation_sel(),
-                                     in._poseidon2_hash_sel(),
+                                     in._poseidon2_hash_end(),
                                      in._class_id_derivation_public_bytecode_commitment(),
                                      in._precomputed_zero(),
                                      in._precomputed_zero(),

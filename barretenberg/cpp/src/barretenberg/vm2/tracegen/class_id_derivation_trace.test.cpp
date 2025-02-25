@@ -18,7 +18,7 @@ using testing::Field;
 using R = TestTraceContainer::Row;
 using FF = R::FF;
 
-TEST(AluTraceGenTest, TraceGeneration)
+TEST(ClassIdDerivationTraceGenTest, TraceGeneration)
 {
     TestTraceContainer trace;
     ClassIdDerivationTraceBuilder builder;
