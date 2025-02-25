@@ -43,7 +43,6 @@ global NoteStage: NoteStageEnum =
 #[derive(Eq, Serialize)]
 pub struct NoteMetadata {
     stage: u8,
-    maybe_note_hash_counter: u32,
     maybe_nonce: Field,
 }
 
@@ -53,16 +52,12 @@ impl NoteMetadata {
     pub fn from_raw_data(maybe_note_hash_counter: u32, maybe_nonce: Field) -> Self {
         if maybe_note_hash_counter != 0 {
             if maybe_nonce == 0 {
-                Self { stage: NoteStage.PENDING_SAME_PHASE, maybe_note_hash_counter, maybe_nonce }
+                Self { stage: NoteStage.PENDING_SAME_PHASE, maybe_nonce }
             } else {
-                Self {
-                    stage: NoteStage.PENDING_PREVIOUS_PHASE,
-                    maybe_note_hash_counter,
-                    maybe_nonce,
-                }
+                Self { stage: NoteStage.PENDING_PREVIOUS_PHASE, maybe_nonce }
             }
         } else if maybe_nonce != 0 {
-            Self { stage: NoteStage.SETTLED, maybe_note_hash_counter, maybe_nonce }
+            Self { stage: NoteStage.SETTLED, maybe_nonce }
         } else {
             panic(
                 f"Note has no note hash counter nor nonce - existence cannot be proven",
@@ -93,34 +88,31 @@ impl NoteMetadata {
     /// Asserts that the metadata is that of a pending note from the same phase and converts it accordingly.
     pub fn to_pending_same_phase(self) -> PendingSamePhaseNoteMetadata {
         assert_eq(self.stage, NoteStage.PENDING_SAME_PHASE);
-        PendingSamePhaseNoteMetadata { note_hash_counter: self.maybe_note_hash_counter }
+        PendingSamePhaseNoteMetadata::new()
     }
 
     /// Asserts that the metadata is that of a pending note from a previous phase and converts it accordingly.
     pub fn to_pending_previous_phase(self) -> PendingPreviousPhaseNoteMetadata {
         assert_eq(self.stage, NoteStage.PENDING_PREVIOUS_PHASE);
-        PendingPreviousPhaseNoteMetadata {
-            note_hash_counter: self.maybe_note_hash_counter,
-            nonce: self.maybe_nonce,
-        }
+        PendingPreviousPhaseNoteMetadata::new(self.maybe_nonce)
     }
 
     /// Asserts that the metadata is that of a settled note and converts it accordingly.
     pub fn to_settled(self) -> SettledNoteMetadata {
         assert_eq(self.stage, NoteStage.SETTLED);
-        SettledNoteMetadata { nonce: self.maybe_nonce }
+        SettledNoteMetadata::new(self.maybe_nonce)
     }
 }
 
 impl From<PendingSamePhaseNoteMetadata> for NoteMetadata {
-    fn from(value: PendingSamePhaseNoteMetadata) -> Self {
-        NoteMetadata::from_raw_data(value.note_hash_counter(), std::mem::zeroed())
+    fn from(_value: PendingSamePhaseNoteMetadata) -> Self {
+        NoteMetadata::from_raw_data(std::mem::zeroed(), std::mem::zeroed())
     }
 }
 
 impl From<PendingPreviousPhaseNoteMetadata> for NoteMetadata {
     fn from(value: PendingPreviousPhaseNoteMetadata) -> Self {
-        NoteMetadata::from_raw_data(value.note_hash_counter(), value.nonce())
+        NoteMetadata::from_raw_data(std::mem::zeroed(), value.nonce())
     }
 }
 
@@ -136,16 +128,14 @@ impl From<SettledNoteMetadata> for NoteMetadata {
 /// This represents a pending same phase note, i.e. a note that was created in the transaction that is currently being
 /// executed during the current execution phase (either non-revertible o revertible).
 pub struct PendingSamePhaseNoteMetadata {
-    note_hash_counter: u32,
+    // This struct contains no fields since there is no metadata associated with a pending same phase note: it has no
+    // nonce (since it may get squashed by a nullifier emitted in the same phase), and while it does have a note hash
+    // counter we cannot constrain its value (and don't need to - only that it is non-zero).
 }
 
 impl PendingSamePhaseNoteMetadata {
-    pub fn new(note_hash_counter: u32) -> Self {
-        Self { note_hash_counter }
-    }
-
-    pub fn note_hash_counter(self) -> u32 {
-        self.note_hash_counter
+    pub fn new() -> Self {
+        Self {}
     }
 }
 
@@ -157,17 +147,14 @@ impl PendingSamePhaseNoteMetadata {
 /// same (first non-revertible and then revertible) this implies that the note was created in the non-revertible phase,
 /// and that the current phase is the revertible phase.
 pub struct PendingPreviousPhaseNoteMetadata {
-    note_hash_counter: u32,
     nonce: Field,
+    // This struct does not contain a note hash counter, even though one exists for this note, because we cannot
+    // constrain its value (and don't need to - only that it is non-zero).
 }
 
 impl PendingPreviousPhaseNoteMetadata {
-    pub fn new(note_hash_counter: u32, nonce: Field) -> Self {
-        Self { note_hash_counter, nonce }
-    }
-
-    pub fn note_hash_counter(self) -> u32 {
-        self.note_hash_counter
+    pub fn new(nonce: Field) -> Self {
+        Self { nonce }
     }
 
     pub fn nonce(self) -> Field {

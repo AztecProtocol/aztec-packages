@@ -140,8 +140,6 @@ describe('e2e_crowdfunding_and_claim', () => {
       metadata: {
         stage: 3, // aztec::note::note_metadata::NoteStage::SETTLED
         // eslint-disable-next-line camelcase
-        maybe_note_hash_counter: 0, // 0 as this is settled
-        // eslint-disable-next-line camelcase
         maybe_nonce: uniqueNote.nonce,
       },
     };

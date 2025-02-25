@@ -14,11 +14,11 @@ pub struct RetrievedNote<NOTE> {
     pub metadata: NoteMetadata,
 }
 
-impl<NOTE, let N: u32> Serialize<N + 1 + 3> for RetrievedNote<NOTE>
+impl<NOTE, let N: u32> Serialize<N + 1 + 2> for RetrievedNote<NOTE>
 where
     NOTE: Serialize<N>,
 {
-    fn serialize(self) -> [Field; N + 1 + 3] {
+    fn serialize(self) -> [Field; N + 1 + 2] {
         array_concat(
             array_concat(self.note.serialize(), [self.contract_address.to_field()]),
             self.metadata.serialize(),
