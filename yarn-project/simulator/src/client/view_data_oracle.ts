@@ -67,10 +67,10 @@ export class ViewDataOracle extends TypedOracle {
    * @returns sk * hash_to_curve([appAddress, ...msg]);
    * @throws If the public key is not registered in the key store.
    */
-  public override computePlumeProof(msg: Fr[], pkM: Point): Promise<[Point, Point, Point, Fq]> {
+  public override getPlumeProof(msg: Fr[], pkM: Point): Promise<[Point, Point, Point, Fq]> {
     // Notice: we inject the contract address into this call, because
     // we need to silo the `msg` with the app contract address.
-    return this.db.computePlumeProof(this.contractAddress, msg, pkM);
+    return this.db.getPlumeProof(this.contractAddress, msg, pkM);
   }
 
   /**

@@ -138,6 +138,10 @@ export class KeyStore {
   }
 
   /**
+   * TODO: need a way of injecting someone else's plume proof into the pxe db, and
+   * getting it in the case that the executor of the private function does not own
+   * pkM (and hence cannot generate a plume proof for the pkM arg).
+   *
    * Gets the key validation request for a given master public key and contract address.
    * @throws If the account corresponding to the master public key does not exist in the key store.
    * @param pkM - The master public key.
@@ -145,7 +149,7 @@ export class KeyStore {
    * @param msg - The data to hash-to-curve.
    * @returns The key validation request.
    */
-  public async computePlumeProof(appAddress: AztecAddress, msg: Fr[], pkM: Point): Promise<[Point, Point, Point, Fq]> {
+  public async getPlumeProof(appAddress: AztecAddress, msg: Fr[], pkM: Point): Promise<[Point, Point, Point, Fq]> {
     // Public keys are seemingly stored against a hash of the public key:
     const pkMHash = await pkM.hash();
 
@@ -178,6 +182,7 @@ export class KeyStore {
     const curve = new Grumpkin();
 
     // TODO: ensure this randomness is safe.
+    // DO NOT LOG THIS VALUE:
     const r = Fq.random();
     const g = Grumpkin.generator;
 

@@ -458,8 +458,8 @@ export class TXEService {
     return toForeignCallResult([toArray(keyValidationRequest.toFields())]);
   }
 
-  async computePlumeProof(msg: ForeignCallArray, pkM: ForeignCallArray) {
-    const [nullifierPoint, a2, b2, s] = await this.typedOracle.computePlumeProof(fromArray(msg), pointFromArray(pkM));
+  async getPlumeProof(msg: ForeignCallArray, pkM: ForeignCallArray) {
+    const [nullifierPoint, a2, b2, s] = await this.typedOracle.getPlumeProof(fromArray(msg), pointFromArray(pkM));
     return toForeignCallResult([
       toArray([nullifierPoint.x, nullifierPoint.y]),
       toArray([a2.x, a2.y]),

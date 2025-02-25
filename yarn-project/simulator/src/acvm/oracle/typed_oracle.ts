@@ -75,8 +75,8 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('getKeyValidationRequest'));
   }
 
-  computePlumeProof(_msg: Fr[], _pkM: Point): Promise<[Point, Point, Point, Fq]> {
-    return Promise.reject(new OracleMethodNotAvailableError('computePlumeProof'));
+  getPlumeProof(_msg: Fr[], _pkM: Point): Promise<[Point, Point, Point, Fq]> {
+    return Promise.reject(new OracleMethodNotAvailableError('getPlumeProof'));
   }
 
   getContractInstance(_address: AztecAddress): Promise<ContractInstance> {

@@ -9,17 +9,21 @@ struct PlumeProofOracleReturnType {
     pub _s: [Field; 2],
 }
 
-#[oracle(computePlumeProof)]
-unconstrained fn compute_plume_proof_oracle<let N: u32>(
+/**
+ * Intentionally named "get" instead of "compute", because the plume proof might
+ * already be stored in the Executor's pxe db.
+ */
+#[oracle(getPlumeProof)]
+unconstrained fn get_plume_proof_oracle<let N: u32>(
     msg: [Field; N],
     pk_m: [Field; 2],
 ) -> PlumeProofOracleReturnType {}
 
-unconstrained fn compute_plume_proof_inner<let N: u32>(
+unconstrained fn get_plume_proof_inner<let N: u32>(
     msg: [Field; N],
     pk_m: Point,
 ) -> PlumeProofOracleReturnType {
-    compute_plume_proof_oracle(msg, [pk_m.x, pk_m.y])
+    get_plume_proof_oracle(msg, [pk_m.x, pk_m.y])
 }
 
 /**
@@ -117,7 +121,7 @@ unconstrained fn compute_plume_proof_inner<let N: u32>(
  *       address_sk, currently.
  *             
  */
-pub fn compute_plume_proof_unsafe<let N: u32>(msg: [Field; N], pk_m: Point) -> PlumeProof<N> {
+pub fn get_plume_proof_unsafe<let N: u32>(msg: [Field; N], pk_m: Point) -> PlumeProof<N> {
     // Notice that the oracle call doesn't return a PlumeProof. We want to save
     // on constraints, and it's always dangerous injecting more witness data
     // than necessary.
@@ -127,7 +131,7 @@ pub fn compute_plume_proof_unsafe<let N: u32>(msg: [Field; N], pk_m: Point) -> P
 
     // Safety: Unsafe because it's an oracle call.
     let PlumeProofOracleReturnType { _nullifier_point, _A2, _B2, _s } =
-        unsafe { compute_plume_proof_inner(msg, pk_m) };
+        unsafe { get_plume_proof_inner(msg, pk_m) };
 
     let nullifier_point =
         Point { x: _nullifier_point[0], y: _nullifier_point[1], is_infinite: false };
@@ -151,7 +155,7 @@ mod test {
         },
         test::helpers::test_environment::TestEnvironment,
     };
-    use super::compute_plume_proof_unsafe;
+    use super::get_plume_proof_unsafe;
     use std::embedded_curve_ops::{
         EmbeddedCurvePoint as Point, EmbeddedCurveScalar as Scalar,
         FIXED_BASE_SCALAR_MUL_GENERATOR as G,
@@ -190,7 +194,7 @@ mod test {
         let plume_proof_from_noir = compute_plume_proof_in_tests(app_address, msg, nsk_f, r_n);
 
         // Get a version of the nullifier via an oracle call:
-        let plume_proof_from_oracle = compute_plume_proof_unsafe(msg, npk_m);
+        let plume_proof_from_oracle = get_plume_proof_unsafe(msg, npk_m);
 
         verify_plume_proof(app_address, plume_proof_from_noir);
         verify_plume_proof(app_address, plume_proof_from_oracle);

@@ -54,11 +54,11 @@ export class Oracle {
     return [toACVMField(pkM.x), toACVMField(pkM.y), toACVMField(pkM.isInfinite), toACVMField(skApp)];
   }
 
-  async computePlumeProof(msg: ACVMField[], pkM: ACVMField[]): Promise<ACVMField[]> {
+  async getPlumeProof(msg: ACVMField[], pkM: ACVMField[]): Promise<ACVMField[]> {
     // We assume the public key is not 0, because that would be insanity.
     const pkMPoint = new Point(fromACVMField(pkM[0]), fromACVMField(pkM[1]), /*isInfinite:*/ false);
 
-    const [nullifierPoint, a2, b2, s] = await this.typedOracle.computePlumeProof(msg.map(fromACVMField), pkMPoint);
+    const [nullifierPoint, a2, b2, s] = await this.typedOracle.getPlumeProof(msg.map(fromACVMField), pkMPoint);
 
     return [
       toACVMField(nullifierPoint.x),

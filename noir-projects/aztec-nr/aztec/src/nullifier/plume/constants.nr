@@ -7,4 +7,3 @@ pub(crate) global GRUMPKIN_B: Field = 0 - 17;
 fn test_sqrt_neg_3() {
     assert(SQRT_NEG_3 * SQRT_NEG_3 == -3);
 }
-

@@ -122,4 +122,3 @@ mod test {
         verify_plume_proof(app_address, plume_proof);
     }
 }
-

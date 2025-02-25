@@ -71,7 +71,7 @@ export interface DBOracle extends CommitmentsDB {
    * @returns sk * hash_to_curve([app_address, ...msg]);
    * @throws If the public key is not registered in the key store.
    */
-  computePlumeProof(appAddress: AztecAddress, msg: Fr[], npkM: Point): Promise<[Point, Point, Point, Fq]>;
+  getPlumeProof(appAddress: AztecAddress, msg: Fr[], npkM: Point): Promise<[Point, Point, Point, Fq]>;
 
   /**
    * Retrieves a set of notes stored in the database for a given contract address and storage slot.

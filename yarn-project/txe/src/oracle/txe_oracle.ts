@@ -388,8 +388,8 @@ export class TXE implements TypedOracle {
     return this.keyStore.getKeyValidationRequest(pkMHash, this.contractAddress);
   }
 
-  computePlumeProof(msg: Fr[], pkM: Point): Promise<[Point, Point, Point, Fq]> {
-    return this.keyStore.computePlumeProof(this.contractAddress, msg, pkM);
+  getPlumeProof(msg: Fr[], pkM: Point): Promise<[Point, Point, Point, Fq]> {
+    return this.keyStore.getPlumeProof(this.contractAddress, msg, pkM);
   }
 
   async getContractInstance(address: AztecAddress): Promise<ContractInstance> {
