@@ -42,7 +42,7 @@ class ECCOpQueue {
   public:
     using ECCVMOperation = bb::eccvm::VMOperation<Curve::Group>;
 
-    // Constructor simply prepares the first subtable to be written to
+    // Constructor that instantiates an initial ECC op subtable
     ECCOpQueue() { initialize_new_subtable(); }
 
     // Initialize a new subtable of ECCVM ops and Ultra ops corresponding to an individual circuit
@@ -58,7 +58,7 @@ class ECCOpQueue {
         return ultra_ops_table.construct_table_columns();
     }
 
-    // Construct polynomials corresponding to columns of the aggregate ultra ops table excluding most recent subtable
+    // Construct polys corresponding to the columns of the aggregate ultra ops table, excluding the most recent subtable
     std::array<Polynomial<Fr>, 4> construct_previous_ultra_ops_table_columns() const
     {
         return ultra_ops_table.construct_previous_table_columns();
@@ -73,8 +73,8 @@ class ECCOpQueue {
     // Reconstruct the full table of eccvm ops in contiguous memory from the independent subtables
     void construct_full_eccvm_ops_table() { eccvm_ops_reconstructed = eccvm_ops_table.get_reconstructed(); }
 
-    size_t get_ultra_ops_table_size() const { return ultra_ops_table.ultra_table_size(); }
-    size_t get_current_ultra_ops_subtable_size() const { return ultra_ops_table.current_ultra_subtable_size(); }
+    size_t get_ultra_ops_table_num_rows() const { return ultra_ops_table.ultra_table_size(); }
+    size_t get_current_ultra_ops_subtable_num_rows() const { return ultra_ops_table.current_ultra_subtable_size(); }
 
     // Get the full table of ECCVM ops in contiguous memory; construct it if it has not been constructed already
     std::vector<ECCVMOperation>& get_eccvm_ops()
@@ -214,6 +214,10 @@ class ECCOpQueue {
     }
 
   private:
+    /**
+     * @brief Append an eccvm operation to the eccvm ops table; update the eccvm row tracker
+     *
+     */
     void append_eccvm_op(const ECCVMOperation& op)
     {
         eccvm_row_tracker.update_cached_msms(op);

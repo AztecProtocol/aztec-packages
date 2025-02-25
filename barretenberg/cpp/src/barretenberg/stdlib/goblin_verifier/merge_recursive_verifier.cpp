@@ -8,10 +8,10 @@ MergeRecursiveVerifier_<CircuitBuilder>::MergeRecursiveVerifier_(CircuitBuilder*
 {}
 
 /**
- * @brief Reduce verification of proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4
- * to a set of inputs to a pairing check.
+ * @brief Computes inputs to a pairing check that, if verified, establishes proper construction of the aggregate Goblin
+ * ECC op queue polynomials T_j, j = 1,2,3,4.
  * @details Let T_j be the jth column of the aggregate ecc op table after prepending the subtable columns t_j containing
- * the contribution from the present circuit. T_{j,prev} corresponds to the columns of the aggregate table at the
+ * the contribution from a single circuit. T_{j,prev} corresponds to the columns of the aggregate table at the
  * previous stage. For each column we have the relationship T_j = t_j + right_shift(T_{j,prev}, k), where k is the
  * length of the subtable columns t_j. This protocol demonstrates, assuming the length of t is at most k, that the
  * aggregate ecc op table has been constructed correctly via the simple Schwartz-Zippel check:

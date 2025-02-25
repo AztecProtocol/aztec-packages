@@ -105,8 +105,8 @@ using EccvmOpsTable = EccOpsTable<eccvm::VMOperation<curve::BN254::Group>>;
  * polynomials in the proving system.
  */
 class UltraEccOpsTable {
-    static constexpr size_t TABLE_WIDTH = 4;
-    static constexpr size_t NUM_ROWS_PER_OP = 2;
+    static constexpr size_t TABLE_WIDTH = 4;     // dictated by the number of wires in the Ultra arithmetization
+    static constexpr size_t NUM_ROWS_PER_OP = 2; // A single ECC op is split across two width-4 rows
 
     using Curve = curve::BN254;
     using Fr = Curve::ScalarField;
@@ -127,7 +127,7 @@ class UltraEccOpsTable {
     /**
      * @brief Construct polynomials corresponding to the columns of the reconstructed ultra ops table for the given
      * range of subtables
-     * @todo multithreaded this functionality
+     * TODO(https://github.com/AztecProtocol/barretenberg/issues/1267): multithreaded this functionality
      * @param target_columns
      */
     ColumnPolynomials construct_column_polynomials_from_subtables(const size_t poly_size,
@@ -158,29 +158,32 @@ class UltraEccOpsTable {
         return column_polynomials;
     }
 
+    // Construct the columns of the full ultra ecc ops table
     ColumnPolynomials construct_table_columns() const
     {
         const size_t poly_size = ultra_table_size();
-        const size_t subtable_start_idx = 0;
+        const size_t subtable_start_idx = 0; // include all subtables
         const size_t subtable_end_idx = table.num_subtables();
 
         return construct_column_polynomials_from_subtables(poly_size, subtable_start_idx, subtable_end_idx);
     }
 
+    // Construct the columns of the previous full ultra ecc ops table
     ColumnPolynomials construct_previous_table_columns() const
     {
         const size_t poly_size = previous_ultra_table_size();
-        const size_t subtable_start_idx = 1;
+        const size_t subtable_start_idx = 1; // exclude the 0th subtable
         const size_t subtable_end_idx = table.num_subtables();
 
         return construct_column_polynomials_from_subtables(poly_size, subtable_start_idx, subtable_end_idx);
     }
 
+    // Construct the columns of the current ultra ecc ops subtable
     ColumnPolynomials construct_current_ultra_ops_subtable_columns() const
     {
         const size_t poly_size = current_ultra_subtable_size();
         const size_t subtable_start_idx = 0;
-        const size_t subtable_end_idx = 1;
+        const size_t subtable_end_idx = 1; // include only the 0th subtable
 
         return construct_column_polynomials_from_subtables(poly_size, subtable_start_idx, subtable_end_idx);
     }

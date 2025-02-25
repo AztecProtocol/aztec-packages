@@ -15,7 +15,7 @@ MergeProver_<Flavor>::MergeProver_(const std::shared_ptr<ECCOpQueue>& op_queue,
 {
     // Update internal size data in the op queue that allows for extraction of e.g. previous aggregate transcript
     pcs_commitment_key =
-        commitment_key ? commitment_key : std::make_shared<CommitmentKey>(op_queue->get_ultra_ops_table_size());
+        commitment_key ? commitment_key : std::make_shared<CommitmentKey>(op_queue->get_ultra_ops_table_num_rows());
 }
 
 /**
@@ -28,8 +28,7 @@ MergeProver_<Flavor>::MergeProver_(const std::shared_ptr<ECCOpQueue>& op_queue,
  *
  *      T_j(\kappa) = t_j(\kappa) + \kappa^k * (T_{j,prev}(\kappa)).
  *
- * TODO(#746): Prove connection between t^{shift}, committed to herein, and t, used in the main protocol. See issue
- * for details (https://github.com/AztecProtocol/barretenberg/issues/746).
+ * TODO(https://github.com/AztecProtocol/barretenberg/issues/1270): connect [t_j] used herein those used in PG verifier
  *
  * @return honk::proof
  */

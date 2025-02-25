@@ -68,40 +68,33 @@ TEST(ECCOpQueueTest, ColumnPolynomialConstruction)
     // Instantiate and EccOpQueue and populate it with several subtables of ECC ops
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
 
+    // Lambda for checking that the table column polynomials reconstructed by the op queue have the correct relationship
+    auto check_table_column_polynomials = [&](const std::shared_ptr<bb::ECCOpQueue>& op_queue) {
+        // Construct column polynomials corresponding to the full table (T), the previous table (T_prev), and the
+        // current subtable (t_current)
+        std::array<Polynomial<Fr>, 4> table_polynomials = op_queue->construct_ultra_ops_table_columns();
+        std::array<Polynomial<Fr>, 4> prev_table_polynomials = op_queue->construct_previous_ultra_ops_table_columns();
+        std::array<Polynomial<Fr>, 4> subtable_polynomials = op_queue->construct_current_ultra_ops_subtable_columns();
+        // Check that the table polynomials are constructed correctly by checking the following identity at a single
+        // point: T(x) = t_current(x) + x^k * T_prev(x), where k is the size of the current subtable
+        const size_t current_subtable_size = op_queue->get_current_ultra_ops_subtable_num_rows();
+
+        // Check T(x) = t_current(x) + x^k * T_prev(x) at a single random challenge point
+        Fr eval_challenge = Fr::random_element();
+        for (auto [table_poly, prev_table_poly, subtable_poly] :
+             zip_view(table_polynomials, prev_table_polynomials, subtable_polynomials)) {
+            Fr table_eval = table_poly.evaluate(eval_challenge);       // T(x)
+            Fr subtable_eval = subtable_poly.evaluate(eval_challenge); // t_current(x)
+            Fr shifted_previous_table_eval =
+                prev_table_poly.evaluate(eval_challenge) * eval_challenge.pow(current_subtable_size); // x^k * T_prev(x)
+            EXPECT_EQ(table_eval, subtable_eval + shifted_previous_table_eval);
+        }
+    };
+
+    // Check that the table polynomials have the correct form after each subtable concatenation
     const size_t NUM_SUBTABLES = 5;
     for (size_t i = 0; i < NUM_SUBTABLES; ++i) {
         ECCOpQueueTest::populate_an_arbitrary_subtable_of_ops(op_queue);
-    }
-
-    // Construct column polynomials corresponding to the full table (T), the previous table (T_prev), and the current
-    // subtable (t_current)
-    std::array<Polynomial<Fr>, 4> table_polynomials = op_queue->construct_ultra_ops_table_columns();
-    std::array<Polynomial<Fr>, 4> previous_table_polynomials = op_queue->construct_previous_ultra_ops_table_columns();
-    std::array<Polynomial<Fr>, 4> subtable_polynomials = op_queue->construct_current_ultra_ops_subtable_columns();
-
-    // Check that the table polynomials are constructed correctly by checking the following identity at a single point:
-    // T(x) = t_current(x) + x^k * T_prev(x), where k is the size of the current subtable
-    const size_t current_subtable_size = op_queue->get_current_ultra_ops_subtable_size();
-
-    Fr eval_challenge = Fr::random_element();
-
-    std::array<Fr, 4> table_evals;
-    std::array<Fr, 4> shifted_previous_table_evals;
-    std::array<Fr, 4> subtable_evals;
-    for (auto [eval, poly] : zip_view(table_evals, table_polynomials)) {
-        eval = poly.evaluate(eval_challenge); // T(x)
-    }
-    for (auto [eval, poly] : zip_view(shifted_previous_table_evals, previous_table_polynomials)) {
-        eval = poly.evaluate(eval_challenge);
-        eval *= eval_challenge.pow(current_subtable_size); // x^k * T_prev(x)
-    }
-    for (auto [eval, poly] : zip_view(subtable_evals, subtable_polynomials)) {
-        eval = poly.evaluate(eval_challenge); // t_current(x)
-    }
-
-    // Check T(x) = t_current(x) + x^k * T_prev(x)
-    for (auto [table_eval, shifted_previous_table_eval, subtable_eval] :
-         zip_view(table_evals, shifted_previous_table_evals, subtable_evals)) {
-        EXPECT_EQ(table_eval, subtable_eval + shifted_previous_table_eval);
+        check_table_column_polynomials(op_queue);
     }
 }
