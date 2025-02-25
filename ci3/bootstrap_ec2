@@ -20,12 +20,12 @@ fi
 
 # Trap function to terminate our running instance when the script exits.
 function on_exit {
-    set +e
-    if [ "$NO_TERMINATE" -eq 0 ]; then
-      aws_terminate_instance $iid $sir
-    else
-      echo "Remote machine not terminated, connect with: ARCH=$arch ./ci.sh shell"
-    fi
+  set +e
+  if [ "$NO_TERMINATE" -eq 0 ]; then
+    aws_terminate_instance $iid $sir
+  else
+    echo "Remote machine not terminated, connect with: ARCH=$arch ./ci.sh shell"
+  fi
 }
 
 # Verify that the commit exists on the remote. It will be the remote tip of itself if so.
