@@ -1,4 +1,5 @@
 import { type Timer } from '@aztec/foundation/timer';
+import { type CircuitName } from '@aztec/stdlib/stats';
 import {
   Attributes,
   type Gauge,
@@ -8,8 +9,6 @@ import {
   type Tracer,
   ValueType,
 } from '@aztec/telemetry-client';
-
-import { type CircuitName } from '../../stdlib/src/stats/index.js';
 
 /**
  * Instrumentation class for Prover implementations.

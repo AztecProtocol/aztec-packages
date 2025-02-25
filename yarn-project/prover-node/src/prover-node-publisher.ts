@@ -12,11 +12,11 @@ import { RollupAbi } from '@aztec/l1-artifacts';
 import { type PublisherConfig, type TxSenderConfig } from '@aztec/sequencer-client';
 import { type Proof } from '@aztec/stdlib/proofs';
 import { type FeeRecipient, type RootRollupPublicInputs } from '@aztec/stdlib/rollup';
+import { type L1PublishProofStats } from '@aztec/stdlib/stats';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type Hex, type TransactionReceipt, encodeFunctionData } from 'viem';
 
-import { type L1PublishProofStats } from '../../stdlib/src/stats/index.js';
 import { ProverNodeMetrics } from './metrics.js';
 
 /**
