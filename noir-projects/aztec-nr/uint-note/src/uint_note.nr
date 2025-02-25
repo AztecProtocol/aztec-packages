@@ -4,9 +4,6 @@ use dep::aztec::{
     protocol_types::{address::AztecAddress, traits::Serialize},
 };
 
-// TODO(#12008): Remove the need for the manual import of `Packable` trait here. This is a bug in macros.
-use aztec::protocol_types::traits::Packable;
-
 // docs:start:UintNote
 // We derive the Serialize trait because in some cases notes are used as parameters to contract functions.
 #[partial_note(quote {value})]
