@@ -12,16 +12,6 @@ namespace {
 auto& engine = numeric::get_debug_randomness();
 } // namespace
 
-class ECCVMCircuitBuilderTests : public ::testing::Test {
-  public:
-    static std::shared_ptr<ECCOpQueue> create_op_queue()
-    {
-        std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
-        op_queue->initialize_new_subtable();
-        return op_queue;
-    }
-};
-
 TEST(ECCVMCircuitBuilderTests, BaseCase)
 {
     auto generators = G1::derive_generators("test generators", 3);
@@ -33,7 +23,7 @@ TEST(ECCVMCircuitBuilderTests, BaseCase)
     Fr y = Fr::random_element(&engine);
     Fr zero_scalar = 0;
 
-    std::shared_ptr<ECCOpQueue> op_queue = ECCVMCircuitBuilderTests::create_op_queue();
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     op_queue->add_accumulate(a);
     op_queue->mul_accumulate(a, x);
@@ -81,7 +71,7 @@ TEST(ECCVMCircuitBuilderTests, BaseCase)
 
 TEST(ECCVMCircuitBuilderTests, NoOp)
 {
-    std::shared_ptr<ECCOpQueue> op_queue = ECCVMCircuitBuilderTests::create_op_queue();
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     op_queue->no_op();
 
@@ -92,7 +82,7 @@ TEST(ECCVMCircuitBuilderTests, NoOp)
 
 TEST(ECCVMCircuitBuilderTests, Add)
 {
-    std::shared_ptr<ECCOpQueue> op_queue = ECCVMCircuitBuilderTests::create_op_queue();
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     auto generators = G1::derive_generators("test generators", 3);
     typename G1::element a = generators[0];
@@ -106,7 +96,7 @@ TEST(ECCVMCircuitBuilderTests, Add)
 
 TEST(ECCVMCircuitBuilderTests, Mul)
 {
-    std::shared_ptr<ECCOpQueue> op_queue = ECCVMCircuitBuilderTests::create_op_queue();
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     auto generators = G1::derive_generators("test generators", 3);
     typename G1::element a = generators[0];
@@ -121,7 +111,7 @@ TEST(ECCVMCircuitBuilderTests, Mul)
 
 TEST(ECCVMCircuitBuilderTests, MulInfinity)
 {
-    std::shared_ptr<ECCOpQueue> op_queue = ECCVMCircuitBuilderTests::create_op_queue();
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     auto generators = G1::derive_generators("test generators", 3);
     typename G1::element a = generators[0];
@@ -139,7 +129,7 @@ TEST(ECCVMCircuitBuilderTests, MulInfinity)
 // Validate we do not trigger edge cases of addition formulae when we have identical mul inputs
 TEST(ECCVMCircuitBuilderTests, MulOverIdenticalInputs)
 {
-    std::shared_ptr<ECCOpQueue> op_queue = ECCVMCircuitBuilderTests::create_op_queue();
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     auto generators = G1::derive_generators("test generators", 3);
     typename G1::element a = generators[0];
@@ -154,7 +144,7 @@ TEST(ECCVMCircuitBuilderTests, MulOverIdenticalInputs)
 
 TEST(ECCVMCircuitBuilderTests, MSMProducesInfinity)
 {
-    std::shared_ptr<ECCOpQueue> op_queue = ECCVMCircuitBuilderTests::create_op_queue();
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     auto generators = G1::derive_generators("test generators", 3);
     typename G1::element a = generators[0];
@@ -170,7 +160,7 @@ TEST(ECCVMCircuitBuilderTests, MSMProducesInfinity)
 
 TEST(ECCVMCircuitBuilderTests, MSMOverPointAtInfinity)
 {
-    std::shared_ptr<ECCOpQueue> op_queue = ECCVMCircuitBuilderTests::create_op_queue();
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     auto generators = G1::derive_generators("test generators", 3);
     typename G1::element point_at_infinity = G1::point_at_infinity;
@@ -224,7 +214,7 @@ TEST(ECCVMCircuitBuilderTests, MSMOverPointAtInfinity)
 
 TEST(ECCVMCircuitBuilderTests, ShortMul)
 {
-    std::shared_ptr<ECCOpQueue> op_queue = ECCVMCircuitBuilderTests::create_op_queue();
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     auto generators = G1::derive_generators("test generators", 3);
 
@@ -245,7 +235,7 @@ TEST(ECCVMCircuitBuilderTests, ShortMul)
 
 TEST(ECCVMCircuitBuilderTests, EqFails)
 {
-    std::shared_ptr<ECCOpQueue> op_queue = ECCVMCircuitBuilderTests::create_op_queue();
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     auto generators = G1::derive_generators("test generators", 3);
     typename G1::element a = generators[0];
@@ -262,7 +252,7 @@ TEST(ECCVMCircuitBuilderTests, EqFails)
 
 TEST(ECCVMCircuitBuilderTests, EmptyRow)
 {
-    std::shared_ptr<ECCOpQueue> op_queue = ECCVMCircuitBuilderTests::create_op_queue();
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     op_queue->empty_row_for_testing();
 
@@ -273,7 +263,7 @@ TEST(ECCVMCircuitBuilderTests, EmptyRow)
 
 TEST(ECCVMCircuitBuilderTests, EmptyRowBetweenOps)
 {
-    std::shared_ptr<ECCOpQueue> op_queue = ECCVMCircuitBuilderTests::create_op_queue();
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     auto generators = G1::derive_generators("test generators", 3);
     typename G1::element a = generators[0];
@@ -290,7 +280,7 @@ TEST(ECCVMCircuitBuilderTests, EmptyRowBetweenOps)
 
 TEST(ECCVMCircuitBuilderTests, EndWithEq)
 {
-    std::shared_ptr<ECCOpQueue> op_queue = ECCVMCircuitBuilderTests::create_op_queue();
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     auto generators = G1::derive_generators("test generators", 3);
     typename G1::element a = generators[0];
@@ -306,7 +296,7 @@ TEST(ECCVMCircuitBuilderTests, EndWithEq)
 
 TEST(ECCVMCircuitBuilderTests, EndWithAdd)
 {
-    std::shared_ptr<ECCOpQueue> op_queue = ECCVMCircuitBuilderTests::create_op_queue();
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     auto generators = G1::derive_generators("test generators", 3);
     typename G1::element a = generators[0];
@@ -323,7 +313,7 @@ TEST(ECCVMCircuitBuilderTests, EndWithAdd)
 
 TEST(ECCVMCircuitBuilderTests, EndWithMul)
 {
-    std::shared_ptr<ECCOpQueue> op_queue = ECCVMCircuitBuilderTests::create_op_queue();
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     auto generators = G1::derive_generators("test generators", 3);
     typename G1::element a = generators[0];
@@ -340,7 +330,7 @@ TEST(ECCVMCircuitBuilderTests, EndWithMul)
 
 TEST(ECCVMCircuitBuilderTests, EndWithNoop)
 {
-    std::shared_ptr<ECCOpQueue> op_queue = ECCVMCircuitBuilderTests::create_op_queue();
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     auto generators = G1::derive_generators("test generators", 3);
     typename G1::element a = generators[0];
@@ -376,7 +366,7 @@ TEST(ECCVMCircuitBuilderTests, MSM)
 
     // single msms
     for (size_t j = 1; j < max_num_msms; ++j) {
-        std::shared_ptr<ECCOpQueue> op_queue = ECCVMCircuitBuilderTests::create_op_queue();
+        std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
         compute_msms(j, op_queue);
         ECCVMCircuitBuilder circuit{ op_queue };
@@ -384,7 +374,7 @@ TEST(ECCVMCircuitBuilderTests, MSM)
         EXPECT_EQ(result, true);
     }
     // chain msms
-    std::shared_ptr<ECCOpQueue> op_queue = ECCVMCircuitBuilderTests::create_op_queue();
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     for (size_t j = 1; j < 9; ++j) {
         compute_msms(j, op_queue);
@@ -396,7 +386,7 @@ TEST(ECCVMCircuitBuilderTests, MSM)
 
 TEST(ECCVMCircuitBuilderTests, EqAgainstPointAtInfinity)
 {
-    std::shared_ptr<ECCOpQueue> op_queue = ECCVMCircuitBuilderTests::create_op_queue();
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     auto generators = G1::derive_generators("test generators", 3);
     typename G1::element a = generators[0];
@@ -412,7 +402,7 @@ TEST(ECCVMCircuitBuilderTests, EqAgainstPointAtInfinity)
 
 TEST(ECCVMCircuitBuilderTests, AddPointAtInfinity)
 {
-    std::shared_ptr<ECCOpQueue> op_queue = ECCVMCircuitBuilderTests::create_op_queue();
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     auto generators = G1::derive_generators("test generators", 3);
     typename G1::element a = generators[0];
@@ -430,7 +420,7 @@ TEST(ECCVMCircuitBuilderTests, AddPointAtInfinity)
 
 TEST(ECCVMCircuitBuilderTests, AddProducesPointAtInfinity)
 {
-    std::shared_ptr<ECCOpQueue> op_queue = ECCVMCircuitBuilderTests::create_op_queue();
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     auto generators = G1::derive_generators("test generators", 3);
     typename G1::element a = generators[0];
@@ -445,7 +435,7 @@ TEST(ECCVMCircuitBuilderTests, AddProducesPointAtInfinity)
 
 TEST(ECCVMCircuitBuilderTests, AddProducesDouble)
 {
-    std::shared_ptr<ECCOpQueue> op_queue = ECCVMCircuitBuilderTests::create_op_queue();
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     auto generators = G1::derive_generators("test generators", 3);
     typename G1::element a = generators[0];
@@ -484,7 +474,7 @@ TEST(ECCVMCircuitBuilderTests, InfinityFailure)
     bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
 
     // Add the same operations to the ECC op queue; the native computation is performed under the hood.
-    std::shared_ptr<ECCOpQueue> op_queue = ECCVMCircuitBuilderTests::create_op_queue();
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     for (size_t i = 0; i < 1; i++) {
         op_queue->mul_accumulate(P1, Fr(0));
