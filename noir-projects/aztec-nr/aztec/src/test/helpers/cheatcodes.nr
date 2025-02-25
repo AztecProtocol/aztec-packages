@@ -1,5 +1,5 @@
 use crate::context::inputs::PrivateContextInputs;
-use crate::test::helpers::utils::TestAccount;
+use crate::test::helpers::utils::{TestAccount, UnsafeTestAccount};
 use dep::protocol_types::{
     abis::function_selector::FunctionSelector, address::AztecAddress,
     constants::CONTRACT_INSTANCE_LENGTH, contract_instance::ContractInstance,
@@ -49,6 +49,10 @@ pub unconstrained fn direct_storage_write<let N: u32>(
 
 pub unconstrained fn create_account(secret: Field) -> TestAccount {
     oracle_create_account(secret)
+}
+
+pub unconstrained fn unsafe_create_account(secret: Field) -> UnsafeTestAccount {
+    oracle_unsafe_create_account(secret)
 }
 
 pub unconstrained fn add_account(secret: Field) -> TestAccount {
@@ -123,6 +127,10 @@ unconstrained fn direct_storage_write_oracle<let N: u32>(
 #[oracle(createAccount)]
 unconstrained fn oracle_create_account(secret: Field) -> TestAccount {}
 
+#[oracle(unsafeCreateAccount)]
+unconstrained fn oracle_unsafe_create_account(secret: Field) -> UnsafeTestAccount {}
+
+// TODO: what's the difference between `createAccount` and `addAccount`?
 #[oracle(addAccount)]
 unconstrained fn oracle_add_account(secret: Field) -> TestAccount {}
 

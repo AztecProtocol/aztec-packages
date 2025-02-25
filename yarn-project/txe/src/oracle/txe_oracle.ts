@@ -62,7 +62,7 @@ import {
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Schnorr, poseidon2Hash } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { Fq, Fr, Point } from '@aztec/foundation/fields';
 import { type LogFn, type Logger, applyStringFormatting, createDebugOnlyLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type KeyStore } from '@aztec/key-store';
@@ -385,6 +385,10 @@ export class TXE implements TypedOracle {
 
   getKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
     return this.keyStore.getKeyValidationRequest(pkMHash, this.contractAddress);
+  }
+
+  getPlumeProof(msg: Fr[], pkM: Point): Promise<[Point, Point, Point, Fq]> {
+    return this.keyStore.getPlumeProof(this.contractAddress, msg, pkM);
   }
 
   async getContractInstance(address: AztecAddress): Promise<ContractInstance> {

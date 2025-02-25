@@ -4,13 +4,12 @@ use crate::context::{
     call_interfaces::CallInterface, PrivateContext, PublicContext, UnconstrainedContext,
 };
 use crate::hash::hash_args;
-use crate::test::helpers::{cheatcodes, utils::Deployer};
-
 use crate::note::note_interface::{NoteInterface, NullifiableNote};
 use crate::oracle::{
     execution::{get_block_number, get_contract_address},
     notes::notify_created_note,
 };
+use crate::test::helpers::{cheatcodes, utils::{Deployer, TestAccount, UnsafeTestAccount}};
 use protocol_types::constants::PUBLIC_DISPATCH_SELECTOR;
 use protocol_types::traits::Packable;
 
@@ -72,9 +71,22 @@ impl TestEnvironment {
         PrivateContext::new(inputs, 0)
     }
 
+    // TODO: this should return the full `TestAccount` struct, otherwise the user
+    // is missing out on useful and convenient test data. Also, the name is
+    // `create_account`, so returning just an address is confusing.
+    // TODO: we should have a "very unsafe" version of this that also returns all the
+    // secret keys: I want them for tests.
     pub unconstrained fn create_account(_self: Self, secret: Field) -> AztecAddress {
         let test_account = cheatcodes::create_account(secret);
         test_account.address
+    }
+
+    /**
+     * Similar to `createAccount`, except it gives back all secret keys.
+     * This is very dangerous, and obviously should only be exposed by a test environment.
+     */
+    pub unconstrained fn unsafe_create_account(_self: Self, secret: Field) -> UnsafeTestAccount {
+        cheatcodes::unsafe_create_account(secret)
     }
 
     pub unconstrained fn create_account_contract(&mut self, secret: Field) -> AztecAddress {

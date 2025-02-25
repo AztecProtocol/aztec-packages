@@ -26,6 +26,9 @@ pub unconstrained fn get_ovsk_app(ovpk_m_hash: Field) -> Field {
 pub fn get_public_keys(account: AztecAddress) -> PublicKeys {
     // Safety: Public keys are constrained by showing their inclusion in the address's preimage.
     let (public_keys, partial_address) = unsafe { get_public_keys_and_partial_address(account) };
+    // TODO: we call this `get_public_keys` function from many `compute_nullifier` examples (e.g. UintNote). But that means if the user wants to nullify lots of notes, they're repeatedly calling `AztecAddress:compute()`, which is loads of unnecessary constraints!
+    // Figure out how to cache calls to `get_public_keys`, so that we only do the constraints once.
+    // Ideally, we'd be able to only call it once, by doing comptime checks whether it's been called already. You can do that sort of thing with the bberg language, but I'm not sure you can do it with Noir, which is a huge shame.
     assert_eq(
         account,
         AztecAddress::compute(public_keys, partial_address),

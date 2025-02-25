@@ -25,6 +25,7 @@
     "bbfree",
     "bbmalloc",
     "benesjan",
+    "bignum",
     "Bincode",
     "bincoded",
     "bleurgh",

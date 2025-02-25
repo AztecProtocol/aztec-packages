@@ -273,6 +273,19 @@ export class Fr extends BaseField {
     return fromHexString(buf, Fr);
   }
 
+  /**
+   * Creates an Fr instance from an Fq instance.
+   * Recall, in our case, r < q, so not all Fq inputs can be safely coerced
+   * into an Fr. We throw if the input is larger than r.
+   */
+  static fromFq(input: Fq): Fr {
+    const inputBigInt = input.toBigInt();
+    if (inputBigInt >= Fr.MODULUS) {
+      throw new Error('Cannot coerce an Fq input into an Fr value, because the input is >= r');
+    }
+    return new Fr(inputBigInt);
+  }
+
   /** Arithmetic */
 
   add(rhs: Fr) {
@@ -396,6 +409,11 @@ export class Fq extends BaseField {
     return fromBufferReduce(buffer, Fq);
   }
 
+  static fromFr(input: Fr): Fq {
+    // Note: r < q, so this is always safe.
+    return new Fq(input.toBigInt());
+  }
+
   /**
    * Creates a Fq instance from a string.
    * @param buf - the string to create a Fq from.
@@ -430,6 +448,10 @@ export class Fq extends BaseField {
 
   add(rhs: Fq) {
     return new Fq((this.toBigInt() + rhs.toBigInt()) % Fq.MODULUS);
+  }
+
+  mul(rhs: Fq) {
+    return new Fq((this.toBigInt() * rhs.toBigInt()) % Fq.MODULUS);
   }
 
   toJSON() {

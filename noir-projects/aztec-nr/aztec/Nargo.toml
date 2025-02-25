@@ -6,3 +6,6 @@ type = "lib"
 
 [dependencies]
 protocol_types = { path = "../../noir-protocol-circuits/crates/types" }
+
+# bignum is currently only used by unconstrained plume tests.
+bignum = { tag = "v0.5.4", git = "https://github.com/noir-lang/noir-bignum" }

@@ -9,7 +9,7 @@ import type { NoteStatus } from '@aztec/circuits.js/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/circuits.js/trees';
 import { type BlockHeader, type Capsule } from '@aztec/circuits.js/tx';
 import { Aes128 } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { Fq, Fr, Point } from '@aztec/foundation/fields';
 import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
 
 import { type NoteData, TypedOracle } from '../acvm/index.js';
@@ -58,6 +58,19 @@ export class ViewDataOracle extends TypedOracle {
    */
   public override getKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
     return this.db.getKeyValidationRequest(pkMHash, this.contractAddress);
+  }
+
+  /**
+   * Operate on the secret key of pkM, to compute a plume nullifier.
+   * @param pkM - The master public key.
+   * @param msg - The data to be hashed-to-curve.
+   * @returns sk * hash_to_curve([appAddress, ...msg]);
+   * @throws If the public key is not registered in the key store.
+   */
+  public override getPlumeProof(msg: Fr[], pkM: Point): Promise<[Point, Point, Point, Fq]> {
+    // Notice: we inject the contract address into this call, because
+    // we need to silo the `msg` with the app contract address.
+    return this.db.getPlumeProof(this.contractAddress, msg, pkM);
   }
 
   /**

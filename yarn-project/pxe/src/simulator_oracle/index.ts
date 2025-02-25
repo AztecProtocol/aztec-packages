@@ -35,7 +35,7 @@ import {
 } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { Fq, Fr, Point } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { type KeyStore } from '@aztec/key-store';
@@ -68,6 +68,10 @@ export class SimulatorOracle implements DBOracle {
 
   getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest> {
     return this.keyStore.getKeyValidationRequest(pkMHash, contractAddress);
+  }
+
+  getPlumeProof(appAddress: AztecAddress, msg: Fr[], pkM: Point): Promise<[Point, Point, Point, Fq]> {
+    return this.keyStore.getPlumeProof(appAddress, msg, pkM);
   }
 
   async getCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {

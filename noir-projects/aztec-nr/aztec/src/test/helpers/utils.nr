@@ -124,3 +124,20 @@ pub struct TestAccount {
     pub address: AztecAddress,
     pub keys: PublicKeys,
 }
+
+#[derive(Deserialize, Serialize)]
+pub struct UnsafeSecretKeys {
+    pub nsk_m: Field,
+    pub ivpk_m: Field,
+    pub ovpk_m: Field,
+    pub tpk_m: Field,
+}
+
+// Unsafe, because it exposes secret keys.
+// This MUST only be used in testing.
+#[derive(Deserialize, Serialize)]
+pub struct UnsafeTestAccount {
+    pub address: AztecAddress,
+    pub public_keys: PublicKeys,
+    pub secret_keys: UnsafeSecretKeys,
+}

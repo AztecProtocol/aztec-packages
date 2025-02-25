@@ -7,7 +7,7 @@ import { type Note, type NoteStatus } from '@aztec/circuits.js/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/circuits.js/trees';
 import { type BlockHeader } from '@aztec/circuits.js/tx';
 import { type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fq, Fr, Point } from '@aztec/foundation/fields';
 
 import { type MessageLoadOracleInputs } from '../../common/message_load_oracle_inputs.js';
 
@@ -73,6 +73,10 @@ export abstract class TypedOracle {
 
   getKeyValidationRequest(_pkMHash: Fr): Promise<KeyValidationRequest> {
     return Promise.reject(new OracleMethodNotAvailableError('getKeyValidationRequest'));
+  }
+
+  getPlumeProof(_msg: Fr[], _pkM: Point): Promise<[Point, Point, Point, Fq]> {
+    return Promise.reject(new OracleMethodNotAvailableError('getPlumeProof'));
   }
 
   getContractInstance(_address: AztecAddress): Promise<ContractInstance> {

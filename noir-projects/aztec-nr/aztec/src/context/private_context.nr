@@ -253,10 +253,12 @@ impl PrivateContext {
         self.request_sk_app(ovpk_m_hash, OUTGOING_INDEX)
     }
 
+    // TODO: pass the full pk_m to this function, to avoid the `.hash()` constraints (x2!) in here.
     fn request_sk_app(&mut self, pk_m_hash: Field, key_index: Field) -> Field {
         let cached_request =
             self.last_key_validation_requests[key_index].unwrap_or(KeyValidationRequest::empty());
 
+        // TODO: can we evaluate whether this has been called already at comptime, like can be done with bberg?
         if cached_request.pk_m.hash() == pk_m_hash {
             // We get a match so the cached request is the latest one
             cached_request.sk_app
