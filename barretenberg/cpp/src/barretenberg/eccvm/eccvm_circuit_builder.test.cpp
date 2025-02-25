@@ -454,7 +454,7 @@ TEST(ECCVMCircuitBuilderTests, AddProducesDouble)
  * @details Currently, Goblin does not support clean initialization, which means that we have to create mock ECCOpQueue
  * to avoid commiting to zero polynomials. This test localizes the issue to the problem with populating ECCVM Transcript
  * rows in the method \ref  bb::ECCVMTranscriptBuilder::compute_rows "compute rows". Namely, we are loosing the point at
- * infinity contribution to the 'transcipt_Px' polynomials while parsing the raw ops of ECCOpQueue.
+ * infinity contribution to the 'transcipt_Px' polynomials while parsing the eccvm ops of ECCOpQueue.
  *
  * More specifically, in this test we add a simple MSM with the point at infinity multiplied by \f$0\f$. While the ECCVM
  * computes the result of this op correctly, i.e. outputs the point at infinity, the computation of 'transcript_Px' is

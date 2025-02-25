@@ -43,11 +43,11 @@ class EccOpsTableTest : public ::testing::Test {
         size_t size() const { return columns[0].size(); }
     };
 
-    // Mock raw ops table that constructs a concatenated table from successively prepended subtables
-    struct MockRawOpsTable {
+    // Mock eccvm ops table that constructs a concatenated table from successively prepended subtables
+    struct MockEccvmOpsTable {
         std::vector<ECCVMOperation> eccvm_ops;
 
-        MockRawOpsTable(const auto& subtable_ops)
+        MockEccvmOpsTable(const auto& subtable_ops)
         {
             for (auto& ops : std::ranges::reverse_view(subtable_ops)) {
                 for (const auto& op : ops) {
@@ -124,12 +124,12 @@ TEST(EccOpsTableTest, UltraOpsTable)
     }
 }
 
-// Ensure RawOpsTable correctly constructs a concatenated table from successively prepended subtables
-TEST(EccOpsTableTest, RawOpsTable)
+// Ensure EccvmOpsTable correctly constructs a concatenated table from successively prepended subtables
+TEST(EccOpsTableTest, EccvmOpsTable)
 {
     using ECCVMOperation = bb::eccvm::VMOperation<curve::BN254::Group>;
 
-    // Construct sets of raw ops, each representing those added by a single circuit
+    // Construct sets of eccvm ops, each representing those added by a single circuit
     const size_t NUM_SUBTABLES = 3;
     std::array<std::vector<ECCVMOperation>, NUM_SUBTABLES> subtable_eccvm_ops;
     std::array<size_t, NUM_SUBTABLES> subtable_op_counts = { 4, 2, 7 };
@@ -139,10 +139,10 @@ TEST(EccOpsTableTest, RawOpsTable)
         }
     }
 
-    // Construct the mock raw ops table which contains the subtables ordered in reverse (as if prepended)
-    EccOpsTableTest::MockRawOpsTable expected_eccvm_ops_table(subtable_eccvm_ops);
+    // Construct the mock eccvm ops table which contains the subtables ordered in reverse (as if prepended)
+    EccOpsTableTest::MockEccvmOpsTable expected_eccvm_ops_table(subtable_eccvm_ops);
 
-    // Construct the concatenated raw ops table
+    // Construct the concatenated eccvm ops table
     EccvmOpsTable eccvm_ops_table;
     for (const auto& subtable_ops : subtable_eccvm_ops) {
         eccvm_ops_table.create_new_subtable();
@@ -160,6 +160,6 @@ TEST(EccOpsTableTest, RawOpsTable)
         EXPECT_EQ(expected_eccvm_ops_table.eccvm_ops[i], eccvm_ops_table[i]);
     }
 
-    // Check that the copy-based reconstruction of the raw ops table matches the expected table
+    // Check that the copy-based reconstruction of the eccvm ops table matches the expected table
     EXPECT_EQ(expected_eccvm_ops_table.eccvm_ops, eccvm_ops_table.get_reconstructed());
 }

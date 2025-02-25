@@ -38,9 +38,9 @@ template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
     transcript = std::make_shared<Transcript>();
 
     // Extract columns of the full table T_j, the previous table T_{j,prev}, and the current subtable t_j
-    std::array<Polynomial, 4> T_current = op_queue->get_ultra_ops_table_columns();
-    std::array<Polynomial, 4> T_prev = op_queue->get_previous_ultra_ops_table_columns();
-    std::array<Polynomial, 4> t_current = op_queue->get_current_subtable_columns();
+    std::array<Polynomial, 4> T_current = op_queue->construct_ultra_ops_table_columns();
+    std::array<Polynomial, 4> T_prev = op_queue->construct_previous_ultra_ops_table_columns();
+    std::array<Polynomial, 4> t_current = op_queue->construct_current_ultra_ops_subtable_columns();
 
     // TODO(#723): Cannot currently support an empty T_prev. Need to be able to properly handle zero commitment.
     ASSERT(T_prev[0].size() > 0);

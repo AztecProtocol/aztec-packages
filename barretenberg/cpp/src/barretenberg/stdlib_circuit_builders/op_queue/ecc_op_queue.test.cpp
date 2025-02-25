@@ -75,9 +75,9 @@ TEST(ECCOpQueueTest, ColumnPolynomialConstruction)
 
     // Construct column polynomials corresponding to the full table (T), the previous table (T_prev), and the current
     // subtable (t_current)
-    std::array<Polynomial<Fr>, 4> table_polynomials = op_queue->get_ultra_ops_table_columns();
-    std::array<Polynomial<Fr>, 4> previous_table_polynomials = op_queue->get_previous_ultra_ops_table_columns();
-    std::array<Polynomial<Fr>, 4> subtable_polynomials = op_queue->get_current_subtable_columns();
+    std::array<Polynomial<Fr>, 4> table_polynomials = op_queue->construct_ultra_ops_table_columns();
+    std::array<Polynomial<Fr>, 4> previous_table_polynomials = op_queue->construct_previous_ultra_ops_table_columns();
+    std::array<Polynomial<Fr>, 4> subtable_polynomials = op_queue->construct_current_ultra_ops_subtable_columns();
 
     // Check that the table polynomials are constructed correctly by checking the following identity at a single point:
     // T(x) = t_current(x) + x^k * T_prev(x), where k is the size of the current subtable

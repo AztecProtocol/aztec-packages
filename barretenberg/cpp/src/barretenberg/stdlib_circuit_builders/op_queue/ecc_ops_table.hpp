@@ -176,7 +176,7 @@ class UltraEccOpsTable {
         return construct_column_polynomials_from_subtables(poly_size, subtable_start_idx, subtable_end_idx);
     }
 
-    ColumnPolynomials construct_current_subtable_columns() const
+    ColumnPolynomials construct_current_ultra_ops_subtable_columns() const
     {
         const size_t poly_size = current_ultra_subtable_size();
         const size_t subtable_start_idx = 0;

@@ -10,7 +10,7 @@ namespace bb {
 
 /**
  * @brief Used to construct execution trace representations of elliptic curve operations.
- * @details Constrcuts and stores tables of ECC operations in two formats: the ECCVM format and the
+ * @details Constructs and stores tables of ECC operations in two formats: the ECCVM format and the
  * Ultra-arithmetization (width-4) format. The ECCVM format is used to construct the execution trace for the ECCVM
  * circuit, while the Ultra-arithmetization is used in the Mega circuits and the Translator VM. Both tables are
  * constructed via successive pre-pending of subtables of the same format, where each subtable represents the operations
@@ -32,11 +32,11 @@ class ECCOpQueue {
     EccvmOpsTable eccvm_ops_table;    // table of ops in the ECCVM format
     UltraEccOpsTable ultra_ops_table; // table of ops in the Ultra-arithmetization format
 
-    // Storage for the reconstructed raw ops table in contiguous memory. (Intended to be constructed once and for all
-    // prior to ECCVM constrcution to avoid repeated prepending of subtables in physical memory).
+    // Storage for the reconstructed eccvm ops table in contiguous memory. (Intended to be constructed once and for all
+    // prior to ECCVM construction to avoid repeated prepending of subtables in physical memory).
     std::vector<bb::eccvm::VMOperation<Curve::Group>> eccvm_ops_reconstructed;
 
-    // Tracks numer of muls and size of eccvm in real time as the op queue is updated
+    // Tracks number of muls and size of eccvm in real time as the op queue is updated
     EccvmRowTracker eccvm_row_tracker;
 
   public:
@@ -45,33 +45,38 @@ class ECCOpQueue {
     // Constructor simply prepares the first subtable to be written to
     ECCOpQueue() { initialize_new_subtable(); }
 
+    // Initialize a new subtable of ECCVM ops and Ultra ops corresponding to an individual circuit
     void initialize_new_subtable()
     {
         eccvm_ops_table.create_new_subtable();
         ultra_ops_table.create_new_subtable();
     }
 
-    std::array<Polynomial<Fr>, 4> get_ultra_ops_table_columns() const
+    // Construct polynomials corresponding to the columns of the full aggregate ultra ecc ops table
+    std::array<Polynomial<Fr>, 4> construct_ultra_ops_table_columns() const
     {
         return ultra_ops_table.construct_table_columns();
     }
 
-    std::array<Polynomial<Fr>, 4> get_previous_ultra_ops_table_columns() const
+    // Construct polynomials corresponding to columns of the aggregate ultra ops table excluding most recent subtable
+    std::array<Polynomial<Fr>, 4> construct_previous_ultra_ops_table_columns() const
     {
         return ultra_ops_table.construct_previous_table_columns();
     }
 
-    std::array<Polynomial<Fr>, 4> get_current_subtable_columns() const
+    // Construct polynomials corresponding to the columns of the current subtable of ultra ecc ops
+    std::array<Polynomial<Fr>, 4> construct_current_ultra_ops_subtable_columns() const
     {
-        return ultra_ops_table.construct_current_subtable_columns();
+        return ultra_ops_table.construct_current_ultra_ops_subtable_columns();
     }
 
-    // Reconstruct the full table of raw ops in contiguous memory from the independent subtables
+    // Reconstruct the full table of eccvm ops in contiguous memory from the independent subtables
     void construct_full_eccvm_ops_table() { eccvm_ops_reconstructed = eccvm_ops_table.get_reconstructed(); }
 
     size_t get_ultra_ops_table_size() const { return ultra_ops_table.ultra_table_size(); }
     size_t get_current_ultra_ops_subtable_size() const { return ultra_ops_table.current_ultra_subtable_size(); }
 
+    // Get the full table of ECCVM ops in contiguous memory; construct it if it has not been constructed already
     std::vector<ECCVMOperation>& get_eccvm_ops()
     {
         if (eccvm_ops_reconstructed.empty()) {
@@ -109,7 +114,7 @@ class ECCOpQueue {
     }
 
     /**
-     * @brief A fuzzing only method for setting raw ops directly
+     * @brief A fuzzing only method for setting eccvm ops directly
      *
      */
     void set_eccvm_ops_for_fuzzing(std::vector<ECCVMOperation>& eccvm_ops_in)
@@ -118,7 +123,7 @@ class ECCOpQueue {
     }
 
     /**
-     * @brief A testing only method that adds an erroneous equality op to the raw ops
+     * @brief A testing only method that adds an erroneous equality op to the eccvm ops
      * @brief May be used to ensure that ECCVM responds as expected when encountering a bad op
      *
      */
@@ -146,7 +151,7 @@ class ECCOpQueue {
         // Update the accumulator natively
         accumulator = accumulator + to_add;
 
-        // Store the raw operation
+        // Store the eccvm operation
         append_eccvm_op(ECCVMOperation{ .add = true, .base_point = to_add });
 
         // Construct and store the operation in the ultra op format
@@ -166,7 +171,7 @@ class ECCOpQueue {
         // Construct and store the operation in the ultra op format
         UltraOp ultra_op = construct_and_populate_ultra_ops(MUL_ACCUM, to_mul, scalar);
 
-        // Store the raw operation
+        // Store the eccvm operation
         append_eccvm_op(ECCVMOperation{
             .mul = true,
             .base_point = to_mul,
@@ -184,7 +189,7 @@ class ECCOpQueue {
      */
     UltraOp no_op()
     {
-        // Store raw operation
+        // Store eccvm operation
         append_eccvm_op(ECCVMOperation{});
 
         // Construct and store the operation in the ultra op format
@@ -201,7 +206,7 @@ class ECCOpQueue {
         auto expected = accumulator;
         accumulator.self_set_infinity();
 
-        // Store raw operation
+        // Store eccvm operation
         append_eccvm_op(ECCVMOperation{ .eq = true, .reset = true, .base_point = expected });
 
         // Construct and store the operation in the ultra op format
