@@ -13,7 +13,7 @@ import {
   walletActions,
 } from 'viem';
 
-import type { ExtendedViemWalletClient } from '../types.js';
+import type { ViemWalletClient } from '../types.js';
 
 export function waitUntilBlock<T extends Client>(client: T, blockNumber: number | bigint, logger?: Logger) {
   const publicClient =
@@ -94,7 +94,7 @@ class DelayerImpl implements Delayer {
  * The delayer can be used to hold off the next tx to be sent until a given block number.
  * TODO(#10824): This doesn't play along well with blob txs for some reason.
  */
-export function withDelayer<T extends ExtendedViemWalletClient>(
+export function withDelayer<T extends ViemWalletClient>(
   client: T,
   opts: { ethereumSlotDuration: bigint | number },
 ): { client: T; delayer: Delayer } {

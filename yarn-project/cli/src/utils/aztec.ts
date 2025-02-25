@@ -1,7 +1,11 @@
 import { type ContractArtifact, type FunctionArtifact, loadContractArtifact } from '@aztec/aztec.js/abi';
 import { type PXE } from '@aztec/circuit-types/interfaces/client';
 import { FunctionType } from '@aztec/circuits.js/abi';
-import { type DeployL1ContractsReturnType, type L1ContractsConfig, type ViemWalletClient } from '@aztec/ethereum';
+import {
+  type DeployL1ContractsReturnType,
+  type ExtendedViemWalletClient,
+  type L1ContractsConfig,
+} from '@aztec/ethereum';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type Fr } from '@aztec/foundation/fields';
 import { type LogFn, type Logger } from '@aztec/foundation/log';
@@ -12,7 +16,7 @@ import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protoc
 import TOML from '@iarna/toml';
 import { readFile } from 'fs/promises';
 import { gtr, ltr, satisfies, valid } from 'semver';
-import { getAddress, getContract, publicActions } from 'viem';
+import { getAddress, getContract } from 'viem';
 
 import { encodeArgs } from './encoding.js';
 
@@ -83,7 +87,7 @@ export async function deployAztecContracts(
 export async function setAssumeProvenThrough(
   blockNumber: number,
   rollupAddress: EthAddress,
-  walletClient: ViemWalletClient,
+  walletClient: ExtendedViemWalletClient,
 ) {
   const rollup = getContract({
     address: getAddress(rollupAddress.toString()),
@@ -91,7 +95,7 @@ export async function setAssumeProvenThrough(
     client: walletClient,
   });
   const hash = await rollup.write.setAssumeProvenThroughBlockNumber([BigInt(blockNumber)]);
-  await walletClient.extend(publicActions).waitForTransactionReceipt({ hash });
+  await walletClient.waitForTransactionReceipt({ hash });
 }
 
 /**

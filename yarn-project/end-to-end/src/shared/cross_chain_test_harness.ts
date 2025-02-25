@@ -18,7 +18,12 @@ import {
   deployL1Contract,
   retryUntil,
 } from '@aztec/aztec.js';
-import type { L1ContractAddresses, ViemPublicClient, ViemWalletClient } from '@aztec/ethereum';
+import type {
+  ExtendedViemWalletClient,
+  L1ContractAddresses,
+  ViemPublicClient,
+  ViemWalletClient,
+} from '@aztec/ethereum';
 import { TestERC20Abi, TestERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';

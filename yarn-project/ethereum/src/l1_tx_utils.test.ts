@@ -12,7 +12,7 @@ import { EthCheatCodes } from './eth_cheat_codes.js';
 import { defaultL1TxUtilsConfig } from './l1_tx_utils.js';
 import { L1TxUtilsWithBlobs } from './l1_tx_utils_with_blobs.js';
 import { startAnvil } from './test/start_anvil.js';
-import type { ViemPublicClient, ViemWalletClient } from './types.js';
+import type { SimpleViemWalletClient, ViemPublicClient } from './types.js';
 import { formatViemError } from './utils.js';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
@@ -28,7 +28,7 @@ export type PendingTransaction = {
 
 describe('GasUtils', () => {
   let gasUtils: L1TxUtilsWithBlobs;
-  let walletClient: ViemWalletClient;
+  let walletClient: SimpleViemWalletClient;
   let publicClient: ViemPublicClient;
   let anvil: Anvil;
   let cheatCodes: EthCheatCodes;

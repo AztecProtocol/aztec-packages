@@ -15,7 +15,7 @@ import type {
 /** Type for a viem public client */
 export type ViemPublicClient = PublicClient<FallbackTransport<HttpTransport[]>, Chain>;
 
-export type ViemWalletClient = WalletClient<FallbackTransport<HttpTransport[]>, Chain, Account>;
+export type SimpleViemWalletClient = WalletClient<FallbackTransport<HttpTransport[]>, Chain, Account>;
 
 export type ExtendedViemWalletClient = Client<
   FallbackTransport<readonly HttpTransport[]>,
@@ -24,6 +24,8 @@ export type ExtendedViemWalletClient = Client<
   [...PublicRpcSchema, ...WalletRpcSchema],
   PublicActions<FallbackTransport<readonly HttpTransport[]>, Chain> & WalletActions<Chain, Account>
 >;
+
+export type ViemWalletClient = SimpleViemWalletClient | ExtendedViemWalletClient;
 
 export type L1Clients = {
   publicClient: ViemPublicClient;
