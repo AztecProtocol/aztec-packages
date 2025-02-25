@@ -1,16 +1,16 @@
-import { type L2Block } from '@aztec/circuits.js/block';
-import {
-  type IndexedTreeId,
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
-} from '@aztec/circuits.js/interfaces/server';
-import { MerkleTreeId, NullifierLeaf, type NullifierLeafPreimage, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
-import { BlockHeader, PartialStateReference, StateReference } from '@aztec/circuits.js/tx';
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
+import { type L2Block } from '@aztec/stdlib/block';
+import {
+  type IndexedTreeId,
+  type MerkleTreeReadOperations,
+  type MerkleTreeWriteOperations,
+} from '@aztec/stdlib/interfaces/server';
+import { MerkleTreeId, NullifierLeaf, type NullifierLeafPreimage, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
+import { BlockHeader, PartialStateReference, StateReference } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import assert from 'assert/strict';
@@ -70,13 +70,13 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
 
     if (!storedWorldStateVersion) {
       log.warn('No world state version found, deleting world state directory');
-      await rm(worldStateDirectory, { recursive: true, force: true });
+      await rm(worldStateDirectory, { recursive: true, force: true, maxRetries: 3 });
     } else if (!rollupAddress.equals(storedWorldStateVersion.rollupAddress)) {
       log.warn('Rollup address changed, deleting world state directory');
-      await rm(worldStateDirectory, { recursive: true, force: true });
+      await rm(worldStateDirectory, { recursive: true, force: true, maxRetries: 3 });
     } else if (storedWorldStateVersion.version != WORLD_STATE_DB_VERSION) {
       log.warn('World state version change detected, deleting world state directory');
-      await rm(worldStateDirectory, { recursive: true, force: true });
+      await rm(worldStateDirectory, { recursive: true, force: true, maxRetries: 3 });
     }
 
     const newWorldStateVersion = new WorldStateVersion(WORLD_STATE_DB_VERSION, rollupAddress);
@@ -110,7 +110,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     // pass a cleanup callback because process.on('beforeExit', cleanup) does not work under Jest
     const cleanup = async () => {
       if (cleanupTmpDir) {
-        await rm(dataDir, { recursive: true, force: true });
+        await rm(dataDir, { recursive: true, force: true, maxRetries: 3 });
         log.debug(`Deleted temporary world state database: ${dataDir}`);
       } else {
         log.debug(`Leaving temporary world state database: ${dataDir}`);

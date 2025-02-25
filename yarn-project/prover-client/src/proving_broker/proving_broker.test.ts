@@ -1,11 +1,11 @@
+import { sleep } from '@aztec/foundation/sleep';
 import {
   type ProofUri,
   type ProvingJob,
   type ProvingJobId,
   type ProvingJobStatus,
-} from '@aztec/circuits.js/interfaces/server';
-import { ProvingRequestType } from '@aztec/circuits.js/proofs';
-import { sleep } from '@aztec/foundation/sleep';
+} from '@aztec/stdlib/interfaces/server';
+import { ProvingRequestType } from '@aztec/stdlib/proofs';
 
 import { jest } from '@jest/globals';
 import { mkdtemp } from 'fs/promises';

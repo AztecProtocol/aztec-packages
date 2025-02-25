@@ -4,11 +4,11 @@ import {
   aztecNodeConfigMappings,
   getConfigEnvVars as getNodeConfigEnvVars,
 } from '@aztec/aztec-node';
-import { AztecNodeApiSchema, type PXE } from '@aztec/circuits.js/interfaces/client';
-import { P2PApiSchema } from '@aztec/circuits.js/interfaces/server';
 import { NULL_KEY } from '@aztec/ethereum';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
+import { AztecNodeApiSchema, type PXE } from '@aztec/stdlib/interfaces/client';
+import { P2PApiSchema } from '@aztec/stdlib/interfaces/server';
 import {
   type TelemetryClientConfig,
   initTelemetryClient,

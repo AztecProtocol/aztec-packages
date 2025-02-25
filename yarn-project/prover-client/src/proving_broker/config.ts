@@ -1,5 +1,3 @@
-
-import { ProvingRequestType } from '@aztec/circuits.js/proofs';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
@@ -7,6 +5,7 @@ import {
   numberConfigHelper,
 } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
+import { ProvingRequestType } from '@aztec/stdlib/proofs';
 
 import { z } from 'zod';
 

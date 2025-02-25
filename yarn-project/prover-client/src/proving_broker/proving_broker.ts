@@ -1,3 +1,7 @@
+import { createLogger } from '@aztec/foundation/log';
+import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
+import { PriorityMemoryQueue } from '@aztec/foundation/queue';
+import { Timer } from '@aztec/foundation/timer';
 import {
   type GetProvingJobResponse,
   type ProofUri,
@@ -8,12 +12,8 @@ import {
   type ProvingJobProducer,
   type ProvingJobSettledResult,
   type ProvingJobStatus,
-} from '@aztec/circuits.js/interfaces/server';
-import { ProvingRequestType } from '@aztec/circuits.js/proofs';
-import { createLogger } from '@aztec/foundation/log';
-import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
-import { PriorityMemoryQueue } from '@aztec/foundation/queue';
-import { Timer } from '@aztec/foundation/timer';
+} from '@aztec/stdlib/interfaces/server';
+import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import {
   type TelemetryClient,
   type Traceable,

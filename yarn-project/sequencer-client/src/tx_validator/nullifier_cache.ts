@@ -1,6 +1,6 @@
-import { type MerkleTreeReadOperations } from '@aztec/circuits.js/interfaces/server';
-import { MerkleTreeId } from '@aztec/circuits.js/trees';
 import { type NullifierSource } from '@aztec/p2p';
+import { type MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 /**
  * Implements a nullifier source by checking a DB and an in-memory collection.

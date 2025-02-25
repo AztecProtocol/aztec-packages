@@ -1,14 +1,12 @@
-import type { AbiDecoded, ContractArtifact } from '@aztec/circuits.js/abi';
-import { type AuthWitness } from '@aztec/circuits.js/auth-witness';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
-import type { L2Block } from '@aztec/circuits.js/block';
-import type {
-  CompleteAddress,
-  ContractInstanceWithAddress,
-  NodeInfo,
-  PartialAddress,
-} from '@aztec/circuits.js/contract';
-import type { GasFees } from '@aztec/circuits.js/gas';
+import { type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
+import type { Fr, Point } from '@aztec/foundation/fields';
+import type { SiblingPath } from '@aztec/foundation/trees';
+import type { AbiDecoded, ContractArtifact } from '@aztec/stdlib/abi';
+import { type AuthWitness } from '@aztec/stdlib/auth-witness';
+import { type AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2Block } from '@aztec/stdlib/block';
+import type { CompleteAddress, ContractInstanceWithAddress, NodeInfo, PartialAddress } from '@aztec/stdlib/contract';
+import type { GasFees } from '@aztec/stdlib/gas';
 import {
   type ContractClassMetadata,
   type ContractMetadata,
@@ -17,9 +15,9 @@ import {
   type GetPublicLogsResponse,
   type PXE,
   type PXEInfo,
-} from '@aztec/circuits.js/interfaces/client';
-import type { LogFilter } from '@aztec/circuits.js/logs';
-import type { NotesFilter, UniqueNote } from '@aztec/circuits.js/note';
+} from '@aztec/stdlib/interfaces/client';
+import type { LogFilter } from '@aztec/stdlib/logs';
+import type { NotesFilter, UniqueNote } from '@aztec/stdlib/note';
 import type {
   PrivateExecutionResult,
   Tx,
@@ -28,10 +26,7 @@ import type {
   TxProvingResult,
   TxReceipt,
   TxSimulationResult,
-} from '@aztec/circuits.js/tx';
-import { type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import type { Fr, Point } from '@aztec/foundation/fields';
-import type { SiblingPath } from '@aztec/foundation/trees';
+} from '@aztec/stdlib/tx';
 
 import { type Wallet } from '../account/wallet.js';
 import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';

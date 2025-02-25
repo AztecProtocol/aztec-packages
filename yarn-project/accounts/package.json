@@ -74,10 +74,10 @@
   },
   "dependencies": {
     "@aztec/aztec.js": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
     "@aztec/entrypoints": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "tslib": "^2.4.0"
   },
   "devDependencies": {

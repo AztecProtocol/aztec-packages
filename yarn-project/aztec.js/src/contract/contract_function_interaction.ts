@@ -5,10 +5,10 @@ import {
   FunctionType,
   decodeFromAbi,
   encodeArguments,
-} from '@aztec/circuits.js/abi';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import type { PrivateKernelProverProfileResult } from '@aztec/circuits.js/kernel';
-import type { TxExecutionRequest } from '@aztec/circuits.js/tx';
+} from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { PrivateKernelProverProfileResult } from '@aztec/stdlib/kernel';
+import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import { type Wallet } from '../account/wallet.js';
 import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';

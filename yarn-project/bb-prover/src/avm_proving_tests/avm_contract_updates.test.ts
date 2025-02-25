@@ -1,14 +1,10 @@
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { type ContractInstanceWithAddress } from '@aztec/circuits.js/contract';
-import {
-  ScheduledDelayChange,
-  ScheduledValueChange,
-  SharedMutableValuesWithHash,
-} from '@aztec/circuits.js/shared-mutable';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { DEFAULT_BLOCK_NUMBER } from '@aztec/simulator/public/fixtures';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import { ScheduledDelayChange, ScheduledValueChange, SharedMutableValuesWithHash } from '@aztec/stdlib/shared-mutable';
 
 import { AvmProvingTester } from './avm_proving_tester.js';
 

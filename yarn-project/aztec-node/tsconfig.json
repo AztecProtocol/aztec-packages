@@ -16,7 +16,7 @@
       "path": "../blob-sink"
     },
     {
-      "path": "../circuits.js"
+      "path": "../stdlib"
     },
     {
       "path": "../constants"

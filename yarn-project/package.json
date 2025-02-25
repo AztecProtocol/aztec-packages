@@ -32,7 +32,7 @@
     "pxe",
     "aztec",
     "aztec.js",
-    "circuits.js",
+    "stdlib",
     "cli",
     "cli-wallet",
     "constants",

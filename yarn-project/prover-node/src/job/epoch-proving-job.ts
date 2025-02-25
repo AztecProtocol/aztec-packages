@@ -1,17 +1,17 @@
-import type { L2Block, L2BlockSource } from '@aztec/circuits.js/block';
-import {
-  type EpochProver,
-  type EpochProvingJobState,
-  EpochProvingJobTerminalState,
-  type ForkMerkleTreeOperations,
-} from '@aztec/circuits.js/interfaces/server';
-import type { L1ToL2MessageSource } from '@aztec/circuits.js/messaging';
-import { type ProcessedTx, type Tx } from '@aztec/circuits.js/tx';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
 import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator/server';
+import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
+import {
+  type EpochProver,
+  type EpochProvingJobState,
+  EpochProvingJobTerminalState,
+  type ForkMerkleTreeOperations,
+} from '@aztec/stdlib/interfaces/server';
+import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { type ProcessedTx, type Tx } from '@aztec/stdlib/tx';
 import { Attributes, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import * as crypto from 'node:crypto';

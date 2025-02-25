@@ -34,7 +34,7 @@
       "path": "../builder"
     },
     {
-      "path": "../circuits.js"
+      "path": "../stdlib"
     },
     {
       "path": "../cli"

@@ -20,8 +20,6 @@ import {
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
-import { type MerkleTreeWriteOperations } from '@aztec/circuits.js/interfaces/server';
-import { type Tx } from '@aztec/circuits.js/tx';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times, unique } from '@aztec/foundation/collection';
@@ -38,6 +36,8 @@ import {
   PublicTxSimulator,
   type WorldStateDB,
 } from '@aztec/simulator/server';
+import { type MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { type Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';

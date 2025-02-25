@@ -1,11 +1,11 @@
-import { type L2BlockSource } from '@aztec/circuits.js/block';
-import { type ClientProtocolCircuitVerifier, type WorldStateSynchronizer } from '@aztec/circuits.js/interfaces/server';
-import { P2PClientType } from '@aztec/circuits.js/p2p';
 import { type EpochCacheInterface } from '@aztec/epoch-cache';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type AztecAsyncKVStore } from '@aztec/kv-store';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
+import { type L2BlockSource } from '@aztec/stdlib/block';
+import { type ClientProtocolCircuitVerifier, type WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import { P2PClientType } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { P2PClient } from '../client/p2p_client.js';

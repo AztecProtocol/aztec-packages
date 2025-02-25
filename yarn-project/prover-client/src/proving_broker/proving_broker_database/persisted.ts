@@ -1,15 +1,15 @@
+import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
+import { type Logger, createLogger } from '@aztec/foundation/log';
+import { BatchQueue } from '@aztec/foundation/queue';
+import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
+import { AztecLMDBStoreV2 } from '@aztec/kv-store/lmdb-v2';
 import {
   type ProofUri,
   ProvingJob,
   type ProvingJobId,
   ProvingJobSettledResult,
   getEpochFromProvingJobId,
-} from '@aztec/circuits.js/interfaces/server';
-import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
-import { type Logger, createLogger } from '@aztec/foundation/log';
-import { BatchQueue } from '@aztec/foundation/queue';
-import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
-import { AztecLMDBStoreV2 } from '@aztec/kv-store/lmdb-v2';
+} from '@aztec/stdlib/interfaces/server';
 import { Attributes, LmdbMetrics, type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { mkdir, readdir } from 'fs/promises';

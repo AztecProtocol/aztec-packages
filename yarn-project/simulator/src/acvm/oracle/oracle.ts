@@ -1,8 +1,8 @@
-import { FunctionSelector, NoteSelector } from '@aztec/circuits.js/abi';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { LogWithTxData, UnencryptedL2Log } from '@aztec/circuits.js/logs';
-import { MerkleTreeId } from '@aztec/circuits.js/trees';
 import { Fr } from '@aztec/foundation/fields';
+import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { LogWithTxData, UnencryptedL2Log } from '@aztec/stdlib/logs';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import { type ACVMField } from '../acvm_types.js';
 import { frToBoolean, frToNumber, fromACVMField, fromBoundedVec } from '../deserialize.js';

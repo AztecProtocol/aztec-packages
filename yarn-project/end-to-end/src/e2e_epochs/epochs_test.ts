@@ -1,8 +1,5 @@
 import { Fr, type Logger, getTimestampRangeForEpoch, retryUntil, sleep } from '@aztec/aztec.js';
 import { ChainMonitor } from '@aztec/aztec.js/ethereum';
-import type { L2BlockNumber } from '@aztec/circuits.js/block';
-import { type L1RollupConstants } from '@aztec/circuits.js/epoch-helpers';
-import { MerkleTreeId } from '@aztec/circuits.js/trees';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { DelayedTxUtils, type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -11,6 +8,9 @@ import { ProverNode, ProverNodePublisher } from '@aztec/prover-node';
 import { type TestProverNode } from '@aztec/prover-node/test';
 import { type SequencerPublisher } from '@aztec/sequencer-client';
 import { type TestSequencerClient } from '@aztec/sequencer-client/test';
+import type { L2BlockNumber } from '@aztec/stdlib/block';
+import { type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import { join } from 'path';
 import { type Hex, type PublicClient } from 'viem';
