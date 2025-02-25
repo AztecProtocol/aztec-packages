@@ -20,7 +20,7 @@ use dep::types::{
     hash::{accumulate_sha256, silo_contract_class_log_hash},
     merkle_tree::VariableMerkleTree,
     traits::{Empty, Serialize},
-    utils::arrays::{array_length, array_merge},
+    utils::arrays::{array_length, array_merge, find_index_hint_from_end, validate_trailing_zeroes},
 };
 use blob::blob_public_inputs::BlockBlobPublicInputs;
 
@@ -149,9 +149,9 @@ pub fn encode_blob_prefix(input_type: u8, array_len: u32) -> Field {
 // MAX_NULLIFIERS_PER_TX fields for nullifiers
 // MAX_L2_TO_L1_MSGS_PER_TX for L2 to L1 messages
 // MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX public data update requests -> MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 fields
-// TODO(#8954): When logs are refactored into fields, we will append the values here, for now appending the log hashes:
 // MAX_PRIVATE_LOGS_PER_TX * PRIVATE_LOG_SIZE_IN_FIELDS fields for private logs
-// MAX_PUBLIC_LOGS_PER_TX * PUBLIC_LOG_SIZE_IN_FIELDS fields for public logs
+// MAX_PUBLIC_LOGS_PER_TX * (PUBLIC_LOG_SIZE_IN_FIELDS + 1) fields for public logs (+1 for length of each log)
+// TODO(#8954): When logs are refactored into fields, we will append the values here, for now appending the log hashes:
 // MAX_CONTRACT_CLASS_LOGS_PER_TX fields for contract class logs
 // 7 fields for prefixes for each of the above categories
 pub(crate) global TX_EFFECTS_BLOB_HASH_INPUT_FIELDS: u32 = 1
@@ -162,7 +162,7 @@ pub(crate) global TX_EFFECTS_BLOB_HASH_INPUT_FIELDS: u32 = 1
     + MAX_L2_TO_L1_MSGS_PER_TX
     + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
     + MAX_PRIVATE_LOGS_PER_TX * PRIVATE_LOG_SIZE_IN_FIELDS
-    + MAX_PUBLIC_LOGS_PER_TX * PUBLIC_LOG_SIZE_IN_FIELDS
+    + MAX_PUBLIC_LOGS_PER_TX * (PUBLIC_LOG_SIZE_IN_FIELDS + 1)
     + MAX_CONTRACT_CLASS_LOGS_PER_TX
     + 7;
 
@@ -315,7 +315,6 @@ fn get_tx_effects_hash_input(
         offset += array_len * 2;
     }
 
-    // TODO(Miranda): squash 0s in a nested loop and add len prefix?
     // PRIVATE_LOGS
     array_len = array_length(private_logs) * PRIVATE_LOG_SIZE_IN_FIELDS;
     if array_len != 0 {
@@ -337,23 +336,32 @@ fn get_tx_effects_hash_input(
     }
 
     // PUBLIC LOGS
-    array_len = array_length(public_logs) * PUBLIC_LOG_SIZE_IN_FIELDS;
+    array_len = array_length(public_logs);
     if array_len != 0 {
         let mut check_elt = true;
-        let public_logs_prefix = encode_blob_prefix(PUBLIC_LOGS_PREFIX, array_len);
-        assert_eq(tx_effects_hash_input[offset], public_logs_prefix);
+        let prefix_index = offset;
         offset += 1;
+        let mut total_public_log_len = 0;
+
         for j in 0..MAX_PUBLIC_LOGS_PER_TX {
             let log = public_logs[j].serialize();
+            let log_len = validate_trailing_zeroes(log);
+            if log_len != 0 {
+                assert_eq(tx_effects_hash_input[offset], log_len as Field);
+                offset += 1;
+                total_public_log_len += log_len + 1;
+                check_elt = true;
+            }
             for k in 0..PUBLIC_LOG_SIZE_IN_FIELDS {
-                let index = offset + j * PUBLIC_LOG_SIZE_IN_FIELDS + k;
-                check_elt &= j * PUBLIC_LOG_SIZE_IN_FIELDS + k != array_len;
+                check_elt &= k != log_len;
                 if check_elt {
-                    assert_eq(tx_effects_hash_input[index], log[k]);
+                    assert_eq(tx_effects_hash_input[offset + k], log[k]);
                 }
             }
+            offset += log_len;
         }
-        offset += array_len;
+        let public_logs_prefix = encode_blob_prefix(PUBLIC_LOGS_PREFIX, total_public_log_len);
+        assert_eq(tx_effects_hash_input[prefix_index], public_logs_prefix);
     }
 
     // TODO(#8954): When logs are refactored into fields, we will append the values here
@@ -475,7 +483,6 @@ unconstrained fn get_tx_effects_hash_input_helper(
         offset += array_len * 2;
     }
 
-    // TODO(Miranda): squash 0s in a nested loop and add len prefix?
     // PRIVATE_LOGS
     let num_private_logs = array_length(private_logs);
     if num_private_logs != 0 {
@@ -496,18 +503,23 @@ unconstrained fn get_tx_effects_hash_input_helper(
     // PUBLIC LOGS
     let num_public_logs = array_length(public_logs);
     if num_public_logs != 0 {
-        let array_len = num_public_logs * PUBLIC_LOG_SIZE_IN_FIELDS;
-        let public_logs_prefix = encode_blob_prefix(PUBLIC_LOGS_PREFIX, array_len);
-        tx_effects_hash_input[offset] = public_logs_prefix;
+        let prefix_index = offset;
         offset += 1;
+        let mut array_len = 0;
+
         for j in 0..num_public_logs {
             let log = public_logs[j].serialize();
-            for k in 0..PUBLIC_LOG_SIZE_IN_FIELDS {
-                let index = offset + j * PUBLIC_LOG_SIZE_IN_FIELDS + k;
-                tx_effects_hash_input[index] = log[k];
+            let log_len = find_index_hint_from_end(log, |f| f != 0);
+            tx_effects_hash_input[offset] = log_len as Field;
+            offset += 1;
+            array_len += log_len + 1;
+            for k in 0..log_len {
+                tx_effects_hash_input[offset + k] = log[k];
             }
+            offset += log_len;
         }
-        offset += array_len;
+        let public_logs_prefix = encode_blob_prefix(PUBLIC_LOGS_PREFIX, array_len);
+        tx_effects_hash_input[prefix_index] = public_logs_prefix;
     }
 
     // TODO(#8954): When logs are refactored into fields, we will append the values here
