@@ -14,7 +14,7 @@ import { DefaultL1ContractsConfig } from '../config.js';
 import { createL1Clients, deployL1Contract, deployL1Contracts } from '../deploy_l1_contracts.js';
 import { L1TxUtils } from '../l1_tx_utils.js';
 import { startAnvil } from '../test/start_anvil.js';
-import type { ViemPublicClient, ViemWalletClient } from '../types.js';
+import type { ExtendedViemWalletClient, ViemPublicClient } from '../types.js';
 import { FormattedViemError } from '../utils.js';
 import { ForwarderContract } from './forwarder.js';
 
@@ -27,7 +27,7 @@ describe('Forwarder', () => {
   let vkTreeRoot: Fr;
   let protocolContractTreeRoot: Fr;
   let l2FeeJuiceAddress: Fr;
-  let walletClient: ViemWalletClient;
+  let walletClient: ExtendedViemWalletClient;
   let publicClient: ViemPublicClient;
   let forwarder: ForwarderContract;
   let l1TxUtils: L1TxUtils;

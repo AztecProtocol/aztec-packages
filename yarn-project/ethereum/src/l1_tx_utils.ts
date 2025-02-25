@@ -27,7 +27,7 @@ import {
   hexToBytes,
 } from 'viem';
 
-import type { ExtendedViemWalletClient, ViemPublicClient } from './types.js';
+import type { ExtendedViemWalletClient, ViemPublicClient, ViemWalletClient } from './types.js';
 import { formatViemError } from './utils.js';
 
 // 1_000_000_000 Gwei = 1 ETH
@@ -204,7 +204,7 @@ export class L1TxUtils {
 
   constructor(
     public publicClient: ViemPublicClient,
-    public walletClient: ExtendedViemWalletClient,
+    public walletClient: ViemWalletClient | ExtendedViemWalletClient,
     protected readonly logger?: Logger,
     config?: Partial<L1TxUtilsConfig>,
   ) {

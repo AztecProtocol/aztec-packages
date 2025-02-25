@@ -59,7 +59,7 @@ import { isAnvilTestChain } from './chain.js';
 import { type L1ContractsConfig } from './config.js';
 import { type L1ContractAddresses } from './l1_contract_addresses.js';
 import { L1TxUtils, type L1TxUtilsConfig, defaultL1TxUtilsConfig } from './l1_tx_utils.js';
-import type { L1Clients, ViemPublicClient, ViemWalletClient } from './types.js';
+import type { ExtendedViemWalletClient, L1Clients, ViemPublicClient, ViemWalletClient } from './types.js';
 
 export const DEPLOYER_ADDRESS: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
 
@@ -622,7 +622,7 @@ class L1Deployer {
  * @returns The ETH address the contract was deployed to.
  */
 export async function deployL1Contract(
-  walletClient: ViemWalletClient,
+  walletClient: ViemWalletClient | ExtendedViemWalletClient,
   publicClient: ViemPublicClient,
   abi: Narrow<Abi | readonly unknown[]>,
   bytecode: Hex,
