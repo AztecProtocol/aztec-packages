@@ -7,6 +7,7 @@ import {
   type TxHash,
   getHashedSignaturePayload,
 } from '@aztec/circuits.js';
+import type { L1PublishBlockStats } from '@aztec/circuits.js/stats';
 import { type BlockHeader } from '@aztec/circuits.js/tx';
 import { type EpochCache } from '@aztec/epoch-cache';
 import {
@@ -36,7 +37,6 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 import pick from 'lodash.pick';
 import { type TransactionReceipt, encodeFunctionData } from 'viem';
 
-import type { L1PublishBlockStats } from '@aztec/circuits.js/stats'index.js';
 import { type PublisherConfig, type TxSenderConfig } from './config.js';
 import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
 

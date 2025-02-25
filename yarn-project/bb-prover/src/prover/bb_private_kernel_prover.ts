@@ -9,6 +9,7 @@ import {
 } from '@aztec/circuits.js/kernel';
 import { type NoirCompiledCircuit } from '@aztec/circuits.js/noir';
 import { type ClientIvcProof } from '@aztec/circuits.js/proofs';
+import { type CircuitSimulationStats, type CircuitWitnessGenerationStats } from '@aztec/circuits.js/stats';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
@@ -31,10 +32,6 @@ import { type SimulationProvider } from '@aztec/simulator/client';
 
 import { type Abi, type WitnessMap } from '@noir-lang/types';
 
-import {
-  type CircuitSimulationStats,
-  type CircuitWitnessGenerationStats,
-} from '@aztec/circuits.js/stats'index.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 
 export abstract class BBPrivateKernelProver implements PrivateKernelProver {

@@ -1,3 +1,4 @@
+import type { L1PublishBlockStats, L1PublishStats } from '@aztec/circuits.js/stats';
 import {
   Attributes,
   type Histogram,
@@ -8,8 +9,6 @@ import {
 } from '@aztec/telemetry-client';
 
 import { formatEther } from 'viem/utils';
-
-import type { L1PublishBlockStats, L1PublishStats } from '@aztec/circuits.js/stats'index.js';
 
 export type L1TxType = 'process';
 

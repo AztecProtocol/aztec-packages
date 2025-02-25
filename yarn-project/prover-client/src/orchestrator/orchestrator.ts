@@ -15,6 +15,7 @@ import {
   SingleTxBlockRootRollupInputs,
   TubeInputs,
 } from '@aztec/circuits.js/rollup';
+import { type CircuitName } from '@aztec/circuits.js/stats';
 import { type AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/circuits.js/trees';
 import { type BlockHeader, type GlobalVariables } from '@aztec/circuits.js/tx';
 import { VerificationKeyData } from '@aztec/circuits.js/vks';
@@ -48,7 +49,6 @@ import {
 
 import { inspect } from 'util';
 
-import { type CircuitName } from '@aztec/circuits.js/stats'index.js';
 import {
   buildBaseRollupHints,
   buildHeaderAndBodyFromTxs,

@@ -34,6 +34,7 @@ import { type KeyValidationRequest, PrivateContextInputs } from '@aztec/circuits
 import { computeTaggingSecretPoint, deriveKeys } from '@aztec/circuits.js/keys';
 import { LogWithTxData } from '@aztec/circuits.js/logs';
 import { IndexedTaggingSecret, type PrivateLog, type PublicLog } from '@aztec/circuits.js/logs';
+import { type CircuitWitnessGenerationStats } from '@aztec/circuits.js/stats';
 import {
   makeAppendOnlyTreeSnapshot,
   makeContentCommitment,
@@ -92,7 +93,6 @@ import {
 } from '@aztec/simulator/server';
 import { ForkCheckpoint, type NativeWorldStateService } from '@aztec/world-state/native';
 
-import { type CircuitWitnessGenerationStats } from '@aztec/circuits.js/stats'index.js';
 import { TXENode } from '../node/txe_node.js';
 import { type TXEDatabase } from '../util/txe_database.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';

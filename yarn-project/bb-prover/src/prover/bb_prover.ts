@@ -24,6 +24,7 @@ import {
   type SingleTxBlockRootRollupInputs,
   type TubeInputs,
 } from '@aztec/circuits.js/rollup';
+import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/circuits.js/stats';
 import type { VerificationKeyData } from '@aztec/circuits.js/vks';
 import {
   AGGREGATION_OBJECT_LENGTH,
@@ -73,7 +74,6 @@ import crypto from 'crypto';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 
-import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/circuits.js/stats'index.js';
 import {
   type BBFailure,
   type BBSuccess,

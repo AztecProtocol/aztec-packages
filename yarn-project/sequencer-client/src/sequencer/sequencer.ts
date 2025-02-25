@@ -16,6 +16,7 @@ import {
   type WorldStateSynchronizerStatus,
 } from '@aztec/circuits.js/interfaces/server';
 import { pickFromSchema } from '@aztec/circuits.js/schemas';
+import { type L2BlockBuiltStats } from '@aztec/circuits.js/stats';
 import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/circuits.js/trees';
 import { BlockHeader, ContentCommitment, type GlobalVariables, StateReference } from '@aztec/circuits.js/tx';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
@@ -32,7 +33,6 @@ import { type PublicProcessorFactory } from '@aztec/simulator/server';
 import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 import { type ValidatorClient } from '@aztec/validator-client';
 
-import { type L2BlockBuiltStats } from '@aztec/circuits.js/stats'index.js';
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { type SequencerPublisher, VoteType } from '../publisher/sequencer-publisher.js';
 import { type SlasherClient } from '../slasher/slasher_client.js';
