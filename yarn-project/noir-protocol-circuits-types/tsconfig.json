@@ -11,13 +11,13 @@
       "path": "../blob-lib"
     },
     {
-      "path": "../stdlib"
-    },
-    {
       "path": "../constants"
     },
     {
       "path": "../foundation"
+    },
+    {
+      "path": "../stdlib"
     },
     {
       "path": "../kv-store"
