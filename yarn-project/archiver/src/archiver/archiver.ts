@@ -280,24 +280,28 @@ export class Archiver implements ArchiveSource, Traceable {
     if (initialRun) {
       this.log.info(`Initial archiver sync to L1 block ${currentL1BlockNumber} complete.`, {
         l1BlockNumber: currentL1BlockNumber,
+        syncPoint: await this.store.getSynchPoint(),
         ...(await this.getL2Tips()),
       });
     }
   }
 
+  /** Queries the rollup contract on whether a prune can be executed on the immediatenext L1 block. */
+  private async canPrune(currentL1BlockNumber: bigint) {
+    const time = (this.l1Timestamp ?? 0n) + BigInt(this.l1constants.ethereumSlotDuration);
+    return await this.rollup.read.canPruneAtTime([time], { blockNumber: currentL1BlockNumber });
+  }
+
   /** Checks if there'd be a reorg for the next block submission and start pruning now. */
   private async handleEpochPrune(provenBlockNumber: bigint, currentL1BlockNumber: bigint) {
     const localPendingBlockNumber = BigInt(await this.getBlockNumber());
-
-    const time = (this.l1Timestamp ?? 0n) + BigInt(this.l1constants.ethereumSlotDuration);
-
-    const canPrune =
-      localPendingBlockNumber > provenBlockNumber &&
-      (await this.rollup.read.canPruneAtTime([time], { blockNumber: currentL1BlockNumber }));
+    const canPrune = localPendingBlockNumber > provenBlockNumber && (await this.canPrune(currentL1BlockNumber));
 
     if (canPrune) {
       const blocksToUnwind = localPendingBlockNumber - provenBlockNumber;
-      this.log.debug(`L2 prune will occur on next block submission.`);
+      this.log.debug(
+        `L2 prune from ${provenBlockNumber + 1n} to ${localPendingBlockNumber} will occur on next block submission.`,
+      );
       await this.store.unwindBlocks(Number(localPendingBlockNumber), Number(blocksToUnwind));
       this.log.warn(
         `Unwound ${count(blocksToUnwind, 'block')} from L2 block ${localPendingBlockNumber} ` +

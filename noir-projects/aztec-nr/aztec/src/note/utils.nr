@@ -4,11 +4,77 @@ use crate::{
 };
 
 use dep::protocol_types::hash::{
-    compute_siloed_note_hash, compute_siloed_nullifier as compute_siloed_nullifier_from_preimage,
-    compute_unique_note_hash,
+    compute_siloed_note_hash, compute_siloed_nullifier, compute_unique_note_hash,
 };
 
-pub fn compute_siloed_nullifier<Note>(
+/// Returns the note hash that must be used to issue a private kernel read request for a note.
+pub fn compute_note_hash_for_read_request<Note>(
+    retrieved_note: RetrievedNote<Note>,
+    storage_slot: Field,
+) -> Field
+where
+    Note: NoteInterface,
+{
+    let note_hash = retrieved_note.note.compute_note_hash(storage_slot);
+
+    if retrieved_note.metadata.is_settled() {
+        // Settled notes are read by siloing with contract address and nonce (resulting in the final unique note hash,
+        // which is already in the note hash tree).
+        let siloed_note_hash = compute_siloed_note_hash(retrieved_note.contract_address, note_hash);
+        compute_unique_note_hash(
+            retrieved_note.metadata.to_settled().nonce(),
+            siloed_note_hash,
+        )
+    } else {
+        // Pending notes (both same phase and previous phase ones)  re read by their non-siloed hash (not even by
+        // contract address), which is what is stored in the new note hashes array (at the position hinted by note hash
+        // counter).
+        note_hash
+    }
+}
+
+/// Returns the note hash that must be used to compute a note's nullifier.
+pub fn compute_note_hash_for_nullify<Note>(
+    retrieved_note: RetrievedNote<Note>,
+    storage_slot: Field,
+) -> Field
+where
+    Note: NoteInterface + NullifiableNote,
+{
+    compute_note_hash_for_nullify_from_read_request(
+        retrieved_note,
+        compute_note_hash_for_read_request(retrieved_note, storage_slot),
+    )
+}
+
+/// Same as `compute_note_hash_for_nullify`, except it takes the note hash used in a read request (i.e. what
+/// `compute_note_hash_for_read_request` would return). This is useful in scenarios where that hash has already been
+/// computed to reduce constraints by reusing this value.
+pub fn compute_note_hash_for_nullify_from_read_request<Note>(
+    retrieved_note: RetrievedNote<Note>,
+    note_hash_for_read_request: Field,
+) -> Field {
+    // There is just one instance in which the note hash for nullification does not match the note hash used for a read
+    // request, which is when dealing with pending previous phase notes. These had their existence proven using their
+    // non-siloed note hash along with the note hash counter (like all pending notes), but since they will be
+    // uncondtionally inserted in the note hash tree (since they cannot be squashed) they must be nullified using the
+    // *unique* note hash.
+    // If we didn't, it'd be possible to emit a second different nullifier for the same note in a follow up transaction,
+    // once the note is settled, resulting in a double spend.
+
+    if retrieved_note.metadata.is_pending_previous_phase() {
+        let siloed_note_hash =
+            compute_siloed_note_hash(retrieved_note.contract_address, note_hash_for_read_request);
+        let nonce = retrieved_note.metadata.to_pending_previous_phase().nonce();
+
+        compute_unique_note_hash(nonce, siloed_note_hash)
+    } else {
+        note_hash_for_read_request
+    }
+}
+
+/// Computes a note's siloed nullifier, i.e. the one that will be inserted into the nullifier tree.
+pub fn compute_siloed_note_nullifier<Note>(
     retrieved_note: RetrievedNote<Note>,
     storage_slot: Field,
     context: &mut PrivateContext,
@@ -19,97 +85,5 @@ where
     let note_hash_for_nullify = compute_note_hash_for_nullify(retrieved_note, storage_slot);
     let inner_nullifier = retrieved_note.note.compute_nullifier(context, note_hash_for_nullify);
 
-    compute_siloed_nullifier_from_preimage(retrieved_note.contract_address, inner_nullifier)
-}
-
-// TODO(#7775): make this not impossible to understand
-pub fn compute_note_hash_for_read_request<Note>(
-    retrieved_note: RetrievedNote<Note>,
-    storage_slot: Field,
-) -> Field
-where
-    Note: NoteInterface,
-{
-    let note_hash = retrieved_note.note.compute_note_hash(storage_slot);
-
-    // If same tx note, read request always uses the normal note hash
-    if retrieved_note.note_hash_counter != 0 {
-        note_hash
-    } else {
-        // If the note comes from a different tx, we need to compute the note hash that reached the tree
-        compute_unique_note_hash(
-            retrieved_note.nonce,
-            compute_siloed_note_hash(retrieved_note.contract_address, note_hash),
-        )
-    }
-}
-
-// TODO(#7775): make this not impossible to understand
-pub fn compute_note_hash_for_nullify_internal<Note>(
-    retrieved_note: RetrievedNote<Note>,
-    note_hash_for_read_request: Field,
-) -> Field {
-    if (retrieved_note.note_hash_counter != 0) & (retrieved_note.nonce != 0) {
-        // Non-revertible note, nullified by a revertible nullifier, we need to nullify the note hash that will reach the tree
-        let siloed_note_hash =
-            compute_siloed_note_hash(retrieved_note.contract_address, note_hash_for_read_request);
-
-        compute_unique_note_hash(retrieved_note.nonce, siloed_note_hash)
-    } else {
-        note_hash_for_read_request
-    }
-}
-
-// TODO(#7775): nuke this commented out code - kept it around as it contains comments which might be helpful when tackling #7775
-// pub fn compute_note_hash_for_nullify<Note, let N: u32, let M: u32>(note: Note) -> Field where Note: NoteInterface {
-//     let header = note.get_header();
-//     // There are 3 cases for reading a note intended for consumption:
-//     // 1. The note was inserted in this transaction, is revertible, or is not nullified by a revertible nullifier in
-//     //    the same transaction: (note_hash_counter != 0) & (nonce == 0)
-//     // 2. The note was inserted in this transaction, is non-revertible, and is nullified by a revertible nullifier in
-//     //    the same transaction: (note_hash_counter != 0) & (nonce != 0)
-//     // 3. The note was inserted in a previous transaction: (note_hash_counter == 0) & (nonce != 0)
-
-//     let note_hash = note.compute_note_hiding_point().x;
-
-//     if header.nonce == 0 {
-//         // Case 1.
-//         // If a note is transient, we just read the note_hash (kernel will hash it with nonce and silo by contract address).
-//         note_hash
-//     } else {
-//         // Case 2: If a note is non-revertible, and is nullified by a revertible nullifier, we cannot squash them in the
-//         // private reset circuit. Because if the tx reverts, we will have to keep the note hash and throw away the
-//         // nullifier.
-//         // And if the tx does not revert, both will be emitted. In which case, the nullifier must be created in the app
-//         // from the siloed note hash.
-//         // The kernel circuit will check that a nullifier with non-zero note_nonce is linked to a note hash, whose
-//         // siloed note hash matches the note hash specified in the nullifier.
-
-//         // Case 3: If a note is not from the current transaction, that means we are reading a settled note (from
-//         // tree) created in a previous TX. So we need the siloed_note_hash which has already been hashed with
-//         // nonce and then contract address. This hash will match the existing leaf in the note hash
-//         // tree, so the kernel can just perform a membership check directly on this hash/leaf.
-//         let unique_note_hash = compute_unique_note_hash(header.nonce, note_hash);
-//         compute_siloed_note_hash(header.contract_address, unique_note_hash)
-//         // IMPORTANT NOTE ON REDUNDANT SILOING BY CONTRACT ADDRESS: The note hash computed above is
-//         // "siloed" by contract address. When a note hash is computed solely for the purpose of
-//         // nullification, it is not strictly necessary to silo the note hash before computing
-//         // its nullifier. In other words, it is NOT NECESSARY for protocol security that a nullifier
-//         // be computed from a siloed note hash. After all, persistable note hashes and nullifiers are
-//         // siloed by the kernel circuit. That being said, the siloed note hash computed above CAN be
-//         // used for nullifier computation, and this achieves the (arguably unnecessary) property that
-//         // nullifiers are computed from a note hash's fully-computed note hash tree leaf.
-//     }
-// }
-
-pub fn compute_note_hash_for_nullify<Note>(
-    retrieved_note: RetrievedNote<Note>,
-    storage_slot: Field,
-) -> Field
-where
-    Note: NoteInterface + NullifiableNote,
-{
-    let note_hash_for_read_request =
-        compute_note_hash_for_read_request(retrieved_note, storage_slot);
-    compute_note_hash_for_nullify_internal(retrieved_note, note_hash_for_read_request)
+    compute_siloed_nullifier(retrieved_note.contract_address, inner_nullifier)
 }

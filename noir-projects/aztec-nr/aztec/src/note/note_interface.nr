@@ -29,9 +29,17 @@ pub trait NullifiableNote {
     /// circuits.
     fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field;
 
-    /// Same as compute_nullifier, but unconstrained. This version does not take a note hash because it'll only be
-    /// invoked in unconstrained contexts, where there is no gate count. Note that it also takes a contract address:
-    /// this is because nullifier computation typically involves contract siloed nullifying keys.
+    /// Like `compute_nullifier`, this function also computes a note's nullifier, but there are some key differences.
+    ///
+    /// First and most importantly, this function is unconstrained: there are no guarantees on the returned value being
+    /// correct. Because of that it doesn't need to take a context (since it won't perform any kernel key validation
+    /// requests).
+    ///
+    /// Second, it always computes the nullifier for a **settled** note, i.e. a note that has been created in a previous
+    /// transaction, which therefore has a nonce. This is typically fine, since this function will mostly be used in
+    /// unconstrained execution contexts, which exist outside of any transaction and therefore have no concept of
+    /// pending notes, only settled. This also causes this function to not need to take a note hash for nullification,
+    /// since it will just compute the unique note hash internally using the provided nonce.
     unconstrained fn compute_nullifier_without_context(
         self,
         storage_slot: Field,

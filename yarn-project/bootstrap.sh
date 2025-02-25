@@ -68,10 +68,7 @@ function compile_all {
   cmds=(format)
   if [ "${TYPECHECK:-0}" -eq 1 ] || [ "${CI:-0}" -eq 1 ]; then
     # Fully type check and lint.
-    cmds+=(
-      'yarn tsc -b --emitDeclarationOnly'
-      lint
-    )
+    cmds+=('yarn tsc -b --emitDeclarationOnly && lint')
   else
     # We just need the type declarations required for downstream consumers.
     cmds+=('cd aztec.js && yarn tsc -b --emitDeclarationOnly')
