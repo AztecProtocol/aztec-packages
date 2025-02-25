@@ -211,7 +211,7 @@ template <typename TranscriptParams> class BaseTranscript {
      * @param label of the element sent
      * @param element_frs serialized
      */
-    void consume_prover_element_frs(const std::string& label, std::span<const Fr> element_frs)
+    void add_element_frs_to_hash_buffer(const std::string& label, std::span<const Fr> element_frs)
     {
         if (use_manifest) {
             // Add an entry to the current round of the manifest
@@ -352,12 +352,13 @@ template <typename TranscriptParams> class BaseTranscript {
 
     /**
      * @brief Adds an element to the transcript.
-     * @details Serializes the element to frs and adds it to the current_round_data buffer.
+     * @details Serializes the element to frs and adds it to the current_round_data buffer. Does NOT add the element to
+     * the proof.
      *
      * @param label Human-readable name for the challenge.
      * @param element Element to be added.
      */
-    template <class T> void consume_element(const std::string& label, const T& element)
+    template <class T> void add_to_hash_buffer(const std::string& label, const T& element)
     {
         DEBUG_LOG(label, element);
 
@@ -372,14 +373,14 @@ template <typename TranscriptParams> class BaseTranscript {
             info("consumed:     ", label, ": ", element);
         }
 #endif
-        BaseTranscript::consume_prover_element_frs(label, element_frs);
+        BaseTranscript::add_element_frs_to_hash_buffer(label, element_frs);
     }
 
     /**
      * @brief Adds a prover message to the transcript, only intended to be used by the prover.
      *
      * @details Serializes the provided object into `proof_data`, and updates the current round state in
-     * consume_prover_element_frs.
+     * add_element_frs_to_hash_buffer.
      *
      * @param label Description/name of the object being added.
      * @param element Serializable object that will be added to the transcript
@@ -404,7 +405,7 @@ template <typename TranscriptParams> class BaseTranscript {
             info("sent:     ", label, ": ", element);
         }
 #endif
-        BaseTranscript::consume_prover_element_frs(label, element_frs);
+        BaseTranscript::add_element_frs_to_hash_buffer(label, element_frs);
     }
 
     /**
@@ -422,7 +423,7 @@ template <typename TranscriptParams> class BaseTranscript {
         auto element_frs = std::span{ proof_data }.subspan(num_frs_read, element_size);
         num_frs_read += element_size;
 
-        BaseTranscript::consume_prover_element_frs(label, element_frs);
+        BaseTranscript::add_element_frs_to_hash_buffer(label, element_frs);
 
         auto element = TranscriptParams::template convert_from_bn254_frs<T>(element_frs);
         DEBUG_LOG(label, element);
