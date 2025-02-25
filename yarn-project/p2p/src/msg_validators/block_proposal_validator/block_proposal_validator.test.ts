@@ -1,5 +1,5 @@
 import { PeerErrorSeverity } from '@aztec/circuit-types';
-import { makeBlockProposal } from '@aztec/circuit-types/testing';
+import { makeBlockProposal } from '@aztec/circuits.js/testing';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';

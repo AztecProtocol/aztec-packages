@@ -1,5 +1,4 @@
 import { InboxLeaf, L2Block, LogId, TxEffect, TxHash, wrapInBlock } from '@aztec/circuit-types';
-import '@aztec/circuit-types/jest';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
   type ContractClassPublic,
@@ -7,6 +6,7 @@ import {
   SerializableContractInstance,
   computePublicBytecodeCommitment,
 } from '@aztec/circuits.js/contract';
+import '@aztec/circuits.js/jest';
 import { PrivateLog, PublicLog } from '@aztec/circuits.js/logs';
 import {
   makeContractClassPublic,

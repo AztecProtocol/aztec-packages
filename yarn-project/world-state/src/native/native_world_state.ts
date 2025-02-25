@@ -3,7 +3,7 @@ import {
   type IndexedTreeId,
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
-} from '@aztec/circuit-types/interfaces/server';
+} from '@aztec/circuits.js/interfaces/server';
 import { MerkleTreeId, NullifierLeaf, type NullifierLeafPreimage, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { BlockHeader, PartialStateReference, StateReference } from '@aztec/circuits.js/tx';
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';

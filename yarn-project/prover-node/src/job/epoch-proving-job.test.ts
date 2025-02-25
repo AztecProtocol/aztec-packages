@@ -3,7 +3,7 @@ import {
   type EpochProver,
   type MerkleTreeWriteOperations,
   type WorldStateSynchronizer,
-} from '@aztec/circuit-types/interfaces/server';
+} from '@aztec/circuits.js/interfaces/server';
 import { Proof } from '@aztec/circuits.js/proofs';
 import { RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 import { BlockHeader } from '@aztec/circuits.js/tx';

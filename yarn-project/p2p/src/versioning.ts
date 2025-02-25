@@ -4,7 +4,7 @@ import {
   compressComponentVersions,
   getComponentsVersionsFromConfig,
 } from '@aztec/circuit-types';
-import { type ChainConfig } from '@aztec/circuit-types/config';
+import { type ChainConfig } from '@aztec/circuits.js/config';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';

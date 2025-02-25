@@ -1,5 +1,5 @@
 import { type L2Block } from '@aztec/circuit-types';
-import { type ForkMerkleTreeOperations, type MerkleTreeReadOperations } from '@aztec/circuit-types/interfaces/server';
+import { type ForkMerkleTreeOperations, type MerkleTreeReadOperations } from '@aztec/circuits.js/interfaces/server';
 import { type MerkleTreeId } from '@aztec/circuits.js/trees';
 import { MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX } from '@aztec/constants';
 import { type Fr } from '@aztec/foundation/fields';

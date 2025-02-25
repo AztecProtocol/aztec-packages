@@ -3,7 +3,7 @@ import {
   type ProvingJobId,
   ProvingRequestType,
   makeProvingJobId,
-} from '@aztec/circuit-types/interfaces/server';
+} from '@aztec/circuits.js/interfaces/server';
 import { randomBytes } from '@aztec/foundation/crypto';
 
 export function makeRandomProvingJobId(epochNumber?: number): ProvingJobId {

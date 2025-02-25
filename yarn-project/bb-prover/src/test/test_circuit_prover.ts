@@ -1,3 +1,4 @@
+import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
 import {
   type ProofAndVerificationKey,
   ProvingRequestType,
@@ -5,8 +6,7 @@ import {
   type ServerCircuitProver,
   makeProofAndVerificationKey,
   makePublicInputsAndRecursiveProof,
-} from '@aztec/circuit-types/interfaces/server';
-import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
+} from '@aztec/circuits.js/interfaces/server';
 import type { BaseParityInputs, ParityPublicInputs, RootParityInputs } from '@aztec/circuits.js/parity';
 import { type Proof, makeEmptyRecursiveProof, makeRecursiveProof } from '@aztec/circuits.js/proofs';
 import {

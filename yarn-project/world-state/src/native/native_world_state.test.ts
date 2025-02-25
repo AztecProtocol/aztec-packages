@@ -1,6 +1,6 @@
 import { type L2Block } from '@aztec/circuit-types';
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import { PublicDataWrite } from '@aztec/circuits.js/avm';
+import { type MerkleTreeWriteOperations } from '@aztec/circuits.js/interfaces/server';
 import { makeContentCommitment, makeGlobalVariables } from '@aztec/circuits.js/testing';
 import { AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { BlockHeader } from '@aztec/circuits.js/tx';

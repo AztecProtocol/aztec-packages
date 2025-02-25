@@ -1,5 +1,5 @@
 import { type AnyTx } from '@aztec/circuit-types';
-import { mockTx, mockTxForRollup } from '@aztec/circuit-types/testing';
+import { mockTx, mockTxForRollup } from '@aztec/circuits.js/testing';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 

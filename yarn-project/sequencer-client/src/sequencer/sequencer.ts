@@ -6,15 +6,15 @@ import {
   Tx,
   type TxHash,
 } from '@aztec/circuit-types';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { ContractDataSource } from '@aztec/circuits.js/contract';
+import { Gas } from '@aztec/circuits.js/gas';
 import {
   type AllowedElement,
   SequencerConfigSchema,
   type WorldStateSynchronizer,
   type WorldStateSynchronizerStatus,
-} from '@aztec/circuit-types/interfaces/server';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import type { ContractDataSource } from '@aztec/circuits.js/contract';
-import { Gas } from '@aztec/circuits.js/gas';
+} from '@aztec/circuits.js/interfaces/server';
 import { pickFromSchema } from '@aztec/circuits.js/schemas';
 import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/circuits.js/trees';
 import { BlockHeader, ContentCommitment, type GlobalVariables, StateReference } from '@aztec/circuits.js/tx';

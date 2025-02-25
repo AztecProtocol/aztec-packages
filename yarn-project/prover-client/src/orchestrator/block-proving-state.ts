@@ -1,6 +1,6 @@
 import { SpongeBlob } from '@aztec/blob-lib';
 import { type L2Block } from '@aztec/circuit-types';
-import { type PublicInputsAndRecursiveProof } from '@aztec/circuit-types/interfaces/server';
+import { type PublicInputsAndRecursiveProof } from '@aztec/circuits.js/interfaces/server';
 import { type ParityPublicInputs, RootParityInput, RootParityInputs } from '@aztec/circuits.js/parity';
 import {
   type BaseOrMergeRollupPublicInputs,

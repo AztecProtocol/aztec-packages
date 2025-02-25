@@ -1,5 +1,5 @@
 import { type BlobSinkConfig, blobSinkConfigMapping } from '@aztec/blob-sink/client';
-import { type ChainConfig, chainConfigMappings } from '@aztec/circuit-types/config';
+import { type ChainConfig, chainConfigMappings } from '@aztec/circuits.js/config';
 import {
   type L1ContractAddresses,
   type L1ContractsConfig,

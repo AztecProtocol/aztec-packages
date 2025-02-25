@@ -1,9 +1,9 @@
 import { type BBProverConfig } from '@aztec/bb-prover';
 import { type L2Block, type ProcessedTx, type Tx } from '@aztec/circuit-types';
-import { type ServerCircuitProver } from '@aztec/circuit-types/interfaces/server';
-import { makeBloatedProcessedTx } from '@aztec/circuit-types/testing';
 import { PublicDataWrite } from '@aztec/circuits.js/avm';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type ServerCircuitProver } from '@aztec/circuits.js/interfaces/server';
+import { makeBloatedProcessedTx } from '@aztec/circuits.js/testing';
 import { type AppendOnlyTreeSnapshot, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { type BlockHeader, type GlobalVariables, TreeSnapshots } from '@aztec/circuits.js/tx';
 import { times, timesParallel } from '@aztec/foundation/collection';

@@ -1,5 +1,5 @@
-import { type AllowedElement } from '@aztec/circuit-types/interfaces/server';
 import { getContractClassFromArtifact } from '@aztec/circuits.js/contract';
+import { type AllowedElement } from '@aztec/circuits.js/interfaces/server';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';

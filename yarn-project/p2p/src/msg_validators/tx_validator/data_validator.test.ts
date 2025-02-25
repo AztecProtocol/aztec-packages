@@ -1,8 +1,8 @@
 import { type Tx } from '@aztec/circuit-types';
-import { mockTx } from '@aztec/circuit-types/testing';
 import { FunctionSelector } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
+import { mockTx } from '@aztec/circuits.js/testing';
 import { MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';

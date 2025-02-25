@@ -1,5 +1,5 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
-import { mockTx } from '@aztec/circuit-types/testing';
+import { mockTx } from '@aztec/circuits.js/testing';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';

@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 import { AVM_HINTS_FILENAME, AVM_PUBLIC_INPUTS_FILENAME } from '@aztec/bb-prover';
-import { type ProofUri, ProvingJobInputs, ProvingRequestType } from '@aztec/circuit-types/interfaces/server';
+import { type ProofUri, ProvingJobInputs, ProvingRequestType } from '@aztec/circuits.js/interfaces/server';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
 

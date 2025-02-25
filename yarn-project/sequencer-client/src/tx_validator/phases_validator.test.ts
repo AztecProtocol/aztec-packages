@@ -1,8 +1,8 @@
 import { type Tx } from '@aztec/circuit-types';
-import { mockTx } from '@aztec/circuit-types/testing';
 import type { FunctionSelector } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type ContractDataSource } from '@aztec/circuits.js/contract';
+import { mockTx } from '@aztec/circuits.js/testing';
 import { makeAztecAddress, makeSelector } from '@aztec/circuits.js/testing';
 import { Fr } from '@aztec/foundation/fields';
 

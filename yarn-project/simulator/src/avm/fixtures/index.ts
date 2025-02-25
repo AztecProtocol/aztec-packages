@@ -1,8 +1,8 @@
 import { isNoirCallStackUnresolved } from '@aztec/circuit-types';
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import { type ContractArtifact, type FunctionArtifact, FunctionSelector } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { GasFees } from '@aztec/circuits.js/gas';
+import { type MerkleTreeWriteOperations } from '@aztec/circuits.js/interfaces/server';
 import { GlobalVariables } from '@aztec/circuits.js/tx';
 import { MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/constants';
 import { EthAddress } from '@aztec/foundation/eth-address';

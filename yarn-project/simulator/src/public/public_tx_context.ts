@@ -5,16 +5,16 @@ import {
   TxExecutionPhase,
   type TxHash,
 } from '@aztec/circuit-types';
-import {
-  type AvmProvingRequest,
-  type MerkleTreeReadOperations,
-  ProvingRequestType,
-} from '@aztec/circuit-types/interfaces/server';
 import { PublicDataWrite, RevertCode } from '@aztec/circuits.js/avm';
 import { AvmCircuitInputs, type AvmCircuitPublicInputs } from '@aztec/circuits.js/avm';
 import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { computeTransactionFee } from '@aztec/circuits.js/fees';
 import { Gas, GasSettings } from '@aztec/circuits.js/gas';
+import {
+  type AvmProvingRequest,
+  type MerkleTreeReadOperations,
+  ProvingRequestType,
+} from '@aztec/circuits.js/interfaces/server';
 import {
   PrivateToAvmAccumulatedData,
   PrivateToAvmAccumulatedDataArrayLengths,

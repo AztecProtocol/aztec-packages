@@ -1,7 +1,7 @@
 import { type ProcessedTx } from '@aztec/circuit-types';
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { GasFees } from '@aztec/circuits.js/gas';
+import { type MerkleTreeWriteOperations } from '@aztec/circuits.js/interfaces/server';
 import { MerkleTreeId } from '@aztec/circuits.js/trees';
 import { GlobalVariables } from '@aztec/circuits.js/tx';
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NULLIFIER_TREE_HEIGHT } from '@aztec/constants';

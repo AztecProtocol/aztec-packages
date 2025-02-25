@@ -16,7 +16,7 @@ import {
   type ClientProtocolCircuitVerifier,
   type PeerInfo,
   type WorldStateSynchronizer,
-} from '@aztec/circuit-types/interfaces/server';
+} from '@aztec/circuits.js/interfaces/server';
 import { MerkleTreeId } from '@aztec/circuits.js/trees';
 import { type EpochCacheInterface } from '@aztec/epoch-cache';
 import { Fr } from '@aztec/foundation/fields';

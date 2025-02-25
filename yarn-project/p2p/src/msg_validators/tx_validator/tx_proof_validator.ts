@@ -1,5 +1,5 @@
 import { Tx, type TxValidationResult, type TxValidator } from '@aztec/circuit-types';
-import { type ClientProtocolCircuitVerifier } from '@aztec/circuit-types/interfaces/server';
+import { type ClientProtocolCircuitVerifier } from '@aztec/circuits.js/interfaces/server';
 import { createLogger } from '@aztec/foundation/log';
 
 export class TxProofValidator implements TxValidator<Tx> {

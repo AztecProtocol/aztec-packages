@@ -9,7 +9,7 @@ import {
   type ProvingJobSettledResult,
   type ProvingJobStatus,
   ProvingRequestType,
-} from '@aztec/circuit-types/interfaces/server';
+} from '@aztec/circuits.js/interfaces/server';
 import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { PriorityMemoryQueue } from '@aztec/foundation/queue';

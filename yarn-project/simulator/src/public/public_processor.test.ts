@@ -1,13 +1,13 @@
 import { type ProcessedTx, SimulationError, type Tx, type TxValidator } from '@aztec/circuit-types';
+import { AvmCircuitInputs, PublicDataWrite, RevertCode } from '@aztec/circuits.js/avm';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { Gas, GasFees } from '@aztec/circuits.js/gas';
 import {
   type MerkleTreeWriteOperations,
   ProvingRequestType,
   type TreeInfo,
-} from '@aztec/circuit-types/interfaces/server';
-import { mockTx } from '@aztec/circuit-types/testing';
-import { AvmCircuitInputs, PublicDataWrite, RevertCode } from '@aztec/circuits.js/avm';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { Gas, GasFees } from '@aztec/circuits.js/gas';
+} from '@aztec/circuits.js/interfaces/server';
+import { mockTx } from '@aztec/circuits.js/testing';
 import { GlobalVariables } from '@aztec/circuits.js/tx';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';

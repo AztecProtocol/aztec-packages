@@ -4,7 +4,7 @@ import {
   type ProvingJobId,
   type ProvingJobSettledResult,
   getEpochFromProvingJobId,
-} from '@aztec/circuit-types/interfaces/server';
+} from '@aztec/circuits.js/interfaces/server';
 
 import { type ProvingBrokerDatabase } from '../proving_broker_database.js';
 

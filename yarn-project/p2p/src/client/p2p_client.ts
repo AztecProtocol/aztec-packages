@@ -10,7 +10,7 @@ import {
   type Tx,
   type TxHash,
 } from '@aztec/circuit-types';
-import { type P2PApi, type PeerInfo, type ProverCoordination } from '@aztec/circuit-types/interfaces/server';
+import { type P2PApi, type PeerInfo, type ProverCoordination } from '@aztec/circuits.js/interfaces/server';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { type AztecAsyncKVStore, type AztecAsyncMap, type AztecAsyncSingleton } from '@aztec/kv-store';

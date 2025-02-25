@@ -3,7 +3,7 @@ import {
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
   makePublicInputsAndRecursiveProof,
-} from '@aztec/circuit-types/interfaces/server';
+} from '@aztec/circuits.js/interfaces/server';
 import type { ParityPublicInputs } from '@aztec/circuits.js/parity';
 import { ClientIvcProof, makeRecursiveProof } from '@aztec/circuits.js/proofs';
 import { makeParityPublicInputs } from '@aztec/circuits.js/testing';

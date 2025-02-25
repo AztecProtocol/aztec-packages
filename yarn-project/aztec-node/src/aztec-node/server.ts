@@ -22,15 +22,6 @@ import {
   TxStatus,
   type TxValidationResult,
 } from '@aztec/circuit-types';
-import {
-  type ClientProtocolCircuitVerifier,
-  type ProverConfig,
-  type SequencerConfig,
-  type Service,
-  type WorldStateSyncStatus,
-  type WorldStateSynchronizer,
-  tryStop,
-} from '@aztec/circuit-types/interfaces/server';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
   type ContractClassPublic,
@@ -42,6 +33,15 @@ import {
 import type { GasFees } from '@aztec/circuits.js/gas';
 import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
 import { type AztecNode, type L2BlockNumber } from '@aztec/circuits.js/interfaces/client';
+import {
+  type ClientProtocolCircuitVerifier,
+  type ProverConfig,
+  type SequencerConfig,
+  type Service,
+  type WorldStateSyncStatus,
+  type WorldStateSynchronizer,
+  tryStop,
+} from '@aztec/circuits.js/interfaces/server';
 import type { PrivateLog } from '@aztec/circuits.js/logs';
 import { MerkleTreeId, NullifierMembershipWitness } from '@aztec/circuits.js/trees';
 import {

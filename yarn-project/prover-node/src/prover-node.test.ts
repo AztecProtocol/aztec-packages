@@ -5,6 +5,7 @@ import {
   type L2BlockSource,
   type Tx,
 } from '@aztec/circuit-types';
+import { type ContractDataSource } from '@aztec/circuits.js/contract';
 import {
   type EpochProverManager,
   type EpochProvingJobState,
@@ -12,8 +13,7 @@ import {
   type ProverCoordination,
   WorldStateRunningState,
   type WorldStateSynchronizer,
-} from '@aztec/circuit-types/interfaces/server';
-import { type ContractDataSource } from '@aztec/circuits.js/contract';
+} from '@aztec/circuits.js/interfaces/server';
 import { timesParallel } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type PublicProcessorFactory } from '@aztec/simulator/server';

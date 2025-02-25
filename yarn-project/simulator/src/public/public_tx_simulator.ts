@@ -6,9 +6,9 @@ import {
   type Tx,
   TxExecutionPhase,
 } from '@aztec/circuit-types';
-import { type AvmProvingRequest, type MerkleTreeReadOperations } from '@aztec/circuit-types/interfaces/server';
 import type { RevertCode } from '@aztec/circuits.js/avm';
 import type { Gas } from '@aztec/circuits.js/gas';
+import { type AvmProvingRequest, type MerkleTreeReadOperations } from '@aztec/circuits.js/interfaces/server';
 import type { PublicCallRequest } from '@aztec/circuits.js/kernel';
 import { type GlobalVariables } from '@aztec/circuits.js/tx';
 import type { Fr } from '@aztec/foundation/fields';

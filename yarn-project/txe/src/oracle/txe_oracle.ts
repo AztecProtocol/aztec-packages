@@ -10,7 +10,6 @@ import {
   TxHash,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import { type MerkleTreeReadOperations, type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import {
   type ContractArtifact,
   type FunctionAbi,
@@ -30,6 +29,7 @@ import {
   siloNoteHash,
   siloNullifier,
 } from '@aztec/circuits.js/hash';
+import { type MerkleTreeReadOperations, type MerkleTreeWriteOperations } from '@aztec/circuits.js/interfaces/server';
 import { type KeyValidationRequest, PrivateContextInputs } from '@aztec/circuits.js/kernel';
 import { computeTaggingSecretPoint, deriveKeys } from '@aztec/circuits.js/keys';
 import { LogWithTxData } from '@aztec/circuits.js/logs';

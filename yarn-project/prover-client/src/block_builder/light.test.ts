@@ -1,10 +1,9 @@
 import { TestCircuitProver } from '@aztec/bb-prover';
 import { Blob, SpongeBlob } from '@aztec/blob-lib';
 import { type ProcessedTx, toNumBlobFields } from '@aztec/circuit-types';
-import { type MerkleTreeWriteOperations, type ServerCircuitProver } from '@aztec/circuit-types/interfaces/server';
-import { makeBloatedProcessedTx } from '@aztec/circuit-types/testing';
 import { PublicDataWrite } from '@aztec/circuits.js/avm';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type MerkleTreeWriteOperations, type ServerCircuitProver } from '@aztec/circuits.js/interfaces/server';
 import { BaseParityInputs, ParityPublicInputs, RootParityInput, RootParityInputs } from '@aztec/circuits.js/parity';
 import { type RecursiveProof, makeEmptyRecursiveProof } from '@aztec/circuits.js/proofs';
 import {
@@ -21,6 +20,7 @@ import {
   PrivateTubeData,
   SingleTxBlockRootRollupInputs,
 } from '@aztec/circuits.js/rollup';
+import { makeBloatedProcessedTx } from '@aztec/circuits.js/testing';
 import { makeGlobalVariables } from '@aztec/circuits.js/testing';
 import { type AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { GlobalVariables, PartialStateReference, StateReference } from '@aztec/circuits.js/tx';

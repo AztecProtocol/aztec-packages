@@ -8,7 +8,7 @@ import {
   ProvingRequestType,
   type PublicInputsAndRecursiveProof,
   makePublicInputsAndRecursiveProof,
-} from '@aztec/circuit-types/interfaces/server';
+} from '@aztec/circuits.js/interfaces/server';
 import type { ParityPublicInputs } from '@aztec/circuits.js/parity';
 import { makeRecursiveProof } from '@aztec/circuits.js/proofs';
 import { makeBaseParityInputs, makeParityPublicInputs } from '@aztec/circuits.js/testing';

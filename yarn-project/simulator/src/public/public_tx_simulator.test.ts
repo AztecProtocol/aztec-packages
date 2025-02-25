@@ -5,15 +5,15 @@ import {
   UnencryptedFunctionL2Logs,
   UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
-import { mockTx } from '@aztec/circuit-types/testing';
 import { bufferAsFields } from '@aztec/circuits.js/abi';
 import { PublicDataWrite, RevertCode } from '@aztec/circuits.js/avm';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import type { ContractDataSource } from '@aztec/circuits.js/contract';
 import { Gas, GasFees, GasSettings } from '@aztec/circuits.js/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { type MerkleTreeWriteOperations } from '@aztec/circuits.js/interfaces/server';
 import { ScopedLogHash, countAccumulatedItems } from '@aztec/circuits.js/kernel';
+import { mockTx } from '@aztec/circuits.js/testing';
 import { fr, makeContractClassPublic } from '@aztec/circuits.js/testing';
 import { AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { BlockHeader, GlobalVariables, PartialStateReference, StateReference } from '@aztec/circuits.js/tx';

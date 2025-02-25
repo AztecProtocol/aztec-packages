@@ -1,5 +1,5 @@
 import { type L2Block, type ProcessedTx, type Tx } from '@aztec/circuit-types';
-import { type EpochProver } from '@aztec/circuit-types/interfaces/server';
+import { type EpochProver } from '@aztec/circuits.js/interfaces/server';
 import type { Proof } from '@aztec/circuits.js/proofs';
 import { type RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 import { type BlockHeader, type GlobalVariables } from '@aztec/circuits.js/tx';

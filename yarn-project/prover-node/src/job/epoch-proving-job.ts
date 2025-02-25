@@ -10,7 +10,7 @@ import {
   type EpochProvingJobState,
   EpochProvingJobTerminalState,
   type ForkMerkleTreeOperations,
-} from '@aztec/circuit-types/interfaces/server';
+} from '@aztec/circuits.js/interfaces/server';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';

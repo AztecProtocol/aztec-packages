@@ -1,5 +1,5 @@
 import { getVersioningMiddleware } from '@aztec/circuit-types';
-import { type ChainConfig } from '@aztec/circuit-types/config';
+import { type ChainConfig } from '@aztec/circuits.js/config';
 import { AztecNodeApiSchema, PXESchema } from '@aztec/circuits.js/interfaces/client';
 import {
   type NamespacedApiHandlers,

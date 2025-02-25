@@ -1,4 +1,4 @@
-import { makePublicInputsAndRecursiveProof } from '@aztec/circuit-types/interfaces/server';
+import { makePublicInputsAndRecursiveProof } from '@aztec/circuits.js/interfaces/server';
 import { makeRecursiveProof } from '@aztec/circuits.js/proofs';
 import { makeBaseParityInputs, makeParityPublicInputs } from '@aztec/circuits.js/testing';
 import { VerificationKeyData } from '@aztec/circuits.js/vks';

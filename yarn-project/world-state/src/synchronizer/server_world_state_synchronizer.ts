@@ -16,7 +16,7 @@ import {
   type WorldStateSyncStatus,
   type WorldStateSynchronizer,
   type WorldStateSynchronizerStatus,
-} from '@aztec/circuit-types/interfaces/server';
+} from '@aztec/circuits.js/interfaces/server';
 import { MerkleTreeId } from '@aztec/circuits.js/trees';
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/constants';
 import { type Fr } from '@aztec/foundation/fields';

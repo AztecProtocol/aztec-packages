@@ -5,7 +5,7 @@ import {
   type MerkleTreeWriteOperations,
   type ProofAndVerificationKey,
   type ServerCircuitProver,
-} from '@aztec/circuit-types/interfaces/server';
+} from '@aztec/circuits.js/interfaces/server';
 import { BaseParityInputs } from '@aztec/circuits.js/parity';
 import { makeEmptyRecursiveProof } from '@aztec/circuits.js/proofs';
 import {

@@ -1,4 +1,4 @@
-import { ProvingRequestType } from '@aztec/circuit-types/interfaces/server';
+import { ProvingRequestType } from '@aztec/circuits.js/interfaces/server';
 import { type Timer } from '@aztec/foundation/timer';
 import {
   Attributes,

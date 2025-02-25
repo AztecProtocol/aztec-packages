@@ -7,6 +7,7 @@ import {
   type TxHash,
   getTimestampRangeForEpoch,
 } from '@aztec/circuit-types';
+import { type ContractDataSource } from '@aztec/circuits.js/contract';
 import {
   type EpochProverManager,
   EpochProvingJobTerminalState,
@@ -15,8 +16,7 @@ import {
   type Service,
   type WorldStateSynchronizer,
   tryStop,
-} from '@aztec/circuit-types/interfaces/server';
-import { type ContractDataSource } from '@aztec/circuits.js/contract';
+} from '@aztec/circuits.js/interfaces/server';
 import { compact } from '@aztec/foundation/collection';
 import { memoize } from '@aztec/foundation/decorators';
 import { createLogger } from '@aztec/foundation/log';

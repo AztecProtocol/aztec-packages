@@ -4,8 +4,8 @@ import { AztecAddress, Fr, GlobalVariables, type L2Block, createLogger } from '@
 import { Blob, BlockBlobPublicInputs } from '@aztec/blob-lib';
 // eslint-disable-next-line no-restricted-imports
 import { type L2Tips, type ProcessedTx } from '@aztec/circuit-types';
-import { makeBloatedProcessedTx } from '@aztec/circuit-types/testing';
 import { GasFees, GasSettings } from '@aztec/circuits.js/gas';
+import { makeBloatedProcessedTx } from '@aztec/circuits.js/testing';
 import { fr } from '@aztec/circuits.js/testing';
 import { type BlockHeader } from '@aztec/circuits.js/tx';
 import { GENESIS_ARCHIVE_ROOT, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';

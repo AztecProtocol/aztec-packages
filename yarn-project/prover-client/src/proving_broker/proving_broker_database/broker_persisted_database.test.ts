@@ -3,7 +3,7 @@ import {
   type ProvingJob,
   type ProvingJobSettledResult,
   ProvingRequestType,
-} from '@aztec/circuit-types/interfaces/server';
+} from '@aztec/circuits.js/interfaces/server';
 import { toArray } from '@aztec/foundation/iterable';
 
 import { jest } from '@jest/globals';

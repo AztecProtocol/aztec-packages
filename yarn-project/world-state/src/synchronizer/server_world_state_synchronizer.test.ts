@@ -1,5 +1,5 @@
 import { type L1ToL2MessageSource, L2Block, type L2BlockSource, type L2BlockStream } from '@aztec/circuit-types';
-import { type MerkleTreeReadOperations, WorldStateRunningState } from '@aztec/circuit-types/interfaces/server';
+import { type MerkleTreeReadOperations, WorldStateRunningState } from '@aztec/circuits.js/interfaces/server';
 import type { BlockHeader } from '@aztec/circuits.js/tx';
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/constants';
 import { times, timesParallel } from '@aztec/foundation/collection';

@@ -1,7 +1,4 @@
-import {
-  type ProofAndVerificationKey,
-  type PublicInputsAndRecursiveProof,
-} from '@aztec/circuit-types/interfaces/server';
+import { type ProofAndVerificationKey, type PublicInputsAndRecursiveProof } from '@aztec/circuits.js/interfaces/server';
 import {
   BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,

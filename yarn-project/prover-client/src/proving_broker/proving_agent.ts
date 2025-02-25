@@ -7,7 +7,7 @@ import {
   type ProvingJobResultsMap,
   ProvingRequestType,
   type ServerCircuitProver,
-} from '@aztec/circuit-types/interfaces/server';
+} from '@aztec/circuits.js/interfaces/server';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { truncate } from '@aztec/foundation/string';

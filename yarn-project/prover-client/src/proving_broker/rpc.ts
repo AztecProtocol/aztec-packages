@@ -9,7 +9,7 @@ import {
   type ProvingJobProducer,
   ProvingJobStatus,
   ProvingRequestType,
-} from '@aztec/circuit-types/interfaces/server';
+} from '@aztec/circuits.js/interfaces/server';
 import { type ApiSchemaFor, optional } from '@aztec/circuits.js/schemas';
 import { createSafeJsonRpcClient } from '@aztec/foundation/json-rpc/client';
 import { type SafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';

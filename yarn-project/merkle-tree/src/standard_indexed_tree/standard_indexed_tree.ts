@@ -1,4 +1,4 @@
-import { type BatchInsertionResult, type LeafUpdateWitnessData } from '@aztec/circuit-types/interfaces/server';
+import { type BatchInsertionResult, type LeafUpdateWitnessData } from '@aztec/circuits.js/interfaces/server';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { type FromBuffer } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';

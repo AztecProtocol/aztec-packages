@@ -1,13 +1,13 @@
 /* eslint-disable require-await */
 import { ProvingError } from '@aztec/circuit-types';
+import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
 import {
   type ProofAndVerificationKey,
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
   makeProofAndVerificationKey,
   makePublicInputsAndRecursiveProof,
-} from '@aztec/circuit-types/interfaces/server';
-import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
+} from '@aztec/circuits.js/interfaces/server';
 import { type BaseParityInputs, type ParityPublicInputs, type RootParityInputs } from '@aztec/circuits.js/parity';
 import { Proof, RecursiveProof, makeRecursiveProofFromBinary } from '@aztec/circuits.js/proofs';
 import {

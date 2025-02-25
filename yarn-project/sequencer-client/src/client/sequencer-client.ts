@@ -1,8 +1,8 @@
 import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { type L1ToL2MessageSource, type L2BlockSource } from '@aztec/circuit-types';
-import { type WorldStateSynchronizer } from '@aztec/circuit-types/interfaces/server';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type ContractDataSource } from '@aztec/circuits.js/contract';
+import { type WorldStateSynchronizer } from '@aztec/circuits.js/interfaces/server';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
   ForwarderContract,

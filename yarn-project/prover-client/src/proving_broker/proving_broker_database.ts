@@ -3,7 +3,7 @@ import {
   type ProvingJob,
   type ProvingJobId,
   type ProvingJobSettledResult,
-} from '@aztec/circuit-types/interfaces/server';
+} from '@aztec/circuits.js/interfaces/server';
 
 /**
  * A database for storing proof requests and their results

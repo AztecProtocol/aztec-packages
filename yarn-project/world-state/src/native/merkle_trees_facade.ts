@@ -6,7 +6,7 @@ import {
   type MerkleTreeWriteOperations,
   type SequentialInsertionResult,
   type TreeInfo,
-} from '@aztec/circuit-types/interfaces/server';
+} from '@aztec/circuits.js/interfaces/server';
 import {
   MerkleTreeId,
   NullifierLeaf,

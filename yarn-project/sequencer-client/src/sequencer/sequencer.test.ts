@@ -10,6 +10,10 @@ import {
   TxHash,
   makeProcessedTxFromPrivateOnlyTx,
 } from '@aztec/circuit-types';
+import { PublicDataWrite } from '@aztec/circuits.js/avm';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { ContractDataSource } from '@aztec/circuits.js/contract';
+import { Gas, GasFees } from '@aztec/circuits.js/gas';
 import {
   type BlockBuilder,
   type MerkleTreeReadOperations,
@@ -18,12 +22,8 @@ import {
   type WorldStateSyncStatus,
   type WorldStateSynchronizer,
   type WorldStateSynchronizerStatus,
-} from '@aztec/circuit-types/interfaces/server';
-import { mockTxForRollup } from '@aztec/circuit-types/testing';
-import { PublicDataWrite } from '@aztec/circuits.js/avm';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import type { ContractDataSource } from '@aztec/circuits.js/contract';
-import { Gas, GasFees } from '@aztec/circuits.js/gas';
+} from '@aztec/circuits.js/interfaces/server';
+import { mockTxForRollup } from '@aztec/circuits.js/testing';
 import { makeAppendOnlyTreeSnapshot } from '@aztec/circuits.js/testing';
 import { type MerkleTreeId } from '@aztec/circuits.js/trees';
 import { BlockHeader, GlobalVariables } from '@aztec/circuits.js/tx';
