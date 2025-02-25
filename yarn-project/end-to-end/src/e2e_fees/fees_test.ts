@@ -159,7 +159,7 @@ export class FeesTest {
         this.pxe = pxe;
         this.aztecNode = aztecNode;
         this.gasSettings = GasSettings.default({ maxFeesPerGas: (await this.aztecNode.getCurrentBaseFees()).mul(2) });
-        this.cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls[0], pxe);
+        this.cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, pxe);
         this.wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
         this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
         [this.aliceWallet, this.bobWallet] = this.wallets.slice(0, 2);
@@ -283,7 +283,7 @@ export class FeesTest {
         };
 
         this.getCoinbaseSequencerRewards = async () => {
-          const { walletClient } = createL1Clients(context.aztecNodeConfig.l1RpcUrl, MNEMONIC);
+          const { walletClient } = createL1Clients(context.aztecNodeConfig.l1RpcUrls, MNEMONIC);
           const rollup = getContract({
             address: data.rollupAddress.toString(),
             abi: RollupAbi,
@@ -294,7 +294,7 @@ export class FeesTest {
         };
 
         this.getProverFee = async (blockNumber: number) => {
-          const { walletClient } = createL1Clients(context.aztecNodeConfig.l1RpcUrl, MNEMONIC);
+          const { walletClient } = createL1Clients(context.aztecNodeConfig.l1RpcUrls, MNEMONIC);
           const rollup = getContract({
             address: data.rollupAddress.toString(),
             abi: RollupAbi,

@@ -83,7 +83,7 @@ export async function addL1Validator({
   await publicClient.waitForTransactionReceipt({ hash: txHash });
   if (isAnvilTestChain(chainId)) {
     dualLog(`Funding validator on L1`);
-    const cheatCodes = new EthCheatCodes(rpcUrls[0], debugLogger);
+    const cheatCodes = new EthCheatCodes(rpcUrls, debugLogger);
     await cheatCodes.setBalance(validatorAddress, 10n ** 20n);
   } else {
     const balance = await publicClient.getBalance({ address: validatorAddress.toString() });
@@ -160,7 +160,7 @@ export async function fastForwardEpochs({
     client: publicClient,
   });
 
-  const cheatCodes = new EthCheatCodes(rpcUrls[0], debugLogger);
+  const cheatCodes = new EthCheatCodes(rpcUrls, debugLogger);
   const currentSlot = await rollup.read.getCurrentSlot();
   const l2SlotsInEpoch = await rollup.read.getEpochDuration();
   const timestamp = await rollup.read.getTimestampForSlot([currentSlot + l2SlotsInEpoch * numEpochs]);

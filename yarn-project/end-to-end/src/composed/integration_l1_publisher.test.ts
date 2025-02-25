@@ -129,7 +129,7 @@ describe('L1Publisher integration', () => {
       {},
     ));
 
-    ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls[0]);
+    ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls);
 
     rollupAddress = getAddress(l1ContractAddresses.rollupAddress.toString());
     outboxAddress = getAddress(l1ContractAddresses.outboxAddress.toString());

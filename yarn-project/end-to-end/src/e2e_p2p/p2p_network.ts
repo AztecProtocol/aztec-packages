@@ -242,7 +242,7 @@ export class P2PNetworkTest {
 
         const slotsInEpoch = await rollup.read.getEpochDuration();
         const timestamp = await rollup.read.getTimestampForSlot([slotsInEpoch]);
-        const cheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls[0]);
+        const cheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls);
         try {
           await cheatCodes.warp(Number(timestamp));
         } catch (err) {

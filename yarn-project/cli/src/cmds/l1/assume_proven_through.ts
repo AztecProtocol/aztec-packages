@@ -11,7 +11,7 @@ export async function assumeProvenThrough(
   const rollupAddress = await pxe.getNodeInfo().then(i => i.l1ContractAddresses.rollupAddress);
   const blockNumber = blockNumberOrLatest ?? (await pxe.getBlockNumber());
 
-  const ethCheatCode = new EthCheatCodes(l1RpcUrls[0]);
+  const ethCheatCode = new EthCheatCodes(l1RpcUrls);
   const rollupCheatCodes = new RollupCheatCodes(ethCheatCode, { rollupAddress });
 
   await rollupCheatCodes.markAsProven(blockNumber);

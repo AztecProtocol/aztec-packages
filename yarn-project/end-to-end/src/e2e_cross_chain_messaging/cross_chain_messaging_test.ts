@@ -68,7 +68,7 @@ export class CrossChainMessagingTest {
     this.aztecNode = aztecNode;
     this.pxe = pxe;
     this.aztecNodeConfig = aztecNodeConfig;
-    this.cheatcodes = await CheatCodes.create(this.aztecNodeConfig.l1RpcUrl, this.pxe);
+    this.cheatcodes = await CheatCodes.create(this.aztecNodeConfig.l1RpcUrls, this.pxe);
   }
 
   snapshot = <T>(

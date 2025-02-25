@@ -88,7 +88,7 @@ describe('token transfer test', () => {
   });
 
   it('transfer tokens for 4 epochs', async () => {
-    const ethCheatCodes = new EthCheatCodesWithState(ETHEREUM_HOSTS);
+    const ethCheatCodes = new EthCheatCodesWithState([ETHEREUM_HOSTS]);
     const l1ContractAddresses = await testWallets.pxe.getNodeInfo().then(n => n.l1ContractAddresses);
     // Get 4 epochs
     const rollupCheatCodes = new RollupCheatCodes(ethCheatCodes, l1ContractAddresses);

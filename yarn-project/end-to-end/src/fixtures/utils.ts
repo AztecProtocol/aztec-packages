@@ -235,7 +235,7 @@ async function setupWithRemoteEnvironment(
     walletClient,
     publicClient,
   };
-  const cheatCodes = await CheatCodes.create(config.l1RpcUrls[0], pxeClient!);
+  const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxeClient!);
   const teardown = () => Promise.resolve();
 
   await setupCanonicalFeeJuice(pxeClient);
@@ -390,7 +390,7 @@ export async function setup(
     setupMetricsLogger(filename);
   }
 
-  const ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls[0]);
+  const ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls);
 
   if (opts.stateLoad) {
     await ethCheatCodes.loadChainState(opts.stateLoad);
@@ -481,7 +481,7 @@ export async function setup(
   const dateProvider = new TestDateProvider();
 
   const watcher = new AnvilTestWatcher(
-    new EthCheatCodesWithState(config.l1RpcUrls[0]),
+    new EthCheatCodesWithState(config.l1RpcUrls),
     deployL1ContractsValues.l1ContractAddresses.rollupAddress,
     deployL1ContractsValues.publicClient,
     dateProvider,
@@ -552,7 +552,7 @@ export async function setup(
     );
   }
 
-  const cheatCodes = await CheatCodes.create(config.l1RpcUrls[0], pxe!);
+  const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxe!);
 
   const teardown = async () => {
     await pxeTeardown();

@@ -215,7 +215,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
       transport: fallback([httpViemTransport(l1RpcUrl)]) as any,
     });
 
-    watcher = new AnvilTestWatcher(new EthCheatCodes(l1RpcUrl), l1ContractAddresses.rollupAddress, publicClient);
+    watcher = new AnvilTestWatcher(new EthCheatCodes([l1RpcUrl]), l1ContractAddresses.rollupAddress, publicClient);
     watcher.setIsSandbox(true);
     await watcher.start();
   }

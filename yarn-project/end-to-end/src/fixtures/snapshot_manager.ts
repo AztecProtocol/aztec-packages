@@ -188,7 +188,7 @@ class SnapshotManager implements ISnapshotManager {
     await restore(snapshotData, context);
 
     // Save the snapshot data.
-    const ethCheatCodes = new EthCheatCodesWithState(context.aztecNodeConfig.l1RpcUrls[0]);
+    const ethCheatCodes = new EthCheatCodesWithState(context.aztecNodeConfig.l1RpcUrls);
     const anvilStateFile = `${this.livePath}/anvil.dat`;
     await ethCheatCodes.dumpChainState(anvilStateFile);
     writeFileSync(`${this.livePath}/${name}.json`, JSON.stringify(snapshotData || {}, resolver));
@@ -330,7 +330,7 @@ async function setupFromFresh(
   aztecNodeConfig.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
   aztecNodeConfig.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
 
-  const ethCheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls[0]);
+  const ethCheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls);
 
   if (opts.l1StartTime) {
     await ethCheatCodes.warp(opts.l1StartTime);
@@ -377,7 +377,7 @@ async function setupFromFresh(
   }
 
   const watcher = new AnvilTestWatcher(
-    new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls[0]),
+    new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls),
     deployL1ContractsValues.l1ContractAddresses.rollupAddress,
     deployL1ContractsValues.publicClient,
   );
@@ -422,7 +422,7 @@ async function setupFromFresh(
   pxeConfig.dataDirectory = statePath ?? path.join(directoryToCleanup, randomBytes(8).toString('hex'));
   const pxe = await createPXEService(aztecNode, pxeConfig);
 
-  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls[0], pxe);
+  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, pxe);
 
   if (statePath) {
     writeFileSync(`${statePath}/aztec_node_config.json`, JSON.stringify(aztecNodeConfig, resolver));
@@ -485,7 +485,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   aztecNodeConfig.l1RpcUrls = [rpcUrl];
   // Load anvil state.
   const anvilStateFile = `${statePath}/anvil.dat`;
-  const ethCheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls[0]);
+  const ethCheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls);
   await ethCheatCodes.loadChainState(anvilStateFile);
 
   // TODO: Encapsulate this in a NativeAcvm impl.
@@ -505,7 +505,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrls, mnemonicToAccount(MNEMONIC));
 
   const watcher = new AnvilTestWatcher(
-    new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls[0]),
+    new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls),
     aztecNodeConfig.l1Contracts.rollupAddress,
     publicClient,
   );
@@ -539,7 +539,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   pxeConfig.dataDirectory = statePath;
   const pxe = await createPXEService(aztecNode, pxeConfig);
 
-  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls[0], pxe);
+  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, pxe);
 
   return {
     aztecNodeConfig,

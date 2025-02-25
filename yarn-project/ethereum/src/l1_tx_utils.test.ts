@@ -38,7 +38,7 @@ describe('GasUtils', () => {
   beforeAll(async () => {
     const { anvil: anvilInstance, rpcUrl } = await startAnvil({ l1BlockTime: 1 });
     anvil = anvilInstance;
-    cheatCodes = new EthCheatCodes(rpcUrl);
+    cheatCodes = new EthCheatCodes([rpcUrl]);
     const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
     const privKeyRaw = hdAccount.getHdKey().privateKey;
     if (!privKeyRaw) {

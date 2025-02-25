@@ -61,7 +61,7 @@ describe('reorg test', () => {
     });
     testWallets = await setupTestWalletsWithTokens(PXE_URL, MINT_AMOUNT, debugLogger);
     const rollupCheatCodes = new RollupCheatCodes(
-      new EthCheatCodesWithState(ETHEREUM_HOSTS),
+      new EthCheatCodesWithState([ETHEREUM_HOSTS]),
       await testWallets.pxe.getNodeInfo().then(n => n.l1ContractAddresses),
     );
     const { epochDuration, slotDuration } = await rollupCheatCodes.getConfig();

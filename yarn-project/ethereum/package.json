@@ -21,6 +21,7 @@
   },
   "scripts": {
     "build": "yarn clean && tsc -b",
+    "b": "tsc -b ./src/try.ts",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",

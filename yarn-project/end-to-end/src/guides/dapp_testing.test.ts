@@ -71,7 +71,7 @@ describe('guides/dapp/testing', () => {
         await mintTokensToPrivate(token, owner, ownerAddress, mintAmount);
 
         // docs:start:calc-slot
-        cheats = await CheatCodes.create(ETHEREUM_HOSTS, pxe);
+        cheats = await CheatCodes.create(ETHEREUM_HOSTS.split(','), pxe);
         // The balances mapping is indexed by user address
         ownerSlot = await cheats.aztec.computeSlotInMap(TokenContract.storage.balances.slot, ownerAddress);
         // docs:end:calc-slot
