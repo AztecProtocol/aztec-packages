@@ -7,5 +7,6 @@
 namespace bb::avm2 {
 
 using FF = AvmFlavorSettings::FF;
+using Fq = AvmFlavorSettings::G1::coordinate_field;
 
 } // namespace bb::avm2

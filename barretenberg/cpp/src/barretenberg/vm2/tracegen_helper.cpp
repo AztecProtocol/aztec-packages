@@ -199,8 +199,13 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                 },
                 [&]() {
                     EccTraceBuilder ecc_builder;
-                    AVM_TRACK_TIME("tracegen/ecc_add", ecc_builder.process(events.ecc_add, trace));
+                    AVM_TRACK_TIME("tracegen/ecc_add", ecc_builder.process_add(events.ecc_add, trace));
                     clear_events(events.ecc_add);
+                },
+                [&]() {
+                    EccTraceBuilder ecc_builder;
+                    AVM_TRACK_TIME("tracegen/scalar_mul", ecc_builder.process_scalar_mul(events.scalar_mul, trace));
+                    clear_events(events.scalar_mul);
                 },
                 [&]() {
                     Poseidon2TraceBuilder poseidon2_builder;

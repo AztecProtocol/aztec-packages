@@ -3,7 +3,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "barretenberg/vm2/simulation/events/ecc_event.hpp"
+#include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 
 namespace bb::avm2::simulation {
@@ -12,7 +12,9 @@ namespace {
 TEST(AvmSimulationEccTest, Add)
 {
     EventEmitter<EccAddEvent> ecc_event_emitter;
-    Ecc ecc(ecc_event_emitter);
+    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+
+    Ecc ecc(ecc_event_emitter, scalar_mul_event_emitter);
 
     FF p_x("0x04c95d1b26d63d46918a156cae92db1bcbc4072a27ec81dc82ea959abdbcf16a");
     FF p_y("0x035b6dd9e63c1370462c74775765d07fc21fd1093cc988149d3aa763bb3dbb60");
@@ -36,6 +38,34 @@ TEST(AvmSimulationEccTest, Add)
     EXPECT_EQ(events[0].p, p);
     EXPECT_EQ(events[0].q, q);
     EXPECT_EQ(events[0].result, result);
+}
+
+TEST(AvmSimulationEccTest, ScalarMul)
+{
+    EventEmitter<EccAddEvent> ecc_event_emitter;
+    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+
+    Ecc ecc(ecc_event_emitter, scalar_mul_event_emitter);
+
+    FF scalar("0x009242167ec31949c00cbe441cd36757607406e87844fa2c8c4364a4403e66d7");
+
+    FF p_x("0x04c95d1b26d63d46918a156cae92db1bcbc4072a27ec81dc82ea959abdbcf16a");
+    FF p_y("0x035b6dd9e63c1370462c74775765d07fc21fd1093cc988149d3aa763bb3dbb60");
+    AffinePoint p(p_x, p_y);
+
+    AffinePoint result = ecc.scalar_mul(p, scalar);
+
+    AffinePoint expected_result = p * Fq(scalar);
+
+    EXPECT_EQ(result, expected_result);
+
+    auto events = scalar_mul_event_emitter.dump_events();
+    EXPECT_EQ(events.size(), 1);
+    ScalarMulEvent event = events[0];
+    EXPECT_EQ(event.point, p);
+    EXPECT_EQ(event.scalar, scalar);
+    EXPECT_EQ(event.result, result);
+    EXPECT_EQ(event.intermediate_states.size(), 254);
 }
 
 } // namespace

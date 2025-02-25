@@ -1,6 +1,8 @@
 #include "barretenberg/vm2/tracegen/ecc_trace.hpp"
 
-#include "barretenberg/vm2/simulation/events/ecc_event.hpp"
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 
 namespace bb::avm2::tracegen {
@@ -20,8 +22,8 @@ FF compute_lambda(bool double_predicate, bool add_predicate, const AffinePoint& 
 
 } // namespace
 
-void EccTraceBuilder::process(const simulation::EventEmitterInterface<simulation::EccAddEvent>::Container& events,
-                              TraceContainer& trace)
+void EccTraceBuilder::process_add(const simulation::EventEmitterInterface<simulation::EccAddEvent>::Container& events,
+                                  TraceContainer& trace)
 {
     using C = Column;
 
@@ -83,6 +85,56 @@ void EccTraceBuilder::process(const simulation::EventEmitterInterface<simulation
                   } });
 
         row++;
+    }
+}
+
+void EccTraceBuilder::process_scalar_mul(
+    const simulation::EventEmitterInterface<simulation::ScalarMulEvent>::Container& events, TraceContainer& trace)
+{
+    using C = Column;
+
+    uint32_t row = 0;
+    for (const auto& event : events) {
+        size_t num_intermediate_states = event.intermediate_states.size();
+        AffinePoint p = event.point;
+
+        for (size_t i = num_intermediate_states - 1; i >= 0; i--) {
+            bool is_end = i == (num_intermediate_states - 1);
+
+            simulation::ScalarMulIntermediateState state = event.intermediate_states[i];
+            AffinePoint res = state.res;
+            if (i == 0) {
+                ASSERT(res == event.result);
+            }
+            AffinePoint temp = state.temp;
+            bool bit = state.bit;
+
+            trace.set(row,
+                      { { { C::scalar_mul_sel, 1 },
+                          { C::scalar_mul_scalar, event.scalar },
+                          { C::scalar_mul_point_x, p.x },
+                          { C::scalar_mul_point_y, p.y },
+                          { C::scalar_mul_point_inf, p.is_point_at_infinity() },
+                          { C::scalar_mul_res_x, res.x },
+                          { C::scalar_mul_res_y, res.y },
+                          { C::scalar_mul_res_inf, res.is_point_at_infinity() },
+                          { C::scalar_mul_start, i == 0 },
+                          { C::scalar_mul_end, is_end },
+                          { C::scalar_mul_not_end, !is_end },
+                          { C::scalar_mul_bit, bit },
+                          { C::scalar_mul_bit_idx, i },
+                          { C::scalar_mul_temp_x, temp.x },
+                          { C::scalar_mul_temp_y, temp.y },
+                          { C::scalar_mul_temp_inf, temp.is_point_at_infinity() },
+                          {
+                              C::scalar_mul_should_add,
+                              (!is_end) && bit,
+                          }
+
+                      } });
+
+            row++;
+        }
     }
 }
 
