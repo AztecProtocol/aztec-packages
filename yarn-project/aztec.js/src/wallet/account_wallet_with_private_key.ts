@@ -1,4 +1,4 @@
-import { type PXE } from '@aztec/circuit-types/interfaces/client';
+import { type PXE } from '@aztec/circuits.js/interfaces/client';
 import { computeAddressSecret, deriveMasterIncomingViewingSecretKey } from '@aztec/circuits.js/keys';
 import type { Fr } from '@aztec/foundation/fields';
 

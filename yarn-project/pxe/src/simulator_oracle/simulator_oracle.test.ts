@@ -9,11 +9,11 @@ import {
   randomInBlock,
   wrapInBlock,
 } from '@aztec/circuit-types';
-import { type AztecNode } from '@aztec/circuit-types/interfaces/client';
 import { randomContractArtifact, randomContractInstanceWithAddress } from '@aztec/circuit-types/testing';
 import { type FunctionArtifact, FunctionSelector, FunctionType } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { CompleteAddress } from '@aztec/circuits.js/contract';
+import { type AztecNode } from '@aztec/circuits.js/interfaces/client';
 import { computeAddress, computeTaggingSecretPoint, deriveKeys } from '@aztec/circuits.js/keys';
 import { IndexedTaggingSecret, PublicLog } from '@aztec/circuits.js/logs';
 import { INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX, PUBLIC_LOG_DATA_SIZE_IN_FIELDS } from '@aztec/constants';

@@ -1,8 +1,8 @@
-import { type AztecNode, type L2BlockNumber } from '@aztec/circuit-types/interfaces/client';
 import type { FunctionSelector } from '@aztec/circuits.js/abi';
 import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { computeContractClassIdPreimage, computeSaltedInitializationHash } from '@aztec/circuits.js/contract';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { type AztecNode, type L2BlockNumber } from '@aztec/circuits.js/interfaces/client';
 import { UpdatedClassIdHints } from '@aztec/circuits.js/kernel';
 import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/circuits.js/shared-mutable';
 import type { VerificationKeyAsFields } from '@aztec/circuits.js/vks';

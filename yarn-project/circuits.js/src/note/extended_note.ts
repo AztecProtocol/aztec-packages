@@ -6,9 +6,9 @@ import { z } from 'zod';
 
 import { NoteSelector } from '../abi/note_selector.js';
 import { AztecAddress } from '../aztec-address/index.js';
-import { Note } from '../logs/l1_payload/payload.js';
 import { type ZodFor, schemas } from '../schemas/index.js';
 import { TxHash } from '../tx/tx_hash.js';
+import { Note } from './note.js';
 
 /**
  * A note with contextual data.

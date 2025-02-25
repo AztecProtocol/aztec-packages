@@ -20,8 +20,9 @@ import {
   PrivateKernelTailCircuitPublicInputs,
 } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
 import { PrivateToPublicAccumulatedDataBuilder } from '../kernel/private_to_public_accumulated_data_builder.js';
-import { ContractClassTxL2Logs, Note } from '../logs/index.js';
-import { ExtendedNote, UniqueNote } from '../notes/extended_note.js';
+import { ContractClassTxL2Logs } from '../logs/index.js';
+import { ExtendedNote, UniqueNote } from '../note/extended_note.js';
+import { Note } from '../note/note.js';
 import { BlockAttestation } from '../p2p/block_attestation.js';
 import { BlockProposal } from '../p2p/block_proposal.js';
 import { ConsensusPayload } from '../p2p/consensus_payload.js';

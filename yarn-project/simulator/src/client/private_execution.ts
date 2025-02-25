@@ -1,7 +1,7 @@
-import { type AztecNode, PrivateCallExecutionResult } from '@aztec/circuit-types/interfaces/client';
 import { type FunctionArtifact, type FunctionSelector, countArgumentsSize } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type ContractInstance } from '@aztec/circuits.js/contract';
+import { type AztecNode, PrivateCallExecutionResult } from '@aztec/circuits.js/interfaces/client';
 import { PrivateCircuitPublicInputs } from '@aztec/circuits.js/kernel';
 import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/circuits.js/shared-mutable';
 import { PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH, PRIVATE_CONTEXT_INPUTS_LENGTH } from '@aztec/constants';

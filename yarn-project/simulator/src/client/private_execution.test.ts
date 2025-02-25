@@ -7,11 +7,6 @@ import {
   type TxScopedL2Log,
 } from '@aztec/circuit-types';
 import {
-  type AztecNode,
-  CountedPublicExecutionRequest,
-  type L2BlockNumber,
-} from '@aztec/circuit-types/interfaces/client';
-import {
   type ContractArtifact,
   type FunctionArtifact,
   FunctionSelector,
@@ -36,6 +31,11 @@ import {
   deriveStorageSlotInMap,
   siloNoteHash,
 } from '@aztec/circuits.js/hash';
+import {
+  type AztecNode,
+  CountedPublicExecutionRequest,
+  type L2BlockNumber,
+} from '@aztec/circuits.js/interfaces/client';
 import { KeyValidationRequest, getNonEmptyItems } from '@aztec/circuits.js/kernel';
 import { computeAppNullifierSecretKey, deriveKeys } from '@aztec/circuits.js/keys';
 import { IndexedTaggingSecret } from '@aztec/circuits.js/logs';

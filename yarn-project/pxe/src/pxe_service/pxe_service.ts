@@ -21,16 +21,6 @@ import {
   UniqueNote,
   getNonNullifiedL1ToL2MessageWitness,
 } from '@aztec/circuit-types';
-import { type AuthWitness } from '@aztec/circuit-types/auth-witness';
-import {
-  type AztecNode,
-  type EventMetadataDefinition,
-  type PXE,
-  type PXEInfo,
-  type PrivateExecutionResult,
-  type PrivateKernelProver,
-  type PrivateKernelSimulateOutput,
-} from '@aztec/circuit-types/interfaces/client';
 import {
   type AbiDecoded,
   type ContractArtifact,
@@ -40,6 +30,7 @@ import {
   decodeFunctionSignature,
   encodeArguments,
 } from '@aztec/circuits.js/abi';
+import { type AuthWitness } from '@aztec/circuits.js/auth-witness';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import type {
   CompleteAddress,
@@ -51,6 +42,15 @@ import type {
 import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/circuits.js/contract';
 import type { GasFees } from '@aztec/circuits.js/gas';
 import { siloNullifier } from '@aztec/circuits.js/hash';
+import {
+  type AztecNode,
+  type EventMetadataDefinition,
+  type PXE,
+  type PXEInfo,
+  type PrivateExecutionResult,
+  type PrivateKernelProver,
+  type PrivateKernelSimulateOutput,
+} from '@aztec/circuits.js/interfaces/client';
 import { PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
 import { computeAddressSecret } from '@aztec/circuits.js/keys';
 import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';

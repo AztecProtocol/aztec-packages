@@ -1,12 +1,12 @@
 import { Note, PublicExecutionRequest } from '@aztec/circuit-types';
+import { FunctionSelector, NoteSelector } from '@aztec/circuits.js/abi';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
   NoteAndSlot,
   PrivateCallExecutionResult,
   PrivateExecutionResult,
   type PrivateKernelProver,
-} from '@aztec/circuit-types/interfaces/client';
-import { FunctionSelector, NoteSelector } from '@aztec/circuits.js/abi';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+} from '@aztec/circuits.js/interfaces/client';
 import {
   NoteHash,
   PrivateCircuitPublicInputs,

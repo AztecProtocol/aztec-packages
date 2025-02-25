@@ -1,3 +1,6 @@
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { computeContractAddressFromInstance } from '@aztec/circuits.js/contract';
+import { hashVK } from '@aztec/circuits.js/hash';
 import {
   type PrivateCallExecutionResult,
   type PrivateExecutionResult,
@@ -8,10 +11,7 @@ import {
   collectNoteHashNullifierCounterMap,
   collectPublicTeardownFunctionCall,
   getFinalMinRevertibleSideEffectCounter,
-} from '@aztec/circuit-types/interfaces/client';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { computeContractAddressFromInstance } from '@aztec/circuits.js/contract';
-import { hashVK } from '@aztec/circuits.js/hash';
+} from '@aztec/circuits.js/interfaces/client';
 import {
   PrivateCallData,
   PrivateKernelCircuitPublicInputs,

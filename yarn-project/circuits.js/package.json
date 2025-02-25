@@ -34,15 +34,17 @@
     "./gas": "./dest/gas/index.js",
     "./tx": "./dest/tx/index.js",
     "./fees": "./dest/fees/index.js",
-    "./notes": "./dest/notes/index.js",
+    "./note": "./dest/note/index.js",
+    "./event": "./dest/event/index.js",
     "./p2p": "./dest/p2p/index.js",
     "./errors": "./dest/errors/index.js",
     "./stats": "./dest/stats/index.js",
     "./auth-witness": "./dest/auth_witness/index.js",
-    "./blocks": "./dest/blocks/index.js",
-    "./versioning": "./dest/versining/index.js",
+    "./block": "./dest/block/index.js",
+    "./versioning": "./dest/versioning/index.js",
     "./interfaces/client": "./dest/interfaces/client.js",
-    "./interfaces/server": "./dest/interfaces/server.js"
+    "./interfaces/server": "./dest/interfaces/server.js",
+    "./epoch-helpers": "./dest/epoch-helpers/index.js"
   },
   "typedocOptions": {
     "entryPoints": [

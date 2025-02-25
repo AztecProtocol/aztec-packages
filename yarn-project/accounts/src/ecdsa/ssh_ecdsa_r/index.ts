@@ -7,7 +7,7 @@
 import type { AztecAddress, Fr } from '@aztec/aztec.js';
 import { AccountManager, type Salt } from '@aztec/aztec.js/account';
 import { type AccountWallet, getWallet } from '@aztec/aztec.js/wallet';
-import { type PXE } from '@aztec/circuit-types/interfaces/client';
+import { type PXE } from '@aztec/circuits.js/interfaces/client';
 
 import { EcdsaRSSHAccountContract } from './account_contract.js';
 

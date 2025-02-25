@@ -3,7 +3,7 @@ import {
   L2BlockStream,
   type L2BlockStreamEventHandler,
   type L2BlockStreamLocalDataProvider,
-} from '@aztec/circuit-types';
+} from '@aztec/circuits.js/block';
 import { createLogger } from '@aztec/foundation/log';
 import { type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 

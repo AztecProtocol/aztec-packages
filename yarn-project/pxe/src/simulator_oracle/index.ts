@@ -10,7 +10,6 @@ import {
   type TxScopedL2Log,
   getNonNullifiedL1ToL2MessageWitness,
 } from '@aztec/circuit-types';
-import { type AztecNode, type L2BlockNumber } from '@aztec/circuit-types/interfaces/client';
 import {
   type FunctionArtifact,
   FunctionSelector,
@@ -22,6 +21,7 @@ import {
 import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/circuits.js/contract';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
+import { type AztecNode, type L2BlockNumber } from '@aztec/circuits.js/interfaces/client';
 import type { KeyValidationRequest } from '@aztec/circuits.js/kernel';
 import { computeAddressSecret, computeTaggingSecretPoint } from '@aztec/circuits.js/keys';
 import { IndexedTaggingSecret, LogWithTxData, PrivateLog, PublicLog } from '@aztec/circuits.js/logs';

@@ -1,5 +1,5 @@
-import { type TxHash, type TxReceipt } from '@aztec/circuit-types';
-import { type PXE } from '@aztec/circuit-types/interfaces/client';
+import { type PXE } from '@aztec/circuits.js/interfaces/client';
+import { type TxHash, type TxReceipt } from '@aztec/circuits.js/tx';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { type Wallet } from '../account/index.js';

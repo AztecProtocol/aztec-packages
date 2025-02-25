@@ -1,4 +1,3 @@
-import { Capsule } from '@aztec/circuit-types';
 import { type ContractArtifact, FunctionSelector, FunctionType, bufferAsFields } from '@aztec/circuits.js/abi';
 import {
   computeVerificationKeyHash,
@@ -6,6 +5,7 @@ import {
   createUnconstrainedFunctionMembershipProof,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js/contract';
+import { Capsule } from '@aztec/circuits.js/tx';
 import {
   ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
   MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,

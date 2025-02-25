@@ -1,4 +1,4 @@
-import { type PrivateKernelProver, type PrivateKernelSimulateOutput } from '@aztec/circuit-types/interfaces/client';
+import { type PrivateKernelProver, type PrivateKernelSimulateOutput } from '@aztec/circuits.js/interfaces/client';
 import {
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,

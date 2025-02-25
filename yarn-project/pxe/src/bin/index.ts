@@ -1,5 +1,5 @@
 #!/usr/bin/env -S node --no-warnings
-import { createAztecNodeClient } from '@aztec/circuit-types/interfaces/client';
+import { createAztecNodeClient } from '@aztec/circuits.js/interfaces/client';
 import { createLogger } from '@aztec/foundation/log';
 
 import { getPXEServiceConfig } from '../config/index.js';

@@ -1,5 +1,5 @@
 import { type BotConfig, BotRunner, botConfigMappings, getBotRunnerApiHandler } from '@aztec/bot';
-import { type AztecNode, type PXE } from '@aztec/circuit-types/interfaces/client';
+import { type AztecNode, type PXE } from '@aztec/circuits.js/interfaces/client';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
 import { type TelemetryClient } from '@aztec/telemetry-client';

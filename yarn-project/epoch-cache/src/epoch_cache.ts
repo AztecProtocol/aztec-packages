@@ -3,7 +3,7 @@ import {
   type L1RollupConstants,
   getEpochNumberAtTimestamp,
   getSlotAtTimestamp,
-} from '@aztec/circuit-types';
+} from '@aztec/circuits.js/epoch-helpers';
 import { RollupContract, createEthereumChain } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';

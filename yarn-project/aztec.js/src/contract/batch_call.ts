@@ -1,5 +1,5 @@
-import { type FunctionCall, type TxExecutionRequest } from '@aztec/circuit-types';
-import { FunctionType, decodeFromAbi } from '@aztec/circuits.js/abi';
+import { type FunctionCall, FunctionType, decodeFromAbi } from '@aztec/circuits.js/abi';
+import { type TxExecutionRequest } from '@aztec/circuits.js/tx';
 
 import { type Wallet } from '../account/index.js';
 import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';

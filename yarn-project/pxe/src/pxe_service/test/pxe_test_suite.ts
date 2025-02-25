@@ -1,4 +1,3 @@
-import { type PXE } from '@aztec/circuit-types/interfaces/client';
 import {
   randomContractArtifact,
   randomContractInstanceWithAddress,
@@ -6,6 +5,7 @@ import {
 } from '@aztec/circuit-types/testing';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { getContractClassFromArtifact } from '@aztec/circuits.js/contract';
+import { type PXE } from '@aztec/circuits.js/interfaces/client';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 

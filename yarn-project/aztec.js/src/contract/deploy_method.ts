@@ -1,5 +1,9 @@
-import { type Capsule, type FunctionCall, type TxExecutionRequest } from '@aztec/circuit-types';
-import { type ContractArtifact, type FunctionArtifact, getInitializer } from '@aztec/circuits.js/abi';
+import {
+  type ContractArtifact,
+  type FunctionArtifact,
+  type FunctionCall,
+  getInitializer,
+} from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
   type ContractInstanceWithAddress,
@@ -7,7 +11,9 @@ import {
   getContractClassFromArtifact,
   getContractInstanceFromDeployParams,
 } from '@aztec/circuits.js/contract';
+import type { GasSettings } from '@aztec/circuits.js/gas';
 import { type PublicKeys } from '@aztec/circuits.js/keys';
+import { type Capsule, type TxExecutionRequest } from '@aztec/circuits.js/tx';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { type Wallet } from '../account/index.js';
@@ -252,7 +258,9 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * Estimates gas cost for this deployment operation.
    * @param options - Options.
    */
-  public override estimateGas(options?: Omit<DeployOptions, 'estimateGas' | 'skipPublicSimulation'>) {
+  public override estimateGas(
+    options?: Omit<DeployOptions, 'estimateGas' | 'skipPublicSimulation'>,
+  ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
     return super.estimateGas(options);
   }
 

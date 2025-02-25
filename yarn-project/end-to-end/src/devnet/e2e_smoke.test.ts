@@ -13,7 +13,7 @@ import {
   retryUntil,
 } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
-import { PXESchema } from '@aztec/circuit-types/interfaces/client';
+import { PXESchema } from '@aztec/circuits.js/interfaces/client';
 import { deriveSigningKey } from '@aztec/circuits.js/keys';
 import { createNamespacedSafeJsonRpcServer, startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
 import { type Logger } from '@aztec/foundation/log';

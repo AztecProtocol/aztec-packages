@@ -10,7 +10,6 @@ import {
   TxHash,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import { AuthWitness } from '@aztec/circuit-types/auth-witness';
 import { type MerkleTreeReadOperations, type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import {
   type ContractArtifact,
@@ -19,6 +18,7 @@ import {
   type NoteSelector,
   countArgumentsSize,
 } from '@aztec/circuits.js/abi';
+import { AuthWitness } from '@aztec/circuits.js/auth-witness';
 import { PublicDataWrite } from '@aztec/circuits.js/avm';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type ContractInstance, type ContractInstanceWithAddress } from '@aztec/circuits.js/contract';

@@ -1,4 +1,4 @@
-import { type AztecNode } from '@aztec/circuit-types/interfaces/client';
+import { type AztecNode } from '@aztec/circuits.js/interfaces/client';
 import { type KeyStore } from '@aztec/key-store';
 import { AcirSimulator, type SimulationProvider } from '@aztec/simulator/client';
 

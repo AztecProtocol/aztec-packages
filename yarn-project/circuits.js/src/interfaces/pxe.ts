@@ -26,8 +26,8 @@ import {
 } from '../contract/index.js';
 import { GasFees } from '../gas/gas_fees.js';
 import { type LogFilter, LogFilterSchema } from '../logs/log_filter.js';
-import { UniqueNote } from '../notes/extended_note.js';
-import { type NotesFilter, NotesFilterSchema } from '../notes/notes_filter.js';
+import { UniqueNote } from '../note/extended_note.js';
+import { type NotesFilter, NotesFilterSchema } from '../note/notes_filter.js';
 import { AbiDecodedSchema, optional, schemas } from '../schemas/schemas.js';
 import {
   PrivateExecutionResult,

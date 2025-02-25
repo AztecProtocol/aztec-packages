@@ -6,14 +6,13 @@ import { type FieldsOf } from '@aztec/foundation/types';
 import { z } from 'zod';
 
 import { NoteSelector } from '../abi/note_selector.js';
-import { sortByCounter } from '../kernel/index.js';
 import { PrivateCircuitPublicInputs } from '../kernel/private_circuit_public_inputs.js';
 import type { IsEmpty } from '../kernel/utils/interfaces.js';
+import { sortByCounter } from '../kernel/utils/order_and_comparison.js';
 import { UnencryptedFunctionL2Logs } from '../logs/function_l2_logs.js';
-import { Note } from '../logs/index.js';
 import { UnencryptedL2Log } from '../logs/unencrypted_l2_log.js';
-import { schemas } from '../schemas/index.js';
-import { type ZodFor, mapSchema } from '../schemas/index.js';
+import { Note } from '../note/note.js';
+import { type ZodFor, mapSchema, schemas } from '../schemas/index.js';
 import { PublicExecutionRequest } from './public_execution_request.js';
 
 /**

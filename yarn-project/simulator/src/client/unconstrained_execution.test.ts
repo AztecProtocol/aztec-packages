@@ -1,8 +1,8 @@
 import { type FunctionCall, Note, type TxScopedL2Log } from '@aztec/circuit-types';
-import { type AztecNode } from '@aztec/circuit-types/interfaces/client';
 import { FunctionSelector, FunctionType, encodeArguments } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { CompleteAddress, type ContractInstance } from '@aztec/circuits.js/contract';
+import { type AztecNode } from '@aztec/circuits.js/interfaces/client';
 import { BlockHeader } from '@aztec/circuits.js/tx';
 import { Fr } from '@aztec/foundation/fields';
 import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';

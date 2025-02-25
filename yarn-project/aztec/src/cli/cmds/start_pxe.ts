@@ -6,7 +6,7 @@ import {
   PublicKeys,
   getContractClassFromArtifact,
 } from '@aztec/aztec.js';
-import { type AztecNode, PXESchema, createAztecNodeClient } from '@aztec/circuit-types/interfaces/client';
+import { type AztecNode, PXESchema, createAztecNodeClient } from '@aztec/circuits.js/interfaces/client';
 import { L2BasicContractsMap, Network } from '@aztec/circuits.js/network';
 import { getContractArtifact } from '@aztec/cli/cli-utils';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';

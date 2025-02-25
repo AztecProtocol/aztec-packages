@@ -39,6 +39,8 @@ export { Fq, Fr, Point, GrumpkinScalar } from '@aztec/foundation/fields';
 
 export { SiblingPath } from '@aztec/foundation/trees';
 
+export { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+
 export {
   type PartialAddress,
   type ContractClassWithId,
@@ -47,56 +49,41 @@ export {
   getContractInstanceFromDeployParams,
   type NodeInfo,
 } from '@aztec/circuits.js/contract';
-
 export { MerkleTreeId, merkleTreeIds } from '@aztec/circuits.js/trees';
-
-export { GlobalVariables } from '@aztec/circuits.js/tx';
-
 export { type PublicKey, PublicKeys } from '@aztec/circuits.js/keys';
-
-export { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
-
 export { computeSecretHash } from '@aztec/circuits.js/hash';
-
 export {
   computeAppNullifierSecretKey,
   deriveKeys,
   deriveMasterIncomingViewingSecretKey,
   deriveMasterNullifierSecretKey,
 } from '@aztec/circuits.js/keys';
-
-export { AuthWitness } from '@aztec/circuit-types/auth-witness';
-
+export { AuthWitness } from '@aztec/circuits.js/auth-witness';
+export { getTimestampRangeForEpoch } from '@aztec/circuits.js/epoch-helpers';
+export { FunctionCall } from '@aztec/circuits.js/abi';
 export {
-  Body,
-  Capsule,
-  Comparator,
-  ContractClass2BlockL2Logs,
-  EncryptedLogPayload,
-  EventMetadata,
-  ExtendedNote,
-  FunctionCall,
-  getTimestampRangeForEpoch,
-  HashedValues,
-  L1Actor,
-  L1EventPayload,
-  L1NotePayload,
-  L1ToL2Message,
-  L2Actor,
-  L2Block,
-  LogId,
-  Note,
   Tx,
   TxExecutionRequest,
   TxHash,
   TxReceipt,
   TxStatus,
+  Capsule,
+  HashedValues,
+  GlobalVariables,
+} from '@aztec/circuits.js/tx';
+export { Body, L2Block } from '@aztec/circuits.js/block';
+export {
+  L1NotePayload,
+  LogId,
   UnencryptedL2Log,
-  UniqueNote,
+  ContractClass2BlockL2Logs,
   type LogFilter,
-} from '@aztec/circuit-types';
-
-export { type PXE, EventType } from '@aztec/circuit-types/interfaces/client';
+  EncryptedLogPayload,
+} from '@aztec/circuits.js/logs';
+export { L1EventPayload, EventMetadata } from '@aztec/circuits.js/event';
+export { L1ToL2Message, L2Actor } from '@aztec/circuits.js/messaging';
+export { UniqueNote, ExtendedNote, Comparator, Note } from '@aztec/circuits.js/note';
+export { type PXE, EventType } from '@aztec/circuits.js/interfaces/client';
 
 // TODO: These kinds of things have no place on our public api.
 // External devs will almost certainly have their own methods of doing these things.

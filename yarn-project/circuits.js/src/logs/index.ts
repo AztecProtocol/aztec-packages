@@ -2,7 +2,6 @@ export * from './log_with_tx_data.js';
 export * from './indexed_tagging_secret.js';
 export * from './public_log.js';
 export * from './private_log.js';
-export * from './event_metadata.js';
 export * from './function_l2_logs.js';
 export * from './l2_block_l2_logs.js';
 export * from './log_id.js';

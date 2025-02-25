@@ -15,7 +15,6 @@ import {
   TxScopedL2Log,
   type TxValidationResult,
 } from '@aztec/circuit-types';
-import { type AztecNode, type L2BlockNumber } from '@aztec/circuit-types/interfaces/client';
 import {
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
@@ -32,6 +31,7 @@ import {
 } from '@aztec/circuits.js/contract';
 import type { GasFees } from '@aztec/circuits.js/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { type AztecNode, type L2BlockNumber } from '@aztec/circuits.js/interfaces/client';
 import type { PrivateLog, PublicLog } from '@aztec/circuits.js/logs';
 import {
   MerkleTreeId,

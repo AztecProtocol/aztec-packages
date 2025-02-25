@@ -3,7 +3,7 @@ import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 
 import times from 'lodash.times';
 
-import { Event, Note } from './payload.js';
+import { Note } from './note.js';
 
 describe('note', () => {
   let note: Note;
@@ -18,14 +18,5 @@ describe('note', () => {
 
   it('converts to and from json', async () => {
     expect(await jsonParseWithSchema(jsonStringify(note), Note.schema)).toEqual(note);
-  });
-});
-
-describe('event', () => {
-  it('convert to and from buffer', () => {
-    const fields = Array.from({ length: 5 }).map(() => Fr.random());
-    const note = new Event(fields);
-    const buf = note.toBuffer();
-    expect(Event.fromBuffer(buf)).toEqual(note);
   });
 });

@@ -2,7 +2,7 @@ import {
   type PrivateCallExecutionResult,
   type PrivateKernelSimulateOutput,
   collectNested,
-} from '@aztec/circuit-types/interfaces/client';
+} from '@aztec/circuits.js/interfaces/client';
 import {
   KeyValidationHint,
   type PrivateCircuitPublicInputs,

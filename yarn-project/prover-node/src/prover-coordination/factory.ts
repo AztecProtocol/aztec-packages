@@ -1,8 +1,8 @@
 import { type ArchiveSource, type Archiver } from '@aztec/archiver';
 import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { P2PClientType, getComponentsVersionsFromConfig } from '@aztec/circuit-types';
-import { createAztecNodeClient } from '@aztec/circuit-types/interfaces/client';
 import { type ProverCoordination, type WorldStateSynchronizer } from '@aztec/circuit-types/interfaces/server';
+import { createAztecNodeClient } from '@aztec/circuits.js/interfaces/client';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { createLogger } from '@aztec/foundation/log';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
