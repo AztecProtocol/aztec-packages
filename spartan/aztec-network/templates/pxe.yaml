@@ -26,6 +26,8 @@ spec:
       serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
+      {{- else }}
+      dnsPolicy: ClusterFirst
       {{- end }}
       volumes:
         - name: config

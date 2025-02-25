@@ -48,7 +48,6 @@ proverAgent:
     requests:
       memory: "5Gi"
       cpu: "1.5"
-      ephemeral-storage: "275Gi"
   maxOldSpaceSize: "4608"
 
 proverBroker:
