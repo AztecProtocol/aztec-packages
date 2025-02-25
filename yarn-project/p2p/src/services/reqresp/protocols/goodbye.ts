@@ -18,10 +18,12 @@ export enum GoodByeReason {
   LOW_SCORE = 0x3,
   /** The peer has been banned, will be received whenever a peer is banned */
   BANNED = 0x4,
+  /** The max peer count has been reached, will be received whenever a low scoring peer is disconnected to satisfy the max peer count */
+  MAX_PEERS = 0x5,
   /** Wrong network / fork */
-  WRONG_NETWORK = 0x5,
+  WRONG_NETWORK = 0x6,
   /** Unknown reason */
-  UNKNOWN = 0x6,
+  UNKNOWN = 0x7,
 }
 
 export function encodeGoodbyeReason(reason: GoodByeReason): Buffer {
@@ -54,6 +56,8 @@ export function prettyGoodbyeReason(reason: GoodByeReason): string {
       return 'low_score';
     case GoodByeReason.BANNED:
       return 'banned';
+    case GoodByeReason.MAX_PEERS:
+      return 'max_peers';
     // TODO(#11328): implement
     case GoodByeReason.WRONG_NETWORK:
       return 'wrong_network';

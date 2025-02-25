@@ -338,6 +338,71 @@ describe('PeerManager', () => {
       expect(mockLibP2PNode.hangUp).toHaveBeenCalledTimes(2);
     });
 
+    it('should disconnect from low scoring peers above the max peer limit during heartbeat', async () => {
+      // Set the maxPeerCount to 3 in the mock peer manager
+      peerManager = new PeerManager(
+        mockLibP2PNode,
+        mockPeerDiscoveryService,
+        {
+          ...getP2PDefaultConfig(),
+          maxPeerCount: 3,
+        },
+        getTelemetryClient(),
+        createLogger('test'),
+        peerScoring,
+        mockReqResp,
+      );
+
+      const peerId1 = await createSecp256k1PeerId();
+      const peerId2 = await createSecp256k1PeerId();
+      const peerId3 = await createSecp256k1PeerId();
+      const lowScoringPeerId1 = await createSecp256k1PeerId();
+      const lowScoringPeerId2 = await createSecp256k1PeerId();
+
+      // Mock the connections to return our test peers
+      mockLibP2PNode.getConnections.mockReturnValue([
+        { remotePeer: lowScoringPeerId1 },
+        { remotePeer: peerId1 },
+        { remotePeer: peerId2 },
+        { remotePeer: lowScoringPeerId2 },
+        { remotePeer: peerId3 },
+      ]);
+
+      // Set the peer scores to trigger different states
+      peerManager.penalizePeer(lowScoringPeerId1, PeerErrorSeverity.MidToleranceError);
+      peerManager.penalizePeer(lowScoringPeerId2, PeerErrorSeverity.HighToleranceError);
+      peerManager.penalizePeer(lowScoringPeerId2, PeerErrorSeverity.HighToleranceError);
+      peerManager.penalizePeer(peerId1, PeerErrorSeverity.HighToleranceError);
+
+      // Trigger heartbeat which should remove low scoring peers to satisfy max peer limit
+      peerManager.heartbeat();
+
+      await sleep(100);
+
+      // Verify that hangUp and a goodbye was sent for low scoring peers to satisfy max peer limit
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(lowScoringPeerId1);
+      expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledWith(
+        lowScoringPeerId1,
+        ReqRespSubProtocol.GOODBYE,
+        Buffer.from([GoodByeReason.MAX_PEERS]),
+      );
+
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(lowScoringPeerId2);
+      expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledWith(
+        lowScoringPeerId2,
+        ReqRespSubProtocol.GOODBYE,
+        Buffer.from([GoodByeReason.MAX_PEERS]),
+      );
+
+      // Verify that hangUp was not called for connected peers
+      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(peerId1);
+      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(peerId2);
+      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(peerId3);
+
+      // Verify hangUp was called exactly twice (once for each purged peer to satisfy max peer limit)
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledTimes(2);
+    });
+
     it('should disconnect from duplicate peers during heartbeat', async () => {
       // Create a peer that will have duplicate connections
       const peerId = await createSecp256k1PeerId();

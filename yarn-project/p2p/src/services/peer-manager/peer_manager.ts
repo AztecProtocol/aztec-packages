@@ -190,8 +190,7 @@ export class PeerManager {
   private discover() {
     const connections = this.libP2PNode.getConnections();
 
-    const uniqueConnections = this.pruneDuplicatePeers(connections);
-    const healthyConnections = this.pruneUnhealthyPeers(uniqueConnections);
+    const healthyConnections = this.prioritizePeers(this.pruneUnhealthyPeers(this.pruneDuplicatePeers(connections)));
 
     // Calculate how many connections we're looking to make
     const peersToConnect = this.config.maxPeerCount - healthyConnections.length;
@@ -267,6 +266,31 @@ export class PeerManager {
     }
 
     return connectedHealthyPeers;
+  }
+
+  /**
+   * If the max peer count is reached, the lowest scoring peers will be pruned to satisfy the max peer count.
+   *
+   * @param connections - The list of connections to prune low scoring peers above the max peer count from.
+   * @returns The pruned list of connections.
+   */
+  private prioritizePeers(connections: Connection[]): Connection[] {
+    if (connections.length > this.config.maxPeerCount) {
+      // Sort the peer scores from highest to lowest
+      const prioritizedConnections = connections.sort((connectionA, connectionB) => {
+        const connectionScoreA = this.peerScoring.getScore(connectionA.remotePeer.toString());
+        const connectionScoreB = this.peerScoring.getScore(connectionB.remotePeer.toString());
+        return connectionScoreB - connectionScoreA;
+      });
+
+      // Disconnect from the lowest scoring connections.
+      for (const conn of prioritizedConnections.slice(this.config.maxPeerCount)) {
+        void this.goodbyeAndDisconnectPeer(conn.remotePeer, GoodByeReason.MAX_PEERS);
+      }
+      return prioritizedConnections.slice(0, this.config.maxPeerCount);
+    } else {
+      return connections;
+    }
   }
 
   /**
