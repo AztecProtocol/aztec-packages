@@ -1,4 +1,3 @@
-import { Tx } from '@aztec/circuit-types';
 import { type ChainConfig } from '@aztec/circuit-types/config';
 import { mockTx } from '@aztec/circuit-types/testing';
 import { ClientIvcProof } from '@aztec/circuits.js/proofs';
