@@ -1,7 +1,6 @@
-use bigint::{BigNum, fields::bls12_381Fr::BLS12_381_Fr_Params};
+// use bigint::{BigNum, fields::bls12_381Fr::BLS12_381_Fr_Params};
+use bigint::{BigNum, BLS12_381_Fr as F};
 use types::constants::FIELDS_PER_BLOB;
-
-pub type F = BigNum<3, 255, BLS12_381_Fr_Params>;
 
 // TODO(#9982): Delete unconstrained_config.nr and go back to using this file - calculating ROOTS in unconstrained is insecure.
 

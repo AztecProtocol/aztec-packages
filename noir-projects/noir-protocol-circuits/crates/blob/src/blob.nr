@@ -1,9 +1,9 @@
 use crate::{
     blob_public_inputs::{BlobCommitment, BlobPublicInputs, BlockBlobPublicInputs},
-    config::{D_INV, F, LOG_FIELDS_PER_BLOB, ROOTS},
+    config::{D_INV, LOG_FIELDS_PER_BLOB, ROOTS},
 };
 
-use bigint::BigNumTrait;
+use bigint::{BigNumTrait, BLS12_381_Fr as F};
 use std::ops::{Mul, Neg};
 use types::{
     abis::sponge_blob::SpongeBlob,
@@ -410,10 +410,13 @@ mod tests {
             barycentric_evaluate_blob_at_z, check_block_blob_sponge, evaluate_blob, evaluate_blobs,
         },
         blob_public_inputs::BlobCommitment,
-        config::{D, D_INV, F, ROOTS},
+        config::{D, D_INV, ROOTS},
     };
     use super::{__compute_partial_sums, __compute_sum};
-    use bigint::{BigNumTrait, fields::bls12_381Fr::BLS12_381_Fr_Params, params::BigNumParamsGetter};
+    use bigint::{
+        BigNumTrait, BLS12_381_Fr as F, fields::bls12_381Fr::BLS12_381_Fr_Params,
+        params::BigNumParamsGetter,
+    };
     use types::{
         abis::sponge_blob::SpongeBlob,
         constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
