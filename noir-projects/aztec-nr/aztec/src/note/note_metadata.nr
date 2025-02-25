@@ -37,7 +37,7 @@ global NoteStage: NoteStageEnum =
 /// The metadata required to both prove a note's existence and destroy it, by computing the correct note hash for kernel
 /// read requests, as well as the correct nullifier to avoid double-spends.
 ///
-/// This represents a note in any of the tree valid stages (pending same phase, pending previous phase, or settled). In
+/// This represents a note in any of the three valid stages (pending same phase, pending previous phase, or settled). In
 /// order to access the underlying fields callers must first find the appropriate stage (e.g. via `is_settled()`) and
 /// then convert this into the appropriate type (e.g. via `to_settled()`).
 #[derive(Eq, Serialize)]
