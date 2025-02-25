@@ -63,7 +63,7 @@ describe('e2e_cheat_codes', () => {
       const timestamp = await cc.eth.timestamp();
       const pastTimestamp = timestamp - 1000;
       await expect(async () => await cc.eth.setNextBlockTimestamp(pastTimestamp)).rejects.toThrow(
-        `Error setting next block timestamp: Timestamp error: ${pastTimestamp} is lower than or equal to previous block's timestamp`,
+        new RegExp(`Details: Timestamp error: ${pastTimestamp} is lower than or equal to previous block's timestamp`),
       );
     });
 

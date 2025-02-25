@@ -197,8 +197,8 @@ export class EthCheatCodes {
   public async setNextBlockTimestamp(timestamp: number): Promise<void> {
     try {
       await this.rpcCall('evm_setNextBlockTimestamp', [timestamp]);
-    } catch (err) {
-      throw new Error(`Error setting next block timestamp: ${err}`);
+    } catch (err: any) {
+      throw new Error(`Error setting next block timestamp: ${err.message}`);
     }
     this.logger.warn(`Set L1 next block timestamp to ${timestamp}`);
   }
