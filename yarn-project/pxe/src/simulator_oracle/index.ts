@@ -1,17 +1,6 @@
 import {
-  type FunctionCall,
-  type InBlock,
-  L1NotePayload,
-  type L2Block,
-  Note,
-  type NoteStatus,
-  type PublicDataWitness,
-  TxHash,
-  type TxScopedL2Log,
-  getNonNullifiedL1ToL2MessageWitness,
-} from '@aztec/circuits.js';
-import {
   type FunctionArtifact,
+  FunctionCall,
   FunctionSelector,
   FunctionType,
   NoteSelector,
@@ -19,14 +8,25 @@ import {
   getFunctionArtifact,
 } from '@aztec/circuits.js/abi';
 import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { InBlock, L2Block, L2BlockNumber } from '@aztec/circuits.js/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/circuits.js/contract';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
-import { type AztecNode, type L2BlockNumber } from '@aztec/circuits.js/interfaces/client';
+import { type AztecNode } from '@aztec/circuits.js/interfaces/client';
 import type { KeyValidationRequest } from '@aztec/circuits.js/kernel';
 import { computeAddressSecret, computeTaggingSecretPoint } from '@aztec/circuits.js/keys';
-import { IndexedTaggingSecret, LogWithTxData, PrivateLog, PublicLog } from '@aztec/circuits.js/logs';
-import { MerkleTreeId, type NullifierMembershipWitness } from '@aztec/circuits.js/trees';
+import {
+  IndexedTaggingSecret,
+  L1NotePayload,
+  LogWithTxData,
+  PrivateLog,
+  PublicLog,
+  TxScopedL2Log,
+} from '@aztec/circuits.js/logs';
+import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/circuits.js/messaging';
+import { Note, type NoteStatus } from '@aztec/circuits.js/note';
+import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/circuits.js/trees';
 import type { BlockHeader } from '@aztec/circuits.js/tx';
+import { TxHash } from '@aztec/circuits.js/tx';
 import {
   type L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_NOTE_HASHES_PER_TX,

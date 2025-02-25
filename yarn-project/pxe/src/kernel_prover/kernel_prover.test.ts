@@ -1,12 +1,6 @@
-import { Note, PublicExecutionRequest } from '@aztec/circuits.js';
 import { FunctionSelector, NoteSelector } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import {
-  NoteAndSlot,
-  PrivateCallExecutionResult,
-  PrivateExecutionResult,
-  type PrivateKernelProver,
-} from '@aztec/circuits.js/interfaces/client';
+import { type PrivateKernelProver } from '@aztec/circuits.js/interfaces/client';
 import {
   NoteHash,
   PrivateCircuitPublicInputs,
@@ -15,8 +9,15 @@ import {
   ScopedNoteHash,
 } from '@aztec/circuits.js/kernel';
 import { PublicKeys } from '@aztec/circuits.js/keys';
+import { Note } from '@aztec/circuits.js/note';
 import { makeTxRequest } from '@aztec/circuits.js/testing';
-import type { TxRequest } from '@aztec/circuits.js/tx';
+import {
+  NoteAndSlot,
+  PrivateCallExecutionResult,
+  PrivateExecutionResult,
+  PublicExecutionRequest,
+  type TxRequest,
+} from '@aztec/circuits.js/tx';
 import { VerificationKey, VerificationKeyAsFields } from '@aztec/circuits.js/vks';
 import {
   CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,

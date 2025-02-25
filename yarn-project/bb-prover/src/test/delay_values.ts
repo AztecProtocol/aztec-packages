@@ -1,4 +1,4 @@
-import { ProvingRequestType } from '@aztec/circuits.js/interfaces/server';
+import { ProvingRequestType } from '@aztec/circuits.js/proofs';
 
 export const WITGEN_DELAY_MS: Record<ProvingRequestType, number> = {
   [ProvingRequestType.BASE_PARITY]: 60,

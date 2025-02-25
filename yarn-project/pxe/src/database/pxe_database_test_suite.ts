@@ -1,8 +1,8 @@
-import { NoteStatus, type NotesFilter } from '@aztec/circuits.js';
 import { FunctionType } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { CompleteAddress, SerializableContractInstance } from '@aztec/circuits.js/contract';
 import { PublicKeys } from '@aztec/circuits.js/keys';
+import { NoteStatus, type NotesFilter } from '@aztec/circuits.js/note';
 import { makeHeader, randomTxHash } from '@aztec/circuits.js/testing';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';

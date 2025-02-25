@@ -1,9 +1,10 @@
-import { type InBlock, type NotesFilter } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type InBlock } from '@aztec/circuits.js/block';
 import type { CompleteAddress, ContractInstanceWithAddress } from '@aztec/circuits.js/contract';
 import type { PublicKey } from '@aztec/circuits.js/keys';
 import type { IndexedTaggingSecret } from '@aztec/circuits.js/logs';
+import type { NotesFilter } from '@aztec/circuits.js/note';
 import { type BlockHeader } from '@aztec/circuits.js/tx';
 import { type Fr } from '@aztec/foundation/fields';
 

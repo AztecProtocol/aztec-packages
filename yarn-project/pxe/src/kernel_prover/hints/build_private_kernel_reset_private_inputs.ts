@@ -1,9 +1,4 @@
 import {
-  type PrivateCallExecutionResult,
-  type PrivateKernelSimulateOutput,
-  collectNested,
-} from '@aztec/circuits.js/interfaces/client';
-import {
   KeyValidationHint,
   type PrivateCircuitPublicInputs,
   type PrivateKernelCircuitPublicInputs,
@@ -11,6 +6,7 @@ import {
   PrivateKernelResetCircuitPrivateInputs,
   PrivateKernelResetDimensions,
   PrivateKernelResetHints,
+  type PrivateKernelSimulateOutput,
   type ReadRequest,
   ReadRequestResetStates,
   ReadRequestState,
@@ -29,6 +25,7 @@ import {
   getNullifierReadRequestResetStates,
   privateKernelResetDimensionNames,
 } from '@aztec/circuits.js/kernel';
+import { type PrivateCallExecutionResult, collectNested } from '@aztec/circuits.js/tx';
 import {
   MAX_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,

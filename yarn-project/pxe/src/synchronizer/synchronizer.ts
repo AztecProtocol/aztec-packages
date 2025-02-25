@@ -1,4 +1,4 @@
-import { L2BlockStream, type L2BlockStreamEvent, type L2BlockStreamEventHandler } from '@aztec/circuits.js';
+import { L2BlockStream, type L2BlockStreamEvent, type L2BlockStreamEventHandler } from '@aztec/circuits.js/block';
 import { type AztecNode } from '@aztec/circuits.js/interfaces/client';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { type Logger, createLogger } from '@aztec/foundation/log';

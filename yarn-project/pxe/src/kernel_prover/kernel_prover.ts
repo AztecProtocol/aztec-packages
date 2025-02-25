@@ -1,23 +1,14 @@
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { computeContractAddressFromInstance } from '@aztec/circuits.js/contract';
 import { hashVK } from '@aztec/circuits.js/hash';
-import {
-  type PrivateCallExecutionResult,
-  type PrivateExecutionResult,
-  type PrivateKernelProver,
-  type PrivateKernelSimulateOutput,
-  collectEnqueuedPublicFunctionCalls,
-  collectNoteHashLeafIndexMap,
-  collectNoteHashNullifierCounterMap,
-  collectPublicTeardownFunctionCall,
-  getFinalMinRevertibleSideEffectCounter,
-} from '@aztec/circuits.js/interfaces/client';
+import type { PrivateKernelProver } from '@aztec/circuits.js/interfaces/client';
 import {
   PrivateCallData,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelData,
   PrivateKernelInitCircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
+  type PrivateKernelSimulateOutput,
   PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
   PrivateVerificationKeyHints,
@@ -25,6 +16,15 @@ import {
 } from '@aztec/circuits.js/kernel';
 import type { PrivateLog } from '@aztec/circuits.js/logs';
 import { ClientIvcProof } from '@aztec/circuits.js/proofs';
+import {
+  type PrivateCallExecutionResult,
+  type PrivateExecutionResult,
+  collectEnqueuedPublicFunctionCalls,
+  collectNoteHashLeafIndexMap,
+  collectNoteHashNullifierCounterMap,
+  collectPublicTeardownFunctionCall,
+  getFinalMinRevertibleSideEffectCounter,
+} from '@aztec/circuits.js/tx';
 import type { TxRequest } from '@aztec/circuits.js/tx';
 import { VerificationKeyAsFields } from '@aztec/circuits.js/vks';
 import { CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, VK_TREE_HEIGHT } from '@aztec/constants';

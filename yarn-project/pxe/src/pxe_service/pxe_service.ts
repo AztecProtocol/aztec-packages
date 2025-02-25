@@ -1,30 +1,8 @@
 import {
-  EventMetadata,
-  type FunctionCall,
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  type InBlock,
-  L1EventPayload,
-  type L2Block,
-  type LogFilter,
-  type NotesFilter,
-  PrivateSimulationResult,
-  type PublicSimulationOutput,
-  SimulationError,
-  type Tx,
-  type TxEffect,
-  type TxExecutionRequest,
-  type TxHash,
-  TxProvingResult,
-  type TxReceipt,
-  TxSimulationResult,
-  UniqueNote,
-  getNonNullifiedL1ToL2MessageWitness,
-} from '@aztec/circuits.js';
-import {
   type AbiDecoded,
   type ContractArtifact,
   EventSelector,
+  FunctionCall,
   FunctionSelector,
   FunctionType,
   decodeFunctionSignature,
@@ -32,6 +10,7 @@ import {
 } from '@aztec/circuits.js/abi';
 import { type AuthWitness } from '@aztec/circuits.js/auth-witness';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { InBlock, L2Block } from '@aztec/circuits.js/block';
 import type {
   CompleteAddress,
   ContractClassWithId,
@@ -40,19 +19,36 @@ import type {
   PartialAddress,
 } from '@aztec/circuits.js/contract';
 import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/circuits.js/contract';
+import { SimulationError } from '@aztec/circuits.js/errors';
+import { EventMetadata, L1EventPayload } from '@aztec/circuits.js/event';
 import type { GasFees } from '@aztec/circuits.js/gas';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import {
   type AztecNode,
   type EventMetadataDefinition,
+  type GetContractClassLogsResponse,
+  type GetPublicLogsResponse,
   type PXE,
   type PXEInfo,
-  type PrivateExecutionResult,
   type PrivateKernelProver,
-  type PrivateKernelSimulateOutput,
 } from '@aztec/circuits.js/interfaces/client';
-import { PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
+import { type PrivateKernelSimulateOutput, PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
 import { computeAddressSecret } from '@aztec/circuits.js/keys';
+import type { LogFilter } from '@aztec/circuits.js/logs';
+import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/circuits.js/messaging';
+import { type NotesFilter, UniqueNote } from '@aztec/circuits.js/note';
+import {
+  PrivateExecutionResult,
+  PrivateSimulationResult,
+  type PublicSimulationOutput,
+  type Tx,
+  type TxEffect,
+  type TxExecutionRequest,
+  type TxHash,
+  TxProvingResult,
+  type TxReceipt,
+  TxSimulationResult,
+} from '@aztec/circuits.js/tx';
 import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { Fr, type Point } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';

@@ -1,7 +1,7 @@
-import { Tx } from '@aztec/circuits.js';
 import { type ClientProtocolCircuitVerifier } from '@aztec/circuits.js/interfaces/server';
 import { type Proof } from '@aztec/circuits.js/proofs';
 import { type CircuitVerificationStats } from '@aztec/circuits.js/stats';
+import { Tx } from '@aztec/circuits.js/tx';
 import { type VerificationKeyData } from '@aztec/circuits.js/vks';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { type Logger, createLogger } from '@aztec/foundation/log';

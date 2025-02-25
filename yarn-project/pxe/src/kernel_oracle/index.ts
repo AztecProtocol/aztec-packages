@@ -1,10 +1,12 @@
 import type { FunctionSelector } from '@aztec/circuits.js/abi';
 import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { L2BlockNumber } from '@aztec/circuits.js/block';
 import { computeContractClassIdPreimage, computeSaltedInitializationHash } from '@aztec/circuits.js/contract';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { type AztecNode, type L2BlockNumber } from '@aztec/circuits.js/interfaces/client';
+import { type AztecNode } from '@aztec/circuits.js/interfaces/client';
 import { UpdatedClassIdHints } from '@aztec/circuits.js/kernel';
 import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/circuits.js/shared-mutable';
+import type { NullifierMembershipWitness } from '@aztec/circuits.js/trees';
 import type { VerificationKeyAsFields } from '@aztec/circuits.js/vks';
 import { type NOTE_HASH_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, VK_TREE_HEIGHT } from '@aztec/constants';
 import type { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
@@ -63,7 +65,7 @@ export class KernelOracle implements ProvingDataOracle {
     );
   }
 
-  getNullifierMembershipWitness(nullifier: Fr) {
+  getNullifierMembershipWitness(nullifier: Fr): Promise<NullifierMembershipWitness | undefined> {
     return this.node.getNullifierMembershipWitness(this.blockNumber, nullifier);
   }
 
