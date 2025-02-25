@@ -24,10 +24,10 @@
   "dependencies": {
     "@aztec/archiver": "workspace:^",
     "@aztec/bb-prover": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "viem": "2.22.8"
   },

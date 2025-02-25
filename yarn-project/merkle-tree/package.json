@@ -56,9 +56,9 @@
     ]
   },
   "dependencies": {
-    "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "sha256": "^0.2.0",
     "tslib": "^2.4.0"
   },

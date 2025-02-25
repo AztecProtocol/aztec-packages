@@ -5,7 +5,7 @@ import {
   type L2BlockStreamLocalDataProvider,
   type L2BlockTag,
   type L2Tips,
-} from '@aztec/circuits.js/block';
+} from '@aztec/stdlib/block';
 
 import { type AztecAsyncMap } from '../interfaces/map.js';
 import { type AztecAsyncKVStore } from '../interfaces/store.js';

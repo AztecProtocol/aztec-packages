@@ -23,9 +23,9 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@aztec/circuits.js@link:../yarn-project/circuits.js::locator=playground%40workspace%3A.":
+"@aztec/stdlib@link:../yarn-project/stdlib::locator=playground%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/circuits.js@link:../yarn-project/circuits.js::locator=playground%40workspace%3A."
+  resolution: "@aztec/stdlib@link:../yarn-project/stdlib::locator=playground%40workspace%3A."
   languageName: node
   linkType: soft
 
@@ -3747,7 +3747,7 @@ __metadata:
     "@aztec/accounts": "link:../yarn-project/accounts"
     "@aztec/aztec.js": "link:../yarn-project/aztec.js"
     "@aztec/bb-prover": "link:../yarn-project/bb-prover"
-    "@aztec/circuits.js": "link:../yarn-project/circuits.js"
+    "@aztec/stdlib": "link:../yarn-project/stdlib"
     "@aztec/foundation": "link:../yarn-project/foundation"
     "@aztec/key-store": "link:../yarn-project/key-store"
     "@aztec/kv-store": "link:../yarn-project/kv-store"

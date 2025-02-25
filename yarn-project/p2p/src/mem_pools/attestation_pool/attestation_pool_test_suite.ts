@@ -1,7 +1,7 @@
-import { type BlockAttestation } from '@aztec/circuits.js/p2p';
-import { TxHash } from '@aztec/circuits.js/tx';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
+import { type BlockAttestation } from '@aztec/stdlib/p2p';
+import { TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';

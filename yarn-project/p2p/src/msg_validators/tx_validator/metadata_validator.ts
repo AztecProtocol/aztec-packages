@@ -1,6 +1,6 @@
-import { type AnyTx, Tx, type TxValidationResult, type TxValidator } from '@aztec/circuits.js/tx';
 import { type Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
+import { type AnyTx, Tx, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
 
 export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
   #log = createLogger('p2p:tx_validator:tx_metadata');

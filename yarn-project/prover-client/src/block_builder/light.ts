@@ -1,12 +1,12 @@
 import { SpongeBlob } from '@aztec/blob-lib';
-import { L2Block } from '@aztec/circuits.js/block';
-import { type BlockBuilder, type MerkleTreeWriteOperations } from '@aztec/circuits.js/interfaces/server';
-import { MerkleTreeId } from '@aztec/circuits.js/trees';
-import { type GlobalVariables, type ProcessedTx, toNumBlobFields } from '@aztec/circuits.js/tx';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
+import { L2Block } from '@aztec/stdlib/block';
+import { type BlockBuilder, type MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
+import { type GlobalVariables, type ProcessedTx, toNumBlobFields } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import {

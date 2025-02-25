@@ -1,9 +1,17 @@
-import { PublicDataWrite } from '@aztec/circuits.js/avm';
-import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import type { ContractDataSource } from '@aztec/circuits.js/contract';
-import { Gas } from '@aztec/circuits.js/gas';
-import { type MerkleTreeWriteOperations } from '@aztec/circuits.js/interfaces/server';
-import { MerkleTreeId } from '@aztec/circuits.js/trees';
+import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NULLIFIER_SUBTREE_HEIGHT } from '@aztec/constants';
+import { padArrayEnd } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
+import { createLogger } from '@aztec/foundation/log';
+import { type DateProvider, Timer, elapsed, executeTimeout } from '@aztec/foundation/timer';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
+import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
+import { PublicDataWrite } from '@aztec/stdlib/avm';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { Gas } from '@aztec/stdlib/gas';
+import { type MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   type FailedTx,
   GlobalVariables,
@@ -14,15 +22,7 @@ import {
   type TxValidator,
   makeProcessedTxFromPrivateOnlyTx,
   makeProcessedTxFromTxWithPublicCalls,
-} from '@aztec/circuits.js/tx';
-import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NULLIFIER_SUBTREE_HEIGHT } from '@aztec/constants';
-import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
-import { createLogger } from '@aztec/foundation/log';
-import { type DateProvider, Timer, elapsed, executeTimeout } from '@aztec/foundation/timer';
-import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
-import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
+} from '@aztec/stdlib/tx';
 import {
   Attributes,
   type TelemetryClient,

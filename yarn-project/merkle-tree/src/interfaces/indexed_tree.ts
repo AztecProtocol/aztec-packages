@@ -1,5 +1,5 @@
-import { type BatchInsertionResult } from '@aztec/circuits.js/trees';
 import { type IndexedTreeLeaf, type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
+import { type BatchInsertionResult } from '@aztec/stdlib/trees';
 
 import {
   type IndexedTreeSnapshot,

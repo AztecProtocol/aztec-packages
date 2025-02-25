@@ -1,10 +1,10 @@
-import { type ContractArtifact } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type ContractArtifact } from '@aztec/stdlib/abi';
+import { type AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ContractClassIdPreimage,
   type ContractClassWithId,
   type ContractInstanceWithAddress,
-} from '@aztec/circuits.js/contract';
+} from '@aztec/stdlib/contract';
 
 import { ProtocolContractAddress } from './protocol_contract_data.js';
 

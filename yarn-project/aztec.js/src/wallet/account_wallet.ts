@@ -1,10 +1,10 @@
-import { type ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/circuits.js/abi';
-import { type AuthWitness } from '@aztec/circuits.js/auth-witness';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { type PXE } from '@aztec/circuits.js/interfaces/client';
-import { type TxExecutionRequest } from '@aztec/circuits.js/tx';
 import { Fr } from '@aztec/foundation/fields';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { type ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/stdlib/abi';
+import { type AuthWitness } from '@aztec/stdlib/auth-witness';
+import { type AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type PXE } from '@aztec/stdlib/interfaces/client';
+import { type TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import { type AccountInterface } from '../account/interface.js';
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';

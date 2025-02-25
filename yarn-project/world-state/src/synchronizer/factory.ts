@@ -1,7 +1,7 @@
-import { type L2BlockSource } from '@aztec/circuits.js/block';
-import { type L1ToL2MessageSource } from '@aztec/circuits.js/messaging';
-import { type PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
+import { type L2BlockSource } from '@aztec/stdlib/block';
+import { type L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { type PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';

@@ -1,11 +1,11 @@
-import { FunctionSelector } from '@aztec/circuits.js/abi';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { computeVarArgsHash } from '@aztec/circuits.js/hash';
-import { mockTx } from '@aztec/circuits.js/testing';
-import { type Tx } from '@aztec/circuits.js/tx';
 import { MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
+import { FunctionSelector } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { computeVarArgsHash } from '@aztec/stdlib/hash';
+import { mockTx } from '@aztec/stdlib/testing';
+import { type Tx } from '@aztec/stdlib/tx';
 
 import { DataTxValidator } from './data_validator.js';
 

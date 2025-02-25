@@ -4,10 +4,6 @@ import { deployFundedSchnorrAccounts, getInitialTestAccounts } from '@aztec/acco
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { AnvilTestWatcher, EthCheatCodes, SignerlessWallet, type Wallet } from '@aztec/aztec.js';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { type ContractInstanceWithAddress, getContractInstanceFromDeployParams } from '@aztec/circuits.js/contract';
-import { type AztecNode, type PXE } from '@aztec/circuits.js/interfaces/client';
-import { type PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { setupCanonicalL2FeeJuice } from '@aztec/cli/setup-contracts';
 import { GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH } from '@aztec/constants';
 import {
@@ -24,6 +20,10 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type ContractInstanceWithAddress, getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
+import { type AztecNode, type PXE } from '@aztec/stdlib/interfaces/client';
+import { type PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
   type TelemetryClient,
   getConfigEnvVars as getTelemetryClientConfig,

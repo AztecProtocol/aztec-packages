@@ -9,8 +9,6 @@ import {
   createLogger,
   sleep,
 } from '@aztec/aztec.js';
-import { computePartialAddress } from '@aztec/circuits.js/contract';
-import { GasSettings } from '@aztec/circuits.js/gas';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import { createL1Clients } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -22,6 +20,8 @@ import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
+import { computePartialAddress } from '@aztec/stdlib/contract';
+import { GasSettings } from '@aztec/stdlib/gas';
 
 import { getContract } from 'viem';
 

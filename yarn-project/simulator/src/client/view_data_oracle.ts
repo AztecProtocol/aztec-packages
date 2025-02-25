@@ -1,16 +1,16 @@
-import { type AuthWitness } from '@aztec/circuits.js/auth-witness';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import type { CompleteAddress, ContractInstance } from '@aztec/circuits.js/contract';
-import { siloNullifier } from '@aztec/circuits.js/hash';
-import { type AztecNode } from '@aztec/circuits.js/interfaces/client';
-import type { KeyValidationRequest } from '@aztec/circuits.js/kernel';
-import { IndexedTaggingSecret, LogWithTxData } from '@aztec/circuits.js/logs';
-import type { NoteStatus } from '@aztec/circuits.js/note';
-import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/circuits.js/trees';
-import { type BlockHeader, type Capsule } from '@aztec/circuits.js/tx';
 import { Aes128 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
+import { type AuthWitness } from '@aztec/stdlib/auth-witness';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
+import { siloNullifier } from '@aztec/stdlib/hash';
+import { type AztecNode } from '@aztec/stdlib/interfaces/client';
+import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
+import { IndexedTaggingSecret, LogWithTxData } from '@aztec/stdlib/logs';
+import type { NoteStatus } from '@aztec/stdlib/note';
+import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
+import { type BlockHeader, type Capsule } from '@aztec/stdlib/tx';
 
 import { type NoteData, TypedOracle } from '../acvm/index.js';
 import { type DBOracle } from './db_oracle.js';

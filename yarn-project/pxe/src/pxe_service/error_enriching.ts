@@ -1,10 +1,10 @@
-import { FunctionSelector } from '@aztec/circuits.js/abi';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { type SimulationError, isNoirCallStackUnresolved } from '@aztec/circuits.js/errors';
 import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger } from '@aztec/foundation/log';
 import { resolveAssertionMessageFromRevertData, resolveOpcodeLocations } from '@aztec/simulator/client';
+import { FunctionSelector } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type SimulationError, isNoirCallStackUnresolved } from '@aztec/stdlib/errors';
 
 import { type ContractDataOracle, type PxeDatabase } from '../index.js';
 

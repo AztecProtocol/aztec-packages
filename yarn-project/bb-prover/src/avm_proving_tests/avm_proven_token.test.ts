@@ -1,8 +1,8 @@
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { type ContractInstanceWithAddress } from '@aztec/circuits.js/contract';
 import { Fr } from '@aztec/foundation/fields';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { type PublicTxResult } from '@aztec/simulator/server';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 import { jest } from '@jest/globals';
 

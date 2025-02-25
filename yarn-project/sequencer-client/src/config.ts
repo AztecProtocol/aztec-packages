@@ -1,11 +1,3 @@
-import { FunctionSelector } from '@aztec/circuits.js/abi';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import {
-  type AllowedElement,
-  type ChainConfig,
-  type SequencerConfig,
-  chainConfigMappings,
-} from '@aztec/circuits.js/config';
 import {
   type L1ContractsConfig,
   type L1ReaderConfig,
@@ -21,6 +13,9 @@ import {
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { FunctionSelector } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type AllowedElement, type ChainConfig, type SequencerConfig, chainConfigMappings } from '@aztec/stdlib/config';
 
 import {
   type PublisherConfig,

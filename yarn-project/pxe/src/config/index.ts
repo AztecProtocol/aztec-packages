@@ -1,5 +1,3 @@
-import { type ChainConfig, chainConfigMappings } from '@aztec/circuits.js/config';
-import { type Network } from '@aztec/circuits.js/network';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import {
   type ConfigMappingsType,
@@ -9,6 +7,8 @@ import {
   parseBooleanEnv,
 } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
+import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
+import { type Network } from '@aztec/stdlib/network';
 
 /**
  * Temporary configuration until WASM can be used instead of native

@@ -1,6 +1,6 @@
-import { FunctionSelector } from '@aztec/circuits.js/abi';
-import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
 import { Fr } from '@aztec/foundation/fields';
+import { FunctionSelector } from '@aztec/stdlib/abi';
+import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
 
 import { mock } from 'jest-mock-extended';
 

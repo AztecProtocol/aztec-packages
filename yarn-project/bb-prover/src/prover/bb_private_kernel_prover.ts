@@ -1,16 +1,3 @@
-import { type PrivateKernelProver } from '@aztec/circuits.js/interfaces/client';
-import {
-  type PrivateKernelCircuitPublicInputs,
-  type PrivateKernelInitCircuitPrivateInputs,
-  type PrivateKernelInnerCircuitPrivateInputs,
-  type PrivateKernelResetCircuitPrivateInputs,
-  type PrivateKernelSimulateOutput,
-  type PrivateKernelTailCircuitPrivateInputs,
-  type PrivateKernelTailCircuitPublicInputs,
-} from '@aztec/circuits.js/kernel';
-import { type NoirCompiledCircuit } from '@aztec/circuits.js/noir';
-import { type ClientIvcProof } from '@aztec/circuits.js/proofs';
-import { type CircuitSimulationStats, type CircuitWitnessGenerationStats } from '@aztec/circuits.js/stats';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
@@ -30,6 +17,19 @@ import {
 import { type ArtifactProvider, type ClientProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
 import { ClientCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
 import { type SimulationProvider } from '@aztec/simulator/client';
+import { type PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
+import {
+  type PrivateKernelCircuitPublicInputs,
+  type PrivateKernelInitCircuitPrivateInputs,
+  type PrivateKernelInnerCircuitPrivateInputs,
+  type PrivateKernelResetCircuitPrivateInputs,
+  type PrivateKernelSimulateOutput,
+  type PrivateKernelTailCircuitPrivateInputs,
+  type PrivateKernelTailCircuitPublicInputs,
+} from '@aztec/stdlib/kernel';
+import { type NoirCompiledCircuit } from '@aztec/stdlib/noir';
+import { type ClientIvcProof } from '@aztec/stdlib/proofs';
+import { type CircuitSimulationStats, type CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
 
 import { type Abi, type WitnessMap } from '@noir-lang/types';
 

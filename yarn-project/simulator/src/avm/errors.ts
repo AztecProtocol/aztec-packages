@@ -1,6 +1,6 @@
-import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { type FailingFunction, type NoirCallStack } from '@aztec/circuits.js/errors';
 import type { Fr, Point } from '@aztec/foundation/fields';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type FailingFunction, type NoirCallStack } from '@aztec/stdlib/errors';
 
 import { ExecutionError } from '../common/errors.js';
 import { type AvmContext } from './avm_context.js';

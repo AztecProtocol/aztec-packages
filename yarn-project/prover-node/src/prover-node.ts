@@ -1,18 +1,3 @@
-import { type L2Block, type L2BlockSource } from '@aztec/circuits.js/block';
-import { type ContractDataSource } from '@aztec/circuits.js/contract';
-import { getTimestampRangeForEpoch } from '@aztec/circuits.js/epoch-helpers';
-import {
-  type EpochProverManager,
-  EpochProvingJobTerminalState,
-  type ProverCoordination,
-  type ProverNodeApi,
-  type Service,
-  type WorldStateSynchronizer,
-  tryStop,
-} from '@aztec/circuits.js/interfaces/server';
-import type { L1ToL2MessageSource } from '@aztec/circuits.js/messaging';
-import type { P2PClientType } from '@aztec/circuits.js/p2p';
-import type { Tx, TxHash } from '@aztec/circuits.js/tx';
 import { compact } from '@aztec/foundation/collection';
 import { memoize } from '@aztec/foundation/decorators';
 import { createLogger } from '@aztec/foundation/log';
@@ -21,6 +6,21 @@ import { DateProvider } from '@aztec/foundation/timer';
 import { type Maybe } from '@aztec/foundation/types';
 import { type P2P } from '@aztec/p2p';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
+import { type L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import { type ContractDataSource } from '@aztec/stdlib/contract';
+import { getTimestampRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
+import {
+  type EpochProverManager,
+  EpochProvingJobTerminalState,
+  type ProverCoordination,
+  type ProverNodeApi,
+  type Service,
+  type WorldStateSynchronizer,
+  tryStop,
+} from '@aztec/stdlib/interfaces/server';
+import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import type { P2PClientType } from '@aztec/stdlib/p2p';
+import type { Tx, TxHash } from '@aztec/stdlib/tx';
 import {
   Attributes,
   type TelemetryClient,

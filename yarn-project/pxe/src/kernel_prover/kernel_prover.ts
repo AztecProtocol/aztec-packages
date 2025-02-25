@@ -1,7 +1,16 @@
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { computeContractAddressFromInstance } from '@aztec/circuits.js/contract';
-import { hashVK } from '@aztec/circuits.js/hash';
-import type { PrivateKernelProver } from '@aztec/circuits.js/interfaces/client';
+import { CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, VK_TREE_HEIGHT } from '@aztec/constants';
+import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
+import { createLogger } from '@aztec/foundation/log';
+import { assertLength } from '@aztec/foundation/serialize';
+import { pushTestData } from '@aztec/foundation/testing';
+import { Timer } from '@aztec/foundation/timer';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
+import { getProtocolContractLeafAndMembershipWitness, protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { computeContractAddressFromInstance } from '@aztec/stdlib/contract';
+import { hashVK } from '@aztec/stdlib/hash';
+import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 import {
   PrivateCallData,
   PrivateKernelCircuitPublicInputs,
@@ -13,9 +22,9 @@ import {
   type PrivateKernelTailCircuitPublicInputs,
   PrivateVerificationKeyHints,
   type ScopedPrivateLogData,
-} from '@aztec/circuits.js/kernel';
-import type { PrivateLog } from '@aztec/circuits.js/logs';
-import { ClientIvcProof } from '@aztec/circuits.js/proofs';
+} from '@aztec/stdlib/kernel';
+import type { PrivateLog } from '@aztec/stdlib/logs';
+import { ClientIvcProof } from '@aztec/stdlib/proofs';
 import {
   type PrivateCallExecutionResult,
   type PrivateExecutionResult,
@@ -25,17 +34,8 @@ import {
   collectNoteHashNullifierCounterMap,
   collectPublicTeardownFunctionCall,
   getFinalMinRevertibleSideEffectCounter,
-} from '@aztec/circuits.js/tx';
-import { VerificationKeyAsFields } from '@aztec/circuits.js/vks';
-import { CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, VK_TREE_HEIGHT } from '@aztec/constants';
-import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
-import { createLogger } from '@aztec/foundation/log';
-import { assertLength } from '@aztec/foundation/serialize';
-import { pushTestData } from '@aztec/foundation/testing';
-import { Timer } from '@aztec/foundation/timer';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
-import { getProtocolContractLeafAndMembershipWitness, protocolContractTreeRoot } from '@aztec/protocol-contracts';
+} from '@aztec/stdlib/tx';
+import { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
 import { type WitnessMap } from '@noir-lang/types';
 import { strict as assert } from 'assert';

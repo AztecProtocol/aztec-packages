@@ -8,7 +8,7 @@
   "include": ["src"],
   "references": [
     {
-      "path": "../circuits.js"
+      "path": "../stdlib"
     },
     {
       "path": "../ethereum"

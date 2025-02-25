@@ -1,4 +1,8 @@
-import { ProvingError } from '@aztec/circuits.js/errors';
+import { RECURSIVE_PROOF_LENGTH } from '@aztec/constants';
+import { randomBytes } from '@aztec/foundation/crypto';
+import { AbortError } from '@aztec/foundation/error';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { ProvingError } from '@aztec/stdlib/errors';
 import {
   type ProofUri,
   type ProvingJob,
@@ -7,15 +11,11 @@ import {
   type ProvingJobInputs,
   type PublicInputsAndRecursiveProof,
   makePublicInputsAndRecursiveProof,
-} from '@aztec/circuits.js/interfaces/server';
-import type { ParityPublicInputs } from '@aztec/circuits.js/parity';
-import { ProvingRequestType, makeRecursiveProof } from '@aztec/circuits.js/proofs';
-import { makeBaseParityInputs, makeParityPublicInputs } from '@aztec/circuits.js/testing';
-import { VerificationKeyData } from '@aztec/circuits.js/vks';
-import { RECURSIVE_PROOF_LENGTH } from '@aztec/constants';
-import { randomBytes } from '@aztec/foundation/crypto';
-import { AbortError } from '@aztec/foundation/error';
-import { promiseWithResolvers } from '@aztec/foundation/promise';
+} from '@aztec/stdlib/interfaces/server';
+import type { ParityPublicInputs } from '@aztec/stdlib/parity';
+import { ProvingRequestType, makeRecursiveProof } from '@aztec/stdlib/proofs';
+import { makeBaseParityInputs, makeParityPublicInputs } from '@aztec/stdlib/testing';
+import { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import { jest } from '@jest/globals';
 

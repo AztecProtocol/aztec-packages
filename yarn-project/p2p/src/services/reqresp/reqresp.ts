@@ -1,7 +1,7 @@
 // @attribution: lodestar impl for inspiration
-import { PeerErrorSeverity } from '@aztec/circuits.js/p2p';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { executeTimeout } from '@aztec/foundation/timer';
+import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { type IncomingStreamData, type PeerId, type Stream } from '@libp2p/interface';
