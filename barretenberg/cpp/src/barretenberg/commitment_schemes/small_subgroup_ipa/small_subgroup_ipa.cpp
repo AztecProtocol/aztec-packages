@@ -18,43 +18,84 @@
 
 namespace bb {
 
+// Default constructor to initialize all common members.
+template <typename Flavor>
+SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(std::shared_ptr<typename Flavor::Transcript>& transcript)
+    : interpolation_domain{}
+    , concatenated_polynomial(Polynomial<FF>(SUBGROUP_SIZE + 2))
+    , concatenated_lagrange_form(Polynomial<FF>(SUBGROUP_SIZE))
+    , challenge_polynomial(SUBGROUP_SIZE)
+    , challenge_polynomial_lagrange(SUBGROUP_SIZE)
+    , big_sum_polynomial_unmasked(SUBGROUP_SIZE)
+    , big_sum_polynomial(SUBGROUP_SIZE + 3) // + 3 to account for masking
+    , batched_polynomial(BATCHED_POLYNOMIAL_LENGTH)
+    , batched_quotient(QUOTIENT_LENGTH)
+    , transcript(transcript){};
+
 /**
- * @brief Small Subgroup IPA Prover for Zero-Knowledge Opening of Libra Polynomials.
+ * @brief Construct SmallSubgroupIPAProver from a ZKSumcheckData object and a sumcheck evaluation challenge.
  *
- * @details Implements a less general version of the protocol described in
- * [Ariel's HackMD](https://hackmd.io/xYHn1qqvQjey1yJutcuXdg). This version is specialized for making
- * commitments and openings of Libra polynomials zero-knowledge.
+ * @param zk_sumcheck_data Contains the witness polynomial \f$ G \f$ called Libra concatenated polynomial.
+ * @param multivariate_challenge \f$ (u_0,\ldots, u_{d-1})\f$, needed to compute the challenge polynomial \f$ F \f$.
+ * @param claimed_inner_product The inner product of \f$ G \f$ and the challenge polynomial \f$ F \f$.
+ */
+template <typename Flavor>
+SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(ZKSumcheckData<Flavor>& zk_sumcheck_data,
+                                                       const std::vector<FF>& multivariate_challenge,
+                                                       const FF claimed_inner_product,
+                                                       std::shared_ptr<typename Flavor::Transcript>& transcript)
+    : SmallSubgroupIPAProver(transcript)
+{
+    this->claimed_inner_product = claimed_inner_product;
+    interpolation_domain = std::move(zk_sumcheck_data.interpolation_domain);
+    concatenated_polynomial = std::move(zk_sumcheck_data.libra_concatenated_monomial_form);
+    concatenated_lagrange_form = std::move(zk_sumcheck_data.libra_concatenated_lagrange_form);
+
+    label_prefix = "Libra:";
+    // Extract the evaluation domain computed by ZKSumcheckData
+    if constexpr (std::is_same_v<Curve, curve::BN254>) {
+        bn_evaluation_domain = std::move(zk_sumcheck_data.bn_evaluation_domain);
+    }
+
+    // Construct the challenge polynomial in Lagrange basis, compute its monomial coefficients
+    compute_challenge_polynomial(multivariate_challenge);
+}
+
+/**
+ * @brief Construct SmallSubgroupIPAProver from a TranslationData object and two challenges. It is Grumkin-specific.
  *
- * ### Overview
- *
- * Let \f$ G \f$ be the masked concatenated Libra polynomial. Without masking, it is defined by concatenating Libra
- * constant term and the monomial coefficients of the Libra univariates \f$ g_i \f$ in the Lagrange basis over \f$ H
- * \f$. More explicitly, unmasked concatenated Libra polynomial is given by the following vector of coefficients:
- * \f[ \big( \text{libra_constant_term},  g_{0,0}, \ldots, g_{0,
- * \text{LIBRA_UNIVARIATES_LENGTH} - 1}, \ldots, g_{d-1, 0}, g_{d-1,  \text{LIBRA_UNIVARIATES_LENGTH} - 1} \big) \f],
- * where \f$ d = \text{log_circuit_size}\f$.
- * It is masked by adding \f$ (r_0 + r_1 X) Z_{H}(X)\f$, where \f$ Z_H(X) \f$ is the vanishing polynomial for \f$ H \f$.
- *
- * This class enables the prover to:
- *
- * - Open the commitment to concatenated Libra polynomial with zero-knowledge while proving correctness of the claimed
- * inner product. The concatenated polynomial is commited to during the construction of ZKSumcheckData structure.
- *
- * ### Inputs
- * The prover receives:
- * - **ZKSumcheckData:** Contains:
- *   - Monomial coefficients of the masked concatenated Libra polynomial \f$ G \f$.
- *   - Interpolation domain for a small subgroup \( H \subset \mathbb{F}^\ast \), where \(\mathbb{F} \) is the
- * ScalarField of a given curve.
- * - **Sumcheck challenges:** \( u_0, \ldots, u_{D-1} \), where \( D = \text{CONST_PROOF_SIZE_LOG_N} \).
- * - **Claimed inner product:** \( s = \text{claimed\_ipa\_eval} \), defined as:
- *   \f[
- *   s = \sum_{i=1}^{|H|} F(g^i) G(g^i),
- *   \f]
- *   where \( F(X) \) is the ``challenge`` polynomial constructed from the Sumcheck round challenges (see the formula
- * below) and \( G(X) \) is the concatenated Libra polynomial.
- *
- * ### Prover's Construction
+ * @param translation_data Contains the witness polynomial \f$ G \f$ which is a concatenation of last MASKING_OFFSET
+ * coefficients of NUM_TRANSLATION_EVALUATIONS polynomials fed to TranslationData constructor.
+ * @param evaluation_challenge_x A challenge used to evaluate the univariates fed to TranslationData.
+ * @param batching_challenge_v A challenge used to batch the evaluations at \f$ x \f$. Both challenges are required to
+ * compute the challenge polynomial \f$ F \f$.
+ * @param claimed_inner_product The inner product of \f$ G \f$ and the challenge polynomial \f$ F \f$.
+ */
+template <typename Flavor>
+SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(TranslationData<typename Flavor::Transcript>& translation_data,
+                                                       const FF evaluation_challenge_x,
+                                                       const FF batching_challenge_v,
+                                                       const FF claimed_inner_product,
+                                                       std::shared_ptr<typename Flavor::Transcript>& transcript)
+    : SmallSubgroupIPAProver(transcript)
+
+{
+    // TranslationData is Grumpkin-specific
+    if constexpr (IsAnyOf<Flavor, ECCVMFlavor, GrumpkinSettings>) {
+        this->claimed_inner_product = claimed_inner_product;
+        label_prefix = "Translation:";
+        interpolation_domain = std::move(translation_data.interpolation_domain);
+        concatenated_polynomial = std::move(translation_data.concatenated_masking_term);
+        concatenated_lagrange_form = std::move(translation_data.concatenated_masking_term_lagrange);
+
+        // Construct the challenge polynomial in Lagrange basis, compute its monomial coefficients
+        compute_eccvm_challenge_polynomial(evaluation_challenge_x, batching_challenge_v);
+    }
+}
+
+/**
+ * @brief Compute the derived witnesses \f$ A \f$ and \f$ Q \f$ and commit to them.
+ * @details
  * 1. Define a polynomial \( A(X) \), called the **big sum polynomial**, which is analogous to the big product
  * polynomial used to prove claims about \f$ \prod_{h\in H} f(h) \cdot g(h) \f$. It is uniquely defined by the
  * following:
@@ -76,66 +117,11 @@ namespace bb {
  *
  * The methods of this class allow the prover to compute \( A(X) \) and \( Q(X) \).
  *
- * After receiveing a random evaluation challenge \f$ r \f$ , the prover sends \f$ G(r), A(g\cdot r), A(r), Q(r) \f$ to
- * the verifier. In our case, \f$ r \f$ is the Gemini evaluation challenge, and this part is taken care of by Shplemini.
+ * After receiving a random evaluation challenge \f$ r \f$, the prover will send \f$ G(r), A(g\cdot r), A(r), Q(r) \f$
+ * to the verifier. In the ZKSumcheckData case, \f$ r \f$ is the Gemini evaluation challenge, and this further part is
+ * taken care of by Shplemini. In the TranslationData case, \f$ r \f$ is an evaluation challenge that will be sampled in
+ * the translation evaluations sub-protocol of ECCVM.
  */
-template <typename Flavor>
-SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(ZKSumcheckData<Flavor>& zk_sumcheck_data,
-                                                       const std::vector<FF>& multivariate_challenge,
-                                                       const FF claimed_inner_product,
-                                                       std::shared_ptr<typename Flavor::Transcript>& transcript)
-    : claimed_inner_product(claimed_inner_product)
-    , interpolation_domain(zk_sumcheck_data.interpolation_domain)
-    , concatenated_polynomial(zk_sumcheck_data.libra_concatenated_monomial_form)
-    , libra_concatenated_lagrange_form(zk_sumcheck_data.libra_concatenated_lagrange_form)
-    , challenge_polynomial(SUBGROUP_SIZE)
-    , challenge_polynomial_lagrange(SUBGROUP_SIZE)
-    , big_sum_polynomial_unmasked(SUBGROUP_SIZE)
-    , big_sum_polynomial(SUBGROUP_SIZE + 3) // + 3 to account for masking
-    , batched_polynomial(BATCHED_POLYNOMIAL_LENGTH)
-    , batched_quotient(QUOTIENT_LENGTH)
-    , transcript(transcript)
-{
-
-    // Extract the evaluation domain computed by ZKSumcheckData
-    if constexpr (std::is_same_v<Curve, curve::BN254>) {
-        bn_evaluation_domain = std::move(zk_sumcheck_data.bn_evaluation_domain);
-    }
-
-    // Construct the challenge polynomial in Lagrange basis, compute its monomial coefficients
-    compute_challenge_polynomial(multivariate_challenge);
-}
-
-// Construct prover from TranslationData. Used by ECCVMProver.
-template <typename Flavor>
-SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(TranslationData<typename Flavor::Transcript>& translation_data,
-                                                       const FF evaluation_challenge_x,
-                                                       const FF batching_challenge_v,
-                                                       const FF claimed_inner_product,
-                                                       std::shared_ptr<typename Flavor::Transcript>& transcript)
-    : claimed_inner_product(claimed_inner_product)
-    , interpolation_domain{}
-    , concatenated_polynomial(Polynomial<FF>(SUBGROUP_SIZE + 2))
-    , libra_concatenated_lagrange_form(Polynomial<FF>(SUBGROUP_SIZE))
-    , challenge_polynomial(SUBGROUP_SIZE)
-    , challenge_polynomial_lagrange(SUBGROUP_SIZE)
-    , big_sum_polynomial_unmasked(SUBGROUP_SIZE)
-    , big_sum_polynomial(SUBGROUP_SIZE + 3) // + 3 to account for masking
-    , batched_polynomial(BATCHED_POLYNOMIAL_LENGTH)
-    , batched_quotient(QUOTIENT_LENGTH)
-    , transcript(transcript)
-{
-    if constexpr (IsAnyOf<Flavor, ECCVMFlavor, GrumpkinSettings>) {
-
-        interpolation_domain = translation_data.interpolation_domain;
-        concatenated_polynomial = std::move(translation_data.concatenated_masking_term);
-        libra_concatenated_lagrange_form = std::move(translation_data.concatenated_masking_term_lagrange);
-    }
-
-    // Construct the challenge polynomial in Lagrange basis, compute its monomial coefficients
-    compute_eccvm_challenge_polynomial(evaluation_challenge_x, batching_challenge_v);
-}
-
 template <typename Flavor>
 void SmallSubgroupIPAProver<Flavor>::prove(std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key)
 {
@@ -149,7 +135,8 @@ void SmallSubgroupIPAProver<Flavor>::prove(std::shared_ptr<typename Flavor::Comm
     compute_big_sum_polynomial();
 
     // Send masked commitment [A + Z_H * R] to the verifier, where R is of degree 2
-    transcript->template send_to_verifier("Translation:big_sum_commitment", commitment_key->commit(big_sum_polynomial));
+    transcript->template send_to_verifier(label_prefix + "big_sum_commitment",
+                                          commitment_key->commit(big_sum_polynomial));
 
     // Compute C(X)
     compute_batched_polynomial();
@@ -158,7 +145,8 @@ void SmallSubgroupIPAProver<Flavor>::prove(std::shared_ptr<typename Flavor::Comm
     compute_batched_quotient();
 
     // Send commitment [Q] to the verifier
-    transcript->template send_to_verifier("Translation:quotient_commitment", commitment_key->commit(batched_quotient));
+    transcript->template send_to_verifier(label_prefix + "quotient_commitment",
+                                          commitment_key->commit(batched_quotient));
 }
 
 /**
@@ -249,9 +237,8 @@ template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::compute_big_sum_
     // Compute the big sum coefficients recursively
     for (size_t idx = 1; idx < SUBGROUP_SIZE; idx++) {
         size_t prev_idx = idx - 1;
-        big_sum_lagrange_coeffs[idx] =
-            big_sum_lagrange_coeffs[prev_idx] +
-            challenge_polynomial_lagrange.at(prev_idx) * libra_concatenated_lagrange_form.at(prev_idx);
+        big_sum_lagrange_coeffs[idx] = big_sum_lagrange_coeffs[prev_idx] + challenge_polynomial_lagrange.at(prev_idx) *
+                                                                               concatenated_lagrange_form.at(prev_idx);
     };
 
     //  Get the coefficients in the monomial basis
@@ -366,6 +353,7 @@ std::array<Polynomial<typename Flavor::Curve::ScalarField>, 2> SmallSubgroupIPAP
 
     return { lagrange_first_monomial, lagrange_last_monomial };
 }
+
 /** @brief Efficiently compute the quotient of batched_polynomial by Z_H = X ^ { | H | } - 1
  */
 template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::compute_batched_quotient()
@@ -405,6 +393,7 @@ typename Flavor::Curve::ScalarField SmallSubgroupIPAProver<Flavor>::compute_clai
     claimed_inner_product += zk_sumcheck_data.constant_term;
     return claimed_inner_product;
 }
+
 /**
  * @brief For test purposes: compute the batched evaluation of the last MASKING_OFFSET rows of the ECCVM transcript
  * polynomials Op, Px, Py, z1, z2.

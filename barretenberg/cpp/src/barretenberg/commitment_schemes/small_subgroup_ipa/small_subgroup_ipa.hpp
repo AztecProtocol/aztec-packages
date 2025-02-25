@@ -13,7 +13,51 @@
 #include <vector>
 
 namespace bb {
-
+/**
+ * @brief A Curve-agnostic ZK protocol to prove inner products of small vectors.
+ *
+ * @details Implementation of the protocol described in [Ariel's HackMD](https://hackmd.io/xYHn1qqvQjey1yJutcuXdg).
+ * Although we could in principle prove statements about a general witness polynomial \f$ G \f$ and a challenge
+ * polynomial \f$ F \f$ and a claim that \f$ <F, G> = s \f$, we specialize to the following cases:
+ *
+ * - \f$ G \f$ is obtained by concatenating Libra polynomials used in ZK-Sumcheck. \f$ F \f$ is a concatenation of
+ *   consecutive powers of the sumcheck challenge entries. See details below and in the corresponding method's docs.
+ *
+ * - \f$ G \f$ is a concatenation of last MASKING_OFFSET coefficients of NUM_TRANSLATION_EVALUATIONS polynomials fed to
+ *   TranslationData constructor. \f$ F \f$ consists of products \f$ x^i \cdot v^j \f$. See details below in the
+ *   corresponding method's docs.
+ *
+ * ## Constructing SmallSubgroupIPAProver
+ *
+ * In both cases, we extract the witness polynomial \f$ G \f$ from the input. The main difference is in the construction
+ * of the challenge polynomial \f$ F \f$. Once \f$ F\f$ is computed by the corresponding method, we could call the
+ * common \ref prove method on an object of this class.
+ *
+ * ### ZKSumcheckData Specifics
+ * Let \f$ G \f$ be the masked concatenated Libra polynomial. Without masking, it is defined by concatenating Libra
+ * constant term and the monomial coefficients of the Libra univariates \f$ g_i \f$ in the Lagrange basis over \f$ H
+ * \f$. More explicitly, unmasked concatenated Libra polynomial is given by the following vector of coefficients:
+ * \[
+ *   \big( \text{libra_constant_term},  g_{0,0}, \ldots, g_{0,
+ *   \text{LIBRA_UNIVARIATES_LENGTH} - 1}, \ldots, g_{d-1, 0}, g_{d-1,  \text{LIBRA_UNIVARIATES_LENGTH} - 1} \big)
+ * \],
+ * where \f$ d = \text{log_circuit_size}\f$.
+ * It is masked by adding \f$ (r_0 + r_1 X) Z_{H}(X)\f$, where \f$ Z_H(X) \f$ is the vanishing polynomial for \f$ H \f$.
+ *
+ * ### TranslationData Specifics
+ * Let \f$ G \f$ be the concatenated polynomial from the TranslationData class. Without masking, it is defined by
+ * concatenating 0 constant term and NUM_TRANSLATION_EVALUATIONS polynomials of size MASKING_OFFSET in the Lagrange
+ * basis over \f$ H \f$. It is masked by adding \f$ (r_0 + r_1 X) Z_{H}(X)\f$, where \f$ Z_H(X) \f$ is the vanishing
+ * polynomial for \f$ H \f$.
+ *
+ * ### This class enables the prover to:
+ *
+ * - Compute the derived witnesses \f$ A \f$ and \f$ Q \f$ required to prove the correctness of the claimed inner
+ *   product while preserving ZK. For details, see \ref prove method docs.
+ *   Note that the concatenated polynomial \f$ G \f$ is committed to during the construction of the ZKSumcheckData or
+ * TranslationData object.
+ *
+ */
 template <typename Flavor> class SmallSubgroupIPAProver {
     using Curve = typename Flavor::Curve;
     using FF = typename Curve::ScalarField;
@@ -39,12 +83,13 @@ template <typename Flavor> class SmallSubgroupIPAProver {
     // We use IFFT over BN254 scalar field
     EvaluationDomain<FF> bn_evaluation_domain;
 
-    // Monomial coefficients of the concatenated Libra masking polynomial extracted from ZKSumcheckData
+    // Monomial coefficients of the concatenated polynomial extracted from ZKSumcheckData or TranslationData
     Polynomial<FF> concatenated_polynomial;
-    // Lagrange coefficeints of the concatenated Libra masking polynomial = constant_term || g_0 || ... || g_{d-1}
-    Polynomial<FF> libra_concatenated_lagrange_form;
+    // Lagrange coefficeints of the concatenated polynomial
+    Polynomial<FF> concatenated_lagrange_form;
 
-    // The polynomial obtained by concatenated powers of sumcheck challenges
+    // The polynomial obtained by concatenated powers of sumcheck challenges or the productcs of
+    // `evaluation_challenge_x` and `batching_challenge_v`
     Polynomial<FF> challenge_polynomial;
     Polynomial<FF> challenge_polynomial_lagrange;
 
@@ -59,9 +104,15 @@ template <typename Flavor> class SmallSubgroupIPAProver {
     // Quotient of the batched polynomial C(X) by the subgroup vanishing polynomial X^{|H|} - 1
     Polynomial<FF> batched_quotient;
 
+    // Either "Translation:" or "Libra:".
+    std::string label_prefix;
+
     std::shared_ptr<typename Flavor::Transcript> transcript;
 
   public:
+    // Default constructor to initialize all polynomials
+    SmallSubgroupIPAProver(std::shared_ptr<typename Flavor::Transcript>& transcript);
+
     // Construct prover from ZKSumcheckData. Used by all ZK-Provers.
     SmallSubgroupIPAProver(ZKSumcheckData<Flavor>& zk_sumcheck_data,
                            const std::vector<FF>& multivariate_challenge,
@@ -76,15 +127,6 @@ template <typename Flavor> class SmallSubgroupIPAProver {
                            std::shared_ptr<typename Flavor::Transcript>& transcript);
 
     void prove(std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key);
-
-    // Getter to pass the witnesses to ShpleminiProver. Big sum polynomial is evaluated at 2 points (and is small)
-    std::array<bb::Polynomial<FF>, NUM_SMALL_IPA_EVALUATIONS> get_witness_polynomials() const
-    {
-        return { concatenated_polynomial, big_sum_polynomial, big_sum_polynomial, batched_quotient };
-    }
-    // Getters for test purposes
-    const Polynomial<FF>& get_batched_polynomial() const { return batched_polynomial; }
-    const Polynomial<FF>& get_challenge_polynomial() const { return challenge_polynomial; }
 
     void compute_challenge_polynomial(const std::vector<FF>& multivariate_challenge);
 
@@ -106,14 +148,41 @@ template <typename Flavor> class SmallSubgroupIPAProver {
     static FF compute_claimed_translation_inner_product(TranslationData<typename Flavor::Transcript>& translation_data,
                                                         const FF& evaluation_challenge_x,
                                                         const FF& batching_challenge_v);
+
+    // Getter to pass the witnesses to ShpleminiProver. Big sum polynomial is evaluated at 2 points (and is small)
+    std::array<bb::Polynomial<FF>, NUM_SMALL_IPA_EVALUATIONS> get_witness_polynomials() const
+    {
+        return { concatenated_polynomial, big_sum_polynomial, big_sum_polynomial, batched_quotient };
+    }
+    // Getters for test purposes
+    const Polynomial<FF>& get_batched_polynomial() const { return batched_polynomial; }
+    const Polynomial<FF>& get_challenge_polynomial() const { return challenge_polynomial; }
 };
 
-/**
- * @brief Verifier class for Small Subgroup IPA Prover.
+/*!
+ * @brief Verifies the consistency of polynomial evaluations provided by the
+ * the prover.
  *
- * @details Checks the consistency of polynomial evaluations provided by the
- * prover against the values derived from the sumcheck challenge and a
- * random evaluation challenge.
+ * @details
+ * Given a subgroup of \f$ \mathbb{F}^\ast \f$, its generator \f$ g\f$,
+ * this function checks whether the following equation holds: \f[ L_1(r)
+ * A(r) + (r - g^{-1}) \left( A(g*r) - A(r) - F(r) G(r) \right) +
+ * L_{|H|}(r) \left( A(r) - s \right) = T(r) Z_H(r) \f] Where the
+ * following are sent by the prover
+ * - \f$ A(r), A(g\cdot r) \f$ are the evaluation of the "big sum
+ * polynomial"
+ * - \f$ G(r) \f$ is the evaluation of the witness polynomial
+ *
+ * - \f$ T(r) \f$ is the evaluation of the quotient of the left hand
+ * side above by the vanishing polynomial for \f$H\f$ and the following
+ * evaluations computed by the verifier
+ * - \f$ L_1 \f$ and \f$ L_{|H|} \f$ are the Lagrange polynomials
+ * corresponding to \f$ 1 \f$ and \f$ g^{-1} \f$.
+ * - \f$ F(r) \f$ is the evaluation of a public polynomial formed from the challenges. It is specified by one of the
+ * constructors below.
+ * - \f$ Z_H(r) \f$ is the vanishing polynomial \f$ X^{|H|} - 1\f$
+ * evaluated at the challenge point.
+ *
  */
 template <typename Curve> class SmallSubgroupIPAVerifier {
     using FF = typename Curve::ScalarField;
@@ -123,46 +192,23 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
     // The length of a random polynomial masking Prover's Sumcheck
     // Univariates. In the case of BN254-based Flavors, we send the
     // coefficients of the univariates, hence we choose these value to be
-    // the max sumcheck univariate length over Translator, Ultra, and Mega.
+    // the max sumcheck univariate length over Translator, UltraZK, and MegaZK.
     // In ECCVM, the Sumcheck prover will commit to its univariates, which
     // reduces the required length from 23 to 3.
     static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Curve::LIBRA_UNIVARIATES_LENGTH;
 
   public:
-    /*!
-     * @brief Verifies the consistency of polynomial evaluations provided by the
-     * the prover.
+    /**
+     * @brief Generic consistency check agnostic to challenge polynomial \f$ F\f$.
      *
-     * @details
-     * Given a subgroup of \f$ \mathbb{F}^\ast \f$, its generator \f$ g\f$,
-     * this function checks whether the following equation holds: \f[ L_1(r)
-     * A(r) + (r - g^{-1}) \left( A(g*r) - A(r) - F(r) G(r) \right) +
-     * L_{|H|}(r) \left( A(r) - s \right) = T(r) Z_H(r) \f] Where the
-     * following are sent by the prover
-     * - \f$ A(r), A(g\cdot r) \f$ are the evaluation of the "big sum
-     * polynomial"
-     * - \f$ G(r) \f$ is the evaluation of the concatenation of the
-     * coefficients of the masking Libra polynomials
-     *
-     * - \f$ T(r) \f$ is the evaluation of the quotient of the left hand
-     * side above by the vanishing polynomial for \f$H\f$ and the following
-     * evaluations computed by the verifier
-     * - \f$ L_1 \f$ and \f$ L_{|H|} \f$ are the Lagrange polynomials
-     * corresponding to \f$ 1 \f$ and \f$ g^{-1} \f$.
-     * - \f$ F(r) \f$ is the evaluation of a public polynomial formed from the challenges. It is specified by one of the
-     * constructors below.
-     * - \f$ Z_H(r) \f$ is the vanishing polynomial \f$ X^{|H|} - 1\f$
-     * evaluated at the challenge point.
-     *
-     * @param small_ipa_evaluations An array of polynomial evaluations
-     * containing:
-     *   - \f$ G(r), A(g\cdot r), A(r), T(r) \f$.
-     * @param small_ipa_eval_challenge The challenge point \f$ r \f$ at
-     * which evaluations are verified.
-     * @param challenge_polynomial Lagrange coefficients of \f$ F \f$.
-     * @param inner_product_eval_claim The claimed inner proudct of the coefficients of
-     * \f$G\f$ and \f$F\f$.
-     * @return True if the consistency check passes, false otherwise.
+     * @param small_ipa_evaluations \f$ G(r) \f$ , \f$ A(g* r) \f$, \f$ A(r) \f$ , \f$ Q(r)\f$.
+     * @param small_ipa_eval_challenge
+     * @param challenge_polynomial The polynomial \f$ F \f$ that the verifier computes and evaluates on its own.
+     * @param inner_product_eval_claim \f$ <F,G> \f$ where the polynomials are treated as vectors of coefficients (in
+     * Lagrange basis).
+     * @param vanishing_poly_eval \f$ Z_H(r) \f$
+     * @return true
+     * @return false
      */
     static bool check_consistency(const std::array<FF, NUM_SMALL_IPA_EVALUATIONS>& small_ipa_evaluations,
                                   const FF& small_ipa_eval_challenge,
@@ -170,8 +216,9 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
                                   const FF& inner_product_eval_claim,
                                   const FF& vanishing_poly_eval)
     {
+        // Check if Z_H(r) = 0.
         handle_edge_cases(vanishing_poly_eval);
-        // first, and Lagrange last for the fixed small subgroup
+        // Compute evaluations at r of F, Lagrange first, and Lagrange last for the fixed small subgroup
         auto [challenge_poly, lagrange_first, lagrange_last] = compute_batched_barycentric_evaluations(
             challenge_polynomial, small_ipa_eval_challenge, vanishing_poly_eval);
 
