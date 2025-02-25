@@ -1,9 +1,9 @@
 import { type ContractInstanceWithAddress, Fr } from '@aztec/aztec.js';
-import { SimulationError } from '@aztec/circuits.js';
 import { type ContractArtifact, FunctionSelector, NoteSelector } from '@aztec/circuits.js/abi';
 import { PublicDataWrite } from '@aztec/circuits.js/avm';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { computePartialAddress } from '@aztec/circuits.js/contract';
+import { SimulationError } from '@aztec/circuits.js/errors';
 import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
 import { MerkleTreeId } from '@aztec/circuits.js/trees';
 import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';

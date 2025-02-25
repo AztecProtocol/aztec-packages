@@ -1,4 +1,3 @@
-import { type ComponentsVersions, getVersioningResponseHandler } from '@aztec/circuits.js';
 import {
   type GetProvingJobResponse,
   ProofUri,
@@ -8,9 +7,10 @@ import {
   ProvingJobId,
   type ProvingJobProducer,
   ProvingJobStatus,
-  ProvingRequestType,
 } from '@aztec/circuits.js/interfaces/server';
+import { ProvingRequestType } from '@aztec/circuits.js/proofs';
 import { type ApiSchemaFor, optional } from '@aztec/circuits.js/schemas';
+import { type ComponentsVersions, getVersioningResponseHandler } from '@aztec/circuits.js/versioning';
 import { createSafeJsonRpcClient } from '@aztec/foundation/json-rpc/client';
 import { type SafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
 import { createTracedJsonRpcServer, makeTracedFetch } from '@aztec/telemetry-client';

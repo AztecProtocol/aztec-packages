@@ -1,21 +1,5 @@
-import {
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  type InBlock,
-  type L2Block,
-  L2BlockHash,
-  type L2Tips,
-  type LogFilter,
-  type PublicDataWitness,
-  type PublicSimulationOutput,
-  type Tx,
-  type TxEffect,
-  TxHash,
-  TxReceipt,
-  TxScopedL2Log,
-  type TxValidationResult,
-} from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type InBlock, L2Block, L2BlockHash, type L2BlockNumber, type L2Tips } from '@aztec/circuits.js/block';
 import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
@@ -24,7 +8,11 @@ import {
 } from '@aztec/circuits.js/contract';
 import type { GasFees } from '@aztec/circuits.js/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { type AztecNode, type L2BlockNumber } from '@aztec/circuits.js/interfaces/client';
+import {
+  type AztecNode,
+  type GetContractClassLogsResponse,
+  type GetPublicLogsResponse,
+} from '@aztec/circuits.js/interfaces/client';
 import {
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
@@ -32,12 +20,21 @@ import {
   type SequencerConfig,
   type WorldStateSyncStatus,
 } from '@aztec/circuits.js/interfaces/server';
-import type { PrivateLog, PublicLog } from '@aztec/circuits.js/logs';
+import { type LogFilter, type PrivateLog, type PublicLog, TxScopedL2Log } from '@aztec/circuits.js/logs';
 import {
   MerkleTreeId,
   type NullifierMembershipWitness,
   type PublicDataTreeLeafPreimage,
+  PublicDataWitness,
 } from '@aztec/circuits.js/trees';
+import {
+  type PublicSimulationOutput,
+  type Tx,
+  type TxEffect,
+  TxHash,
+  TxReceipt,
+  type TxValidationResult,
+} from '@aztec/circuits.js/tx';
 import type { BlockHeader } from '@aztec/circuits.js/tx';
 import {
   type ARCHIVE_HEIGHT,

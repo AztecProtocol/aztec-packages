@@ -1,16 +1,12 @@
-import {
-  type L1ToL2MessageSource,
-  type L2Block,
-  type L2BlockSource,
-  type ProcessedTx,
-  type Tx,
-} from '@aztec/circuits.js';
+import type { L2Block, L2BlockSource } from '@aztec/circuits.js/block';
 import {
   type EpochProver,
   type EpochProvingJobState,
   EpochProvingJobTerminalState,
   type ForkMerkleTreeOperations,
 } from '@aztec/circuits.js/interfaces/server';
+import type { L1ToL2MessageSource } from '@aztec/circuits.js/messaging';
+import { type ProcessedTx, type Tx } from '@aztec/circuits.js/tx';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';

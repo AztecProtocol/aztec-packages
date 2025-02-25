@@ -1,4 +1,5 @@
-import { type L1RollupConstants, type L2BlockSource, getEpochAtSlot } from '@aztec/circuits.js';
+import type { L2BlockSource } from '@aztec/circuits.js/block';
+import { type L1RollupConstants, getEpochAtSlot } from '@aztec/circuits.js/epoch-helpers';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import {

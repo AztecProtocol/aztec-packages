@@ -8,8 +8,8 @@ import {
   type ProvingJobProducer,
   type ProvingJobSettledResult,
   type ProvingJobStatus,
-  ProvingRequestType,
 } from '@aztec/circuits.js/interfaces/server';
+import { ProvingRequestType } from '@aztec/circuits.js/proofs';
 import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { PriorityMemoryQueue } from '@aztec/foundation/queue';

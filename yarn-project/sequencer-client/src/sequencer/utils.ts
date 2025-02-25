@@ -1,4 +1,4 @@
-import type { BlockAttestation } from '@aztec/circuits.js';
+import type { BlockAttestation } from '@aztec/circuits.js/p2p';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 

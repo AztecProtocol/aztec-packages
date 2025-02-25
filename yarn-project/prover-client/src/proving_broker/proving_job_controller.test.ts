@@ -1,9 +1,5 @@
-import {
-  type ProvingJobId,
-  ProvingRequestType,
-  makePublicInputsAndRecursiveProof,
-} from '@aztec/circuits.js/interfaces/server';
-import { makeRecursiveProof } from '@aztec/circuits.js/proofs';
+import { type ProvingJobId, makePublicInputsAndRecursiveProof } from '@aztec/circuits.js/interfaces/server';
+import { ProvingRequestType, makeRecursiveProof } from '@aztec/circuits.js/proofs';
 import { makeBaseParityInputs, makeParityPublicInputs } from '@aztec/circuits.js/testing';
 import { VerificationKeyData } from '@aztec/circuits.js/vks';
 import { RECURSIVE_PROOF_LENGTH } from '@aztec/constants';

@@ -1,13 +1,6 @@
-import {
-  type L1ToL2MessageSource,
-  type L2Block,
-  type L2BlockSource,
-  type P2PClientType,
-  type Tx,
-  type TxHash,
-  getTimestampRangeForEpoch,
-} from '@aztec/circuits.js';
+import { type L2Block, type L2BlockSource } from '@aztec/circuits.js/block';
 import { type ContractDataSource } from '@aztec/circuits.js/contract';
+import { getTimestampRangeForEpoch } from '@aztec/circuits.js/epoch-helpers';
 import {
   type EpochProverManager,
   EpochProvingJobTerminalState,
@@ -17,6 +10,9 @@ import {
   type WorldStateSynchronizer,
   tryStop,
 } from '@aztec/circuits.js/interfaces/server';
+import type { L1ToL2MessageSource } from '@aztec/circuits.js/messaging';
+import type { P2PClientType } from '@aztec/circuits.js/p2p';
+import type { Tx, TxHash } from '@aztec/circuits.js/tx';
 import { compact } from '@aztec/foundation/collection';
 import { memoize } from '@aztec/foundation/decorators';
 import { createLogger } from '@aztec/foundation/log';

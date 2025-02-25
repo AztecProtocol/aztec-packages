@@ -1,6 +1,5 @@
 import { TestCircuitProver } from '@aztec/bb-prover';
 import { Blob, SpongeBlob } from '@aztec/blob-lib';
-import { type ProcessedTx, toNumBlobFields } from '@aztec/circuits.js';
 import { PublicDataWrite } from '@aztec/circuits.js/avm';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type MerkleTreeWriteOperations, type ServerCircuitProver } from '@aztec/circuits.js/interfaces/server';
@@ -22,6 +21,7 @@ import {
 } from '@aztec/circuits.js/rollup';
 import { makeBloatedProcessedTx, makeGlobalVariables } from '@aztec/circuits.js/testing';
 import { type AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
+import { type ProcessedTx, toNumBlobFields } from '@aztec/circuits.js/tx';
 import { GlobalVariables, PartialStateReference, StateReference } from '@aztec/circuits.js/tx';
 import { VerificationKeyAsFields, VkWitnessData } from '@aztec/circuits.js/vks';
 import {

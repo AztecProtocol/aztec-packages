@@ -1,5 +1,5 @@
 import { BlobPublicInputs } from '@aztec/blob-lib';
-import { TxEffect, TxHash } from '@aztec/circuits.js';
+import { TxEffect, TxHash } from '@aztec/circuits.js/tx';
 import { Fr } from '@aztec/foundation/fields';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 

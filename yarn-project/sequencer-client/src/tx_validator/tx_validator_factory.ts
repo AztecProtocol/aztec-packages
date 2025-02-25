@@ -1,4 +1,3 @@
-import { type ProcessedTx, type Tx, type TxValidator } from '@aztec/circuits.js';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type ContractDataSource } from '@aztec/circuits.js/contract';
 import type { GasFees } from '@aztec/circuits.js/gas';
@@ -7,6 +6,7 @@ import {
   type ClientProtocolCircuitVerifier,
   type MerkleTreeReadOperations,
 } from '@aztec/circuits.js/interfaces/server';
+import { type ProcessedTx, type Tx, type TxValidator } from '@aztec/circuits.js/tx';
 import type { GlobalVariables } from '@aztec/circuits.js/tx';
 import { Fr } from '@aztec/foundation/fields';
 import {

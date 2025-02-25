@@ -7,12 +7,12 @@ import {
   type ProvingJobProducer,
   type ProvingJobResultsMap,
   type ProvingJobStatus,
-  ProvingRequestType,
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
   makeProvingJobId,
 } from '@aztec/circuits.js/interfaces/server';
 import { type BaseParityInputs, type ParityPublicInputs, type RootParityInputs } from '@aztec/circuits.js/parity';
+import { ProvingRequestType } from '@aztec/circuits.js/proofs';
 import {
   type BaseOrMergeRollupPublicInputs,
   type BlockMergeRollupInputs,

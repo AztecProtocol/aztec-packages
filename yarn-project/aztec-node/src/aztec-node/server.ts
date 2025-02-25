@@ -1,28 +1,14 @@
 import { createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
-import {
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  type InBlock,
-  type L1ToL2MessageSource,
-  type L2Block,
-  type L2BlockSource,
-  type L2LogsSource,
-  type LogFilter,
-  type NullifierWithBlockSource,
-  P2PClientType,
-  PublicDataWitness,
-  PublicSimulationOutput,
-  type Tx,
-  type TxEffect,
-  type TxHash,
-  TxReceipt,
-  type TxScopedL2Log,
-  TxStatus,
-  type TxValidationResult,
-} from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type {
+  InBlock,
+  L2Block,
+  L2BlockNumber,
+  L2BlockSource,
+  NullifierWithBlockSource,
+} from '@aztec/circuits.js/block';
 import {
   type ContractClassPublic,
   type ContractDataSource,
@@ -32,9 +18,14 @@ import {
 } from '@aztec/circuits.js/contract';
 import type { GasFees } from '@aztec/circuits.js/gas';
 import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
-import { type AztecNode, type L2BlockNumber } from '@aztec/circuits.js/interfaces/client';
+import {
+  type AztecNode,
+  type GetContractClassLogsResponse,
+  type GetPublicLogsResponse,
+} from '@aztec/circuits.js/interfaces/client';
 import {
   type ClientProtocolCircuitVerifier,
+  type L2LogsSource,
   type ProverConfig,
   type SequencerConfig,
   type Service,
@@ -42,14 +33,25 @@ import {
   type WorldStateSynchronizer,
   tryStop,
 } from '@aztec/circuits.js/interfaces/server';
-import type { PrivateLog } from '@aztec/circuits.js/logs';
-import { MerkleTreeId, NullifierMembershipWitness } from '@aztec/circuits.js/trees';
+import type { LogFilter, PrivateLog, TxScopedL2Log } from '@aztec/circuits.js/logs';
+import type { L1ToL2MessageSource } from '@aztec/circuits.js/messaging';
+import { P2PClientType } from '@aztec/circuits.js/p2p';
+import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/circuits.js/trees';
 import {
   type NullifierLeafPreimage,
   type PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js/trees';
-import type { BlockHeader } from '@aztec/circuits.js/tx';
+import {
+  type BlockHeader,
+  PublicSimulationOutput,
+  Tx,
+  TxEffect,
+  type TxHash,
+  TxReceipt,
+  TxStatus,
+  type TxValidationResult,
+} from '@aztec/circuits.js/tx';
 import {
   type ARCHIVE_HEIGHT,
   INITIAL_L2_BLOCK_NUM,

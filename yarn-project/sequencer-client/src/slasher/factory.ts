@@ -1,4 +1,4 @@
-import type { L2BlockSource } from '@aztec/circuits.js';
+import type { L2BlockSource } from '@aztec/circuits.js/block';
 import { type L1ContractsConfig, type L1ReaderConfig } from '@aztec/ethereum';
 import { createLogger } from '@aztec/foundation/log';
 import { type AztecAsyncKVStore } from '@aztec/kv-store';

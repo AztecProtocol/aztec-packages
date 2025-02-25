@@ -1,8 +1,8 @@
-import { type Tx } from '@aztec/circuits.js';
 import { FunctionSelector, U128 } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { GasFees, GasSettings } from '@aztec/circuits.js/gas';
 import { mockTx } from '@aztec/circuits.js/testing';
+import { type Tx } from '@aztec/circuits.js/tx';
 import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { type Writeable } from '@aztec/foundation/types';

@@ -3,8 +3,8 @@ import {
   type ProvingJob,
   type ProvingJobId,
   type ProvingJobStatus,
-  ProvingRequestType,
 } from '@aztec/circuits.js/interfaces/server';
+import { ProvingRequestType } from '@aztec/circuits.js/proofs';
 import { sleep } from '@aztec/foundation/sleep';
 
 import { jest } from '@jest/globals';

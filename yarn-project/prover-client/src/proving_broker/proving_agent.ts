@@ -1,13 +1,13 @@
-import { ProvingError } from '@aztec/circuits.js';
+import { ProvingError } from '@aztec/circuits.js/errors';
 import {
   type ProvingJob,
   type ProvingJobConsumer,
   type ProvingJobId,
   type ProvingJobInputs,
   type ProvingJobResultsMap,
-  ProvingRequestType,
   type ServerCircuitProver,
 } from '@aztec/circuits.js/interfaces/server';
+import { ProvingRequestType } from '@aztec/circuits.js/proofs';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { truncate } from '@aztec/foundation/string';

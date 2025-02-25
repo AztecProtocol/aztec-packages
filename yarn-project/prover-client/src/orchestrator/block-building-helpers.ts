@@ -1,6 +1,6 @@
 import { Blob, type SpongeBlob } from '@aztec/blob-lib';
-import { Body, type ProcessedTx, TxEffect } from '@aztec/circuits.js';
 import { PublicDataHint } from '@aztec/circuits.js/avm';
+import { Body } from '@aztec/circuits.js/block';
 import { type MerkleTreeWriteOperations } from '@aztec/circuits.js/interfaces/server';
 import type { ParityPublicInputs } from '@aztec/circuits.js/parity';
 import {
@@ -19,6 +19,7 @@ import {
   PublicDataTreeLeafPreimage,
   getTreeHeight,
 } from '@aztec/circuits.js/trees';
+import { type ProcessedTx, TxEffect } from '@aztec/circuits.js/tx';
 import {
   BlockHeader,
   ContentCommitment,

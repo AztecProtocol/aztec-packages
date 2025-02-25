@@ -1,7 +1,7 @@
-import { type Tx, TxExecutionPhase, type TxValidationResult, type TxValidator } from '@aztec/circuits.js';
 import { FunctionSelector, U128 } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import type { GasFees } from '@aztec/circuits.js/gas';
+import { type Tx, TxExecutionPhase, type TxValidationResult, type TxValidator } from '@aztec/circuits.js/tx';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
