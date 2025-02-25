@@ -1,49 +1,4 @@
 import {
-  type ContractArtifact,
-  type FunctionArtifact,
-  FunctionSelector,
-  type NoteSelector,
-  encodeArguments,
-  getFunctionArtifact,
-  getFunctionArtifactByName,
-} from '@aztec/circuits.js/abi';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import type { L2BlockNumber } from '@aztec/circuits.js/block';
-import {
-  CompleteAddress,
-  type ContractInstance,
-  getContractClassFromArtifact,
-  getContractInstanceFromDeployParams,
-} from '@aztec/circuits.js/contract';
-import { GasFees, GasSettings } from '@aztec/circuits.js/gas';
-import {
-  computeNoteHashNonce,
-  computeSecretHash,
-  computeUniqueNoteHash,
-  computeVarArgsHash,
-  deriveStorageSlotInMap,
-  siloNoteHash,
-} from '@aztec/circuits.js/hash';
-import { type AztecNode } from '@aztec/circuits.js/interfaces/client';
-import { KeyValidationRequest, getNonEmptyItems } from '@aztec/circuits.js/kernel';
-import { computeAppNullifierSecretKey, deriveKeys } from '@aztec/circuits.js/keys';
-import { IndexedTaggingSecret, TxScopedL2Log } from '@aztec/circuits.js/logs';
-import type { L1ToL2Message } from '@aztec/circuits.js/messaging';
-import { Note } from '@aztec/circuits.js/note';
-import { makeHeader } from '@aztec/circuits.js/testing';
-import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
-import {
-  BlockHeader,
-  CallContext,
-  CountedPublicExecutionRequest,
-  HashedValues,
-  PartialStateReference,
-  PublicExecutionRequest,
-  StateReference,
-  TxContext,
-  TxExecutionRequest,
-} from '@aztec/circuits.js/tx';
-import {
   GeneratorIndex,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
@@ -65,6 +20,51 @@ import { ParentContractArtifact } from '@aztec/noir-contracts.js/Parent';
 import { PendingNoteHashesContractArtifact } from '@aztec/noir-contracts.js/PendingNoteHashes';
 import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContractArtifact } from '@aztec/noir-contracts.js/Test';
+import {
+  type ContractArtifact,
+  type FunctionArtifact,
+  FunctionSelector,
+  type NoteSelector,
+  encodeArguments,
+  getFunctionArtifact,
+  getFunctionArtifactByName,
+} from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2BlockNumber } from '@aztec/stdlib/block';
+import {
+  CompleteAddress,
+  type ContractInstance,
+  getContractClassFromArtifact,
+  getContractInstanceFromDeployParams,
+} from '@aztec/stdlib/contract';
+import { GasFees, GasSettings } from '@aztec/stdlib/gas';
+import {
+  computeNoteHashNonce,
+  computeSecretHash,
+  computeUniqueNoteHash,
+  computeVarArgsHash,
+  deriveStorageSlotInMap,
+  siloNoteHash,
+} from '@aztec/stdlib/hash';
+import { type AztecNode } from '@aztec/stdlib/interfaces/client';
+import { KeyValidationRequest, getNonEmptyItems } from '@aztec/stdlib/kernel';
+import { computeAppNullifierSecretKey, deriveKeys } from '@aztec/stdlib/keys';
+import { IndexedTaggingSecret, TxScopedL2Log } from '@aztec/stdlib/logs';
+import type { L1ToL2Message } from '@aztec/stdlib/messaging';
+import { Note } from '@aztec/stdlib/note';
+import { makeHeader } from '@aztec/stdlib/testing';
+import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
+import {
+  BlockHeader,
+  CallContext,
+  CountedPublicExecutionRequest,
+  HashedValues,
+  PartialStateReference,
+  PublicExecutionRequest,
+  StateReference,
+  TxContext,
+  TxExecutionRequest,
+} from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { Matcher, type MatcherCreator, type MockProxy, mock } from 'jest-mock-extended';

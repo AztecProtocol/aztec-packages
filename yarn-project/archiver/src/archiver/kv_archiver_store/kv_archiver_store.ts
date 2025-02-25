@@ -1,21 +1,21 @@
-import { FunctionSelector } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
-import type { InBlock, L2Block } from '@aztec/circuits.js/block';
+import type { Fr } from '@aztec/foundation/fields';
+import { toArray } from '@aztec/foundation/iterable';
+import { createLogger } from '@aztec/foundation/log';
+import { type AztecAsyncKVStore, type StoreSize } from '@aztec/kv-store';
+import { FunctionSelector } from '@aztec/stdlib/abi';
+import { type AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { InBlock, L2Block } from '@aztec/stdlib/block';
 import {
   type ContractClassPublic,
   type ContractInstanceUpdateWithAddress,
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
   type UnconstrainedFunctionWithMembershipProof,
-} from '@aztec/circuits.js/contract';
-import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/circuits.js/interfaces/client';
-import { type LogFilter, PrivateLog, type TxScopedL2Log } from '@aztec/circuits.js/logs';
-import type { InboxLeaf } from '@aztec/circuits.js/messaging';
-import type { BlockHeader, TxHash, TxReceipt } from '@aztec/circuits.js/tx';
-import type { Fr } from '@aztec/foundation/fields';
-import { toArray } from '@aztec/foundation/iterable';
-import { createLogger } from '@aztec/foundation/log';
-import { type AztecAsyncKVStore, type StoreSize } from '@aztec/kv-store';
+} from '@aztec/stdlib/contract';
+import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
+import { type LogFilter, PrivateLog, type TxScopedL2Log } from '@aztec/stdlib/logs';
+import type { InboxLeaf } from '@aztec/stdlib/messaging';
+import type { BlockHeader, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
 import { type DataRetrieval } from '../structs/data_retrieval.js';

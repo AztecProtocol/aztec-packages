@@ -4,15 +4,15 @@
  * Used when running testbench commands
  */
 import { MockL2BlockSource } from '@aztec/archiver/test';
-import { type WorldStateSynchronizer } from '@aztec/circuits.js/interfaces/server';
-import { P2PClientType } from '@aztec/circuits.js/p2p';
-import { Tx, TxStatus } from '@aztec/circuits.js/tx';
 import { type EpochCacheInterface } from '@aztec/epoch-cache';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { type WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import { P2PClientType } from '@aztec/stdlib/p2p';
+import { Tx, TxStatus } from '@aztec/stdlib/tx';
 
 import type { Message, PeerId } from '@libp2p/interface';
 

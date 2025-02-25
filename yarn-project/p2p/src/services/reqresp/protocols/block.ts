@@ -1,5 +1,5 @@
-import { type L2BlockSource } from '@aztec/circuits.js/block';
 import { Fr } from '@aztec/foundation/fields';
+import { type L2BlockSource } from '@aztec/stdlib/block';
 
 import { type PeerId } from '@libp2p/interface';
 

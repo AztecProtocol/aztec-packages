@@ -1,3 +1,13 @@
+import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
+import { Fr, type Point } from '@aztec/foundation/fields';
+import { type Logger, createLogger } from '@aztec/foundation/log';
+import { Timer } from '@aztec/foundation/timer';
+import { type SiblingPath } from '@aztec/foundation/trees';
+import { type KeyStore } from '@aztec/key-store';
+import { type L2TipsStore } from '@aztec/kv-store/stores';
+import { ProtocolContractAddress, protocolContractNames } from '@aztec/protocol-contracts';
+import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
+import { type AcirSimulator, type SimulationProvider, readCurrentClassId } from '@aztec/simulator/client';
 import {
   type AbiDecoded,
   type ContractArtifact,
@@ -7,22 +17,22 @@ import {
   FunctionType,
   decodeFunctionSignature,
   encodeArguments,
-} from '@aztec/circuits.js/abi';
-import { type AuthWitness } from '@aztec/circuits.js/auth-witness';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
-import type { InBlock, L2Block } from '@aztec/circuits.js/block';
+} from '@aztec/stdlib/abi';
+import { type AuthWitness } from '@aztec/stdlib/auth-witness';
+import { type AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { InBlock, L2Block } from '@aztec/stdlib/block';
 import type {
   CompleteAddress,
   ContractClassWithId,
   ContractInstanceWithAddress,
   NodeInfo,
   PartialAddress,
-} from '@aztec/circuits.js/contract';
-import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/circuits.js/contract';
-import { SimulationError } from '@aztec/circuits.js/errors';
-import { EventMetadata, L1EventPayload } from '@aztec/circuits.js/event';
-import type { GasFees } from '@aztec/circuits.js/gas';
-import { siloNullifier } from '@aztec/circuits.js/hash';
+} from '@aztec/stdlib/contract';
+import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/stdlib/contract';
+import { SimulationError } from '@aztec/stdlib/errors';
+import { EventMetadata, L1EventPayload } from '@aztec/stdlib/event';
+import type { GasFees } from '@aztec/stdlib/gas';
+import { siloNullifier } from '@aztec/stdlib/hash';
 import {
   type AztecNode,
   type EventMetadataDefinition,
@@ -31,12 +41,12 @@ import {
   type PXE,
   type PXEInfo,
   type PrivateKernelProver,
-} from '@aztec/circuits.js/interfaces/client';
-import { type PrivateKernelSimulateOutput, PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
-import { computeAddressSecret } from '@aztec/circuits.js/keys';
-import type { LogFilter } from '@aztec/circuits.js/logs';
-import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/circuits.js/messaging';
-import { type NotesFilter, UniqueNote } from '@aztec/circuits.js/note';
+} from '@aztec/stdlib/interfaces/client';
+import { type PrivateKernelSimulateOutput, PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
+import { computeAddressSecret } from '@aztec/stdlib/keys';
+import type { LogFilter } from '@aztec/stdlib/logs';
+import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
+import { type NotesFilter, UniqueNote } from '@aztec/stdlib/note';
 import {
   PrivateExecutionResult,
   PrivateSimulationResult,
@@ -48,17 +58,7 @@ import {
   TxProvingResult,
   type TxReceipt,
   TxSimulationResult,
-} from '@aztec/circuits.js/tx';
-import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import { Fr, type Point } from '@aztec/foundation/fields';
-import { type Logger, createLogger } from '@aztec/foundation/log';
-import { Timer } from '@aztec/foundation/timer';
-import { type SiblingPath } from '@aztec/foundation/trees';
-import { type KeyStore } from '@aztec/key-store';
-import { type L2TipsStore } from '@aztec/kv-store/stores';
-import { ProtocolContractAddress, protocolContractNames } from '@aztec/protocol-contracts';
-import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
-import { type AcirSimulator, type SimulationProvider, readCurrentClassId } from '@aztec/simulator/client';
+} from '@aztec/stdlib/tx';
 
 import { inspect } from 'util';
 

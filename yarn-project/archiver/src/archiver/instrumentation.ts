@@ -1,5 +1,5 @@
-import { type L2Block } from '@aztec/circuits.js/block';
 import { createLogger } from '@aztec/foundation/log';
+import { type L2Block } from '@aztec/stdlib/block';
 import {
   Attributes,
   type Gauge,

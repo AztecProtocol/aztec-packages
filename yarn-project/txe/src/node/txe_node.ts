@@ -1,41 +1,3 @@
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { type InBlock, L2Block, L2BlockHash, type L2BlockNumber, type L2Tips } from '@aztec/circuits.js/block';
-import {
-  type ContractClassPublic,
-  type ContractInstanceWithAddress,
-  type NodeInfo,
-  type ProtocolContractAddresses,
-} from '@aztec/circuits.js/contract';
-import type { GasFees } from '@aztec/circuits.js/gas';
-import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import {
-  type AztecNode,
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-} from '@aztec/circuits.js/interfaces/client';
-import {
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
-  type ProverConfig,
-  type SequencerConfig,
-  type WorldStateSyncStatus,
-} from '@aztec/circuits.js/interfaces/server';
-import { type LogFilter, type PrivateLog, type PublicLog, TxScopedL2Log } from '@aztec/circuits.js/logs';
-import {
-  MerkleTreeId,
-  type NullifierMembershipWitness,
-  type PublicDataTreeLeafPreimage,
-  PublicDataWitness,
-} from '@aztec/circuits.js/trees';
-import {
-  BlockHeader,
-  type PublicSimulationOutput,
-  type Tx,
-  type TxEffect,
-  TxHash,
-  TxReceipt,
-  type TxValidationResult,
-} from '@aztec/circuits.js/tx';
 import {
   type ARCHIVE_HEIGHT,
   type L1_TO_L2_MSG_TREE_HEIGHT,
@@ -49,6 +11,44 @@ import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { type SiblingPath } from '@aztec/foundation/trees';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type InBlock, L2Block, L2BlockHash, type L2BlockNumber, type L2Tips } from '@aztec/stdlib/block';
+import {
+  type ContractClassPublic,
+  type ContractInstanceWithAddress,
+  type NodeInfo,
+  type ProtocolContractAddresses,
+} from '@aztec/stdlib/contract';
+import type { GasFees } from '@aztec/stdlib/gas';
+import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
+import {
+  type AztecNode,
+  type GetContractClassLogsResponse,
+  type GetPublicLogsResponse,
+} from '@aztec/stdlib/interfaces/client';
+import {
+  type MerkleTreeReadOperations,
+  type MerkleTreeWriteOperations,
+  type ProverConfig,
+  type SequencerConfig,
+  type WorldStateSyncStatus,
+} from '@aztec/stdlib/interfaces/server';
+import { type LogFilter, type PrivateLog, type PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
+import {
+  MerkleTreeId,
+  type NullifierMembershipWitness,
+  type PublicDataTreeLeafPreimage,
+  PublicDataWitness,
+} from '@aztec/stdlib/trees';
+import {
+  BlockHeader,
+  type PublicSimulationOutput,
+  type Tx,
+  type TxEffect,
+  TxHash,
+  TxReceipt,
+  type TxValidationResult,
+} from '@aztec/stdlib/tx';
 import { type NativeWorldStateService } from '@aztec/world-state';
 
 export class TXENode implements AztecNode {

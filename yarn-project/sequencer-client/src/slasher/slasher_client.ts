@@ -1,11 +1,3 @@
-import {
-  type L2Block,
-  type L2BlockId,
-  type L2BlockSource,
-  L2BlockStream,
-  type L2BlockStreamEvent,
-  type L2Tips,
-} from '@aztec/circuits.js/block';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import {
   type L1ContractsConfig,
@@ -17,6 +9,14 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@aztec/kv-store';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts';
+import {
+  type L2Block,
+  type L2BlockId,
+  type L2BlockSource,
+  L2BlockStream,
+  type L2BlockStreamEvent,
+  type L2Tips,
+} from '@aztec/stdlib/block';
 import { type TelemetryClient, WithTracer, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type GetContractReturnType, createPublicClient, fallback, getAddress, getContract, http } from 'viem';

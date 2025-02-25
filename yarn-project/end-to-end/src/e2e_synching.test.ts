@@ -47,9 +47,6 @@ import {
   sleep,
 } from '@aztec/aztec.js';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { L2Block } from '@aztec/circuits.js/block';
-import { tryStop } from '@aztec/circuits.js/interfaces/server';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
   GovernanceProposerContract,
@@ -66,6 +63,9 @@ import { SpamContract } from '@aztec/noir-contracts.js/Spam';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type PXEService } from '@aztec/pxe';
 import { SequencerPublisher } from '@aztec/sequencer-client';
+import { type AztecAddress } from '@aztec/stdlib/aztec-address';
+import { L2Block } from '@aztec/stdlib/block';
+import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import * as fs from 'fs';

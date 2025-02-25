@@ -6,12 +6,12 @@ import {
   type Wallet,
   createLogger,
 } from '@aztec/aztec.js';
-import { type FunctionCall } from '@aztec/circuits.js/abi';
-import { Gas } from '@aztec/circuits.js/gas';
-import { type AztecNode, type PXE } from '@aztec/circuits.js/interfaces/client';
 import { timesParallel } from '@aztec/foundation/collection';
 import { type EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 import { type TokenContract } from '@aztec/noir-contracts.js/Token';
+import { type FunctionCall } from '@aztec/stdlib/abi';
+import { Gas } from '@aztec/stdlib/gas';
+import { type AztecNode, type PXE } from '@aztec/stdlib/interfaces/client';
 
 import { type BotConfig } from './config.js';
 import { BotFactory } from './factory.js';

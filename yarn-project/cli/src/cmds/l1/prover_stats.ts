@@ -1,10 +1,10 @@
 import { retrieveL2ProofVerifiedEvents } from '@aztec/archiver';
-import { createAztecNodeClient } from '@aztec/circuits.js/interfaces/client';
 import { type ViemPublicClient, createEthereumChain } from '@aztec/ethereum';
 import { compactArray, mapValues, unique } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type LogFn, type Logger, createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
+import { createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
 
 import chunk from 'lodash.chunk';
 import groupBy from 'lodash.groupby';

@@ -184,7 +184,7 @@ export const l1Artifacts = {
 export interface DeployL1ContractsArgs extends L1ContractsConfig {
   /**
    * The address of the L2 Fee Juice contract.
-   * It should be an AztecAddress, but the type is defined in circuits.js,
+   * It should be an AztecAddress, but the type is defined in stdlib,
    * which would create a circular import
    * */
   l2FeeJuiceAddress: Fr;

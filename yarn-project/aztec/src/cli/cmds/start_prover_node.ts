@@ -1,6 +1,4 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
-import { createAztecNodeClient } from '@aztec/circuits.js/interfaces/client';
-import { P2PApiSchema, ProverNodeApiSchema, type ProvingJobBroker } from '@aztec/circuits.js/interfaces/server';
 import { NULL_KEY } from '@aztec/ethereum';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
@@ -12,6 +10,8 @@ import {
   getProverNodeConfigFromEnv,
   proverNodeConfigMappings,
 } from '@aztec/prover-node';
+import { createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
+import { P2PApiSchema, ProverNodeApiSchema, type ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
 import { initTelemetryClient, makeTracedFetch, telemetryClientConfigMappings } from '@aztec/telemetry-client';
 import { getGenesisValues } from '@aztec/world-state/testing';
 

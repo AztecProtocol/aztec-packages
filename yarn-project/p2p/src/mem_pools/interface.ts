@@ -1,4 +1,4 @@
-import { type P2PClientType } from '@aztec/circuits.js/p2p';
+import { type P2PClientType } from '@aztec/stdlib/p2p';
 
 import { type AttestationPool } from './attestation_pool/attestation_pool.js';
 import { type TxPool } from './tx_pool/tx_pool.js';

@@ -4,8 +4,8 @@ import {
   type FieldLayout,
   type FunctionArtifact,
   FunctionSelector,
-} from '@aztec/circuits.js/abi';
-import { type ContractInstanceWithAddress, computePartialAddress } from '@aztec/circuits.js/contract';
+} from '@aztec/stdlib/abi';
+import { type ContractInstanceWithAddress, computePartialAddress } from '@aztec/stdlib/contract';
 
 import { type Wallet } from '../account/index.js';
 import { ContractFunctionInteraction } from './contract_function_interaction.js';

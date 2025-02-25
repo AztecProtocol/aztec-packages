@@ -1,4 +1,3 @@
-import { type ProvingJobBroker } from '@aztec/circuits.js/interfaces/server';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
 import {
@@ -8,6 +7,7 @@ import {
   proverBrokerConfigMappings,
 } from '@aztec/prover-client/broker';
 import { getProverNodeBrokerConfigFromEnv } from '@aztec/prover-node';
+import { type ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
 import { getConfigEnvVars as getTelemetryClientConfig, initTelemetryClient } from '@aztec/telemetry-client';
 
 import { extractRelevantOptions } from '../util.js';

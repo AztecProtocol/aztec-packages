@@ -1,12 +1,12 @@
-import { type ClientProtocolCircuitVerifier } from '@aztec/circuits.js/interfaces/server';
-import { type Proof } from '@aztec/circuits.js/proofs';
-import { type CircuitVerificationStats } from '@aztec/circuits.js/stats';
-import { Tx } from '@aztec/circuits.js/tx';
-import { type VerificationKeyData } from '@aztec/circuits.js/vks';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type ClientProtocolArtifact, type ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
 import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
+import { type ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
+import { type Proof } from '@aztec/stdlib/proofs';
+import { type CircuitVerificationStats } from '@aztec/stdlib/stats';
+import { Tx } from '@aztec/stdlib/tx';
+import { type VerificationKeyData } from '@aztec/stdlib/vks';
 
 import { promises as fs } from 'fs';
 import * as path from 'path';

@@ -1,21 +1,21 @@
-import type { AvmProvingRequest, RevertCode } from '@aztec/circuits.js/avm';
-import type { SimulationError } from '@aztec/circuits.js/errors';
-import type { Gas, GasUsed } from '@aztec/circuits.js/gas';
-import { type MerkleTreeReadOperations } from '@aztec/circuits.js/interfaces/server';
-import type { PublicCallRequest } from '@aztec/circuits.js/kernel';
-import { type AvmSimulationStats } from '@aztec/circuits.js/stats';
+import type { Fr } from '@aztec/foundation/fields';
+import { type Logger, createLogger } from '@aztec/foundation/log';
+import { Timer } from '@aztec/foundation/timer';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
+import type { AvmProvingRequest, RevertCode } from '@aztec/stdlib/avm';
+import type { SimulationError } from '@aztec/stdlib/errors';
+import type { Gas, GasUsed } from '@aztec/stdlib/gas';
+import { type MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
+import type { PublicCallRequest } from '@aztec/stdlib/kernel';
+import { type AvmSimulationStats } from '@aztec/stdlib/stats';
 import {
   type GlobalVariables,
   NestedProcessReturnValues,
   PublicExecutionRequest,
   Tx,
   TxExecutionPhase,
-} from '@aztec/circuits.js/tx';
-import type { Fr } from '@aztec/foundation/fields';
-import { type Logger, createLogger } from '@aztec/foundation/log';
-import { Timer } from '@aztec/foundation/timer';
-import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
+} from '@aztec/stdlib/tx';
 import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { strict as assert } from 'assert';

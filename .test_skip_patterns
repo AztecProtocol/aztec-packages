@@ -82,11 +82,11 @@ e2e_prover/full fake
 #     45 |     switch (abiType.kind) {
 #     46 |       case 'field':
 #
-#     at ArgumentEncoder.encodeArgument (../../foundation/src/abi/encoder.ts:43:13)
-#     at ArgumentEncoder.encode (../../foundation/src/abi/encoder.ts:137:12)
-#     at encodeArguments (../../foundation/src/abi/encoder.ts:150:41)
-#     at computeInitializationHash (../../circuits.js/src/contract/contract_address.ts:75:20)
-#     at getContractInstanceFromDeployParams (../../circuits.js/src/contract/contract_instance.ts:124:9)
+#     at ArgumentEncoder.encodeArgument (../../stdlib/src/abi/encoder.ts:43:13)
+#     at ArgumentEncoder.encode (../../stdlib/src/abi/encoder.ts:137:12)
+#     at encodeArguments (../../stdlib/src/abi/encoder.ts:150:41)
+#     at computeInitializationHash (../../stdlib/src/contract/contract_address.ts:75:20)
+#     at getContractInstanceFromDeployParams (../../stdlib/src/contract/contract_instance.ts:124:9)
 #     at Object.getContractInstanceFromDeployParams (flakey_e2e_inclusion_proofs_contract.test.ts:275:24)
 simple flakey_e2e_inclusion_proofs_contract
 

@@ -1,13 +1,13 @@
+import { RollupContract, createEthereumChain } from '@aztec/ethereum';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { type Logger, createLogger } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
 import {
   EmptyL1RollupConstants,
   type L1RollupConstants,
   getEpochNumberAtTimestamp,
   getSlotAtTimestamp,
-} from '@aztec/circuits.js/epoch-helpers';
-import { RollupContract, createEthereumChain } from '@aztec/ethereum';
-import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Logger, createLogger } from '@aztec/foundation/log';
-import { DateProvider } from '@aztec/foundation/timer';
+} from '@aztec/stdlib/epoch-helpers';
 
 import { EventEmitter } from 'node:events';
 import { createPublicClient, encodeAbiParameters, fallback, http, keccak256 } from 'viem';

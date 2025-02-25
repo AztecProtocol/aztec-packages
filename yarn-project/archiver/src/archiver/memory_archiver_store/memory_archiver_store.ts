@@ -1,6 +1,14 @@
-import { FunctionSelector } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { type InBlock, type L2Block, L2BlockHash, wrapInBlock } from '@aztec/circuits.js/block';
+import {
+  INITIAL_L2_BLOCK_NUM,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
+} from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
+import { createLogger } from '@aztec/foundation/log';
+import { FunctionSelector } from '@aztec/stdlib/abi';
+import { type AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type InBlock, type L2Block, L2BlockHash, wrapInBlock } from '@aztec/stdlib/block';
 import {
   type ContractClassPublic,
   type ContractClassPublicWithBlockNumber,
@@ -8,8 +16,8 @@ import {
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
   type UnconstrainedFunctionWithMembershipProof,
-} from '@aztec/circuits.js/contract';
-import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/circuits.js/interfaces/client';
+} from '@aztec/stdlib/contract';
+import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import {
   ContractClass2BlockL2Logs,
   ExtendedPublicLog,
@@ -19,17 +27,9 @@ import {
   type PrivateLog,
   type PublicLog,
   TxScopedL2Log,
-} from '@aztec/circuits.js/logs';
-import type { InboxLeaf } from '@aztec/circuits.js/messaging';
-import { type BlockHeader, TxEffect, TxHash, TxReceipt } from '@aztec/circuits.js/tx';
-import {
-  INITIAL_L2_BLOCK_NUM,
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
-} from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
-import { createLogger } from '@aztec/foundation/log';
+} from '@aztec/stdlib/logs';
+import type { InboxLeaf } from '@aztec/stdlib/messaging';
+import { type BlockHeader, TxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
 import { type DataRetrieval } from '../structs/data_retrieval.js';

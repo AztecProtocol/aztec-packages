@@ -1,9 +1,9 @@
-import { ClientIvcProof } from '@aztec/circuits.js/proofs';
-import { type TxAddedToPoolStats } from '@aztec/circuits.js/stats';
-import { Tx, TxHash } from '@aztec/circuits.js/tx';
 import { toArray } from '@aztec/foundation/iterable';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
+import { ClientIvcProof } from '@aztec/stdlib/proofs';
+import { type TxAddedToPoolStats } from '@aztec/stdlib/stats';
+import { Tx, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';

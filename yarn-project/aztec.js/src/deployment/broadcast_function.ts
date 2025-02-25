@@ -1,11 +1,3 @@
-import { type ContractArtifact, FunctionSelector, FunctionType, bufferAsFields } from '@aztec/circuits.js/abi';
-import {
-  computeVerificationKeyHash,
-  createPrivateFunctionMembershipProof,
-  createUnconstrainedFunctionMembershipProof,
-  getContractClassFromArtifact,
-} from '@aztec/circuits.js/contract';
-import { Capsule } from '@aztec/circuits.js/tx';
 import {
   ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
   MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
@@ -14,6 +6,14 @@ import {
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { type ContractArtifact, FunctionSelector, FunctionType, bufferAsFields } from '@aztec/stdlib/abi';
+import {
+  computeVerificationKeyHash,
+  createPrivateFunctionMembershipProof,
+  createUnconstrainedFunctionMembershipProof,
+  getContractClassFromArtifact,
+} from '@aztec/stdlib/contract';
+import { Capsule } from '@aztec/stdlib/tx';
 
 import { type ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { type Wallet } from '../wallet/index.js';

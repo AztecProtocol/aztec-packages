@@ -1,7 +1,7 @@
-import { GasFees } from '@aztec/circuits.js/gas';
-import { mockTx } from '@aztec/circuits.js/testing';
-import { type Tx } from '@aztec/circuits.js/tx';
 import { unfreeze } from '@aztec/foundation/types';
+import { GasFees } from '@aztec/stdlib/gas';
+import { mockTx } from '@aztec/stdlib/testing';
+import { type Tx } from '@aztec/stdlib/tx';
 
 import { type TxPool } from './tx_pool.js';
 

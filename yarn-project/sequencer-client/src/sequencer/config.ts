@@ -1,1 +1,1 @@
-export { type SequencerConfig } from '@aztec/circuits.js/config';
+export { type SequencerConfig } from '@aztec/stdlib/config';

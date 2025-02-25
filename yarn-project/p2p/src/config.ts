@@ -1,4 +1,3 @@
-import { type ChainConfig, chainConfigMappings } from '@aztec/circuits.js/config';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
@@ -8,6 +7,7 @@ import {
   pickConfigMappings,
 } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
+import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
 
 import { type P2PReqRespConfig, p2pReqRespConfigMappings } from './services/reqresp/config.js';
 
