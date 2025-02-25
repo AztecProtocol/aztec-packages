@@ -1,5 +1,4 @@
-import { MerkleTreeId } from '@aztec/circuit-types';
-import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
+import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/circuits.js/trees';
 import type { StateReference } from '@aztec/circuits.js/tx';
 import type { UInt32 } from '@aztec/circuits.js/types';
 import { Fr } from '@aztec/foundation/fields';

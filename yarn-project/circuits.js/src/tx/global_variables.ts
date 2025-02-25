@@ -58,17 +58,18 @@ export class GlobalVariables {
     return new GlobalVariables(...GlobalVariables.getFields(fields));
   }
 
-  static empty(): GlobalVariables {
-    return new GlobalVariables(
-      Fr.ZERO,
-      Fr.ZERO,
-      Fr.ZERO,
-      Fr.ZERO,
-      Fr.ZERO,
-      EthAddress.ZERO,
-      AztecAddress.ZERO,
-      GasFees.empty(),
-    );
+  static empty(fields: Partial<FieldsOf<GlobalVariables>> = {}): GlobalVariables {
+    return GlobalVariables.from({
+      blockNumber: Fr.ZERO,
+      slotNumber: Fr.ZERO,
+      timestamp: Fr.ZERO,
+      chainId: Fr.ZERO,
+      version: Fr.ZERO,
+      coinbase: EthAddress.ZERO,
+      feeRecipient: AztecAddress.ZERO,
+      gasFees: GasFees.empty(),
+      ...fields,
+    });
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): GlobalVariables {

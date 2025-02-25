@@ -48,7 +48,7 @@ export interface Validator {
   registerBlockProposalHandler(): void;
   registerBlockBuilder(blockBuilder: BlockBuilderCallback): void;
 
-  // Block validation responsiblities
+  // Block validation responsibilities
   createBlockProposal(header: BlockHeader, archive: Fr, txs: TxHash[]): Promise<BlockProposal | undefined>;
   attestToProposal(proposal: BlockProposal): void;
 
@@ -192,7 +192,7 @@ export class ValidatorClient extends WithTracer implements Validator {
       return undefined;
     }
 
-    // Check that all of the tranasctions in the proposal are available in the tx pool before attesting
+    // Check that all of the transactions in the proposal are available in the tx pool before attesting
     this.log.verbose(`Processing attestation for slot ${slotNumber}`, proposalInfo);
     try {
       await this.ensureTransactionsAreAvailable(proposal);
