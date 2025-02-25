@@ -1,5 +1,5 @@
-// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js
-namespace constants(256);
+// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
+namespace constants;
     pol MAX_NOTE_HASHES_PER_CALL = 16;
     pol MAX_NULLIFIERS_PER_CALL = 16;
     pol MAX_ENQUEUED_CALLS_PER_CALL = 16;

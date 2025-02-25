@@ -19,6 +19,16 @@ opentelemetry-collector:
     enabled: true
     type: LoadBalancer
   config:
+    processors:
+      memory_limiter:
+        check_interval: 1s
+        limit_mib: 10000
+        spike_limit_mib: 2000
+      filter:
+        metrics:
+          datapoint:
+            - metric.type == METRIC_DATA_TYPE_HISTOGRAM and Len(explicit_bounds) > 20
+
     exporters:
       prometheus:
         endpoint: ${env:MY_POD_IP}:8889
@@ -31,6 +41,8 @@ opentelemetry-collector:
           receivers:
             - otlp
           processors:
+            - memory_limiter
+            - filter
             - batch
           exporters:
             - prometheus

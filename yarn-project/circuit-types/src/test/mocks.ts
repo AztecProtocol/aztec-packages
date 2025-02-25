@@ -99,11 +99,13 @@ export const mockTx = async (
     numberOfRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
     hasPublicTeardownCallRequest = false,
     feePayer,
+    clientIvcProof = ClientIvcProof.empty(),
   }: {
     numberOfNonRevertiblePublicCallRequests?: number;
     numberOfRevertiblePublicCallRequests?: number;
     hasPublicTeardownCallRequest?: boolean;
     feePayer?: AztecAddress;
+    clientIvcProof?: ClientIvcProof;
   } = {},
 ) => {
   const totalPublicCallRequests =
@@ -155,7 +157,7 @@ export const mockTx = async (
       .build();
   }
 
-  const tx = new Tx(data, ClientIvcProof.empty(), [], enqueuedPublicFunctionCalls, publicTeardownFunctionCall);
+  const tx = new Tx(data, clientIvcProof, [], enqueuedPublicFunctionCalls, publicTeardownFunctionCall);
 
   return tx;
 };
