@@ -154,7 +154,7 @@ export function prettyPrintNargoToml(config) {
   const partialToml = stringify(withoutDependencies);
   const dependenciesToml = Object.entries(config.dependencies).map(
     ([name, dep]) => {
-      const depToml = stringify.value(dep);
+      const depToml = stringify(dep);
       return `${name} = ${depToml}`;
     },
   );
