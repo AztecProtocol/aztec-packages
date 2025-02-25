@@ -12,7 +12,6 @@ import {
   type WorldStateSynchronizer,
   type WorldStateSynchronizerStatus,
 } from '@aztec/circuit-types/interfaces/server';
-import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import type { ContractDataSource } from '@aztec/circuits.js/contract';
 import { Gas } from '@aztec/circuits.js/gas';
@@ -33,6 +32,7 @@ import { type PublicProcessorFactory } from '@aztec/simulator/server';
 import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 import { type ValidatorClient } from '@aztec/validator-client';
 
+import { type L2BlockBuiltStats } from '../../../circuits.js/src/stats/index.js';
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { type SequencerPublisher, VoteType } from '../publisher/sequencer-publisher.js';
 import { type SlasherClient } from '../slasher/slasher_client.js';

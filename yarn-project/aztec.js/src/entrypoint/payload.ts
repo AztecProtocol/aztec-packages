@@ -1,5 +1,5 @@
-import { FunctionCall, HashedValues } from '@aztec/circuit-types';
-import { FunctionType } from '@aztec/circuits.js/abi';
+import { HashedValues } from '@aztec/circuit-types';
+import { FunctionCall, FunctionType } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type GasSettings } from '@aztec/circuits.js/gas';
 import { GeneratorIndex } from '@aztec/constants';

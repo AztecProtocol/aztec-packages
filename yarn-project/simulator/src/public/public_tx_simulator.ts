@@ -7,7 +7,6 @@ import {
   TxExecutionPhase,
 } from '@aztec/circuit-types';
 import { type AvmProvingRequest, type MerkleTreeReadOperations } from '@aztec/circuit-types/interfaces/server';
-import { type AvmSimulationStats } from '@aztec/circuit-types/stats';
 import type { RevertCode } from '@aztec/circuits.js/avm';
 import type { Gas } from '@aztec/circuits.js/gas';
 import type { PublicCallRequest } from '@aztec/circuits.js/kernel';
@@ -21,6 +20,7 @@ import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trac
 
 import { strict as assert } from 'assert';
 
+import { type AvmSimulationStats } from '../../../circuits.js/src/stats/index.js';
 import { type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmPersistableStateManager, AvmSimulator } from '../avm/index.js';
 import { NullifierCollisionError } from '../avm/journal/nullifiers.js';

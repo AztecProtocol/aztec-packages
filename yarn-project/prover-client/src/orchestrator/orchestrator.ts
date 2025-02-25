@@ -6,7 +6,6 @@ import {
   type ProofAndVerificationKey,
   type ServerCircuitProver,
 } from '@aztec/circuit-types/interfaces/server';
-import { type CircuitName } from '@aztec/circuit-types/stats';
 import { BaseParityInputs } from '@aztec/circuits.js/parity';
 import { makeEmptyRecursiveProof } from '@aztec/circuits.js/proofs';
 import {
@@ -49,6 +48,7 @@ import {
 
 import { inspect } from 'util';
 
+import { type CircuitName } from '../../../circuits.js/src/stats/index.js';
 import {
   buildBaseRollupHints,
   buildHeaderAndBodyFromTxs,

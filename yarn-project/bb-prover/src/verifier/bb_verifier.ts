@@ -1,6 +1,5 @@
 import { Tx } from '@aztec/circuit-types';
 import { type ClientProtocolCircuitVerifier } from '@aztec/circuit-types/interfaces/server';
-import { type CircuitVerificationStats } from '@aztec/circuit-types/stats';
 import { type Proof } from '@aztec/circuits.js/proofs';
 import { type VerificationKeyData } from '@aztec/circuits.js/vks';
 import { runInDirectory } from '@aztec/foundation/fs';
@@ -11,6 +10,7 @@ import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 
+import { type CircuitVerificationStats } from '../../../circuits.js/src/stats/index.js';
 import { BB_RESULT, PROOF_FILENAME, VK_FILENAME, verifyClientIvcProof, verifyProof } from '../bb/execute.js';
 import { type BBConfig } from '../config.js';
 import { getUltraHonkFlavorForCircuit } from '../honk.js';

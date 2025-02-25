@@ -1,7 +1,6 @@
 import { SpongeBlob } from '@aztec/blob-lib';
 import { type L2Block } from '@aztec/circuit-types';
 import { type PublicInputsAndRecursiveProof } from '@aztec/circuit-types/interfaces/server';
-import { type CircuitName } from '@aztec/circuit-types/stats';
 import { type ParityPublicInputs, RootParityInput, RootParityInputs } from '@aztec/circuits.js/parity';
 import {
   type BaseOrMergeRollupPublicInputs,
@@ -35,6 +34,7 @@ import { MembershipWitness, type TreeNodeLocation, UnbalancedTreeStore } from '@
 import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
+import { type CircuitName } from '../../../circuits.js/src/stats/index.js';
 import { buildBlobHints, buildHeaderFromCircuitOutputs } from './block-building-helpers.js';
 import { type EpochProvingState } from './epoch-proving-state.js';
 import { type TxProvingState } from './tx-proving-state.js';

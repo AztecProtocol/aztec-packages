@@ -1,5 +1,4 @@
 import { type PrivateKernelProver, type PrivateKernelSimulateOutput } from '@aztec/circuit-types/interfaces/client';
-import { type CircuitSimulationStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
@@ -32,6 +31,10 @@ import { type SimulationProvider } from '@aztec/simulator/client';
 
 import { type Abi, type WitnessMap } from '@noir-lang/types';
 
+import {
+  type CircuitSimulationStats,
+  type CircuitWitnessGenerationStats,
+} from '../../../circuits.js/src/stats/index.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 
 export abstract class BBPrivateKernelProver implements PrivateKernelProver {

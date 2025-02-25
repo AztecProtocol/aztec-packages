@@ -40,7 +40,9 @@
     "./stats": "./dest/stats/index.js",
     "./auth-witness": "./dest/auth_witness/index.js",
     "./blocks": "./dest/blocks/index.js",
-    "./versioning": "./dest/versining/index.js"
+    "./versioning": "./dest/versining/index.js",
+    "./interfaces/client": "./dest/interfaces/client.js",
+    "./interfaces/server": "./dest/interfaces/server.js"
   },
   "typedocOptions": {
     "entryPoints": [

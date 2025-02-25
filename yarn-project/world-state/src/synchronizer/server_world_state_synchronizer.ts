@@ -17,7 +17,6 @@ import {
   type WorldStateSynchronizer,
   type WorldStateSynchronizerStatus,
 } from '@aztec/circuit-types/interfaces/server';
-import { type L2BlockHandledStats } from '@aztec/circuit-types/stats';
 import { MerkleTreeId } from '@aztec/circuits.js/trees';
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/constants';
 import { type Fr } from '@aztec/foundation/fields';
@@ -28,6 +27,7 @@ import { MerkleTreeCalculator } from '@aztec/foundation/trees';
 import { SHA256Trunc } from '@aztec/merkle-tree';
 import { TraceableL2BlockStream, getTelemetryClient } from '@aztec/telemetry-client';
 
+import { type L2BlockHandledStats } from '../../../circuits.js/src/stats/index.js';
 import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import { type WorldStateStatusFull } from '../native/message.js';
 import { type MerkleTreeAdminDatabase } from '../world-state-db/merkle_tree_db.js';

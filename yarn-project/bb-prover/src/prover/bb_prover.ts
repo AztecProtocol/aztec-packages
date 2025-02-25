@@ -7,7 +7,6 @@ import {
   makeProofAndVerificationKey,
   makePublicInputsAndRecursiveProof,
 } from '@aztec/circuit-types/interfaces/server';
-import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
 import { type BaseParityInputs, type ParityPublicInputs, type RootParityInputs } from '@aztec/circuits.js/parity';
 import { Proof, RecursiveProof, makeRecursiveProofFromBinary } from '@aztec/circuits.js/proofs';
@@ -74,6 +73,7 @@ import crypto from 'crypto';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 
+import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '../../../circuits.js/src/stats/index.js';
 import {
   type BBFailure,
   type BBSuccess,

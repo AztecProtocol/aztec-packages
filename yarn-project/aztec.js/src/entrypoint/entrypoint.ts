@@ -1,5 +1,6 @@
-import { type Capsule, type FunctionCall, type HashedValues, type TxExecutionRequest } from '@aztec/circuit-types';
+import { type Capsule, type HashedValues, type TxExecutionRequest } from '@aztec/circuit-types';
 import { type AuthWitness } from '@aztec/circuit-types/auth-witness';
+import { type FunctionCall } from '@aztec/circuits.js/abi';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { EntrypointPayload, type FeeOptions, computeCombinedPayloadHash } from './payload.js';

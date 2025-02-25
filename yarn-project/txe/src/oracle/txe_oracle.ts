@@ -12,7 +12,6 @@ import {
 } from '@aztec/circuit-types';
 import { AuthWitness } from '@aztec/circuit-types/auth-witness';
 import { type MerkleTreeReadOperations, type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
-import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
   type ContractArtifact,
   type FunctionAbi,
@@ -93,6 +92,7 @@ import {
 } from '@aztec/simulator/server';
 import { ForkCheckpoint, type NativeWorldStateService } from '@aztec/world-state/native';
 
+import { type CircuitWitnessGenerationStats } from '../../../circuits.js/src/stats/index.js';
 import { TXENode } from '../node/txe_node.js';
 import { type TXEDatabase } from '../util/txe_database.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';

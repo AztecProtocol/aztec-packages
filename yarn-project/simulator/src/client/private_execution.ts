@@ -1,5 +1,4 @@
 import { type AztecNode, PrivateCallExecutionResult } from '@aztec/circuit-types/interfaces/client';
-import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import { type FunctionArtifact, type FunctionSelector, countArgumentsSize } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type ContractInstance } from '@aztec/circuits.js/contract';
@@ -11,6 +10,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
+import { type CircuitWitnessGenerationStats } from '../../../circuits.js/src/stats/index.js';
 import { fromACVMField, witnessMapToFields } from '../acvm/deserialize.js';
 import { type ACVMWitness, Oracle, extractCallStack } from '../acvm/index.js';
 import { ExecutionError, resolveAssertionMessageFromError } from '../common/errors.js';

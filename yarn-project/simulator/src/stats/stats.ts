@@ -1,5 +1,6 @@
-import { type CircuitName, type CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import { type Logger } from '@aztec/foundation/log';
+
+import { type CircuitName, type CircuitSimulationStats } from '../../../circuits.js/src/stats/index.js';
 
 export function emitCircuitSimulationStats(
   circuitName: CircuitName,

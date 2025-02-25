@@ -1,6 +1,5 @@
 import { type ProcessedTx } from '@aztec/circuit-types';
 import { type ProofAndVerificationKey } from '@aztec/circuit-types/interfaces/server';
-import { type CircuitName } from '@aztec/circuit-types/stats';
 import {
   AvmProofData,
   type BaseRollupHints,
@@ -16,6 +15,8 @@ import { type AppendOnlyTreeSnapshot, type MerkleTreeId } from '@aztec/circuits.
 import { VkWitnessData } from '@aztec/circuits.js/vks';
 import { type AVM_PROOF_LENGTH_IN_FIELDS, AVM_VK_INDEX, type TUBE_PROOF_LENGTH, TUBE_VK_INDEX } from '@aztec/constants';
 import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vks';
+
+import { type CircuitName } from '../../../circuits.js/src/stats/index.js';
 
 /**
  * Helper class to manage the proving cycle of a transaction

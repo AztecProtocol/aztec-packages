@@ -4,7 +4,6 @@ import {
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
 } from '@aztec/circuit-types/interfaces/server';
-import { type PublicDBAccessStats } from '@aztec/circuit-types/stats';
 import type { FunctionSelector } from '@aztec/circuits.js/abi';
 import { PublicDataWrite } from '@aztec/circuits.js/avm';
 import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
@@ -22,6 +21,7 @@ import { Timer } from '@aztec/foundation/timer';
 import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
 import { ContractInstanceDeployedEvent } from '@aztec/protocol-contracts/instance-deployer';
 
+import { type PublicDBAccessStats } from '../../../circuits.js/src/stats/index.js';
 import { type PublicContractsDB, type PublicStateDB } from './db_interfaces.js';
 
 /**
