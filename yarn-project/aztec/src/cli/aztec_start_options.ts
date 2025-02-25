@@ -182,10 +182,10 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       flag: '--node.deployAztecContracts',
       description: 'Deploys L1 Aztec contracts before starting the node. Needs mnemonic or private key to be set.',
       envVar: 'DEPLOY_AZTEC_CONTRACTS',
-      ...booleanConfigHelper(),
+      defaultValue: undefined,
     },
     {
-      flag: '--node.deployAztecContractsSalt',
+      flag: '--node.deployAztecContractsSalt <value>',
       description:
         'Numeric salt for deploying L1 Aztec contracts before starting the node. Needs mnemonic or private key to be set. Implies --node.deployAztecContracts.',
       envVar: 'DEPLOY_AZTEC_CONTRACTS_SALT',
@@ -193,7 +193,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       parseVal: (val: string) => (val ? parseInt(val) : undefined),
     },
     {
-      flag: '--node.assumeProvenThroughBlockNumber',
+      flag: '--node.assumeProvenThroughBlockNumber <value>',
       description:
         'Cheats the rollup contract into assuming every block until this one is proven. Useful for speeding up bootstraps.',
       envVar: 'ASSUME_PROVEN_THROUGH_BLOCK_NUMBER',
