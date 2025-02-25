@@ -281,7 +281,7 @@ metadata:
     {{- include "aztec-network.labels" . | nindent 4 }}
     app: validator
 spec:
-  clusterIP: None
+  clusterIP: ""
   selector:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: validator
