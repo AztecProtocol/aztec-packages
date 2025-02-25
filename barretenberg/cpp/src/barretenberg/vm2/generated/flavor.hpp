@@ -29,6 +29,7 @@
 #include "relations/poseidon2_hash.hpp"
 #include "relations/poseidon2_perm.hpp"
 #include "relations/range_check.hpp"
+#include "relations/scalar_mul.hpp"
 #include "relations/sha256.hpp"
 
 // Lookup and permutation relations
@@ -38,6 +39,7 @@
 #include "relations/lookups_instr_fetching.hpp"
 #include "relations/lookups_poseidon2_hash.hpp"
 #include "relations/lookups_range_check.hpp"
+#include "relations/lookups_scalar_mul.hpp"
 #include "relations/lookups_sha256.hpp"
 
 // Metaprogramming to concatenate tuple types.
@@ -81,12 +83,12 @@ class AvmFlavor {
     static constexpr bool HasZK = false;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 36;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 735;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 89;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 756;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 95;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 860;
+    static constexpr size_t NUM_ALL_ENTITIES = 887;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -103,6 +105,7 @@ class AvmFlavor {
         avm2::poseidon2_hash<FF_>,
         avm2::poseidon2_perm<FF_>,
         avm2::range_check<FF_>,
+        avm2::scalar_mul<FF_>,
         avm2::sha256<FF_>>;
 
     using MainRelations = MainRelations_<FF>;
@@ -132,6 +135,8 @@ class AvmFlavor {
         lookup_range_check_r5_is_u16_relation<FF_>,
         lookup_range_check_r6_is_u16_relation<FF_>,
         lookup_range_check_r7_is_u16_relation<FF_>,
+        lookup_scalar_mul_add_relation<FF_>,
+        lookup_scalar_mul_double_relation<FF_>,
         lookup_sha256_round_constant_relation<FF_>>;
 
     using LookupRelations = LookupRelations_<FF>;

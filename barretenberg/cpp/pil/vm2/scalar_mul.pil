@@ -28,16 +28,27 @@ namespace scalar_mul;
     pol commit point_inf;
     point_inf * (1 - point_inf) = 0; // Validate the input
 
+    // The output of the scalar mul is a point
+    pol commit res_x;
+    pol commit res_y;
+    pol commit res_inf;
+
 
     // LIFECYCLE
 
     // We do reverse aggregation, the start row contains the output
     // so is the selector with which other subtraces will reference
+    // After this section:
+    // - Start can be 1 only after an end or the first row
+    // - There can be any number of rows between start and end
+    // - End can be 1 only after a start
+    // - sel should be 1 after start and can change after end
     pol commit start;
     start * (1 - start) = 0;
 
     pol commit end;
     end * (1 - end) = 0;
+
     // end and first_row are NAND
     end * precomputed.first_row = 0;
     pol LATCH_CONDITION = end + precomputed.first_row;
@@ -49,6 +60,8 @@ namespace scalar_mul;
     start * (1 - sel) = 0;
     // Next selector must be current selector unless LATCH_CONDITION
     (sel' - sel)*(1 - LATCH_CONDITION) = 0;
+    // Selector must be 1 in an end row
+    end * (1 - sel) = 0;
 
     // Needs to be commited since we'll use it in the ecc add lookup for doubling
     pol commit not_end;
@@ -115,14 +128,14 @@ namespace scalar_mul;
     pol commit should_add;
     should_add - not_end*bit = 0;
 
-    (1 - should_add)(res_x - res_x') = 0;
-    (1 - should_add)(res_y - res_y') = 0;
-    (1 - should_add)(res_inf - res_inf') = 0;
-
     #[ADD]
     should_add { res_x, res_y, res_inf, res_x', res_y', res_inf', temp_x, temp_y, temp_inf }
     in
     ecc.sel
         { ecc.r_x, ecc.r_y, ecc.r_is_inf, ecc.p_x, ecc.p_y, ecc.p_is_inf, ecc.q_x, ecc.q_y, ecc.q_is_inf };
+
+    (1 - should_add)*(res_x - res_x') = 0;
+    (1 - should_add)*(res_y - res_y') = 0;
+    (1 - should_add)*(res_inf - res_inf') = 0;
 
 
