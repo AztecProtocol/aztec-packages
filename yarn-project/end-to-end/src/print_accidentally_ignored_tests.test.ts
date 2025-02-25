@@ -3,6 +3,12 @@ import { glob } from 'glob';
 import { join } from 'path';
 
 describe('print_accidentally_ignored_tests', () => {
+  // This test scans for test files that may have been accidentally ignored
+  // It checks:
+  // 1. All .test.ts files in the end-to-end directory
+  // 2. The .test_skip_patterns file for explicitly skipped tests
+  // 3. The bootstrap.sh file for tests that are included in the test suite
+  // And reports any test files that are neither skipped nor included
   it('finds tests that are not explicitly skipped or included in bootstrap.sh', async () => {
     // Get repo root directory
     const repoRoot = process.cwd().split('yarn-project')[0];
@@ -34,7 +40,13 @@ describe('print_accidentally_ignored_tests', () => {
 
     // Filter out skipped and included tests
     const unaccountedTests = testFiles.filter(testFile => {
-      const isSkipped = skipPatterns.some(pattern => pattern.test(testFile));
+      const isSkipped = skipPatterns.some(pattern => {
+        // Handle both simple test names and full paths
+        const testName = testFile.replace(/^src\//, '').replace(/\.test\.ts$/, '');
+        // For simple patterns like 'simple flakey_e2e_inclusion_proofs_contract', extract just the test name
+        const skipTestName = pattern.source.replace(/^simple\s+/, '');
+        return pattern.test(testFile) || pattern.test(testName) || testName.includes(skipTestName);
+      });
       const isIncluded = includedTests.some(pattern => pattern.test(testFile));
       return !isSkipped && !isIncluded;
     });
