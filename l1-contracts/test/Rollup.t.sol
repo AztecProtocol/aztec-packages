@@ -38,7 +38,7 @@ import {
 } from "@aztec/core/libraries/TimeLib.sol";
 
 import {RollupBase, IInstance} from "./base/RollupBase.sol";
-
+import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -46,6 +46,7 @@ import {RollupBase, IInstance} from "./base/RollupBase.sol";
  * Main use of these test is shorter cycles when updating the decoder contract.
  */
 contract RollupTest is RollupBase {
+  using stdStorage for StdStorage;
   using SlotLib for Slot;
   using EpochLib for Epoch;
   using ProposeLib for ProposeArgs;
@@ -266,7 +267,9 @@ contract RollupTest is RollupBase {
     warpToL2Slot(1);
     _proposeBlock("mixed_block_1", 1);
     // we prove epoch 0
-    rollup.setAssumeProvenThroughBlockNumber(rollup.getPendingBlockNumber());
+    stdstore.target(address(rollup)).sig("getProvenBlockNumber()").checked_write(
+      rollup.getPendingBlockNumber()
+    );
 
     // jump to epoch 1
     warpToL2Slot(EPOCH_DURATION);

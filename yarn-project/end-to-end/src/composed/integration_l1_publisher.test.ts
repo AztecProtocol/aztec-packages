@@ -126,7 +126,7 @@ describe('L1Publisher integration', () => {
       config.l1RpcUrl,
       deployerAccount,
       logger,
-      { assumeProvenThrough: undefined },
+      {},
     ));
 
     ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrl);
