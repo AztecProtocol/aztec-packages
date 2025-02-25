@@ -1,8 +1,8 @@
-import { BlockAttestation, BlockProposal, ConsensusPayload, SignatureDomainSeparator } from '@aztec/circuits.js/p2p';
-import { type BlockHeader, type TxHash } from '@aztec/circuits.js/tx';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto';
 import { type Fr } from '@aztec/foundation/fields';
+import { BlockAttestation, BlockProposal, ConsensusPayload, SignatureDomainSeparator } from '@aztec/stdlib/p2p';
+import { type BlockHeader, type TxHash } from '@aztec/stdlib/tx';
 
 import { type ValidatorKeyStore } from '../key_store/interface.js';
 

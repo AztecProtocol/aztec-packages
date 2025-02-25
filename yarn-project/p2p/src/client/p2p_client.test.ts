@@ -1,12 +1,12 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
-import { L2Block } from '@aztec/circuits.js/block';
-import { P2PClientType } from '@aztec/circuits.js/p2p';
-import { mockTx } from '@aztec/circuits.js/testing';
 import { Fr } from '@aztec/foundation/fields';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { type AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { L2Block } from '@aztec/stdlib/block';
+import { P2PClientType } from '@aztec/stdlib/p2p';
+import { mockTx } from '@aztec/stdlib/testing';
 
 import { expect } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';

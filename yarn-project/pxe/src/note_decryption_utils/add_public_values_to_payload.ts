@@ -1,6 +1,6 @@
-import { type L1NotePayload } from '@aztec/circuits.js/logs';
-import { Note } from '@aztec/circuits.js/note';
 import { ContractNotFoundError } from '@aztec/simulator/client';
+import { type L1NotePayload } from '@aztec/stdlib/logs';
+import { Note } from '@aztec/stdlib/note';
 
 import { type PxeDatabase } from '../database/pxe_database.js';
 

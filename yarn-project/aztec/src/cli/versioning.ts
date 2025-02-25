@@ -1,7 +1,7 @@
-import { type ChainConfig } from '@aztec/circuits.js/config';
-import { type ComponentsVersions, getComponentsVersionsFromConfig } from '@aztec/circuits.js/versioning';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { type ChainConfig } from '@aztec/stdlib/config';
+import { type ComponentsVersions, getComponentsVersionsFromConfig } from '@aztec/stdlib/versioning';
 
 export function getVersions(config?: ChainConfig): Partial<ComponentsVersions> {
   return config

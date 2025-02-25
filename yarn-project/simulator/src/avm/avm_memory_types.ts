@@ -1,4 +1,3 @@
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
   MEM_TAG_FF,
   MEM_TAG_U1,
@@ -12,6 +11,7 @@ import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type FunctionsOf } from '@aztec/foundation/types';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { strict as assert } from 'assert';
 

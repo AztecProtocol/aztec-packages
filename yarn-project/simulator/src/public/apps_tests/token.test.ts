@@ -1,8 +1,8 @@
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import type { ContractInstanceWithAddress } from '@aztec/circuits.js/contract';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 import { PublicTxSimulationTester } from '../fixtures/public_tx_simulation_tester.js';
 import { type PublicTxResult } from '../public_tx_simulator.js';

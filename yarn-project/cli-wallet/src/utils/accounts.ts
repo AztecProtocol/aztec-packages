@@ -1,9 +1,9 @@
 import { getIdentities } from '@aztec/accounts/utils';
 import { type AccountManager, type AccountWalletWithSecretKey } from '@aztec/aztec.js';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { type PXE } from '@aztec/circuits.js/interfaces/client';
-import { deriveSigningKey } from '@aztec/circuits.js/keys';
 import { Fr } from '@aztec/foundation/fields';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type PXE } from '@aztec/stdlib/interfaces/client';
+import { deriveSigningKey } from '@aztec/stdlib/keys';
 
 import { type WalletDB } from '../storage/wallet_db.js';
 import { extractECDSAPublicKeyFromBase64String } from './ecdsa.js';

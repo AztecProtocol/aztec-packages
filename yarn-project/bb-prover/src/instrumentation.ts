@@ -9,7 +9,7 @@ import {
   ValueType,
 } from '@aztec/telemetry-client';
 
-import { type CircuitName } from '../../circuits.js/src/stats/index.js';
+import { type CircuitName } from '../../stdlib/src/stats/index.js';
 
 /**
  * Instrumentation class for Prover implementations.

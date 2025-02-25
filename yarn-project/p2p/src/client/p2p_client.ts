@@ -1,16 +1,16 @@
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import { createLogger } from '@aztec/foundation/log';
+import { type AztecAsyncKVStore, type AztecAsyncMap, type AztecAsyncSingleton } from '@aztec/kv-store';
 import {
   type L2Block,
   type L2BlockId,
   type L2BlockSource,
   type L2BlockStreamEvent,
   type L2Tips,
-} from '@aztec/circuits.js/block';
-import { type P2PApi, type PeerInfo, type ProverCoordination } from '@aztec/circuits.js/interfaces/server';
-import { type BlockAttestation, type BlockProposal, type P2PClientType } from '@aztec/circuits.js/p2p';
-import { type Tx, type TxHash } from '@aztec/circuits.js/tx';
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
-import { createLogger } from '@aztec/foundation/log';
-import { type AztecAsyncKVStore, type AztecAsyncMap, type AztecAsyncSingleton } from '@aztec/kv-store';
+} from '@aztec/stdlib/block';
+import { type P2PApi, type PeerInfo, type ProverCoordination } from '@aztec/stdlib/interfaces/server';
+import { type BlockAttestation, type BlockProposal, type P2PClientType } from '@aztec/stdlib/p2p';
+import { type Tx, type TxHash } from '@aztec/stdlib/tx';
 import {
   Attributes,
   type TelemetryClient,

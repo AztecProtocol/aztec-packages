@@ -62,7 +62,7 @@
   },
   "dependencies": {
     "@aztec/aztec.js": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "tslib": "^2.4.0"

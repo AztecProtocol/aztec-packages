@@ -9,7 +9,7 @@ import {
 
 import { formatEther } from 'viem';
 
-import { type L1PublishProofStats, type L1PublishStats } from '../../circuits.js/src/stats/index.js';
+import { type L1PublishProofStats, type L1PublishStats } from '../../stdlib/src/stats/index.js';
 
 export class ProverNodeMetrics {
   proverEpochExecutionDuration: Histogram;

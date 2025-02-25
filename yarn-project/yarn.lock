@@ -65,7 +65,7 @@ __metadata:
   resolution: "@aztec/accounts@workspace:accounts"
   dependencies:
     "@aztec/aztec.js": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/entrypoints": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
@@ -87,7 +87,7 @@ __metadata:
   dependencies:
     "@aztec/blob-lib": "workspace:^"
     "@aztec/blob-sink": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
@@ -151,7 +151,7 @@ __metadata:
     "@aztec/archiver": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
     "@aztec/blob-sink": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"
     "@aztec/ethereum": "workspace:^"
@@ -185,7 +185,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/aztec.js@workspace:aztec.js"
   dependencies:
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
@@ -244,7 +244,7 @@ __metadata:
     "@aztec/blob-sink": "workspace:^"
     "@aztec/bot": "workspace:^"
     "@aztec/builder": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/cli": "workspace:^"
     "@aztec/cli-wallet": "workspace:^"
     "@aztec/constants": "workspace:^"
@@ -314,7 +314,7 @@ __metadata:
   resolution: "@aztec/bb-prover@workspace:bb-prover"
   dependencies:
     "@aztec/bb.js": "portal:../../barretenberg/ts"
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
@@ -385,7 +385,7 @@ __metadata:
   resolution: "@aztec/blob-sink@workspace:blob-sink"
   dependencies:
     "@aztec/blob-lib": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:*"
     "@aztec/telemetry-client": "workspace:*"
@@ -414,7 +414,7 @@ __metadata:
   dependencies:
     "@aztec/accounts": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/entrypoints": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
@@ -441,7 +441,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/builder@workspace:builder"
   dependencies:
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
@@ -455,9 +455,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/circuits.js@workspace:*, @aztec/circuits.js@workspace:^, @aztec/circuits.js@workspace:circuits.js":
+"@aztec/stdlib@workspace:*, @aztec/stdlib@workspace:^, @aztec/stdlib@workspace:stdlib":
   version: 0.0.0-use.local
-  resolution: "@aztec/circuits.js@workspace:circuits.js"
+  resolution: "@aztec/stdlib@workspace:stdlib"
   dependencies:
     "@aztec/bb.js": "portal:../../barretenberg/ts"
     "@aztec/blob-lib": "workspace:^"
@@ -496,7 +496,7 @@ __metadata:
   dependencies:
     "@aztec/accounts": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/cli": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
@@ -528,7 +528,7 @@ __metadata:
     "@aztec/accounts": "workspace:^"
     "@aztec/archiver": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
@@ -560,7 +560,7 @@ __metadata:
   peerDependencies:
     "@aztec/accounts": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
@@ -607,7 +607,7 @@ __metadata:
     "@aztec/blob-lib": "workspace:^"
     "@aztec/blob-sink": "workspace:^"
     "@aztec/bot": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/entrypoints": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"
@@ -679,7 +679,7 @@ __metadata:
   resolution: "@aztec/entrypoints@workspace:entrypoints"
   dependencies:
     "@aztec/aztec.js": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
@@ -695,7 +695,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/epoch-cache@workspace:epoch-cache"
   dependencies:
-    "@aztec/circuits.js": "workspace:*"
+    "@aztec/stdlib": "workspace:*"
     "@aztec/ethereum": "workspace:*"
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
@@ -809,7 +809,7 @@ __metadata:
   dependencies:
     "@aztec/bb-prover": "workspace:^"
     "@aztec/bb.js": ../../ts
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
@@ -855,7 +855,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/key-store@workspace:key-store"
   dependencies:
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
@@ -873,7 +873,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/kv-store@workspace:kv-store"
   dependencies:
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/native": "workspace:^"
@@ -918,7 +918,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/merkle-tree@workspace:merkle-tree"
   dependencies:
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
@@ -970,7 +970,7 @@ __metadata:
   resolution: "@aztec/noir-protocol-circuits-types@workspace:noir-protocol-circuits-types"
   dependencies:
     "@aztec/blob-lib": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
@@ -1021,7 +1021,7 @@ __metadata:
   resolution: "@aztec/p2p@workspace:p2p"
   dependencies:
     "@aztec/archiver": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"
     "@aztec/foundation": "workspace:^"
@@ -1076,7 +1076,7 @@ __metadata:
   dependencies:
     "@aztec/archiver": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
@@ -1095,7 +1095,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/protocol-contracts@workspace:protocol-contracts"
   dependencies:
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
@@ -1120,7 +1120,7 @@ __metadata:
   dependencies:
     "@aztec/bb-prover": "workspace:^"
     "@aztec/blob-lib": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
@@ -1158,7 +1158,7 @@ __metadata:
     "@aztec/archiver": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
     "@aztec/blob-sink": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"
     "@aztec/ethereum": "workspace:^"
@@ -1195,7 +1195,7 @@ __metadata:
     "@aztec/bb-prover": "workspace:^"
     "@aztec/bb.js": "portal:../../barretenberg/ts"
     "@aztec/builder": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
@@ -1232,7 +1232,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/scripts@workspace:scripts"
   dependencies:
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
@@ -1258,7 +1258,7 @@ __metadata:
     "@aztec/bb-prover": "workspace:^"
     "@aztec/blob-lib": "workspace:^"
     "@aztec/blob-sink": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"
     "@aztec/ethereum": "workspace:^"
@@ -1305,7 +1305,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/simulator@workspace:simulator"
   dependencies:
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
@@ -1342,7 +1342,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/telemetry-client@workspace:telemetry-client"
   dependencies:
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@google-cloud/opentelemetry-cloud-monitoring-exporter": "npm:^0.20.0"
     "@google-cloud/opentelemetry-cloud-trace-exporter": "npm:^2.4.1"
@@ -1377,7 +1377,7 @@ __metadata:
   dependencies:
     "@aztec/accounts": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/key-store": "workspace:^"
@@ -1403,7 +1403,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/validator-client@workspace:validator-client"
   dependencies:
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
@@ -1430,7 +1430,7 @@ __metadata:
   resolution: "@aztec/world-state@workspace:world-state"
   dependencies:
     "@aztec/archiver": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"

@@ -1,9 +1,9 @@
-import { type ChainConfig } from '@aztec/circuits.js/config';
-import { ClientIvcProof } from '@aztec/circuits.js/proofs';
-import { mockTx } from '@aztec/circuits.js/testing';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
+import { type ChainConfig } from '@aztec/stdlib/config';
+import { ClientIvcProof } from '@aztec/stdlib/proofs';
+import { mockTx } from '@aztec/stdlib/testing';
 
 import { type ChildProcess, fork } from 'child_process';
 import path from 'path';

@@ -1,9 +1,9 @@
-import { type L2Block } from '@aztec/circuits.js/block';
-import { type ForkMerkleTreeOperations, type MerkleTreeReadOperations } from '@aztec/circuits.js/interfaces/server';
-import { type MerkleTreeId } from '@aztec/circuits.js/trees';
 import { MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX } from '@aztec/constants';
 import { type Fr } from '@aztec/foundation/fields';
 import { type IndexedTreeSnapshot, type TreeSnapshot } from '@aztec/merkle-tree';
+import { type L2Block } from '@aztec/stdlib/block';
+import { type ForkMerkleTreeOperations, type MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
+import { type MerkleTreeId } from '@aztec/stdlib/trees';
 
 import { type WorldStateStatusFull, type WorldStateStatusSummary } from '../native/message.js';
 

@@ -1,18 +1,18 @@
-import {
-  type PublicInputsAndRecursiveProof,
-  type ServerCircuitProver,
-  makePublicInputsAndRecursiveProof,
-} from '@aztec/circuits.js/interfaces/server';
-import type { ParityPublicInputs } from '@aztec/circuits.js/parity';
-import { ClientIvcProof, makeRecursiveProof } from '@aztec/circuits.js/proofs';
-import { makeParityPublicInputs } from '@aztec/circuits.js/testing';
-import { type BlockHeader, type GlobalVariables, type Tx } from '@aztec/circuits.js/tx';
 import { NESTED_RECURSIVE_PROOF_LENGTH, RECURSIVE_PROOF_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
+import {
+  type PublicInputsAndRecursiveProof,
+  type ServerCircuitProver,
+  makePublicInputsAndRecursiveProof,
+} from '@aztec/stdlib/interfaces/server';
+import type { ParityPublicInputs } from '@aztec/stdlib/parity';
+import { ClientIvcProof, makeRecursiveProof } from '@aztec/stdlib/proofs';
+import { makeParityPublicInputs } from '@aztec/stdlib/testing';
+import { type BlockHeader, type GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';

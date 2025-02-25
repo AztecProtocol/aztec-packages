@@ -67,7 +67,7 @@
     ]
   },
   "dependencies": {
-    "@aztec/circuits.js": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "commander": "^12.1.0"
   },

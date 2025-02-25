@@ -1,6 +1,6 @@
-import { AuthWitness } from '@aztec/circuits.js/auth-witness';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { parseAztecAddress, parseSecretKey, parseTxHash } from '@aztec/cli/utils';
+import { AuthWitness } from '@aztec/stdlib/auth-witness';
+import { type AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { Option } from 'commander';
 import { readdir, stat } from 'fs/promises';

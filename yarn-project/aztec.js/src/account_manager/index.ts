@@ -1,8 +1,8 @@
-import { CompleteAddress, type ContractInstanceWithAddress } from '@aztec/circuits.js/contract';
-import { getContractInstanceFromDeployParams } from '@aztec/circuits.js/contract';
-import { type PXE } from '@aztec/circuits.js/interfaces/client';
-import { deriveKeys } from '@aztec/circuits.js/keys';
 import { Fr } from '@aztec/foundation/fields';
+import { CompleteAddress, type ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import { getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
+import { type PXE } from '@aztec/stdlib/interfaces/client';
+import { deriveKeys } from '@aztec/stdlib/keys';
 
 import { type AccountContract } from '../account/contract.js';
 import { type Salt, type Wallet } from '../account/index.js';

@@ -38,7 +38,7 @@
     "@aztec/blob-sink": "workspace:^",
     "@aztec/bot": "workspace:^",
     "@aztec/builder": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "@aztec/cli": "workspace:^",
     "@aztec/cli-wallet": "workspace:^",
     "@aztec/constants": "workspace:^",

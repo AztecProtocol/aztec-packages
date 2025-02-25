@@ -1,4 +1,8 @@
-import { ProvingError } from '@aztec/circuits.js/errors';
+import { createLogger } from '@aztec/foundation/log';
+import { RunningPromise } from '@aztec/foundation/running-promise';
+import { truncate } from '@aztec/foundation/string';
+import { Timer } from '@aztec/foundation/timer';
+import { ProvingError } from '@aztec/stdlib/errors';
 import {
   type ProvingJob,
   type ProvingJobConsumer,
@@ -6,12 +10,8 @@ import {
   type ProvingJobInputs,
   type ProvingJobResultsMap,
   type ServerCircuitProver,
-} from '@aztec/circuits.js/interfaces/server';
-import { ProvingRequestType } from '@aztec/circuits.js/proofs';
-import { createLogger } from '@aztec/foundation/log';
-import { RunningPromise } from '@aztec/foundation/running-promise';
-import { truncate } from '@aztec/foundation/string';
-import { Timer } from '@aztec/foundation/timer';
+} from '@aztec/stdlib/interfaces/server';
+import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import {
   type TelemetryClient,
   type Traceable,

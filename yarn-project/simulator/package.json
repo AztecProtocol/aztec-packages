@@ -60,7 +60,7 @@
     ]
   },
   "dependencies": {
-    "@aztec/circuits.js": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/noir-protocol-circuits-types": "workspace:^",

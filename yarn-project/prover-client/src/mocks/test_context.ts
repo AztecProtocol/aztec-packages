@@ -1,17 +1,4 @@
 import { type BBProverConfig } from '@aztec/bb-prover';
-import { PublicDataWrite } from '@aztec/circuits.js/avm';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import type { L2Block } from '@aztec/circuits.js/block';
-import { type ServerCircuitProver } from '@aztec/circuits.js/interfaces/server';
-import { makeBloatedProcessedTx } from '@aztec/circuits.js/testing';
-import { type AppendOnlyTreeSnapshot, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
-import {
-  type BlockHeader,
-  type GlobalVariables,
-  type ProcessedTx,
-  TreeSnapshots,
-  type Tx,
-} from '@aztec/circuits.js/tx';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger } from '@aztec/foundation/log';
@@ -26,6 +13,13 @@ import {
   SimpleContractDataSource,
   WorldStateDB,
 } from '@aztec/simulator/server';
+import { PublicDataWrite } from '@aztec/stdlib/avm';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2Block } from '@aztec/stdlib/block';
+import { type ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
+import { makeBloatedProcessedTx } from '@aztec/stdlib/testing';
+import { type AppendOnlyTreeSnapshot, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
+import { type BlockHeader, type GlobalVariables, type ProcessedTx, TreeSnapshots, type Tx } from '@aztec/stdlib/tx';
 import { type MerkleTreeAdminDatabase } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 

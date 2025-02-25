@@ -1,6 +1,6 @@
-import { type ClientProtocolCircuitVerifier } from '@aztec/circuits.js/interfaces/server';
-import { Tx, type TxValidationResult, type TxValidator } from '@aztec/circuits.js/tx';
 import { createLogger } from '@aztec/foundation/log';
+import { type ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
+import { Tx, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
 
 export class TxProofValidator implements TxValidator<Tx> {
   #log = createLogger('p2p:tx_validator:private_proof');

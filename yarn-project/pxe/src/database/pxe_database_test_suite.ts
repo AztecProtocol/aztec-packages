@@ -1,15 +1,15 @@
-import { FunctionType } from '@aztec/circuits.js/abi';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { CompleteAddress, SerializableContractInstance } from '@aztec/circuits.js/contract';
-import { PublicKeys } from '@aztec/circuits.js/keys';
-import { NoteStatus, type NotesFilter } from '@aztec/circuits.js/note';
-import { makeHeader, randomTxHash } from '@aztec/circuits.js/testing';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { BenchmarkingContractArtifact } from '@aztec/noir-contracts.js/Benchmarking';
 import { TestContractArtifact } from '@aztec/noir-contracts.js/Test';
+import { FunctionType } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { CompleteAddress, SerializableContractInstance } from '@aztec/stdlib/contract';
+import { PublicKeys } from '@aztec/stdlib/keys';
+import { NoteStatus, type NotesFilter } from '@aztec/stdlib/note';
+import { makeHeader, randomTxHash } from '@aztec/stdlib/testing';
 
 import times from 'lodash.times';
 

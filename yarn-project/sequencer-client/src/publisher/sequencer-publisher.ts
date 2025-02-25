@@ -1,9 +1,6 @@
 import type { L2Block } from '@aztec/aztec.js';
 import { Blob } from '@aztec/blob-lib';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
-import { ConsensusPayload, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/circuits.js/p2p';
-import type { L1PublishBlockStats } from '@aztec/circuits.js/stats';
-import { type BlockHeader, TxHash } from '@aztec/circuits.js/tx';
 import { type EpochCache } from '@aztec/epoch-cache';
 import {
   FormattedViemError,
@@ -27,6 +24,9 @@ import { type Signature } from '@aztec/foundation/eth-signature';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ForwarderAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { ConsensusPayload, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/stdlib/p2p';
+import type { L1PublishBlockStats } from '@aztec/stdlib/stats';
+import { type BlockHeader, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';

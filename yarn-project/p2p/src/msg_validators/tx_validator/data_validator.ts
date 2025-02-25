@@ -1,6 +1,6 @@
-import { Tx, type TxValidationResult, type TxValidator } from '@aztec/circuits.js/tx';
 import { MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
+import { Tx, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
 
 export class DataTxValidator implements TxValidator<Tx> {
   #log = createLogger('p2p:tx_validator:tx_data');

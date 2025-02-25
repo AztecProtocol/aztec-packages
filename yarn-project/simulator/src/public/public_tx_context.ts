@@ -1,35 +1,4 @@
 import {
-  AvmCircuitInputs,
-  type AvmCircuitPublicInputs,
-  type AvmProvingRequest,
-  PublicDataWrite,
-  RevertCode,
-} from '@aztec/circuits.js/avm';
-import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import type { SimulationError } from '@aztec/circuits.js/errors';
-import { computeTransactionFee } from '@aztec/circuits.js/fees';
-import { Gas, GasSettings } from '@aztec/circuits.js/gas';
-import { type MerkleTreeReadOperations } from '@aztec/circuits.js/interfaces/server';
-import {
-  PrivateToAvmAccumulatedData,
-  PrivateToAvmAccumulatedDataArrayLengths,
-  type PrivateToPublicAccumulatedData,
-  PublicCallRequest,
-  countAccumulatedItems,
-  mergeAccumulatedData,
-} from '@aztec/circuits.js/kernel';
-import { ProvingRequestType } from '@aztec/circuits.js/proofs';
-import { MerkleTreeId } from '@aztec/circuits.js/trees';
-import {
-  type GlobalVariables,
-  type PublicExecutionRequest,
-  type StateReference,
-  TreeSnapshots,
-  type Tx,
-  TxExecutionPhase,
-  type TxHash,
-} from '@aztec/circuits.js/tx';
-import {
   MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
@@ -41,6 +10,37 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
+import {
+  AvmCircuitInputs,
+  type AvmCircuitPublicInputs,
+  type AvmProvingRequest,
+  PublicDataWrite,
+  RevertCode,
+} from '@aztec/stdlib/avm';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { SimulationError } from '@aztec/stdlib/errors';
+import { computeTransactionFee } from '@aztec/stdlib/fees';
+import { Gas, GasSettings } from '@aztec/stdlib/gas';
+import { type MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
+import {
+  PrivateToAvmAccumulatedData,
+  PrivateToAvmAccumulatedDataArrayLengths,
+  type PrivateToPublicAccumulatedData,
+  PublicCallRequest,
+  countAccumulatedItems,
+  mergeAccumulatedData,
+} from '@aztec/stdlib/kernel';
+import { ProvingRequestType } from '@aztec/stdlib/proofs';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
+import {
+  type GlobalVariables,
+  type PublicExecutionRequest,
+  type StateReference,
+  TreeSnapshots,
+  type Tx,
+  TxExecutionPhase,
+  type TxHash,
+} from '@aztec/stdlib/tx';
 
 import { strict as assert } from 'assert';
 import { inspect } from 'util';

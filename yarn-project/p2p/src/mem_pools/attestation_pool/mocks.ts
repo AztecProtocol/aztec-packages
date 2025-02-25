@@ -1,13 +1,13 @@
+import { type Secp256k1Signer } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
 import {
   BlockAttestation,
   ConsensusPayload,
   SignatureDomainSeparator,
   getHashedSignaturePayloadEthSignedMessage,
-} from '@aztec/circuits.js/p2p';
-import { makeHeader } from '@aztec/circuits.js/testing';
-import { TxHash } from '@aztec/circuits.js/tx';
-import { type Secp256k1Signer } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+} from '@aztec/stdlib/p2p';
+import { makeHeader } from '@aztec/stdlib/testing';
+import { TxHash } from '@aztec/stdlib/tx';
 
 import { type LocalAccount, generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 

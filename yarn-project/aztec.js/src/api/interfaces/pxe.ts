@@ -1,1 +1,1 @@
-export type { PXE } from '@aztec/circuits.js/interfaces/client';
+export type { PXE } from '@aztec/stdlib/interfaces/client';

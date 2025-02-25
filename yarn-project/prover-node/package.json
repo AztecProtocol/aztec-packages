@@ -56,7 +56,7 @@
     "@aztec/archiver": "workspace:^",
     "@aztec/bb-prover": "workspace:^",
     "@aztec/blob-sink": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/epoch-cache": "workspace:^",
     "@aztec/ethereum": "workspace:^",

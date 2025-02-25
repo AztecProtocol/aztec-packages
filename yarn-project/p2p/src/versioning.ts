@@ -1,13 +1,13 @@
-import { type ChainConfig } from '@aztec/circuits.js/config';
+import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { type ChainConfig } from '@aztec/stdlib/config';
 import {
   type ComponentsVersions,
   checkCompressedComponentVersion,
   compressComponentVersions,
   getComponentsVersionsFromConfig,
-} from '@aztec/circuits.js/versioning';
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+} from '@aztec/stdlib/versioning';
 
 import { type SignableENR } from '@chainsafe/enr';
 import xxhashFactory from 'xxhash-wasm';

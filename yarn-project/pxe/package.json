@@ -69,7 +69,7 @@
     "@aztec/bb-prover": "workspace:^",
     "@aztec/bb.js": "portal:../../barretenberg/ts",
     "@aztec/builder": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",

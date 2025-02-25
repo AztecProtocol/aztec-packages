@@ -1,1 +1,1 @@
-export { LogId } from '@aztec/circuits.js/logs';
+export { LogId } from '@aztec/stdlib/logs';

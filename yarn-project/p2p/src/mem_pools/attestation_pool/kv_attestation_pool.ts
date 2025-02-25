@@ -1,8 +1,8 @@
-import { BlockAttestation } from '@aztec/circuits.js/p2p';
 import { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
 import { type AztecAsyncKVStore, type AztecAsyncMap, type AztecAsyncMultiMap } from '@aztec/kv-store';
+import { BlockAttestation } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';

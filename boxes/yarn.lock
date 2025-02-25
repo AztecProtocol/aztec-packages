@@ -33,9 +33,9 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@aztec/circuits.js@link:../yarn-project/circuits.js::locator=aztec-app%40workspace%3A.":
+"@aztec/stdlib@link:../yarn-project/stdlib::locator=aztec-app%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/circuits.js@link:../yarn-project/circuits.js::locator=aztec-app%40workspace%3A."
+  resolution: "@aztec/stdlib@link:../yarn-project/stdlib::locator=aztec-app%40workspace%3A."
   languageName: node
   linkType: soft
 
@@ -139,7 +139,7 @@ __metadata:
     "@aztec/accounts": "npm:latest"
     "@aztec/aztec.js": "npm:latest"
     "@aztec/bb-prover": "npm:latest"
-    "@aztec/circuits.js": "npm:latest"
+    "@aztec/stdlib": "npm:latest"
     "@aztec/key-store": "npm:latest"
     "@aztec/kv-store": "npm:latest"
     "@aztec/pxe": "npm:latest"
