@@ -173,9 +173,9 @@ case "$cmd" in
     # If the log file exists locally, tail it, otherwise assume it's remote.
     key=$1
     if [ -f /tmp/$key ]; then
-      tail -f /tmp/$key
+      tail -F -n +1 /tmp/$key
     else
-      ./ci.sh shell tail -f /tmp/$key
+      ./ci.sh shell tail -F -n +1 /tmp/$key
     fi
   ;;
   "shell-host")
