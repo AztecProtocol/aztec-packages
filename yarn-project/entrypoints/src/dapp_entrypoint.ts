@@ -1,9 +1,9 @@
 import { Fr, computeAuthWitMessageHash, computeInnerAuthWitHash } from '@aztec/aztec.js';
 import { type AuthWitnessProvider } from '@aztec/aztec.js/account';
 import { type EntrypointInterface, EntrypointPayload, type ExecutionRequestInit } from '@aztec/aztec.js/entrypoint';
-import { HashedValues, TxExecutionRequest } from '@aztec/circuit-types';
 import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { HashedValues, TxExecutionRequest } from '@aztec/circuits.js/tx';
 import { TxContext } from '@aztec/circuits.js/tx';
 
 import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from './constants.js';

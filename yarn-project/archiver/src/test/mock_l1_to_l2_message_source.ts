@@ -1,4 +1,4 @@
-import { type L1ToL2MessageSource } from '@aztec/circuit-types';
+import { type L1ToL2MessageSource } from '@aztec/circuits.js/messaging';
 import { type Fr } from '@aztec/foundation/fields';
 
 /**

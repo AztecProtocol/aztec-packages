@@ -1,4 +1,4 @@
-import { type InBlock, type L2Block } from '@aztec/circuit-types';
+import { type InBlock, type L2Block } from '@aztec/circuits.js/block';
 import { MAX_NULLIFIERS_PER_TX } from '@aztec/constants';
 import { type Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';

@@ -1,16 +1,16 @@
+import type { L2Block } from '@aztec/circuits.js/block';
+import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/circuits.js/interfaces/client';
 import {
   ContractClass2BlockL2Logs,
   ExtendedPublicLog,
   ExtendedUnencryptedL2Log,
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  type L2Block,
   type LogFilter,
   LogId,
+  PrivateLog,
+  PublicLog,
   TxScopedL2Log,
   UnencryptedL2Log,
-} from '@aztec/circuit-types';
-import { PrivateLog, PublicLog } from '@aztec/circuits.js/logs';
+} from '@aztec/circuits.js/logs';
 import { INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX, PUBLIC_LOG_DATA_SIZE_IN_FIELDS } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';

@@ -1,16 +1,6 @@
-import {
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  type InBlock,
-  type InboxLeaf,
-  type L2Block,
-  type LogFilter,
-  type TxHash,
-  type TxReceipt,
-  type TxScopedL2Log,
-} from '@aztec/circuit-types';
 import { FunctionSelector } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { InBlock, L2Block } from '@aztec/circuits.js/block';
 import {
   type ContractClassPublic,
   type ContractInstanceUpdateWithAddress,
@@ -18,8 +8,11 @@ import {
   type ExecutablePrivateFunctionWithMembershipProof,
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js/contract';
+import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/circuits.js/interfaces/client';
+import { type LogFilter, type TxScopedL2Log } from '@aztec/circuits.js/logs';
 import type { PrivateLog } from '@aztec/circuits.js/logs';
-import type { BlockHeader } from '@aztec/circuits.js/tx';
+import type { InboxLeaf } from '@aztec/circuits.js/messaging';
+import type { BlockHeader, TxHash, TxReceipt } from '@aztec/circuits.js/tx';
 import type { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';

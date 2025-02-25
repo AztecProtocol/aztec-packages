@@ -1,6 +1,6 @@
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
-import { L2BlockHash } from './block_hash.js';
+import { L2BlockHash } from '../block/block_hash.js';
 import { TxHash } from './tx_hash.js';
 import { TxReceipt, TxStatus } from './tx_receipt.js';
 

@@ -1,23 +1,6 @@
-import {
-  type ContractClass2BlockL2Logs,
-  ExtendedPublicLog,
-  ExtendedUnencryptedL2Log,
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  type InBlock,
-  type InboxLeaf,
-  type L2Block,
-  L2BlockHash,
-  type LogFilter,
-  LogId,
-  type TxEffect,
-  type TxHash,
-  TxReceipt,
-  TxScopedL2Log,
-  wrapInBlock,
-} from '@aztec/circuit-types';
 import { FunctionSelector } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type InBlock, type L2Block, L2BlockHash, wrapInBlock } from '@aztec/circuits.js/block';
 import {
   type ContractClassPublic,
   type ContractClassPublicWithBlockNumber,
@@ -26,8 +9,19 @@ import {
   type ExecutablePrivateFunctionWithMembershipProof,
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js/contract';
-import { type PrivateLog, type PublicLog } from '@aztec/circuits.js/logs';
-import { type BlockHeader } from '@aztec/circuits.js/tx';
+import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/circuits.js/interfaces/client';
+import {
+  ContractClass2BlockL2Logs,
+  ExtendedPublicLog,
+  ExtendedUnencryptedL2Log,
+  type LogFilter,
+  LogId,
+  type PrivateLog,
+  type PublicLog,
+  TxScopedL2Log,
+} from '@aztec/circuits.js/logs';
+import type { InboxLeaf } from '@aztec/circuits.js/messaging';
+import { type BlockHeader, TxEffect, TxHash, TxReceipt } from '@aztec/circuits.js/tx';
 import {
   INITIAL_L2_BLOCK_NUM,
   MAX_NOTE_HASHES_PER_TX,

@@ -5,8 +5,8 @@ import { z } from 'zod';
 
 import { PublicDataWrite } from '../avm/public_data_write.js';
 import { RevertCode } from '../avm/revert_code.js';
+import { L2BlockHash } from '../block/block_hash.js';
 import { type ZodFor, schemas } from '../schemas/schemas.js';
-import { L2BlockHash } from './block_hash.js';
 import { TxHash } from './tx_hash.js';
 
 /**

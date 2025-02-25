@@ -15,3 +15,4 @@ export * from './world_state.js';
 export * from './prover-broker.js';
 export * from './p2p.js';
 export * from './p2p-bootstrap.js';
+export * from './l2_logs_source.js';

@@ -1,7 +1,7 @@
+import { type TreeInsertionStats } from '@aztec/circuits.js/stats';
 import { type Bufferable, serializeToBuffer } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
 
-import { type TreeInsertionStats } from '@aztec/circuits.js/stats'index.js';
 import { type AppendOnlyTree } from '../interfaces/append_only_tree.js';
 import { AppendOnlySnapshotBuilder } from '../snapshots/append_only_snapshot.js';
 import { type TreeSnapshot } from '../snapshots/snapshot_builder.js';
