@@ -1,7 +1,7 @@
 import { Fr, type Logger, getTimestampRangeForEpoch, retryUntil, sleep } from '@aztec/aztec.js';
 import { ChainMonitor } from '@aztec/aztec.js/ethereum';
+import type { L2BlockNumber } from '@aztec/circuits.js/block';
 import { type L1RollupConstants } from '@aztec/circuits.js/epoch-helpers';
-import { type L2BlockNumber } from '@aztec/circuits.js/interfaces/client';
 import { MerkleTreeId } from '@aztec/circuits.js/trees';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { DelayedTxUtils, type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
