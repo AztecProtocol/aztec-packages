@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import type { MerkleTreeReadOperations, MerkleTreeWriteOperations } from '../trees/merkle_tree_operations.js';
+import type { MerkleTreeReadOperations, MerkleTreeWriteOperations } from './merkle_tree_operations.js';
 
 /**
  * Defines the possible states of the world state synchronizer.

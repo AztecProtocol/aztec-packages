@@ -9,7 +9,7 @@ import {
   TxEffect,
   TxHash,
   type UnencryptedL2Log,
-} from '@aztec/circuit-types';
+} from '@aztec/circuits.js';
 import {
   type ContractArtifact,
   type FunctionAbi,

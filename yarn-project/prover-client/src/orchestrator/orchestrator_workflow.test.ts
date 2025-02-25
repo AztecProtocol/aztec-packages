@@ -1,4 +1,4 @@
-import { type Tx } from '@aztec/circuit-types';
+import { type Tx } from '@aztec/circuits.js';
 import {
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,

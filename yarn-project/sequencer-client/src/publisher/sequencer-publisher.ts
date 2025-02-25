@@ -6,7 +6,7 @@ import {
   SignatureDomainSeparator,
   type TxHash,
   getHashedSignaturePayload,
-} from '@aztec/circuit-types';
+} from '@aztec/circuits.js';
 import { type BlockHeader } from '@aztec/circuits.js/tx';
 import { type EpochCache } from '@aztec/epoch-cache';
 import {

@@ -2,11 +2,11 @@ import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { type IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';
 
+import type { MerkleTreeId } from '../trees/merkle_tree_id.js';
+import type { NullifierLeaf } from '../trees/nullifier_leaf.js';
+import type { PublicDataTreeLeaf } from '../trees/public_data_leaf.js';
 import type { BlockHeader } from '../tx/block_header.js';
 import type { StateReference } from '../tx/state_reference.js';
-import type { MerkleTreeId } from './merkle_tree_id.js';
-import type { NullifierLeaf } from './nullifier_leaf.js';
-import type { PublicDataTreeLeaf } from './public_data_leaf.js';
 
 /**
  * Type alias for the nullifier tree ID.

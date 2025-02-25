@@ -1,5 +1,5 @@
-import { type PeerErrorSeverity } from '@aztec/circuit-types';
 import { type PeerInfo } from '@aztec/circuits.js/interfaces/server';
+import { type PeerErrorSeverity } from '@aztec/circuits.js/p2p';
 import { createLogger } from '@aztec/foundation/log';
 import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
 

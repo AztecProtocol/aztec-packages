@@ -1,7 +1,7 @@
 /**
  * Validation logic unit tests
  */
-import { TxHash } from '@aztec/circuit-types';
+import { TxHash } from '@aztec/circuits.js';
 import { makeBlockAttestation, makeBlockProposal, mockTx } from '@aztec/circuits.js/testing';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { type EpochCache } from '@aztec/epoch-cache';

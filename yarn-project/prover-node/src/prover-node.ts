@@ -6,7 +6,7 @@ import {
   type Tx,
   type TxHash,
   getTimestampRangeForEpoch,
-} from '@aztec/circuit-types';
+} from '@aztec/circuits.js';
 import { type ContractDataSource } from '@aztec/circuits.js/contract';
 import {
   type EpochProverManager,

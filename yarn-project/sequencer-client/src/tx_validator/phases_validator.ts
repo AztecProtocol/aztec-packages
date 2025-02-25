@@ -4,7 +4,7 @@ import {
   TxExecutionPhase,
   type TxValidationResult,
   type TxValidator,
-} from '@aztec/circuit-types';
+} from '@aztec/circuits.js';
 import { type ContractDataSource } from '@aztec/circuits.js/contract';
 import { type AllowedElement } from '@aztec/circuits.js/interfaces/server';
 import { createLogger } from '@aztec/foundation/log';

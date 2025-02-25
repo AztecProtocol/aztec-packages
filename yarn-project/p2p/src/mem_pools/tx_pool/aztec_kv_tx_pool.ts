@@ -1,11 +1,11 @@
-import { Tx, TxHash } from '@aztec/circuit-types';
 import { ClientIvcProof } from '@aztec/circuits.js/proofs';
+import { type TxAddedToPoolStats } from '@aztec/circuits.js/stats';
+import { Tx, TxHash } from '@aztec/circuits.js/tx';
 import { toArray } from '@aztec/foundation/iterable';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
-import { type TxAddedToPoolStats } from '@aztec/circuits.js/stats'index.js';
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';
 import { getPendingTxPriority } from './priority.js';
 import { type TxPool } from './tx_pool.js';

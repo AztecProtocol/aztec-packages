@@ -1,4 +1,4 @@
-import { type Tx, TxExecutionPhase, type TxValidationResult, type TxValidator } from '@aztec/circuit-types';
+import { type Tx, TxExecutionPhase, type TxValidationResult, type TxValidator } from '@aztec/circuits.js';
 import { FunctionSelector, U128 } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import type { GasFees } from '@aztec/circuits.js/gas';

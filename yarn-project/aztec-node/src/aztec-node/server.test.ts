@@ -4,7 +4,7 @@ import {
   type L2BlockSource,
   type L2LogsSource,
   type NullifierWithBlockSource,
-} from '@aztec/circuit-types';
+} from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import type { ContractDataSource } from '@aztec/circuits.js/contract';
 import { GasFees } from '@aztec/circuits.js/gas';

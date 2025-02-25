@@ -1,5 +1,5 @@
 // An integration test for the p2p client to test req resp protocols
-import { PeerErrorSeverity, type Tx } from '@aztec/circuit-types';
+import { PeerErrorSeverity, type Tx } from '@aztec/circuits.js';
 import { emptyChainConfig } from '@aztec/circuits.js/config';
 import { type WorldStateSynchronizer } from '@aztec/circuits.js/interfaces/server';
 import { mockTx } from '@aztec/circuits.js/testing';

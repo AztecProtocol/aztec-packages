@@ -1,4 +1,4 @@
-import { PeerErrorSeverity } from '@aztec/circuit-types';
+import { PeerErrorSeverity } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { Attributes, getTelemetryClient } from '@aztec/telemetry-client';

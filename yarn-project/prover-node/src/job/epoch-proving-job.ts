@@ -4,7 +4,7 @@ import {
   type L2BlockSource,
   type ProcessedTx,
   type Tx,
-} from '@aztec/circuit-types';
+} from '@aztec/circuits.js';
 import {
   type EpochProver,
   type EpochProvingJobState,

@@ -16,3 +16,4 @@ export * from './prover-broker.js';
 export * from './p2p.js';
 export * from './p2p-bootstrap.js';
 export * from './l2_logs_source.js';
+export * from './merkle_tree_operations.js';

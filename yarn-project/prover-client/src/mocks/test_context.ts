@@ -1,5 +1,5 @@
 import { type BBProverConfig } from '@aztec/bb-prover';
-import { type L2Block, type ProcessedTx, type Tx } from '@aztec/circuit-types';
+import { type L2Block, type ProcessedTx, type Tx } from '@aztec/circuits.js';
 import { PublicDataWrite } from '@aztec/circuits.js/avm';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type ServerCircuitProver } from '@aztec/circuits.js/interfaces/server';

@@ -1,4 +1,4 @@
-import { type L1RollupConstants, type L2BlockSource } from '@aztec/circuit-types';
+import { type L1RollupConstants, type L2BlockSource } from '@aztec/circuits.js';
 import { BlockHeader } from '@aztec/circuits.js/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';

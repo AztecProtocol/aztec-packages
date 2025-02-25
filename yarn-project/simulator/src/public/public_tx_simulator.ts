@@ -5,7 +5,7 @@ import {
   type SimulationError,
   type Tx,
   TxExecutionPhase,
-} from '@aztec/circuit-types';
+} from '@aztec/circuits.js';
 import type { RevertCode } from '@aztec/circuits.js/avm';
 import type { Gas } from '@aztec/circuits.js/gas';
 import { type AvmProvingRequest, type MerkleTreeReadOperations } from '@aztec/circuits.js/interfaces/server';

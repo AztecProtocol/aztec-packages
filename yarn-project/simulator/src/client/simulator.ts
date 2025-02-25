@@ -1,4 +1,4 @@
-import { type FunctionCall, type TxExecutionRequest } from '@aztec/circuit-types';
+import { type FunctionCall, type TxExecutionRequest } from '@aztec/circuits.js';
 import { FunctionSelector, FunctionType } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type AztecNode, PrivateExecutionResult } from '@aztec/circuits.js/interfaces/client';

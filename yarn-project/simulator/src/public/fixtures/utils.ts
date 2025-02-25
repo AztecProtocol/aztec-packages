@@ -1,4 +1,4 @@
-import { type PublicExecutionRequest, Tx } from '@aztec/circuit-types';
+import { type PublicExecutionRequest, Tx } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { Gas, GasFees, GasSettings } from '@aztec/circuits.js/gas';
 import {

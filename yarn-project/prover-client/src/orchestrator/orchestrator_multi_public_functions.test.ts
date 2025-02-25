@@ -1,4 +1,4 @@
-import { Tx } from '@aztec/circuit-types';
+import { Tx } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type ContractInstanceWithAddress } from '@aztec/circuits.js/contract';
 import { siloNullifier } from '@aztec/circuits.js/hash';

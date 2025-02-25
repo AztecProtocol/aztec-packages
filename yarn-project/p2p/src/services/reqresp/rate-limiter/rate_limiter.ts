@@ -3,7 +3,7 @@
  * Rationale is that if it was good enough for them, then it should be good enough for us.
  * https://github.com/ChainSafe/lodestar
  */
-import { PeerErrorSeverity } from '@aztec/circuit-types';
+import { PeerErrorSeverity } from '@aztec/circuits.js/p2p';
 
 import { type PeerId } from '@libp2p/interface';
 

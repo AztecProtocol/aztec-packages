@@ -1,8 +1,8 @@
-import { Tx, TxHash } from '@aztec/circuit-types';
+import { type TxAddedToPoolStats } from '@aztec/circuits.js/stats';
+import { Tx, TxHash } from '@aztec/circuits.js/tx';
 import { createLogger } from '@aztec/foundation/log';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
-import { type TxAddedToPoolStats } from '@aztec/circuits.js/stats'index.js';
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';
 import { getPendingTxPriority } from './priority.js';
 import { type TxPool } from './tx_pool.js';

@@ -1,4 +1,4 @@
-import { type PublicExecutionRequest, type SimulationError } from '@aztec/circuit-types';
+import { type PublicExecutionRequest, type SimulationError } from '@aztec/circuits.js';
 import {
   type AvmExecutionHints,
   type ContractStorageRead,

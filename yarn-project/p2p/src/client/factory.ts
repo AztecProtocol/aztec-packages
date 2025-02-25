@@ -1,4 +1,4 @@
-import { type L2BlockSource, P2PClientType } from '@aztec/circuit-types';
+import { type L2BlockSource, P2PClientType } from '@aztec/circuits.js';
 import { type ClientProtocolCircuitVerifier, type WorldStateSynchronizer } from '@aztec/circuits.js/interfaces/server';
 import { type EpochCacheInterface } from '@aztec/epoch-cache';
 import { type Logger, createLogger } from '@aztec/foundation/log';

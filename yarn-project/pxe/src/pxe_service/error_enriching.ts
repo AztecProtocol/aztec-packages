@@ -1,4 +1,4 @@
-import { type SimulationError, isNoirCallStackUnresolved } from '@aztec/circuit-types';
+import { type SimulationError, isNoirCallStackUnresolved } from '@aztec/circuits.js';
 import { FunctionSelector } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';

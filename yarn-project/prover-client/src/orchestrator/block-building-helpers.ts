@@ -1,5 +1,5 @@
 import { Blob, type SpongeBlob } from '@aztec/blob-lib';
-import { Body, type ProcessedTx, TxEffect } from '@aztec/circuit-types';
+import { Body, type ProcessedTx, TxEffect } from '@aztec/circuits.js';
 import { PublicDataHint } from '@aztec/circuits.js/avm';
 import { type MerkleTreeWriteOperations } from '@aztec/circuits.js/interfaces/server';
 import type { ParityPublicInputs } from '@aztec/circuits.js/parity';

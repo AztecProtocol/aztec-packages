@@ -1,4 +1,4 @@
-import { HashedValues } from '@aztec/circuit-types';
+import { HashedValues } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
 /**

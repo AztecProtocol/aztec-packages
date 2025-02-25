@@ -1,4 +1,4 @@
-import { type BlockAttestation } from '@aztec/circuit-types';
+import { type BlockAttestation } from '@aztec/circuits.js/p2p';
 import { createLogger } from '@aztec/foundation/log';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 

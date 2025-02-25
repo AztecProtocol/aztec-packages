@@ -1,4 +1,4 @@
-import { type GlobalVariableBuilder as GlobalVariableBuilderInterface } from '@aztec/circuit-types';
+import { type GlobalVariableBuilder as GlobalVariableBuilderInterface } from '@aztec/circuits.js';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { GasFees } from '@aztec/circuits.js/gas';
 import { GlobalVariables } from '@aztec/circuits.js/tx';

@@ -6,7 +6,7 @@ import {
   type Wallet,
   createLogger,
 } from '@aztec/aztec.js';
-import { type FunctionCall } from '@aztec/circuit-types';
+import { type FunctionCall } from '@aztec/circuits.js/abi';
 import { Gas } from '@aztec/circuits.js/gas';
 import { type AztecNode, type PXE } from '@aztec/circuits.js/interfaces/client';
 import { timesParallel } from '@aztec/foundation/collection';

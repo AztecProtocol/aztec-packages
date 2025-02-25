@@ -5,7 +5,7 @@ import {
   PublicExecutionRequest,
   TxExecutionRequest,
   type TxScopedL2Log,
-} from '@aztec/circuit-types';
+} from '@aztec/circuits.js';
 import {
   type ContractArtifact,
   type FunctionArtifact,

@@ -48,7 +48,7 @@ import {
 } from '@aztec/aztec.js';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 // eslint-disable-next-line no-restricted-imports
-import { L2Block } from '@aztec/circuit-types';
+import { L2Block } from '@aztec/circuits.js';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { tryStop } from '@aztec/circuits.js/interfaces/server';
 import { EpochCache } from '@aztec/epoch-cache';

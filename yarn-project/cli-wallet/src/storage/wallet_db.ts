@@ -1,4 +1,4 @@
-import { type TxHash } from '@aztec/circuit-types';
+import { type TxHash } from '@aztec/circuits.js';
 import { type AuthWitness } from '@aztec/circuits.js/auth-witness';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { GasSettings } from '@aztec/circuits.js/gas';

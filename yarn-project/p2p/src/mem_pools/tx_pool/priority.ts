@@ -1,4 +1,4 @@
-import { type Tx } from '@aztec/circuit-types';
+import { type Tx } from '@aztec/circuits.js/tx';
 import { Buffer32 } from '@aztec/foundation/buffer';
 
 /**

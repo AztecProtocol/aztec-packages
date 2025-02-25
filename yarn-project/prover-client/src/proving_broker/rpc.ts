@@ -1,4 +1,4 @@
-import { type ComponentsVersions, getVersioningResponseHandler } from '@aztec/circuit-types';
+import { type ComponentsVersions, getVersioningResponseHandler } from '@aztec/circuits.js';
 import {
   type GetProvingJobResponse,
   ProofUri,

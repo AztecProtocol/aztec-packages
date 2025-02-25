@@ -1,4 +1,4 @@
-import { Tx } from '@aztec/circuit-types';
+import { Tx } from '@aztec/circuits.js';
 import { type ClientProtocolCircuitVerifier } from '@aztec/circuits.js/interfaces/server';
 import { type Proof } from '@aztec/circuits.js/proofs';
 import { type VerificationKeyData } from '@aztec/circuits.js/vks';

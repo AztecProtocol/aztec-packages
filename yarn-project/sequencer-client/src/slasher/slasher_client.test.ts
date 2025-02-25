@@ -1,5 +1,5 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
-import { L2Block } from '@aztec/circuit-types';
+import { L2Block } from '@aztec/circuits.js';
 import {
   type L1ContractAddresses,
   type L1ContractsConfig,

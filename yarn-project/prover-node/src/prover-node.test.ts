@@ -4,7 +4,7 @@ import {
   L2Block,
   type L2BlockSource,
   type Tx,
-} from '@aztec/circuit-types';
+} from '@aztec/circuits.js';
 import { type ContractDataSource } from '@aztec/circuits.js/contract';
 import {
   type EpochProverManager,

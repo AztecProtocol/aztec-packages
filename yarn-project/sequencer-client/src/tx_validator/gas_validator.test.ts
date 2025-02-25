@@ -1,4 +1,4 @@
-import { type Tx } from '@aztec/circuit-types';
+import { type Tx } from '@aztec/circuits.js';
 import { FunctionSelector, U128 } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { GasFees, GasSettings } from '@aztec/circuits.js/gas';

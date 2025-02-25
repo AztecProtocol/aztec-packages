@@ -1,4 +1,4 @@
-import { ContractClassTxL2Logs, type Tx } from '@aztec/circuit-types';
+import { ContractClassTxL2Logs, type Tx } from '@aztec/circuits.js';
 import type { FunctionSelector } from '@aztec/circuits.js/abi';
 import { PublicDataWrite } from '@aztec/circuits.js/avm';
 import type { AztecAddress } from '@aztec/circuits.js/aztec-address';

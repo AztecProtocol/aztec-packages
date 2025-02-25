@@ -1,4 +1,4 @@
-import { PublicExecutionRequest, type Tx } from '@aztec/circuit-types';
+import { PublicExecutionRequest, type Tx } from '@aztec/circuits.js';
 import { type ContractArtifact, FunctionSelector, encodeArguments } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { GasFees } from '@aztec/circuits.js/gas';

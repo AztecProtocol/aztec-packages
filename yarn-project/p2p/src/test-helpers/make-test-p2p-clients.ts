@@ -1,5 +1,5 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
-import { P2PClientType } from '@aztec/circuit-types';
+import { P2PClientType } from '@aztec/circuits.js';
 import { type WorldStateSynchronizer } from '@aztec/circuits.js/interfaces/server';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { type Logger, createLogger } from '@aztec/foundation/log';

@@ -1,4 +1,4 @@
-import { type ProcessedTx, SimulationError, type Tx, type TxValidator } from '@aztec/circuit-types';
+import { type ProcessedTx, SimulationError, type Tx, type TxValidator } from '@aztec/circuits.js';
 import { AvmCircuitInputs, PublicDataWrite, RevertCode } from '@aztec/circuits.js/avm';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { Gas, GasFees } from '@aztec/circuits.js/gas';

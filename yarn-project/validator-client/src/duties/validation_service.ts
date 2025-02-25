@@ -4,7 +4,7 @@ import {
   ConsensusPayload,
   SignatureDomainSeparator,
   type TxHash,
-} from '@aztec/circuit-types';
+} from '@aztec/circuits.js';
 import { type BlockHeader } from '@aztec/circuits.js/tx';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto';

@@ -1,5 +1,5 @@
-import { type ComponentsVersions } from '@aztec/circuit-types';
 import { type ZodFor, schemas } from '@aztec/circuits.js/schemas';
+import { type ComponentsVersions } from '@aztec/circuits.js/versioning';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,

@@ -1,4 +1,4 @@
-import { type BlockProposal } from '@aztec/circuit-types';
+import { type BlockProposal } from '@aztec/circuits.js';
 import {
   Attributes,
   type Gauge,

@@ -1,4 +1,4 @@
-import { type NoirCallStack } from '@aztec/circuit-types';
+import { type NoirCallStack } from '@aztec/circuits.js';
 import type { FunctionDebugMetadata } from '@aztec/circuits.js/abi';
 import { createLogger } from '@aztec/foundation/log';
 

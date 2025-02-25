@@ -1,4 +1,4 @@
-import { UnencryptedL2Log } from '@aztec/circuit-types';
+import { UnencryptedL2Log } from '@aztec/circuits.js';
 import { FunctionSelector, NoteSelector } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { LogWithTxData } from '@aztec/circuits.js/logs';

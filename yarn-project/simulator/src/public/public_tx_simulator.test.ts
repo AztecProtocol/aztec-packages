@@ -4,7 +4,7 @@ import {
   TxExecutionPhase,
   UnencryptedFunctionL2Logs,
   UnencryptedL2Log,
-} from '@aztec/circuit-types';
+} from '@aztec/circuits.js';
 import { bufferAsFields } from '@aztec/circuits.js/abi';
 import { PublicDataWrite, RevertCode } from '@aztec/circuits.js/avm';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';

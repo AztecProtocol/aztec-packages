@@ -9,7 +9,7 @@ import {
   TxHash,
   type TxScopedL2Log,
   getNonNullifiedL1ToL2MessageWitness,
-} from '@aztec/circuit-types';
+} from '@aztec/circuits.js';
 import {
   type FunctionArtifact,
   FunctionSelector,

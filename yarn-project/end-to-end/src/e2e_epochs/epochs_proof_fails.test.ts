@@ -1,7 +1,7 @@
 import { type Logger, getTimestampRangeForEpoch, sleep } from '@aztec/aztec.js';
 import { ChainMonitor } from '@aztec/aztec.js/ethereum';
 // eslint-disable-next-line no-restricted-imports
-import { type L1RollupConstants } from '@aztec/circuit-types';
+import { type L1RollupConstants } from '@aztec/circuits.js';
 import { Proof } from '@aztec/circuits.js/proofs';
 import { RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 import { RollupContract } from '@aztec/ethereum/contracts';

@@ -1,4 +1,4 @@
-import { type Tx } from '@aztec/circuit-types';
+import { type Tx } from '@aztec/circuits.js';
 import { type ClientProtocolCircuitVerifier } from '@aztec/circuits.js/interfaces/server';
 
 export class TestCircuitVerifier implements ClientProtocolCircuitVerifier {

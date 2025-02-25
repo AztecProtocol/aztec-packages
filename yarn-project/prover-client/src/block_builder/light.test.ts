@@ -1,6 +1,6 @@
 import { TestCircuitProver } from '@aztec/bb-prover';
 import { Blob, SpongeBlob } from '@aztec/blob-lib';
-import { type ProcessedTx, toNumBlobFields } from '@aztec/circuit-types';
+import { type ProcessedTx, toNumBlobFields } from '@aztec/circuits.js';
 import { PublicDataWrite } from '@aztec/circuits.js/avm';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type MerkleTreeWriteOperations, type ServerCircuitProver } from '@aztec/circuits.js/interfaces/server';

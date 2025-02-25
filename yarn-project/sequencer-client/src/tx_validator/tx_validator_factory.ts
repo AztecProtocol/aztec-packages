@@ -1,4 +1,4 @@
-import { type ProcessedTx, type Tx, type TxValidator } from '@aztec/circuit-types';
+import { type ProcessedTx, type Tx, type TxValidator } from '@aztec/circuits.js';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type ContractDataSource } from '@aztec/circuits.js/contract';
 import type { GasFees } from '@aztec/circuits.js/gas';

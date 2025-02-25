@@ -1,4 +1,4 @@
-import { type L1ToL2MessageSource, L2Block, type L2BlockSource, type ProcessedTx, type Tx } from '@aztec/circuit-types';
+import { type L1ToL2MessageSource, L2Block, type L2BlockSource, type ProcessedTx, type Tx } from '@aztec/circuits.js';
 import {
   type EpochProver,
   type MerkleTreeWriteOperations,

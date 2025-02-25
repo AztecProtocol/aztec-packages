@@ -4,7 +4,7 @@ import {
   type Tx,
   TxExecutionPhase,
   type TxHash,
-} from '@aztec/circuit-types';
+} from '@aztec/circuits.js';
 import { PublicDataWrite, RevertCode } from '@aztec/circuits.js/avm';
 import { AvmCircuitInputs, type AvmCircuitPublicInputs } from '@aztec/circuits.js/avm';
 import type { AztecAddress } from '@aztec/circuits.js/aztec-address';

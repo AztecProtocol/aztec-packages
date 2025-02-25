@@ -1,4 +1,4 @@
-import { type L2Block, type NoteStatus, type PublicDataWitness, type TxScopedL2Log } from '@aztec/circuit-types';
+import { type L2Block, type NoteStatus, type PublicDataWitness, type TxScopedL2Log } from '@aztec/circuits.js';
 import { type FunctionArtifact, type FunctionSelector } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type CompleteAddress, type ContractInstance } from '@aztec/circuits.js/contract';

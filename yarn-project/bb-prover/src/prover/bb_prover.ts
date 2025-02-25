@@ -1,5 +1,5 @@
 /* eslint-disable require-await */
-import { ProvingError } from '@aztec/circuit-types';
+import { ProvingError } from '@aztec/circuits.js';
 import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
 import {
   type ProofAndVerificationKey,

@@ -1,4 +1,4 @@
-import { type L2Block } from '@aztec/circuit-types';
+import { type L2Block } from '@aztec/circuits.js/block';
 import {
   type IndexedTreeId,
   type MerkleTreeReadOperations,

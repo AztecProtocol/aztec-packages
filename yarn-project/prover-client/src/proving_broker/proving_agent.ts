@@ -1,4 +1,4 @@
-import { ProvingError } from '@aztec/circuit-types';
+import { ProvingError } from '@aztec/circuits.js';
 import {
   type ProvingJob,
   type ProvingJobConsumer,

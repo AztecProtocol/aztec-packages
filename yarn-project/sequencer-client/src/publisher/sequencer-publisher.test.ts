@@ -1,7 +1,7 @@
 import { Blob } from '@aztec/blob-lib';
 import { HttpBlobSinkClient } from '@aztec/blob-sink/client';
 import { inboundTransform } from '@aztec/blob-sink/encoding';
-import { L2Block } from '@aztec/circuit-types';
+import { L2Block } from '@aztec/circuits.js';
 import { type EpochCache } from '@aztec/epoch-cache';
 import {
   type ForwarderContract,

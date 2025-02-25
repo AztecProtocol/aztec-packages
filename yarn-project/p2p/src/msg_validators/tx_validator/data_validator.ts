@@ -1,4 +1,4 @@
-import { Tx, type TxValidationResult, type TxValidator } from '@aztec/circuit-types';
+import { Tx, type TxValidationResult, type TxValidator } from '@aztec/circuits.js/tx';
 import { MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 

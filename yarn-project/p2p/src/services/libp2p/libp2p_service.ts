@@ -1,23 +1,21 @@
-import {
-  BlockAttestation,
-  BlockProposal,
-  type Gossipable,
-  type L2BlockSource,
-  P2PClientType,
-  PeerErrorSeverity,
-  TopicTypeMap,
-  Tx,
-  type TxHash,
-  type TxValidationResult,
-  getTopicTypeForClientType,
-  metricsTopicStrToLabels,
-} from '@aztec/circuit-types';
+import { type L2BlockSource } from '@aztec/circuits.js/block';
 import {
   type ClientProtocolCircuitVerifier,
   type PeerInfo,
   type WorldStateSynchronizer,
 } from '@aztec/circuits.js/interfaces/server';
+import {
+  BlockAttestation,
+  BlockProposal,
+  type Gossipable,
+  P2PClientType,
+  PeerErrorSeverity,
+  TopicTypeMap,
+  getTopicTypeForClientType,
+  metricsTopicStrToLabels,
+} from '@aztec/circuits.js/p2p';
 import { MerkleTreeId } from '@aztec/circuits.js/trees';
+import { Tx, type TxHash, type TxValidationResult } from '@aztec/circuits.js/tx';
 import { type EpochCacheInterface } from '@aztec/epoch-cache';
 import { Fr } from '@aztec/foundation/fields';
 import { createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';

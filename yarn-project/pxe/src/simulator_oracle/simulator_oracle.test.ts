@@ -8,7 +8,7 @@ import {
   TxScopedL2Log,
   randomInBlock,
   wrapInBlock,
-} from '@aztec/circuit-types';
+} from '@aztec/circuits.js';
 import { type FunctionArtifact, FunctionSelector, FunctionType } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { CompleteAddress } from '@aztec/circuits.js/contract';

@@ -1,4 +1,4 @@
-import { L2Block, type ProcessedTx, type Tx, toNumBlobFields } from '@aztec/circuit-types';
+import { L2Block, type ProcessedTx, type Tx, toNumBlobFields } from '@aztec/circuits.js';
 import {
   type EpochProver,
   type ForkMerkleTreeOperations,

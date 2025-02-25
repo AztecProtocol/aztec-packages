@@ -1,4 +1,4 @@
-import { type InBlock, type NotesFilter } from '@aztec/circuit-types';
+import { type InBlock, type NotesFilter } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/circuits.js/abi';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import type { CompleteAddress, ContractInstanceWithAddress } from '@aztec/circuits.js/contract';

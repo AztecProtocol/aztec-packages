@@ -1,4 +1,4 @@
-import { type Capsule, type NoteStatus, type PublicDataWitness } from '@aztec/circuit-types';
+import { type Capsule, type NoteStatus, type PublicDataWitness } from '@aztec/circuits.js';
 import { type AuthWitness } from '@aztec/circuits.js/auth-witness';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/circuits.js/contract';

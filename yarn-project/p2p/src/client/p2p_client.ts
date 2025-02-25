@@ -1,16 +1,13 @@
 import {
-  type BlockAttestation,
-  type BlockProposal,
   type L2Block,
   type L2BlockId,
   type L2BlockSource,
   type L2BlockStreamEvent,
   type L2Tips,
-  type P2PClientType,
-  type Tx,
-  type TxHash,
-} from '@aztec/circuit-types';
+} from '@aztec/circuits.js/block';
 import { type P2PApi, type PeerInfo, type ProverCoordination } from '@aztec/circuits.js/interfaces/server';
+import { type BlockAttestation, type BlockProposal, type P2PClientType } from '@aztec/circuits.js/p2p';
+import { type Tx, type TxHash } from '@aztec/circuits.js/tx';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { type AztecAsyncKVStore, type AztecAsyncMap, type AztecAsyncSingleton } from '@aztec/kv-store';

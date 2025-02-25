@@ -9,7 +9,7 @@ import {
   type Tx,
   TxHash,
   makeProcessedTxFromPrivateOnlyTx,
-} from '@aztec/circuit-types';
+} from '@aztec/circuits.js';
 import { PublicDataWrite } from '@aztec/circuits.js/avm';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import type { ContractDataSource } from '@aztec/circuits.js/contract';

@@ -1,9 +1,4 @@
-import {
-  type FailingFunction,
-  type NoirCallStack,
-  SimulationError,
-  type SourceCodeLocation,
-} from '@aztec/circuit-types';
+import { type FailingFunction, type NoirCallStack, SimulationError, type SourceCodeLocation } from '@aztec/circuits.js';
 import type { BrilligFunctionId, FunctionAbi, FunctionDebugMetadata, OpcodeLocation } from '@aztec/circuits.js/abi';
 import { type Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';

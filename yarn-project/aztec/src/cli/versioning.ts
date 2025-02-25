@@ -1,4 +1,4 @@
-import { type ComponentsVersions, getComponentsVersionsFromConfig } from '@aztec/circuit-types';
+import { type ComponentsVersions, getComponentsVersionsFromConfig } from '@aztec/circuits.js';
 import { type ChainConfig } from '@aztec/circuits.js/config';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';

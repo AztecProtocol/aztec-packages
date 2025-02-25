@@ -1,4 +1,5 @@
-import { type L1ToL2MessageSource, type L2BlockSource } from '@aztec/circuit-types';
+import { type L2BlockSource } from '@aztec/circuits.js/block';
+import { type L1ToL2MessageSource } from '@aztec/circuits.js/messaging';
 import { type PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';

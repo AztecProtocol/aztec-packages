@@ -21,7 +21,7 @@ import {
   type TxScopedL2Log,
   TxStatus,
   type TxValidationResult,
-} from '@aztec/circuit-types';
+} from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
   type ContractClassPublic,

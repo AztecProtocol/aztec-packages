@@ -1,4 +1,4 @@
-import { type PublicExecutionRequest, type Tx, TxExecutionPhase } from '@aztec/circuit-types';
+import { type PublicExecutionRequest, type Tx, TxExecutionPhase } from '@aztec/circuits.js';
 import { type PublicCallRequest } from '@aztec/circuits.js/kernel';
 
 export function getExecutionRequestsByPhase(tx: Tx, phase: TxExecutionPhase): PublicExecutionRequest[] {

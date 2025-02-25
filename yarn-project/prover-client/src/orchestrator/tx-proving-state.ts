@@ -1,4 +1,4 @@
-import { type ProcessedTx } from '@aztec/circuit-types';
+import { type ProcessedTx } from '@aztec/circuits.js';
 import { type ProofAndVerificationKey } from '@aztec/circuits.js/interfaces/server';
 import {
   AvmProofData,

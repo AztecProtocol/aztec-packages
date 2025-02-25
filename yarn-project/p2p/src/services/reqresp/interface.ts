@@ -1,4 +1,5 @@
-import { L2Block, Tx, TxHash } from '@aztec/circuit-types';
+import { L2Block } from '@aztec/circuits.js/block';
+import { Tx, TxHash } from '@aztec/circuits.js/tx';
 import { Fr } from '@aztec/foundation/fields';
 
 import { type PeerId } from '@libp2p/interface';

@@ -1,5 +1,5 @@
 import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
-import { type L1ToL2MessageSource, type L2BlockSource } from '@aztec/circuit-types';
+import { type L1ToL2MessageSource, type L2BlockSource } from '@aztec/circuits.js';
 import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type ContractDataSource } from '@aztec/circuits.js/contract';
 import { type WorldStateSynchronizer } from '@aztec/circuits.js/interfaces/server';

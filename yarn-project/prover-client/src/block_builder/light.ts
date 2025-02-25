@@ -1,5 +1,5 @@
 import { SpongeBlob } from '@aztec/blob-lib';
-import { L2Block, type ProcessedTx, toNumBlobFields } from '@aztec/circuit-types';
+import { L2Block, type ProcessedTx, toNumBlobFields } from '@aztec/circuits.js';
 import { type BlockBuilder, type MerkleTreeWriteOperations } from '@aztec/circuits.js/interfaces/server';
 import { MerkleTreeId } from '@aztec/circuits.js/trees';
 import { type GlobalVariables } from '@aztec/circuits.js/tx';

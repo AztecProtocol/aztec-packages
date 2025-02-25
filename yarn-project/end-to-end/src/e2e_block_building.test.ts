@@ -20,7 +20,7 @@ import {
   sleep,
 } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
-import { type Tx } from '@aztec/circuit-types';
+import { type Tx } from '@aztec/circuits.js';
 import { type MerkleTreeWriteOperations } from '@aztec/circuits.js/interfaces/server';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';

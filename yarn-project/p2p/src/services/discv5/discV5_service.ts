@@ -1,4 +1,4 @@
-import { type ComponentsVersions, checkCompressedComponentVersion } from '@aztec/circuit-types';
+import { type ComponentsVersions, checkCompressedComponentVersion } from '@aztec/circuits.js/versioning';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { OtelMetricsAdapter, type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';

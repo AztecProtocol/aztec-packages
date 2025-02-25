@@ -1,4 +1,4 @@
-import { NoteStatus, type NotesFilter } from '@aztec/circuit-types';
+import { NoteStatus, type NotesFilter } from '@aztec/circuits.js';
 import { FunctionType } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { CompleteAddress, SerializableContractInstance } from '@aztec/circuits.js/contract';

@@ -1,4 +1,4 @@
-import { Note, TxHash } from '@aztec/circuit-types';
+import { Note, TxHash } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/circuits.js/abi';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import type { PublicKey } from '@aztec/circuits.js/keys';

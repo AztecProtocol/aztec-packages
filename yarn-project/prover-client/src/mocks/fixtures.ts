@@ -1,4 +1,4 @@
-import { type ProcessedTx } from '@aztec/circuit-types';
+import { type ProcessedTx } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { GasFees } from '@aztec/circuits.js/gas';
 import { type MerkleTreeWriteOperations } from '@aztec/circuits.js/interfaces/server';

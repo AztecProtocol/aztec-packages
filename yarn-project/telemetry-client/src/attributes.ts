@@ -19,7 +19,7 @@ export const NETWORK_NAME = 'aztec.network_name';
 
 /**
  * The name of the protocol circuit being run (e.g. public-kernel-setup or base-rollup)
- * @see {@link @aztec/circuit-types/stats:CircuitName}
+ * @see {@link @aztec/circuits.js/stats:CircuitName}
  */
 export const PROTOCOL_CIRCUIT_NAME = 'aztec.circuit.protocol_circuit_name';
 

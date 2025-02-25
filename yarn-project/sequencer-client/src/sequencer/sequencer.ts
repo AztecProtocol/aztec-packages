@@ -5,7 +5,7 @@ import {
   type L2BlockSource,
   Tx,
   type TxHash,
-} from '@aztec/circuit-types';
+} from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import type { ContractDataSource } from '@aztec/circuits.js/contract';
 import { Gas } from '@aztec/circuits.js/gas';

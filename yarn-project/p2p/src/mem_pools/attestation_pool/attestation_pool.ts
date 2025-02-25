@@ -1,4 +1,4 @@
-import { type BlockAttestation } from '@aztec/circuit-types';
+import { type BlockAttestation } from '@aztec/circuits.js/p2p';
 
 /**
  * An Attestation Pool contains attestations collected by a validator

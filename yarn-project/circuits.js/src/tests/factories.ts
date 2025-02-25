@@ -84,6 +84,7 @@ import {
   computePublicBytecodeCommitment,
 } from '../contract/index.js';
 import { Gas, GasFees, GasSettings, type GasUsed } from '../gas/index.js';
+import type { MerkleTreeReadOperations } from '../interfaces/merkle_tree_operations.js';
 import { KeyValidationRequest } from '../kernel/hints/key_validation_request.js';
 import { KeyValidationRequestAndGenerator } from '../kernel/hints/key_validation_request_and_generator.js';
 import { ReadRequest } from '../kernel/hints/read_request.js';
@@ -142,7 +143,6 @@ import { PublicTubeData } from '../rollup/public_tube_data.js';
 import { RootRollupInputs, RootRollupPublicInputs } from '../rollup/root_rollup.js';
 import { PrivateBaseStateDiffHints } from '../rollup/state_diff_hints.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
-import type { MerkleTreeReadOperations } from '../trees/merkle_tree_operations.js';
 import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
 import { PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
 import { BlockHeader } from '../tx/block_header.js';

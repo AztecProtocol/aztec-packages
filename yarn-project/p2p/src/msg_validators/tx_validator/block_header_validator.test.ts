@@ -1,4 +1,4 @@
-import { type AnyTx, type TxValidationResult } from '@aztec/circuit-types';
+import { type AnyTx, type TxValidationResult } from '@aztec/circuits.js';
 import { mockTxForRollup } from '@aztec/circuits.js/testing';
 import { Fr } from '@aztec/foundation/fields';
 

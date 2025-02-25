@@ -7,7 +7,7 @@ import {
   type TxValidator,
   makeProcessedTxFromPrivateOnlyTx,
   makeProcessedTxFromTxWithPublicCalls,
-} from '@aztec/circuit-types';
+} from '@aztec/circuits.js';
 import { PublicDataWrite } from '@aztec/circuits.js/avm';
 import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import type { ContractDataSource } from '@aztec/circuits.js/contract';

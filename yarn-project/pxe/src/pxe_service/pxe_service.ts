@@ -20,7 +20,7 @@ import {
   TxSimulationResult,
   UniqueNote,
   getNonNullifiedL1ToL2MessageWitness,
-} from '@aztec/circuit-types';
+} from '@aztec/circuits.js';
 import {
   type AbiDecoded,
   type ContractArtifact,

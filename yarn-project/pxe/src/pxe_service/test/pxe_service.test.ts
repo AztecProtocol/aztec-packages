@@ -1,5 +1,5 @@
 import { BBWASMBundlePrivateKernelProver } from '@aztec/bb-prover/wasm/bundle';
-import { TxEffect, randomInBlock } from '@aztec/circuit-types';
+import { TxEffect, randomInBlock } from '@aztec/circuits.js';
 import { type AztecNode, type PXE, type PrivateKernelProver } from '@aztec/circuits.js/interfaces/client';
 import { mockTx } from '@aztec/circuits.js/testing';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';

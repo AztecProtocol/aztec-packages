@@ -1,4 +1,4 @@
-import { type Tx } from '@aztec/circuit-types';
+import { type Tx } from '@aztec/circuits.js';
 import type { FunctionSelector } from '@aztec/circuits.js/abi';
 import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
