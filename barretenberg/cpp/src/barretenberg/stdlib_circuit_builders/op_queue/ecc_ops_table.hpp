@@ -52,6 +52,10 @@ template <typename OpFormat> class EccOpsTable {
 
     void create_new_subtable(size_t size_hint = 0)
     {
+        // If there is a single subtable and it is empty, dont create a new one
+        if (table.size() == 1 && table.front().empty()) {
+            return;
+        }
         Subtable new_subtable;
         new_subtable.reserve(size_hint);
         table.insert(table.begin(), std::move(new_subtable));

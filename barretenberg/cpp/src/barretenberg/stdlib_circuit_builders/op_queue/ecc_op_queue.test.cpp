@@ -28,7 +28,6 @@ TEST(ECCOpQueueTest, Basic)
     using G1 = ECCOpQueueTest::G1;
 
     ECCOpQueue op_queue;
-    op_queue.initialize_new_subtable();
     op_queue.add_accumulate(bb::g1::affine_one);
     op_queue.empty_row_for_testing();
     const auto& eccvm_ops = op_queue.get_eccvm_ops();
@@ -49,7 +48,6 @@ TEST(ECCOpQueueTest, InternalAccumulatorCorrectness)
 
     // Add the same operations to the ECC op queue; the native computation is performed under the hood.
     ECCOpQueue op_queue;
-    op_queue.initialize_new_subtable();
     op_queue.add_accumulate(P1);
     op_queue.mul_accumulate(P2, z);
 

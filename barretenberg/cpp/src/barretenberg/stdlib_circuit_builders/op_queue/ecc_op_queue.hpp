@@ -42,6 +42,9 @@ class ECCOpQueue {
   public:
     using ECCVMOperation = bb::eccvm::VMOperation<Curve::Group>;
 
+    // Constructor simply prepares the first subtable to be written to
+    ECCOpQueue() { initialize_new_subtable(); }
+
     void initialize_new_subtable()
     {
         eccvm_ops_table.create_new_subtable();
