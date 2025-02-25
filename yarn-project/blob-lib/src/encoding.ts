@@ -85,7 +85,6 @@ export function getLengthFromFirstField(firstField: Fr): number {
   return new Fr(buf.subarray(TX_START_PREFIX_BYTES_LENGTH + 1, TX_START_PREFIX_BYTES_LENGTH + 3)).toNumber();
 }
 
-// NOTE: duplicated from circuit-types tx effect!
 /**
  * Determines whether a field is the first field of a tx effect
  */
