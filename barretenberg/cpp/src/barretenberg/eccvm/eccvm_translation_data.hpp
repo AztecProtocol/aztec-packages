@@ -30,10 +30,15 @@ template <typename Transcript> class TranslationData {
 
     TranslationData(const RefVector<Polynomial>& transcript_polynomials,
                     const std::shared_ptr<Transcript>& transcript,
-                    const std::shared_ptr<CommitmentKey>& commitment_key)
+                    std::shared_ptr<CommitmentKey>& commitment_key)
         : concatenated_masking_term(SUBGROUP_SIZE + 2)
         , concatenated_masking_term_lagrange(SUBGROUP_SIZE)
     {
+        // Reallocate the commitment key if necessary. This is an edge case with SmallSubgroupIPA since it has
+        // polynomials that may exceed the circuit size.
+        if (commitment_key->dyadic_size < SUBGROUP_SIZE + 3) {
+            commitment_key = std::make_shared<typename Flavor::CommitmentKey>(SUBGROUP_SIZE + 3);
+        }
         // Create interpolation domain required for Lagrange interpolation
         interpolation_domain[0] = FF{ 1 };
 

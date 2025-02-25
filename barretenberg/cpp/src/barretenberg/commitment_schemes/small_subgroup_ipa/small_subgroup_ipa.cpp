@@ -83,8 +83,7 @@ template <typename Flavor>
 SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(ZKSumcheckData<Flavor>& zk_sumcheck_data,
                                                        const std::vector<FF>& multivariate_challenge,
                                                        const FF claimed_inner_product,
-                                                       std::shared_ptr<typename Flavor::Transcript>& transcript,
-                                                       std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key)
+                                                       std::shared_ptr<typename Flavor::Transcript>& transcript)
     : claimed_inner_product(claimed_inner_product)
     , interpolation_domain(zk_sumcheck_data.interpolation_domain)
     , concatenated_polynomial(zk_sumcheck_data.libra_concatenated_monomial_form)
@@ -96,14 +95,8 @@ SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(ZKSumcheckData<Flavor>& z
     , batched_polynomial(BATCHED_POLYNOMIAL_LENGTH)
     , batched_quotient(QUOTIENT_LENGTH)
     , transcript(transcript)
-    , commitment_key(commitment_key)
-
 {
-    // Reallocate the commitment key if necessary. This is an edge case with SmallSubgroupIPA since it has
-    // polynomials that may exceed the circuit size.
-    if (commitment_key->dyadic_size < SUBGROUP_SIZE + 3) {
-        commitment_key = std::make_shared<typename Flavor::CommitmentKey>(SUBGROUP_SIZE + 3);
-    }
+
     // Extract the evaluation domain computed by ZKSumcheckData
     if constexpr (std::is_same_v<Curve, curve::BN254>) {
         bn_evaluation_domain = std::move(zk_sumcheck_data.bn_evaluation_domain);
@@ -119,8 +112,7 @@ SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(TranslationData<typename 
                                                        const FF evaluation_challenge_x,
                                                        const FF batching_challenge_v,
                                                        const FF claimed_inner_product,
-                                                       std::shared_ptr<typename Flavor::Transcript>& transcript,
-                                                       std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key)
+                                                       std::shared_ptr<typename Flavor::Transcript>& transcript)
     : claimed_inner_product(claimed_inner_product)
     , interpolation_domain{}
     , concatenated_polynomial(Polynomial<FF>(SUBGROUP_SIZE + 2))
@@ -132,8 +124,6 @@ SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(TranslationData<typename 
     , batched_polynomial(BATCHED_POLYNOMIAL_LENGTH)
     , batched_quotient(QUOTIENT_LENGTH)
     , transcript(transcript)
-    , commitment_key(commitment_key)
-
 {
     if constexpr (IsAnyOf<Flavor, ECCVMFlavor, GrumpkinSettings>) {
 
@@ -141,18 +131,20 @@ SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(TranslationData<typename 
         concatenated_polynomial = std::move(translation_data.concatenated_masking_term);
         libra_concatenated_lagrange_form = std::move(translation_data.concatenated_masking_term_lagrange);
     }
+
+    // Construct the challenge polynomial in Lagrange basis, compute its monomial coefficients
+    compute_eccvm_challenge_polynomial(evaluation_challenge_x, batching_challenge_v);
+}
+
+template <typename Flavor>
+void SmallSubgroupIPAProver<Flavor>::prove(std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key)
+{
     // Reallocate the commitment key if necessary. This is an edge case with SmallSubgroupIPA since it has
     // polynomials that may exceed the circuit size.
     if (commitment_key->dyadic_size < SUBGROUP_SIZE + 3) {
         commitment_key = std::make_shared<typename Flavor::CommitmentKey>(SUBGROUP_SIZE + 3);
     }
 
-    // Construct the challenge polynomial in Lagrange basis, compute its monomial coefficients
-    compute_eccvm_challenge_polynomial(evaluation_challenge_x, batching_challenge_v);
-}
-
-template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::prove()
-{
     // Construct unmasked big sum polynomial in Lagrange basis, compute its monomial coefficients and mask it
     compute_big_sum_polynomial();
 

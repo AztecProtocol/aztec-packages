@@ -145,12 +145,9 @@ void TranslatorProver::execute_pcs_rounds()
     using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
-    SmallSubgroupIPA small_subgroup_ipa_prover(zk_sumcheck_data,
-                                               sumcheck_output.challenge,
-                                               sumcheck_output.claimed_libra_evaluation,
-                                               transcript,
-                                               key->proving_key->commitment_key);
-    small_subgroup_ipa_prover.prove();
+    SmallSubgroupIPA small_subgroup_ipa_prover(
+        zk_sumcheck_data, sumcheck_output.challenge, sumcheck_output.claimed_libra_evaluation, transcript);
+    small_subgroup_ipa_prover.prove(key->proving_key->commitment_key);
 
     PolynomialBatcher polynomial_batcher(key->proving_key->circuit_size);
     polynomial_batcher.set_unshifted(key->proving_key->polynomials.get_unshifted_without_concatenated());

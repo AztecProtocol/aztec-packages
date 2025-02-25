@@ -60,25 +60,22 @@ template <typename Flavor> class SmallSubgroupIPAProver {
     Polynomial<FF> batched_quotient;
 
     std::shared_ptr<typename Flavor::Transcript> transcript;
-    std::shared_ptr<typename Flavor::CommitmentKey> commitment_key;
 
   public:
     // Construct prover from ZKSumcheckData. Used by all ZK-Provers.
     SmallSubgroupIPAProver(ZKSumcheckData<Flavor>& zk_sumcheck_data,
                            const std::vector<FF>& multivariate_challenge,
                            const FF claimed_inner_product,
-                           std::shared_ptr<typename Flavor::Transcript>& transcript,
-                           std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key);
+                           std::shared_ptr<typename Flavor::Transcript>& transcript);
 
     // Construct prover from TranslationData. Used by ECCVMProver.
     SmallSubgroupIPAProver(TranslationData<typename Flavor::Transcript>& translation_data,
                            const FF evaluation_challenge_x,
                            const FF batching_challenge_v,
                            const FF claimed_inner_product,
-                           std::shared_ptr<typename Flavor::Transcript>& transcript,
-                           std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key);
+                           std::shared_ptr<typename Flavor::Transcript>& transcript);
 
-    void prove();
+    void prove(std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key);
 
     // Getter to pass the witnesses to ShpleminiProver. Big sum polynomial is evaluated at 2 points (and is small)
     std::array<bb::Polynomial<FF>, NUM_SMALL_IPA_EVALUATIONS> get_witness_polynomials() const
