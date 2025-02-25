@@ -22,6 +22,7 @@ uint256 constant CONGESTION_UPDATE_FRACTION = 854700854;
 
 uint256 constant BLOB_GAS_PER_BLOB = 2 ** 17;
 uint256 constant GAS_PER_BLOB_POINT_EVALUATION = 50_000;
+uint256 constant BLOBS_PER_BLOCK = 3;
 
 struct OracleInput {
   int256 feeAssetPriceModifier;
@@ -116,9 +117,11 @@ library FeeMath {
     );
 
     EthValue dataCostPerMana = EthValue.wrap(
-      Math.mulDiv(3 * BLOB_GAS_PER_BLOB, _fees.blobFee, MANA_TARGET, Math.Rounding.Ceil)
+      Math.mulDiv(
+        BLOBS_PER_BLOCK * BLOB_GAS_PER_BLOB, _fees.blobFee, MANA_TARGET, Math.Rounding.Ceil
+      )
     );
-    uint256 gasUsed = L1_GAS_PER_BLOCK_PROPOSED + 3 * GAS_PER_BLOB_POINT_EVALUATION
+    uint256 gasUsed = L1_GAS_PER_BLOCK_PROPOSED + BLOBS_PER_BLOCK * GAS_PER_BLOB_POINT_EVALUATION
       + L1_GAS_PER_EPOCH_VERIFIED / _epochDuration;
     EthValue gasCostPerMana =
       EthValue.wrap(Math.mulDiv(gasUsed, _fees.baseFee, MANA_TARGET, Math.Rounding.Ceil));
