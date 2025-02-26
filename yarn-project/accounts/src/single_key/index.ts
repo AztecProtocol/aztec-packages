@@ -57,7 +57,7 @@ export function getUnsafeSchnorrAccount(pxe: PXE, secretKey: Fr, salt?: Salt) {
 export function getUnsafeSchnorrWallet(
   pxe: PXE,
   address: AztecAddress,
-  signingKey: GrumpkinScalar,
+  signingPrivateKey: GrumpkinScalar,
 ): Promise<AccountWallet> {
   return getWallet(pxe, address, new SingleKeyAccountContract(signingKey));
 }
