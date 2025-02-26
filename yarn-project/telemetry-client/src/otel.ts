@@ -32,14 +32,13 @@ import { EventLoopMonitor } from './event_loop_monitor.js';
 import { OtelFilterMetricExporter } from './otel_filter_metric_exporter.js';
 import { registerOtelLoggerProvider } from './otel_logger_provider.js';
 import { getOtelResource } from './otel_resource.js';
-import type { Gauge, TelemetryClient } from './telemetry.js';
+import type { TelemetryClient } from './telemetry.js';
 
 export type OpenTelemetryClientFactory = (resource: IResource, log: Logger) => OpenTelemetryClient;
 
 export class OpenTelemetryClient implements TelemetryClient {
   hostMetrics: HostMetrics | undefined;
   eventLoopMonitor: EventLoopMonitor | undefined;
-  targetInfo: Gauge | undefined;
   private meters: Map<string, Meter> = new Map<string, Meter>();
   private tracers: Map<string, Tracer> = new Map<string, Tracer>();
 
@@ -96,14 +95,6 @@ export class OpenTelemetryClient implements TelemetryClient {
       this.meterProvider.getMeter(this.resource.attributes[ATTR_SERVICE_NAME] as string),
     );
 
-    // See these two links for more information on providing target information:
-    // https://opentelemetry.io/docs/specs/otel/compatibility/prometheus_and_openmetrics/#resource-attributes
-    // https://github.com/OpenObservability/OpenMetrics/blob/main/specification/OpenMetrics.md#supporting-target-metadata-in-both-push-based-and-pull-based-systems
-    this.targetInfo = this.meterProvider.getMeter('target').createGauge('target_info', {
-      description: 'Target metadata',
-    });
-
-    this.targetInfo.record(1, this.resource.attributes);
     this.hostMetrics.start();
     this.eventLoopMonitor.start();
   }

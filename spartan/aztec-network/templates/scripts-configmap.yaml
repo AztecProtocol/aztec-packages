@@ -21,3 +21,5 @@ data:
     {{ .Files.Get "files/config/get-validator-addresses.sh" | nindent 4 }}
   consolidate-sepolia-balances.sh: |
     {{ .Files.Get "files/cleanup/consolidate-sepolia-balances.sh" | nindent 4 }}
+  setup-otel-resource.sh: |
+    {{ .Files.Get "files/config/setup-otel-resource.sh" | nindent 4 }}
