@@ -56,18 +56,18 @@ pol commit public_bytecode_commitment;
 // Observe the folowing also connects the class_id of the instance to the class members.
 // TODO: Probably some latch is also needed.
 // TODO: Selector needs to be guarded by error flag.
-// #[LOOKUP_CLASS_ID_DERIVATION]
-// sel {
-//   class_id,
-//   artifact_hash,
-//   private_function_root,
-//   public_bytecode_commitment
-// } in class_id_derivation.sel {
-//   class_id_derivation.class_id,
-//   class_id_derivation.artifact_hash,
-//   class_id_derivation.private_function_root,
-//   class_id_derivation.public_bytecode_commitment
-// }
+#[CLASS_ID_DERIVATION]
+sel {
+  class_id,
+  artifact_hash,
+  private_function_root,
+  public_bytecode_commitment
+} in class_id_derivation.sel {
+  class_id_derivation.class_id,
+  class_id_derivation.artifact_hash,
+  class_id_derivation.private_function_root,
+  class_id_derivation.public_bytecode_commitment
+};
 
 // TODO: Gate by error flag.
 #[BYTECODE_HASH_IS_CORRECT]
