@@ -9,6 +9,8 @@ import { DefaultAccountContract } from '../../defaults/account_contract.js';
 /**
  * Account contract that authenticates transactions using ECDSA signatures
  * verified against a secp256k1 public key stored in an immutable encrypted note.
+ * This abstract version does not provide a way to retrieve the artifact, as it
+ * can be implemented with or without lazy loading.
  */
 export abstract class EcdsaKBaseAccountContract extends DefaultAccountContract {
   constructor(private signingPrivateKey: Buffer) {
