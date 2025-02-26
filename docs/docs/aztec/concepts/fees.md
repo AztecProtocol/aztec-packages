@@ -22,7 +22,7 @@ Familiar terms from Ethereum mainnet as referred to on the Aztec network:
 | ----------- | ------------------ | - |
 | gas         | mana               | indication of effort in transaction operations |
 | fee per gas | fee-juice per mana | cost per unit of effort |
-| fee (wei)   | fee-juice          | a |
+| fee (wei)   | fee-juice          | amount to be paid |
 
 The fee juice units also share the units of wei, but via a multiplier of: fee-juice price per wei
 
