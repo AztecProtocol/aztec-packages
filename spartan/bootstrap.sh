@@ -61,6 +61,7 @@ function test_cmds {
     echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-transfer"
     echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-4epochs"
     echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-transfer-blob-with-sink"
+    echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-upgrade-rollup-version"
   fi
 }
 
@@ -128,6 +129,10 @@ case "$cmd" in
     export OVERRIDES="blobSink.enabled=true,bot.enabled=false"
     # export OVERRIDES="blobSink.enabled=true"
     ./bootstrap.sh test-kind-transfer
+    ;;
+  "test-kind-upgrade-rollup-version")
+    export OVERRIDES="bot.enabled=false"
+    NAMESPACE=upgrade-rollup-version FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false ./scripts/test_kind.sh src/spartan/upgrade_rollup_version.test.ts ci.yaml
     ;;
   "test-local")
     # Isolate network stack in docker.

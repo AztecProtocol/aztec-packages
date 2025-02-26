@@ -32,6 +32,7 @@ export type L1RollupContractAddresses = Pick<
   | 'feeJuiceAddress'
   | 'stakingAssetAddress'
   | 'rewardDistributorAddress'
+  | 'slashFactoryAddress'
 >;
 
 export class RollupContract {

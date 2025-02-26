@@ -24,6 +24,7 @@ set -x
 # Main positional parameter
 test=$1
 values_file="${2:-default.yaml}"
+helm_instance="${3:-spartan}"
 
 # Default values for environment variables
 namespace="${NAMESPACE:-test-kind}"
@@ -74,7 +75,7 @@ trap cleanup SIGINT SIGTERM EXIT
 stern_pid=""
 function copy_stern_to_log {
   # Start stern in a subshell, capture its PID, and pipe output to cache_log so it is uploaded
-  stern spartan -n "$namespace" > "logs/kind-$namespace.log" &>/dev/null &
+  stern "$helm_instance" -n "$namespace" > "logs/kind-$namespace.log" &>/dev/null &
   stern_pid=$!
 }
 
@@ -83,7 +84,7 @@ copy_stern_to_log
 
 # uses VALUES_FILE, CHAOS_VALUES, AZTEC_DOCKER_TAG and INSTALL_TIMEOUT optional env vars
 if [ "$fresh_install" != "no-deploy" ]; then
-  OVERRIDES="$OVERRIDES" ./deploy_kind.sh $namespace $values_file $sepolia_run
+  OVERRIDES="$OVERRIDES" ./deploy_kind.sh $namespace $values_file $sepolia_run $helm_instance
 fi
 
 # Find 6 free ports between 9000 and 10000
@@ -115,7 +116,7 @@ l1_account_mnemonic=$(./read_value.sh "aztec.l1DeploymentMnemonic" $value_yamls)
 echo "RUNNING TEST: $test"
 # Run test locally.
 export K8S="local"
-export INSTANCE_NAME="spartan"
+export INSTANCE_NAME="$helm_instance"
 export SPARTAN_DIR="$(pwd)/.."
 export NAMESPACE="$namespace"
 export HOST_PXE_PORT="$forwarded_pxe_port"
