@@ -60,6 +60,7 @@ function test_cmds {
   echo "$prefix simple e2e_fees/account_init"
   echo "$prefix simple e2e_fees/failures"
   echo "$prefix simple e2e_fees/fee_juice_payments"
+  echo "$prefix simple e2e_fees/fee_settings"
   echo "$prefix simple e2e_fees/gas_estimation"
   echo "$prefix simple e2e_fees/private_payments"
   echo "$prefix simple e2e_fees/public_payments"
