@@ -1,5 +1,5 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
@@ -12,13 +12,11 @@ import { fileURLToPath } from 'url';
 import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
 import { generatePeerIdPrivateKeys } from '../test-helpers/generate-peer-id-private-keys.js';
 import { getPorts } from '../test-helpers/get-ports.js';
-import { makeEnrs } from '../test-helpers/make-enrs.js';
+import { makeEnr, makeEnrs } from '../test-helpers/make-enrs.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workerPath = path.join(__dirname, '../../dest/testbench/p2p_client_testbench_worker.js');
 const logger = createLogger('testbench');
-
-let processes: ChildProcess[] = [];
 
 const testChainConfig: ChainConfig = {
   l1ChainId: 31337,
@@ -28,88 +26,287 @@ const testChainConfig: ChainConfig = {
   },
 };
 
-/**
- * Cleanup function to kill all child processes
- */
-async function cleanup() {
-  logger.info('Cleaning up processes...');
-  await Promise.all(
-    processes.map(
-      proc =>
-        new Promise<void>(resolve => {
-          proc.once('exit', () => resolve());
-          proc.send({ type: 'STOP' });
-        }),
-    ),
-  );
-  process.exit(0);
-}
+class WorkerClientManager {
+  public processes: ChildProcess[] = [];
+  public peerIdPrivateKeys: string[] = [];
+  public peerEnrs: string[] = [];
+  public ports: number[] = [];
+  private p2pConfig: Partial<P2PConfig>;
+  private logger: Logger;
 
-// Handle cleanup on process termination
-process.on('SIGINT', () => void cleanup());
-process.on('SIGTERM', () => void cleanup());
+  constructor(logger: Logger, p2pConfig: Partial<P2PConfig>) {
+    this.logger = logger;
+    this.p2pConfig = p2pConfig;
+  }
 
-/**
- * Creates a number of worker clients in separate processes
- * All are configured to connect to each other and overrided with the test specific config
- *
- * @param numberOfClients - The number of clients to create
- * @param p2pConfig - The P2P config to use for the clients
- * @returns The ENRs of the created clients
- */
-async function makeWorkerClients(numberOfClients: number, p2pConfig: Partial<P2PConfig>) {
-  const peerIdPrivateKeys = generatePeerIdPrivateKeys(numberOfClients);
-  const ports = await getPorts(numberOfClients);
-  const peerEnrs = await makeEnrs(peerIdPrivateKeys, ports, testChainConfig);
+  destroy() {
+    this.cleanup().catch((error: Error) => {
+      this.logger.error('Failed to cleanup worker client manager', error);
+      process.exit(1);
+    });
+  }
 
-  processes = [];
-  const readySignals: Promise<void>[] = [];
-  for (let i = 0; i < numberOfClients; i++) {
-    logger.info(`Creating client ${i}`);
-    const addr = `127.0.0.1:${ports[i]}`;
-    const listenAddr = `0.0.0.0:${ports[i]}`;
+  /**
+   * Creates address strings from a port
+   */
+  private getAddresses(port: number) {
+    return {
+      addr: `127.0.0.1:${port}`,
+      listenAddr: `0.0.0.0:${port}`,
+    };
+  }
 
-    // Maximum seed with 10 other peers to allow peer discovery to connect them at a smoother rate
-    const otherNodes = peerEnrs.filter((_, ind) => ind < Math.min(i, 10));
+  /**
+   * Creates a client configuration object
+   */
+  private createClientConfig(clientIndex: number, port: number, otherNodes: string[]) {
+    const { addr, listenAddr } = this.getAddresses(port);
 
-    const config: P2PConfig & Partial<ChainConfig> = {
+    return {
       ...getP2PDefaultConfig(),
       p2pEnabled: true,
-      peerIdPrivateKey: peerIdPrivateKeys[i],
+      peerIdPrivateKey: this.peerIdPrivateKeys[clientIndex],
       tcpListenAddress: listenAddr,
       udpListenAddress: listenAddr,
       tcpAnnounceAddress: addr,
       udpAnnounceAddress: addr,
       bootstrapNodes: [...otherNodes],
-      ...p2pConfig,
+      ...this.p2pConfig,
     };
-
-    const childProcess = fork(workerPath);
-    childProcess.send({ type: 'START', config, clientIndex: i });
-
-    // Wait for ready signal
-    readySignals.push(
-      new Promise((resolve, reject) => {
-        childProcess.once('message', (msg: any) => {
-          if (msg.type === 'READY') {
-            resolve(undefined);
-          }
-          if (msg.type === 'ERROR') {
-            reject(new Error(msg.error));
-          }
-        });
-      }),
-    );
-
-    processes.push(childProcess);
   }
-  // Wait for peers to all connect with each other
-  await sleep(4000);
 
-  // Wait for all peers to be booted up
-  await Promise.all(readySignals);
+  /**
+   * Spawns a worker process and returns a promise that resolves when the worker is ready
+   */
+  private spawnWorkerProcess(
+    config: P2PConfig & Partial<ChainConfig>,
+    clientIndex: number,
+  ): [ChildProcess, Promise<void>] {
+    const childProcess = fork(workerPath);
+    childProcess.send({ type: 'START', config, clientIndex });
 
-  return peerEnrs;
+    // Handle unexpected child process exit
+    childProcess.on('exit', (code, signal) => {
+      if (code !== 0) {
+        this.logger.warn(`Worker ${clientIndex} exited unexpectedly with code ${code} and signal ${signal}`);
+      }
+    });
+
+    // Create ready signal promise
+    const readySignal = new Promise<void>((resolve, reject) => {
+      // Set a timeout to avoid hanging indefinitely
+      const timeout = setTimeout(() => {
+        reject(new Error(`Timeout waiting for worker ${clientIndex} to be ready`));
+      }, 15000); // 15 second timeout
+
+      childProcess.once('message', (msg: any) => {
+        clearTimeout(timeout);
+        if (msg.type === 'READY') {
+          resolve();
+        }
+        // For future use
+        if (msg.type === 'ERROR') {
+          reject(new Error(msg.error));
+        }
+      });
+
+      // Also resolve/reject if process exits before sending message
+      childProcess.once('exit', code => {
+        clearTimeout(timeout);
+        if (code === 0) {
+          resolve();
+        } else {
+          reject(new Error(`Worker ${clientIndex} exited with code ${code} before becoming ready`));
+        }
+      });
+    });
+
+    return [childProcess, readySignal];
+  }
+
+  /**
+   * Creates a number of worker clients in separate processes
+   * All are configured to connect to each other and overrided with the test specific config
+   *
+   * @param numberOfClients - The number of clients to create
+   * @returns The ENRs of the created clients
+   */
+  async makeWorkerClients(numberOfClients: number) {
+    try {
+      this.peerIdPrivateKeys = generatePeerIdPrivateKeys(numberOfClients);
+      this.ports = await getPorts(numberOfClients);
+      this.peerEnrs = await makeEnrs(this.peerIdPrivateKeys, this.ports, testChainConfig);
+
+      this.processes = [];
+      const readySignals: Promise<void>[] = [];
+
+      for (let i = 0; i < numberOfClients; i++) {
+        this.logger.info(`Creating client ${i}`);
+
+        // Maximum seed with 10 other peers to allow peer discovery to connect them at a smoother rate
+        const otherNodes = this.peerEnrs.filter((_, ind) => ind < Math.min(i, 10));
+
+        const config = this.createClientConfig(i, this.ports[i], otherNodes);
+        const [childProcess, readySignal] = this.spawnWorkerProcess(config, i);
+
+        readySignals.push(readySignal);
+        this.processes.push(childProcess);
+      }
+
+      // Wait for peers to all connect with each other
+      await sleep(4000);
+
+      // Wait for all peers to be booted up with timeout
+      await Promise.race([
+        Promise.all(readySignals),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Timeout waiting for all workers to be ready')), 30000),
+        ),
+      ]);
+
+      return this.peerEnrs;
+    } catch (error) {
+      // Clean up any processes that were created if there's an error
+      this.logger.error('Error during makeWorkerClients:', error);
+      await this.cleanup();
+      throw error;
+    }
+  }
+
+  /**
+   * Changes the port for a specific client
+   *
+   * @param clientIndex - The index of the client to change port for
+   * @param newPort - The new port to use
+   */
+  async changePort(clientIndex: number, newPort: number) {
+    try {
+      if (clientIndex < 0 || clientIndex >= this.processes.length) {
+        throw new Error(`Invalid client index: ${clientIndex}`);
+      }
+
+      this.processes[clientIndex].send({ type: 'STOP' });
+
+      // Wait for the process to be ready with a timeout
+      await sleep(1000);
+
+      this.logger.info(`Changing port for client ${clientIndex} to ${newPort}`);
+
+      // Update the port in the ports array
+      this.ports[clientIndex] = newPort;
+
+      // Update the port in the peerEnrs array
+      this.peerEnrs[clientIndex] = await makeEnr(this.peerIdPrivateKeys[clientIndex], newPort, testChainConfig);
+
+      // Maximum seed with 10 other peers to allow peer discovery to connect them at a smoother rate
+      const otherNodes = this.peerEnrs.filter((_, ind) => ind < Math.min(clientIndex, 10));
+
+      const config = this.createClientConfig(clientIndex, newPort, otherNodes);
+      const [childProcess, readySignal] = this.spawnWorkerProcess(config, clientIndex);
+
+      this.processes[clientIndex] = childProcess;
+
+      // Wait for the process to be ready with a timeout
+      await Promise.race([
+        readySignal,
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`Timeout waiting for client ${clientIndex} to be ready`)), 15000),
+        ),
+      ]);
+    } catch (error) {
+      this.logger.error(`Error during changePort for client ${clientIndex}:`, error);
+      // Only clean up the specific process that had an issue
+      await this.terminateProcess(this.processes[clientIndex], clientIndex);
+      throw error;
+    }
+  }
+
+  public getNewPort(): number {
+    while (true) {
+      const port = Math.floor(Math.random() * 65535);
+      if (!this.ports.includes(port)) {
+        return port;
+      }
+    }
+  }
+
+  /**
+   * Terminate a single process with timeout and force kill if needed
+   */
+  private terminateProcess(process: ChildProcess, index: number): Promise<void> {
+    if (!process || process.killed) {
+      return Promise.resolve();
+    }
+
+    return new Promise<void>(resolve => {
+      // Set a timeout for the graceful exit
+      const forceKillTimeout = setTimeout(() => {
+        this.logger.warn(`Process ${index} didn't exit gracefully, force killing...`);
+        try {
+          process.kill('SIGKILL'); // Force kill
+        } catch (e) {
+          this.logger.error(`Error force killing process ${index}:`, e);
+        }
+      }, 5000); // 5 second timeout for graceful exit
+
+      // Listen for process exit
+      process.once('exit', () => {
+        clearTimeout(forceKillTimeout);
+        resolve();
+      });
+
+      // Try to gracefully stop the process
+      try {
+        process.send({ type: 'STOP' });
+      } catch (e) {
+        // If sending the message fails, force kill immediately
+        clearTimeout(forceKillTimeout);
+        try {
+          process.kill('SIGKILL');
+        } catch (killError) {
+          this.logger.error(`Error force killing process ${index}:`, killError);
+        }
+        resolve();
+      }
+    });
+  }
+
+  /**
+   * Cleans up all worker processes with timeout and force kill if needed
+   */
+  async cleanup() {
+    this.logger.info(`Cleaning up ${this.processes.length} worker processes`);
+
+    // Create array of promises for each process termination
+    const terminationPromises = this.processes.map((process, index) => this.terminateProcess(process, index));
+
+    // Wait for all processes to terminate with a timeout
+    try {
+      await Promise.race([
+        Promise.all(terminationPromises),
+        new Promise<void>(resolve => {
+          setTimeout(() => {
+            this.logger.warn('Some processes did not terminate in time, force killing all remaining...');
+            this.processes.forEach(p => {
+              try {
+                if (!p.killed) {
+                  p.kill('SIGKILL');
+                }
+              } catch (e) {
+                // Ignore errors when force killing
+              }
+            });
+            resolve();
+          }, 10000); // 10 second timeout for all processes
+        }),
+      ]);
+    } catch (error) {
+      this.logger.error('Error during cleanup:', error);
+    }
+
+    this.processes = [];
+    this.logger.info('All worker processes cleaned up');
+  }
 }
 
 async function main() {
@@ -126,7 +323,8 @@ async function main() {
     const numberOfClients = config.default.numberOfClients;
 
     // Setup clients in separate processes
-    await makeWorkerClients(numberOfClients, testConfig);
+    const workerClientManager = new WorkerClientManager(logger, testConfig);
+    await workerClientManager.makeWorkerClients(numberOfClients);
 
     // wait a bit longer for all peers to be ready
     await sleep(5000);
@@ -136,22 +334,42 @@ async function main() {
     const tx = await mockTx(1, {
       clientIvcProof: ClientIvcProof.random(),
     });
-    processes[0].send({ type: 'SEND_TX', tx: tx.toBuffer() });
+    workerClientManager.processes[0].send({ type: 'SEND_TX', tx: tx.toBuffer() });
     logger.info('Transaction sent from client 0');
 
     // Give time for message propagation
     await sleep(30000);
     logger.info('Checking message propagation results');
 
-    await cleanup();
+    // todo: check message propagation results
+
+    // change port for client 0
+    await workerClientManager.changePort(0, workerClientManager.getNewPort());
+
+    // wait a bit longer for all peers to be ready
+    await sleep(5000);
+    logger.info('Workers Ready');
+
+    // send tx from client 0
+    const tx2 = await mockTx(1, {
+      clientIvcProof: ClientIvcProof.random(),
+    });
+    workerClientManager.processes[0].send({ type: 'SEND_TX', tx: tx2.toBuffer() });
+    logger.info('Transaction sent from client 0');
+
+    // Give time for message propagation
+    await sleep(30000);
+
+    // todo: check message propagation results
+
+    // cleanup
+    await workerClientManager.cleanup();
   } catch (error) {
     logger.error('Test failed with error:', error);
-    await cleanup();
     process.exit(1);
   }
 }
 
 main().catch(error => {
   logger.error('Unhandled error:', error);
-  cleanup().catch(() => process.exit(1));
 });
