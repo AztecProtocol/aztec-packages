@@ -1,6 +1,6 @@
 import { runInDirectory } from '@aztec/foundation/fs';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/server';
+import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
 import type { ClientProtocolArtifact, ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
 import type { ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
 import type { Proof } from '@aztec/stdlib/proofs';

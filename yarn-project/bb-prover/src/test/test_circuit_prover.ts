@@ -10,7 +10,6 @@ import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import {
-  ProtocolCircuitVks,
   type ServerProtocolArtifact,
   SimulatedServerCircuitArtifacts,
   convertBaseParityInputsToWitnessMap,
@@ -34,6 +33,7 @@ import {
   convertSimulatedSingleTxBlockRootRollupInputsToWitnessMap,
   convertSimulatedSingleTxBlockRootRollupOutputsFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types/server';
+import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
 import { type SimulationProvider, WASMSimulatorWithBlobs, emitCircuitSimulationStats } from '@aztec/simulator/server';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import {
