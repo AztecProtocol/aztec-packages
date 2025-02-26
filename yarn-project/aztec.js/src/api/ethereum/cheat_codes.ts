@@ -2,7 +2,7 @@ import { EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
-import { RollupAbi, RollupStorage } from '@aztec/l1-artifacts';
+import { RollupAbi } from '@aztec/l1-artifacts';
 
 import {
   type GetContractReturnType,
@@ -12,6 +12,7 @@ import {
   createWalletClient,
   getContract,
   http,
+  keccak256,
   publicActions,
 } from 'viem';
 import { foundry } from 'viem/chains';
@@ -124,13 +125,9 @@ export class RollupCheatCodes {
 
     // @note @LHerskind this is heavily dependent on the storage layout and size of values
     // The rollupStore is a struct and if the size of elements or the struct changes, this can break
-    const storageSlot = RollupStorage.find(
-      // eslint-disable-next-line jsdoc/require-jsdoc
-      (storage: { label: string; slot: string }) => storage.label === 'rollupStore',
-    )?.slot;
-    if (storageSlot === undefined) {
-      throw new Error('rollupStoreStorageSlot not found');
-    }
+
+    // Convert string to bytes and then compute keccak256
+    const storageSlot = keccak256(Buffer.from('aztec.stf.storage', 'utf-8'));
     const provenBlockNumberSlot = BigInt(storageSlot) + 1n;
 
     const tipsBefore = await this.getTips();
@@ -143,7 +140,7 @@ export class RollupCheatCodes {
 
     const tipsAfter = await this.getTips();
     this.logger.info(
-      `Proven tip moved: ${tipsBefore.proven} -> ${tipsAfter.proven}. Pending tip moved: ${tipsBefore.pending} -> ${tipsAfter.pending}`,
+      `Proven tip moved: ${tipsBefore.proven} -> ${tipsAfter.proven}. Pending tip: ${tipsAfter.pending}.`,
     );
   }
 
