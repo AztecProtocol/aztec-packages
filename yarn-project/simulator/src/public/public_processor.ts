@@ -1,20 +1,3 @@
-import {
-  type FailedTx,
-  NestedProcessReturnValues,
-  type ProcessedTx,
-  Tx,
-  TxExecutionPhase,
-  type TxValidator,
-  makeProcessedTxFromPrivateOnlyTx,
-  makeProcessedTxFromTxWithPublicCalls,
-} from '@aztec/circuit-types';
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
-import { PublicDataWrite } from '@aztec/circuits.js/avm';
-import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import type { ContractDataSource } from '@aztec/circuits.js/contract';
-import { Gas } from '@aztec/circuits.js/gas';
-import { MerkleTreeId } from '@aztec/circuits.js/trees';
-import type { GlobalVariables } from '@aztec/circuits.js/tx';
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NULLIFIER_SUBTREE_HEIGHT } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
@@ -23,6 +6,23 @@ import { type DateProvider, Timer, elapsed, executeTimeout } from '@aztec/founda
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
 import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
+import { PublicDataWrite } from '@aztec/stdlib/avm';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { Gas } from '@aztec/stdlib/gas';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
+import {
+  type FailedTx,
+  GlobalVariables,
+  NestedProcessReturnValues,
+  type ProcessedTx,
+  Tx,
+  TxExecutionPhase,
+  type TxValidator,
+  makeProcessedTxFromPrivateOnlyTx,
+  makeProcessedTxFromTxWithPublicCalls,
+} from '@aztec/stdlib/tx';
 import {
   Attributes,
   type TelemetryClient,

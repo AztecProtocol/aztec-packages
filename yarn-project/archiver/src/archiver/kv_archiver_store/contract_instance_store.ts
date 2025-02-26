@@ -1,12 +1,12 @@
-import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import type { Fr } from '@aztec/foundation/fields';
+import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ContractInstanceUpdateWithAddress,
   type ContractInstanceWithAddress,
   SerializableContractInstance,
   SerializableContractInstanceUpdate,
-} from '@aztec/circuits.js/contract';
-import type { Fr } from '@aztec/foundation/fields';
-import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
+} from '@aztec/stdlib/contract';
 
 type ContractInstanceUpdateKey = [string, number] | [string, number, number];
 

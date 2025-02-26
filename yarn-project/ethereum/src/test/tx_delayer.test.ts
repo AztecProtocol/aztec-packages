@@ -1,12 +1,12 @@
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 
-import { type Anvil } from '@viem/anvil';
+import type { Anvil } from '@viem/anvil';
 import { type PrivateKeyAccount, createWalletClient, getContract, http, publicActions } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-import { type ViemClient } from '../types.js';
+import type { ViemClient } from '../types.js';
 import { startAnvil } from './start_anvil.js';
 import { type Delayer, withDelayer } from './tx_delayer.js';
 

@@ -1,6 +1,6 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Fr } from '@aztec/foundation/fields';
-import { type Logger } from '@aztec/foundation/log';
+import type { Fr } from '@aztec/foundation/fields';
+import type { Logger } from '@aztec/foundation/log';
 import {
   CoinIssuerAbi,
   CoinIssuerBytecode,
@@ -59,8 +59,8 @@ import { type HDAccount, type PrivateKeyAccount, mnemonicToAccount, privateKeyTo
 import { foundry } from 'viem/chains';
 
 import { isAnvilTestChain } from './chain.js';
-import { type L1ContractsConfig } from './config.js';
-import { type L1ContractAddresses } from './l1_contract_addresses.js';
+import type { L1ContractsConfig } from './config.js';
+import type { L1ContractAddresses } from './l1_contract_addresses.js';
 import { L1TxUtils, type L1TxUtilsConfig, defaultL1TxUtilsConfig } from './l1_tx_utils.js';
 import type { L1Clients } from './types.js';
 
@@ -187,7 +187,7 @@ export const l1Artifacts = {
 export interface DeployL1ContractsArgs extends L1ContractsConfig {
   /**
    * The address of the L2 Fee Juice contract.
-   * It should be an AztecAddress, but the type is defined in circuits.js,
+   * It should be an AztecAddress, but the type is defined in stdlib,
    * which would create a circular import
    * */
   l2FeeJuiceAddress: Fr;
@@ -199,8 +199,6 @@ export interface DeployL1ContractsArgs extends L1ContractsConfig {
   genesisArchiveRoot: Fr;
   /** The hash of the genesis block header. */
   genesisBlockHash: Fr;
-  /** The block number to assume proven through. */
-  assumeProvenThrough?: number;
   /** The salt for CREATE2 deployment. */
   salt: number | undefined;
   /** The initial validators for the rollup contract. */
@@ -501,12 +499,6 @@ export const deployL1Contracts = async (
     } catch (e) {
       throw new Error(`Error jumping time: ${e}`);
     }
-  }
-
-  // Set initial blocks as proven if requested
-  if (args.assumeProvenThrough && args.assumeProvenThrough > 0) {
-    await rollup.write.setAssumeProvenThroughBlockNumber([BigInt(args.assumeProvenThrough)], { account });
-    logger.warn(`Rollup set to assumedProvenUntil to ${args.assumeProvenThrough}`);
   }
 
   // Inbox and Outbox are immutable and are deployed from Rollup's constructor so we just fetch them from the contract.

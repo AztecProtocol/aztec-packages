@@ -10,7 +10,7 @@ import {
   css,
 } from "@mui/material";
 import { useContext, useState } from "react";
-import { deriveSigningKey } from "@aztec/circuits.js/keys";
+import { deriveSigningKey } from "@aztec/stdlib/keys";
 import { AztecContext } from "../../../aztecEnv";
 
 const creationForm = css({

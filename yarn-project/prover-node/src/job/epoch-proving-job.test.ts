@@ -1,22 +1,20 @@
-import { type L1ToL2MessageSource, L2Block, type L2BlockSource, type ProcessedTx, type Tx } from '@aztec/circuit-types';
-import {
-  type EpochProver,
-  type MerkleTreeWriteOperations,
-  type WorldStateSynchronizer,
-} from '@aztec/circuit-types/interfaces/server';
-import { Proof } from '@aztec/circuits.js/proofs';
-import { RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
-import { BlockHeader } from '@aztec/circuits.js/tx';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { toArray } from '@aztec/foundation/iterable';
 import { sleep } from '@aztec/foundation/sleep';
-import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator/server';
+import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
+import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import type { EpochProver, MerkleTreeWriteOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { Proof } from '@aztec/stdlib/proofs';
+import { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
+import type { ProcessedTx, Tx } from '@aztec/stdlib/tx';
+import { BlockHeader } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { ProverNodeMetrics } from '../metrics.js';
-import { type ProverNodePublisher } from '../prover-node-publisher.js';
+import type { ProverNodePublisher } from '../prover-node-publisher.js';
 import { EpochProvingJob } from './epoch-proving-job.js';
 
 describe('epoch-proving-job', () => {

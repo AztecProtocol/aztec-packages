@@ -1,6 +1,6 @@
 import { l1ContractAddressesMapping } from '@aztec/ethereum/l1-contract-addresses';
 import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
-import { type EthAddress } from '@aztec/foundation/eth-address';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 
 export type DataStoreConfig = {
   dataDirectory: string | undefined;

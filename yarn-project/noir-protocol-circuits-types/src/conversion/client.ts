@@ -1,4 +1,22 @@
 import {
+  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  MAX_CONTRACT_CLASS_LOGS_PER_TX,
+  MAX_ENQUEUED_CALLS_PER_TX,
+  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+  MAX_L2_TO_L1_MSGS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+  MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
+  MAX_PRIVATE_LOGS_PER_TX,
+  type NOTE_HASH_TREE_HEIGHT,
+  type NULLIFIER_TREE_HEIGHT,
+  UPDATES_SHARED_MUTABLE_VALUES_LEN,
+} from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
+import { assertLength, mapTuple } from '@aztec/foundation/serialize';
+import {
   CountedPublicCallRequest,
   KeyValidationHint,
   KeyValidationRequest,
@@ -32,28 +50,10 @@ import {
   ScopedReadRequest,
   SettledReadHint,
   TransientDataIndexHint,
-} from '@aztec/circuits.js/kernel';
-import type { PublicKeys } from '@aztec/circuits.js/keys';
-import { type NullifierLeafPreimage } from '@aztec/circuits.js/trees';
-import { CallContext, FunctionData, TxConstantData, TxRequest } from '@aztec/circuits.js/tx';
-import {
-  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  MAX_CONTRACT_CLASS_LOGS_PER_TX,
-  MAX_ENQUEUED_CALLS_PER_TX,
-  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-  MAX_L2_TO_L1_MSGS_PER_TX,
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-  MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
-  MAX_PRIVATE_LOGS_PER_TX,
-  type NOTE_HASH_TREE_HEIGHT,
-  type NULLIFIER_TREE_HEIGHT,
-  UPDATES_SHARED_MUTABLE_VALUES_LEN,
-} from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
-import { assertLength, mapTuple } from '@aztec/foundation/serialize';
+} from '@aztec/stdlib/kernel';
+import type { PublicKeys } from '@aztec/stdlib/keys';
+import type { NullifierLeafPreimage } from '@aztec/stdlib/trees';
+import { CallContext, FunctionData, TxConstantData, TxRequest } from '@aztec/stdlib/tx';
 
 import type {
   CallContext as CallContextNoir,

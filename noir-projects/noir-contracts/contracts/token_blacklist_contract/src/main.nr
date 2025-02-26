@@ -24,7 +24,6 @@ pub contract TokenBlacklist {
         },
         hash::compute_secret_hash,
         macros::{functions::{initializer, internal, private, public, view}, storage::storage},
-        note::note_interface::NoteInterface,
         prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable, SharedMutable},
         utils::comparison::Comparator,
     };
@@ -322,10 +321,7 @@ pub contract TokenBlacklist {
         // [ storage_slot, note_type_id, ...packed_note ]
         let note = TransparentNote::new(amount, secret_hash);
         let log_plaintext = BoundedVec::from_array(array_concat(
-            [
-                TokenBlacklist::storage_layout().pending_shields.slot,
-                TransparentNote::get_note_type_id(),
-            ],
+            [TokenBlacklist::storage_layout().pending_shields.slot, TransparentNote::get_id()],
             note.pack(),
         ));
 

@@ -1,6 +1,6 @@
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 
-import { type Command } from 'commander';
+import type { Command } from 'commander';
 
 import { ETHEREUM_HOST, l1ChainIdOption, parseOptionalInteger, pxeOption } from '../../utils/commands.js';
 

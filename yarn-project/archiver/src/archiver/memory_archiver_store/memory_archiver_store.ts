@@ -1,33 +1,4 @@
 import {
-  ExtendedContractClassLog,
-  ExtendedPublicLog,
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  type InBlock,
-  type InboxLeaf,
-  type L2Block,
-  L2BlockHash,
-  type LogFilter,
-  LogId,
-  type TxEffect,
-  type TxHash,
-  TxReceipt,
-  TxScopedL2Log,
-  wrapInBlock,
-} from '@aztec/circuit-types';
-import { FunctionSelector } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
-import {
-  type ContractClassPublic,
-  type ContractClassPublicWithBlockNumber,
-  type ContractInstanceUpdateWithAddress,
-  type ContractInstanceWithAddress,
-  type ExecutablePrivateFunctionWithMembershipProof,
-  type UnconstrainedFunctionWithMembershipProof,
-} from '@aztec/circuits.js/contract';
-import { type ContractClassLog, type PrivateLog, type PublicLog } from '@aztec/circuits.js/logs';
-import { type BlockHeader } from '@aztec/circuits.js/tx';
-import {
   INITIAL_L2_BLOCK_NUM,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
@@ -35,10 +6,32 @@ import {
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
+import { FunctionSelector } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type InBlock, type L2Block, L2BlockHash, wrapInBlock } from '@aztec/stdlib/block';
+import type {
+  ContractClassPublic,
+  ContractClassPublicWithBlockNumber,
+  ContractInstanceUpdateWithAddress,
+  ContractInstanceWithAddress,
+  ExecutablePrivateFunctionWithMembershipProof,
+  UnconstrainedFunctionWithMembershipProof,
+} from '@aztec/stdlib/contract';
+import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
+import {
+  ExtendedPublicLog,
+  type LogFilter,
+  LogId,
+  type PrivateLog,
+  type PublicLog,
+  TxScopedL2Log,
+} from '@aztec/stdlib/logs';
+import type { InboxLeaf } from '@aztec/stdlib/messaging';
+import { type BlockHeader, TxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 
-import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
-import { type DataRetrieval } from '../structs/data_retrieval.js';
-import { type L1Published } from '../structs/published.js';
+import type { ArchiverDataStore, ArchiverL1SynchPoint } from '../archiver_store.js';
+import type { DataRetrieval } from '../structs/data_retrieval.js';
+import type { L1Published } from '../structs/published.js';
 import { L1ToL2MessageStore } from './l1_to_l2_message_store.js';
 
 type StoredContractInstanceUpdate = ContractInstanceUpdateWithAddress & { blockNumber: number; logIndex: number };

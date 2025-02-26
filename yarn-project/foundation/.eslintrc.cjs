@@ -34,6 +34,7 @@ module.exports = {
     node: true,
   },
   rules: {
+    '@typescript-eslint/no-import-type-side-effects': 'error',
     '@typescript-eslint/explicit-module-boundary-types': 'off',
     '@typescript-eslint/no-non-null-assertion': 'off',
     '@typescript-eslint/no-explicit-any': 'off',

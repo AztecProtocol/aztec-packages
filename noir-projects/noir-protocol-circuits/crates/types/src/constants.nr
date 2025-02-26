@@ -510,7 +510,7 @@ pub global AVM_PUBLIC_COLUMN_MAX_SIZE: u32 = 1024;
 pub global AVM_PUBLIC_INPUTS_FLATTENED_SIZE: u32 =
     2 * AVM_PUBLIC_COLUMN_MAX_SIZE + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
 
-// Note hash generator index which can be used by custom implementations of NoteInterface::compute_note_hash
+// Note hash generator index which can be used by custom implementations of NoteHash::compute_note_hash
 pub global GENERATOR_INDEX__NOTE_HASH: u32 = 1;
 pub global GENERATOR_INDEX__NOTE_HASH_NONCE: u32 = 2;
 pub global GENERATOR_INDEX__UNIQUE_NOTE_HASH: u32 = 3;

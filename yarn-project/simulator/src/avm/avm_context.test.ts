@@ -1,5 +1,5 @@
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { allSameExcept, initContext } from './fixtures/index.js';
 

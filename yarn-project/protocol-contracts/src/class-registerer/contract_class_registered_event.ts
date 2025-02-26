@@ -1,14 +1,14 @@
-import { FunctionSelector, bufferFromFields } from '@aztec/circuits.js/abi';
+import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
+import { FunctionSelector, bufferFromFields } from '@aztec/stdlib/abi';
 import {
   type ContractClassPublic,
   type PublicFunction,
   computeContractClassId,
   computePublicBytecodeCommitment,
-} from '@aztec/circuits.js/contract';
-import { type ContractClassLog } from '@aztec/circuits.js/logs';
-import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
-import { FieldReader } from '@aztec/foundation/serialize';
+} from '@aztec/stdlib/contract';
+
+import chunk from 'lodash.chunk';
 
 import { REGISTERER_CONTRACT_CLASS_REGISTERED_TAG } from '../protocol_contract_data.js';
 

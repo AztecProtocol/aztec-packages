@@ -1,3 +1,15 @@
+import type {
+  AVM_PROOF_LENGTH_IN_FIELDS,
+  NESTED_RECURSIVE_PROOF_LENGTH,
+  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+  RECURSIVE_PROOF_LENGTH,
+  TUBE_PROOF_LENGTH,
+} from '@aztec/constants';
+import { sha256 } from '@aztec/foundation/crypto';
+import { createLogger } from '@aztec/foundation/log';
+import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
+import { truncate } from '@aztec/foundation/string';
+import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import {
   type ProofAndVerificationKey,
   type ProofUri,
@@ -6,38 +18,26 @@ import {
   type ProvingJobProducer,
   type ProvingJobResultsMap,
   type ProvingJobStatus,
-  ProvingRequestType,
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
   makeProvingJobId,
-} from '@aztec/circuit-types/interfaces/server';
-import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
-import { type BaseParityInputs, type ParityPublicInputs, type RootParityInputs } from '@aztec/circuits.js/parity';
-import {
-  type BaseOrMergeRollupPublicInputs,
-  type BlockMergeRollupInputs,
-  type BlockRootOrBlockMergePublicInputs,
-  type BlockRootRollupInputs,
-  type EmptyBlockRootRollupInputs,
-  type MergeRollupInputs,
-  type PrivateBaseRollupInputs,
-  type PublicBaseRollupInputs,
-  type RootRollupInputs,
-  type RootRollupPublicInputs,
-  type SingleTxBlockRootRollupInputs,
-  type TubeInputs,
-} from '@aztec/circuits.js/rollup';
-import {
-  type AVM_PROOF_LENGTH_IN_FIELDS,
-  type NESTED_RECURSIVE_PROOF_LENGTH,
-  type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-  type RECURSIVE_PROOF_LENGTH,
-  type TUBE_PROOF_LENGTH,
-} from '@aztec/constants';
-import { sha256 } from '@aztec/foundation/crypto';
-import { createLogger } from '@aztec/foundation/log';
-import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
-import { truncate } from '@aztec/foundation/string';
+} from '@aztec/stdlib/interfaces/server';
+import type { BaseParityInputs, ParityPublicInputs, RootParityInputs } from '@aztec/stdlib/parity';
+import { ProvingRequestType } from '@aztec/stdlib/proofs';
+import type {
+  BaseOrMergeRollupPublicInputs,
+  BlockMergeRollupInputs,
+  BlockRootOrBlockMergePublicInputs,
+  BlockRootRollupInputs,
+  EmptyBlockRootRollupInputs,
+  MergeRollupInputs,
+  PrivateBaseRollupInputs,
+  PublicBaseRollupInputs,
+  RootRollupInputs,
+  RootRollupPublicInputs,
+  SingleTxBlockRootRollupInputs,
+  TubeInputs,
+} from '@aztec/stdlib/rollup';
 
 import { InlineProofStore, type ProofStore } from './proof_store/index.js';
 

@@ -235,8 +235,6 @@ spec:
               value: "{{ .Values.storage.worldStateMapSize }}"
             - name: USE_GCLOUD_LOGGING
               value: "{{ .Values.telemetry.useGcloudLogging }}"
-            - name: USE_GCLOUD_METRICS
-              value: "{{ .Values.telemetry.useGcloudMetrics }}"
             - name: OTEL_EXCLUDE_METRICS
               value: "{{ .Values.telemetry.excludeMetrics }}"
             {{- if .Values.blobSink.enabled }}

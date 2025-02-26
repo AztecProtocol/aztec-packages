@@ -1,4 +1,4 @@
-import { type ComponentLogger, type Logger } from '@libp2p/interface';
+import type { ComponentLogger, Logger } from '@libp2p/interface';
 
 import { getLogLevelFromFilters } from './log-filters.js';
 import type { LogLevel } from './log-levels.js';

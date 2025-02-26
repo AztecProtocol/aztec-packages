@@ -1,14 +1,14 @@
-import { type PublicExecutionRequest, Tx } from '@aztec/circuit-types';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { Gas, GasFees, GasSettings } from '@aztec/circuits.js/gas';
+import { DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import {
   PartialPrivateTailPublicInputsForPublic,
   PrivateKernelTailCircuitPublicInputs,
   RollupValidationRequests,
-} from '@aztec/circuits.js/kernel';
-import { BlockHeader, TxConstantData, TxContext } from '@aztec/circuits.js/tx';
-import { DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+} from '@aztec/stdlib/kernel';
+import { type PublicExecutionRequest, Tx } from '@aztec/stdlib/tx';
+import { BlockHeader, TxConstantData, TxContext } from '@aztec/stdlib/tx';
 
 import { strict as assert } from 'assert';
 

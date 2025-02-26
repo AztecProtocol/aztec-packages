@@ -1,17 +1,17 @@
 import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
-import { type ProverCoordination, type ProvingJobBroker } from '@aztec/circuit-types/interfaces/server';
-import { type PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { EpochCache } from '@aztec/epoch-cache';
 import { L1TxUtils, RollupContract, createEthereumChain, createL1Clients } from '@aztec/ethereum';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { type DataStoreConfig } from '@aztec/kv-store/config';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { createProverClient } from '@aztec/prover-client';
 import { createAndStartProvingBroker } from '@aztec/prover-client/broker';
+import type { ProverCoordination, ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
+import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
-import { type ProverNodeConfig } from './config.js';
+import type { ProverNodeConfig } from './config.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
 import { createProverCoordination } from './prover-coordination/factory.js';
 import { ProverNodePublisher } from './prover-node-publisher.js';

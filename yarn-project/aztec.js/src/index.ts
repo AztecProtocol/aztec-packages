@@ -22,7 +22,7 @@
 
 export { ContractDeployer } from './deployment/index.js';
 
-export { NoteSelector } from '@aztec/circuits.js/abi';
+export { NoteSelector } from '@aztec/stdlib/abi';
 
 export { createCompatibleClient, createPXEClient } from './rpc_clients/index.js';
 
@@ -39,6 +39,8 @@ export { Fq, Fr, Point, GrumpkinScalar } from '@aztec/foundation/fields';
 
 export { SiblingPath } from '@aztec/foundation/trees';
 
+export { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+
 export {
   type PartialAddress,
   type ContractClassWithId,
@@ -46,60 +48,40 @@ export {
   getContractClassFromArtifact,
   getContractInstanceFromDeployParams,
   type NodeInfo,
-} from '@aztec/circuits.js/contract';
-
-export { MerkleTreeId, merkleTreeIds } from '@aztec/circuits.js/trees';
-
-export { GlobalVariables } from '@aztec/circuits.js/tx';
-
-export { type PublicKey, PublicKeys } from '@aztec/circuits.js/keys';
-
-export { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
-
-export { computeSecretHash } from '@aztec/circuits.js/hash';
-
+} from '@aztec/stdlib/contract';
+export { MerkleTreeId, merkleTreeIds } from '@aztec/stdlib/trees';
+export { type PublicKey, PublicKeys } from '@aztec/stdlib/keys';
+export { computeSecretHash } from '@aztec/stdlib/hash';
 export {
   computeAppNullifierSecretKey,
   deriveKeys,
   deriveMasterIncomingViewingSecretKey,
   deriveMasterNullifierSecretKey,
-} from '@aztec/circuits.js/keys';
-
-export { AuthWitness } from '@aztec/circuit-types/auth-witness';
-
+} from '@aztec/stdlib/keys';
+export { AuthWitness } from '@aztec/stdlib/auth-witness';
+export { getTimestampRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
+export { FunctionCall } from '@aztec/stdlib/abi';
 export {
-  Body,
-  Capsule,
-  Comparator,
-  EncryptedLogPayload,
-  EventMetadata,
-  ExtendedNote,
-  FunctionCall,
-  getTimestampRangeForEpoch,
-  HashedValues,
-  L1Actor,
-  L1EventPayload,
-  L1NotePayload,
-  L1ToL2Message,
-  L2Actor,
-  L2Block,
-  LogId,
-  Note,
   Tx,
   TxExecutionRequest,
   TxHash,
   TxReceipt,
   TxStatus,
-  UniqueNote,
-  type LogFilter,
-} from '@aztec/circuit-types';
-
-export { type PXE, EventType } from '@aztec/circuit-types/interfaces/client';
+  Capsule,
+  HashedValues,
+  GlobalVariables,
+} from '@aztec/stdlib/tx';
+export { Body, L2Block } from '@aztec/stdlib/block';
+export { L1NotePayload, LogId, type LogFilter, EncryptedLogPayload } from '@aztec/stdlib/logs';
+export { L1EventPayload, EventMetadata } from '@aztec/stdlib/event';
+export { L1ToL2Message, L2Actor, L1Actor } from '@aztec/stdlib/messaging';
+export { UniqueNote, ExtendedNote, Comparator, Note } from '@aztec/stdlib/note';
+export { type PXE, EventType } from '@aztec/stdlib/interfaces/client';
 
 // TODO: These kinds of things have no place on our public api.
 // External devs will almost certainly have their own methods of doing these things.
 // If we want to use them in our own "aztec.js consuming code", import them from foundation as needed.
-export { decodeFromAbi, encodeArguments, type AbiType } from '@aztec/circuits.js/abi';
+export { decodeFromAbi, encodeArguments, type AbiType } from '@aztec/stdlib/abi';
 export { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 export { sha256, Grumpkin, Schnorr } from '@aztec/foundation/crypto';
 export { makeFetch } from '@aztec/foundation/json-rpc/client';

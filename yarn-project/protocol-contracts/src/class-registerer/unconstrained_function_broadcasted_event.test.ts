@@ -1,9 +1,8 @@
-import { FunctionSelector } from '@aztec/circuits.js/abi';
-import { ContractClassLog } from '@aztec/circuits.js/logs';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { type Tuple } from '@aztec/foundation/serialize';
+import type { Tuple } from '@aztec/foundation/serialize';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
+import { FunctionSelector } from '@aztec/stdlib/abi';
 
 import { getSampleUnconstrainedFunctionBroadcastedEventPayload } from '../tests/fixtures.js';
 import {

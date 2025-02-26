@@ -1,13 +1,14 @@
-import { FunctionSelector, bufferFromFields } from '@aztec/circuits.js/abi';
-import type { ExecutablePrivateFunctionWithMembershipProof, PrivateFunction } from '@aztec/circuits.js/contract';
-import { type ContractClassLog } from '@aztec/circuits.js/logs';
 import {
   ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
   FUNCTION_TREE_HEIGHT,
   MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
-import { FieldReader, type Tuple } from '@aztec/foundation/serialize';
+import { type Tuple } from '@aztec/foundation/serialize';
+import { FunctionSelector, bufferFromFields } from '@aztec/stdlib/abi';
+import type { ExecutablePrivateFunctionWithMembershipProof, PrivateFunction } from '@aztec/stdlib/contract';
+
+import chunk from 'lodash.chunk';
 
 import { REGISTERER_PRIVATE_FUNCTION_BROADCASTED_TAG } from '../protocol_contract_data.js';
 

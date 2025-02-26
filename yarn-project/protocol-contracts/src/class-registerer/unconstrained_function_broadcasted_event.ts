@@ -1,13 +1,12 @@
-import { FunctionSelector, bufferFromFields } from '@aztec/circuits.js/abi';
-import { type UnconstrainedFunction, type UnconstrainedFunctionWithMembershipProof } from '@aztec/circuits.js/contract';
-import { type ContractClassLog } from '@aztec/circuits.js/logs';
 import {
   ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
   MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS,
 } from '@aztec/constants';
 import { removeArrayPaddingEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
-import { FieldReader, type Tuple } from '@aztec/foundation/serialize';
+import { type Tuple } from '@aztec/foundation/serialize';
+import { FunctionSelector, bufferFromFields } from '@aztec/stdlib/abi';
+import type { UnconstrainedFunction, UnconstrainedFunctionWithMembershipProof } from '@aztec/stdlib/contract';
 
 import { REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_TAG } from '../protocol_contract_data.js';
 

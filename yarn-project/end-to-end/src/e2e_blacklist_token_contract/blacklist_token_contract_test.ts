@@ -10,7 +10,7 @@ import {
 } from '@aztec/aztec.js';
 import { MAX_NOTE_HASHES_PER_TX } from '@aztec/constants';
 import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
-import { type TokenContract } from '@aztec/noir-contracts.js/Token';
+import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
 
 import { jest } from '@jest/globals';
