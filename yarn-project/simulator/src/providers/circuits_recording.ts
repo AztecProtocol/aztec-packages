@@ -38,7 +38,7 @@ export async function setupRecordingIfEnabledAndGetWrappedCallback(
   }
 
   const timestamp = Date.now();
-  const filename = `${circuitName}_${timestamp}.json`;
+  const filename = `${circuitName}_${timestamp}.jsonl`;
   const filePath = path.join(recordDir, filename);
   await recordInput(input, filePath, logger);
   return createRecordingCallback(callback, filePath, logger);
