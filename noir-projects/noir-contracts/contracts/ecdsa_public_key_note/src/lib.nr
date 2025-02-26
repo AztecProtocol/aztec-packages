@@ -1,8 +1,5 @@
-use dep::aztec::prelude::{NullifiableNote, PrivateContext, RetrievedNote};
-
 use dep::aztec::{
-    note::{note_metadata::SettledNoteMetadata, utils::compute_note_hash_for_nullify}, keys::getters::{get_nsk_app, get_public_keys},
-    protocol_types::{address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator, traits::Packable},
+    protocol_types::{address::AztecAddress, traits::Packable},
     macros::notes::note
 };
 
@@ -13,35 +10,6 @@ pub struct EcdsaPublicKeyNote {
     x: [u8; 32],
     y: [u8; 32],
     owner: AztecAddress,
-}
-
-impl NullifiableNote for EcdsaPublicKeyNote {
-
-    fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
-        let owner_npk_m_hash = get_public_keys(self.owner).npk_m.hash();
-        let secret = context.request_nsk_app(owner_npk_m_hash);
-        poseidon2_hash_with_separator(
-            [
-            note_hash_for_nullify,
-            secret
-        ],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field
-        )
-    }
-
-    unconstrained fn compute_nullifier_without_context(self, storage_slot: Field, contract_address: AztecAddress, note_nonce: Field) -> Field {
-        let retrieved_note = RetrievedNote { note: self, contract_address, metadata: SettledNoteMetadata::new(note_nonce).into() };
-        let note_hash_for_nullify = compute_note_hash_for_nullify(retrieved_note, storage_slot);
-        let owner_npk_m_hash = get_public_keys(self.owner).npk_m.hash();
-        let secret = get_nsk_app(owner_npk_m_hash);
-        poseidon2_hash_with_separator(
-            [
-            note_hash_for_nullify,
-            secret
-        ],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field
-        )
-    }
 }
 
 impl EcdsaPublicKeyNote {

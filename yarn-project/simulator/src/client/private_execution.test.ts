@@ -40,7 +40,6 @@ import {
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import {
   computeNoteHashNonce,
-  computeSecretHash,
   computeUniqueNoteHash,
   computeVarArgsHash,
   deriveStorageSlotInMap,
@@ -829,41 +828,6 @@ describe('Private Execution test suite', () => {
           }),
         ).rejects.toThrow('Message not in state');
       });
-    });
-
-    it('Should be able to consume a dummy public to private message', async () => {
-      const secret = new Fr(1n);
-      const secretHash = await computeSecretHash(secret);
-      const note = new Note([secretHash]);
-      const storageSlot = TestContractArtifact.storageLayout['example_set'].slot;
-      oracle.syncTaggedLogs.mockResolvedValue(new Map());
-      oracle.processTaggedLogs.mockResolvedValue();
-      oracle.getNotes.mockResolvedValue([
-        {
-          contractAddress,
-          storageSlot,
-          nonce: Fr.random(),
-          note,
-          noteHash: Fr.ZERO,
-          siloedNullifier: Fr.random(),
-          index: 1n,
-        },
-      ]);
-
-      const { entrypoint: result } = await runSimulator({
-        artifact: TestContractArtifact,
-        functionName: 'consume_note_from_secret',
-        args: [secret],
-        contractAddress,
-      });
-
-      // Check a nullifier has been inserted.
-      const nullifiers = getNonEmptyItems(result.publicInputs.nullifiers);
-      expect(nullifiers).toHaveLength(1);
-
-      // Check the commitment read request was created successfully.
-      const readRequests = getNonEmptyItems(result.publicInputs.noteHashReadRequests);
-      expect(readRequests).toHaveLength(1);
     });
   });
 

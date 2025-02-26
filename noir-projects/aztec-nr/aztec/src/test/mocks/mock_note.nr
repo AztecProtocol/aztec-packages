@@ -1,12 +1,13 @@
 use crate::{
     context::PrivateContext,
     note::{
-        note_interface::NoteInterface, note_metadata::SettledNoteMetadata,
-        retrieved_note::RetrievedNote, utils::compute_note_hash_for_nullify,
+        note_interface::{NoteHash, NoteType},
+        note_metadata::SettledNoteMetadata,
+        retrieved_note::RetrievedNote,
+        utils::compute_note_hash_for_nullify,
     },
 };
 
-use crate::note::note_interface::NullifiableNote;
 use dep::protocol_types::{
     address::AztecAddress,
     constants::{GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER},
@@ -20,7 +21,19 @@ pub(crate) struct MockNote {
     pub(crate) value: Field,
 }
 
-impl NullifiableNote for MockNote {
+impl NoteType for MockNote {
+    fn get_id() -> Field {
+        // randomly chosen note type id --> has to fit within 7 bits
+        76
+    }
+}
+
+impl NoteHash for MockNote {
+    fn compute_note_hash(self: Self, storage_slot: Field) -> Field {
+        let input = array_concat(self.pack(), [storage_slot]);
+        poseidon2_hash_with_separator(input, GENERATOR_INDEX__NOTE_HASH)
+    }
+
     fn compute_nullifier(
         _self: Self,
         _context: &mut PrivateContext,
@@ -52,21 +65,6 @@ impl NullifiableNote for MockNote {
             [note_hash_for_nullify],
             GENERATOR_INDEX__NOTE_NULLIFIER as Field,
         )
-    }
-}
-
-impl NoteInterface for MockNote {
-    fn get_note_type_id() -> Field {
-        // randomly chosen note type id --> has to fit within 7 bits
-        76
-    }
-
-    fn compute_note_hash(self: Self, storage_slot: Field) -> Field {
-        // We use Poseidon2 instead of multi-scalar multiplication (MSM) here since this is not a partial note
-        // and therefore does not require MSM's additive homomorphism property. Additionally, Poseidon2 uses fewer
-        // constraints.
-        let input = array_concat(self.pack(), [storage_slot]);
-        poseidon2_hash_with_separator(input, GENERATOR_INDEX__NOTE_HASH)
     }
 }
 

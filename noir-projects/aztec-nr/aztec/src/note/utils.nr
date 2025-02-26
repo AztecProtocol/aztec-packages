@@ -1,6 +1,6 @@
 use crate::{
     context::PrivateContext,
-    note::{note_interface::{NoteInterface, NullifiableNote}, retrieved_note::RetrievedNote},
+    note::{note_interface::NoteHash, retrieved_note::RetrievedNote},
 };
 
 use dep::protocol_types::hash::{
@@ -13,7 +13,7 @@ pub fn compute_note_hash_for_read_request<Note>(
     storage_slot: Field,
 ) -> Field
 where
-    Note: NoteInterface,
+    Note: NoteHash,
 {
     let note_hash = retrieved_note.note.compute_note_hash(storage_slot);
 
@@ -39,7 +39,7 @@ pub fn compute_note_hash_for_nullify<Note>(
     storage_slot: Field,
 ) -> Field
 where
-    Note: NoteInterface + NullifiableNote,
+    Note: NoteHash,
 {
     compute_note_hash_for_nullify_from_read_request(
         retrieved_note,
@@ -57,7 +57,7 @@ pub fn compute_note_hash_for_nullify_from_read_request<Note>(
     // There is just one instance in which the note hash for nullification does not match the note hash used for a read
     // request, which is when dealing with pending previous phase notes. These had their existence proven using their
     // non-siloed note hash along with the note hash counter (like all pending notes), but since they will be
-    // uncondtionally inserted in the note hash tree (since they cannot be squashed) they must be nullified using the
+    // unconditionally inserted in the note hash tree (since they cannot be squashed) they must be nullified using the
     // *unique* note hash.
     // If we didn't, it'd be possible to emit a second different nullifier for the same note in a follow up transaction,
     // once the note is settled, resulting in a double spend.
@@ -80,7 +80,7 @@ pub fn compute_siloed_note_nullifier<Note>(
     context: &mut PrivateContext,
 ) -> Field
 where
-    Note: NoteInterface + NullifiableNote,
+    Note: NoteHash,
 {
     let note_hash_for_nullify = compute_note_hash_for_nullify(retrieved_note, storage_slot);
     let inner_nullifier = retrieved_note.note.compute_nullifier(context, note_hash_for_nullify);

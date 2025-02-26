@@ -1,7 +1,5 @@
 use crate::{
-    note::{
-        note_interface::NoteInterface, note_metadata::NoteMetadata, retrieved_note::RetrievedNote,
-    },
+    note::{note_interface::NoteType, note_metadata::NoteMetadata, retrieved_note::RetrievedNote},
     utils::array,
 };
 
@@ -168,7 +166,7 @@ pub unconstrained fn get_notes<Note, let N: u32, let M: u32, let S: u32, let NS:
     _placeholder_note_length: [Field; N], // Turbofish hack? Compiler breaks calculating read_offset unless we add this parameter TODO(benesjan): try removing this.
 ) -> [Option<RetrievedNote<Note>>; S]
 where
-    Note: NoteInterface + Packable<N>,
+    Note: NoteType + Packable<N>,
 {
     let fields = get_notes_oracle_wrapper(
         storage_slot,

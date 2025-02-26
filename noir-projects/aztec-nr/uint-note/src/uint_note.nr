@@ -1,16 +1,11 @@
 use dep::aztec::{
-    keys::getters::{get_nsk_app, get_public_keys},
     macros::notes::partial_note,
-    note::{note_metadata::SettledNoteMetadata, utils::compute_note_hash_for_nullify},
     oracle::random::random,
-    prelude::{NullifiableNote, PrivateContext, RetrievedNote},
-    protocol_types::{
-        address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        hash::poseidon2_hash_with_separator, traits::Serialize,
-    },
+    protocol_types::{address::AztecAddress, traits::Serialize},
 };
 
 // docs:start:UintNote
+// We derive the Serialize trait because in some cases notes are used as parameters to contract functions.
 #[partial_note(quote {value})]
 #[derive(Eq, Serialize)]
 pub struct UintNote {
@@ -21,44 +16,6 @@ pub struct UintNote {
     randomness: Field,
 }
 // docs:end:UintNote
-
-impl NullifiableNote for UintNote {
-    // docs:start:nullifier
-    fn compute_nullifier(
-        self,
-        context: &mut PrivateContext,
-        note_hash_for_nullify: Field,
-    ) -> Field {
-        let owner_npk_m_hash = get_public_keys(self.owner).npk_m.hash();
-        let secret = context.request_nsk_app(owner_npk_m_hash);
-        poseidon2_hash_with_separator(
-            [note_hash_for_nullify, secret],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
-        )
-    }
-    // docs:end:nullifier
-
-    unconstrained fn compute_nullifier_without_context(
-        self,
-        storage_slot: Field,
-        contract_address: AztecAddress,
-        note_nonce: Field,
-    ) -> Field {
-        let retrieved_note = RetrievedNote {
-            note: self,
-            contract_address,
-            metadata: SettledNoteMetadata::new(note_nonce).into(),
-        };
-        let note_hash_for_nullify = compute_note_hash_for_nullify(retrieved_note, storage_slot);
-        let owner_npk_m_hash = get_public_keys(self.owner).npk_m.hash();
-        let secret = get_nsk_app(owner_npk_m_hash);
-        poseidon2_hash_with_separator(
-            [note_hash_for_nullify, secret],
-            GENERATOR_INDEX__NOTE_NULLIFIER,
-        )
-    }
-}
-
 impl UintNote {
     pub fn new(value: U128, owner: AztecAddress) -> Self {
         // Safety: We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing,
