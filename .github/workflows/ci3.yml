@@ -198,7 +198,8 @@ jobs:
         run: |
           authors=$(git log -1 --pretty=format:'%an <%ae>')
           echo "authors=${authors}" >> $GITHUB_OUTPUT
-          title=$(git log -1 --pretty=format:'%s')
+          # Note, we have to make sure double quotes don't break our JSON.
+          title=$(git log -1 --pretty=format:'%s' | sed s/\"/\'/g)
           echo "commit_title=${title}" >> $GITHUB_OUTPUT
           failed_jobs=""
           [ "${{ needs.ci-grind.result }}" = "failure" ] && failed_jobs+="ci-grind"
