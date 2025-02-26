@@ -5,6 +5,7 @@ pragma solidity >=0.8.27;
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {Rollup as RealRollup, Config} from "@aztec/core/Rollup.sol";
+import {RollupConfig} from "@aztec/core/libraries/RollupConfig.sol";
 import {TestConstants} from "./TestConstants.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
@@ -29,13 +30,13 @@ contract Rollup is RealRollup {
       _genesisBlockHash,
       _ares,
       Config({
-        aztecSlotDuration: TestConstants.AZTEC_SLOT_DURATION,
-        aztecEpochDuration: TestConstants.AZTEC_EPOCH_DURATION,
-        targetCommitteeSize: TestConstants.AZTEC_TARGET_COMMITTEE_SIZE,
-        aztecProofSubmissionWindow: TestConstants.AZTEC_PROOF_SUBMISSION_WINDOW,
-        minimumStake: TestConstants.AZTEC_MINIMUM_STAKE,
-        slashingQuorum: TestConstants.AZTEC_SLASHING_QUORUM,
-        slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE
+        aztecSlotDuration: RollupConfig.DEFAULT_AZTEC_SLOT_DURATION,
+        aztecEpochDuration: RollupConfig.DEFAULT_AZTEC_EPOCH_DURATION,
+        targetCommitteeSize: RollupConfig.DEFAULT_AZTEC_TARGET_COMMITTEE_SIZE,
+        aztecProofSubmissionWindow: RollupConfig.DEFAULT_AZTEC_PROOF_SUBMISSION_WINDOW,
+        minimumStake: RollupConfig.DEFAULT_AZTEC_MINIMUM_STAKE,
+        slashingQuorum: RollupConfig.DEFAULT_AZTEC_SLASHING_QUORUM,
+        slashingRoundSize: RollupConfig.DEFAULT_AZTEC_SLASHING_ROUND_SIZE
       })
     )
   {}

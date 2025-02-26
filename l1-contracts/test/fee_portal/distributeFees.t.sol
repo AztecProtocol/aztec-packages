@@ -7,6 +7,7 @@ import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {RollupConfig} from "@aztec/core/libraries/RollupConfig.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {Rollup} from "../harnesses/Rollup.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";

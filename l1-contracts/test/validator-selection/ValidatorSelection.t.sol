@@ -6,40 +6,64 @@ import {DecoderBase} from "../base/DecoderBase.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {RollupConfig} from "@aztec/core/libraries/RollupConfig.sol";
 import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {Math} from "@oz/utils/math/Math.sol";
 
+import {Registry} from "@aztec/governance/Registry.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Registry} from "@aztec/governance/Registry.sol";
 import {Rollup, Config} from "@aztec/core/Rollup.sol";
+import {
+  IRollupCore,
+  BlockLog,
+  SubmitEpochRootProofArgs,
+  EthValue,
+  FeeAssetValue,
+  FeeAssetPerEthE9
+} from "@aztec/core/interfaces/IRollup.sol";
+import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
-import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
-import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
+import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
+import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {
   ProposeArgs, OracleInput, ProposeLib
 } from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
-import {TestConstants} from "../harnesses/TestConstants.sol";
-import {CheatDepositArgs} from "@aztec/core/interfaces/IRollup.sol";
 
-import {Slot, Epoch, EpochLib} from "@aztec/core/libraries/TimeLib.sol";
-import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
+import {
+  Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
+} from "@aztec/core/libraries/TimeLib.sol";
 
-import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
-import {Slasher, IPayload} from "@aztec/core/staking/Slasher.sol";
-import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
-import {Status, ValidatorInfo} from "@aztec/core/interfaces/IStaking.sol";
-// solhint-disable comprehensive-interface
+import {RollupBase, IInstance} from "../base/RollupBase.sol";
+import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 
-/**
- * We are using the same blocks as from Rollup.t.sol.
- * The tests in this file is testing the sequencer selection
- */
-contract ValidatorSelectionTest is DecoderBase {
-  using MessageHashUtils for bytes32;
+contract ValidatorSelectionTest is RollupBase {
+  using stdStorage for StdStorage;
+  using SlotLib for Slot;
   using EpochLib for Epoch;
+  using ProposeLib for ProposeArgs;
+  using TimeLib for Timestamp;
+  using TimeLib for Slot;
+  using TimeLib for Epoch;
+
+  Registry internal registry;
+  TestERC20 internal testERC20;
+  FeeJuicePortal internal feeJuicePortal;
+  RewardDistributor internal rewardDistributor;
+
+  uint256 internal SLOT_DURATION;
+  uint256 internal EPOCH_DURATION;
+
+  constructor() {
+    TimeLib.initialize(
+      block.timestamp, RollupConfig.DEFAULT_AZTEC_SLOT_DURATION, RollupConfig.DEFAULT_AZTEC_EPOCH_DURATION
+    );
+    SLOT_DURATION = RollupConfig.DEFAULT_AZTEC_SLOT_DURATION;
+    EPOCH_DURATION = RollupConfig.DEFAULT_AZTEC_EPOCH_DURATION;
+  }
 
   struct StructToAvoidDeepStacks {
     uint256 needed;
@@ -53,8 +77,6 @@ contract ValidatorSelectionTest is DecoderBase {
   Outbox internal outbox;
   Rollup internal rollup;
   MerkleTestUtil internal merkleTestUtil;
-  TestERC20 internal testERC20;
-  RewardDistributor internal rewardDistributor;
   Signature internal emptySignature;
   mapping(address attester => uint256 privateKey) internal attesterPrivateKeys;
   mapping(address proposer => uint256 privateKey) internal proposerPrivateKeys;
@@ -124,8 +146,8 @@ contract ValidatorSelectionTest is DecoderBase {
     testERC20.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
     rollup.cheat__InitialiseValidatorSet(initialValidators);
 
-    inbox = Inbox(address(rollup.getInbox()));
-    outbox = Outbox(address(rollup.getOutbox()));
+    inbox = Inbox(address(rollup.INBOX()));
+    outbox = Outbox(address(rollup.OUTBOX()));
 
     merkleTestUtil = new MerkleTestUtil();
 

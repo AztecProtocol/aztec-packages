@@ -5,6 +5,7 @@ pragma solidity >=0.8.27;
 import {DecoderBase} from "./base/DecoderBase.sol";
 
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {RollupConfig} from "@aztec/core/libraries/RollupConfig.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
 import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
@@ -49,10 +50,10 @@ contract MultiProofTest is RollupBase {
 
   constructor() {
     TimeLib.initialize(
-      block.timestamp, TestConstants.AZTEC_SLOT_DURATION, TestConstants.AZTEC_EPOCH_DURATION
+      block.timestamp, RollupConfig.DEFAULT_AZTEC_SLOT_DURATION, RollupConfig.DEFAULT_AZTEC_EPOCH_DURATION
     );
-    SLOT_DURATION = TestConstants.AZTEC_SLOT_DURATION;
-    EPOCH_DURATION = TestConstants.AZTEC_EPOCH_DURATION;
+    SLOT_DURATION = RollupConfig.DEFAULT_AZTEC_SLOT_DURATION;
+    EPOCH_DURATION = RollupConfig.DEFAULT_AZTEC_EPOCH_DURATION;
   }
 
   /**

@@ -18,8 +18,6 @@ import {
   InboxBytecode,
   OutboxAbi,
   OutboxBytecode,
-  RegisterNewRollupVersionPayloadAbi,
-  RegisterNewRollupVersionPayloadBytecode,
   RegistryAbi,
   RegistryBytecode,
   RewardDistributorAbi,
@@ -29,6 +27,8 @@ import {
   RollupLinkReferences,
   SlashFactoryAbi,
   SlashFactoryBytecode,
+  StakingLibAbi,
+  StakingLibBytecode,
   TestERC20Abi,
   TestERC20Bytecode,
   ValidatorSelectionLibAbi,
@@ -37,13 +37,16 @@ import {
 
 import type { Abi, Narrow } from 'abitype';
 import {
+  type Account,
   type Chain,
   type Hex,
+  type HttpTransport,
+  type PublicClient,
+  type WalletClient,
   concatHex,
   createPublicClient,
   createWalletClient,
   encodeDeployData,
-  fallback,
   getAddress,
   getContract,
   getContractAddress,
@@ -57,26 +60,24 @@ import { foundry } from 'viem/chains';
 
 import { isAnvilTestChain } from './chain.js';
 import type { L1ContractsConfig } from './config.js';
-import { RegistryContract } from './contracts/registry.js';
-import { RollupContract } from './contracts/rollup.js';
 import type { L1ContractAddresses } from './l1_contract_addresses.js';
 import { L1TxUtils, type L1TxUtilsConfig, defaultL1TxUtilsConfig } from './l1_tx_utils.js';
-import type { L1Clients, ViemPublicClient, ViemWalletClient } from './types.js';
+import type { L1Clients } from './types.js';
 
 export const DEPLOYER_ADDRESS: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
 
 /**
  * Return type of the deployL1Contract function.
  */
-export type DeployL1ContractsReturnType = {
+export type DeployL1Contracts = {
   /**
    * Wallet Client Type.
    */
-  walletClient: ViemWalletClient;
+  walletClient: WalletClient<HttpTransport, Chain, Account>;
   /**
    * Public Client Type.
    */
-  publicClient: ViemPublicClient;
+  publicClient: PublicClient<HttpTransport, Chain>;
   /**
    * The currently deployed l1 contract addresses
    */
@@ -142,6 +143,10 @@ export const l1Artifacts = {
           contractAbi: ExtRollupLibAbi,
           contractBytecode: ExtRollupLibBytecode as Hex,
         },
+        StakingLib: {
+          contractAbi: StakingLibAbi,
+          contractBytecode: StakingLibBytecode as Hex,
+        },
       },
     },
   },
@@ -177,10 +182,6 @@ export const l1Artifacts = {
     contractAbi: SlashFactoryAbi,
     contractBytecode: SlashFactoryBytecode as Hex,
   },
-  registerNewRollupVersionPayload: {
-    contractAbi: RegisterNewRollupVersionPayloadAbi,
-    contractBytecode: RegisterNewRollupVersionPayloadBytecode as Hex,
-  },
 };
 
 export interface DeployL1ContractsArgs extends L1ContractsConfig {
@@ -208,13 +209,13 @@ export interface DeployL1ContractsArgs extends L1ContractsConfig {
 
 /**
  * Creates a wallet and a public viem client for interacting with L1.
- * @param rpcUrls - List of RPC URLs to connect to L1.
+ * @param rpcUrl - RPC URL to connect to L1.
  * @param mnemonicOrPrivateKeyOrHdAccount - Mnemonic or account for the wallet client.
  * @param chain - Optional chain spec (defaults to local foundry).
  * @returns - A wallet and a public client.
  */
 export function createL1Clients(
-  rpcUrls: string[],
+  rpcUrl: string,
   mnemonicOrPrivateKeyOrHdAccount: string | `0x${string}` | HDAccount | PrivateKeyAccount,
   chain: Chain = foundry,
 ): L1Clients {
@@ -235,70 +236,120 @@ export function createL1Clients(
   const walletClient = createWalletClient({
     account: hdAccount,
     chain,
-    transport: fallback(rpcUrls.map(url => http(url))),
+    transport: http(rpcUrl),
   }).extend(publicActions);
   const publicClient = createPublicClient({
     chain,
-    transport: fallback(rpcUrls.map(url => http(url))),
+    transport: http(rpcUrl),
     pollingInterval: 100,
   });
 
   return { walletClient, publicClient } as L1Clients;
 }
 
-export const deployRollupAndPeriphery = async (
-  rpcUrls: string[],
-  chain: Chain,
+/**
+ * Deploys the aztec L1 contracts; Rollup & (optionally) Decoder Helper.
+ * @param rpcUrl - URL of the ETH RPC to use for deployment.
+ * @param account - Private Key or HD Account that will deploy the contracts.
+ * @param chain - The chain instance to deploy to.
+ * @param logger - A logger object.
+ * @param args - Arguments for initialization of L1 contracts
+ * @returns A list of ETH addresses of the deployed contracts.
+ */
+export const deployL1Contracts = async (
+  rpcUrl: string,
   account: HDAccount | PrivateKeyAccount,
-  args: DeployL1ContractsArgs,
-  addresses: Pick<
-    L1ContractAddresses,
-    'registryAddress' | 'feeJuicePortalAddress' | 'rewardDistributorAddress' | 'stakingAssetAddress'
-  >,
+  chain: Chain,
   logger: Logger,
-  txUtilsConfig: L1TxUtilsConfig,
-) => {
-  const { walletClient, publicClient } = createL1Clients(rpcUrls, account, chain);
-  const deployer = new L1Deployer(walletClient, publicClient, args.salt, logger, txUtilsConfig);
+  args: DeployL1ContractsArgs,
+  txUtilsConfig: L1TxUtilsConfig = defaultL1TxUtilsConfig,
+): Promise<DeployL1Contracts> => {
+  // We are assuming that you are running this on a local anvil node which have 1s block times
+  // To align better with actual deployment, we update the block interval to 12s
+  // The code is same as `setBlockInterval` in `cheat_codes.ts`
+  const rpcCall = async (method: string, params: any[]) => {
+    const paramsString = JSON.stringify(params);
+    const content = {
+      body: `{"jsonrpc":"2.0", "method": "${method}", "params": ${paramsString}, "id": 1}`,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    };
+    return await (await fetch(rpcUrl, content)).json();
+  };
+  if (isAnvilTestChain(chain.id)) {
+    const res = await rpcCall('anvil_setBlockTimestampInterval', [args.ethereumSlotDuration]);
+    if (res.error) {
+      throw new Error(`Error setting block interval: ${res.error.message}`);
+    }
+    logger.warn(`Set block interval to ${args.ethereumSlotDuration}`);
+  }
 
-  const rollup = await deployRollup(walletClient, publicClient, deployer, args, addresses, logger);
-  const payloadAddress = await deployUpgradePayload(deployer, {
-    registryAddress: addresses.registryAddress,
-    rollupAddress: EthAddress.fromString(rollup.address),
-  });
-  const slashFactoryAddress = await deploySlashFactory(deployer, rollup.address, logger);
+  logger.verbose(`Deploying contracts from ${account.address.toString()}`);
 
-  await deployer.waitForDeployments();
+  const walletClient = createWalletClient({ account, chain, transport: http(rpcUrl) });
+  const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
+  // Governance stuff
+  const govDeployer = new L1Deployer(walletClient, publicClient, args.salt, logger, txUtilsConfig);
 
-  return { rollup, payloadAddress, slashFactoryAddress };
-};
+  const registryAddress = await govDeployer.deploy(l1Artifacts.registry, [account.address.toString()]);
+  logger.verbose(`Deployed Registry at ${registryAddress}`);
 
-export const deploySlashFactory = async (deployer: L1Deployer, rollupAddress: Hex, logger: Logger) => {
-  const slashFactoryAddress = await deployer.deploy(l1Artifacts.slashFactory, [rollupAddress]);
-  logger.verbose(`Deployed SlashFactory at ${slashFactoryAddress}`);
-  return slashFactoryAddress;
-};
-
-export const deployUpgradePayload = async (
-  deployer: L1Deployer,
-  addresses: Pick<L1ContractAddresses, 'registryAddress' | 'rollupAddress'>,
-) => {
-  const payloadAddress = await deployer.deploy(l1Artifacts.registerNewRollupVersionPayload, [
-    addresses.registryAddress.toString(),
-    addresses.rollupAddress.toString(),
+  const feeAssetAddress = await govDeployer.deploy(l1Artifacts.feeAsset, [
+    'FeeJuice',
+    'FEE',
+    account.address.toString(),
   ]);
+  logger.verbose(`Deployed Fee Juice at ${feeAssetAddress}`);
 
-  return payloadAddress;
-};
+  const stakingAssetAddress = await govDeployer.deploy(l1Artifacts.stakingAsset, [
+    'Staking',
+    'STK',
+    account.address.toString(),
+  ]);
+  logger.verbose(`Deployed Staking Asset at ${stakingAssetAddress}`);
 
-export const deployRollup = async (
-  walletClient: L1Clients['walletClient'],
-  publicClient: L1Clients['publicClient'],
-  deployer: L1Deployer,
-  args: DeployL1ContractsArgs,
-  addresses: Pick<L1ContractAddresses, 'feeJuicePortalAddress' | 'rewardDistributorAddress' | 'stakingAssetAddress'>,
-  logger: Logger,
-): Promise<RollupContract> => {
+  const governanceProposerAddress = await govDeployer.deploy(l1Artifacts.governanceProposer, [
+    registryAddress.toString(),
+    args.governanceProposerQuorum,
+    args.governanceProposerRoundSize,
+  ]);
+  logger.verbose(`Deployed GovernanceProposer at ${governanceProposerAddress}`);
+
+  // @note @LHerskind the assets are expected to be the same at some point, but for better
+  // configurability they are different for now.
+  const governanceAddress = await govDeployer.deploy(l1Artifacts.governance, [
+    feeAssetAddress.toString(),
+    governanceProposerAddress.toString(),
+  ]);
+  logger.verbose(`Deployed Governance at ${governanceAddress}`);
+
+  const coinIssuerAddress = await govDeployer.deploy(l1Artifacts.coinIssuer, [
+    feeAssetAddress.toString(),
+    1n * 10n ** 18n, // @todo  #8084
+    governanceAddress.toString(),
+  ]);
+  logger.verbose(`Deployed CoinIssuer at ${coinIssuerAddress}`);
+
+  const rewardDistributorAddress = await govDeployer.deploy(l1Artifacts.rewardDistributor, [
+    feeAssetAddress.toString(),
+    registryAddress.toString(),
+    governanceAddress.toString(),
+  ]);
+  logger.verbose(`Deployed RewardDistributor at ${rewardDistributorAddress}`);
+
+  logger.verbose(`Waiting for governance contracts to be deployed`);
+  await govDeployer.waitForDeployments();
+  logger.verbose(`All governance contracts deployed`);
+
+  const deployer = new L1Deployer(walletClient, publicClient, args.salt, logger, args.l1TxConfig ?? {});
+
+  const feeJuicePortalAddress = await deployer.deploy(l1Artifacts.feeJuicePortal, [
+    registryAddress.toString(),
+    feeAssetAddress.toString(),
+    args.l2FeeJuiceAddress.toString(),
+  ]);
+  logger.verbose(`Deployed Fee Juice Portal at ${feeJuicePortalAddress}`);
+
   const rollupConfigArgs = {
     aztecSlotDuration: args.aztecSlotDuration,
     aztecEpochDuration: args.aztecEpochDuration,
@@ -310,22 +361,44 @@ export const deployRollup = async (
   };
   logger.verbose(`Rollup config args`, rollupConfigArgs);
   const rollupArgs = [
-    addresses.feeJuicePortalAddress.toString(),
-    addresses.rewardDistributorAddress.toString(),
-    addresses.stakingAssetAddress.toString(),
+    feeJuicePortalAddress.toString(),
+    rewardDistributorAddress.toString(),
+    stakingAssetAddress.toString(),
     args.vkTreeRoot.toString(),
     args.protocolContractTreeRoot.toString(),
     args.genesisArchiveRoot.toString(),
     args.genesisBlockHash.toString(),
-    walletClient.account.address.toString(),
+    governanceAddress.toString(),
     rollupConfigArgs,
   ];
+  await deployer.waitForDeployments();
 
   const rollupAddress = await deployer.deploy(l1Artifacts.rollup, rollupArgs);
   logger.verbose(`Deployed Rollup at ${rollupAddress}`, rollupConfigArgs);
 
+  const slashFactoryAddress = await deployer.deploy(l1Artifacts.slashFactory, [rollupAddress.toString()]);
+  logger.verbose(`Deployed SlashFactory at ${slashFactoryAddress}`);
+
   await deployer.waitForDeployments();
   logger.verbose(`All core contracts have been deployed`);
+
+  const feeJuicePortal = getContract({
+    address: feeJuicePortalAddress.toString(),
+    abi: l1Artifacts.feeJuicePortal.contractAbi,
+    client: walletClient,
+  });
+
+  const feeAsset = getContract({
+    address: feeAssetAddress.toString(),
+    abi: l1Artifacts.feeAsset.contractAbi,
+    client: walletClient,
+  });
+
+  const stakingAsset = getContract({
+    address: stakingAssetAddress.toString(),
+    abi: l1Artifacts.stakingAsset.contractAbi,
+    client: walletClient,
+  });
 
   const rollup = getContract({
     address: getAddress(rollupAddress.toString()),
@@ -333,7 +406,14 @@ export const deployRollup = async (
     client: walletClient,
   });
 
+  // Transaction hashes to await
   const txHashes: Hex[] = [];
+
+  {
+    const txHash = await feeAsset.write.setFreeForAll([true], {} as any);
+    logger.verbose(`Fee asset set to free for all in ${txHash}`);
+    txHashes.push(txHash);
+  }
 
   if (args.initialValidators && args.initialValidators.length > 0) {
     // Check if some of the initial validators are already registered, so we support idempotent deployments
@@ -350,160 +430,26 @@ export const deployRollup = async (
     const newValidatorsAddresses = validatorsInfo.filter(v => v.status === 0).map(v => v.address.toString());
 
     if (newValidatorsAddresses.length > 0) {
-      const stakingAsset = getContract({
-        address: addresses.stakingAssetAddress.toString(),
-        abi: l1Artifacts.stakingAsset.contractAbi,
-        client: walletClient,
-      });
-      // Mint tokens, approve them, use cheat code to initialise validator set without setting up the epoch.
+      // Mint tokens and approve them for the rollup contract
       const stakeNeeded = args.minimumStake * BigInt(newValidatorsAddresses.length);
       await Promise.all(
         [
-          await stakingAsset.write.mint([walletClient.account.address, stakeNeeded], {} as any),
+          await stakingAsset.write.mint([governanceAddress.toString(), stakeNeeded], {} as any),
           await stakingAsset.write.approve([rollupAddress.toString(), stakeNeeded], {} as any),
         ].map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })),
       );
 
-      const validators = newValidatorsAddresses.map(v => ({
-        attester: v,
-        proposer: getExpectedAddress(ForwarderAbi, ForwarderBytecode, [v], v).address,
-        withdrawer: v,
-        amount: args.minimumStake,
-      }));
-      const initiateValidatorSetTxHash = await rollup.write.cheat__InitialiseValidatorSet([validators]);
-      txHashes.push(initiateValidatorSetTxHash);
-      logger.info(`Initialized validator set`, {
-        validators,
-        txHash: initiateValidatorSetTxHash,
-      });
+      // Регистрируем каждого валидатора через стандартный процесс депозита
+      for (const validatorAddress of newValidatorsAddresses) {
+        const forwarderAddress = getExpectedAddress(ForwarderAbi, ForwarderBytecode, [validatorAddress], validatorAddress).address;
+        await rollup.write.deposit([
+          validatorAddress,
+          forwarderAddress,
+          validatorAddress, // withdrawer = validator
+          args.minimumStake
+        ]);
+      }
     }
-  }
-
-  await Promise.all(txHashes.map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })));
-
-  return new RollupContract(publicClient, rollupAddress);
-};
-
-/**
- * Deploys the aztec L1 contracts; Rollup & (optionally) Decoder Helper.
- * @param rpcUrls - List of URLs of the ETH RPC to use for deployment.
- * @param account - Private Key or HD Account that will deploy the contracts.
- * @param chain - The chain instance to deploy to.
- * @param logger - A logger object.
- * @param args - Arguments for initialization of L1 contracts
- * @returns A list of ETH addresses of the deployed contracts.
- */
-export const deployL1Contracts = async (
-  rpcUrls: string[],
-  account: HDAccount | PrivateKeyAccount,
-  chain: Chain,
-  logger: Logger,
-  args: DeployL1ContractsArgs,
-  txUtilsConfig: L1TxUtilsConfig = defaultL1TxUtilsConfig,
-): Promise<DeployL1ContractsReturnType> => {
-  // We are assuming that you are running this on a local anvil node which have 1s block times
-  // To align better with actual deployment, we update the block interval to 12s
-  const { walletClient, publicClient } = createL1Clients(rpcUrls, account, chain);
-
-  const rpcCall = async (method: string, params: any[]) => {
-    logger.info(`Calling ${method} with params: ${JSON.stringify(params)}`);
-    return (await publicClient.transport.request({
-      method,
-      params,
-    })) as any;
-  };
-
-  if (isAnvilTestChain(chain.id)) {
-    try {
-      await rpcCall('anvil_setBlockTimestampInterval', [args.ethereumSlotDuration]);
-      logger.warn(`Set block interval to ${args.ethereumSlotDuration}`);
-    } catch (e) {
-      logger.error(`Error setting block interval: ${e}`);
-    }
-  }
-
-  logger.verbose(`Deploying contracts from ${account.address.toString()}`);
-
-  // Governance stuff
-  const deployer = new L1Deployer(walletClient, publicClient, args.salt, logger, txUtilsConfig);
-
-  const registryAddress = await deployer.deploy(l1Artifacts.registry, [account.address.toString()]);
-  logger.verbose(`Deployed Registry at ${registryAddress}`);
-
-  const feeAssetAddress = await deployer.deploy(l1Artifacts.feeAsset, ['FeeJuice', 'FEE', account.address.toString()]);
-  logger.verbose(`Deployed Fee Juice at ${feeAssetAddress}`);
-
-  const stakingAssetAddress = await deployer.deploy(l1Artifacts.stakingAsset, [
-    'Staking',
-    'STK',
-    account.address.toString(),
-  ]);
-  logger.verbose(`Deployed Staking Asset at ${stakingAssetAddress}`);
-
-  const governanceProposerAddress = await deployer.deploy(l1Artifacts.governanceProposer, [
-    registryAddress.toString(),
-    args.governanceProposerQuorum,
-    args.governanceProposerRoundSize,
-  ]);
-  logger.verbose(`Deployed GovernanceProposer at ${governanceProposerAddress}`);
-
-  // @note @LHerskind the assets are expected to be the same at some point, but for better
-  // configurability they are different for now.
-  const governanceAddress = await deployer.deploy(l1Artifacts.governance, [
-    feeAssetAddress.toString(),
-    governanceProposerAddress.toString(),
-  ]);
-  logger.verbose(`Deployed Governance at ${governanceAddress}`);
-
-  const coinIssuerAddress = await deployer.deploy(l1Artifacts.coinIssuer, [
-    feeAssetAddress.toString(),
-    1n * 10n ** 18n, // @todo  #8084
-    governanceAddress.toString(),
-  ]);
-  logger.verbose(`Deployed CoinIssuer at ${coinIssuerAddress}`);
-
-  const rewardDistributorAddress = await deployer.deploy(l1Artifacts.rewardDistributor, [
-    feeAssetAddress.toString(),
-    registryAddress.toString(),
-    governanceAddress.toString(),
-  ]);
-  logger.verbose(`Deployed RewardDistributor at ${rewardDistributorAddress}`);
-
-  const feeJuicePortalAddress = await deployer.deploy(l1Artifacts.feeJuicePortal, [
-    registryAddress.toString(),
-    feeAssetAddress.toString(),
-    args.l2FeeJuiceAddress.toString(),
-  ]);
-  logger.verbose(`Deployed Fee Juice Portal at ${feeJuicePortalAddress}`);
-
-  logger.verbose(`Waiting for governance contracts to be deployed`);
-  await deployer.waitForDeployments();
-  logger.verbose(`All governance contracts deployed`);
-
-  const feeJuicePortal = getContract({
-    address: feeJuicePortalAddress.toString(),
-    abi: l1Artifacts.feeJuicePortal.contractAbi,
-    client: walletClient,
-  });
-
-  const feeAsset = getContract({
-    address: feeAssetAddress.toString(),
-    abi: l1Artifacts.feeAsset.contractAbi,
-    client: walletClient,
-  });
-  // Transaction hashes to await
-  const txHashes: Hex[] = [];
-
-  if (!(await feeAsset.read.freeForAll())) {
-    const txHash = await feeAsset.write.setFreeForAll([true], {} as any);
-    logger.verbose(`Fee asset set to free for all in ${txHash}`);
-    txHashes.push(txHash);
-  }
-
-  if ((await feeAsset.read.owner()) !== getAddress(coinIssuerAddress.toString())) {
-    const txHash = await feeAsset.write.transferOwnership([coinIssuerAddress.toString()], { account });
-    logger.verbose(`Fee asset transferred ownership to coin issuer in ${txHash}`);
-    txHashes.push(txHash);
   }
 
   // @note  This value MUST match what is in `constants.nr`. It is currently specified here instead of just importing
@@ -530,19 +476,35 @@ export const deployL1Contracts = async (
     `Initialized Fee Juice Portal at ${feeJuicePortalAddress} to bridge between L1 ${feeAssetAddress} to L2 ${args.l2FeeJuiceAddress}`,
   );
 
-  const rollup = await deployRollup(
-    walletClient,
-    publicClient,
-    deployer,
-    args,
-    { feeJuicePortalAddress, rewardDistributorAddress, stakingAssetAddress },
-    logger,
-  );
-  const slashFactoryAddress = await deploySlashFactory(deployer, rollup.address, logger);
+  if (isAnvilTestChain(chain.id)) {
+    // @note  We make a time jump PAST the very first slot to not have to deal with the edge case of the first slot.
+    //        The edge case being that the genesis block is already occupying slot 0, so we cannot have another block.
+    try {
+      // Need to get the time
+      const currentSlot = (await rollup.read.getCurrentSlot()) as bigint;
 
-  logger.verbose('Waiting for rollup and slash factory to be deployed');
-  await deployer.waitForDeployments();
-  logger.verbose(`Rollup and slash factory deployed`);
+      if (BigInt(currentSlot) === 0n) {
+        const ts = Number(await rollup.read.getTimestampForSlot([1n]));
+        await rpcCall('evm_setNextBlockTimestamp', [ts]);
+        await rpcCall('hardhat_mine', [1]);
+        const currentSlot = (await rollup.read.getCurrentSlot()) as bigint;
+
+        if (BigInt(currentSlot) !== 1n) {
+          throw new Error(`Error jumping time: current slot is ${currentSlot}`);
+        }
+        logger.info(`Jumped to slot 1`);
+      }
+    } catch (e) {
+      throw new Error(`Error jumping time: ${e}`);
+    }
+  }
+
+  // Inbox and Outbox are immutable and are deployed from Rollup's constructor so we just fetch them from the contract.
+  const inboxAddress = EthAddress.fromString((await rollup.read.INBOX()) as any);
+  logger.verbose(`Inbox available at ${inboxAddress}`);
+
+  const outboxAddress = EthAddress.fromString((await rollup.read.OUTBOX()) as any);
+  logger.verbose(`Outbox available at ${outboxAddress}`);
 
   // We need to call a function on the registry to set the various contract addresses.
   const registryContract = getContract({
@@ -550,15 +512,14 @@ export const deployL1Contracts = async (
     abi: l1Artifacts.registry.contractAbi,
     client: walletClient,
   });
-
-  if (!(await registryContract.read.isRollupRegistered([getAddress(rollup.address.toString())]))) {
-    const upgradeTxHash = await registryContract.write.upgrade([getAddress(rollup.address.toString())], { account });
+  if (!(await registryContract.read.isRollupRegistered([getAddress(rollupAddress.toString())]))) {
+    const upgradeTxHash = await registryContract.write.upgrade([getAddress(rollupAddress.toString())], { account });
     logger.verbose(
-      `Upgrading registry contract at ${registryAddress} to rollup ${rollup.address} in tx ${upgradeTxHash}`,
+      `Upgrading registry contract at ${registryAddress} to rollup ${rollupAddress} in tx ${upgradeTxHash}`,
     );
     txHashes.push(upgradeTxHash);
   } else {
-    logger.verbose(`Registry ${registryAddress} has already registered rollup ${rollup.address}`);
+    logger.verbose(`Registry ${registryAddress} has already registered rollup ${rollupAddress}`);
   }
 
   // If the owner is not the Governance contract, transfer ownership to the Governance contract
@@ -578,40 +539,28 @@ export const deployL1Contracts = async (
   // Wait for all actions to be mined
   await Promise.all(txHashes.map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })));
   logger.verbose(`All transactions for L1 deployment have been mined`);
-  const l1Contracts = await RegistryContract.collectAddresses(publicClient, registryAddress, 'canonical');
+
+  const l1Contracts: L1ContractAddresses = {
+    rollupAddress,
+    registryAddress,
+    inboxAddress,
+    outboxAddress,
+    feeJuiceAddress: feeAssetAddress,
+    stakingAssetAddress,
+    feeJuicePortalAddress,
+    coinIssuerAddress,
+    rewardDistributorAddress,
+    governanceProposerAddress,
+    governanceAddress,
+    slashFactoryAddress,
+  };
 
   logger.info(`Aztec L1 contracts initialized`, l1Contracts);
-
-  if (isAnvilTestChain(chain.id)) {
-    // @note  We make a time jump PAST the very first slot to not have to deal with the edge case of the first slot.
-    //        The edge case being that the genesis block is already occupying slot 0, so we cannot have another block.
-    try {
-      // Need to get the time
-      const currentSlot = await rollup.getSlotNumber();
-
-      if (BigInt(currentSlot) === 0n) {
-        const ts = Number(await rollup.getTimestampForSlot(1n));
-        await rpcCall('evm_setNextBlockTimestamp', [ts]);
-        await rpcCall('hardhat_mine', [1]);
-        const currentSlot = await rollup.getSlotNumber();
-
-        if (BigInt(currentSlot) !== 1n) {
-          throw new Error(`Error jumping time: current slot is ${currentSlot}`);
-        }
-        logger.info(`Jumped to slot 1`);
-      }
-    } catch (e) {
-      throw new Error(`Error jumping time: ${e}`);
-    }
-  }
 
   return {
     walletClient,
     publicClient,
-    l1ContractAddresses: {
-      ...l1Contracts,
-      slashFactoryAddress,
-    },
+    l1ContractAddresses: l1Contracts,
   };
 };
 
@@ -620,8 +569,8 @@ class L1Deployer {
   private txHashes: Hex[] = [];
   private l1TxUtils: L1TxUtils;
   constructor(
-    private walletClient: ViemWalletClient,
-    private publicClient: ViemPublicClient,
+    private walletClient: WalletClient<HttpTransport, Chain, Account>,
+    private publicClient: PublicClient<HttpTransport, Chain>,
     maybeSalt: number | undefined,
     private logger: Logger,
     private txUtilsConfig?: L1TxUtilsConfig,
@@ -665,8 +614,8 @@ class L1Deployer {
  * @returns The ETH address the contract was deployed to.
  */
 export async function deployL1Contract(
-  walletClient: ViemWalletClient,
-  publicClient: ViemPublicClient,
+  walletClient: WalletClient<HttpTransport, Chain, Account>,
+  publicClient: PublicClient<HttpTransport, Chain>,
   abi: Narrow<Abi | readonly unknown[]>,
   bytecode: Hex,
   args: readonly unknown[] = [],
