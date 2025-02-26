@@ -195,9 +195,7 @@ describe('Discv5Service', () => {
       bootstrapNodes: [bootnodeAddr],
       blockCheckIntervalMS: 50,
       peerCheckIntervalMS: 50,
-      transactionProtocol: 'aztec/1.0.0',
       p2pEnabled: true,
-      l2QueueSize: 100,
       keepProvenTxsInPoolFor: 0,
       ...overrides,
     };

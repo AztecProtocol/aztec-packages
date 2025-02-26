@@ -41,11 +41,6 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   peerCheckIntervalMS: number;
 
   /**
-   * Size of queue of L2 blocks to store.
-   */
-  l2QueueSize: number;
-
-  /**
    * The announce address for TCP.
    */
   tcpAnnounceAddress?: string;
@@ -77,11 +72,6 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
 
   /** Whether to execute the version check in the bootstrap node ENR. */
   bootstrapNodeEnrVersionCheck: boolean;
-
-  /**
-   * Protocol identifier for transaction gossiping.
-   */
-  transactionProtocol: string;
 
   /**
    * The maximum number of peers (a peer count above this will cause the node to refuse connection attempts)
@@ -135,14 +125,14 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   gossipsubMcacheLength: number;
 
   /**
-   * How many message cache windows to include when gossiping with other pears.
+   * How many message cache windows to include when gossiping with other peers.
    */
   gossipsubMcacheGossip: number;
 
   /**
    * The 'age' (in # of L2 blocks) of a processed tx after which we heavily penalize a peer for re-sending it.
    */
-  severePeerPenaltyBlockLength: number;
+  doubleSpendSeverePeerPenaltyWindow: number;
 
   /**
    * The weight of the tx topic for the gossipsub protocol.  This determines how much the score for this specific topic contributes to the overall peer score.
@@ -189,11 +179,6 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'The frequency in which to check for new peers.',
     ...numberConfigHelper(30_000),
   },
-  l2QueueSize: {
-    env: 'P2P_L2_QUEUE_SIZE',
-    description: 'Size of queue of L2 blocks to store.',
-    ...numberConfigHelper(1_000),
-  },
   tcpListenAddress: {
     env: 'P2P_TCP_LISTEN_ADDR',
     defaultValue: '0.0.0.0:40400',
@@ -227,11 +212,6 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_BOOTSTRAP_NODE_ENR_VERSION_CHECK',
     description: 'Whether to check the version of the bootstrap node ENR.',
     ...booleanConfigHelper(),
-  },
-  transactionProtocol: {
-    env: 'P2P_TX_PROTOCOL',
-    description: 'Protocol identifier for transaction gossiping.',
-    defaultValue: '/aztec/0.1.0',
   },
   maxPeerCount: {
     env: 'P2P_MAX_PEERS',
@@ -278,7 +258,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   gossipsubDLazy: {
     env: 'P2P_GOSSIPSUB_DLAZY',
     description: 'The Dlazy parameter for the gossipsub protocol.',
-    ...numberConfigHelper(6),
+    ...numberConfigHelper(8),
   },
   gossipsubFloodPublish: {
     env: 'P2P_GOSSIPSUB_FLOOD_PUBLISH',
@@ -295,21 +275,6 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'How many message cache windows to include when gossiping with other pears.',
     ...numberConfigHelper(3),
   },
-  gossipsubTxTopicWeight: {
-    env: 'P2P_GOSSIPSUB_TX_TOPIC_WEIGHT',
-    description: 'The weight of the tx topic for the gossipsub protocol.',
-    ...numberConfigHelper(1),
-  },
-  gossipsubTxInvalidMessageDeliveriesWeight: {
-    env: 'P2P_GOSSIPSUB_TX_INVALID_MESSAGE_DELIVERIES_WEIGHT',
-    description: 'The weight of the tx invalid message deliveries for the gossipsub protocol.',
-    ...numberConfigHelper(-20),
-  },
-  gossipsubTxInvalidMessageDeliveriesDecay: {
-    env: 'P2P_GOSSIPSUB_TX_INVALID_MESSAGE_DELIVERIES_DECAY',
-    description: 'Determines how quickly the penalty for invalid message deliveries decays over time. Between 0 and 1.',
-    ...numberConfigHelper(0.5),
-  },
   peerPenaltyValues: {
     env: 'P2P_PEER_PENALTY_VALUES',
     parseEnv: (val: string) => val.split(',').map(Number),
@@ -317,8 +282,8 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
       'The values for the peer scoring system. Passed as a comma separated list of values in order: low, mid, high tolerance errors.',
     defaultValue: [2, 10, 50],
   },
-  severePeerPenaltyBlockLength: {
-    env: 'P2P_SEVERE_PEER_PENALTY_BLOCK_LENGTH',
+  doubleSpendSeverePeerPenaltyWindow: {
+    env: 'P2P_DOUBLE_SPEND_SEVERE_PEER_PENALTY_WINDOW',
     description: 'The "age" (in L2 blocks) of a tx after which we heavily penalize a peer for sending it.',
     ...numberConfigHelper(30),
   },
