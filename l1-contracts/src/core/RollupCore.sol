@@ -30,8 +30,6 @@ import {EthValue, FeeAssetPerEthE9, PriceLib} from "@aztec/core/libraries/Rollup
 import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
 import {StakingLib} from "@aztec/core/libraries/staking/StakingLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
-import {ValidatorSelectionLib} from
-  "@aztec/core/libraries/ValidatorSelectionLib/ValidatorSelectionLib.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Slasher} from "@aztec/core/staking/Slasher.sol";
@@ -98,7 +96,7 @@ contract RollupCore is
     Timestamp exitDelay = Timestamp.wrap(60 * 60 * 24);
     Slasher slasher = new Slasher(_config.slashingQuorum, _config.slashingRoundSize);
     StakingLib.initialize(_stakingAsset, _config.minimumStake, exitDelay, address(slasher));
-    ValidatorSelectionLib.initialize(_config.targetCommitteeSize);
+    ExtRollupLib.initializeValidatorSelection(_config.targetCommitteeSize);
 
     L1_BLOCK_AT_GENESIS = block.number;
 
@@ -327,7 +325,7 @@ contract RollupCore is
   }
 
   function setupEpoch() public override(IValidatorSelectionCore) {
-    ValidatorSelectionLib.setupEpoch(StakingLib.getStorage());
+    ExtRollupLib.setupEpoch();
   }
 
   /**

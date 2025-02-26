@@ -3,7 +3,8 @@
 pragma solidity >=0.8.27;
 
 import {SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
-
+import {StakingLib} from "./../staking/StakingLib.sol";
+import {ValidatorSelectionLib} from "./../ValidatorSelectionLib/ValidatorSelectionLib.sol";
 import {BlobLib} from "./BlobLib.sol";
 import {EpochProofLib} from "./EpochProofLib.sol";
 import {ProposeLib, ProposeArgs, Signature} from "./ProposeLib.sol";
@@ -24,6 +25,14 @@ library ExtRollupLib {
     bool _checkBlob
   ) external {
     ProposeLib.propose(_args, _signatures, _body, _blobInput, _checkBlob);
+  }
+
+  function initializeValidatorSelection(uint256 _targetCommitteeSize) external {
+    ValidatorSelectionLib.initialize(_targetCommitteeSize);
+  }
+
+  function setupEpoch() external {
+    ValidatorSelectionLib.setupEpoch(StakingLib.getStorage());
   }
 
   function getEpochProofPublicInputs(

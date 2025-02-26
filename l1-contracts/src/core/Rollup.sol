@@ -16,6 +16,7 @@ import {FeeAssetValue} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 import {FeeMath} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 import {HeaderLib} from "@aztec/core/libraries/RollupLibs/HeaderLib.sol";
 import {EpochProofLib} from "./libraries/RollupLibs/EpochProofLib.sol";
+import {ValidatorSelectionLib} from "./libraries/ValidatorSelectionLib/ValidatorSelectionLib.sol";
 import {
   RollupCore,
   Config,
@@ -23,7 +24,6 @@ import {
   IFeeJuicePortal,
   IERC20,
   BlockLog,
-  ValidatorSelectionLib,
   StakingLib,
   TimeLib,
   Slot,

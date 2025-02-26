@@ -11,6 +11,7 @@ library STFLib {
   using TimeLib for Epoch;
   using TimeLib for Timestamp;
 
+  // @note  This is also used in the cheatcodes, so if updating, please also update the cheatcode.
   bytes32 private constant STF_STORAGE_POSITION = keccak256("aztec.stf.storage");
 
   function prune() internal {

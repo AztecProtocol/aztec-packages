@@ -33,7 +33,7 @@ library ValidatorSelectionLib {
    *          This is very heavy on gas, so start crying because the gas here will melt the poles
    *          https://i.giphy.com/U1aN4HTfJ2SmgB2BBK.webp
    */
-  function setupEpoch(StakingStorage storage _stakingStore) external {
+  function setupEpoch(StakingStorage storage _stakingStore) internal {
     Epoch epochNumber = Timestamp.wrap(block.timestamp).epochFromTimestamp();
     ValidatorSelectionStorage storage store = getStorage();
     EpochData storage epoch = store.epochs[epochNumber];
@@ -68,7 +68,7 @@ library ValidatorSelectionLib {
     Signature[] memory _signatures,
     bytes32 _digest,
     DataStructures.ExecutionFlags memory _flags
-  ) external view {
+  ) internal view {
     // Same logic as we got in getProposerAt
     // Done do avoid duplicate computing the committee
     address[] memory committee = getCommitteeAt(_stakingStore, _epochNumber);
@@ -123,7 +123,7 @@ library ValidatorSelectionLib {
   }
 
   function getProposerAt(StakingStorage storage _stakingStore, Slot _slot, Epoch _epochNumber)
-    external
+    internal
     view
     returns (address)
   {
@@ -152,7 +152,7 @@ library ValidatorSelectionLib {
    * @return The validators for the given epoch
    */
   function sampleValidators(StakingStorage storage _stakingStore, uint256 _seed)
-    public
+    internal
     view
     returns (address[] memory)
   {
@@ -180,7 +180,7 @@ library ValidatorSelectionLib {
   }
 
   function getCommitteeAt(StakingStorage storage _stakingStore, Epoch _epochNumber)
-    public
+    internal
     view
     returns (address[] memory)
   {
