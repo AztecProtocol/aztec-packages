@@ -48,7 +48,6 @@ TEST(boomerang_stdlib_dynamic_array, graph_description_dynamic_array_method_resi
     EXPECT_EQ(variables_in_one_gate.size(), max_size);
 }
 
-
 /**
  * @brief this test checks graph description for dynamic array consistency methods
  * The result is one connected component with no variables in one gate,
@@ -60,7 +59,7 @@ TEST(boomerang_stdlib_dynamic_array, graph_description_dynamic_array_method_resi
  *          - Conditional push operations (true and false cases)
  *          - Conditional pop operations (true and false cases)
  */
-TEST(boomerang_stdlib_dynamic_array, graph_description_dynamic_array_consistency_methods) 
+TEST(boomerang_stdlib_dynamic_array, graph_description_dynamic_array_consistency_methods)
 {
     Builder builder;
     const size_t max_size = 10;

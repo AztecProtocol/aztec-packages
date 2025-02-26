@@ -38,7 +38,7 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_for_arithmetic_gates)
 
     Graph graph = Graph(circuit_constructor);
     auto connected_components = graph.find_connected_components();
-    [[maybe_unused]]auto variables_in_one_gate = graph.show_variables_in_one_gate(circuit_constructor);
+    [[maybe_unused]] auto variables_in_one_gate = graph.show_variables_in_one_gate(circuit_constructor);
     EXPECT_EQ(connected_components.size(), 256);
 }
 

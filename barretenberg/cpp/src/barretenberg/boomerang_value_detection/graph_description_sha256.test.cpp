@@ -21,20 +21,28 @@ using byte_array_pt = byte_array<Builder>;
 using packed_byte_array_pt = packed_byte_array<Builder>;
 using field_pt = field_t<Builder>;
 
-void fix_vector(std::vector<field_pt>& vector) {
-    for (auto& elem: vector) {
+/**
+ static analyzer usually prints input and output variables as variables in one gate. In tests these variables
+ are not dangerous and usually we can filter them by adding gate for fixing witness. Then these variables will be
+ in 2 gates, and static analyzer won't print them. functions fix_vector and fix_byte_array do it
+ for vector of variables and packed_byte_array respectively
+*/
+
+void fix_vector(std::vector<field_pt>& vector)
+{
+    for (auto& elem : vector) {
         elem.fix_witness();
     }
 }
 
-void fix_byte_array(packed_byte_array_pt& input) {
+void fix_byte_array(packed_byte_array_pt& input)
+{
     std::vector<field_pt> limbs = input.get_limbs();
     fix_vector(limbs);
 }
 
-
 /**
- all these tests check graph description for sha256 circuits. All circuits have to consist from 1 connected component
+ all these tests check graph description for sha256 circuits. All circuits have to consist of 1 connected component
  */
 
 TEST(boomerang_stdlib_sha256, test_graph_for_sha256_55_bytes)
@@ -56,7 +64,7 @@ TEST(boomerang_stdlib_sha256, test_graph_for_sha256_55_bytes)
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
     EXPECT_EQ(variables_in_one_gate.size(), 0);
     if (variables_in_one_gate.size() > 0) {
-        for (const auto& elem: variables_in_one_gate) {
+        for (const auto& elem : variables_in_one_gate) {
             info("elem == ", elem);
         }
     }
@@ -81,13 +89,11 @@ HEAVY_TEST(boomerang_stdlib_sha256, test_graph_for_sha256_NIST_vector_five)
 
     fix_byte_array(input);
     packed_byte_array_pt output_bits = stdlib::sha256<bb::UltraCircuitBuilder>(input);
-    
+
     std::vector<field_pt> output = output_bits.to_unverified_byte_slices(4);
     fix_vector(output);
 
-    info("start creating the Graph");
     Graph graph = Graph(builder);
-    info("graph creating is ended");
     auto connected_components = graph.find_connected_components();
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
     EXPECT_EQ(variables_in_one_gate.size(), 0);

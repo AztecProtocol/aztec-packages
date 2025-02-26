@@ -5,7 +5,6 @@
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2_permutation.hpp"
 
-#include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 
@@ -29,6 +28,11 @@ using byte_array_ct = _curve::byte_array_ct;
 using fr_ct = typename _curve::ScalarField;
 using witness_ct = typename _curve::witness_ct;
 
+/**
+ static analyzer usually prints input and output variables as variables in one gate. In these tests output variables
+ are not dangerous we can filter them by checking that difference beetween their witness indexes and witness index
+ of result <= 3
+ */
 
 bool check_in_input_vector(const std::vector<field_t>& input_vector, const uint32_t& real_var_index)
 {
@@ -54,16 +58,18 @@ void test_poseidon2s_circuit(size_t num_inputs = 5)
         inputs.emplace_back(field_t(witness_t(&builder, element)));
     }
 
-    for (auto& elem: inputs) {
+    for (auto& elem : inputs) {
         elem.fix_witness();
     }
-    [[maybe_unused]]auto result = stdlib::poseidon2<Builder>::hash(builder, inputs);
+    [[maybe_unused]] auto result = stdlib::poseidon2<Builder>::hash(builder, inputs);
     auto graph = Graph(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
-    std::unordered_set<uint32_t> outputs{result.witness_index, result.witness_index + 1, result.witness_index + 2, result.witness_index + 3};
-    for (const auto& elem: variables_in_one_gate) {
+    std::unordered_set<uint32_t> outputs{
+        result.witness_index, result.witness_index + 1, result.witness_index + 2, result.witness_index + 3
+    };
+    for (const auto& elem : variables_in_one_gate) {
         EXPECT_EQ(outputs.contains(elem), true);
     }
 }
@@ -72,7 +78,7 @@ void test_poseidon2s_circuit(size_t num_inputs = 5)
  * @brief this test checks graph description for poseidon2 hash with byte array input
  * The result is one connected component, and all output variables must be in one gate
  */
-void test_poseidon2s_hash_byte_array(size_t num_inputs = 5) 
+void test_poseidon2s_hash_byte_array(size_t num_inputs = 5)
 {
     Builder builder;
 
@@ -88,8 +94,10 @@ void test_poseidon2s_hash_byte_array(size_t num_inputs = 5)
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
-    std::unordered_set<uint32_t> outputs{result.witness_index, result.witness_index + 1, result.witness_index + 2, result.witness_index + 3};
-    for (const auto& elem: variables_in_one_gate) {
+    std::unordered_set<uint32_t> outputs{
+        result.witness_index, result.witness_index + 1, result.witness_index + 2, result.witness_index + 3
+    };
+    for (const auto& elem : variables_in_one_gate) {
         EXPECT_EQ(outputs.contains(elem), true);
     }
 }
@@ -99,7 +107,7 @@ void test_poseidon2s_hash_byte_array(size_t num_inputs = 5)
  * The result is one connected component with repeated hashing of pairs,
  * all output variables from each hash operation must be in one gate
  */
-void test_poseidon2s_hash_repeated_pairs(size_t num_inputs = 5) 
+void test_poseidon2s_hash_repeated_pairs(size_t num_inputs = 5)
 {
     Builder builder;
 
@@ -109,13 +117,13 @@ void test_poseidon2s_hash_repeated_pairs(size_t num_inputs = 5)
     fr_ct left = witness_ct(&builder, left_in);
     fr_ct right = witness_ct(&builder, right_in);
     right.fix_witness();
-    std::unordered_set<uint32_t> outputs{left.witness_index};
+    std::unordered_set<uint32_t> outputs{ left.witness_index };
     // num_inputs - 1 iterations since the first hash hashes two elements
     for (size_t i = 0; i < num_inputs - 1; ++i) {
         left = stdlib::poseidon2<Builder>::hash(builder, { left, right });
         outputs.insert(left.witness_index + 1);
         outputs.insert(left.witness_index + 2);
-        outputs.insert(left.witness_index + 3); 
+        outputs.insert(left.witness_index + 3);
     }
     left.fix_witness();
 
@@ -123,7 +131,7 @@ void test_poseidon2s_hash_repeated_pairs(size_t num_inputs = 5)
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
-    for (const auto& elem: variables_in_one_gate) {
+    for (const auto& elem : variables_in_one_gate) {
         EXPECT_EQ(outputs.contains(elem), true);
     }
 }
@@ -145,7 +153,7 @@ TEST(boomerang_poseidon2s, test_graph_for_poseidon2s_one_permutation)
 
     auto poseidon2permutation = Permutation();
     [[maybe_unused]] auto new_state = poseidon2permutation.permutation(&builder, inputs);
-    for (auto& elem: new_state) {
+    for (auto& elem : new_state) {
         elem.fix_witness();
     }
 
@@ -178,10 +186,10 @@ TEST(boomerang_poseidon2s, test_graph_for_poseidon2s_two_permutations)
     auto poseidon2permutation = Permutation();
     [[maybe_unused]] auto state1 = poseidon2permutation.permutation(&builder, input1);
     [[maybe_unused]] auto state2 = poseidon2permutation.permutation(&builder, input2);
-    for (auto& elem: state1) {
+    for (auto& elem : state1) {
         elem.fix_witness();
     }
-    for (auto& elem: state2) {
+    for (auto& elem : state2) {
         elem.fix_witness();
     }
     auto graph = Graph(builder);
@@ -203,8 +211,9 @@ TEST(boomerang_poseidon2s, test_graph_for_poseidon2s_for_one_input_size)
     test_poseidon2s_circuit();
 }
 
-TEST(boomerang_poseidon2s, test_graph_for_poseidon2s_hash_byte_array) {
-    for (size_t num_inputs = 6; num_inputs < 100; num_inputs++) {    
+TEST(boomerang_poseidon2s, test_graph_for_poseidon2s_hash_byte_array)
+{
+    for (size_t num_inputs = 6; num_inputs < 100; num_inputs++) {
         test_poseidon2s_hash_byte_array(num_inputs);
     }
 }

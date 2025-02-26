@@ -18,6 +18,12 @@ using Builder = UltraCircuitBuilder;
 using field_pt = stdlib::field_t<UltraCircuitBuilder>;
 using witness_pt = stdlib::witness_t<bb::UltraCircuitBuilder>;
 
+/**
+ static analyzer usually prints input and output variables as variables in one gate. In tests these variables
+ are not dangerous and usually we can filter them by adding gate for fixing witness. Then these variables will be
+ in 2 gates, and static analyzer won't print them. functions fix_vector_witness doest it for vector in_field
+ */
+
 void fix_vector_witness(std::vector<field_pt>& input_vector)
 {
     for (auto& elem : input_vector) {
