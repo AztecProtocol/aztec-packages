@@ -9,6 +9,7 @@ import type { WitnessMap } from '@noir-lang/types';
 import { type ACIRCallback, type ACIRExecutionResult, acvm } from '../acvm/acvm.js';
 import type { ACVMWitness } from '../acvm/acvm_types.js';
 import { type SimulationProvider, parseErrorPayload } from '../common/simulation_provider.js';
+import { createRecordingCallback } from './circuit_inputs_recording.js';
 
 export class WASMSimulator implements SimulationProvider {
   constructor(protected log = createLogger('wasm-simulator')) {}
@@ -62,6 +63,7 @@ export class WASMSimulator implements SimulationProvider {
     callback: ACIRCallback,
   ): Promise<ACIRExecutionResult> {
     await this.init();
-    return acvm(acir, initialWitness, callback);
+    const wrappedCallback = createRecordingCallback(callback);
+    return acvm(acir, initialWitness, wrappedCallback);
   }
 }
