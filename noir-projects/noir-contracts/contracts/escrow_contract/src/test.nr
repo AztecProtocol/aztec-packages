@@ -12,14 +12,14 @@ use aztec::{
 pub unconstrained fn get_public_balance(
     token_contract_address: AztecAddress,
     address: AztecAddress,
-) -> U128 {
+) -> u128 {
     let current_contract_address = get_contract_address();
     cheatcodes::set_contract_address(token_contract_address);
     let block_number = get_block_number();
 
     let balances_slot = Token::storage_layout().public_balances.slot;
     let address_slot = derive_storage_slot_in_map(balances_slot, address);
-    let amount: U128 = storage_read(token_contract_address, address_slot, block_number);
+    let amount: u128 = storage_read(token_contract_address, address_slot, block_number);
     cheatcodes::set_contract_address(current_contract_address);
     amount
 }
@@ -27,7 +27,7 @@ pub unconstrained fn get_public_balance(
 pub unconstrained fn get_private_balance(
     token_contract_address: AztecAddress,
     address: AztecAddress,
-) -> U128 {
+) -> u128 {
     let current_contract_address = get_contract_address();
     cheatcodes::set_contract_address(token_contract_address);
     // Direct call to unconstrained
@@ -36,7 +36,7 @@ pub unconstrained fn get_private_balance(
     amt
 }
 
-global MINT_AMOUNT: U128 = U128::from_integer(200000);
+global MINT_AMOUNT: u128 = 200000;
 
 unconstrained fn deploy_contracts(
     env: &mut TestEnvironment,
@@ -88,7 +88,7 @@ unconstrained fn main() {
     let (token_contract_address, escrow_contract_address) = deploy_contracts(&mut env, account_1);
 
     // We transfer tokens to the escrow contract
-    let TRANSFER_AMOUNT = U128::from_integer(20000);
+    let TRANSFER_AMOUNT = 20000 as u128;
     Token::at(token_contract_address).transfer(escrow_contract_address, TRANSFER_AMOUNT).call(
         &mut env.private(),
     );
@@ -102,9 +102,9 @@ unconstrained fn main() {
     // We then withdraw some escrowed funds to account_2
     let balance_of_account_2_before_withdrawal =
         get_private_balance(token_contract_address, account_2);
-    assert(balance_of_account_2_before_withdrawal == U128::zero());
+    assert(balance_of_account_2_before_withdrawal == 0 as u128);
 
-    let WITHDRAWAL_AMOUNT = U128::from_integer(69);
+    let WITHDRAWAL_AMOUNT = 69 as u128;
     Escrow::at(escrow_contract_address)
         .withdraw(token_contract_address, WITHDRAWAL_AMOUNT, account_2)
         .call(&mut env.private());

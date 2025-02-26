@@ -377,7 +377,7 @@ pub contract Test {
     #[public]
     fn consume_mint_to_public_message(
         to: AztecAddress,
-        amount: U128,
+        amount: u128,
         secret: Field,
         message_leaf_index: Field,
         portal_address: EthAddress,
@@ -389,7 +389,7 @@ pub contract Test {
 
     #[private]
     fn consume_mint_to_private_message(
-        amount: U128,
+        amount: u128,
         secret_for_L1_to_L2_message_consumption: Field,
         portal_address: EthAddress,
         message_leaf_index: Field,
