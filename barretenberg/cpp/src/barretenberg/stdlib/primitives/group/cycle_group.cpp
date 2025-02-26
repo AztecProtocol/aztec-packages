@@ -146,8 +146,13 @@ cycle_group<Builder> cycle_group<Builder>::from_constant_witness(Builder* _conte
     cycle_group result(_context);
     result.x = field_t(witness_t(_context, _in.x));
     result.y = field_t(witness_t(_context, _in.y));
-    result.x.assert_equal(_in.x);
-    result.y.assert_equal(_in.y);
+    // Point at infinity's coordinates break our arithmetic
+    // Since we are not using these coordinates anyway, we can
+    // omit putting constants
+    if (!_in.is_point_at_infinity()) {
+        result.x.assert_equal(_in.x);
+        result.y.assert_equal(_in.y);
+    }
     // point at infinity is circuit constant
     result._is_infinity = _in.is_point_at_infinity();
     result._is_constant = false;
@@ -468,7 +473,11 @@ cycle_group<Builder> cycle_group<Builder>::checked_unconditional_add(const cycle
                                                                      const std::optional<AffineElement> hint) const
 {
     field_t x_delta = x - other.x;
-    x_delta.assert_is_not_zero("cycle_group::checked_unconditional_add, x-coordinate collision");
+    if (!x_delta.is_constant()) {
+        x_delta.assert_is_not_zero("cycle_group::checked_unconditional_add, x-coordinate collision");
+    } else {
+        ASSERT(x_delta.get_value() != 0);
+    }
     return unconditional_add(other, hint);
 }
 
@@ -490,7 +499,11 @@ cycle_group<Builder> cycle_group<Builder>::checked_unconditional_subtract(const 
                                                                           const std::optional<AffineElement> hint) const
 {
     field_t x_delta = x - other.x;
-    x_delta.assert_is_not_zero("cycle_group::checked_unconditional_subtract, x-coordinate collision");
+    if (!x_delta.is_constant()) {
+        x_delta.assert_is_not_zero("cycle_group::checked_unconditional_subtract, x-coordinate collision");
+    } else {
+        ASSERT(x_delta.get_value() != 0);
+    }
     return unconditional_subtract(other, hint);
 }
 
