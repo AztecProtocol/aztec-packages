@@ -548,7 +548,7 @@ impl<'context> Elaborator<'context> {
 
         // Check that the body can return without calling the function.
         if let FunctionKind::Normal = kind {
-            self.run_lint(func_meta.name.location.file, |elaborator| {
+            self.run_lint(|elaborator| {
                 lints::unbounded_recursion(
                     elaborator.interner,
                     id,
@@ -644,7 +644,7 @@ impl<'context> Elaborator<'context> {
             let (type_var, name) = match self.resolve_generic(generic) {
                 Ok(values) => values,
                 Err(error) => {
-                    self.push_err(error, generic.location().file);
+                    self.push_err(error);
                     is_error = true;
                     let id = self.interner.next_type_variable_id();
                     let kind = self.resolve_generic_kind(generic);
@@ -724,7 +724,7 @@ impl<'context> Elaborator<'context> {
                         ident: ident.clone(),
                         typ: unresolved_typ.typ.clone(),
                     });
-                self.push_err(unsupported_typ_err, generic.location().file);
+                self.push_err(unsupported_typ_err);
             }
             Kind::numeric(typ)
         } else {
@@ -741,16 +741,13 @@ impl<'context> Elaborator<'context> {
         self.errors.extend(errors);
     }
 
-    pub(crate) fn push_errors(
-        &mut self,
-        errors: impl IntoIterator<Item = (CompilationError, FileId)>,
-    ) {
+    pub(crate) fn push_errors(&mut self, errors: impl IntoIterator<Item = CompilationError>) {
         self.errors.extend(errors);
     }
 
-    fn run_lint(&mut self, file: FileId, lint: impl Fn(&Elaborator) -> Option<CompilationError>) {
+    fn run_lint(&mut self, lint: impl Fn(&Elaborator) -> Option<CompilationError>) {
         if let Some(error) = lint(self) {
-            self.push_err(error, file);
+            self.push_err(error);
         }
     }
 
@@ -768,18 +765,17 @@ impl<'context> Elaborator<'context> {
     }
 
     fn resolve_trait_by_path(&mut self, path: Path) -> Option<TraitId> {
-        let file = path.location.file;
         let error = match self.resolve_path(path.clone()) {
             Ok(PathResolution { item: PathResolutionItem::Trait(trait_id), errors }) => {
                 for error in errors {
-                    self.push_err(error, file);
+                    self.push_err(error);
                 }
                 return Some(trait_id);
             }
             Ok(_) => DefCollectorErrorKind::NotATrait { not_a_trait_name: path },
             Err(_) => DefCollectorErrorKind::TraitNotFound { trait_path: path },
         };
-        self.push_err(error, file);
+        self.push_err(error);
         None
     }
 
@@ -1115,17 +1111,14 @@ impl<'context> Elaborator<'context> {
     }
 
     fn run_function_lints(&mut self, func: &FuncMeta, modifiers: &FunctionModifiers) {
-        let file = func.location.file;
-        self.run_lint(file, |_| lints::inlining_attributes(func, modifiers).map(Into::into));
-        self.run_lint(file, |_| lints::missing_pub(func, modifiers).map(Into::into));
-        self.run_lint(file, |_| {
+        self.run_lint(|_| lints::inlining_attributes(func, modifiers).map(Into::into));
+        self.run_lint(|_| lints::missing_pub(func, modifiers).map(Into::into));
+        self.run_lint(|_| {
             let pub_allowed = func.is_entry_point || modifiers.attributes.is_foldable();
             lints::unnecessary_pub_return(func, modifiers, pub_allowed).map(Into::into)
         });
-        self.run_lint(file, |_| {
-            lints::oracle_not_marked_unconstrained(func, modifiers).map(Into::into)
-        });
-        self.run_lint(file, |elaborator| {
+        self.run_lint(|_| lints::oracle_not_marked_unconstrained(func, modifiers).map(Into::into));
+        self.run_lint(|elaborator| {
             lints::low_level_function_outside_stdlib(func, modifiers, elaborator.crate_id)
                 .map(Into::into)
         });
@@ -1225,7 +1218,6 @@ impl<'context> Elaborator<'context> {
         trait_bound: &ResolvedTraitBound,
         starting_trait_id: TraitId,
     ) {
-        let span = location.span;
         let trait_id = trait_bound.trait_id;
         let generics = trait_bound.trait_generics.clone();
 
@@ -1280,9 +1272,8 @@ impl<'context> Elaborator<'context> {
         self.check_parent_traits_are_implemented(&trait_impl);
         self.remove_trait_impl_assumed_trait_implementations(trait_impl.impl_id);
 
-        for (module, function, noir_function) in &trait_impl.methods.functions {
+        for (module, function, _) in &trait_impl.methods.functions {
             self.local_module = *module;
-            let file = noir_function.location().file;
             let errors = check_trait_impl_method_matches_declaration(self.interner, *function);
             self.push_errors(errors.into_iter().map(|error| error.into()));
         }
@@ -1570,7 +1561,6 @@ impl<'context> Elaborator<'context> {
         functions: &mut UnresolvedFunctions,
         location: Location,
     ) {
-        let span = location.span;
         let self_type = functions.self_type.as_ref();
         let self_type =
             self_type.expect("Expected struct type to be set before declare_methods_on_struct");
@@ -1648,7 +1638,7 @@ impl<'context> Elaborator<'context> {
                     first_location,
                     second_location,
                 };
-                self.push_err(error, second_location.file);
+                self.push_err(error);
             }
         }
     }

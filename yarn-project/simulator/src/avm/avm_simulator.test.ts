@@ -366,10 +366,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const calldata: Fr[] = [
         // First U128
         new Fr(1),
-        new Fr(2),
         // Second U128
-        new Fr(3),
-        new Fr(4),
+        new Fr(2),
       ];
       const context = initContext({ env: initExecutionEnvironment({ calldata }) });
 
@@ -377,7 +375,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
       expect(results.reverted).toBe(false);
-      expect(results.output).toEqual([new Fr(4), new Fr(6)]);
+      expect(results.output).toEqual([new Fr(3)]);
     });
 
     it('Expect failure on U128::add() overflow', async () => {
@@ -388,16 +386,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       expect(
         resolveAvmTestContractAssertionMessage('u128_addition_overflow', results.revertReason!, results.output),
       ).toMatch('attempt to add with overflow');
-    });
-
-    it('Expect failure on U128::from_integer() overflow', async () => {
-      const bytecode = getAvmTestContractBytecode('u128_from_integer_overflow');
-      const results = await new AvmSimulator(initContext()).executeBytecode(bytecode);
-      expect(results.reverted).toBe(true);
-      expect(results.revertReason).toBeDefined();
-      expect(
-        resolveAvmTestContractAssertionMessage('u128_from_integer_overflow', results.revertReason!, results.output),
-      ).toMatch('call to assert_max_bit_size');
     });
   });
 

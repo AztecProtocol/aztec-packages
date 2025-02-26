@@ -152,7 +152,7 @@ impl<'context> Elaborator<'context> {
     ) {
         if let SecondaryAttribute::Meta(attribute) = attribute {
             self.elaborate_in_comptime_context(|this| {
-                if let Err((error, file)) = this.collect_comptime_attribute_name_on_item(
+                if let Err(error) = this.collect_comptime_attribute_name_on_item(
                     attribute,
                     item.clone(),
                     attribute_context,
@@ -545,7 +545,7 @@ impl<'context> Elaborator<'context> {
         for (attribute, item, args, context, location) in attributes_to_run {
             let mut generated_items = CollectedItems::default();
             self.elaborate_in_comptime_context(|this| {
-                if let Err((error, file)) = this.run_attribute(
+                if let Err(error) = this.run_attribute(
                     context,
                     attribute,
                     args,

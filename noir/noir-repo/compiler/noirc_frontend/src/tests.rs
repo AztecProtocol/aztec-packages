@@ -3896,3 +3896,192 @@ fn subtract_to_int_min() {
     let errors = get_program_errors(src);
     assert_eq!(errors.len(), 0);
 }
+
+#[test]
+fn errors_on_unspecified_unstable_enum() {
+    // Enums are experimental - this will need to be updated when they are stabilized
+    let src = r#"
+    enum Foo { Bar }
+
+    fn main() {
+        let _x = Foo::Bar;
+    }
+    "#;
+
+    let no_features = &[];
+    let errors = get_program_using_features(src, no_features).2;
+    assert_eq!(errors.len(), 1);
+
+    let CompilationError::ParseError(error) = &errors[0] else {
+        panic!("Expected a ParseError experimental feature error");
+    };
+
+    assert!(matches!(error.reason(), Some(ParserErrorReason::ExperimentalFeature(_))));
+}
+
+#[test]
+fn errors_on_unspecified_unstable_match() {
+    // Enums are experimental - this will need to be updated when they are stabilized
+    let src = r#"
+    fn main() {
+        match 3 {
+            _ => (),
+        }
+    }
+    "#;
+
+    let no_features = &[];
+    let errors = get_program_using_features(src, no_features).2;
+    assert_eq!(errors.len(), 1);
+
+    let CompilationError::ParseError(error) = &errors[0] else {
+        panic!("Expected a ParseError experimental feature error");
+    };
+
+    assert!(matches!(error.reason(), Some(ParserErrorReason::ExperimentalFeature(_))));
+}
+
+#[test]
+fn errors_on_repeated_match_variables_in_pattern() {
+    let src = r#"
+    fn main() {
+        match (1, 2) {
+            (_x, _x) => (),
+        }
+    }
+    "#;
+
+    let errors = get_program_errors(src);
+    assert_eq!(errors.len(), 1);
+
+    assert!(matches!(
+        &errors[0],
+        CompilationError::ResolverError(ResolverError::VariableAlreadyDefinedInPattern { .. })
+    ));
+}
+
+#[test]
+fn check_impl_duplicate_method_without_self() {
+    let src = "
+    pub struct Foo {}
+
+    impl Foo {
+        fn foo() {}
+        fn foo() {}
+    }
+
+    fn main() {}
+    ";
+    let errors = get_program_errors(src);
+    assert_eq!(errors.len(), 1);
+
+    assert!(matches!(
+        errors[0],
+        CompilationError::ResolverError(ResolverError::DuplicateDefinition { .. })
+    ));
+}
+
+#[test]
+fn duplicate_field_in_match_struct_pattern() {
+    let src = r#"
+fn main() {
+    let foo = Foo { x: 10, y: 20 };
+    match foo {
+        Foo { x: _, x: _, y: _ } => {}
+    }
+}
+
+struct Foo {
+    x: i32,
+    y: Field,
+}
+    "#;
+
+    let errors = get_program_errors(src);
+    assert_eq!(errors.len(), 1);
+
+    assert!(matches!(
+        &errors[0],
+        CompilationError::ResolverError(ResolverError::DuplicateField { .. })
+    ));
+}
+
+#[test]
+fn missing_field_in_match_struct_pattern() {
+    let src = r#"
+fn main() {
+    let foo = Foo { x: 10, y: 20 };
+    match foo {
+        Foo { x: _ } => {}
+    }
+}
+
+struct Foo {
+    x: i32,
+    y: Field,
+}
+    "#;
+
+    let errors = get_program_errors(src);
+    assert_eq!(errors.len(), 1);
+
+    assert!(matches!(
+        &errors[0],
+        CompilationError::ResolverError(ResolverError::MissingFields { .. })
+    ));
+}
+
+#[test]
+fn no_such_field_in_match_struct_pattern() {
+    let src = r#"
+fn main() {
+    let foo = Foo { x: 10, y: 20 };
+    match foo {
+        Foo { x: _, y: _, z: _ } => {}
+    }
+}
+
+struct Foo {
+    x: i32,
+    y: Field,
+}
+    "#;
+
+    let errors = get_program_errors(src);
+    assert_eq!(errors.len(), 1);
+
+    assert!(matches!(
+        &errors[0],
+        CompilationError::ResolverError(ResolverError::NoSuchField { .. })
+    ));
+}
+
+#[test]
+fn int_min_global() {
+    let src = r#"
+        global MIN: i8 = -128;
+        fn main() {
+            let _x = MIN;
+        }
+    "#;
+
+    let errors = get_program_errors(src);
+    assert_eq!(errors.len(), 0);
+}
+
+#[test]
+fn subtract_to_int_min() {
+    // This would cause an integer underflow panic before
+    let src = r#"
+        fn main() {
+            let _x: i8 = comptime {
+                let y: i8 = -127;
+                let z = y - 1;
+                z
+            };
+        }
+    "#;
+
+    let errors = get_program_errors(src);
+    assert_eq!(errors.len(), 0);
+}

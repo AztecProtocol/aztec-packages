@@ -1,5 +1,5 @@
-import { getInitialTestAccounts } from "@aztec/accounts/testing";
-import { getSchnorrAccount } from "@aztec/accounts/schnorr";
+import { getInitialTestAccounts } from "@aztec/accounts/testing/lazy";
+import { getSchnorrAccount } from "@aztec/accounts/schnorr/lazy";
 import {
   AccountWalletWithSecretKey,
   createAztecNodeClient,
@@ -14,6 +14,7 @@ import { KVPxeDatabase } from "@aztec/pxe/database";
 import { PXEService } from "@aztec/pxe/service";
 import { WASMSimulator } from "@aztec/simulator/client";
 import { BoxReactContractArtifact } from "../artifacts/BoxReact";
+import { LazyProtocolContractsProvider } from "@aztec/protocol-contracts/providers/lazy";
 
 export class PrivateEnv {
   pxe: PXEService;
@@ -30,7 +31,7 @@ export class PrivateEnv {
     const simulationProvider = new WASMSimulator();
     const proofCreator = new BBWASMLazyPrivateKernelProver(
       simulationProvider,
-      16,
+      16
     );
     const l1Contracts = await aztecNode.getL1ContractAddresses();
     const configWithContracts = {
@@ -41,13 +42,15 @@ export class PrivateEnv {
     const store = await createStore(
       "pxe_data",
       configWithContracts,
-      createLogger("pxe:data:idb"),
+      createLogger("pxe:data:idb")
     );
 
     const keyStore = new KeyStore(store);
 
     const db = await KVPxeDatabase.create(store);
     const tips = new L2TipsStore(store, "pxe");
+
+    const protocolContractsProvider = new LazyProtocolContractsProvider();
 
     this.pxe = new PXEService(
       keyStore,
@@ -56,7 +59,8 @@ export class PrivateEnv {
       tips,
       proofCreator,
       simulationProvider,
-      config,
+      protocolContractsProvider,
+      config
     );
     await this.pxe.init();
     const [accountData] = await getInitialTestAccounts();
@@ -64,7 +68,7 @@ export class PrivateEnv {
       this.pxe,
       accountData.secret,
       accountData.signingKey,
-      accountData.salt,
+      accountData.salt
     );
     await account.register();
     this.wallet = await account.getWallet();
@@ -79,5 +83,5 @@ export const deployerEnv = new PrivateEnv();
 
 const IGNORE_FUNCTIONS = ["constructor", "process_log", "sync_notes"];
 export const filteredInterface = BoxReactContractArtifact.functions.filter(
-  (f) => !IGNORE_FUNCTIONS.includes(f.name),
+  (f) => !IGNORE_FUNCTIONS.includes(f.name)
 );

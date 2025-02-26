@@ -3,8 +3,8 @@ use dep::aztec::{
     macros::notes::custom_note,
     note::note_interface::NoteHash,
     protocol_types::{
-        address::AztecAddress, constants::GENERATOR_INDEX__NOTE_HASH,
-        hash::poseidon2_hash_with_separator, traits::Packable, utils::arrays::array_concat,
+        constants::GENERATOR_INDEX__NOTE_HASH, hash::poseidon2_hash_with_separator,
+        traits::Packable, utils::arrays::array_concat,
     },
 };
 
@@ -27,17 +27,17 @@ impl NoteHash for TestNote {
         _context: &mut PrivateContext,
         _note_hash_for_nullify: Field,
     ) -> Field {
-        // This note is never nullified so we don't care about having a real implementation here.
+        // This note's nullifier is never used for any meaningful purpose so we don't care about having a real
+        // implementation here.
         0
     }
 
-    unconstrained fn compute_nullifier_without_context(
+    unconstrained fn compute_nullifier_unconstrained(
         _self: Self,
-        _storage_slot: Field,
-        _contract_address: AztecAddress,
-        _note_nonce: Field,
+        _note_hash_for_nullify: Field,
     ) -> Field {
-        // This note is never nullified so we don't care about having a real implementation here.
+        // This note's nullifier is never used for any meaningful purpose so we don't care about having a real
+        // implementation here.
         0
     }
 }

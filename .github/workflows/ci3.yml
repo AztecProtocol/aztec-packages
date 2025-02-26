@@ -27,10 +27,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Only run arm64 build with arm64-ci label.
+        # Only run arm64 build with arm64-ci label or on master.
         # The way to do conditions here is to parse full strings as JSON.
-        settings:  >-
-          ${{ fromJson(contains(github.event.pull_request.labels.*.name, 'arm64-ci') &&
+        settings: >-
+          ${{ fromJson(
+            (contains(github.event.pull_request.labels.*.name, 'arm64-ci') || github.ref_name == 'master') &&
             '[{"arch":"amd64"},{"arch":"arm64"}]' ||
             '[{"arch":"amd64"}]') }}
     steps:
@@ -75,6 +76,7 @@ jobs:
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
           ./ci.sh ec2
 
@@ -169,6 +171,7 @@ jobs:
           INSTANCE_POSTFIX: ${{ matrix.number }}
           DRY_RUN: 1
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
           ./ci.sh ec2-test
 
@@ -197,7 +200,8 @@ jobs:
         run: |
           authors=$(git log -1 --pretty=format:'%an <%ae>')
           echo "authors=${authors}" >> $GITHUB_OUTPUT
-          title=$(git log -1 --pretty=format:'%s')
+          # Note, we have to make sure double quotes don't break our JSON.
+          title=$(git log -1 --pretty=format:'%s' | sed s/\"/\'/g)
           echo "commit_title=${title}" >> $GITHUB_OUTPUT
           failed_jobs=""
           [ "${{ needs.ci-grind.result }}" = "failure" ] && failed_jobs+="ci-grind"

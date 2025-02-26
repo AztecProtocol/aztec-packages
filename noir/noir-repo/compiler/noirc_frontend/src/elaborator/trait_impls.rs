@@ -91,14 +91,11 @@ impl Elaborator<'_> {
                 }
 
                 if overrides.len() > 1 {
-                    self.push_err(
-                        DefCollectorErrorKind::Duplicate {
-                            typ: DuplicateType::TraitAssociatedFunction,
-                            first_def: overrides[0].2.name_ident().clone(),
-                            second_def: overrides[1].2.name_ident().clone(),
-                        },
-                        overrides[1].2.name_ident().location().file,
-                    );
+                    self.push_err(DefCollectorErrorKind::Duplicate {
+                        typ: DuplicateType::TraitAssociatedFunction,
+                        first_def: overrides[0].2.name_ident().clone(),
+                        second_def: overrides[1].2.name_ident().clone(),
+                    });
                 }
 
                 ordered_methods.push(overrides[0].clone());

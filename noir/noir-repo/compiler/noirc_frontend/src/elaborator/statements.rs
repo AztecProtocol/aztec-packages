@@ -121,7 +121,7 @@ impl Elaborator<'_> {
         if annotated_type.is_integer() {
             let errors = lints::overflowing_int(self.interner, &expression, &annotated_type);
             for error in errors {
-                self.push_err(error, expr_location.file);
+                self.push_err(error);
             }
         }
 
@@ -242,7 +242,6 @@ impl Elaborator<'_> {
         block: Expression,
         location: Location,
     ) -> (HirStatement, Type) {
-        let span = location.span;
         let in_constrained_function = self.in_constrained_function();
         if in_constrained_function {
             self.push_err(ResolverError::LoopInConstrainedFn { location });
@@ -289,7 +288,7 @@ impl Elaborator<'_> {
         let location = while_.condition.type_location();
         let (condition, cond_type) = self.elaborate_expression(while_.condition);
 
-        self.unify(&cond_type, &Type::Bool, location.file, || TypeCheckError::TypeMismatch {
+        self.unify(&cond_type, &Type::Bool, || TypeCheckError::TypeMismatch {
             expected_typ: Type::Bool.to_string(),
             expr_typ: cond_type.to_string(),
             expr_location: location,
@@ -505,7 +504,6 @@ impl Elaborator<'_> {
         location: Location,
         dereference_lhs: Option<impl FnMut(&mut Self, Type, Type)>,
     ) -> Option<(Type, usize)> {
-        let span = location.span;
         let lhs_type = lhs_type.follow_bindings();
 
         match &lhs_type {

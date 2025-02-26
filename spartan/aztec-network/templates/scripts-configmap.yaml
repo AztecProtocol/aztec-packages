@@ -19,4 +19,5 @@ data:
     {{ .Files.Get "files/config/get-private-key.sh" | nindent 4 }}
   get-validator-addresses.sh: |
     {{ .Files.Get "files/config/get-validator-addresses.sh" | nindent 4 }}
-
+  consolidate-sepolia-balances.sh: |
+    {{ .Files.Get "files/cleanup/consolidate-sepolia-balances.sh" | nindent 4 }}

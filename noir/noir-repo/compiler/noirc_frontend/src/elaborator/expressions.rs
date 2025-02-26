@@ -184,7 +184,6 @@ impl Elaborator<'_> {
         target_type: Option<&Type>,
     ) -> (HirExpression, Type) {
         // Before entering the block we cache the old value of `in_unsafe_block` so it can be restored.
-        let span = location.span;
         let old_in_unsafe_block = self.unsafe_block_status;
         let is_nested_unsafe_block =
             !matches!(old_in_unsafe_block, UnsafeBlockStatus::NotInUnsafeBlock);
@@ -253,7 +252,7 @@ impl Elaborator<'_> {
                     let location = elem.location;
                     let (elem_id, elem_type) = self.elaborate_expression(elem);
 
-                    self.unify(&elem_type, &first_elem_type, file, || {
+                    self.unify(&elem_type, &first_elem_type, || {
                         TypeCheckError::NonHomogeneousArray {
                             first_location,
                             first_type: first_elem_type.to_string(),
@@ -390,7 +389,7 @@ impl Elaborator<'_> {
         let (index, index_type) = self.elaborate_expression(index_expr.index);
 
         let expected = self.polymorphic_integer_or_field();
-        self.unify(&index_type, &expected, file, || TypeCheckError::TypeMismatch {
+        self.unify(&index_type, &expected, || TypeCheckError::TypeMismatch {
             expected_typ: "an integer".to_owned(),
             expr_typ: index_type.to_string(),
             expr_location: location,
@@ -650,7 +649,7 @@ impl Elaborator<'_> {
         // Must type check the assertion message expression so that we instantiate bindings
         let msg = message.map(|assert_msg_expr| self.elaborate_expression(assert_msg_expr).0);
 
-        self.unify(&expr_type, &Type::Bool, expr_file, || TypeCheckError::TypeMismatch {
+        self.unify(&expr_type, &Type::Bool, || TypeCheckError::TypeMismatch {
             expr_typ: expr_type.to_string(),
             expected_typ: Type::Bool.to_string(),
             expr_location,
@@ -687,10 +686,9 @@ impl Elaborator<'_> {
             self.interner,
             self.def_maps,
         ) {
-            self.push_err(
-                ResolverError::PathResolutionError(PathResolutionError::Private(name.clone())),
-                name.location().file,
-            );
+            self.push_err(ResolverError::PathResolutionError(PathResolutionError::Private(
+                name.clone(),
+            )));
         }
     }
 
@@ -858,19 +856,13 @@ impl Elaborator<'_> {
                 );
             } else if seen_fields.contains(&field_name) {
                 // duplicate field
-                self.push_err(
-                    ResolverError::DuplicateField { field: field_name.clone() },
-                    field_name.location().file,
-                );
+                self.push_err(ResolverError::DuplicateField { field: field_name.clone() });
             } else {
                 // field not required by struct
-                self.push_err(
-                    ResolverError::NoSuchField {
-                        field: field_name.clone(),
-                        struct_definition: struct_type.borrow().name.clone(),
-                    },
-                    field_name.location().file,
-                );
+                self.push_err(ResolverError::NoSuchField {
+                    field: field_name.clone(),
+                    struct_definition: struct_type.borrow().name.clone(),
+                });
             }
 
             if let Some((index, visibility)) = expected_index_and_visibility {
@@ -999,7 +991,7 @@ impl Elaborator<'_> {
                 typ
             }
             Err(error) => {
-                self.push_err(error, location.file);
+                self.push_err(error);
                 Type::Error
             }
         }
@@ -1016,7 +1008,7 @@ impl Elaborator<'_> {
         let (consequence, mut ret_type) =
             self.elaborate_expression_with_target_type(if_expr.consequence, target_type);
 
-        self.unify(&cond_type, &Type::Bool, expr_location.file, || TypeCheckError::TypeMismatch {
+        self.unify(&cond_type, &Type::Bool, || TypeCheckError::TypeMismatch {
             expected_typ: Type::Bool.to_string(),
             expr_typ: cond_type.to_string(),
             expr_location,
@@ -1032,7 +1024,7 @@ impl Elaborator<'_> {
                 (None, Type::Unit, consequence_location)
             };
 
-        self.unify(&ret_type, &else_type, error_location.file, || {
+        self.unify(&ret_type, &else_type, || {
             let err = TypeCheckError::TypeMismatch {
                 expected_typ: ret_type.to_string(),
                 expr_typ: else_type.to_string(),
@@ -1169,7 +1161,7 @@ impl Elaborator<'_> {
         let lambda_context = self.lambda_stack.pop().unwrap();
         self.pop_scope();
 
-        self.unify(&body_type, &return_type, body_location.file, || TypeCheckError::TypeMismatch {
+        self.unify(&body_type, &return_type, || TypeCheckError::TypeMismatch {
             expected_typ: return_type.to_string(),
             expr_typ: body_type.to_string(),
             expr_location: body_location,
@@ -1297,7 +1289,7 @@ impl Elaborator<'_> {
         let function = match self.try_get_comptime_function(func, location) {
             Ok(function) => function?,
             Err(error) => {
-                self.push_err(error, location.file);
+                self.push_err(error);
                 return None;
             }
         };

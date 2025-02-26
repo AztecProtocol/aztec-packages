@@ -1011,7 +1011,6 @@ pub fn collect_function(
     // Add function to scope/ns of the module
     let result = def_map.modules[module.local_id.0].declare_function(name, visibility, func_id);
     if let Err((first_def, second_def)) = result {
-        let file = second_def.location().file;
         let error = DefCollectorErrorKind::Duplicate {
             typ: DuplicateType::Function,
             first_def,

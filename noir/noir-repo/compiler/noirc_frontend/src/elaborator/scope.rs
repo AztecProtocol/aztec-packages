@@ -153,7 +153,7 @@ impl Elaborator<'_> {
                 }
             }
             Err(err) => {
-                self.push_err(err, location.file);
+                self.push_err(err);
                 None
             }
         }
@@ -176,7 +176,7 @@ impl Elaborator<'_> {
                 }
             }
             Err(err) => {
-                self.push_err(err, location.file);
+                self.push_err(err);
                 None
             }
         }
@@ -213,7 +213,7 @@ impl Elaborator<'_> {
                 None
             }
             Err(error) => {
-                self.push_err(error, location.file);
+                self.push_err(error);
                 None
             }
         }

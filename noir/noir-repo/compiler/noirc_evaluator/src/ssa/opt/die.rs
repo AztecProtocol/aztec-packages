@@ -17,7 +17,7 @@ use crate::ssa::{
     ssa_gen::Ssa,
 };
 
-use super::rc::{RcInstruction, pop_rc_for};
+use super::rc::{pop_rc_for, RcInstruction};
 
 impl Ssa {
     /// Performs Dead Instruction Elimination (DIE) to remove any instructions with
@@ -41,7 +41,11 @@ impl Ssa {
             .par_iter_mut()
             .filter_map(|(id, func)| {
                 let set = func.dead_instruction_elimination(true, flattened, skip_brillig);
-                if func.runtime().is_brillig() { Some((*id, set)) } else { None }
+                if func.runtime().is_brillig() {
+                    Some((*id, set))
+                } else {
+                    None
+                }
             })
             .collect();
 
@@ -758,7 +762,6 @@ mod test {
     use noirc_frontend::monomorphization::ast::InlineType;
 
     use crate::ssa::{
-        Ssa,
         function_builder::FunctionBuilder,
         ir::{
             function::RuntimeType,
@@ -766,6 +769,7 @@ mod test {
             types::{NumericType, Type},
         },
         opt::assert_normalized_ssa_equals,
+        Ssa,
     };
 
     #[test]

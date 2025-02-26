@@ -67,7 +67,7 @@ pub contract AppSubscription {
         target_address: AztecAddress,
         subscription_recipient_address: AztecAddress,
         subscription_token_address: AztecAddress,
-        subscription_price: U128,
+        subscription_price: u128,
         fee_juice_limit_per_tx: Field,
     ) {
         storage.config.initialize(

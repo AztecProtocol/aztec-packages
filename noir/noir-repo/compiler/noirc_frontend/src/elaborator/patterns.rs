@@ -293,19 +293,13 @@ impl Elaborator<'_> {
                 );
             } else if seen_fields.contains(&field) {
                 // duplicate field
-                self.push_err(
-                    ResolverError::DuplicateField { field: field.clone() },
-                    field.location().file,
-                );
+                self.push_err(ResolverError::DuplicateField { field: field.clone() });
             } else {
                 // field not required by struct
-                self.push_err(
-                    ResolverError::NoSuchField {
-                        field: field.clone(),
-                        struct_definition: struct_type.borrow().name.clone(),
-                    },
-                    field.location().file,
-                );
+                self.push_err(ResolverError::NoSuchField {
+                    field: field.clone(),
+                    struct_definition: struct_type.borrow().name.clone(),
+                });
             }
 
             ret.push((field, resolved));
@@ -441,7 +435,7 @@ impl Elaborator<'_> {
                     actual_count: unresolved_turbofish.len(),
                     location,
                 };
-                self.push_err(type_check_err, location.file);
+                self.push_err(type_check_err);
             }
 
             self.resolve_turbofish_generics(direct_generic_kinds, unresolved_turbofish)
@@ -647,7 +641,7 @@ impl Elaborator<'_> {
     fn resolve_variable(&mut self, path: Path) -> (HirIdent, Option<PathResolutionItem>) {
         if let Some(trait_path_resolution) = self.resolve_trait_generic_path(&path) {
             for error in trait_path_resolution.errors {
-                self.push_err(error, path.location.file);
+                self.push_err(error);
             }
 
             (
@@ -851,7 +845,7 @@ impl Elaborator<'_> {
                 Err(error) => error,
             },
         };
-        self.push_err(error, location.file);
+        self.push_err(error);
         let id = DefinitionId::dummy_id();
         ((HirIdent::non_trait_method(id, location), 0), None)
     }

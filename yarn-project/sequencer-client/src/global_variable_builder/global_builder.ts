@@ -1,4 +1,5 @@
 import { type L1ContractsConfig, type L1ReaderConfig, createEthereumChain } from '@aztec/ethereum';
+import type { ViemPublicClient } from '@aztec/ethereum';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -8,16 +9,7 @@ import { GasFees } from '@aztec/stdlib/gas';
 import type { GlobalVariableBuilder as GlobalVariableBuilderInterface } from '@aztec/stdlib/tx';
 import { GlobalVariables } from '@aztec/stdlib/tx';
 
-import {
-  type GetContractReturnType,
-  type HttpTransport,
-  type PublicClient,
-  createPublicClient,
-  getAddress,
-  getContract,
-  http,
-} from 'viem';
-import type * as chains from 'viem/chains';
+import { type GetContractReturnType, createPublicClient, fallback, getAddress, getContract, http } from 'viem';
 
 /**
  * Simple global variables builder.
@@ -25,20 +17,20 @@ import type * as chains from 'viem/chains';
 export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
   private log = createLogger('sequencer:global_variable_builder');
 
-  private rollupContract: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, chains.Chain>>;
-  private publicClient: PublicClient<HttpTransport, chains.Chain>;
+  private rollupContract: GetContractReturnType<typeof RollupAbi, ViemPublicClient>;
+  private publicClient: ViemPublicClient;
   private ethereumSlotDuration: number;
 
   constructor(config: L1ReaderConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>) {
-    const { l1RpcUrl, l1ChainId: chainId, l1Contracts } = config;
+    const { l1RpcUrls, l1ChainId: chainId, l1Contracts } = config;
 
-    const chain = createEthereumChain(l1RpcUrl, chainId);
+    const chain = createEthereumChain(l1RpcUrls, chainId);
 
     this.ethereumSlotDuration = config.ethereumSlotDuration;
 
     this.publicClient = createPublicClient({
       chain: chain.chainInfo,
-      transport: http(chain.rpcUrl),
+      transport: fallback(chain.rpcUrls.map(url => http(url))),
       pollingInterval: config.viemPollingIntervalMS,
     });
 
@@ -80,7 +72,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     feeRecipient: AztecAddress,
     slotNumber?: bigint,
   ): Promise<GlobalVariables> {
-    const version = new Fr(await this.rollupContract.read.VERSION());
+    const version = new Fr(await this.rollupContract.read.getVersion());
     const chainId = new Fr(this.publicClient.chain.id);
 
     if (slotNumber === undefined) {

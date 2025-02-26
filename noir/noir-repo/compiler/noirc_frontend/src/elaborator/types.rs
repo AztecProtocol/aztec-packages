@@ -1,6 +1,5 @@
 use std::{borrow::Cow, rc::Rc};
 
-use fm::FileId;
 use im::HashSet;
 use iter_extended::vecmap;
 use noirc_errors::Location;
@@ -341,7 +340,6 @@ impl Elaborator<'_> {
         location: Location,
         allow_implicit_named_args: bool,
     ) -> (Vec<Type>, Vec<NamedType>) {
-        let span = location.span;
         let expected_kinds = item.generics(self.interner);
 
         if args.ordered_args.len() != expected_kinds.len() {
@@ -383,7 +381,6 @@ impl Elaborator<'_> {
         location: Location,
         allow_implicit_named_args: bool,
     ) -> Vec<NamedType> {
-        let span = location.span;
         let mut seen_args = HashMap::default();
         let mut required_args = item.named_generics(self.interner);
         let mut resolved = Vec::with_capacity(required_args.len());
@@ -399,7 +396,7 @@ impl Elaborator<'_> {
                     self.push_err(TypeCheckError::DuplicateNamedTypeArg { name, prev_location });
                 } else {
                     let item = item.item_name(self.interner);
-                    self.push_err(TypeCheckError::NoSuchNamedTypeArg { name, item }, file);
+                    self.push_err(TypeCheckError::NoSuchNamedTypeArg { name, item });
                 }
                 continue;
             };
@@ -461,8 +458,7 @@ impl Elaborator<'_> {
                         return self.lookup_generic_or_global_type(path);
                     } else {
                         let path = path.clone();
-                        let file = path.location.file;
-                        self.push_err(ResolverError::NoSuchNumericTypeVariable { path }, file);
+                        self.push_err(ResolverError::NoSuchNumericTypeVariable { path });
                         return None;
                     }
                 };
@@ -510,7 +506,6 @@ impl Elaborator<'_> {
         expected_kind: &Kind,
         location: Location,
     ) -> Type {
-        let span = location.span;
         match length {
             UnresolvedTypeExpression::Variable(path) => {
                 let typ = self.resolve_named_type(path, GenericTypeArgs::default());
@@ -607,9 +602,8 @@ impl Elaborator<'_> {
             Some(generic) => generic.typ.clone(),
             None => {
                 let name = path.impl_item.clone();
-                let file = name.location().file;
                 let item = format!("<{} as {}>", path.typ, path.trait_path);
-                self.push_err(TypeCheckError::NoSuchNamedTypeArg { name, item }, file);
+                self.push_err(TypeCheckError::NoSuchNamedTypeArg { name, item });
                 Type::Error
             }
         }
@@ -769,7 +763,6 @@ impl Elaborator<'_> {
         &mut self,
         actual: &Type,
         expected: &Type,
-        file: FileId,
         make_error: impl FnOnce() -> TypeCheckError,
     ) {
         if let Err(UnificationError) = actual.unify(expected) {
@@ -971,8 +964,6 @@ impl Elaborator<'_> {
         to: &Type,
         location: Location,
     ) -> Type {
-        let span = location.span;
-        let file = location.file;
         let from_follow_bindings = from.follow_bindings();
 
         use HirExpression::Literal;
@@ -992,7 +983,7 @@ impl Elaborator<'_> {
                 // NOTE: in reality the expected type can also include bool, but for the compiler's simplicity
                 // we only allow integer types. If a bool is in `from` it will need an explicit type annotation.
                 let expected = self.polymorphic_integer_or_field();
-                self.unify(from, &expected, location.file, || TypeCheckError::InvalidCast {
+                self.unify(from, &expected, || TypeCheckError::InvalidCast {
                     from: from.clone(),
                     location,
                     reason: "casting from a non-integral type is unsupported".into(),
@@ -1049,9 +1040,6 @@ impl Elaborator<'_> {
         location: Location,
     ) -> Result<(Type, bool), TypeCheckError> {
         use Type::*;
-
-        let span = location.span;
-
         match (lhs_type, rhs_type) {
             // Avoid reporting errors multiple times
             (Error, _) | (_, Error) => Ok((Bool, false)),
@@ -1099,7 +1087,7 @@ impl Elaborator<'_> {
             (Bool, Bool) => Ok((Bool, false)),
 
             (lhs, rhs) => {
-                self.unify(lhs, rhs, op.location.file, || TypeCheckError::TypeMismatchWithSource {
+                self.unify(lhs, rhs, || TypeCheckError::TypeMismatchWithSource {
                     expected: lhs.clone(),
                     actual: rhs.clone(),
                     location: op.location,
@@ -1120,9 +1108,7 @@ impl Elaborator<'_> {
         rhs_type: &Type,
         location: Location,
     ) -> bool {
-        let span = location.span;
-
-        self.unify(lhs_type, rhs_type, location.file, || TypeCheckError::TypeMismatchWithSource {
+        self.unify(lhs_type, rhs_type, || TypeCheckError::TypeMismatchWithSource {
             expected: lhs_type.clone(),
             actual: rhs_type.clone(),
             source: Source::Binary,
@@ -1162,8 +1148,6 @@ impl Elaborator<'_> {
         rhs_type: &Type,
         location: Location,
     ) -> Result<(Type, bool), TypeCheckError> {
-        let span = location.span;
-
         if op.kind.is_comparator() {
             return self.comparator_operand_type_rules(lhs_type, rhs_type, op, location);
         }
@@ -1244,7 +1228,7 @@ impl Elaborator<'_> {
                     }
                     return Err(TypeCheckError::InvalidShiftSize { location });
                 }
-                self.unify(lhs, rhs, op.location.file, || TypeCheckError::TypeMismatchWithSource {
+                self.unify(lhs, rhs, || TypeCheckError::TypeMismatchWithSource {
                     expected: lhs.clone(),
                     actual: rhs.clone(),
                     location: op.location,
@@ -1266,9 +1250,6 @@ impl Elaborator<'_> {
         location: Location,
     ) -> Result<(Type, bool), TypeCheckError> {
         use Type::*;
-
-        let span = location.span;
-
         match op {
             crate::ast::UnaryOp::Minus | crate::ast::UnaryOp::Not => {
                 match rhs_type {
@@ -1328,7 +1309,7 @@ impl Elaborator<'_> {
             crate::ast::UnaryOp::Dereference { implicitly_added: _ } => {
                 let element_type = self.interner.next_type_variable();
                 let expected = Type::MutableReference(Box::new(element_type.clone()));
-                self.unify(rhs_type, &expected, location.file, || TypeCheckError::TypeMismatch {
+                self.unify(rhs_type, &expected, || TypeCheckError::TypeMismatch {
                     expr_typ: rhs_type.to_string(),
                     expected_typ: expected.to_string(),
                     expr_location: location,
@@ -1351,7 +1332,6 @@ impl Elaborator<'_> {
         object_type: &Type,
         location: Location,
     ) {
-        let span = location.span;
         let the_trait = self.interner.get_trait(trait_method_id.trait_id);
 
         let method = &the_trait.methods[trait_method_id.method_index];
@@ -1442,8 +1422,6 @@ impl Elaborator<'_> {
         location: Location,
         check_self_param: bool,
     ) -> Option<HirMethodReference> {
-        let span = location.span;
-        let file = location.file;
         match object_type.follow_bindings() {
             // TODO: We should allow method calls on `impl Trait`s eventually.
             //       For now it is fine since they are only allowed on return types.
@@ -1490,9 +1468,6 @@ impl Elaborator<'_> {
         location: Location,
         check_self_param: bool,
     ) -> Option<HirMethodReference> {
-        let span = location.span;
-        let file = location.file;
-
         // First search in the type methods. If there is one, that's the one.
         if let Some(method_id) =
             self.interner.lookup_direct_method(object_type, method_name, check_self_param)
@@ -1559,7 +1534,7 @@ impl Elaborator<'_> {
     ) -> Option<HirMethodReference> {
         let (method, error) = self.get_trait_method_in_scope(trait_methods, method_name, location);
         if let Some(error) = error {
-            self.push_err(error, location.file);
+            self.push_err(error);
         }
         method
     }
@@ -1670,9 +1645,6 @@ impl Elaborator<'_> {
         method_name: &str,
         location: Location,
     ) -> Option<HirMethodReference> {
-        let span = location.span;
-        let file = location.file;
-
         let func_id = match self.current_item {
             Some(DependencyId::Function(id)) => id,
             _ => panic!("unexpected method outside a function: {method_name}"),
@@ -1770,10 +1742,7 @@ impl Elaborator<'_> {
         args: Vec<(Type, ExprId, Location)>,
         location: Location,
     ) -> Type {
-        let span = location.span;
-        let file = location.file;
-
-        self.run_lint(file, |elaborator| {
+        self.run_lint(|elaborator| {
             lints::deprecated_function(elaborator.interner, call.func).map(Into::into)
         });
 
@@ -1801,7 +1770,7 @@ impl Elaborator<'_> {
             }
 
             if let Some(called_func_id) = self.interner.lookup_function_from_expr(&call.func) {
-                self.run_lint(file, |elaborator| {
+                self.run_lint(|elaborator| {
                     lints::oracle_called_from_constrained_function(
                         elaborator.interner,
                         &called_func_id,
@@ -1814,7 +1783,7 @@ impl Elaborator<'_> {
 
             let errors = lints::unconstrained_function_args(&args);
             for error in errors {
-                self.push_err(error, file);
+                self.push_err(error);
             }
         }
 
@@ -1868,8 +1837,8 @@ impl Elaborator<'_> {
 
             if matches!(expected_object_type.follow_bindings(), Type::MutableReference(_)) {
                 if !matches!(actual_type, Type::MutableReference(_)) {
-                    if let Err((error, file)) = verify_mutable_reference(self.interner, *object) {
-                        self.push_err(TypeCheckError::ResolverError(error), file);
+                    if let Err(error) = verify_mutable_reference(self.interner, *object) {
+                        self.push_err(TypeCheckError::ResolverError(error));
                     }
 
                     let new_type = Type::MutableReference(Box::new(actual_type));
@@ -2003,8 +1972,6 @@ impl Elaborator<'_> {
         error: ImplSearchErrorKind,
         location: Location,
     ) {
-        let span = location.span;
-        let file = location.file;
         match error {
             ImplSearchErrorKind::TypeAnnotationsNeededOnObjectType => {
                 self.push_err(TypeCheckError::TypeAnnotationsNeededForMethodCall { location });
@@ -2013,7 +1980,7 @@ impl Elaborator<'_> {
                 if let Some(error) =
                     NoMatchingImplFoundError::new(self.interner, constraints, location)
                 {
-                    self.push_err(TypeCheckError::NoMatchingImplFound(error), file);
+                    self.push_err(TypeCheckError::NoMatchingImplFound(error));
                 }
             }
             ImplSearchErrorKind::MultipleMatching(candidates) => {
@@ -2170,10 +2137,7 @@ fn bind_generic(param: &ResolvedGeneric, arg: &Type, bindings: &mut TypeBindings
 
 /// Gives an error if a user tries to create a mutable reference
 /// to an immutable variable.
-fn verify_mutable_reference(
-    interner: &NodeInterner,
-    rhs: ExprId,
-) -> Result<(), (ResolverError, FileId)> {
+fn verify_mutable_reference(interner: &NodeInterner, rhs: ExprId) -> Result<(), ResolverError> {
     match interner.expression(&rhs) {
         HirExpression::MemberAccess(member_access) => {
             verify_mutable_reference(interner, member_access.lhs)
