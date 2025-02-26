@@ -137,7 +137,8 @@ void EccTraceBuilder::process_scalar_mul(
                           {
                               C::scalar_mul_should_add,
                               (!is_end) && bit,
-                          }
+                          },
+                          { C::scalar_mul_bit_radix, 2 }
 
                       } });
 

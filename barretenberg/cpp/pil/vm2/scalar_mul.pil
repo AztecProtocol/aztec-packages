@@ -100,10 +100,12 @@ namespace scalar_mul;
     // Next bit index has to be 1 less except on end
     not_end * (bit_idx - (bit_idx' + 1)) = 0;
 
-    pol BIT_RADIX = 2;
+
+    pol commit bit_radix;
+    sel * (bit_radix - 2) = 0;
 
     // #[TO_RADIX]
-    // sel { scalar, bit, bit_idx, BIT_RADIX }
+    // sel { scalar, bit, bit_idx, bit_radix }
     // in
     // to_radix.sel
     //     { to_radix.input, to_radix.limb, to_radix.limb_index, to_radix.radix };
