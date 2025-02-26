@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/goblin/translation_evaluations.hpp"
+#include "barretenberg/goblin/types.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib/translator_vm_verifier/translator_recursive_flavor.hpp"
@@ -24,9 +25,6 @@ template <typename Flavor> class TranslatorRecursiveVerifier_ {
     using Transcript = typename Flavor::Transcript;
     using RelationParams = ::bb::RelationParameters<FF>;
 
-    BF evaluation_input_x = 0;
-    BF batching_challenge_v = 0;
-
     std::shared_ptr<VerificationKey> key;
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key; // can remove maybe hopefully
@@ -42,7 +40,7 @@ template <typename Flavor> class TranslatorRecursiveVerifier_ {
                                                      const BF& batching_challenge_v,
                                                      const BF& accumulated_result);
 
-    PairingPoints verify_proof(const HonkProof& proof);
+    PairingPoints verify_proof(const HonkProof& proof, const BF& evaluation_input_x, const BF& batching_challenge_v);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/986): Ensure the translation is also recursively
     // verified somewhere
