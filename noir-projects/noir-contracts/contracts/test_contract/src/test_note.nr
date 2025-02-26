@@ -27,14 +27,18 @@ impl NoteHash for TestNote {
         _context: &mut PrivateContext,
         _note_hash_for_nullify: Field,
     ) -> Field {
-        panic(f"Unimplemented")
+        // This note's nullifier is never used for any meaningful purpose so we don't care about having a real
+        // implementation here.
+        0
     }
 
     unconstrained fn compute_nullifier_unconstrained(
         _self: Self,
         _note_hash_for_nullify: Field,
     ) -> Field {
-        panic(f"Unimplemented")
+        // This note's nullifier is never used for any meaningful purpose so we don't care about having a real
+        // implementation here.
+        0
     }
 }
 
