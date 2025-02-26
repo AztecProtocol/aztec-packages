@@ -144,10 +144,7 @@ tests:
   - regex: "spartan/bootstrap.sh test-kind-transfer-blob-with-sink"
     owners:
       - "charlie@aztecprotocol.com"
-  - regex: "spartan/bootstrap.sh test-local"
-    owners:
-      - "charlie@aztecprotocol.com"
-  - regex: "spartan/bootstrap.sh test-kind-transfer"
+  - regex: "spartan/bootstrap.sh test-kind-transfer$"
     owners:
       - "charlie@aztecprotocol.com"
 
