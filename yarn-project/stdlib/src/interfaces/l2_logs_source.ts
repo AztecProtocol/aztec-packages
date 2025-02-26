@@ -1,6 +1,8 @@
 import type { Fr } from '@aztec/foundation/fields';
-import { type LogFilter, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 
+import type { LogFilter } from '../logs/log_filter.js';
+import type { PrivateLog } from '../logs/private_log.js';
+import type { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from './get_logs_response.js';
 
 /**

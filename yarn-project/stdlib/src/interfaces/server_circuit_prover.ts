@@ -5,23 +5,21 @@ import type {
   RECURSIVE_PROOF_LENGTH,
   TUBE_PROOF_LENGTH,
 } from '@aztec/constants';
-import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
-import type { BaseParityInputs, ParityPublicInputs, RootParityInputs } from '@aztec/stdlib/parity';
-import type {
-  BaseOrMergeRollupPublicInputs,
-  BlockMergeRollupInputs,
-  BlockRootOrBlockMergePublicInputs,
-  BlockRootRollupInputs,
-  EmptyBlockRootRollupInputs,
-  MergeRollupInputs,
-  PrivateBaseRollupInputs,
-  PublicBaseRollupInputs,
-  RootRollupInputs,
-  RootRollupPublicInputs,
-  SingleTxBlockRootRollupInputs,
-  TubeInputs,
-} from '@aztec/stdlib/rollup';
 
+import type { AvmCircuitInputs } from '../avm/avm.js';
+import type { BaseParityInputs } from '../parity/base_parity_inputs.js';
+import type { ParityPublicInputs } from '../parity/parity_public_inputs.js';
+import type { RootParityInputs } from '../parity/root_parity_inputs.js';
+import type { BaseOrMergeRollupPublicInputs } from '../rollup/base_or_merge_rollup_public_inputs.js';
+import type { BlockMergeRollupInputs } from '../rollup/block_merge_rollup.js';
+import type { BlockRootOrBlockMergePublicInputs } from '../rollup/block_root_or_block_merge_public_inputs.js';
+import type { BlockRootRollupInputs, SingleTxBlockRootRollupInputs } from '../rollup/block_root_rollup.js';
+import type { EmptyBlockRootRollupInputs } from '../rollup/empty_block_root_rollup_inputs.js';
+import type { MergeRollupInputs } from '../rollup/merge_rollup.js';
+import type { PrivateBaseRollupInputs } from '../rollup/private_base_rollup_inputs.js';
+import type { PublicBaseRollupInputs } from '../rollup/public_base_rollup_inputs.js';
+import type { RootRollupInputs, RootRollupPublicInputs } from '../rollup/root_rollup.js';
+import type { TubeInputs } from '../rollup/tube_inputs.js';
 import type { Tx } from '../tx/tx.js';
 import type { ProofAndVerificationKey, PublicInputsAndRecursiveProof } from './proving-job.js';
 

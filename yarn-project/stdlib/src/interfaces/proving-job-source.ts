@@ -1,7 +1,6 @@
-import type { ApiSchemaFor } from '@aztec/stdlib/schemas';
-
 import { z } from 'zod';
 
+import type { ApiSchemaFor } from '../schemas/index.js';
 import { ProvingJob, ProvingJobId, ProvingJobResult } from './proving-job.js';
 
 export interface ProvingJobSource {

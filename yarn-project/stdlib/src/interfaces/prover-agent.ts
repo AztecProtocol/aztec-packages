@@ -1,6 +1,6 @@
-import type { ApiSchemaFor } from '@aztec/stdlib/schemas';
-
 import { z } from 'zod';
+
+import type { ApiSchemaFor } from '../schemas/index.js';
 
 export interface ProverAgentApi {
   setMaxConcurrency(maxConcurrency: number): Promise<void>;

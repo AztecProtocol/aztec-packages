@@ -1,9 +1,9 @@
 import type { Fr } from '@aztec/foundation/fields';
-import type { Proof } from '@aztec/stdlib/proofs';
-import type { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
-import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { L2Block } from '../block/l2_block.js';
+import type { Proof } from '../proofs/proof.js';
+import type { RootRollupPublicInputs } from '../rollup/root_rollup.js';
+import type { BlockHeader } from '../tx/block_header.js';
 import type { Tx } from '../tx/tx.js';
 import type { BlockBuilder } from './block-builder.js';
 

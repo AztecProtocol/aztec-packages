@@ -1,9 +1,8 @@
-import type { ZodFor } from '@aztec/stdlib/schemas';
-
 import { z } from 'zod';
 
 import { ExtendedPublicLog } from '../logs/extended_public_log.js';
 import { ExtendedUnencryptedL2Log } from '../logs/extended_unencrypted_l2_log.js';
+import type { ZodFor } from '../schemas/index.js';
 
 /** Response for the getContractClassLogs archiver call. */
 export type GetContractClassLogsResponse = {
