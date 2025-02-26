@@ -63,7 +63,7 @@ import {
 import type { MerkleTreeReadOperations, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { type KeyValidationRequest, PrivateContextInputs } from '@aztec/stdlib/kernel';
 import { computeTaggingSecretPoint, deriveKeys } from '@aztec/stdlib/keys';
-import { LogWithTxData } from '@aztec/stdlib/logs';
+import { ContractClassLog, LogWithTxData } from '@aztec/stdlib/logs';
 import { IndexedTaggingSecret, type PrivateLog, type PublicLog } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import type { CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';

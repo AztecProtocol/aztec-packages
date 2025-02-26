@@ -4,6 +4,7 @@ import {
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   AZTEC_MAX_EPOCH_DURATION,
   BLOBS_PER_BLOCK,
+  CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS,
   HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type NESTED_RECURSIVE_PROOF_LENGTH,
   type NULLIFIER_TREE_HEIGHT,
@@ -13,7 +14,7 @@ import {
 } from '@aztec/constants';
 import { toHex } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
-import { mapTuple } from '@aztec/foundation/serialize';
+import { type Tuple, mapTuple } from '@aztec/foundation/serialize';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import { type AvmAccumulatedData, type AvmCircuitPublicInputs, PublicDataHint, RevertCode } from '@aztec/stdlib/avm';
 import {
@@ -24,6 +25,7 @@ import {
   PrivateToRollupKernelCircuitPublicInputs,
   RollupValidationRequests,
 } from '@aztec/stdlib/kernel';
+import type { ContractClassLog } from '@aztec/stdlib/logs';
 import { BaseParityInputs, ParityPublicInputs, type RootParityInput, RootParityInputs } from '@aztec/stdlib/parity';
 import type { RecursiveProof } from '@aztec/stdlib/proofs';
 import {

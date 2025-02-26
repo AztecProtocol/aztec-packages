@@ -19,6 +19,8 @@ import type {
 } from '@aztec/stdlib/contract';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import {
+  ContractClassLog,
+  ExtendedContractClassLog,
   ExtendedPublicLog,
   type LogFilter,
   LogId,

@@ -5,7 +5,16 @@ import { BufferReader, numToUInt32BE } from '@aztec/foundation/serialize';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
-import { ExtendedPublicLog, type LogFilter, LogId, PrivateLog, PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
+import {
+  ContractClassLog,
+  ExtendedContractClassLog,
+  ExtendedPublicLog,
+  type LogFilter,
+  LogId,
+  PrivateLog,
+  PublicLog,
+  TxScopedL2Log,
+} from '@aztec/stdlib/logs';
 
 import type { BlockStore } from './block_store.js';
 

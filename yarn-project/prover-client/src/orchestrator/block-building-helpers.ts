@@ -25,6 +25,7 @@ import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-ju
 import { PublicDataHint } from '@aztec/stdlib/avm';
 import { Body } from '@aztec/stdlib/block';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { ContractClassLog } from '@aztec/stdlib/logs';
 import type { ParityPublicInputs } from '@aztec/stdlib/parity';
 import {
   type BaseOrMergeRollupPublicInputs,

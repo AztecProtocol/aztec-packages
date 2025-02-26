@@ -1,9 +1,11 @@
-import { MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS } from '@aztec/constants';
+import { MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeVarArgsHash } from '@aztec/stdlib/hash';
+import { ScopedLogHash } from '@aztec/stdlib/kernel';
+import { ContractClassLog } from '@aztec/stdlib/logs';
 import { mockTx } from '@aztec/stdlib/testing';
 import type { Tx } from '@aztec/stdlib/tx';
 

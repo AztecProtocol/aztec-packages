@@ -1,4 +1,10 @@
-import { NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, REGISTERER_CONTRACT_ADDRESS } from '@aztec/constants';
+import {
+  CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
+  NULLIFIER_SUBTREE_HEIGHT,
+  PUBLIC_DATA_TREE_HEIGHT,
+  REGISTERER_CONTRACT_ADDRESS,
+  REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
+} from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import type { AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
@@ -14,6 +20,7 @@ import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { ScopedLogHash, countAccumulatedItems } from '@aztec/stdlib/kernel';
+import { ContractClassLog } from '@aztec/stdlib/logs';
 import { fr, makeContractClassPublic, mockTx } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
