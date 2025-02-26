@@ -1,5 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { FunctionSelector } from '@aztec/stdlib/abi';
+import { computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
 
 import { mock } from 'jest-mock-extended';
