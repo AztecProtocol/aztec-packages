@@ -11,7 +11,12 @@ import { Field, Uint8, Uint32 } from '../avm_memory_types.js';
 import { InstructionExecutionError, StaticCallAlterationError } from '../errors.js';
 import { initContext, initExecutionEnvironment, initPersistableStateManager } from '../fixtures/index.js';
 import type { AvmPersistableStateManager } from '../journal/journal.js';
-import { mockL1ToL2MessageExists, mockNoteHashCount, mockNoteHashExists, mockNullifierExists } from '../test_utils.js';
+import {
+  mockGetNullifierIndex,
+  mockL1ToL2MessageExists,
+  mockNoteHashCount,
+  mockNoteHashExists,
+} from '../test_utils.js';
 import {
   EmitNoteHash,
   EmitNullifier,

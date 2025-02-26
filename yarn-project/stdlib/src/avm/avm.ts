@@ -8,7 +8,6 @@ import { strict as assert } from 'assert';
 import { Encoder, addExtension } from 'msgpackr';
 
 import { AztecAddress } from '../aztec-address/index.js';
-import type { ContractClassIdPreimage } from '../contract/contract_class_id.js';
 import { PublicKeys } from '../keys/public_keys.js';
 import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
 import { PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
