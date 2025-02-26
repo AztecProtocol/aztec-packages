@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740595495787,
+  "lastUpdate": 1740596534752,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "P2P Testbench": [
@@ -1775,6 +1775,80 @@ window.BENCHMARK_DATA = {
           {
             "name": "normal-degree-50-nodes - medianDelay",
             "value": 798,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49558828+AztecBot@users.noreply.github.com",
+            "name": "Aztec Bot",
+            "username": "AztecBot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e200f8bec616608557bfc170732e126fa4866472",
+          "message": "feat: Sync from noir (#12298)\n\nAutomated pull of development from the\n[noir](https://github.com/noir-lang/noir) programming language, a\ndependency of Aztec.\nBEGIN_COMMIT_OVERRIDE\nchore!: bump msrv to 1.85.0\n(https://github.com/noir-lang/noir/pull/7530)\nfix: No longer error on INT_MIN globals\n(https://github.com/noir-lang/noir/pull/7519)\nfix: correctly format trait function with multiple where clauses\n(https://github.com/noir-lang/noir/pull/7531)\nchore(ssa): Do not run passes on Brillig functions post Brillig gen\n(https://github.com/noir-lang/noir/pull/7527)\nEND_COMMIT_OVERRIDE\n\n---------\n\nCo-authored-by: guipublic <guipublic@gmail.com>\nCo-authored-by: guipublic <47281315+guipublic@users.noreply.github.com>",
+          "timestamp": "2025-02-26T18:30:44Z",
+          "tree_id": "f92b615b79884a0cd9e8c6aeb900d95a8486a23d",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e200f8bec616608557bfc170732e126fa4866472"
+        },
+        "date": 1740596533671,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "degree-1-strict - numberReceived",
+            "value": 4,
+            "unit": "ms"
+          },
+          {
+            "name": "degree-1-strict - minDelay",
+            "value": 113,
+            "unit": "ms"
+          },
+          {
+            "name": "degree-1-strict - maxDelay",
+            "value": 1557,
+            "unit": "ms"
+          },
+          {
+            "name": "degree-1-strict - averageDelay",
+            "value": 777.25,
+            "unit": "ms"
+          },
+          {
+            "name": "degree-1-strict - medianDelay",
+            "value": 772,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - numberReceived",
+            "value": 49,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - minDelay",
+            "value": 213,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - maxDelay",
+            "value": 6738,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - averageDelay",
+            "value": 1886.76,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - medianDelay",
+            "value": 763,
             "unit": "ms"
           }
         ]
