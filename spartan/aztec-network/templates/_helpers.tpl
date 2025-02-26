@@ -214,7 +214,7 @@ while true; do
       -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":67}' \
       "${HOST}" | grep -q 0x; then
       echo "Ethereum node ${HOST} is ready!"
-      return 0
+      break 2
     fi
     echo "Waiting for Ethereum node ${HOST}..."
   done
