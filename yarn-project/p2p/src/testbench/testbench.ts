@@ -5,6 +5,7 @@ import type { ChainConfig } from '@aztec/stdlib/config';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
 import { mockTx } from '@aztec/stdlib/testing';
 
+import assert from 'assert';
 import { type ChildProcess, fork } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -33,6 +34,7 @@ class WorkerClientManager {
   public ports: number[] = [];
   private p2pConfig: Partial<P2PConfig>;
   private logger: Logger;
+  private messageReceivedByClient: number[] = [];
 
   constructor(logger: Logger, p2pConfig: Partial<P2PConfig>) {
     this.logger = logger;
@@ -92,6 +94,12 @@ class WorkerClientManager {
       }
     });
 
+    childProcess.on('message', (msg: any) => {
+      if (msg.type === 'GOSSIP_RECEIVED') {
+        this.messageReceivedByClient[clientIndex] = msg.count;
+      }
+    });
+
     // Create ready signal promise
     const readySignal = new Promise<void>((resolve, reject) => {
       // Set a timeout to avoid hanging indefinitely
@@ -133,6 +141,7 @@ class WorkerClientManager {
    */
   async makeWorkerClients(numberOfClients: number) {
     try {
+      this.messageReceivedByClient = new Array(numberOfClients).fill(0);
       this.peerIdPrivateKeys = generatePeerIdPrivateKeys(numberOfClients);
       this.ports = await getPorts(numberOfClients);
       this.peerEnrs = await makeEnrs(this.peerIdPrivateKeys, this.ports, testChainConfig);
@@ -173,6 +182,14 @@ class WorkerClientManager {
     }
   }
 
+  purgeMessageReceivedByClient() {
+    this.messageReceivedByClient = new Array(this.processes.length).fill(0);
+  }
+
+  numberOfClientsThatReceivedMessage() {
+    return this.messageReceivedByClient.filter(count => count > 0).length;
+  }
+
   /**
    * Changes the port for a specific client
    *
@@ -199,7 +216,9 @@ class WorkerClientManager {
       this.peerEnrs[clientIndex] = await makeEnr(this.peerIdPrivateKeys[clientIndex], newPort, testChainConfig);
 
       // Maximum seed with 10 other peers to allow peer discovery to connect them at a smoother rate
-      const otherNodes = this.peerEnrs.filter((_, ind) => ind < Math.min(clientIndex, 10));
+      const otherNodes = this.peerEnrs.filter(
+        (_, ind) => ind !== clientIndex && ind < Math.min(this.peerEnrs.length, 10),
+      );
 
       const config = this.createClientConfig(clientIndex, newPort, otherNodes);
       const [childProcess, readySignal] = this.spawnWorkerProcess(config, clientIndex);
@@ -334,6 +353,7 @@ async function main() {
     const tx = await mockTx(1, {
       clientIvcProof: ClientIvcProof.random(),
     });
+
     workerClientManager.processes[0].send({ type: 'SEND_TX', tx: tx.toBuffer() });
     logger.info('Transaction sent from client 0');
 
@@ -341,7 +361,15 @@ async function main() {
     await sleep(30000);
     logger.info('Checking message propagation results');
 
-    // todo: check message propagation results
+    // Check message propagation results
+    const numberOfClientsThatReceivedMessage = workerClientManager.numberOfClientsThatReceivedMessage();
+    logger.info(`Number of clients that received message: ${numberOfClientsThatReceivedMessage}`);
+
+    assert(numberOfClientsThatReceivedMessage === numberOfClients - 1);
+
+    workerClientManager.purgeMessageReceivedByClient();
+
+    logger.info('First iteration done, changing port for client 0');
 
     // change port for client 0
     await workerClientManager.changePort(0, workerClientManager.getNewPort());
@@ -360,7 +388,12 @@ async function main() {
     // Give time for message propagation
     await sleep(30000);
 
-    // todo: check message propagation results
+    const numberOfClientsThatReceivedMessage2 = workerClientManager.numberOfClientsThatReceivedMessage();
+    logger.info(`Number of clients that received message: ${numberOfClientsThatReceivedMessage2}`);
+
+    assert(numberOfClientsThatReceivedMessage2 === numberOfClients - 1);
+
+    logger.info('Test passed, cleaning up');
 
     // cleanup
     await workerClientManager.cleanup();
