@@ -29,7 +29,7 @@ values_file="${2:-default.yaml}"
 namespace="${NAMESPACE:-test-kind}"
 chaos_values="${CHAOS_VALUES:-}"
 fresh_install="${FRESH_INSTALL:-false}"
-aztec_docker_tag=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}
+aztec_docker_tag=${AZTEC_DOCKER_TAG:-"$(git rev-parse HEAD)-amd64"}
 cleanup_cluster=${CLEANUP_CLUSTER:-false}
 install_metrics=${INSTALL_METRICS:-true}
 # NOTE: slated for removal along with e2e image!
@@ -74,7 +74,7 @@ trap cleanup SIGINT SIGTERM EXIT
 stern_pid=""
 function copy_stern_to_log {
   # Start stern in a subshell, capture its PID, and pipe output to cache_log so it is uploaded
-  stern spartan -n "$namespace" > "logs/kind-$namespace.log" &>/dev/null &
+  stern spartan -n "$namespace" >"logs/kind-$namespace.log" &>/dev/null &
   stern_pid=$!
 }
 
