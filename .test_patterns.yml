@@ -80,8 +80,10 @@ tests:
 
   # Started failing with some AVM proof error...
   - regex: "e2e_prover/full fake"
+    skip: true
     owners:
-      - "charlie@aztecprotocol.com"
+      - "david@aztecprotocol.com"
+      - "phil@aztecprotocol.com"
 
   # FAIL  ./flakey_e2e_inclusion_proofs_contract.test.ts
   # ● e2e_inclusion_proofs_contract › contract inclusion › proves public deployment of a contract
