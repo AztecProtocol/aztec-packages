@@ -7,10 +7,12 @@
 #include "barretenberg/vm2/debugger.hpp"
 #include "barretenberg/vm2/generated/flavor_settings.hpp"
 #include "barretenberg/vm2/generated/relations/ecc.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_scalar_mul.hpp"
 #include "barretenberg/vm2/simulation/ecc.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/ecc_trace.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 namespace bb::avm2::constraining {
@@ -26,6 +28,9 @@ using simulation::EccAddEvent;
 using simulation::EventEmitter;
 using simulation::NoopEventEmitter;
 using simulation::ScalarMulEvent;
+using lookup_scalar_mul_double_relation = bb::avm2::lookup_scalar_mul_double_relation<FF>;
+using lookup_scalar_mul_add_relation = bb::avm2::lookup_scalar_mul_add_relation<FF>;
+using tracegen::LookupIntoDynamicTableSequential;
 
 // Known good points for P and Q
 FF p_x("0x04c95d1b26d63d46918a156cae92db1bcbc4072a27ec81dc82ea959abdbcf16a");
@@ -535,6 +540,35 @@ TEST(ScalarMulConstrainingTest, MultipleInvocations)
     builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
     EXPECT_EQ(trace.get_num_rows(), /*start_row=*/1 + (254) * 2);
     check_relation<scalar_mul>(trace);
+}
+
+TEST(ScalarMulConstrainingTest, MulAddInteractions)
+{
+    EventEmitter<EccAddEvent> ecc_add_event_emitter;
+    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
+
+    FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
+    ecc_simulator.scalar_mul(p, scalar);
+
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+    });
+
+    tracegen::EccTraceBuilder builder;
+    builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
+    builder.process_add(ecc_add_event_emitter.dump_events(), trace);
+
+    std::cout << "looking for double relation" << std::endl;
+    LookupIntoDynamicTableSequential<lookup_scalar_mul_double_relation::Settings>().process(trace);
+    std::cout << "looking for add relation" << std::endl;
+    LookupIntoDynamicTableSequential<lookup_scalar_mul_add_relation::Settings>().process(trace);
+
+    EXPECT_EQ(trace.get_num_rows(), /*start_row=*/1 + 254);
+    check_relation<scalar_mul>(trace);
+    check_relation<ecc>(trace);
+    check_interaction<lookup_scalar_mul_double_relation>(trace);
+    check_interaction<lookup_scalar_mul_add_relation>(trace);
 }
 
 } // namespace
