@@ -19,12 +19,6 @@
       "path": "../blob-sink"
     },
     {
-      "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
-    },
-    {
       "path": "../constants"
     },
     {
@@ -59,6 +53,9 @@
     },
     {
       "path": "../simulator"
+    },
+    {
+      "path": "../stdlib"
     },
     {
       "path": "../telemetry-client"

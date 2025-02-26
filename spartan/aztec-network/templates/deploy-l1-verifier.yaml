@@ -116,8 +116,6 @@ spec:
               value: {{ include "aztec-network.fullname" . }}
             - name: USE_GCLOUD_LOGGING
               value: "{{ .Values.telemetry.useGcloudLogging }}"
-            - name: USE_GCLOUD_METRICS
-              value: "{{ .Values.telemetry.useGcloudMetrics }}"
           volumeMounts:
             - name: config
               mountPath: /shared/config

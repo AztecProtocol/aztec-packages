@@ -1,13 +1,13 @@
-import { MerkleTreeId, UnencryptedL2Log } from '@aztec/circuit-types';
-import { FunctionSelector, NoteSelector } from '@aztec/circuits.js/abi';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { LogWithTxData } from '@aztec/circuits.js/logs';
 import { Fr } from '@aztec/foundation/fields';
+import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { LogWithTxData, UnencryptedL2Log } from '@aztec/stdlib/logs';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 
-import { type ACVMField } from '../acvm_types.js';
+import type { ACVMField } from '../acvm_types.js';
 import { frToBoolean, frToNumber, fromACVMField, fromBoundedVec } from '../deserialize.js';
 import { toACVMField, toACVMFieldSingleOrArray } from '../serialize.js';
-import { type TypedOracle } from './typed_oracle.js';
+import type { TypedOracle } from './typed_oracle.js';
 
 /**
  * A data source that has all the apis required by Aztec.nr.

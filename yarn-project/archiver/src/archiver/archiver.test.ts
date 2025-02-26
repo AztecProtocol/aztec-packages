@@ -1,7 +1,5 @@
 import { Blob } from '@aztec/blob-lib';
-import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
-import { InboxLeaf, type L1RollupConstants, L2Block } from '@aztec/circuit-types';
-import { PrivateLog } from '@aztec/circuits.js/logs';
+import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -9,6 +7,10 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { ForwarderAbi, type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { L2Block } from '@aztec/stdlib/block';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { PrivateLog } from '@aztec/stdlib/logs';
+import { InboxLeaf } from '@aztec/stdlib/messaging';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
@@ -24,8 +26,8 @@ import {
 } from 'viem';
 
 import { Archiver } from './archiver.js';
-import { type ArchiverDataStore } from './archiver_store.js';
-import { type ArchiverInstrumentation } from './instrumentation.js';
+import type { ArchiverDataStore } from './archiver_store.js';
+import type { ArchiverInstrumentation } from './instrumentation.js';
 import { MemoryArchiverStore } from './memory_archiver_store/memory_archiver_store.js';
 
 interface MockRollupContractRead {

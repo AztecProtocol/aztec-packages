@@ -13,13 +13,13 @@ import {
   type Wallet,
   deriveKeys,
 } from '@aztec/aztec.js';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { type CompleteAddress } from '@aztec/circuits.js/contract';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import { Fq } from '@aztec/foundation/fields';
-import { type FPCContract } from '@aztec/noir-contracts.js/FPC';
+import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { SchnorrAccountContract } from '@aztec/noir-contracts.js/SchnorrAccount';
-import { type TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
+import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { CompleteAddress } from '@aztec/stdlib/contract';
 
 import { jest } from '@jest/globals';
 

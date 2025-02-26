@@ -12,8 +12,8 @@ template <typename FF_> class poseidon2_hashImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 20> SUBRELATION_PARTIAL_LENGTHS = { 3, 2, 3, 4, 4, 3, 3, 3, 5, 3,
-                                                                            3, 3, 3, 6, 3, 6, 3, 6, 3, 6 };
+    static constexpr std::array<size_t, 19> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 3, 3, 4, 4, 4, 5,
+                                                                            4, 5, 4, 5, 4, 5, 4, 5, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -29,10 +29,11 @@ template <typename FF_> class poseidon2_hashImpl {
     {
         const auto poseidon2_hash_TWOPOW64 = FF(uint256_t{ 0UL, 1UL, 0UL, 0UL });
         const auto poseidon2_hash_IV = poseidon2_hash_TWOPOW64 * new_term.poseidon2_hash_input_len;
+        const auto poseidon2_hash_LATCH_CONDITION = new_term.poseidon2_hash_end + new_term.precomputed_first_row;
         const auto poseidon2_hash_PADDED_LEN = new_term.poseidon2_hash_input_len + new_term.poseidon2_hash_padding;
-        const auto poseidon2_hash_NEXT_INPUT_IS_PREV_OUTPUT_SEL = new_term.poseidon2_hash_execute_perm_shift *
-                                                                  (FF(1) - new_term.poseidon2_hash_start) *
-                                                                  new_term.poseidon2_hash_execute_perm;
+        const auto poseidon2_hash_NEXT_ROUND_COUNT = (new_term.poseidon2_hash_num_perm_rounds_rem - FF(1));
+        const auto poseidon2_hash_NEXT_INPUT_IS_PREV_OUTPUT_SEL =
+            (FF(1) - poseidon2_hash_LATCH_CONDITION) * (FF(1) - new_term.poseidon2_hash_start);
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -42,8 +43,8 @@ template <typename FF_> class poseidon2_hashImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp =
-                (new_term.poseidon2_hash_sel - (new_term.poseidon2_hash_execute_perm + new_term.poseidon2_hash_end));
+            auto tmp = new_term.poseidon2_hash_sel * (FF(1) - poseidon2_hash_LATCH_CONDITION) *
+                       (new_term.poseidon2_hash_output_shift - new_term.poseidon2_hash_output);
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
@@ -55,124 +56,122 @@ template <typename FF_> class poseidon2_hashImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = new_term.poseidon2_hash_sel_shift * (FF(1) - new_term.precomputed_first_row) *
-                       (new_term.poseidon2_hash_start_shift - new_term.poseidon2_hash_end);
+            auto tmp = new_term.poseidon2_hash_sel_shift *
+                       (new_term.poseidon2_hash_start_shift - poseidon2_hash_LATCH_CONDITION);
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = new_term.poseidon2_hash_padding * (new_term.poseidon2_hash_padding - FF(1)) *
-                       (new_term.poseidon2_hash_padding - FF(2));
+            auto tmp = new_term.poseidon2_hash_end * (FF(1) - new_term.poseidon2_hash_end);
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = new_term.poseidon2_hash_start *
-                       ((new_term.poseidon2_hash_num_perm_rounds_rem + FF(1)) * FF(3) - poseidon2_hash_PADDED_LEN);
+            auto tmp = new_term.poseidon2_hash_end * new_term.precomputed_first_row;
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = new_term.poseidon2_hash_end * (FF(1) - new_term.poseidon2_hash_end);
+            auto tmp = new_term.poseidon2_hash_padding * (new_term.poseidon2_hash_padding - FF(1)) *
+                       (new_term.poseidon2_hash_padding - FF(2));
             tmp *= scaling_factor;
             std::get<6>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
-            auto tmp = new_term.poseidon2_hash_end * (new_term.poseidon2_hash_output - new_term.poseidon2_hash_b_0);
+            auto tmp = new_term.poseidon2_hash_sel * new_term.poseidon2_hash_start *
+                       (new_term.poseidon2_hash_num_perm_rounds_rem * FF(3) - poseidon2_hash_PADDED_LEN);
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-            auto tmp = new_term.poseidon2_hash_sel *
-                       ((new_term.poseidon2_hash_num_perm_rounds_rem *
-                             (new_term.poseidon2_hash_end * (FF(1) - new_term.poseidon2_hash_num_perm_rounds_rem_inv) +
-                              new_term.poseidon2_hash_num_perm_rounds_rem_inv) -
-                         FF(1)) +
-                        new_term.poseidon2_hash_end);
+            auto tmp =
+                new_term.poseidon2_hash_sel * (FF(1) - poseidon2_hash_LATCH_CONDITION) *
+                ((new_term.poseidon2_hash_num_perm_rounds_rem_shift - new_term.poseidon2_hash_num_perm_rounds_rem) +
+                 FF(1));
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
-            auto tmp = new_term.poseidon2_hash_execute_perm * (FF(1) - new_term.poseidon2_hash_execute_perm);
+            auto tmp = new_term.poseidon2_hash_sel *
+                       ((poseidon2_hash_NEXT_ROUND_COUNT *
+                             (new_term.poseidon2_hash_end * (FF(1) - new_term.poseidon2_hash_num_perm_rounds_rem_inv) +
+                              new_term.poseidon2_hash_num_perm_rounds_rem_inv) -
+                         FF(1)) +
+                        new_term.poseidon2_hash_end);
             tmp *= scaling_factor;
             std::get<9>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
-            auto tmp = new_term.poseidon2_hash_sel *
-                       ((FF(1) - new_term.poseidon2_hash_end) - new_term.poseidon2_hash_execute_perm);
+            auto tmp = new_term.poseidon2_hash_sel * new_term.poseidon2_hash_start *
+                       (new_term.poseidon2_hash_a_0 - new_term.poseidon2_hash_input_0);
             tmp *= scaling_factor;
             std::get<10>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
-            auto tmp =
-                new_term.poseidon2_hash_execute_perm *
-                ((new_term.poseidon2_hash_num_perm_rounds_rem_shift - new_term.poseidon2_hash_num_perm_rounds_rem) +
-                 FF(1));
+            auto tmp = new_term.poseidon2_hash_sel * poseidon2_hash_NEXT_INPUT_IS_PREV_OUTPUT_SEL *
+                       ((new_term.poseidon2_hash_a_0_shift - new_term.poseidon2_hash_b_0) -
+                        new_term.poseidon2_hash_input_0_shift);
             tmp *= scaling_factor;
             std::get<11>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
-            auto tmp = new_term.poseidon2_hash_start * (new_term.poseidon2_hash_a_0 - new_term.poseidon2_hash_input_0);
+            auto tmp = new_term.poseidon2_hash_sel * new_term.poseidon2_hash_start *
+                       (new_term.poseidon2_hash_a_1 - new_term.poseidon2_hash_input_1);
             tmp *= scaling_factor;
             std::get<12>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
             auto tmp = new_term.poseidon2_hash_sel * poseidon2_hash_NEXT_INPUT_IS_PREV_OUTPUT_SEL *
-                       ((new_term.poseidon2_hash_a_0_shift - new_term.poseidon2_hash_b_0) -
-                        new_term.poseidon2_hash_input_0_shift);
+                       ((new_term.poseidon2_hash_a_1_shift - new_term.poseidon2_hash_b_1) -
+                        new_term.poseidon2_hash_input_1_shift);
             tmp *= scaling_factor;
             std::get<13>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
-            auto tmp = new_term.poseidon2_hash_start * (new_term.poseidon2_hash_a_1 - new_term.poseidon2_hash_input_1);
+            auto tmp = new_term.poseidon2_hash_sel * new_term.poseidon2_hash_start *
+                       (new_term.poseidon2_hash_a_2 - new_term.poseidon2_hash_input_2);
             tmp *= scaling_factor;
             std::get<14>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
             auto tmp = new_term.poseidon2_hash_sel * poseidon2_hash_NEXT_INPUT_IS_PREV_OUTPUT_SEL *
-                       ((new_term.poseidon2_hash_a_1_shift - new_term.poseidon2_hash_b_1) -
-                        new_term.poseidon2_hash_input_1_shift);
+                       ((new_term.poseidon2_hash_a_2_shift - new_term.poseidon2_hash_b_2) -
+                        new_term.poseidon2_hash_input_2_shift);
             tmp *= scaling_factor;
             std::get<15>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
-            auto tmp = new_term.poseidon2_hash_start * (new_term.poseidon2_hash_a_2 - new_term.poseidon2_hash_input_2);
+            auto tmp = new_term.poseidon2_hash_sel * new_term.poseidon2_hash_start *
+                       (new_term.poseidon2_hash_a_3 - poseidon2_hash_IV);
             tmp *= scaling_factor;
             std::get<16>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
             auto tmp = new_term.poseidon2_hash_sel * poseidon2_hash_NEXT_INPUT_IS_PREV_OUTPUT_SEL *
-                       ((new_term.poseidon2_hash_a_2_shift - new_term.poseidon2_hash_b_2) -
-                        new_term.poseidon2_hash_input_2_shift);
+                       (new_term.poseidon2_hash_a_3_shift - new_term.poseidon2_hash_b_3);
             tmp *= scaling_factor;
             std::get<17>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
-            auto tmp = new_term.poseidon2_hash_start * (new_term.poseidon2_hash_a_3 - poseidon2_hash_IV);
+            auto tmp = new_term.poseidon2_hash_sel * poseidon2_hash_LATCH_CONDITION *
+                       (new_term.poseidon2_hash_output - new_term.poseidon2_hash_b_0);
             tmp *= scaling_factor;
             std::get<18>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
-            auto tmp = new_term.poseidon2_hash_sel * poseidon2_hash_NEXT_INPUT_IS_PREV_OUTPUT_SEL *
-                       (new_term.poseidon2_hash_a_3_shift - new_term.poseidon2_hash_b_3);
-            tmp *= scaling_factor;
-            std::get<19>(evals) += typename Accumulator::View(tmp);
         }
     }
 };

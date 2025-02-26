@@ -1,8 +1,8 @@
-import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import type { GlobalVariables } from '@aztec/circuits.js/tx';
 import { MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { GlobalVariables } from '@aztec/stdlib/tx';
 
 import { strict as assert } from 'assert';
 
@@ -10,7 +10,7 @@ import { SideEffectLimitReachedError } from '../public/side_effect_errors.js';
 import { AvmContext } from './avm_context.js';
 import { AvmContractCallResult } from './avm_contract_call_result.js';
 import { AvmExecutionEnvironment } from './avm_execution_environment.js';
-import { type Gas } from './avm_gas.js';
+import type { Gas } from './avm_gas.js';
 import { AvmMachineState } from './avm_machine_state.js';
 import { isAvmBytecode } from './bytecode_utils.js';
 import {
@@ -20,8 +20,8 @@ import {
   revertReasonFromExceptionalHalt,
   revertReasonFromExplicitRevert,
 } from './errors.js';
-import { type AvmPersistableStateManager } from './journal/journal.js';
-import { type Instruction } from './opcodes/instruction.js';
+import type { AvmPersistableStateManager } from './journal/journal.js';
+import type { Instruction } from './opcodes/instruction.js';
 import {
   INSTRUCTION_SET,
   type InstructionSet,

@@ -142,8 +142,8 @@ function test {
   echo "Gathering tests to run..."
   local num_cpus=$(get_num_cpus)
   tests=$(test_cmds $@)
-  echo "Gathered $(echo "$tests" | wc -l) tests."
-  echo "$tests" | parallelise $((num_cpus / 2))
+  echo "Gathered $(echo -n "$tests" | wc -l) tests."
+  echo -n "$tests" | parallelise $((num_cpus / 2))
 }
 
 function build {
@@ -181,6 +181,7 @@ function bench {
   fi
   denoise "barretenberg/bootstrap.sh bench"
   denoise "yarn-project/end-to-end/bootstrap.sh bench"
+  denoise "yarn-project/p2p/bootstrap.sh bench"
 }
 
 function release_github {

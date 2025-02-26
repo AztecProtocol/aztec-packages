@@ -5,8 +5,8 @@ use dep::aztec::{
     protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable},
 };
 use dep::aztec::prelude::{
-    AztecAddress, Map, NoteGetterOptions, NoteInterface, NoteViewerOptions, NullifiableNote,
-    PrivateSet, RetrievedNote,
+    AztecAddress, Map, NoteGetterOptions, NoteHash, NoteType, NoteViewerOptions, PrivateSet,
+    RetrievedNote,
 };
 
 pub struct BalancesMap<Note, Context> {
@@ -29,7 +29,7 @@ impl<Note, Context> BalancesMap<Note, Context> {
 impl<Note> BalancesMap<Note, UnconstrainedContext> {
     pub unconstrained fn balance_of<let N: u32>(self: Self, owner: AztecAddress) -> U128
     where
-        Note: NoteInterface + NullifiableNote + OwnedNote + Packable<N>,
+        Note: NoteType + NoteHash + OwnedNote + Packable<N>,
     {
         self.balance_of_with_offset(owner, 0)
     }
@@ -40,7 +40,7 @@ impl<Note> BalancesMap<Note, UnconstrainedContext> {
         offset: u32,
     ) -> U128
     where
-        Note: NoteInterface + NullifiableNote + OwnedNote + Packable<N>,
+        Note: NoteType + NoteHash + OwnedNote + Packable<N>,
     {
         let mut balance = U128::from_integer(0);
         // docs:start:view_notes
@@ -64,7 +64,7 @@ impl<Note> BalancesMap<Note, &mut PrivateContext> {
 
     pub fn add<let N: u32>(self: Self, owner: AztecAddress, addend: U128) -> OuterNoteEmission<Note>
     where
-        Note: NoteInterface + NullifiableNote + OwnedNote + Eq + Packable<N>,
+        Note: NoteType + NoteHash + OwnedNote + Eq + Packable<N>,
     {
         if addend == U128::from_integer(0) {
             OuterNoteEmission::new(Option::none())
@@ -83,7 +83,7 @@ impl<Note> BalancesMap<Note, &mut PrivateContext> {
         subtrahend: U128,
     ) -> OuterNoteEmission<Note>
     where
-        Note: NoteInterface + NullifiableNote + OwnedNote + Eq + Packable<N>,
+        Note: NoteType + NoteHash + OwnedNote + Eq + Packable<N>,
     {
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend);
         let notes = self.map.at(owner).pop_notes(options);
@@ -110,7 +110,7 @@ pub fn filter_notes_min_sum<Note>(
     min_sum: U128,
 ) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]
 where
-    Note: NoteInterface + OwnedNote,
+    Note: NoteType + OwnedNote,
 {
     let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     let mut sum = U128::from_integer(0);
