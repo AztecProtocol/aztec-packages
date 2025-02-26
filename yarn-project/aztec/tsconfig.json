@@ -34,9 +34,6 @@
       "path": "../builder"
     },
     {
-      "path": "../stdlib"
-    },
-    {
       "path": "../cli"
     },
     {
@@ -83,6 +80,9 @@
     },
     {
       "path": "../pxe"
+    },
+    {
+      "path": "../stdlib"
     },
     {
       "path": "../telemetry-client"

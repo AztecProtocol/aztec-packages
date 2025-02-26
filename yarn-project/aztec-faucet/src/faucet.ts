@@ -1,5 +1,5 @@
 import { type ViemPublicClient, type ViemWalletClient, createEthereumChain } from '@aztec/ethereum';
-import { type EthAddress } from '@aztec/foundation/eth-address';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { TestERC20Abi } from '@aztec/l1-artifacts';
 
@@ -19,7 +19,7 @@ import {
 } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
-import { type FaucetConfig, type L1AssetConfig } from './config.js';
+import type { FaucetConfig, L1AssetConfig } from './config.js';
 
 type L1Asset = {
   contract: GetContractReturnType<typeof TestERC20Abi, WalletClient<HttpTransport, Chain, Account>>;

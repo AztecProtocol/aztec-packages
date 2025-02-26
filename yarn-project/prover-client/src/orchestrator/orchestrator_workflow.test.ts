@@ -12,13 +12,13 @@ import {
 import type { ParityPublicInputs } from '@aztec/stdlib/parity';
 import { ClientIvcProof, makeRecursiveProof } from '@aztec/stdlib/proofs';
 import { makeParityPublicInputs } from '@aztec/stdlib/testing';
-import { type BlockHeader, type GlobalVariables, type Tx } from '@aztec/stdlib/tx';
+import type { BlockHeader, GlobalVariables, Tx } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { TestContext } from '../mocks/test_context.js';
-import { type ProvingOrchestrator } from './orchestrator.js';
+import type { ProvingOrchestrator } from './orchestrator.js';
 
 const logger = createLogger('prover-client:test:orchestrator-workflow');
 

@@ -1,6 +1,6 @@
 import { createCompatibleClient } from '@aztec/aztec.js';
 import { createEthereumChain, createL1Clients, deployL1Contract } from '@aztec/ethereum';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 import { HonkVerifierAbi, HonkVerifierBytecode } from '@aztec/l1-artifacts';
 
 import { InvalidOptionArgumentError } from 'commander';

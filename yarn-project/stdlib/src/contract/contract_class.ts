@@ -6,7 +6,7 @@ import { type ContractArtifact, type FunctionArtifact, FunctionSelector, Functio
 import { hashVK } from '../hash/hash.js';
 import { computeArtifactHash } from './artifact_hash.js';
 import { type ContractClassIdPreimage, computeContractClassIdWithPreimage } from './contract_class_id.js';
-import { type ContractClass, type ContractClassWithId, type PublicFunction } from './interfaces/index.js';
+import type { ContractClass, ContractClassWithId, PublicFunction } from './interfaces/index.js';
 
 /** Contract artifact including its artifact hash */
 type ContractArtifactWithHash = ContractArtifact & { artifactHash: Fr };

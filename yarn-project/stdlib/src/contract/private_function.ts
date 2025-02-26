@@ -3,7 +3,7 @@ import { pedersenHash, poseidon2Hash, poseidon2HashWithSeparator } from '@aztec/
 import { Fr } from '@aztec/foundation/fields';
 import { type MerkleTree, MerkleTreeCalculator } from '@aztec/foundation/trees';
 
-import { type PrivateFunction } from './interfaces/contract_class.js';
+import type { PrivateFunction } from './interfaces/contract_class.js';
 
 // Memoize the merkle tree calculators to avoid re-computing the zero-hash for each level in each call
 let privateFunctionTreeCalculator: MerkleTreeCalculator | undefined;

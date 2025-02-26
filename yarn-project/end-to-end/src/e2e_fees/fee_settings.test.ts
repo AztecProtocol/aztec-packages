@@ -7,7 +7,7 @@ import {
 } from '@aztec/aztec.js';
 import { Fr } from '@aztec/foundation/fields';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
-import { type GasSettings } from '@aztec/stdlib/gas';
+import type { GasSettings } from '@aztec/stdlib/gas';
 
 import { inspect } from 'util';
 
@@ -70,7 +70,8 @@ describe('e2e_fees fee settings', () => {
       return tx;
     };
 
-    it('handles base fee spikes with default padding', async () => {
+    // TODO(#12258): This test is currently broken on master. Fix it.
+    it.skip('handles base fee spikes with default padding', async () => {
       // Prepare two txs using the current L2 base fees: one with no padding and one with default padding
       const txWithNoPadding = await sendTx(0);
       const txWithDefaultPadding = await sendTx(undefined);

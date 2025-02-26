@@ -1,5 +1,5 @@
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/constants';
-import { type Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
 
 /**

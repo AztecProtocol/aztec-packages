@@ -53,7 +53,7 @@ import type { GlobalVariables, TreeSnapshots } from '@aztec/stdlib/tx';
 import { strict as assert } from 'assert';
 
 import { SideEffectLimitReachedError } from './side_effect_errors.js';
-import { type PublicSideEffectTraceInterface } from './side_effect_trace_interface.js';
+import type { PublicSideEffectTraceInterface } from './side_effect_trace_interface.js';
 import { UniqueClassIds } from './unique_class_ids.js';
 
 const emptyPublicDataPath = () => new Array(PUBLIC_DATA_TREE_HEIGHT).fill(Fr.zero());

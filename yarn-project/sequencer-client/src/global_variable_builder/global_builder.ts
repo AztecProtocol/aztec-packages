@@ -4,9 +4,9 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
-import { type AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees } from '@aztec/stdlib/gas';
-import { type GlobalVariableBuilder as GlobalVariableBuilderInterface } from '@aztec/stdlib/tx';
+import type { GlobalVariableBuilder as GlobalVariableBuilderInterface } from '@aztec/stdlib/tx';
 import { GlobalVariables } from '@aztec/stdlib/tx';
 
 import { type GetContractReturnType, createPublicClient, fallback, getAddress, getContract, http } from 'viem';

@@ -1,6 +1,6 @@
-import { type FunctionCall } from '@aztec/stdlib/abi';
-import { type AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type GasSettings } from '@aztec/stdlib/gas';
+import type { FunctionCall } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { GasSettings } from '@aztec/stdlib/gas';
 
 /**
  * Holds information about how the fee for a transaction is to be paid.

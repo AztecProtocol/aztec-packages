@@ -3,7 +3,7 @@ import type {
   Chain,
   Client,
   FallbackTransport,
-  HttpTransport, // PrivateKeyAccount,
+  HttpTransport,
   PublicActions,
   PublicClient,
   PublicRpcSchema,

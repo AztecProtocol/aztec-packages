@@ -1,9 +1,9 @@
 import { Blob, BlobDeserializationError } from '@aztec/blob-lib';
-import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
-import { type ViemPublicClient } from '@aztec/ethereum';
+import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
+import type { ViemPublicClient } from '@aztec/ethereum';
 import { asyncPool } from '@aztec/foundation/async-pool';
-import { type EthAddress } from '@aztec/foundation/eth-address';
-import { type ViemSignature } from '@aztec/foundation/eth-signature';
+import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { ViemSignature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
@@ -24,8 +24,8 @@ import {
 } from 'viem';
 
 import { NoBlobBodiesFoundError } from './errors.js';
-import { type DataRetrieval } from './structs/data_retrieval.js';
-import { type L1Published, type L1PublishedData } from './structs/published.js';
+import type { DataRetrieval } from './structs/data_retrieval.js';
+import type { L1Published, L1PublishedData } from './structs/published.js';
 
 /**
  * Fetches new L2 blocks.
@@ -78,7 +78,9 @@ export async function retrieveBlocksFromRollup(
     retrievedBlocks.push(...newBlocks);
     searchStartBlock = lastLog.blockNumber! + 1n;
   } while (searchStartBlock <= searchEndBlock);
-  return retrievedBlocks;
+
+  // The asyncpool from processL2BlockProposedLogs will not necessarily return the blocks in order, so we sort them before returning.
+  return retrievedBlocks.sort((a, b) => Number(a.l1.blockNumber - b.l1.blockNumber));
 }
 
 /**

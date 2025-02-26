@@ -1,5 +1,5 @@
 import { Blob } from '@aztec/blob-lib';
-import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
+import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import { DefaultL1ContractsConfig, type ViemPublicClient } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -18,8 +18,8 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import { type Log, type Transaction, encodeFunctionData, toHex } from 'viem';
 
 import { Archiver } from './archiver.js';
-import { type ArchiverDataStore } from './archiver_store.js';
-import { type ArchiverInstrumentation } from './instrumentation.js';
+import type { ArchiverDataStore } from './archiver_store.js';
+import type { ArchiverInstrumentation } from './instrumentation.js';
 import { MemoryArchiverStore } from './memory_archiver_store/memory_archiver_store.js';
 
 interface MockRollupContractRead {

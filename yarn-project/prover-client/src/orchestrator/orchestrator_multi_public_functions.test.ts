@@ -4,9 +4,9 @@ import { createLogger } from '@aztec/foundation/log';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { type TestEnqueuedCall } from '@aztec/simulator/public/fixtures';
+import type { TestEnqueuedCall } from '@aztec/simulator/public/fixtures';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import { Tx } from '@aztec/stdlib/tx';
 

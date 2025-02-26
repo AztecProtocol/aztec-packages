@@ -1,9 +1,8 @@
-import { type ApiSchemaFor, optional, schemas } from '@aztec/stdlib/schemas';
-
 import { z } from 'zod';
 
 import { BlockAttestation } from '../p2p/block_attestation.js';
-import { type P2PClientType } from '../p2p/client_type.js';
+import type { P2PClientType } from '../p2p/client_type.js';
+import { type ApiSchemaFor, optional, schemas } from '../schemas/index.js';
 import { Tx } from '../tx/tx.js';
 
 export type PeerInfo =

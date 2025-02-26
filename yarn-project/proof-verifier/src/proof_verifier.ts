@@ -16,7 +16,7 @@ import {
 
 import { createPublicClient, fallback, http } from 'viem';
 
-import { type ProofVerifierConfig } from './config.js';
+import type { ProofVerifierConfig } from './config.js';
 
 const EXPECTED_PROOF_SIZE = 13988;
 

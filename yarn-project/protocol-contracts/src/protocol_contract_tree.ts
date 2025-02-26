@@ -1,6 +1,6 @@
-import { type PROTOCOL_CONTRACT_TREE_HEIGHT } from '@aztec/constants';
+import type { PROTOCOL_CONTRACT_TREE_HEIGHT } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { type IndexedMerkleTree } from '@aztec/foundation/trees';
+import type { IndexedMerkleTree } from '@aztec/foundation/trees';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ProtocolContractLeafPreimage } from '@aztec/stdlib/trees';
 

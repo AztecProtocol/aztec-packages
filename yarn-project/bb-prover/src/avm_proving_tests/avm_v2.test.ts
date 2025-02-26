@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 import { AvmProvingTesterV2 } from './avm_proving_tester.js';
 

@@ -2,10 +2,10 @@ import { toBigIntLE, toBufferLE } from '@aztec/foundation/bigint-buffer';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type Bufferable, type FromBuffer, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type Hasher, SiblingPath } from '@aztec/foundation/trees';
-import { type AztecKVStore, type AztecMap, type AztecSingleton } from '@aztec/kv-store';
+import type { AztecKVStore, AztecMap, AztecSingleton } from '@aztec/kv-store';
 
 import { HasherWithStats } from './hasher_with_stats.js';
-import { type MerkleTree } from './interfaces/merkle_tree.js';
+import type { MerkleTree } from './interfaces/merkle_tree.js';
 
 const MAX_DEPTH = 254;
 

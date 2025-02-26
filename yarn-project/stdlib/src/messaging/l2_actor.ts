@@ -1,7 +1,8 @@
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { AztecAddress } from '@aztec/stdlib/aztec-address';
+
+import { AztecAddress } from '../aztec-address/index.js';
 
 /**
  * The recipient of an L2 message.

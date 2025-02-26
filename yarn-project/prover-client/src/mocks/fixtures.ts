@@ -3,14 +3,14 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type Logger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
 import { NativeACVMSimulator, type SimulationProvider, WASMSimulatorWithBlobs } from '@aztec/simulator/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees } from '@aztec/stdlib/gas';
-import { type MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import { type ProcessedTx } from '@aztec/stdlib/tx';
+import type { ProcessedTx } from '@aztec/stdlib/tx';
 import { GlobalVariables } from '@aztec/stdlib/tx';
 
 import { promises as fs } from 'fs';

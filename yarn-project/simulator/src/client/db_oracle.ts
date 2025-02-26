@@ -1,16 +1,16 @@
-import { type Fr } from '@aztec/foundation/fields';
-import { type FunctionArtifact, type FunctionSelector } from '@aztec/stdlib/abi';
-import { type AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { Fr } from '@aztec/foundation/fields';
+import type { FunctionArtifact, FunctionSelector } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
-import { type CompleteAddress, type ContractInstance } from '@aztec/stdlib/contract';
+import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { IndexedTaggingSecret, LogWithTxData, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
-import { type NoteData } from '../acvm/index.js';
-import { type CommitmentsDB } from '../public/db_interfaces.js';
+import type { NoteData } from '../acvm/index.js';
+import type { CommitmentsDB } from '../public/db_interfaces.js';
 
 /**
  * Error thrown when a contract is not found in the database.

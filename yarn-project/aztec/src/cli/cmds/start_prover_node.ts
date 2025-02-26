@@ -1,8 +1,8 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
 import { NULL_KEY } from '@aztec/ethereum';
-import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
+import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
-import { type LogFn } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
 import { ProvingJobConsumerSchema, createProvingJobBrokerClient } from '@aztec/prover-client/broker';
 import {
   type ProverNodeConfig,

@@ -81,7 +81,7 @@ async function computeRoot(names: string[], leaves: Fr[]) {
 
 async function generateDeclarationFile(destName: string) {
   const content = `
-    import { type NoirCompiledContract } from '@aztec/stdlib/noir';
+    import type { NoirCompiledContract } from '@aztec/stdlib/noir';
     const circuit: NoirCompiledContract;
     export = circuit;
   `;

@@ -1,7 +1,7 @@
 import type { L1ContractAddresses, ViemPublicClient, ViemWalletClient } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 import { InboxAbi } from '@aztec/l1-artifacts';
-import { type AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { expect } from '@jest/globals';
 import { decodeEventLog, getContract } from 'viem';

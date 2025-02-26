@@ -6,10 +6,10 @@ import { RollupAbi, RollupStorage, SlasherAbi } from '@aztec/l1-artifacts';
 import { type Account, type GetContractReturnType, type Hex, getAddress, getContract } from 'viem';
 
 import { getPublicClient } from '../client.js';
-import { type DeployL1ContractsReturnType } from '../deploy_l1_contracts.js';
-import { type L1ContractAddresses } from '../l1_contract_addresses.js';
-import { type L1ReaderConfig } from '../l1_reader.js';
-import { type ViemPublicClient } from '../types.js';
+import type { DeployL1ContractsReturnType } from '../deploy_l1_contracts.js';
+import type { L1ContractAddresses } from '../l1_contract_addresses.js';
+import type { L1ReaderConfig } from '../l1_reader.js';
+import type { ViemPublicClient } from '../types.js';
 import { formatViemError } from '../utils.js';
 import { SlashingProposerContract } from './slashing_proposer.js';
 

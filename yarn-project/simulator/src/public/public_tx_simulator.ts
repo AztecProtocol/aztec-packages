@@ -6,9 +6,9 @@ import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee
 import type { AvmProvingRequest, RevertCode } from '@aztec/stdlib/avm';
 import type { SimulationError } from '@aztec/stdlib/errors';
 import type { Gas, GasUsed } from '@aztec/stdlib/gas';
-import { type MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
+import type { MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
 import type { PublicCallRequest } from '@aztec/stdlib/kernel';
-import { type AvmSimulationStats } from '@aztec/stdlib/stats';
+import type { AvmSimulationStats } from '@aztec/stdlib/stats';
 import {
   type GlobalVariables,
   NestedProcessReturnValues,
@@ -20,12 +20,12 @@ import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trac
 
 import { strict as assert } from 'assert';
 
-import { type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
+import type { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmPersistableStateManager, AvmSimulator } from '../avm/index.js';
 import { NullifierCollisionError } from '../avm/journal/nullifiers.js';
 import { getPublicFunctionDebugName } from '../common/debug_fn_name.js';
 import { ExecutorMetrics } from './executor_metrics.js';
-import { type WorldStateDB } from './public_db_sources.js';
+import type { WorldStateDB } from './public_db_sources.js';
 import { PublicTxContext } from './public_tx_context.js';
 
 export type ProcessedPhase = {

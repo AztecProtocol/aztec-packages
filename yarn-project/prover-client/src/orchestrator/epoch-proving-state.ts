@@ -6,10 +6,10 @@ import {
   VK_TREE_HEIGHT,
 } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/fields';
-import { type Tuple } from '@aztec/foundation/serialize';
+import type { Tuple } from '@aztec/foundation/serialize';
 import { MembershipWitness, type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vks';
-import { type ProofAndVerificationKey, type PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
+import type { ProofAndVerificationKey, PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
 import type { Proof } from '@aztec/stdlib/proofs';
 import {
   BlockMergeRollupInputs,
@@ -18,8 +18,8 @@ import {
   RootRollupInputs,
   type RootRollupPublicInputs,
 } from '@aztec/stdlib/rollup';
-import { type AppendOnlyTreeSnapshot, type MerkleTreeId } from '@aztec/stdlib/trees';
-import { type BlockHeader, type GlobalVariables } from '@aztec/stdlib/tx';
+import type { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
+import type { BlockHeader, GlobalVariables } from '@aztec/stdlib/tx';
 
 import { BlockProvingState } from './block-proving-state.js';
 

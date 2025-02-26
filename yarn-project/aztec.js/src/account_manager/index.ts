@@ -1,12 +1,12 @@
 import { Fr } from '@aztec/foundation/fields';
 import { CompleteAddress, type ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
-import { type PXE } from '@aztec/stdlib/interfaces/client';
+import type { PXE } from '@aztec/stdlib/interfaces/client';
 import { deriveKeys } from '@aztec/stdlib/keys';
 
-import { type AccountContract } from '../account/contract.js';
-import { type Salt, type Wallet } from '../account/index.js';
-import { type AccountInterface } from '../account/interface.js';
+import type { AccountContract } from '../account/contract.js';
+import type { Salt, Wallet } from '../account/index.js';
+import type { AccountInterface } from '../account/interface.js';
 import { DeployMethod, type DeployOptions } from '../contract/deploy_method.js';
 import { Contract } from '../contract/index.js';
 import { DefaultWaitOpts, type WaitOpts } from '../contract/sent_tx.js';

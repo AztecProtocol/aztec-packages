@@ -1,21 +1,21 @@
 import type { Fr } from '@aztec/foundation/fields';
-import { type FunctionSelector } from '@aztec/stdlib/abi';
-import { type AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { FunctionSelector } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { InBlock, L2Block } from '@aztec/stdlib/block';
-import {
-  type ContractClassPublic,
-  type ContractInstanceUpdateWithAddress,
-  type ContractInstanceWithAddress,
-  type ExecutablePrivateFunctionWithMembershipProof,
-  type UnconstrainedFunctionWithMembershipProof,
+import type {
+  ContractClassPublic,
+  ContractInstanceUpdateWithAddress,
+  ContractInstanceWithAddress,
+  ExecutablePrivateFunctionWithMembershipProof,
+  UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/stdlib/contract';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import type { LogFilter, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { InboxLeaf } from '@aztec/stdlib/messaging';
 import { BlockHeader, type TxEffect, type TxHash, type TxReceipt } from '@aztec/stdlib/tx';
 
-import { type DataRetrieval } from './structs/data_retrieval.js';
-import { type L1Published } from './structs/published.js';
+import type { DataRetrieval } from './structs/data_retrieval.js';
+import type { L1Published } from './structs/published.js';
 
 /**
  * Represents the latest L1 block processed by the archiver for various objects in L2.

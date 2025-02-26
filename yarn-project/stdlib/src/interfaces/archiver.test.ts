@@ -9,7 +9,7 @@ import { FunctionSelector } from '../abi/function_selector.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import { type InBlock, randomInBlock } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
-import { type L2Tips } from '../block/l2_block_source.js';
+import type { L2Tips } from '../block/l2_block_source.js';
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
 import {
   type ContractClassPublic,
@@ -30,7 +30,7 @@ import { TxEffect } from '../tx/tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
 import { type ArchiverApi, ArchiverApiSchema } from './archiver.js';
-import { type GetContractClassLogsResponse, type GetPublicLogsResponse } from './get_logs_response.js';
+import type { GetContractClassLogsResponse, GetPublicLogsResponse } from './get_logs_response.js';
 
 describe('ArchiverApiSchema', () => {
   let handler: MockArchiver;

@@ -1,8 +1,8 @@
-import { type AztecAsyncKVStore } from '@aztec/kv-store';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 
-import { type BlobSinkConfig } from './config.js';
+import type { BlobSinkConfig } from './config.js';
 import { BlobSinkServer } from './server.js';
 
 // If data store settings are provided, the store is created and returned.

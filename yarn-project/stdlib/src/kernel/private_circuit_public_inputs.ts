@@ -21,7 +21,7 @@ import {
   serializeToBuffer,
   serializeToFields,
 } from '@aztec/foundation/serialize';
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { FieldsOf } from '@aztec/foundation/types';
 
 import { KeyValidationRequestAndGenerator } from '../kernel/hints/key_validation_request_and_generator.js';
 import { LogHash } from '../kernel/log_hash.js';

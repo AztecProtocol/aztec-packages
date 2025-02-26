@@ -22,7 +22,9 @@ if [ -t 1 ]; then
   fi
   set -e
 else
-  denoise "parallel $parallel_args 'run_test_cmd {}'"
+  # TODO: Reinstate once better live logging.
+  # denoise "parallel $parallel_args 'run_test_cmd {}'"
+  parallel $parallel_args 'run_test_cmd {}'
 fi
 
 slow_jobs=$(cat joblog.txt | \

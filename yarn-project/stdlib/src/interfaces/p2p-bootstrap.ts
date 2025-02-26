@@ -1,6 +1,6 @@
-import { type ApiSchemaFor } from '@aztec/stdlib/schemas';
-
 import { z } from 'zod';
+
+import type { ApiSchemaFor } from '../schemas/index.js';
 
 /** Exposed API to the P2P bootstrap node. */
 export interface P2PBootstrapApi {

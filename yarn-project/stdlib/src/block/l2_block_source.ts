@@ -1,13 +1,14 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import type { BlockHeader, TxReceipt } from '@aztec/stdlib/tx';
 
 import { z } from 'zod';
 
-import { type L1RollupConstants } from '../epoch-helpers/index.js';
-import { type TxEffect } from '../tx/tx_effect.js';
-import { type TxHash } from '../tx/tx_hash.js';
-import { type InBlock } from './in_block.js';
-import { type L2Block } from './l2_block.js';
+import type { L1RollupConstants } from '../epoch-helpers/index.js';
+import type { BlockHeader } from '../tx/block_header.js';
+import type { TxEffect } from '../tx/tx_effect.js';
+import type { TxHash } from '../tx/tx_hash.js';
+import type { TxReceipt } from '../tx/tx_receipt.js';
+import type { InBlock } from './in_block.js';
+import type { L2Block } from './l2_block.js';
 
 /**
  * Interface of classes allowing for the retrieval of L2 blocks.

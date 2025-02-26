@@ -4,7 +4,7 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { jest } from '@jest/globals';
 import http from 'http';
-import { type AddressInfo } from 'net';
+import type { AddressInfo } from 'net';
 
 import { BlobSinkServer } from '../server/server.js';
 import { runBlobSinkClientTests } from './blob-sink-client-tests.js';

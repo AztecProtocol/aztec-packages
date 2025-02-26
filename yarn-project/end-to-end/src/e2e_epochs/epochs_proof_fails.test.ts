@@ -3,15 +3,15 @@ import { ChainMonitor } from '@aztec/aztec.js/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
-import { type TestProverNode } from '@aztec/prover-node/test';
-import { type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import type { TestProverNode } from '@aztec/prover-node/test';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { Proof } from '@aztec/stdlib/proofs';
 import { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
 
 import { jest } from '@jest/globals';
-import { type PublicClient } from 'viem';
+import type { PublicClient } from 'viem';
 
-import { type EndToEndContext } from '../fixtures/utils.js';
+import type { EndToEndContext } from '../fixtures/utils.js';
 import {
   EPOCH_DURATION_IN_L2_SLOTS,
   EpochsTestContext,

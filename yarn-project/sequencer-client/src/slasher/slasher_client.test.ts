@@ -8,7 +8,7 @@ import {
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
-import { type AztecAsyncKVStore } from '@aztec/kv-store';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openStoreAt, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { L2Block } from '@aztec/stdlib/block';
 

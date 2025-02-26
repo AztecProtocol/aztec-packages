@@ -1,4 +1,4 @@
-import { type ArchiveSource } from '@aztec/archiver';
+import type { ArchiveSource } from '@aztec/archiver';
 import { getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, Fr, GlobalVariables, type L2Block, createLogger } from '@aztec/aztec.js';
 import { Blob, BlockBlobPublicInputs } from '@aztec/blob-lib';
@@ -31,7 +31,7 @@ import { SequencerPublisher } from '@aztec/sequencer-client';
 import type { L2Tips } from '@aztec/stdlib/block';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { fr, makeBloatedProcessedTx } from '@aztec/stdlib/testing';
-import { type BlockHeader, type ProcessedTx } from '@aztec/stdlib/tx';
+import type { BlockHeader, ProcessedTx } from '@aztec/stdlib/tx';
 import {
   type MerkleTreeAdminDatabase,
   NativeWorldStateService,

@@ -46,7 +46,7 @@ import { compact } from '@aztec/foundation/collection';
 import { SchnorrSignature, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
-import { type Bufferable } from '@aztec/foundation/serialize';
+import type { Bufferable } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 
 import { FunctionSelector } from '../abi/function_selector.js';

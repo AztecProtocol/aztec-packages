@@ -1,13 +1,20 @@
-use crate::{filter::filter_notes_min_sum, value_note::{VALUE_NOTE_LEN, ValueNote}};
-use dep::aztec::encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note;
-use dep::aztec::note::note_getter_options::SortOrder;
-use dep::aztec::prelude::{AztecAddress, NoteGetterOptions, PrivateContext, PrivateSet};
+use crate::{filter::filter_notes_min_sum, value_note::ValueNote};
+
+use aztec::{
+    encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
+    note::note_getter_options::SortOrder,
+    prelude::{AztecAddress, NoteGetterOptions, PrivateContext, PrivateSet},
+    protocol_types::traits::Packable,
+};
 
 // Sort the note values (0th field) in descending order.
 // Pick the fewest notes whose sum is equal to or greater than `amount`.
-pub fn create_note_getter_options_for_decreasing_balance(
+pub fn create_note_getter_options_for_decreasing_balance<let N: u32>(
     amount: Field,
-) -> NoteGetterOptions<ValueNote, VALUE_NOTE_LEN, Field, Field> {
+) -> NoteGetterOptions<ValueNote, N, Field, Field>
+where
+    ValueNote: Packable<N>,
+{
     NoteGetterOptions::with_filter(filter_notes_min_sum, amount).sort(
         ValueNote::properties().value,
         SortOrder.DESC,

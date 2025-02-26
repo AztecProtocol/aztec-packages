@@ -5,7 +5,7 @@ import {
   getDefaultConfig,
   numberConfigHelper,
 } from '@aztec/foundation/config';
-import { type Logger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 

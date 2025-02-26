@@ -3,8 +3,8 @@ import { GovernanceAbi } from '@aztec/l1-artifacts';
 
 import { type GetContractReturnType, type Hex, getContract } from 'viem';
 
-import { type L1ContractAddresses } from '../l1_contract_addresses.js';
-import { type ViemPublicClient } from '../types.js';
+import type { L1ContractAddresses } from '../l1_contract_addresses.js';
+import type { ViemPublicClient } from '../types.js';
 import { GovernanceProposerContract } from './governance_proposer.js';
 
 export type L1GovernanceContractAddresses = Pick<

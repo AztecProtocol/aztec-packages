@@ -3,7 +3,7 @@ import { ARCHIVE_HEIGHT } from '@aztec/constants';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { MembershipWitness } from '@aztec/foundation/trees';
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { FieldsOf } from '@aztec/foundation/types';
 
 import { PublicDataHint } from '../avm/public_data_hint.js';
 import { PartialStateReference } from '../tx/partial_state_reference.js';

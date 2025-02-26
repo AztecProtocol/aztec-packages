@@ -7,7 +7,7 @@ import {
   TUBE_PROOF_LENGTH,
 } from '@aztec/constants';
 import { times } from '@aztec/foundation/collection';
-import { type AvmCircuitInputs } from '@aztec/stdlib/avm';
+import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import {
   type ProofAndVerificationKey,
   type ProvingJob,
@@ -19,20 +19,20 @@ import {
   makeProofAndVerificationKey,
   makePublicInputsAndRecursiveProof,
 } from '@aztec/stdlib/interfaces/server';
-import { type BaseParityInputs, type RootParityInputs } from '@aztec/stdlib/parity';
+import type { BaseParityInputs, RootParityInputs } from '@aztec/stdlib/parity';
 import { makeEmptyRecursiveProof, makeRecursiveProof } from '@aztec/stdlib/proofs';
-import {
-  type BaseOrMergeRollupPublicInputs,
-  type BlockMergeRollupInputs,
-  type BlockRootOrBlockMergePublicInputs,
-  type BlockRootRollupInputs,
-  type EmptyBlockRootRollupInputs,
-  type MergeRollupInputs,
-  type PrivateBaseRollupInputs,
-  type PublicBaseRollupInputs,
-  type RootRollupInputs,
-  type RootRollupPublicInputs,
-  type SingleTxBlockRootRollupInputs,
+import type {
+  BaseOrMergeRollupPublicInputs,
+  BlockMergeRollupInputs,
+  BlockRootOrBlockMergePublicInputs,
+  BlockRootRollupInputs,
+  EmptyBlockRootRollupInputs,
+  MergeRollupInputs,
+  PrivateBaseRollupInputs,
+  PublicBaseRollupInputs,
+  RootRollupInputs,
+  RootRollupPublicInputs,
+  SingleTxBlockRootRollupInputs,
 } from '@aztec/stdlib/rollup';
 import {
   makeBaseOrMergeRollupPublicInputs,

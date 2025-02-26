@@ -1,9 +1,9 @@
 import { type ViemPublicClient } from '@aztec/ethereum';
-import { type EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
-import { type EthAddress } from '@aztec/foundation/eth-address';
+import type { EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
-import { type TestDateProvider } from '@aztec/foundation/timer';
+import type { TestDateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
 import { type GetContractReturnType, getAddress, getContract } from 'viem';

@@ -1,7 +1,7 @@
 import { createLogger } from '@aztec/foundation/log';
 import { ContractsDataSourcePublicDB, getExecutionRequestsByPhase } from '@aztec/simulator/server';
-import { type ContractDataSource } from '@aztec/stdlib/contract';
-import { type AllowedElement } from '@aztec/stdlib/interfaces/server';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
+import type { AllowedElement } from '@aztec/stdlib/interfaces/server';
 import {
   type PublicExecutionRequest,
   Tx,

@@ -22,8 +22,8 @@ import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protoc
 import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type ContractInstanceWithAddress, getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
-import { type AztecNode, type PXE } from '@aztec/stdlib/interfaces/client';
-import { type PublicDataTreeLeaf } from '@aztec/stdlib/trees';
+import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
+import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
   type TelemetryClient,
   getConfigEnvVars as getTelemetryClientConfig,

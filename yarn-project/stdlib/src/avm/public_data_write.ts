@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 

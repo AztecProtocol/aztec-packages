@@ -1,5 +1,5 @@
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { type Tuple } from '@aztec/foundation/serialize';
+import type { Tuple } from '@aztec/foundation/serialize';
 
 import type { ScopedNoteHash } from '../note_hash.js';
 import type { ScopedNullifier } from '../nullifier.js';

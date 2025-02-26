@@ -11,10 +11,10 @@ import {
 } from '@aztec/constants';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type SiblingPath } from '@aztec/foundation/trees';
+import type { SiblingPath } from '@aztec/foundation/trees';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
-import { type L2Block } from '@aztec/stdlib/block';
-import { type MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import type { L2Block } from '@aztec/stdlib/block';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { makeContentCommitment, makeGlobalVariables } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { BlockHeader } from '@aztec/stdlib/tx';
@@ -26,7 +26,7 @@ import { join } from 'path';
 
 import { assertSameState, compareChains, mockBlock, mockEmptyBlock } from '../test/utils.js';
 import { INITIAL_NULLIFIER_TREE_SIZE, INITIAL_PUBLIC_DATA_TREE_SIZE } from '../world-state-db/merkle_tree_db.js';
-import { type WorldStateStatusSummary } from './message.js';
+import type { WorldStateStatusSummary } from './message.js';
 import { NativeWorldStateService, WORLD_STATE_VERSION_FILE } from './native_world_state.js';
 import { WorldStateVersion } from './world_state_version.js';
 

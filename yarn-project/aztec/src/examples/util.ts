@@ -3,7 +3,7 @@ import type { ViemPublicClient, ViemWalletClient } from '@aztec/ethereum';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
 import type { Abi, Narrow } from 'abitype';
-import { type Hex } from 'viem';
+import type { Hex } from 'viem';
 
 /**
  * Helper function to deploy ETH contracts.

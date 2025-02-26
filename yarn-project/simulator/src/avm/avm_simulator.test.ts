@@ -9,7 +9,7 @@ import {
   sha256,
 } from '@aztec/foundation/crypto';
 import { Fq, Fr, Point } from '@aztec/foundation/fields';
-import { type Fieldable } from '@aztec/foundation/serialize';
+import type { Fieldable } from '@aztec/foundation/serialize';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -23,7 +23,7 @@ import {
   siloNoteHash,
   siloNullifier,
 } from '@aztec/stdlib/hash';
-import { type MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { PublicKeys } from '@aztec/stdlib/keys';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
 import { MerkleTreeId, NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
@@ -34,9 +34,9 @@ import { mock } from 'jest-mock-extended';
 
 import { WorldStateDB } from '../public/public_db_sources.js';
 import { SideEffectTrace } from '../public/side_effect_trace.js';
-import { type PublicSideEffectTraceInterface } from '../public/side_effect_trace_interface.js';
-import { type AvmContext } from './avm_context.js';
-import { type AvmExecutionEnvironment } from './avm_execution_environment.js';
+import type { PublicSideEffectTraceInterface } from '../public/side_effect_trace_interface.js';
+import type { AvmContext } from './avm_context.js';
+import type { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { type MemoryValue, TypeTag, type Uint8, type Uint64 } from './avm_memory_types.js';
 import { AvmSimulator } from './avm_simulator.js';
 import { isAvmBytecode, markBytecodeAsAvm } from './bytecode_utils.js';
@@ -55,7 +55,7 @@ import {
   resolveAvmTestContractAssertionMessage,
 } from './fixtures/index.js';
 import { SimpleContractDataSource } from './fixtures/simple_contract_data_source.js';
-import { type AvmPersistableStateManager } from './journal/journal.js';
+import type { AvmPersistableStateManager } from './journal/journal.js';
 import {
   Add,
   CalldataCopy,

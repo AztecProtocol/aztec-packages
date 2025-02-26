@@ -1,8 +1,8 @@
 import { Fr } from '@aztec/foundation/fields';
-import { type AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 
-import { type NoteData } from '../acvm/index.js';
+import type { NoteData } from '../acvm/index.js';
 
 interface PendingNote {
   note: NoteData;

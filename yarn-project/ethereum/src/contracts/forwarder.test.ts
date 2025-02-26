@@ -5,7 +5,7 @@ import { GovernanceProposerAbi } from '@aztec/l1-artifacts/GovernanceProposerAbi
 import { TestERC20Abi } from '@aztec/l1-artifacts/TestERC20Abi';
 import { TestERC20Bytecode } from '@aztec/l1-artifacts/TestERC20Bytecode';
 
-import { type Anvil } from '@viem/anvil';
+import type { Anvil } from '@viem/anvil';
 import { type GetContractReturnType, encodeFunctionData, getContract } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';

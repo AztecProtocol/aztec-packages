@@ -1,6 +1,6 @@
 import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
 import { keccak256 } from '@aztec/foundation/crypto';
-import { type EthAddress } from '@aztec/foundation/eth-address';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 
 import { type Hex, createPublicClient, fallback, http } from 'viem';

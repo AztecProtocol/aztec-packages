@@ -1,6 +1,6 @@
-import { type ApiSchemaFor, schemas } from '@aztec/stdlib/schemas';
-
 import { z } from 'zod';
+
+import { type ApiSchemaFor, schemas } from '../schemas/index.js';
 
 const EpochProvingJobState = [
   'initialized',

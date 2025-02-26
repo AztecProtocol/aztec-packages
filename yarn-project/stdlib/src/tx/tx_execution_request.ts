@@ -1,19 +1,21 @@
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
-import { type FieldsOf } from '@aztec/foundation/types';
-import { FunctionSelector } from '@aztec/stdlib/abi';
-import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type ZodFor, schemas } from '@aztec/stdlib/schemas';
-import { FunctionData, TxContext, TxRequest } from '@aztec/stdlib/tx';
-import { Vector } from '@aztec/stdlib/types';
+import type { FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
 import { z } from 'zod';
 
+import { FunctionSelector } from '../abi/function_selector.js';
 import { AuthWitness } from '../auth_witness/auth_witness.js';
+import { AztecAddress } from '../aztec-address/index.js';
+import { type ZodFor, schemas } from '../schemas/index.js';
+import { Vector } from '../types/shared.js';
 import { Capsule } from './capsule.js';
+import { FunctionData } from './function_data.js';
 import { HashedValues } from './hashed_values.js';
+import { TxContext } from './tx_context.js';
+import { TxRequest } from './tx_request.js';
 
 /**
  * Request to execute a transaction. Similar to TxRequest, but has the full args.

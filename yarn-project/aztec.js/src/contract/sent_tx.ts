@@ -1,6 +1,6 @@
 import { retryUntil } from '@aztec/foundation/retry';
-import { type FieldsOf } from '@aztec/foundation/types';
-import { type GetPublicLogsResponse, type PXE } from '@aztec/stdlib/interfaces/client';
+import type { FieldsOf } from '@aztec/foundation/types';
+import type { GetPublicLogsResponse, PXE } from '@aztec/stdlib/interfaces/client';
 import { type TxHash, type TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
 /** Options related to waiting for a tx. */

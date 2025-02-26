@@ -18,7 +18,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { SiblingPath } from '@aztec/foundation/trees';
-import { type AztecKVStore } from '@aztec/kv-store';
+import type { AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { SHA256Trunc, StandardTree, UnbalancedTree } from '@aztec/merkle-tree';
 import { type P2P, createP2PClient } from '@aztec/p2p';
@@ -34,20 +34,16 @@ import {
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { InBlock, L2Block, L2BlockNumber, L2BlockSource, NullifierWithBlockSource } from '@aztec/stdlib/block';
-import {
-  type ContractClassPublic,
-  type ContractDataSource,
-  type ContractInstanceWithAddress,
-  type NodeInfo,
-  type ProtocolContractAddresses,
+import type {
+  ContractClassPublic,
+  ContractDataSource,
+  ContractInstanceWithAddress,
+  NodeInfo,
+  ProtocolContractAddresses,
 } from '@aztec/stdlib/contract';
 import type { GasFees } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/stdlib/hash';
-import {
-  type AztecNode,
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-} from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import {
   type ClientProtocolCircuitVerifier,
   type L2LogsSource,
@@ -62,11 +58,7 @@ import type { LogFilter, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
-import {
-  type NullifierLeafPreimage,
-  type PublicDataTreeLeaf,
-  type PublicDataTreeLeafPreimage,
-} from '@aztec/stdlib/trees';
+import type { NullifierLeafPreimage, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import {
   type BlockHeader,
   PublicSimulationOutput,

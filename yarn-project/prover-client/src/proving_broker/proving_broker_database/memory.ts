@@ -6,7 +6,7 @@ import {
   getEpochFromProvingJobId,
 } from '@aztec/stdlib/interfaces/server';
 
-import { type ProvingBrokerDatabase } from '../proving_broker_database.js';
+import type { ProvingBrokerDatabase } from '../proving_broker_database.js';
 
 export class InMemoryBrokerDatabase implements ProvingBrokerDatabase {
   private jobs = new Map<ProvingJobId, ProvingJob>();

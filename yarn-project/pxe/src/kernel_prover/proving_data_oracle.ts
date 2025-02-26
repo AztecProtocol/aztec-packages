@@ -1,11 +1,11 @@
-import { type FUNCTION_TREE_HEIGHT, type NOTE_HASH_TREE_HEIGHT, type VK_TREE_HEIGHT } from '@aztec/constants';
+import type { FUNCTION_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT, VK_TREE_HEIGHT } from '@aztec/constants';
 import type { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
-import { type AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { UpdatedClassIdHints } from '@aztec/stdlib/kernel';
 import type { PublicKeys } from '@aztec/stdlib/keys';
-import { type NullifierMembershipWitness } from '@aztec/stdlib/trees';
+import type { NullifierMembershipWitness } from '@aztec/stdlib/trees';
 import type { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
 /**

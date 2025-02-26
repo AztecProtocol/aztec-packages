@@ -12,7 +12,7 @@ import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import { Storage } from '@google-cloud/storage';
 import { join } from 'path';
 
-import { type ProofStore } from './proof_store.js';
+import type { ProofStore } from './proof_store.js';
 
 const INPUTS_PATH = 'inputs';
 

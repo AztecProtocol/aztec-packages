@@ -13,9 +13,6 @@
       "path": "../aztec.js"
     },
     {
-      "path": "../stdlib"
-    },
-    {
       "path": "../constants"
     },
     {
@@ -23,6 +20,9 @@
     },
     {
       "path": "../l1-artifacts"
+    },
+    {
+      "path": "../stdlib"
     },
     {
       "path": "../world-state"

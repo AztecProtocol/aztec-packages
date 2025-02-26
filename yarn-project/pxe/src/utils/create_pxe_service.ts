@@ -6,9 +6,9 @@ import { KeyStore } from '@aztec/key-store';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { L2TipsStore } from '@aztec/kv-store/stores';
 import { type SimulationProvider, WASMSimulator } from '@aztec/simulator/client';
-import { type AztecNode, type PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 
-import { type PXEServiceConfig } from '../config/index.js';
+import type { PXEServiceConfig } from '../config/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
 import { PXEService } from '../pxe_service/pxe_service.js';
 

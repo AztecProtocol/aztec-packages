@@ -1,5 +1,5 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 
 import { type Command, Option } from 'commander';
 

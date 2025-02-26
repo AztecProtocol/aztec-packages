@@ -1,4 +1,4 @@
-import { type Chain } from 'viem';
+import type { Chain } from 'viem';
 import { foundry } from 'viem/chains';
 
 import { AZTEC_TEST_CHAIN_ID } from './constants.js';

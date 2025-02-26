@@ -3,7 +3,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import { getExecutionRequestsByPhase } from '@aztec/simulator/server';
 import { FunctionSelector, U128 } from '@aztec/stdlib/abi';
-import { type AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasFees } from '@aztec/stdlib/gas';
 import { type Tx, TxExecutionPhase, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
 

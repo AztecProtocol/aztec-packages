@@ -30,7 +30,7 @@ import {
   waitForPXE,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
-import { type BBNativePrivateKernelProver } from '@aztec/bb-prover';
+import type { BBNativePrivateKernelProver } from '@aztec/bb-prover';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
 import { FEE_JUICE_INITIAL_MINT, GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH } from '@aztec/constants';
@@ -54,11 +54,11 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import { type PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
-import { type SequencerClient } from '@aztec/sequencer-client';
-import { type TestSequencerClient } from '@aztec/sequencer-client/test';
+import type { SequencerClient } from '@aztec/sequencer-client';
+import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import { Gas } from '@aztec/stdlib/gas';
-import { type PublicDataTreeLeaf } from '@aztec/stdlib/trees';
+import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
   type TelemetryClient,
   type TelemetryClientConfig,
@@ -68,7 +68,7 @@ import {
 import { BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
-import { type Anvil } from '@viem/anvil';
+import type { Anvil } from '@viem/anvil';
 import fs from 'fs/promises';
 import getPort from 'get-port';
 import { tmpdir } from 'os';

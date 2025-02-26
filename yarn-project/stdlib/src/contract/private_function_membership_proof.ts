@@ -13,10 +13,10 @@ import {
   getArtifactMerkleTreeHasher,
 } from './artifact_hash.js';
 import { getContractClassPrivateFunctionFromArtifact } from './contract_class.js';
-import {
-  type ContractClassPublic,
-  type ExecutablePrivateFunctionWithMembershipProof,
-  type PrivateFunctionMembershipProof,
+import type {
+  ContractClassPublic,
+  ExecutablePrivateFunctionWithMembershipProof,
+  PrivateFunctionMembershipProof,
 } from './interfaces/index.js';
 import { computePrivateFunctionLeaf, computePrivateFunctionsTree } from './private_function.js';
 

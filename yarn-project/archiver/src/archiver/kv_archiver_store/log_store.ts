@@ -17,7 +17,7 @@ import {
   UnencryptedL2Log,
 } from '@aztec/stdlib/logs';
 
-import { type BlockStore } from './block_store.js';
+import type { BlockStore } from './block_store.js';
 
 /**
  * A store for logs

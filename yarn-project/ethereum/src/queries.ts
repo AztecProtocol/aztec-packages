@@ -1,10 +1,10 @@
-import { type EthAddress } from '@aztec/foundation/eth-address';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 
-import { type L1ContractsConfig } from './config.js';
+import type { L1ContractsConfig } from './config.js';
 import { GovernanceContract } from './contracts/governance.js';
 import { RollupContract } from './contracts/rollup.js';
-import { type L1ContractAddresses } from './l1_contract_addresses.js';
-import { type ViemPublicClient } from './types.js';
+import type { L1ContractAddresses } from './l1_contract_addresses.js';
+import type { ViemPublicClient } from './types.js';
 
 /** Given the Governance contract address, reads the addresses from all other contracts from L1. */
 export async function getL1ContractsAddresses(

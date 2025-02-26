@@ -7,7 +7,7 @@
 import type { AztecAddress, Fr, GrumpkinScalar } from '@aztec/aztec.js';
 import { AccountManager, type Salt } from '@aztec/aztec.js/account';
 import { type AccountWallet, type AccountWalletWithSecretKey, getWallet } from '@aztec/aztec.js/wallet';
-import { type PXE } from '@aztec/stdlib/interfaces/client';
+import type { PXE } from '@aztec/stdlib/interfaces/client';
 
 import { SchnorrAccountContract } from './account_contract.js';
 

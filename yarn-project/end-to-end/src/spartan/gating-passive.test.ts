@@ -5,7 +5,7 @@ import { createLogger } from '@aztec/foundation/log';
 
 import { expect, jest } from '@jest/globals';
 
-import { type AlertConfig } from '../quality_of_service/alert_checker.js';
+import type { AlertConfig } from '../quality_of_service/alert_checker.js';
 import {
   applyBootNodeFailure,
   applyNetworkShaping,

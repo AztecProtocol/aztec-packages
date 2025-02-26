@@ -7,8 +7,8 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/aztec.js';
 import { getContractArtifact } from '@aztec/cli/cli-utils';
-import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
-import { type LogFn } from '@aztec/foundation/log';
+import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
+import type { LogFn } from '@aztec/foundation/log';
 import {
   type CliPXEOptions,
   type PXEService,

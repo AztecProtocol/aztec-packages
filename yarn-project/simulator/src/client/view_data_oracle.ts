@@ -1,19 +1,19 @@
 import { Aes128 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
-import { type AuthWitness } from '@aztec/stdlib/auth-witness';
+import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import { siloNullifier } from '@aztec/stdlib/hash';
-import { type AztecNode } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { IndexedTaggingSecret, LogWithTxData } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
-import { type BlockHeader, type Capsule } from '@aztec/stdlib/tx';
+import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
 
 import { type NoteData, TypedOracle } from '../acvm/index.js';
-import { type DBOracle } from './db_oracle.js';
+import type { DBOracle } from './db_oracle.js';
 import { pickNotes } from './pick_notes.js';
 
 /**

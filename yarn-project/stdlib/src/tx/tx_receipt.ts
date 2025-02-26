@@ -1,5 +1,5 @@
-import { type Fr } from '@aztec/foundation/fields';
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { Fr } from '@aztec/foundation/fields';
+import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 

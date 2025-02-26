@@ -54,7 +54,7 @@ import {
   GetPublicLogsResponseSchema,
 } from './get_logs_response.js';
 import { type ProverConfig, ProverConfigSchema } from './prover-client.js';
-import { type ProverCoordination } from './prover-coordination.js';
+import type { ProverCoordination } from './prover-coordination.js';
 import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_state.js';
 
 /**

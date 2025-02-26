@@ -1,4 +1,4 @@
-import { type Gossipable } from '@aztec/stdlib/p2p';
+import type { Gossipable } from '@aztec/stdlib/p2p';
 import {
   Attributes,
   type Histogram,

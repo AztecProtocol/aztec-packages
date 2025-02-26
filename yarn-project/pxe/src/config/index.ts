@@ -8,7 +8,7 @@ import {
 } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
-import { type Network } from '@aztec/stdlib/network';
+import type { Network } from '@aztec/stdlib/network';
 
 /**
  * Temporary configuration until WASM can be used instead of native

@@ -18,7 +18,7 @@ import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import { type InBlock, randomInBlock } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
-import { type L2Tips } from '../block/l2_block_source.js';
+import type { L2Tips } from '../block/l2_block_source.js';
 import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
@@ -46,9 +46,9 @@ import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
 import type { TxValidationResult } from '../tx/validator/tx_validator.js';
 import { type AztecNode, AztecNodeApiSchema } from './aztec-node.js';
-import { type SequencerConfig } from './configs.js';
-import { type GetContractClassLogsResponse, type GetPublicLogsResponse } from './get_logs_response.js';
-import { type ProverConfig } from './prover-client.js';
+import type { SequencerConfig } from './configs.js';
+import type { GetContractClassLogsResponse, GetPublicLogsResponse } from './get_logs_response.js';
+import type { ProverConfig } from './prover-client.js';
 import type { WorldStateSyncStatus } from './world_state.js';
 
 describe('AztecNodeApiSchema', () => {

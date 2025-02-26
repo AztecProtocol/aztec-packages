@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
-import { type AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type GlobalVariables } from '@aztec/stdlib/tx';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { GlobalVariables } from '@aztec/stdlib/tx';
 
 /**
  * Contains variables that remain constant during AVM execution

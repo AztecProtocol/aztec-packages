@@ -2,8 +2,8 @@ import { AbortError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 
-import { type L2Block } from '../l2_block.js';
-import { type L2BlockId, type L2BlockSource, type L2Tips } from '../l2_block_source.js';
+import type { L2Block } from '../l2_block.js';
+import type { L2BlockId, L2BlockSource, L2Tips } from '../l2_block_source.js';
 
 /** Creates a stream of events for new blocks, chain tips updates, and reorgs, out of polling an archiver or a node. */
 export class L2BlockStream {
@@ -76,6 +76,7 @@ export class L2BlockStream {
       // If we are just starting, use the starting block number from the options.
       if (latestBlockNumber === 0 && this.opts.startingBlock !== undefined) {
         latestBlockNumber = Math.max(this.opts.startingBlock - 1, 0);
+        this.log.verbose(`Starting sync from block number ${latestBlockNumber}`);
       }
 
       // Request new blocks from the source.

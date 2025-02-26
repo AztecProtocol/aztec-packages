@@ -6,7 +6,7 @@ import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoc
 
 import { jest } from '@jest/globals';
 
-import { type EndToEndContext } from '../fixtures/utils.js';
+import type { EndToEndContext } from '../fixtures/utils.js';
 import { EPOCH_DURATION_IN_L2_SLOTS, EpochsTestContext, L1_BLOCK_TIME_IN_S } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 10);

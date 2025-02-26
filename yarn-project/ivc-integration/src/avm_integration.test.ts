@@ -10,11 +10,11 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
-import { type FixedLengthArray } from '@aztec/noir-protocol-circuits-types/types';
+import type { FixedLengthArray } from '@aztec/noir-protocol-circuits-types/types';
 import { PublicTxSimulationTester } from '@aztec/simulator/public/fixtures';
-import { type AvmCircuitInputs } from '@aztec/stdlib/avm';
+import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 import { promises as fs } from 'fs';
 import { tmpdir } from 'node:os';

@@ -1,5 +1,5 @@
-import { type Bufferable } from '@aztec/foundation/serialize';
-import { type IndexedTreeLeafPreimage, type SiblingPath } from '@aztec/foundation/trees';
+import type { Bufferable } from '@aztec/foundation/serialize';
+import type { IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';
 
 /**
  * An interface for a tree that can record snapshots of its contents.

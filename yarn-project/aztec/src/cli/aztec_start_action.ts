@@ -3,9 +3,9 @@ import {
   createNamespacedSafeJsonRpcServer,
   startHttpRpcServer,
 } from '@aztec/foundation/json-rpc/server';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
-import { type ChainConfig } from '@aztec/stdlib/config';
+import type { ChainConfig } from '@aztec/stdlib/config';
 import { AztecNodeApiSchema, PXESchema } from '@aztec/stdlib/interfaces/client';
 import { getVersioningMiddleware } from '@aztec/stdlib/versioning';
 import { getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
