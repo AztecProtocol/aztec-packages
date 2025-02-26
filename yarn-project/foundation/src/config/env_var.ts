@@ -46,7 +46,7 @@ export type EnvVar =
   | 'DEBUG_P2P_DISABLE_COLOCATION_PENALTY' // True/False. Should you penalize score of peers with the same IP?
   | 'DEPLOY_AZTEC_CONTRACTS_SALT' // Salt used to deploy Aztec L1 contracts. If this set, then auto implies to deploy Aztec L1 contracts (even if DEPLOY_AZTEC_CONTRACTS=false)
   | 'DEPLOY_AZTEC_CONTRACTS' // Whether to deploy Aztec L1 contracts
-  | 'ETHEREUM_HOST' // URL to the L1 execution client
+  | 'ETHEREUM_HOSTS' // URL to the L1 execution client
   | 'FEE_JUICE_CONTRACT_ADDRESS' // Address of the L1 asset contract
   | 'FEE_JUICE_PORTAL_CONTRACT_ADDRESS' // Address of the L1 asset portal contract.
   | 'FEE_RECIPIENT' // Aztec Address that will receive block fees.

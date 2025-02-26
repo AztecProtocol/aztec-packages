@@ -33,7 +33,8 @@ where
     }
 }
 
-/// Returns the note hash that must be used to compute a note's nullifier.
+/// Returns the note hash that must be used to compute a note's nullifier when calling `NoteHash::compute_nullifier` or
+/// `NoteHash::compute_nullifier_unconstrained`.
 pub fn compute_note_hash_for_nullify<Note>(
     retrieved_note: RetrievedNote<Note>,
     storage_slot: Field,

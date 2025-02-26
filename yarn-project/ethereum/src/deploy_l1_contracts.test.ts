@@ -57,7 +57,7 @@ describe('deploy_l1_contracts', () => {
   });
 
   const deploy = (args: Partial<DeployL1ContractsArgs> = {}) =>
-    deployL1Contracts(rpcUrl!, privateKey, createEthereumChain(rpcUrl!, chainId).chainInfo, logger, {
+    deployL1Contracts([rpcUrl!], privateKey, createEthereumChain([rpcUrl!], chainId).chainInfo, logger, {
       ...DefaultL1ContractsConfig,
       salt: undefined,
       vkTreeRoot,

@@ -16,7 +16,7 @@ variable "FORK_ADMIN_API_KEY" {
   default = ""
 }
 
-variable "ETHEREUM_HOST" {
+variable "ETHEREUM_HOSTS" {
   type    = string
   default = ""
 }

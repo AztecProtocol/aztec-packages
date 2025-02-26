@@ -17,6 +17,7 @@ import { createContext } from "react";
 import { NetworkDB, WalletDB } from "./utils/storage";
 import { type ContractFunctionInteractionTx } from "./utils/txs";
 import { type Logger, createLogger } from "@aztec/aztec.js/log";
+import { LazyProtocolContractsProvider } from "@aztec/protocol-contracts/providers/lazy";
 
 process.env = Object.keys(import.meta.env).reduce((acc, key) => {
   acc[key.replace("VITE_", "")] = import.meta.env[key];
@@ -192,6 +193,8 @@ export class AztecEnv {
     const db = await KVPxeDatabase.create(store);
     const tips = new L2TipsStore(store, "pxe");
 
+    const protocolContractsProvider = new LazyProtocolContractsProvider();
+
     const pxe = new PXEService(
       keyStore,
       aztecNode,
@@ -199,6 +202,7 @@ export class AztecEnv {
       tips,
       proofCreator,
       simulationProvider,
+      protocolContractsProvider,
       config,
       WebLogger.getInstance().createLogger("pxe:service")
     );

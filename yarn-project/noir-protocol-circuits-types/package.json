@@ -3,12 +3,13 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    "./server": "./dest/entrypoint/server.js",
+    "./server": "./dest/entrypoint/server/artifacts.js",
+    "./server/vks": "./dest/entrypoint/server/vks.js",
     "./client": "./dest/entrypoint/client/common.js",
     "./client/bundle": "./dest/entrypoint/client/bundle.js",
     "./client/lazy": "./dest/entrypoint/client/lazy.js",
-    "./types": "./dest/types/index.js",
-    "./vks": "./dest/entrypoint/vks.js"
+    "./vk-tree": "./dest/entrypoint/vk-tree.js",
+    "./types": "./dest/types/index.js"
   },
   "inherits": [
     "../package.common.json",

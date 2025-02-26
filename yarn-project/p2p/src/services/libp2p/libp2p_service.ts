@@ -622,9 +622,13 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
   public async propagate<T extends Gossipable>(message: T) {
     const p2pMessageIdentifier = await message.p2pMessageIdentifier();
     this.logger.trace(`Message ${p2pMessageIdentifier} queued`, { p2pMessageIdentifier });
-    void this.jobQueue.put(async () => {
-      await this.sendToPeers(message);
-    });
+    void this.jobQueue
+      .put(async () => {
+        await this.sendToPeers(message);
+      })
+      .catch(error => {
+        this.logger.error(`Error propagating message ${p2pMessageIdentifier}`, { error });
+      });
   }
 
   /**

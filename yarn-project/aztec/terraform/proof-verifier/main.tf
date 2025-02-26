@@ -153,7 +153,7 @@ resource "aws_ecs_task_definition" "aztec-proof-verifier" {
         }
       ]
       environment = [
-        { name = "ETHEREUM_HOST", value = var.ETHEREUM_HOST },
+        { name = "ETHEREUM_HOSTS", value = var.ETHEREUM_HOSTS },
         { name = "L1_CHAIN_ID", value = tostring(var.L1_CHAIN_ID) },
         { name = "ROLLUP_CONTRACT_ADDRESS", value = var.ROLLUP_CONTRACT_ADDRESS },
         {
