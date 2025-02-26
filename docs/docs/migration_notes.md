@@ -241,7 +241,7 @@ If you need to keep the custom implementation of the packing functionality, manu
 +        ...
 +    }
 +}
-````
+```
 
 If you don't provide a custom implementation of the `Packable` trait, a default one will be generated.
 
