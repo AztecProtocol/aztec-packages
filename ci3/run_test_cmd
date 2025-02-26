@@ -2,10 +2,12 @@
 # Called by 'parallelise' to execute a given test cmd.
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 source $ci3/source_redis
+source $ci3/source_refname
 
 cmd=$1
 # Remove the rebuild hash (first field) that is in front of the test command.
-test_cmd="${cmd#* }"
+# Exported for use in yq.
+export test_cmd="${cmd#* }"
 key=$(hash_str_orig "$cmd")
 
 if [ "${USE_TEST_CACHE:-0}" -eq 1 ] && [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
@@ -61,9 +63,41 @@ fi
 if [ $code -eq 0 ]; then
   echo -e "${green}PASSED${reset}${log_info:-}: $test_cmd (${SECONDS}s)"
 else
-  echo -e "${red}FAILED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
+  # Send slack message to owners.
+  owners=$(yq e -r '.tests[] | .regex as $pattern | select(strenv(test_cmd) | test($pattern)) | .owners[]' .test_patterns.yml | sort -u)
+
+  # To not fail a test, we at least need an owner to notify.
+  if [ -z "$owners" ]; then
+    # No owner, fail.
+    tag="${red}FAILED${reset}"
+    exit_code=$code
+  else
+    # We will not fail a FLAKED test as we slack info to the owner.
+    tag="${purple}FLAKED${reset}"
+
+    slack_users=$(curl -s -X GET https://slack.com/api/users.list -H "Authorization: Bearer $SLACK_BOT_TOKEN")
+    slack_uids=""
+    for email in $owners; do
+      uid=$(echo "$slack_users" | jq -r --arg email "$email" '.members[] | select(.profile.email == $email) | .id')
+      [ -n "$uid" ] && slack_uids+="<@$uid> "
+    done
+    read -r -d '' data <<EOF
+{
+  "channel": "#aztec3-ci",
+  "text": "${slack_uids}: Test flaked \`$test_cmd\` http://ci.aztec-labs.com/$log_key"
+}
+EOF
+    curl -X POST https://slack.com/api/chat.postMessage \
+      -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+      -H "Content-type: application/json" \
+      --data "$data" &>/dev/null
+
+    exit_code=0
+  fi
+
+  echo -e "${tag}${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
   cat $tmp_file
-  echo -e "${red}FAILED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
+  echo -e "${tag}${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
 fi
 
-exit $code
+exit $exit_code
