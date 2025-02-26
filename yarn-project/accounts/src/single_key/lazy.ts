@@ -62,5 +62,5 @@ export function getUnsafeSchnorrWallet(
   address: AztecAddress,
   signingPrivateKey: GrumpkinScalar,
 ): Promise<AccountWallet> {
-  return getWallet(pxe, address, new SingleKeyAccountContract(signingKey));
+  return getWallet(pxe, address, new SingleKeyAccountContract(signingPrivateKey));
 }
