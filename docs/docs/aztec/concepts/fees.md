@@ -57,6 +57,8 @@ These are:
 
 ## Fee payment
 
+A fee payer will have bridged fee-juice from L1. On Aztec this fee asset is non-transferrable, and only deducted by the protocol to pay for fees.
+
 The calculated fee-juice of a transaction is deducted from the fee payer (nominated account or fee-paying contract), these are pooled together each transaction, block, and epoch.
 Once the epoch is proven, the total fee-juice (minus any burnt congestion amount), is distributed to those that contributed to the epoch (proposers, prover and sequencer).
 
