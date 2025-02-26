@@ -91,9 +91,13 @@ prometheus:
     global:
       evaluation_interval: 15s
       scrape_interval: 15s
+      scrape_timeout: 10s
   serverFiles:
     prometheus.yml:
       scrape_configs:
+        - job_name: prometheus
+          static_configs:
+            - targets: ["127.0.0.1:9090"]
         - job_name: otel-collector
           static_configs:
             - targets: ["metrics-opentelemetry-collector.metrics:8888"]
@@ -117,6 +121,10 @@ grafana:
           uid: spartan-metrics-prometheus
           isDefault: true
           url: http://metrics-prometheus-server.metrics:80
+          jsonData:
+            timeout: 60
+            timeInterval: 15s
+            scrapeInterval: 15s
   dashboardProviders:
     dashboardproviders.yaml:
       apiVersion: 1
