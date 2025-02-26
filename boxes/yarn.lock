@@ -45,6 +45,12 @@ __metadata:
   languageName: node
   linkType: soft
 
+"@aztec/protocol-contracts@link:../yarn-project/protocol-contracts::locator=aztec-app%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/protocol-contracts@link:../yarn-project/protocol-contracts::locator=aztec-app%40workspace%3A."
+  languageName: node
+  linkType: soft
+
 "@aztec/pxe@link:../yarn-project/pxe::locator=aztec-app%40workspace%3A.":
   version: 0.0.0-use.local
   resolution: "@aztec/pxe@link:../yarn-project/pxe::locator=aztec-app%40workspace%3A."
@@ -141,6 +147,7 @@ __metadata:
     "@aztec/bb-prover": "npm:latest"
     "@aztec/key-store": "npm:latest"
     "@aztec/kv-store": "npm:latest"
+    "@aztec/protocol-contracts": "npm:latest"
     "@aztec/pxe": "npm:latest"
     "@aztec/simulator": "npm:latest"
     "@aztec/stdlib": "npm:latest"
