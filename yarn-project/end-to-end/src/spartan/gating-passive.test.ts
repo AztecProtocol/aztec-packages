@@ -83,7 +83,7 @@ describe('a test that passively observes the network in the presence of network 
     });
 
     const client = await createCompatibleClient(PXE_URL, debugLogger);
-    const ethCheatCodes = new EthCheatCodesWithState(ETHEREUM_HOST);
+    const ethCheatCodes = new EthCheatCodesWithState([ETHEREUM_HOST]);
     const rollupCheatCodes = new RollupCheatCodes(
       ethCheatCodes,
       await client.getNodeInfo().then(n => n.l1ContractAddresses),

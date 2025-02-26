@@ -82,7 +82,7 @@ describe('SequencerPublisher', () => {
     l1TxUtils.getBlockNumber.mockResolvedValue(1n);
     const config = {
       blobSinkUrl: BLOB_SINK_URL,
-      l1RpcUrl: `http://127.0.0.1:8545`,
+      l1RpcUrls: [`http://127.0.0.1:8545`],
       l1ChainId: 1,
       publisherPrivateKey: `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`,
       l1Contracts: {

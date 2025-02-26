@@ -29,6 +29,8 @@ describe('full_prover', () => {
   let feeJuicePortal: GetContractReturnType<typeof FeeJuicePortalAbi, PublicClient<HttpTransport, Chain>>;
 
   beforeAll(async () => {
+    t.logger.warn(`Running suite with ${realProofs ? 'real' : 'fake'} proofs`);
+
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot();
     await t.setup();

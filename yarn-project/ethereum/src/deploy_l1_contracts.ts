@@ -37,16 +37,13 @@ import {
 
 import type { Abi, Narrow } from 'abitype';
 import {
-  type Account,
   type Chain,
   type Hex,
-  type HttpTransport,
-  type PublicClient,
-  type WalletClient,
   concatHex,
   createPublicClient,
   createWalletClient,
   encodeDeployData,
+  fallback,
   getAddress,
   getContract,
   getContractAddress,
@@ -64,22 +61,22 @@ import { RegistryContract } from './contracts/registry.js';
 import { RollupContract } from './contracts/rollup.js';
 import type { L1ContractAddresses } from './l1_contract_addresses.js';
 import { L1TxUtils, type L1TxUtilsConfig, defaultL1TxUtilsConfig } from './l1_tx_utils.js';
-import type { L1Clients } from './types.js';
+import type { L1Clients, ViemPublicClient, ViemWalletClient } from './types.js';
 
 export const DEPLOYER_ADDRESS: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
 
 /**
  * Return type of the deployL1Contract function.
  */
-export type DeployL1Contracts = {
+export type DeployL1ContractsReturnType = {
   /**
    * Wallet Client Type.
    */
-  walletClient: WalletClient<HttpTransport, Chain, Account>;
+  walletClient: ViemWalletClient;
   /**
    * Public Client Type.
    */
-  publicClient: PublicClient<HttpTransport, Chain>;
+  publicClient: ViemPublicClient;
   /**
    * The currently deployed l1 contract addresses
    */
@@ -211,13 +208,13 @@ export interface DeployL1ContractsArgs extends L1ContractsConfig {
 
 /**
  * Creates a wallet and a public viem client for interacting with L1.
- * @param rpcUrl - RPC URL to connect to L1.
+ * @param rpcUrls - List of RPC URLs to connect to L1.
  * @param mnemonicOrPrivateKeyOrHdAccount - Mnemonic or account for the wallet client.
  * @param chain - Optional chain spec (defaults to local foundry).
  * @returns - A wallet and a public client.
  */
 export function createL1Clients(
-  rpcUrl: string,
+  rpcUrls: string[],
   mnemonicOrPrivateKeyOrHdAccount: string | `0x${string}` | HDAccount | PrivateKeyAccount,
   chain: Chain = foundry,
 ): L1Clients {
@@ -238,11 +235,11 @@ export function createL1Clients(
   const walletClient = createWalletClient({
     account: hdAccount,
     chain,
-    transport: http(rpcUrl),
+    transport: fallback(rpcUrls.map(url => http(url))),
   }).extend(publicActions);
   const publicClient = createPublicClient({
     chain,
-    transport: http(rpcUrl),
+    transport: fallback(rpcUrls.map(url => http(url))),
     pollingInterval: 100,
   });
 
@@ -250,7 +247,7 @@ export function createL1Clients(
 }
 
 export const deployRollupAndPeriphery = async (
-  rpcUrl: string,
+  rpcUrls: string[],
   chain: Chain,
   account: HDAccount | PrivateKeyAccount,
   args: DeployL1ContractsArgs,
@@ -261,7 +258,7 @@ export const deployRollupAndPeriphery = async (
   logger: Logger,
   txUtilsConfig: L1TxUtilsConfig,
 ) => {
-  const { walletClient, publicClient } = createL1Clients(rpcUrl, account, chain);
+  const { walletClient, publicClient } = createL1Clients(rpcUrls, account, chain);
   const deployer = new L1Deployer(walletClient, publicClient, args.salt, logger, txUtilsConfig);
 
   const rollup = await deployRollup(walletClient, publicClient, deployer, args, addresses, logger);
@@ -389,7 +386,7 @@ export const deployRollup = async (
 
 /**
  * Deploys the aztec L1 contracts; Rollup & (optionally) Decoder Helper.
- * @param rpcUrl - URL of the ETH RPC to use for deployment.
+ * @param rpcUrls - List of URLs of the ETH RPC to use for deployment.
  * @param account - Private Key or HD Account that will deploy the contracts.
  * @param chain - The chain instance to deploy to.
  * @param logger - A logger object.
@@ -397,36 +394,36 @@ export const deployRollup = async (
  * @returns A list of ETH addresses of the deployed contracts.
  */
 export const deployL1Contracts = async (
-  rpcUrl: string,
+  rpcUrls: string[],
   account: HDAccount | PrivateKeyAccount,
   chain: Chain,
   logger: Logger,
   args: DeployL1ContractsArgs,
   txUtilsConfig: L1TxUtilsConfig = defaultL1TxUtilsConfig,
-): Promise<DeployL1Contracts> => {
+): Promise<DeployL1ContractsReturnType> => {
   // We are assuming that you are running this on a local anvil node which have 1s block times
   // To align better with actual deployment, we update the block interval to 12s
-  // The code is same as `setBlockInterval` in `cheat_codes.ts`
+  const { walletClient, publicClient } = createL1Clients(rpcUrls, account, chain);
+
   const rpcCall = async (method: string, params: any[]) => {
-    const paramsString = JSON.stringify(params);
-    const content = {
-      body: `{"jsonrpc":"2.0", "method": "${method}", "params": ${paramsString}, "id": 1}`,
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    };
-    return await (await fetch(rpcUrl, content)).json();
+    logger.info(`Calling ${method} with params: ${JSON.stringify(params)}`);
+    return (await publicClient.transport.request({
+      method,
+      params,
+    })) as any;
   };
+
   if (isAnvilTestChain(chain.id)) {
-    const res = await rpcCall('anvil_setBlockTimestampInterval', [args.ethereumSlotDuration]);
-    if (res.error) {
-      throw new Error(`Error setting block interval: ${res.error.message}`);
+    try {
+      await rpcCall('anvil_setBlockTimestampInterval', [args.ethereumSlotDuration]);
+      logger.warn(`Set block interval to ${args.ethereumSlotDuration}`);
+    } catch (e) {
+      logger.error(`Error setting block interval: ${e}`);
     }
-    logger.warn(`Set block interval to ${args.ethereumSlotDuration}`);
   }
 
   logger.verbose(`Deploying contracts from ${account.address.toString()}`);
 
-  const { walletClient, publicClient } = createL1Clients(rpcUrl, account, chain);
   // Governance stuff
   const deployer = new L1Deployer(walletClient, publicClient, args.salt, logger, txUtilsConfig);
 
@@ -623,8 +620,8 @@ class L1Deployer {
   private txHashes: Hex[] = [];
   private l1TxUtils: L1TxUtils;
   constructor(
-    private walletClient: WalletClient<HttpTransport, Chain, Account>,
-    private publicClient: PublicClient<HttpTransport, Chain>,
+    private walletClient: ViemWalletClient,
+    private publicClient: ViemPublicClient,
     maybeSalt: number | undefined,
     private logger: Logger,
     private txUtilsConfig?: L1TxUtilsConfig,
@@ -668,8 +665,8 @@ class L1Deployer {
  * @returns The ETH address the contract was deployed to.
  */
 export async function deployL1Contract(
-  walletClient: WalletClient<HttpTransport, Chain, Account>,
-  publicClient: PublicClient<HttpTransport, Chain>,
+  walletClient: ViemWalletClient,
+  publicClient: ViemPublicClient,
   abi: Narrow<Abi | readonly unknown[]>,
   bytecode: Hex,
   args: readonly unknown[] = [],

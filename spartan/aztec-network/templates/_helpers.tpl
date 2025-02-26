@@ -145,8 +145,8 @@ Service Address Setup Container
       value: "{{ .Values.telemetry.enabled }}"
     - name: OTEL_COLLECTOR_ENDPOINT
       value: "{{ .Values.telemetry.otelCollectorEndpoint }}"
-    - name: EXTERNAL_ETHEREUM_HOST
-      value: "{{ .Values.ethereum.execution.externalHost }}"
+    - name: EXTERNAL_ETHEREUM_HOSTS
+      value: "{{ .Values.ethereum.execution.externalHosts }}"
     - name: ETHEREUM_PORT
       value: "{{ .Values.ethereum.execution.service.port }}"
     - name: EXTERNAL_ETHEREUM_CONSENSUS_HOST
@@ -204,15 +204,20 @@ nodeSelector:
 {{- end -}}
 
 {{- define "aztec-network.waitForEthereum" -}}
-if [ -n "${EXTERNAL_ETHEREUM_HOST}" ]; then
-  export ETHEREUM_HOST="${EXTERNAL_ETHEREUM_HOST}"
+if [ -n "${EXTERNAL_ETHEREUM_HOSTS}" ]; then
+  export ETHEREUM_HOSTS="${EXTERNAL_ETHEREUM_HOSTS}"
 fi
-echo "Awaiting ethereum node at ${ETHEREUM_HOST}"
-until curl -s -X POST -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":67}' \
-  ${ETHEREUM_HOST} | grep 0x; do
-  echo "Waiting for Ethereum node ${ETHEREUM_HOST}..."
+echo "Awaiting any ethereum node from: ${ETHEREUM_HOSTS}"
+while true; do
+  for HOST in $(echo "${ETHEREUM_HOSTS}" | tr ',' '\n'); do
+    if curl -s -X POST -H 'Content-Type: application/json' \
+      -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":67}' \
+      "${HOST}" | grep -q 0x; then
+      echo "Ethereum node ${HOST} is ready!"
+      break 2
+    fi
+    echo "Waiting for Ethereum node ${HOST}..."
+  done
   sleep 5
 done
-echo "Ethereum node is ready!"
 {{- end -}}

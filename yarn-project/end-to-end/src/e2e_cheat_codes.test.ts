@@ -1,8 +1,9 @@
 import { AnvilTestWatcher, type AztecAddress, type CheatCodes, EthAddress, Fr, type Wallet } from '@aztec/aztec.js';
+import type { ViemPublicClient, ViemWalletClient } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
-import { type Account, type Chain, type HttpTransport, type PublicClient, type WalletClient, parseEther } from 'viem';
+import { parseEther } from 'viem';
 
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
@@ -13,8 +14,8 @@ describe('e2e_cheat_codes', () => {
   let cc: CheatCodes;
   let teardown: () => Promise<void>;
 
-  let walletClient: WalletClient<HttpTransport, Chain, Account>;
-  let publicClient: PublicClient<HttpTransport, Chain>;
+  let walletClient: ViemWalletClient;
+  let publicClient: ViemPublicClient;
   let token: TokenContract;
   let rollup: RollupContract;
   let watcher: AnvilTestWatcher | undefined;
@@ -71,7 +72,7 @@ describe('e2e_cheat_codes', () => {
       const timestamp = await cc.eth.timestamp();
       const pastTimestamp = timestamp - 1000;
       await expect(async () => await cc.eth.setNextBlockTimestamp(pastTimestamp)).rejects.toThrow(
-        `Error setting next block timestamp: Timestamp error: ${pastTimestamp} is lower than or equal to previous block's timestamp`,
+        new RegExp(`Details: Timestamp error: ${pastTimestamp} is lower than or equal to previous block's timestamp`),
       );
     });
 

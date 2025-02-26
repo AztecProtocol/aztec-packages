@@ -1,5 +1,6 @@
 import { Blob, BlobDeserializationError } from '@aztec/blob-lib';
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
+import type { ViemPublicClient } from '@aztec/ethereum';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
@@ -14,12 +15,9 @@ import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader } from '@aztec/stdlib/tx';
 
 import {
-  type Chain,
   type GetContractEventsReturnType,
   type GetContractReturnType,
   type Hex,
-  type HttpTransport,
-  type PublicClient,
   decodeFunctionData,
   getAbiItem,
   hexToBytes,
@@ -39,8 +37,8 @@ import type { L1Published, L1PublishedData } from './structs/published.js';
  * @returns An array of block; as well as the next eth block to search from.
  */
 export async function retrieveBlocksFromRollup(
-  rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>,
-  publicClient: PublicClient,
+  rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
+  publicClient: ViemPublicClient,
   blobSinkClient: BlobSinkClientInterface,
   searchStartBlock: bigint,
   searchEndBlock: bigint,
@@ -93,8 +91,8 @@ export async function retrieveBlocksFromRollup(
  * @returns - An array blocks.
  */
 export async function processL2BlockProposedLogs(
-  rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>,
-  publicClient: PublicClient,
+  rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
+  publicClient: ViemPublicClient,
   blobSinkClient: BlobSinkClientInterface,
   logs: GetContractEventsReturnType<typeof RollupAbi, 'L2BlockProposed'>,
   logger: Logger,
@@ -136,7 +134,7 @@ export async function processL2BlockProposedLogs(
   return retrievedBlocks;
 }
 
-export async function getL1BlockTime(publicClient: PublicClient, blockNumber: bigint): Promise<bigint> {
+export async function getL1BlockTime(publicClient: ViemPublicClient, blockNumber: bigint): Promise<bigint> {
   const block = await publicClient.getBlock({ blockNumber, includeTransactions: false });
   return block.timestamp;
 }
@@ -202,7 +200,7 @@ function extractRollupProposeCalldata(forwarderData: Hex, rollupAddress: Hex): H
  * @returns L2 block from the calldata, deserialized
  */
 async function getBlockFromRollupTx(
-  publicClient: PublicClient,
+  publicClient: ViemPublicClient,
   blobSinkClient: BlobSinkClientInterface,
   txHash: `0x${string}`,
   blobHashes: Buffer[], // WORKTODO(md): buffer32?
@@ -311,7 +309,7 @@ async function getBlockFromRollupTx(
  * @returns An array of InboxLeaf and next eth block to search from.
  */
 export async function retrieveL1ToL2Messages(
-  inbox: GetContractReturnType<typeof InboxAbi, PublicClient<HttpTransport, Chain>>,
+  inbox: GetContractReturnType<typeof InboxAbi, ViemPublicClient>,
   searchStartBlock: bigint,
   searchEndBlock: bigint,
 ): Promise<DataRetrieval<InboxLeaf>> {
@@ -348,7 +346,7 @@ export async function retrieveL1ToL2Messages(
 
 /** Retrieves L2ProofVerified events from the rollup contract. */
 export async function retrieveL2ProofVerifiedEvents(
-  publicClient: PublicClient,
+  publicClient: ViemPublicClient,
   rollupAddress: EthAddress,
   searchStartBlock: bigint,
   searchEndBlock?: bigint,
@@ -371,7 +369,7 @@ export async function retrieveL2ProofVerifiedEvents(
 
 /** Retrieve submitted proofs from the rollup contract */
 export async function retrieveL2ProofsFromRollup(
-  publicClient: PublicClient,
+  publicClient: ViemPublicClient,
   rollupAddress: EthAddress,
   searchStartBlock: bigint,
   searchEndBlock?: bigint,
@@ -407,7 +405,7 @@ export type SubmitBlockProof = {
  * @returns L2 block metadata (header and archive) from the calldata, deserialized
  */
 export async function getProofFromSubmitProofTx(
-  publicClient: PublicClient,
+  publicClient: ViemPublicClient,
   txHash: `0x${string}`,
   expectedProverId: Fr,
 ): Promise<SubmitBlockProof> {

@@ -58,7 +58,7 @@ The `aztec-spartan.sh` script will set the following required variables on your 
 
 | Variable      | Description                                                                                                                                   |
 | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| ETHEREUM_HOST | URL to the Ethereum node your validator will connect to. For as long as we're on private networks, please use the value in `aztec-spartan.sh` |
+| ETHEREUM_HOSTS | List of URLs of Ethereum nodes (comma separated). For as long as we're on private networks, please use the value in `aztec-spartan.sh` |
 | BOOTNODE_URL  | URL to a bootnode that supplies L1 contract addresses and the ENR of the bootstrap nodes.                                                     |
 | IMAGE         | The docker image to run                                                                                                                       |
 
@@ -74,7 +74,7 @@ The Archiver's primary functions are data storage and retrieval (i.e. L1->L2 mes
 
 | Variable                       | Description                                                                                                                                         |
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ETHEREUM_HOST                  | This is the URL to the L1 node your validator will connect to. For as long as we're on private networks, please use the value in `aztec-spartan.sh` |
+| ETHEREUM_HOSTS                 | List of L1 node URLs (comma separated) your validator will connect to. For as long as we're on private networks, please use the value in `aztec-spartan.sh` |
 | L1_CHAIN_ID                    | Chain ID of the L1                                                                                                                                  |
 | DATA_DIRECTORY                 | Optional dir to store archiver and world state data. If omitted will store in memory                                                                |
 | ARCHIVER_POLLING_INTERVAL_MS   | The polling interval in ms for retrieving new L2 blocks and encrypted logs                                                                          |

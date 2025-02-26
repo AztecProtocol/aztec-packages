@@ -285,7 +285,7 @@ aztec deploy-l1-contracts [options]
 ```
 
 Required options:
-- `-u, --rpc-url <string>`: URL of the Ethereum host.
+- `-u, --rpc-urls <string>`: List of URLs of Ethereum nodes (comma separated).
 - `-pk, --private-key <string>`: The private key to use for deployment.
 
 ### deploy-l1-verifier
@@ -296,7 +296,7 @@ aztec deploy-l1-verifier [options]
 ```
 
 Required options:
-- `--eth-rpc-url <string>`: URL of the Ethereum host.
+- `--eth-rpc-urls <string>`: List of URLs of Ethereum nodes (comma separated).
 - `-pk, --private-key <string>`: The private key to use for deployment.
 - `--verifier <verifier>`: Either 'mock' or 'real'.
 
@@ -308,7 +308,7 @@ aztec bridge-fee-juice <amount> <recipient> [options]
 ```
 
 Required option:
-- `--l1-rpc-url <string>`: URL of the Ethereum host.
+- `--l1-rpc-urls <string>`: List of URLs of Ethereum nodes (comma separated).
 
 ### get-l1-balance
 Gets the balance of ETH or an ERC20 token on L1 for a given Ethereum address.
@@ -318,7 +318,7 @@ aztec get-l1-balance <who> [options]
 ```
 
 Required option:
-- `--l1-rpc-url <string>`: URL of the Ethereum host.
+- `--l1-rpc-urls <string>`: List of URLs of Ethereum nodes (comma separated).
 
 ## Utility Commands
 
@@ -370,6 +370,6 @@ aztec sequencers <command> [who] [options]
 Commands: list, add, remove, who-next
 
 Required option:
-- `--l1-rpc-url <string>`: URL of the Ethereum host.
+- `--l1-rpc-urls <string>`: List of URLs of Ethereum nodes (comma separated).
 
 Note: Most commands accept a `--rpc-url` option to specify the Aztec node URL, and many accept fee-related options for gas limit and price configuration.

@@ -172,7 +172,7 @@ resource "helm_release" "aztec-gke-cluster" {
 
   # pointing Google Cloud provers to nodes in AWS
   set {
-    name  = "ethereum.execution.externalHost"
+    name  = "ethereum.execution.externalHosts"
     value = data.kubernetes_service.lb_ethereum_tcp.status.0.load_balancer.0.ingress.0.hostname
   }
 

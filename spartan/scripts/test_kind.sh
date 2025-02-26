@@ -74,7 +74,7 @@ trap cleanup SIGINT SIGTERM EXIT
 stern_pid=""
 function copy_stern_to_log {
   # Start stern in a subshell, capture its PID, and pipe output to cache_log so it is uploaded
-  stern spartan -n "$namespace" > "logs/kind-$namespace.log" &>/dev/null &
+  stern spartan -n "$namespace" >"logs/kind-$namespace.log" &>/dev/null &
   stern_pid=$!
 }
 
@@ -83,7 +83,7 @@ copy_stern_to_log
 
 # uses VALUES_FILE, CHAOS_VALUES, AZTEC_DOCKER_TAG and INSTALL_TIMEOUT optional env vars
 if [ "$fresh_install" != "no-deploy" ]; then
-  OVERRIDES="$OVERRIDES" ./deploy_kind.sh $namespace $values_file $sepolia_run
+  deploy_result=$(OVERRIDES="$OVERRIDES" ./deploy_kind.sh $namespace $values_file $sepolia_run)
 fi
 
 # Find 6 free ports between 9000 and 10000
@@ -110,7 +110,16 @@ ethereum_slot_duration=$(./read_value.sh "ethereum.blockTime" $value_yamls)
 aztec_slot_duration=$(./read_value.sh "aztec.slotDuration" $value_yamls)
 aztec_epoch_duration=$(./read_value.sh "aztec.epochDuration" $value_yamls)
 aztec_proof_submission_window=$(./read_value.sh "aztec.proofSubmissionWindow" $value_yamls)
-l1_account_mnemonic=$(./read_value.sh "aztec.l1DeploymentMnemonic" $value_yamls)
+
+if [ "$sepolia_run" = "true" ]; then
+  # Read the mnemonic from file mnemonic.tmp
+  set +x
+  l1_account_mnemonic=$(cat mnemonic.tmp)
+  set -x
+  rm mnemonic.tmp
+else
+  l1_account_mnemonic=$(./read_value.sh "aztec.l1DeploymentMnemonic" $value_yamls)
+fi
 
 echo "RUNNING TEST: $test"
 # Run test locally.
@@ -138,6 +147,8 @@ export ETHEREUM_SLOT_DURATION="$ethereum_slot_duration"
 export AZTEC_SLOT_DURATION="$aztec_slot_duration"
 export AZTEC_EPOCH_DURATION="$aztec_epoch_duration"
 export AZTEC_PROOF_SUBMISSION_WINDOW="$aztec_proof_submission_window"
+set +x
 export L1_ACCOUNT_MNEMONIC="$l1_account_mnemonic"
+set -x
 
 yarn --cwd ../../yarn-project/end-to-end test --forceExit "$test"

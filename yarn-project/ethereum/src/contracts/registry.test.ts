@@ -43,9 +43,9 @@ describe('Registry', () => {
 
     ({ anvil, rpcUrl } = await startAnvil());
 
-    ({ publicClient, walletClient } = createL1Clients(rpcUrl, privateKey));
+    ({ publicClient, walletClient } = createL1Clients([rpcUrl], privateKey));
 
-    const deployed = await deployL1Contracts(rpcUrl, privateKey, foundry, logger, {
+    const deployed = await deployL1Contracts([rpcUrl], privateKey, foundry, logger, {
       ...DefaultL1ContractsConfig,
       salt: originalVersionSalt,
       vkTreeRoot,
@@ -109,7 +109,7 @@ describe('Registry', () => {
     const newVersionSalt = originalVersionSalt + 1;
 
     const { rollup: newRollup, payloadAddress } = await deployRollupAndPeriphery(
-      rpcUrl,
+      [rpcUrl],
       foundry,
       privateKey,
       {
@@ -186,7 +186,7 @@ async function executeGovernanceProposal(
     });
   };
 
-  const cheatCodes = new EthCheatCodes(rpcUrl, logger);
+  const cheatCodes = new EthCheatCodes([rpcUrl], logger);
 
   const timeToActive = proposal.creation + proposal.config.votingDelay;
   logger.info(`Warping to ${timeToActive + 1n}`);

@@ -15,7 +15,7 @@ export const setupL1Contracts = async (
   args: Pick<DeployL1ContractsArgs, 'genesisArchiveRoot' | 'genesisBlockHash' | 'initialValidators'> &
     L1ContractsConfig,
 ) => {
-  const l1Data = await deployL1Contracts(l1RpcUrl, account, foundry, logger, {
+  const l1Data = await deployL1Contracts([l1RpcUrl], account, foundry, logger, {
     l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice.toField(),
     vkTreeRoot: getVKTreeRoot(),
     protocolContractTreeRoot,

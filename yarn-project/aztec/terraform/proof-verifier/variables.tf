@@ -11,7 +11,7 @@ variable "LOG_LEVEL" {
   default = "verbose"
 }
 
-variable "ETHEREUM_HOST" {
+variable "ETHEREUM_HOSTS" {
   type = string
 }
 

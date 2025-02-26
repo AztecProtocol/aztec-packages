@@ -3,7 +3,7 @@ import {
   type AztecNode,
   BatchCall,
   type CheatCodes,
-  type DeployL1Contracts,
+  type DeployL1ContractsReturnType,
   EthAddress,
   Fr,
   type SiblingPath,
@@ -25,7 +25,7 @@ describe('E2E Outbox Tests', () => {
   const merkleSha256 = new SHA256();
   let contract: TestContract;
   let wallets: AccountWalletWithSecretKey[];
-  let deployL1ContractsValues: DeployL1Contracts;
+  let deployL1ContractsValues: DeployL1ContractsReturnType;
   let outbox: any;
   let cheatCodes: CheatCodes;
 

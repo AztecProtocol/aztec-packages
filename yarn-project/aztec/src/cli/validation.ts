@@ -11,7 +11,7 @@ import {
  * contract. For each key, compares it against the provided config (if it is not empty) and throws on mismatches.
  */
 export async function validateL1Config(
-  config: L1ContractsConfig & { l1Contracts: L1ContractAddresses } & { l1ChainId: number; l1RpcUrl: string },
+  config: L1ContractsConfig & { l1Contracts: L1ContractAddresses } & { l1ChainId: number; l1RpcUrls: string[] },
 ) {
   const publicClient = getPublicClient(config);
   const actualAddresses = await getL1ContractsAddresses(publicClient, config.l1Contracts.governanceAddress);
