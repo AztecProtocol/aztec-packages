@@ -29,7 +29,7 @@ jobs:
       matrix:
         # Only run arm64 build with arm64-ci label.
         # The way to do conditions here is to parse full strings as JSON.
-        settings:  >-
+        settings: >-
           ${{ fromJson(contains(github.event.pull_request.labels.*.name, 'arm64-ci') &&
             '[{"arch":"amd64"},{"arch":"arm64"}]' ||
             '[{"arch":"amd64"}]') }}
@@ -75,6 +75,7 @@ jobs:
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
           ./ci.sh ec2
 
@@ -169,6 +170,7 @@ jobs:
           INSTANCE_POSTFIX: ${{ matrix.number }}
           DRY_RUN: 1
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
           ./ci.sh ec2-test
 

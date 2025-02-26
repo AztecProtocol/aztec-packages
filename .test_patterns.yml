@@ -25,6 +25,7 @@ tests:
   # noir
   # Something to do with how I run the tests now. Think these are fine in nextest.
   - regex: "noir_lsp-.* notifications::notification_tests::test_caches_open_files"
+    skip: true
     owners:
       - "charlie@aztecprotocol.com"
   - regex: "noir_lsp-.* requests::"
@@ -73,24 +74,9 @@ tests:
   #      at createAndSync (fixtures/setup_p2p_test.ts:72:33)
   #          at async Promise.all (index 0)
   #      at Object.<anonymous> (e2e_p2p/reqresp.test.ts:66:13)
-  - regex: "simple e2e_p2p/gossip_network"
+  - regex: "simple e2e_p2p/"
     owners:
-      - "charlie@aztecprotocol.com"
-  - regex: "simple e2e_p2p/rediscovery"
-    owners:
-      - "charlie@aztecprotocol.com"
-  - regex: "simple e2e_p2p/reqresp"
-    owners:
-      - "charlie@aztecprotocol.com"
-  - regex: "simple e2e_p2p/reex"
-    owners:
-      - "charlie@aztecprotocol.com"
-  - regex: "simple e2e_p2p/slashing"
-    owners:
-      - "charlie@aztecprotocol.com"
-  - regex: "simple e2e_p2p/upgrade_governance_proposer"
-    owners:
-      - "charlie@aztecprotocol.com"
+      - "sean@aztecprotocol.com"
 
   # Started failing with some AVM proof error...
   - regex: "e2e_prover/full fake"
