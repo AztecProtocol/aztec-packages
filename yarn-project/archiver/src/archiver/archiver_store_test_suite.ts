@@ -1,20 +1,3 @@
-import { InboxLeaf, L2Block, LogId, TxEffect, TxHash, wrapInBlock } from '@aztec/circuit-types';
-import '@aztec/circuit-types/jest';
-import {
-  AztecAddress,
-  type ContractClassPublic,
-  type ContractInstanceWithAddress,
-  Fr,
-  PrivateLog,
-  PublicLog,
-  SerializableContractInstance,
-  computePublicBytecodeCommitment,
-} from '@aztec/circuits.js';
-import {
-  makeContractClassPublic,
-  makeExecutablePrivateFunctionWithMembershipProof,
-  makeUnconstrainedFunctionWithMembershipProof,
-} from '@aztec/circuits.js/testing';
 import {
   INITIAL_L2_BLOCK_NUM,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
@@ -24,6 +7,24 @@ import {
 } from '@aztec/constants';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { L2Block, wrapInBlock } from '@aztec/stdlib/block';
+import {
+  type ContractClassPublic,
+  type ContractInstanceWithAddress,
+  SerializableContractInstance,
+  computePublicBytecodeCommitment,
+} from '@aztec/stdlib/contract';
+import { LogId, PrivateLog, PublicLog } from '@aztec/stdlib/logs';
+import { InboxLeaf } from '@aztec/stdlib/messaging';
+import {
+  makeContractClassPublic,
+  makeExecutablePrivateFunctionWithMembershipProof,
+  makeUnconstrainedFunctionWithMembershipProof,
+} from '@aztec/stdlib/testing';
+import '@aztec/stdlib/testing/jest';
+import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from './archiver_store.js';
 import { type L1Published } from './structs/published.js';

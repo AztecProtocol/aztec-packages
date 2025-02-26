@@ -1,6 +1,6 @@
-import { type FunctionCall } from '@aztec/circuit-types';
-import { type GasSettings } from '@aztec/circuits.js';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type FunctionCall } from '@aztec/stdlib/abi';
+import { type AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type GasSettings } from '@aztec/stdlib/gas';
 
 /**
  * Holds information about how the fee for a transaction is to be paid.

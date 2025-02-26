@@ -1,11 +1,12 @@
-import { Tx } from '@aztec/circuit-types';
-import { type ClientProtocolCircuitVerifier } from '@aztec/circuit-types/interfaces/server';
-import { type CircuitVerificationStats } from '@aztec/circuit-types/stats';
-import { type Proof, type VerificationKeyData } from '@aztec/circuits.js';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type ClientProtocolArtifact, type ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
 import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
+import { type ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
+import { type Proof } from '@aztec/stdlib/proofs';
+import { type CircuitVerificationStats } from '@aztec/stdlib/stats';
+import { Tx } from '@aztec/stdlib/tx';
+import { type VerificationKeyData } from '@aztec/stdlib/vks';
 
 import { promises as fs } from 'fs';
 import * as path from 'path';
@@ -63,7 +64,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
         proofType: 'ultra-honk',
       } satisfies CircuitVerificationStats);
     };
-    await runInDirectory(this.config.bbWorkingDirectory, operation, this.config.bbSkipCleanup);
+    await runInDirectory(this.config.bbWorkingDirectory, operation, this.config.bbSkipCleanup, this.logger);
   }
 
   public async verifyProof(tx: Tx): Promise<boolean> {
@@ -103,7 +104,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
           proofType: 'client-ivc',
         } satisfies CircuitVerificationStats);
       };
-      await runInDirectory(this.config.bbWorkingDirectory, operation, this.config.bbSkipCleanup);
+      await runInDirectory(this.config.bbWorkingDirectory, operation, this.config.bbSkipCleanup, this.logger);
       return true;
     } catch (err) {
       this.logger.warn(`Failed to verify ClientIVC proof for tx ${Tx.getHash(tx)}: ${String(err)}`);

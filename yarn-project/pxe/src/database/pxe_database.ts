@@ -1,14 +1,12 @@
-import { type InBlock, type NotesFilter } from '@aztec/circuit-types';
-import {
-  type BlockHeader,
-  type CompleteAddress,
-  type ContractInstanceWithAddress,
-  type IndexedTaggingSecret,
-  type PublicKey,
-} from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
+import { type ContractArtifact } from '@aztec/stdlib/abi';
+import { type AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type InBlock } from '@aztec/stdlib/block';
+import type { CompleteAddress, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import type { PublicKey } from '@aztec/stdlib/keys';
+import type { IndexedTaggingSecret } from '@aztec/stdlib/logs';
+import type { NotesFilter } from '@aztec/stdlib/note';
+import { type BlockHeader } from '@aztec/stdlib/tx';
 
 import { type ContractArtifactDatabase } from './contracts/contract_artifact_db.js';
 import { type ContractInstanceDatabase } from './contracts/contract_instance_db.js';

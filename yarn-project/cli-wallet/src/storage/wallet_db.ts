@@ -1,7 +1,10 @@
-import { type AuthWitness, type TxHash } from '@aztec/circuit-types';
-import { type AztecAddress, Fr, GasSettings } from '@aztec/circuits.js';
+import { Fr } from '@aztec/foundation/fields';
 import { type LogFn } from '@aztec/foundation/log';
 import { type AztecAsyncKVStore, type AztecAsyncMap } from '@aztec/kv-store';
+import { type AuthWitness } from '@aztec/stdlib/auth-witness';
+import { type AztecAddress } from '@aztec/stdlib/aztec-address';
+import { GasSettings } from '@aztec/stdlib/gas';
+import { type TxHash } from '@aztec/stdlib/tx';
 
 import { type AccountType } from '../utils/accounts.js';
 import { extractECDSAPublicKeyFromBase64String } from '../utils/ecdsa.js';

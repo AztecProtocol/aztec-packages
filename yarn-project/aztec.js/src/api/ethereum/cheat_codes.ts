@@ -1,7 +1,8 @@
 import { EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
 import { type L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
-import { RollupAbi } from '@aztec/l1-artifacts';
+import { RollupAbi, RollupStorage } from '@aztec/l1-artifacts';
 
 import {
   type GetContractReturnType,
@@ -110,14 +111,40 @@ export class RollupCheatCodes {
    * @param maybeBlockNumber - The block number to mark as proven (defaults to latest pending)
    */
   public async markAsProven(maybeBlockNumber?: number | bigint) {
-    const blockNumber = maybeBlockNumber
-      ? BigInt(maybeBlockNumber)
-      : await this.rollup.read.getTips().then(({ pendingBlockNumber }) => pendingBlockNumber);
+    const { pending, proven } = await this.getTips();
 
-    await this.asOwner(async account => {
-      await this.rollup.write.setAssumeProvenThroughBlockNumber([blockNumber], { account, chain: this.client.chain });
-      this.logger.warn(`Marked ${blockNumber} as proven`);
-    });
+    let blockNumber = maybeBlockNumber;
+    if (blockNumber === undefined || blockNumber > pending) {
+      blockNumber = pending;
+    }
+    if (blockNumber <= proven) {
+      this.logger.warn(`Block ${blockNumber} is already proven`);
+      return;
+    }
+
+    // @note @LHerskind this is heavily dependent on the storage layout and size of values
+    // The rollupStore is a struct and if the size of elements or the struct changes, this can break
+    const storageSlot = RollupStorage.find(
+      // eslint-disable-next-line jsdoc/require-jsdoc
+      (storage: { label: string; slot: string }) => storage.label === 'rollupStore',
+    )?.slot;
+    if (storageSlot === undefined) {
+      throw new Error('rollupStoreStorageSlot not found');
+    }
+    const provenBlockNumberSlot = BigInt(storageSlot) + 1n;
+
+    const tipsBefore = await this.getTips();
+
+    await this.ethCheatCodes.store(
+      EthAddress.fromString(this.rollup.address),
+      provenBlockNumberSlot,
+      BigInt(blockNumber),
+    );
+
+    const tipsAfter = await this.getTips();
+    this.logger.info(
+      `Proven tip moved: ${tipsBefore.proven} -> ${tipsAfter.proven}. Pending tip moved: ${tipsBefore.pending} -> ${tipsAfter.pending}`,
+    );
   }
 
   /**

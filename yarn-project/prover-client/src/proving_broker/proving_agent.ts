@@ -1,17 +1,17 @@
-import { ProvingError } from '@aztec/circuit-types';
+import { createLogger } from '@aztec/foundation/log';
+import { RunningPromise } from '@aztec/foundation/running-promise';
+import { truncate } from '@aztec/foundation/string';
+import { Timer } from '@aztec/foundation/timer';
+import { ProvingError } from '@aztec/stdlib/errors';
 import {
   type ProvingJob,
   type ProvingJobConsumer,
   type ProvingJobId,
   type ProvingJobInputs,
   type ProvingJobResultsMap,
-  ProvingRequestType,
   type ServerCircuitProver,
-} from '@aztec/circuit-types/interfaces/server';
-import { createLogger } from '@aztec/foundation/log';
-import { RunningPromise } from '@aztec/foundation/running-promise';
-import { truncate } from '@aztec/foundation/string';
-import { Timer } from '@aztec/foundation/timer';
+} from '@aztec/stdlib/interfaces/server';
+import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import {
   type TelemetryClient,
   type Traceable,

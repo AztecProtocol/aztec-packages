@@ -1,6 +1,6 @@
-import { Fr } from '@aztec/foundation/fields';
+import { type Fr } from '@aztec/foundation/fields';
 
-import type { CommitmentsDB } from '../../server.js';
+import type { WorldStateDB } from '../../server.js';
 
 /**
  * A class to manage new nullifier staging and existence checks during a contract call's AVM simulation.
@@ -10,7 +10,7 @@ import type { CommitmentsDB } from '../../server.js';
 export class NullifierManager {
   constructor(
     /** Reference to node storage. Checked on parent cache-miss. */
-    private readonly hostNullifiers: CommitmentsDB,
+    private readonly hostNullifiers: WorldStateDB,
     /** Cache of siloed nullifiers. */
     private cache: Set<bigint> = new Set(),
     /** Parent nullifier manager to fall back on */
@@ -50,24 +50,25 @@ export class NullifierManager {
    *
    * @param siloedNullifier - the nullifier to check for
    * @returns exists: whether the nullifier exists at all,
-   *          isPending: whether the nullifier was found in a cache,
-   *          leafIndex: the nullifier's leaf index if it exists and is not pending (comes from host state).
+   *          cacheHit: whether the nullifier was found in a cache,
    */
-  public async checkExists(
-    siloedNullifier: Fr,
-  ): Promise<[/*exists=*/ boolean, /*isPending=*/ boolean, /*leafIndex=*/ Fr]> {
+  public async checkExists(siloedNullifier: Fr): Promise<{ exists: boolean; cacheHit: boolean }> {
     // Check this cache and parent's (recursively)
-    const existsAsPending = this.checkExistsHereOrParent(siloedNullifier);
-    // Finally try the host's Aztec state (a trip to the database)
-    // If the value is found in the database, it will be associated with a leaf index!
-    let leafIndex: bigint | undefined = undefined;
-    if (!existsAsPending) {
-      // silo the nullifier before checking for its existence in the host
-      leafIndex = await this.hostNullifiers.getNullifierIndex(siloedNullifier);
+    const cacheHit = this.checkExistsHereOrParent(siloedNullifier);
+    let existsInTree = false;
+    if (!cacheHit) {
+      // Finally try the host's Aztec state (a trip to the database)
+      //const leafOrLowLeafIndex = await this.hostNullifiers.db.getPreviousValueIndex(MerkleTreeId.NULLIFIER_TREE, siloedNullifier.toBigInt());
+      //assert(
+      //  leafOrLowLeafIndex !== undefined,
+      //  `${MerkleTreeId[MerkleTreeId.NULLIFIER_TREE]} low leaf index should always be found (even if target leaf does not exist)`,
+      //);
+      //existsInTree = leafOrLowLeafIndex.alreadyPresent;
+      const leafIndex = await this.hostNullifiers.getNullifierIndex(siloedNullifier);
+      existsInTree = leafIndex !== undefined;
     }
-    const exists = existsAsPending || leafIndex !== undefined;
-    leafIndex = leafIndex === undefined ? BigInt(0) : leafIndex;
-    return Promise.resolve([exists, existsAsPending, new Fr(leafIndex)]);
+    const exists = cacheHit || existsInTree;
+    return Promise.resolve({ exists, cacheHit });
   }
 
   /**
@@ -76,7 +77,7 @@ export class NullifierManager {
    * @param siloedNullifier - the nullifier to stage
    */
   public async append(siloedNullifier: Fr) {
-    const [exists, ,] = await this.checkExists(siloedNullifier);
+    const { exists } = await this.checkExists(siloedNullifier);
     if (exists) {
       throw new NullifierCollisionError(`Siloed nullifier ${siloedNullifier} already exists in parent cache or host.`);
     }

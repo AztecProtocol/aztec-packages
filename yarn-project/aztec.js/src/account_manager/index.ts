@@ -1,9 +1,8 @@
-import { CompleteAddress } from '@aztec/circuit-types';
-import { type PXE } from '@aztec/circuit-types/interfaces/client';
-import { type ContractInstanceWithAddress } from '@aztec/circuits.js';
-import { getContractInstanceFromDeployParams } from '@aztec/circuits.js/contract';
-import { deriveKeys } from '@aztec/circuits.js/keys';
 import { Fr } from '@aztec/foundation/fields';
+import { CompleteAddress, type ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import { getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
+import { type PXE } from '@aztec/stdlib/interfaces/client';
+import { deriveKeys } from '@aztec/stdlib/keys';
 
 import { type AccountContract } from '../account/contract.js';
 import { type Salt, type Wallet } from '../account/index.js';
@@ -226,3 +225,6 @@ export class AccountManager {
     return (await this.accountContract.getDeploymentArgs()) !== undefined;
   }
 }
+
+export { DeployAccountMethod } from './deploy_account_method.js';
+export { type DeployAccountTxReceipt, DeployAccountSentTx } from './deploy_account_sent_tx.js';

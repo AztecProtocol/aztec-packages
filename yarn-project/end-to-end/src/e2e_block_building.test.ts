@@ -3,6 +3,7 @@ import { type AztecNodeService } from '@aztec/aztec-node';
 import {
   type AccountWallet,
   AccountWalletWithSecretKey,
+  AnvilTestWatcher,
   type AztecAddress,
   type AztecNode,
   type CheatCodes,
@@ -19,9 +20,6 @@ import {
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
-// eslint-disable-next-line no-restricted-imports
-import { type Tx } from '@aztec/circuit-types';
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times, unique } from '@aztec/foundation/collection';
@@ -38,6 +36,8 @@ import {
   PublicTxSimulator,
   type WorldStateDB,
 } from '@aztec/simulator/server';
+import { type MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { type Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
@@ -57,6 +57,7 @@ describe('e2e_block_building', () => {
   let sequencer: TestSequencerClient;
   let dateProvider: TestDateProvider | undefined;
   let cheatCodes: CheatCodes;
+  let watcher: AnvilTestWatcher | undefined;
   let teardown: () => Promise<void>;
 
   const { aztecProofSubmissionWindow } = getL1ContractsConfigEnvVars();
@@ -539,19 +540,21 @@ describe('e2e_block_building', () => {
     let teardown: () => Promise<void>;
 
     beforeEach(async () => {
-      ({
-        teardown,
-        aztecNode,
-        pxe,
-        logger,
-        wallet: owner,
-        cheatCodes,
-      } = await setup(1, { assumeProvenThrough: undefined }));
+      ({ teardown, aztecNode, pxe, logger, wallet: owner, cheatCodes, watcher } = await setup(1));
 
       ownerAddress = owner.getCompleteAddress().address;
       contract = await StatefulTestContract.deploy(owner, ownerAddress, ownerAddress, 1).send().deployed();
       initialBlockNumber = await pxe.getBlockNumber();
       logger.info(`Stateful test contract deployed at ${contract.address}`);
+
+      await cheatCodes.rollup.advanceToNextEpoch();
+
+      const bn = await aztecNode.getBlockNumber();
+      while ((await aztecNode.getProvenBlockNumber()) < bn) {
+        await sleep(1000);
+      }
+
+      watcher!.setIsMarkingAsProven(false);
     });
 
     afterEach(() => teardown());

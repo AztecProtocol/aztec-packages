@@ -136,7 +136,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
         return blobs;
       } else if (res.status === 404) {
         // L1 slot may have been missed, try next few
-        if (!isNaN(Number(blockHashOrSlot)) && maxRetries > 0) {
+        if (typeof blockHashOrSlot === 'number' && maxRetries > 0) {
           const nextSlot = Number(blockHashOrSlot) + 1;
           this.log.debug(`L1 slot ${blockHashOrSlot} not found, trying next slot ${nextSlot}`);
           return this.getBlobSidecarFrom(hostUrl, nextSlot, blobHashes, indices, maxRetries - 1);

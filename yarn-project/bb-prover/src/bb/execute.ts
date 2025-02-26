@@ -1,7 +1,7 @@
-import { type AvmCircuitInputs, serializeWithMessagePack } from '@aztec/circuits.js/avm';
 import { sha256 } from '@aztec/foundation/crypto';
 import { type LogFn, type Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import { type AvmCircuitInputs, serializeWithMessagePack } from '@aztec/stdlib/avm';
 
 import * as proc from 'child_process';
 import { promises as fs } from 'fs';
@@ -139,8 +139,7 @@ export async function executeBbClientIvcProof(
       'client_ivc',
       '--input_type',
       'runtime_stack',
-      '--output_content',
-      'proof_and_vk',
+      '--write_vk',
     ];
 
     const timer = new Timer();
@@ -231,10 +230,9 @@ export async function generateProof(
     // Write the bytecode to the working directory
     await fs.writeFile(bytecodePath, bytecode);
     const args = getArgs(flavor).concat([
-      '--output_data',
+      '--output_format',
       'bytes_and_fields',
-      '--output_content',
-      'proof_and_vk',
+      '--write_vk',
       '-o',
       outputPath,
       '-b',

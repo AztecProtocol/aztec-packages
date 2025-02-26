@@ -1,8 +1,8 @@
 import { DefaultWaitOpts, type EthAddress, FeeJuicePaymentMethod, type Wallet } from '@aztec/aztec.js';
-import { Gas } from '@aztec/circuits.js';
 import { FEE_JUICE_INITIAL_MINT } from '@aztec/constants';
 import { type LogFn } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { Gas } from '@aztec/stdlib/gas';
 
 /**
  * Deploys the contract to pay for gas on L2.

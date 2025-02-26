@@ -2,14 +2,13 @@ import { getSchnorrWallet } from '@aztec/accounts/schnorr';
 import {
   type AccountWallet,
   type CompleteAddress,
-  ExtendedNote,
   Fr,
   type Logger,
-  Note,
   type TxHash,
   computeSecretHash,
   createLogger,
 } from '@aztec/aztec.js';
+import { MAX_NOTE_HASHES_PER_TX } from '@aztec/constants';
 import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
 import { type TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
@@ -159,24 +158,36 @@ export class BlacklistTokenContractTest {
     await this.snapshotManager.teardown();
   }
 
-  async addPendingShieldNoteToPXE(accountIndex: number, amount: bigint, secretHash: Fr, txHash: TxHash) {
-    const note = new Note([new Fr(amount), secretHash]);
-    const extendedNote = new ExtendedNote(
-      note,
-      this.accounts[accountIndex].address,
-      this.asset.address,
-      TokenBlacklistContract.storage.pending_shields.slot,
-      TokenBlacklistContract.notes.TransparentNote.id,
-      txHash,
-    );
-    await this.wallets[accountIndex].addNote(extendedNote);
+  #toBoundedVec(arr: Fr[], maxLen: number) {
+    return { len: arr.length, storage: arr.concat(new Array(maxLen - arr.length).fill(new Fr(0))) };
+  }
+
+  async addPendingShieldNoteToPXE(
+    contract: TokenBlacklistContract,
+    wallet: AccountWallet,
+    amount: bigint,
+    secretHash: Fr,
+    txHash: TxHash,
+  ) {
+    const txEffects = await wallet.getTxEffect(txHash);
+    await contract.methods
+      .deliver_transparent_note(
+        contract.address,
+        new Fr(amount),
+        secretHash,
+        txHash.hash,
+        this.#toBoundedVec(txEffects!.data.noteHashes, MAX_NOTE_HASHES_PER_TX),
+        txEffects!.data.nullifiers[0],
+        wallet.getAddress(),
+      )
+      .simulate();
   }
 
   async applyMintSnapshot() {
     await this.snapshotManager.snapshot(
       'mint',
       async () => {
-        const { asset, accounts } = this;
+        const { asset, accounts, wallets } = this;
         const amount = 10000n;
 
         const adminMinterRole = new Role().withAdmin().withMinter();
@@ -207,7 +218,7 @@ export class BlacklistTokenContractTest {
         const secretHash = await computeSecretHash(secret);
         const receipt = await asset.methods.mint_private(amount, secretHash).send().wait();
 
-        await this.addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);
+        await this.addPendingShieldNoteToPXE(asset, wallets[0], amount, secretHash, receipt.txHash);
         const txClaim = asset.methods.redeem_shield(accounts[0].address, amount, secret).send();
         await txClaim.wait({ debug: true });
         this.logger.verbose(`Minting complete.`);

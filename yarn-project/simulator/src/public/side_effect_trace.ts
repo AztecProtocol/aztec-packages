@@ -1,38 +1,4 @@
 import {
-  type AztecAddress,
-  type ContractClassIdPreimage,
-  EthAddress,
-  type Gas,
-  type GasSettings,
-  type GlobalVariables,
-  L2ToL1Message,
-  NoteHash,
-  Nullifier,
-  PublicCallRequest,
-  PublicDataUpdateRequest,
-  PublicDataWrite,
-  PublicLog,
-  ScopedL2ToL1Message,
-  SerializableContractInstance,
-  type TreeSnapshots,
-} from '@aztec/circuits.js';
-import {
-  AvmAccumulatedData,
-  AvmAppendTreeHint,
-  AvmCircuitPublicInputs,
-  AvmContractBytecodeHints,
-  AvmContractInstanceHint,
-  AvmEnqueuedCallHint,
-  AvmExecutionHints,
-  AvmNullifierReadTreeHint,
-  AvmNullifierWriteTreeHint,
-  AvmPublicDataReadTreeHint,
-  AvmPublicDataWriteTreeHint,
-} from '@aztec/circuits.js/avm';
-import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { PrivateToAvmAccumulatedData, PrivateToAvmAccumulatedDataArrayLengths } from '@aztec/circuits.js/kernel';
-import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
-import {
   L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_ENQUEUED_CALLS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
@@ -49,9 +15,40 @@ import {
   PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
+import {
+  AvmAccumulatedData,
+  AvmAppendTreeHint,
+  AvmCircuitPublicInputs,
+  AvmContractBytecodeHints,
+  AvmContractInstanceHint,
+  AvmEnqueuedCallHint,
+  AvmExecutionHints,
+  AvmNullifierReadTreeHint,
+  AvmNullifierWriteTreeHint,
+  AvmPublicDataReadTreeHint,
+  AvmPublicDataWriteTreeHint,
+  PublicDataUpdateRequest,
+  PublicDataWrite,
+} from '@aztec/stdlib/avm';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type ContractClassIdPreimage, SerializableContractInstance } from '@aztec/stdlib/contract';
+import type { Gas, GasSettings } from '@aztec/stdlib/gas';
+import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
+import {
+  NoteHash,
+  Nullifier,
+  PrivateToAvmAccumulatedData,
+  PrivateToAvmAccumulatedDataArrayLengths,
+  PublicCallRequest,
+} from '@aztec/stdlib/kernel';
+import { PublicLog } from '@aztec/stdlib/logs';
+import { L2ToL1Message, ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
+import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
+import type { GlobalVariables, TreeSnapshots } from '@aztec/stdlib/tx';
 
 import { strict as assert } from 'assert';
 

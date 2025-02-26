@@ -1,36 +1,4 @@
 import {
-  type ProofAndVerificationKey,
-  ProvingRequestType,
-  type PublicInputsAndRecursiveProof,
-  type ServerCircuitProver,
-  makeProofAndVerificationKey,
-  makePublicInputsAndRecursiveProof,
-} from '@aztec/circuit-types/interfaces/server';
-import {
-  type BaseParityInputs,
-  type ParityPublicInputs,
-  type Proof,
-  type RootParityInputs,
-  VerificationKeyData,
-  makeEmptyRecursiveProof,
-  makeRecursiveProof,
-} from '@aztec/circuits.js';
-import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
-import {
-  type BaseOrMergeRollupPublicInputs,
-  type BlockMergeRollupInputs,
-  type BlockRootOrBlockMergePublicInputs,
-  type BlockRootRollupInputs,
-  type EmptyBlockRootRollupInputs,
-  type MergeRollupInputs,
-  type PrivateBaseRollupInputs,
-  type PublicBaseRollupInputs,
-  type RootRollupInputs,
-  type RootRollupPublicInputs,
-  type SingleTxBlockRootRollupInputs,
-  type TubeInputs,
-} from '@aztec/circuits.js/rollup';
-import {
   AVM_PROOF_LENGTH_IN_FIELDS,
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   NESTED_RECURSIVE_PROOF_LENGTH,
@@ -67,6 +35,31 @@ import {
 } from '@aztec/noir-protocol-circuits-types/server';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
 import { type SimulationProvider, WASMSimulatorWithBlobs, emitCircuitSimulationStats } from '@aztec/simulator/server';
+import { type AvmCircuitInputs } from '@aztec/stdlib/avm';
+import {
+  type ProofAndVerificationKey,
+  type PublicInputsAndRecursiveProof,
+  type ServerCircuitProver,
+  makeProofAndVerificationKey,
+  makePublicInputsAndRecursiveProof,
+} from '@aztec/stdlib/interfaces/server';
+import type { BaseParityInputs, ParityPublicInputs, RootParityInputs } from '@aztec/stdlib/parity';
+import { type Proof, ProvingRequestType, makeEmptyRecursiveProof, makeRecursiveProof } from '@aztec/stdlib/proofs';
+import {
+  type BaseOrMergeRollupPublicInputs,
+  type BlockMergeRollupInputs,
+  type BlockRootOrBlockMergePublicInputs,
+  type BlockRootRollupInputs,
+  type EmptyBlockRootRollupInputs,
+  type MergeRollupInputs,
+  type PrivateBaseRollupInputs,
+  type PublicBaseRollupInputs,
+  type RootRollupInputs,
+  type RootRollupPublicInputs,
+  type SingleTxBlockRootRollupInputs,
+  type TubeInputs,
+} from '@aztec/stdlib/rollup';
+import { VerificationKeyData } from '@aztec/stdlib/vks';
 import { type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { type WitnessMap } from '@noir-lang/types';

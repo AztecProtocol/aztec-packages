@@ -1,38 +1,4 @@
 /* eslint-disable require-await */
-import { ProvingError } from '@aztec/circuit-types';
-import {
-  type ProofAndVerificationKey,
-  type PublicInputsAndRecursiveProof,
-  type ServerCircuitProver,
-  makeProofAndVerificationKey,
-  makePublicInputsAndRecursiveProof,
-} from '@aztec/circuit-types/interfaces/server';
-import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
-import {
-  type BaseParityInputs,
-  Fr,
-  type ParityPublicInputs,
-  Proof,
-  RecursiveProof,
-  type RootParityInputs,
-  type VerificationKeyData,
-  makeRecursiveProofFromBinary,
-} from '@aztec/circuits.js';
-import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
-import {
-  type BaseOrMergeRollupPublicInputs,
-  type BlockMergeRollupInputs,
-  type BlockRootOrBlockMergePublicInputs,
-  type BlockRootRollupInputs,
-  type EmptyBlockRootRollupInputs,
-  type MergeRollupInputs,
-  type PrivateBaseRollupInputs,
-  type PublicBaseRollupInputs,
-  type RootRollupInputs,
-  type RootRollupPublicInputs,
-  type SingleTxBlockRootRollupInputs,
-  type TubeInputs,
-} from '@aztec/circuits.js/rollup';
 import {
   AGGREGATION_OBJECT_LENGTH,
   AVM_PROOF_LENGTH_IN_FIELDS,
@@ -42,6 +8,7 @@ import {
   RECURSIVE_PROOF_LENGTH,
   TUBE_PROOF_LENGTH,
 } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
@@ -72,6 +39,33 @@ import {
 } from '@aztec/noir-protocol-circuits-types/server';
 import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
 import { NativeACVMSimulator } from '@aztec/simulator/server';
+import { type AvmCircuitInputs } from '@aztec/stdlib/avm';
+import { ProvingError } from '@aztec/stdlib/errors';
+import {
+  type ProofAndVerificationKey,
+  type PublicInputsAndRecursiveProof,
+  type ServerCircuitProver,
+  makeProofAndVerificationKey,
+  makePublicInputsAndRecursiveProof,
+} from '@aztec/stdlib/interfaces/server';
+import { type BaseParityInputs, type ParityPublicInputs, type RootParityInputs } from '@aztec/stdlib/parity';
+import { Proof, RecursiveProof, makeRecursiveProofFromBinary } from '@aztec/stdlib/proofs';
+import {
+  type BaseOrMergeRollupPublicInputs,
+  type BlockMergeRollupInputs,
+  type BlockRootOrBlockMergePublicInputs,
+  type BlockRootRollupInputs,
+  type EmptyBlockRootRollupInputs,
+  type MergeRollupInputs,
+  type PrivateBaseRollupInputs,
+  type PublicBaseRollupInputs,
+  type RootRollupInputs,
+  type RootRollupPublicInputs,
+  type SingleTxBlockRootRollupInputs,
+  type TubeInputs,
+} from '@aztec/stdlib/rollup';
+import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
+import type { VerificationKeyData } from '@aztec/stdlib/vks';
 import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { type WitnessMap } from '@noir-lang/types';
@@ -781,6 +775,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
           throw err;
         }),
       this.config.bbSkipCleanup,
+      logger,
     );
   }
 }

@@ -2,57 +2,6 @@ import { createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import {
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  type InBlock,
-  type L1ToL2MessageSource,
-  type L2Block,
-  type L2BlockSource,
-  type L2LogsSource,
-  type LogFilter,
-  MerkleTreeId,
-  type NullifierWithBlockSource,
-  P2PClientType,
-  PublicDataWitness,
-  PublicSimulationOutput,
-  SiblingPath,
-  type Tx,
-  type TxEffect,
-  type TxHash,
-  TxReceipt,
-  type TxScopedL2Log,
-  TxStatus,
-  type TxValidationResult,
-} from '@aztec/circuit-types';
-import { type AztecNode, type L2BlockNumber, NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/client';
-import {
-  type ClientProtocolCircuitVerifier,
-  type ProverConfig,
-  type SequencerConfig,
-  type Service,
-  type WorldStateSynchronizer,
-  tryStop,
-} from '@aztec/circuit-types/interfaces/server';
-import {
-  type BlockHeader,
-  type ContractClassPublic,
-  type ContractDataSource,
-  type ContractInstanceWithAddress,
-  EthAddress,
-  Fr,
-  type GasFees,
-  type NodeInfo,
-  type PrivateLog,
-  type ProtocolContractAddresses,
-} from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
-import {
-  type NullifierLeafPreimage,
-  type PublicDataTreeLeaf,
-  type PublicDataTreeLeafPreimage,
-} from '@aztec/circuits.js/trees';
-import {
   type ARCHIVE_HEIGHT,
   INITIAL_L2_BLOCK_NUM,
   type L1_TO_L2_MSG_TREE_HEIGHT,
@@ -64,8 +13,11 @@ import {
 import { EpochCache } from '@aztec/epoch-cache';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { compactArray } from '@aztec/foundation/collection';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
+import { SiblingPath } from '@aztec/foundation/trees';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { SHA256Trunc, StandardTree, UnbalancedTree } from '@aztec/merkle-tree';
@@ -80,6 +32,51 @@ import {
   getDefaultAllowedSetupFunctions,
 } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { InBlock, L2Block, L2BlockNumber, L2BlockSource, NullifierWithBlockSource } from '@aztec/stdlib/block';
+import {
+  type ContractClassPublic,
+  type ContractDataSource,
+  type ContractInstanceWithAddress,
+  type NodeInfo,
+  type ProtocolContractAddresses,
+} from '@aztec/stdlib/contract';
+import type { GasFees } from '@aztec/stdlib/gas';
+import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/stdlib/hash';
+import {
+  type AztecNode,
+  type GetContractClassLogsResponse,
+  type GetPublicLogsResponse,
+} from '@aztec/stdlib/interfaces/client';
+import {
+  type ClientProtocolCircuitVerifier,
+  type L2LogsSource,
+  type ProverConfig,
+  type SequencerConfig,
+  type Service,
+  type WorldStateSyncStatus,
+  type WorldStateSynchronizer,
+  tryStop,
+} from '@aztec/stdlib/interfaces/server';
+import type { LogFilter, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
+import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { P2PClientType } from '@aztec/stdlib/p2p';
+import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
+import {
+  type NullifierLeafPreimage,
+  type PublicDataTreeLeaf,
+  type PublicDataTreeLeafPreimage,
+} from '@aztec/stdlib/trees';
+import {
+  type BlockHeader,
+  PublicSimulationOutput,
+  Tx,
+  TxEffect,
+  type TxHash,
+  TxReceipt,
+  TxStatus,
+  type TxValidationResult,
+} from '@aztec/stdlib/tx';
 import {
   Attributes,
   type TelemetryClient,
@@ -125,6 +122,11 @@ export class AztecNodeService implements AztecNode, Traceable {
     this.tracer = telemetry.getTracer('AztecNodeService');
 
     this.log.info(`Aztec Node started on chain 0x${l1ChainId.toString(16)}`, config.l1Contracts);
+  }
+
+  public async getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
+    const status = await this.worldStateSynchronizer.status();
+    return status.syncSummary;
   }
 
   public getL2Tips() {
@@ -192,6 +194,7 @@ export class AztecNodeService implements AztecNode, Traceable {
 
     // start both and wait for them to sync from the block source
     await Promise.all([p2pClient.start(), worldStateSynchronizer.start(), slasherClient.start()]);
+    log.verbose(`All Aztec Node subsystems synced`);
 
     const validatorClient = createValidatorClient(config, { p2pClient, telemetry, dateProvider, epochCache });
 
@@ -838,11 +841,10 @@ export class AztecNodeService implements AztecNode, Traceable {
    * Returns the currently committed block header, or the initial header if no blocks have been produced.
    * @returns The current committed block header.
    */
-  public async getBlockHeader(blockNumber: L2BlockNumber = 'latest'): Promise<BlockHeader> {
-    return (
-      (await this.getBlock(blockNumber === 'latest' ? -1 : blockNumber))?.header ??
-      this.worldStateSynchronizer.getCommitted().getInitialHeader()
-    );
+  public async getBlockHeader(blockNumber: L2BlockNumber = 'latest'): Promise<BlockHeader | undefined> {
+    return blockNumber === 0 || (blockNumber === 'latest' && (await this.blockSource.getBlockNumber()) === 0)
+      ? this.worldStateSynchronizer.getCommitted().getInitialHeader()
+      : this.blockSource.getBlockHeader(blockNumber);
   }
 
   /**

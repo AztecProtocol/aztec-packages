@@ -93,4 +93,3 @@ pub fn validate_contract_address(
         protocol_contract_tree_root,
     );
 }
-

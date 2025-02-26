@@ -1,15 +1,14 @@
 /**
  * Validation logic unit tests
  */
-import { TxHash } from '@aztec/circuit-types';
-import { makeBlockAttestation, makeBlockProposal, mockTx } from '@aztec/circuit-types/testing';
-import { makeHeader } from '@aztec/circuits.js/testing';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { type P2P } from '@aztec/p2p';
+import { makeBlockAttestation, makeBlockProposal, makeHeader, mockTx } from '@aztec/stdlib/testing';
+import { TxHash } from '@aztec/stdlib/tx';
 
 import { describe, expect, it } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';

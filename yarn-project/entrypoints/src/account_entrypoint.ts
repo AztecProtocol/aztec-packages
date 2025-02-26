@@ -5,9 +5,9 @@ import {
   type ExecutionRequestInit,
   computeCombinedPayloadHash,
 } from '@aztec/aztec.js/entrypoint';
-import { HashedValues, TxExecutionRequest } from '@aztec/circuit-types';
-import { type AztecAddress, TxContext } from '@aztec/circuits.js';
-import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/circuits.js/abi';
+import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/stdlib/abi';
+import { type AztecAddress } from '@aztec/stdlib/aztec-address';
+import { HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from './constants.js';
 

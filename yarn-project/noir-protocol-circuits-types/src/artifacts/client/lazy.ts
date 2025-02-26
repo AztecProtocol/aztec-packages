@@ -1,4 +1,4 @@
-import { type NoirCompiledCircuit } from '@aztec/circuits.js/noir';
+import { type NoirCompiledCircuit } from '@aztec/stdlib/noir';
 
 import { ClientCircuitArtifactNames, getClientCircuitArtifact } from '../../client_artifacts_helper.js';
 import { type ArtifactProvider, type ClientProtocolArtifact } from '../types.js';

@@ -6,8 +6,10 @@ import {
   type PXE,
   type SendMethodOptions,
 } from '@aztec/aztec.js';
-import { AztecAddress, Fr, Gas, GasFees, GasSettings } from '@aztec/circuits.js';
+import { Fr } from '@aztec/foundation/fields';
 import { type LogFn } from '@aztec/foundation/log';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 
 import { Option } from 'commander';
 

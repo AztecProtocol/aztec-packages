@@ -1,11 +1,13 @@
-import { type Tx } from '@aztec/circuit-types';
-import { mockTx } from '@aztec/circuit-types/testing';
-import { AztecAddress, Fr, FunctionSelector, GasFees, GasSettings } from '@aztec/circuits.js';
-import { U128 } from '@aztec/circuits.js/abi';
 import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 import { type Writeable } from '@aztec/foundation/types';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
+import { FunctionSelector, U128 } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { GasFees, GasSettings } from '@aztec/stdlib/gas';
+import { mockTx } from '@aztec/stdlib/testing';
+import { type Tx } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 

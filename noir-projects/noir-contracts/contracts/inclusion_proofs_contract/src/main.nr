@@ -82,8 +82,8 @@ pub contract InclusionProofs {
         let retrieved_note = RetrievedNote {
             note: ValueNote::new(1, owner),
             contract_address: AztecAddress::zero(),
-            nonce: 0,
-            note_hash_counter: 0,
+            // This can never result in a succesful proof because the kernel will receive no note hash counter nor nonce
+            metadata: std::mem::zeroed(),
         };
         let note_storage_slot = 2;
 

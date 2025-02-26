@@ -178,30 +178,23 @@ This macro inserts a check at the beginning of the function to ensure that the c
 assert(context.msg_sender() == context.this_address(), "Function can only be called internally");
 ```
 
-## Custom notes #[note]
+## Implementing notes
 
-The `#[note]` attribute is used to define custom note types in Aztec contracts. Learn more about notes [here](../../concepts/storage/index.md).
+The `#[note]` attribute is used to define notes in Aztec contracts. Learn more about notes [here](../../concepts/storage/index.md).
 
 When a struct is annotated with `#[note]`, the Aztec macro applies a series of transformations and generates implementations to turn it into a note that can be used in contracts to store private data.
 
-1. **NoteInterface Implementation**: The macro automatically implements most methods of the `NoteInterface` trait for the annotated struct. This includes:
+1. **Note Interface Implementation**: The macro automatically implements the `NoteType`, `NoteHash` and `Packable<N>` traits for the annotated struct. This includes the following methods:
 
-   - `pack_content` and `unpack_content`
-   - `get_header` and `set_header`
-   - `get_note_type_id`
-   - `compute_note_hiding_point`
-   - `to_be_bytes`
-   - A `properties` method in the note's implementation
+   - `get_id`
+   - `compute_note_hash`
+   - `compute_nullifier`
+   - `pack`
+   - `unpack`
 
-2. **Automatic Header Field**: If the struct doesn't already have a `header` field of type `NoteHeader`, one is automatically created
+2. **Property Metadata**: A separate struct is generated to describe the note's fields, which is used for efficient retrieval of note data
 
-3. **Note Type ID Generation**: A unique `note_type_id` is automatically computed for the note type using a Keccak hash of the struct name
-
-4. **Serialization and Deserialization**: Methods for converting the note to and from a series of `Field` elements are generated, assuming each field can be converted to/from a `Field`
-
-5. **Property Metadata**: A separate struct is generated to describe the note's fields, which is used for efficient retrieval of note data
-
-6. **Export Information**: The note type and its ID are automatically exported
+3. **Export Information**: The note type and its ID are automatically exported
 
 ### Before expansion
 
@@ -218,19 +211,18 @@ struct CustomNote {
 ### After expansion
 
 ```rust
-impl NoteInterface for CustomNote {
-    fn get_note_type_id() -> Field {
+impl NoteType for CustomNote {
+    fn get_id() -> Field {
         // Assigned by macros by incrementing a counter
         2
     }
+}
 
+impl NoteHash for CustomNote {
     fn compute_note_hash(self, storage_slot: Field) -> Field {
         let inputs = array_concat(self.pack(), [storage_slot]);
         poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__NOTE_HASH)
     }
-}
-
-impl NullifiableNote for CustomNote {
 
     fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
         let owner_npk_m_hash = get_public_keys(self.owner).npk_m.hash();

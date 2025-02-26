@@ -4,6 +4,7 @@ import {
   type AccountWallet,
   AztecAddress,
   type AztecNode,
+  CheatCodes,
   type CompleteAddress,
   EthAddress,
   type Logger,
@@ -51,6 +52,7 @@ export class CrossChainMessagingTest {
   rollup!: any; // GetContractReturnType<typeof RollupAbi> | undefined;
   inbox!: any; // GetContractReturnType<typeof InboxAbi> | undefined;
   outbox!: any; // GetContractReturnType<typeof OutboxAbi> | undefined;
+  cheatcodes!: CheatCodes;
 
   constructor(testName: string) {
     this.logger = createLogger(`e2e:e2e_cross_chain_messaging:${testName}`);
@@ -58,7 +60,7 @@ export class CrossChainMessagingTest {
   }
 
   async assumeProven() {
-    await this.rollup.write.setAssumeProvenThroughBlockNumber([await this.rollup.read.getPendingBlockNumber()]);
+    await this.cheatcodes.rollup.markAsProven(await this.rollup.read.getPendingBlockNumber());
   }
 
   async setup() {
@@ -66,6 +68,7 @@ export class CrossChainMessagingTest {
     this.aztecNode = aztecNode;
     this.pxe = pxe;
     this.aztecNodeConfig = aztecNodeConfig;
+    this.cheatcodes = await CheatCodes.create(this.aztecNodeConfig.l1RpcUrl, this.pxe);
   }
 
   snapshot = <T>(

@@ -1,6 +1,7 @@
-import { type AuthWitness, type CompleteAddress } from '@aztec/circuit-types';
-import { type AztecAddress } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
+import { type AuthWitness } from '@aztec/stdlib/auth-witness';
+import { type AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { CompleteAddress } from '@aztec/stdlib/contract';
 
 import { type EntrypointInterface } from '../entrypoint/entrypoint.js';
 

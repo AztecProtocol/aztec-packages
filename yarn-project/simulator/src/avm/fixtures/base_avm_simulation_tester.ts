@@ -1,14 +1,15 @@
-import { MerkleTreeId } from '@aztec/circuit-types';
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
-import { type ContractClassPublic, type ContractInstanceWithAddress, PublicDataWrite } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/circuits.js/abi';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
 import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
+import { type ContractArtifact } from '@aztec/stdlib/abi';
+import { PublicDataWrite } from '@aztec/stdlib/avm';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type ContractClassPublic, type ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/stdlib/hash';
+import { type MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import { type SimpleContractDataSource } from './simple_contract_data_source.js';
 

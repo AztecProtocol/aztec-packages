@@ -51,10 +51,3 @@ last * sel' = 0;
 
 // These are needed to have a non-empty set of columns for each type.
 pol public input;
-#[LOOKUP_DUMMY_PRECOMPUTED]
-sel {/*will be 1=OR*/ sel, clk, clk, clk} in
-precomputed.sel_bitwise {precomputed.bitwise_op_id, precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output};
-#[LOOKUP_DUMMY_DYNAMIC]  // Just a self-lookup for now, for testing.
-sel {op1, op2, op3, op4} in sel {op1, op2, op3, op4};
-#[PERM_DUMMY_DYNAMIC]  // Just a self-permutation for now, for testing.
-sel {op1, op2, op3, op4} is sel {op1, op2, op3, op4};

@@ -74,7 +74,7 @@ class Execution : public ExecutionInterface {
     template <typename... Ts>
     void call_with_operands(void (Execution::*f)(ContextInterface&, Ts...),
                             const std::vector<Operand>& resolved_operands);
-    std::vector<Operand> resolve_operands(const Instruction& instruction, const InstructionSpec& spec);
+    std::vector<Operand> resolve_operands(const Instruction& instruction, const ExecInstructionSpec& spec);
 
     ContextProviderInterface& context_provider;
     ContextStackInterface& context_stack;

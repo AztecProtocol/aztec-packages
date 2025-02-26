@@ -1,22 +1,3 @@
-import {
-  type L1ToL2MessageSource,
-  type L2Block,
-  type L2BlockSource,
-  type P2PClientType,
-  type Tx,
-  type TxHash,
-  getTimestampRangeForEpoch,
-} from '@aztec/circuit-types';
-import {
-  type EpochProverManager,
-  EpochProvingJobTerminalState,
-  type ProverCoordination,
-  type ProverNodeApi,
-  type Service,
-  type WorldStateSynchronizer,
-  tryStop,
-} from '@aztec/circuit-types/interfaces/server';
-import { type ContractDataSource } from '@aztec/circuits.js';
 import { compact } from '@aztec/foundation/collection';
 import { memoize } from '@aztec/foundation/decorators';
 import { createLogger } from '@aztec/foundation/log';
@@ -25,6 +6,21 @@ import { DateProvider } from '@aztec/foundation/timer';
 import { type Maybe } from '@aztec/foundation/types';
 import { type P2P } from '@aztec/p2p';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
+import { type L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import { type ContractDataSource } from '@aztec/stdlib/contract';
+import { getTimestampRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
+import {
+  type EpochProverManager,
+  EpochProvingJobTerminalState,
+  type ProverCoordination,
+  type ProverNodeApi,
+  type Service,
+  type WorldStateSynchronizer,
+  tryStop,
+} from '@aztec/stdlib/interfaces/server';
+import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import type { P2PClientType } from '@aztec/stdlib/p2p';
+import type { Tx, TxHash } from '@aztec/stdlib/tx';
 import {
   Attributes,
   type TelemetryClient,
@@ -96,6 +92,10 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     this.txFetcher = new RunningPromise(() => this.checkForTxs(), this.log, this.options.txGatheringIntervalMs);
   }
 
+  public getProverId() {
+    return this.prover.getProverId();
+  }
+
   public getP2P() {
     const asP2PClient = this.coordination as P2P<P2PClientType.Prover>;
     if (typeof asP2PClient.isP2PClient === 'function' && asP2PClient.isP2PClient()) {
@@ -108,7 +108,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
    * Handles an epoch being completed by starting a proof for it if there are no active jobs for it.
    * @param epochNumber - The epoch number that was just completed.
    */
-  async handleEpochCompleted(epochNumber: bigint): Promise<void> {
+  async handleEpochReadyToProve(epochNumber: bigint): Promise<void> {
     try {
       this.log.debug('jobs', JSON.stringify(this.jobs, null, 2));
       const activeJobs = await this.getActiveJobsForEpoch(epochNumber);
@@ -218,7 +218,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
 
     // Fast forward world state to right before the target block and get a fork
     this.log.verbose(`Creating proving job for epoch ${epochNumber} for block range ${fromBlock} to ${toBlock}`);
-    await this.worldState.syncImmediate(fromBlock - 1);
+    await this.worldState.syncImmediate(toBlock);
 
     // Create a processor using the forked world state
     const publicProcessorFactory = new PublicProcessorFactory(

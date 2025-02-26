@@ -1,5 +1,3 @@
-import { type BlockAttestation, type BlockProposal, type L2Block, type Tx, type TxHash } from '@aztec/circuit-types';
-import { type BlockHeader, type GlobalVariables } from '@aztec/circuits.js';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { type Fr } from '@aztec/foundation/fields';
@@ -9,6 +7,9 @@ import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, type Timer } from '@aztec/foundation/timer';
 import { type P2P } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
+import { type L2Block } from '@aztec/stdlib/block';
+import { type BlockAttestation, type BlockProposal } from '@aztec/stdlib/p2p';
+import { type BlockHeader, type GlobalVariables, type Tx, type TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, WithTracer, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type ValidatorClientConfig } from './config.js';
@@ -48,7 +49,7 @@ export interface Validator {
   registerBlockProposalHandler(): void;
   registerBlockBuilder(blockBuilder: BlockBuilderCallback): void;
 
-  // Block validation responsiblities
+  // Block validation responsibilities
   createBlockProposal(header: BlockHeader, archive: Fr, txs: TxHash[]): Promise<BlockProposal | undefined>;
   attestToProposal(proposal: BlockProposal): void;
 
@@ -192,7 +193,7 @@ export class ValidatorClient extends WithTracer implements Validator {
       return undefined;
     }
 
-    // Check that all of the tranasctions in the proposal are available in the tx pool before attesting
+    // Check that all of the transactions in the proposal are available in the tx pool before attesting
     this.log.verbose(`Processing attestation for slot ${slotNumber}`, proposalInfo);
     try {
       await this.ensureTransactionsAreAvailable(proposal);

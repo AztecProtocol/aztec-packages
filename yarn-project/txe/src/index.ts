@@ -11,7 +11,7 @@ import {
 } from '@aztec/aztec.js';
 import { createSafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
 import { type Logger } from '@aztec/foundation/log';
-import { type ApiSchemaFor, type ZodFor } from '@aztec/foundation/schemas';
+import { type ApiSchemaFor, type ZodFor } from '@aztec/stdlib/schemas';
 
 import { readFile, readdir } from 'fs/promises';
 import { join } from 'path';

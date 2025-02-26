@@ -1,6 +1,9 @@
 import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import {
+  AztecAddress,
   BatchCall,
+  EthAddress,
+  Fr,
   L1FeeJuicePortalManager,
   type PXE,
   type WaitOpts,
@@ -8,7 +11,6 @@ import {
   createCompatibleClient,
   retryUntil,
 } from '@aztec/aztec.js';
-import { type AztecAddress, type EthAddress, Fr } from '@aztec/circuits.js';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import {
   type ContractArtifacts,

@@ -1,8 +1,7 @@
-import { SiblingPath } from '@aztec/circuit-types';
-import { type Hasher } from '@aztec/circuits.js/interfaces';
 import { toBigIntLE, toBufferLE } from '@aztec/foundation/bigint-buffer';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type Bufferable, type FromBuffer, serializeToBuffer } from '@aztec/foundation/serialize';
+import { type Hasher, SiblingPath } from '@aztec/foundation/trees';
 import { type AztecKVStore, type AztecMap, type AztecSingleton } from '@aztec/kv-store';
 
 import { HasherWithStats } from './hasher_with_stats.js';

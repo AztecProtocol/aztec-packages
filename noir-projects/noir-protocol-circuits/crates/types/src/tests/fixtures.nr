@@ -12,4 +12,3 @@ pub global MSG_SENDER: AztecAddress = AztecAddress { inner: 27 };
 pub global CHAIN_ID: Field = 1;
 
 pub global VERSION: Field = 3;
-
