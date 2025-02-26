@@ -1,17 +1,19 @@
-import { getCanonicalClassRegisterer } from '@aztec/protocol-contracts/class-registerer/lazy';
-import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer/lazy';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import { UnsafeContract } from '../contract/unsafe_contract.js';
 import type { Wallet } from '../wallet/index.js';
 
 /** Returns a Contract wrapper for the class registerer. */
 export async function getRegistererContract(wallet: Wallet) {
-  const { artifact, instance } = await getCanonicalClassRegisterer();
-  return new UnsafeContract(instance, artifact, wallet);
+  const { contractInstance } = await wallet.getContractMetadata(ProtocolContractAddress.ContractClassRegisterer);
+  const { artifact } = await wallet.getContractClassMetadata(contractInstance?.currentContractClassId!, true);
+
+  return new UnsafeContract(contractInstance!, artifact!, wallet);
 }
 
 /** Returns a Contract wrapper for the instance deployer. */
 export async function getDeployerContract(wallet: Wallet) {
-  const { artifact, instance } = await getCanonicalInstanceDeployer();
-  return new UnsafeContract(instance, artifact, wallet);
+  const { contractInstance } = await wallet.getContractMetadata(ProtocolContractAddress.ContractInstanceDeployer);
+  const { artifact } = await wallet.getContractClassMetadata(contractInstance?.currentContractClassId!, true);
+  return new UnsafeContract(contractInstance!, artifact!, wallet);
 }

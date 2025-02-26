@@ -1,5 +1,4 @@
 import type { ContractArtifact } from '@aztec/stdlib/abi';
-import { getContractClassFromArtifact, getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
 
 import { AuthRegistryArtifact } from '../auth-registry/index.js';
 import { ContractClassRegistererArtifact } from '../class-registerer/index.js';
