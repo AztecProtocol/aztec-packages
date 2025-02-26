@@ -83,7 +83,7 @@ describe('e2e_p2p_slashing', () => {
     });
 
     const slashFactory = getContract({
-      address: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.slashFactoryAddress.toString()),
+      address: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.slashFactoryAddress!.toString()),
       abi: SlashFactoryAbi,
       client: t.ctx.deployL1ContractsValues.publicClient,
     });

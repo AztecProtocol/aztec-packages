@@ -347,7 +347,7 @@ async function addPendingShieldNoteToPXE(
   await contract.methods
     .deliver_transparent_note(
       contract.address,
-      new Fr(amount),
+      amount,
       secretHash,
       txHash.hash,
       toBoundedVec(txEffects!.data.noteHashes, MAX_NOTE_HASHES_PER_TX),

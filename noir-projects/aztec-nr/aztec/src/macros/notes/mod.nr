@@ -412,7 +412,7 @@ comptime fn generate_fixed_generators() -> (Quoted, Quoted) {
 ///     std::hash::from_field_unsafe(npk_m_hash as Field),
 ///     std::hash::from_field_unsafe(randomness as Field)
 /// ]
-/// args_list: [amount: U128, npk_m_hash: Field, randomness: Field]
+/// args_list: [amount: u128, npk_m_hash: Field, randomness: Field]
 /// aux_vars: []
 comptime fn generate_multi_scalar_mul(
     indexed_fields: [(Quoted, Type, u32)],
@@ -695,7 +695,7 @@ comptime fn get_setup_log_plaintext_body(
 /// }
 ///
 /// impl TokenNoteFinalizationPayload {
-///     fn new(mut self, context: &mut aztec::prelude::PublicContext, slot: Field, amount: U128) -> TokenNoteFinalizationPayload {
+///     fn new(mut self, context: &mut aztec::prelude::PublicContext, slot: Field, amount: u128) -> TokenNoteFinalizationPayload {
 ///         self.context = context;
 ///         self.hiding_point_slot = slot;
 ///         self.setup_log_slot = slot + aztec::protocol_types::point::POINT_LENGTH as Field;
@@ -978,7 +978,6 @@ comptime fn register_note(
 
 /// Separates note struct members into fixed and nullable ones. It also stores the index of where each struct member
 /// starts in the serialized note. Note that each struct member can occupy multiple fields (as in Field type).
-/// An example of a struct member occupying multiple fields is `amount` in `TokenNote` that uses `U128` type.
 comptime fn index_note_fields(
     s: StructDefinition,
     nullable_fields: [Quoted],
