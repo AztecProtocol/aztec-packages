@@ -1,9 +1,8 @@
 import { getSchnorrWalletWithSecretKey } from '@aztec/accounts/schnorr';
-import { type InitialAccountData } from '@aztec/accounts/testing';
-import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
-import { type AccountWalletWithSecretKey } from '@aztec/aztec.js';
+import type { InitialAccountData } from '@aztec/accounts/testing';
+import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import type { AccountWalletWithSecretKey } from '@aztec/aztec.js';
 import { ChainMonitor } from '@aztec/aztec.js/ethereum';
-import { type PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { RollupContract, getExpectedAddress, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
@@ -12,6 +11,7 @@ import { ForwarderAbi, ForwarderBytecode, RollupAbi, TestERC20Abi } from '@aztec
 import { SpamContract } from '@aztec/noir-contracts.js/Spam';
 import type { BootstrapNode } from '@aztec/p2p/bootstrap';
 import { createBootstrapNodeFromPrivateKey, getBootstrapNodeEnr } from '@aztec/p2p/test-helpers';
+import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import getPort from 'get-port';
@@ -78,7 +78,6 @@ export class P2PNetworkTest {
     initialValidatorConfig: AztecNodeConfig,
     // If set enable metrics collection
     private metricsPort?: number,
-    assumeProvenThrough?: number,
   ) {
     this.logger = createLogger(`e2e:e2e_p2p:${testName}`);
 
@@ -108,7 +107,6 @@ export class P2PNetworkTest {
         aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
         aztecProofSubmissionWindow:
           initialValidatorConfig.aztecProofSubmissionWindow ?? l1ContractsConfig.aztecProofSubmissionWindow,
-        assumeProvenThrough: assumeProvenThrough ?? Number.MAX_SAFE_INTEGER,
         initialValidators: [],
       },
     );
@@ -120,14 +118,12 @@ export class P2PNetworkTest {
     basePort,
     metricsPort,
     initialConfig,
-    assumeProvenThrough,
   }: {
     testName: string;
     numberOfNodes: number;
     basePort?: number;
     metricsPort?: number;
     initialConfig?: Partial<AztecNodeConfig>;
-    assumeProvenThrough?: number;
   }) {
     const port = basePort || (await getPort());
 
@@ -139,15 +135,7 @@ export class P2PNetworkTest {
       bootstrapNodeEnr,
     );
 
-    return new P2PNetworkTest(
-      testName,
-      bootstrapNodeEnr,
-      port,
-      numberOfNodes,
-      initialValidatorConfig,
-      metricsPort,
-      assumeProvenThrough,
-    );
+    return new P2PNetworkTest(testName, bootstrapNodeEnr, port, numberOfNodes, initialValidatorConfig, metricsPort);
   }
 
   get fundedAccount() {

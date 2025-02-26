@@ -53,9 +53,9 @@
   },
   "dependencies": {
     "@aztec/blob-lib": "workspace:^",
-    "@aztec/circuit-types": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:*",
+    "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:*",
     "express": "^4.21.1",
     "snappy": "^7.2.2",

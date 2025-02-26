@@ -109,4 +109,3 @@ impl Default for KernelPublicInputs {
         Self { commitments: [0; MAX_COMMITMENTS_PER_TX] }
     }
 }
-

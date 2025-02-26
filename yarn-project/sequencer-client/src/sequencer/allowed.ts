@@ -1,8 +1,8 @@
-import { type AllowedElement } from '@aztec/circuit-types/interfaces/server';
-import { getContractClassFromArtifact } from '@aztec/circuits.js';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
+import type { AllowedElement } from '@aztec/stdlib/interfaces/server';
 
 let defaultAllowedSetupFunctions: AllowedElement[] | undefined = undefined;
 

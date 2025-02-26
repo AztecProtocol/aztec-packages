@@ -5,7 +5,7 @@ use crate::{
         ecdh_shared_secret::derive_ecdh_shared_secret_using_aztec_address,
         ephemeral::generate_ephemeral_key_pair,
     },
-    note::{note_emission::NoteEmission, note_interface::NoteInterface},
+    note::{note_emission::NoteEmission, note_interface::NoteType},
     oracle::{
         notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
         random::random,
@@ -218,14 +218,14 @@ fn compute_note_plaintext_for_this_strategy<Note, let N: u32>(
     storage_slot: Field,
 ) -> [u8; N * 32 + 64]
 where
-    Note: NoteInterface + Packable<N>,
+    Note: NoteType + Packable<N>,
 {
     let packed_note = note.pack();
 
     let storage_slot_bytes: [u8; 32] = storage_slot.to_be_bytes();
 
     // TODO(#10952): The following can be reduced to 7 bits
-    let note_type_id_bytes: [u8; 32] = Note::get_note_type_id().to_be_bytes();
+    let note_type_id_bytes: [u8; 32] = Note::get_id().to_be_bytes();
 
     // We combine all the bytes into plaintext_bytes:
     let mut plaintext_bytes: [u8; N * 32 + 64] = [0; N * 32 + 64];
@@ -252,7 +252,7 @@ fn compute_log<Note, let N: u32>(
     sender: AztecAddress,
 ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
 where
-    Note: NoteInterface + Packable<N>,
+    Note: NoteType + Packable<N>,
 {
     // *****************************************************************************
     // Compute the shared secret
@@ -416,7 +416,7 @@ unconstrained fn compute_log_unconstrained<Note, let N: u32>(
     sender: AztecAddress,
 ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
 where
-    Note: NoteInterface + Packable<N>,
+    Note: NoteType + Packable<N>,
 {
     compute_log(context, note, storage_slot, recipient, sender)
 }
@@ -431,7 +431,7 @@ pub fn encode_and_encrypt_note<Note, let N: u32>(
     sender: AztecAddress,
 ) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress)](NoteEmission<Note>) -> ()
 where
-    Note: NoteInterface + Packable<N>,
+    Note: NoteType + Packable<N>,
 {
     |e: NoteEmission<Note>| {
         let note = e.note;
@@ -454,7 +454,7 @@ pub fn encode_and_encrypt_note_unconstrained<Note, let N: u32>(
     sender: AztecAddress,
 ) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress)](NoteEmission<Note>) -> ()
 where
-    Note: NoteInterface + Packable<N>,
+    Note: NoteType + Packable<N>,
 {
     |e: NoteEmission<Note>| {
         let note = e.note;

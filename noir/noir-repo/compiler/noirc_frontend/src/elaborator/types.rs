@@ -1040,7 +1040,6 @@ impl Elaborator<'_> {
         location: Location,
     ) -> Result<(Type, bool), TypeCheckError> {
         use Type::*;
-
         match (lhs_type, rhs_type) {
             // Avoid reporting errors multiple times
             (Error, _) | (_, Error) => Ok((Bool, false)),
@@ -1251,7 +1250,6 @@ impl Elaborator<'_> {
         location: Location,
     ) -> Result<(Type, bool), TypeCheckError> {
         use Type::*;
-
         match op {
             crate::ast::UnaryOp::Minus | crate::ast::UnaryOp::Not => {
                 match rhs_type {

@@ -1,49 +1,47 @@
-import {
-  type PrivateCallExecutionResult,
-  type PrivateExecutionResult,
-  type PrivateKernelProver,
-  type PrivateKernelSimulateOutput,
-  collectEnqueuedPublicFunctionCalls,
-  collectNoteHashLeafIndexMap,
-  collectNoteHashNullifierCounterMap,
-  collectPublicTeardownFunctionCall,
-  getFinalMinRevertibleSideEffectCounter,
-} from '@aztec/circuit-types/interfaces/client';
-import {
-  AztecAddress,
-  ClientIvcProof,
-  Fr,
-  type PrivateLog,
-  type ScopedPrivateLogData,
-  type TxRequest,
-  VerificationKeyAsFields,
-  computeContractAddressFromInstance,
-} from '@aztec/circuits.js';
-import { hashVK } from '@aztec/circuits.js/hash';
-import {
-  PrivateCallData,
-  PrivateKernelCircuitPublicInputs,
-  PrivateKernelData,
-  PrivateKernelInitCircuitPrivateInputs,
-  PrivateKernelInnerCircuitPrivateInputs,
-  PrivateKernelTailCircuitPrivateInputs,
-  type PrivateKernelTailCircuitPublicInputs,
-  PrivateVerificationKeyHints,
-} from '@aztec/circuits.js/kernel';
 import { CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, VK_TREE_HEIGHT } from '@aztec/constants';
 import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { Timer } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { getProtocolContractLeafAndMembershipWitness, protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { computeContractAddressFromInstance } from '@aztec/stdlib/contract';
+import { hashVK } from '@aztec/stdlib/hash';
+import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
+import {
+  PrivateCallData,
+  PrivateKernelCircuitPublicInputs,
+  PrivateKernelData,
+  PrivateKernelInitCircuitPrivateInputs,
+  PrivateKernelInnerCircuitPrivateInputs,
+  type PrivateKernelSimulateOutput,
+  PrivateKernelTailCircuitPrivateInputs,
+  type PrivateKernelTailCircuitPublicInputs,
+  PrivateVerificationKeyHints,
+  type ScopedPrivateLogData,
+} from '@aztec/stdlib/kernel';
+import type { PrivateLog } from '@aztec/stdlib/logs';
+import { ClientIvcProof } from '@aztec/stdlib/proofs';
+import {
+  type PrivateCallExecutionResult,
+  type PrivateExecutionResult,
+  TxRequest,
+  collectEnqueuedPublicFunctionCalls,
+  collectNoteHashLeafIndexMap,
+  collectNoteHashNullifierCounterMap,
+  collectPublicTeardownFunctionCall,
+  getFinalMinRevertibleSideEffectCounter,
+} from '@aztec/stdlib/tx';
+import { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
-import { type WitnessMap } from '@noir-lang/types';
+import type { WitnessMap } from '@noir-lang/types';
 import { strict as assert } from 'assert';
 
 import { PrivateKernelResetPrivateInputsBuilder } from './hints/build_private_kernel_reset_private_inputs.js';
-import { type ProvingDataOracle } from './proving_data_oracle.js';
+import type { ProvingDataOracle } from './proving_data_oracle.js';
 
 // TODO(#10592): Temporary workaround to check that the private logs are correctly split into non-revertible set and revertible set.
 // This should be done in TailToPublicOutputValidator in private kernel tail.

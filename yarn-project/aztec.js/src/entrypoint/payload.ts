@@ -1,13 +1,15 @@
-import { FunctionCall, HashedValues } from '@aztec/circuit-types';
-import { type AztecAddress, Fr, type GasSettings } from '@aztec/circuits.js';
-import { FunctionType } from '@aztec/circuits.js/abi';
 import { GeneratorIndex } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
-import { type Tuple } from '@aztec/foundation/serialize';
-import { type FieldsOf } from '@aztec/foundation/types';
+import { Fr } from '@aztec/foundation/fields';
+import type { Tuple } from '@aztec/foundation/serialize';
+import type { FieldsOf } from '@aztec/foundation/types';
+import { FunctionCall, FunctionType } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { GasSettings } from '@aztec/stdlib/gas';
+import { HashedValues } from '@aztec/stdlib/tx';
 
-import { type FeePaymentMethod } from '../fee/fee_payment_method.js';
+import type { FeePaymentMethod } from '../fee/fee_payment_method.js';
 
 /**
  * Fee payment options for a transaction.
@@ -19,6 +21,7 @@ export type FeeOptions = {
   gasSettings: GasSettings;
 };
 
+// docs:start:user_fee_options
 /** Fee options as set by a user. */
 export type UserFeeOptions = {
   /** The fee payment method to use */
@@ -32,6 +35,7 @@ export type UserFeeOptions = {
   /** Percentage to pad the estimated gas limits by, if empty, defaults to 0.1. Only relevant if estimateGas is set. */
   estimatedGasPadding?: number;
 };
+// docs:end:user_fee_options
 
 // These must match the values defined in:
 // - noir-projects/aztec-nr/aztec/src/entrypoint/app.nr

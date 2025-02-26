@@ -1,6 +1,6 @@
-import { type Fr } from '@aztec/circuits.js';
+import type { Fr } from '@aztec/foundation/fields';
 
-import { type Gas } from './avm_gas.js';
+import type { Gas } from './avm_gas.js';
 import { TaggedMemory } from './avm_memory_types.js';
 import { type AvmRevertReason, OutOfGasError } from './errors.js';
 

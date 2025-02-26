@@ -1,6 +1,7 @@
-import { type AztecAddress, Fr } from '@aztec/circuits.js';
-import { type L1ContractAddresses } from '@aztec/ethereum';
+import type { L1ContractAddresses } from '@aztec/ethereum';
+import { Fr } from '@aztec/foundation/fields';
 import { InboxAbi } from '@aztec/l1-artifacts';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { expect } from '@jest/globals';
 import {

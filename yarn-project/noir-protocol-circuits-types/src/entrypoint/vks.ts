@@ -1,7 +1,8 @@
-import { Fr, VerificationKeyAsFields, VerificationKeyData } from '@aztec/circuits.js';
 import { VK_TREE_HEIGHT } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 import { assertLength } from '@aztec/foundation/serialize';
 import type { MerkleTree } from '@aztec/foundation/trees';
+import { VerificationKeyAsFields, VerificationKeyData } from '@aztec/stdlib/vks';
 
 import { vkTree } from '../vk_tree.js';
 

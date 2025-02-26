@@ -1,9 +1,12 @@
-import { type GlobalVariableBuilder as GlobalVariableBuilderInterface } from '@aztec/circuit-types';
-import { type AztecAddress, type EthAddress, GasFees, GlobalVariables } from '@aztec/circuits.js';
 import { type L1ContractsConfig, type L1ReaderConfig, createEthereumChain } from '@aztec/ethereum';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { GasFees } from '@aztec/stdlib/gas';
+import type { GlobalVariableBuilder as GlobalVariableBuilderInterface } from '@aztec/stdlib/tx';
+import { GlobalVariables } from '@aztec/stdlib/tx';
 
 import {
   type GetContractReturnType,
@@ -77,7 +80,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     feeRecipient: AztecAddress,
     slotNumber?: bigint,
   ): Promise<GlobalVariables> {
-    const version = new Fr(await this.rollupContract.read.VERSION());
+    const version = new Fr(await this.rollupContract.read.getVersion());
     const chainId = new Fr(this.publicClient.chain.id);
 
     if (slotNumber === undefined) {

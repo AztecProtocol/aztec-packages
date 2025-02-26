@@ -13,12 +13,6 @@
       "path": "../bb-prover"
     },
     {
-      "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
-    },
-    {
       "path": "../ethereum"
     },
     {
@@ -26,6 +20,9 @@
     },
     {
       "path": "../noir-protocol-circuits-types"
+    },
+    {
+      "path": "../stdlib"
     },
     {
       "path": "../telemetry-client"

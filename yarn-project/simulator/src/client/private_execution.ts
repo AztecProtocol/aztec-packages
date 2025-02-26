@@ -1,19 +1,22 @@
-import { type AztecNode, PrivateCallExecutionResult } from '@aztec/circuit-types/interfaces/client';
-import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
-import { type ContractInstance, Fr, PrivateCircuitPublicInputs } from '@aztec/circuits.js';
-import { type FunctionArtifact, type FunctionSelector, countArgumentsSize } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/circuits.js/shared-mutable';
 import { PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH, PRIVATE_CONTEXT_INPUTS_LENGTH } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { type FunctionArtifact, type FunctionSelector, countArgumentsSize } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractInstance } from '@aztec/stdlib/contract';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import { PrivateCircuitPublicInputs } from '@aztec/stdlib/kernel';
+import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/stdlib/shared-mutable';
+import type { CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
+import { PrivateCallExecutionResult } from '@aztec/stdlib/tx';
 
 import { fromACVMField, witnessMapToFields } from '../acvm/deserialize.js';
 import { type ACVMWitness, Oracle, extractCallStack } from '../acvm/index.js';
 import { ExecutionError, resolveAssertionMessageFromError } from '../common/errors.js';
-import { type SimulationProvider } from '../server.js';
-import { type ClientExecutionContext } from './client_execution_context.js';
+import type { SimulationProvider } from '../server.js';
+import type { ClientExecutionContext } from './client_execution_context.js';
 
 /**
  * Execute a private function and return the execution result.

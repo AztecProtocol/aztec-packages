@@ -1,18 +1,8 @@
-import { type AztecAddress, type CheatCodes, EthAddress, Fr, type Wallet } from '@aztec/aztec.js';
-import { RollupAbi } from '@aztec/l1-artifacts';
+import { AnvilTestWatcher, type AztecAddress, type CheatCodes, EthAddress, Fr, type Wallet } from '@aztec/aztec.js';
+import { RollupContract } from '@aztec/ethereum/contracts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
-import {
-  type Account,
-  type Chain,
-  type GetContractReturnType,
-  type HttpTransport,
-  type PublicClient,
-  type WalletClient,
-  getContract,
-  parseEther,
-} from 'viem';
-import type * as chains from 'viem/chains';
+import { type Account, type Chain, type HttpTransport, type PublicClient, type WalletClient, parseEther } from 'viem';
 
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
@@ -23,30 +13,27 @@ describe('e2e_cheat_codes', () => {
   let cc: CheatCodes;
   let teardown: () => Promise<void>;
 
-  let rollup: GetContractReturnType<typeof RollupAbi, WalletClient<HttpTransport, chains.Chain, Account>>;
   let walletClient: WalletClient<HttpTransport, Chain, Account>;
   let publicClient: PublicClient<HttpTransport, Chain>;
   let token: TokenContract;
+  let rollup: RollupContract;
+  let watcher: AnvilTestWatcher | undefined;
 
   beforeAll(async () => {
     let deployL1ContractsValues;
-    ({ teardown, wallet, cheatCodes: cc, deployL1ContractsValues } = await setup());
+    ({ teardown, wallet, cheatCodes: cc, deployL1ContractsValues, watcher } = await setup());
 
     walletClient = deployL1ContractsValues.walletClient;
     publicClient = deployL1ContractsValues.publicClient;
     admin = wallet.getAddress();
 
-    rollup = getContract({
-      address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-      abi: RollupAbi,
-      client: deployL1ContractsValues.walletClient,
-    });
+    rollup = RollupContract.getFromL1ContractsValues(deployL1ContractsValues);
+
+    if (watcher) {
+      watcher.setIsMarkingAsProven(false);
+    }
 
     token = await TokenContract.deploy(wallet, admin, 'TokenName', 'TokenSymbol', 18).send().deployed();
-  });
-
-  beforeEach(async () => {
-    await rollup.write.setAssumeProvenThroughBlockNumber([(await rollup.read.getPendingBlockNumber()) + 1n]);
   });
 
   afterAll(() => teardown());
@@ -191,6 +178,18 @@ describe('e2e_cheat_codes', () => {
       const balance = values.reduce((sum, current) => sum + current.toBigInt(), 0n);
       expect(balance).toEqual(mintAmount);
       // docs:end:load_private_cheatcode
+    });
+
+    it('markAsProven', async () => {
+      const { pendingBlockNumber, provenBlockNumber } = await rollup.getTips();
+      expect(pendingBlockNumber).toBeGreaterThan(provenBlockNumber);
+
+      await cc.rollup.markAsProven();
+
+      const { pendingBlockNumber: pendingBlockNumber2, provenBlockNumber: provenBlockNumber2 } = await rollup.getTips();
+      expect(pendingBlockNumber2).toBe(provenBlockNumber2);
+
+      // If this test fails, it is likely because the storage updated and is not updated in the cheatcodes.
     });
   });
 });

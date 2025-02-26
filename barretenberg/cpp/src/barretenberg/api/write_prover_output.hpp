@@ -15,7 +15,7 @@ template <typename VK> struct ProofAndKey {
 
 template <typename ProverOutput>
 void write(const ProverOutput& prover_output,
-           const std::string& output_data_type,
+           const std::string& output_format,
            const std::string& output_content,
            const std::filesystem::path& output_dir)
 {
@@ -73,41 +73,41 @@ void write(const ProverOutput& prover_output,
     };
 
     if (output_content == "proof") {
-        if (output_data_type == "bytes") {
+        if (output_format == "bytes") {
             write_bytes(ObjectToWrite::PROOF);
-        } else if (output_data_type == "fields") {
+        } else if (output_format == "fields") {
             write_fields(ObjectToWrite::PROOF);
-        } else if (output_data_type == "bytes_and_fields") {
+        } else if (output_format == "bytes_and_fields") {
             write_bytes(ObjectToWrite::PROOF);
             write_fields(ObjectToWrite::PROOF);
         } else {
-            throw_or_abort("Invalid output_data_type for output_content proof");
+            throw_or_abort("Invalid output_format for output_content proof");
         }
     } else if (output_content == "vk") {
-        if (output_data_type == "bytes") {
+        if (output_format == "bytes") {
             write_bytes(ObjectToWrite::VK);
-        } else if (output_data_type == "fields") {
+        } else if (output_format == "fields") {
             write_fields(ObjectToWrite::VK);
-        } else if (output_data_type == "bytes_and_fields") {
+        } else if (output_format == "bytes_and_fields") {
             write_bytes(ObjectToWrite::VK);
             write_fields(ObjectToWrite::VK);
         } else {
-            throw_or_abort("Invalid output_data_type for output_content vk");
+            throw_or_abort("Invalid output_format for output_content vk");
         }
     } else if (output_content == "proof_and_vk") {
-        if (output_data_type == "bytes") {
+        if (output_format == "bytes") {
             write_bytes(ObjectToWrite::PROOF);
             write_bytes(ObjectToWrite::VK);
-        } else if (output_data_type == "fields") {
+        } else if (output_format == "fields") {
             write_fields(ObjectToWrite::PROOF);
             write_fields(ObjectToWrite::VK);
-        } else if (output_data_type == "bytes_and_fields") {
+        } else if (output_format == "bytes_and_fields") {
             write_bytes(ObjectToWrite::PROOF);
             write_fields(ObjectToWrite::PROOF);
             write_bytes(ObjectToWrite::VK);
             write_fields(ObjectToWrite::VK);
         } else {
-            throw_or_abort("Invalid output_data_type for output_content proof_and_vk");
+            throw_or_abort("Invalid output_format for output_content proof_and_vk");
         }
     } else {
         throw_or_abort("Invalid std::string");

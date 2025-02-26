@@ -226,16 +226,6 @@ Options:
 - `-ca, --contract-address <address>`: Contract address to filter logs by.
 - `--follow`: Keep polling for new logs until interrupted.
 
-### add-note
-Adds a note to the database in the PXE.
-
-```
-aztec add-note <address> <contractAddress> <storageSlot> <noteTypeId> <txHash> [options]
-```
-
-Required option:
-- `-n, --note [note...]`: The members of a Note serialized as hex strings.
-
 ## Development and Debugging Tools
 
 ### flamegraph

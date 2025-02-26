@@ -1,4 +1,4 @@
-import { type ConfigMappingsType } from '@aztec/foundation/config';
+import type { ConfigMappingsType } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 

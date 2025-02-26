@@ -19,8 +19,8 @@ class API {
         std::string scheme;                   // the proving system or IVC scheme
         std::string input_type;               // is the input bytecode a single circuit or a stack of circuits?
         std::string oracle_hash_type;         // which hash function does the prover use as a random oracle?
-        std::string output_data_type;         // output bytes, fields, both, or a msgpack buffer of fields
-        std::string output_content_type;      // output a proof, a verification key, or both
+        std::string output_format;            // output bytes, fields, both, or a msgpack buffer of fields
+        bool write_vk{ false }; // should we addditionally write the verification key when writing the proof
 
         friend std::ostream& operator<<(std::ostream& os, const Flags& flags)
         {
@@ -36,8 +36,8 @@ class API {
                << "  scheme: " << flags.scheme << "\n"
                << "  input_type: " << flags.input_type << "\n"
                << "  oracle_hash_type: " << flags.oracle_hash_type << "\n"
-               << "  output_data_type: " << flags.output_data_type << "\n"
-               << "  output_content_type: " << flags.output_content_type << "\n"
+               << "  output_format: " << flags.output_format << "\n"
+               << "  write_vk " << flags.write_vk << "\n"
                << "]" << std::endl;
             return os;
         }

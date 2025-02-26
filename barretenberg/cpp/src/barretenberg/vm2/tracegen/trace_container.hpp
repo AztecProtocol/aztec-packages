@@ -13,6 +13,7 @@
 #include "barretenberg/vm2/common/map.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/flavor_settings.hpp"
+#include "barretenberg/vm2/tracegen/lib/trace_conversion.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -23,10 +24,17 @@ class TraceContainer {
     TraceContainer();
 
     const FF& get(Column col, uint32_t row) const;
-    template <size_t N> std::array<FF, N> get_multiple(const std::array<Column, N>& cols, uint32_t row) const
+    template <size_t N> std::array<FF, N> get_multiple(const std::array<ColumnAndShifts, N>& cols, uint32_t row) const
     {
         std::array<FF, N> result;
-        std::transform(cols.begin(), cols.end(), result.begin(), [&](Column col) { return get(col, row); });
+        for (size_t i = 0; i < N; ++i) {
+            if (!is_shift(cols[i])) {
+                result[i] = get(static_cast<Column>(cols[i]), row);
+            } else {
+                Column unshifted_col = unshift_column(cols[i]).value();
+                result[i] = get(unshifted_col, row + 1);
+            }
+        }
         return result;
     }
 
