@@ -181,6 +181,10 @@ library FeeMath {
     );
   }
 
+  function computeExcessMana(FeeHeader memory _feeHeader) internal pure returns (uint256) {
+    return clampedAdd(_feeHeader.excessMana + _feeHeader.manaUsed, -int256(MANA_TARGET));
+  }
+
   function congestionMultiplier(uint256 _numerator) internal pure returns (uint256) {
     return fakeExponential(MINIMUM_CONGESTION_MULTIPLIER, _numerator, CONGESTION_UPDATE_FRACTION);
   }
