@@ -76,7 +76,14 @@ function generate_overrides {
 # and are used to generate the genesis.json file.
 # We need to read these values and pass them into the eth devnet create.sh script
 # so that it can generate the genesis.json and config.yaml file with the correct values.
-if [ "$sepolia_deployment" != "true" ]; then
+if [ "$sepolia_deployment" = "true" ]; then
+  echo "Generating sepolia accounts..."
+  set +x
+  L1_ACCOUNTS_MNEMONIC=$(./prepare_sepolia_accounts.sh "$values_file")
+  # write the mnemonic to a file
+  echo "$L1_ACCOUNTS_MNEMONIC" >mnemonic.tmp
+  set -x
+else
   echo "Generating devnet config..."
   ./generate_devnet_config.sh "$values_file"
 fi
@@ -93,6 +100,7 @@ helm_set_args=(
 
 # If this is a sepolia run, we need to write some values
 if [ "$sepolia_deployment" = "true" ]; then
+  set +x
   helm_set_args+=(
     --set ethereum.execution.externalHosts="$EXTERNAL_ETHEREUM_HOSTS"
     --set ethereum.beacon.externalHost="$EXTERNAL_ETHEREUM_CONSENSUS_HOST"
@@ -107,6 +115,7 @@ if [ "$sepolia_deployment" = "true" ]; then
   if [ -n "${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER:-}" ]; then
     helm_set_args+=(--set ethereum.beacon.apiKeyHeader="$EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER")
   fi
+  set -x
 fi
 
 helm upgrade --install spartan ../aztec-network \
