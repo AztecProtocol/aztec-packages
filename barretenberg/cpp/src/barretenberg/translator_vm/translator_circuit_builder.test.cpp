@@ -105,8 +105,8 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
     // Get an inverse
     Fq x_inv = x.invert();
     // Compute the batched evaluation of polynomials (multiplying by inverse to go from lower to higher)
-    const auto& raw_ops = op_queue->get_raw_ops();
-    for (const auto& ecc_op : raw_ops) {
+    const auto& eccvm_ops = op_queue->get_eccvm_ops();
+    for (const auto& ecc_op : eccvm_ops) {
         op_accumulator = op_accumulator * x_inv + ecc_op.get_opcode_value();
         const auto [x_u256, y_u256] = ecc_op.get_base_point_standard_form();
         p_x_accumulator = p_x_accumulator * x_inv + x_u256;
@@ -114,7 +114,7 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
         z_1_accumulator = z_1_accumulator * x_inv + ecc_op.z1;
         z_2_accumulator = z_2_accumulator * x_inv + ecc_op.z2;
     }
-    Fq x_pow = x.pow(raw_ops.size() - 1);
+    Fq x_pow = x.pow(eccvm_ops.size() - 1);
 
     // Multiply by an appropriate power of x to get rid of the inverses
     Fq result = ((((z_2_accumulator * batching_challenge + z_1_accumulator) * batching_challenge + p_y_accumulator) *

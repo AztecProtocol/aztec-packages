@@ -18,6 +18,7 @@
     "@aztec/foundation": "link:../yarn-project/foundation",
     "@aztec/key-store": "link:../yarn-project/key-store",
     "@aztec/kv-store": "link:../yarn-project/kv-store",
+    "@aztec/protocol-contracts": "link:../yarn-project/protocol-contracts",
     "@aztec/pxe": "link:../yarn-project/pxe",
     "@aztec/simulator": "link:../yarn-project/simulator",
     "@aztec/stdlib": "link:../yarn-project/stdlib",
