@@ -19,7 +19,7 @@ use dep::std::mem::zeroed;
 #[custom_note]
 #[derive(Eq)]
 pub struct TransparentNote {
-    amount: Field,
+    amount: u128,
     secret_hash: Field,
 }
 
@@ -67,7 +67,7 @@ impl NoteHash for TransparentNote {
 
 impl TransparentNote {
     // CONSTRUCTORS
-    pub fn new(amount: Field, secret_hash: Field) -> Self {
+    pub fn new(amount: u128, secret_hash: Field) -> Self {
         TransparentNote { amount, secret_hash }
     }
 }

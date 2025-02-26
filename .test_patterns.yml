@@ -131,9 +131,6 @@ tests:
   - regex: "sequencer-client/src/slasher/slasher_client.test.ts"
     owners:
       - "charlie@aztecprotocol.com"
-  - regex: "foundation/src/promise/running-promise.test.ts"
-    owners:
-      - "charlie@aztecprotocol.com"
 
   # kind tests
   - regex: "spartan/bootstrap.sh test-kind-4epochs"

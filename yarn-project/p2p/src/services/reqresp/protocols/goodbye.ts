@@ -12,8 +12,8 @@ import type { ReqResp } from '../reqresp.js';
 export enum GoodByeReason {
   /** The peer has shutdown, will be received whenever a peer's node is routinely stopped */
   SHUTDOWN = 0x1,
-  /** Whenever the peer must disconnect due to maintaining max peers */
-  DISCONNECTED = 0x2,
+  /** The max peer count has been reached, will be received whenever a low scoring peer is disconnected to satisfy the max peer count */
+  MAX_PEERS = 0x2,
   /** The peer has a low score, will be received whenever a peer's score is low */
   LOW_SCORE = 0x3,
   /** The peer has been banned, will be received whenever a peer is banned */
@@ -48,8 +48,8 @@ export function prettyGoodbyeReason(reason: GoodByeReason): string {
   switch (reason) {
     case GoodByeReason.SHUTDOWN:
       return 'shutdown';
-    case GoodByeReason.DISCONNECTED:
-      return 'disconnected';
+    case GoodByeReason.MAX_PEERS:
+      return 'max_peers';
     case GoodByeReason.LOW_SCORE:
       return 'low_score';
     case GoodByeReason.BANNED:

@@ -70,14 +70,15 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<Poseidon2HashEvent> poseidon2_hash_emitter;
     typename S::template DefaultEventEmitter<Poseidon2PermutationEvent> poseidon2_perm_emitter;
 
+    Poseidon2 poseidon2(poseidon2_hash_emitter, poseidon2_perm_emitter);
+
     AddressDerivation address_derivation(address_derivation_emitter);
-    ClassIdDerivation class_id_derivation(class_id_derivation_emitter);
+    ClassIdDerivation class_id_derivation(poseidon2, class_id_derivation_emitter);
     HintedRawContractDB raw_contract_db(inputs.hints);
     HintedRawMerkleDB raw_merkle_db(inputs.hints);
     ContractDB contract_db(raw_contract_db, address_derivation, class_id_derivation);
     MerkleDB merkle_db(raw_merkle_db);
 
-    Poseidon2 poseidon2(poseidon2_hash_emitter, poseidon2_perm_emitter);
     BytecodeHasher bytecode_hasher(poseidon2, bytecode_hashing_emitter);
     Siloing siloing(siloing_emitter);
     TxBytecodeManager bytecode_manager(contract_db,

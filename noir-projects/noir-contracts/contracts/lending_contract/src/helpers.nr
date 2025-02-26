@@ -14,14 +14,14 @@ pub fn compute_identifier(secret: Field, on_behalf_of: Field, self: Field) -> Fi
 }
 
 pub fn covered_by_collateral(
-    price: U128,
-    loan_to_value: U128,
-    collateral: U128,
-    increase: U128,
-    decrease: U128,
-) -> U128 {
-    let price_precision = U128::from_integer(1000000000);
-    let ltv_precision = U128::from_integer(10000);
+    price: u128,
+    loan_to_value: u128,
+    collateral: u128,
+    increase: u128,
+    decrease: u128,
+) -> u128 {
+    let price_precision = 1000000000 as u128;
+    let ltv_precision = 10000 as u128;
 
     let collateral = (collateral + increase) - decrease;
 
@@ -32,27 +32,27 @@ pub fn covered_by_collateral(
 }
 
 pub struct DebtReturn {
-    debt_value: U128,
-    static_debt: U128,
+    debt_value: u128,
+    static_debt: u128,
 }
 
-fn div_up(a: U128, b: U128) -> U128 {
+fn div_up(a: u128, b: u128) -> u128 {
     let div = a / b;
     if div * b < a {
-        div + U128::from_integer(1)
+        div + (1 as u128)
     } else {
         div
     }
 }
 
 pub fn debt_updates(
-    interest_accumulator: U128,
-    static_debt: U128,
-    increase: U128,
-    decrease: U128,
+    interest_accumulator: u128,
+    static_debt: u128,
+    increase: u128,
+    decrease: u128,
 ) -> DebtReturn {
-    assert(interest_accumulator > U128::from_integer(0));
-    let accumulator_precision = U128::from_integer(1000000000);
+    assert(interest_accumulator > (0 as u128));
+    let accumulator_precision = 1000000000 as u128;
 
     let current_debt_value = (static_debt * interest_accumulator) / accumulator_precision;
     let new_debt_value = current_debt_value.add(increase).sub(decrease);
@@ -70,7 +70,7 @@ pub fn debt_updates(
     DebtReturn { debt_value: new_debt_value, static_debt: new_static_debt }
 }
 
-pub fn debt_value(static_debt: U128, interest_accumulator: U128) -> U128 {
-    let accumulator_precision = U128::from_integer(1000000000);
+pub fn debt_value(static_debt: u128, interest_accumulator: u128) -> u128 {
+    let accumulator_precision = 1000000000 as u128;
     div_up(static_debt * interest_accumulator, accumulator_precision)
 }

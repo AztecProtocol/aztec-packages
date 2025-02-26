@@ -21,6 +21,8 @@ import {
   toFunctionSelector,
 } from 'viem';
 
+// docs:start:claim_type
+// docs:start:claim_type_amount
 /** L1 to L2 message info to claim it on L2. */
 export type L2Claim = {
   /** Secret for claiming. */
@@ -32,9 +34,11 @@ export type L2Claim = {
   /** Leaf index in the L1 to L2 message tree. */
   messageLeafIndex: bigint;
 };
+// docs:end:claim_type
 
 /** L1 to L2 message info that corresponds to an amount to claim. */
 export type L2AmountClaim = L2Claim & { /** Amount to claim */ claimAmount: bigint };
+// docs:end:claim_type_amount
 
 /** L1 to L2 message info that corresponds to an amount to claim with associated recipient. */
 export type L2AmountClaimWithRecipient = L2AmountClaim & {

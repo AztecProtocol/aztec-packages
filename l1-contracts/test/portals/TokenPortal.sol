@@ -56,7 +56,7 @@ contract TokenPortal {
   // docs:end:deposit_public
   {
     // Preamble
-    IInbox inbox = IRollup(registry.getRollup()).INBOX();
+    IInbox inbox = IRollup(registry.getRollup()).getInbox();
     DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2Bridge, 1);
 
     // Hash the message content to be reconstructed in the receiving contract
@@ -90,7 +90,7 @@ contract TokenPortal {
   // docs:end:deposit_private
   {
     // Preamble
-    IInbox inbox = IRollup(registry.getRollup()).INBOX();
+    IInbox inbox = IRollup(registry.getRollup()).getInbox();
     DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2Bridge, 1);
 
     // Hash the message content to be reconstructed in the receiving contract - the signature below does not correspond
@@ -146,7 +146,7 @@ contract TokenPortal {
       )
     });
 
-    IOutbox outbox = IRollup(registry.getRollup()).OUTBOX();
+    IOutbox outbox = IRollup(registry.getRollup()).getOutbox();
 
     outbox.consume(message, _l2BlockNumber, _leafIndex, _path);
 

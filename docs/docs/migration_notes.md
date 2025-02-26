@@ -8,6 +8,22 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### `U128` type replaced with native `u128`
+
+The `U128` type has been replaced with the native `u128` type. This means that you can no longer use the `U128` type in your code. Instead, you should use the `u128` type.
+Doing the changes is as straightforward as:
+
+```diff
+    #[public]
+    #[view]
+-    fn balance_of_public(owner: AztecAddress) -> U128 {
++    fn balance_of_public(owner: AztecAddress) -> u128 {
+        storage.public_balances.at(owner).read()
+    }
+```
+
+`UintNote` has also been updated to use the native `u128` type.
+
 ### [aztec-nr] Removed `compute_note_hash_and_optionally_a_nullifer`
 
 This function is no longer mandatory for contracts, and the `#[aztec]` macro no longer injects it.
@@ -63,7 +79,7 @@ await contract.methods
     txHash.hash,
     toBoundedVec(txEffects!.data.noteHashes, MAX_NOTE_HASHES_PER_TX),
     txEffects!.data.nullifiers[0],
-    wallet.getAddress(),
+    wallet.getAddress()
   )
   .simulate();
 ```

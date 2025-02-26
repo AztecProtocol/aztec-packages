@@ -8,9 +8,11 @@ if [ "$#" != 1 ]; then
   exit 1
 fi
 
+cmd=$1
+
 if [[ "${DENOISE:-0}" -eq 0 ]] || [[ "${BUILD_SYSTEM_DEBUG:-0}" -eq 1 ]]; then
   set -e
-  bash -c "$1"
+  bash -c "$cmd"
   exit 0
 fi
 
@@ -25,15 +27,39 @@ export FORCE_COLOR=${FORCE_COLOR:-1}
 [ -t 1 ] && realtime=1 || realtime=0
 
 key=$(uuid)
+url=http://ci.aztec-labs.com/$key
 outfile=/tmp/$key
 trap 'rm -f $outfile' EXIT
 touch $outfile
 
+function publish_log {
+  if [ "$CI_REDIS_AVAILABLE" -eq 0 ]; then
+    return
+  fi
+
+  {
+    echo -e "Command: $cmd (exit: $status)\n"
+    cat $outfile
+  } | redis_setexz $key $CI_REDIS_EXPIRE
+}
+
+function live_publish_log {
+  while [ -f $outfile ]; do
+    publish_log
+    sleep 5
+  done
+}
+
+if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+  live_publish_log &
+  log_info="(${yellow}${url}${reset})"
+fi
+
 # Execute the command and process the output, allow for errors.
 set +e
-echo -e "Executing: $1 (${yellow}ci llog $key${reset})"
+echo -e "Executing: $cmd ${log_info:-}"
 echo -n "   0 "
-bash -c "$1" 2>&1 | while IFS= read -r line; do
+bash -c "$cmd" 2>&1 | while IFS= read -r line; do
   ((dot_count++))
   [ $realtime -eq 1 ] && printf "."
   if [[ "$dots_per_line" -gt 0 && $((dot_count % dots_per_line)) -eq 0 ]]; then
@@ -45,26 +71,15 @@ done;
 # Get the exit status of the command
 status=${PIPESTATUS[0]}
 
-if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
-  {
-    echo "Command: $1 (exit: $status)"
-    cat $outfile
-  } | redis_setexz $key $CI_REDIS_EXPIRE
-fi
+publish_log
 
 # Handle non-zero exit status
 if [ "$status" -ne 0 ]; then
   echo -e "\nCommand exited with status $status. Dumping output:"
   cat $outfile
-  echo -e -n ". ${red}failed${reset} (${SECONDS}s)"
+  echo -e ". ${red}failed${reset} (${SECONDS}s) ${log_info:-}"
 else
-  echo -e -n ". ${green}done${reset} (${SECONDS}s)"
+  echo -e ". ${green}done${reset} (${SECONDS}s)"
 fi
-
-if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
-  url=http://ci.aztec-labs.com/$key
-  echo -e -n " (${yellow}${url}${reset})"
-fi
-echo
 
 exit $status

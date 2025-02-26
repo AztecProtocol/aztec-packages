@@ -7,16 +7,14 @@ use crate::ast::{
     Ident, ItemVisibility, Path, Pattern, Statement, StatementKind, UnresolvedTraitConstraint,
     UnresolvedType, UnresolvedTypeData, Visibility,
 };
-use crate::node_interner::{
-    ExprId, InternedExpressionKind, InternedStatementKind, QuotedTypeId, TypeId,
-};
+use crate::node_interner::{ExprId, InternedExpressionKind, InternedStatementKind, QuotedTypeId};
 use crate::token::{Attributes, FmtStrFragment, FunctionAttribute, Token, Tokens};
 use crate::{Kind, Type};
 use acvm::{acir::AcirField, FieldElement};
 use iter_extended::vecmap;
 use noirc_errors::{Located, Location, Span};
 
-use super::{AsTraitPath, TypePath};
+use super::{AsTraitPath, TypePath, UnsafeExpression};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ExpressionKind {
@@ -40,7 +38,7 @@ pub enum ExpressionKind {
     Quote(Tokens),
     Unquote(Box<Expression>),
     Comptime(BlockExpression, Location),
-    Unsafe(BlockExpression, Location),
+    Unsafe(UnsafeExpression),
     AsTraitPath(AsTraitPath),
     TypePath(TypePath),
 
@@ -223,11 +221,7 @@ impl ExpressionKind {
     pub fn constructor(
         (typ, fields): (UnresolvedType, Vec<(Ident, Expression)>),
     ) -> ExpressionKind {
-        ExpressionKind::Constructor(Box::new(ConstructorExpression {
-            typ,
-            fields,
-            struct_type: None,
-        }))
+        ExpressionKind::Constructor(Box::new(ConstructorExpression { typ, fields }))
     }
 }
 
@@ -255,7 +249,7 @@ impl Expression {
         match &self.kind {
             ExpressionKind::Block(block_expression)
             | ExpressionKind::Comptime(block_expression, _)
-            | ExpressionKind::Unsafe(block_expression, _) => {
+            | ExpressionKind::Unsafe(UnsafeExpression { block: block_expression, .. }) => {
                 if let Some(statement) = block_expression.statements.last() {
                     statement.type_location()
                 } else {
@@ -545,11 +539,6 @@ pub struct MethodCallExpression {
 pub struct ConstructorExpression {
     pub typ: UnresolvedType,
     pub fields: Vec<(Ident, Expression)>,
-
-    /// This may be filled out during macro expansion
-    /// so that we can skip re-resolving the type name since it
-    /// would be lost at that point.
-    pub struct_type: Option<TypeId>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -663,7 +652,7 @@ impl Display for ExpressionKind {
             Lambda(lambda) => lambda.fmt(f),
             Parenthesized(sub_expr) => write!(f, "({sub_expr})"),
             Comptime(block, _) => write!(f, "comptime {block}"),
-            Unsafe(block, _) => write!(f, "unsafe {block}"),
+            Unsafe(UnsafeExpression { block, .. }) => write!(f, "unsafe {block}"),
             Error => write!(f, "Error"),
             Resolved(_) => write!(f, "?Resolved"),
             Interned(_) => write!(f, "?Interned"),
