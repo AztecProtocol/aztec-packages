@@ -2,28 +2,82 @@ import { createLogger } from '@aztec/foundation/log';
 
 import type { ForeignCallInput } from '@noir-lang/acvm_js';
 import fs from 'fs/promises';
+// TODO(benesjan): What about browser?
+import path from 'path';
 
 import type { ACIRCallback } from '../acvm/acvm.js';
+import type { ACVMWitness } from '../acvm/acvm_types.js';
 import { Oracle } from '../acvm/oracle/oracle.js';
+
+/**
+ * Sets up recording of circuit inputs and wraps the callback to record oracle calls.
+ * If CIRCUIT_RECORD_DIR env var is not set, returns the original callback without recording.
+ * @param input Initial witness input to record
+ * @param callback The callback to wrap with recording
+ * @param circuitName Name of the circuit being executed
+ * @returns Promise<ACIRCallback> The wrapped callback that records oracle calls
+ */
+export async function setupRecordingAndGetWrappedCallback(
+  input: ACVMWitness,
+  callback: ACIRCallback,
+  circuitName: string,
+): Promise<ACIRCallback> {
+  const logger = createLogger('simulator:acvm:recording');
+  const recordDir = process.env.CIRCUIT_RECORD_DIR;
+
+  if (!recordDir) {
+    logger.debug('CIRCUIT_RECORD_DIR not set, recording middleware disabled');
+    return callback;
+  }
+
+  try {
+    await fs.mkdir(recordDir, { recursive: true });
+  } catch (err) {
+    logger.error('Failed to create recording directory', { error: err });
+    return callback;
+  }
+
+  const timestamp = Date.now();
+  const filename = `${circuitName}_${timestamp}.json`;
+  const filePath = path.join(recordDir, filename);
+  await recordInput(input, filePath, logger);
+  return createRecordingCallback(callback, filePath, logger);
+}
+
+/**
+ * Records the initial witness input to the specified file
+ * @param input The witness input to record
+ * @param filePath Full path to file to record to
+ * @param logger Logger instance to use
+ */
+async function recordInput(input: ACVMWitness, filePath: string, logger: ReturnType<typeof createLogger>) {
+  try {
+    const entry = {
+      type: 'input',
+      witness: Object.fromEntries(input),
+    };
+    await fs.appendFile(filePath, JSON.stringify(entry) + '\n');
+  } catch (err) {
+    logger.error('Failed to log circuit input', { error: err });
+  }
+}
 
 /**
  * Creates a recording middleware that wraps an ACIRCallback to record inputs and outputs.
  * @param callback The inner callback to wrap
+ * @param filePath Full path to file to record to
+ * @param logger Logger instance to use
  * @returns A new ACIRCallback that logs calls and forwards to the inner callback
  */
-export function createRecordingCallback(callback: ACIRCallback): ACIRCallback {
-  const logger = createLogger('simulator:acvm:recording');
-  const filePath = process.env.CIRCUIT_RECORD_FILE_PATH;
-
-  if (!filePath) {
-    logger.debug('CIRCUIT_RECORD_FILE_PATH not set, recording middleware disabled');
-    return callback;
-  }
-
+function createRecordingCallback(
+  callback: ACIRCallback,
+  filePath: string,
+  logger: ReturnType<typeof createLogger>,
+): ACIRCallback {
   const recordCall = async (name: string, inputs: unknown[], outputs: unknown) => {
     try {
       const entry = {
-        timestamp: Date.now(),
+        type: 'oracle_call',
         name,
         inputs,
         outputs,
