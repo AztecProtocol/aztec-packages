@@ -1,14 +1,15 @@
 import { createLogger } from '@aztec/foundation/log';
 import { foreignCallHandler } from '@aztec/noir-protocol-circuits-types/client';
+import type { FunctionArtifact } from '@aztec/stdlib/abi';
 import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
 
 import initACVM, { type ExecutionError, executeCircuit } from '@noir-lang/acvm_js';
 import initAbi from '@noir-lang/noirc_abi';
-import type { WitnessMap } from '@noir-lang/types';
 
-import { type ACIRCallback, acvm } from '../acvm/acvm.js';
+import { type ACIRCallback, type ACIRExecutionResult, acvm } from '../acvm/acvm.js';
 import type { ACVMWitness } from '../acvm/acvm_types.js';
 import { type SimulationProvider, parseErrorPayload } from '../common/simulation_provider.js';
+import { setupRecordingIfEnabledAndGetWrappedCallback } from './circuits_recording.js';
 
 export class WASMSimulator implements SimulationProvider {
   constructor(protected log = createLogger('wasm-simulator')) {}
@@ -23,7 +24,7 @@ export class WASMSimulator implements SimulationProvider {
     }
   }
 
-  async executeProtocolCircuit(input: WitnessMap, compiledCircuit: NoirCompiledCircuit): Promise<WitnessMap> {
+  async executeProtocolCircuit(input: ACVMWitness, compiledCircuit: NoirCompiledCircuit): Promise<ACVMWitness> {
     this.log.debug('init', { hash: compiledCircuit.hash });
     await this.init();
     // Execute the circuit on those initial witness values
@@ -41,7 +42,7 @@ export class WASMSimulator implements SimulationProvider {
       this.log.debug('execution successful', { hash: compiledCircuit.hash });
       return _witnessMap;
     } catch (err) {
-      // Typescript types catched errors as unknown or any, so we need to narrow its type to check if it has raw assertion payload.
+      // Typescript types caught errors as unknown or any, so we need to narrow its type to check if it has raw assertion payload.
       if (typeof err === 'object' && err !== null && 'rawAssertionPayload' in err) {
         const parsed = parseErrorPayload(compiledCircuit.abi, err as ExecutionError);
         this.log.debug('execution failed', {
@@ -56,8 +57,13 @@ export class WASMSimulator implements SimulationProvider {
     }
   }
 
-  async executeUserCircuit(acir: Buffer, initialWitness: ACVMWitness, callback: ACIRCallback) {
+  async executeUserCircuit(
+    input: ACVMWitness,
+    artifact: FunctionArtifact,
+    callback: ACIRCallback,
+  ): Promise<ACIRExecutionResult> {
     await this.init();
-    return acvm(acir, initialWitness, callback);
+    const wrappedCallback = await setupRecordingIfEnabledAndGetWrappedCallback(input, callback, artifact);
+    return acvm(artifact.bytecode, input, wrappedCallback);
   }
 }

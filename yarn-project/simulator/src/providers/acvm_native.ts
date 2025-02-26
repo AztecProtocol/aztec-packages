@@ -1,6 +1,7 @@
 import { runInDirectory } from '@aztec/foundation/fs';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import type { FunctionArtifact } from '@aztec/stdlib/abi';
 import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
 
 import type { WitnessMap } from '@noir-lang/types';
@@ -162,8 +163,8 @@ export class NativeACVMSimulator implements SimulationProvider {
   }
 
   executeUserCircuit(
-    _acir: Buffer,
-    _initialWitness: ACVMWitness,
+    _input: ACVMWitness,
+    _artifact: FunctionArtifact,
     _callback: ACIRCallback,
   ): Promise<ACIRExecutionResult> {
     throw new Error('Not implemented');
