@@ -141,8 +141,9 @@ int main(int argc, char* argv[])
                          "The hash function used by the prover as random oracle standing in for a verifier's challenge "
                          "generation. Poseidon2 is to be used for proofs that are intended to be verified inside of a "
                          "circuit. Keccak is optimized for verification in an Ethereum smart contract, where Keccak "
-                         "has a privileged position due to the existence of an EVM precompile.")
-            ->check(CLI::IsMember({ "poseidon2", "keccak" }).name("is_member"));
+                         "has a privileged position due to the existence of an EVM precompile. Starknet is optimized"
+                         "for verification in a Starknet smart contract, which can be generated using the Garaga library.")
+            ->check(CLI::IsMember({ "poseidon2", "keccak", "starknet" }).name("is_member"));
     };
 
     const auto add_output_format_option = [&](CLI::App* subcommand) {
