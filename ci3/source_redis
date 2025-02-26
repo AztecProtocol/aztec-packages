@@ -3,7 +3,7 @@
 # Declare CI_REDIS host, allowing override.
 export CI_REDIS=${CI_REDIS:-localhost}
 
-# If we haven't yet checked for redis availablility.
+# If we haven't yet checked for redis availability.
 if [ -z "${CI_REDIS_AVAILABLE:-}" ]; then
   # Start by setting it as not available.
   export CI_REDIS_AVAILABLE=0

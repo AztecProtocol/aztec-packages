@@ -335,7 +335,8 @@ contract RollupTest is RollupBase {
 
     skipBlobCheck(address(rollup));
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NonZeroL2Fee.selector));
+    // When not canonical, we expect the fee to be 0
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidManaBaseFee.selector, 0, 1));
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: data.archive,
