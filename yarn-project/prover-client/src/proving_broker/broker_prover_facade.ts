@@ -1,15 +1,15 @@
-import {
-  type AVM_PROOF_LENGTH_IN_FIELDS,
-  type NESTED_RECURSIVE_PROOF_LENGTH,
-  type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-  type RECURSIVE_PROOF_LENGTH,
-  type TUBE_PROOF_LENGTH,
+import type {
+  AVM_PROOF_LENGTH_IN_FIELDS,
+  NESTED_RECURSIVE_PROOF_LENGTH,
+  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+  RECURSIVE_PROOF_LENGTH,
+  TUBE_PROOF_LENGTH,
 } from '@aztec/constants';
 import { sha256 } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { truncate } from '@aztec/foundation/string';
-import { type AvmCircuitInputs } from '@aztec/stdlib/avm';
+import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import {
   type ProofAndVerificationKey,
   type ProofUri,
@@ -22,21 +22,21 @@ import {
   type ServerCircuitProver,
   makeProvingJobId,
 } from '@aztec/stdlib/interfaces/server';
-import { type BaseParityInputs, type ParityPublicInputs, type RootParityInputs } from '@aztec/stdlib/parity';
+import type { BaseParityInputs, ParityPublicInputs, RootParityInputs } from '@aztec/stdlib/parity';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
-import {
-  type BaseOrMergeRollupPublicInputs,
-  type BlockMergeRollupInputs,
-  type BlockRootOrBlockMergePublicInputs,
-  type BlockRootRollupInputs,
-  type EmptyBlockRootRollupInputs,
-  type MergeRollupInputs,
-  type PrivateBaseRollupInputs,
-  type PublicBaseRollupInputs,
-  type RootRollupInputs,
-  type RootRollupPublicInputs,
-  type SingleTxBlockRootRollupInputs,
-  type TubeInputs,
+import type {
+  BaseOrMergeRollupPublicInputs,
+  BlockMergeRollupInputs,
+  BlockRootOrBlockMergePublicInputs,
+  BlockRootRollupInputs,
+  EmptyBlockRootRollupInputs,
+  MergeRollupInputs,
+  PrivateBaseRollupInputs,
+  PublicBaseRollupInputs,
+  RootRollupInputs,
+  RootRollupPublicInputs,
+  SingleTxBlockRootRollupInputs,
+  TubeInputs,
 } from '@aztec/stdlib/rollup';
 
 import { InlineProofStore, type ProofStore } from './proof_store/index.js';

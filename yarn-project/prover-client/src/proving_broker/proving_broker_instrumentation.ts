@@ -1,4 +1,4 @@
-import { type Timer } from '@aztec/foundation/timer';
+import type { Timer } from '@aztec/foundation/timer';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import {
   Attributes,

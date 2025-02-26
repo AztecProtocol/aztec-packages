@@ -3,8 +3,8 @@ import { createLogger } from '@aztec/foundation/log';
 import { FifoMemoryQueue, Semaphore, SerialQueue } from '@aztec/foundation/queue';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 
-import { type L2Block } from '../l2_block.js';
-import { type L2BlockSource } from '../l2_block_source.js';
+import type { L2Block } from '../l2_block.js';
+import type { L2BlockSource } from '../l2_block_source.js';
 
 const log = createLogger('types:l2_block_downloader');
 

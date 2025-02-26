@@ -1,9 +1,9 @@
 import { createLogger } from '@aztec/foundation/log';
 
-import { type TelemetryClientConfig } from './config.js';
+import type { TelemetryClientConfig } from './config.js';
 import { NoopTelemetryClient } from './noop.js';
 import { OpenTelemetryClient } from './otel.js';
-import { type TelemetryClient } from './telemetry.js';
+import type { TelemetryClient } from './telemetry.js';
 
 export * from './config.js';
 

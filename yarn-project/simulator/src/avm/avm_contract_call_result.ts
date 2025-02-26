@@ -1,12 +1,12 @@
-import { type Fr } from '@aztec/foundation/fields';
-import { type SimulationError } from '@aztec/stdlib/errors';
+import type { Fr } from '@aztec/foundation/fields';
+import type { SimulationError } from '@aztec/stdlib/errors';
 import { Gas } from '@aztec/stdlib/gas';
 
 import { inspect } from 'util';
 
 import { createSimulationError } from '../common/errors.js';
-import { type Gas as AvmGas } from './avm_gas.js';
-import { type AvmRevertReason } from './errors.js';
+import type { Gas as AvmGas } from './avm_gas.js';
+import type { AvmRevertReason } from './errors.js';
 
 /**
  * Results of an contract call's execution in the AVM.

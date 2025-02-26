@@ -14,7 +14,7 @@ import { computeVarArgsHash } from '@aztec/stdlib/hash';
 import type { NoteHash, Nullifier, ReadRequest, TreeLeafReadRequest } from '@aztec/stdlib/kernel';
 import type { PublicLog } from '@aztec/stdlib/logs';
 import type { L2ToL1Message, ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
-import { type PublicExecutionRequest } from '@aztec/stdlib/tx';
+import type { PublicExecutionRequest } from '@aztec/stdlib/tx';
 
 export interface PublicSideEffects {
   /** The contract storage update requests performed. */

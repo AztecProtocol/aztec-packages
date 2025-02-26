@@ -1,4 +1,4 @@
-import { type Secp256k1Signer } from '@aztec/foundation/crypto';
+import type { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import {
   BlockAttestation,

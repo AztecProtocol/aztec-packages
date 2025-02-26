@@ -3,9 +3,9 @@ import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/
 
 import { inspect } from 'util';
 
-import { type AztecAddress } from '../aztec-address/index.js';
+import type { AztecAddress } from '../aztec-address/index.js';
 import { computePublicDataTreeLeafSlot } from '../hash/hash.js';
-import { type ContractStorageUpdateRequest } from './contract_storage_update_request.js';
+import type { ContractStorageUpdateRequest } from './contract_storage_update_request.js';
 
 // TO BE REMOVED.
 /**

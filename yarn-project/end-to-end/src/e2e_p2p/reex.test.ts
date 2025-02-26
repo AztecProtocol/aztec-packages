@@ -1,9 +1,9 @@
-import { type AztecNodeService } from '@aztec/aztec-node';
+import type { AztecNodeService } from '@aztec/aztec-node';
 import { type SentTx, Tx, sleep } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
-import { type PublicProcessorFactory, type PublicTxResult, type PublicTxSimulator } from '@aztec/simulator/server';
+import type { PublicProcessorFactory, PublicTxResult, PublicTxSimulator } from '@aztec/simulator/server';
 import { BlockProposal, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/stdlib/p2p';
-import { type ValidatorClient } from '@aztec/validator-client';
+import type { ValidatorClient } from '@aztec/validator-client';
 import { ReExFailedTxsError, ReExStateMismatchError, ReExTimeoutError } from '@aztec/validator-client/errors';
 
 import { describe, it, jest } from '@jest/globals';

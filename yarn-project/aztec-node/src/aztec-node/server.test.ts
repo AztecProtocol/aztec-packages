@@ -1,19 +1,15 @@
 import { TestCircuitVerifier } from '@aztec/bb-prover';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type P2P } from '@aztec/p2p';
+import type { P2P } from '@aztec/p2p';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
-import { type GlobalVariableBuilder } from '@aztec/sequencer-client';
+import type { GlobalVariableBuilder } from '@aztec/sequencer-client';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type L2BlockSource, type NullifierWithBlockSource } from '@aztec/stdlib/block';
+import type { L2BlockSource, NullifierWithBlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
-import { type AztecNode } from '@aztec/stdlib/interfaces/client';
-import {
-  type L2LogsSource,
-  type MerkleTreeReadOperations,
-  type WorldStateSynchronizer,
-} from '@aztec/stdlib/interfaces/server';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import type { L2LogsSource, MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { RollupValidationRequests } from '@aztec/stdlib/kernel';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { mockTx } from '@aztec/stdlib/testing';

@@ -26,7 +26,7 @@ import { PrivateBaseRollupInputs } from '../rollup/private_base_rollup_inputs.js
 import { PublicBaseRollupInputs } from '../rollup/public_base_rollup_inputs.js';
 import { RootRollupInputs, RootRollupPublicInputs } from '../rollup/root_rollup.js';
 import { TubeInputs } from '../rollup/tube_inputs.js';
-import { type ServerCircuitName } from '../stats/index.js';
+import type { ServerCircuitName } from '../stats/index.js';
 import { VerificationKeyData } from '../vks/verification_key.js';
 
 export type ProofAndVerificationKey<N extends number> = {

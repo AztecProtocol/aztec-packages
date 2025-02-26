@@ -1,9 +1,9 @@
 import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
-import { type Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { type ContractArtifact, FunctionSelector } from '@aztec/stdlib/abi';
-import { type AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ContractClassPublic,
   type ContractDataSource,

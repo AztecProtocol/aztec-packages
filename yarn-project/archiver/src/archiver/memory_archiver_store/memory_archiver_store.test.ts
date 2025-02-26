@@ -1,7 +1,7 @@
 import { timesParallel } from '@aztec/foundation/collection';
 import { L2Block } from '@aztec/stdlib/block';
 
-import { type ArchiverDataStore } from '../archiver_store.js';
+import type { ArchiverDataStore } from '../archiver_store.js';
 import { describeArchiverDataStore } from '../archiver_store_test_suite.js';
 import { MemoryArchiverStore } from './memory_archiver_store.js';
 

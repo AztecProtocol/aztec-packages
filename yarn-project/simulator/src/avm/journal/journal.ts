@@ -22,7 +22,7 @@ import {
   siloNoteHash,
   siloNullifier,
 } from '@aztec/stdlib/hash';
-import { type IndexedTreeId, type MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import type { IndexedTreeId, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import type { PublicCallRequest } from '@aztec/stdlib/kernel';
 import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/stdlib/shared-mutable';
 import { MerkleTreeId, NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
@@ -31,9 +31,9 @@ import { strict as assert } from 'assert';
 import cloneDeep from 'lodash.clonedeep';
 
 import { getPublicFunctionDebugName } from '../../common/debug_fn_name.js';
-import { type WorldStateDB } from '../../public/public_db_sources.js';
-import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
-import { type AvmExecutionEnvironment } from '../avm_execution_environment.js';
+import type { WorldStateDB } from '../../public/public_db_sources.js';
+import type { PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
+import type { AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { NullifierCollisionError, NullifierManager } from './nullifiers.js';
 import { PublicStorage } from './public_storage.js';
 

@@ -1,8 +1,8 @@
 import { PublicTxSimulationTester, type TestEnqueuedCall } from '@aztec/simulator/public/fixtures';
 import { WorldStateDB } from '@aztec/simulator/server';
-import { type AvmCircuitInputs } from '@aztec/stdlib/avm';
+import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { VerificationKeyData } from '@aztec/stdlib/vks';
 import { NativeWorldStateService } from '@aztec/world-state';
 

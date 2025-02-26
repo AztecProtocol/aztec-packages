@@ -29,7 +29,7 @@ import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type MerkleTreeWriteOperations, type ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
+import type { MerkleTreeWriteOperations, ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
 import { BaseParityInputs, ParityPublicInputs, RootParityInput, RootParityInputs } from '@aztec/stdlib/parity';
 import { type RecursiveProof, makeEmptyRecursiveProof } from '@aztec/stdlib/proofs';
 import {

@@ -8,10 +8,10 @@ import {
   type NoteSelector,
   countArgumentsSize,
 } from '@aztec/stdlib/abi';
-import { type AuthWitness } from '@aztec/stdlib/auth-witness';
+import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeUniqueNoteHash, siloNoteHash } from '@aztec/stdlib/hash';
-import { type AztecNode } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
 import type { UnencryptedL2Log } from '@aztec/stdlib/logs';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
@@ -28,10 +28,10 @@ import {
 } from '@aztec/stdlib/tx';
 
 import { type NoteData, toACVMWitness } from '../acvm/index.js';
-import { type HashedValuesCache } from '../common/hashed_values_cache.js';
-import { type SimulationProvider } from '../server.js';
-import { type DBOracle } from './db_oracle.js';
-import { type ExecutionNoteCache } from './execution_note_cache.js';
+import type { HashedValuesCache } from '../common/hashed_values_cache.js';
+import type { SimulationProvider } from '../server.js';
+import type { DBOracle } from './db_oracle.js';
+import type { ExecutionNoteCache } from './execution_note_cache.js';
 import { pickNotes } from './pick_notes.js';
 import { executePrivateFunction, verifyCurrentClassId } from './private_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';

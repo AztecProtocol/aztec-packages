@@ -3,7 +3,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type PublicStateDB } from '../../server.js';
+import type { PublicStateDB } from '../../server.js';
 import { PublicStorage } from './public_storage.js';
 
 describe('avm public storage', () => {

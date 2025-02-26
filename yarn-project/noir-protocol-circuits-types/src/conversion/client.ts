@@ -54,7 +54,7 @@ import {
   TransientDataIndexHint,
 } from '@aztec/stdlib/kernel';
 import type { PublicKeys } from '@aztec/stdlib/keys';
-import { type NullifierLeafPreimage } from '@aztec/stdlib/trees';
+import type { NullifierLeafPreimage } from '@aztec/stdlib/trees';
 import { CallContext, FunctionData, TxConstantData, TxRequest } from '@aztec/stdlib/tx';
 
 import type {

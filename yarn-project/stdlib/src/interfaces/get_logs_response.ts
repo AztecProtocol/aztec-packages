@@ -1,4 +1,4 @@
-import { type ZodFor } from '@aztec/stdlib/schemas';
+import type { ZodFor } from '@aztec/stdlib/schemas';
 
 import { z } from 'zod';
 

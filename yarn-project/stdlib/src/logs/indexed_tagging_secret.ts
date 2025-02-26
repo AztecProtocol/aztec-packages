@@ -1,7 +1,7 @@
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
-import { type AztecAddress } from '../aztec-address/index.js';
+import type { AztecAddress } from '../aztec-address/index.js';
 
 export class IndexedTaggingSecret {
   constructor(public appTaggingSecret: Fr, public index: number) {

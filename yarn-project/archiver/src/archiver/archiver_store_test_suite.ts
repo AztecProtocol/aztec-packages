@@ -26,8 +26,8 @@ import {
 import '@aztec/stdlib/testing/jest';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
-import { type ArchiverDataStore, type ArchiverL1SynchPoint } from './archiver_store.js';
-import { type L1Published } from './structs/published.js';
+import type { ArchiverDataStore, ArchiverL1SynchPoint } from './archiver_store.js';
+import type { L1Published } from './structs/published.js';
 
 /**
  * @param testName - The name of the test suite.

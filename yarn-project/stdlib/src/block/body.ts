@@ -1,8 +1,8 @@
 import { timesParallel } from '@aztec/foundation/collection';
-import { type Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { ContractClass2BlockL2Logs } from '@aztec/stdlib/logs';
-import { type ZodFor } from '@aztec/stdlib/schemas';
+import type { ZodFor } from '@aztec/stdlib/schemas';
 
 import { inspect } from 'util';
 import { z } from 'zod';

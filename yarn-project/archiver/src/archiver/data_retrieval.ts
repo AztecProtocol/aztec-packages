@@ -1,8 +1,8 @@
 import { Blob, BlobDeserializationError } from '@aztec/blob-lib';
-import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
+import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { asyncPool } from '@aztec/foundation/async-pool';
-import { type EthAddress } from '@aztec/foundation/eth-address';
-import { type ViemSignature } from '@aztec/foundation/eth-signature';
+import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { ViemSignature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
@@ -26,8 +26,8 @@ import {
 } from 'viem';
 
 import { NoBlobBodiesFoundError } from './errors.js';
-import { type DataRetrieval } from './structs/data_retrieval.js';
-import { type L1Published, type L1PublishedData } from './structs/published.js';
+import type { DataRetrieval } from './structs/data_retrieval.js';
+import type { L1Published, L1PublishedData } from './structs/published.js';
 
 /**
  * Fetches new L2 blocks.

@@ -1,4 +1,4 @@
-import { type ApiSchemaFor } from '@aztec/stdlib/schemas';
+import type { ApiSchemaFor } from '@aztec/stdlib/schemas';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import { z } from 'zod';

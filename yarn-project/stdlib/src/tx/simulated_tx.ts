@@ -1,10 +1,10 @@
 import type { ZodFor } from '@aztec/foundation/schemas';
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
 import { Gas } from '../gas/gas.js';
-import { type GasUsed } from '../gas/gas_used.js';
+import type { GasUsed } from '../gas/gas_used.js';
 import {
   type PrivateKernelProverProfileResult,
   PrivateKernelProverProfileResultSchema,

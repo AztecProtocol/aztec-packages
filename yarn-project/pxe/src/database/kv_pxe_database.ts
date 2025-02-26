@@ -2,12 +2,12 @@ import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr, type Point } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import { type LogFn, createDebugOnlyLogger } from '@aztec/foundation/log';
-import {
-  type AztecAsyncArray,
-  type AztecAsyncKVStore,
-  type AztecAsyncMap,
-  type AztecAsyncMultiMap,
-  type AztecAsyncSingleton,
+import type {
+  AztecAsyncArray,
+  AztecAsyncKVStore,
+  AztecAsyncMap,
+  AztecAsyncMultiMap,
+  AztecAsyncSingleton,
 } from '@aztec/kv-store';
 import { type ContractArtifact, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { contractArtifactFromBuffer, contractArtifactToBuffer } from '@aztec/stdlib/abi';
@@ -25,7 +25,7 @@ import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { BlockHeader } from '@aztec/stdlib/tx';
 
 import { NoteDao } from './note_dao.js';
-import { type PxeDatabase } from './pxe_database.js';
+import type { PxeDatabase } from './pxe_database.js';
 
 /**
  * A PXE database backed by LMDB.

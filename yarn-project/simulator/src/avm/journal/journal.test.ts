@@ -6,8 +6,8 @@ import { makeContractClassPublic } from '@aztec/stdlib/testing';
 
 import { mock } from 'jest-mock-extended';
 
-import { type WorldStateDB } from '../../public/public_db_sources.js';
-import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
+import type { WorldStateDB } from '../../public/public_db_sources.js';
+import type { PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
 import { initPersistableStateManager } from '../fixtures/index.js';
 import {
   mockGetBytecode,
@@ -19,7 +19,7 @@ import {
   mockNullifierExists,
   mockStorageRead,
 } from '../test_utils.js';
-import { type AvmPersistableStateManager } from './journal.js';
+import type { AvmPersistableStateManager } from './journal.js';
 
 describe('journal', () => {
   let address: AztecAddress;

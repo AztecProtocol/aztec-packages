@@ -15,7 +15,7 @@ import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { type Logger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { type Tuple, assertLength, serializeToBuffer, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { MembershipWitness, MerkleTreeCalculator, computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
@@ -23,7 +23,7 @@ import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { PublicDataHint } from '@aztec/stdlib/avm';
 import { Body } from '@aztec/stdlib/block';
-import { type MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import type { ParityPublicInputs } from '@aztec/stdlib/parity';
 import {
   type BaseOrMergeRollupPublicInputs,
@@ -51,7 +51,7 @@ import {
   TxEffect,
 } from '@aztec/stdlib/tx';
 import { Attributes, type Span, runInSpan } from '@aztec/telemetry-client';
-import { type MerkleTreeReadOperations } from '@aztec/world-state';
+import type { MerkleTreeReadOperations } from '@aztec/world-state';
 
 import { inspect } from 'util';
 

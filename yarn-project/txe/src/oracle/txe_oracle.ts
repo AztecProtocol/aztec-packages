@@ -15,7 +15,7 @@ import { Schnorr, poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type LogFn, type Logger, applyStringFormatting, createDebugOnlyLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { type KeyStore } from '@aztec/key-store';
+import type { KeyStore } from '@aztec/key-store';
 import { ContractDataOracle, SimulatorOracle, enrichPublicSimulationError } from '@aztec/pxe';
 import {
   ExecutionNoteCache,
@@ -50,7 +50,7 @@ import {
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type ContractInstance, type ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import type { ContractInstance, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import {
@@ -60,13 +60,13 @@ import {
   siloNoteHash,
   siloNullifier,
 } from '@aztec/stdlib/hash';
-import { type MerkleTreeReadOperations, type MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import type { MerkleTreeReadOperations, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { type KeyValidationRequest, PrivateContextInputs } from '@aztec/stdlib/kernel';
 import { computeTaggingSecretPoint, deriveKeys } from '@aztec/stdlib/keys';
 import { LogWithTxData, UnencryptedL2Log } from '@aztec/stdlib/logs';
 import { IndexedTaggingSecret, type PrivateLog, type PublicLog } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
-import { type CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
+import type { CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
 import {
   makeAppendOnlyTreeSnapshot,
   makeContentCommitment,
@@ -86,7 +86,7 @@ import { BlockHeader, CallContext, GlobalVariables, PublicExecutionRequest, TxEf
 import { ForkCheckpoint, type NativeWorldStateService } from '@aztec/world-state/native';
 
 import { TXENode } from '../node/txe_node.js';
-import { type TXEDatabase } from '../util/txe_database.js';
+import type { TXEDatabase } from '../util/txe_database.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
 import { TXEWorldStateDB } from '../util/txe_world_state_db.js';
 

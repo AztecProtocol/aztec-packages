@@ -1,5 +1,5 @@
 import { getSchnorrWallet } from '@aztec/accounts/schnorr';
-import { type AztecNodeConfig } from '@aztec/aztec-node';
+import type { AztecNodeConfig } from '@aztec/aztec-node';
 import {
   type AccountWallet,
   AztecAddress,

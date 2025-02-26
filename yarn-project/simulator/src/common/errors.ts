@@ -1,4 +1,4 @@
-import { type Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import type { BrilligFunctionId, FunctionAbi, FunctionDebugMetadata, OpcodeLocation } from '@aztec/stdlib/abi';
 import {
@@ -8,7 +8,7 @@ import {
   type SourceCodeLocation,
 } from '@aztec/stdlib/errors';
 
-import { type RawAssertionPayload } from '@noir-lang/acvm_js';
+import type { RawAssertionPayload } from '@noir-lang/acvm_js';
 import { abiDecodeError } from '@noir-lang/noirc_abi';
 
 /**

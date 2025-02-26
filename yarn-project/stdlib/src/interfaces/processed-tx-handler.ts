@@ -1,4 +1,4 @@
-import { type ProcessedTx } from '../tx/processed_tx.js';
+import type { ProcessedTx } from '../tx/processed_tx.js';
 
 /** Receives processed txs as part of block simulation or proving. */
 export interface ProcessedTxHandler {

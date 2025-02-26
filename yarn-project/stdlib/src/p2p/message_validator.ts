@@ -1,4 +1,4 @@
-import { type PeerErrorSeverity } from './peer_error.js';
+import type { PeerErrorSeverity } from './peer_error.js';
 
 /**
  * P2PValidator

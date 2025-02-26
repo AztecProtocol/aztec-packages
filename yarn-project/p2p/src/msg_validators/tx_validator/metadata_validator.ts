@@ -1,4 +1,4 @@
-import { type Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { type AnyTx, Tx, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
 

@@ -16,7 +16,7 @@ import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import assert from 'assert';
 import { cpus } from 'os';
 
-import { type WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
+import type { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import {
   WorldStateMessageType,
   type WorldStateRequest,

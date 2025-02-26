@@ -9,7 +9,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
+import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 import {
   NoteHash,
   PrivateCircuitPublicInputs,
@@ -32,7 +32,7 @@ import { VerificationKey, VerificationKeyAsFields } from '@aztec/stdlib/vks';
 import { mock } from 'jest-mock-extended';
 
 import { KernelProver } from './kernel_prover.js';
-import { type ProvingDataOracle } from './proving_data_oracle.js';
+import type { ProvingDataOracle } from './proving_data_oracle.js';
 
 describe('Kernel Prover', () => {
   let txRequest: TxRequest;

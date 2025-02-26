@@ -1,5 +1,5 @@
 import { mockTx, mockTxForRollup } from '@aztec/stdlib/testing';
-import { type AnyTx } from '@aztec/stdlib/tx';
+import type { AnyTx } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 

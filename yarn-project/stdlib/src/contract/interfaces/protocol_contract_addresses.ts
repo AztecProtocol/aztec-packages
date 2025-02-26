@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { type AztecAddress } from '../../aztec-address/index.js';
+import type { AztecAddress } from '../../aztec-address/index.js';
 import { schemas } from '../../schemas/index.js';
 
 export const ProtocolContractsNames = [

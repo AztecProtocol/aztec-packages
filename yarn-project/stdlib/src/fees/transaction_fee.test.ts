@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
-import { type Writeable } from '@aztec/foundation/types';
+import type { Writeable } from '@aztec/foundation/types';
 
 import { Gas } from '../gas/gas.js';
 import { GasFees } from '../gas/gas_fees.js';

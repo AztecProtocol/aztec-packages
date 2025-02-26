@@ -1,4 +1,4 @@
-import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
+import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type LogFn, createLogger } from '@aztec/foundation/log';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { type BootnodeConfig, BootstrapNode, bootnodeConfigMappings } from '@aztec/p2p';

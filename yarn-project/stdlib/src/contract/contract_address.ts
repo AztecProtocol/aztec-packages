@@ -3,10 +3,10 @@ import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
 import { type FunctionAbi, FunctionSelector, encodeArguments } from '../abi/index.js';
-import { type AztecAddress } from '../aztec-address/index.js';
+import type { AztecAddress } from '../aztec-address/index.js';
 import { computeVarArgsHash } from '../hash/hash.js';
 import { computeAddress } from '../keys/index.js';
-import { type ContractInstance } from './interfaces/contract_instance.js';
+import type { ContractInstance } from './interfaces/contract_instance.js';
 
 // TODO(@spalladino): Review all generator indices in this file
 

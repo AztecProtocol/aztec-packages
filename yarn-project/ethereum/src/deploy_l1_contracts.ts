@@ -1,6 +1,6 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Fr } from '@aztec/foundation/fields';
-import { type Logger } from '@aztec/foundation/log';
+import type { Fr } from '@aztec/foundation/fields';
+import type { Logger } from '@aztec/foundation/log';
 import {
   CoinIssuerAbi,
   CoinIssuerBytecode,
@@ -59,8 +59,8 @@ import { type HDAccount, type PrivateKeyAccount, mnemonicToAccount, privateKeyTo
 import { foundry } from 'viem/chains';
 
 import { isAnvilTestChain } from './chain.js';
-import { type L1ContractsConfig } from './config.js';
-import { type L1ContractAddresses } from './l1_contract_addresses.js';
+import type { L1ContractsConfig } from './config.js';
+import type { L1ContractAddresses } from './l1_contract_addresses.js';
 import { L1TxUtils, type L1TxUtilsConfig, defaultL1TxUtilsConfig } from './l1_tx_utils.js';
 import type { L1Clients } from './types.js';
 

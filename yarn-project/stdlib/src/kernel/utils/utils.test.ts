@@ -1,9 +1,9 @@
 import { MAX_FIELD_VALUE } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
-import { type Tuple } from '@aztec/foundation/serialize';
+import type { Tuple } from '@aztec/foundation/serialize';
 
-import { type IsEmpty } from './interfaces.js';
+import type { IsEmpty } from './interfaces.js';
 import {
   countAccumulatedItems,
   getNonEmptyItems,

@@ -1,5 +1,5 @@
-import { type Logger } from '@aztec/foundation/log';
-import { type Maybe } from '@aztec/foundation/types';
+import type { Logger } from '@aztec/foundation/log';
+import type { Maybe } from '@aztec/foundation/types';
 
 /** Represents a local service that can be started and stopped. */
 export interface Service {

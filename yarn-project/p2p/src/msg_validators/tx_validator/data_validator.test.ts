@@ -5,7 +5,7 @@ import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeVarArgsHash } from '@aztec/stdlib/hash';
 import { mockTx } from '@aztec/stdlib/testing';
-import { type Tx } from '@aztec/stdlib/tx';
+import type { Tx } from '@aztec/stdlib/tx';
 
 import { DataTxValidator } from './data_validator.js';
 

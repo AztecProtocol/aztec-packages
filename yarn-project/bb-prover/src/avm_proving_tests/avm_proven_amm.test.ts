@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { AMMContractArtifact } from '@aztec/noir-contracts.js/AMM';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 import { jest } from '@jest/globals';
 

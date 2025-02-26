@@ -3,7 +3,7 @@ import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulT
 import { FunctionCall, FunctionSelector, FunctionType, encodeArguments } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CompleteAddress, type ContractInstance } from '@aztec/stdlib/contract';
-import { type AztecNode } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { TxScopedL2Log } from '@aztec/stdlib/logs';
 import { Note } from '@aztec/stdlib/note';
 import { BlockHeader } from '@aztec/stdlib/tx';
@@ -11,7 +11,7 @@ import { BlockHeader } from '@aztec/stdlib/tx';
 import { mock } from 'jest-mock-extended';
 
 import { WASMSimulator } from '../providers/acvm_wasm.js';
-import { type DBOracle } from './db_oracle.js';
+import type { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
 
 describe('Unconstrained Execution test suite', () => {

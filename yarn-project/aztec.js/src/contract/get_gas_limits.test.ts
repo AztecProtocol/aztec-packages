@@ -1,6 +1,6 @@
 import { Gas } from '@aztec/stdlib/gas';
 import { mockSimulatedTx, mockTxForRollup } from '@aztec/stdlib/testing';
-import { type TxSimulationResult } from '@aztec/stdlib/tx';
+import type { TxSimulationResult } from '@aztec/stdlib/tx';
 
 import { getGasLimits } from './get_gas_limits.js';
 

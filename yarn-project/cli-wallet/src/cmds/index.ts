@@ -13,14 +13,14 @@ import {
   parsePublicKey,
   pxeOption,
 } from '@aztec/cli/utils';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 import { GasFees } from '@aztec/stdlib/gas';
 import { createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
 
 import { type Command, Option } from 'commander';
 import inquirer from 'inquirer';
 
-import { type WalletDB } from '../storage/wallet_db.js';
+import type { WalletDB } from '../storage/wallet_db.js';
 import { type AccountType, addScopeToWallet, createOrRetrieveAccount, getWalletWithScopes } from '../utils/accounts.js';
 import { FeeOpts } from '../utils/options/fees.js';
 import {
@@ -42,7 +42,7 @@ import {
   parseGasFees,
   parsePaymentMethod,
 } from '../utils/options/index.js';
-import { type PXEWrapper } from '../utils/pxe_wrapper.js';
+import type { PXEWrapper } from '../utils/pxe_wrapper.js';
 
 export function injectCommands(
   program: Command,

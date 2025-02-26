@@ -2,7 +2,7 @@ import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { PrivateFunctionsTree } from '@aztec/pxe';
 import { type ContractArtifact, FunctionSelector } from '@aztec/stdlib/abi';
-import { type AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ContractClassPublic,
   type ContractDataSource,
@@ -11,7 +11,7 @@ import {
   computePublicBytecodeCommitment,
 } from '@aztec/stdlib/contract';
 
-import { type TXE } from '../oracle/txe_oracle.js';
+import type { TXE } from '../oracle/txe_oracle.js';
 
 export class TXEPublicContractDataSource implements ContractDataSource {
   constructor(private txeOracle: TXE) {}

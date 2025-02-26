@@ -3,7 +3,7 @@ import {
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   type NOTE_HASH_TREE_HEIGHT,
 } from '@aztec/constants';
-import { type Tuple } from '@aztec/foundation/serialize';
+import type { Tuple } from '@aztec/foundation/serialize';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 
 import type { ScopedNoteHash } from '../note_hash.js';

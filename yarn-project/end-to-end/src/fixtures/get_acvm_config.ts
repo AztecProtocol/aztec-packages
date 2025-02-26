@@ -1,4 +1,4 @@
-import { type Logger } from '@aztec/aztec.js';
+import type { Logger } from '@aztec/aztec.js';
 import { parseBooleanEnv } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto';
 

@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { FieldsOf } from '@aztec/foundation/types';
 
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { GlobalVariables } from '../tx/global_variables.js';

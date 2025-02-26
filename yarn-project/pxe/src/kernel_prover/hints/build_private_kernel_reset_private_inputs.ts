@@ -42,7 +42,7 @@ import {
 } from '@aztec/stdlib/kernel';
 import { type PrivateCallExecutionResult, collectNested } from '@aztec/stdlib/tx';
 
-import { type ProvingDataOracle } from '../proving_data_oracle.js';
+import type { ProvingDataOracle } from '../proving_data_oracle.js';
 
 function collectNestedReadRequests(
   executionStack: PrivateCallExecutionResult[],
