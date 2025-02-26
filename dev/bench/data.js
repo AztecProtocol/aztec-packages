@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740595490940,
+  "lastUpdate": 1740596531464,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "gregojquiros@gmail.com",
-            "name": "Gregorio Juliana",
-            "username": "Thunkar"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8831838aab69f26686855730811d07c7d99d361a",
-          "message": "chore: @aztec/stdlib pt. 3: aztec-address out of foundation (#12140)\n\nFinal cleanup `foundation` and removal of all aztec-specific references.\nThis paves the way for the new stdlib to be born from the remnants of\n`circuits.js` and `circuit-types`!\n\nThis has led to a single \"weird thing\":\n\n`@aztec/ethereum` requires `AztecAddress` *just for the deployment of l1\ncontracts*. In the end, this is just an arg provided to `viem` that gets\neventually stringified, so we only have the type to avoid making\nmistakes ourselves. Since this is a pretty internal method, to avoid\ncircular dependencies I've turned it into a `Fr`, as that's our\n\"flattened\" AztecAddress representation. @alexghr @spalladino how bad is\nit?\n\nAnother option would be to move `deployL1Contracts` to `circuits.js`\n(soon to be `stdlib`), as this package pulls from `ethereum` and has\naccess to AztecAddress.\n\n---------\n\nCo-authored-by: thunkar <gregjquiros@gmail.com>",
-          "timestamp": "2025-02-20T19:25:54+01:00",
-          "tree_id": "95de7bce4cb41c9bcafde616cf28102b5870518e",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8831838aab69f26686855730811d07c7d99d361a"
-        },
-        "date": 1740077488687,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18396.944177000023,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16254.126714999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18804.310319999786,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16565.136599999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3919.6321000001717,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3097.849819 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55196.903116999994,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55196902000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10494.42185,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10494426000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1818503171,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1818503171 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 128064425,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 128064425 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3448,6 +3382,78 @@ window.BENCHMARK_DATA = {
             "value": 222058131,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 222058131 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49558828+AztecBot@users.noreply.github.com",
+            "name": "Aztec Bot",
+            "username": "AztecBot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e200f8bec616608557bfc170732e126fa4866472",
+          "message": "feat: Sync from noir (#12298)\n\nAutomated pull of development from the\n[noir](https://github.com/noir-lang/noir) programming language, a\ndependency of Aztec.\nBEGIN_COMMIT_OVERRIDE\nchore!: bump msrv to 1.85.0\n(https://github.com/noir-lang/noir/pull/7530)\nfix: No longer error on INT_MIN globals\n(https://github.com/noir-lang/noir/pull/7519)\nfix: correctly format trait function with multiple where clauses\n(https://github.com/noir-lang/noir/pull/7531)\nchore(ssa): Do not run passes on Brillig functions post Brillig gen\n(https://github.com/noir-lang/noir/pull/7527)\nEND_COMMIT_OVERRIDE\n\n---------\n\nCo-authored-by: guipublic <guipublic@gmail.com>\nCo-authored-by: guipublic <47281315+guipublic@users.noreply.github.com>",
+          "timestamp": "2025-02-26T18:30:44Z",
+          "tree_id": "f92b615b79884a0cd9e8c6aeb900d95a8486a23d",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e200f8bec616608557bfc170732e126fa4866472"
+        },
+        "date": 1740596524330,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18104.259960000036,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15971.020394000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18823.434158000055,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16333.626006999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3968.3651579998696,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3158.376714 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55146.739344,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55146740000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10563.580955000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10563585000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1901821191,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1901821191 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 216192054,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 216192054 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
