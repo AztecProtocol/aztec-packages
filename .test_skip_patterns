@@ -66,9 +66,6 @@ simple e2e_p2p/reex
 simple e2e_p2p/slashing
 simple e2e_p2p/upgrade_governance_proposer
 
-# Started failing with some AVM proof error...
-e2e_prover/full fake
-
 # FAIL  ./flakey_e2e_inclusion_proofs_contract.test.ts
 # ● e2e_inclusion_proofs_contract › contract inclusion › proves public deployment of a contract
 #

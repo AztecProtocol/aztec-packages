@@ -31,6 +31,7 @@ case "$type" in
       --mount type=tmpfs,target=/tmp,tmpfs-size=1g \
       --mount type=tmpfs,target=/tmp-jest,tmpfs-size=512m \
       -e JEST_CACHE_DIR=/tmp-jest \
+      -e FAKE_PROOFS \
       --workdir /root/aztec-packages/yarn-project/end-to-end \
       aztecprotocol/build:3.0 ./scripts/test_simple.sh $TEST
   ;;
