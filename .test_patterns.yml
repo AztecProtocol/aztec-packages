@@ -101,6 +101,35 @@ tests:
     owners:
       - "UKUMA5J7K" # charlie
 
+  # Summary of all failing tests
+  #  FAIL  ./e2e_cheat_codes.test.ts
+  #   ● e2e_cheat_codes › L1 cheatcodes › setNextBlockTimestamp
+  #
+  #     expect(received).toBe(expected) // Object.is equality
+  #
+  #     Expected: 28
+  #     Received: 29
+  #
+  #       65 |       await cc.eth.mine();
+  #       66 |
+  #     > 67 |       expect(await cc.eth.blockNumber()).toBe(blockNumber + 1);
+  #          |                                          ^
+  #       68 |       expect(await cc.eth.timestamp()).toBe(timestamp + increment);
+  #       69 |     });
+  #       70 |
+  #
+  #       at toBe (e2e_cheat_codes.test.ts:67:42)
+  #
+  #
+  # Test Suites: 1 failed, 1 total
+  # Tests:       1 failed, 4 skipped, 13 passed, 18 total
+  # Snapshots:   0 total
+  # Time:        28.241 s
+  # Ran all test suites matching /e2e_cheat_codes/i.
+  - regex: "simple e2e_cheat_codes"
+    owners:
+      - "U03E5SYLY3Z" # lasse
+
   # FAIL  src/test/bb_prover_parity.test.ts (34.059 s)
   #  prover/bb_prover/parity
   #    ✕ proves the parity circuits (30003 ms)
