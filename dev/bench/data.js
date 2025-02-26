@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740600997431,
+  "lastUpdate": 1740601569405,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7768ffe4e25cb234328be04f4fff8947f6390415",
-          "message": "chore(spartan): workaround bot + transfer test conflict (#12165)\n\nUntil #12163, disable bot which interferes with the transfer test",
-          "timestamp": "2025-02-20T17:28:01-05:00",
-          "tree_id": "9c567e11c6385ff3566c1517d10387d536cfb033",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7768ffe4e25cb234328be04f4fff8947f6390415"
-        },
-        "date": 1740091205418,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18137.002772000018,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16021.873844000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18624.61639099996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16332.193616000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3855.399848999923,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3058.315564000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54917.17576,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54917174000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9772.573803,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9772579000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1820323753,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1820323753 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 128813543,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 128813543 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3484,6 +3418,78 @@ window.BENCHMARK_DATA = {
             "value": 214004504,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 214004504 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "gregojquiros@gmail.com",
+            "name": "Gregorio Juliana",
+            "username": "Thunkar"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3cb6920eae9814919e135d8715ef445f3c5cc8e0",
+          "message": "chore: Lazy loading artifacts everywhere (#12285)\n\nThis PR adds the *option* to lazily load JSON artifacts in all the\npackages that were missing that functionality, further improving bundle\nsizes for the browser and allowing us to finally put limits on our\nexample apps bundle sizes:\n\n* `noir-protocol-circuits-types/vks`: now allow vk lazy imports via the\n`LazyArtifactProvider` in the `/client` export, while maintaining the\nbundled version for the server under `/server/vks`\n* `accounts`: Now all exports provide a lazy version, e.g:\n`@aztec/accounts/schnorr/lazy`. This has proven to be complicated due to\nthe testing import leaking into the browser (where type assertions are\nnot widely supported). Now there's also `/testing/lazy`. This testing\npackage is needed in the browser for the prefunded accounts.\n* `protocol-contracts`: Now with a lazy version and exporting\n`ProtocolContractProviders` so that PXE can be configured with bundled\nand lazy versions.\n\n\nBesides the type assertion issue, we absolutely want to keep bundled and\nlazy versions because some environments don't play well with `await\nimport` (namely service workers in firefox)\n\n---------\n\nCo-authored-by: esau <152162806+sklppy88@users.noreply.github.com>",
+          "timestamp": "2025-02-26T19:56:40Z",
+          "tree_id": "63024bdc8fea5767ee221e8d0791de57da85da45",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3cb6920eae9814919e135d8715ef445f3c5cc8e0"
+        },
+        "date": 1740601561469,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18271.652731000133,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16225.018531 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18769.05979000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16323.808413000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3963.6365950000254,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3162.7365649999992 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55260.706969,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55260707000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10194.521936,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10194525000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1910639338,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1910639338 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 217566535,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 217566535 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
