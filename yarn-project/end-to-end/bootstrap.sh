@@ -59,6 +59,7 @@ function test_cmds {
 
   # fees sub-tests
   echo "$prefix simple e2e_fees/account_init"
+  echo "$prefix simple e2e_fees/dapp_subscription"
   echo "$prefix simple e2e_fees/failures"
   echo "$prefix simple e2e_fees/fee_juice_payments"
   echo "$prefix simple e2e_fees/gas_estimation"
