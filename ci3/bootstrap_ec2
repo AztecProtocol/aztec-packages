@@ -18,6 +18,9 @@ else
   fi
 fi
 
+# Allow override.
+cores=${CPUS:-$cores}
+
 # Trap function to terminate our running instance when the script exits.
 function on_exit {
     set +e
