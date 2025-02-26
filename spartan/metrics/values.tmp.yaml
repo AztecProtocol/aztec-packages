@@ -124,7 +124,6 @@ grafana:
           jsonData:
             timeout: 60
             timeInterval: 15s
-            scrapeInterval: 15s
   dashboardProviders:
     dashboardproviders.yaml:
       apiVersion: 1
