@@ -45,10 +45,6 @@ export class PrivateToRollupAccumulatedData {
      * Note: Truncated to 31 bytes to fit in Fr.
      */
     public contractClassLogsHashes: Tuple<ScopedLogHash, typeof MAX_CONTRACT_CLASS_LOGS_PER_TX>,
-    /**
-     * Total accumulated length of the contract class log preimages emitted in all the previous kernel iterations
-     */
-    public contractClassLogPreimagesLength: Fr,
   ) {}
 
   getSize() {
@@ -57,8 +53,7 @@ export class PrivateToRollupAccumulatedData {
       arraySerializedSizeOfNonEmpty(this.nullifiers) +
       arraySerializedSizeOfNonEmpty(this.l2ToL1Msgs) +
       arraySerializedSizeOfNonEmpty(this.privateLogs) +
-      arraySerializedSizeOfNonEmpty(this.contractClassLogsHashes) +
-      this.contractClassLogPreimagesLength.size
+      arraySerializedSizeOfNonEmpty(this.contractClassLogsHashes)
     );
   }
 
@@ -69,7 +64,6 @@ export class PrivateToRollupAccumulatedData {
       fields.l2ToL1Msgs,
       fields.privateLogs,
       fields.contractClassLogsHashes,
-      fields.contractClassLogPreimagesLength,
     ] as const;
   }
 
@@ -106,7 +100,6 @@ export class PrivateToRollupAccumulatedData {
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
       reader.readArray(MAX_PRIVATE_LOGS_PER_TX, PrivateLog),
       reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedLogHash),
-      Fr.fromBuffer(reader),
     );
   }
 
@@ -126,7 +119,6 @@ export class PrivateToRollupAccumulatedData {
       makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message.empty),
       makeTuple(MAX_PRIVATE_LOGS_PER_TX, PrivateLog.empty),
       makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedLogHash.empty),
-      Fr.zero(),
     );
   }
 
@@ -162,7 +154,6 @@ export class PrivateToRollupAccumulatedData {
         .filter(x => !x.isEmpty())
         .map(x => inspect(x))
         .join(', ')}],
-      contractClassLogPreimagesLength: ${this.contractClassLogPreimagesLength.toString()},
     }`;
   }
 }

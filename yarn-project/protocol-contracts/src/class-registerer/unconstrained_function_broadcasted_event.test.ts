@@ -3,6 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 import { FunctionSelector } from '@aztec/stdlib/abi';
+import { ContractClassLog } from '@aztec/stdlib/logs';
 
 import { getSampleUnconstrainedFunctionBroadcastedEventPayload } from '../tests/fixtures.js';
 import {
@@ -14,7 +15,7 @@ describe('UnconstrainedFunctionBroadcastedEvent', () => {
   beforeAll(() => setupCustomSnapshotSerializers(expect));
 
   it('parses an event as emitted by the ContractClassRegisterer', () => {
-    const log = getSampleUnconstrainedFunctionBroadcastedEventPayload();
+    const log = ContractClassLog.fromBuffer(getSampleUnconstrainedFunctionBroadcastedEventPayload());
     expect(UnconstrainedFunctionBroadcastedEvent.isUnconstrainedFunctionBroadcastedEvent(log)).toBe(true);
 
     const event = UnconstrainedFunctionBroadcastedEvent.fromLog(log);
