@@ -12,7 +12,7 @@ class EccTraceBuilder final {
     void process_add(const simulation::EventEmitterInterface<simulation::EccAddEvent>::Container& events,
                      TraceContainer& trace);
     void process_scalar_mul(const simulation::EventEmitterInterface<simulation::ScalarMulEvent>::Container& events,
-                     TraceContainer& trace);
+                            TraceContainer& trace);
 };
 
 } // namespace bb::avm2::tracegen
