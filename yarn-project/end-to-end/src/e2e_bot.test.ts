@@ -1,5 +1,5 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
-import { type PXE } from '@aztec/aztec.js';
+import type { PXE } from '@aztec/aztec.js';
 import { Bot, type BotConfig, SupportedTokenContracts, getBotDefaultConfig } from '@aztec/bot';
 
 import { setup } from './fixtures/utils.js';

@@ -1,10 +1,10 @@
-import { type AztecAsyncKVStore } from '@aztec/kv-store';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
 import { generateKeyPair, marshalPrivateKey } from '@libp2p/crypto/keys';
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 
-import { type P2PConfig } from './config.js';
+import type { P2PConfig } from './config.js';
 import { createLibP2PPeerIdFromPrivateKey, getPeerIdPrivateKey } from './util.js';
 
 describe('p2p utils', () => {

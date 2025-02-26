@@ -1,10 +1,10 @@
-import { GasFees } from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { GasFees } from '@aztec/stdlib/gas';
 
 import { randomInt } from 'crypto';
 
-import { type AvmContext } from '../avm_context.js';
+import type { AvmContext } from '../avm_context.js';
 import { TypeTag } from '../avm_memory_types.js';
 import { initContext, initExecutionEnvironment, initGlobalVariables } from '../fixtures/index.js';
 import { Opcode } from '../serialization/instruction_serialization.js';

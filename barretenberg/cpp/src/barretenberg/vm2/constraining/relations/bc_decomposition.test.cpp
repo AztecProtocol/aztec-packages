@@ -9,6 +9,7 @@
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/flavor_settings.hpp"
 #include "barretenberg/vm2/generated/relations/bc_decomposition.hpp"
+#include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
@@ -17,21 +18,13 @@
 namespace bb::avm2::constraining {
 namespace {
 
+using testing::random_bytes;
 using tracegen::BytecodeTraceBuilder;
 using tracegen::TestTraceContainer;
+
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using bc_decomposition = bb::avm2::bc_decomposition<FF>;
-
-std::vector<uint8_t> random_bytes(size_t n)
-{
-    std::vector<uint8_t> bytes;
-    bytes.reserve(n);
-    for (size_t i = 0; i < n; ++i) {
-        bytes.push_back(static_cast<uint8_t>(rand() % 256));
-    }
-    return bytes;
-}
 
 void init_trace(TestTraceContainer& trace)
 {

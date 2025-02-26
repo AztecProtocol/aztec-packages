@@ -1,6 +1,6 @@
+mod test;
 // docs:start:setup
 use dep::aztec::macros::aztec;
-mod test;
 
 #[aztec]
 pub contract Counter {

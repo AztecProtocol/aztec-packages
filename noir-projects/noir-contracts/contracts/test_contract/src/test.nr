@@ -1,15 +1,16 @@
 use crate::Test;
 use crate::test_note::TestNote;
-use dep::uint_note::uint_note::UintNote;
-use dep::value_note::value_note::ValueNote;
+use address_note::address_note::AddressNote;
+use aztec::note::note_interface::NoteType;
+use value_note::value_note::ValueNote;
 
 #[test]
 unconstrained fn test_note_type_id() {
     // The order in which the note types are sorted seems arbitrary and an implementation detail of Noir,
     // but the important thing is that they are sequential and start from 0.
-    assert_eq(UintNote::get_note_type_id(), 0, "UintNote type id should be 0");
-    assert_eq(ValueNote::get_note_type_id(), 1, "ValueNote type id should be 1");
-    assert_eq(TestNote::get_note_type_id(), 2, "TestNote type id should be 2");
+    assert_eq(AddressNote::get_id(), 0, "AddressNote type id should be 0");
+    assert_eq(ValueNote::get_id(), 1, "ValueNote type id should be 1");
+    assert_eq(TestNote::get_id(), 2, "TestNote type id should be 2");
 }
 
 #[test]
@@ -24,7 +25,7 @@ unconstrained fn test_storage_slot_allocation() {
     // struct Storage<Context> {
     //     example_constant: PrivateImmutable<TestNote, Context>,
     //     example_struct_in_shared_mutable: SharedMutable<ExampleStruct, SHARED_MUTABLE_INITIAL_DELAY, Context>,
-    //     example_set: PrivateSet<TestNote, Context>,
+    //     example_set: PrivateSet<AddressNote, Context>,
     //     example_struct: PrivateImmutable<ExampleStruct, Context>,
     //     example_struct_in_public_immutable: PublicImmutable<ExampleStruct, Context>,
     //     example_struct_in_map: Map<AztecAddress, PrivateImmutable<ExampleStruct, Context>, Context>,
@@ -38,7 +39,7 @@ unconstrained fn test_storage_slot_allocation() {
     // The first slot is always 1.
     let mut expected_slot = 1;
     assert_eq(Test::storage_layout().example_constant.slot, expected_slot);
-    // Even though example_constant holds TestNote, which packs to a length larger than 1, notes always reserve a
+    // Even though example_constant holds AddressNote, which packs to a length larger than 1, notes always reserve a
     // single slot.
     expected_slot += 1;
 

@@ -209,7 +209,6 @@ pub enum ElaborateReason {
     /// Evaluating `Module::add_item`
     AddingItemToModule,
 }
-
 impl ElaborateReason {
     fn to_macro_error(self, error: CompilationError, location: Location) -> ComptimeError {
         match self {

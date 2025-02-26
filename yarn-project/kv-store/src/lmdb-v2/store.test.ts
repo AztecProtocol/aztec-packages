@@ -5,8 +5,8 @@ import { expect } from 'chai';
 import { stub } from 'sinon';
 
 import { openTmpStore } from './factory.js';
-import { type ReadTransaction } from './read_transaction.js';
-import { type AztecLMDBStoreV2 } from './store.js';
+import type { ReadTransaction } from './read_transaction.js';
+import type { AztecLMDBStoreV2 } from './store.js';
 
 const testMaxReaders = 4;
 

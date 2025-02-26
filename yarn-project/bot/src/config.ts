@@ -1,5 +1,3 @@
-import { type ComponentsVersions } from '@aztec/circuit-types';
-import { Fr } from '@aztec/circuits.js';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
@@ -8,9 +6,11 @@ import {
   numberConfigHelper,
   optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+import { Fr } from '@aztec/foundation/fields';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { type ZodFor, schemas } from '@aztec/stdlib/schemas';
+import type { ComponentsVersions } from '@aztec/stdlib/versioning';
 
 import { z } from 'zod';
 

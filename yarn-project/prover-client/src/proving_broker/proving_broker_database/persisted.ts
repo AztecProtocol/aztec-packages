@@ -1,22 +1,22 @@
+import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
+import { type Logger, createLogger } from '@aztec/foundation/log';
+import { BatchQueue } from '@aztec/foundation/queue';
+import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
+import { AztecLMDBStoreV2 } from '@aztec/kv-store/lmdb-v2';
 import {
   type ProofUri,
   ProvingJob,
   type ProvingJobId,
   ProvingJobSettledResult,
   getEpochFromProvingJobId,
-} from '@aztec/circuit-types/interfaces/server';
-import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
-import { type Logger, createLogger } from '@aztec/foundation/log';
-import { BatchQueue } from '@aztec/foundation/queue';
-import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
-import { AztecLMDBStoreV2 } from '@aztec/kv-store/lmdb-v2';
+} from '@aztec/stdlib/interfaces/server';
 import { Attributes, LmdbMetrics, type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { mkdir, readdir } from 'fs/promises';
 import { join } from 'path';
 
-import { type ProverBrokerConfig } from '../config.js';
-import { type ProvingBrokerDatabase } from '../proving_broker_database.js';
+import type { ProverBrokerConfig } from '../config.js';
+import type { ProvingBrokerDatabase } from '../proving_broker_database.js';
 
 class SingleEpochDatabase {
   private jobs: AztecAsyncMap<ProvingJobId, string>;

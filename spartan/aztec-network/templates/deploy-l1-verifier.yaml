@@ -8,7 +8,7 @@ metadata:
   annotations:
     "helm.sh/hook": post-install
     "helm.sh/hook-weight": "0"
-    "helm.sh/hook-delete-policy": before-hook-creation
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed,before-hook-creation
 
 spec:
   template:
@@ -116,8 +116,6 @@ spec:
               value: {{ include "aztec-network.fullname" . }}
             - name: USE_GCLOUD_LOGGING
               value: "{{ .Values.telemetry.useGcloudLogging }}"
-            - name: USE_GCLOUD_METRICS
-              value: "{{ .Values.telemetry.useGcloudMetrics }}"
           volumeMounts:
             - name: config
               mountPath: /shared/config

@@ -3,8 +3,7 @@ use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 
 use crate::{
     note::{
-        note_interface::{NoteInterface, NullifiableNote},
-        retrieved_note::RetrievedNote,
+        note_interface::NoteHash, retrieved_note::RetrievedNote,
         utils::compute_note_hash_for_nullify,
     },
     oracle::get_membership_witness::get_note_hash_membership_witness,
@@ -17,13 +16,13 @@ trait ProveNoteInclusion {
         storage_slot: Field,
     )
     where
-        Note: NoteInterface + NullifiableNote;
+        Note: NoteHash;
 }
 
 impl ProveNoteInclusion for BlockHeader {
     fn prove_note_inclusion<Note>(self, retrieved_note: RetrievedNote<Note>, storage_slot: Field)
     where
-        Note: NoteInterface + NullifiableNote,
+        Note: NoteHash,
     {
         let note_hash = compute_note_hash_for_nullify(retrieved_note, storage_slot);
 

@@ -1,12 +1,7 @@
-import { type ArchiveSource } from '@aztec/archiver';
+import type { ArchiveSource } from '@aztec/archiver';
 import { getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, Fr, GlobalVariables, type L2Block, createLogger } from '@aztec/aztec.js';
 import { Blob, BlockBlobPublicInputs } from '@aztec/blob-lib';
-// eslint-disable-next-line no-restricted-imports
-import { type L2Tips, type ProcessedTx } from '@aztec/circuit-types';
-import { makeBloatedProcessedTx } from '@aztec/circuit-types/testing';
-import { type BlockHeader, EthAddress, GasFees, GasSettings } from '@aztec/circuits.js';
-import { fr } from '@aztec/circuits.js/testing';
 import { GENESIS_ARCHIVE_ROOT, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
@@ -22,6 +17,7 @@ import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { range } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';
 import { sha256, sha256ToField } from '@aztec/foundation/crypto';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { ForwarderAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
@@ -30,6 +26,10 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { LightweightBlockBuilder } from '@aztec/prover-client/block-builder';
 import { SequencerPublisher } from '@aztec/sequencer-client';
+import type { L2Tips } from '@aztec/stdlib/block';
+import { GasFees, GasSettings } from '@aztec/stdlib/gas';
+import { fr, makeBloatedProcessedTx } from '@aztec/stdlib/testing';
+import type { BlockHeader, ProcessedTx } from '@aztec/stdlib/tx';
 import {
   type MerkleTreeAdminDatabase,
   NativeWorldStateService,
@@ -127,7 +127,7 @@ describe('L1Publisher integration', () => {
       config.l1RpcUrl,
       deployerAccount,
       logger,
-      { assumeProvenThrough: undefined },
+      {},
     ));
 
     ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrl);

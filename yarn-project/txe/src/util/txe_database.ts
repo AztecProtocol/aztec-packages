@@ -1,6 +1,7 @@
-import { type AztecAddress, CompleteAddress } from '@aztec/circuits.js';
-import { type AztecAsyncKVStore, type AztecAsyncMap } from '@aztec/kv-store';
+import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import { KVPxeDatabase } from '@aztec/pxe';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { CompleteAddress } from '@aztec/stdlib/contract';
 
 export class TXEDatabase extends KVPxeDatabase {
   #accounts: AztecAsyncMap<string, Buffer>;

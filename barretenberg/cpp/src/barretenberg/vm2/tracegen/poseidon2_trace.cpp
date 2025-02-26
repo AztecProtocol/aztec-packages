@@ -307,7 +307,6 @@ void Poseidon2TraceBuilder::process_hash(
                       { {
                           { C::poseidon2_hash_sel, 1 },
                           { C::poseidon2_hash_start, i == 0 },
-                          { C::poseidon2_hash_execute_perm, i != num_perm_events - 1 },
                           { C::poseidon2_hash_end, (num_perm_events - 1) == i },
                           { C::poseidon2_hash_input_len, event.inputs.size() },
                           { C::poseidon2_hash_padding, padded_size - event.inputs.size() },
@@ -315,7 +314,7 @@ void Poseidon2TraceBuilder::process_hash(
                           { C::poseidon2_hash_input_1, perm_input[1] },
                           { C::poseidon2_hash_input_2, perm_input[2] },
 
-                          { C::poseidon2_hash_num_perm_rounds_rem, num_perm_events - i - 1 },
+                          { C::poseidon2_hash_num_perm_rounds_rem, num_perm_events - i },
                           { C::poseidon2_hash_num_perm_rounds_rem_inv,
                             num_perm_events - i - 1 == 0 ? 0 : FF(num_perm_events - i - 1).invert() },
 

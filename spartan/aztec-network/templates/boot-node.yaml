@@ -133,8 +133,6 @@ spec:
                   fieldPath: metadata.namespace
             - name: USE_GCLOUD_LOGGING
               value: "{{ .Values.telemetry.useGcloudLogging }}"
-            - name: USE_GCLOUD_METRICS
-              value: "{{ .Values.telemetry.useGcloudMetrics }}"
       {{- end }}
       containers:
         - name: boot-node
@@ -207,6 +205,8 @@ spec:
               value: "1"
             - name: P2P_ENABLED
               value: "{{ .Values.bootNode.p2p.enabled }}"
+            - name: P2P_GOSSIPSUB_FLOOD_PUBLISH
+              value: "{{ .Values.bootNode.p2p.floodPublish }}"
             - name: COINBASE
               value: "{{ .Values.bootNode.coinbaseAddress }}"
             - name: VALIDATOR_DISABLED
@@ -251,8 +251,6 @@ spec:
               value: "{{ .Values.storage.worldStateMapSize }}"
             - name: USE_GCLOUD_LOGGING
               value: "{{ .Values.telemetry.useGcloudLogging }}"
-            - name: USE_GCLOUD_METRICS
-              value: "{{ .Values.telemetry.useGcloudMetrics }}"
             - name: OTEL_EXCLUDE_METRICS
               value: "{{ .Values.telemetry.excludeMetrics }}"
             {{- if .Values.blobSink.enabled }}
