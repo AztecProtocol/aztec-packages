@@ -116,7 +116,7 @@ describe('e2e_p2p_reqresp_tx', () => {
       contexts.flatMap((context, i) =>
         context.txs.map(async (tx, j) => {
           t.logger.info(`Waiting for tx ${i}-${j}: ${await tx.getTxHash()} to be mined`);
-          await tx.wait({ timeout: WAIT_FOR_TX_TIMEOUT });
+          await tx.wait({ timeout: WAIT_FOR_TX_TIMEOUT * 1.5 }); // more transactions in this test so allow more time
           t.logger.info(`Tx ${i}-${j}: ${await tx.getTxHash()} has been mined`);
           return await tx.getTxHash();
         }),
