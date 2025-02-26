@@ -24,8 +24,8 @@ export class GasTxValidator implements TxValidator<Tx> {
     this.#gasFees = gasFees;
   }
 
-  async validateTx(tx: Tx): Promise<TxValidationResult> {
-    if (await this.#shouldSkip(tx)) {
+  validateTx(tx: Tx): Promise<TxValidationResult> {
+    if (this.#shouldSkip(tx)) {
       return Promise.resolve({ result: 'skipped', reason: ['Insufficient fee per gas'] });
     }
     return this.#validateTxFee(tx);
@@ -37,7 +37,7 @@ export class GasTxValidator implements TxValidator<Tx> {
    * Note that circuits check max fees even if fee payer is unset, so we
    * keep this validation even if the tx does not pay fees.
    */
-  async #shouldSkip(tx: Tx): Promise<boolean> {
+  #shouldSkip(tx: Tx): boolean {
     const gasSettings = tx.data.constants.txContext.gasSettings;
 
     // Skip the tx if its max fees are not enough for the current block's gas fees.
@@ -47,10 +47,7 @@ export class GasTxValidator implements TxValidator<Tx> {
       maxFeesPerGas.feePerL2Gas.lt(this.#gasFees.feePerL2Gas);
 
     if (notEnoughMaxFees) {
-      this.#log.warn(`Skipping transaction ${await tx.getTxHash()} due to insufficient fee per gas`, {
-        txMaxFeesPerGas: maxFeesPerGas.toInspect(),
-        currentGasFees: this.#gasFees.toInspect(),
-      });
+      this.#log.warn(`Skipping transaction ${tx.getTxHash()} due to insufficient fee per gas`);
     }
     return notEnoughMaxFees;
   }
