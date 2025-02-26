@@ -6,6 +6,7 @@ import {DecoderBase} from "./base/DecoderBase.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {RollupConfig} from "@aztec/core/libraries/RollupConfig.sol";
 import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
@@ -64,10 +65,10 @@ contract RollupTest is RollupBase {
 
   constructor() {
     TimeLib.initialize(
-      block.timestamp, TestConstants.AZTEC_SLOT_DURATION, TestConstants.AZTEC_EPOCH_DURATION
+      block.timestamp, RollupConfig.DEFAULT_AZTEC_SLOT_DURATION, RollupConfig.DEFAULT_AZTEC_EPOCH_DURATION
     );
-    SLOT_DURATION = TestConstants.AZTEC_SLOT_DURATION;
-    EPOCH_DURATION = TestConstants.AZTEC_EPOCH_DURATION;
+    SLOT_DURATION = RollupConfig.DEFAULT_AZTEC_SLOT_DURATION;
+    EPOCH_DURATION = RollupConfig.DEFAULT_AZTEC_EPOCH_DURATION;
   }
 
   /**
@@ -107,8 +108,8 @@ contract RollupTest is RollupBase {
         )
       )
     );
-    inbox = Inbox(address(rollup.getInbox()));
-    outbox = Outbox(address(rollup.getOutbox()));
+    inbox = Inbox(address(rollup.INBOX()));
+    outbox = Outbox(address(rollup.OUTBOX()));
 
     registry.upgrade(address(rollup));
 
@@ -335,8 +336,7 @@ contract RollupTest is RollupBase {
 
     skipBlobCheck(address(rollup));
 
-    // When not canonical, we expect the fee to be 0
-    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidManaBaseFee.selector, 0, 1));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NonZeroL2Fee.selector));
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: data.archive,
