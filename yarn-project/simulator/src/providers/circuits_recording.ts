@@ -17,7 +17,7 @@ import { Oracle } from '../acvm/oracle/oracle.js';
  * @param circuitName Name of the circuit being executed
  * @returns Promise<ACIRCallback> The wrapped callback that records oracle calls
  */
-export async function setupRecordingAndGetWrappedCallback(
+export async function setupRecordingIfEnabledAndGetWrappedCallback(
   input: ACVMWitness,
   callback: ACIRCallback,
   circuitName: string,
