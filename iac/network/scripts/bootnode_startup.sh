@@ -1,6 +1,16 @@
 #!/bin/bash
 
-set -e  # Exit immediately if a command exits with a non-zero status
+set -e
+
+# From terraform
+LOCATION="${LOCATION}"
+SSH_USER="${SSH_USER}"
+PUBLIC_IP="${PUBLIC_IP}"
+P2P_PORT="${P2P_PORT}"
+PEER_ID_PRIVATE_KEY="${PEER_ID_PRIVATE_KEY}"
+DATA_STORE_MAP_SIZE_KB="${DATA_STORE_MAP_SIZE_KB}"
+L1_CHAIN_ID="${L1_CHAIN_ID}"
+NETWORK_NAME="${NETWORK_NAME}"
 
 # Update system packages
 echo "Updating system packages..."
@@ -11,14 +21,13 @@ echo "Installing Docker..."
 sudo apt install -y docker.io
 sudo systemctl start docker
 sudo systemctl enable docker
-sudo usermod -aG docker $USER
+sudo usermod -aG docker $SSH_USER
+sudo systemctl restart docker
 
 # Ensure Docker starts on reboot
 echo "Configuring Docker to start on boot..."
 sudo systemctl enable docker.service
 sudo systemctl enable containerd.service
-
-LOCATION="${LOCATION}"
 
 if [ "$LOCATION" = "GCP" ]; then
 # Install Google Cloud Ops Agent for logging
@@ -56,49 +65,88 @@ EOF
 sudo systemctl enable google-cloud-ops-agent
 sudo systemctl restart google-cloud-ops-agent
 elif [ "$LOCATION" = "AWS" ]; then
+  echo "Placeholder for AWS instances"
 fi
 
-docker run hello-world
+# Create a start script to be run by systemd
+CONTAINER_NAME="aztec-bootnode"
+REPO=philwindle
+IMAGE=aztec
+TAG=latest
+LOG_LEVEL=verbose
+
+cat << 'EOF' > /home/$SSH_USER/start.sh
+#!/bin/bash
+printenv
+echo "Starting bootnode container..."
+JSON=$(curl -s http://static.aztec.network/$NETWORK_NAME/bootnodes.json)
+export BOOTSTRAP_NODES=$(echo "$JSON" | jq -r '.bootnodes | join(",")')
+echo "Bootnode enrs: $BOOTSTRAP_NODES"
+docker pull $REPO/$IMAGE:$TAG
+docker run \
+ --restart=always \
+ --name $CONTAINER_NAME \
+ --volume $DATA_DIRECTORY:$DATA_DIRECTORY \
+ --publish $AZTEC_PORT:$AZTEC_PORT \
+ --publish $P2P_PORT:$P2P_PORT/udp \
+ --env DATA_DIRECTORY \
+ --env DATA_STORE_MAP_SIZE_KB \
+ --env P2P_UDP_ANNOUNCE_ADDR \
+ --env P2P_UDP_LISTEN_ADDR \
+ --env PEER_ID_PRIVATE_KEY \
+ --env L1_CHAIN_ID \
+ --env AZTEC_PORT \
+ --env BOOTSTRAP_NODES \
+ --env LOG_LEVEL \
+ $REPO/$IMAGE:$TAG node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --p2p-bootstrap
+EOF
+chmod +x /home/$SSH_USER/start.sh
 
 
+DATA_DIRECTORY=/home/$SSH_USER/data
 
+P2P_UDP_ANNOUNCE_ADDR="$PUBLIC_IP:$P2P_PORT"
+P2P_UDP_LISTEN_ADDR="0.0.0.0:$P2P_PORT"
 
-echo "Setup complete!"
+mkdir -p $DATA_DIRECTORY
 
+# Create systemd service for bootnode
+echo "Creating systemd service to ensure container runs on startup with environment variables..."
+cat <<EOF | sudo tee /etc/systemd/system/aztec-bootnode.service
+[Unit]
+Description=Aztec Bootnode Service
+Requires=docker.service
+After=docker.service
 
+[Service]
+Restart=always
+RestartSec=10
+WorkingDirectory=/home/$SSH_USER
+Environment="PEER_ID_PRIVATE_KEY=$PEER_ID_PRIVATE_KEY"
+Environment="DATA_STORE_MAP_SIZE_KB=$DATA_STORE_MAP_SIZE_KB"
+Environment="DATA_DIRECTORY=$DATA_DIRECTORY"
+Environment="P2P_UDP_ANNOUNCE_ADDR=$P2P_UDP_ANNOUNCE_ADDR"
+Environment="P2P_UDP_LISTEN_ADDR=$P2P_UDP_LISTEN_ADDR"
+Environment="L1_CHAIN_ID=$L1_CHAIN_ID"
+Environment="AZTEC_PORT=80"
+Environment="LOG_LEVEL=$LOG_LEVEL"
+Environment="P2P_PORT=$P2P_PORT"
+Environment="NETWORK_NAME=$NETWORK_NAME"
+Environment="REPO=$REPO"
+Environment="IMAGE=$IMAGE"
+Environment="TAG=$TAG"
+Environment="CONTAINER_NAME=$CONTAINER_NAME"
+ExecStartPre=-/usr/bin/docker rm -f $CONTAINER_NAME
+ExecStart=/home/$SSH_USER/start.sh
+ExecStop=/usr/bin/docker stop $CONTAINER_NAME
 
+[Install]
+WantedBy=multi-user.target
+EOF
 
-
-
-# # Define Docker container name and image
-# CONTAINER_NAME="bootnode"
-# DOCKER_IMAGE="aztecprotocol"  # Change this to your Docker image
-
-# # Pass environment variables received from Terraform
-# ENV_VAR_1="${env_var_1}"  # Value passed from Terraform
-# ENV_VAR_2="${env_var_2}"
-
-# # Create systemd service for Docker container with environment variables
-# echo "Creating systemd service to ensure container runs on startup with environment variables..."
-# cat <<EOF | sudo tee /etc/systemd/system/docker-container.service
-# [Unit]
-# Description=Docker Container Service
-# Requires=docker.service
-# After=docker.service
-
-# [Service]
-# Restart=always
-# Environment="MY_ENV_VAR_1=${ENV_VAR_1}"
-# Environment="MY_ENV_VAR_2=${ENV_VAR_2}"
-# ExecStart=/usr/bin/docker run --rm -p 80:80 --name $CONTAINER_NAME -e MY_ENV_VAR_1=$MY_ENV_VAR_1 -e MY_ENV_VAR_2=$MY_ENV_VAR_2 $DOCKER_IMAGE
-# ExecStop=/usr/bin/docker stop $CONTAINER_NAME
-
-# [Install]
-# WantedBy=multi-user.target
-# EOF
-
-# # Reload systemd and enable the service
-# echo "Enabling and starting systemd service..."
-# sudo systemctl daemon-reload
-# sudo systemctl enable docker-container.service
-# sudo systemctl restart docker-container.service
+# Reload systemd and enable the service
+echo "Enabling and starting aztec-bootnode service..."
+sudo systemctl daemon-reload
+sudo systemctl enable aztec-bootnode.service
+sudo systemctl restart aztec-bootnode.service
+echo "Startup Completed!"

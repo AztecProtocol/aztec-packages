@@ -42,7 +42,7 @@ export class BootstrapNode implements P2PBootstrapApi {
     const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey);
     this.peerId = peerId;
 
-    const enr = await createBootnodeENR(peerIdPrivateKey, udpAnnounceAddress);
+    const enr = await createBootnodeENR(peerIdPrivateKey, udpAnnounceAddress, config.l1ChainId);
 
     this.logger.debug(`Starting bootstrap node ${peerId} listening on ${listenAddrUdp.toString()}`);
 
@@ -67,6 +67,7 @@ export class BootstrapNode implements P2PBootstrapApi {
     });
 
     try {
+      this.logger.info('Starting bootnode');
       await this.node.start();
       this.logger.info('Bootstrap node started', {
         peerId,
@@ -79,11 +80,10 @@ export class BootstrapNode implements P2PBootstrapApi {
 
     // Add bootnode ENRs if provided, making sure we filter our own
     if (config.bootstrapNodes?.length) {
-      const decoded = await Promise.all(config.bootstrapNodes.map(enr => ENR.decodeTxt(enr).peerId()));
-      const bootstrapNodePeerIds = decoded.filter(peerId => peerId !== this.peerId);
       this.logger.info(`Adding bootstrap nodes ENRs: ${config.bootstrapNodes.join(', ')}`);
+      const decoded = config.bootstrapNodes.map(enr => ENR.decodeTxt(enr));
       try {
-        bootstrapNodePeerIds.forEach(enr => {
+        decoded.forEach(enr => {
           this.node.addEnr(enr);
         });
       } catch (e) {

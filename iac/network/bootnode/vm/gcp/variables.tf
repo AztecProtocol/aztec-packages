@@ -18,11 +18,6 @@ variable "peer_id_private_keys" {
   type        = list(string)
 }
 
-variable "enrs" {
-  description = "The ENRS of all the bootnodes"
-  type        = string
-}
-
 variable "machine_type" {
   description = "The machine type for the VM instance"
   type        = string
@@ -31,4 +26,14 @@ variable "machine_type" {
 variable "project_id" {
   description = "The GCP project ID"
   type        = string
+}
+
+variable "p2p_udp_port" {
+  description = "The P2P UDP port"
+  type        = number
+}
+
+variable "l1_chain_id" {
+  description = "The L1 chain ID"
+  type        = number
 }

@@ -1,6 +1,21 @@
 #!/usr/bin/env bash
 
 NETWORK_NAME=${1:-}
+PROJECT_ID=${2:-}
+
+if [[ -z "$NETWORK_NAME" ]]; then
+    echo "NETWORK_NAME is required"
+    exit 1
+fi
+
+if [[ -z "$PROJECT_ID" ]]; then
+    echo "PROJECT_ID is required"
+    exit 1
+fi
+
+# Not used, but valid numbers are required
+P2P_PORT=40400
+L1_CHAIN_ID=1
 
 cd ./ip/gcp
 
@@ -8,23 +23,20 @@ terraform init -backend-config="prefix=network/$NETWORK_NAME/ip/bootnode"
 
 OUTPUT=$(terraform output -json ip_addresses)
 
-echo $OUTPUT
+echo "IP Addresses output: $OUTPUT"
 
 GCP_REGIONS_ARRAY=()
 
 while read -r REGION IP; do
-    echo "Region: $REGION"
-    echo "IP: $IP"
+    echo "IP: $IP is in region $REGION"
 
     GCP_REGIONS_ARRAY+=("$REGION")
 
 done < <(echo "$OUTPUT" | jq -r 'to_entries | .[] | "\(.key) \(.value)"')
 
-for REGION in "${GCP_REGIONS_ARRAY[@]}"; do
-    echo "GCP KEY $REGION"
-done
-
 GCP_REGIONS_TF_ARG=$(jq --compact-output --null-input '$ARGS.positional' --args -- "${GCP_REGIONS_ARRAY[@]}")
+
+# We need a valid JSON array of the correct length for the private keys, the contents are not used in a destroy
 PRIVATE_KEYS_TF_ARG=$GCP_REGIONS_TF_ARG
 
 
@@ -43,7 +55,8 @@ terraform apply \
   -var="start_script=$BOOTNODE_START_SCRIPT" \
   -var="network_name=$NETWORK_NAME" \
   -var="peer_id_private_keys=$PRIVATE_KEYS_TF_ARG" \
-  -var="enrs=" \
   -var="machine_type=" \
   -var="project_id=$PROJECT_ID" \
+  -var="p2p_udp_port=$P2P_PORT" \
+  -var="l1_chain_id=$L1_CHAIN_ID" \
   --destroy

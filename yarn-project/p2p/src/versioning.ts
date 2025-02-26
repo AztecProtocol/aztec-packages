@@ -12,7 +12,7 @@ import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type SignableENR } from '@chainsafe/enr';
 import xxhashFactory from 'xxhash-wasm';
 
-import { AZTEC_ENR_KEY } from './services/types.js';
+import { AZTEC_ENR_KEY } from './types/index.js';
 
 const USE_XX_HASH = false; // Enable to reduce the size of the ENR record for production
 const XX_HASH_LEN = 8;

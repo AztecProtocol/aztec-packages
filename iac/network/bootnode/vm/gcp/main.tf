@@ -60,12 +60,17 @@ resource "google_compute_instance" "vm" {
     ssh-keys  = "${local.ssh_user}:${local.public_key}"
     static-ip = data.terraform_remote_state.ip.outputs.ip_addresses[var.regions[count.index]]
     startup-script = templatefile(var.start_script, {
-      STATIC_IP              = data.terraform_remote_state.ip.outputs.ip_addresses[var.regions[count.index]],
+      PUBLIC_IP              = data.terraform_remote_state.ip.outputs.ip_addresses[var.regions[count.index]],
       PEER_ID_PRIVATE_KEY    = var.peer_id_private_keys[count.index],
       LOCATION               = "GCP",
       DATA_STORE_MAP_SIZE_KB = 16777216,
-      ENRS                   = var.enrs,
+      P2P_PORT               = var.p2p_udp_port,
+      SSH_USER               = local.ssh_user,
+      L1_CHAIN_ID            = var.l1_chain_id,
+      NETWORK_NAME           = var.network_name
     })
+    # Trigger resource recreation if the startup script changes
+    startup-script-hash = filemd5(var.start_script)
   }
 
   tags = ["bootnode"]
@@ -74,6 +79,10 @@ resource "google_compute_instance" "vm" {
   service_account {
     email  = local.service_account_email
     scopes = ["https://www.googleapis.com/auth/logging.write", "https://www.googleapis.com/auth/monitoring.write"]
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 }
 

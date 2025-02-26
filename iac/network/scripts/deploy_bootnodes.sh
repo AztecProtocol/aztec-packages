@@ -3,10 +3,27 @@
 NETWORK_NAME=${1:-}
 GCP_REGIONS=${2:-}
 GCP_MACHINE_TYPE=${3:-}
-PROJECT_ID=${4:-"540455802476"}
+STATIC_S3_BUCKET=${4:-}
+L1_CHAIN_ID=${5:-}
+PROJECT_ID=${6:-}
 
 echo "NETWORK_NAME: $NETWORK_NAME"
 echo "GCP_REGIONS: $GCP_REGIONS"
+
+if [[ -z "$NETWORK_NAME" ]]; then
+    echo "NETWORK_NAME is required"
+    exit 1
+fi
+
+if [[ -z "$STATIC_S3_BUCKET" ]]; then
+    echo "STATIC_S3_BUCKET is required"
+    exit 1
+fi
+
+if [[ -z "$PROJECT_ID" ]]; then
+    echo "PROJECT_ID is required"
+    exit 1
+fi
 
 
 # Here we ensure the common stuff is created. This is common across all networks an includes
@@ -57,6 +74,7 @@ gcloud config set project $PROJECT_ID
 
 GCP_PRIVATE_KEYS_ARRAY=()
 GCP_REGIONS_ARRAY=()
+ENR_ARRAY=()
 
 
 while read -r REGION IP; do
@@ -84,43 +102,44 @@ while read -r REGION IP; do
 
     # Now we can generate the enr
     UDP_ANNOUNCE="$IP:$P2P_UDP_PORT"
-    ENR=$(cd scripts && ./generate_encoded_enr.sh "$PRIVATE_KEY" "$UDP_ANNOUNCE")
+    ENR=$(cd scripts && ./generate_encoded_enr.sh "$PRIVATE_KEY" "$UDP_ANNOUNCE" "$L1_CHAIN_ID")
 
     echo "ENR: $ENR"
-    echo "Private key: $PRIVATE_KEY"
 
     GCP_PRIVATE_KEYS_ARRAY+=("$PRIVATE_KEY")
     GCP_REGIONS_ARRAY+=("$REGION")
+    ENR_ARRAY+=("$ENR");
 
-    if [[ -z "$ENRS" ]]; then
-        ENRS="$ENR"
-    else
-        ENRS="$ENRS,$ENR"
-    fi
 done < <(echo "$OUTPUT" | jq -r 'to_entries | .[] | "\(.key) \(.value)"')
 
 BOOTNODE_START_SCRIPT="$PWD/scripts/bootnode_startup.sh"
 
-for KEY in "${GCP_PRIVATE_KEYS_ARRAY[@]}"; do
-    echo "GCP KEY $KEY"
-done
 
+PRIVATE_KEYS_JSON=$(jq --compact-output --null-input '$ARGS.positional' --args -- "${GCP_PRIVATE_KEYS_ARRAY[@]}")
+GCP_REGIONS_JSON=$(jq --compact-output --null-input '$ARGS.positional' --args -- "${GCP_REGIONS_ARRAY[@]}")
+ENR_JSON=$(jq --compact-output --null-input '$ARGS.positional' --args -- "${ENR_ARRAY[@]}")
 
-PRIVATE_KEYS_TF_ARG=$(jq --compact-output --null-input '$ARGS.positional' --args -- "${GCP_PRIVATE_KEYS_ARRAY[@]}")
-GCP_REGIONS_TF_ARG=$(jq --compact-output --null-input '$ARGS.positional' --args -- "${GCP_REGIONS_ARRAY[@]}")
-
-echo "PRIVATE_KEYS_TF_ARG: $PRIVATE_KEYS_TF_ARG"
-echo "GCP_REGIONS_TF_ARG: $GCP_REGIONS_TF_ARG"
+echo "GCP_REGIONS_JSON: $GCP_REGIONS_JSON"
+echo "ENR_JSON: $ENR_JSON"
 
 cd ./bootnode/vm/gcp
+
+FULL_ENR_JSON=$(jq -n --argjson enrs "$ENR_JSON" '{"bootnodes": $enrs}')
+
+echo $FULL_ENR_JSON > ./enrs.json
+
+aws s3 cp ./enrs.json $STATIC_S3_BUCKET/$NETWORK_NAME/bootnodes.json
+
+rm ./enrs.json
 
 terraform init -backend-config="prefix=network/$NETWORK_NAME/vm/bootnode"
 
 terraform apply \
-  -var="regions=$GCP_REGIONS_TF_ARG" \
+  -var="regions=$GCP_REGIONS_JSON" \
   -var="start_script=$BOOTNODE_START_SCRIPT" \
   -var="network_name=$NETWORK_NAME" \
-  -var="peer_id_private_keys=$PRIVATE_KEYS_TF_ARG" \
-  -var="enrs=$ENRS" \
+  -var="peer_id_private_keys=$PRIVATE_KEYS_JSON" \
   -var="machine_type=$GCP_MACHINE_TYPE" \
-  -var="project_id=$PROJECT_ID"
+  -var="project_id=$PROJECT_ID" \
+  -var="p2p_udp_port=$P2P_UDP_PORT" \
+  -var="l1_chain_id=$L1_CHAIN_ID"

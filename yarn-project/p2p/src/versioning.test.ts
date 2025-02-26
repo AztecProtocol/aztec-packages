@@ -4,7 +4,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type SignableENR } from '@chainsafe/enr';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { AZTEC_ENR_KEY } from './services/types.js';
+import { AZTEC_ENR_KEY } from './types/index.js';
 import { checkAztecEnrVersion, setAztecEnrKey } from './versioning.js';
 
 describe('versioning', () => {

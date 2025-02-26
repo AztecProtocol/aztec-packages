@@ -345,6 +345,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   },
   ...p2pReqRespConfigMappings,
   ...chainConfigMappings,
+  ...dataConfigMappings,
 };
 
 /**
@@ -365,7 +366,7 @@ export function getP2PDefaultConfig(): P2PConfig {
 export type BootnodeConfig = Pick<P2PConfig, 'udpAnnounceAddress' | 'peerIdPrivateKey' | 'bootstrapNodes'> &
   Required<Pick<P2PConfig, 'udpListenAddress'>> &
   Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKB'> &
-  ChainConfig;
+  Pick<ChainConfig, 'l1ChainId'>;
 
 const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
   'udpAnnounceAddress',
@@ -374,9 +375,10 @@ const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
   'dataDirectory',
   'dataStoreMapSizeKB',
   'bootstrapNodes',
+  'l1ChainId',
 ];
 
 export const bootnodeConfigMappings = pickConfigMappings(
-  { ...p2pConfigMappings, ...dataConfigMappings },
+  { ...p2pConfigMappings, ...dataConfigMappings, ...chainConfigMappings },
   bootnodeConfigKeys,
 );

@@ -2,7 +2,12 @@
 
 PRIVATE_KEY=${1:-}
 UDP_ADDRESS=${2:-}
+L1_CHAIN_ID=${3:-}
 
-OUTPUT=$(cd ~/aztec3-packages/yarn-project/aztec && yarn start generate-bootnode-enr $PRIVATE_KEY $UDP_ADDRESS)
+function get_enr {
+  docker run --rm philwindle/aztec node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js generate-bootnode-enr $PRIVATE_KEY $UDP_ADDRESS -c $L1_CHAIN_ID
+}
+
+OUTPUT="$(get_enr)"
 ENR=$(echo "$OUTPUT" | awk -F'ENR: ' '{print $2}')
 echo $ENR

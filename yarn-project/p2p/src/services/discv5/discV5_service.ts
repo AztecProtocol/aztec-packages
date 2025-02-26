@@ -197,6 +197,11 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   }
 
   private onDiscovered(enr: ENR) {
+    const asString = enr.encodeTxt();
+    if (this.bootstrapNodes.includes(asString)) {
+      // Ignore if we 'discovered' one of our bootnodes
+      return;
+    }
     if (this.validateEnr(enr)) {
       this.emit(PeerEvent.DISCOVERED, enr);
     }
