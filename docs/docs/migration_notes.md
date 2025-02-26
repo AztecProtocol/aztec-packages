@@ -8,6 +8,19 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [aztec-nr] `compute_nullifier_without_context` renamed
+
+The `compute_nullifier_without_context` function from `NoteHash` (ex `NoteInterface`) is now called `compute_nullifier_unconstrained`, and instead of taking storage slot, contract address and nonce it takes a note hash for nullification (same as `compute_note_hash`). This makes writing this
+function simpler:
+
+```diff
+-    unconstrained fn compute_nullifier_without_context(self, storage_slot: Field, contract_address: AztecAddress, nonce: Field) -> Field {
+-       let note_hash_for_nullify = ...;
++    unconstrained fn compute_nullifier_unconstrained(self, note_hash_for_nullify: Field) -> Field {
+        ...
+    }
+```
+
 ### `U128` type replaced with native `u128`
 
 The `U128` type has been replaced with the native `u128` type. This means that you can no longer use the `U128` type in your code. Instead, you should use the `u128` type.

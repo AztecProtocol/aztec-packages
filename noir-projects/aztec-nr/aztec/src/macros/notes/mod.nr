@@ -78,12 +78,7 @@ comptime fn generate_note_interface(s: StructDefinition, note_type_id: Field) ->
 ///
 ///     fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field { ... }
 ///
-///     unconstrained fn compute_nullifier_without_context(
-///         self,
-///         storage_slot: Field,
-///         contract_address: AztecAddress,
-///         note_nonce: Field,
-///     ) -> Field { ... }
+///     unconstrained fn compute_nullifier_unconstrained(note_hash_for_nullify: Field) -> Field { ... }
 /// }
 /// ```
 comptime fn generate_note_hash_trait_impl(s: StructDefinition) -> Quoted {
@@ -112,18 +107,10 @@ comptime fn generate_note_hash_trait_impl(s: StructDefinition) -> Quoted {
                 )
             }
 
-            unconstrained fn compute_nullifier_without_context(
+            unconstrained fn compute_nullifier_unconstrained(
                 self,
-                storage_slot: Field,
-                contract_address: aztec::prelude::AztecAddress,
-                note_nonce: Field,
+                note_hash_for_nullify: Field,
             ) -> Field {
-                let retrieved_note = aztec::prelude::RetrievedNote {
-                    note: self,
-                    contract_address,
-                    metadata: aztec::note::note_metadata::SettledNoteMetadata::new(note_nonce).into(),
-                };
-                let note_hash_for_nullify = aztec::note::utils::compute_note_hash_for_nullify(retrieved_note, storage_slot);
                 let owner_npk_m = aztec::keys::getters::get_public_keys(self.owner).npk_m;
                 // We invoke hash as a static trait function rather than calling owner_npk_m.hash() directly
                 // in the quote to avoid "trait not in scope" compiler warnings.
@@ -149,14 +136,7 @@ comptime fn generate_note_hash_trait_impl(s: StructDefinition) -> Quoted {
 ///         ...
 ///     }
 ///
-///     unconstrained fn compute_nullifier_without_context(
-///         self,
-///         storage_slot: Field,
-///         contract_address: AztecAddress,
-///         note_nonce: Field,
-///     ) -> Field {
-///         ...
-///     }
+///     unconstrained fn compute_nullifier_unconstrained(note_hash_for_nullify: Field) -> Field { ... }
 /// }
 ///
 /// # On differences from `generate_note_hash_trait_impl`
@@ -230,18 +210,10 @@ comptime fn generate_note_hash_trait_impl_for_partial_note(
                 )
             }
 
-            unconstrained fn compute_nullifier_without_context(
+            unconstrained fn compute_nullifier_unconstrained(
                 self,
-                storage_slot: Field,
-                contract_address: aztec::prelude::AztecAddress,
-                note_nonce: Field,
+                note_hash_for_nullify: Field,
             ) -> Field {
-                let retrieved_note = aztec::prelude::RetrievedNote {
-                    note: self,
-                    contract_address,
-                    metadata: aztec::note::note_metadata::SettledNoteMetadata::new(note_nonce).into(),
-                };
-                let note_hash_for_nullify = aztec::note::utils::compute_note_hash_for_nullify(retrieved_note, storage_slot);
                 let owner_npk_m = aztec::keys::getters::get_public_keys(self.owner).npk_m;
                 // We invoke hash as a static trait function rather than calling owner_npk_m.hash() directly in
                 // the quote to avoid "trait not in scope" compiler warnings.
@@ -1127,7 +1099,7 @@ pub comptime fn note(s: StructDefinition) -> Quoted {
 ///
 ///     // Custom nullifier computation...
 ///     fn compute_nullifier(...) -> Field { ... }
-///     fn compute_nullifier_without_context(...) -> Field { ... }
+///     fn compute_nullifier_unconstrained(...) -> Field { ... }
 /// }
 /// ```
 pub comptime fn custom_note(s: StructDefinition) -> Quoted {
