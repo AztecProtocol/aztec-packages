@@ -107,6 +107,11 @@ namespace scalar_mul;
     end * (temp_y - point_y) = 0;
     end * (temp_inf - point_inf) = 0;
 
+    // TODO Hack for bb-pilcom to see shifted temp columns
+    temp_x' - temp_x' = 0;
+    temp_y' - temp_y' = 0;
+    temp_inf' - temp_inf' = 0;
+
     #[DOUBLE]
     not_end { temp_x, temp_y, temp_inf, temp_x', temp_y', temp_inf', temp_x', temp_y', temp_inf' }
     in
