@@ -24,7 +24,8 @@ class ClassIdDerivation : public ClassIdDerivationInterface {
 
   private:
     EventEmitterInterface<ClassIdDerivationEvent>& events;
-    Poseidon2Interface& poseidon2;
+    // Maybe unused to fix Darwin builds, where assertions are not enabled.
+    [[maybe_unused]] Poseidon2Interface& poseidon2;
 };
 
 } // namespace bb::avm2::simulation
