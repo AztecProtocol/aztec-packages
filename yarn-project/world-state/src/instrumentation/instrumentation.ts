@@ -6,6 +6,7 @@ import {
   type Histogram,
   Metrics,
   type TelemetryClient,
+  type UpDownCounter,
   ValueType,
 } from '@aztec/telemetry-client';
 
@@ -37,6 +38,7 @@ export class WorldStateInstrumentation {
   private dbNumItems: Gauge;
   private dbUsedSize: Gauge;
   private requestHistogram: Histogram;
+  private criticalErrors: UpDownCounter;
 
   constructor(public readonly telemetry: TelemetryClient, private log = createLogger('world-state:instrumentation')) {
     const meter = telemetry.getMeter('World State');
@@ -78,6 +80,11 @@ export class WorldStateInstrumentation {
     this.requestHistogram = meter.createHistogram(Metrics.WORLD_STATE_REQUEST_TIME, {
       description: 'The round trip time of world state requests',
       unit: 'us',
+      valueType: ValueType.INT,
+    });
+
+    this.criticalErrors = meter.createUpDownCounter(Metrics.WORLD_STATE_CRITICAL_ERROR_COUNT, {
+      description: 'The number of critical errors in the world state',
       valueType: ValueType.INT,
     });
   }
@@ -155,5 +162,13 @@ export class WorldStateInstrumentation {
         [Attributes.WORLD_STATE_REQUEST_TYPE]: WorldStateMessageType[request],
       });
     }
+  }
+
+  public incCriticalErrors(
+    errorType: 'synch_pending_block' | 'finalize_block' | 'prune_pending_block' | 'prune_historical_block',
+  ) {
+    this.criticalErrors.add(1, {
+      [Attributes.ERROR_TYPE]: errorType,
+    });
   }
 }
