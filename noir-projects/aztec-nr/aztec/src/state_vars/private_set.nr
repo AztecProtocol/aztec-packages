@@ -17,7 +17,7 @@ use dep::protocol_types::{
 };
 
 // docs:start:struct
-pub struct PrivateSet<Note, Context> {
+pub struct PrivateSet<NOTE, Context> {
     pub context: Context,
     pub storage_slot: Field,
 }
@@ -32,7 +32,7 @@ where
     }
 }
 
-impl<Note, Context> PrivateSet<Note, Context> {
+impl<NOTE, Context> PrivateSet<NOTE, Context> {
     // docs:start:new
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
@@ -41,20 +41,20 @@ impl<Note, Context> PrivateSet<Note, Context> {
     // docs:end:new
 }
 
-impl<Note, let N: u32> PrivateSet<Note, &mut PrivateContext>
+impl<NOTE, let N: u32> PrivateSet<NOTE, &mut PrivateContext>
 where
-    Note: NoteType + NoteHash + Eq + Packable<N>,
+    NOTE: NoteType + NoteHash + Eq + Packable<N>,
 {
     // docs:start:insert
-    pub fn insert(self, note: Note) -> NoteEmission<Note> {
+    pub fn insert(self, note: NOTE) -> NoteEmission<NOTE> {
         create_note(self.context, self.storage_slot, note)
     }
     // docs:end:insert
 
     pub fn pop_notes<PREPROCESSOR_ARGS, FILTER_ARGS>(
         self,
-        options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>,
-    ) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> {
+        options: NoteGetterOptions<NOTE, N, PREPROCESSOR_ARGS, FILTER_ARGS>,
+    ) -> BoundedVec<NOTE, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> {
         let (retrieved_notes, note_hashes) = get_notes(self.context, self.storage_slot, options);
         // We iterate in a range 0..options.limit instead of 0..notes.len() because options.limit is known at compile
         // time and hence will result in less constraints when set to a lower value than
@@ -76,7 +76,7 @@ where
 
     /// Note that if you obtained the note via `get_notes` it's much better to use `pop_notes` as `pop_notes` results
     /// in significantly less constrains due to avoiding an extra hash and read request check.
-    pub fn remove(self, retrieved_note: RetrievedNote<Note>) {
+    pub fn remove(self, retrieved_note: RetrievedNote<NOTE>) {
         let note_hash = compute_note_hash_for_read_request(retrieved_note, self.storage_slot);
         let has_been_read =
             self.context.note_hash_read_requests.any(|r: ReadRequest| r.value == note_hash);
@@ -89,21 +89,21 @@ where
     /// in significantly less constrains due to avoiding 1 read request check.
     pub fn get_notes<PREPROCESSOR_ARGS, FILTER_ARGS>(
         self,
-        options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>,
-    ) -> BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> {
+        options: NoteGetterOptions<NOTE, N, PREPROCESSOR_ARGS, FILTER_ARGS>,
+    ) -> BoundedVec<RetrievedNote<NOTE>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> {
         get_notes(self.context, self.storage_slot, options).0
     }
 }
 
-impl<Note, let N: u32> PrivateSet<Note, UnconstrainedContext>
+impl<NOTE, let N: u32> PrivateSet<NOTE, UnconstrainedContext>
 where
-    Note: NoteType + NoteHash + Packable<N>,
+    NOTE: NoteType + NoteHash + Packable<N>,
 {
     // docs:start:view_notes
     pub unconstrained fn view_notes(
         self,
-        options: NoteViewerOptions<Note, N>,
-    ) -> BoundedVec<Note, MAX_NOTES_PER_PAGE> {
+        options: NoteViewerOptions<NOTE, N>,
+    ) -> BoundedVec<NOTE, MAX_NOTES_PER_PAGE> {
         view_notes(self.storage_slot, options)
     }
     // docs:end:view_notes

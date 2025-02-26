@@ -2,14 +2,14 @@
  * A note emission struct containing the information required for emitting a note.
  * The exact `emit` logic is passed in by the application code
  */
-pub struct NoteEmission<Note> {
-    pub note: Note,
+pub struct NoteEmission<NOTE> {
+    pub note: NOTE,
     pub storage_slot: Field,
     pub note_hash_counter: u32, // a note_hash_counter of 0 means settled
 }
 
-impl<Note> NoteEmission<Note> {
-    pub fn new(note: Note, storage_slot: Field, note_hash_counter: u32) -> Self {
+impl<NOTE> NoteEmission<NOTE> {
+    pub fn new(note: NOTE, storage_slot: Field, note_hash_counter: u32) -> Self {
         Self { note, storage_slot, note_hash_counter }
     }
 
@@ -28,16 +28,16 @@ impl<Note> NoteEmission<Note> {
  * and this allows us to keep the same API for emission in both cases (e.g. inserting
  * a change note in a token's transfer function only when there is "change" left).
  */
-pub struct OuterNoteEmission<Note> {
-    emission: Option<NoteEmission<Note>>,
+pub struct OuterNoteEmission<NOTE> {
+    emission: Option<NoteEmission<NOTE>>,
 }
 
-impl<Note> OuterNoteEmission<Note> {
-    pub fn new(emission: Option<NoteEmission<Note>>) -> Self {
+impl<NOTE> OuterNoteEmission<NOTE> {
+    pub fn new(emission: Option<NoteEmission<NOTE>>) -> Self {
         Self { emission }
     }
 
-    pub fn emit<Env>(self, _emit: fn[Env](NoteEmission<Note>) -> ()) {
+    pub fn emit<Env>(self, _emit: fn[Env](NoteEmission<NOTE>) -> ()) {
         if self.emission.is_some() {
             _emit(self.emission.unwrap());
         }

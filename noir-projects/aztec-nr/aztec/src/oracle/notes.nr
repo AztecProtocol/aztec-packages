@@ -146,7 +146,7 @@ unconstrained fn get_notes_oracle_wrapper<let N: u32, let S: u32>(
     )
 }
 
-pub unconstrained fn get_notes<Note, let N: u32, let M: u32, let S: u32, let NS: u32>(
+pub unconstrained fn get_notes<NOTE, let N: u32, let M: u32, let S: u32, let NS: u32>(
     storage_slot: Field,
     num_selects: u8,
     select_by_indexes: [u8; M],
@@ -161,12 +161,12 @@ pub unconstrained fn get_notes<Note, let N: u32, let M: u32, let S: u32, let NS:
     limit: u32,
     offset: u32,
     status: u8,
-    mut placeholder_opt_notes: [Option<RetrievedNote<Note>>; S], // TODO: Remove it and use `limit` to initialize the note array.
+    mut placeholder_opt_notes: [Option<RetrievedNote<NOTE>>; S], // TODO: Remove it and use `limit` to initialize the note array.
     placeholder_fields: [Field; NS], // TODO: Remove it and use `limit` to initialize the note array.
     _placeholder_note_length: [Field; N], // Turbofish hack? Compiler breaks calculating read_offset unless we add this parameter TODO(benesjan): try removing this.
-) -> [Option<RetrievedNote<Note>>; S]
+) -> [Option<RetrievedNote<NOTE>>; S]
 where
-    Note: NoteType + Packable<N>,
+    NOTE: NoteType + Packable<N>,
 {
     let fields = get_notes_oracle_wrapper(
         storage_slot,
@@ -198,7 +198,7 @@ where
             let maybe_note_hash_counter = fields[read_offset + 1] as u32;
             let packed_note = array::subarray(fields, read_offset + 2);
 
-            let note = Note::unpack(packed_note);
+            let note = NOTE::unpack(packed_note);
             let retrieved_note = RetrievedNote {
                 note,
                 contract_address,

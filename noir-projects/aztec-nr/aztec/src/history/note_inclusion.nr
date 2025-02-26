@@ -10,19 +10,19 @@ use crate::{
 };
 
 trait ProveNoteInclusion {
-    fn prove_note_inclusion<Note>(
+    fn prove_note_inclusion<NOTE>(
         header: BlockHeader,
-        retrieved_note: RetrievedNote<Note>,
+        retrieved_note: RetrievedNote<NOTE>,
         storage_slot: Field,
     )
     where
-        Note: NoteHash;
+        NOTE: NoteHash;
 }
 
 impl ProveNoteInclusion for BlockHeader {
-    fn prove_note_inclusion<Note>(self, retrieved_note: RetrievedNote<Note>, storage_slot: Field)
+    fn prove_note_inclusion<NOTE>(self, retrieved_note: RetrievedNote<NOTE>, storage_slot: Field)
     where
-        Note: NoteHash,
+        NOTE: NoteHash,
     {
         let note_hash = compute_note_hash_for_nullify(retrieved_note, storage_slot);
 

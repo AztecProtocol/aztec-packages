@@ -8,22 +8,22 @@ use crate::note::{
 use crate::oracle::notes::notify_created_note;
 use protocol_types::traits::Packable;
 
-pub fn create_note<Note, let N: u32>(
+pub fn create_note<NOTE, let N: u32>(
     context: &mut PrivateContext,
     storage_slot: Field,
-    note: Note,
-) -> NoteEmission<Note>
+    note: NOTE,
+) -> NoteEmission<NOTE>
 where
-    Note: NoteType + NoteHash + Packable<N>,
+    NOTE: NoteType + NoteHash + Packable<N>,
 {
     let note_hash_counter = context.side_effect_counter;
 
     let note_hash = note.compute_note_hash(storage_slot);
 
-    let packed_note = Note::pack(note);
+    let packed_note = NOTE::pack(note);
     notify_created_note(
         storage_slot,
-        Note::get_id(),
+        NOTE::get_id(),
         packed_note,
         note_hash,
         note_hash_counter,
@@ -35,13 +35,13 @@ where
 }
 
 // Note: This function is currently totally unused.
-pub fn destroy_note<Note>(
+pub fn destroy_note<NOTE>(
     context: &mut PrivateContext,
-    retrieved_note: RetrievedNote<Note>,
+    retrieved_note: RetrievedNote<NOTE>,
     storage_slot: Field,
 )
 where
-    Note: NoteHash,
+    NOTE: NoteHash,
 {
     let note_hash_for_read_request =
         compute_note_hash_for_read_request(retrieved_note, storage_slot);
@@ -49,13 +49,13 @@ where
     destroy_note_unsafe(context, retrieved_note, note_hash_for_read_request)
 }
 
-pub fn destroy_note_unsafe<Note>(
+pub fn destroy_note_unsafe<NOTE>(
     context: &mut PrivateContext,
-    retrieved_note: RetrievedNote<Note>,
+    retrieved_note: RetrievedNote<NOTE>,
     note_hash_for_read_request: Field,
 )
 where
-    Note: NoteHash,
+    NOTE: NoteHash,
 {
     let note_hash_for_nullify =
         compute_note_hash_for_nullify_from_read_request(retrieved_note, note_hash_for_read_request);

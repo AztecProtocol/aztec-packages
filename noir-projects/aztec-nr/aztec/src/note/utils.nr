@@ -8,12 +8,12 @@ use dep::protocol_types::hash::{
 };
 
 /// Returns the note hash that must be used to issue a private kernel read request for a note.
-pub fn compute_note_hash_for_read_request<Note>(
-    retrieved_note: RetrievedNote<Note>,
+pub fn compute_note_hash_for_read_request<NOTE>(
+    retrieved_note: RetrievedNote<NOTE>,
     storage_slot: Field,
 ) -> Field
 where
-    Note: NoteHash,
+    NOTE: NoteHash,
 {
     let note_hash = retrieved_note.note.compute_note_hash(storage_slot);
 
@@ -34,12 +34,12 @@ where
 }
 
 /// Returns the note hash that must be used to compute a note's nullifier.
-pub fn compute_note_hash_for_nullify<Note>(
-    retrieved_note: RetrievedNote<Note>,
+pub fn compute_note_hash_for_nullify<NOTE>(
+    retrieved_note: RetrievedNote<NOTE>,
     storage_slot: Field,
 ) -> Field
 where
-    Note: NoteHash,
+    NOTE: NoteHash,
 {
     compute_note_hash_for_nullify_from_read_request(
         retrieved_note,
@@ -50,8 +50,8 @@ where
 /// Same as `compute_note_hash_for_nullify`, except it takes the note hash used in a read request (i.e. what
 /// `compute_note_hash_for_read_request` would return). This is useful in scenarios where that hash has already been
 /// computed to reduce constraints by reusing this value.
-pub fn compute_note_hash_for_nullify_from_read_request<Note>(
-    retrieved_note: RetrievedNote<Note>,
+pub fn compute_note_hash_for_nullify_from_read_request<NOTE>(
+    retrieved_note: RetrievedNote<NOTE>,
     note_hash_for_read_request: Field,
 ) -> Field {
     // There is just one instance in which the note hash for nullification does not match the note hash used for a read
@@ -74,13 +74,13 @@ pub fn compute_note_hash_for_nullify_from_read_request<Note>(
 }
 
 /// Computes a note's siloed nullifier, i.e. the one that will be inserted into the nullifier tree.
-pub fn compute_siloed_note_nullifier<Note>(
-    retrieved_note: RetrievedNote<Note>,
+pub fn compute_siloed_note_nullifier<NOTE>(
+    retrieved_note: RetrievedNote<NOTE>,
     storage_slot: Field,
     context: &mut PrivateContext,
 ) -> Field
 where
-    Note: NoteHash,
+    NOTE: NoteHash,
 {
     let note_hash_for_nullify = compute_note_hash_for_nullify(retrieved_note, storage_slot);
     let inner_nullifier = retrieved_note.note.compute_nullifier(context, note_hash_for_nullify);

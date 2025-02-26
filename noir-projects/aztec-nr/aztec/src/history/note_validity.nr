@@ -6,25 +6,25 @@ use crate::{
 use dep::protocol_types::block_header::BlockHeader;
 
 trait ProveNoteValidity {
-    fn prove_note_validity<Note>(
+    fn prove_note_validity<NOTE>(
         header: BlockHeader,
-        retrieved_note: RetrievedNote<Note>,
+        retrieved_note: RetrievedNote<NOTE>,
         storage_slot: Field,
         context: &mut PrivateContext,
     )
     where
-        Note: NoteHash;
+        NOTE: NoteHash;
 }
 
 impl ProveNoteValidity for BlockHeader {
-    fn prove_note_validity<Note>(
+    fn prove_note_validity<NOTE>(
         self,
-        retrieved_note: RetrievedNote<Note>,
+        retrieved_note: RetrievedNote<NOTE>,
         storage_slot: Field,
         context: &mut PrivateContext,
     )
     where
-        Note: NoteHash,
+        NOTE: NoteHash,
     {
         self.prove_note_inclusion(retrieved_note, storage_slot);
         self.prove_note_not_nullified(retrieved_note, storage_slot, context);

@@ -16,7 +16,7 @@ use crate::oracle::notes::check_nullifier_exists;
 use crate::state_vars::storage::Storage;
 
 // docs:start:struct
-pub struct PrivateMutable<Note, Context> {
+pub struct PrivateMutable<NOTE, Context> {
     context: Context,
     storage_slot: Field,
 }
@@ -33,7 +33,7 @@ where
     }
 }
 
-impl<Note, Context> PrivateMutable<Note, Context> {
+impl<NOTE, Context> PrivateMutable<NOTE, Context> {
     // docs:start:new
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
@@ -57,12 +57,12 @@ impl<Note, Context> PrivateMutable<Note, Context> {
     }
 }
 
-impl<Note, let N: u32> PrivateMutable<Note, &mut PrivateContext>
+impl<NOTE, let N: u32> PrivateMutable<NOTE, &mut PrivateContext>
 where
-    Note: NoteType + NoteHash + Packable<N>,
+    NOTE: NoteType + NoteHash + Packable<N>,
 {
     // docs:start:initialize
-    pub fn initialize(self, note: Note) -> NoteEmission<Note> {
+    pub fn initialize(self, note: NOTE) -> NoteEmission<NOTE> {
         // Nullify the storage slot.
         let nullifier = self.compute_initialization_nullifier();
         self.context.push_nullifier(nullifier);
@@ -72,8 +72,8 @@ where
     // docs:end:initialize
 
     // docs:start:replace
-    pub fn replace(self, new_note: Note) -> NoteEmission<Note> {
-        let (prev_retrieved_note, note_hash_for_read_request): (RetrievedNote<Note>, Field) =
+    pub fn replace(self, new_note: NOTE) -> NoteEmission<NOTE> {
+        let (prev_retrieved_note, note_hash_for_read_request): (RetrievedNote<NOTE>, Field) =
             get_note(self.context, self.storage_slot);
 
         // Nullify previous note.
@@ -88,7 +88,7 @@ where
     }
     // docs:end:replace
 
-    pub fn initialize_or_replace(self, note: Note) -> NoteEmission<Note> {
+    pub fn initialize_or_replace(self, note: NOTE) -> NoteEmission<NOTE> {
         // Safety: `check_nullifier_exists` is an unconstrained function - we can constrain a true value
         // by providing an inclusion proof of the nullifier, but cannot constrain a false value since
         // a non-inclusion proof would only be valid if done in public.
@@ -111,7 +111,7 @@ where
     }
 
     // docs:start:get_note
-    pub fn get_note(self) -> NoteEmission<Note> {
+    pub fn get_note(self) -> NoteEmission<NOTE> {
         let mut (retrieved_note, note_hash_for_read_request) =
             get_note(self.context, self.storage_slot);
 
@@ -125,9 +125,9 @@ where
     // docs:end:get_note
 }
 
-impl<Note, let N: u32> PrivateMutable<Note, UnconstrainedContext>
+impl<NOTE, let N: u32> PrivateMutable<NOTE, UnconstrainedContext>
 where
-    Note: NoteType + NoteHash + Packable<N>,
+    NOTE: NoteType + NoteHash + Packable<N>,
 {
     pub unconstrained fn is_initialized(self) -> bool {
         let nullifier = self.compute_initialization_nullifier();
@@ -135,7 +135,7 @@ where
     }
 
     // docs:start:view_note
-    pub unconstrained fn view_note(self) -> Note {
+    pub unconstrained fn view_note(self) -> NOTE {
         let mut options = NoteViewerOptions::new();
         view_notes(self.storage_slot, options.set_limit(1)).get(0)
     }

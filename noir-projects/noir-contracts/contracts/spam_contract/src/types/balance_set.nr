@@ -11,28 +11,28 @@ use dep::aztec::prelude::{
     NoteGetterOptions, NoteHash, NoteType, NoteViewerOptions, PrivateSet, RetrievedNote,
 };
 
-pub struct BalanceSet<Note, Context> {
-    set: PrivateSet<Note, Context>,
+pub struct BalanceSet<NOTE, Context> {
+    set: PrivateSet<NOTE, Context>,
 }
 
-impl<Note, Context> BalanceSet<Note, Context> {
+impl<NOTE, Context> BalanceSet<NOTE, Context> {
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { set: PrivateSet::new(context, storage_slot) }
     }
 }
 
-impl<Note> BalanceSet<Note, UnconstrainedContext> {
+impl<NOTE> BalanceSet<NOTE, UnconstrainedContext> {
     pub unconstrained fn balance_of<let N: u32>(self: Self) -> u128
     where
-        Note: NoteType + NoteHash + OwnedNote + Packable<N>,
+        NOTE: NoteType + NoteHash + OwnedNote + Packable<N>,
     {
         self.balance_of_with_offset(0)
     }
 
     pub unconstrained fn balance_of_with_offset<let N: u32>(self: Self, offset: u32) -> u128
     where
-        Note: NoteType + NoteHash + OwnedNote + Packable<N>,
+        NOTE: NoteType + NoteHash + OwnedNote + Packable<N>,
     {
         let mut balance = 0 as u128;
         // docs:start:view_notes
@@ -52,15 +52,15 @@ impl<Note> BalanceSet<Note, UnconstrainedContext> {
     }
 }
 
-impl<Note> BalanceSet<Note, &mut PrivateContext> {
-    pub fn add<let N: u32>(self: Self, owner: AztecAddress, addend: u128) -> OuterNoteEmission<Note>
+impl<NOTE> BalanceSet<NOTE, &mut PrivateContext> {
+    pub fn add<let N: u32>(self: Self, owner: AztecAddress, addend: u128) -> OuterNoteEmission<NOTE>
     where
-        Note: NoteType + NoteHash + OwnedNote + Eq + Packable<N>,
+        NOTE: NoteType + NoteHash + OwnedNote + Eq + Packable<N>,
     {
         if addend == 0 as u128 {
             OuterNoteEmission::new(Option::none())
         } else {
-            let mut addend_note = Note::new(addend, owner);
+            let mut addend_note = NOTE::new(addend, owner);
 
             // docs:start:insert
             OuterNoteEmission::new(Option::some(self.set.insert(addend_note)))
@@ -68,9 +68,9 @@ impl<Note> BalanceSet<Note, &mut PrivateContext> {
         }
     }
 
-    pub fn sub<let N: u32>(self: Self, owner: AztecAddress, amount: u128) -> OuterNoteEmission<Note>
+    pub fn sub<let N: u32>(self: Self, owner: AztecAddress, amount: u128) -> OuterNoteEmission<NOTE>
     where
-        Note: NoteType + NoteHash + OwnedNote + Eq + Packable<N>,
+        NOTE: NoteType + NoteHash + OwnedNote + Eq + Packable<N>,
     {
         let subtracted = self.try_sub(amount, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL);
 
@@ -91,7 +91,7 @@ impl<Note> BalanceSet<Note, &mut PrivateContext> {
     // `try_sub` subtracting an amount smaller than `target_amount`.
     pub fn try_sub<let N: u32>(self: Self, target_amount: u128, max_notes: u32) -> u128
     where
-        Note: NoteType + NoteHash + OwnedNote + Eq + Packable<N>,
+        NOTE: NoteType + NoteHash + OwnedNote + Eq + Packable<N>,
     {
         // We are using a preprocessor here (filter applied in an unconstrained context) instead of a filter because
         // we do not need to prove correct execution of the preprocessor.
@@ -119,12 +119,12 @@ impl<Note> BalanceSet<Note, &mut PrivateContext> {
 // The preprocessor (a filter applied in an unconstrained context) does not check if total sum is larger or equal to
 // 'min_sum' - all it does is remove extra notes if it does reach that value.
 // Note that proper usage of this preprocessor requires for notes to be sorted in descending order.
-pub fn preprocess_notes_min_sum<Note>(
-    notes: [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+pub fn preprocess_notes_min_sum<NOTE>(
+    notes: [Option<RetrievedNote<NOTE>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     min_sum: u128,
-) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]
+) -> [Option<RetrievedNote<NOTE>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]
 where
-    Note: NoteType + NoteHash + OwnedNote,
+    NOTE: NoteType + NoteHash + OwnedNote,
 {
     let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     let mut sum = 0 as u128;

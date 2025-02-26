@@ -9,11 +9,11 @@ use dep::aztec::prelude::{
     RetrievedNote,
 };
 
-pub struct BalancesMap<Note, Context> {
-    map: Map<AztecAddress, PrivateSet<Note, Context>, Context>,
+pub struct BalancesMap<NOTE, Context> {
+    map: Map<AztecAddress, PrivateSet<NOTE, Context>, Context>,
 }
 
-impl<Note, Context> BalancesMap<Note, Context> {
+impl<NOTE, Context> BalancesMap<NOTE, Context> {
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self {
@@ -26,10 +26,10 @@ impl<Note, Context> BalancesMap<Note, Context> {
     }
 }
 
-impl<Note> BalancesMap<Note, UnconstrainedContext> {
+impl<NOTE> BalancesMap<NOTE, UnconstrainedContext> {
     pub unconstrained fn balance_of<let N: u32>(self: Self, owner: AztecAddress) -> u128
     where
-        Note: NoteType + NoteHash + OwnedNote + Packable<N>,
+        NOTE: NoteType + NoteHash + OwnedNote + Packable<N>,
     {
         self.balance_of_with_offset(owner, 0)
     }
@@ -40,7 +40,7 @@ impl<Note> BalancesMap<Note, UnconstrainedContext> {
         offset: u32,
     ) -> u128
     where
-        Note: NoteType + NoteHash + OwnedNote + Packable<N>,
+        NOTE: NoteType + NoteHash + OwnedNote + Packable<N>,
     {
         let mut balance = 0 as u128;
         // docs:start:view_notes
@@ -60,16 +60,16 @@ impl<Note> BalancesMap<Note, UnconstrainedContext> {
     }
 }
 
-impl<Note> BalancesMap<Note, &mut PrivateContext> {
+impl<NOTE> BalancesMap<NOTE, &mut PrivateContext> {
 
-    pub fn add<let N: u32>(self: Self, owner: AztecAddress, addend: u128) -> OuterNoteEmission<Note>
+    pub fn add<let N: u32>(self: Self, owner: AztecAddress, addend: u128) -> OuterNoteEmission<NOTE>
     where
-        Note: NoteType + NoteHash + OwnedNote + Eq + Packable<N>,
+        NOTE: NoteType + NoteHash + OwnedNote + Eq + Packable<N>,
     {
         if addend == 0 as u128 {
             OuterNoteEmission::new(Option::none())
         } else {
-            let addend_note = Note::new(addend, owner);
+            let addend_note = NOTE::new(addend, owner);
 
             // docs:start:insert
             OuterNoteEmission::new(Option::some(self.map.at(owner).insert(addend_note)))
@@ -81,9 +81,9 @@ impl<Note> BalancesMap<Note, &mut PrivateContext> {
         self: Self,
         owner: AztecAddress,
         subtrahend: u128,
-    ) -> OuterNoteEmission<Note>
+    ) -> OuterNoteEmission<NOTE>
     where
-        Note: NoteType + NoteHash + OwnedNote + Eq + Packable<N>,
+        NOTE: NoteType + NoteHash + OwnedNote + Eq + Packable<N>,
     {
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend);
         let notes = self.map.at(owner).pop_notes(options);
@@ -91,7 +91,7 @@ impl<Note> BalancesMap<Note, &mut PrivateContext> {
         let mut minuend: u128 = 0 as u128;
         for i in 0..options.limit {
             if i < notes.len() {
-                let note: Note = notes.get_unchecked(i);
+                let note: NOTE = notes.get_unchecked(i);
                 minuend = minuend + note.get_amount();
             }
         }
@@ -105,12 +105,12 @@ impl<Note> BalancesMap<Note, &mut PrivateContext> {
     }
 }
 
-pub fn filter_notes_min_sum<Note>(
-    retrieved_notes: [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+pub fn filter_notes_min_sum<NOTE>(
+    retrieved_notes: [Option<RetrievedNote<NOTE>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     min_sum: u128,
-) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]
+) -> [Option<RetrievedNote<NOTE>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]
 where
-    Note: NoteType + OwnedNote,
+    NOTE: NoteType + OwnedNote,
 {
     let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     let mut sum = 0 as u128;

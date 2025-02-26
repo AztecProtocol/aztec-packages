@@ -42,26 +42,26 @@ impl ProveNullifierInclusion for BlockHeader {
 }
 
 trait ProveNoteIsNullified {
-    fn prove_note_is_nullified<Note>(
+    fn prove_note_is_nullified<NOTE>(
         header: BlockHeader,
-        retrieved_note: RetrievedNote<Note>,
+        retrieved_note: RetrievedNote<NOTE>,
         storage_slot: Field,
         context: &mut PrivateContext,
     )
     where
-        Note: NoteHash;
+        NOTE: NoteHash;
 }
 
 impl ProveNoteIsNullified for BlockHeader {
     // docs:start:prove_note_is_nullified
-    fn prove_note_is_nullified<Note>(
+    fn prove_note_is_nullified<NOTE>(
         self,
-        retrieved_note: RetrievedNote<Note>,
+        retrieved_note: RetrievedNote<NOTE>,
         storage_slot: Field,
         context: &mut PrivateContext,
     )
     where
-        Note: NoteHash,
+        NOTE: NoteHash,
     {
         let nullifier = compute_siloed_note_nullifier(retrieved_note, storage_slot, context);
 

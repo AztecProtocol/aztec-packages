@@ -151,24 +151,24 @@ impl TestEnvironment {
 
     /// Manually adds a note to TXE. This needs to be called if you want to work with a note in your test with the note
     /// not having an encrypted log emitted.
-    pub unconstrained fn add_note<Note, let N: u32>(
+    pub unconstrained fn add_note<NOTE, let N: u32>(
         _self: Self,
-        note: Note,
+        note: NOTE,
         storage_slot: Field,
         contract_address: AztecAddress,
     )
     where
-        Note: NoteType + NoteHash + Packable<N>,
+        NOTE: NoteType + NoteHash + Packable<N>,
     {
         let original_contract_address = get_contract_address();
         cheatcodes::set_contract_address(contract_address);
         let note_hash_counter = cheatcodes::get_side_effects_counter();
 
         let note_hash = note.compute_note_hash(storage_slot);
-        let packed_note = Note::pack(note);
+        let packed_note = NOTE::pack(note);
         notify_created_note(
             storage_slot,
-            Note::get_id(),
+            NOTE::get_id(),
             packed_note,
             note_hash,
             note_hash_counter,

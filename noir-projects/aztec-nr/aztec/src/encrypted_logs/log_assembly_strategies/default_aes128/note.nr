@@ -213,19 +213,19 @@ fn assert_note_exists<let N: u32>(context: PrivateContext, note_hash_counter: u3
 /// note_id and the storage_slot) to be converted into bytes, because the aes function
 /// operates on bytes; not fields.
 /// NB: The extra `+ 64` bytes is for the note_id and the storage_slot of the note:
-fn compute_note_plaintext_for_this_strategy<Note, let N: u32>(
-    note: Note,
+fn compute_note_plaintext_for_this_strategy<NOTE, let N: u32>(
+    note: NOTE,
     storage_slot: Field,
 ) -> [u8; N * 32 + 64]
 where
-    Note: NoteType + Packable<N>,
+    NOTE: NoteType + Packable<N>,
 {
     let packed_note = note.pack();
 
     let storage_slot_bytes: [u8; 32] = storage_slot.to_be_bytes();
 
     // TODO(#10952): The following can be reduced to 7 bits
-    let note_type_id_bytes: [u8; 32] = Note::get_id().to_be_bytes();
+    let note_type_id_bytes: [u8; 32] = NOTE::get_id().to_be_bytes();
 
     // We combine all the bytes into plaintext_bytes:
     let mut plaintext_bytes: [u8; N * 32 + 64] = [0; N * 32 + 64];
@@ -244,15 +244,15 @@ where
     plaintext_bytes
 }
 
-fn compute_log<Note, let N: u32>(
+fn compute_log<NOTE, let N: u32>(
     context: PrivateContext,
-    note: Note,
+    note: NOTE,
     storage_slot: Field,
     recipient: AztecAddress,
     sender: AztecAddress,
 ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
 where
-    Note: NoteType + Packable<N>,
+    NOTE: NoteType + Packable<N>,
 {
     // *****************************************************************************
     // Compute the shared secret
@@ -408,15 +408,15 @@ where
     final_log
 }
 
-unconstrained fn compute_log_unconstrained<Note, let N: u32>(
+unconstrained fn compute_log_unconstrained<NOTE, let N: u32>(
     context: PrivateContext,
-    note: Note,
+    note: NOTE,
     storage_slot: Field,
     recipient: AztecAddress,
     sender: AztecAddress,
 ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
 where
-    Note: NoteType + Packable<N>,
+    NOTE: NoteType + Packable<N>,
 {
     compute_log(context, note, storage_slot, recipient, sender)
 }
@@ -424,16 +424,16 @@ where
 // This function seems to be affected by the following Noir bug:
 // https://github.com/noir-lang/noir/issues/5771
 // If you get weird behavior it might be because of it.
-pub fn encode_and_encrypt_note<Note, let N: u32>(
+pub fn encode_and_encrypt_note<NOTE, let N: u32>(
     context: &mut PrivateContext,
     recipient: AztecAddress,
     // We need this because to compute a tagging secret, we require a sender:
     sender: AztecAddress,
-) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress)](NoteEmission<Note>) -> ()
+) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress)](NoteEmission<NOTE>) -> ()
 where
-    Note: NoteType + Packable<N>,
+    NOTE: NoteType + Packable<N>,
 {
-    |e: NoteEmission<Note>| {
+    |e: NoteEmission<NOTE>| {
         let note = e.note;
         let storage_slot = e.storage_slot;
         let note_hash_counter = e.note_hash_counter;
@@ -447,16 +447,16 @@ where
 // Important note: this function -- although called "unconstrained" -- the
 // function is not labelled as `unconstrained`, because we pass a reference to the
 // context.
-pub fn encode_and_encrypt_note_unconstrained<Note, let N: u32>(
+pub fn encode_and_encrypt_note_unconstrained<NOTE, let N: u32>(
     context: &mut PrivateContext,
     recipient: AztecAddress,
     // We need this because to compute a tagging secret, we require a sender:
     sender: AztecAddress,
-) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress)](NoteEmission<Note>) -> ()
+) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress)](NoteEmission<NOTE>) -> ()
 where
-    Note: NoteType + Packable<N>,
+    NOTE: NoteType + Packable<N>,
 {
-    |e: NoteEmission<Note>| {
+    |e: NoteEmission<NOTE>| {
         let note = e.note;
         let storage_slot = e.storage_slot;
         let note_hash_counter = e.note_hash_counter;

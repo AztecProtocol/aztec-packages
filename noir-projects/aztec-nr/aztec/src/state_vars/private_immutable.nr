@@ -15,7 +15,7 @@ use crate::oracle::notes::check_nullifier_exists;
 use crate::state_vars::storage::Storage;
 
 // docs:start:struct
-pub struct PrivateImmutable<Note, Context> {
+pub struct PrivateImmutable<NOTE, Context> {
     context: Context,
     storage_slot: Field,
 }
@@ -30,7 +30,7 @@ where
     }
 }
 
-impl<Note, Context> PrivateImmutable<Note, Context> {
+impl<NOTE, Context> PrivateImmutable<NOTE, Context> {
     // docs:start:new
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
@@ -52,11 +52,11 @@ impl<Note, Context> PrivateImmutable<Note, Context> {
     }
 }
 
-impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
+impl<NOTE> PrivateImmutable<NOTE, &mut PrivateContext> {
     // docs:start:initialize
-    pub fn initialize<let N: u32>(self, note: Note) -> NoteEmission<Note>
+    pub fn initialize<let N: u32>(self, note: NOTE) -> NoteEmission<NOTE>
     where
-        Note: NoteType + NoteHash + Packable<N>,
+        NOTE: NoteType + NoteHash + Packable<N>,
     {
         // Nullify the storage slot.
         let nullifier = self.compute_initialization_nullifier();
@@ -67,9 +67,9 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     // docs:end:initialize
 
     // docs:start:get_note
-    pub fn get_note<let N: u32>(self) -> Note
+    pub fn get_note<let N: u32>(self) -> NOTE
     where
-        Note: NoteType + NoteHash + Packable<N>,
+        NOTE: NoteType + NoteHash + Packable<N>,
     {
         let storage_slot = self.storage_slot;
         let retrieved_note = get_note(self.context, storage_slot).0;
@@ -82,7 +82,7 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     // docs:end:get_note
 }
 
-impl<Note> PrivateImmutable<Note, UnconstrainedContext> {
+impl<NOTE> PrivateImmutable<NOTE, UnconstrainedContext> {
     // docs:start:is_initialized
     pub unconstrained fn is_initialized(self) -> bool {
         let nullifier = self.compute_initialization_nullifier();
@@ -92,9 +92,9 @@ impl<Note> PrivateImmutable<Note, UnconstrainedContext> {
 
     // view_note does not actually use the context, but it calls oracles that are only available in private
     // docs:start:view_note
-    pub unconstrained fn view_note<let N: u32>(self) -> Note
+    pub unconstrained fn view_note<let N: u32>(self) -> NOTE
     where
-        Note: NoteType + NoteHash + Packable<N>,
+        NOTE: NoteType + NoteHash + Packable<N>,
     {
         let mut options = NoteViewerOptions::new();
         view_notes(self.storage_slot, options.set_limit(1)).get(0)
