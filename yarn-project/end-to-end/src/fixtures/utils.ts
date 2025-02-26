@@ -50,7 +50,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import { type PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';

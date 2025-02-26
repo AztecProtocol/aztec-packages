@@ -5,7 +5,7 @@ import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContractArtifact } from '@aztec/noir-contracts.js/TokenBridge';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractNames, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
 import { FunctionType, decodeFunctionSignature } from '@aztec/stdlib/abi';

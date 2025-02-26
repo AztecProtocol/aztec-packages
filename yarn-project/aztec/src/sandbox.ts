@@ -17,7 +17,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { type LogFn, createLogger } from '@aztec/foundation/log';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';

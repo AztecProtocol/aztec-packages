@@ -6,7 +6,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { writeTestData } from '@aztec/foundation/testing/files';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { mockTx } from '@aztec/stdlib/testing';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
