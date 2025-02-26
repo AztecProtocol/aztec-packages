@@ -1,6 +1,8 @@
 import { createLogger } from '@aztec/foundation/log';
+import type { FunctionArtifact } from '@aztec/stdlib/abi';
 
 import type { ForeignCallInput } from '@noir-lang/acvm_js';
+import { createHash } from 'crypto';
 import fs from 'fs/promises';
 // TODO(benesjan): What about browser?
 import path from 'path';
@@ -14,13 +16,13 @@ import { Oracle } from '../acvm/oracle/oracle.js';
  * If CIRCUIT_RECORD_DIR env var is not set, returns the original callback without recording.
  * @param input Initial witness input to record
  * @param callback The callback to wrap with recording
- * @param circuitName Name of the circuit being executed
+ * @param artifact The artifact of the circuit being executed
  * @returns Promise<ACIRCallback> The wrapped callback that records oracle calls
  */
 export async function setupRecordingIfEnabledAndGetWrappedCallback(
   input: ACVMWitness,
   callback: ACIRCallback,
-  circuitName: string,
+  artifact: FunctionArtifact,
 ): Promise<ACIRCallback> {
   const logger = createLogger('simulator:acvm:recording');
   const recordDir = process.env.CIRCUIT_RECORD_DIR;
@@ -37,8 +39,11 @@ export async function setupRecordingIfEnabledAndGetWrappedCallback(
     return callback;
   }
 
+  // Get the filename as a combination of the artifact name, the bytecode hash and timestamp
+  const bytecodeHash = createHash('md5').update(artifact.bytecode).digest('hex');
   const timestamp = Date.now();
-  const filename = `${circuitName}_${timestamp}.jsonl`;
+  const filename = `${artifact.name}_${bytecodeHash}_${Math.floor(timestamp)}.jsonl`;
+
   const filePath = path.join(recordDir, filename);
   await recordInput(input, filePath, logger);
   return createRecordingCallback(callback, filePath, logger);
