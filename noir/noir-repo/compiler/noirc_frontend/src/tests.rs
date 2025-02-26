@@ -24,9 +24,9 @@ use fm::FileId;
 use iter_extended::vecmap;
 use noirc_errors::{CustomDiagnostic, Location, Span};
 
+use crate::hir::Context;
 use crate::hir::def_collector::dc_crate::CompilationError;
 use crate::hir::def_map::ModuleData;
-use crate::hir::Context;
 use crate::node_interner::{NodeInterner, StmtId};
 
 use crate::hir::def_collector::dc_crate::DefCollector;
@@ -38,7 +38,7 @@ use crate::monomorphization::errors::MonomorphizationError;
 use crate::monomorphization::monomorphize;
 use crate::parser::{ItemKind, ParserErrorReason};
 use crate::token::SecondaryAttribute;
-use crate::{parse_program, ParsedModule};
+use crate::{ParsedModule, parse_program};
 use fm::FileManager;
 use noirc_arena::Arena;
 
