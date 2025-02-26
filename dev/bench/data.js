@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740561674343,
+  "lastUpdate": 1740563539966,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "santiago@aztecprotocol.com",
-            "name": "Santiago Palladino",
-            "username": "spalladino"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b0cdf2019cbf90bed0d57bc1411203267c102578",
-          "message": "chore: Silence warns on invalid bootnode enr (#12135)\n\nIf the bootnode enr is not valid and the node has been instructed to\nskip its check, it will still connect to it and discover peers, but will\nfrequently emit a warning on the logs.\n\nThis silences it.",
-          "timestamp": "2025-02-20T15:14:03Z",
-          "tree_id": "834e1ffd5716f1da47698b9f7a6e40f7b9fd6305",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b0cdf2019cbf90bed0d57bc1411203267c102578"
-        },
-        "date": 1740065957138,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18212.068661000103,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15971.591951999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18787.492907000116,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16342.070103000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3933.419173999937,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3162.4170040000004 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54924.988731,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54924990000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10888.3467,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10888349000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1813094573,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1813094573 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 128771741,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 128771741 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3400,6 +3334,78 @@ window.BENCHMARK_DATA = {
             "value": 134477984,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 134477984 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexghr@users.noreply.github.com",
+            "name": "Alex Gherghisan",
+            "username": "alexghr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f887efc9c47a643e6eba4aaabafdeef46c77ff4a",
+          "message": "fix: prometheus scrapes itself in the cluster (#12277)",
+          "timestamp": "2025-02-26T09:29:17Z",
+          "tree_id": "074d8fd895c0e70cbc13d3444349b8d9d40735ae",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f887efc9c47a643e6eba4aaabafdeef46c77ff4a"
+        },
+        "date": 1740563532851,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18580.484788000147,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16456.434877 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18812.58359000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16570.961467 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3987.7334349996545,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3142.2164980000002 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54997.383904,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54997371000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10217.298942,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10217307000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1821695315,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1821695315 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 136152104,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 136152104 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
