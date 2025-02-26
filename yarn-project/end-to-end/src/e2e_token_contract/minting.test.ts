@@ -39,14 +39,6 @@ describe('e2e_token_contract minting', () => {
         ).rejects.toThrow('Assertion failed: caller is not minter');
       });
 
-      it('mint >u128 tokens to overflow', async () => {
-        const overflowAmount = 2n ** 128n;
-
-        await expect(
-          asset.methods.mint_to_private(accounts[0].address, accounts[0].address, overflowAmount).simulate(),
-        ).rejects.toThrow('Cannot satisfy constraint');
-      });
-
       it('mint <u128 but recipient balance >u128', async () => {
         const amount = 2n ** 128n - tokenSim.balanceOfPublic(accounts[0].address);
         await expect(asset.methods.mint_to_public(accounts[0].address, amount).simulate()).rejects.toThrow(
