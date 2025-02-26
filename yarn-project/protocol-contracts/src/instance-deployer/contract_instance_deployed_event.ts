@@ -1,9 +1,9 @@
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import type { ContractInstanceWithAddress } from '@aztec/circuits.js/contract';
-import { PublicKeys } from '@aztec/circuits.js/keys';
-import type { PrivateLog } from '@aztec/circuits.js/logs';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import { PublicKeys } from '@aztec/stdlib/keys';
+import type { PrivateLog } from '@aztec/stdlib/logs';
 
 import { DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_TAG } from '../protocol_contract_data.js';
 

@@ -11,8 +11,8 @@ key=$(hash_str_orig "$cmd")
 if [ "${USE_TEST_CACHE:-0}" -eq 1 ] && [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   log_key=$(redis_cli GET $key)
   if [ -n "$log_key" ]; then
-    log_info=" ${yellow}$log_key${reset}"
-    echo -e "${blue}SKIPPED${reset}${log_info:-}: $test_cmd"
+    log_info=" (${yellow}http://ci.aztec-labs.com/$log_key${reset})"
+    echo -e "${blue}SKIPPED${reset}${log_info:-}: $cmd"
     exit 0
   fi
 fi
@@ -25,11 +25,20 @@ export VERBOSE=1
 # To ensure we can propagate SIGTERM to timeouts process group we use a temp file and forward the signal.
 set +e
 tmp_file=/tmp/$key
+
+cat <<EOF >$tmp_file
+Command: $cmd
+Commit: https://github.com/AztecProtocol/aztec-packages/commit/$COMMIT_HASH
+Env: REF_NAME=$REF_NAME CURRENT_VERSION=$CURRENT_VERSION CI_FULL=$CI_FULL
+Date: $(date)
+
+EOF
+
 trap "rm -f $tmp_file" EXIT
 if [[ "$test_cmd" = timeout* ]]; then
-  bash -c "set -euo pipefail; $test_cmd 2>&1 | add_timestamps" &> $tmp_file &
+  bash -c "set -euo pipefail; $test_cmd 2>&1 | add_timestamps" &>> $tmp_file &
 else
-  timeout -v 600s bash -c "set -euo pipefail; $test_cmd 2>&1 | add_timestamps" &> $tmp_file &
+  timeout -v 600s bash -c "set -euo pipefail; $test_cmd 2>&1 | add_timestamps" &>> $tmp_file &
 fi
 timeout_pid=$!
 trap "kill -- -$timeout_pid" SIGTERM SIGINT
@@ -45,7 +54,7 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   fi
 
   # Set the test log. This key is globally unique.
-  cat $tmp_file | redis_setexz $log_key 604800
+  cat $tmp_file | redis_setexz $log_key $CI_REDIS_EXPIRE
   log_info=" (${yellow}http://ci.aztec-labs.com/$log_key${reset})"
 fi
 

@@ -24,7 +24,6 @@ telemetry:
   enabled: false
   otelCollectorEndpoint:
   useGcloudLogging: true
-  useGcloudMetrics: false
   excludeMetrics: "system"
 
 images:

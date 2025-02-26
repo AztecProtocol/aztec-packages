@@ -8,7 +8,7 @@ use dep::aztec::{
     },
 };
 use dep::aztec::prelude::{
-    NoteGetterOptions, NoteInterface, NoteViewerOptions, NullifiableNote, PrivateSet, RetrievedNote,
+    NoteGetterOptions, NoteHash, NoteType, NoteViewerOptions, PrivateSet, RetrievedNote,
 };
 
 pub struct BalanceSet<Note, Context> {
@@ -25,14 +25,14 @@ impl<Note, Context> BalanceSet<Note, Context> {
 impl<Note> BalanceSet<Note, UnconstrainedContext> {
     pub unconstrained fn balance_of<let N: u32>(self: Self) -> U128
     where
-        Note: NoteInterface + NullifiableNote + OwnedNote + Packable<N>,
+        Note: NoteType + NoteHash + OwnedNote + Packable<N>,
     {
         self.balance_of_with_offset(0)
     }
 
     pub unconstrained fn balance_of_with_offset<let N: u32>(self: Self, offset: u32) -> U128
     where
-        Note: NoteInterface + NullifiableNote + OwnedNote + Packable<N>,
+        Note: NoteType + NoteHash + OwnedNote + Packable<N>,
     {
         let mut balance = U128::from_integer(0);
         // docs:start:view_notes
@@ -55,7 +55,7 @@ impl<Note> BalanceSet<Note, UnconstrainedContext> {
 impl<Note> BalanceSet<Note, &mut PrivateContext> {
     pub fn add<let N: u32>(self: Self, owner: AztecAddress, addend: U128) -> OuterNoteEmission<Note>
     where
-        Note: NoteInterface + NullifiableNote + OwnedNote + Eq + Packable<N>,
+        Note: NoteType + NoteHash + OwnedNote + Eq + Packable<N>,
     {
         if addend == U128::from_integer(0) {
             OuterNoteEmission::new(Option::none())
@@ -70,7 +70,7 @@ impl<Note> BalanceSet<Note, &mut PrivateContext> {
 
     pub fn sub<let N: u32>(self: Self, owner: AztecAddress, amount: U128) -> OuterNoteEmission<Note>
     where
-        Note: NoteInterface + NullifiableNote + OwnedNote + Eq + Packable<N>,
+        Note: NoteType + NoteHash + OwnedNote + Eq + Packable<N>,
     {
         let subtracted = self.try_sub(amount, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL);
 
@@ -91,7 +91,7 @@ impl<Note> BalanceSet<Note, &mut PrivateContext> {
     // `try_sub` subtracting an amount smaller than `target_amount`.
     pub fn try_sub<let N: u32>(self: Self, target_amount: U128, max_notes: u32) -> U128
     where
-        Note: NoteInterface + NullifiableNote + OwnedNote + Eq + Packable<N>,
+        Note: NoteType + NoteHash + OwnedNote + Eq + Packable<N>,
     {
         // We are using a preprocessor here (filter applied in an unconstrained context) instead of a filter because
         // we do not need to prove correct execution of the preprocessor.
@@ -124,7 +124,7 @@ pub fn preprocess_notes_min_sum<Note>(
     min_sum: U128,
 ) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]
 where
-    Note: NoteInterface + NullifiableNote + OwnedNote,
+    Note: NoteType + NoteHash + OwnedNote,
 {
     let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     let mut sum = U128::from_integer(0);

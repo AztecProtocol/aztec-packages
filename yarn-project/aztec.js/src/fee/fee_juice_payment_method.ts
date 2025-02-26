@@ -1,8 +1,8 @@
-import { type FunctionCall } from '@aztec/circuit-types';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import type { FunctionCall } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { type FeePaymentMethod } from './fee_payment_method.js';
+import type { FeePaymentMethod } from './fee_payment_method.js';
 
 // docs:start:fee_juice_method
 /**

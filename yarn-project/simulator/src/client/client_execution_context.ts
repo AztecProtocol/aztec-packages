@@ -1,38 +1,37 @@
-import {
-  type Capsule,
-  Note,
-  type NoteStatus,
-  PublicExecutionRequest,
-  type UnencryptedL2Log,
-} from '@aztec/circuit-types';
-import { type AuthWitness } from '@aztec/circuit-types/auth-witness';
-import {
-  type AztecNode,
-  CountedContractClassLog,
-  CountedPublicExecutionRequest,
-  NoteAndSlot,
-  type PrivateCallExecutionResult,
-} from '@aztec/circuit-types/interfaces/client';
+import { PRIVATE_CONTEXT_INPUTS_LENGTH, PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
+import { createLogger } from '@aztec/foundation/log';
 import {
   type FunctionAbi,
   type FunctionArtifact,
   FunctionSelector,
   type NoteSelector,
   countArgumentsSize,
-} from '@aztec/circuits.js/abi';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
-import { PrivateContextInputs } from '@aztec/circuits.js/kernel';
-import { type BlockHeader, CallContext, type TxContext } from '@aztec/circuits.js/tx';
-import { PRIVATE_CONTEXT_INPUTS_LENGTH, PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
-import { createLogger } from '@aztec/foundation/log';
+} from '@aztec/stdlib/abi';
+import type { AuthWitness } from '@aztec/stdlib/auth-witness';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { computeUniqueNoteHash, siloNoteHash } from '@aztec/stdlib/hash';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import { PrivateContextInputs } from '@aztec/stdlib/kernel';
+import type { UnencryptedL2Log } from '@aztec/stdlib/logs';
+import { Note, type NoteStatus } from '@aztec/stdlib/note';
+import {
+  type BlockHeader,
+  CallContext,
+  Capsule,
+  CountedContractClassLog,
+  CountedPublicExecutionRequest,
+  NoteAndSlot,
+  PrivateCallExecutionResult,
+  PublicExecutionRequest,
+  type TxContext,
+} from '@aztec/stdlib/tx';
 
 import { type NoteData, toACVMWitness } from '../acvm/index.js';
-import { type HashedValuesCache } from '../common/hashed_values_cache.js';
-import { type SimulationProvider } from '../server.js';
-import { type DBOracle } from './db_oracle.js';
-import { type ExecutionNoteCache } from './execution_note_cache.js';
+import type { HashedValuesCache } from '../common/hashed_values_cache.js';
+import type { SimulationProvider } from '../server.js';
+import type { DBOracle } from './db_oracle.js';
+import type { ExecutionNoteCache } from './execution_note_cache.js';
 import { pickNotes } from './pick_notes.js';
 import { executePrivateFunction, verifyCurrentClassId } from './private_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';

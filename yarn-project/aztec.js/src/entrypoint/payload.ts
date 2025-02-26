@@ -1,15 +1,15 @@
-import { FunctionCall, HashedValues } from '@aztec/circuit-types';
-import { FunctionType } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { type GasSettings } from '@aztec/circuits.js/gas';
 import { GeneratorIndex } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { type Tuple } from '@aztec/foundation/serialize';
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { Tuple } from '@aztec/foundation/serialize';
+import type { FieldsOf } from '@aztec/foundation/types';
+import { FunctionCall, FunctionType } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { GasSettings } from '@aztec/stdlib/gas';
+import { HashedValues } from '@aztec/stdlib/tx';
 
-import { type FeePaymentMethod } from '../fee/fee_payment_method.js';
+import type { FeePaymentMethod } from '../fee/fee_payment_method.js';
 
 /**
  * Fee payment options for a transaction.

@@ -1,7 +1,5 @@
 import { type LogData, type Logger, addLogDataHandler } from '@aztec/foundation/log';
 
-import { MetricExporter as GoogleCloudMetricExporter } from '@google-cloud/opentelemetry-cloud-monitoring-exporter';
-import { TraceExporter as GoogleCloudTraceExporter } from '@google-cloud/opentelemetry-cloud-trace-exporter';
 import {
   DiagConsoleLogger,
   DiagLogLevel,
@@ -16,8 +14,8 @@ import {
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { HostMetrics } from '@opentelemetry/host-metrics';
-import { type IResource } from '@opentelemetry/resources';
-import { type LoggerProvider } from '@opentelemetry/sdk-logs';
+import type { IResource } from '@opentelemetry/resources';
+import type { LoggerProvider } from '@opentelemetry/sdk-logs';
 import {
   ExplicitBucketHistogramAggregation,
   InstrumentType,
@@ -29,12 +27,12 @@ import {
 import { BatchSpanProcessor, NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 
-import { type TelemetryClientConfig } from './config.js';
+import type { TelemetryClientConfig } from './config.js';
 import { EventLoopMonitor } from './event_loop_monitor.js';
 import { OtelFilterMetricExporter } from './otel_filter_metric_exporter.js';
 import { registerOtelLoggerProvider } from './otel_logger_provider.js';
 import { getOtelResource } from './otel_resource.js';
-import { type Gauge, type TelemetryClient } from './telemetry.js';
+import type { Gauge, TelemetryClient } from './telemetry.js';
 
 export type OpenTelemetryClientFactory = (resource: IResource, log: Logger) => OpenTelemetryClient;
 
@@ -173,10 +171,10 @@ export class OpenTelemetryClient implements TelemetryClient {
           instrumentType: InstrumentType.HISTOGRAM,
           instrumentUnit: 'us',
           aggregation: new ExplicitBucketHistogramAggregation(
-            // 1us to 500ms
+            // 1us to 1s
             [
               5, 10, 25, 50, 75, 100, 250, 500, 750, 1_000, 2_500, 5_000, 7_500, 10_000, 25_000, 50_000, 100_000,
-              150_000, 200_000, 500_000,
+              250_000, 500_000, 1_000_000,
             ],
             true,
           ),
@@ -257,25 +255,6 @@ export class OpenTelemetryClient implements TelemetryClient {
     });
   }
 
-  private static getGcloudClientFactory(config: TelemetryClientConfig): OpenTelemetryClientFactory {
-    return (resource: IResource, log: Logger) => {
-      const tracerProvider = new NodeTracerProvider({
-        resource,
-        spanProcessors: [new BatchSpanProcessor(new GoogleCloudTraceExporter({ resourceFilter: /.*/ }))],
-      });
-
-      tracerProvider.register();
-
-      const meterProvider = OpenTelemetryClient.createMeterProvider(resource, {
-        exporter: new OtelFilterMetricExporter(new GoogleCloudMetricExporter(), config.otelExcludeMetrics ?? []),
-        exportTimeoutMillis: config.otelExportTimeoutMs,
-        exportIntervalMillis: config.otelCollectIntervalMs,
-      });
-
-      return new OpenTelemetryClient(resource, meterProvider, tracerProvider, undefined, log);
-    };
-  }
-
   private static getCustomClientFactory(config: TelemetryClientConfig): OpenTelemetryClientFactory {
     return (resource: IResource, log: Logger) => {
       const tracerProvider = new NodeTracerProvider({
@@ -306,9 +285,7 @@ export class OpenTelemetryClient implements TelemetryClient {
 
   public static createAndStart(config: TelemetryClientConfig, log: Logger): OpenTelemetryClient {
     const resource = getOtelResource();
-    const factory = config.useGcloudMetrics
-      ? OpenTelemetryClient.getGcloudClientFactory(config)
-      : OpenTelemetryClient.getCustomClientFactory(config);
+    const factory = OpenTelemetryClient.getCustomClientFactory(config);
 
     const service = factory(resource, log);
     service.start();

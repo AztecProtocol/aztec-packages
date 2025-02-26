@@ -1,5 +1,5 @@
 // docs:start:token_utils
-import { type AztecAddress, type Logger, type Wallet } from '@aztec/aztec.js';
+import type { AztecAddress, Logger, Wallet } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 export async function deployToken(adminWallet: Wallet, initialAdminBalance: bigint, logger: Logger) {

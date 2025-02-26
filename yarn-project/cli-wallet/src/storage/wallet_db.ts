@@ -1,12 +1,12 @@
-import { type TxHash } from '@aztec/circuit-types';
-import { type AuthWitness } from '@aztec/circuit-types/auth-witness';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { GasSettings } from '@aztec/circuits.js/gas';
 import { Fr } from '@aztec/foundation/fields';
-import { type LogFn } from '@aztec/foundation/log';
-import { type AztecAsyncKVStore, type AztecAsyncMap } from '@aztec/kv-store';
+import type { LogFn } from '@aztec/foundation/log';
+import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
+import type { AuthWitness } from '@aztec/stdlib/auth-witness';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { GasSettings } from '@aztec/stdlib/gas';
+import type { TxHash } from '@aztec/stdlib/tx';
 
-import { type AccountType } from '../utils/accounts.js';
+import type { AccountType } from '../utils/accounts.js';
 import { extractECDSAPublicKeyFromBase64String } from '../utils/ecdsa.js';
 
 export const Aliases = ['accounts', 'contracts', 'artifacts', 'secrets', 'transactions', 'authwits'] as const;
