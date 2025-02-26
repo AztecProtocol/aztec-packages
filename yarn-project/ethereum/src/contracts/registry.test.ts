@@ -186,7 +186,7 @@ async function executeGovernanceProposal(
     });
   };
 
-  const cheatCodes = new EthCheatCodes(rpcUrl, logger);
+  const cheatCodes = new EthCheatCodes([rpcUrl], logger);
 
   const timeToActive = proposal.creation + proposal.config.votingDelay;
   logger.info(`Warping to ${timeToActive + 1n}`);
