@@ -31,11 +31,12 @@ class lookup_bc_retrieval_bytecode_hash_is_correct_settings {
     static constexpr Column DST_SELECTOR = Column::bc_hashing_latch;
     static constexpr Column COUNTS = Column::lookup_bc_retrieval_bytecode_hash_is_correct_counts;
     static constexpr Column INVERSES = Column::lookup_bc_retrieval_bytecode_hash_is_correct_inv;
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        Column::bc_retrieval_bytecode_id, Column::bc_retrieval_public_bytecode_commitment
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::bc_retrieval_bytecode_id, ColumnAndShifts::bc_retrieval_public_bytecode_commitment
     };
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::bc_hashing_bytecode_id,
-                                                                           Column::bc_hashing_output_hash };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::bc_hashing_bytecode_id, ColumnAndShifts::bc_hashing_output_hash
+    };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
