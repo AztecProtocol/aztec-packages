@@ -2,7 +2,6 @@ use std::fmt::Display;
 use std::rc::Rc;
 
 use crate::{
-    Type,
     ast::TraitBound,
     hir::{
         def_collector::dc_crate::CompilationError,
@@ -10,6 +9,7 @@ use crate::{
     },
     parser::ParserError,
     signed_field::SignedField,
+    Type,
 };
 use acvm::BlackBoxResolutionError;
 use noirc_errors::{CustomDiagnostic, Location};
@@ -694,40 +694,6 @@ impl<'a> From<&'a InterpreterError> for CustomDiagnostic {
                 let secondary =
                     "This error doesn't happen in normal executions of `nargo`".to_string();
                 CustomDiagnostic::simple_warning(msg, secondary, *location)
-            }
-        }
-    }
-}
-
-/// Comptime errors always wrap another error to show it together with a
-/// comptime call or macro "something" that eventually led to that error.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ComptimeError {
-    ErrorRunningAttribute { error: Box<CompilationError>, location: Location },
-    ErrorAddingItemToModule { error: Box<CompilationError>, location: Location },
-}
-
-impl ComptimeError {
-    pub fn location(&self) -> Location {
-        match self {
-            ComptimeError::ErrorRunningAttribute { location, .. }
-            | ComptimeError::ErrorAddingItemToModule { location, .. } => *location,
-        }
-    }
-}
-
-impl<'a> From<&'a ComptimeError> for CustomDiagnostic {
-    fn from(error: &'a ComptimeError) -> Self {
-        match error {
-            ComptimeError::ErrorRunningAttribute { error, location } => {
-                let mut diagnostic = CustomDiagnostic::from(&**error);
-                diagnostic.add_secondary("While running this function attribute".into(), *location);
-                diagnostic
-            }
-            ComptimeError::ErrorAddingItemToModule { error, location } => {
-                let mut diagnostic = CustomDiagnostic::from(&**error);
-                diagnostic.add_secondary("While interpreting `Module::add_item`".into(), *location);
-                diagnostic
             }
         }
     }
