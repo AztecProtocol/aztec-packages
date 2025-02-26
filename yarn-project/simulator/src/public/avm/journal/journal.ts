@@ -12,9 +12,10 @@ import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
 import type { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { AvmNullifierReadTreeHint, AvmPublicDataReadTreeHint, PublicDataWrite } from '@aztec/stdlib/avm';
+import { AvmPublicDataReadTreeHint, PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type ContractClassIdPreimage, SerializableContractInstance } from '@aztec/stdlib/contract';
+import { SerializableContractInstance } from '@aztec/stdlib/contract';
+import type { ContractClassWithCommitment } from '@aztec/stdlib/contract';
 import {
   computeNoteHashNonce,
   computePublicDataTreeLeafSlot,

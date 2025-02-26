@@ -10,7 +10,7 @@ import type { AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint1 } from '../avm_memory_types.js';
 import { initContext, initPersistableStateManager } from '../fixtures/index.js';
 import type { AvmPersistableStateManager } from '../journal/journal.js';
-import { mockGetContractInstance, mockNullifierExists } from '../test_utils.js';
+import { mockGetContractInstance, mockGetNullifierIndex } from '../test_utils.js';
 import { ContractInstanceMember, GetContractInstance } from './contract.js';
 
 describe('Contract opcodes', () => {

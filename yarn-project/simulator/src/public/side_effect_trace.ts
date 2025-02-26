@@ -22,7 +22,7 @@ import {
   AvmAccumulatedData,
   AvmAppendTreeHint,
   AvmCircuitPublicInputs,
-  AvmContractBytecodeHints,
+  AvmContractClassHint,
   AvmContractInstanceHint,
   AvmEnqueuedCallHint,
   AvmExecutionHints,
@@ -34,7 +34,7 @@ import {
   PublicDataWrite,
 } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type ContractClassIdPreimage, SerializableContractInstance } from '@aztec/stdlib/contract';
+import { type ContractClassWithCommitment, SerializableContractInstance } from '@aztec/stdlib/contract';
 import type { Gas, GasSettings } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import {
@@ -379,7 +379,11 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
   }
 
   public traceGetContractClass(contractClassId: Fr, exists: boolean, contractClass?: ContractClassWithCommitment) {
-    if (!this.uniqueClassIds.has(contractClassId.toString())) {
+    if (!exists) {
+      this.avmCircuitHints.contractClasses.items.push(
+        new AvmContractClassHint(contractClassId, exists, Fr.zero(), Fr.zero(), Fr.zero(), Buffer.alloc(0)),
+      );
+    } else if (!this.uniqueClassIds.has(contractClassId.toString())) {
       if (this.uniqueClassIds.size() >= MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS) {
         this.log.debug(`Bytecode retrieval failure for contract class ID ${contractClassId} (limit reached)`);
         throw new SideEffectLimitReachedError(
@@ -393,12 +397,13 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
         new AvmContractClassHint(
           contractClassId,
           exists,
-          exists ? contractClass!.artifactHash : Fr.zero(),
-          exists ? contractClass!.privateFunctionsRoot : Fr.zero(),
-          exists ? contractClass!.publicBytecodeCommitment : Fr.zero(),
-          exists ? contractClass!.packedBytecode : Buffer.alloc(0),
+          contractClass!.artifactHash,
+          contractClass!.privateFunctionsRoot,
+          contractClass!.publicBytecodeCommitment,
+          contractClass!.packedBytecode,
         ),
       );
+
       this.incrementSideEffectCounter();
     }
   }

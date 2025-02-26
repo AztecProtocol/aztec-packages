@@ -13,7 +13,7 @@ import type { Fieldable } from '@aztec/foundation/serialize';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { SerializableContractInstance } from '@aztec/stdlib/contract';
+import { SerializableContractInstance, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
 import {
   computeNoteHashNonce,
