@@ -77,6 +77,9 @@ namespace scalar_mul;
     // not_end = sel & !end
     not_end - sel * (1 - end) = 0;
 
+    // Double check: sel = not_end | end
+    end + not_end - sel = 0;
+
 
     // Input consistency
 
