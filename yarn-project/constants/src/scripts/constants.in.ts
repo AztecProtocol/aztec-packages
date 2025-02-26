@@ -156,6 +156,18 @@ const PIL_CONSTANTS = [
   'MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS',
 ];
 
+const PIL_GENERATORS: string[] = [
+  'PARTIAL_ADDRESS',
+  'CONTRACT_ADDRESS_V1',
+  'CONTRACT_LEAF',
+  'PUBLIC_KEYS_HASH',
+  'NOTE_HASH_NONCE',
+  'UNIQUE_NOTE_HASH',
+  'SILOED_NOTE_HASH',
+  'OUTER_NULLIFIER',
+  'PUBLIC_LEAF_INDEX',
+];
+
 /**
  * Parsed content.
  */
@@ -217,13 +229,22 @@ function processConstantsCpp(
  * @param constants - An object containing key-value pairs representing constants.
  * @returns A string containing code that exports the constants as cpp constants.
  */
-function processConstantsPil(constants: { [key: string]: string }): string {
+function processConstantsPil(
+  constants: { [key: string]: string },
+  generatorIndices: { [key: string]: number },
+): string {
   const code: string[] = [];
   Object.entries(constants).forEach(([key, value]) => {
     if (PIL_CONSTANTS.includes(key)) {
       code.push(`    pol ${key} = ${value};`);
     }
   });
+  Object.entries(generatorIndices).forEach(([key, value]) => {
+    if (PIL_GENERATORS.includes(key)) {
+      code.push(`    pol GENERATOR_INDEX__${key} = ${value};`);
+    }
+  });
+
   return code.join('\n');
 }
 /**
@@ -293,10 +314,10 @@ ${processConstantsCpp(constants, generatorIndexEnum)}
 /**
  * Generate the constants file in PIL.
  */
-function generatePilConstants({ constants }: ParsedContent, targetPath: string) {
+function generatePilConstants({ constants, generatorIndexEnum }: ParsedContent, targetPath: string) {
   const resultPil: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
 namespace constants;
-${processConstantsPil(constants)}
+${processConstantsPil(constants, generatorIndexEnum)}
 \n`;
 
   fs.writeFileSync(targetPath, resultPil);

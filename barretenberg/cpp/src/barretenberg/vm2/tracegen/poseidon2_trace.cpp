@@ -291,8 +291,8 @@ void Poseidon2TraceBuilder::process_hash(
         auto num_perm_events = (input_size / 3) + static_cast<size_t>(input_size % 3 != 0);
         auto padded_size = 3 * ((event.inputs.size() + 2) / 3);
 
-        std::array<FF, 3> perm_input = { 0, 0, 0 };
         for (size_t i = 0; i < num_perm_events; i++) {
+            std::array<FF, 3> perm_input = { 0, 0, 0 };
             auto perm_state = event.intermediate_states[i];
             auto perm_output = event.intermediate_states[i + 1];
             size_t chunk_size = std::min(input_size, static_cast<size_t>(3));
