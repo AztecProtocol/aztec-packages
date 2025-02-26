@@ -584,11 +584,9 @@ TEST(ScalarMulConstrainingTest, NegativeMulAddInteractions)
     tracegen::EccTraceBuilder builder;
     builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
 
-    std::cout << "looking for double relation" << std::endl;
     EXPECT_THROW_WITH_MESSAGE(
         LookupIntoDynamicTableGeneric<lookup_scalar_mul_double_relation::Settings>().process(trace),
         "Failed.*SCALAR_MUL_DOUBLE. Could not find tuple in destination.");
-    std::cout << "looking for add relation" << std::endl;
     EXPECT_THROW_WITH_MESSAGE(LookupIntoDynamicTableGeneric<lookup_scalar_mul_add_relation::Settings>().process(trace),
                               "Failed.*SCALAR_MUL_ADD. Could not find tuple in destination.");
 
