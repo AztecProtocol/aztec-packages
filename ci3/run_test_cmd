@@ -87,11 +87,9 @@ function flake {
   echo -e "${purple}FLAKED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
 
   # Send slack message to owners.
-  slack_users=$(curl -s -X GET https://slack.com/api/users.list -H "Authorization: Bearer $SLACK_BOT_TOKEN")
   slack_uids=""
-  for email in $owners; do
-    uid=$(echo "$slack_users" | jq -r --arg email "$email" '.members[] | select(.profile.email == $email) | .id')
-    [ -n "$uid" ] && slack_uids+="<@$uid> "
+  for uid in $owners; do
+    slack_uids+="<@$uid> "
   done
   read -r -d '' data <<EOF
   {
