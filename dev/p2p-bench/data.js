@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740596534752,
+  "lastUpdate": 1740598523828,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "P2P Testbench": [
@@ -1849,6 +1849,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "normal-degree-50-nodes - medianDelay",
             "value": 763,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47148561+Maddiaa0@users.noreply.github.com",
+            "name": "Maddiaa",
+            "username": "Maddiaa0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2e7b2da5e501bc53c6e5b7d2b7e1ebcf8b24bb57",
+          "message": "fix(e2e): p2p_reqresp (#12297)",
+          "timestamp": "2025-02-26T19:05:13Z",
+          "tree_id": "210d9d8fdf8dd792fd4e69f1a3eaa569edd6f10c",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2e7b2da5e501bc53c6e5b7d2b7e1ebcf8b24bb57"
+        },
+        "date": 1740598522897,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "degree-1-strict - numberReceived",
+            "value": 1,
+            "unit": "ms"
+          },
+          {
+            "name": "degree-1-strict - minDelay",
+            "value": 1524,
+            "unit": "ms"
+          },
+          {
+            "name": "degree-1-strict - maxDelay",
+            "value": 1524,
+            "unit": "ms"
+          },
+          {
+            "name": "degree-1-strict - averageDelay",
+            "value": 1524,
+            "unit": "ms"
+          },
+          {
+            "name": "degree-1-strict - medianDelay",
+            "value": 1524,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-100-nodes - numberReceived",
+            "value": 18,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-100-nodes - minDelay",
+            "value": 140,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-100-nodes - maxDelay",
+            "value": 12981,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-100-nodes - averageDelay",
+            "value": 6879.89,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-100-nodes - medianDelay",
+            "value": 6577,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - numberReceived",
+            "value": 49,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - minDelay",
+            "value": 269,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - maxDelay",
+            "value": 8038,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - averageDelay",
+            "value": 1938.8,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - medianDelay",
+            "value": 634,
             "unit": "ms"
           }
         ]
