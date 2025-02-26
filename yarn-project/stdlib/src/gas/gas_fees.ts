@@ -91,14 +91,7 @@ export class GasFees {
     return serializeToFields(this.feePerDaGas, this.feePerL2Gas);
   }
 
-  toInspect() {
-    return {
-      feePerDaGas: this.feePerDaGas.toNumberUnsafe(),
-      feePerL2Gas: this.feePerL2Gas.toNumberUnsafe(),
-    };
-  }
-
   [inspect.custom]() {
-    return `GasFees { feePerDaGas=${this.feePerDaGas.toBigInt()} feePerL2Gas=${this.feePerL2Gas.toBigInt()} }`;
+    return `GasFees { feePerDaGas=${this.feePerDaGas} feePerL2Gas=${this.feePerL2Gas} }`;
   }
 }
