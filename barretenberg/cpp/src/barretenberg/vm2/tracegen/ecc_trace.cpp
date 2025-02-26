@@ -112,9 +112,9 @@ void EccTraceBuilder::process_scalar_mul(
             if (is_start) {
                 ASSERT(state.res == event.result);
             }
-            auto res = point_to_standard_form(state.res);
+            AffinePointStandard res = point_to_standard_form(state.res);
 
-            auto temp = point_to_standard_form(state.temp);
+            AffinePointStandard temp = point_to_standard_form(state.temp);
             bool bit = state.bit;
 
             trace.set(row,
