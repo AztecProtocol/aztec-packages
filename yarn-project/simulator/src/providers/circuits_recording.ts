@@ -1,5 +1,5 @@
 import { createLogger } from '@aztec/foundation/log';
-import type { FunctionArtifact } from '@aztec/stdlib/abi';
+import type { FunctionArtifactWithContractName } from '@aztec/stdlib/abi';
 
 import type { ForeignCallInput } from '@noir-lang/acvm_js';
 import { createHash } from 'crypto';
@@ -22,7 +22,7 @@ import { Oracle } from '../acvm/oracle/oracle.js';
 export async function setupRecordingIfEnabledAndGetWrappedCallback(
   input: ACVMWitness,
   callback: ACIRCallback,
-  artifact: FunctionArtifact,
+  artifact: FunctionArtifactWithContractName,
 ): Promise<ACIRCallback> {
   const logger = createLogger('simulator:acvm:recording');
   const recordDir = process.env.CIRCUIT_RECORD_DIR;
@@ -39,10 +39,10 @@ export async function setupRecordingIfEnabledAndGetWrappedCallback(
     return callback;
   }
 
-  // Get the filename as a combination of the artifact name, the bytecode hash and timestamp
+  // Get the filename as a combination of timestamp, the contract name, function name and the bytecode hash
   const bytecodeHash = createHash('md5').update(artifact.bytecode).digest('hex');
   const timestamp = Date.now();
-  const filename = `${artifact.name}_${bytecodeHash}_${Math.floor(timestamp)}.jsonl`;
+  const filename = `${Math.floor(timestamp)}_${artifact.contractName}_${artifact.name}_${bytecodeHash}.jsonl`;
 
   const filePath = path.join(recordDir, filename);
   await recordInput(input, filePath, logger);

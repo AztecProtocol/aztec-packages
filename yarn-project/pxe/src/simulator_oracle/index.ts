@@ -18,6 +18,7 @@ import {
 } from '@aztec/simulator/client';
 import {
   type FunctionArtifact,
+  type FunctionArtifactWithContractName,
   FunctionCall,
   FunctionSelector,
   FunctionType,
@@ -116,7 +117,10 @@ export class SimulatorOracle implements DBOracle {
     }));
   }
 
-  async getFunctionArtifact(contractAddress: AztecAddress, selector: FunctionSelector): Promise<FunctionArtifact> {
+  async getFunctionArtifact(
+    contractAddress: AztecAddress,
+    selector: FunctionSelector,
+  ): Promise<FunctionArtifactWithContractName> {
     const artifact = await this.contractDataOracle.getFunctionArtifact(contractAddress, selector);
     const debug = await this.contractDataOracle.getFunctionDebugMetadata(contractAddress, selector);
     return {
@@ -128,7 +132,7 @@ export class SimulatorOracle implements DBOracle {
   async getFunctionArtifactByName(
     contractAddress: AztecAddress,
     functionName: string,
-  ): Promise<FunctionArtifact | undefined> {
+  ): Promise<FunctionArtifactWithContractName | undefined> {
     const instance = await this.contractDataOracle.getContractInstance(contractAddress);
     const artifact = await this.contractDataOracle.getContractArtifact(instance.currentContractClassId);
     return artifact && getFunctionArtifact(artifact, functionName);

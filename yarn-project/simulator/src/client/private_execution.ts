@@ -3,7 +3,12 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { type FunctionArtifact, type FunctionSelector, countArgumentsSize } from '@aztec/stdlib/abi';
+import {
+  type FunctionArtifact,
+  type FunctionArtifactWithContractName,
+  type FunctionSelector,
+  countArgumentsSize,
+} from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstance } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
@@ -24,7 +29,7 @@ import type { ClientExecutionContext } from './client_execution_context.js';
 export async function executePrivateFunction(
   simulator: SimulationProvider,
   context: ClientExecutionContext,
-  artifact: FunctionArtifact,
+  artifact: FunctionArtifactWithContractName,
   contractAddress: AztecAddress,
   functionSelector: FunctionSelector,
   log = createLogger('simulator:private_execution'),

@@ -1,6 +1,6 @@
 import { createLogger } from '@aztec/foundation/log';
 import { foreignCallHandler } from '@aztec/noir-protocol-circuits-types/client';
-import type { FunctionArtifact } from '@aztec/stdlib/abi';
+import type { FunctionArtifactWithContractName } from '@aztec/stdlib/abi';
 import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
 
 import initACVM, { type ExecutionError, executeCircuit } from '@noir-lang/acvm_js';
@@ -59,7 +59,7 @@ export class WASMSimulator implements SimulationProvider {
 
   async executeUserCircuit(
     input: ACVMWitness,
-    artifact: FunctionArtifact,
+    artifact: FunctionArtifactWithContractName,
     callback: ACIRCallback,
   ): Promise<ACIRExecutionResult> {
     await this.init();
