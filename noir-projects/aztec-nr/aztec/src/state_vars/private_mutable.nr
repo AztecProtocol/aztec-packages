@@ -8,7 +8,7 @@ use crate::note::{
     lifecycle::{create_note, destroy_note_unsafe},
     note_emission::NoteEmission,
     note_getter::{get_note, view_notes},
-    note_interface::{NoteInterface, NullifiableNote},
+    note_interface::{NoteHash, NoteType},
     note_viewer_options::NoteViewerOptions,
 };
 use crate::note::retrieved_note::RetrievedNote;
@@ -59,7 +59,7 @@ impl<Note, Context> PrivateMutable<Note, Context> {
 
 impl<Note, let N: u32> PrivateMutable<Note, &mut PrivateContext>
 where
-    Note: NoteInterface + NullifiableNote + Packable<N>,
+    Note: NoteType + NoteHash + Packable<N>,
 {
     // docs:start:initialize
     pub fn initialize(self, note: Note) -> NoteEmission<Note> {
@@ -127,7 +127,7 @@ where
 
 impl<Note, let N: u32> PrivateMutable<Note, UnconstrainedContext>
 where
-    Note: NoteInterface + NullifiableNote + Packable<N>,
+    Note: NoteType + NoteHash + Packable<N>,
 {
     pub unconstrained fn is_initialized(self) -> bool {
         let nullifier = self.compute_initialization_nullifier();

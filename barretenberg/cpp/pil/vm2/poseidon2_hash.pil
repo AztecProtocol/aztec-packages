@@ -67,21 +67,20 @@ namespace poseidon2_hash;
     // The permutation output values are represented by b_0, b_1, b_2, b_3
     // This most definitely could be simplified to a lower degree check
     // The next perm input is constrained to be the previous perm output + the new values to be hashed if we
-    // are not at the start or the end of hashing
-    pol NEXT_INPUT_IS_PREV_OUTPUT_SEL = (1 - LATCH_CONDITION) * (1 - start);
+    // are not at the end of hashing
     pol commit a_0;
     pol commit a_1;
     pol commit a_2;
     pol commit a_3;
 
     sel * start * (a_0 - input_0) = 0;
-    sel * NEXT_INPUT_IS_PREV_OUTPUT_SEL * (a_0' - b_0 - input_0') = 0;
+    sel * (1 - LATCH_CONDITION) * (a_0' - b_0 - input_0') = 0;
     sel * start * (a_1 - input_1) = 0;
-    sel * NEXT_INPUT_IS_PREV_OUTPUT_SEL * (a_1' - b_1 - input_1') = 0;
+    sel * (1 - LATCH_CONDITION) * (a_1' - b_1 - input_1') = 0;
     sel * start * (a_2 - input_2) = 0;
-    sel * NEXT_INPUT_IS_PREV_OUTPUT_SEL * (a_2' - b_2 - input_2') = 0;
+    sel * (1 - LATCH_CONDITION) * (a_2' - b_2 - input_2') = 0;
     sel * start * (a_3 - IV) = 0; // IV is placed in the last slot if this is the start
-    sel * NEXT_INPUT_IS_PREV_OUTPUT_SEL * (a_3' - b_3) = 0;
+    sel * (1 - LATCH_CONDITION) * (a_3' - b_3) = 0;
 
     // The Hash output value represented by b_0
     pol commit b_0;

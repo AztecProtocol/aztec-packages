@@ -73,7 +73,6 @@ library Errors {
   error Rollup__TryingToProveNonExistingBlock(); // 0x34ef4954
   error Rollup__UnavailableTxs(bytes32 txsHash); // 0x414906c3
   error Rollup__NonZeroDaFee(); // 0xd9c75f52
-  error Rollup__NonZeroL2Fee(); // 0x7e728abc
   error Rollup__InvalidBasisPointFee(uint256 basisPointFee); // 0x4292d136
   error Rollup__InvalidManaBaseFee(uint256 expected, uint256 actual); // 0x73b6d896
   error Rollup__StartAndEndNotSameEpoch(Epoch start, Epoch end);
@@ -82,6 +81,7 @@ library Errors {
   error Rollup__AlreadyClaimed(address prover, Epoch epoch);
   error Rollup__NotPastDeadline(Slot deadline, Slot currentSlot);
   error Rollup__PastDeadline(Slot deadline, Slot currentSlot);
+  error Rollup__ProverHaveAlreadySubmitted(address prover, Epoch epoch);
 
   // HeaderLib
   error HeaderLib__InvalidHeaderSize(uint256 expected, uint256 actual); // 0xf3ccb247

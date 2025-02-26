@@ -17,9 +17,9 @@ import {
 } from 'viem';
 
 import { createEthereumChain } from '../chain.js';
-import { type DeployL1Contracts } from '../deploy_l1_contracts.js';
-import { type L1ContractAddresses } from '../l1_contract_addresses.js';
-import { type L1ReaderConfig } from '../l1_reader.js';
+import type { DeployL1Contracts } from '../deploy_l1_contracts.js';
+import type { L1ContractAddresses } from '../l1_contract_addresses.js';
+import type { L1ReaderConfig } from '../l1_reader.js';
 import { formatViemError } from '../utils.js';
 import { SlashingProposerContract } from './slashing_proposer.js';
 
@@ -62,7 +62,10 @@ export class RollupContract {
     return new RollupContract(client, address);
   }
 
-  constructor(public readonly client: PublicClient<HttpTransport, Chain>, address: Hex) {
+  constructor(public readonly client: PublicClient<HttpTransport, Chain>, address: Hex | EthAddress) {
+    if (address instanceof EthAddress) {
+      address = address.toString();
+    }
     this.rollup = getContract({ address, abi: RollupAbi, client });
   }
 
@@ -186,11 +189,11 @@ export class RollupContract {
       stakingAssetAddress,
     ] = (
       await Promise.all([
-        this.rollup.read.INBOX(),
-        this.rollup.read.OUTBOX(),
-        this.rollup.read.FEE_JUICE_PORTAL(),
-        this.rollup.read.REWARD_DISTRIBUTOR(),
-        this.rollup.read.ASSET(),
+        this.rollup.read.getInbox(),
+        this.rollup.read.getOutbox(),
+        this.rollup.read.getFeeAssetPortal(),
+        this.rollup.read.getRewardDistributor(),
+        this.rollup.read.getFeeAsset(),
         this.rollup.read.getStakingAsset(),
       ] as const)
     ).map(EthAddress.fromString);

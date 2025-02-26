@@ -24,6 +24,8 @@ static constexpr uint32_t MASKING_OFFSET = 4;
 // For ZK Flavors: the number of the commitments required by Libra and SmallSubgroupIPA.
 static constexpr uint32_t NUM_LIBRA_COMMITMENTS = 3;
 static constexpr uint32_t NUM_LIBRA_EVALUATIONS = 4;
+
+static constexpr uint32_t MERGE_PROOF_SIZE = 65; // used to ensure mock proofs are generated correctly
 // There are 5 distinguished wires in ECCVM that have to be opened as univariates to establish the connection between
 // ECCVM and Translator
 static constexpr uint32_t NUM_TRANSLATION_EVALUATIONS = 5;

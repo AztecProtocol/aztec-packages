@@ -1,7 +1,7 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
-import { type EthAddress } from '@aztec/foundation/eth-address';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { deployAztecContracts } from '../../utils/aztec.js';
@@ -58,6 +58,6 @@ export async function deployL1Contracts(
     log(`RewardDistributor Address: ${l1ContractAddresses.rewardDistributorAddress.toString()}`);
     log(`GovernanceProposer Address: ${l1ContractAddresses.governanceProposerAddress.toString()}`);
     log(`Governance Address: ${l1ContractAddresses.governanceAddress.toString()}`);
-    log(`SlashFactory Address: ${l1ContractAddresses.slashFactoryAddress.toString()}`);
+    log(`SlashFactory Address: ${l1ContractAddresses.slashFactoryAddress?.toString()}`);
   }
 }

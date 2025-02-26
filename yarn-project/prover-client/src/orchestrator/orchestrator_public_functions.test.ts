@@ -1,9 +1,9 @@
-import { mockTx } from '@aztec/circuit-types/testing';
 import { createLogger } from '@aztec/foundation/log';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { mockTx } from '@aztec/stdlib/testing';
 
 import TOML from '@iarna/toml';
 

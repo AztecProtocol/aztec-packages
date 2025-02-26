@@ -23,6 +23,7 @@ function test_cmds {
   echo "$prefix simple e2e_amm"
   echo "$prefix simple e2e_authwit"
   echo "$prefix simple e2e_avm_simulator"
+  echo "$prefix simple e2e_contract_updates"
 
   # blacklist_token_contract sub-tests
   echo "$prefix simple e2e_blacklist_token_contract/access_control"
@@ -52,6 +53,7 @@ function test_cmds {
   echo "$prefix simple e2e_epochs/epochs_empty_blocks"
   echo "$prefix simple e2e_epochs/epochs_multi_proof"
   echo "$prefix simple e2e_epochs/epochs_proof_fails"
+  echo "$prefix simple e2e_epochs/epochs_sync_after_reorg"
   echo "$prefix simple e2e_escrow_contract"
   echo "$prefix simple e2e_event_logs"
 

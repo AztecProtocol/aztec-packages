@@ -1,5 +1,5 @@
 import { EthCheatCodes, RollupCheatCodes, createPXEClient, makeFetch } from '@aztec/aztec.js';
-import { type LogFn } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
 
 export async function assumeProvenThrough(
   blockNumberOrLatest: number | undefined,

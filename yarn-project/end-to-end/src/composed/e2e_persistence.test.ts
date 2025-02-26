@@ -1,13 +1,13 @@
 import { getSchnorrAccount, getSchnorrWallet } from '@aztec/accounts/schnorr';
 import { type InitialAccountData, deployFundedSchnorrAccount } from '@aztec/accounts/testing';
 import { type AccountWallet, type ContractInstanceWithAddress, type TxHash, computeSecretHash } from '@aztec/aztec.js';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { MAX_NOTE_HASHES_PER_TX } from '@aztec/constants';
-import { type DeployL1Contracts } from '@aztec/ethereum';
+import type { DeployL1Contracts } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 // We use TokenBlacklist because we want to test the persistence of manually added notes and standard token no longer
 // implements TransparentNote shield flow.
 import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { jest } from '@jest/globals';
 import { mkdtemp } from 'fs/promises';
@@ -347,7 +347,7 @@ async function addPendingShieldNoteToPXE(
   await contract.methods
     .deliver_transparent_note(
       contract.address,
-      new Fr(amount),
+      amount,
       secretHash,
       txHash.hash,
       toBoundedVec(txEffects!.data.noteHashes, MAX_NOTE_HASHES_PER_TX),

@@ -147,8 +147,8 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
 
             let get_note_type_id = get_trait_impl_method(
                 typ,
-                quote { crate::note::note_interface::NoteInterface },
-                quote { get_note_type_id },
+                quote { crate::note::note_interface::NoteType },
+                quote { get_id },
             );
             let unpack = get_trait_impl_method(
                 typ,

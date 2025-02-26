@@ -1,3 +1,5 @@
+#!/bin/sh
+# The shebang above is simply to get vscode to colorize.
 # This file provides a centralized location to track all disabled tests, usually because they're flakey.
 # Be careful editing this file!
 # Validate you get expected results with diffs or e.g: ./bootstrap.sh test-cmds | wc -l
@@ -80,11 +82,11 @@ e2e_prover/full fake
 #     45 |     switch (abiType.kind) {
 #     46 |       case 'field':
 #
-#     at ArgumentEncoder.encodeArgument (../../foundation/src/abi/encoder.ts:43:13)
-#     at ArgumentEncoder.encode (../../foundation/src/abi/encoder.ts:137:12)
-#     at encodeArguments (../../foundation/src/abi/encoder.ts:150:41)
-#     at computeInitializationHash (../../circuits.js/src/contract/contract_address.ts:75:20)
-#     at getContractInstanceFromDeployParams (../../circuits.js/src/contract/contract_instance.ts:124:9)
+#     at ArgumentEncoder.encodeArgument (../../stdlib/src/abi/encoder.ts:43:13)
+#     at ArgumentEncoder.encode (../../stdlib/src/abi/encoder.ts:137:12)
+#     at encodeArguments (../../stdlib/src/abi/encoder.ts:150:41)
+#     at computeInitializationHash (../../stdlib/src/contract/contract_address.ts:75:20)
+#     at getContractInstanceFromDeployParams (../../stdlib/src/contract/contract_instance.ts:124:9)
 #     at Object.getContractInstanceFromDeployParams (flakey_e2e_inclusion_proofs_contract.test.ts:275:24)
 simple flakey_e2e_inclusion_proofs_contract
 
@@ -103,8 +105,6 @@ p2p/src/services/reqresp/reqresp.test.ts
 prover-client/src/proving_broker/broker_prover_facade.test.ts
 prover-client/src/orchestrator/orchestrator_errors.test.ts
 sequencer-client/src/slasher/slasher_client.test.ts
-# Terrible test. Tiny sleeps everywhere. Total flake. Probably delete.
-foundation/src/promise/running-promise.test.ts
 # This has recently started to hit p2p drop issues.
 spartan/bootstrap.sh test-kind-4epochs
 # Hit issues, see https://github.com/AztecProtocol/aztec-packages/actions/runs/13316358796

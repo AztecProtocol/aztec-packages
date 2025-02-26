@@ -25,7 +25,7 @@ import {
 import ContactsIcon from "@mui/icons-material/Contacts";
 import { CopyToClipboardButton } from "../common/copyToClipboardButton";
 import { AddSendersDialog } from "./components/addSenderDialog";
-import { deriveSigningKey } from "@aztec/circuits.js/keys";
+import { deriveSigningKey } from "@aztec/stdlib/keys";
 import { TxsPanel } from "./components/txsPanel";
 import { AddNetworksDialog } from "./components/addNetworkDialog";
 

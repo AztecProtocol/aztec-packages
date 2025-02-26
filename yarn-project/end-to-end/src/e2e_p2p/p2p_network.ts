@@ -1,9 +1,8 @@
 import { getSchnorrWalletWithSecretKey } from '@aztec/accounts/schnorr';
-import { type InitialAccountData } from '@aztec/accounts/testing';
-import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
-import { type AccountWalletWithSecretKey } from '@aztec/aztec.js';
+import type { InitialAccountData } from '@aztec/accounts/testing';
+import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import type { AccountWalletWithSecretKey } from '@aztec/aztec.js';
 import { ChainMonitor } from '@aztec/aztec.js/ethereum';
-import { type PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { RollupContract, getExpectedAddress, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
@@ -12,6 +11,7 @@ import { ForwarderAbi, ForwarderBytecode, RollupAbi, TestERC20Abi } from '@aztec
 import { SpamContract } from '@aztec/noir-contracts.js/Spam';
 import type { BootstrapNode } from '@aztec/p2p/bootstrap';
 import { createBootstrapNodeFromPrivateKey, getBootstrapNodeEnr } from '@aztec/p2p/test-helpers';
+import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import getPort from 'get-port';

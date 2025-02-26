@@ -47,10 +47,6 @@ import {
   sleep,
 } from '@aztec/aztec.js';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
-// eslint-disable-next-line no-restricted-imports
-import { L2Block } from '@aztec/circuit-types';
-import { tryStop } from '@aztec/circuit-types/interfaces/server';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
   GovernanceProposerContract,
@@ -65,8 +61,11 @@ import { RollupAbi } from '@aztec/l1-artifacts';
 import { SchnorrHardcodedAccountContract } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
 import { SpamContract } from '@aztec/noir-contracts.js/Spam';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { type PXEService } from '@aztec/pxe';
+import type { PXEService } from '@aztec/pxe';
 import { SequencerPublisher } from '@aztec/sequencer-client';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { L2Block } from '@aztec/stdlib/block';
+import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import * as fs from 'fs';

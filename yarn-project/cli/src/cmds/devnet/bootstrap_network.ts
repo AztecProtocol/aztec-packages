@@ -19,7 +19,7 @@ import {
   createL1Clients,
   deployL1Contract,
 } from '@aztec/ethereum';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 
 import { getContract } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';

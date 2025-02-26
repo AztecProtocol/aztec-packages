@@ -1,6 +1,6 @@
 import { MAXIMUM_KEY, fromBufferKey, toBufferKey } from 'ordered-binary';
 
-import { type Key } from '../interfaces/common.js';
+import type { Key } from '../interfaces/common.js';
 
 type Cmp<T> = (a: T, b: T) => -1 | 0 | 1;
 

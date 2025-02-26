@@ -533,7 +533,7 @@ class ECCVMFlavor {
         {
             // compute rows for the three different sections of the ECCVM execution trace
             const auto transcript_rows =
-                ECCVMTranscriptBuilder::compute_rows(builder.op_queue->get_raw_ops(), builder.get_number_of_muls());
+                ECCVMTranscriptBuilder::compute_rows(builder.op_queue->get_eccvm_ops(), builder.get_number_of_muls());
             const std::vector<MSM> msms = builder.get_msms();
             const auto point_table_rows =
                 ECCVMPointTablePrecomputationBuilder::compute_rows(CircuitBuilder::get_flattened_scalar_muls(msms));

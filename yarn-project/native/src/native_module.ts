@@ -1,6 +1,6 @@
 import bindings from 'bindings';
 
-import { type MessageReceiver } from './msgpack_channel.js';
+import type { MessageReceiver } from './msgpack_channel.js';
 
 interface NativeClassCtor {
   new (...args: unknown[]): MessageReceiver;

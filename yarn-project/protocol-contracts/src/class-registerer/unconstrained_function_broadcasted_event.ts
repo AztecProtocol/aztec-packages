@@ -1,5 +1,3 @@
-import { FunctionSelector, bufferFromFields } from '@aztec/circuits.js/abi';
-import { type UnconstrainedFunction, type UnconstrainedFunctionWithMembershipProof } from '@aztec/circuits.js/contract';
 import {
   ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
   MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS,
@@ -8,6 +6,8 @@ import {
 import { removeArrayPaddingEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple } from '@aztec/foundation/serialize';
+import { FunctionSelector, bufferFromFields } from '@aztec/stdlib/abi';
+import type { UnconstrainedFunction, UnconstrainedFunctionWithMembershipProof } from '@aztec/stdlib/contract';
 
 import chunk from 'lodash.chunk';
 

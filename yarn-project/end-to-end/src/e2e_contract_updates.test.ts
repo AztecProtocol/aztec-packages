@@ -1,20 +1,16 @@
 import { getSchnorrAccountContractAddress } from '@aztec/accounts/schnorr';
 import { Fr, type Wallet, getContractClassFromArtifact } from '@aztec/aztec.js';
 import { registerContractClass } from '@aztec/aztec.js/deployment';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { getContractInstanceFromDeployParams } from '@aztec/circuits.js/contract';
-import { computePublicDataTreeLeafSlot, deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
-import { deriveSigningKey } from '@aztec/circuits.js/keys';
-import {
-  ScheduledDelayChange,
-  ScheduledValueChange,
-  SharedMutableValuesWithHash,
-} from '@aztec/circuits.js/shared-mutable';
-import { PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { MINIMUM_UPDATE_DELAY, UPDATED_CLASS_IDS_SLOT } from '@aztec/constants';
 import { UpdatableContract } from '@aztec/noir-contracts.js/Updatable';
 import { UpdatedContract, UpdatedContractArtifact } from '@aztec/noir-contracts.js/Updated';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
+import { computePublicDataTreeLeafSlot, deriveStorageSlotInMap } from '@aztec/stdlib/hash';
+import { deriveSigningKey } from '@aztec/stdlib/keys';
+import { ScheduledDelayChange, ScheduledValueChange, SharedMutableValuesWithHash } from '@aztec/stdlib/shared-mutable';
+import { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 
 import { setup } from './fixtures/utils.js';
 

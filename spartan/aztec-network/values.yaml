@@ -24,7 +24,6 @@ telemetry:
   enabled: false
   otelCollectorEndpoint:
   useGcloudLogging: true
-  useGcloudMetrics: false
   excludeMetrics: "system"
 
 images:
@@ -261,8 +260,6 @@ ethereum:
       targetPort: 5052
     resources:
       requests:
-        memory: "4Gi"
-      limits:
         memory: "4Gi"
     storageSize: "80Gi"
   validator:
