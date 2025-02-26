@@ -14,11 +14,20 @@ import type { PXE } from '@aztec/stdlib/interfaces/client';
 
 import { EcdsaKBaseAccountContract } from './account_contract.js';
 
+/**
+ * Lazily loads the contract artifact
+ * @returns The contract artifact for the ecdsa K account contract
+ */
 export async function getEcdsaKAccountContractArtifact() {
   const { default: ecdsaKAccountContractJson } = await import('../../../artifacts/EcdsaKAccount.json');
   return loadContractArtifact(ecdsaKAccountContractJson);
 }
 
+/**
+ * Account contract that authenticates transactions using ECDSA signatures
+ * verified against a secp256k1 public key stored in an immutable encrypted note.
+ * Lazily loads the contract artifact
+ */
 export class EcdsaKAccountContract extends EcdsaKBaseAccountContract {
   constructor(signingPrivateKey: Buffer) {
     super(signingPrivateKey);

@@ -19,6 +19,11 @@ import { SchnorrBaseAccountContract } from './account_contract.js';
 
 export const SchnorrAccountContractArtifact = loadContractArtifact(SchnorrAccountContractJson as NoirCompiledContract);
 
+/**
+ * Account contract that authenticates transactions using Schnorr signatures
+ * verified against a Grumpkin public key stored in an immutable encrypted note.
+ * Eagerly loads the contract artifact
+ */
 export class SchnorrAccountContract extends SchnorrBaseAccountContract {
   constructor(signingPrivateKey: GrumpkinScalar) {
     super(signingPrivateKey);

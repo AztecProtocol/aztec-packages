@@ -20,6 +20,11 @@ export const EcdsaKAccountContractArtifact: ContractArtifact = loadContractArtif
   EcdsaKAccountContractJson as NoirCompiledContract,
 );
 
+/**
+ * Account contract that authenticates transactions using ECDSA signatures
+ * verified against a secp256k1 public key stored in an immutable encrypted note.
+ * Eagerly loads the contract artifact
+ */
 export class EcdsaKAccountContract extends EcdsaKBaseAccountContract {
   constructor(signingPrivateKey: Buffer) {
     super(signingPrivateKey);

@@ -14,11 +14,26 @@ import type { PXE } from '@aztec/stdlib/interfaces/client';
 
 import { EcdsaRSSHBaseAccountContract } from './account_contract.js';
 
+/*
+ * Lazily loads the contract artifact
+ * @returns The contract artifact for the ecdsa R account contract
+ */
+/**
+ *
+ */
 export async function getEcdsaRAccountContractArtifact() {
   const { default: ecdsaKAccountContractJson } = await import('../../../artifacts/EcdsaRAccount.json');
   return loadContractArtifact(ecdsaKAccountContractJson);
 }
 
+/**
+ * Account contract that authenticates transactions using ECDSA signatures
+ * verified against a secp256r1 public key stored in an immutable encrypted note.
+ * Since this implementation relays signatures to an SSH agent, we provide the
+ * public key here not for signature verification, but to identify actual identity
+ * that will be used to sign authwitnesses.
+ * Lazily loads the contract artifact
+ */
 export class EcdsaRSSHAccountContract extends EcdsaRSSHBaseAccountContract {
   constructor(signingPrivateKey: Buffer) {
     super(signingPrivateKey);

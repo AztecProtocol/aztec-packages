@@ -20,6 +20,11 @@ export const SchnorrSingleKeyAccountContractArtifact = loadContractArtifact(
   SchnorrSingleKeyAccountContractJson as NoirCompiledContract,
 );
 
+/**
+ * Account contract that authenticates transactions using Schnorr signatures verified against
+ * the note encryption key, relying on a single private key for both encryption and authentication.
+ * Eagerly loads the contract artifact
+ */
 export class SingleKeyAccountContract extends SingleKeyBaseAccountContract {
   constructor(signingPrivateKey: GrumpkinScalar) {
     super(signingPrivateKey);

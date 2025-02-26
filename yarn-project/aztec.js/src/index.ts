@@ -26,9 +26,9 @@ export { NoteSelector } from '@aztec/stdlib/abi';
 
 export { createCompatibleClient, createPXEClient } from './rpc_clients/index.js';
 
-export { AccountManager, type DeployAccountOptions } from './account_manager/index.js';
+export { type DeployAccountOptions } from './account_manager/index.js';
 
-export { AccountWallet, AccountWalletWithSecretKey, SignerlessWallet, type Wallet } from './wallet/index.js';
+export { AccountWallet, AccountWalletWithSecretKey, SignerlessWallet } from './wallet/index.js';
 
 export { EthAddress } from '@aztec/foundation/eth-address';
 

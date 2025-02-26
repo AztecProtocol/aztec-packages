@@ -14,11 +14,20 @@ import { deriveMasterIncomingViewingSecretKey } from '@aztec/stdlib/keys';
 
 import { SingleKeyBaseAccountContract } from './account_contract.js';
 
+/**
+ * Lazily loads the contract artifact
+ * @returns The contract artifact for the single key account contract
+ */
 export async function getSingleKeyAccountContractArtifact() {
   const { default: schnorrAccountContractJson } = await import('../../artifacts/SchnorrAccount.json');
   return loadContractArtifact(schnorrAccountContractJson);
 }
 
+/**
+ * Account contract that authenticates transactions using Schnorr signatures verified against
+ * the note encryption key, relying on a single private key for both encryption and authentication.
+ * Lazily loads the contract artifact
+ */
 export class SingleKeyAccountContract extends SingleKeyBaseAccountContract {
   constructor(signingPrivateKey: GrumpkinScalar) {
     super(signingPrivateKey);

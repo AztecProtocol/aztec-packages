@@ -9,7 +9,7 @@ import { getCanonicalRouter } from '../router/lazy.js';
 import type { ProtocolContractsProvider } from './protocol_contracts_provider.js';
 
 export class LazyProtocolContractsProvider implements ProtocolContractsProvider {
-  async getProtocolContractArtifact(name: ProtocolContractName): Promise<ProtocolContract> {
+  getProtocolContractArtifact(name: ProtocolContractName): Promise<ProtocolContract> {
     switch (name) {
       case 'AuthRegistry':
         return getCanonicalAuthRegistry();

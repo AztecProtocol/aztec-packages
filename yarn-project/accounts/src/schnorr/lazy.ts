@@ -15,11 +15,20 @@ import { deriveSigningKey } from '@aztec/stdlib/keys';
 
 import { SchnorrBaseAccountContract } from './account_contract.js';
 
+/**
+ * Lazily loads the contract artifact
+ * @returns The contract artifact for the schnorr account contract
+ */
 export async function getSchnorrAccountContractArtifact() {
   const { default: schnorrAccountContractJson } = await import('../../artifacts/SchnorrAccount.json');
   return loadContractArtifact(schnorrAccountContractJson);
 }
 
+/**
+ * Account contract that authenticates transactions using Schnorr signatures
+ * verified against a Grumpkin public key stored in an immutable encrypted note.
+ * Lazily loads the contract artifact
+ */
 export class SchnorrAccountContract extends SchnorrBaseAccountContract {
   constructor(signingPrivateKey: GrumpkinScalar) {
     super(signingPrivateKey);
