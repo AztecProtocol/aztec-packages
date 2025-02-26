@@ -51,7 +51,7 @@ namespace scalar_mul;
     // - start can be 1 only after an end or the first row
     // - There can be any number of rows between start and end
     // - end can be 1 only N rows after a start (we'll constrain that N=253 in the BIT DECOMPOSITION section)
-    // - sel should be 1 after start and can change after end
+    // - sel should be 1 on start and after and can change after end
     pol commit start;
     start * (1 - start) = 0;
 
