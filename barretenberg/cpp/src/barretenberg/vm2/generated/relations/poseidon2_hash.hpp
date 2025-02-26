@@ -13,7 +13,7 @@ template <typename FF_> class poseidon2_hashImpl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 19> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 3, 3, 4, 4, 4, 5,
-                                                                            4, 5, 4, 5, 4, 5, 4, 5, 4 };
+                                                                            4, 4, 4, 4, 4, 4, 4, 4, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -32,8 +32,6 @@ template <typename FF_> class poseidon2_hashImpl {
         const auto poseidon2_hash_LATCH_CONDITION = new_term.poseidon2_hash_end + new_term.precomputed_first_row;
         const auto poseidon2_hash_PADDED_LEN = new_term.poseidon2_hash_input_len + new_term.poseidon2_hash_padding;
         const auto poseidon2_hash_NEXT_ROUND_COUNT = (new_term.poseidon2_hash_num_perm_rounds_rem - FF(1));
-        const auto poseidon2_hash_NEXT_INPUT_IS_PREV_OUTPUT_SEL =
-            (FF(1) - poseidon2_hash_LATCH_CONDITION) * (FF(1) - new_term.poseidon2_hash_start);
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -116,7 +114,7 @@ template <typename FF_> class poseidon2_hashImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
-            auto tmp = new_term.poseidon2_hash_sel * poseidon2_hash_NEXT_INPUT_IS_PREV_OUTPUT_SEL *
+            auto tmp = new_term.poseidon2_hash_sel * (FF(1) - poseidon2_hash_LATCH_CONDITION) *
                        ((new_term.poseidon2_hash_a_0_shift - new_term.poseidon2_hash_b_0) -
                         new_term.poseidon2_hash_input_0_shift);
             tmp *= scaling_factor;
@@ -131,7 +129,7 @@ template <typename FF_> class poseidon2_hashImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
-            auto tmp = new_term.poseidon2_hash_sel * poseidon2_hash_NEXT_INPUT_IS_PREV_OUTPUT_SEL *
+            auto tmp = new_term.poseidon2_hash_sel * (FF(1) - poseidon2_hash_LATCH_CONDITION) *
                        ((new_term.poseidon2_hash_a_1_shift - new_term.poseidon2_hash_b_1) -
                         new_term.poseidon2_hash_input_1_shift);
             tmp *= scaling_factor;
@@ -146,7 +144,7 @@ template <typename FF_> class poseidon2_hashImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
-            auto tmp = new_term.poseidon2_hash_sel * poseidon2_hash_NEXT_INPUT_IS_PREV_OUTPUT_SEL *
+            auto tmp = new_term.poseidon2_hash_sel * (FF(1) - poseidon2_hash_LATCH_CONDITION) *
                        ((new_term.poseidon2_hash_a_2_shift - new_term.poseidon2_hash_b_2) -
                         new_term.poseidon2_hash_input_2_shift);
             tmp *= scaling_factor;
@@ -161,7 +159,7 @@ template <typename FF_> class poseidon2_hashImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
-            auto tmp = new_term.poseidon2_hash_sel * poseidon2_hash_NEXT_INPUT_IS_PREV_OUTPUT_SEL *
+            auto tmp = new_term.poseidon2_hash_sel * (FF(1) - poseidon2_hash_LATCH_CONDITION) *
                        (new_term.poseidon2_hash_a_3_shift - new_term.poseidon2_hash_b_3);
             tmp *= scaling_factor;
             std::get<17>(evals) += typename Accumulator::View(tmp);
