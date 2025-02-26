@@ -184,7 +184,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
 };
 
 using FlavorTypes =
-    ::testing::Types<UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor, UltraZKFlavor, UltraKeccakZKFlavor>;
+    ::testing::Types<UltraFlavor, UltraKeccakFlavor, UltraStarknetFlavor, UltraRollupFlavor, UltraZKFlavor, UltraKeccakZKFlavor, UltraStarknetZKFlavor>;
 TYPED_TEST_SUITE(UltraTranscriptTests, FlavorTypes);
 
 /**
