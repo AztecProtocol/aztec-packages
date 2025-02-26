@@ -38,7 +38,7 @@ ADDRESSES=$(jq -r '.accounts[].address' output.json)
 # Convert ETH to wei
 wei_amount=$(cast to-wei "$eth_amount" ether)
 
-# Get current gas price and add 50% buffer
+# Get current gas price and add 25% buffer
 gas_price=$(cast gas-price --rpc-url "$ETHEREUM_HOST")
 gas_price=$((gas_price * 125 / 100)) # Add 25% to gas price
 
