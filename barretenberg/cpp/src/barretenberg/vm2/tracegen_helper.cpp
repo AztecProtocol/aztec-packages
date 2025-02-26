@@ -17,12 +17,14 @@
 #include "barretenberg/vm2/generated/relations/lookups_bc_decomposition.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bc_retrieval.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bitwise.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_class_id_derivation.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_instr_fetching.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_poseidon2_hash.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_range_check.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sha256.hpp"
 #include "barretenberg/vm2/tracegen/alu_trace.hpp"
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
+#include "barretenberg/vm2/tracegen/class_id_derivation_trace.hpp"
 #include "barretenberg/vm2/tracegen/ecc_trace.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
@@ -182,6 +184,12 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                     clear_events(events.bytecode_hashing);
                 },
                 [&]() {
+                    ClassIdDerivationTraceBuilder class_id_builder;
+                    AVM_TRACK_TIME("tracegen/class_id_derivation",
+                                   class_id_builder.process(events.class_id_derivation, trace));
+                    clear_events(events.class_id_derivation);
+                },
+                [&]() {
                     BytecodeTraceBuilder bytecode_builder;
                     AVM_TRACK_TIME("tracegen/bytecode_retrieval",
                                    bytecode_builder.process_retrieval(events.bytecode_retrieval, trace));
@@ -245,8 +253,13 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_hashing_iv_is_len_settings>>(),
             std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_hashing_poseidon2_hash_settings>>(),
             // Bytecode Retrieval
+            std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_bytecode_hash_is_correct_settings>>(),
+            std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_class_id_derivation_settings>>(),
+            // Class Id Derivation
             std::make_unique<
-                LookupIntoDynamicTableSequential<lookup_bc_retrieval_bytecode_hash_is_correct_settings>>());
+                LookupIntoDynamicTableSequential<lookup_class_id_derivation_class_id_poseidon2_0_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_class_id_derivation_class_id_poseidon2_1_settings>>());
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));
     }

@@ -227,6 +227,7 @@ jobs:
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST=${{ env.EXTERNAL_ETHEREUM_CONSENSUS_HOST }}" \
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${{ secrets.GCP_SEPOLIA_API_KEY }}" \
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER=${{ env.GCP_API_KEY_HEADER }}" \
+              ${{ contains(env.VALUES_FILE, 'devnet') && '-var="EXPOSE_HTTPS_BOOTNODE=true"' || '' }} \
               -out=tfplan \
               -lock=${{ inputs.respect_tf_lock }}
           else
@@ -237,6 +238,7 @@ jobs:
               -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
               -var="L1_DEPLOYMENT_MNEMONIC=${{ steps.get-mnemonic.outputs.mnemonic }}" \
               -var="L1_DEPLOYMENT_SALT=${DEPLOYMENT_SALT:-$RANDOM}" \
+              ${{ contains(env.VALUES_FILE, 'devnet') && '-var="EXPOSE_HTTPS_BOOTNODE=true"' || '' }} \
               -out=tfplan \
               -lock=${{ inputs.respect_tf_lock }}
           fi

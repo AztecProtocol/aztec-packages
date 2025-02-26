@@ -31,10 +31,12 @@ class lookup_range_check_dyn_rng_chk_pow_2_settings {
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_8;
     static constexpr Column COUNTS = Column::lookup_range_check_dyn_rng_chk_pow_2_counts;
     static constexpr Column INVERSES = Column::lookup_range_check_dyn_rng_chk_pow_2_inv;
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::range_check_dyn_rng_chk_bits,
-                                                                           Column::range_check_dyn_rng_chk_pow_2 };
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::precomputed_clk,
-                                                                           Column::precomputed_power_of_2 };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::range_check_dyn_rng_chk_bits, ColumnAndShifts::range_check_dyn_rng_chk_pow_2
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_power_of_2
+    };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
@@ -118,8 +120,10 @@ class lookup_range_check_dyn_diff_is_u16_settings {
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
     static constexpr Column COUNTS = Column::lookup_range_check_dyn_diff_is_u16_counts;
     static constexpr Column INVERSES = Column::lookup_range_check_dyn_diff_is_u16_inv;
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::range_check_dyn_diff };
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::precomputed_clk };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::range_check_dyn_diff
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
@@ -201,8 +205,10 @@ class lookup_range_check_r0_is_u16_settings {
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
     static constexpr Column COUNTS = Column::lookup_range_check_r0_is_u16_counts;
     static constexpr Column INVERSES = Column::lookup_range_check_r0_is_u16_inv;
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::range_check_u16_r0 };
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::precomputed_clk };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::range_check_u16_r0
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
@@ -283,8 +289,10 @@ class lookup_range_check_r1_is_u16_settings {
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
     static constexpr Column COUNTS = Column::lookup_range_check_r1_is_u16_counts;
     static constexpr Column INVERSES = Column::lookup_range_check_r1_is_u16_inv;
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::range_check_u16_r1 };
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::precomputed_clk };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::range_check_u16_r1
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
@@ -365,8 +373,10 @@ class lookup_range_check_r2_is_u16_settings {
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
     static constexpr Column COUNTS = Column::lookup_range_check_r2_is_u16_counts;
     static constexpr Column INVERSES = Column::lookup_range_check_r2_is_u16_inv;
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::range_check_u16_r2 };
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::precomputed_clk };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::range_check_u16_r2
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
@@ -447,8 +457,10 @@ class lookup_range_check_r3_is_u16_settings {
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
     static constexpr Column COUNTS = Column::lookup_range_check_r3_is_u16_counts;
     static constexpr Column INVERSES = Column::lookup_range_check_r3_is_u16_inv;
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::range_check_u16_r3 };
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::precomputed_clk };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::range_check_u16_r3
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
@@ -529,8 +541,10 @@ class lookup_range_check_r4_is_u16_settings {
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
     static constexpr Column COUNTS = Column::lookup_range_check_r4_is_u16_counts;
     static constexpr Column INVERSES = Column::lookup_range_check_r4_is_u16_inv;
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::range_check_u16_r4 };
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::precomputed_clk };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::range_check_u16_r4
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
@@ -611,8 +625,10 @@ class lookup_range_check_r5_is_u16_settings {
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
     static constexpr Column COUNTS = Column::lookup_range_check_r5_is_u16_counts;
     static constexpr Column INVERSES = Column::lookup_range_check_r5_is_u16_inv;
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::range_check_u16_r5 };
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::precomputed_clk };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::range_check_u16_r5
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
@@ -693,8 +709,10 @@ class lookup_range_check_r6_is_u16_settings {
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
     static constexpr Column COUNTS = Column::lookup_range_check_r6_is_u16_counts;
     static constexpr Column INVERSES = Column::lookup_range_check_r6_is_u16_inv;
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::range_check_u16_r6 };
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::precomputed_clk };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::range_check_u16_r6
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
@@ -775,8 +793,10 @@ class lookup_range_check_r7_is_u16_settings {
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
     static constexpr Column COUNTS = Column::lookup_range_check_r7_is_u16_counts;
     static constexpr Column INVERSES = Column::lookup_range_check_r7_is_u16_inv;
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::range_check_u16_r7 };
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::precomputed_clk };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::range_check_u16_r7
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {

@@ -14,7 +14,6 @@ When you define a function in an Aztec contract, it undergoes several transforma
 - [Creating a context for the function](#context-creation)
 - [Handling function inputs](#private-and-public-input-injection)
 - [Processing return values](#return-value-handling)
-- [Computing note hashes and nullifiers](#computing-note-hash-and-nullifier)
 - [Generating function signatures](#function-signature-generation)
 - [Generating contract artifacts](#contract-artifacts)
 
@@ -155,7 +154,7 @@ fn compute_fn_signature_hash(fn_name: &str, parameters: &[Type]) -> u32 {
 
 - A string representation of the function is created, including the function name and parameter types
 - This signature string is then hashed using Keccak-256
-- The first 4 bytes of the resulting hash are coverted to a u32 integer
+- The first 4 bytes of the resulting hash are converted to a u32 integer
 
 ### Integration into contract interface
 

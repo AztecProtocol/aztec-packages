@@ -27,8 +27,6 @@ import {
   RollupLinkReferences,
   SlashFactoryAbi,
   SlashFactoryBytecode,
-  StakingLibAbi,
-  StakingLibBytecode,
   TestERC20Abi,
   TestERC20Bytecode,
   ValidatorSelectionLibAbi,
@@ -139,10 +137,6 @@ export const l1Artifacts = {
         ExtRollupLib: {
           contractAbi: ExtRollupLibAbi,
           contractBytecode: ExtRollupLibBytecode as Hex,
-        },
-        StakingLib: {
-          contractAbi: StakingLibAbi,
-          contractBytecode: StakingLibBytecode as Hex,
         },
       },
     },
@@ -499,10 +493,10 @@ export const deployL1Contracts = async (
   }
 
   // Inbox and Outbox are immutable and are deployed from Rollup's constructor so we just fetch them from the contract.
-  const inboxAddress = EthAddress.fromString((await rollup.read.INBOX()) as any);
+  const inboxAddress = EthAddress.fromString((await rollup.read.getInbox()) as any);
   logger.verbose(`Inbox available at ${inboxAddress}`);
 
-  const outboxAddress = EthAddress.fromString((await rollup.read.OUTBOX()) as any);
+  const outboxAddress = EthAddress.fromString((await rollup.read.getOutbox()) as any);
   logger.verbose(`Outbox available at ${outboxAddress}`);
 
   // We need to call a function on the registry to set the various contract addresses.

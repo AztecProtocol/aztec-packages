@@ -206,7 +206,6 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       connectionEncryption: [noise()],
       connectionManager: {
         minConnections: 0,
-        maxConnections: maxPeerCount,
 
         maxParallelDials: 100,
         dialTimeout: 30_000,
