@@ -131,7 +131,7 @@ case "$cmd" in
     ;;
   "test-local")
     # Isolate network stack in docker.
-    docker_isolate ../scripts/run_native_testnet.sh -i -val 3
+    timeout -v 20m docker_isolate ../scripts/run_native_testnet.sh -i -val 3
     ;;
   *)
     echo "Unknown command: $cmd"
