@@ -143,7 +143,7 @@ export class RollupCheatCodes {
 
     const tipsAfter = await this.getTips();
     this.logger.info(
-      `Proven tip moved: ${tipsBefore.proven} -> ${tipsAfter.proven}. Pending tip moved: ${tipsBefore.pending} -> ${tipsAfter.pending}`,
+      `Proven tip moved: ${tipsBefore.proven} -> ${tipsAfter.proven}. Pending tip: ${tipsAfter.pending}.`,
     );
   }
 
