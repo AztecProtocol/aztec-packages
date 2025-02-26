@@ -559,9 +559,7 @@ TEST(ScalarMulConstrainingTest, MulAddInteractions)
     builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
     builder.process_add(ecc_add_event_emitter.dump_events(), trace);
 
-    std::cout << "looking for double relation" << std::endl;
     LookupIntoDynamicTableGeneric<lookup_scalar_mul_double_relation::Settings>().process(trace);
-    std::cout << "looking for add relation" << std::endl;
     LookupIntoDynamicTableGeneric<lookup_scalar_mul_add_relation::Settings>().process(trace);
 
     check_relation<scalar_mul>(trace);
