@@ -58,7 +58,54 @@ import {
   TxProvingResult,
   type TxReceipt,
   TxSimulationResult,
+<<<<<<< Updated upstream
 } from '@aztec/stdlib/tx';
+=======
+  UniqueNote,
+  getNonNullifiedL1ToL2MessageWitness,
+} from '@aztec/circuit-types';
+import {
+  type AztecNode,
+  type EventMetadataDefinition,
+  type PXE,
+  type PXEInfo,
+  type PrivateExecutionResult,
+  type PrivateKernelProofOutput,
+  type PrivateKernelProver,
+  type PrivateKernelSimulateOutput,
+} from '@aztec/circuit-types/interfaces/client';
+import type {
+  CompleteAddress,
+  ContractClassWithId,
+  ContractInstanceWithAddress,
+  GasFees,
+  NodeInfo,
+  PartialAddress,
+} from '@aztec/circuits.js';
+import {
+  type AbiDecoded,
+  type ContractArtifact,
+  EventSelector,
+  FunctionSelector,
+  FunctionType,
+  decodeFunctionSignature,
+  encodeArguments,
+} from '@aztec/circuits.js/abi';
+import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/circuits.js/contract';
+import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
+import { PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
+import { computeAddressSecret } from '@aztec/circuits.js/keys';
+import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
+import { Fr, type Point } from '@aztec/foundation/fields';
+import { type Logger, createLogger } from '@aztec/foundation/log';
+import { Timer } from '@aztec/foundation/timer';
+import { type KeyStore } from '@aztec/key-store';
+import { type L2TipsStore } from '@aztec/kv-store/stores';
+import { ProtocolContractAddress, protocolContractNames } from '@aztec/protocol-contracts';
+import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
+import { type AcirSimulator, type SimulationProvider, readCurrentClassId } from '@aztec/simulator/client';
+>>>>>>> Stashed changes
 
 import { inspect } from 'util';
 
@@ -722,20 +769,13 @@ export class PXEService implements PXE {
     txExecutionRequest: TxExecutionRequest,
     proofCreator: PrivateKernelProver,
     privateExecutionResult: PrivateExecutionResult,
-    { simulate, skipFeeEnforcement, profile, dryRun }: ProvingConfig,
-  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
-    // use the block the tx was simulated against
-    const block =
-      privateExecutionResult.entrypoint.publicInputs.historicalHeader.globalVariables.blockNumber.toNumber();
+    config: ProvingConfig,
+  ): Promise<PrivateKernelProofOutput<PrivateKernelTailCircuitPublicInputs>> {
+    const block = privateExecutionResult.getSimulationBlockNumber();
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node, block);
     const kernelProver = new KernelProver(kernelOracle, proofCreator, !this.proverEnabled);
-    this.log.debug(`Executing kernel prover (simulate: ${simulate}, profile: ${profile}, dryRun: ${dryRun})...`);
-    return await kernelProver.prove(txExecutionRequest.toTxRequest(), privateExecutionResult, {
-      simulate,
-      skipFeeEnforcement,
-      profile,
-      dryRun,
-    });
+    this.log.debug(`Executing kernel prover (${JSON.stringify(config)})...`);
+    return await kernelProver.prove(txExecutionRequest.toTxRequest(), privateExecutionResult, config);
   }
 
   async #isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {

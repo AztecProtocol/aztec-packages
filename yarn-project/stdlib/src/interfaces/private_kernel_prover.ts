@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream:yarn-project/stdlib/src/interfaces/private_kernel_prover.ts
 import type { WitnessMap } from '@noir-lang/acvm_js';
 
 import {
@@ -10,6 +11,56 @@ import {
   type PrivateKernelTailCircuitPublicInputs,
 } from '../kernel/index.js';
 import type { ClientIvcProof } from '../proofs/client_ivc_proof.js';
+=======
+import { type ClientIvcProof, type VerificationKeyAsFields } from '@aztec/circuits.js';
+import { type PrivateKernelCircuitPublicInputs, type PrivateKernelInitCircuitPrivateInputs, type PrivateKernelInnerCircuitPrivateInputs, type PrivateKernelResetCircuitPrivateInputs, type PrivateKernelTailCircuitPrivateInputs, type PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
+
+
+
+import { type WitnessMap } from '@noir-lang/acvm_js';
+import { z } from 'zod';
+
+
+export const PrivateKernelProverProfileResultSchema = z.object({
+  gateCounts: z.array(z.object({ circuitName: z.string(), gateCount: z.number() })),
+});
+
+export type PrivateKernelProverProfileResult = z.infer<typeof PrivateKernelProverProfileResultSchema>;
+
+/**
+ * Represents the output of the proof creation process for init and inner private kernel circuit.
+ * Contains the public inputs required for the init and inner private kernel circuit and the generated proof.
+ */
+export interface PrivateKernelSimulateOutput<
+  PublicInputsType extends PrivateKernelCircuitPublicInputs | PrivateKernelTailCircuitPublicInputs,
+> {
+  /** The public inputs required for the proof generation process. */
+  publicInputs: PublicInputsType;
+  outputWitness: WitnessMap;
+  verificationKey: VerificationKeyAsFields;
+  bytecode: Buffer;
+}
+
+/** Represents the output of proven PrivateKernelSimulateOutput.*/
+export interface PrivateKernelProofOutput<
+  PublicInputsType extends PrivateKernelCircuitPublicInputs | PrivateKernelTailCircuitPublicInputs,
+> {
+  /* The inputs corresponding to the proof. */
+  publicInputs: PublicInputsType;
+  /* The private IVC proof optimized for user devices. It will be consumed by an Aztec prover,
+   * which recursively verifies it through the "tube" circuit.*/
+  clientIvcProof: ClientIvcProof;
+  verificationKey: VerificationKeyAsFields;
+  profileResult?: PrivateKernelProverProfileResult;
+}
+
+/**
+ * Represents the output of the circuit simulation process for init and inner private kernel circuit.
+ */
+export interface AppCircuitSimulateOutput {
+  verificationKey: VerificationKeyAsFields;
+}
+>>>>>>> Stashed changes:yarn-project/circuit-types/src/interfaces/private_kernel_prover.ts
 
 /**
  * PrivateKernelProver provides functionality to simulate and validate circuits, and retrieve

@@ -40,18 +40,25 @@ export class BBNativePrivateKernelProver extends BBPrivateKernelProver {
     );
   }
 
+  private async _createClientIvcProofFiles(directory: string, acirs: Buffer[], witnessStack: WitnessMap[]) {
+    // TODO(#7371): Longer term we won't use this hacked together msgpack format
+    // and instead properly create the bincode serialization from rust
+    const acirPath = path.join(directory, 'acir.msgpack');
+    const witnessPath = path.join(directory, 'witnesses.msgpack');
+    await fs.writeFile(acirPath, encode(acirs));
+    await fs.writeFile(witnessPath, encode(witnessStack.map(map => serializeWitness(map))));
+    return {
+      acirPath,
+      witnessPath,
+    };
+  }
+
   private async _createClientIvcProof(
     directory: string,
     acirs: Buffer[],
     witnessStack: WitnessMap[],
   ): Promise<ClientIvcProof> {
-    // TODO(#7371): Longer term we won't use this hacked together msgpack format
-    // and instead properly create the bincode serialization from rust
-    await fs.writeFile(path.join(directory, 'acir.msgpack'), encode(acirs));
-    await fs.writeFile(
-      path.join(directory, 'witnesses.msgpack'),
-      encode(witnessStack.map(map => serializeWitness(map))),
-    );
+    await this._createClientIvcProofFiles(directory, acirs, witnessStack);
     const provingResult = await executeBbClientIvcProof(
       this.bbBinaryPath,
       directory,

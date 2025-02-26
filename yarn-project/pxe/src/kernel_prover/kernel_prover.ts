@@ -131,7 +131,7 @@ export class KernelProver {
       profile: false,
       dryRun: false,
     },
-  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
+  ): Promise<PrivateKernelProofOutput<PrivateKernelTailCircuitPublicInputs>> {
     if (simulate && profile) {
       throw new Error('Cannot simulate and profile at the same time');
     }
@@ -149,10 +149,11 @@ export class KernelProver {
 
     const gateCounts: { circuitName: string; gateCount: number }[] = [];
     const addGateCount = async (circuitName: string, bytecode: Buffer) => {
-      const gateCount = (await this.proofCreator.computeGateCountForCircuit(bytecode, circuitName)) as number;
-      gateCounts.push({ circuitName, gateCount });
-
-      this.log.info(`Tx ${txRequest.hash()}: bb gates for ${circuitName} - ${gateCount}`);
+      if (profile) {
+        const gateCount = await this.proofCreator.computeGateCountForCircuit(bytecode, circuitName);
+        gateCounts.push({ circuitName, gateCount });
+        this.log.info(`Tx ${txRequest.hash()}: bb gates for ${circuitName} - ${gateCount}`);
+      }
     };
 
     const noteHashLeafIndexMap = collectNoteHashLeafIndexMap(executionResult);
@@ -181,9 +182,7 @@ export class KernelProver {
           // TODO(#7368) consider refactoring this redundant bytecode pushing
           acirs.push(output.bytecode);
           witnessStack.push(output.outputWitness);
-          if (profile) {
-            await addGateCount('private_kernel_reset', output.bytecode);
-          }
+          await addGateCount('private_kernel_reset', output.bytecode);
 
           resetBuilder = new PrivateKernelResetPrivateInputsBuilder(
             output,
@@ -207,9 +206,7 @@ export class KernelProver {
       // TODO(#7368): Is there any way to use this with client IVC proving?
       acirs.push(currentExecution.acir);
       witnessStack.push(currentExecution.partialWitness);
-      if (profile) {
-        await addGateCount(functionName as string, currentExecution.acir);
-      }
+      await addGateCount(functionName as string, currentExecution.acir);
 
       const privateCallData = await this.createPrivateCallData(currentExecution);
 
@@ -234,9 +231,7 @@ export class KernelProver {
 
         acirs.push(output.bytecode);
         witnessStack.push(output.outputWitness);
-        if (profile) {
-          await addGateCount('private_kernel_init', output.bytecode);
-        }
+        await addGateCount('private_kernel_init', output.bytecode);
       } else {
         const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
         const previousKernelData = new PrivateKernelData(
@@ -255,9 +250,7 @@ export class KernelProver {
 
         acirs.push(output.bytecode);
         witnessStack.push(output.outputWitness);
-        if (profile) {
-          await addGateCount('private_kernel_inner', output.bytecode);
-        }
+        await addGateCount('private_kernel_inner', output.bytecode);
       }
       firstIteration = false;
     }
@@ -277,9 +270,7 @@ export class KernelProver {
 
       acirs.push(output.bytecode);
       witnessStack.push(output.outputWitness);
-      if (profile) {
-        await addGateCount('private_kernel_reset', output.bytecode);
-      }
+      await addGateCount('private_kernel_reset', output.bytecode);
 
       resetBuilder = new PrivateKernelResetPrivateInputsBuilder(
         output,
@@ -324,24 +315,26 @@ export class KernelProver {
 
     acirs.push(tailOutput.bytecode);
     witnessStack.push(tailOutput.outputWitness);
-    if (profile) {
-      await addGateCount('private_kernel_tail', tailOutput.bytecode);
-      tailOutput.profileResult = { gateCounts };
-    }
+    await addGateCount('private_kernel_tail', tailOutput.bytecode);
 
     if (!simulate) {
       this.log.info(`Private kernel witness generation took ${timer.ms()}ms`);
     }
 
+    let clientIvcProof: ClientIvcProof;
     // TODO(#7368) how do we 'bincode' encode these inputs?
     if (!dryRun && !simulate) {
-      const ivcProof = await this.proofCreator.createClientIvcProof(acirs, witnessStack);
-      tailOutput.clientIvcProof = ivcProof;
+      clientIvcProof = await this.proofCreator.createClientIvcProof(acirs, witnessStack);
     } else {
-      tailOutput.clientIvcProof = ClientIvcProof.random();
+      clientIvcProof = ClientIvcProof.random();
     }
 
-    return tailOutput;
+    return {
+      publicInputs: tailOutput.publicInputs,
+      clientIvcProof,
+      verificationKey: tailOutput.verificationKey,
+      profileResult: profile ? { gateCounts } : undefined,
+    };
   }
 
   private async createPrivateCallData({ publicInputs, vk: vkAsBuffer }: PrivateCallExecutionResult) {
