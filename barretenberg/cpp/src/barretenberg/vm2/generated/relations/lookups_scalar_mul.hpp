@@ -31,14 +31,17 @@ class lookup_scalar_mul_double_settings {
     static constexpr Column DST_SELECTOR = Column::ecc_sel;
     static constexpr Column COUNTS = Column::lookup_scalar_mul_double_counts;
     static constexpr Column INVERSES = Column::lookup_scalar_mul_double_inv;
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        Column::scalar_mul_temp_x, Column::scalar_mul_temp_y, Column::scalar_mul_temp_inf,
-        Column::scalar_mul_temp_x, Column::scalar_mul_temp_y, Column::scalar_mul_temp_inf,
-        Column::scalar_mul_temp_x, Column::scalar_mul_temp_y, Column::scalar_mul_temp_inf
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::scalar_mul_temp_x,        ColumnAndShifts::scalar_mul_temp_y,
+        ColumnAndShifts::scalar_mul_temp_inf,      ColumnAndShifts::scalar_mul_temp_x_shift,
+        ColumnAndShifts::scalar_mul_temp_y_shift,  ColumnAndShifts::scalar_mul_temp_inf_shift,
+        ColumnAndShifts::scalar_mul_temp_x_shift,  ColumnAndShifts::scalar_mul_temp_y_shift,
+        ColumnAndShifts::scalar_mul_temp_inf_shift
     };
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        Column::ecc_r_x,      Column::ecc_r_y, Column::ecc_r_is_inf, Column::ecc_p_x,     Column::ecc_p_y,
-        Column::ecc_p_is_inf, Column::ecc_q_x, Column::ecc_q_y,      Column::ecc_q_is_inf
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::ecc_r_x, ColumnAndShifts::ecc_r_y, ColumnAndShifts::ecc_r_is_inf,
+        ColumnAndShifts::ecc_p_x, ColumnAndShifts::ecc_p_y, ColumnAndShifts::ecc_p_is_inf,
+        ColumnAndShifts::ecc_q_x, ColumnAndShifts::ecc_q_y, ColumnAndShifts::ecc_q_is_inf
     };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
@@ -74,12 +77,12 @@ class lookup_scalar_mul_double_settings {
                                      in._scalar_mul_temp_x(),
                                      in._scalar_mul_temp_y(),
                                      in._scalar_mul_temp_inf(),
-                                     in._scalar_mul_temp_x(),
-                                     in._scalar_mul_temp_y(),
-                                     in._scalar_mul_temp_inf(),
-                                     in._scalar_mul_temp_x(),
-                                     in._scalar_mul_temp_y(),
-                                     in._scalar_mul_temp_inf(),
+                                     in._scalar_mul_temp_x_shift(),
+                                     in._scalar_mul_temp_y_shift(),
+                                     in._scalar_mul_temp_inf_shift(),
+                                     in._scalar_mul_temp_x_shift(),
+                                     in._scalar_mul_temp_y_shift(),
+                                     in._scalar_mul_temp_inf_shift(),
                                      in._ecc_r_x(),
                                      in._ecc_r_y(),
                                      in._ecc_r_is_inf(),
@@ -136,14 +139,17 @@ class lookup_scalar_mul_add_settings {
     static constexpr Column DST_SELECTOR = Column::ecc_sel;
     static constexpr Column COUNTS = Column::lookup_scalar_mul_add_counts;
     static constexpr Column INVERSES = Column::lookup_scalar_mul_add_inv;
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        Column::scalar_mul_res_x,  Column::scalar_mul_res_y,  Column::scalar_mul_res_inf,
-        Column::scalar_mul_res_x,  Column::scalar_mul_res_y,  Column::scalar_mul_res_inf,
-        Column::scalar_mul_temp_x, Column::scalar_mul_temp_y, Column::scalar_mul_temp_inf
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::scalar_mul_res_x,       ColumnAndShifts::scalar_mul_res_y,
+        ColumnAndShifts::scalar_mul_res_inf,     ColumnAndShifts::scalar_mul_res_x_shift,
+        ColumnAndShifts::scalar_mul_res_y_shift, ColumnAndShifts::scalar_mul_res_inf_shift,
+        ColumnAndShifts::scalar_mul_temp_x,      ColumnAndShifts::scalar_mul_temp_y,
+        ColumnAndShifts::scalar_mul_temp_inf
     };
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        Column::ecc_r_x,      Column::ecc_r_y, Column::ecc_r_is_inf, Column::ecc_p_x,     Column::ecc_p_y,
-        Column::ecc_p_is_inf, Column::ecc_q_x, Column::ecc_q_y,      Column::ecc_q_is_inf
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::ecc_r_x, ColumnAndShifts::ecc_r_y, ColumnAndShifts::ecc_r_is_inf,
+        ColumnAndShifts::ecc_p_x, ColumnAndShifts::ecc_p_y, ColumnAndShifts::ecc_p_is_inf,
+        ColumnAndShifts::ecc_q_x, ColumnAndShifts::ecc_q_y, ColumnAndShifts::ecc_q_is_inf
     };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
@@ -179,9 +185,9 @@ class lookup_scalar_mul_add_settings {
                                      in._scalar_mul_res_x(),
                                      in._scalar_mul_res_y(),
                                      in._scalar_mul_res_inf(),
-                                     in._scalar_mul_res_x(),
-                                     in._scalar_mul_res_y(),
-                                     in._scalar_mul_res_inf(),
+                                     in._scalar_mul_res_x_shift(),
+                                     in._scalar_mul_res_y_shift(),
+                                     in._scalar_mul_res_inf_shift(),
                                      in._scalar_mul_temp_x(),
                                      in._scalar_mul_temp_y(),
                                      in._scalar_mul_temp_inf(),

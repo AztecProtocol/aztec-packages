@@ -30,7 +30,7 @@ using simulation::NoopEventEmitter;
 using simulation::ScalarMulEvent;
 using lookup_scalar_mul_double_relation = bb::avm2::lookup_scalar_mul_double_relation<FF>;
 using lookup_scalar_mul_add_relation = bb::avm2::lookup_scalar_mul_add_relation<FF>;
-using tracegen::LookupIntoDynamicTableSequential;
+using tracegen::LookupIntoDynamicTableGeneric;
 
 // Known good points for P and Q
 FF p_x("0x04c95d1b26d63d46918a156cae92db1bcbc4072a27ec81dc82ea959abdbcf16a");
@@ -560,9 +560,9 @@ TEST(ScalarMulConstrainingTest, MulAddInteractions)
     builder.process_add(ecc_add_event_emitter.dump_events(), trace);
 
     std::cout << "looking for double relation" << std::endl;
-    LookupIntoDynamicTableSequential<lookup_scalar_mul_double_relation::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_scalar_mul_double_relation::Settings>().process(trace);
     std::cout << "looking for add relation" << std::endl;
-    LookupIntoDynamicTableSequential<lookup_scalar_mul_add_relation::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_scalar_mul_add_relation::Settings>().process(trace);
 
     check_relation<scalar_mul>(trace);
     check_relation<ecc>(trace);
@@ -588,12 +588,11 @@ TEST(ScalarMulConstrainingTest, NegativeMulAddInteractions)
 
     std::cout << "looking for double relation" << std::endl;
     EXPECT_THROW_WITH_MESSAGE(
-        LookupIntoDynamicTableSequential<lookup_scalar_mul_double_relation::Settings>().process(trace),
+        LookupIntoDynamicTableGeneric<lookup_scalar_mul_double_relation::Settings>().process(trace),
         "Failed.*SCALAR_MUL_DOUBLE. Could not find tuple in destination.");
     std::cout << "looking for add relation" << std::endl;
-    EXPECT_THROW_WITH_MESSAGE(
-        LookupIntoDynamicTableSequential<lookup_scalar_mul_add_relation::Settings>().process(trace),
-        "Failed.*SCALAR_MUL_ADD. Could not find tuple in destination.");
+    EXPECT_THROW_WITH_MESSAGE(LookupIntoDynamicTableGeneric<lookup_scalar_mul_add_relation::Settings>().process(trace),
+                              "Failed.*SCALAR_MUL_ADD. Could not find tuple in destination.");
 
     check_relation<scalar_mul>(trace);
     EXPECT_THROW_WITH_MESSAGE(check_interaction<lookup_scalar_mul_double_relation>(trace),

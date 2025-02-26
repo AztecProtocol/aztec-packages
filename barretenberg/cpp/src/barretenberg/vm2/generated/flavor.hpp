@@ -84,12 +84,12 @@ class AvmFlavor {
     static constexpr bool HasZK = false;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 36;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 737;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 89;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 758;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 98;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 862;
+    static constexpr size_t NUM_ALL_ENTITIES = 892;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
