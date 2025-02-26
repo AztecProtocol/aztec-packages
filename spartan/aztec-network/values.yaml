@@ -261,8 +261,6 @@ ethereum:
     resources:
       requests:
         memory: "4Gi"
-      limits:
-        memory: "4Gi"
     storageSize: "80Gi"
   validator:
     resources:
