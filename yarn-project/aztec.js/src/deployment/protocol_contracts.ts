@@ -1,5 +1,5 @@
-import { getCanonicalClassRegisterer } from '@aztec/protocol-contracts/class-registerer';
-import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
+import { getCanonicalClassRegisterer } from '@aztec/protocol-contracts/class-registerer/lazy';
+import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer/lazy';
 
 import { UnsafeContract } from '../contract/unsafe_contract.js';
 import type { Wallet } from '../wallet/index.js';

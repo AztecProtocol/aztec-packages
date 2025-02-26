@@ -16,9 +16,9 @@ const secp256r1N = 1157920892103562487626974469494075735299969552241357603424222
  * public key here not for signature verification, but to identify actual identity
  * that will be used to sign authwitnesses.
  */
-export class EcdsaRSSHAccountContract extends DefaultAccountContract {
+export abstract class EcdsaRSSHBaseAccountContract extends DefaultAccountContract {
   constructor(private signingPublicKey: Buffer) {
-    super(EcdsaRAccountContractArtifact as ContractArtifact);
+    super();
   }
 
   getDeploymentArgs() {

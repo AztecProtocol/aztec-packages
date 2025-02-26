@@ -4,6 +4,7 @@ import {
   AuthWitness,
   type AuthWitnessProvider,
   type CompleteAddress,
+  type ContractArtifact,
   Fr,
   GrumpkinScalar,
   Schnorr,
@@ -19,7 +20,11 @@ const PRIVATE_KEY = GrumpkinScalar.fromHexString('0xd35d743ac0dfe3d6dbe6be8c877c
 /** Account contract implementation that authenticates txs using Schnorr signatures. */
 class SchnorrHardcodedKeyAccountContract extends DefaultAccountContract {
   constructor(private privateKey = PRIVATE_KEY) {
-    super(SchnorrHardcodedAccountContractArtifact);
+    super();
+  }
+
+  override getContractArtifact(): Promise<ContractArtifact> {
+    return Promise.resolve(SchnorrHardcodedAccountContractArtifact);
   }
 
   getDeploymentArgs() {

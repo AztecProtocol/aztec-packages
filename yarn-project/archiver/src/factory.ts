@@ -7,7 +7,7 @@ import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContractArtifact } from '@aztec/noir-contracts.js/TokenBridge';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractNames, protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
+import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { FunctionType, decodeFunctionSignature } from '@aztec/stdlib/abi';
 import {
   type ContractClassPublic,
@@ -46,7 +46,8 @@ export async function createArchiver(
 async function registerProtocolContracts(store: KVArchiverDataStore) {
   const blockNumber = 0;
   for (const name of protocolContractNames) {
-    const contract = await getCanonicalProtocolContract(name);
+    const provider = new BundledProtocolContractsProvider();
+    const contract = await provider.getProtocolContractArtifact(name);
     const contractClassPublic: ContractClassPublic = {
       ...contract.contractClass,
       privateFunctions: [],

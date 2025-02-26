@@ -1,5 +1,5 @@
 /**
- * The `@aztec/accounts/testing` export provides utility methods for testing, in particular in a Sandbox environment.
+ * The `@aztec/accounts/testing/lazy` export provides utility methods for testing, in particular in a Sandbox environment.
  *
  * Use {@link getInitialTestAccountsWallets} to obtain a list of wallets for the Sandbox pre-seeded accounts.
  *
@@ -8,17 +8,13 @@
 import type { PXE } from '@aztec/aztec.js';
 import type { AccountWalletWithSecretKey } from '@aztec/aztec.js/wallet';
 
-import {
-  getSchnorrAccount,
-  getSchnorrAccountContractAddress,
-  getSchnorrWalletWithSecretKey,
-} from '../schnorr/index.js';
-import type { InitialAccountData } from './configuration.js';
+import { getSchnorrAccount, getSchnorrAccountContractAddress, getSchnorrWalletWithSecretKey } from '../schnorr/lazy.js';
 import {
   INITIAL_TEST_ACCOUNT_SALTS,
   INITIAL_TEST_ENCRYPTION_KEYS,
   INITIAL_TEST_SECRET_KEYS,
   INITIAL_TEST_SIGNING_KEYS,
+  type InitialAccountData,
 } from './configuration.js';
 
 export {
@@ -88,5 +84,3 @@ export async function getDeployedTestAccountsWallets(pxe: PXE): Promise<AccountW
     testAccounts.map(({ secret, signingKey, salt }) => getSchnorrWalletWithSecretKey(pxe, secret, signingKey, salt)),
   );
 }
-
-export { deployFundedSchnorrAccount, deployFundedSchnorrAccounts, generateSchnorrAccounts } from './create_account.js';

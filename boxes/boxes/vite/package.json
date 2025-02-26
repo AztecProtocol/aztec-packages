@@ -24,6 +24,7 @@
     "@aztec/pxe": "latest",
     "@aztec/simulator": "latest",
     "@aztec/stdlib": "latest",
+    "@aztec/protocol-contracts": "latest",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-toastify": "^10.0.6"

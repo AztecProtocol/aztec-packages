@@ -1,19 +1,17 @@
 import { type AuthWitnessProvider, CompleteAddress } from '@aztec/aztec.js/account';
 import { Schnorr } from '@aztec/foundation/crypto';
 import { type Fr, GrumpkinScalar } from '@aztec/foundation/fields';
-import type { ContractArtifact } from '@aztec/stdlib/abi';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 
 import { DefaultAccountContract } from '../defaults/account_contract.js';
-import { SchnorrSingleKeyAccountContractArtifact } from './artifact.js';
 
 /**
  * Account contract that authenticates transactions using Schnorr signatures verified against
  * the note encryption key, relying on a single private key for both encryption and authentication.
  */
-export class SingleKeyAccountContract extends DefaultAccountContract {
+export abstract class SingleKeyBaseAccountContract extends DefaultAccountContract {
   constructor(private encryptionPrivateKey: GrumpkinScalar) {
-    super(SchnorrSingleKeyAccountContractArtifact as ContractArtifact);
+    super();
   }
 
   getDeploymentArgs() {

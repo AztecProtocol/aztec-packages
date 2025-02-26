@@ -11,14 +11,13 @@ import type { ContractArtifact } from '@aztec/stdlib/abi';
 import { loadContractArtifact } from '@aztec/stdlib/abi';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
 import { deriveMasterIncomingViewingSecretKey } from '@aztec/stdlib/keys';
-import type { NoirCompiledContract } from '@aztec/stdlib/noir';
 
-import SchnorrSingleKeyAccountContractJson from '../../artifacts/SchnorrSingleKeyAccount.json' assert { type: 'json' };
 import { SingleKeyBaseAccountContract } from './account_contract.js';
 
-export const SchnorrSingleKeyAccountContractArtifact = loadContractArtifact(
-  SchnorrSingleKeyAccountContractJson as NoirCompiledContract,
-);
+export async function getSingleKeyAccountContractArtifact() {
+  const { default: schnorrAccountContractJson } = await import('../../artifacts/SchnorrAccount.json');
+  return loadContractArtifact(schnorrAccountContractJson);
+}
 
 export class SingleKeyAccountContract extends SingleKeyBaseAccountContract {
   constructor(signingPrivateKey: GrumpkinScalar) {
@@ -26,7 +25,7 @@ export class SingleKeyAccountContract extends SingleKeyBaseAccountContract {
   }
 
   override getContractArtifact(): Promise<ContractArtifact> {
-    return Promise.resolve(SchnorrSingleKeyAccountContractArtifact);
+    return getSingleKeyAccountContractArtifact();
   }
 }
 

@@ -11,14 +11,13 @@ import type { ContractArtifact } from '@aztec/stdlib/abi';
 import { loadContractArtifact } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
-import type { NoirCompiledContract } from '@aztec/stdlib/noir';
 
-import EcdsaRAccountContractJson from '../../../artifacts/EcdsaKAccount.json' assert { type: 'json' };
 import { EcdsaRSSHBaseAccountContract } from './account_contract.js';
 
-export const EcdsaRAccountContractArtifact: ContractArtifact = loadContractArtifact(
-  EcdsaRAccountContractJson as NoirCompiledContract,
-);
+export async function getEcdsaRAccountContractArtifact() {
+  const { default: ecdsaKAccountContractJson } = await import('../../../artifacts/EcdsaRAccount.json');
+  return loadContractArtifact(ecdsaKAccountContractJson);
+}
 
 export class EcdsaRSSHAccountContract extends EcdsaRSSHBaseAccountContract {
   constructor(signingPrivateKey: Buffer) {
@@ -26,7 +25,7 @@ export class EcdsaRSSHAccountContract extends EcdsaRSSHBaseAccountContract {
   }
 
   override getContractArtifact(): Promise<ContractArtifact> {
-    return Promise.resolve(EcdsaRAccountContractArtifact);
+    return getEcdsaRAccountContractArtifact();
   }
 }
 

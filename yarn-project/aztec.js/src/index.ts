@@ -26,9 +26,6 @@ export { NoteSelector } from '@aztec/stdlib/abi';
 
 export { createCompatibleClient, createPXEClient } from './rpc_clients/index.js';
 
-export { type AuthWitnessProvider } from './account/index.js';
-
-export { type AccountContract, getAccountContractAddress } from './account/index.js';
 export { AccountManager, type DeployAccountOptions } from './account_manager/index.js';
 
 export { AccountWallet, AccountWalletWithSecretKey, SignerlessWallet, type Wallet } from './wallet/index.js';
@@ -103,6 +100,7 @@ export { fileURLToPath } from '@aztec/foundation/url';
 // Here you *can* do `export *` as the granular api defacto exports things explicitly.
 // This entire index file will be deprecated at some point after we're satisfied.
 export * from './api/abi.js';
+export * from './api/account.js';
 export * from './api/addresses.js';
 export * from './api/cheat_codes.js';
 export * from './api/ethereum/index.js';
