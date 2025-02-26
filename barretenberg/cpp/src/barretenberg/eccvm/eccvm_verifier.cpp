@@ -106,7 +106,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
                                 commitments.transcript_z1,
                                 commitments.transcript_z2 };
 
-    const OpeningClaim translation_opening_claim = reduce_verify_translation_evaluations(translation_commitments);
+    const OpeningClaim translation_opening_claim = compute_translation_opening_claim(translation_commitments);
 
     const std::array<OpeningClaim, 2> opening_claims = { multivariate_to_univariate_opening_claim,
                                                          translation_opening_claim };
@@ -129,13 +129,12 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
  * @param translation_commitments Commitments to  'op', 'Px', 'Py', 'z1', and 'z2'
  * @return OpeningClaim<typename ECCVMFlavor::Curve>
  */
-OpeningClaim<typename ECCVMFlavor::Curve> ECCVMVerifier::reduce_verify_translation_evaluations(
+OpeningClaim<typename ECCVMFlavor::Curve> ECCVMVerifier::compute_translation_opening_claim(
     const std::array<Commitment, NUM_TRANSLATION_EVALUATIONS>& translation_commitments)
 {
     evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
 
     // Construct arrays of commitments and evaluations to be batched, the evaluations being received from the prover
-
     std::array<FF, NUM_TRANSLATION_EVALUATIONS> translation_evaluations = {
         transcript->template receive_from_prover<FF>("Translation:op"),
         transcript->template receive_from_prover<FF>("Translation:Px"),

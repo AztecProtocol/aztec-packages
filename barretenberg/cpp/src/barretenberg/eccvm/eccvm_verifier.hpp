@@ -23,7 +23,7 @@ class ECCVMVerifier {
         : ECCVMVerifier(std::make_shared<ECCVMFlavor::VerificationKey>(proving_key)){};
 
     bool verify_proof(const ECCVMProof& proof);
-    OpeningClaim<typename ECCVMFlavor::Curve> reduce_verify_translation_evaluations(
+    OpeningClaim<typename ECCVMFlavor::Curve> compute_translation_opening_claim(
         const std::array<Commitment, NUM_TRANSLATION_EVALUATIONS>& translation_commitments);
 
     std::array<Commitment, NUM_TRANSLATION_EVALUATIONS> translation_commitments;
@@ -32,7 +32,7 @@ class ECCVMVerifier {
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Transcript> ipa_transcript;
 
-    // Translation evaluations challenges. They are propagated to the TranslatorVerifier
+    // Translation evaluation and batching challenges. They are propagated to the TranslatorVerifier
     FF evaluation_challenge_x;
     FF batching_challenge_v;
 };

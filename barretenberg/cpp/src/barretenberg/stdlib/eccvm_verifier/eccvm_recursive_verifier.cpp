@@ -118,7 +118,7 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
                                                               commitments.transcript_z1,
                                                               commitments.transcript_z2 };
     // Reduce the univariate evaluations claims to a single claim to be batched by Shplonk
-    const OpeningClaim translation_opening_claim = reduce_verify_translation_evaluations(translation_commitments);
+    const OpeningClaim translation_opening_claim = compute_translation_opening_claim(translation_commitments);
     // Construct and verify the combined opening claim
     const std::array<OpeningClaim, 2> opening_claims = { multivariate_to_univariate_opening_claim,
                                                          translation_opening_claim };
@@ -138,7 +138,7 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
  * @return OpeningClaim<typename Flavor::Curve>
  */
 template <typename Flavor>
-OpeningClaim<typename Flavor::Curve> ECCVMRecursiveVerifier_<Flavor>::reduce_verify_translation_evaluations(
+OpeningClaim<typename Flavor::Curve> ECCVMRecursiveVerifier_<Flavor>::compute_translation_opening_claim(
     const std::vector<Commitment>& translation_commitments)
 {
     evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");

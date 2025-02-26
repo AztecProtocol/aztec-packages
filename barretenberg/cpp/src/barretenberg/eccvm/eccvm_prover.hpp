@@ -45,7 +45,7 @@ class ECCVMProver {
 
     ECCVMProof export_proof();
     ECCVMProof construct_proof();
-    OpeningClaim reduce_translation_evaluations();
+    OpeningClaim compute_translation_opening_claim();
 
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Transcript> ipa_transcript;

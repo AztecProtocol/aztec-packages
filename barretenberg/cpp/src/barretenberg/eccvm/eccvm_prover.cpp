@@ -157,7 +157,7 @@ void ECCVMProver::execute_pcs_rounds()
                          sumcheck_output.round_univariates,
                          sumcheck_output.round_univariate_evaluations);
 
-    const OpeningClaim translation_opening_claim = ECCVMProver::reduce_translation_evaluations();
+    const OpeningClaim translation_opening_claim = ECCVMProver::compute_translation_opening_claim();
 
     const std::array<OpeningClaim, 2> opening_claims = { multivariate_to_univariate_opening_claim,
                                                          translation_opening_claim };
@@ -194,13 +194,13 @@ ECCVMProof ECCVMProver::construct_proof()
 }
 
 /**
- * @brief The evaluations of the wires `op`, `Px`, `Py`, `z_1`, and `z_2` as univariate polynomials have to proved as
+ * @brief The evaluations of the wires `op`, `Px`, `Py`, `z_1`, and `z_2` as univariate polynomials have to be proved as
  * they are used in the 'TranslatorVerifier::verify_translation' sub-protocol and its recursive counterpart. To increase
  * the efficiency, we produce an OpeningClaim that is fed to Shplonk along with the OpeningClaim produced by Shplemini.
  *
  * @return ProverOpeningClaim<typename ECCVMFlavor::Curve>
  */
-ProverOpeningClaim<typename ECCVMFlavor::Curve> ECCVMProver::reduce_translation_evaluations()
+ProverOpeningClaim<typename ECCVMFlavor::Curve> ECCVMProver::compute_translation_opening_claim()
 {
     // Collect the polynomials and evaluations to be batched
     RefArray translation_polynomials{ key->polynomials.transcript_op,
@@ -215,8 +215,8 @@ ProverOpeningClaim<typename ECCVMFlavor::Curve> ECCVMProver::reduce_translation_
     // Evaluate the transcript polynomials as univariates and add their evaluations at x to the transcript
     for (auto [eval, poly, label] :
          zip_view(translation_evaluations.get_all(), translation_polynomials, translation_labels)) {
-        *eval = poly.evaluate(evaluation_challenge_x);
-        transcript->template send_to_verifier(label, *eval);
+        eval = poly.evaluate(evaluation_challenge_x);
+        transcript->template send_to_verifier(label, eval);
     }
 
     // Get another challenge to batch the evaluations of the transcript polynomials
@@ -228,7 +228,7 @@ ProverOpeningClaim<typename ECCVMFlavor::Curve> ECCVMProver::reduce_translation_
     FF batching_scalar = FF(1);
     for (auto [polynomial, eval] : zip_view(translation_polynomials, translation_evaluations.get_all())) {
         batched_translation_univariate.add_scaled(polynomial, batching_scalar);
-        batched_translation_evaluation += *eval * batching_scalar;
+        batched_translation_evaluation += eval * batching_scalar;
         batching_scalar *= translation_batching_challenge_v;
     }
 
