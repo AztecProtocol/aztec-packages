@@ -107,8 +107,8 @@ contract RollupTest is RollupBase {
         )
       )
     );
-    inbox = Inbox(address(rollup.INBOX()));
-    outbox = Outbox(address(rollup.OUTBOX()));
+    inbox = Inbox(address(rollup.getInbox()));
+    outbox = Outbox(address(rollup.getOutbox()));
 
     registry.upgrade(address(rollup));
 
