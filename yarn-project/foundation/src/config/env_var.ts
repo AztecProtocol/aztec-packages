@@ -25,6 +25,8 @@ export type EnvVar =
   | 'BOT_L2_GAS_LIMIT' // L2 gas limit for the tx (empty to have the bot trigger an estimate gas). If any of BOT_L2_GAS_LIMIT or BOT_DA_GAS_LIMIT are empty, the bot triggers an estimate gas.
   | 'BOT_MAX_PENDING_TXS' // The bot will not send a tx if the node's tx pool already has this many pending txs. This is the Boot Node usually.
   | 'BOT_NO_START' // Do not start the bot automatically if you run aztec node start
+  | 'BOT_L1_MNEMONIC' //
+  | 'BOT_L1_PRIVATE_KEY' //
   | 'BOT_PRIVATE_KEY' // Bot's signing key
   | 'BOT_PRIVATE_TRANSFERS_PER_TX' // How many private transfers included in a bot transaction?
   | 'BOT_PUBLIC_TRANSFERS_PER_TX' // How many public transfers included in a bot transaction?
@@ -41,11 +43,9 @@ export type EnvVar =
   | 'DATA_DIRECTORY' // directory where to save archiver, p2p and world state data
   | 'DATA_STORE_MAP_SIZE_KB' // DB mapping size to be applied to all key/value stores. Currently many DB get custom values
   | 'DEBUG' //
-  | 'DEBUG_P2P_DISABLE_MESSAGE_VALIDATION' // 'DEBUG: Disable message validation - NEVER set to true in production'
   | 'DEBUG_P2P_DISABLE_COLOCATION_PENALTY' // True/False. Should you penalize score of peers with the same IP?
   | 'DEPLOY_AZTEC_CONTRACTS_SALT' // Salt used to deploy Aztec L1 contracts. If this set, then auto implies to deploy Aztec L1 contracts (even if DEPLOY_AZTEC_CONTRACTS=false)
   | 'DEPLOY_AZTEC_CONTRACTS' // Whether to deploy Aztec L1 contracts
-  | 'ENFORCE_FEES' // Whether to require every tx to have a fee payer. The txValidator will reject the tx if the fee payer is not set.
   | 'ETHEREUM_HOST' // URL to the L1 execution client
   | 'FEE_JUICE_CONTRACT_ADDRESS' // Address of the L1 asset contract
   | 'FEE_JUICE_PORTAL_CONTRACT_ADDRESS' // Address of the L1 asset portal contract.
@@ -68,7 +68,6 @@ export type EnvVar =
   | 'NO_PXE' // If true, does not expose a PXE on sandbox start.
   | 'COIN_ISSUER_CONTRACT_ADDRESS' // Address of the Coin Issuer contract
   | 'USE_GCLOUD_LOGGING' // If USE_GCLOUD_LOGGING is true, the pino logger will be configured with the settings defined in GoogleCloudLoggerConfig
-  | 'USE_GCLOUD_METRICS' // Whether to use GCP metrics and traces
   | 'OTEL_EXPORTER_OTLP_METRICS_ENDPOINT' // Used in setup-service-addresses
   | 'OTEL_EXPORTER_OTLP_TRACES_ENDPOINT' // Used in setup-service-addresses
   | 'OTEL_EXPORTER_OTLP_LOGS_ENDPOINT' // Used in setup-service-addresses
@@ -115,6 +114,7 @@ export type EnvVar =
   | 'PROVER_BROKER_JOB_MAX_RETRIES' // If starting a prover broker locally, the max number of retries per proving job
   | 'PROVER_BROKER_BATCH_INTERVAL_MS' // How often to flush batches to disk
   | 'PROVER_BROKER_BATCH_SIZE' // Writes jobs to disk in batches of this size
+  | 'PROVER_BROKER_MAX_EPOCHS_TO_KEEP_RESULTS_FOR' //
   | 'PROVER_COORDINATION_NODE_URL' // If config.p2pEnabled is false, createProverCoordination request information from the AztecNode. Proving Coordination is how the prover node requests transaction data needed to produce proofs.
   | 'PROVER_FAILED_PROOF_STORE' // Store for inputs of failed proof.
   | 'PROVER_ID' // Identifier of the prover. Takes a field input.
@@ -127,7 +127,9 @@ export type EnvVar =
   | 'PROVER_PUBLISH_RETRY_INTERVAL_MS' // The interval to wait between publish retries
   | 'PROVER_PUBLISHER_PRIVATE_KEY' // The private key to be used by the prover publisher.
   | 'PROVER_REAL_PROOFS' // Whether to construct real proofs.
+  | `PROVER_TEST_DELAY_FACTOR` //
   | 'PROVER_TEST_DELAY_MS' // Used in TestCircuitProver to simulate "fake work" i.e. sleep(PROVER_TEST_DELAY_MS)
+  | 'PROVER_TEST_DELAY_TYPE' //
   | 'PXE_L2_STARTING_BLOCK' // Starting L2 block for the L2BlockStream in the PXE
   | 'PXE_PROVER_ENABLED' // Whether the PXE produces real ClientIVC proofs or not
   | 'REGISTRY_CONTRACT_ADDRESS' // Address of the Registry contract.
