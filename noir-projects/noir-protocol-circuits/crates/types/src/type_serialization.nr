@@ -74,15 +74,6 @@ impl Deserialize<U64_SERIALIZED_LEN> for u64 {
 
 impl Serialize<U128_SERIALIZED_LEN> for u128 {
     fn serialize(self) -> [Field; U128_SERIALIZED_LEN] {
-        // We use little-endian ordering to match the order in which U128 defines its limbs.
-        // This is necessary because of how Noir handles serialization:
-        // - When calling a contract function from TypeScript, the serialization in encoder.ts gets used and then Noir
-        //   deserializes using its intrinsic serialization logic (based on the limb order in the struct).
-        // - When calling a contract function from another function, the `serialize` method is invoked on the type
-        //   first.
-        // For this reason if we didn't use the ordering of U128 limbs here and in encoder.ts we would get an arguments
-        // hash mismatch.
-        // The below warning is due to visibility in noir stdlib.
         [self as Field]
     }
 }
