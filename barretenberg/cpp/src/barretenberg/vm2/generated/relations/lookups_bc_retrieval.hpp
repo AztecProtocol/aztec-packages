@@ -31,17 +31,17 @@ class lookup_bc_retrieval_class_id_derivation_settings {
     static constexpr Column DST_SELECTOR = Column::class_id_derivation_sel;
     static constexpr Column COUNTS = Column::lookup_bc_retrieval_class_id_derivation_counts;
     static constexpr Column INVERSES = Column::lookup_bc_retrieval_class_id_derivation_inv;
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        Column::bc_retrieval_class_id,
-        Column::bc_retrieval_artifact_hash,
-        Column::bc_retrieval_private_function_root,
-        Column::bc_retrieval_public_bytecode_commitment
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::bc_retrieval_class_id,
+        ColumnAndShifts::bc_retrieval_artifact_hash,
+        ColumnAndShifts::bc_retrieval_private_function_root,
+        ColumnAndShifts::bc_retrieval_public_bytecode_commitment
     };
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        Column::class_id_derivation_class_id,
-        Column::class_id_derivation_artifact_hash,
-        Column::class_id_derivation_private_function_root,
-        Column::class_id_derivation_public_bytecode_commitment
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::class_id_derivation_class_id,
+        ColumnAndShifts::class_id_derivation_artifact_hash,
+        ColumnAndShifts::class_id_derivation_private_function_root,
+        ColumnAndShifts::class_id_derivation_public_bytecode_commitment
     };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)

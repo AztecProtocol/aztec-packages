@@ -202,7 +202,7 @@ fn get_lookup_side<F: FieldElement>(
         AlgebraicExpression::Reference(a_ref) => {
             let mut name = a_ref.name.clone();
             if a_ref.next {
-                name = format!("{}_shifted", name);
+                name = format!("{}_shift", name);
             }
             sanitize_name(&name)
         }
