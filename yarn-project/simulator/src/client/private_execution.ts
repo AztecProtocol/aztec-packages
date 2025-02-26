@@ -31,12 +31,11 @@ export async function executePrivateFunction(
 ): Promise<PrivateCallExecutionResult> {
   const functionName = await context.getDebugFunctionName();
   log.verbose(`Executing private function ${functionName}`, { contract: contractAddress });
-  const acir = artifact.bytecode;
   const initialWitness = context.getInitialWitness(artifact);
   const acvmCallback = new Oracle(context);
   const timer = new Timer();
   const acirExecutionResult = await simulator
-    .executeUserCircuit(acir, initialWitness, acvmCallback)
+    .executeUserCircuit(initialWitness, artifact, acvmCallback)
     .catch((err: Error) => {
       err.message = resolveAssertionMessageFromError(err, artifact);
       throw new ExecutionError(
@@ -78,7 +77,7 @@ export async function executePrivateFunction(
   log.debug(`Returning from call to ${contractAddress.toString()}:${functionSelector}`);
 
   return new PrivateCallExecutionResult(
-    acir,
+    artifact.bytecode,
     Buffer.from(artifact.verificationKey!, 'base64'),
     partialWitness,
     publicInputs,
