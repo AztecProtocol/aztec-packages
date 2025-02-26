@@ -18,7 +18,8 @@ fi
 
 dots_per_line=${LINE_WIDTH:-64}
 dot_count=0
-status=0
+status="in-progress"
+time="in-progress"
 
 # We don't want to lose color just because we're wrapping.
 export FORCE_COLOR=${FORCE_COLOR:-1}
@@ -38,14 +39,21 @@ function publish_log {
   fi
 
   {
-    echo -e "Command: $cmd (exit: $status)\n"
+    echo "Command: $cmd"
+    echo "   Date: $(date)"
+    echo " Status: $status"
+    echo "   Took: ${time}"
+    echo
+
     cat $outfile
   } | redis_setexz $key $CI_REDIS_EXPIRE
 }
 
 function live_publish_log {
   while [ -f $outfile ]; do
-    publish_log
+    if [ $(( $(date +%s) - $(stat -c %Y "$outfile") )) -le 5 ]; then
+      publish_log
+    fi
     sleep 5
   done
 }
@@ -71,15 +79,16 @@ done;
 # Get the exit status of the command
 status=${PIPESTATUS[0]}
 
+time="${SECONDS}s"
 publish_log
 
 # Handle non-zero exit status
 if [ "$status" -ne 0 ]; then
   echo -e "\nCommand exited with status $status. Dumping output:"
   cat $outfile
-  echo -e ". ${red}failed${reset} (${SECONDS}s) ${log_info:-}"
+  echo -e ". ${red}failed${reset} ($time) ${log_info:-}"
 else
-  echo -e ". ${green}done${reset} (${SECONDS}s)"
+  echo -e ". ${green}done${reset} ($time)"
 fi
 
 exit $status
