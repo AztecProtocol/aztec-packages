@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740530794448,
+  "lastUpdate": 1740533923941,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "santiago@aztecprotocol.com",
-            "name": "Santiago Palladino",
-            "username": "spalladino"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8effaa1d459d54a83d0d56f9948367de6bf1ca3a",
-          "message": "chore: Reinstate orchestrator workflow test (#12121)\n\nFixes #11870",
-          "timestamp": "2025-02-20T10:39:48-03:00",
-          "tree_id": "05a5b9f7ccdd263f4cb87019686f35011c302c38",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8effaa1d459d54a83d0d56f9948367de6bf1ca3a"
-        },
-        "date": 1740060094512,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18107.019303000015,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15933.386844999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18579.38439999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16198.419140999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3870.387400000027,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3105.7189940000003 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54837.687836,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54837688000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11527.325481,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11527330000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1812814908,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1812814908 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 131763707,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 131763707 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3382,6 +3316,78 @@ window.BENCHMARK_DATA = {
             "value": 129756027,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 129756027 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "83214fcb0bacb0c596b17c321ea99a280ad2147a",
+          "message": "fix: Enforce no import side effects (#12268)\n\nSince we enabled `verbatimModuleSyntax` in yarn project, all imports of\nthe like `import { type Foo } from './foo.js'` now cause `foo.js` to be\nactually imported in runtime. To prevent this, the `type` modifier needs\nto be moved out of the braces. This is what this eslint rule does.\n\nSee [this\npost](https://typescript-eslint.io/blog/consistent-type-imports-and-exports-why-and-how/#verbatim-module-syntax)\nfor more info.",
+          "timestamp": "2025-02-26T01:06:57Z",
+          "tree_id": "5f14cd84c456dfa7ab82b431eecca9e83333a1bc",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/83214fcb0bacb0c596b17c321ea99a280ad2147a"
+        },
+        "date": 1740533916668,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18406.723074999943,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16312.480667999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18745.517887000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16242.10115 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4007.2359159998996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3197.482536 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54821.97465,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54821973000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9750.016864000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9750021000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1829858510,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1829858510 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 127134591,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 127134591 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
