@@ -317,7 +317,7 @@ contract RollupCore is
     Signature[] memory _signatures,
     bytes calldata _blobInput
   ) external override(IRollupCore) {
-    ExtRollupLib.propose(_args, _signatures, _body, _blobInput, checkBlob);
+    ExtRollupLib.propose(_args, _signatures, _blobInput, checkBlob);
   }
 
   function setupEpoch() public override(IValidatorSelectionCore) {

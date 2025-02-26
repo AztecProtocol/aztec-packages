@@ -19,12 +19,10 @@ library ExtRollupLib {
   function propose(
     ProposeArgs calldata _args,
     Signature[] memory _signatures,
-    // TODO(#9101): Extract blobs from beacon chain => remove below body input
-    bytes calldata _body,
     bytes calldata _blobInput,
     bool _checkBlob
   ) external {
-    ProposeLib.propose(_args, _signatures, _body, _blobInput, _checkBlob);
+    ProposeLib.propose(_args, _signatures, _blobInput, _checkBlob);
   }
 
   function initializeValidatorSelection(uint256 _targetCommitteeSize) external {
