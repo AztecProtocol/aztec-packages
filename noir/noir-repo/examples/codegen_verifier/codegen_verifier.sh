@@ -13,11 +13,11 @@ $BACKEND contract -o ./src/contract.sol
 
 nargo execute --pedantic-solving witness
 
-PROOF_PATH=./target/proof
+PROOF_PATH=./target
 $BACKEND prove -b ./target/hello_world.json -w ./target/witness.gz -o $PROOF_PATH
 
 # Sanity check that proof is valid.
-$BACKEND verify -k ./target/vk -p ./target/proof
+$BACKEND verify -k ./target -p ./target/proof
 
 NUM_PUBLIC_INPUTS=2
 PUBLIC_INPUT_BYTES=$((32 * $NUM_PUBLIC_INPUTS))
