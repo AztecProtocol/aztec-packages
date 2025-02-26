@@ -93,7 +93,7 @@ describe('e2e_p2p_reqresp_tx', () => {
     // We chose the first 2 nodes that will be the proposers for the next few slots
     for (const nodeIndex of nodesToTurnOffTxGossip) {
       jest
-        .spyOn((nodes[nodeIndex] as any).p2pClient.p2pService, 'processTxFromPeer')
+        .spyOn((nodes[nodeIndex] as any).p2pClient.p2pService, 'handleGossipedTx')
         .mockImplementation((): Promise<void> => {
           return Promise.resolve();
         });
