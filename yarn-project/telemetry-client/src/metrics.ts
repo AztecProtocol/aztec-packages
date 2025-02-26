@@ -37,6 +37,7 @@ export const MEMPOOL_ATTESTATIONS_SIZE = 'aztec.mempool.attestations_size';
 
 export const ARCHIVER_SYNC_DURATION = 'aztec.archiver.sync_duration';
 export const ARCHIVER_L1_BLOCKS_SYNCED = 'aztec.archiver.l1_blocks_synced';
+export const ARCHIVER_L1_BLOCK_HEIGHT = 'aztec.archiver.l1_block_height';
 export const ARCHIVER_BLOCK_HEIGHT = 'aztec.archiver.block_height';
 export const ARCHIVER_TX_COUNT = 'aztec.archiver.tx_count';
 export const ARCHIVER_ROLLUP_PROOF_DELAY = 'aztec.archiver.rollup_proof_delay';
