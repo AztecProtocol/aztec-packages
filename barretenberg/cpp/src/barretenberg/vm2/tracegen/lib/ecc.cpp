@@ -1,4 +1,4 @@
-#include "barretenberg/vm2/tracegen/lib/contract_crypto.hpp"
+#include "barretenberg/vm2/tracegen/lib/ecc.hpp"
 
 namespace bb::avm2::tracegen {
 

@@ -17,6 +17,11 @@ struct ScalarMulIntermediateState {
     AffinePoint temp;
     /* current bit of the scalar */
     bool bit;
+
+    bool operator==(const ScalarMulIntermediateState& other) const
+    {
+        return res == other.res && temp == other.temp && bit == other.bit;
+    }
 };
 
 struct ScalarMulEvent {

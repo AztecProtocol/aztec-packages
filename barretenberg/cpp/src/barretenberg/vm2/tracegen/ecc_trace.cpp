@@ -1,10 +1,10 @@
 #include "barretenberg/vm2/tracegen/ecc_trace.hpp"
 
-#include "barretenberg/common/assert.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/tracegen/lib/contract_crypto.hpp"
+#include "barretenberg/vm2/tracegen/lib/ecc.hpp"
+#include <cassert>
 
 namespace bb::avm2::tracegen {
 
@@ -110,7 +110,7 @@ void EccTraceBuilder::process_scalar_mul(
 
             simulation::ScalarMulIntermediateState state = event.intermediate_states[intermediate_state_idx];
             if (is_start) {
-                ASSERT(state.res == event.result);
+                assert(state.res == event.result);
             }
             AffinePointStandard res = point_to_standard_form(state.res);
 
@@ -138,9 +138,7 @@ void EccTraceBuilder::process_scalar_mul(
                               C::scalar_mul_should_add,
                               (!is_end) && bit,
                           },
-                          { C::scalar_mul_bit_radix, 2 }
-
-                      } });
+                          { C::scalar_mul_bit_radix, 2 } } });
 
             row++;
         }

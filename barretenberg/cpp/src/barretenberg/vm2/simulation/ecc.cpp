@@ -39,7 +39,7 @@ AffinePoint Ecc::scalar_mul(const AffinePoint& point, const FF& scalar)
         intermediate_states[i] = { result, temp, bit };
     }
     scalar_mul_events.emit(
-        { .point = point, .scalar = scalar, .intermediate_states = intermediate_states, .result = result });
+        { .point = point, .scalar = scalar, .intermediate_states = std::move(intermediate_states), .result = result });
     return result;
 }
 

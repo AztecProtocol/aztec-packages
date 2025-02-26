@@ -3,8 +3,14 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+
+using ::testing::ElementsAre;
+using ::testing::ElementsAreArray;
+using ::testing::Field;
+using ::testing::SizeIs;
 
 namespace bb::avm2::simulation {
 namespace {
@@ -59,13 +65,30 @@ TEST(AvmSimulationEccTest, ScalarMul)
 
     EXPECT_EQ(result, expected_result);
 
+    std::vector<ScalarMulIntermediateState> intermediate_states;
+    intermediate_states.reserve(254);
+
+    AffinePoint res = AffinePoint::infinity();
+    AffinePoint temp = p;
+    uint256_t scalar_value = scalar;
+
+    for (size_t i = 0; i < 254; ++i) {
+        bool bit = scalar_value.get_bit(i);
+        if (bit) {
+            res = res + temp;
+        }
+        intermediate_states.push_back({ res, temp, bit });
+        temp = temp + temp;
+    }
+
     auto events = scalar_mul_event_emitter.dump_events();
-    EXPECT_EQ(events.size(), 1);
-    ScalarMulEvent event = events[0];
-    EXPECT_EQ(event.point, p);
-    EXPECT_EQ(event.scalar, scalar);
-    EXPECT_EQ(event.result, result);
-    EXPECT_EQ(event.intermediate_states.size(), 254);
+    EXPECT_THAT(
+        events,
+        AllOf(ElementsAre(AllOf(Field(&ScalarMulEvent::point, p),
+                                Field(&ScalarMulEvent::scalar, scalar),
+                                Field(&ScalarMulEvent::result, result),
+                                Field(&ScalarMulEvent::intermediate_states, ElementsAreArray(intermediate_states)))),
+              SizeIs(1)));
 }
 
 } // namespace
