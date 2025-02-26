@@ -1,4 +1,4 @@
-// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js
+// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
 #pragma once
 
 #define MAX_NOTE_HASHES_PER_CALL 16

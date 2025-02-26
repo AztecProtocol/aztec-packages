@@ -4,7 +4,7 @@ import { makeBackoff, retry } from '@aztec/foundation/retry';
 
 import { outboundTransform } from '../encoding/index.js';
 import { type BlobSinkConfig, getBlobSinkConfigFromEnv } from './config.js';
-import { type BlobSinkClientInterface } from './interface.js';
+import type { BlobSinkClientInterface } from './interface.js';
 
 export class HttpBlobSinkClient implements BlobSinkClientInterface {
   private readonly log: Logger;

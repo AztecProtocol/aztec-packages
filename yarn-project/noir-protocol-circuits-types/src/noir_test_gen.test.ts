@@ -1,5 +1,8 @@
-import { FunctionSelector } from '@aztec/circuits.js/abi';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
+import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
+import { FunctionSelector } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ContractClass,
   type ContractInstance,
@@ -10,12 +13,9 @@ import {
   computePartialAddress,
   computePrivateFunctionsTree,
   computeSaltedInitializationHash,
-} from '@aztec/circuits.js/contract';
-import { hashVK } from '@aztec/circuits.js/hash';
-import { PublicKeys } from '@aztec/circuits.js/keys';
-import { CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
-import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
+} from '@aztec/stdlib/contract';
+import { hashVK } from '@aztec/stdlib/hash';
+import { PublicKeys } from '@aztec/stdlib/keys';
 
 describe('Data generation for noir tests', () => {
   setupCustomSnapshotSerializers(expect);

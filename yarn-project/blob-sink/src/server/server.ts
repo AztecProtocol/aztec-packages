@@ -1,11 +1,11 @@
 import { Blob } from '@aztec/blob-lib';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { type AztecAsyncKVStore } from '@aztec/kv-store';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import express, { type Express, type Request, type Response, json } from 'express';
-import { type Server } from 'http';
-import { type AddressInfo } from 'net';
+import type { Server } from 'http';
+import type { AddressInfo } from 'net';
 import { z } from 'zod';
 
 import { type BlobStore, DiskBlobStore } from '../blobstore/index.js';
@@ -13,7 +13,7 @@ import { MemoryBlobStore } from '../blobstore/memory_blob_store.js';
 import { inboundTransform } from '../encoding/index.js';
 import { type PostBlobSidecarRequest, blockIdSchema, indicesSchema } from '../types/api.js';
 import { BlobWithIndex } from '../types/index.js';
-import { type BlobSinkConfig } from './config.js';
+import type { BlobSinkConfig } from './config.js';
 import { BlobSinkMetrics } from './metrics.js';
 
 /**

@@ -1,9 +1,10 @@
-import { L2Block, Tx, TxHash } from '@aztec/circuit-types';
 import { Fr } from '@aztec/foundation/fields';
+import { L2Block } from '@aztec/stdlib/block';
+import { Tx, TxHash } from '@aztec/stdlib/tx';
 
-import { type PeerId } from '@libp2p/interface';
+import type { PeerId } from '@libp2p/interface';
 
-import { type ReqRespStatus } from './status.js';
+import type { ReqRespStatus } from './status.js';
 
 /*
  * Request Response Sub Protocols

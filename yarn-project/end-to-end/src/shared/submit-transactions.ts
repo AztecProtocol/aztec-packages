@@ -1,6 +1,6 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { Fr, GrumpkinScalar, type Logger, type SentTx, TxStatus, type Wallet } from '@aztec/aztec.js';
-import { type PXEService } from '@aztec/pxe';
+import type { PXEService } from '@aztec/pxe';
 
 // submits a set of transactions to the provided Private eXecution Environment (PXE)
 export const submitTxsTo = async (

@@ -4,7 +4,7 @@ import { type TelemetryClient, type Traceable, type Tracer, makeTracedFetch, tra
 
 import { Bot } from './bot.js';
 import { type BotConfig, getVersions } from './config.js';
-import { type BotRunnerApi } from './interface.js';
+import type { BotRunnerApi } from './interface.js';
 
 export class BotRunner implements BotRunnerApi, Traceable {
   private log = createLogger('bot');

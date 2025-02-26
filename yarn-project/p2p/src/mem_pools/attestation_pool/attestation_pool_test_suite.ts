@@ -1,12 +1,13 @@
-import { type BlockAttestation, TxHash } from '@aztec/circuit-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
+import type { BlockAttestation } from '@aztec/stdlib/p2p';
+import { TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type PoolInstrumentation } from '../instrumentation.js';
-import { type AttestationPool } from './attestation_pool.js';
+import type { PoolInstrumentation } from '../instrumentation.js';
+import type { AttestationPool } from './attestation_pool.js';
 import { mockAttestation } from './mocks.js';
 
 const NUMBER_OF_SIGNERS_PER_TEST = 4;

@@ -24,7 +24,7 @@ static_assert(KERNEL_OUTPUTS_LENGTH < AVM_PUBLIC_COLUMN_MAX_SIZE,
 
 // START INDEXES in the PUBLIC_CIRCUIT_PUBLIC_INPUTS
 // These line up with indexes found in
-// https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/circuits.js/src/structs/public_circuit_public_inputs.ts
+// https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/stdlib/src/structs/public_circuit_public_inputs.ts
 inline const uint32_t SENDER_PCPI_OFFSET = 0;
 inline const uint32_t ADDRESS_PCPI_OFFSET = 1;
 inline const uint32_t IS_STATIC_CALL_PCPI_OFFSET = 3;

@@ -13,7 +13,7 @@ import {
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
-import { type Account, type Chain, type HttpTransport, type PublicClient, type WalletClient } from 'viem';
+import type { Account, Chain, HttpTransport, PublicClient, WalletClient } from 'viem';
 
 export interface IGasBridgingTestHarness {
   getL1FeeJuiceBalance(address: EthAddress): Promise<bigint>;

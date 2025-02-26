@@ -1,21 +1,15 @@
-import {
-  type MerkleTreeId,
-  type Note,
-  type NoteStatus,
-  type PublicDataWitness,
-  type UnencryptedL2Log,
-} from '@aztec/circuit-types';
-import { type NullifierMembershipWitness } from '@aztec/circuit-types/interfaces/server';
-import { type FunctionSelector, type NoteSelector } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { type CompleteAddress, type ContractInstance } from '@aztec/circuits.js/contract';
-import { type KeyValidationRequest } from '@aztec/circuits.js/kernel';
-import { type IndexedTaggingSecret, type LogWithTxData } from '@aztec/circuits.js/logs';
-import { type BlockHeader } from '@aztec/circuits.js/tx';
-import { type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
+import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
+import type { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
+import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
+import { type IndexedTaggingSecret, type LogWithTxData, UnencryptedL2Log } from '@aztec/stdlib/logs';
+import type { Note, NoteStatus } from '@aztec/stdlib/note';
+import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
+import type { BlockHeader } from '@aztec/stdlib/tx';
 
-import { type MessageLoadOracleInputs } from '../../common/message_load_oracle_inputs.js';
+import type { MessageLoadOracleInputs } from '../../common/message_load_oracle_inputs.js';
 
 /**
  * Information about a note needed during execution.
