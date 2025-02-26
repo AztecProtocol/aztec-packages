@@ -31,7 +31,7 @@ SPLIT_HEX_PUBLIC_INPUTS=$(sed -e 's/.\{64\}/0x&,/g' <<<$HEX_PUBLIC_INPUTS)
 anvil &
 
 DEPLOY_INFO=$(forge create UltraVerifier \
-  --rpc-urls "127.0.0.1:8545" \
+  --rpc-url "127.0.0.1:8545" \
   --private-key "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" \
   --json)
 VERIFIER_ADDRESS=$(echo $DEPLOY_INFO | jq -r '.deployedTo')
