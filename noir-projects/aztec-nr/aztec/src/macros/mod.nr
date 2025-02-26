@@ -178,7 +178,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
                         let note = $unpack(aztec::utils::array::subarray(packed_note.storage(), 0));
 
                         let note_hash = note.compute_note_hash(storage_slot);
-                        let inner_nullifier = note.compute_nullifier_without_context(storage_slot, contract_address, nonce);
+                        let inner_nullifier = note.compute_nullifier_unconstrained(storage_slot, contract_address, nonce);
 
                         Option::some(
                             aztec::discovery::NoteHashAndNullifier {

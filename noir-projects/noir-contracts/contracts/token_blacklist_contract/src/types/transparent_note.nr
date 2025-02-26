@@ -48,7 +48,7 @@ impl NoteHash for TransparentNote {
         )
     }
 
-    unconstrained fn compute_nullifier_without_context(
+    unconstrained fn compute_nullifier_unconstrained(
         self,
         storage_slot: Field,
         contract_address: AztecAddress,

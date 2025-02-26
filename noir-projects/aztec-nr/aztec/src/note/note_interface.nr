@@ -41,7 +41,7 @@ pub trait NoteHash {
     /// unconstrained execution contexts, which exist outside of any transaction and therefore have no concept of
     /// pending notes, only settled. This also causes this function to not need to take a note hash for nullification,
     /// since it will just compute the unique note hash internally using the provided nonce.
-    unconstrained fn compute_nullifier_without_context(
+    unconstrained fn compute_nullifier_unconstrained(
         self,
         storage_slot: Field,
         contract_address: AztecAddress,

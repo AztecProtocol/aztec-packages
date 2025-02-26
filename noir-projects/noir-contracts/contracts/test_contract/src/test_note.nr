@@ -31,7 +31,7 @@ impl NoteHash for TestNote {
         0
     }
 
-    unconstrained fn compute_nullifier_without_context(
+    unconstrained fn compute_nullifier_unconstrained(
         _self: Self,
         _storage_slot: Field,
         _contract_address: AztecAddress,

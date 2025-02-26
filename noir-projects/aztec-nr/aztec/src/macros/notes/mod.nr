@@ -78,7 +78,7 @@ comptime fn generate_note_interface(s: StructDefinition, note_type_id: Field) ->
 ///
 ///     fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field { ... }
 ///
-///     unconstrained fn compute_nullifier_without_context(
+///     unconstrained fn compute_nullifier_unconstrained(
 ///         self,
 ///         storage_slot: Field,
 ///         contract_address: AztecAddress,
@@ -112,7 +112,7 @@ comptime fn generate_note_hash_trait_impl(s: StructDefinition) -> Quoted {
                 )
             }
 
-            unconstrained fn compute_nullifier_without_context(
+            unconstrained fn compute_nullifier_unconstrained(
                 self,
                 storage_slot: Field,
                 contract_address: aztec::prelude::AztecAddress,
@@ -149,7 +149,7 @@ comptime fn generate_note_hash_trait_impl(s: StructDefinition) -> Quoted {
 ///         ...
 ///     }
 ///
-///     unconstrained fn compute_nullifier_without_context(
+///     unconstrained fn compute_nullifier_unconstrained(
 ///         self,
 ///         storage_slot: Field,
 ///         contract_address: AztecAddress,
@@ -230,7 +230,7 @@ comptime fn generate_note_hash_trait_impl_for_partial_note(
                 )
             }
 
-            unconstrained fn compute_nullifier_without_context(
+            unconstrained fn compute_nullifier_unconstrained(
                 self,
                 storage_slot: Field,
                 contract_address: aztec::prelude::AztecAddress,
@@ -1127,7 +1127,7 @@ pub comptime fn note(s: StructDefinition) -> Quoted {
 ///
 ///     // Custom nullifier computation...
 ///     fn compute_nullifier(...) -> Field { ... }
-///     fn compute_nullifier_without_context(...) -> Field { ... }
+///     fn compute_nullifier_unconstrained(...) -> Field { ... }
 /// }
 /// ```
 pub comptime fn custom_note(s: StructDefinition) -> Quoted {
