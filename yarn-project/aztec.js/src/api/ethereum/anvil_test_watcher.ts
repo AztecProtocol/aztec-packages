@@ -1,4 +1,4 @@
-import { type ViemPublicClient } from '@aztec/ethereum';
+import type { ViemPublicClient } from '@aztec/ethereum';
 import type { EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';

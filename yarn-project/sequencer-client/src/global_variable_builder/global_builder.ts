@@ -1,5 +1,5 @@
 import { type L1ContractsConfig, type L1ReaderConfig, createEthereumChain } from '@aztec/ethereum';
-import { type ViemPublicClient } from '@aztec/ethereum';
+import type { ViemPublicClient } from '@aztec/ethereum';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';

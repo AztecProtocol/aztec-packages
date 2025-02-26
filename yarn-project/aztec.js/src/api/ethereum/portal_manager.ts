@@ -1,4 +1,4 @@
-import { type ViemPublicClient, type ViemWalletClient } from '@aztec/ethereum';
+import type { ViemPublicClient, ViemWalletClient } from '@aztec/ethereum';
 import { extractEvent } from '@aztec/ethereum/utils';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
