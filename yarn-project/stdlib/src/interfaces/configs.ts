@@ -1,10 +1,11 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
-import type { FunctionSelector } from '@aztec/stdlib/abi';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type ZodFor, schemas } from '@aztec/stdlib/schemas';
 
 import { z } from 'zod';
+
+import type { FunctionSelector } from '../abi/function_selector.js';
+import type { AztecAddress } from '../aztec-address/index.js';
+import { type ZodFor, schemas } from '../schemas/index.js';
 
 type AllowedInstance = { address: AztecAddress };
 type AllowedInstanceFunction = { address: AztecAddress; selector: FunctionSelector };

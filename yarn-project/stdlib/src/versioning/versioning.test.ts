@@ -2,10 +2,10 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createSafeJsonRpcClient } from '@aztec/foundation/json-rpc/client';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
-import type { ApiSchemaFor } from '@aztec/stdlib/schemas';
 
 import { z } from 'zod';
 
+import type { ApiSchemaFor } from '../schemas/index.js';
 import {
   type ComponentsVersions,
   checkCompressedComponentVersion,

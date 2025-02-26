@@ -1,17 +1,15 @@
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { GasFees } from '@aztec/stdlib/gas';
-import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import {
-  BlockHeader,
-  ContentCommitment,
-  GlobalVariables,
-  NUM_BYTES_PER_SHA256,
-  PartialStateReference,
-  StateReference,
-} from '@aztec/stdlib/tx';
+
+import { AztecAddress } from '../aztec-address/index.js';
+import { GasFees } from '../gas/gas_fees.js';
+import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
+import { BlockHeader } from '../tx/block_header.js';
+import { ContentCommitment, NUM_BYTES_PER_SHA256 } from '../tx/content_commitment.js';
+import { GlobalVariables } from '../tx/global_variables.js';
+import { PartialStateReference } from '../tx/partial_state_reference.js';
+import { StateReference } from '../tx/state_reference.js';
 
 /**
  * Makes header.

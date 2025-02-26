@@ -1,10 +1,10 @@
 import { compactArray } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
-import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 import times from 'lodash.times';
 
+import type { BlockHeader } from '../../tx/block_header.js';
 import type { L2Block } from '../l2_block.js';
 import type { L2BlockSource, L2Tips } from '../l2_block_source.js';
 import {

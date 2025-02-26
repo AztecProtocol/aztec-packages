@@ -1,7 +1,8 @@
 import type { Fr } from '@aztec/foundation/fields';
-import type { BlockHeader, GlobalVariables } from '@aztec/stdlib/tx';
 
 import type { L2Block } from '../block/l2_block.js';
+import type { BlockHeader } from '../tx/block_header.js';
+import type { GlobalVariables } from '../tx/global_variables.js';
 import type { ProcessedTx } from '../tx/processed_tx.js';
 import type { ProcessedTxHandler } from './processed-tx-handler.js';
 

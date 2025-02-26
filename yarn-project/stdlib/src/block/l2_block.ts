@@ -2,11 +2,11 @@ import { sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
-import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import { BlockHeader } from '@aztec/stdlib/tx';
 
 import { z } from 'zod';
 
+import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
+import { BlockHeader } from '../tx/block_header.js';
 import { Body } from './body.js';
 import { makeAppendOnlyTreeSnapshot, makeHeader } from './l2_block_code_to_purge.js';
 

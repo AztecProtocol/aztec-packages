@@ -1,5 +1,6 @@
 import { jsonStringify } from '@aztec/foundation/json-rpc';
-import { TxScopedL2Log } from '@aztec/stdlib/logs';
+
+import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
 
 describe('TxScopedL2Log', () => {
   it('serializes to JSON', () => {

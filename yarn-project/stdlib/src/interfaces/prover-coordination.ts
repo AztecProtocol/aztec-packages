@@ -1,9 +1,8 @@
-import type { ApiSchemaFor } from '@aztec/stdlib/schemas';
-import { TxHash } from '@aztec/stdlib/tx';
-
 import { z } from 'zod';
 
+import type { ApiSchemaFor } from '../schemas/index.js';
 import { Tx } from '../tx/tx.js';
+import { TxHash } from '../tx/tx_hash.js';
 
 /** Provides basic operations for ProverNodes to interact with other nodes in the network. */
 export interface ProverCoordination {

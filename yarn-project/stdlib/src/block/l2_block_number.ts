@@ -1,6 +1,6 @@
-import { schemas } from '@aztec/stdlib/schemas';
-
 import { z } from 'zod';
+
+import { schemas } from '../schemas/index.js';
 
 export const L2BlockNumberSchema = z.union([schemas.Integer, z.literal('latest')]);
 

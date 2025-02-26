@@ -23,12 +23,6 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@aztec/stdlib@link:../yarn-project/stdlib::locator=playground%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@aztec/stdlib@link:../yarn-project/stdlib::locator=playground%40workspace%3A."
-  languageName: node
-  linkType: soft
-
 "@aztec/foundation@link:../yarn-project/foundation::locator=playground%40workspace%3A.":
   version: 0.0.0-use.local
   resolution: "@aztec/foundation@link:../yarn-project/foundation::locator=playground%40workspace%3A."
@@ -56,6 +50,12 @@ __metadata:
 "@aztec/simulator@link:../yarn-project/simulator::locator=playground%40workspace%3A.":
   version: 0.0.0-use.local
   resolution: "@aztec/simulator@link:../yarn-project/simulator::locator=playground%40workspace%3A."
+  languageName: node
+  linkType: soft
+
+"@aztec/stdlib@link:../yarn-project/stdlib::locator=playground%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/stdlib@link:../yarn-project/stdlib::locator=playground%40workspace%3A."
   languageName: node
   linkType: soft
 
@@ -3747,12 +3747,12 @@ __metadata:
     "@aztec/accounts": "link:../yarn-project/accounts"
     "@aztec/aztec.js": "link:../yarn-project/aztec.js"
     "@aztec/bb-prover": "link:../yarn-project/bb-prover"
-    "@aztec/stdlib": "link:../yarn-project/stdlib"
     "@aztec/foundation": "link:../yarn-project/foundation"
     "@aztec/key-store": "link:../yarn-project/key-store"
     "@aztec/kv-store": "link:../yarn-project/kv-store"
     "@aztec/pxe": "link:../yarn-project/pxe"
     "@aztec/simulator": "link:../yarn-project/simulator"
+    "@aztec/stdlib": "link:../yarn-project/stdlib"
     "@emotion/react": "npm:^11.14.0"
     "@emotion/styled": "npm:^11.14.0"
     "@eslint/js": "npm:^9.18.0"
