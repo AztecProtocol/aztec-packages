@@ -33,7 +33,7 @@ variable "L1_DEPLOYMENT_PRIVATE_KEY" {
   default     = ""
 }
 
-variable "EXTERNAL_ETHEREUM_HOST" {
+variable "EXTERNAL_ETHEREUM_HOSTS" {
   description = "External host to use for the ethereum node"
   type        = string
   default     = ""

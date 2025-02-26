@@ -22,7 +22,7 @@ export const getLocalhost = () =>
     .catch(() => 'localhost');
 
 export const LOCALHOST = await getLocalhost();
-export const { ETHEREUM_HOST = `http://${LOCALHOST}:8545`, PRIVATE_KEY, API_KEY, CLI_VERSION } = process.env;
+export const { ETHEREUM_HOSTS = `http://${LOCALHOST}:8545`, PRIVATE_KEY, API_KEY, CLI_VERSION } = process.env;
 
 export function addOptions(program: Command, options: Option[]) {
   options.forEach(option => program.addOption(option));

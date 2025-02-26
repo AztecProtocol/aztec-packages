@@ -89,11 +89,11 @@ describe('e2e_p2p_reqresp_tx', () => {
     t.logger.info(`Sending txs to proposer nodes: ${proposerIndexes}`);
 
     // Replace the p2p node implementation of some of the nodes with a spy such that it does not store transactions that are gossiped to it
-    // Original implementation of `processTxFromPeer` will store received transactions in the tx pool.
+    // Original implementation of `handleGossipedTx` will store received transactions in the tx pool.
     // We chose the first 2 nodes that will be the proposers for the next few slots
     for (const nodeIndex of nodesToTurnOffTxGossip) {
       jest
-        .spyOn((nodes[nodeIndex] as any).p2pClient.p2pService, 'processTxFromPeer')
+        .spyOn((nodes[nodeIndex] as any).p2pClient.p2pService, 'handleGossipedTx')
         .mockImplementation((): Promise<void> => {
           return Promise.resolve();
         });
