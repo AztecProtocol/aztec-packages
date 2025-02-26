@@ -137,6 +137,7 @@ tests:
   - regex: "spartan/bootstrap.sh"
     owners:
       - "UKUMA5J7K" # charlie
+      - "U04BM8H25NJ" # adam
 
   # Slack testing.
   - regex: "nonsense to match"
