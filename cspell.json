@@ -188,6 +188,7 @@
     "Nargo",
     "nixpkgs",
     "nodebuffer",
+    "noinitcheck",
     "noirc",
     "noirup",
     "nullifer",

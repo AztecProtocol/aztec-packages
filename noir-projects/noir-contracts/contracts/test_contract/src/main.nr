@@ -35,7 +35,11 @@ pub contract Test {
         discovery::private_logs::do_process_log,
         hash::{ArgsHasher, compute_secret_hash, pedersen_hash},
         history::note_inclusion::ProveNoteInclusion,
-        macros::{events::event, functions::{internal, private, public}, storage::storage},
+        macros::{
+            events::event,
+            functions::{initializer, internal, noinitcheck, private, public},
+            storage::storage,
+        },
         note::{
             lifecycle::{create_note, destroy_note_unsafe},
             note_getter::{get_notes, view_notes},
@@ -88,6 +92,11 @@ pub contract Test {
         example_struct_in_map: Map<AztecAddress, PrivateImmutable<ExampleStruct, Context>, Context>,
         another_example_struct: PrivateImmutable<ExampleStruct, Context>,
     }
+
+    #[initializer]
+    #[private]
+    // We can name our initializer anything we want as long as it's marked as aztec(initializer)
+    fn initialize() {}
 
     #[private]
     fn get_ovsk_app(ovpk_m_hash: Field) -> Field {
@@ -322,6 +331,7 @@ pub contract Test {
 
     // Forcefully emits a nullifier (for testing purposes)
     #[private]
+    #[noinitcheck]
     fn emit_nullifier(nullifier: Field) {
         context.push_nullifier(nullifier);
     }

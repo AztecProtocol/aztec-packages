@@ -1,7 +1,6 @@
 use crate::{
-    history::public_storage::PublicStorageHistoricalRead,
-    oracle::execution::get_contract_address,
-    test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote},
+    history::public_storage::PublicStorageHistoricalRead, oracle::execution::get_contract_address,
+    test::helpers::test_environment::TestEnvironment,
 };
 
 unconstrained fn setup() -> &mut TestEnvironment {
@@ -15,6 +14,7 @@ unconstrained fn setup() -> &mut TestEnvironment {
     &mut env
 }
 
+// In this test, we see our public value is set to what we specified at the block after the public write occurs.
 #[test]
 unconstrained fn public_storage_read() {
     let env = setup();
@@ -27,6 +27,7 @@ unconstrained fn public_storage_read() {
     );
 }
 
+// In this test, we see our public value is unset at the block before the public write occurs.
 #[test]
 unconstrained fn public_storage_read_empty() {
     let env = setup();
