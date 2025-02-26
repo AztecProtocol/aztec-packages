@@ -191,7 +191,7 @@ pub fn silo_l2_to_l1_message(
 //
 pub fn accumulate_sha256(input: [Field; 2]) -> Field {
     // This is a note about the cpp code, since it takes an array of Fields
-    // instead of a U128.
+    // instead of a u128.
     // 4 Field elements when converted to bytes will usually
     // occupy 4 * 32 = 128 bytes.
     // However, this function is making the assumption that each Field

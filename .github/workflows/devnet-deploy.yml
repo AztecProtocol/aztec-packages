@@ -57,6 +57,7 @@ jobs:
     with:
       namespace: ${{ github.event.inputs.namespace }}
       cluster: ${{ github.event.inputs.cluster }}
+      # This represents the name of the deployment as well.
       values_file: release-devnet.yaml
       aztec_docker_image: ${{ github.event.inputs.aztec_docker_image }}
       deployment_mnemonic_secret_name: ${{ github.event.inputs.deployment_mnemonic_secret_name }}

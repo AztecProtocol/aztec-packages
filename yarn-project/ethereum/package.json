@@ -49,6 +49,7 @@
     "@viem/anvil": "^0.0.10",
     "get-port": "^7.1.0",
     "jest": "^29.5.0",
+    "lodash.omit": "^4.5.0",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.4"
   },

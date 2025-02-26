@@ -3,6 +3,8 @@ title: Counter Contract
 sidebar_position: 0
 ---
 
+import Image from "@theme/IdealImage";
+
 In this guide, we will create our first Aztec.nr smart contract. We will build a simple private counter. This contract will get you started with the basic setup and syntax of Aztec.nr, but doesn't showcase the awesome stuff Aztec is capable of.
 
 ## Prerequisites
@@ -151,6 +153,26 @@ aztec codegen -o src/artifacts target
 
 You can now use the artifact and/or the TS class in your Aztec.js!
 
+## Investigate the `increment` function
+
+Private functions in Aztec contracts are executed client-side, to maintain privacy. Developers need to be mindful of how computationally expensive it is to generate client side proofs for the private functions in the contract they write. To help understand the cost, we can use the Aztec flamegraph tool. The tool takes a contract artifact and function and generates an SVG file that shows the constraint count of each step in the function.
+
+Run it for the `increment` function:
+
+```bash
+SERVE=1 aztec flamegraph target/counter-Counter.json increment
+```
+
+`SERVE=1` will start a local server to view the flamegraph in the browser. You can also run it without this flag and open the generated SVG file in your browser manually.
+
+<Image img={require('/img/flamegraph-counter.png')} />
+
+Note the total gate count at the bottom of the image. The image is interactive; you can hover over different parts of the graph to see the full function name of the execution step and its gate count. This tool also provides insight into the low-level operations that are performed in the private function. Don't worry about the details of the internals of the function right now, just be aware that the more complex the function, the more gates it will use and try out the flamegraph tool on your own functions.
+
+Read more about [profiling transactions with the flamegraph tool](../../../guides/smart_contracts/profiling_transactions.md).
+
+For more information about writing efficient private functions, see [this page](https://noir-lang.org/docs/explainers/explainer-writing-noir) of the Noir documentation.
+
 ## Next Steps
 
 ### Write a slightly more complex Aztec contract
@@ -159,4 +181,4 @@ Follow the private voting contract tutorial on the [next page](./private_voting_
 
 ### Optional: Learn more about concepts mentioned here
 
- - [Functions and annotations like `#[private]`](../../../../aztec/smart_contracts/functions/function_transforms.md#private-functions)
+- [Functions and annotations like `#[private]`](../../../../aztec/smart_contracts/functions/function_transforms.md#private-functions)

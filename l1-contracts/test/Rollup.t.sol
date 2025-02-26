@@ -107,8 +107,8 @@ contract RollupTest is RollupBase {
         )
       )
     );
-    inbox = Inbox(address(rollup.INBOX()));
-    outbox = Outbox(address(rollup.OUTBOX()));
+    inbox = Inbox(address(rollup.getInbox()));
+    outbox = Outbox(address(rollup.getOutbox()));
 
     registry.upgrade(address(rollup));
 
@@ -335,7 +335,8 @@ contract RollupTest is RollupBase {
 
     skipBlobCheck(address(rollup));
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NonZeroL2Fee.selector));
+    // When not canonical, we expect the fee to be 0
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidManaBaseFee.selector, 0, 1));
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: data.archive,
@@ -344,6 +345,28 @@ contract RollupTest is RollupBase {
       txHashes: txHashes
     });
     rollup.propose(args, signatures, data.blobInputs);
+  }
+
+  function testProvingFeeUpdates() public setUpFor("mixed_block_1") {
+    rollup.setProvingCostPerMana(EthValue.wrap(1000));
+    _proposeBlock("mixed_block_1", 1, 1e6);
+
+    rollup.setProvingCostPerMana(EthValue.wrap(2000));
+    _proposeBlock("mixed_block_2", 2, 1e6);
+
+    // At this point in time, we have had different proving costs for the two blocks. When we prove them
+    // in the same epoch, we want to see that the correct fee is taken for each block.
+    _proveBlocks("mixed_block_", 1, 2, address(this));
+
+    // 1e6 mana at 1000 and 2000 cost per manage multiplied by 10 for the price conversion to fee asset.
+    uint256 provingFees = 1e6 * (1000 + 2000) * 10;
+    uint256 expectedProverRewards = rewardDistributor.BLOCK_REWARD() / 2 * 2 + provingFees;
+
+    assertEq(
+      rollup.getCollectiveProverRewardsForEpoch(Epoch.wrap(0)),
+      expectedProverRewards,
+      "invalid prover rewards"
+    );
   }
 
   struct TestBlockFeeStruct {

@@ -228,7 +228,7 @@ contract RollupBase is DecoderBase {
       l2ToL1MessageTreeRoot = tree.computeRoot();
     }
 
-    outbox = Outbox(address(rollup.OUTBOX()));
+    outbox = Outbox(address(rollup.getOutbox()));
     (bytes32 root,) = outbox.getRootData(full.block.decodedHeader.globalVariables.blockNumber);
 
     // If we are trying to read a block beyond the proven chain, we should see "nothing".
@@ -242,7 +242,7 @@ contract RollupBase is DecoderBase {
   }
 
   function _populateInbox(address _sender, bytes32 _recipient, bytes32[] memory _contents) internal {
-    inbox = Inbox(address(rollup.INBOX()));
+    inbox = Inbox(address(rollup.getInbox()));
 
     for (uint256 i = 0; i < _contents.length; i++) {
       vm.prank(_sender);

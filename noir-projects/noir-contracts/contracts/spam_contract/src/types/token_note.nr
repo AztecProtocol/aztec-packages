@@ -3,15 +3,15 @@ use dep::aztec::{
 };
 
 trait OwnedNote {
-    fn new(amount: U128, owner: AztecAddress) -> Self;
-    fn get_amount(self) -> U128;
+    fn new(amount: u128, owner: AztecAddress) -> Self;
+    fn get_amount(self) -> u128;
 }
 // docs:start:TokenNote
 #[note]
 #[derive(Eq)]
 pub struct TokenNote {
     // The amount of tokens in the note
-    amount: U128,
+    amount: u128,
     // The owner of the note
     owner: AztecAddress,
     // Randomness of the note to protect against note hash preimage attacks
@@ -20,7 +20,7 @@ pub struct TokenNote {
 // docs:end:TokenNote
 
 impl OwnedNote for TokenNote {
-    fn new(amount: U128, owner: AztecAddress) -> Self {
+    fn new(amount: u128, owner: AztecAddress) -> Self {
         // Safety: We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing,
         // so a malicious sender could use non-random values to make the note less private. But they already know
         // the full note pre-image anyway, and so the recipient already trusts them to not disclose this
@@ -29,7 +29,7 @@ impl OwnedNote for TokenNote {
         Self { amount, owner, randomness }
     }
 
-    fn get_amount(self) -> U128 {
+    fn get_amount(self) -> u128 {
         self.amount
     }
 }
