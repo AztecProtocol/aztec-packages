@@ -210,14 +210,16 @@ if [ -n "${EXTERNAL_ETHEREUM_HOSTS}" ]; then
   export ETHEREUM_HOSTS="${EXTERNAL_ETHEREUM_HOSTS}"
 fi
 echo "Awaiting any ethereum node from: ${ETHEREUM_HOSTS}"
-for HOST in $(echo "${ETHEREUM_HOSTS}" | tr ',' '\n'); do
-  if curl -s -X POST -H 'Content-Type: application/json' \
-    -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":67}' \
-    "${HOST}" | grep -q 0x; then
-    echo "Ethereum node ${HOST} is ready!"
-    break
-  fi
-  echo "Waiting for Ethereum node ${HOST}..."
+while true; do
+  for HOST in $(echo "${ETHEREUM_HOSTS}" | tr ',' '\n'); do
+    if curl -s -X POST -H 'Content-Type: application/json' \
+      -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":67}' \
+      "${HOST}" | grep -q 0x; then
+      echo "Ethereum node ${HOST} is ready!"
+      return 0
+    fi
+    echo "Waiting for Ethereum node ${HOST}..."
+  done
   sleep 5
 done
 {{- end -}}

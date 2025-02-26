@@ -29,13 +29,7 @@ export class EthCheatCodes {
 
   async rpcCall(method: string, params: any[]) {
     const paramsString = JSON.stringify(params);
-    // const content = {
-    //   body: `{"jsonrpc":"2.0", "method": "${method}", "params": ${paramsString}, "id": 1}`,
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    // };
     this.logger.info(`Calling ${method} with params: ${paramsString} on ${this.rpcUrls.join(', ')}`);
-    // return await (await fetch(this.rpcUrl, content)).json();
     return (await this.publicClient.transport.request({
       method,
       params,
