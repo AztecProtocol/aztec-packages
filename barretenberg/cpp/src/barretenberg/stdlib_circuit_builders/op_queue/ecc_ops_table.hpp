@@ -105,9 +105,11 @@ using EccvmOpsTable = EccOpsTable<eccvm::VMOperation<curve::BN254::Group>>;
  * polynomials in the proving system.
  */
 class UltraEccOpsTable {
+  public:
     static constexpr size_t TABLE_WIDTH = 4;     // dictated by the number of wires in the Ultra arithmetization
     static constexpr size_t NUM_ROWS_PER_OP = 2; // A single ECC op is split across two width-4 rows
 
+  private:
     using Curve = curve::BN254;
     using Fr = Curve::ScalarField;
     using UltraOpsTable = EccOpsTable<UltraOp>;
@@ -123,40 +125,6 @@ class UltraEccOpsTable {
     size_t previous_ultra_table_size() const { return (ultra_table_size() - current_ultra_subtable_size()); }
     void create_new_subtable(size_t size_hint = 0) { table.create_new_subtable(size_hint); }
     void push(const UltraOp& op) { table.push(op); }
-
-    /**
-     * @brief Construct polynomials corresponding to the columns of the reconstructed ultra ops table for the given
-     * range of subtables
-     * TODO(https://github.com/AztecProtocol/barretenberg/issues/1267): multithreaded this functionality
-     * @param target_columns
-     */
-    ColumnPolynomials construct_column_polynomials_from_subtables(const size_t poly_size,
-                                                                  const size_t subtable_start_idx,
-                                                                  const size_t subtable_end_idx) const
-    {
-        ColumnPolynomials column_polynomials;
-        for (auto& poly : column_polynomials) {
-            poly = Polynomial<Fr>(poly_size);
-        }
-
-        size_t i = 0;
-        for (size_t subtable_idx = subtable_start_idx; subtable_idx < subtable_end_idx; ++subtable_idx) {
-            const auto& subtable = table.get()[subtable_idx];
-            for (const auto& op : subtable) {
-                column_polynomials[0].at(i) = op.op;
-                column_polynomials[1].at(i) = op.x_lo;
-                column_polynomials[2].at(i) = op.x_hi;
-                column_polynomials[3].at(i) = op.y_lo;
-                i++;
-                column_polynomials[0].at(i) = 0; // only the first 'op' field is utilized
-                column_polynomials[1].at(i) = op.y_hi;
-                column_polynomials[2].at(i) = op.z_1;
-                column_polynomials[3].at(i) = op.z_2;
-                i++;
-            }
-        }
-        return column_polynomials;
-    }
 
     // Construct the columns of the full ultra ecc ops table
     ColumnPolynomials construct_table_columns() const
@@ -186,6 +154,41 @@ class UltraEccOpsTable {
         const size_t subtable_end_idx = 1; // include only the 0th subtable
 
         return construct_column_polynomials_from_subtables(poly_size, subtable_start_idx, subtable_end_idx);
+    }
+
+  private:
+    /**
+     * @brief Construct polynomials corresponding to the columns of the reconstructed ultra ops table for the given
+     * range of subtables
+     * TODO(https://github.com/AztecProtocol/barretenberg/issues/1267): multithread this functionality
+     * @param target_columns
+     */
+    ColumnPolynomials construct_column_polynomials_from_subtables(const size_t poly_size,
+                                                                  const size_t subtable_start_idx,
+                                                                  const size_t subtable_end_idx) const
+    {
+        ColumnPolynomials column_polynomials;
+        for (auto& poly : column_polynomials) {
+            poly = Polynomial<Fr>(poly_size);
+        }
+
+        size_t i = 0;
+        for (size_t subtable_idx = subtable_start_idx; subtable_idx < subtable_end_idx; ++subtable_idx) {
+            const auto& subtable = table.get()[subtable_idx];
+            for (const auto& op : subtable) {
+                column_polynomials[0].at(i) = op.op;
+                column_polynomials[1].at(i) = op.x_lo;
+                column_polynomials[2].at(i) = op.x_hi;
+                column_polynomials[3].at(i) = op.y_lo;
+                i++;
+                column_polynomials[0].at(i) = 0; // only the first 'op' field is utilized
+                column_polynomials[1].at(i) = op.y_hi;
+                column_polynomials[2].at(i) = op.z_1;
+                column_polynomials[3].at(i) = op.z_2;
+                i++;
+            }
+        }
+        return column_polynomials;
     }
 };
 

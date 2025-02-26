@@ -65,16 +65,16 @@ TEST(ECCOpQueueTest, ColumnPolynomialConstruction)
 {
     using Fr = fr;
 
-    // Instantiate and EccOpQueue and populate it with several subtables of ECC ops
+    // Instantiate an EccOpQueue and populate it with several subtables of ECC ops
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
 
     // Lambda for checking that the table column polynomials reconstructed by the op queue have the correct relationship
     auto check_table_column_polynomials = [&](const std::shared_ptr<bb::ECCOpQueue>& op_queue) {
         // Construct column polynomials corresponding to the full table (T), the previous table (T_prev), and the
         // current subtable (t_current)
-        std::array<Polynomial<Fr>, 4> table_polynomials = op_queue->construct_ultra_ops_table_columns();
-        std::array<Polynomial<Fr>, 4> prev_table_polynomials = op_queue->construct_previous_ultra_ops_table_columns();
-        std::array<Polynomial<Fr>, 4> subtable_polynomials = op_queue->construct_current_ultra_ops_subtable_columns();
+        auto table_polynomials = op_queue->construct_ultra_ops_table_columns();
+        auto prev_table_polynomials = op_queue->construct_previous_ultra_ops_table_columns();
+        auto subtable_polynomials = op_queue->construct_current_ultra_ops_subtable_columns();
         // Check that the table polynomials are constructed correctly by checking the following identity at a single
         // point: T(x) = t_current(x) + x^k * T_prev(x), where k is the size of the current subtable
         const size_t current_subtable_size = op_queue->get_current_ultra_ops_subtable_num_rows();

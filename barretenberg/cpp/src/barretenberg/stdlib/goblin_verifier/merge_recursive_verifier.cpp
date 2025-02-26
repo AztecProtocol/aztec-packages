@@ -48,7 +48,7 @@ std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<C
     // Receive evaluations t_j(\kappa), T_{j,prev}(\kappa), T_j(\kappa), j = 1,2,3,4
     std::array<FF, NUM_WIRES> t_evals;
     std::array<FF, NUM_WIRES> T_prev_evals;
-    std::array<FF, NUM_WIRES> T_current_evals;
+    std::array<FF, NUM_WIRES> T_evals;
     std::vector<OpeningClaim> opening_claims;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         t_evals[idx] = transcript->template receive_from_prover<FF>("t_eval_" + std::to_string(idx + 1));
@@ -59,15 +59,14 @@ std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<C
         opening_claims.emplace_back(OpeningClaim{ { kappa, T_prev_evals[idx] }, T_prev_commitments[idx] });
     }
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        T_current_evals[idx] =
-            transcript->template receive_from_prover<FF>("T_current_eval_" + std::to_string(idx + 1));
-        opening_claims.emplace_back(OpeningClaim{ { kappa, T_current_evals[idx] }, T_commitments[idx] });
+        T_evals[idx] = transcript->template receive_from_prover<FF>("T_eval_" + std::to_string(idx + 1));
+        opening_claims.emplace_back(OpeningClaim{ { kappa, T_evals[idx] }, T_commitments[idx] });
     }
 
     // Check the identity T_j(\kappa) = t_j(\kappa) + \kappa^m * T_{j,prev}(\kappa)
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         FF T_prev_shifted_eval_reconstructed = T_prev_evals[idx] * kappa.pow(subtable_size);
-        T_current_evals[idx].assert_equal(t_evals[idx] + T_prev_shifted_eval_reconstructed);
+        T_evals[idx].assert_equal(t_evals[idx] + T_prev_shifted_eval_reconstructed);
     }
 
     FF alpha = transcript->template get_challenge<FF>("alpha");

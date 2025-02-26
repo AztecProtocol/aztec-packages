@@ -22,6 +22,7 @@ class ECCOpQueue {
     using Point = Curve::AffineElement;
     using Fr = Curve::ScalarField;
     using Fq = Curve::BaseField; // Grumpkin's scalar field
+    static constexpr size_t ULTRA_TABLE_WIDTH = UltraEccOpsTable::TABLE_WIDTH;
     Point point_at_infinity = Curve::Group::affine_point_at_infinity;
 
     // The operations written to the queue are also performed natively; the result is stored in accumulator
@@ -53,19 +54,19 @@ class ECCOpQueue {
     }
 
     // Construct polynomials corresponding to the columns of the full aggregate ultra ecc ops table
-    std::array<Polynomial<Fr>, 4> construct_ultra_ops_table_columns() const
+    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_ultra_ops_table_columns() const
     {
         return ultra_ops_table.construct_table_columns();
     }
 
     // Construct polys corresponding to the columns of the aggregate ultra ops table, excluding the most recent subtable
-    std::array<Polynomial<Fr>, 4> construct_previous_ultra_ops_table_columns() const
+    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_previous_ultra_ops_table_columns() const
     {
         return ultra_ops_table.construct_previous_table_columns();
     }
 
     // Construct polynomials corresponding to the columns of the current subtable of ultra ecc ops
-    std::array<Polynomial<Fr>, 4> construct_current_ultra_ops_subtable_columns() const
+    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_current_ultra_ops_subtable_columns() const
     {
         return ultra_ops_table.construct_current_ultra_ops_subtable_columns();
     }

@@ -37,9 +37,9 @@ template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
     transcript = std::make_shared<Transcript>();
 
     // Extract columns of the full table T_j, the previous table T_{j,prev}, and the current subtable t_j
-    std::array<Polynomial, 4> T_current = op_queue->construct_ultra_ops_table_columns();
-    std::array<Polynomial, 4> T_prev = op_queue->construct_previous_ultra_ops_table_columns();
-    std::array<Polynomial, 4> t_current = op_queue->construct_current_ultra_ops_subtable_columns();
+    std::array<Polynomial, NUM_WIRES> T_current = op_queue->construct_ultra_ops_table_columns();
+    std::array<Polynomial, NUM_WIRES> T_prev = op_queue->construct_previous_ultra_ops_table_columns();
+    std::array<Polynomial, NUM_WIRES> t_current = op_queue->construct_current_ultra_ops_subtable_columns();
 
     // TODO(#723): Cannot currently support an empty T_prev. Need to be able to properly handle zero commitment.
     ASSERT(T_prev[0].size() > 0);
@@ -90,7 +90,7 @@ template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
 
     FF alpha = transcript->template get_challenge<FF>("alpha");
 
-    // Construct batched polynomial to opened via KZG
+    // Construct batched polynomial to be opened via KZG
     Polynomial batched_polynomial(current_table_size);
     FF batched_eval(0);
     FF alpha_pow(1);
