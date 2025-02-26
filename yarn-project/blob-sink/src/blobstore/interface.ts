@@ -1,4 +1,4 @@
-import { type BlobWithIndex } from '../types/index.js';
+import type { BlobWithIndex } from '../types/index.js';
 
 export interface BlobStore {
   /**

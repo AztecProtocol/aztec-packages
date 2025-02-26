@@ -19,8 +19,8 @@ const ClientCircuitArtifactNames: Record<ClientProtocolArtifact, string> = {
 
 function generateImports() {
   return `
-  import { type NoirCompiledCircuit } from '@aztec/circuits.js/noir';
-  import { type ClientProtocolArtifact } from './artifacts/types.js';
+  import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
+  import type { ClientProtocolArtifact } from './artifacts/types.js';
 `;
 }
 

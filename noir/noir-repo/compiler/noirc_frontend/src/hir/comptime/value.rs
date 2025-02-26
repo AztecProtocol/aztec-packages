@@ -7,7 +7,6 @@ use noirc_errors::Location;
 use strum_macros::Display;
 
 use crate::{
-    Kind, QuotedType, Shared, Type, TypeBindings,
     ast::{
         ArrayLiteral, BlockExpression, ConstructorExpression, Expression, ExpressionKind, Ident,
         IntegerBitSize, LValue, Literal, Pattern, Signedness, Statement, StatementKind,
@@ -26,6 +25,7 @@ use crate::{
     parser::{Item, Parser},
     signed_field::SignedField,
     token::{LocatedToken, Token, Tokens},
+    Kind, QuotedType, Shared, Type, TypeBindings,
 };
 use rustc_hash::FxHashMap as HashMap;
 
@@ -214,6 +214,7 @@ impl Value {
             Value::U128(value) => {
                 ExpressionKind::Literal(Literal::Integer(SignedField::positive(value)))
             }
+            Value::U128(value) => ExpressionKind::Literal(Literal::Integer(value.into(), false)),
             Value::String(value) | Value::CtString(value) => {
                 ExpressionKind::Literal(Literal::Str(unwrap_rc(value)))
             }
@@ -381,6 +382,7 @@ impl Value {
             Value::U128(value) => {
                 HirExpression::Literal(HirLiteral::Integer(SignedField::positive(value)))
             }
+            Value::U128(value) => HirExpression::Literal(HirLiteral::Integer(value.into(), false)),
             Value::String(value) | Value::CtString(value) => {
                 HirExpression::Literal(HirLiteral::Str(unwrap_rc(value)))
             }

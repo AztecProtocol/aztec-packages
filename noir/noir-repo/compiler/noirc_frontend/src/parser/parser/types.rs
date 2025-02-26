@@ -1,13 +1,13 @@
 use acvm::{AcirField, FieldElement};
 
 use crate::{
-    QuotedType,
     ast::{UnresolvedType, UnresolvedTypeData, UnresolvedTypeExpression},
-    parser::{ParserErrorReason, labels::ParsingRuleLabel},
+    parser::{labels::ParsingRuleLabel, ParserErrorReason},
     token::{Keyword, Token, TokenKind},
+    QuotedType,
 };
 
-use super::{Parser, parse_many::separated_by_comma_until_right_paren};
+use super::{parse_many::separated_by_comma_until_right_paren, Parser};
 
 impl Parser<'_> {
     pub(crate) fn parse_type_or_error(&mut self) -> UnresolvedType {
@@ -320,7 +320,11 @@ impl Parser<'_> {
 
     fn parse_parameter(&mut self) -> Option<UnresolvedType> {
         let typ = self.parse_type_or_error();
-        if let UnresolvedTypeData::Error = typ.typ { None } else { Some(typ) }
+        if let UnresolvedTypeData::Error = typ.typ {
+            None
+        } else {
+            Some(typ)
+        }
     }
 
     fn parse_trait_as_type(&mut self) -> Option<UnresolvedTypeData> {
@@ -458,12 +462,12 @@ mod tests {
     use strum::IntoEnumIterator;
 
     use crate::{
-        QuotedType,
         ast::{IntegerBitSize, Signedness, UnresolvedType, UnresolvedTypeData},
         parser::{
-            Parser, ParserErrorReason,
             parser::tests::{expect_no_errors, get_single_error, get_source_with_error_span},
+            Parser, ParserErrorReason,
         },
+        QuotedType,
     };
 
     fn parse_type_no_errors(src: &str) -> UnresolvedType {

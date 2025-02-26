@@ -1,10 +1,10 @@
-import { EthAddress } from '@aztec/circuits.js';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
 } from '@aztec/foundation/config';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { type TelemetryClientConfig, telemetryClientConfigMappings } from '@aztec/telemetry-client';
 
 export type ProofVerifierConfig = {

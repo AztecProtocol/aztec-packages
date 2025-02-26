@@ -60,7 +60,7 @@ impl Parser<'_> {
 mod tests {
     use crate::{
         parse_program_with_dummy_file,
-        parser::{ItemKind, parser::tests::expect_no_errors},
+        parser::{parser::tests::expect_no_errors, ItemKind},
     };
 
     #[test]

@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
-use acvm::FieldElement;
 use acvm::acir::AcirField;
+use acvm::FieldElement;
 use iter_extended::vecmap;
 use noirc_errors::{Located, Location, Span};
 
@@ -11,8 +11,8 @@ use super::{
     MethodCallExpression, UnresolvedType,
 };
 use crate::ast::UnresolvedTypeData;
-use crate::elaborator::Turbofish;
 use crate::elaborator::types::SELF_TYPE_NAME;
+use crate::elaborator::Turbofish;
 use crate::node_interner::{
     InternedExpressionKind, InternedPattern, InternedStatementKind, NodeInterner,
 };

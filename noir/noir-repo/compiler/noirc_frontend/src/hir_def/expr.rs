@@ -1,7 +1,6 @@
 use fm::FileId;
 use noirc_errors::Location;
 
-use crate::Shared;
 use crate::ast::{BinaryOp, BinaryOpKind, Ident, UnaryOp};
 use crate::hir::type_check::generics::TraitGenerics;
 use crate::node_interner::{
@@ -9,6 +8,7 @@ use crate::node_interner::{
 };
 use crate::signed_field::SignedField;
 use crate::token::{FmtStrFragment, Tokens};
+use crate::Shared;
 
 use super::stmt::HirPattern;
 use super::traits::{ResolvedTraitBound, TraitConstraint};

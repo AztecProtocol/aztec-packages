@@ -1,5 +1,5 @@
-import { type AztecAddress } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import type { PublicStateDB } from '../../server.js';
 

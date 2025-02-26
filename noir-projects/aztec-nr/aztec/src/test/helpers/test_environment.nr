@@ -6,7 +6,7 @@ use crate::context::{
 use crate::hash::hash_args;
 use crate::test::helpers::{cheatcodes, utils::Deployer};
 
-use crate::note::note_interface::{NoteInterface, NullifiableNote};
+use crate::note::note_interface::{NoteHash, NoteType};
 use crate::oracle::{
     execution::{get_block_number, get_contract_address},
     notes::notify_created_note,
@@ -150,7 +150,7 @@ impl TestEnvironment {
     }
 
     /// Manually adds a note to TXE. This needs to be called if you want to work with a note in your test with the note
-    /// not having an encrypted log emitted. TXE alternative to `PXE.addNote(...)`.
+    /// not having an encrypted log emitted.
     pub unconstrained fn add_note<Note, let N: u32>(
         _self: Self,
         note: Note,
@@ -158,7 +158,7 @@ impl TestEnvironment {
         contract_address: AztecAddress,
     )
     where
-        Note: NoteInterface + NullifiableNote + Packable<N>,
+        Note: NoteType + NoteHash + Packable<N>,
     {
         let original_contract_address = get_contract_address();
         cheatcodes::set_contract_address(contract_address);
@@ -168,7 +168,7 @@ impl TestEnvironment {
         let packed_note = Note::pack(note);
         notify_created_note(
             storage_slot,
-            Note::get_note_type_id(),
+            Note::get_id(),
             packed_note,
             note_hash,
             note_hash_counter,

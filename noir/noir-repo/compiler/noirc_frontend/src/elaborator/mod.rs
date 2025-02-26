@@ -4,15 +4,6 @@ use std::{
 };
 
 use crate::{
-    DataType, StructField, TypeBindings,
-    ast::{ItemVisibility, UnresolvedType},
-    graph::CrateGraph,
-    hir_def::traits::ResolvedTraitBound,
-    node_interner::GlobalValue,
-    usage_tracker::UsageTracker,
-};
-use crate::{
-    EnumVariant, Shared, Type, TypeVariable,
     ast::{
         BlockExpression, FunctionKind, GenericTypeArgs, Ident, NoirFunction, NoirStruct, Param,
         Path, Pattern, TraitBound, UnresolvedGeneric, UnresolvedGenerics,
@@ -20,20 +11,20 @@ use crate::{
     },
     graph::CrateId,
     hir::{
-        Context,
         comptime::ComptimeError,
         def_collector::{
             dc_crate::{
-                CollectedItems, CompilationError, ImplMap, UnresolvedEnum, UnresolvedFunctions,
-                UnresolvedGlobal, UnresolvedStruct, UnresolvedTraitImpl, UnresolvedTypeAlias,
-                filter_literal_globals,
+                filter_literal_globals, CollectedItems, CompilationError, ImplMap, UnresolvedEnum,
+                UnresolvedFunctions, UnresolvedGlobal, UnresolvedStruct, UnresolvedTraitImpl,
+                UnresolvedTypeAlias,
             },
             errors::DefCollectorErrorKind,
         },
-        def_map::{DefMaps, LocalModuleId, MAIN_FUNCTION, ModuleData, ModuleId},
+        def_map::{DefMaps, LocalModuleId, ModuleData, ModuleId, MAIN_FUNCTION},
         resolution::errors::ResolverError,
         scope::ScopeForest as GenericScopeForest,
-        type_check::{TypeCheckError, generics::TraitGenerics},
+        type_check::{generics::TraitGenerics, TypeCheckError},
+        Context,
     },
     hir_def::{
         expr::{HirCapturedVar, HirIdent},
@@ -47,6 +38,15 @@ use crate::{
     },
     parser::{ParserError, ParserErrorReason},
     token::SecondaryAttribute,
+    EnumVariant, Shared, Type, TypeVariable,
+};
+use crate::{
+    ast::{ItemVisibility, UnresolvedType},
+    graph::CrateGraph,
+    hir_def::traits::ResolvedTraitBound,
+    node_interner::GlobalValue,
+    usage_tracker::UsageTracker,
+    DataType, StructField, TypeBindings,
 };
 
 mod comptime;
@@ -548,7 +548,7 @@ impl<'context> Elaborator<'context> {
 
         // Check that the body can return without calling the function.
         if let FunctionKind::Normal = kind {
-            self.run_lint(|elaborator| {
+            self.run_lint(func_meta.name.location.file, |elaborator| {
                 lints::unbounded_recursion(
                     elaborator.interner,
                     id,
@@ -644,7 +644,7 @@ impl<'context> Elaborator<'context> {
             let (type_var, name) = match self.resolve_generic(generic) {
                 Ok(values) => values,
                 Err(error) => {
-                    self.push_err(error);
+                    self.push_err(error, generic.location().file);
                     is_error = true;
                     let id = self.interner.next_type_variable_id();
                     let kind = self.resolve_generic_kind(generic);
@@ -724,7 +724,7 @@ impl<'context> Elaborator<'context> {
                         ident: ident.clone(),
                         typ: unresolved_typ.typ.clone(),
                     });
-                self.push_err(unsupported_typ_err);
+                self.push_err(unsupported_typ_err, generic.location().file);
             }
             Kind::numeric(typ)
         } else {
@@ -741,33 +741,45 @@ impl<'context> Elaborator<'context> {
         self.errors.extend(errors);
     }
 
-    fn run_lint(&mut self, lint: impl Fn(&Elaborator) -> Option<CompilationError>) {
+    pub(crate) fn push_errors(
+        &mut self,
+        errors: impl IntoIterator<Item = (CompilationError, FileId)>,
+    ) {
+        self.errors.extend(errors);
+    }
+
+    fn run_lint(&mut self, file: FileId, lint: impl Fn(&Elaborator) -> Option<CompilationError>) {
         if let Some(error) = lint(self) {
-            self.push_err(error);
+            self.push_err(error, file);
         }
     }
 
     pub fn resolve_module_by_path(&mut self, path: Path) -> Option<ModuleId> {
         match self.resolve_path(path.clone()) {
             Ok(PathResolution { item: PathResolutionItem::Module(module_id), errors }) => {
-                if errors.is_empty() { Some(module_id) } else { None }
+                if errors.is_empty() {
+                    Some(module_id)
+                } else {
+                    None
+                }
             }
             _ => None,
         }
     }
 
     fn resolve_trait_by_path(&mut self, path: Path) -> Option<TraitId> {
+        let file = path.location.file;
         let error = match self.resolve_path(path.clone()) {
             Ok(PathResolution { item: PathResolutionItem::Trait(trait_id), errors }) => {
                 for error in errors {
-                    self.push_err(error);
+                    self.push_err(error, file);
                 }
                 return Some(trait_id);
             }
             Ok(_) => DefCollectorErrorKind::NotATrait { not_a_trait_name: path },
             Err(_) => DefCollectorErrorKind::TraitNotFound { trait_path: path },
         };
-        self.push_err(error);
+        self.push_err(error, file);
         None
     }
 
@@ -1103,14 +1115,17 @@ impl<'context> Elaborator<'context> {
     }
 
     fn run_function_lints(&mut self, func: &FuncMeta, modifiers: &FunctionModifiers) {
-        self.run_lint(|_| lints::inlining_attributes(func, modifiers).map(Into::into));
-        self.run_lint(|_| lints::missing_pub(func, modifiers).map(Into::into));
-        self.run_lint(|_| {
+        let file = func.location.file;
+        self.run_lint(file, |_| lints::inlining_attributes(func, modifiers).map(Into::into));
+        self.run_lint(file, |_| lints::missing_pub(func, modifiers).map(Into::into));
+        self.run_lint(file, |_| {
             let pub_allowed = func.is_entry_point || modifiers.attributes.is_foldable();
             lints::unnecessary_pub_return(func, modifiers, pub_allowed).map(Into::into)
         });
-        self.run_lint(|_| lints::oracle_not_marked_unconstrained(func, modifiers).map(Into::into));
-        self.run_lint(|elaborator| {
+        self.run_lint(file, |_| {
+            lints::oracle_not_marked_unconstrained(func, modifiers).map(Into::into)
+        });
+        self.run_lint(file, |elaborator| {
             lints::low_level_function_outside_stdlib(func, modifiers, elaborator.crate_id)
                 .map(Into::into)
         });
@@ -1210,6 +1225,7 @@ impl<'context> Elaborator<'context> {
         trait_bound: &ResolvedTraitBound,
         starting_trait_id: TraitId,
     ) {
+        let span = location.span;
         let trait_id = trait_bound.trait_id;
         let generics = trait_bound.trait_generics.clone();
 
@@ -1264,8 +1280,9 @@ impl<'context> Elaborator<'context> {
         self.check_parent_traits_are_implemented(&trait_impl);
         self.remove_trait_impl_assumed_trait_implementations(trait_impl.impl_id);
 
-        for (module, function, _) in &trait_impl.methods.functions {
+        for (module, function, noir_function) in &trait_impl.methods.functions {
             self.local_module = *module;
+            let file = noir_function.location().file;
             let errors = check_trait_impl_method_matches_declaration(self.interner, *function);
             self.push_errors(errors.into_iter().map(|error| error.into()));
         }
@@ -1553,6 +1570,7 @@ impl<'context> Elaborator<'context> {
         functions: &mut UnresolvedFunctions,
         location: Location,
     ) {
+        let span = location.span;
         let self_type = functions.self_type.as_ref();
         let self_type =
             self_type.expect("Expected struct type to be set before declare_methods_on_struct");
@@ -1630,7 +1648,7 @@ impl<'context> Elaborator<'context> {
                     first_location,
                     second_location,
                 };
-                self.push_err(error);
+                self.push_err(error, second_location.file);
             }
         }
     }

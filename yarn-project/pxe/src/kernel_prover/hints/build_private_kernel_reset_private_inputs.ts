@@ -1,38 +1,4 @@
 import {
-  type PrivateCallExecutionResult,
-  type PrivateKernelSimulateOutput,
-  collectNested,
-} from '@aztec/circuit-types/interfaces/client';
-import {
-  type Fr,
-  KeyValidationHint,
-  type PrivateCircuitPublicInputs,
-  type ReadRequest,
-  ReadRequestResetStates,
-  ReadRequestState,
-  type ScopedKeyValidationRequestAndGenerator,
-  ScopedNoteHash,
-  ScopedNullifier,
-  ScopedReadRequest,
-  buildNoteHashReadRequestHintsFromResetStates,
-  buildNullifierReadRequestHintsFromResetStates,
-  buildTransientDataHints,
-  countAccumulatedItems,
-  findPrivateKernelResetDimensions,
-  getNonEmptyItems,
-  getNoteHashReadRequestResetStates,
-  getNullifierReadRequestResetStates,
-} from '@aztec/circuits.js';
-import {
-  type PrivateKernelCircuitPublicInputs,
-  PrivateKernelData,
-  PrivateKernelResetCircuitPrivateInputs,
-  PrivateKernelResetDimensions,
-  PrivateKernelResetHints,
-  TransientDataIndexHint,
-  privateKernelResetDimensionNames,
-} from '@aztec/circuits.js/kernel';
-import {
   MAX_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
@@ -43,11 +9,40 @@ import {
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import type { Fr } from '@aztec/foundation/fields';
 import { type Tuple, assertLength } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import { privateKernelResetDimensionsConfig } from '@aztec/noir-protocol-circuits-types/client';
+import {
+  KeyValidationHint,
+  type PrivateCircuitPublicInputs,
+  type PrivateKernelCircuitPublicInputs,
+  PrivateKernelData,
+  PrivateKernelResetCircuitPrivateInputs,
+  PrivateKernelResetDimensions,
+  PrivateKernelResetHints,
+  type PrivateKernelSimulateOutput,
+  type ReadRequest,
+  ReadRequestResetStates,
+  ReadRequestState,
+  type ScopedKeyValidationRequestAndGenerator,
+  ScopedNoteHash,
+  ScopedNullifier,
+  ScopedReadRequest,
+  TransientDataIndexHint,
+  buildNoteHashReadRequestHintsFromResetStates,
+  buildNullifierReadRequestHintsFromResetStates,
+  buildTransientDataHints,
+  countAccumulatedItems,
+  findPrivateKernelResetDimensions,
+  getNonEmptyItems,
+  getNoteHashReadRequestResetStates,
+  getNullifierReadRequestResetStates,
+  privateKernelResetDimensionNames,
+} from '@aztec/stdlib/kernel';
+import { type PrivateCallExecutionResult, collectNested } from '@aztec/stdlib/tx';
 
-import { type ProvingDataOracle } from '../proving_data_oracle.js';
+import type { ProvingDataOracle } from '../proving_data_oracle.js';
 
 function collectNestedReadRequests(
   executionStack: PrivateCallExecutionResult[],

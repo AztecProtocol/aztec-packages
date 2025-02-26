@@ -77,12 +77,7 @@ export class PrivateEnv {
 
 export const deployerEnv = new PrivateEnv();
 
-const IGNORE_FUNCTIONS = [
-  "constructor",
-  "compute_note_hash_and_optionally_a_nullifier",
-  "process_log",
-  "sync_notes",
-];
+const IGNORE_FUNCTIONS = ["constructor", "process_log", "sync_notes"];
 export const filteredInterface = BoxReactContractArtifact.functions.filter(
   (f) => !IGNORE_FUNCTIONS.includes(f.name),
 );

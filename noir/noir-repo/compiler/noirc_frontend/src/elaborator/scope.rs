@@ -1,17 +1,17 @@
 use noirc_errors::Located;
 
-use crate::ast::{ERROR_IDENT, Ident, Path};
+use crate::ast::{Ident, Path, ERROR_IDENT};
 use crate::hir::def_map::{LocalModuleId, ModuleId};
 
 use crate::hir::scope::{Scope as GenericScope, ScopeTree as GenericScopeTree};
 use crate::{
-    DataType, Shared,
     hir::resolution::errors::ResolverError,
     hir_def::{
         expr::{HirCapturedVar, HirIdent},
         traits::Trait,
     },
     node_interner::{DefinitionId, TraitId, TypeId},
+    DataType, Shared,
 };
 use crate::{Type, TypeAlias};
 
@@ -153,7 +153,7 @@ impl Elaborator<'_> {
                 }
             }
             Err(err) => {
-                self.push_err(err);
+                self.push_err(err, location.file);
                 None
             }
         }
@@ -176,7 +176,7 @@ impl Elaborator<'_> {
                 }
             }
             Err(err) => {
-                self.push_err(err);
+                self.push_err(err, location.file);
                 None
             }
         }
@@ -213,7 +213,7 @@ impl Elaborator<'_> {
                 None
             }
             Err(error) => {
-                self.push_err(error);
+                self.push_err(error, location.file);
                 None
             }
         }

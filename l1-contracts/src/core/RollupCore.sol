@@ -32,12 +32,7 @@ import {
   ValidateHeaderArgs,
   Header
 } from "@aztec/core/libraries/RollupLibs/ExtRollupLib.sol";
-import {
-  EthValue,
-  FeeAssetValue,
-  FeeAssetPerEthE9,
-  PriceLib
-} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
+import {EthValue, FeeAssetPerEthE9, PriceLib} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 import {IntRollupLib} from "@aztec/core/libraries/RollupLibs/IntRollupLib.sol";
 import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
 import {StakingLib} from "@aztec/core/libraries/staking/StakingLib.sol";
@@ -138,10 +133,6 @@ contract RollupCore is
 
   RollupStore internal rollupStore;
 
-  // @note  Assume that all blocks up to this value (inclusive) are automatically proven. Speeds up bootstrapping.
-  //        Testing only. This should be removed eventually.
-  uint256 private assumeProvenThroughBlockNumber;
-
   constructor(
     IFeeJuicePortal _fpcJuicePortal,
     IRewardDistributor _rewardDistributor,
@@ -179,7 +170,13 @@ contract RollupCore is
 
     // Genesis block
     rollupStore.blocks[0] = BlockLog({
-      feeHeader: FeeHeader({excessMana: 0, feeAssetPriceNumerator: 0, manaUsed: 0, congestionCost: 0}),
+      feeHeader: FeeHeader({
+        excessMana: 0,
+        feeAssetPriceNumerator: 0,
+        manaUsed: 0,
+        congestionCost: 0,
+        provingCost: 0
+      }),
       archive: _genesisArchiveRoot,
       blockHash: _genesisBlockHash,
       slotNumber: Slot.wrap(0)
@@ -286,19 +283,6 @@ contract RollupCore is
   function prune() external override(IRollupCore) {
     require(canPrune(), Errors.Rollup__NothingToPrune());
     _prune();
-  }
-
-  /**
-   * Sets the assumeProvenThroughBlockNumber. Only the contract deployer can set it.
-   * @param _blockNumber - New value.
-   */
-  function setAssumeProvenThroughBlockNumber(uint256 _blockNumber)
-    external
-    override(ITestRollup)
-    onlyOwner
-  {
-    _fakeBlockNumberAsProven(_blockNumber);
-    assumeProvenThroughBlockNumber = _blockNumber;
   }
 
   /**
@@ -441,18 +425,7 @@ contract RollupCore is
           interim.totalBurn += interim.burn;
 
           // Compute the proving fee in the fee asset
-          {
-            // @todo likely better for us to store this if we can pack it better
-            interim.feeAssetPrice = IntRollupLib.getFeeAssetPerEth(
-              rollupStore.blocks[_args.start + i - 1].feeHeader.feeAssetPriceNumerator
-            );
-          }
-          interim.proverFee = Math.min(
-            feeHeader.manaUsed
-              * FeeAssetValue.unwrap(rollupStore.provingCostPerMana.toFeeAsset(interim.feeAssetPrice)),
-            interim.fee
-          );
-
+          interim.proverFee = Math.min(feeHeader.manaUsed * feeHeader.provingCost, interim.fee);
           interim.fee -= interim.proverFee;
 
           er.rewards += interim.proverFee;
@@ -515,6 +488,11 @@ contract RollupCore is
     // Decode and validate header
     Header memory header = ExtRollupLib.decodeHeader(_args.header);
 
+    // @todo As part of a refactor of the core for propose and submit, we should
+    //       be able to set it up such that we don't need compute the fee components
+    //       unless needed.
+    //       Would be part of joining the header validation.
+
     setupEpoch();
     ManaBaseFeeComponents memory components =
       getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
@@ -532,7 +510,9 @@ contract RollupCore is
     uint256 blockNumber = ++rollupStore.tips.pendingBlockNumber;
 
     {
-      rollupStore.blocks[blockNumber] = _toBlockLog(_args, blockNumber, components.congestionCost);
+      // @note The components are measured in the fee asset.
+      rollupStore.blocks[blockNumber] =
+        _toBlockLog(_args, blockNumber, components.congestionCost, components.provingCost);
     }
 
     rollupStore.blobPublicInputsHashes[blockNumber] = blobPublicInputsHash;
@@ -552,26 +532,6 @@ contract RollupCore is
     OUTBOX.insert(blockNumber, header.contentCommitment.outHash, min + 1);
 
     emit L2BlockProposed(blockNumber, _args.archive, blobHashes);
-
-    // Automatically flag the block as proven if we have cheated and set assumeProvenThroughBlockNumber.
-    if (blockNumber <= assumeProvenThroughBlockNumber) {
-      _fakeBlockNumberAsProven(blockNumber);
-
-      bool isFeeCanonical = address(this) == FEE_JUICE_PORTAL.canonicalRollup();
-      bool isRewardDistributorCanonical = address(this) == REWARD_DISTRIBUTOR.canonicalRollup();
-
-      if (isFeeCanonical && header.globalVariables.coinbase != address(0) && header.totalFees > 0) {
-        // @note  This will currently fail if there are insufficient funds in the bridge
-        //        which WILL happen for the old version after an upgrade where the bridge follow.
-        //        Consider allowing a failure. See #7938.
-        FEE_JUICE_PORTAL.distributeFees(header.globalVariables.coinbase, header.totalFees);
-      }
-      if (isRewardDistributorCanonical && header.globalVariables.coinbase != address(0)) {
-        REWARD_DISTRIBUTOR.claim(header.globalVariables.coinbase);
-      }
-
-      emit L2ProofVerified(blockNumber, "CHEAT");
-    }
   }
 
   /**
@@ -660,10 +620,7 @@ contract RollupCore is
   }
 
   function canPruneAtTime(Timestamp _ts) public view override(IRollupCore) returns (bool) {
-    if (
-      rollupStore.tips.pendingBlockNumber == rollupStore.tips.provenBlockNumber
-        || rollupStore.tips.pendingBlockNumber <= assumeProvenThroughBlockNumber
-    ) {
+    if (rollupStore.tips.pendingBlockNumber == rollupStore.tips.provenBlockNumber) {
       return false;
     }
 
@@ -769,11 +726,12 @@ contract RollupCore is
   }
 
   // Helper to avoid stack too deep
-  function _toBlockLog(ProposeArgs calldata _args, uint256 _blockNumber, uint256 _congestionCost)
-    internal
-    view
-    returns (BlockLog memory)
-  {
+  function _toBlockLog(
+    ProposeArgs calldata _args,
+    uint256 _blockNumber,
+    uint256 _congestionCost,
+    uint256 _provingCost
+  ) internal view returns (BlockLog memory) {
     FeeHeader memory parentFeeHeader = rollupStore.blocks[_blockNumber - 1].feeHeader;
     return BlockLog({
       archive: _args.archive,
@@ -785,17 +743,9 @@ contract RollupCore is
           _args.oracleInput.feeAssetPriceModifier
         ),
         manaUsed: uint256(bytes32(_args.header[0x0268:0x0288])),
-        congestionCost: _congestionCost
+        congestionCost: _congestionCost,
+        provingCost: _provingCost
       })
     });
-  }
-
-  function _fakeBlockNumberAsProven(uint256 _blockNumber) private {
-    if (
-      _blockNumber > rollupStore.tips.provenBlockNumber
-        && _blockNumber <= rollupStore.tips.pendingBlockNumber
-    ) {
-      rollupStore.tips.provenBlockNumber = _blockNumber;
-    }
   }
 }

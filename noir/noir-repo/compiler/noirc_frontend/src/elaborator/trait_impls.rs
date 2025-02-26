@@ -1,5 +1,4 @@
 use crate::{
-    ResolvedGeneric,
     ast::{Ident, UnresolvedType, UnresolvedTypeData, UnresolvedTypeExpression},
     graph::CrateId,
     hir::def_collector::{
@@ -7,12 +6,13 @@ use crate::{
         errors::DefCollectorErrorKind,
     },
     node_interner::TraitImplId,
+    ResolvedGeneric,
 };
 use crate::{
-    Type,
     hir::def_collector::errors::DuplicateType,
     hir_def::traits::{TraitConstraint, TraitFunction},
     node_interner::{FuncId, TraitId},
+    Type,
 };
 
 use rustc_hash::FxHashSet as HashSet;
@@ -91,11 +91,14 @@ impl Elaborator<'_> {
                 }
 
                 if overrides.len() > 1 {
-                    self.push_err(DefCollectorErrorKind::Duplicate {
-                        typ: DuplicateType::TraitAssociatedFunction,
-                        first_def: overrides[0].2.name_ident().clone(),
-                        second_def: overrides[1].2.name_ident().clone(),
-                    });
+                    self.push_err(
+                        DefCollectorErrorKind::Duplicate {
+                            typ: DuplicateType::TraitAssociatedFunction,
+                            first_def: overrides[0].2.name_ident().clone(),
+                            second_def: overrides[1].2.name_ident().clone(),
+                        },
+                        overrides[1].2.name_ident().location().file,
+                    );
                 }
 
                 ordered_methods.push(overrides[0].clone());

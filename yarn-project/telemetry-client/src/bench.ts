@@ -1,23 +1,17 @@
-import {
-  type BatchObservableCallback,
-  type Context,
-  type MetricOptions,
-  type Observable,
-  type ValueType,
-} from '@opentelemetry/api';
+import type { BatchObservableCallback, Context, MetricOptions, Observable, ValueType } from '@opentelemetry/api';
 
 import { NoopTracer } from './noop.js';
-import {
-  type AttributesType,
-  type Gauge,
-  type Histogram,
-  type Meter,
-  type MetricsType,
-  type ObservableGauge,
-  type ObservableUpDownCounter,
-  type TelemetryClient,
-  type Tracer,
-  type UpDownCounter,
+import type {
+  AttributesType,
+  Gauge,
+  Histogram,
+  Meter,
+  MetricsType,
+  ObservableGauge,
+  ObservableUpDownCounter,
+  TelemetryClient,
+  Tracer,
+  UpDownCounter,
 } from './telemetry.js';
 
 export type BenchmarkMetricsType = {

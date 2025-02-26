@@ -2,7 +2,6 @@ use fm::FileId;
 use iter_extended::vecmap;
 use noirc_errors::Location;
 use noirc_frontend::{
-    ParsedModule,
     ast::{
         ArrayLiteral, AsTraitPath, AssignStatement, BlockExpression, CallExpression,
         CastExpression, ConstrainExpression, ConstructorExpression, Documented, EnumVariant,
@@ -20,6 +19,7 @@ use noirc_frontend::{
     token::{
         Attributes, FmtStrFragment, LocatedToken, MetaAttribute, SecondaryAttribute, Token, Tokens,
     },
+    ParsedModule,
 };
 
 /// Returns a copy of the given ParsedModule with all FileIds present in its locations changed to the given FileId.

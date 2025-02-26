@@ -1,9 +1,9 @@
 import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
 import { keccak256 } from '@aztec/foundation/crypto';
-import { type EthAddress } from '@aztec/foundation/eth-address';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 
-import { type Hex } from 'viem';
+import type { Hex } from 'viem';
 
 /**
  * A class that provides utility functions for interacting with ethereum (L1).
@@ -27,6 +27,7 @@ export class EthCheatCodes {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     };
+    this.logger.info(`Calling ${method} with params: ${paramsString} on ${this.rpcUrl}`);
     return await (await fetch(this.rpcUrl, content)).json();
   }
 

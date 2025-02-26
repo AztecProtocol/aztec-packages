@@ -2,13 +2,12 @@ use std::collections::VecDeque;
 use std::{collections::hash_map::Entry, rc::Rc};
 
 use acvm::blackbox_solver::BigIntSolverWithId;
-use acvm::{FieldElement, acir::AcirField};
+use acvm::{acir::AcirField, FieldElement};
 use im::Vector;
 use iter_extended::try_vecmap;
 use noirc_errors::Location;
 use rustc_hash::FxHashMap as HashMap;
 
-use crate::TypeVariable;
 use crate::ast::{BinaryOpKind, FunctionKind, IntegerBitSize, Signedness, UnaryOp};
 use crate::elaborator::Elaborator;
 use crate::graph::CrateId;
@@ -23,8 +22,8 @@ use crate::monomorphization::{
 use crate::node_interner::GlobalValue;
 use crate::signed_field::SignedField;
 use crate::token::{FmtStrFragment, Tokens};
+use crate::TypeVariable;
 use crate::{
-    Shared, Type, TypeBinding, TypeBindings,
     hir_def::{
         expr::{
             HirArrayLiteral, HirBlockExpression, HirCallExpression, HirCastExpression,
@@ -39,10 +38,11 @@ use crate::{
         types::Kind,
     },
     node_interner::{DefinitionId, DefinitionKind, ExprId, FuncId, NodeInterner, StmtId},
+    Shared, Type, TypeBinding, TypeBindings,
 };
 
 use super::errors::{IResult, InterpreterError};
-use super::value::{Closure, Value, unwrap_rc};
+use super::value::{unwrap_rc, Closure, Value};
 
 mod builtin;
 mod foreign;

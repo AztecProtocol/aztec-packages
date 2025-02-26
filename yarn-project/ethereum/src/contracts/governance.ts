@@ -10,7 +10,7 @@ import {
   getContract,
 } from 'viem';
 
-import { type L1ContractAddresses } from '../l1_contract_addresses.js';
+import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import { GovernanceProposerContract } from './governance_proposer.js';
 
 export type L1GovernanceContractAddresses = Pick<

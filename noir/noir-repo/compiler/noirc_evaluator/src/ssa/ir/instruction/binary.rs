@@ -1,4 +1,4 @@
-use acvm::{FieldElement, acir::AcirField};
+use acvm::{acir::AcirField, FieldElement};
 use num_traits::ToPrimitive as _;
 use serde::{Deserialize, Serialize};
 
@@ -625,8 +625,8 @@ mod test {
     use proptest::prelude::*;
 
     use super::{
-        BinaryOp, convert_signed_integer_to_field_element, truncate_field,
-        try_convert_field_element_to_signed_integer,
+        convert_signed_integer_to_field_element, truncate_field,
+        try_convert_field_element_to_signed_integer, BinaryOp,
     };
     use acvm::{AcirField, FieldElement};
     use num_bigint::BigUint;

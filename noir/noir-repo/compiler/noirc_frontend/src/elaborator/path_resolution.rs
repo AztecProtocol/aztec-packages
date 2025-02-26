@@ -107,10 +107,11 @@ impl Elaborator<'_> {
         &mut self,
         path: Path,
     ) -> Result<PathResolutionItem, ResolverError> {
+        let file = path.location.file;
         let path_resolution = self.resolve_path(path)?;
 
         for error in path_resolution.errors {
-            self.push_err(error);
+            self.push_err(error, file);
         }
 
         Ok(path_resolution.item)

@@ -3,10 +3,9 @@ use noirc_errors::Location;
 use rustc_hash::FxHashSet as HashSet;
 
 use crate::{
-    DataType, Kind, Shared, Type, TypeAlias, TypeBindings,
     ast::{
-        ERROR_IDENT, Expression, ExpressionKind, Ident, ItemVisibility, Path, Pattern, TypePath,
-        UnresolvedType,
+        Expression, ExpressionKind, Ident, ItemVisibility, Path, Pattern, TypePath, UnresolvedType,
+        ERROR_IDENT,
     },
     hir::{
         def_collector::dc_crate::CompilationError,
@@ -18,9 +17,10 @@ use crate::{
         stmt::HirPattern,
     },
     node_interner::{DefinitionId, DefinitionKind, ExprId, FuncId, GlobalId, TraitImplKind},
+    DataType, Kind, Shared, Type, TypeAlias, TypeBindings,
 };
 
-use super::{Elaborator, ResolverMeta, path_resolution::PathResolutionItem};
+use super::{path_resolution::PathResolutionItem, Elaborator, ResolverMeta};
 
 impl Elaborator<'_> {
     pub(super) fn elaborate_pattern(
@@ -293,13 +293,19 @@ impl Elaborator<'_> {
                 );
             } else if seen_fields.contains(&field) {
                 // duplicate field
-                self.push_err(ResolverError::DuplicateField { field: field.clone() });
+                self.push_err(
+                    ResolverError::DuplicateField { field: field.clone() },
+                    field.location().file,
+                );
             } else {
                 // field not required by struct
-                self.push_err(ResolverError::NoSuchField {
-                    field: field.clone(),
-                    struct_definition: struct_type.borrow().name.clone(),
-                });
+                self.push_err(
+                    ResolverError::NoSuchField {
+                        field: field.clone(),
+                        struct_definition: struct_type.borrow().name.clone(),
+                    },
+                    field.location().file,
+                );
             }
 
             ret.push((field, resolved));
@@ -435,7 +441,7 @@ impl Elaborator<'_> {
                     actual_count: unresolved_turbofish.len(),
                     location,
                 };
-                self.push_err(type_check_err);
+                self.push_err(type_check_err, location.file);
             }
 
             self.resolve_turbofish_generics(direct_generic_kinds, unresolved_turbofish)
@@ -641,7 +647,7 @@ impl Elaborator<'_> {
     fn resolve_variable(&mut self, path: Path) -> (HirIdent, Option<PathResolutionItem>) {
         if let Some(trait_path_resolution) = self.resolve_trait_generic_path(&path) {
             for error in trait_path_resolution.errors {
-                self.push_err(error);
+                self.push_err(error, path.location.file);
             }
 
             (
@@ -845,7 +851,7 @@ impl Elaborator<'_> {
                 Err(error) => error,
             },
         };
-        self.push_err(error);
+        self.push_err(error, location.file);
         let id = DefinitionId::dummy_id();
         ((HirIdent::non_trait_method(id, location), 0), None)
     }

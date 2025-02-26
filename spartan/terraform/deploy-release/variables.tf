@@ -26,11 +26,6 @@ variable "L1_DEPLOYMENT_MNEMONIC" {
   default     = ""
 }
 
-variable "BOT_L1_MNEMONIC" {
-  type    = string
-  default = "test test test test test test test test test test test junk"
-}
-
 variable "L1_DEPLOYMENT_PRIVATE_KEY" {
   description = "Private key to use for the L1 contract deployments"
   type        = string
@@ -66,4 +61,15 @@ variable "L1_DEPLOYMENT_SALT" {
   description = "Salt to use for the L1 contract deployments"
   type        = string
   default     = ""
+}
+
+variable "EXPOSE_HTTPS_BOOTNODE" {
+  description = "Whether to expose the bootnode with HTTPS"
+  type        = bool
+  default     = false
+}
+
+variable "BOOTNODE_IP_REGION" {
+  default = "us-west1"
+  type    = string
 }
