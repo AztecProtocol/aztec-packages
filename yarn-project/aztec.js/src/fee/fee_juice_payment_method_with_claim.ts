@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
+import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice/lazy';
 import type { FunctionCall } from '@aztec/stdlib/abi';
 import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';

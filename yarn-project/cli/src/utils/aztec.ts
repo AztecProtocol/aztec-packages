@@ -56,7 +56,7 @@ export async function deployAztecContracts(
     : privateKeyToAccount(`${privateKey.startsWith('0x') ? '' : '0x'}${privateKey}` as `0x${string}`);
   const chain = createEthereumChain(rpcUrls, chainId);
 
-  const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types/vks');
+  const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types/vk-tree');
 
   return await deployL1Contracts(
     chain.rpcUrls,
