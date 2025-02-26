@@ -4,12 +4,11 @@ import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
 
 import initACVM, { type ExecutionError, executeCircuit } from '@noir-lang/acvm_js';
 import initAbi from '@noir-lang/noirc_abi';
-import type { WitnessMap } from '@noir-lang/types';
 
 import { type ACIRCallback, type ACIRExecutionResult, acvm } from '../acvm/acvm.js';
 import type { ACVMWitness } from '../acvm/acvm_types.js';
 import { type SimulationProvider, parseErrorPayload } from '../common/simulation_provider.js';
-import { createRecordingCallback } from './circuit_inputs_recording.js';
+import { setupRecordingAndGetWrappedCallback } from './circuit_inputs_recording.js';
 
 export class WASMSimulator implements SimulationProvider {
   constructor(protected log = createLogger('wasm-simulator')) {}
@@ -24,7 +23,7 @@ export class WASMSimulator implements SimulationProvider {
     }
   }
 
-  async executeProtocolCircuit(input: WitnessMap, compiledCircuit: NoirCompiledCircuit): Promise<WitnessMap> {
+  async executeProtocolCircuit(input: ACVMWitness, compiledCircuit: NoirCompiledCircuit): Promise<ACVMWitness> {
     this.log.debug('init', { hash: compiledCircuit.hash });
     await this.init();
     // Execute the circuit on those initial witness values
@@ -63,7 +62,7 @@ export class WASMSimulator implements SimulationProvider {
     callback: ACIRCallback,
   ): Promise<ACIRExecutionResult> {
     await this.init();
-    const wrappedCallback = createRecordingCallback(callback);
+    const wrappedCallback = await setupRecordingAndGetWrappedCallback(initialWitness, callback, 'user_circuit');
     return acvm(acir, initialWitness, wrappedCallback);
   }
 }
