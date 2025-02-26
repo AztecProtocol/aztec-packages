@@ -1,4 +1,5 @@
 mod config;
+mod utils;
 
 use dep::aztec::macros::aztec;
 
@@ -10,13 +11,13 @@ use dep::aztec::macros::aztec;
 /// be pulled by the admin using the `pull_funds` function.
 #[aztec]
 pub contract FPC {
-    use crate::config::Config;
-    use dep::aztec::{
+    use crate::{config::Config, utils::safe_cast_to_u128};
+    use aztec::{
         macros::{functions::{initializer, internal, private, public}, storage::storage},
         protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
         state_vars::PublicImmutable,
     };
-    use dep::token::Token;
+    use token::Token;
 
     #[storage]
     struct Storage<Context> {
@@ -108,7 +109,7 @@ pub contract FPC {
     #[public]
     #[internal]
     fn complete_refund(accepted_asset: AztecAddress, refund_slot: Field, max_fee: u128) {
-        let tx_fee = context.transaction_fee() as u128;
+        let tx_fee = safe_cast_to_u128(context.transaction_fee());
 
         // 1. Check that user funded the fee payer contract with at least the transaction fee.
         // TODO(#10805): Nuke this check once we have a proper max_fee check in the fee_entrypoint_private.
@@ -171,7 +172,8 @@ pub contract FPC {
     #[public]
     #[internal]
     fn pay_refund(refund_recipient: AztecAddress, max_fee: u128, accepted_asset: AztecAddress) {
-        let actual_fee = context.transaction_fee() as u128;
+        let actual_fee = safe_cast_to_u128(context.transaction_fee());
+
         assert(actual_fee <= max_fee, "Max fee paid to the paymaster does not cover actual fee");
         // TODO(#10805): Introduce a real exchange rate
         let refund = max_fee - actual_fee;
