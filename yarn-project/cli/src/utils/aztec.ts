@@ -1,5 +1,5 @@
 import { type ContractArtifact, type FunctionArtifact, loadContractArtifact } from '@aztec/aztec.js/abi';
-import type { DeployL1Contracts, L1ContractsConfig } from '@aztec/ethereum';
+import type { DeployL1ContractsReturnType, L1ContractsConfig } from '@aztec/ethereum';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import type { LogFn, Logger } from '@aztec/foundation/log';
@@ -30,13 +30,13 @@ export function getFunctionArtifact(artifact: ContractArtifact, fnName: string):
 
 /**
  * Function to execute the 'deployRollupContracts' command.
- * @param rpcUrl - The RPC URL of the ethereum node.
+ * @param rpcUrls - The RPC URL of the ethereum node.
  * @param chainId - The chain ID of the L1 host.
  * @param privateKey - The private key to be used in contract deployment.
  * @param mnemonic - The mnemonic to be used in contract deployment.
  */
 export async function deployAztecContracts(
-  rpcUrl: string,
+  rpcUrls: string[],
   chainId: number,
   privateKey: string | undefined,
   mnemonic: string,
@@ -47,19 +47,19 @@ export async function deployAztecContracts(
   genesisBlockHash: Fr,
   config: L1ContractsConfig,
   debugLogger: Logger,
-): Promise<DeployL1Contracts> {
+): Promise<DeployL1ContractsReturnType> {
   const { createEthereumChain, deployL1Contracts } = await import('@aztec/ethereum');
   const { mnemonicToAccount, privateKeyToAccount } = await import('viem/accounts');
 
   const account = !privateKey
     ? mnemonicToAccount(mnemonic!, { addressIndex: mnemonicIndex })
     : privateKeyToAccount(`${privateKey.startsWith('0x') ? '' : '0x'}${privateKey}` as `0x${string}`);
-  const chain = createEthereumChain(rpcUrl, chainId);
+  const chain = createEthereumChain(rpcUrls, chainId);
 
   const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types/vks');
 
   return await deployL1Contracts(
-    chain.rpcUrl,
+    chain.rpcUrls,
     account,
     chain.chainInfo,
     debugLogger,
