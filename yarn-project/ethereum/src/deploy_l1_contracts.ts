@@ -263,25 +263,24 @@ export const deployL1Contracts = async (
 ): Promise<DeployL1ContractsReturnType> => {
   // We are assuming that you are running this on a local anvil node which have 1s block times
   // To align better with actual deployment, we update the block interval to 12s
-  // The code is same as `setBlockInterval` in `cheat_codes.ts`
-  const rpcCall = async (method: string, params: any[]) => {
-    const paramsString = JSON.stringify(params);
-    const content = {
-      body: `{"jsonrpc":"2.0", "method": "${method}", "params": ${paramsString}, "id": 1}`,
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    };
-    return await (await fetch(rpcUrls[0], content)).json();
-  };
-  const walletClient = createWalletClient({ account, chain, transport: fallback(rpcUrls.map(url => http(url))) });
   const publicClient = createPublicClient({ chain, transport: fallback(rpcUrls.map(url => http(url))) });
+  const walletClient = createWalletClient({ account, chain, transport: fallback(rpcUrls.map(url => http(url))) });
+
+  const rpcCall = async (method: string, params: any[]) => {
+    logger.info(`Calling ${method} with params: ${JSON.stringify(params)}`);
+    return (await publicClient.transport.request({
+      method,
+      params,
+    })) as any;
+  };
 
   if (isAnvilTestChain(chain.id)) {
-    const res = await rpcCall('anvil_setBlockTimestampInterval', [args.ethereumSlotDuration]);
-    if (res.error) {
-      throw new Error(`Error setting block interval: ${res.error.message}`);
+    try {
+      await rpcCall('anvil_setBlockTimestampInterval', [args.ethereumSlotDuration]);
+      logger.warn(`Set block interval to ${args.ethereumSlotDuration}`);
+    } catch (e) {
+      logger.error(`Error setting block interval: ${e}`);
     }
-    logger.warn(`Set block interval to ${args.ethereumSlotDuration}`);
   }
 
   logger.verbose(`Deploying contracts from ${account.address.toString()}`);

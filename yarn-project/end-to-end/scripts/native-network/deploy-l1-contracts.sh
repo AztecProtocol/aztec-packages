@@ -33,7 +33,6 @@ while true; do
       --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
       "$HOST" 2>/dev/null | grep -q 'result'; then
       echo "Node $HOST is ready"
-      found_node=1
       break 2
     fi
     echo "Waiting for Ethereum node ${HOST}..."
@@ -42,6 +41,7 @@ while true; do
 done
 echo "Done waiting."
 
+echo "Fetching chain ID from the Ethereum node"
 # Fetch chain ID from the Ethereum node
 source "$REPO"/yarn-project/end-to-end/scripts/native-network/utils/get-chain-id.sh
 
