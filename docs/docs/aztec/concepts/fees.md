@@ -4,6 +4,66 @@ sidebar_position: 0
 tags: [fees]
 ---
 
-This section is currently being updated and will supplemented by information in the corresponding section of the protocol specifications.
+import { Why_Fees } from '/components/snippets';
 
-For a guide on how to pay fees programmatically, see [Paying fees in TypeScript](../../developers/guides/js_apps/pay_fees).
+<Why_Fees />
+
+In a nutshell, the pricing of transactions transparently accounts for:
+- L1 costs, including L1 execution of a block, and data availability via blobs,
+- L2 node operating costs, including proving
+
+This is done via multiple variables and calculations explained in detail in the protocol specifications.
+
+## Terminology and factors
+
+Familiar terms from Ethereum mainnet as referred to on the Aztec network:
+
+| Mainnet     | Aztec              | Description |
+| ----------- | ------------------ | - |
+| gas         | mana               | indication of effort in transaction operations |
+| fee per gas | fee-juice per mana | cost per unit of effort |
+| fee (wei)   | fee-juice          | a |
+
+The fee juice units also share the units of wei, but via a multiplier of: fee-juice price per wei
+
+Also Aztec implements mechanisms from EIP-1559 including: congestion multipliers, and the ability to specify base and priority mana.
+
+
+### Aztec-specific fields
+
+There are many other fields used in mana and fee calculations, and below shows the ways these fields are determined:
+
+- hard-coded constants (eg congestion update fraction)
+- values assumed constant (eg L1 gas cost of publishing a block, blobs per block)
+- informed from previous block header and/or L1 rollup contract (eg base_fee_juice_per_mana)
+- informed via an oracle (eg wei per mana)
+
+Most of the constants are defined by the protocol, several others are part of the rollup contract on L1.
+
+More information about the design/choices can be found in the fees section of the protocol specification.
+
+### User selected factors
+
+As part of a transaction the follow gas settings are available to be defined by the user.
+
+import { Gas_Settings } from '/components/snippets';
+
+<Gas_Settings />
+
+These are:
+
+#include_code gas_settings_vars yarn-project/stdlib/src/gas/gas_settings.ts javascript
+
+
+## Fee payment
+
+The calculated fee-juice of a transaction is deducted from the fee payer (nominated account or fee-paying contract), these are pooled together each transaction, block, and epoch.
+Once the epoch is proven, the total fee-juice (minus any burnt congestion amount), is distributed to those that contributed to the epoch (proposers, prover and sequencer).
+
+The fees section of the protocol specification explains the details of this distribution.
+
+## Next steps
+
+More comprehensive technical details for implementers will be available from the updated protocol specifications soon.
+
+For a guide on how to pay fees programmatically, see [here](../../developers/guides/js_apps/pay_fees).
