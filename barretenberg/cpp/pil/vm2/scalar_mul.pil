@@ -48,9 +48,9 @@ namespace scalar_mul;
     // We do reverse aggregation, the start row contains the output
     // so is the selector with which other subtraces will reference
     // After this section:
-    // - Start can be 1 only after an end or the first row
+    // - start can be 1 only after an end or the first row
     // - There can be any number of rows between start and end
-    // - End can be 1 only after a start
+    // - end can be 1 only N rows after a start (we'll constrain that N=253 in the BIT DECOMPOSITION section)
     // - sel should be 1 after start and can change after end
     pol commit start;
     start * (1 - start) = 0;
@@ -68,22 +68,22 @@ namespace scalar_mul;
     // Selector must be 1 in a start row
     start * (1 - sel) = 0;
     // Next selector must be current selector unless LATCH_CONDITION
-    (sel' - sel)*(1 - LATCH_CONDITION) = 0;
+    (sel' - sel) * (1 - LATCH_CONDITION) = 0;
     // Selector must be 1 in an end row
     end * (1 - sel) = 0;
 
     // Needs to be commited since we'll use it in the ecc add lookup for doubling
     pol commit not_end;
     // not_end = sel & !end
-    not_end - sel*(1-end) = 0;
+    not_end - sel * (1 - end) = 0;
 
 
     // Input consistency
 
-    not_end*(point_x - point_x') = 0;
-    not_end*(point_y - point_y') = 0;
-    not_end*(point_inf - point_inf') = 0;
-    not_end*(scalar - scalar') = 0;
+    not_end * (point_x - point_x') = 0;
+    not_end * (point_y - point_y') = 0;
+    not_end * (point_inf - point_inf') = 0;
+    not_end * (scalar - scalar') = 0;
 
 
     // BIT DECOMPOSITION
@@ -98,7 +98,7 @@ namespace scalar_mul;
     end * bit_idx = 0;
 
     // Next bit index has to be 1 less except on end
-    not_end*(bit_idx - (bit_idx' + 1)) = 0;
+    not_end * (bit_idx - (bit_idx' + 1)) = 0;
 
     pol BIT_RADIX = 2;
 
@@ -142,15 +142,15 @@ namespace scalar_mul;
     // Except in the end row, where res can be either infinity or the point
 
     // If end is true, conditional assign point or 0,0,1 (infinity)
-    end*(point_x*bit - res_x) = 0;
-    end*(point_y*bit - res_y) = 0;
-    end*((point_inf - 1)*bit + 1 - res_inf) = 0;
+    end * (point_x * bit - res_x) = 0;
+    end * (point_y * bit - res_y) = 0;
+    end * ((point_inf - 1) * bit + 1 - res_inf) = 0;
 
     // If not_end, res = bit? res + temp : res
     // commited because it's used in the add lookup
     pol commit should_add;
-    should_add - not_end*bit = 0;
-    pol should_pass = not_end*(1 - bit);
+    should_add - not_end * bit = 0;
+    pol should_pass = not_end * (1 - bit);
 
     #[ADD]
     should_add { res_x, res_y, res_inf, res_x', res_y', res_inf', temp_x, temp_y, temp_inf }
@@ -158,8 +158,8 @@ namespace scalar_mul;
     ecc.sel
         { ecc.r_x, ecc.r_y, ecc.r_is_inf, ecc.p_x, ecc.p_y, ecc.p_is_inf, ecc.q_x, ecc.q_y, ecc.q_is_inf };
 
-    should_pass*(res_x - res_x') = 0;
-    should_pass*(res_y - res_y') = 0;
-    should_pass*(res_inf - res_inf') = 0;
+    should_pass * (res_x - res_x') = 0;
+    should_pass * (res_y - res_y') = 0;
+    should_pass * (res_inf - res_inf') = 0;
 
 
