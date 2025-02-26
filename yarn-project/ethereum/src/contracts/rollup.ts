@@ -62,7 +62,10 @@ export class RollupContract {
     return new RollupContract(client, address);
   }
 
-  constructor(public readonly client: PublicClient<HttpTransport, Chain>, address: Hex) {
+  constructor(public readonly client: PublicClient<HttpTransport, Chain>, address: Hex | EthAddress) {
+    if (address instanceof EthAddress) {
+      address = address.toString();
+    }
     this.rollup = getContract({ address, abi: RollupAbi, client });
   }
 

@@ -1,4 +1,5 @@
 mod config;
+mod utils;
 
 use dep::aztec::macros::aztec;
 
@@ -10,13 +11,13 @@ use dep::aztec::macros::aztec;
 /// be pulled by the admin using the `pull_funds` function.
 #[aztec]
 pub contract FPC {
-    use crate::config::Config;
-    use dep::aztec::{
+    use crate::{config::Config, utils::safe_cast_to_u128};
+    use aztec::{
         macros::{functions::{initializer, internal, private, public}, storage::storage},
         protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
         state_vars::PublicImmutable,
     };
-    use dep::token::Token;
+    use token::Token;
 
     #[storage]
     struct Storage<Context> {
@@ -75,7 +76,7 @@ pub contract FPC {
     /// - the asset which was used to make the payment.
     // docs:start:fee_entrypoint_private
     #[private]
-    fn fee_entrypoint_private(max_fee: U128, nonce: Field) {
+    fn fee_entrypoint_private(max_fee: u128, nonce: Field) {
         let accepted_asset = storage.config.read().accepted_asset;
 
         let user = context.msg_sender();
@@ -91,13 +92,10 @@ pub contract FPC {
         let refund_slot = token.prepare_private_balance_increase(user, user).call(&mut context);
 
         // Set a public teardown function in which the refund will be paid back to the user by finalizing the partial note.
-        let max_fee_serialized = max_fee.serialize();
         context.set_public_teardown_function(
             context.this_address(),
-            comptime {
-                FunctionSelector::from_signature("complete_refund((Field),Field,(Field,Field))")
-            },
-            [accepted_asset.to_field(), refund_slot, max_fee_serialized[0], max_fee_serialized[1]],
+            comptime { FunctionSelector::from_signature("complete_refund((Field),Field,u128)") },
+            [accepted_asset.to_field(), refund_slot, max_fee as Field],
         );
 
         // Set the FPC as the fee payer of the tx.
@@ -110,8 +108,8 @@ pub contract FPC {
     // docs:start:complete_refund
     #[public]
     #[internal]
-    fn complete_refund(accepted_asset: AztecAddress, refund_slot: Field, max_fee: U128) {
-        let tx_fee = U128::from_integer(context.transaction_fee());
+    fn complete_refund(accepted_asset: AztecAddress, refund_slot: Field, max_fee: u128) {
+        let tx_fee = safe_cast_to_u128(context.transaction_fee());
 
         // 1. Check that user funded the fee payer contract with at least the transaction fee.
         // TODO(#10805): Nuke this check once we have a proper max_fee check in the fee_entrypoint_private.
@@ -148,7 +146,7 @@ pub contract FPC {
     /// Protocol-enshrined fee-payment phase:
     /// 4. The protocol deducts the actual fee denominated in fee juice from the FPC's balance.
     #[private]
-    fn fee_entrypoint_public(max_fee: U128, nonce: Field) {
+    fn fee_entrypoint_public(max_fee: u128, nonce: Field) {
         let config = storage.config.read();
 
         // We pull the max fee from the user's balance of the accepted asset to this contract.
@@ -161,18 +159,10 @@ pub contract FPC {
         context.set_as_fee_payer();
         // TODO(#6277) for improving interface:
         // FPC::at(context.this_address()).pay_refund(...).set_public_teardown_function(&mut context);
-        let max_fee_serialized = max_fee.serialize();
         context.set_public_teardown_function(
             context.this_address(),
-            comptime {
-                FunctionSelector::from_signature("pay_refund((Field),(Field,Field),(Field))")
-            },
-            [
-                context.msg_sender().to_field(),
-                max_fee_serialized[0],
-                max_fee_serialized[1],
-                config.accepted_asset.to_field(),
-            ],
+            comptime { FunctionSelector::from_signature("pay_refund((Field),u128,(Field))") },
+            [context.msg_sender().to_field(), max_fee as Field, config.accepted_asset.to_field()],
         );
     }
 
@@ -181,8 +171,9 @@ pub contract FPC {
     /// It's passed as an argument to avoid the need for another read from public storage.
     #[public]
     #[internal]
-    fn pay_refund(refund_recipient: AztecAddress, max_fee: U128, accepted_asset: AztecAddress) {
-        let actual_fee = U128::from_integer(context.transaction_fee());
+    fn pay_refund(refund_recipient: AztecAddress, max_fee: u128, accepted_asset: AztecAddress) {
+        let actual_fee = safe_cast_to_u128(context.transaction_fee());
+
         assert(actual_fee <= max_fee, "Max fee paid to the paymaster does not cover actual fee");
         // TODO(#10805): Introduce a real exchange rate
         let refund = max_fee - actual_fee;
