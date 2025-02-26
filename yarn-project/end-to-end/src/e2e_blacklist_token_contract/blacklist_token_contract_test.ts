@@ -173,7 +173,7 @@ export class BlacklistTokenContractTest {
     await contract.methods
       .deliver_transparent_note(
         contract.address,
-        new Fr(amount),
+        amount,
         secretHash,
         txHash.hash,
         this.#toBoundedVec(txEffects!.data.noteHashes, MAX_NOTE_HASHES_PER_TX),
