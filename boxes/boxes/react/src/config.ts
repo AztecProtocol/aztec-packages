@@ -1,6 +1,6 @@
 import { createPXEClient, PXE } from '@aztec/aztec.js';
 import { BoxReactContractArtifact } from '../artifacts/BoxReact';
-import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
+import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing/lazy';
 
 export class PrivateEnv {
   private constructor(private pxe: PXE) {}
