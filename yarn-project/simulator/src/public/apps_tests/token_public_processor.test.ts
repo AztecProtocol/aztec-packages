@@ -1,11 +1,11 @@
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import type { ContractInstanceWithAddress } from '@aztec/circuits.js/contract';
-import { GasFees } from '@aztec/circuits.js/gas';
-import { GlobalVariables } from '@aztec/circuits.js/tx';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import { GasFees } from '@aztec/stdlib/gas';
+import { GlobalVariables } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 import { NativeWorldStateService } from '@aztec/world-state';
 

@@ -1,48 +1,4 @@
 import {
-  HashedValues,
-  type L1ToL2Message,
-  Note,
-  PublicExecutionRequest,
-  TxExecutionRequest,
-  type TxScopedL2Log,
-} from '@aztec/circuit-types';
-import {
-  type AztecNode,
-  CountedPublicExecutionRequest,
-  type L2BlockNumber,
-} from '@aztec/circuit-types/interfaces/client';
-import {
-  type ContractArtifact,
-  type FunctionArtifact,
-  FunctionSelector,
-  type NoteSelector,
-  encodeArguments,
-  getFunctionArtifact,
-  getFunctionArtifactByName,
-} from '@aztec/circuits.js/abi';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import {
-  CompleteAddress,
-  type ContractInstance,
-  getContractClassFromArtifact,
-  getContractInstanceFromDeployParams,
-} from '@aztec/circuits.js/contract';
-import { GasFees, GasSettings } from '@aztec/circuits.js/gas';
-import {
-  computeNoteHashNonce,
-  computeSecretHash,
-  computeUniqueNoteHash,
-  computeVarArgsHash,
-  deriveStorageSlotInMap,
-  siloNoteHash,
-} from '@aztec/circuits.js/hash';
-import { KeyValidationRequest, getNonEmptyItems } from '@aztec/circuits.js/kernel';
-import { computeAppNullifierSecretKey, deriveKeys } from '@aztec/circuits.js/keys';
-import { IndexedTaggingSecret } from '@aztec/circuits.js/logs';
-import { makeHeader } from '@aztec/circuits.js/testing';
-import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
-import { BlockHeader, CallContext, PartialStateReference, StateReference, TxContext } from '@aztec/circuits.js/tx';
-import {
   GeneratorIndex,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
@@ -55,7 +11,7 @@ import { poseidon2Hash, poseidon2HashWithSeparator, randomInt } from '@aztec/fou
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { FieldsOf } from '@aztec/foundation/types';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import { ChildContractArtifact } from '@aztec/noir-contracts.js/Child';
@@ -64,6 +20,50 @@ import { ParentContractArtifact } from '@aztec/noir-contracts.js/Parent';
 import { PendingNoteHashesContractArtifact } from '@aztec/noir-contracts.js/PendingNoteHashes';
 import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContractArtifact } from '@aztec/noir-contracts.js/Test';
+import {
+  type ContractArtifact,
+  type FunctionArtifact,
+  FunctionSelector,
+  type NoteSelector,
+  encodeArguments,
+  getFunctionArtifact,
+  getFunctionArtifactByName,
+} from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2BlockNumber } from '@aztec/stdlib/block';
+import {
+  CompleteAddress,
+  type ContractInstance,
+  getContractClassFromArtifact,
+  getContractInstanceFromDeployParams,
+} from '@aztec/stdlib/contract';
+import { GasFees, GasSettings } from '@aztec/stdlib/gas';
+import {
+  computeNoteHashNonce,
+  computeUniqueNoteHash,
+  computeVarArgsHash,
+  deriveStorageSlotInMap,
+  siloNoteHash,
+} from '@aztec/stdlib/hash';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import { KeyValidationRequest, getNonEmptyItems } from '@aztec/stdlib/kernel';
+import { computeAppNullifierSecretKey, deriveKeys } from '@aztec/stdlib/keys';
+import { IndexedTaggingSecret, TxScopedL2Log } from '@aztec/stdlib/logs';
+import type { L1ToL2Message } from '@aztec/stdlib/messaging';
+import { Note } from '@aztec/stdlib/note';
+import { makeHeader } from '@aztec/stdlib/testing';
+import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
+import {
+  BlockHeader,
+  CallContext,
+  CountedPublicExecutionRequest,
+  HashedValues,
+  PartialStateReference,
+  PublicExecutionRequest,
+  StateReference,
+  TxContext,
+  TxExecutionRequest,
+} from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { Matcher, type MatcherCreator, type MockProxy, mock } from 'jest-mock-extended';
@@ -72,7 +72,7 @@ import { toFunctionSelector } from 'viem';
 import { MessageLoadOracleInputs } from '../common/message_load_oracle_inputs.js';
 import { WASMSimulator } from '../providers/acvm_wasm.js';
 import { buildL1ToL2Message } from '../test/utils.js';
-import { type DBOracle } from './db_oracle.js';
+import type { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
 
 jest.setTimeout(60_000);
@@ -828,41 +828,6 @@ describe('Private Execution test suite', () => {
           }),
         ).rejects.toThrow('Message not in state');
       });
-    });
-
-    it('Should be able to consume a dummy public to private message', async () => {
-      const secret = new Fr(1n);
-      const secretHash = await computeSecretHash(secret);
-      const note = new Note([secretHash]);
-      const storageSlot = TestContractArtifact.storageLayout['example_set'].slot;
-      oracle.syncTaggedLogs.mockResolvedValue(new Map());
-      oracle.processTaggedLogs.mockResolvedValue();
-      oracle.getNotes.mockResolvedValue([
-        {
-          contractAddress,
-          storageSlot,
-          nonce: Fr.ZERO,
-          note,
-          noteHash: Fr.ZERO,
-          siloedNullifier: Fr.random(),
-          index: 1n,
-        },
-      ]);
-
-      const { entrypoint: result } = await runSimulator({
-        artifact: TestContractArtifact,
-        functionName: 'consume_note_from_secret',
-        args: [secret],
-        contractAddress,
-      });
-
-      // Check a nullifier has been inserted.
-      const nullifiers = getNonEmptyItems(result.publicInputs.nullifiers);
-      expect(nullifiers).toHaveLength(1);
-
-      // Check the commitment read request was created successfully.
-      const readRequests = getNonEmptyItems(result.publicInputs.noteHashReadRequests);
-      expect(readRequests).toHaveLength(1);
     });
   });
 

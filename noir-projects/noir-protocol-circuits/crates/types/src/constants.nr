@@ -3,7 +3,8 @@ use crate::{address::AztecAddress, traits::FromField};
 pub global MAX_FIELD_VALUE: Field =
     21888242871839275222246405745257275088548364400416034343698204186575808495616;
 pub global ARGS_LENGTH: u32 = 16;
-
+// WARNING: do not change without consulting AVM which this constant affects
+pub global MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS: u32 = 16_000;
 /**
  * Convention for constant array lengths are mainly divided in 2 classes:
  *  - FUNCTION CALL
@@ -506,7 +507,7 @@ pub global AVM_PUBLIC_COLUMN_MAX_SIZE: u32 = 1024;
 pub global AVM_PUBLIC_INPUTS_FLATTENED_SIZE: u32 =
     2 * AVM_PUBLIC_COLUMN_MAX_SIZE + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
 
-// Note hash generator index which can be used by custom implementations of NoteInterface::compute_note_hash
+// Note hash generator index which can be used by custom implementations of NoteHash::compute_note_hash
 pub global GENERATOR_INDEX__NOTE_HASH: u32 = 1;
 pub global GENERATOR_INDEX__NOTE_HASH_NONCE: u32 = 2;
 pub global GENERATOR_INDEX__UNIQUE_NOTE_HASH: u32 = 3;

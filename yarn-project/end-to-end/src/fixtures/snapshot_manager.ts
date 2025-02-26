@@ -25,12 +25,12 @@ import { randomBytes } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { resolver, reviver } from '@aztec/foundation/serialize';
 import { TestDateProvider } from '@aztec/foundation/timer';
-import { type ProverNode } from '@aztec/prover-node';
+import type { ProverNode } from '@aztec/prover-node';
 import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { getConfigEnvVars as getTelemetryConfig, initTelemetryClient } from '@aztec/telemetry-client';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
-import { type Anvil } from '@viem/anvil';
+import type { Anvil } from '@viem/anvil';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { copySync, removeSync } from 'fs-extra/esm';
 import fs from 'fs/promises';
@@ -76,7 +76,6 @@ export function createSnapshotManager(
   dataPath?: string,
   config: Partial<SetupOptions> = {},
   deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {
-    assumeProvenThrough: Number.MAX_SAFE_INTEGER,
     initialValidators: [],
   },
 ) {
@@ -105,7 +104,7 @@ class MockSnapshotManager implements ISnapshotManager {
   constructor(
     testName: string,
     private config: Partial<AztecNodeConfig> = {},
-    private deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = { assumeProvenThrough: Number.MAX_SAFE_INTEGER },
+    private deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {},
   ) {
     this.logger = createLogger(`e2e:snapshot_manager:${testName}`);
     this.logger.warn(`No data path given, will not persist any snapshots.`);
@@ -153,7 +152,7 @@ class SnapshotManager implements ISnapshotManager {
     testName: string,
     private dataPath: string,
     private config: Partial<SetupOptions> = {},
-    private deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = { assumeProvenThrough: Number.MAX_SAFE_INTEGER },
+    private deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {},
   ) {
     this.livePath = join(this.dataPath, 'live', testName);
     this.logger = createLogger(`e2e:snapshot_manager:${testName}`);
@@ -264,7 +263,11 @@ async function teardown(context: SubsystemsContext | undefined) {
     await context.watcher.stop();
     await context.blobSink.stop();
     if (context.directoryToCleanup) {
-      await fs.rm(context.directoryToCleanup, { recursive: true, force: true });
+      try {
+        await fs.rm(context.directoryToCleanup, { recursive: true, force: true, maxRetries: 3 });
+      } catch (err) {
+        getLogger().warn(`Failed to delete tmp directory ${context.directoryToCleanup}: ${err}`);
+      }
     }
   } catch (err) {
     getLogger().error('Error during teardown', err);
@@ -281,7 +284,6 @@ async function setupFromFresh(
   logger: Logger,
   { numberOfInitialFundedAccounts = 10, ...opts }: SetupOptions = {},
   deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {
-    assumeProvenThrough: Number.MAX_SAFE_INTEGER,
     initialValidators: [],
   },
 ): Promise<SubsystemsContext> {

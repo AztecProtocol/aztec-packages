@@ -22,7 +22,6 @@
     "awsvpc",
     "aztecprotocol",
     "barretenberg",
-    "barretenberg",
     "bbfree",
     "bbmalloc",
     "benesjan",
@@ -83,6 +82,7 @@
     "demonomorphizing",
     "denoise",
     "deregistration",
+    "deserialising",
     "desynchronization",
     "devbox",
     "devex",
@@ -121,8 +121,6 @@
     "gossipsub",
     "Governance",
     "grumpkin",
-    "grumpkin",
-    "gtest",
     "gtest",
     "gzipped",
     "hackmd",
@@ -186,7 +184,6 @@
     "muxers",
     "nada",
     "namespacing",
-    "napi",
     "napi",
     "Nargo",
     "nixpkgs",
@@ -288,18 +285,17 @@
     "tldr",
     "tmpfs",
     "toplevel",
-    "toplevel",
     "tparam",
     "transferables",
     "transitioner",
     "trivago",
     "tsbuildinfo",
     "tsdoc",
+    "txes",
     "typechain",
     "typecheck",
     "typegen",
     "typeparam",
-    "txes",
     "undeployed",
     "undici",
     "unexclude",
@@ -358,5 +354,7 @@
     "lib",
     "*.cmake"
   ],
-  "flagWords": ["anonymous"]
+  "flagWords": [
+    "anonymous"
+  ]
 }

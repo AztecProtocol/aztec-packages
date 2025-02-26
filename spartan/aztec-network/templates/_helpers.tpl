@@ -69,7 +69,7 @@ http://{{ include "aztec-network.fullname" . }}-boot-node-0.{{ include "aztec-ne
 {{- end -}}
 
 {{- define "aztec-network.validatorUrl" -}}
-http://{{ include "aztec-network.fullname" . }}-validator.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.validator.service.nodePort }}
+http://{{ include "aztec-network.fullname" . }}-validator-lb.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.validator.service.nodePort }}
 {{- end -}}
 
 {{- define "aztec-network.blobSinkUrl" -}}
@@ -169,8 +169,6 @@ Service Address Setup Container
       value: "{{ .Values.proverBroker.service.nodePort }}"
     - name: USE_GCLOUD_LOGGING
       value: "{{ .Values.telemetry.useGcloudLogging }}"
-    - name: USE_GCLOUD_METRICS
-      value: "{{ .Values.telemetry.useGcloudMetrics }}"
     - name: SERVICE_NAME
       value: {{ include "aztec-network.fullname" . }}
   volumeMounts:

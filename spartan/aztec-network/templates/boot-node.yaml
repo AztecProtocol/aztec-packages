@@ -133,8 +133,6 @@ spec:
                   fieldPath: metadata.namespace
             - name: USE_GCLOUD_LOGGING
               value: "{{ .Values.telemetry.useGcloudLogging }}"
-            - name: USE_GCLOUD_METRICS
-              value: "{{ .Values.telemetry.useGcloudMetrics }}"
       {{- end }}
       containers:
         - name: boot-node
@@ -253,8 +251,6 @@ spec:
               value: "{{ .Values.storage.worldStateMapSize }}"
             - name: USE_GCLOUD_LOGGING
               value: "{{ .Values.telemetry.useGcloudLogging }}"
-            - name: USE_GCLOUD_METRICS
-              value: "{{ .Values.telemetry.useGcloudMetrics }}"
             - name: OTEL_EXCLUDE_METRICS
               value: "{{ .Values.telemetry.excludeMetrics }}"
             {{- if .Values.blobSink.enabled }}
@@ -323,6 +319,9 @@ spec:
   # If this is a public network, we want to expose the boot node as a LoadBalancer
   {{- if .Values.network.public }}
   type: LoadBalancer
+  {{- if hasKey .Values.bootNode "fixedExternalIP" }}
+  loadBalancerIP: {{ .Values.bootNode.fixedExternalIP }}
+  {{- end}}
   {{- else }}
   type: ClusterIP
   clusterIP: None
@@ -341,3 +340,33 @@ spec:
     {{- end }}
     - port: {{ .Values.bootNode.service.nodePort }}
       name: node
+---
+{{- if hasKey .Values.bootNode "fixedExternalIP" }}
+apiVersion: networking.gke.io/v1beta2
+kind: ManagedCertificate
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-boot-node-cert
+spec:
+  domains:
+  - aztecprotocol.com
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-boot-node-ingress
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    networking.gke.io/managed-certificates: {{ include "aztec-network.fullname" . }}-boot-node-cert
+spec:
+  rules:
+  - host: aztecprotocol.com
+    http:
+      paths:
+      - path: /*
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: {{ include "aztec-network.fullname" . }}-boot-node
+            port:
+              number: {{ .Values.bootNode.service.nodePort }}
+{{- end }}

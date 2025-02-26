@@ -1,30 +1,5 @@
 import { TestCircuitProver } from '@aztec/bb-prover';
 import { Blob, SpongeBlob } from '@aztec/blob-lib';
-import { MerkleTreeId, type ProcessedTx, toNumBlobFields } from '@aztec/circuit-types';
-import { type MerkleTreeWriteOperations, type ServerCircuitProver } from '@aztec/circuit-types/interfaces/server';
-import { makeBloatedProcessedTx } from '@aztec/circuit-types/testing';
-import { PublicDataWrite } from '@aztec/circuits.js/avm';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { BaseParityInputs, ParityPublicInputs, RootParityInput, RootParityInputs } from '@aztec/circuits.js/parity';
-import { type RecursiveProof, makeEmptyRecursiveProof } from '@aztec/circuits.js/proofs';
-import {
-  type BaseOrMergeRollupPublicInputs,
-  BlockRootRollupBlobData,
-  BlockRootRollupData,
-  BlockRootRollupInputs,
-  ConstantRollupData,
-  EmptyBlockRootRollupInputs,
-  MergeRollupInputs,
-  PreviousRollupData,
-  type PrivateBaseRollupHints,
-  PrivateBaseRollupInputs,
-  PrivateTubeData,
-  SingleTxBlockRootRollupInputs,
-} from '@aztec/circuits.js/rollup';
-import { makeGlobalVariables } from '@aztec/circuits.js/testing';
-import { type AppendOnlyTreeSnapshot, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
-import { GlobalVariables, PartialStateReference, StateReference } from '@aztec/circuits.js/tx';
-import { VerificationKeyAsFields, VkWitnessData } from '@aztec/circuits.js/vks';
 import {
   BLOBS_PER_BLOCK,
   FIELDS_PER_BLOB,
@@ -52,6 +27,30 @@ import {
 } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
+import { PublicDataWrite } from '@aztec/stdlib/avm';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { MerkleTreeWriteOperations, ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
+import { BaseParityInputs, ParityPublicInputs, RootParityInput, RootParityInputs } from '@aztec/stdlib/parity';
+import { type RecursiveProof, makeEmptyRecursiveProof } from '@aztec/stdlib/proofs';
+import {
+  type BaseOrMergeRollupPublicInputs,
+  BlockRootRollupBlobData,
+  BlockRootRollupData,
+  BlockRootRollupInputs,
+  ConstantRollupData,
+  EmptyBlockRootRollupInputs,
+  MergeRollupInputs,
+  PreviousRollupData,
+  type PrivateBaseRollupHints,
+  PrivateBaseRollupInputs,
+  PrivateTubeData,
+  SingleTxBlockRootRollupInputs,
+} from '@aztec/stdlib/rollup';
+import { makeBloatedProcessedTx, makeGlobalVariables } from '@aztec/stdlib/testing';
+import { type AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
+import { type ProcessedTx, toNumBlobFields } from '@aztec/stdlib/tx';
+import { GlobalVariables, PartialStateReference, StateReference } from '@aztec/stdlib/tx';
+import { VerificationKeyAsFields, VkWitnessData } from '@aztec/stdlib/vks';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 import { type MerkleTreeAdminDatabase, NativeWorldStateService } from '@aztec/world-state';
 
