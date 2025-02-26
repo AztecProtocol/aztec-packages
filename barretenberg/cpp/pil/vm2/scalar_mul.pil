@@ -33,7 +33,6 @@ namespace scalar_mul;
     pol commit res_y;
     pol commit res_inf;
 
-
     // LIFECYCLE
 
     // We do reverse aggregation, the start row contains the output
@@ -67,6 +66,14 @@ namespace scalar_mul;
     pol commit not_end;
     // not_end = sel & !end
     not_end - sel*(1-end) = 0;
+
+
+    // Input consistency
+
+    not_end*(point_x - point_x') = 0;
+    not_end*(point_y - point_y') = 0;
+    not_end*(point_inf - point_inf') = 0;
+    not_end*(scalar - scalar') = 0;
 
 
     // BIT DECOMPOSITION

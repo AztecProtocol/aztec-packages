@@ -12,8 +12,9 @@ template <typename FF_> class scalar_mulImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 26> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 3, 3, 2, 2, 2, 4, 4, 4, 3, 4, 4, 4 };
+    static constexpr std::array<size_t, 30> SUBRELATION_PARTIAL_LENGTHS = {
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 4, 4, 4, 3, 4, 4, 4
+    };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -92,104 +93,129 @@ template <typename FF_> class scalar_mulImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
-            auto tmp = new_term.scalar_mul_start * (new_term.scalar_mul_bit_idx - FF(253));
+            auto tmp = new_term.scalar_mul_not_end * (new_term.scalar_mul_point_x - new_term.scalar_mul_point_x_shift);
             tmp *= scaling_factor;
             std::get<10>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
-            auto tmp = new_term.scalar_mul_end * new_term.scalar_mul_bit_idx;
+            auto tmp = new_term.scalar_mul_not_end * (new_term.scalar_mul_point_y - new_term.scalar_mul_point_y_shift);
             tmp *= scaling_factor;
             std::get<11>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
-            auto tmp = new_term.scalar_mul_not_end *
-                       (new_term.scalar_mul_bit_idx - (new_term.scalar_mul_bit_idx_shift + FF(1)));
+            auto tmp =
+                new_term.scalar_mul_not_end * (new_term.scalar_mul_point_inf - new_term.scalar_mul_point_inf_shift);
             tmp *= scaling_factor;
             std::get<12>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
-            auto tmp = new_term.scalar_mul_end * (new_term.scalar_mul_temp_x - new_term.scalar_mul_point_x);
+            auto tmp = new_term.scalar_mul_not_end * (new_term.scalar_mul_scalar - new_term.scalar_mul_scalar_shift);
             tmp *= scaling_factor;
             std::get<13>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
-            auto tmp = new_term.scalar_mul_end * (new_term.scalar_mul_temp_y - new_term.scalar_mul_point_y);
+            auto tmp = new_term.scalar_mul_start * (new_term.scalar_mul_bit_idx - FF(253));
             tmp *= scaling_factor;
             std::get<14>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
-            auto tmp = new_term.scalar_mul_end * (new_term.scalar_mul_temp_inf - new_term.scalar_mul_point_inf);
+            auto tmp = new_term.scalar_mul_end * new_term.scalar_mul_bit_idx;
             tmp *= scaling_factor;
             std::get<15>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
-            auto tmp = (new_term.scalar_mul_temp_x_shift - new_term.scalar_mul_temp_x_shift);
+            auto tmp = new_term.scalar_mul_not_end *
+                       (new_term.scalar_mul_bit_idx - (new_term.scalar_mul_bit_idx_shift + FF(1)));
             tmp *= scaling_factor;
             std::get<16>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
-            auto tmp = (new_term.scalar_mul_temp_y_shift - new_term.scalar_mul_temp_y_shift);
+            auto tmp = new_term.scalar_mul_end * (new_term.scalar_mul_temp_x - new_term.scalar_mul_point_x);
             tmp *= scaling_factor;
             std::get<17>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
-            auto tmp = (new_term.scalar_mul_temp_inf_shift - new_term.scalar_mul_temp_inf_shift);
+            auto tmp = new_term.scalar_mul_end * (new_term.scalar_mul_temp_y - new_term.scalar_mul_point_y);
             tmp *= scaling_factor;
             std::get<18>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
-            auto tmp = new_term.scalar_mul_end *
-                       (new_term.scalar_mul_point_x * new_term.scalar_mul_bit - new_term.scalar_mul_res_x);
+            auto tmp = new_term.scalar_mul_end * (new_term.scalar_mul_temp_inf - new_term.scalar_mul_point_inf);
             tmp *= scaling_factor;
             std::get<19>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
-            auto tmp = new_term.scalar_mul_end *
-                       (new_term.scalar_mul_point_y * new_term.scalar_mul_bit - new_term.scalar_mul_res_y);
+            auto tmp = (new_term.scalar_mul_temp_x_shift - new_term.scalar_mul_temp_x_shift);
             tmp *= scaling_factor;
             std::get<20>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<21, ContainerOverSubrelations>;
-            auto tmp =
-                new_term.scalar_mul_end * (((new_term.scalar_mul_point_inf - FF(1)) * new_term.scalar_mul_bit + FF(1)) -
-                                           new_term.scalar_mul_res_inf);
+            auto tmp = (new_term.scalar_mul_temp_y_shift - new_term.scalar_mul_temp_y_shift);
             tmp *= scaling_factor;
             std::get<21>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<22, ContainerOverSubrelations>;
-            auto tmp = (new_term.scalar_mul_should_add - new_term.scalar_mul_not_end * new_term.scalar_mul_bit);
+            auto tmp = (new_term.scalar_mul_temp_inf_shift - new_term.scalar_mul_temp_inf_shift);
             tmp *= scaling_factor;
             std::get<22>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<23, ContainerOverSubrelations>;
-            auto tmp = scalar_mul_should_pass * (new_term.scalar_mul_res_x - new_term.scalar_mul_res_x_shift);
+            auto tmp = new_term.scalar_mul_end *
+                       (new_term.scalar_mul_point_x * new_term.scalar_mul_bit - new_term.scalar_mul_res_x);
             tmp *= scaling_factor;
             std::get<23>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<24, ContainerOverSubrelations>;
-            auto tmp = scalar_mul_should_pass * (new_term.scalar_mul_res_y - new_term.scalar_mul_res_y_shift);
+            auto tmp = new_term.scalar_mul_end *
+                       (new_term.scalar_mul_point_y * new_term.scalar_mul_bit - new_term.scalar_mul_res_y);
             tmp *= scaling_factor;
             std::get<24>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<25, ContainerOverSubrelations>;
-            auto tmp = scalar_mul_should_pass * (new_term.scalar_mul_res_inf - new_term.scalar_mul_res_inf_shift);
+            auto tmp =
+                new_term.scalar_mul_end * (((new_term.scalar_mul_point_inf - FF(1)) * new_term.scalar_mul_bit + FF(1)) -
+                                           new_term.scalar_mul_res_inf);
             tmp *= scaling_factor;
             std::get<25>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<26, ContainerOverSubrelations>;
+            auto tmp = (new_term.scalar_mul_should_add - new_term.scalar_mul_not_end * new_term.scalar_mul_bit);
+            tmp *= scaling_factor;
+            std::get<26>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<27, ContainerOverSubrelations>;
+            auto tmp = scalar_mul_should_pass * (new_term.scalar_mul_res_x - new_term.scalar_mul_res_x_shift);
+            tmp *= scaling_factor;
+            std::get<27>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<28, ContainerOverSubrelations>;
+            auto tmp = scalar_mul_should_pass * (new_term.scalar_mul_res_y - new_term.scalar_mul_res_y_shift);
+            tmp *= scaling_factor;
+            std::get<28>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<29, ContainerOverSubrelations>;
+            auto tmp = scalar_mul_should_pass * (new_term.scalar_mul_res_inf - new_term.scalar_mul_res_inf_shift);
+            tmp *= scaling_factor;
+            std::get<29>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
