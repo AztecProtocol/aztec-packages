@@ -1,6 +1,6 @@
 use dep::aztec::{
     context::{PrivateContext, UnconstrainedContext},
-    note::note_emission::OuterNoteEmission,
+    note::{note_emission::OuterNoteEmission, retrieved_note::RetrievedNote},
     protocol_types::{address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
 };
 use dep::aztec::prelude::{NoteGetterOptions, NoteViewerOptions, PrivateSet};
@@ -50,7 +50,7 @@ impl BalanceSet<&mut PrivateContext> {
             let mut addend_note = UintNote::new(addend, owner);
 
             // docs:start:insert
-            OuterNoteEmission::new(Option::some(self.set.insert(&mut addend_note)))
+            OuterNoteEmission::new(Option::some(self.set.insert(addend_note)))
             // docs:end:insert
         }
     }
@@ -101,9 +101,9 @@ impl BalanceSet<&mut PrivateContext> {
 // 'min_sum' - all it does is remove extra notes if it does reach that value.
 // Note that proper usage of this preprocessor requires for notes to be sorted in descending order.
 pub fn preprocess_notes_min_sum(
-    notes: [Option<UintNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    notes: [Option<RetrievedNote<UintNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     min_sum: U128,
-) -> [Option<UintNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
+) -> [Option<RetrievedNote<UintNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
     let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     let mut sum = U128::from_integer(0);
     for i in 0..notes.len() {
@@ -112,9 +112,9 @@ pub fn preprocess_notes_min_sum(
         // sorted in descending order, the filter will only choose the notes with values 3 and 2, but if sorted in
         // ascending order it will choose 4 notes of value 1.
         if notes[i].is_some() & sum < min_sum {
-            let note = notes[i].unwrap_unchecked();
-            selected[i] = Option::some(note);
-            sum = sum.add(note.get_value());
+            let retrieved_note = notes[i].unwrap_unchecked();
+            selected[i] = Option::some(retrieved_note);
+            sum = sum.add(retrieved_note.note.get_value());
         }
     }
     selected

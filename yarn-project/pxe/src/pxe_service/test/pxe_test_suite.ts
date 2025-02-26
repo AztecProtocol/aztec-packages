@@ -1,10 +1,13 @@
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
+import type { PXE } from '@aztec/stdlib/interfaces/client';
 import {
-  type PXE,
   randomContractArtifact,
   randomContractInstanceWithAddress,
   randomDeployedContract,
-} from '@aztec/circuit-types';
-import { AztecAddress, Fr, INITIAL_L2_BLOCK_NUM, getContractClassFromArtifact } from '@aztec/circuits.js';
+} from '@aztec/stdlib/testing';
 
 import omit from 'lodash.omit';
 

@@ -104,6 +104,8 @@ contract ValidatorSelectionTest is DecoderBase {
       _stakingAsset: testERC20,
       _vkTreeRoot: bytes32(0),
       _protocolContractTreeRoot: bytes32(0),
+      _genesisArchiveRoot: bytes32(Constants.GENESIS_ARCHIVE_ROOT),
+      _genesisBlockHash: bytes32(Constants.GENESIS_BLOCK_HASH),
       _ares: address(this),
       _config: Config({
         aztecSlotDuration: TestConstants.AZTEC_SLOT_DURATION,

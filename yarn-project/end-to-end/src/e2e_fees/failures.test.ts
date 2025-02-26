@@ -8,10 +8,10 @@ import {
   PublicFeePaymentMethod,
   TxStatus,
 } from '@aztec/aztec.js';
-import { Gas, GasSettings } from '@aztec/circuits.js';
-import { FunctionType, U128 } from '@aztec/foundation/abi';
-import { type FPCContract } from '@aztec/noir-contracts.js/FPC';
-import { type TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
+import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
+import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
+import { FunctionType, U128 } from '@aztec/stdlib/abi';
+import { Gas, GasSettings } from '@aztec/stdlib/gas';
 
 import { expectMapping } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
@@ -30,6 +30,12 @@ describe('e2e_fees failures', () => {
     await t.applyBaseSnapshots();
     await t.applyFPCSetupSnapshot();
     ({ aliceWallet, aliceAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings } = await t.setup());
+
+    // Prove up until the current state by just marking it as proven.
+    // Then turn off the watcher to prevent it from keep proving
+    await t.cheatCodes.rollup.advanceToNextEpoch();
+    await t.catchUpProvenChain();
+    t.setIsMarkingAsProven(false);
   });
 
   afterAll(async () => {
@@ -41,11 +47,11 @@ describe('e2e_fees failures', () => {
     const privateMintedAlicePrivateBananas = t.ALICE_INITIAL_BANANAS;
 
     const [initialAlicePrivateBananas] = await t.getBananaPrivateBalanceFn(aliceAddress, sequencerAddress);
-    const [initialAliceGas, initialFPCGas] = await t.getGasBalanceFn(aliceAddress, bananaFPC.address);
-
     const [initialFPCPublicBananas] = await t.getBananaPublicBalanceFn(bananaFPC.address);
 
     await t.mintPrivateBananas(privateMintedAlicePrivateBananas, aliceAddress);
+    // Catch the initial balances after the mint above, which costs gas.
+    const [initialAliceGas, initialFPCGas] = await t.getGasBalanceFn(aliceAddress, bananaFPC.address);
 
     // if we simulate locally, it throws an error
     await expect(
@@ -70,8 +76,10 @@ describe('e2e_fees failures', () => {
     await expectMapping(t.getGasBalanceFn, [aliceAddress, bananaFPC.address], [initialAliceGas, initialFPCGas]);
 
     // We wait until the proven chain is caught up so all previous fees are paid out.
+    await t.cheatCodes.rollup.advanceToNextEpoch();
     await t.catchUpProvenChain();
-    const currentSequencerL1Gas = await t.getCoinbaseBalance();
+
+    const currentSequencerRewards = await t.getCoinbaseSequencerRewards();
 
     const txReceipt = await bananaCoin.methods
       .transfer_in_public(aliceAddress, sequencerAddress, outrageousPublicAmountAliceDoesNotHave, 0)
@@ -86,12 +94,15 @@ describe('e2e_fees failures', () => {
 
     expect(txReceipt.status).toBe(TxStatus.APP_LOGIC_REVERTED);
 
-    // We wait until the block is proven since that is when the payout happens.
+    // @note There is a potential race condition here if other tests send transactions that get into the same
+    // epoch and thereby pays out fees at the same time (when proven).
+    await t.cheatCodes.rollup.advanceToNextEpoch();
     await t.catchUpProvenChain();
 
     const feeAmount = txReceipt.transactionFee!;
-    const newSequencerL1FeeAssetBalance = await t.getCoinbaseBalance();
-    expect(newSequencerL1FeeAssetBalance).toEqual(currentSequencerL1Gas + feeAmount);
+    const expectedProverFee = await t.getProverFee(txReceipt.blockNumber!);
+    const newSequencerRewards = await t.getCoinbaseSequencerRewards();
+    expect(newSequencerRewards).toEqual(currentSequencerRewards + feeAmount - expectedProverFee);
 
     // and thus we paid the fee
     await expectMapping(
@@ -130,13 +141,15 @@ describe('e2e_fees failures', () => {
       aliceAddress,
       bananaFPC.address,
     );
+
+    await bananaCoin.methods.mint_to_public(aliceAddress, publicMintedAlicePublicBananas).send().wait();
+
     const [initialAliceGas, initialFPCGas, initialSequencerGas] = await t.getGasBalanceFn(
       aliceAddress,
       bananaFPC.address,
       sequencerAddress,
     );
 
-    await bananaCoin.methods.mint_to_public(aliceAddress, publicMintedAlicePublicBananas).send().wait();
     // if we simulate locally, it throws an error
     await expect(
       bananaCoin.methods
@@ -245,13 +258,14 @@ describe('e2e_fees failures', () => {
       aliceAddress,
       bananaFPC.address,
     );
+
+    await bananaCoin.methods.mint_to_public(aliceAddress, publicMintedAlicePublicBananas).send().wait();
+
     const [initialAliceGas, initialFPCGas, initialSequencerGas] = await t.getGasBalanceFn(
       aliceAddress,
       bananaFPC.address,
       sequencerAddress,
     );
-
-    await bananaCoin.methods.mint_to_public(aliceAddress, publicMintedAlicePublicBananas).send().wait();
 
     const badGas = GasSettings.from({
       ...gasSettings,

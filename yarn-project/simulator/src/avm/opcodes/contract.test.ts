@@ -1,13 +1,15 @@
-import { AztecAddress, type Fr, SerializableContractInstance } from '@aztec/circuits.js';
+import type { Fr } from '@aztec/foundation/fields';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { SerializableContractInstance } from '@aztec/stdlib/contract';
 
 import { mock } from 'jest-mock-extended';
 
-import { type WorldStateDB } from '../../public/public_db_sources.js';
-import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
-import { type AvmContext } from '../avm_context.js';
+import type { WorldStateDB } from '../../public/public_db_sources.js';
+import type { PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
+import type { AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint1 } from '../avm_memory_types.js';
 import { initContext, initPersistableStateManager } from '../fixtures/index.js';
-import { type AvmPersistableStateManager } from '../journal/journal.js';
+import type { AvmPersistableStateManager } from '../journal/journal.js';
 import { mockGetContractInstance, mockNullifierExists } from '../test_utils.js';
 import { ContractInstanceMember, GetContractInstance } from './contract.js';
 
@@ -27,7 +29,7 @@ describe('Contract opcodes', () => {
     address = await AztecAddress.random();
     contractInstance = await SerializableContractInstance.random();
     deployer = contractInstance.deployer;
-    contractClassId = contractInstance.contractClassId;
+    contractClassId = contractInstance.currentContractClassId;
     initializationHash = contractInstance.initializationHash;
     worldStateDB = mock<WorldStateDB>();
     trace = mock<PublicSideEffectTraceInterface>();

@@ -48,6 +48,21 @@ impl Empty for U128 {
     }
 }
 
+impl<T, let N: u32> Empty for [T; N]
+where
+    T: Empty,
+{
+    fn empty() -> Self {
+        [T::empty(); N]
+    }
+}
+
+impl<T> Empty for Option<T> {
+    fn empty() -> Self {
+        Option::none()
+    }
+}
+
 pub fn is_empty<T>(item: T) -> bool
 where
     T: Empty + Eq,

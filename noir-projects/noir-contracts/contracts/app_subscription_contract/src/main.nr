@@ -39,7 +39,7 @@ pub contract AppSubscription {
 
         note.remaining_txs -= 1;
 
-        storage.subscriptions.at(user_address).replace(&mut note).emit(encode_and_encrypt_note(
+        storage.subscriptions.at(user_address).replace(note).emit(encode_and_encrypt_note(
             &mut context,
             user_address,
             user_address,
@@ -109,9 +109,8 @@ pub contract AppSubscription {
             &mut context,
         );
 
-        let mut subscription_note =
-            SubscriptionNote::new(subscriber, expiry_block_number, tx_count);
-        storage.subscriptions.at(subscriber).initialize_or_replace(&mut subscription_note).emit(
+        let subscription_note = SubscriptionNote::new(subscriber, expiry_block_number, tx_count);
+        storage.subscriptions.at(subscriber).initialize_or_replace(subscription_note).emit(
             encode_and_encrypt_note(&mut context, subscriber, context.msg_sender()),
         );
     }

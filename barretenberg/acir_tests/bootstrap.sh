@@ -36,8 +36,9 @@ function build {
     echo "Regenerating verify_honk_proof and verify_rollup_honk_proof recursive inputs."
     local bb=$(realpath ../cpp/build/bin/bb)
     (cd ./acir_tests/assert_statement && \
-      $bb write_recursion_inputs_ultra_honk -b ./target/program.json -o ../verify_honk_proof --recursive && \
-      $bb write_recursion_inputs_rollup_honk -b ./target/program.json -o ../verify_rollup_honk_proof --recursive)
+      # TODO(https://github.com/AztecProtocol/barretenberg/issues/1253) Deprecate command and construct TOML (e.g., via yq or via conversion from a JSON)
+      $bb OLD_API write_recursion_inputs_ultra_honk -b ./target/program.json -o ../verify_honk_proof --recursive && \
+      $bb OLD_API write_recursion_inputs_ultra_honk --ipa_accumulation -b ./target/program.json -o ../verify_rollup_honk_proof --recursive)
 
     cache_upload $tests_tar acir_tests
   fi
@@ -69,9 +70,9 @@ function test_cmds {
 # Paths are all relative to the repository root.
 function test_cmds_internal {
   local plonk_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
-    grep -vE 'verify_honk_proof|double_verify_honk_proof|verify_rollup_honk_proof')
+    grep -vE 'verify_honk_proof|double_verify_honk_proof|verify_rollup_honk_proof|fold')
   local honk_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
-    grep -vE 'single_verify_proof|double_verify_proof|double_verify_nested_proof|verify_rollup_honk_proof')
+    grep -vE 'single_verify_proof|double_verify_proof|double_verify_nested_proof|verify_rollup_honk_proof|fold')
 
   local run_test=$(realpath --relative-to=$root ./run_test.sh)
   local run_test_browser=$(realpath --relative-to=$root ./run_test_browser.sh)
@@ -99,25 +100,23 @@ function test_cmds_internal {
   # echo ecdsa_secp256r1_3x through bb.js on node to check 256k support.
   echo BIN=$bbjs_bin FLOW=prove_then_verify $run_test ecdsa_secp256r1_3x
   # echo the prove then verify flow for UltraHonk. This makes sure we have the same circuit for different witness inputs.
-  echo BIN=$bbjs_bin SYS=ultra_honk FLOW=prove_then_verify $run_test 6_array
-  # echo a single arbitrary test not involving recursion through bb.js for MegaHonk
-  echo BIN=$bbjs_bin SYS=mega_honk FLOW=prove_and_verify $run_test 6_array
+  echo BIN=$bbjs_bin SYS=ultra_honk_deprecated FLOW=prove_then_verify $run_test 6_array
   # echo 1_mul through bb.js build, all_cmds flow, to test all cli args.
   echo BIN=$bbjs_bin FLOW=all_cmds $run_test 1_mul
 
   # barretenberg-acir-tests-bb:
-  # Fold and verify an ACIR program stack using ClientIvc, recursively verify as part of the Tube circuit and produce and verify a Honk proof
+  # Fold and verify an ACIR program stack using ClientIVC, recursively verify as part of the Tube circuit and produce and verify a Honk proof
   echo FLOW=prove_then_verify_tube $run_test 6_array
   # echo 1_mul through native bb build, all_cmds flow, to test all cli args.
-  echo FLOW=all_cmds $run_test 1_mul
+  echo NATIVE=1 FLOW=all_cmds $run_test 1_mul
 
   # barretenberg-acir-tests-bb-ultra-plonk:
   # Exclude honk tests.
   for t in $plonk_tests; do
-    echo FLOW=prove_then_verify $run_test $(basename $t)
+    echo SYS=ultra_plonk_deprecated FLOW=prove_then_verify $run_test $(basename $t)
   done
-  echo FLOW=prove_then_verify RECURSIVE=true $run_test assert_statement
-  echo FLOW=prove_then_verify RECURSIVE=true $run_test double_verify_proof
+  echo SYS=ultra_plonk_deprecated FLOW=prove_then_verify RECURSIVE=true $run_test assert_statement
+  echo SYS=ultra_plonk_deprecated FLOW=prove_then_verify RECURSIVE=true $run_test double_verify_proof
 
   # barretenberg-acir-tests-bb-ultra-honk:
   # Exclude plonk tests.
@@ -126,8 +125,8 @@ function test_cmds_internal {
   done
   echo SYS=ultra_honk FLOW=prove_then_verify RECURSIVE=true $run_test assert_statement
   echo SYS=ultra_honk FLOW=prove_then_verify RECURSIVE=true $run_test double_verify_honk_proof
-  echo SYS=ultra_honk FLOW=prove_and_verify_program $run_test merkle_insert
-  echo SYS=ultra_rollup_honk FLOW=prove_then_verify $run_test verify_rollup_honk_proof
+  echo SYS=ultra_honk FLOW=prove_then_verify HASH=keccak $run_test assert_statement
+  echo SYS=ultra_honk FLOW=prove_then_verify ROLLUP=true $run_test verify_rollup_honk_proof
 
   # barretenberg-acir-tests-bb-client-ivc:
   echo FLOW=prove_then_verify_client_ivc $run_test 6_array
@@ -135,9 +134,31 @@ function test_cmds_internal {
   echo FLOW=prove_then_verify_client_ivc $run_test databus_two_calldata
 }
 
+function ultra_honk_wasm_memory {
+  VERBOSE=1 BIN=../ts/dest/node/main.js SYS=ultra_honk_deprecated FLOW=prove_then_verify ./run_test.sh verify_honk_proof &> ./bench-out/ultra_honk_rec_wasm_memory.txt
+}
+
+function run_benchmark {
+  local start_core=$(( ($1 - 1) * HARDWARE_CONCURRENCY ))
+  local end_core=$(( start_core + (HARDWARE_CONCURRENCY - 1) ))
+  echo taskset -c $start_core-$end_core bash -c "$2"
+  taskset -c $start_core-$end_core bash -c "$2"
+}
+
+# TODO(https://github.com/AztecProtocol/barretenberg/issues/1254): More complete testing, including failure tests
 function bench {
   # TODO: Move to scripts dir along with run_test.sh.
-  LOG_FILE=bench-acir.jsonl ./bench_acir_tests.sh
+  # TODO(https://github.com/AztecProtocol/barretenberg/issues/1265) fix acir benchmarking
+  # LOG_FILE=bench-acir.jsonl ./bench_acir_tests.sh
+
+  export HARDWARE_CONCURRENCY=16
+
+  rm -rf bench-out && mkdir -p bench-out
+  export -f ultra_honk_wasm_memory run_benchmark
+  local num_cpus=$(get_num_cpus)
+  local jobs=$((num_cpus / HARDWARE_CONCURRENCY))
+  parallel -v --line-buffer --tag --jobs "$jobs" run_benchmark {#} {} ::: \
+    ultra_honk_wasm_memory
 }
 
 case "$cmd" in

@@ -1,13 +1,20 @@
-import { aztecNodeConfigMappings, getConfigEnvVars as getNodeConfigEnvVars } from '@aztec/aztec-node';
-import { AztecNodeApiSchema, P2PApiSchema, type PXE } from '@aztec/circuit-types';
+import { getInitialTestAccounts } from '@aztec/accounts/testing';
+import {
+  type AztecNodeConfig,
+  aztecNodeConfigMappings,
+  getConfigEnvVars as getNodeConfigEnvVars,
+} from '@aztec/aztec-node';
 import { NULL_KEY } from '@aztec/ethereum';
-import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
-import { type LogFn } from '@aztec/foundation/log';
+import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
+import type { LogFn } from '@aztec/foundation/log';
+import { AztecNodeApiSchema, type PXE } from '@aztec/stdlib/interfaces/client';
+import { P2PApiSchema } from '@aztec/stdlib/interfaces/server';
 import {
   type TelemetryClientConfig,
   initTelemetryClient,
   telemetryClientConfigMappings,
 } from '@aztec/telemetry-client';
+import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
@@ -20,7 +27,7 @@ export async function startNode(
   signalHandlers: (() => Promise<void>)[],
   services: NamespacedApiHandlers,
   userLog: LogFn,
-) {
+): Promise<{ config: AztecNodeConfig }> {
   // options specifically namespaced with --node.<option>
   const nodeSpecificOptions = extractNamespacedOptions(options, 'node');
   // All options that are relevant to the Aztec Node
@@ -32,6 +39,11 @@ export async function startNode(
     userLog(`Running a Prover Node within a Node is not yet supported`);
     process.exit(1);
   }
+
+  const initialFundedAccounts = nodeConfig.testAccounts ? await getInitialTestAccounts() : [];
+  const { genesisBlockHash, genesisArchiveRoot, prefilledPublicData } = await getGenesisValues(
+    initialFundedAccounts.map(a => a.address),
+  );
 
   // Deploy contracts if needed
   if (nodeSpecificOptions.deployAztecContracts || nodeSpecificOptions.deployAztecContractsSalt) {
@@ -47,6 +59,8 @@ export async function startNode(
     await deployContractsToL1(nodeConfig, account!, undefined, {
       assumeProvenThroughBlockNumber: nodeSpecificOptions.assumeProvenThroughBlockNumber,
       salt: nodeSpecificOptions.deployAztecContractsSalt,
+      genesisBlockHash,
+      genesisArchiveRoot,
     });
   }
   // If not deploying, validate that the addresses and config provided are correct.
@@ -99,7 +113,7 @@ export async function startNode(
   const telemetry = initTelemetryClient(telemetryConfig);
 
   // Create and start Aztec Node
-  const node = await createAztecNode(nodeConfig, { telemetry });
+  const node = await createAztecNode(nodeConfig, { telemetry }, { prefilledPublicData });
 
   // Add node and p2p to services list
   services.node = [node, AztecNodeApiSchema];

@@ -44,9 +44,9 @@ for pathname in "$PROTOCOL_CIRCUITS_DIR/target"/*.json; do
     if [ "$IS_MEGA_HONK_CIRCUIT" = "true" ]; then
         GATES_INFO=$($BB_BIN gates_for_ivc -h 0 -b "$pathname")
     elif [ "$IS_ROLLUP_HONK_CIRCUIT" = "true" ]; then
-        GATES_INFO=$($BB_BIN gates -h 2 -b "$pathname")
+        GATES_INFO=$($BB_BIN gates --honk_recursion 2 -b "$pathname")
     else
-        GATES_INFO=$($BB_BIN gates -h 1 -b "$pathname")
+        GATES_INFO=$($BB_BIN gates --honk_recursion 1 -b "$pathname")
     fi
 
     MAIN_FUNCTION_INFO=$(echo $GATES_INFO | jq -r ".functions[0] | {package_name: "\"$ARTIFACT_NAME\"", functions: [{name: \"main\", opcodes: .acir_opcodes, circuit_size}]}")

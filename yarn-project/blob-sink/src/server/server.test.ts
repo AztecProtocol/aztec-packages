@@ -1,4 +1,5 @@
-import { Blob, makeEncodedBlob } from '@aztec/blob-lib';
+import { Blob } from '@aztec/blob-lib';
+import { makeEncodedBlob } from '@aztec/blob-lib/testing';
 
 import request from 'supertest';
 

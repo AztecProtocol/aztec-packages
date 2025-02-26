@@ -58,15 +58,18 @@ struct EpochRewards {
 // The below blobPublicInputsHashes are filled when proposing a block, then used to verify an epoch proof.
 // TODO(#8955): When implementing batched kzg proofs, store one instance per epoch rather than block
 struct RollupStore {
+  ChainTips tips; // put first such that the struct slot structure is easy to follow for cheatcodes
   mapping(uint256 blockNumber => BlockLog log) blocks;
   mapping(uint256 blockNumber => bytes32) blobPublicInputsHashes;
-  ChainTips tips;
   bytes32 vkTreeRoot;
   bytes32 protocolContractTreeRoot;
   L1GasOracleValues l1GasOracleValues;
   IVerifier epochProofVerifier;
   mapping(address => uint256) sequencerRewards;
   mapping(Epoch => EpochRewards) epochRewards;
+  // @todo Below can be optimised with a bitmap as we can benefit from provers likely proving for epochs close
+  // to one another.
+  mapping(address prover => mapping(Epoch epoch => bool claimed)) proverClaimed;
   EthValue provingCostPerMana;
 }
 
@@ -81,7 +84,6 @@ interface ITestRollup {
   function setEpochVerifier(address _verifier) external;
   function setVkTreeRoot(bytes32 _vkTreeRoot) external;
   function setProtocolContractTreeRoot(bytes32 _protocolContractTreeRoot) external;
-  function setAssumeProvenThroughBlockNumber(uint256 _blockNumber) external;
   function cheat__InitialiseValidatorSet(CheatDepositArgs[] memory _args) external;
   function getManaBaseFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
     external
@@ -95,6 +97,11 @@ interface IRollupCore {
   );
   event L2ProofVerified(uint256 indexed blockNumber, bytes32 indexed proverId);
   event PrunedPending(uint256 provenBlockNumber, uint256 pendingBlockNumber);
+
+  function claimSequencerRewards(address _recipient) external returns (uint256);
+  function claimProverRewards(address _recipient, Epoch[] memory _epochs)
+    external
+    returns (uint256);
 
   function prune() external;
   function updateL1GasFeeOracle() external;
@@ -124,7 +131,6 @@ interface IRollupCore {
 
   function canPrune() external view returns (bool);
   function canPruneAtTime(Timestamp _ts) external view returns (bool);
-  function getEpochToProve() external view returns (Epoch);
 
   function getEpochForBlock(uint256 _blockNumber) external view returns (Epoch);
 }

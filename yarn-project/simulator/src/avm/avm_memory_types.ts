@@ -6,12 +6,12 @@ import {
   MEM_TAG_U32,
   MEM_TAG_U64,
   MEM_TAG_U128,
-} from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+} from '@aztec/constants';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { type FunctionsOf } from '@aztec/foundation/types';
+import type { FunctionsOf } from '@aztec/foundation/types';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { strict as assert } from 'assert';
 

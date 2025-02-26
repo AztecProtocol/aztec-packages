@@ -38,7 +38,7 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
     const receipt = await asset.methods.shield(wallets[0].getAddress(), amount, secretHash, 0).send().wait();
 
     // Redeem it
-    await t.addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);
+    await t.addPendingShieldNoteToPXE(asset, wallets[0], amount, secretHash, receipt.txHash);
     await asset.methods.redeem_shield(wallets[0].getAddress(), amount, secret).send().wait();
 
     // Check that the result matches token sim
@@ -68,7 +68,7 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
     ).rejects.toThrow(/unauthorized/);
 
     // Redeem it
-    await t.addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);
+    await t.addPendingShieldNoteToPXE(asset, wallets[0], amount, secretHash, receipt.txHash);
     await asset.methods.redeem_shield(wallets[0].getAddress(), amount, secret).send().wait();
 
     // Check that the result matches token sim

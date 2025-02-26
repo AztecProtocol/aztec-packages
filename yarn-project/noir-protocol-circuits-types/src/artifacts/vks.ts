@@ -13,8 +13,8 @@ import {
   PUBLIC_BASE_ROLLUP_VK_INDEX,
   ROOT_PARITY_INDEX,
   ROOT_ROLLUP_INDEX,
-  type VerificationKeyData,
-} from '@aztec/circuits.js';
+} from '@aztec/constants';
+import type { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import BaseParityVkJson from '../../artifacts/keys/parity_base.vk.data.json' assert { type: 'json' };
 import RootParityVkJson from '../../artifacts/keys/parity_root.vk.data.json' assert { type: 'json' };
@@ -33,7 +33,7 @@ import RootRollupVkJson from '../../artifacts/keys/rollup_root.vk.data.json' ass
 import TubeVkJson from '../../artifacts/keys/tube.vk.data.json' assert { type: 'json' };
 import { PrivateKernelResetVkIndexes, PrivateKernelResetVks } from '../private_kernel_reset_vks.js';
 import { keyJsonToVKData } from '../utils/vk_json.js';
-import { type ClientProtocolArtifact, type ProtocolArtifact, type ServerProtocolArtifact } from './types.js';
+import type { ClientProtocolArtifact, ProtocolArtifact, ServerProtocolArtifact } from './types.js';
 
 // TODO Include this in the normal maps when the tube is implemented in noir
 export const TubeVk = keyJsonToVKData(TubeVkJson);

@@ -17,7 +17,7 @@ pub struct PreviousKernelValidator {
 
 impl PreviousKernelValidator {
     pub fn new(previous_kernel: PrivateKernelData) -> Self {
-        /// Safety: the below hints are constrained by the following methods. See private_kernel_inner for use.
+        // Safety: the below hints are constrained by the following methods. See private_kernel_inner for use.
         let hints =
             unsafe { generate_previous_kernel_validator_hints(previous_kernel.public_inputs) };
         PreviousKernelValidator { previous_kernel, hints }
@@ -66,10 +66,15 @@ impl PreviousKernelValidator {
     }
 
     fn validate_common(self) {
+        self.validate_fee_payer();
         self.validate_empty_private_call_stack();
         self.verify_empty_validation_requests();
         self.verify_siloed_values();
         self.verify_no_transient_data();
+    }
+
+    fn validate_fee_payer(self) {
+        assert(!is_empty(self.previous_kernel.public_inputs.fee_payer), "Fee payer can't be empty");
     }
 
     fn validate_empty_private_call_stack(self) {

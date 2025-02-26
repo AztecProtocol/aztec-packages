@@ -1,24 +1,15 @@
-import {
-  type CompleteAddress,
-  type MerkleTreeId,
-  type Note,
-  type NoteStatus,
-  type NullifierMembershipWitness,
-  type PublicDataWitness,
-  type UnencryptedL2Log,
-} from '@aztec/circuit-types';
-import {
-  type BlockHeader,
-  type ContractInstance,
-  type IndexedTaggingSecret,
-  type KeyValidationRequest,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-} from '@aztec/circuits.js';
-import { type FunctionSelector, type NoteSelector } from '@aztec/foundation/abi';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
+import type { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
+import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
+import { type IndexedTaggingSecret, type LogWithTxData, UnencryptedL2Log } from '@aztec/stdlib/logs';
+import type { Note, NoteStatus } from '@aztec/stdlib/note';
+import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
+import type { BlockHeader } from '@aztec/stdlib/tx';
 
-import { type MessageLoadOracleInputs } from '../../common/message_load_oracle_inputs.js';
+import type { MessageLoadOracleInputs } from '../../common/message_load_oracle_inputs.js';
 
 /**
  * Information about a note needed during execution.
@@ -242,6 +233,10 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('deliverNote'));
   }
 
+  getLogByTag(_tag: Fr): Promise<LogWithTxData | null> {
+    throw new OracleMethodNotAvailableError('getLogByTag');
+  }
+
   storeCapsule(_contractAddress: AztecAddress, _key: Fr, _capsule: Fr[]): Promise<void> {
     return Promise.reject(new OracleMethodNotAvailableError('storeCapsule'));
   }
@@ -259,6 +254,6 @@ export abstract class TypedOracle {
   }
 
   aes128Decrypt(_ciphertext: Buffer, _iv: Buffer, _symKey: Buffer): Promise<Buffer> {
-    throw new OracleMethodNotAvailableError('aes128Decrypt');
+    return Promise.reject(new OracleMethodNotAvailableError('aes128Decrypt'));
   }
 }

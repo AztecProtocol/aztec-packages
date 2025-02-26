@@ -1,10 +1,11 @@
-import { type FunctionCall } from '@aztec/circuit-types';
-import { type AztecAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
-import { FunctionType, U128 } from '@aztec/foundation/abi';
+import { Fr } from '@aztec/foundation/fields';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
+import type { FunctionCall } from '@aztec/stdlib/abi';
+import { FunctionSelector, FunctionType, U128 } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { type L2AmountClaim } from '../api/ethereum/portal_manager.js';
+import type { L2AmountClaim } from '../api/ethereum/portal_manager.js';
 import { FeeJuicePaymentMethod } from './fee_juice_payment_method.js';
 
 /**

@@ -1,19 +1,18 @@
+import { Fr } from '@aztec/foundation/fields';
 import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
-  Fr,
   computePublicBytecodeCommitment,
-} from '@aztec/circuits.js';
+} from '@aztec/stdlib/contract';
 
-import { type jest } from '@jest/globals';
+import type { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
-import { type WorldStateDB } from '../public/public_db_sources.js';
-import { type PublicSideEffectTraceInterface } from '../public/side_effect_trace_interface.js';
+import type { WorldStateDB } from '../public/public_db_sources.js';
+import type { PublicSideEffectTraceInterface } from '../public/side_effect_trace_interface.js';
 
 export async function mockGetBytecode(worldStateDB: WorldStateDB, bytecode: Buffer) {
   const commitment = await computePublicBytecodeCommitment(bytecode);
-  (worldStateDB as jest.Mocked<WorldStateDB>).getBytecode.mockResolvedValue(bytecode);
   (worldStateDB as jest.Mocked<WorldStateDB>).getBytecodeCommitment.mockResolvedValue(commitment);
 }
 

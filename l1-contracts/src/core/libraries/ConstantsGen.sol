@@ -1,4 +1,4 @@
-// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js
+// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.27;
@@ -16,6 +16,7 @@ library Constants {
   uint256 internal constant MAX_FIELD_VALUE =
     21888242871839275222246405745257275088548364400416034343698204186575808495616;
   uint256 internal constant ARGS_LENGTH = 16;
+  uint256 internal constant MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS = 16000;
   uint256 internal constant MAX_NOTE_HASHES_PER_CALL = 16;
   uint256 internal constant MAX_NULLIFIERS_PER_CALL = 16;
   uint256 internal constant MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL = 5;
@@ -114,6 +115,8 @@ library Constants {
     24399338136397901754495080759185489776044879232766421623673792970137;
   uint256 internal constant DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE =
     14061769416655647708490531650437236735160113654556896985372298487345;
+  uint256 internal constant DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE =
+    1534834688047131268740281708431107902615560100979874281215533519862;
   uint256 internal constant MAX_PROTOCOL_CONTRACTS = 7;
   uint256 internal constant CANONICAL_AUTH_REGISTRY_ADDRESS = 1;
   uint256 internal constant DEPLOYER_CONTRACT_ADDRESS = 2;
@@ -123,6 +126,7 @@ library Constants {
   uint256 internal constant ROUTER_ADDRESS = 6;
   uint256 internal constant REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT = 79025834455612;
   uint256 internal constant FEE_JUICE_BALANCES_SLOT = 1;
+  uint256 internal constant UPDATED_CLASS_IDS_SLOT = 1;
   uint256 internal constant DEFAULT_NPK_M_X =
     582240093077765400562621227108555700500271598878376310175765873770292988861;
   uint256 internal constant DEFAULT_NPK_M_Y =
@@ -306,4 +310,8 @@ library Constants {
   uint256 internal constant PROOF_TYPE_ROLLUP_HONK = 5;
   uint256 internal constant PROOF_TYPE_ROOT_ROLLUP_HONK = 6;
   uint256 internal constant TWO_POW_64 = 18446744073709551616;
+  uint256 internal constant DEFAULT_UPDATE_DELAY = 3600;
+  uint256 internal constant MINIMUM_UPDATE_DELAY = 25;
+  uint256 internal constant UPDATES_VALUE_SIZE = 1;
+  uint256 internal constant UPDATES_SHARED_MUTABLE_VALUES_LEN = 3;
 }

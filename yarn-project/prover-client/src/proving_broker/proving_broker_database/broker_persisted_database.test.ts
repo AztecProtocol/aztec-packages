@@ -1,5 +1,6 @@
-import { type ProofUri, type ProvingJob, type ProvingJobSettledResult, ProvingRequestType } from '@aztec/circuit-types';
 import { toArray } from '@aztec/foundation/iterable';
+import type { ProofUri, ProvingJob, ProvingJobSettledResult } from '@aztec/stdlib/interfaces/server';
+import { ProvingRequestType } from '@aztec/stdlib/proofs';
 
 import { jest } from '@jest/globals';
 import { existsSync } from 'fs';
@@ -7,7 +8,7 @@ import { mkdir, mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { type ProverBrokerConfig } from '../config.js';
+import type { ProverBrokerConfig } from '../config.js';
 import { makeInputsUri, makeRandomProvingJobId } from '../fixtures.js';
 import { KVBrokerDatabase } from './persisted.js';
 
@@ -26,12 +27,13 @@ describe('ProvingBrokerPersistedDatabase', () => {
       proverBrokerPollIntervalMs: 1000,
       proverBrokerBatchSize: 1,
       proverBrokerBatchIntervalMs: 10,
+      proverBrokerMaxEpochsToKeepResultsFor: 1,
     };
     db = await KVBrokerDatabase.new(config);
   });
 
   afterEach(async () => {
-    await rm(directory, { recursive: true, force: true });
+    await rm(directory, { recursive: true, force: true, maxRetries: 3 });
   });
 
   it('can add a proving job', async () => {
@@ -285,6 +287,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
         proverBrokerPollIntervalMs: 1000,
         proverBrokerBatchSize: batchSize,
         proverBrokerBatchIntervalMs: 10,
+        proverBrokerMaxEpochsToKeepResultsFor: 1,
       };
       db = await KVBrokerDatabase.new(config);
       commitSpy = jest.spyOn(db, 'commitWrites');

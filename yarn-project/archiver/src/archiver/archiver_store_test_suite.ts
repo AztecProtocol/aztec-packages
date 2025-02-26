@@ -1,30 +1,33 @@
-import { InboxLeaf, L2Block, LogId, TxEffect, TxHash, wrapInBlock } from '@aztec/circuit-types';
-import '@aztec/circuit-types/jest';
 import {
-  AztecAddress,
-  type ContractClassPublic,
-  type ContractInstanceWithAddress,
-  Fr,
   INITIAL_L2_BLOCK_NUM,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   MAX_NULLIFIERS_PER_TX,
   PRIVATE_LOG_SIZE_IN_FIELDS,
   PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
-  PrivateLog,
-  PublicLog,
+} from '@aztec/constants';
+import { times, timesParallel } from '@aztec/foundation/collection';
+import { randomInt } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { L2Block, wrapInBlock } from '@aztec/stdlib/block';
+import {
+  type ContractClassPublic,
+  type ContractInstanceWithAddress,
   SerializableContractInstance,
   computePublicBytecodeCommitment,
-} from '@aztec/circuits.js';
+} from '@aztec/stdlib/contract';
+import { LogId, PrivateLog, PublicLog } from '@aztec/stdlib/logs';
+import { InboxLeaf } from '@aztec/stdlib/messaging';
 import {
   makeContractClassPublic,
   makeExecutablePrivateFunctionWithMembershipProof,
   makeUnconstrainedFunctionWithMembershipProof,
-} from '@aztec/circuits.js/testing';
-import { times, timesParallel } from '@aztec/foundation/collection';
-import { randomInt } from '@aztec/foundation/crypto';
+} from '@aztec/stdlib/testing';
+import '@aztec/stdlib/testing/jest';
+import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
-import { type ArchiverDataStore, type ArchiverL1SynchPoint } from './archiver_store.js';
-import { type L1Published } from './structs/published.js';
+import type { ArchiverDataStore, ArchiverL1SynchPoint } from './archiver_store.js';
+import type { L1Published } from './structs/published.js';
 
 /**
  * @param testName - The name of the test suite.
@@ -279,7 +282,11 @@ export function describeArchiverDataStore(
       const blockNum = 10;
 
       beforeEach(async () => {
-        const randomInstance = await SerializableContractInstance.random();
+        const classId = Fr.random();
+        const randomInstance = await SerializableContractInstance.random({
+          currentContractClassId: classId,
+          originalContractClassId: classId,
+        });
         contractInstance = { ...randomInstance, address: await AztecAddress.random() };
         await store.addContractInstances([contractInstance], blockNum);
       });

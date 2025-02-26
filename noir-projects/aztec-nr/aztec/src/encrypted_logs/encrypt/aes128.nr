@@ -29,6 +29,7 @@ fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_pose
     bytes
 }
 
+// TODO(#10537): Consider nuking this function.
 fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_sha256(
     shared_secret: Point,
 ) -> [u8; 32] {
@@ -57,6 +58,7 @@ fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret(
     (sym_key, iv)
 }
 
+// TODO(#10537): Consider nuking this function.
 pub fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256(
     shared_secret: Point,
 ) -> ([u8; 16], [u8; 16]) {
@@ -66,6 +68,7 @@ pub fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256(
     )
 }
 
+// TODO(#10537): This function is currently unused. Consider using it instead of the sha256 one.
 pub fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2(
     shared_secret: Point,
 ) -> ([u8; 16], [u8; 16]) {

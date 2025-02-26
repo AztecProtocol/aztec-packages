@@ -4,11 +4,12 @@ use dep::aztec::macros::aztec;
 pub contract Claim {
     use dep::aztec::{
         macros::{functions::{initializer, private, public}, storage::storage},
-        note::utils::compute_note_hash_for_nullify,
+        note::{retrieved_note::RetrievedNote, utils::compute_note_hash_for_nullify},
         protocol_types::address::AztecAddress,
         state_vars::PublicImmutable,
     };
     use dep::uint_note::uint_note::UintNote;
+    use crowdfunding::Crowdfunding;
     use token::Token;
 
     // TODO: This can be optimized by storing the addresses in Config struct in 1 PublicImmutable (less merkle proofs).
@@ -28,18 +29,24 @@ pub contract Claim {
     }
 
     #[private]
-    fn claim(proof_note: UintNote, note_storage_slot: Field, recipient: AztecAddress) {
+    fn claim(proof_retrieved_note: RetrievedNote<UintNote>, recipient: AztecAddress) {
         // 1) Check that the note corresponds to the target contract and belongs to the sender
         let target_address = storage.target_contract.read();
         assert(
-            target_address == proof_note.header.contract_address,
+            target_address == proof_retrieved_note.contract_address,
             "Note does not correspond to the target contract",
         );
-        assert_eq(proof_note.owner, context.msg_sender(), "Note does not belong to the sender");
+        assert_eq(
+            proof_retrieved_note.note.owner,
+            context.msg_sender(),
+            "Note does not belong to the sender",
+        );
 
         // 2) Prove that the note hash exists in the note hash tree
+        // Note: The note has been inserted into the donation_receipts set in the Crowdfunding contract.
+        let note_storage_slot = Crowdfunding::storage_layout().donation_receipts.slot;
         let header = context.get_block_header();
-        header.prove_note_inclusion(proof_note, note_storage_slot);
+        header.prove_note_inclusion(proof_retrieved_note, note_storage_slot);
 
         // 3) Compute and emit a nullifier which is unique to the note and this contract to ensure the reward can be
         // claimed only once with the given note.
@@ -48,13 +55,15 @@ pub contract Claim {
         // the address of a contract it was emitted from.
         // TODO(#7775): manually computing the hash and passing it to compute_nullifier func is not great as note could
         // handle it on its own or we could make prove_note_inclusion return note_hash_for_nullify.
-        let note_hash_for_nullify = compute_note_hash_for_nullify(proof_note, note_storage_slot);
-        let nullifier = proof_note.compute_nullifier(&mut context, note_hash_for_nullify);
+        let note_hash_for_nullify =
+            compute_note_hash_for_nullify(proof_retrieved_note, note_storage_slot);
+        let nullifier =
+            proof_retrieved_note.note.compute_nullifier(&mut context, note_hash_for_nullify);
         context.push_nullifier(nullifier);
 
         // 4) Finally we mint the reward token to the sender of the transaction
-        Token::at(storage.reward_token.read()).mint_to_public(recipient, proof_note.value).enqueue(
-            &mut context,
-        );
+        Token::at(storage.reward_token.read())
+            .mint_to_public(recipient, proof_retrieved_note.note.value)
+            .enqueue(&mut context);
     }
 }

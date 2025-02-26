@@ -1,25 +1,16 @@
 import { type ContractArtifact, type FunctionArtifact, loadContractArtifact } from '@aztec/aztec.js/abi';
-import { type PXE } from '@aztec/circuit-types';
-import { type DeployL1Contracts, type L1ContractsConfig } from '@aztec/ethereum';
-import { FunctionType } from '@aztec/foundation/abi';
-import { type EthAddress } from '@aztec/foundation/eth-address';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
-import { type NoirPackageConfig } from '@aztec/foundation/noir';
-import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
+import type { DeployL1Contracts, L1ContractsConfig } from '@aztec/ethereum';
+import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { Fr } from '@aztec/foundation/fields';
+import type { LogFn, Logger } from '@aztec/foundation/log';
+import type { NoirPackageConfig } from '@aztec/foundation/noir';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { FunctionType } from '@aztec/stdlib/abi';
+import type { PXE } from '@aztec/stdlib/interfaces/client';
 
 import TOML from '@iarna/toml';
 import { readFile } from 'fs/promises';
 import { gtr, ltr, satisfies, valid } from 'semver';
-import {
-  type Account,
-  type Chain,
-  type HttpTransport,
-  type WalletClient,
-  getAddress,
-  getContract,
-  publicActions,
-} from 'viem';
 
 import { encodeArgs } from './encoding.js';
 
@@ -52,6 +43,8 @@ export async function deployAztecContracts(
   mnemonicIndex: number,
   salt: number | undefined,
   initialValidators: EthAddress[],
+  genesisArchiveRoot: Fr,
+  genesisBlockHash: Fr,
   config: L1ContractsConfig,
   debugLogger: Logger,
 ): Promise<DeployL1Contracts> {
@@ -71,30 +64,17 @@ export async function deployAztecContracts(
     chain.chainInfo,
     debugLogger,
     {
-      l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
+      l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice.toField(),
       vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
+      genesisArchiveRoot,
+      genesisBlockHash,
       salt,
       initialValidators,
       ...config,
     },
     config,
   );
-}
-
-/** Sets the assumed proven block number on the rollup contract on L1 */
-export async function setAssumeProvenThrough(
-  blockNumber: number,
-  rollupAddress: EthAddress,
-  walletClient: WalletClient<HttpTransport, Chain, Account>,
-) {
-  const rollup = getContract({
-    address: getAddress(rollupAddress.toString()),
-    abi: RollupAbi,
-    client: walletClient,
-  });
-  const hash = await rollup.write.setAssumeProvenThroughBlockNumber([BigInt(blockNumber)]);
-  await walletClient.extend(publicActions).waitForTransactionReceipt({ hash });
 }
 
 /**

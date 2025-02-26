@@ -34,16 +34,13 @@
       "path": "../builder"
     },
     {
-      "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
-    },
-    {
       "path": "../cli"
     },
     {
       "path": "../cli-wallet"
+    },
+    {
+      "path": "../constants"
     },
     {
       "path": "../entrypoints"
@@ -85,13 +82,16 @@
       "path": "../pxe"
     },
     {
+      "path": "../stdlib"
+    },
+    {
       "path": "../telemetry-client"
     },
     {
       "path": "../txe"
     },
     {
-      "path": "../types"
+      "path": "../world-state"
     }
   ],
   "include": ["src"]

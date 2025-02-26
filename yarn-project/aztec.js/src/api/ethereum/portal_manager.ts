@@ -1,10 +1,13 @@
-import { type PXE, type SiblingPath } from '@aztec/circuit-types';
-import { type AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
-import { computeSecretHash } from '@aztec/circuits.js/hash';
 import { extractEvent } from '@aztec/ethereum/utils';
 import { sha256ToField } from '@aztec/foundation/crypto';
-import { type Logger } from '@aztec/foundation/log';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
+import type { Logger } from '@aztec/foundation/log';
+import type { SiblingPath } from '@aztec/foundation/trees';
 import { FeeJuicePortalAbi, OutboxAbi, TestERC20Abi, TokenPortalAbi } from '@aztec/l1-artifacts';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { computeSecretHash } from '@aztec/stdlib/hash';
+import type { PXE } from '@aztec/stdlib/interfaces/client';
 
 import {
   type Account,
@@ -18,6 +21,8 @@ import {
   toFunctionSelector,
 } from 'viem';
 
+// docs:start:claim_type
+// docs:start:claim_type_amount
 /** L1 to L2 message info to claim it on L2. */
 export type L2Claim = {
   /** Secret for claiming. */
@@ -29,9 +34,11 @@ export type L2Claim = {
   /** Leaf index in the L1 to L2 message tree. */
   messageLeafIndex: bigint;
 };
+// docs:end:claim_type
 
 /** L1 to L2 message info that corresponds to an amount to claim. */
 export type L2AmountClaim = L2Claim & { /** Amount to claim */ claimAmount: bigint };
+// docs:end:claim_type_amount
 
 /** L1 to L2 message info that corresponds to an amount to claim with associated recipient. */
 export type L2AmountClaimWithRecipient = L2AmountClaim & {

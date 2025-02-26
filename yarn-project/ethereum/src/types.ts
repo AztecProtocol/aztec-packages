@@ -1,13 +1,13 @@
-import {
-  type Chain,
-  type Client,
-  type HttpTransport,
-  type PrivateKeyAccount,
-  type PublicActions,
-  type PublicClient,
-  type PublicRpcSchema,
-  type WalletActions,
-  type WalletRpcSchema,
+import type {
+  Chain,
+  Client,
+  HttpTransport,
+  PrivateKeyAccount,
+  PublicActions,
+  PublicClient,
+  PublicRpcSchema,
+  WalletActions,
+  WalletRpcSchema,
 } from 'viem';
 
 /**
@@ -24,3 +24,9 @@ export type ViemClient = Client<
 
 /** Type for a viem public client */
 export type ViemPublicClient = PublicClient<HttpTransport, Chain>;
+
+/** Both L1 clients */
+export type L1Clients = {
+  publicClient: ViemPublicClient;
+  walletClient: ViemClient;
+};

@@ -1,4 +1,4 @@
-import { type AztecNodeService } from '@aztec/aztec-node';
+import type { AztecNodeService } from '@aztec/aztec-node';
 import {
   AztecAddress,
   type AztecNode,
@@ -21,12 +21,13 @@ import {
   deployInstance,
   registerContractClass,
 } from '@aztec/aztec.js/deployment';
-import { type ContractClassIdPreimage, PublicKeys } from '@aztec/circuits.js';
-import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { writeTestData } from '@aztec/foundation/testing/files';
 import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import type { ContractClassIdPreimage } from '@aztec/stdlib/contract';
+import { PublicKeys } from '@aztec/stdlib/keys';
 
 import { DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
 import { DeployTest, type StatefulContractCtorArgs } from './deploy_test.js';
@@ -155,7 +156,7 @@ describe('e2e_deploy_contract contract class registration', () => {
           constructorArtifact: opts.constructorName,
           deployer: opts.deployer,
         });
-        const { address, contractClassId } = instance;
+        const { address, currentContractClassId: contractClassId } = instance;
         logger.info(`Deploying contract instance at ${address.toString()} class id ${contractClassId.toString()}`);
         await deployFn(instance);
 
@@ -198,7 +199,7 @@ describe('e2e_deploy_contract contract class registration', () => {
           const deployed = await aztecNode.getContract(instance.address);
           expect(deployed).toBeDefined();
           expect(deployed!.address).toEqual(instance.address);
-          expect(deployed!.contractClassId).toEqual(contractClass.id);
+          expect(deployed!.currentContractClassId).toEqual(contractClass.id);
           expect(deployed!.initializationHash).toEqual(instance.initializationHash);
           expect(deployed!.publicKeys).toEqual(instance.publicKeys);
           expect(deployed!.salt).toEqual(instance.salt);

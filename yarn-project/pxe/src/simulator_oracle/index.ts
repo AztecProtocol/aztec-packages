@@ -1,57 +1,53 @@
 import {
-  type AztecNode,
-  type FunctionCall,
-  type InBlock,
-  L1NotePayload,
-  type L2Block,
-  type L2BlockNumber,
-  MerkleTreeId,
-  Note,
-  type NoteStatus,
-  type NullifierMembershipWitness,
-  type PublicDataWitness,
-  TxHash,
-  type TxScopedL2Log,
-  getNonNullifiedL1ToL2MessageWitness,
-} from '@aztec/circuit-types';
-import {
-  type AztecAddress,
-  type BlockHeader,
-  type CompleteAddress,
-  type ContractInstance,
-  Fr,
-  FunctionSelector,
-  IndexedTaggingSecret,
-  type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_NOTE_HASHES_PER_TX,
   PRIVATE_LOG_SIZE_IN_FIELDS,
-  PrivateLog,
-  PublicLog,
-  computeAddressSecret,
-  computeTaggingSecretPoint,
-} from '@aztec/circuits.js';
-import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
-import {
-  type FunctionArtifact,
-  FunctionType,
-  NoteSelector,
-  encodeArguments,
-  getFunctionArtifact,
-} from '@aztec/foundation/abi';
+  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
+} from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { type KeyStore } from '@aztec/key-store';
+import { BufferReader } from '@aztec/foundation/serialize';
+import type { KeyStore } from '@aztec/key-store';
 import {
   type AcirSimulator,
   type DBOracle,
   MessageLoadOracleInputs,
   type SimulationProvider,
 } from '@aztec/simulator/client';
+import {
+  type FunctionArtifact,
+  FunctionCall,
+  FunctionSelector,
+  FunctionType,
+  NoteSelector,
+  encodeArguments,
+  getFunctionArtifact,
+} from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { InBlock, L2Block, L2BlockNumber } from '@aztec/stdlib/block';
+import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
+import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
+import { computeAddressSecret, computeTaggingSecretPoint } from '@aztec/stdlib/keys';
+import {
+  IndexedTaggingSecret,
+  L1NotePayload,
+  LogWithTxData,
+  PrivateLog,
+  PublicLog,
+  TxScopedL2Log,
+} from '@aztec/stdlib/logs';
+import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
+import { Note, type NoteStatus } from '@aztec/stdlib/note';
+import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
+import type { BlockHeader } from '@aztec/stdlib/tx';
+import { TxHash } from '@aztec/stdlib/tx';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { type PxeDatabase } from '../database/index.js';
+import type { PxeDatabase } from '../database/index.js';
 import { NoteDao } from '../database/note_dao.js';
 import { getOrderedNoteItems } from '../note_decryption_utils/add_public_values_to_payload.js';
 import { getAcirSimulator } from '../simulator/index.js';
@@ -79,7 +75,7 @@ export class SimulatorOracle implements DBOracle {
     if (!completeAddress) {
       throw new Error(
         `No public key registered for address ${account}.
-        Register it by calling pxe.registerAccount(...).\nSee docs for context: https://docs.aztec.network/reference/common_errors/aztecnr-errors#simulation-error-no-public-key-registered-for-address-0x0-register-it-by-calling-pxeregisterrecipient-or-pxeregisteraccount`,
+        Register it by calling pxe.registerAccount(...).\nSee docs for context: https://docs.aztec.network/developers/reference/debugging/aztecnr-errors#simulation-error-no-public-key-registered-for-address-0x0-register-it-by-calling-pxeregisterrecipient-or-pxeregisteraccount`,
       );
     }
     return completeAddress;
@@ -134,7 +130,7 @@ export class SimulatorOracle implements DBOracle {
     functionName: string,
   ): Promise<FunctionArtifact | undefined> {
     const instance = await this.contractDataOracle.getContractInstance(contractAddress);
-    const artifact = await this.contractDataOracle.getContractArtifact(instance.contractClassId);
+    const artifact = await this.contractDataOracle.getContractArtifact(instance.currentContractClassId);
     return artifact && getFunctionArtifact(artifact, functionName);
   }
 
@@ -699,8 +695,45 @@ export class SimulatorOracle implements DBOracle {
     });
   }
 
+  public async getLogByTag(tag: Fr): Promise<LogWithTxData | null> {
+    const logs = await this.aztecNode.getLogsByTags([tag]);
+    const logsForTag = logs[0];
+
+    this.log.debug(`Got ${logsForTag.length} logs for tag ${tag}`);
+
+    if (logsForTag.length == 0) {
+      return null;
+    } else if (logsForTag.length > 1) {
+      // TODO(#11627): handle this case
+      throw new Error(
+        `Got ${logsForTag.length} logs for tag ${tag}. getLogByTag currently only supports a single log per tag`,
+      );
+    }
+
+    const log = logsForTag[0];
+
+    // getLogsByTag doesn't have all of the information that we need (notably note hashes and the first nullifier), so
+    // we need to make a second call to the node for `getTxEffect`.
+    // TODO(#9789): bundle this information in the `getLogsByTag` call.
+    const txEffect = await this.aztecNode.getTxEffect(log.txHash);
+    if (txEffect == undefined) {
+      throw new Error(`Unexpected: failed to retrieve tx effects for tx ${log.txHash} which is known to exist`);
+    }
+
+    const reader = BufferReader.asReader(log.logData);
+    const logArray = reader.readArray(PUBLIC_LOG_DATA_SIZE_IN_FIELDS, Fr);
+
+    // Public logs always take up all available fields by padding with zeroes, and the length of the originally emitted
+    // log is lost. Until this is improved, we simply remove all of the zero elements (which are expected to be at the
+    // end).
+    // TODO(#11636): use the actual log length.
+    const trimmedLog = logArray.filter(x => !x.isZero());
+
+    return new LogWithTxData(trimmedLog, log.txHash.hash, txEffect.data.noteHashes, txEffect.data.nullifiers[0]);
+  }
+
   public async removeNullifiedNotes(contractAddress: AztecAddress) {
-    this.log.verbose('Removing nullified notes', { contract: contractAddress });
+    this.log.verbose('Searching for nullifiers of known notes', { contract: contractAddress });
 
     for (const recipient of await this.keyStore.getAccounts()) {
       const currentNotesForRecipient = await this.db.getNotes({ contractAddress, owner: recipient });
@@ -775,7 +808,7 @@ export class SimulatorOracle implements DBOracle {
       receipt.blockHash!.toString(),
       uniqueNoteHashTreeIndex,
       await recipient.toAddressPoint(),
-      NoteSelector.empty(), // todo: remove
+      NoteSelector.empty(), // TODO(#12013): remove
     );
   }
 
@@ -798,10 +831,11 @@ export class SimulatorOracle implements DBOracle {
       );
     }
 
+    const selector = await FunctionSelector.fromNameAndParameters(artifact);
     const execRequest: FunctionCall = {
       name: artifact.name,
       to: contractAddress,
-      selector: await FunctionSelector.fromNameAndParameters(artifact),
+      selector,
       type: FunctionType.UNCONSTRAINED,
       isStatic: artifact.isStatic,
       args: encodeArguments(artifact, [
@@ -819,8 +853,8 @@ export class SimulatorOracle implements DBOracle {
       getAcirSimulator(this.db, this.aztecNode, this.keyStore, this.simulationProvider, this.contractDataOracle)
     ).runUnconstrained(
       execRequest,
-      artifact,
       contractAddress,
+      selector,
       [], // empty scope as this call should not require access to private information
     );
   }

@@ -1,15 +1,16 @@
 use crate::Test;
 use crate::test_note::TestNote;
-use dep::uint_note::uint_note::UintNote;
-use dep::value_note::value_note::ValueNote;
+use address_note::address_note::AddressNote;
+use aztec::note::note_interface::NoteType;
+use value_note::value_note::ValueNote;
 
 #[test]
 unconstrained fn test_note_type_id() {
     // The order in which the note types are sorted seems arbitrary and an implementation detail of Noir,
     // but the important thing is that they are sequential and start from 0.
-    assert_eq(UintNote::get_note_type_id(), 0, "UintNote type id should be 0");
-    assert_eq(ValueNote::get_note_type_id(), 1, "ValueNote type id should be 1");
-    assert_eq(TestNote::get_note_type_id(), 2, "TestNote type id should be 2");
+    assert_eq(AddressNote::get_id(), 0, "AddressNote type id should be 0");
+    assert_eq(ValueNote::get_id(), 1, "ValueNote type id should be 1");
+    assert_eq(TestNote::get_id(), 2, "TestNote type id should be 2");
 }
 
 #[test]
@@ -24,7 +25,7 @@ unconstrained fn test_storage_slot_allocation() {
     // struct Storage<Context> {
     //     example_constant: PrivateImmutable<TestNote, Context>,
     //     example_struct_in_shared_mutable: SharedMutable<ExampleStruct, SHARED_MUTABLE_INITIAL_DELAY, Context>,
-    //     example_set: PrivateSet<TestNote, Context>,
+    //     example_set: PrivateSet<AddressNote, Context>,
     //     example_struct: PrivateImmutable<ExampleStruct, Context>,
     //     example_struct_in_public_immutable: PublicImmutable<ExampleStruct, Context>,
     //     example_struct_in_map: Map<AztecAddress, PrivateImmutable<ExampleStruct, Context>, Context>,
@@ -38,7 +39,7 @@ unconstrained fn test_storage_slot_allocation() {
     // The first slot is always 1.
     let mut expected_slot = 1;
     assert_eq(Test::storage_layout().example_constant.slot, expected_slot);
-    // Even though example_constant holds TestNote, which packs to a length larger than 1, notes always reserve a
+    // Even though example_constant holds AddressNote, which packs to a length larger than 1, notes always reserve a
     // single slot.
     expected_slot += 1;
 
@@ -61,11 +62,18 @@ unconstrained fn test_storage_slot_allocation() {
 }
 
 fn get_shared_mutable_num_slots() -> Field {
-    let scheduled_delay_packed_len = 1; // There is 1 ScheduledDelayChange stored in storage and it fits into 1 slot.
-    let example_struct_packed_len = 5; // ExampleStruct packs to 5 slots.
-    // There are 2 example structs stored in the packed representation of ScheduledValueChange<ExampleStruct>.
-    let scheduled_value_change_packed_len = (example_struct_packed_len * 2 + 1);
-    let with_hash_additional_slots = 1; // Wrapping the values in WithHash adds 1 slot.
+    // ExampleStruct packs to 5 slots.
+    let example_struct_packed_len = 5;
 
-    scheduled_delay_packed_len + scheduled_value_change_packed_len + with_hash_additional_slots
+    // ScheduledDelayChange and block_of_change of ScheduledValueChange are stored in a single slot.
+    let sdc_and_block_of_change_of_svc_packed_len = 1;
+
+    // There are 2 example structs stored in the packed representation of ScheduledValueChange<ExampleStruct>.
+    let value_change_and_delay_change_packed_len =
+        example_struct_packed_len * 2 + sdc_and_block_of_change_of_svc_packed_len;
+
+    // Wrapping the values in WithHash adds 1 slot.
+    let with_hash_additional_slots = 1;
+
+    value_change_and_delay_change_packed_len + with_hash_additional_slots
 }

@@ -1,9 +1,11 @@
-import { type AztecNodeService } from '@aztec/aztec-node';
+import type { AztecNodeService } from '@aztec/aztec-node';
 import { sleep } from '@aztec/aztec.js';
 import { RollupAbi, SlashFactoryAbi, SlasherAbi, SlashingProposerAbi } from '@aztec/l1-artifacts';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { getAddress, getContract, parseEventLogs } from 'viem';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
@@ -17,7 +19,7 @@ jest.setTimeout(1000000);
 const NUM_NODES = 4;
 const BOOT_NODE_UDP_PORT = 40600;
 
-const DATA_DIR = './data/slashing';
+const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'slashing-'));
 
 // This test is showcasing that slashing can happen, abusing that our nodes are honest but stupid
 // making them slash themselves.
@@ -36,13 +38,13 @@ describe('e2e_p2p_slashing', () => {
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
         aztecEpochDuration: 1,
-        aztecProofSubmissionWindow: 2,
+        aztecProofSubmissionWindow: 1,
         slashingQuorum,
         slashingRoundSize,
       },
-      assumeProvenThrough: 1,
     });
 
+    await t.setupAccount();
     await t.applyBaseSnapshots();
     await t.setup();
     await t.removeInitialNode();
@@ -52,7 +54,7 @@ describe('e2e_p2p_slashing', () => {
     await t.stopNodes(nodes);
     await t.teardown();
     for (let i = 0; i < NUM_NODES; i++) {
-      fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true });
+      fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }
   });
 
@@ -120,6 +122,7 @@ describe('e2e_p2p_slashing', () => {
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
+      t.prefilledPublicData,
       DATA_DIR,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       shouldCollectMetrics(),
@@ -164,7 +167,7 @@ describe('e2e_p2p_slashing', () => {
     for (let i = 0; i < slashingRoundSize; i++) {
       t.logger.info('Submitting transactions');
       const bn = await nodes[0].getBlockNumber();
-      await createPXEServiceAndSubmitTransactions(t.logger, nodes[0], 1);
+      await createPXEServiceAndSubmitTransactions(t.logger, nodes[0], 1, t.fundedAccount);
 
       t.logger.info(`Waiting for block number to change`);
       while (bn === (await nodes[0].getBlockNumber())) {

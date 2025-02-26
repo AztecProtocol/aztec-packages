@@ -1,25 +1,27 @@
-import { isNoirCallStackUnresolved } from '@aztec/circuit-types';
-import { GasFees, GlobalVariables, MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/circuits.js';
-import { type ContractArtifact, type FunctionArtifact, FunctionSelector } from '@aztec/foundation/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/constants';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmGadgetsTestContractArtifact } from '@aztec/noir-contracts.js/AvmGadgetsTest';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
+import { type ContractArtifact, type FunctionArtifact, FunctionSelector } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { isNoirCallStackUnresolved } from '@aztec/stdlib/errors';
+import { GasFees } from '@aztec/stdlib/gas';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { GlobalVariables } from '@aztec/stdlib/tx';
 
 import { strict as assert } from 'assert';
 import { mock } from 'jest-mock-extended';
 import merge from 'lodash.merge';
 
 import { resolveAssertionMessageFromRevertData, traverseCauseChain } from '../../common.js';
-import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
-import { type WorldStateDB } from '../../server.js';
+import type { PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
+import { AvmSimulator, type WorldStateDB } from '../../server.js';
 import { AvmContext } from '../avm_context.js';
 import { AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { AvmMachineState } from '../avm_machine_state.js';
 import { Field, Uint8, Uint32, Uint64 } from '../avm_memory_types.js';
-import { type AvmEphemeralForest } from '../avm_tree.js';
-import { type AvmRevertReason } from '../errors.js';
+import type { AvmRevertReason } from '../errors.js';
 import { AvmPersistableStateManager } from '../journal/journal.js';
 import { NullifierManager } from '../journal/nullifiers.js';
 import { PublicStorage } from '../journal/public_storage.js';
@@ -34,11 +36,13 @@ export function initContext(overrides?: {
   env?: AvmExecutionEnvironment;
   machineState?: AvmMachineState;
 }): AvmContext {
-  return new AvmContext(
+  const ctx = new AvmContext(
     overrides?.persistableState || initPersistableStateManager(),
     overrides?.env || initExecutionEnvironment(),
     overrides?.machineState || initMachineState(),
   );
+  ctx.provideSimulator = AvmSimulator.build;
+  return ctx;
 }
 
 /** Creates an empty state manager with mocked host storage. */
@@ -48,7 +52,7 @@ export function initPersistableStateManager(overrides?: {
   publicStorage?: PublicStorage;
   nullifiers?: NullifierManager;
   doMerkleOperations?: boolean;
-  merkleTrees?: AvmEphemeralForest;
+  db?: MerkleTreeWriteOperations;
   firstNullifier?: Fr;
 }): AvmPersistableStateManager {
   const worldStateDB = overrides?.worldStateDB || mock<WorldStateDB>();
@@ -58,7 +62,7 @@ export function initPersistableStateManager(overrides?: {
     overrides?.publicStorage || new PublicStorage(worldStateDB),
     overrides?.nullifiers || new NullifierManager(worldStateDB),
     overrides?.doMerkleOperations || false,
-    overrides?.merkleTrees || mock<AvmEphemeralForest>(),
+    overrides?.db || mock<MerkleTreeWriteOperations>(),
     overrides?.firstNullifier || new Fr(27),
   );
 }

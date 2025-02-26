@@ -100,8 +100,8 @@ fn validate_initial_values_min_revertible_side_effect_counter_random_output_fail
 fn validate_initial_values_max_block_number_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.set_max_block_number(123);
-    builder.output.set_max_block_number(123);
+    builder.private_call.set_max_block_number(3);
+    builder.output.set_max_block_number(3);
 
     builder.validate_as_first_call(false);
 }
@@ -110,8 +110,8 @@ fn validate_initial_values_max_block_number_succeeds() {
 fn validate_initial_values_max_block_number_mismatch_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.set_max_block_number(4567);
-    builder.output.set_max_block_number(123);
+    builder.private_call.set_max_block_number(4);
+    builder.output.set_max_block_number(3);
 
     builder.validate_as_first_call(false);
 }
@@ -120,7 +120,7 @@ fn validate_initial_values_max_block_number_mismatch_fails() {
 fn validate_initial_values_max_block_number_empty_output_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.set_max_block_number(4567);
+    builder.private_call.set_max_block_number(4);
 
     builder.validate_as_first_call(false);
 }
@@ -129,7 +129,7 @@ fn validate_initial_values_max_block_number_empty_output_fails() {
 fn validate_initial_values_max_block_number_random_output_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.output.set_max_block_number(123);
+    builder.output.set_max_block_number(3);
 
     builder.validate_as_first_call(false);
 }
@@ -215,7 +215,7 @@ fn validate_initial_values_fee_payer_empty_output_fails() {
 fn validate_initial_values_fee_payer_random_output_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.output.set_fee_payer(AztecAddress::from_field(123));
+    builder.output.set_fee_payer(AztecAddress::from_field(3));
 
     builder.validate_as_first_call(false);
 }

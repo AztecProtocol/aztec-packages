@@ -1,10 +1,10 @@
-import { type Logger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 
 import { createPublicClient, http } from 'viem';
 
 import { createEthereumChain } from './chain.js';
-import { type ViemPublicClient } from './types.js';
+import type { ViemPublicClient } from './types.js';
 
 type Config = {
   /** The RPC Url of the ethereum host. */

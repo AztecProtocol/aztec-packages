@@ -3,7 +3,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 
-import { type Anvil } from '@viem/anvil';
+import type { Anvil } from '@viem/anvil';
 import {
   type Abi,
   type Account,
@@ -45,7 +45,7 @@ describe('GasUtils', () => {
   const logger = createLogger('ethereum:test:l1_gas_test');
 
   beforeAll(async () => {
-    const { anvil: anvilInstance, rpcUrl } = await startAnvil(1);
+    const { anvil: anvilInstance, rpcUrl } = await startAnvil({ l1BlockTime: 1 });
     anvil = anvilInstance;
     cheatCodes = new EthCheatCodes(rpcUrl);
     const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });

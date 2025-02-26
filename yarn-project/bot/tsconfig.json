@@ -13,13 +13,10 @@
       "path": "../aztec.js"
     },
     {
-      "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
-    },
-    {
       "path": "../entrypoints"
+    },
+    {
+      "path": "../ethereum"
     },
     {
       "path": "../foundation"
@@ -34,10 +31,10 @@
       "path": "../protocol-contracts"
     },
     {
-      "path": "../telemetry-client"
+      "path": "../stdlib"
     },
     {
-      "path": "../types"
+      "path": "../telemetry-client"
     }
   ],
   "include": ["src"]

@@ -5,8 +5,8 @@ import {
   verifyClientIvcProof,
   writeToOutputDirectory,
 } from '@aztec/bb-prover';
-import { type ClientIvcProof } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
+import type { ClientIvcProof } from '@aztec/stdlib/proofs';
 
 import { jest } from '@jest/globals';
 import { encode } from '@msgpack/msgpack';
@@ -64,7 +64,12 @@ describe('Client IVC Integration', () => {
 
     const proof = await createClientIvcProof(witnessStack, bytecodes);
     await writeToOutputDirectory(proof, bbWorkingDirectory);
-    const verifyResult = await verifyClientIvcProof(bbBinaryPath, bbWorkingDirectory, logger.info);
+    const verifyResult = await verifyClientIvcProof(
+      bbBinaryPath,
+      bbWorkingDirectory.concat('/proof'),
+      bbWorkingDirectory.concat('/vk'),
+      logger.info,
+    );
 
     expect(verifyResult.status).toEqual(BB_RESULT.SUCCESS);
   });
@@ -81,7 +86,12 @@ describe('Client IVC Integration', () => {
 
     const proof = await createClientIvcProof(witnessStack, bytecodes);
     await writeToOutputDirectory(proof, bbWorkingDirectory);
-    const verifyResult = await verifyClientIvcProof(bbBinaryPath, bbWorkingDirectory, logger.info);
+    const verifyResult = await verifyClientIvcProof(
+      bbBinaryPath,
+      bbWorkingDirectory.concat('/proof'),
+      bbWorkingDirectory.concat('/vk'),
+      logger.info,
+    );
 
     expect(verifyResult.status).toEqual(BB_RESULT.SUCCESS);
   });

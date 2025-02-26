@@ -17,9 +17,9 @@ import {
 } from 'viem';
 
 import { createEthereumChain } from '../chain.js';
-import { type DeployL1Contracts } from '../deploy_l1_contracts.js';
-import { type L1ContractAddresses } from '../l1_contract_addresses.js';
-import { type L1ReaderConfig } from '../l1_reader.js';
+import type { DeployL1Contracts } from '../deploy_l1_contracts.js';
+import type { L1ContractAddresses } from '../l1_contract_addresses.js';
+import type { L1ReaderConfig } from '../l1_reader.js';
 import { formatViemError } from '../utils.js';
 import { SlashingProposerContract } from './slashing_proposer.js';
 
@@ -231,14 +231,6 @@ export class RollupContract {
     return this.rollup.read.getEpochProofPublicInputs(args);
   }
 
-  public async getEpochToProve(): Promise<bigint | undefined> {
-    try {
-      return await this.rollup.read.getEpochToProve();
-    } catch (err: unknown) {
-      throw formatViemError(err);
-    }
-  }
-
   public async validateHeader(
     args: readonly [
       `0x${string}`,
@@ -287,5 +279,10 @@ export class RollupContract {
     } catch (err: unknown) {
       throw formatViemError(err);
     }
+  }
+
+  /** Calls getHasSubmitted directly. Returns whether the given prover has submitted a proof with the given length for the given epoch. */
+  public getHasSubmittedProof(epochNumber: number, numberOfBlocksInEpoch: number, prover: EthAddress) {
+    return this.rollup.read.getHasSubmitted([BigInt(epochNumber), BigInt(numberOfBlocksInEpoch), prover.toString()]);
   }
 }

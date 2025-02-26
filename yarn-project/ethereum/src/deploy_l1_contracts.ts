@@ -1,7 +1,6 @@
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Fr } from '@aztec/foundation/fields';
-import { type Logger } from '@aztec/foundation/log';
+import type { Fr } from '@aztec/foundation/fields';
+import type { Logger } from '@aztec/foundation/log';
 import {
   CoinIssuerAbi,
   CoinIssuerBytecode,
@@ -40,15 +39,10 @@ import type { Abi, Narrow } from 'abitype';
 import {
   type Account,
   type Chain,
-  type Client,
   type Hex,
   type HttpTransport,
-  type PublicActions,
   type PublicClient,
-  type PublicRpcSchema,
-  type WalletActions,
   type WalletClient,
-  type WalletRpcSchema,
   concatHex,
   createPublicClient,
   createWalletClient,
@@ -65,9 +59,10 @@ import { type HDAccount, type PrivateKeyAccount, mnemonicToAccount, privateKeyTo
 import { foundry } from 'viem/chains';
 
 import { isAnvilTestChain } from './chain.js';
-import { type L1ContractsConfig } from './config.js';
-import { type L1ContractAddresses } from './l1_contract_addresses.js';
+import type { L1ContractsConfig } from './config.js';
+import type { L1ContractAddresses } from './l1_contract_addresses.js';
 import { L1TxUtils, type L1TxUtilsConfig, defaultL1TxUtilsConfig } from './l1_tx_utils.js';
+import type { L1Clients } from './types.js';
 
 export const DEPLOYER_ADDRESS: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
 
@@ -190,30 +185,27 @@ export const l1Artifacts = {
 };
 
 export interface DeployL1ContractsArgs extends L1ContractsConfig {
-  /** The address of the L2 Fee Juice contract. */
-  l2FeeJuiceAddress: AztecAddress;
+  /**
+   * The address of the L2 Fee Juice contract.
+   * It should be an AztecAddress, but the type is defined in stdlib,
+   * which would create a circular import
+   * */
+  l2FeeJuiceAddress: Fr;
   /** The vk tree root. */
   vkTreeRoot: Fr;
   /** The protocol contract tree root. */
   protocolContractTreeRoot: Fr;
-  /** The block number to assume proven through. */
-  assumeProvenThrough?: number;
+  /** The genesis root of the archive tree. */
+  genesisArchiveRoot: Fr;
+  /** The hash of the genesis block header. */
+  genesisBlockHash: Fr;
   /** The salt for CREATE2 deployment. */
   salt: number | undefined;
   /** The initial validators for the rollup contract. */
   initialValidators?: EthAddress[];
+  /** Configuration for the L1 tx utils module. */
+  l1TxConfig?: Partial<L1TxUtilsConfig>;
 }
-
-export type L1Clients = {
-  publicClient: PublicClient<HttpTransport, Chain>;
-  walletClient: Client<
-    HttpTransport,
-    Chain,
-    PrivateKeyAccount,
-    [...WalletRpcSchema, ...PublicRpcSchema],
-    PublicActions<HttpTransport, Chain> & WalletActions<Chain, PrivateKeyAccount>
-  >;
-};
 
 /**
  * Creates a wallet and a public viem client for interacting with L1.
@@ -349,7 +341,7 @@ export const deployL1Contracts = async (
   await govDeployer.waitForDeployments();
   logger.verbose(`All governance contracts deployed`);
 
-  const deployer = new L1Deployer(walletClient, publicClient, args.salt, logger);
+  const deployer = new L1Deployer(walletClient, publicClient, args.salt, logger, args.l1TxConfig ?? {});
 
   const feeJuicePortalAddress = await deployer.deploy(l1Artifacts.feeJuicePortal, [
     registryAddress.toString(),
@@ -374,6 +366,8 @@ export const deployL1Contracts = async (
     stakingAssetAddress.toString(),
     args.vkTreeRoot.toString(),
     args.protocolContractTreeRoot.toString(),
+    args.genesisArchiveRoot.toString(),
+    args.genesisBlockHash.toString(),
     account.address.toString(),
     rollupConfigArgs,
   ];
@@ -505,12 +499,6 @@ export const deployL1Contracts = async (
     } catch (e) {
       throw new Error(`Error jumping time: ${e}`);
     }
-  }
-
-  // Set initial blocks as proven if requested
-  if (args.assumeProvenThrough && args.assumeProvenThrough > 0) {
-    await rollup.write.setAssumeProvenThroughBlockNumber([BigInt(args.assumeProvenThrough)], { account });
-    logger.warn(`Rollup set to assumedProvenUntil to ${args.assumeProvenThrough}`);
   }
 
   // Inbox and Outbox are immutable and are deployed from Rollup's constructor so we just fetch them from the contract.
@@ -659,11 +647,11 @@ export async function deployL1Contract(
     }
 
     const replacements: Record<string, EthAddress> = {};
-
+    const libraryTxs: Hex[] = [];
     for (const libraryName in libraries?.libraryCode) {
       const lib = libraries.libraryCode[libraryName];
 
-      const { address } = await deployL1Contract(
+      const { address, txHash } = await deployL1Contract(
         walletClient,
         publicClient,
         lib.contractAbi,
@@ -674,6 +662,10 @@ export async function deployL1Contract(
         logger,
         l1TxUtils,
       );
+
+      if (txHash) {
+        libraryTxs.push(txHash);
+      }
 
       for (const linkRef in libraries.linkReferences) {
         for (const contractName in libraries.linkReferences[linkRef]) {
@@ -699,6 +691,13 @@ export async function deployL1Contract(
     for (const toReplace in replacements) {
       const replacement = replacements[toReplace].toString().slice(2);
       bytecode = bytecode.replace(new RegExp(escapeRegExp(toReplace), 'g'), replacement) as Hex;
+    }
+
+    // Reth fails gas estimation if the deployed contract attempts to call a library that is not yet deployed,
+    // so we wait for all library deployments to be mined before deploying the contract.
+    if (libraryTxs.length > 0) {
+      logger?.verbose(`Awaiting for linked libraries to be deployed`);
+      await Promise.all(libraryTxs.map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })));
     }
   }
 

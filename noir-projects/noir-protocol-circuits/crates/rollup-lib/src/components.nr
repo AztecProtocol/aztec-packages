@@ -204,7 +204,7 @@ fn get_tx_effects_hash_input(
         silo_contract_class_log_hash(log)
     });
 
-    /// Safety: This constructs the array of effects and is constrained below.
+    // Safety: This constructs the array of effects and is constrained below.
     let mut tx_effects_hash_input = unsafe {
         get_tx_effects_hash_input_helper(
             tx_effect.tx_hash,

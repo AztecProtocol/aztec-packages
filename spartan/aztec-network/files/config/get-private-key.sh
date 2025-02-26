@@ -20,6 +20,7 @@ export VALIDATOR_PRIVATE_KEY=$private_key
 export L1_PRIVATE_KEY=$private_key
 export SEQ_PUBLISHER_PRIVATE_KEY=$private_key
 export PROVER_PUBLISHER_PRIVATE_KEY=$private_key
+export BOT_L1_PRIVATE_KEY=$private_key
 EOF
 
 cat /shared/config/keys.env

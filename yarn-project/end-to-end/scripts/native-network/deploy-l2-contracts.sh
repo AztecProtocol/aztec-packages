@@ -20,13 +20,8 @@ until curl -s -X POST -H 'content-type: application/json' \
 done
 echo "Done waiting."
 
-# Get the chain ID from the Ethereum node
-export ETHEREUM_HOST=${ETHEREUM_HOST:-"http://127.0.0.1:8545"}
-source "$REPO"/yarn-project/end-to-end/scripts/native-network/utils/get-chain-id.sh
-export L1_CHAIN_ID=${L1_CHAIN_ID:-31337}
-
 # TODO(AD): Add option for prover-enabled mode
-ARGS="--skipProofWait --l1-chain-id $L1_CHAIN_ID"
+ARGS="--skipProofWait --testAccounts"
 
 # Deploy L2 contracts
 export AZTEC_NODE_URL="http://127.0.0.1:8080"

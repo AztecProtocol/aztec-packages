@@ -1,5 +1,5 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 
 import { type Command, Option } from 'commander';
 
@@ -36,6 +36,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .addOption(l1ChainIdOption)
     .option('--salt <number>', 'The optional salt to use in deployment', arg => parseInt(arg))
     .option('--json', 'Output the contract addresses in JSON format')
+    .option('--test-accounts', 'Populate genesis state with initial fee juice for test accounts')
     .action(async options => {
       const { deployL1Contracts } = await import('./deploy_l1_contracts.js');
 
@@ -48,6 +49,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         options.mnemonic,
         options.mnemonicIndex,
         options.salt,
+        options.testAccounts,
         options.json,
         initialValidators,
         log,
@@ -341,24 +343,9 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
       ETHEREUM_HOST,
     )
     .addOption(pxeOption)
-    .option(
-      '-m, --mnemonic <string>',
-      'The mnemonic to use for deriving the Ethereum address that will mint and bridge',
-      'test test test test test test test test test test test junk',
-    )
-    .addOption(l1ChainIdOption)
-    .option('--l1-private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
     .action(async (blockNumber, options) => {
       const { assumeProvenThrough } = await import('./assume_proven_through.js');
-      await assumeProvenThrough(
-        blockNumber,
-        options.l1RpcUrl,
-        options.rpcUrl,
-        options.l1ChainId,
-        options.l1PrivateKey,
-        options.mnemonic,
-        log,
-      );
+      await assumeProvenThrough(blockNumber, options.l1RpcUrl, options.rpcUrl, log);
     });
 
   program

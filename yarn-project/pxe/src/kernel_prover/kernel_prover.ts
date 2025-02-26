@@ -1,45 +1,47 @@
-import {
-  type PrivateCallExecutionResult,
-  type PrivateExecutionResult,
-  type PrivateKernelProver,
-  type PrivateKernelSimulateOutput,
-  collectEnqueuedPublicFunctionCalls,
-  collectNoteHashLeafIndexMap,
-  collectNoteHashNullifierCounterMap,
-  collectPublicTeardownFunctionCall,
-  getFinalMinRevertibleSideEffectCounter,
-} from '@aztec/circuit-types';
-import {
-  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  ClientIvcProof,
-  Fr,
-  PrivateCallData,
-  PrivateKernelCircuitPublicInputs,
-  PrivateKernelData,
-  PrivateKernelInitCircuitPrivateInputs,
-  PrivateKernelInnerCircuitPrivateInputs,
-  PrivateKernelTailCircuitPrivateInputs,
-  type PrivateKernelTailCircuitPublicInputs,
-  type PrivateLog,
-  type ScopedPrivateLogData,
-  type TxRequest,
-  VK_TREE_HEIGHT,
-  VerificationKeyAsFields,
-} from '@aztec/circuits.js';
-import { hashVK } from '@aztec/circuits.js/hash';
+import { CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, VK_TREE_HEIGHT } from '@aztec/constants';
 import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { Timer } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { getProtocolContractLeafAndMembershipWitness, protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { computeContractAddressFromInstance } from '@aztec/stdlib/contract';
+import { hashVK } from '@aztec/stdlib/hash';
+import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
+import {
+  PrivateCallData,
+  PrivateKernelCircuitPublicInputs,
+  PrivateKernelData,
+  PrivateKernelInitCircuitPrivateInputs,
+  PrivateKernelInnerCircuitPrivateInputs,
+  type PrivateKernelSimulateOutput,
+  PrivateKernelTailCircuitPrivateInputs,
+  type PrivateKernelTailCircuitPublicInputs,
+  PrivateVerificationKeyHints,
+  type ScopedPrivateLogData,
+} from '@aztec/stdlib/kernel';
+import type { PrivateLog } from '@aztec/stdlib/logs';
+import { ClientIvcProof } from '@aztec/stdlib/proofs';
+import {
+  type PrivateCallExecutionResult,
+  type PrivateExecutionResult,
+  TxRequest,
+  collectEnqueuedPublicFunctionCalls,
+  collectNoteHashLeafIndexMap,
+  collectNoteHashNullifierCounterMap,
+  collectPublicTeardownFunctionCall,
+  getFinalMinRevertibleSideEffectCounter,
+} from '@aztec/stdlib/tx';
+import { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
-import { type WitnessMap } from '@noir-lang/types';
+import type { WitnessMap } from '@noir-lang/types';
 import { strict as assert } from 'assert';
 
 import { PrivateKernelResetPrivateInputsBuilder } from './hints/build_private_kernel_reset_private_inputs.js';
-import { type ProvingDataOracle } from './proving_data_oracle.js';
+import type { ProvingDataOracle } from './proving_data_oracle.js';
 
 // TODO(#10592): Temporary workaround to check that the private logs are correctly split into non-revertible set and revertible set.
 // This should be done in TailToPublicOutputValidator in private kernel tail.
@@ -87,6 +89,7 @@ const NULL_PROVE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicI
 
 export type ProvingConfig = {
   simulate: boolean;
+  skipFeeEnforcement: boolean;
   profile: boolean;
   dryRun: boolean;
 };
@@ -122,7 +125,12 @@ export class KernelProver {
   async prove(
     txRequest: TxRequest,
     executionResult: PrivateExecutionResult,
-    { simulate, profile, dryRun }: ProvingConfig = { simulate: false, profile: false, dryRun: false },
+    { simulate, skipFeeEnforcement, profile, dryRun }: ProvingConfig = {
+      simulate: false,
+      skipFeeEnforcement: false,
+      profile: false,
+      dryRun: false,
+    },
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
     if (simulate && profile) {
       throw new Error('Cannot simulate and profile at the same time');
@@ -281,6 +289,12 @@ export class KernelProver {
       );
     }
 
+    if (output.publicInputs.feePayer.isZero() && skipFeeEnforcement) {
+      if (!dryRun && !simulate) {
+        throw new Error('Fee payment must be enforced when creating real proof.');
+      }
+      output.publicInputs.feePayer = new AztecAddress(Fr.MAX_FIELD_VALUE);
+    }
     // Private tail.
     const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
     const previousKernelData = new PrivateKernelData(
@@ -336,34 +350,46 @@ export class KernelProver {
     const vkAsFields = await vkAsFieldsMegaHonk(vkAsBuffer);
     const vk = new VerificationKeyAsFields(vkAsFields, await hashVK(vkAsFields));
 
+    const { currentContractClassId, publicKeys, saltedInitializationHash } =
+      await this.oracle.getContractAddressPreimage(contractAddress);
     const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(
-      contractAddress,
+      currentContractClassId,
       functionSelector,
     );
-    const { contractClassId, publicKeys, saltedInitializationHash } = await this.oracle.getContractAddressPreimage(
-      contractAddress,
-    );
+
     const { artifactHash: contractClassArtifactHash, publicBytecodeCommitment: contractClassPublicBytecodeCommitment } =
-      await this.oracle.getContractClassIdPreimage(contractClassId);
+      await this.oracle.getContractClassIdPreimage(currentContractClassId);
 
     // TODO(#262): Use real acir hash
     // const acirHash = keccak256(Buffer.from(bytecode, 'hex'));
     const acirHash = Fr.fromBuffer(Buffer.alloc(32, 0));
 
-    const { lowLeaf: protocolContractLeaf, witness: protocolContractMembershipWitness } =
-      await getProtocolContractLeafAndMembershipWitness(contractAddress);
+    // This will be the address computed in the kernel by the executed class. We need to provide non membership of it in the protocol contract tree.
+    // This would only be equal to contractAddress if the currentClassId is equal to the original class id (no update happened).
+    const computedAddress = await computeContractAddressFromInstance({
+      originalContractClassId: currentContractClassId,
+      saltedInitializationHash,
+      publicKeys,
+    });
 
+    const { lowLeaf: protocolContractLeaf, witness: protocolContractMembershipWitness } =
+      await getProtocolContractLeafAndMembershipWitness(contractAddress, computedAddress);
+
+    const updatedClassIdHints = await this.oracle.getUpdatedClassIdHints(contractAddress);
     return PrivateCallData.from({
       publicInputs,
       vk,
-      publicKeys,
-      contractClassArtifactHash,
-      contractClassPublicBytecodeCommitment,
-      saltedInitializationHash,
-      functionLeafMembershipWitness,
-      protocolContractMembershipWitness,
-      protocolContractLeaf,
-      acirHash,
+      verificationKeyHints: PrivateVerificationKeyHints.from({
+        publicKeys,
+        contractClassArtifactHash,
+        contractClassPublicBytecodeCommitment,
+        saltedInitializationHash,
+        functionLeafMembershipWitness,
+        protocolContractMembershipWitness,
+        protocolContractLeaf,
+        acirHash,
+        updatedClassIdHints,
+      }),
     });
   }
 

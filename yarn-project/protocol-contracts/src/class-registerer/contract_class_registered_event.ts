@@ -1,13 +1,13 @@
+import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
+import { BufferReader } from '@aztec/foundation/serialize';
+import { FunctionSelector, bufferFromFields } from '@aztec/stdlib/abi';
 import {
   type ContractClassPublic,
-  PUBLIC_DISPATCH_SELECTOR,
   type PublicFunction,
   computeContractClassId,
   computePublicBytecodeCommitment,
-} from '@aztec/circuits.js';
-import { FunctionSelector, bufferFromFields } from '@aztec/foundation/abi';
-import { Fr } from '@aztec/foundation/fields';
-import { BufferReader } from '@aztec/foundation/serialize';
+} from '@aztec/stdlib/contract';
 
 import chunk from 'lodash.chunk';
 

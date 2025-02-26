@@ -1,9 +1,9 @@
 import { L1FeeJuicePortalManager, type PXE } from '@aztec/aztec.js';
 import { prettyPrintJSON } from '@aztec/cli/utils';
 import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 export async function bridgeL1FeeJuice(
   amount: bigint,

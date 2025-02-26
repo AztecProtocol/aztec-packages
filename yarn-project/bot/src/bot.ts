@@ -2,18 +2,18 @@ import {
   type AztecAddress,
   BatchCall,
   FeeJuicePaymentMethod,
-  NoFeePaymentMethod,
   type SendMethodOptions,
   type Wallet,
   createLogger,
 } from '@aztec/aztec.js';
-import { type AztecNode, type FunctionCall, type PXE } from '@aztec/circuit-types';
-import { Gas } from '@aztec/circuits.js';
 import { timesParallel } from '@aztec/foundation/collection';
-import { type EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
-import { type TokenContract } from '@aztec/noir-contracts.js/Token';
+import type { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
+import type { TokenContract } from '@aztec/noir-contracts.js/Token';
+import type { FunctionCall } from '@aztec/stdlib/abi';
+import { Gas } from '@aztec/stdlib/gas';
+import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
 
-import { type BotConfig } from './config.js';
+import type { BotConfig } from './config.js';
 import { BotFactory } from './factory.js';
 import { getBalances, getPrivateBalance, isStandardTokenContract } from './utils.js';
 
@@ -132,9 +132,8 @@ export class Bot {
 
   private getSendMethodOpts(): SendMethodOptions {
     const sender = this.wallet.getAddress();
-    const { feePaymentMethod, l2GasLimit, daGasLimit, skipPublicSimulation } = this.config;
-    const paymentMethod =
-      feePaymentMethod === 'fee_juice' ? new FeeJuicePaymentMethod(sender) : new NoFeePaymentMethod();
+    const { l2GasLimit, daGasLimit, skipPublicSimulation } = this.config;
+    const paymentMethod = new FeeJuicePaymentMethod(sender);
 
     let gasSettings, estimateGas;
     if (l2GasLimit !== undefined && l2GasLimit > 0 && daGasLimit !== undefined && daGasLimit > 0) {

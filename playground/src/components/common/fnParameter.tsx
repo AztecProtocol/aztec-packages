@@ -3,7 +3,7 @@ import {
   type AbiType,
   isAddressStruct,
   isU128Struct,
-} from "@aztec/foundation/abi";
+} from "@aztec/stdlib/abi";
 import {
   Autocomplete,
   CircularProgress,

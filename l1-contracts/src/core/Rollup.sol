@@ -11,6 +11,7 @@ import {
   EnumerableSet
 } from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
+import {FeeAssetValue} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 
 // We allow the unused imports here as they make it much simpler to import the Rollup later
 // solhint-disable no-unused-import
@@ -39,7 +40,6 @@ import {
   EpochRewards,
   FeeAssetPerEthE9,
   EthValue,
-  FeeAssetValue,
   PriceLib
 } from "./RollupCore.sol";
 // solhint-enable no-unused-import
@@ -66,6 +66,8 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     IERC20 _stakingAsset,
     bytes32 _vkTreeRoot,
     bytes32 _protocolContractTreeRoot,
+    bytes32 _genesisArchiveRoot,
+    bytes32 _genesisBlockHash,
     address _ares,
     Config memory _config
   )
@@ -75,6 +77,8 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
       _stakingAsset,
       _vkTreeRoot,
       _protocolContractTreeRoot,
+      _genesisArchiveRoot,
+      _genesisBlockHash,
       _ares,
       _config
     )
@@ -457,12 +461,26 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return rollupStore.epochRewards[_epoch].rewards;
   }
 
+  /**
+   * @notice  Get the rewards for a specific prover for a given epoch
+   *          BEWARE! If the epoch is not past its deadline, this value is the "current" value
+   *          and could change if a provers proves a longer series of blocks.
+   *
+   * @param _epoch - The epoch to get the rewards for
+   * @param _prover - The prover to get the rewards for
+   *
+   * @return The rewards for the specific prover for the given epoch
+   */
   function getSpecificProverRewardsForEpoch(Epoch _epoch, address _prover)
     external
     view
     override(IRollup)
     returns (uint256)
   {
+    if (rollupStore.proverClaimed[_prover][_epoch]) {
+      return 0;
+    }
+
     EpochRewards storage er = rollupStore.epochRewards[_epoch];
     uint256 length = er.longestProvenLength;
 

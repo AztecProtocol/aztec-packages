@@ -163,10 +163,13 @@ struct ContractInstanceHint {
     bool exists; // Useful for membership checks
     FF salt{};
     FF deployer_addr{};
-    FF contract_class_id{};
+    FF current_contract_class_id{};
+    FF original_contract_class_id{};
     FF initialisation_hash{};
     PublicKeysHint public_keys;
-    NullifierReadTreeHint membership_hint;
+    NullifierReadTreeHint initialization_membership_hint;
+    PublicDataReadTreeHint update_membership_hint;
+    std::vector<FF> update_preimage;
 };
 
 inline void read(uint8_t const*& it, PublicKeysHint& hint)
@@ -187,10 +190,13 @@ inline void read(uint8_t const*& it, ContractInstanceHint& hint)
     read(it, hint.exists);
     read(it, hint.salt);
     read(it, hint.deployer_addr);
-    read(it, hint.contract_class_id);
+    read(it, hint.current_contract_class_id);
+    read(it, hint.original_contract_class_id);
     read(it, hint.initialisation_hash);
     read(it, hint.public_keys);
-    read(it, hint.membership_hint);
+    read(it, hint.initialization_membership_hint);
+    read(it, hint.update_membership_hint);
+    read(it, hint.update_preimage);
 }
 
 struct AvmContractBytecode {

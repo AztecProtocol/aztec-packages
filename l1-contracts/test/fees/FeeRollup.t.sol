@@ -4,6 +4,8 @@ pragma solidity >=0.8.27;
 
 import {DecoderBase} from "../base/DecoderBase.sol";
 
+import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
+
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {SignatureLib, Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
@@ -88,6 +90,8 @@ contract FakeCanonical is IRewardDistributor {
 }
 
 contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
+  using stdStorage for StdStorage;
+
   using SlotLib for Slot;
   using EpochLib for Epoch;
   using FeeMath for uint256;
@@ -134,12 +138,14 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       asset,
       bytes32(0),
       bytes32(0),
+      bytes32(Constants.GENESIS_ARCHIVE_ROOT),
+      bytes32(Constants.GENESIS_BLOCK_HASH),
       address(this),
       Config({
         aztecSlotDuration: SLOT_DURATION,
         aztecEpochDuration: EPOCH_DURATION,
         targetCommitteeSize: 48,
-        aztecProofSubmissionWindow: EPOCH_DURATION * 2,
+        aztecProofSubmissionWindow: EPOCH_DURATION * 2 - 1,
         minimumStake: TestConstants.AZTEC_MINIMUM_STAKE,
         slashingQuorum: TestConstants.AZTEC_SLASHING_QUORUM,
         slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE
@@ -289,7 +295,10 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(timeOfPrune), true);
 
     // If we assume that everything is proven, we will see what the fee would be if we did not prune.
-    rollup.setAssumeProvenThroughBlockNumber(10000);
+    stdstore.target(address(rollup)).sig("getProvenBlockNumber()").checked_write(
+      rollup.getPendingBlockNumber()
+    );
+
     ManaBaseFeeComponents memory componentsNoPrune =
       rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(timeOfPrune), true);
 

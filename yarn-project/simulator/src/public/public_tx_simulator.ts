@@ -1,29 +1,31 @@
-import {
-  type AvmProvingRequest,
-  type GasUsed,
-  type MerkleTreeReadOperations,
-  NestedProcessReturnValues,
-  type PublicExecutionRequest,
-  type SimulationError,
-  type Tx,
-  TxExecutionPhase,
-} from '@aztec/circuit-types';
-import { type AvmSimulationStats } from '@aztec/circuit-types/stats';
-import { type Fr, type Gas, type GlobalVariables, type PublicCallRequest, type RevertCode } from '@aztec/circuits.js';
+import type { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
+import type { AvmProvingRequest, RevertCode } from '@aztec/stdlib/avm';
+import type { SimulationError } from '@aztec/stdlib/errors';
+import type { Gas, GasUsed } from '@aztec/stdlib/gas';
+import type { MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
+import type { PublicCallRequest } from '@aztec/stdlib/kernel';
+import type { AvmSimulationStats } from '@aztec/stdlib/stats';
+import {
+  type GlobalVariables,
+  NestedProcessReturnValues,
+  PublicExecutionRequest,
+  Tx,
+  TxExecutionPhase,
+} from '@aztec/stdlib/tx';
 import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { strict as assert } from 'assert';
 
-import { type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
+import type { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmPersistableStateManager, AvmSimulator } from '../avm/index.js';
 import { NullifierCollisionError } from '../avm/journal/nullifiers.js';
 import { getPublicFunctionDebugName } from '../common/debug_fn_name.js';
 import { ExecutorMetrics } from './executor_metrics.js';
-import { computeFeePayerBalanceStorageSlot } from './fee_payment.js';
-import { type WorldStateDB } from './public_db_sources.js';
+import type { WorldStateDB } from './public_db_sources.js';
 import { PublicTxContext } from './public_tx_context.js';
 
 export type ProcessedPhase = {
@@ -54,7 +56,7 @@ export class PublicTxSimulator {
     private worldStateDB: WorldStateDB,
     private globalVariables: GlobalVariables,
     private doMerkleOperations: boolean = false,
-    private enforceFeePayment: boolean = true,
+    private skipFeeEnforcement: boolean = false,
     telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
     this.log = createLogger(`simulator:public_tx_simulator`);
@@ -70,6 +72,8 @@ export class PublicTxSimulator {
    * @returns The result of the transaction's public execution.
    */
   public async simulate(tx: Tx): Promise<PublicTxResult> {
+    const startTime = process.hrtime.bigint();
+
     const txHash = await tx.getTxHash();
     this.log.debug(`Simulating ${tx.enqueuedPublicFunctionCalls.length} public calls for tx ${txHash}`, { txHash });
 
@@ -114,7 +118,7 @@ export class PublicTxSimulator {
       processedPhases.push(teardownResult);
     }
 
-    context.halt();
+    await context.halt();
     await this.payFee(context);
 
     const endStateReference = await this.db.getStateReference();
@@ -132,12 +136,16 @@ export class PublicTxSimulator {
       tx.filterRevertedLogs(tx.data.forPublic!.nonRevertibleAccumulatedData);
     }
 
+    const endTime = process.hrtime.bigint();
+    this.log.debug(`Public TX simulator took ${Number(endTime - startTime) / 1_000_000} ms\n`);
+
     return {
       avmProvingRequest,
       gasUsed: {
         totalGas: context.getActualGasUsed(),
         teardownGas: context.teardownGasUsed,
         publicGas: context.getActualPublicGasUsed(),
+        billedGas: context.getTotalGasUsed(),
       },
       revertCode,
       revertReason: context.revertReason,
@@ -166,11 +174,11 @@ export class PublicTxSimulator {
 
     if (result.reverted) {
       // Drop the currently active forked state manager and rollback to end of setup.
-      context.state.discardForkedState();
+      await context.state.discardForkedState();
     } else {
       if (!context.hasPhase(TxExecutionPhase.TEARDOWN)) {
         // Nothing to do after this (no teardown), so merge state updates now instead of letting teardown handle it.
-        context.state.mergeForkedState();
+        await context.state.mergeForkedState();
       }
     }
 
@@ -186,17 +194,17 @@ export class PublicTxSimulator {
     if (!context.state.isForked()) {
       // If state isn't forked (app logic reverted), fork now
       // so we can rollback to the end of setup if teardown reverts.
-      context.state.fork();
+      await context.state.fork();
     }
 
     const result = await this.simulatePhase(TxExecutionPhase.TEARDOWN, context);
 
     if (result.reverted) {
       // Drop the currently active forked state manager and rollback to end of setup.
-      context.state.discardForkedState();
+      await context.state.discardForkedState();
     } else {
       // Merge state updates from teardown,
-      context.state.mergeForkedState();
+      await context.state.mergeForkedState();
     }
 
     return result;
@@ -395,7 +403,7 @@ export class PublicTxSimulator {
    */
   public async insertRevertiblesFromPrivate(context: PublicTxContext) {
     // Fork the state manager so we can rollback to end of setup if app logic reverts.
-    context.state.fork();
+    await context.state.fork();
     const stateManager = context.state.getActiveStateManager();
     try {
       await stateManager.writeSiloedNullifiersFromPrivate(context.revertibleAccumulatedDataFromPrivate.nullifiers);
@@ -433,7 +441,7 @@ export class PublicTxSimulator {
     // When mocking the balance of the fee payer, the circuit should not be able to prove the simulation
 
     if (currentBalance.lt(txFee)) {
-      if (this.enforceFeePayment) {
+      if (!this.skipFeeEnforcement) {
         throw new Error(
           `Not enough balance for fee payer to pay for transaction (got ${currentBalance.toBigInt()} needs ${txFee.toBigInt()})`,
         );

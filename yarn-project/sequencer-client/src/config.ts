@@ -1,11 +1,4 @@
 import {
-  type AllowedElement,
-  type ChainConfig,
-  type SequencerConfig,
-  chainConfigMappings,
-} from '@aztec/circuit-types/config';
-import { AztecAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
-import {
   type L1ContractsConfig,
   type L1ReaderConfig,
   l1ContractsConfigMappings,
@@ -19,6 +12,10 @@ import {
   pickConfigMappings,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
+import { FunctionSelector } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type AllowedElement, type ChainConfig, type SequencerConfig, chainConfigMappings } from '@aztec/stdlib/config';
 
 import {
   type PublisherConfig,
@@ -95,11 +92,6 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     env: 'SEQ_MAX_BLOCK_SIZE_IN_BYTES',
     description: 'Max block size',
     ...numberConfigHelper(1024 * 1024),
-  },
-  enforceFees: {
-    env: 'ENFORCE_FEES',
-    description: 'Whether to require every tx to have a fee payer',
-    ...booleanConfigHelper(),
   },
   enforceTimeTable: {
     env: 'SEQ_ENFORCE_TIME_TABLE',
