@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740592706563,
+  "lastUpdate": 1740593081288,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2b91bb2ac7be55d51bbd6d32c84df45e3b026312",
-          "message": "fix: don't try to get bench artifacts on external PR (#12157)",
-          "timestamp": "2025-02-21T02:03:42+08:00",
-          "tree_id": "5f595b6ed91f22a2fe294417e1caa29263c41c61",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2b91bb2ac7be55d51bbd6d32c84df45e3b026312"
-        },
-        "date": 1740075345949,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18275.414823000006,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16002.203463000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18698.170157999983,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16298.890077 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3822.322208000003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3067.9369809999994 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54700.503288,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54700503000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9300.645835000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9300650000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1814502432,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1814502432 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 129861415,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 129861415 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3430,6 +3364,78 @@ window.BENCHMARK_DATA = {
             "value": 134841210,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 134841210 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "68168980+just-mitch@users.noreply.github.com",
+            "name": "just-mitch",
+            "username": "just-mitch"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a90f08e245add379fa0257c81f8e2819beb190cb",
+          "message": "feat: fetch addresses from registry (#12000)\n\nKey changes:\n- Makes slash factory address optional in L1ContractAddresses interface\n- Adds new RegisterNewRollupVersionPayload contract for registering new rollup versions\n- Adds new Registry contract with methods for managing rollup versions\n- Extracts rollup deployment logic into separate deployRollupAndPeriphery function\n- Adds collectAddresses and collectAddressesSafe methods to Registry for fetching contract addresses\n- Transfers fee asset ownership to coin issuer during deployment",
+          "timestamp": "2025-02-26T12:34:14-05:00",
+          "tree_id": "343a179b8001ae3dcd48c1ceceef46860b9ffca8",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a90f08e245add379fa0257c81f8e2819beb190cb"
+        },
+        "date": 1740593073667,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18357.676352,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16288.068329000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18687.448896999966,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16325.035460000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3936.7649640000764,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3143.172431 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54974.701894,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54974702000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10492.620427999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10492629000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1814947357,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1814947357 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 134744105,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 134744105 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
