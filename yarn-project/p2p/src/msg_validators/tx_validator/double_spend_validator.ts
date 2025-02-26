@@ -1,5 +1,5 @@
-import { type AnyTx, Tx, type TxValidationResult, type TxValidator, hasPublicCalls } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
+import { type AnyTx, Tx, type TxValidationResult, type TxValidator, hasPublicCalls } from '@aztec/stdlib/tx';
 
 export interface NullifierSource {
   nullifiersExist: (nullifiers: Buffer[]) => Promise<boolean[]>;

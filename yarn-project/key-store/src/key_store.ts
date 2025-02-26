@@ -1,6 +1,12 @@
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { CompleteAddress, type PartialAddress } from '@aztec/circuits.js/contract';
-import { KeyValidationRequest } from '@aztec/circuits.js/kernel';
+import { GeneratorIndex } from '@aztec/constants';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
+import { toArray } from '@aztec/foundation/iterable';
+import { type Bufferable, serializeToBuffer } from '@aztec/foundation/serialize';
+import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { CompleteAddress, type PartialAddress } from '@aztec/stdlib/contract';
+import { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import {
   KEY_PREFIXES,
   type KeyPrefix,
@@ -8,13 +14,7 @@ import {
   computeAppSecretKey,
   deriveKeys,
   derivePublicKeyFromSecretKey,
-} from '@aztec/circuits.js/keys';
-import { GeneratorIndex } from '@aztec/constants';
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
-import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
-import { toArray } from '@aztec/foundation/iterable';
-import { type Bufferable, serializeToBuffer } from '@aztec/foundation/serialize';
-import { type AztecAsyncKVStore, type AztecAsyncMap } from '@aztec/kv-store';
+} from '@aztec/stdlib/keys';
 
 /**
  * Used for managing keys. Can hold keys of multiple accounts.

@@ -1,6 +1,6 @@
-import { PeerErrorSeverity } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
+import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { Attributes, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type ENR, SignableENR } from '@chainsafe/enr';

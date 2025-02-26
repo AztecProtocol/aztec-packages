@@ -1,28 +1,29 @@
-import { ContractClassTxL2Logs, type Tx } from '@aztec/circuit-types';
-import {
-  type MerkleTreeCheckpointOperations,
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
-} from '@aztec/circuit-types/interfaces/server';
-import { type PublicDBAccessStats } from '@aztec/circuit-types/stats';
-import type { FunctionSelector } from '@aztec/circuits.js/abi';
-import { PublicDataWrite } from '@aztec/circuits.js/avm';
-import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import {
-  type ContractClassPublic,
-  type ContractDataSource,
-  type ContractInstanceWithAddress,
-  computePublicBytecodeCommitment,
-} from '@aztec/circuits.js/contract';
-import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { MerkleTreeId, type PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
 import { ContractInstanceDeployedEvent } from '@aztec/protocol-contracts/instance-deployer';
+import type { FunctionSelector } from '@aztec/stdlib/abi';
+import { PublicDataWrite } from '@aztec/stdlib/avm';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import {
+  type ContractClassPublic,
+  type ContractDataSource,
+  type ContractInstanceWithAddress,
+  computePublicBytecodeCommitment,
+} from '@aztec/stdlib/contract';
+import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
+import type {
+  MerkleTreeCheckpointOperations,
+  MerkleTreeReadOperations,
+  MerkleTreeWriteOperations,
+} from '@aztec/stdlib/interfaces/server';
+import { ContractClassTxL2Logs } from '@aztec/stdlib/logs';
+import type { PublicDBAccessStats } from '@aztec/stdlib/stats';
+import { MerkleTreeId, type PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
+import type { Tx } from '@aztec/stdlib/tx';
 
-import { type PublicContractsDB, type PublicStateDB } from './db_interfaces.js';
+import type { PublicContractsDB, PublicStateDB } from './db_interfaces.js';
 
 /**
  * Implements the PublicContractsDB using a ContractDataSource.

@@ -2,8 +2,8 @@ import { toArray } from '@aztec/foundation/iterable';
 
 import { expect } from 'chai';
 
-import { type AztecArray, type AztecAsyncArray } from './array.js';
-import { type AztecAsyncKVStore, type AztecKVStore } from './store.js';
+import type { AztecArray, AztecAsyncArray } from './array.js';
+import type { AztecAsyncKVStore, AztecKVStore } from './store.js';
 import { isSyncStore } from './utils.js';
 
 export function describeAztecArray(

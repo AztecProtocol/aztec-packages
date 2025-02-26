@@ -1,6 +1,6 @@
-import { type ComponentsVersions, checkCompressedComponentVersion } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
+import { type ComponentsVersions, checkCompressedComponentVersion } from '@aztec/stdlib/versioning';
 import { OtelMetricsAdapter, type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { Discv5, type Discv5EventEmitter } from '@chainsafe/discv5';

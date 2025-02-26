@@ -3,7 +3,7 @@ import { Agent, type Dispatcher } from 'undici';
 import { createLogger } from '../../log/pino-logger.js';
 import { NoRetryError } from '../../retry/index.js';
 import { jsonStringify } from '../convert.js';
-import { type JsonRpcFetch } from './fetch.js';
+import type { JsonRpcFetch } from './fetch.js';
 
 const log = createLogger('json-rpc:json_rpc_client:undici');
 

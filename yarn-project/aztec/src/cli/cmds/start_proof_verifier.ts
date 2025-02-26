@@ -1,4 +1,4 @@
-import { type LogFn } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
 import { ProofVerifier, proofVerifierConfigMappings } from '@aztec/proof-verifier';
 import { initTelemetryClient, telemetryClientConfigMappings } from '@aztec/telemetry-client';
 

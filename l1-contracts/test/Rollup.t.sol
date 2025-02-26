@@ -38,7 +38,7 @@ import {
 } from "@aztec/core/libraries/TimeLib.sol";
 
 import {RollupBase, IInstance} from "./base/RollupBase.sol";
-
+import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -46,6 +46,7 @@ import {RollupBase, IInstance} from "./base/RollupBase.sol";
  * Main use of these test is shorter cycles when updating the decoder contract.
  */
 contract RollupTest is RollupBase {
+  using stdStorage for StdStorage;
   using SlotLib for Slot;
   using EpochLib for Epoch;
   using ProposeLib for ProposeArgs;
@@ -266,7 +267,9 @@ contract RollupTest is RollupBase {
     warpToL2Slot(1);
     _proposeBlock("mixed_block_1", 1);
     // we prove epoch 0
-    rollup.setAssumeProvenThroughBlockNumber(rollup.getPendingBlockNumber());
+    stdstore.target(address(rollup)).sig("getProvenBlockNumber()").checked_write(
+      rollup.getPendingBlockNumber()
+    );
 
     // jump to epoch 1
     warpToL2Slot(EPOCH_DURATION);
@@ -341,6 +344,28 @@ contract RollupTest is RollupBase {
       txHashes: txHashes
     });
     rollup.propose(args, signatures, data.body, data.blobInputs);
+  }
+
+  function testProvingFeeUpdates() public setUpFor("mixed_block_1") {
+    rollup.setProvingCostPerMana(EthValue.wrap(1000));
+    _proposeBlock("mixed_block_1", 1, 1e6);
+
+    rollup.setProvingCostPerMana(EthValue.wrap(2000));
+    _proposeBlock("mixed_block_2", 2, 1e6);
+
+    // At this point in time, we have had different proving costs for the two blocks. When we prove them
+    // in the same epoch, we want to see that the correct fee is taken for each block.
+    _proveBlocks("mixed_block_", 1, 2, address(this));
+
+    // 1e6 mana at 1000 and 2000 cost per manage multiplied by 10 for the price conversion to fee asset.
+    uint256 provingFees = 1e6 * (1000 + 2000) * 10;
+    uint256 expectedProverRewards = rewardDistributor.BLOCK_REWARD() / 2 * 2 + provingFees;
+
+    assertEq(
+      rollup.getCollectiveProverRewardsForEpoch(Epoch.wrap(0)),
+      expectedProverRewards,
+      "invalid prover rewards"
+    );
   }
 
   struct TestBlockFeeStruct {

@@ -1,5 +1,5 @@
-import { MerkleTreeId } from '@aztec/circuits.js/trees';
 import { createLogger } from '@aztec/foundation/log';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   Attributes,
   type Gauge,
@@ -18,6 +18,15 @@ import {
 } from '../native/message.js';
 
 type DBTypeString = 'leaf_preimage' | 'leaf_indices' | 'nodes' | 'blocks' | 'block_indices';
+
+const durationTrackDenylist = new Set<WorldStateMessageType>([
+  WorldStateMessageType.GET_INITIAL_STATE_REFERENCE,
+  WorldStateMessageType.CLOSE,
+
+  // these aren't used anymore, should be removed from the API
+  WorldStateMessageType.COMMIT,
+  WorldStateMessageType.ROLLBACK,
+]);
 
 export class WorldStateInstrumentation {
   private dbMapSize: Gauge;
@@ -141,8 +150,10 @@ export class WorldStateInstrumentation {
   }
 
   public recordRoundTrip(timeUs: number, request: WorldStateMessageType) {
-    this.requestHistogram.record(Math.ceil(timeUs), {
-      [Attributes.WORLD_STATE_REQUEST_TYPE]: WorldStateMessageType[request],
-    });
+    if (!durationTrackDenylist.has(request)) {
+      this.requestHistogram.record(Math.ceil(timeUs), {
+        [Attributes.WORLD_STATE_REQUEST_TYPE]: WorldStateMessageType[request],
+      });
+    }
   }
 }

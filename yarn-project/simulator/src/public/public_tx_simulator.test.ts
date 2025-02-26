@@ -1,37 +1,38 @@
-import {
-  SimulationError,
-  type Tx,
-  TxExecutionPhase,
-  UnencryptedFunctionL2Logs,
-  UnencryptedL2Log,
-} from '@aztec/circuit-types';
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
-import { mockTx } from '@aztec/circuit-types/testing';
-import { bufferAsFields } from '@aztec/circuits.js/abi';
-import { PublicDataWrite, RevertCode } from '@aztec/circuits.js/avm';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import type { ContractDataSource } from '@aztec/circuits.js/contract';
-import { Gas, GasFees, GasSettings } from '@aztec/circuits.js/gas';
-import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { ScopedLogHash, countAccumulatedItems } from '@aztec/circuits.js/kernel';
-import { fr, makeContractClassPublic } from '@aztec/circuits.js/testing';
-import { AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
-import { BlockHeader, GlobalVariables, PartialStateReference, StateReference } from '@aztec/circuits.js/tx';
 import { NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, REGISTERER_CONTRACT_ADDRESS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
-import { type AztecKVStore } from '@aztec/kv-store';
+import type { AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import { ProtocolContractAddress, REGISTERER_CONTRACT_CLASS_REGISTERED_TAG } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
+import { bufferAsFields } from '@aztec/stdlib/abi';
+import { PublicDataWrite, RevertCode } from '@aztec/stdlib/avm';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { SimulationError } from '@aztec/stdlib/errors';
+import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
+import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { ScopedLogHash, countAccumulatedItems } from '@aztec/stdlib/kernel';
+import { UnencryptedFunctionL2Logs, UnencryptedL2Log } from '@aztec/stdlib/logs';
+import { fr, makeContractClassPublic, mockTx } from '@aztec/stdlib/testing';
+import { AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
+import {
+  BlockHeader,
+  GlobalVariables,
+  PartialStateReference,
+  StateReference,
+  Tx,
+  TxExecutionPhase,
+} from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
 import { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
-import { type AvmPersistableStateManager } from '../avm/journal/journal.js';
-import { type InstructionSet } from '../avm/serialization/bytecode_serialization.js';
+import type { AvmPersistableStateManager } from '../avm/journal/journal.js';
+import type { InstructionSet } from '../avm/serialization/bytecode_serialization.js';
 import { WorldStateDB } from './public_db_sources.js';
 import { type PublicTxResult, PublicTxSimulator } from './public_tx_simulator.js';
 

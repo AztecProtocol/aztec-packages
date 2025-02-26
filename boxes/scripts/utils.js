@@ -85,7 +85,18 @@ export async function clone({ path, choice, type, name }) {
         recursive: true,
         force: true,
       });
-      await fs.rm(`./${name}/base`, { recursive: true, force: true });
+      try {
+        await fs.rm(`./${name}/base`, {
+          recursive: true,
+          force: true,
+          maxRetries: 3,
+        });
+      } catch {
+        log(
+          "Could not delete temporary directory. Try deleting it manually: " +
+            `./${name}/base`,
+        );
+      }
     }
     spinner.succeed();
     return `./${name}`;
