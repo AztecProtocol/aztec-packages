@@ -1,4 +1,3 @@
-import { ContractClassLog } from '@aztec/circuits.js/logs';
 import type { ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
@@ -7,6 +6,7 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import isEqual from 'lodash.isequal';
 import { z } from 'zod';
 
+import { ContractClassLog } from './contract_class_log.js';
 import { LogId } from './log_id.js';
 
 /**

@@ -39,7 +39,7 @@ import {
 } from '@aztec/stdlib/epoch-helpers';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import type { L2LogsSource } from '@aztec/stdlib/interfaces/server';
-import { type LogFilter, type PrivateLog, type PublicLog, TxScopedL2Log, UnencryptedL2Log } from '@aztec/stdlib/logs';
+import { ContractClassLog, type LogFilter, type PrivateLog, type PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { InboxLeaf, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { type BlockHeader, TxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';

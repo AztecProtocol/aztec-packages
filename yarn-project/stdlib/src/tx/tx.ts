@@ -8,9 +8,12 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import { z } from 'zod';
 
 import type { GasSettings } from '../gas/gas_settings.js';
+import { siloContractClassLog } from '../hash/hash.js';
 import type { GetPublicLogsResponse } from '../interfaces/get_logs_response.js';
 import type { L2LogsSource } from '../interfaces/l2_logs_source.js';
+import type { ScopedLogHash } from '../kernel/log_hash.js';
 import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
+import { ContractClassLog } from '../logs/contract_class_log.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { Gossipable } from '../p2p/gossipable.js';
 import { TopicType, createTopicString } from '../p2p/topic_type.js';

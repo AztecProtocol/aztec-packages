@@ -19,6 +19,7 @@ import {
 } from '../contract/index.js';
 import { EmptyL1RollupConstants, type L1RollupConstants } from '../epoch-helpers/index.js';
 import { PublicKeys } from '../keys/public_keys.js';
+import { ExtendedContractClassLog } from '../logs/extended_contract_class_log.js';
 import { ExtendedPublicLog } from '../logs/extended_public_log.js';
 import type { LogFilter } from '../logs/log_filter.js';
 import { PrivateLog } from '../logs/private_log.js';

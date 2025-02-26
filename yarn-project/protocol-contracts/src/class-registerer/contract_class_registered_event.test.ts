@@ -1,3 +1,6 @@
+import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
+import { ContractClassLog } from '@aztec/stdlib/logs';
+
 import { getSampleContractClassRegisteredEventPayload } from '../tests/fixtures.js';
 import { ContractClassRegisteredEvent } from './contract_class_registered_event.js';
 

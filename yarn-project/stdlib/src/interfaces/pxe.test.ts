@@ -29,6 +29,7 @@ import {
 import { GasFees } from '../gas/gas_fees.js';
 import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
 import { PublicKeys } from '../keys/public_keys.js';
+import { ExtendedContractClassLog } from '../logs/extended_contract_class_log.js';
 import { ExtendedPublicLog } from '../logs/extended_public_log.js';
 import type { LogFilter } from '../logs/log_filter.js';
 import { UniqueNote } from '../note/index.js';

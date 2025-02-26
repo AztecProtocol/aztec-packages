@@ -4,11 +4,11 @@ import {
   MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
-import { type Tuple } from '@aztec/foundation/serialize';
+import type { Tuple } from '@aztec/foundation/serialize';
+import { FieldReader } from '@aztec/foundation/serialize';
 import { FunctionSelector, bufferFromFields } from '@aztec/stdlib/abi';
 import type { ExecutablePrivateFunctionWithMembershipProof, PrivateFunction } from '@aztec/stdlib/contract';
-
-import chunk from 'lodash.chunk';
+import type { ContractClassLog } from '@aztec/stdlib/logs';
 
 import { REGISTERER_PRIVATE_FUNCTION_BROADCASTED_TAG } from '../protocol_contract_data.js';
 

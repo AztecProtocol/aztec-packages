@@ -4,9 +4,11 @@ import {
 } from '@aztec/constants';
 import { removeArrayPaddingEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
-import { type Tuple } from '@aztec/foundation/serialize';
+import type { Tuple } from '@aztec/foundation/serialize';
+import { FieldReader } from '@aztec/foundation/serialize';
 import { FunctionSelector, bufferFromFields } from '@aztec/stdlib/abi';
 import type { UnconstrainedFunction, UnconstrainedFunctionWithMembershipProof } from '@aztec/stdlib/contract';
+import type { ContractClassLog } from '@aztec/stdlib/logs';
 
 import { REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_TAG } from '../protocol_contract_data.js';
 

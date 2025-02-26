@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { LogWithTxData, UnencryptedL2Log } from '@aztec/stdlib/logs';
+import { ContractClassLog, LogWithTxData } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import type { ACVMField } from '../acvm_types.js';

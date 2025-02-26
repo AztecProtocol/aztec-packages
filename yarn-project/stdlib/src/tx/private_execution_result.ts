@@ -9,6 +9,7 @@ import { NoteSelector } from '../abi/note_selector.js';
 import { PrivateCircuitPublicInputs } from '../kernel/private_circuit_public_inputs.js';
 import type { IsEmpty } from '../kernel/utils/interfaces.js';
 import { sortByCounter } from '../kernel/utils/order_and_comparison.js';
+import { ContractClassLog } from '../logs/contract_class_log.js';
 import { Note } from '../note/note.js';
 import { type ZodFor, mapSchema, schemas } from '../schemas/index.js';
 import { PublicExecutionRequest } from './public_execution_request.js';

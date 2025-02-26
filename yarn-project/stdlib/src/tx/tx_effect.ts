@@ -23,7 +23,6 @@ import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 import {
   BufferReader,
@@ -38,8 +37,10 @@ import { z } from 'zod';
 
 import { PublicDataWrite } from '../avm/public_data_write.js';
 import { RevertCode } from '../avm/revert_code.js';
+import { ContractClassLog } from '../logs/contract_class_log.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { PublicLog } from '../logs/public_log.js';
+import { TxHash } from './tx_hash.js';
 
 // This will appear as 0x74785f7374617274 in logs
 export const TX_START_PREFIX = 8392562855083340404n;

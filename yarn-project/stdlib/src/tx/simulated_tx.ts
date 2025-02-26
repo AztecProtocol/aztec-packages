@@ -9,6 +9,8 @@ import {
   type PrivateKernelProverProfileResult,
   PrivateKernelProverProfileResultSchema,
 } from '../kernel/private_kernel_prover_profile_result.js';
+import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
+import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
 import {
   PrivateCallExecutionResult,
   PrivateExecutionResult,

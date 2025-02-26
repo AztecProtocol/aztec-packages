@@ -2,9 +2,9 @@ import { GeneratorIndex } from '@aztec/constants';
 import { poseidon2Hash, poseidon2HashWithSeparator, sha256Trunc } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
-import { type AztecAddress } from '../aztec-address/index.js';
-import { type ContractClassLog } from '../logs/index.js';
-import { type ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
+import type { AztecAddress } from '../aztec-address/index.js';
+import type { ContractClassLog } from '../logs/index.js';
+import type { ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 
 /**
  * Computes a hash of a given verification key.

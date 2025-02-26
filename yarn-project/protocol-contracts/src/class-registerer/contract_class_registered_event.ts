@@ -1,5 +1,6 @@
 import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
+import { FieldReader } from '@aztec/foundation/serialize';
 import { FunctionSelector, bufferFromFields } from '@aztec/stdlib/abi';
 import {
   type ContractClassPublic,
@@ -7,8 +8,7 @@ import {
   computeContractClassId,
   computePublicBytecodeCommitment,
 } from '@aztec/stdlib/contract';
-
-import chunk from 'lodash.chunk';
+import type { ContractClassLog } from '@aztec/stdlib/logs';
 
 import { REGISTERER_CONTRACT_CLASS_REGISTERED_TAG } from '../protocol_contract_data.js';
 
