@@ -23,6 +23,11 @@ library ValidatorSelectionLib {
   bytes32 private constant VALIDATOR_SELECTION_STORAGE_POSITION =
     keccak256("aztec.validator_selection.storage");
 
+  function initialize(uint256 _targetCommitteeSize) internal {
+    ValidatorSelectionStorage storage store = getStorage();
+    store.targetCommitteeSize = _targetCommitteeSize;
+  }
+
   /**
    * @notice  Performs a setup of an epoch if needed. The setup will
    *          - Sample the validator set for the epoch
@@ -203,11 +208,6 @@ library ValidatorSelectionLib {
     // Emulate a sampling of the validators
     uint256 sampleSeed = getSampleSeed(_epochNumber);
     return sampleValidators(_stakingStore, sampleSeed);
-  }
-
-  function initialize(uint256 _targetCommitteeSize) internal {
-    ValidatorSelectionStorage storage store = getStorage();
-    store.targetCommitteeSize = _targetCommitteeSize;
   }
 
   /**
