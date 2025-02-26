@@ -328,7 +328,7 @@ describe('PeerManager', () => {
       expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledWith(
         disconnectPeerId,
         ReqRespSubProtocol.GOODBYE,
-        Buffer.from([GoodByeReason.DISCONNECTED]),
+        Buffer.from([GoodByeReason.LOW_SCORE]),
       );
 
       // Verify that hangUp was not called for the healthy peer
@@ -462,8 +462,8 @@ describe('PeerManager', () => {
       peerManager.goodbyeReceived(peerId, GoodByeReason.BANNED);
       expect(goodbyeReceivedMetric).toHaveBeenCalledWith(1, { [Attributes.P2P_GOODBYE_REASON]: 'banned' });
 
-      peerManager.goodbyeReceived(peerId, GoodByeReason.DISCONNECTED);
-      expect(goodbyeReceivedMetric).toHaveBeenCalledWith(1, { [Attributes.P2P_GOODBYE_REASON]: 'disconnected' });
+      peerManager.goodbyeReceived(peerId, GoodByeReason.LOW_SCORE);
+      expect(goodbyeReceivedMetric).toHaveBeenCalledWith(1, { [Attributes.P2P_GOODBYE_REASON]: 'low_score' });
 
       peerManager.goodbyeReceived(peerId, GoodByeReason.SHUTDOWN);
       expect(goodbyeReceivedMetric).toHaveBeenCalledWith(1, { [Attributes.P2P_GOODBYE_REASON]: 'shutdown' });

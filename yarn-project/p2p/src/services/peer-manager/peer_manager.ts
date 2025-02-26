@@ -258,7 +258,7 @@ export class PeerManager {
           void this.goodbyeAndDisconnectPeer(peer.remotePeer, GoodByeReason.BANNED);
           break;
         case PeerScoreState.Disconnect:
-          void this.goodbyeAndDisconnectPeer(peer.remotePeer, GoodByeReason.DISCONNECTED);
+          void this.goodbyeAndDisconnectPeer(peer.remotePeer, GoodByeReason.LOW_SCORE);
           break;
         case PeerScoreState.Healthy:
           connectedHealthyPeers.push(peer);
@@ -276,7 +276,7 @@ export class PeerManager {
    */
   private prioritizePeers(connections: Connection[]): Connection[] {
     if (connections.length > this.config.maxPeerCount) {
-      // Sort the peer scores from highest to lowest
+      // Sort the peer scores from lowest to highest
       const prioritizedConnections = connections.sort((connectionA, connectionB) => {
         const connectionScoreA = this.peerScoring.getScore(connectionA.remotePeer.toString());
         const connectionScoreB = this.peerScoring.getScore(connectionB.remotePeer.toString());
