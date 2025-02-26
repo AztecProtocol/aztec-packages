@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740596531464,
+  "lastUpdate": 1740598521082,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "codygunton@gmail.com",
-            "name": "Cody Gunton",
-            "username": "codygunton"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "db2a503e1918dd0ffa6d251e8145821b21a452ff",
-          "message": "feat: Barretenberg C++ binary overhaul (#11459)\n\nOverhaul the Barretenberg binary and its API.\n- Breaks up bb main into different files organized by proving system /\nIVC scheme.\n- Make UltraHonk conform to the new API interface introduced earlier for\nClient IVC.\n- Refines the API a bit.\n- Introduces [CLI11](https://github.com/CLIUtils/CLI11) to: provide help\n/ documentation; validate opts (options can be required, exlusive of\neach other, validated against predicates like \"path exists\" or \"string\nis in list\"); also allows for easy environment variable aliasing.\n\nThis could definitely use some more a help. \n - Lots of documentation needed\n- Defaults are set in a weird and inconsistent way and that information\nisn't included in the documentation.\n- The help menus are perhaps too verbose. Subcommands can't inherit\noptions or flags so we end up repeating.\n- Empty string cannot be passed and parsed to a \"nothing argument\" which\ncan lead to frustrating debugging...\n - Little option validation is actually implemented.\n - Deprecated options aren't noted but they could be.\n\nIt was requested that the default change from UltraPlonk to UltraHonk,\nbut we get rid of a default set of commands altogether. As a workaround,\nwe can have users set `BB_SCHEME=ultra_honk`.\n\nNewly created issues:\nhttps://github.com/AztecProtocol/barretenberg/issues/1252,\nhttps://github.com/AztecProtocol/barretenberg/issues/1253,\nhttps://github.com/AztecProtocol/barretenberg/issues/1254,\nhttps://github.com/AztecProtocol/barretenberg/issues/1255,\nhttps://github.com/AztecProtocol/barretenberg/issues/1256,\nhttps://github.com/AztecProtocol/barretenberg/issues/1257,\nhttps://github.com/AztecProtocol/barretenberg/issues/1258,\nhttps://github.com/AztecProtocol/barretenberg/issues/1259\n\nResolves https://github.com/AztecProtocol/barretenberg/issues/1260\n\nNB the line count is large because 1) CLI11 is a single 11k-line header;\n2) I moved a lot of functions and some git mvs didn't show up as such.\nMain new code is api_ultra_honk.hpp.\n\n---------\n\nCo-authored-by: ludamad <adam.domurad@gmail.com>",
-          "timestamp": "2025-02-20T14:12:17-05:00",
-          "tree_id": "609c7313ba844c7d1e54626d92a51d472f323db5",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/db2a503e1918dd0ffa6d251e8145821b21a452ff"
-        },
-        "date": 1740080971424,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18278.38828600011,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16138.557612999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18762.107399000117,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16345.549768 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4028.44974300001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3114.5213369999997 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54677.755524,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54677757000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10862.722009000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10862725000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1821180682,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1821180682 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 129311987,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 129311987 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3454,6 +3388,78 @@ window.BENCHMARK_DATA = {
             "value": 216192054,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 216192054 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47148561+Maddiaa0@users.noreply.github.com",
+            "name": "Maddiaa",
+            "username": "Maddiaa0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2e7b2da5e501bc53c6e5b7d2b7e1ebcf8b24bb57",
+          "message": "fix(e2e): p2p_reqresp (#12297)",
+          "timestamp": "2025-02-26T19:05:13Z",
+          "tree_id": "210d9d8fdf8dd792fd4e69f1a3eaa569edd6f10c",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2e7b2da5e501bc53c6e5b7d2b7e1ebcf8b24bb57"
+        },
+        "date": 1740598513957,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18251.62955199994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16108.402033 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18708.35237899996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16398.936315 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4043.4944029998405,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3155.3163900000004 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55270.374791999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55270375000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10111.255833000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10111262000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1898839111,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1898839111 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 223448150,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 223448150 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
