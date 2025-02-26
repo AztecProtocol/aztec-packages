@@ -10,9 +10,6 @@ pub unconstrained fn setup(
     let sender = env.create_account(2);
     env.impersonate(owner);
 
-    // TODO (12225): This is here because we are testing historical proofs, and we cannot get a block_header at 1 due to a bug in world state.
-    env.advance_block_by(1);
-
     // Deploy contract and initialize
     let initializer = Counter::interface().initialize(initial_value as u64, owner);
     let counter_contract = env.deploy_self("Counter").with_private_initializer(initializer);

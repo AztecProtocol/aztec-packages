@@ -243,15 +243,26 @@ pub contract DocsExample {
         );
     }
 
+    #[public]
+    fn emit_public(value: Field) {
+        // docs:start:emit_public
+        context.emit_public_log(/*message=*/ value);
+        context.emit_public_log(/*message=*/ [10, 20, 30]);
+        context.emit_public_log(/*message=*/ "Hello, world!");
+        // docs:end:emit_public
+    }
+
     #[private]
     #[view]
     fn verify_private_authwit(inner_hash: Field) -> Field {
         1
     }
+
     #[public]
     fn spend_public_authwit(inner_hash: Field) -> Field {
         1
     }
+
     #[public]
     #[internal]
     fn update_leader(account: AztecAddress, points: u8) {

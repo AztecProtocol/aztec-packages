@@ -6,10 +6,6 @@ use dep::aztec::macros::aztec;
 pub contract Counter {
     // docs:end:setup
     // docs:start:imports
-    use aztec::history::contract_inclusion::{
-        ProveContractDeployment, ProveContractInitialization, ProveContractNonDeployment,
-        ProveContractNonInitialization,
-    };
     use aztec::macros::{functions::{initializer, private}, storage::storage};
     use aztec::prelude::{AztecAddress, Map};
     use easy_private_state::EasyPrivateUint;
@@ -218,74 +214,5 @@ pub contract Counter {
             view_notes(owner_storage_slot, options);
         assert(get_counter(owner) == 6);
         assert(notes.len() == 4);
-    }
-
-    // TODO (12225): These tests need to be here instead of a saner place like aztec-nr/aztec/src/history/contract_inclusion/test.nr
-    // because we are unable to define nor deploy a contract from that location. Putting it here is a hacky workaround that
-    // temporarily solves the problem.
-    #[test]
-    unconstrained fn contract_historical_proofs_happy_path() {
-        let initial_value = 5;
-        let (env, contract_address) = test::setup(initial_value);
-
-        // We advance a block here because we need the initialization and deployment nullifiers to be added to state.
-        env.advance_block_by(1);
-
-        let context = env.private();
-        let header_at_block_before_deployment = context.get_block_header_at(2);
-        let current_header = context.historical_header;
-
-        header_at_block_before_deployment.prove_contract_non_deployment(contract_address);
-        header_at_block_before_deployment.prove_contract_non_initialization(contract_address);
-
-        current_header.prove_contract_deployment(contract_address);
-        current_header.prove_contract_initialization(contract_address);
-    }
-
-    #[test(should_fail_with = "Nullifier membership witness not found at block 2.")]
-    unconstrained fn proving_contract_deployment_fails() {
-        let initial_value = 5;
-        let (env, contract_address) = test::setup(initial_value);
-
-        let context = env.private();
-        let header_at_block_before_deployment = context.get_block_header_at(2);
-
-        header_at_block_before_deployment.prove_contract_deployment(contract_address);
-    }
-
-    #[test(should_fail_with = "Nullifier membership witness not found at block 2.")]
-    unconstrained fn proving_contract_initialization_fails() {
-        let initial_value = 5;
-        let (env, contract_address) = test::setup(initial_value);
-
-        let context = env.private();
-        let header_at_block_before_deployment = context.get_block_header_at(2);
-
-        header_at_block_before_deployment.prove_contract_initialization(contract_address);
-    }
-
-    #[test(should_fail_with = "Proving nullifier non-inclusion failed")]
-    unconstrained fn proving_contract_non_deployment_fails() {
-        let initial_value = 5;
-        let (env, contract_address) = test::setup(initial_value);
-        // In this test and below test, we advance a block here because we need the initialization and deployment nullifiers to be added to state.
-        env.advance_block_by(1);
-
-        let context = env.private();
-        let current_header = context.historical_header;
-
-        current_header.prove_contract_non_deployment(contract_address);
-    }
-
-    #[test(should_fail_with = "Proving nullifier non-inclusion failed")]
-    unconstrained fn proving_contract_non_initialization_fails() {
-        let initial_value = 5;
-        let (env, contract_address) = test::setup(initial_value);
-        env.advance_block_by(1);
-
-        let context = env.private();
-        let current_header = context.historical_header;
-
-        current_header.prove_contract_non_initialization(contract_address);
     }
 }
