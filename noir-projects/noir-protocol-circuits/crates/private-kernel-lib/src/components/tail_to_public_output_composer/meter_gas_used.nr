@@ -35,7 +35,7 @@ fn meter_accumulated_data_gas_used(data: PrivateToPublicAccumulatedData) -> Gas 
     let num_contract_class_logs = array_length(data.contract_class_logs_hashes);
     let contract_class_log_emitted_fields = data.contract_class_logs_hashes.fold(
         0,
-        // TODO(MW): log_size is constrained to be correct in the base rollup
+        // NOTE: log_size is constrained to be correct in the base rollup
         |len, l: ScopedLogHash| len + l.log_hash.length,
     );
     metered_da_fields += contract_class_log_emitted_fields;

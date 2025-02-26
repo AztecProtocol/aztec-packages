@@ -64,7 +64,7 @@ export class ContractClassLog {
   }
 
   static async random() {
-    // TODO(MW): Lazily used /2 instead of CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS, because this keeps overfilling block blobs
+    // NB: Using half the maximum number of fields per log because max fields keeps overfilling blobs in tests.
     // Below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
     // makeTuple(CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS, Fr.random);
     const fields = Array.from({ length: Math.ceil(CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS / 2) }, () => Fr.random());
