@@ -113,6 +113,9 @@ spec:
               mountPath: /scripts
             - name: config
               mountPath: /shared/config
+          env:
+            - name: P2P_ENABLED
+              value: "{{ .Values.proverNode.p2p.enabled }}"
 
       containers:
         - name: prover-node
@@ -225,6 +228,8 @@ spec:
               value: "{{ .Values.telemetry.useGcloudLogging }}"
             - name: OTEL_EXCLUDE_METRICS
               value: "{{ .Values.telemetry.excludeMetrics }}"
+            - name: TEST_ACCOUNTS
+              value: "{{ .Values.aztec.testAccounts }}"
             {{- if .Values.blobSink.enabled }}
             - name: BLOB_SINK_URL
               value: {{ include "aztec-network.blobSinkUrl" . }}
