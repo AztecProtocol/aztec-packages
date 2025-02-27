@@ -119,7 +119,7 @@ case "$cmd" in
     # TODO(#12163) reenable bot once not conflicting with transfer
     export OVERRIDES="bot.enabled=false"
     NAMESPACE=4epochs FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
-      ./scripts/test_kind.sh src/spartan/4epochs.test.ts ci.yaml 4epochs
+      ./scripts/test_kind.sh src/spartan/4epochs.test.ts ci.yaml four-epochs
     ;;
   "test-kind-transfer")
     # TODO(#12163) reenable bot once not conflicting with transfer
