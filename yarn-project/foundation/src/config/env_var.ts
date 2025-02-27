@@ -61,8 +61,6 @@ export type EnvVar =
   | 'L1_CONSENSUS_HOST_API_KEY' // The API key for the L1 consensus client. Added end of URL as "?key=<api-key>" unless a header is defined
   | 'L1_CONSENSUS_HOST_API_KEY_HEADER' // The header name for the L1 consensus client API key, if needed. Added as "<api-key-header>: <api-key>
   | 'L1_PRIVATE_KEY' // Private key of account for publishing L1 contracts in aztec start.
-  | 'L2_QUEUE_SIZE' //
-  | 'LOG_ELAPSED_TIME' //
   | 'LOG_JSON' //  using pino-pretty for console logging if LOG_JSON is not set. vanilla stdio if it is.
   | 'LOG_MULTILINE' // pino-pretty options: Whether to print each log on a single line or not. (errors will still be multi-line).
   | 'LOG_LEVEL' // controls the default log level. Use `LOG_LEVEL` with one of `silent`, `fatal`, `error`, `warn`, `info`, `verbose`, `debug`, or `trace`. To tweak log levels per module, add a list of module prefixes with their overridden level. For example, LOG_LEVEL="info; verbose: aztec:sequencer, aztec:archiver; debug: aztec:kv-store" sets `info` as the default log level, `verbose` for the sequencer and archiver, and `debug` for the kv-store. Module name match is done by prefix.
@@ -102,17 +100,15 @@ export type EnvVar =
   | 'P2P_QUERY_FOR_IP' // If announceUdpAddress or announceTcpAddress are not provided, query for the IP address of the machine. Default is false.
   | 'P2P_REQRESP_INDIVIDUAL_REQUEST_TIMEOUT_MS' // The timeout for an individual request response peer interaction. i.e. timeout for sending to one peer.
   | 'P2P_REQRESP_OVERALL_REQUEST_TIMEOUT_MS' //  The overall timeout for a request response operation. i.e. timeout for sending to all peers.
-  | 'P2P_SEVERE_PEER_PENALTY_BLOCK_LENGTH' //
+  | 'P2P_DOUBLE_SPEND_SEVERE_PEER_PENALTY_WINDOW' //
   | 'P2P_TCP_LISTEN_ADDR' // The listen address for TCP. Format: <IP_ADDRESS>:<PORT>
   | 'P2P_TCP_ANNOUNCE_ADDR' // The announce address for TCP. Format: <IP_ADDRESS>:<PORT>
   | 'P2P_TX_POOL_KEEP_PROVEN_FOR' // How many blocks have to pass after a block is proven before its txs are deleted (zero to delete immediately once proven)
   | 'P2P_ATTESTATION_POOL_KEEP_FOR' //  How many slots to keep attestations for.
-  | 'P2P_TX_PROTOCOL' //
   | 'P2P_UDP_ANNOUNCE_ADDR' // The announce address for UDP. Format: <IP_ADDRESS>:<PORT>
   | 'P2P_UDP_LISTEN_ADDR' // The listen address for UDP. Format: <IP_ADDRESS>:<PORT>
   | 'P2P_ARCHIVED_TX_LIMIT' // Archives a list of txs for future reference. The number of archived txs is limited by the specified archivedTxLimit
   | 'PEER_ID_PRIVATE_KEY' // An optional peer id private key. If blank, will generate a random key.
-  | 'PROVER_AGENT_ENABLED' //
   | 'PROVER_AGENT_CONCURRENCY' //
   | 'PROVER_AGENT_COUNT' // How many local prover agents to run on the prover node.
   | 'PROVER_AGENT_PROOF_TYPES' //
@@ -126,10 +122,8 @@ export type EnvVar =
   | 'PROVER_BROKER_BATCH_SIZE' // Writes jobs to disk in batches of this size
   | 'PROVER_BROKER_MAX_EPOCHS_TO_KEEP_RESULTS_FOR' //
   | 'PROVER_COORDINATION_NODE_URL' // If config.p2pEnabled is false, createProverCoordination request information from the AztecNode. Proving Coordination is how the prover node requests transaction data needed to produce proofs.
-  | 'PROVER_DISABLED' //
   | 'PROVER_FAILED_PROOF_STORE' // Store for inputs of failed proof.
   | 'PROVER_ID' // Identifier of the prover. Takes a field input.
-  | 'PROVER_JOB_POLL_INTERVAL_MS' // The interval in milliseconds to poll for new jobs
   | 'PROVER_JOB_TIMEOUT_MS' //
   | 'PROVER_NODE_POLLING_INTERVAL_MS' // The interval in milliseconds to poll for new jobs
   | 'PROVER_NODE_MAX_PENDING_JOBS' // The maximum number of pending jobs for the prover node
@@ -140,7 +134,6 @@ export type EnvVar =
   | 'PROVER_PUBLISH_RETRY_INTERVAL_MS' // The interval to wait between publish retries
   | 'PROVER_PUBLISHER_PRIVATE_KEY' // The private key to be used by the prover publisher.
   | 'PROVER_REAL_PROOFS' // Whether to construct real proofs.
-  | 'PROVER_REQUIRED_CONFIRMATIONS' //
   | 'PROVER_TEST_DELAY_FACTOR' //
   | 'PROVER_TEST_DELAY_MS' // Used in TestCircuitProver to simulate "fake work" i.e. sleep(PROVER_TEST_DELAY_MS)
   | 'PROVER_TEST_DELAY_TYPE' //
@@ -156,7 +149,6 @@ export type EnvVar =
   | 'SEQ_MAX_L2_BLOCK_GAS' // The maximum L2 block gas
   | 'SEQ_PUBLISH_RETRY_INTERVAL_MS' // The interval to wait between publish retries.
   | 'SEQ_PUBLISHER_PRIVATE_KEY' // The private key to be used by the publisher
-  | 'SEQ_REQUIRED_CONFIRMATIONS' //
   | 'SEQ_TX_POLLING_INTERVAL_MS' // The number of ms to wait between polling for pending txs.
   | 'SEQ_ENFORCE_TIME_TABLE' // Whether to enforce the time table when building blocks
   | 'SEQ_MAX_L1_TX_INCLUSION_TIME_INTO_SLOT' // Timetable option: How many seconds into an L1 slot we can still send a tx and get it mined.
@@ -193,7 +185,6 @@ export type EnvVar =
   | 'AZTEC_GOVERNANCE_PROPOSER_QUORUM' // This many signals from sequencers are required in any AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE L1 slots to advance a governance proposal to the voting phase.
   | 'AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE' // The number of consecutive L1 slots that make up a single round. For a governance proposal to pass, AZTEC_GOVERNANCE_PROPOSER_QUORUM signals must be registered for the proposal to advance to the voting phase.
   | 'L1_GAS_LIMIT_BUFFER_PERCENTAGE' // How much to increase calculated gas limit by (percentage) in bumpGasLimit()
-  | 'L1_GAS_LIMIT_BUFFER_FIXED' //
   | 'L1_GAS_PRICE_MIN' //
   | 'L1_GAS_PRICE_MAX' // Max L1 gas in gwei.
   | 'L1_BLOB_FEE_PER_GAS_MAX' // Maximum blob fee per gas in gwei
