@@ -8,7 +8,7 @@ import type { Anvil } from '@viem/anvil';
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { DefaultMnemonic } from '../mnemonic.js';
-import { deployContractsToL1 } from '../sandbox.js';
+import { deployContractsToL1 } from '../sandbox/index.js';
 import { validateL1Config } from './validation.js';
 
 describe('validation', () => {

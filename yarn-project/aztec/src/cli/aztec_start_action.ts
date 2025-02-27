@@ -13,7 +13,7 @@ import { getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 
-import { createSandbox } from '../sandbox.js';
+import { createSandbox } from '../sandbox/index.js';
 import { github, splash } from '../splash.js';
 import { extractNamespacedOptions, installSignalHandlers } from './util.js';
 import { getVersions } from './versioning.js';
