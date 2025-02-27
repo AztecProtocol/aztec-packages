@@ -227,10 +227,6 @@ RUN apt update && \
         inotify-tools \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Install earthly.
-RUN wget https://github.com/earthly/earthly/releases/latest/download/earthly-linux-$(dpkg --print-architecture) -O /usr/local/bin/earthly && \
-    chmod +x /usr/local/bin/earthly
-
 # Install osxcross. Requires developer to mount SDK from their mac host.
 COPY --from=osxcross /opt/osxcross /opt/osxcross
 ENV PATH="/opt/osxcross/bin:$PATH"
