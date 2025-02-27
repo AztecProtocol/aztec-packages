@@ -91,6 +91,10 @@ spec:
               mountPath: /scripts
             - name: config
               mountPath: /shared/config
+          env:
+            - name: P2P_ENABLED
+              value: "{{ .Values.fullNode.p2p.enabled }}"
+
         - name: wait-for-ethereum
           {{- include "aztec-network.image" . | nindent 10 }}
           command:
