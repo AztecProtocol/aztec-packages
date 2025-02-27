@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740683231832,
+  "lastUpdate": 1740684115538,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "P2P Testbench": [
@@ -4421,6 +4421,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "normal-degree-50-nodes - medianDelay",
             "value": 722,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "152162806+sklppy88@users.noreply.github.com",
+            "name": "esau",
+            "username": "sklppy88"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a301f72494f7ba97e4e8cbc5b03795e2a144b95c",
+          "message": "feat: add historical library tests and remove old inclusion proof contract / related tests (#12215)\n\nAdding txe tests to the historical apis, and removing inclusion proofs\ncontract with corresponding (flaky) e2e test\n\n---------\n\nCo-authored-by: Jan Beneš <janbenes1234@gmail.com>",
+          "timestamp": "2025-02-28T03:44:07+09:00",
+          "tree_id": "af66c14a8dbb109a663725f6e8179d06bb05c283",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a301f72494f7ba97e4e8cbc5b03795e2a144b95c"
+        },
+        "date": 1740684114415,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "degree-1-strict - numberReceived",
+            "value": 4,
+            "unit": "ms"
+          },
+          {
+            "name": "degree-1-strict - minDelay",
+            "value": 129,
+            "unit": "ms"
+          },
+          {
+            "name": "degree-1-strict - maxDelay",
+            "value": 946,
+            "unit": "ms"
+          },
+          {
+            "name": "degree-1-strict - averageDelay",
+            "value": 414.75,
+            "unit": "ms"
+          },
+          {
+            "name": "degree-1-strict - medianDelay",
+            "value": 352,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-100-nodes - numberReceived",
+            "value": 15,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-100-nodes - minDelay",
+            "value": 243,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-100-nodes - maxDelay",
+            "value": 638,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-100-nodes - averageDelay",
+            "value": 361.8,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-100-nodes - medianDelay",
+            "value": 371,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - numberReceived",
+            "value": 49,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - minDelay",
+            "value": 235,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - maxDelay",
+            "value": 7501,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - averageDelay",
+            "value": 2104.55,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - medianDelay",
+            "value": 955,
             "unit": "ms"
           }
         ]
