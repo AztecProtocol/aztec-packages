@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {IRollup, ChainTips} from "@aztec/core/interfaces/IRollup.sol";
+import {IRollup, ChainTips, PublicInputArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {
   IStaking,
   ValidatorInfo,
@@ -161,7 +161,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   function getEpochProofPublicInputs(
     uint256 _start,
     uint256 _end,
-    bytes32[7] calldata _args,
+    PublicInputArgs calldata _args,
     bytes32[] calldata _fees,
     bytes calldata _blobPublicInputs,
     bytes calldata _aggregationObject

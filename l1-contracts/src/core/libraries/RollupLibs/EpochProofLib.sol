@@ -4,12 +4,14 @@ pragma solidity >=0.8.27;
 
 import {
   SubmitEpochRootProofArgs,
+  PublicInputArgs,
   IRollupCore,
   EpochRewards,
   SubEpochRewards
 } from "@aztec/core/interfaces/IRollup.sol";
 import {RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {Converter} from "@aztec/core/libraries/Converter.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {STFLib, RollupStore} from "@aztec/core/libraries/RollupLibs/core/STFLib.sol";
@@ -57,7 +59,7 @@ library EpochProofLib {
 
     handleRewardsAndFees(_args, endEpoch);
 
-    emit IRollupCore.L2ProofVerified(_args.end, _args.args[6]);
+    emit IRollupCore.L2ProofVerified(_args.end, _args.args.proverId);
   }
 
   /**
@@ -77,7 +79,7 @@ library EpochProofLib {
   function getEpochProofPublicInputs(
     uint256 _start,
     uint256 _end,
-    bytes32[7] calldata _args,
+    PublicInputArgs calldata _args,
     bytes32[] calldata _fees,
     bytes calldata _blobPublicInputs,
     bytes calldata _aggregationObject
@@ -99,32 +101,34 @@ library EpochProofLib {
       {
         bytes32 expectedPreviousArchive = rollupStore.blocks[_start - 1].archive;
         require(
-          expectedPreviousArchive == _args[0],
-          Errors.Rollup__InvalidPreviousArchive(expectedPreviousArchive, _args[0])
+          expectedPreviousArchive == _args.previousArchive,
+          Errors.Rollup__InvalidPreviousArchive(expectedPreviousArchive, _args.previousArchive)
         );
       }
 
       {
         bytes32 expectedEndArchive = rollupStore.blocks[_end].archive;
         require(
-          expectedEndArchive == _args[1],
-          Errors.Rollup__InvalidArchive(expectedEndArchive, _args[1])
+          expectedEndArchive == _args.endArchive,
+          Errors.Rollup__InvalidArchive(expectedEndArchive, _args.endArchive)
         );
       }
 
       {
         bytes32 expectedPreviousBlockHash = rollupStore.blocks[_start - 1].blockHash;
         require(
-          expectedPreviousBlockHash == _args[2],
-          Errors.Rollup__InvalidPreviousBlockHash(expectedPreviousBlockHash, _args[2])
+          expectedPreviousBlockHash == _args.previousBlockHash,
+          Errors.Rollup__InvalidPreviousBlockHash(
+            expectedPreviousBlockHash, _args.previousBlockHash
+          )
         );
       }
 
       {
         bytes32 expectedEndBlockHash = rollupStore.blocks[_end].blockHash;
         require(
-          expectedEndBlockHash == _args[3],
-          Errors.Rollup__InvalidBlockHash(expectedEndBlockHash, _args[3])
+          expectedEndBlockHash == _args.endBlockHash,
+          Errors.Rollup__InvalidBlockHash(expectedEndBlockHash, _args.endBlockHash)
         );
       }
     }
@@ -151,7 +155,7 @@ library EpochProofLib {
     // }
     {
       // previous_archive.root: the previous archive tree root
-      publicInputs[0] = _args[0];
+      publicInputs[0] = _args.previousArchive;
 
       // previous_archive.next_available_leaf_index: the previous archive next available index
       // normally this should be equal to the block number (since leaves are 0-indexed and blocks 1-indexed)
@@ -159,25 +163,25 @@ library EpochProofLib {
       publicInputs[1] = bytes32(_start);
 
       // end_archive.root: the new archive tree root
-      publicInputs[2] = _args[1];
+      publicInputs[2] = _args.endArchive;
 
       // end_archive.next_available_leaf_index: the new archive next available index
       publicInputs[3] = bytes32(_end + 1);
 
       // previous_block_hash: the block hash just preceding this epoch
-      publicInputs[4] = _args[2];
+      publicInputs[4] = _args.previousBlockHash;
 
       // end_block_hash: the last block hash in the epoch
-      publicInputs[5] = _args[3];
+      publicInputs[5] = _args.endBlockHash;
 
       // end_timestamp: the timestamp of the last block in the epoch
-      publicInputs[6] = _args[4];
+      publicInputs[6] = bytes32(Timestamp.unwrap(_args.endTimestamp));
 
       // end_block_number: last block number in the epoch
       publicInputs[7] = bytes32(_end);
 
       // out_hash: root of this epoch's l2 to l1 message tree
-      publicInputs[8] = _args[5];
+      publicInputs[8] = _args.outHash;
     }
 
     uint256 feesLength = Constants.AZTEC_MAX_EPOCH_DURATION * 2;
@@ -196,7 +200,7 @@ library EpochProofLib {
     offset += 1;
 
     // prover_id: id of current epoch's prover
-    publicInputs[offset] = _args[6];
+    publicInputs[offset] = Converter.addressToField(_args.proverId);
     offset += 1;
 
     {
@@ -257,8 +261,7 @@ library EpochProofLib {
       SubEpochRewards storage $sr = $er.subEpoch[length];
 
       {
-        // The address is left padded within the bytes32
-        address prover = address(bytes20(_args.args[6] << 96));
+        address prover = _args.args.proverId;
         require(
           !$sr.hasSubmitted[prover], Errors.Rollup__ProverHaveAlreadySubmitted(prover, _endEpoch)
         );
@@ -298,8 +301,7 @@ library EpochProofLib {
           v.sequencerFee = fee - burn - v.proverFee;
 
           {
-            // The address is left padded within the bytes32
-            v.sequencer = address(bytes20(_args.fees[i * 2] << 96));
+            v.sequencer = Converter.fieldToAddress(_args.fees[i * 2]);
             rollupStore.sequencerRewards[v.sequencer] += (v.sequencerBlockReward + v.sequencerFee);
           }
         }
