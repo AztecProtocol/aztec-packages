@@ -12,7 +12,7 @@ unconstrained fn setup() -> &mut TestEnvironment {
     let mut env = TestEnvironment::new();
     let context = &mut env.public();
 
-    // We sanity check that we are building block 2, and thus block 2 is this storage write will occur.
+    // We sanity check that we are building block 2, and thus block 2 is where the following storage write will occur.
     assert_eq(env.pending_block_number(), 2);
 
     context.storage_write(STORAGE_SLOT, VALUE);
