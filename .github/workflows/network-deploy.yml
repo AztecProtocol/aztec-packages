@@ -174,7 +174,8 @@ jobs:
         run: |
           REPO=$(git rev-parse --show-toplevel)
           export FUNDING_PRIVATE_KEY=${{ secrets.SEPOLIA_FUNDING_PRIVATE_KEY }}
-          export ETHEREUM_HOST=${{ env.EXTERNAL_ETHEREUM_HOST }}
+          export ETHEREUM_HOSTS=${{ env.EXTERNAL_ETHEREUM_HOSTS }}
+          echo "Preparing sepolia accounts..."
           mnemonic=$($REPO/spartan/scripts/prepare_sepolia_accounts.sh ${{ env.VALUES_FILE }} 5)
           echo "::add-mask::$mnemonic"
           echo "mnemonic=$mnemonic" >> "$GITHUB_OUTPUT"

@@ -43,7 +43,7 @@ ADDRESSES=$(jq -r '.accounts[].address' output.json)
 wei_amount=$(cast to-wei "$eth_amount" ether)
 
 # Get current gas price and add 25% buffer
-gas_price=$(cast gas-price --rpc-url "$ETHEREUM_HOST")
+gas_price=$(cast gas-price --rpc-urls "$ETHEREUM_HOSTS")
 gas_price=$((gas_price * 125 / 100)) # Add 25% to gas price
 
 # Build 'calls' string in the format:
@@ -65,7 +65,7 @@ tx_hash=$(cast send "$multicall_address" \
   "$calls" \
   --value "$total_value" \
   --private-key "$FUNDING_PRIVATE_KEY" \
-  --rpc-url "$ETHEREUM_HOST" \
+  --rpc-urls "$ETHEREUM_HOSTS" \
   --json --gas-price "$gas_price")
 
 echo >&2 "Sent ${wei_amount} wei to ${num_accounts} addresses in tx $tx_hash"

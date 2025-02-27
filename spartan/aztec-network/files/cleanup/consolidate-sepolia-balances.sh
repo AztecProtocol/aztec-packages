@@ -22,10 +22,10 @@ for i in $(seq 0 $((num_accounts - 1))); do
   private_key=$(cast wallet private-key --mnemonic "$mnemonic" --mnemonic-index $i)
 
   # Get balance
-  balance=$(cast balance $address --rpc-url "$ETHEREUM_HOST")
+  balance=$(cast balance $address --rpc-urls "$ETHEREUM_HOSTS")
 
   if [ "$balance" != "0" ]; then
-    gas_price=$(cast gas-price --rpc-url "$ETHEREUM_HOST")
+    gas_price=$(cast gas-price --rpc-urls "$ETHEREUM_HOSTS")
     gas_price=$((gas_price * 120 / 100)) # Add 20% to gas price
     gas_cost=$((21000 * gas_price))
 
@@ -34,7 +34,7 @@ for i in $(seq 0 $((num_accounts - 1))); do
 
     if [ "$send_amount" -gt "0" ]; then
       echo "Sending $send_amount wei from $address to $funding_address"
-      cast send --private-key "$private_key" --rpc-url "$ETHEREUM_HOST" "$funding_address" \
+      cast send --private-key "$private_key" --rpc-urls "$ETHEREUM_HOSTS" "$funding_address" \
         --value "$send_amount" --gas-price "$gas_price" --async
     else
       echo "Balance too low to cover gas costs for $address"
