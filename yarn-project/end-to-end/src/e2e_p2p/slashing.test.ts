@@ -110,6 +110,7 @@ describe('e2e_p2p_slashing', () => {
     };
 
     t.ctx.aztecNodeConfig.validatorReexecute = false;
+    t.ctx.aztecNodeConfig.minTxsPerBlock = 0;
 
     // create our network of nodes and submit txs into each of them
     // the number of txs per node and the number of txs per rollup
@@ -167,7 +168,6 @@ describe('e2e_p2p_slashing', () => {
     for (let i = 0; i < slashingRoundSize; i++) {
       t.logger.info('Submitting transactions');
       const bn = await nodes[0].getBlockNumber();
-      await createPXEServiceAndSubmitTransactions(t.logger, nodes[0], 1, t.fundedAccount);
 
       t.logger.info(`Waiting for block number to change`);
       while (bn === (await nodes[0].getBlockNumber())) {
@@ -204,6 +204,7 @@ describe('e2e_p2p_slashing', () => {
     }
 
     t.logger.info('Deploy the actual payload for slashing!');
+    t.logger.info('\n\n\n\n\n\n\nSlashing event\n\n\n\n\n\n', { events: slasher.shashEvents });
     const slashEvent = slasher.slashEvents[0];
     await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({
       hash: await slashFactory.write.createSlashPayload([slashEvent.epoch, slashEvent.amount], {
