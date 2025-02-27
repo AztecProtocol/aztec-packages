@@ -4,6 +4,7 @@ import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from 
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
+import { z } from 'zod';
 
 import { FunctionSelector } from '../abi/index.js';
 import { AztecAddress } from '../aztec-address/index.js';
@@ -32,6 +33,20 @@ export class PublicCallRequest {
     public isStaticCall: boolean,
     public argsHash: Fr,
   ) {}
+
+  static get schema() {
+    return z
+      .object({
+        msgSender: AztecAddress.schema,
+        contractAddress: AztecAddress.schema,
+        functionSelector: FunctionSelector.schema,
+        isStaticCall: z.boolean(),
+        argsHash: Fr.schema,
+      })
+      .transform(({ msgSender, contractAddress, functionSelector, isStaticCall, argsHash }) => {
+        return new PublicCallRequest(msgSender, contractAddress, functionSelector, isStaticCall, argsHash);
+      });
+  }
 
   getSize() {
     return this.isEmpty() ? 0 : this.toBuffer().length;
