@@ -37,3 +37,8 @@ variable "l1_chain_id" {
   description = "The L1 chain ID"
   type        = number
 }
+
+variable "image_tag" {
+  description = "The Aztec image tag to deploy"
+  type        = string
+}

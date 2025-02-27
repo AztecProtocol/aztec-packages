@@ -77,6 +77,7 @@ resource "google_compute_instance" "vm" {
       SSH_USER               = local.ssh_user,
       L1_CHAIN_ID            = var.l1_chain_id,
       NETWORK_NAME           = var.network_name
+      TAG                    = var.image_tag
     })
     # Trigger resource recreation if the startup script changes
     startup-script-hash = filemd5(var.start_script)

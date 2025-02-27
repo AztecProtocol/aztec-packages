@@ -1,4 +1,18 @@
-#!/usr/bin/env bash
+#!/bin/bash
+
+# This script should be run from the root of iac/network. It will walk through the process of deploying a set of bootnodes. To do this, it will
+# 1. Create an SSH key and store i a GCP secret
+# 2. Create a service account in GCP and appropriate firewall rules for running bootnodes
+# 3. Create a static IP address for each provided region
+# 4. Create a P2P private key for each region if one doesn't already exist, this is stored as a GCP secret
+# 5. Generate the ENRs for the IP/Private key pairs
+# 6. Writes the ENRs to the provided S3 bucket
+# 7. Creates a VM in each region of the provided machine type
+# 8. Executes a startup script and updates systemd to ensure the bootnode is always running
+
+# Usage: ./scripts/deploy_bootnodes.sh <network-name> "region1,region2" "t2d-standard-2" "s3://static.aztec.network" <L1-chain-id> <gcp-project-id>
+
+# This is currently all done in GCP, some code exists to allow deploying to AWS but this is not yet used
 
 NETWORK_NAME=${1:-}
 GCP_REGIONS=${2:-}
@@ -8,10 +22,16 @@ GCP_MACHINE_TYPE=${3:-}
 STATIC_S3_BUCKET=${4:-}
 L1_CHAIN_ID=${5:-}
 PROJECT_ID=${6:-}
+TAG=${7:-"latest"}
+
+P2P_UDP_PORT=40400
+P2P_TCP_PORT=40400
+P2P_UDP_PORTS="[\"$P2P_UDP_PORT\"]"
+P2P_TCP_PORTS="[\"$P2P_TCP_PORT\"]"
 
 echo "NETWORK_NAME: $NETWORK_NAME"
 echo "GCP_REGIONS: $GCP_REGIONS"
-echo "AWS_REGIONS: $AWS_REGIONS"
+#echo "AWS_REGIONS: $AWS_REGIONS"
 
 if [[ -z "$NETWORK_NAME" ]]; then
     echo "NETWORK_NAME is required"
@@ -28,8 +48,10 @@ if [[ -z "$PROJECT_ID" ]]; then
     exit 1
 fi
 
+ROOT=$PWD
+
 # First we create an SSH key and store to a GCP secret
-cd ./ssh
+cd $ROOT/ssh
 
 echo "Creating SSH Key at $PWD"
 
@@ -39,18 +61,11 @@ terraform apply -var "ssh_user=aztec" \
   -var "ssh_secret_name=ssh-key-nodes" \
   -var "project_id=$PROJECT_ID"
 
-cd ..
-
 # Here we ensure the common GCP stuff is created. This is common across all networks and includes
 # 1. Service account
 # 2. Firewall rules
 
-P2P_UDP_PORT=40400
-P2P_TCP_PORT=40400
-P2P_UDP_PORTS="[\"$P2P_UDP_PORT\"]"
-P2P_TCP_PORTS="[\"$P2P_TCP_PORT\"]"
-
-cd ./common/gcp
+cd $ROOT/common/gcp
 
 
 echo "Creating gcp common at $PWD"
@@ -75,13 +90,15 @@ terraform apply \
 #   -var "p2p_udp_ports=$P2P_UDP_PORTS" \
 #   -var "regions=$AWS_REGIONS" --destroy
 
-cd ../../bootnode/ip/gcp
+# Create the static IPs for the bootnodes
 
-echo "Creating IPs at $PWD"
+cd $ROOT/bootnode/ip/gcp
+
+JSON_ARRAY=$(echo "$GCP_REGIONS" | jq -R 'split(",")')
 
 terraform init -backend-config="prefix=network/$NETWORK_NAME/bootnode/ip/gcp"
 
-terraform apply -var="regions=$GCP_REGIONS" -var="name=$NETWORK_NAME-bootnodes" -var "project_id=$PROJECT_ID"
+terraform apply -var="regions=$JSON_ARRAY" -var="name=$NETWORK_NAME-bootnodes" -var "project_id=$PROJECT_ID"
 
 # Output is in the form:
   # + ip_addresses = {
@@ -103,9 +120,10 @@ GCP_IP_OUTPUT=$(terraform output -json ip_addresses)
 # AWS_IP_OUTPUT=$(terraform output -json ip_addresses)
 
 
-cd ../../..
+cd $ROOT
 
-echo "We are here $PWD"
+# For each IP, create and store a private key and generate the ENR
+# Capture all ENRs and write to the provided bucket
 
 gcloud config set project $PROJECT_ID
 
@@ -119,7 +137,7 @@ while read -r REGION IP; do
     echo "IP: $IP"
 
     SECRET_NAME="$NETWORK_NAME-$REGION-bootnode-private-key"
-    PRIVATE_KEY=$(cd scripts && ./generate_private_key.sh)
+    PRIVATE_KEY=$(cd scripts && ./generate_private_key.sh $TAG)
 
     # Check if the secret exists
     EXISTING_SECRET=$(gcloud secrets describe "$SECRET_NAME" --format="value(name)" 2>/dev/null)
@@ -139,7 +157,7 @@ while read -r REGION IP; do
 
     # Now we can generate the enr
     UDP_ANNOUNCE="$IP:$P2P_UDP_PORT"
-    ENR=$(cd scripts && ./generate_encoded_enr.sh "$PRIVATE_KEY" "$UDP_ANNOUNCE" "$L1_CHAIN_ID")
+    ENR=$(cd scripts && ./generate_encoded_enr.sh "$PRIVATE_KEY" "$UDP_ANNOUNCE" "$L1_CHAIN_ID" $TAG)
 
     echo "ENR: $ENR"
 
@@ -159,17 +177,19 @@ ENR_JSON=$(jq --compact-output --null-input '$ARGS.positional' --args -- "${ENR_
 echo "GCP_REGIONS_JSON: $GCP_REGIONS_JSON"
 echo "ENR_JSON: $ENR_JSON"
 
-cd ./bootnode/vm/gcp
+cd $ROOT/bootnode/vm/gcp
 
 FULL_ENR_JSON=$(jq -n --argjson enrs "$ENR_JSON" '{"bootnodes": $enrs}')
 
 echo $FULL_ENR_JSON > ./enrs.json
 
+# Write the ENRs to the bucket
+
 aws s3 cp ./enrs.json $STATIC_S3_BUCKET/$NETWORK_NAME/bootnodes.json
 
 rm ./enrs.json
 
-echo "Creating VMs at $PWD"
+# Create the VMs
 
 terraform init -backend-config="prefix=network/$NETWORK_NAME/bootnode/vm/gcp"
 
@@ -181,4 +201,5 @@ terraform apply \
   -var="machine_type=$GCP_MACHINE_TYPE" \
   -var="project_id=$PROJECT_ID" \
   -var="p2p_udp_port=$P2P_UDP_PORT" \
-  -var="l1_chain_id=$L1_CHAIN_ID"
+  -var="l1_chain_id=$L1_CHAIN_ID" \
+  -var="image_tag=$TAG"

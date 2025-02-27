@@ -2,6 +2,8 @@
 
 set -e
 
+# Installs required dependencies for running an Aztec Bootnode, creates a start script for starting the bootnode and a systemd entry
+
 # From terraform
 LOCATION="${LOCATION}"
 SSH_USER="${SSH_USER}"
@@ -11,6 +13,7 @@ PEER_ID_PRIVATE_KEY="${PEER_ID_PRIVATE_KEY}"
 DATA_STORE_MAP_SIZE_KB="${DATA_STORE_MAP_SIZE_KB}"
 L1_CHAIN_ID="${L1_CHAIN_ID}"
 NETWORK_NAME="${NETWORK_NAME}"
+TAG="${TAG}"
 
 # Update system packages
 echo "Updating system packages..."
@@ -72,14 +75,13 @@ fi
 CONTAINER_NAME="aztec-bootnode"
 REPO=philwindle
 IMAGE=aztec
-TAG=latest
 LOG_LEVEL=verbose
 
 cat <<EOF > /home/$SSH_USER/tag.sh
 #!/bin/bash
 export TAG=$TAG
 EOF
-chmox +x /home/$SSH_USER/tag.sh
+chmod +x /home/$SSH_USER/tag.sh
 
 cat << 'EOF' > /home/$SSH_USER/start.sh
 #!/bin/bash

@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+# This script should be run from the root of iac/network. It will destroy all VMs for the provided network
+# Only the VMs are destroyed. No other infrastructure is modified
+
+# Usage: ./scripts/destroy_bootnodes.sh <network-name> <gcp-project-id>
+
 NETWORK_NAME=${1:-}
 PROJECT_ID=${2:-}
 
@@ -17,7 +22,9 @@ fi
 P2P_PORT=40400
 L1_CHAIN_ID=1
 
-cd ./bootnode/ip/gcp
+ROOT=$PWD
+
+cd $ROOT/bootnode/ip/gcp
 
 terraform init -backend-config="prefix=network/$NETWORK_NAME/bootnode/ip/gcp"
 
@@ -42,11 +49,11 @@ PRIVATE_KEYS_TF_ARG=$GCP_REGIONS_TF_ARG
 
 echo "GCP_REGIONS: $GCP_REGIONS_TF_ARG"
 
-cd ../../..
+cd $ROOT
 
-BOOTNODE_START_SCRIPT="$PWD/scripts/bootnode_startup.sh"
+BOOTNODE_START_SCRIPT="$ROOT/scripts/bootnode_startup.sh"
 
-cd ./bootnode/vm/gcp
+cd $ROOT/bootnode/vm/gcp
 
 terraform init -backend-config="prefix=network/$NETWORK_NAME/bootnode/vm/gcp"
 
