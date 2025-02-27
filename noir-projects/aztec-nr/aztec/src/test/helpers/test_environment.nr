@@ -22,14 +22,16 @@ impl TestEnvironment {
         Self {}
     }
 
-    // This is the block number of the block currently being built
+    /// Returns the block number of the block currently being built. Since sequencer is executing the public part
+    /// of transactions when building blocks, this block number is also returned by public_context.block_number().
     pub unconstrained fn pending_block_number(_self: Self) -> u32 {
         get_block_number()
     }
 
-    // This is the block number of the last committed block
-    pub unconstrained fn committed_block_number(_self: Self) -> u32 {
-        get_block_number() - 1
+    // Returns the block number of the last committed block - this is the block number that gets used in production
+    // to execute the private part of transactions when your PXE managed to successfully sync to the tip of the chain.
+    pub unconstrained fn committed_block_number(self: Self) -> u32 {
+        self.pending_block_number() - 1
     }
 
     pub unconstrained fn contract_address(_self: Self) -> AztecAddress {
@@ -49,6 +51,8 @@ impl TestEnvironment {
         cheatcodes::advance_blocks_by(blocks);
     }
 
+    /// Instantiates a public context. The block number returned from public_context.block_number() will be the
+    /// block number of the block currently being built (same as the one returned by self.pending_block_number()).
     pub unconstrained fn public(_self: Self) -> PublicContext {
         PublicContext::new(|| 0)
     }
@@ -59,8 +63,10 @@ impl TestEnvironment {
         context
     }
 
+    /// Instantiates a private context at the latest committed block number - this is the block number that gets used
+    /// in production to build transactions when your PXE managed to successfully sync to the tip of the chain.
     pub unconstrained fn private(&mut self) -> PrivateContext {
-        self.private_at(get_block_number() - 1)
+        self.private_at(self.committed_block_number())
     }
 
     // unconstrained is a key word, so we mis-spell purposefully here, like we do with contrakt
@@ -68,6 +74,7 @@ impl TestEnvironment {
         UnconstrainedContext::new()
     }
 
+    /// Instantiates a private context at a specific historical block number.
     pub unconstrained fn private_at(&mut self, historical_block_number: u32) -> PrivateContext {
         if historical_block_number >= get_block_number() {
             self.advance_block_to(historical_block_number + 1);

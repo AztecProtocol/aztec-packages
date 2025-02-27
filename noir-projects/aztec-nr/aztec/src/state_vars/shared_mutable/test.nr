@@ -50,13 +50,17 @@ unconstrained fn test_get_scheduled_value_in_public() {
     let mut env = setup();
     let state_var = in_public(env);
 
+    // Schedule a value change that will activate at `public_context.block_number() + current_delay`.
+    // Since we haven't modified the delay, it remains at the initial value of TEST_INITIAL_DELAY.
     state_var.schedule_value_change(new_value);
 
     let (scheduled, block_of_change) = state_var.get_scheduled_value();
     assert_eq(scheduled, new_value);
-    // Schedule value change uses the block number in public (the block number currently being built).
-    // This means that if the currently being built block is 1 (this is returned by env.pending_block_number()),
-    // and the current delay is 32, we expect the block of change to be 1 + 32 (33).
+
+    // The block of change should equal the pending block number plus TEST_INITIAL_DELAY because:
+    // 1. The value change is scheduled using the block number from the public context
+    // 2. The public context's block number corresponds to the pending block
+    // 3. The current delay is TEST_INITIAL_DELAY since it hasn't been modified
     assert_eq(block_of_change, env.pending_block_number() + TEST_INITIAL_DELAY);
 }
 
