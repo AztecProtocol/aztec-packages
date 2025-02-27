@@ -1,6 +1,8 @@
 #!/bin/bash
 set -eu
 
+source $(git rev-parse --show-toplevel)/ci3/source
+
 values_file=$1
 eth_amount=${2:-"1"}
 XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-"$HOME/.config"}
