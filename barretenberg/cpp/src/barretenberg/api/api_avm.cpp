@@ -31,9 +31,10 @@ void print_avm_stats()
  * @param public_inputs_path Path to the file containing the serialised avm public inputs
  * @param hints_path Path to the file containing the serialised avm circuit hints
  */
-void avm_check_circuit(const std::filesystem::path& public_inputs_path, const std::filesystem::path& hints_path)
+void avm_check_circuit(const std::filesystem::path&, const std::filesystem::path&)
 {
-
+    info("!!! VM1 is deprecated. Quitting !!!");
+    /*
     const auto avm_public_inputs = AvmPublicInputs::from(read_file(public_inputs_path));
     const auto avm_hints = bb::avm_trace::ExecutionHints::from(read_file(hints_path));
     avm_hints.print_sizes();
@@ -44,6 +45,7 @@ void avm_check_circuit(const std::filesystem::path& public_inputs_path, const st
     avm_trace::Execution::check_circuit(avm_public_inputs, avm_hints);
 
     print_avm_stats();
+    */
 }
 
 /**
@@ -56,11 +58,10 @@ void avm_check_circuit(const std::filesystem::path& public_inputs_path, const st
  * @param hints_path Path to the file containing the serialised avm circuit hints
  * @param output_path Path (directory) to write the output proof and verification keys
  */
-void avm_prove(const std::filesystem::path& public_inputs_path,
-               const std::filesystem::path& hints_path,
-               const std::filesystem::path& output_path)
+void avm_prove(const std::filesystem::path&, const std::filesystem::path&, const std::filesystem::path& output_path)
 {
-
+    info("!!! VM1 is deprecated. Sleeping 60s and generating fake outputs !!!");
+    /*
     const auto avm_public_inputs = AvmPublicInputs::from(read_file(public_inputs_path));
     const auto avm_hints = bb::avm_trace::ExecutionHints::from(read_file(hints_path));
     avm_hints.print_sizes();
@@ -71,6 +72,10 @@ void avm_prove(const std::filesystem::path& public_inputs_path,
     // Prove execution and return vk
     auto const [verification_key, proof] =
         AVM_TRACK_TIME_V("prove/all", avm_trace::Execution::prove(avm_public_inputs, avm_hints));
+    */
+    bb::avm::AvmFlavor::VerificationKey verification_key;
+    bb::HonkProof proof(AVM_PROOF_LENGTH_IN_FIELDS * 32);
+    sleep(60);
 
     std::vector<fr> vk_as_fields = verification_key.to_field_elements();
 
@@ -135,8 +140,11 @@ void avm2_check_circuit(const std::filesystem::path& inputs_path)
  * @return true If the proof is valid
  * @return false If the proof is invalid
  */
-bool avm_verify(const std::filesystem::path& proof_path, const std::filesystem::path& vk_path)
+bool avm_verify(const std::filesystem::path&, const std::filesystem::path&)
 {
+    info("!!! VM1 is deprecated. Saying yes !!!");
+    return true;
+    /*
     using Commitment = bb::avm::AvmFlavorSettings::Commitment;
     std::vector<fr> const proof = many_from_buffer<fr>(read_file(proof_path));
     std::vector<uint8_t> vk_bytes = read_file(vk_path);
@@ -175,6 +183,7 @@ bool avm_verify(const std::filesystem::path& proof_path, const std::filesystem::
 
     print_avm_stats();
     return verified;
+    */
 }
 
 // NOTE: The proof should NOT include the public inputs.
