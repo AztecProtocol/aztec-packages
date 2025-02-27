@@ -11,9 +11,7 @@ let protocolContractArtifact: ContractArtifact;
 
 export async function getContractInstanceDeployerArtifact(): Promise<ContractArtifact> {
   if (!protocolContractArtifact) {
-    const { default: contractInstanceDeployerJson } = await import('../../artifacts/ContractInstanceDeployer.json', {
-      assert: { type: 'json' },
-    });
+    const { default: contractInstanceDeployerJson } = await import('../../artifacts/ContractInstanceDeployer.json');
     protocolContractArtifact = loadContractArtifact(contractInstanceDeployerJson);
   }
   return protocolContractArtifact;

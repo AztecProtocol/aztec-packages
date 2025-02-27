@@ -8,9 +8,7 @@ let protocolContractArtifact: ContractArtifact;
 
 export async function getMultiCallEntrypointArtifact(): Promise<ContractArtifact> {
   if (!protocolContractArtifact) {
-    const { default: multiCallEntrypointJson } = await import('../../artifacts/MultiCallEntrypoint.json', {
-      assert: { type: 'json' },
-    });
+    const { default: multiCallEntrypointJson } = await import('../../artifacts/MultiCallEntrypoint.json');
     protocolContractArtifact = loadContractArtifact(multiCallEntrypointJson);
   }
   return protocolContractArtifact;
