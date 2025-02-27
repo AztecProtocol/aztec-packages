@@ -26,7 +26,7 @@ export abstract class BBWASMPrivateKernelProver extends BBPrivateKernelProver {
     this.log.info(`Generating ClientIVC proof...`);
     const backend = new AztecClientBackend(
       acirs.map(acir => ungzip(acir)),
-      { threads: this.threads },
+      { threads: this.threads, logger: this.log.verbose, wasmPath: process.env.BB_WASM_PATH },
     );
 
     const [proof, vk] = await backend.prove(witnessStack.map(witnessMap => ungzip(serializeWitness(witnessMap))));

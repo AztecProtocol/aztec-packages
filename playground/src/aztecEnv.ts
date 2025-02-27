@@ -12,19 +12,11 @@ import { L2TipsStore } from "@aztec/kv-store/stores";
 import { createStore } from "@aztec/kv-store/indexeddb";
 import { BBWASMLazyPrivateKernelProver } from "@aztec/bb-prover/wasm/lazy";
 import { WASMSimulator } from "@aztec/simulator/client";
-import { debug } from "debug";
 import { createContext } from "react";
 import { NetworkDB, WalletDB } from "./utils/storage";
 import { type ContractFunctionInteractionTx } from "./utils/txs";
 import { type Logger, createLogger } from "@aztec/aztec.js/log";
 import { LazyProtocolContractsProvider } from "@aztec/protocol-contracts/providers/lazy";
-
-process.env = Object.keys(import.meta.env).reduce((acc, key) => {
-  acc[key.replace("VITE_", "")] = import.meta.env[key];
-  return acc;
-}, {});
-
-debug.enable("*");
 
 const logLevel = [
   "silent",
