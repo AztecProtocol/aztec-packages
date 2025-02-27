@@ -144,12 +144,7 @@
       ]
     },
     "reporters": [
-      [
-        "summary",
-        {
-          "summaryThreshold": 0
-        }
-      ]
+      "default"
     ],
     "moduleNameMapper": {
       "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
