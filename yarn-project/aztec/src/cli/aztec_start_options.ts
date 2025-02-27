@@ -11,7 +11,6 @@ import {
   omitConfigMappings,
 } from '@aztec/foundation/config';
 import { bootnodeConfigMappings, p2pConfigMappings } from '@aztec/p2p/config';
-import { proofVerifierConfigMappings } from '@aztec/proof-verifier/config';
 import {
   type ProverAgentConfig,
   type ProverBrokerConfig,
@@ -330,15 +329,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: undefined,
     },
     ...getOptions('bot', botConfigMappings),
-  ],
-  'PROOF VERIFIER': [
-    {
-      flag: '--proof-verifier',
-      description: 'Starts Aztec Proof Verifier with options',
-      defaultValue: undefined,
-      envVar: undefined,
-    },
-    ...getOptions('proofVerifier', proofVerifierConfigMappings),
   ],
   TXE: [
     {

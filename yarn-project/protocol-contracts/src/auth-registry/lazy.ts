@@ -8,7 +8,9 @@ let protocolContractArtifact: ContractArtifact;
 
 export async function getAuthRegistryArtifact(): Promise<ContractArtifact> {
   if (!protocolContractArtifact) {
-    const { default: authRegistryJson } = await import('../../artifacts/AuthRegistry.json');
+    const { default: authRegistryJson } = await import('../../artifacts/AuthRegistry.json', {
+      assert: { type: 'json' },
+    });
     protocolContractArtifact = loadContractArtifact(authRegistryJson);
   }
   return protocolContractArtifact;

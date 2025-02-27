@@ -22,7 +22,7 @@ case "$cmd" in
     git clean -fdx
     ;;
   bench)
-    $cmd
+    $cmd > /dev/null
     ;;
   *)
     echo "Unknown command: $cmd"
