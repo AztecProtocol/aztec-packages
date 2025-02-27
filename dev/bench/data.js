@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740668959674,
+  "lastUpdate": 1740674088832,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "alexghr@users.noreply.github.com",
-            "name": "Alex Gherghisan",
-            "username": "alexghr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "68c228d3c43b072a58b2e0fd3aa5e7a696400b0c",
-          "message": "fix: delete deploy hooks after they are applied (#12189)",
-          "timestamp": "2025-02-21T23:29:56Z",
-          "tree_id": "36bb46604b8ecbd8ae298e3bd77fa959b9cabdfa",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/68c228d3c43b072a58b2e0fd3aa5e7a696400b0c"
-        },
-        "date": 1740181408420,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18244.393578000087,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16058.998344 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18555.38624899998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16209.128962 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3944.531513000129,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3123.7079179999996 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55342.125301,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55342126000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10414.690582000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10414699000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1814740922,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1814740922 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 134342920,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 134342920 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3580,6 +3514,78 @@ window.BENCHMARK_DATA = {
             "value": 212950689,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 212950689 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2281.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "152162806+sklppy88@users.noreply.github.com",
+            "name": "esau",
+            "username": "sklppy88"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8181149877386eca54ee7a8b578a68ccb0c9585e",
+          "message": "fix: make block number in txe make sense (#11807)\n\nRight now `env.block_number()` returns the block number that is\ncurrently being built, as per an arbitrary choice when creating the TXe.\n\nBut this has a strange side effect of the current block (from the\nheader) and `env.block_number()` not matching up. The current header has\n`env.block_number() - 1` because the current header reflects the state\nof the last committed block.\n\nBefore this mattered less because we couldn't do historical proofs, and\nbecause we had less of a notion of \"correctness\" in blocks but now due\nto the changes this makes sense to change.\n\n---------\n\nCo-authored-by: benesjan <janbenes1234@gmail.com>",
+          "timestamp": "2025-02-28T00:56:52+09:00",
+          "tree_id": "a0f65e9c893095731465799cf250fd107b397440",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8181149877386eca54ee7a8b578a68ccb0c9585e"
+        },
+        "date": 1740674081232,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18267.676931000096,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16197.836061 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18783.73483900009,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16513.480575 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3955.0182509997285,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3178.1439890000006 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55000.963178,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55000964000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9752.227081,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9752233000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1942346365,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1942346365 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 213344019,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 213344019 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
