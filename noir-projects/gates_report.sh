@@ -40,9 +40,9 @@ for pathname in "$PROTOCOL_CIRCUITS_DIR/target"/*.json; do
         fi
     done
 
-    # If it's mega honk, we need to use the gates_for_ivc command
+    # If it's mega honk, we need to use the games command with --scheme client_ivc flag
     if [ "$IS_MEGA_HONK_CIRCUIT" = "true" ]; then
-        GATES_INFO=$($BB_BIN gates_for_ivc -h 0 -b "$pathname")
+        GATES_INFO=$($BB_BIN gates --scheme client_ivc -h 0 -b "$pathname")
     elif [ "$IS_ROLLUP_HONK_CIRCUIT" = "true" ]; then
         GATES_INFO=$($BB_BIN gates --honk_recursion 2 -b "$pathname")
     else
