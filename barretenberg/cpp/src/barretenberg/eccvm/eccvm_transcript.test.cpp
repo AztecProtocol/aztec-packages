@@ -155,7 +155,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
 
         manifest_expected.add_entry(round, "Sumcheck:evaluations", frs_per_evals);
         manifest_expected.add_entry(round, "Libra:claimed_evaluation", frs_per_Fr);
-        manifest_expected.add_entry(round, "Libra:big_sum_commitment", frs_per_G);
+        manifest_expected.add_entry(round, "Libra:grand_sum_commitment", frs_per_G);
         manifest_expected.add_entry(round, "Libra:quotient_commitment", frs_per_G);
         manifest_expected.add_entry(round, "Gemini:masking_poly_comm", frs_per_G);
         manifest_expected.add_entry(round, "Gemini:masking_poly_eval", frs_per_Fr);
@@ -174,8 +174,8 @@ class ECCVMTranscriptTests : public ::testing::Test {
             manifest_expected.add_entry(round, "Gemini:a_" + idx, frs_per_Fr);
         }
         manifest_expected.add_entry(round, "Libra:concatenation_eval", frs_per_Fr);
-        manifest_expected.add_entry(round, "Libra:shifted_big_sum_eval", frs_per_Fr);
-        manifest_expected.add_entry(round, "Libra:big_sum_eval", frs_per_Fr);
+        manifest_expected.add_entry(round, "Libra:shifted_grand_sum_eval", frs_per_Fr);
+        manifest_expected.add_entry(round, "Libra:grand_sum_eval", frs_per_Fr);
         manifest_expected.add_entry(round, "Libra:quotient_eval", frs_per_Fr);
         manifest_expected.add_challenge(round, "Shplonk:nu");
         round++;

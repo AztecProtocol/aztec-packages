@@ -24,11 +24,11 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
         Commitment libra_concatenation_commitment;
         FF libra_sum;
         FF libra_claimed_evaluation;
-        Commitment libra_big_sum_commitment;
+        Commitment libra_grand_sum_commitment;
         Commitment libra_quotient_commitment;
         FF libra_concatenation_eval;
-        FF libra_shifted_big_sum_eval;
-        FF libra_big_sum_eval;
+        FF libra_shifted_grand_sum_eval;
+        FF libra_grand_sum_eval;
         FF libra_quotient_eval;
         Commitment hiding_polynomial_commitment;
         FF hiding_polynomial_eval;
@@ -94,7 +94,7 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
             libra_claimed_evaluation = Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
             this->sumcheck_evaluations =
                 Base::template deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, num_frs_read);
-            libra_big_sum_commitment = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            libra_grand_sum_commitment = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             libra_quotient_commitment = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             hiding_polynomial_commitment = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             hiding_polynomial_eval = Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
@@ -106,8 +106,8 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
                 this->gemini_fold_evals.push_back(Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read));
             }
             libra_concatenation_eval = Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
-            libra_shifted_big_sum_eval = Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
-            libra_big_sum_eval = Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
+            libra_shifted_grand_sum_eval = Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
+            libra_grand_sum_eval = Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
             libra_quotient_eval = Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
             this->shplonk_q_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
 
@@ -148,7 +148,7 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
             Base::template serialize_to_buffer(libra_claimed_evaluation, proof_data);
 
             Base::template serialize_to_buffer(this->sumcheck_evaluations, proof_data);
-            Base::template serialize_to_buffer(libra_big_sum_commitment, proof_data);
+            Base::template serialize_to_buffer(libra_grand_sum_commitment, proof_data);
             Base::template serialize_to_buffer(libra_quotient_commitment, proof_data);
             Base::template serialize_to_buffer(hiding_polynomial_commitment, proof_data);
             Base::template serialize_to_buffer(hiding_polynomial_eval, proof_data);
@@ -159,8 +159,8 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
                 Base::template serialize_to_buffer(this->gemini_fold_evals[i], proof_data);
             }
             Base::template serialize_to_buffer(libra_concatenation_eval, proof_data);
-            Base::template serialize_to_buffer(libra_shifted_big_sum_eval, proof_data);
-            Base::template serialize_to_buffer(libra_big_sum_eval, proof_data);
+            Base::template serialize_to_buffer(libra_shifted_grand_sum_eval, proof_data);
+            Base::template serialize_to_buffer(libra_grand_sum_eval, proof_data);
             Base::template serialize_to_buffer(libra_quotient_eval, proof_data);
             Base::template serialize_to_buffer(this->shplonk_q_comm, proof_data);
             Base::template serialize_to_buffer(this->kzg_w_comm, proof_data);
