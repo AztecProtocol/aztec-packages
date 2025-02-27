@@ -49,7 +49,7 @@ function gke {
 }
 
 function test_cmds {
-  echo "$hash ./spartan/bootstrap.sh test-local"
+  echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-local"
   if [ "$(arch)" == "arm64" ]; then
     # Currently maddiaa/eth2-testnet-genesis is not published for arm64. Skip KIND tests.
     return
