@@ -46,7 +46,7 @@ pub(crate) unconstrained fn create_note_and_nullify_it() -> (&mut TestEnvironmen
     let context = &mut env.private();
 
     // We sanity check that we are building block 3, thus block 3 is where the note will be nullified.
-    assert_eq(env.pending_block_number(), 3);
+    assert_eq(env.pending_block_number(), NOTE_NULLIFIED_AT);
 
     destroy_note(context, retrieved_note, NOTE_STORAGE_SLOT);
 
