@@ -52,7 +52,7 @@ function check_toolchains {
     encourage_dev_container
     echo "Rust version 1.75 not installed."
     echo "Installation:"
-    echo "  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.85.0"
+    echo "  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.75.0"
     exit 1
   fi
   # Check wasi-sdk version.
@@ -123,8 +123,8 @@ function test {
   for i in $(seq 0 $((NUM_TXES-1))); do
     existing_pid=$(lsof -ti :$((45730 + i)) || true)
     [ -n "$existing_pid" ] && kill -9 $existing_pid
-    # TODO: I'd like to use dump_fail here, but TXE needs to exit 0 on receiving a SIGTERM.
-    (cd $root/yarn-project/txe && LOG_LEVEL=silent TXE_PORT=$((45730 + i)) retry yarn start) &>/dev/null &
+    # We use dump_fail to initiate TXE and handle errors.
+    dump_fail "(cd $root/yarn-project/txe && LOG_LEVEL=silent TXE_PORT=$((45730 + i)) retry yarn start)" &>/dev/null &
   done
   echo "Waiting for TXE's to start..."
   for i in $(seq 0 $((NUM_TXES-1))); do
