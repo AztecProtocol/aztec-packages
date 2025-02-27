@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740615646902,
+  "lastUpdate": 1740651553425,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "santiago@aztecprotocol.com",
-            "name": "Santiago Palladino",
-            "username": "spalladino"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e2f675f98cf887871f633db51b83ec50af6e5f83",
-          "message": "fix: Fix epoch monitoring and related e2e tests (#12096)\n\nFixes the prover-node's epoch monitor so it accounts for the previous\nepoch to be proven. The updated logic is that an epoch is ready to prove\nonly if it is completed and it contains the first unproven block (which\ngets updated over a reorg).\n\nAlso fixes #11840 \n\nBuilds on top of @PhilWindle's #12014\n\n---------\n\nCo-authored-by: PhilWindle <philip.windle@gmail.com>",
-          "timestamp": "2025-02-21T09:04:51-03:00",
-          "tree_id": "17349e5c88f5897cbb0dda2cdd071c962ea6cd8c",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e2f675f98cf887871f633db51b83ec50af6e5f83"
-        },
-        "date": 1740141167561,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18387.406677999934,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16216.388550000001 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18908.683499000064,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16445.991206 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4095.2355709998756,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3152.8012390000004 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55045.208420999996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55045208000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10150.565249000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10150579000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1826167779,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1826167779 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 127532963,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 127532963 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3520,6 +3454,78 @@ window.BENCHMARK_DATA = {
             "value": 214513016,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 214513016 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5764343+charlielye@users.noreply.github.com",
+            "name": "Charlie Lye",
+            "username": "charlielye"
+          },
+          "committer": {
+            "email": "5764343+charlielye@users.noreply.github.com",
+            "name": "Charlie Lye",
+            "username": "charlielye"
+          },
+          "distinct": true,
+          "id": "26195f7c43e781ddcc400e69a8d4d8820fdae85c",
+          "message": "yolo e2e default reporter",
+          "timestamp": "2025-02-27T09:28:10Z",
+          "tree_id": "d32767a8697bb1459c2489fc159274994931d0b7",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/26195f7c43e781ddcc400e69a8d4d8820fdae85c"
+        },
+        "date": 1740651545760,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18176.63603899996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15970.775173 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18889.10868800008,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16396.421225 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4033.7630009998975,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3235.5141030000004 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55362.870863000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55362869000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11260.997604,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11261009000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1924542377,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1924542377 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 214893156,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 214893156 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
