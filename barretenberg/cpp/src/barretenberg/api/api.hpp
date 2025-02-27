@@ -21,6 +21,7 @@ class API {
         std::string oracle_hash_type;         // which hash function does the prover use as a random oracle?
         std::string output_format;            // output bytes, fields, both, or a msgpack buffer of fields
         bool write_vk{ false }; // should we addditionally write the verification key when writing the proof
+        bool include_gates_per_opcode{ false }; // should we include gates_per_opcode in the gates command output
 
         friend std::ostream& operator<<(std::ostream& os, const Flags& flags)
         {
@@ -38,6 +39,7 @@ class API {
                << "  oracle_hash_type: " << flags.oracle_hash_type << "\n"
                << "  output_format: " << flags.output_format << "\n"
                << "  write_vk " << flags.write_vk << "\n"
+               << "  include_gates_per_opcode " << flags.include_gates_per_opcode << "\n"
                << "]" << std::endl;
             return os;
         }
