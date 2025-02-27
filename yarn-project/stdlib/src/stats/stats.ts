@@ -222,7 +222,7 @@ export type TxStats = {
   privateLogCount: number;
   /** How many classes were registered through the canonical class registerer. */
   classRegisteredCount: number;
-  /** Serialized size of contract class logs. */
+  /** Serialized size of contract class logs in fields. */
   contractClassLogSize: number;
   /** How this tx pays for its fee */
   feePaymentMethod: 'fee_juice' | 'fpc_public' | 'fpc_private';

@@ -647,11 +647,11 @@ export function mapMembershipWitnessToNoir<N extends number>(witness: Membership
  * @param logHash - The LogHash.
  * @returns The noir log hash.
  */
-function mapLogHashToNoir(logHash: LogHash): LogHashNoir {
+export function mapLogHashToNoir(logHash: LogHash): LogHashNoir {
   return {
     value: mapFieldToNoir(logHash.value),
     counter: mapNumberToNoir(logHash.counter),
-    length: mapFieldToNoir(logHash.length),
+    length: mapNumberToNoir(logHash.length),
   };
 }
 
@@ -664,7 +664,7 @@ function mapLogHashFromNoir(logHash: LogHashNoir): LogHash {
   return new LogHash(
     mapFieldFromNoir(logHash.value),
     mapNumberFromNoir(logHash.counter),
-    mapFieldFromNoir(logHash.length),
+    mapNumberFromNoir(logHash.length),
   );
 }
 
@@ -685,7 +685,7 @@ export function mapScopedLogHashToNoir(scopedLogHash: ScopedLogHash): ScopedLogH
  * @param logHash - The noir LogHash.
  * @returns The TS log hash.
  */
-function mapScopedLogHashFromNoir(scopedLogHash: ScopedLogHashNoir): ScopedLogHash {
+export function mapScopedLogHashFromNoir(scopedLogHash: ScopedLogHashNoir): ScopedLogHash {
   return new ScopedLogHash(
     mapLogHashFromNoir(scopedLogHash.log_hash),
     mapAztecAddressFromNoir(scopedLogHash.contract_address),
@@ -716,7 +716,6 @@ export function mapPrivateToRollupAccumulatedDataToNoir(
       privateToRollupAccumulatedData.contractClassLogsHashes,
       mapScopedLogHashToNoir,
     ),
-    contract_class_log_preimages_length: mapFieldToNoir(privateToRollupAccumulatedData.contractClassLogPreimagesLength),
   };
 }
 
@@ -743,7 +742,6 @@ export function mapPrivateToRollupAccumulatedDataFromNoir(
       MAX_CONTRACT_CLASS_LOGS_PER_TX,
       mapScopedLogHashFromNoir,
     ),
-    mapFieldFromNoir(privateToRollupAccumulatedData.contract_class_log_preimages_length),
   );
 }
 
