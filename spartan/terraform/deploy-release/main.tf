@@ -84,7 +84,8 @@ resource "helm_release" "aztec-gke-cluster" {
     for_each = var.EXTERNAL_ETHEREUM_HOSTS != "" ? toset(["iterate"]) : toset([])
     content {
       name  = "ethereum.execution.externalHosts"
-      value = var.EXTERNAL_ETHEREUM_HOSTS
+      value = replace(var.EXTERNAL_ETHEREUM_HOSTS, ",", "\\,")
+      type  = "string"
     }
   }
 
