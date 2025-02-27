@@ -5,12 +5,21 @@ terraform {
   }
 }
 
+data "terraform_remote_state" "ssh" {
+  backend = "gcs"
+
+  config = {
+    bucket = "aztec-terraform"
+    prefix = "network/ssh"
+  }
+}
+
 data "terraform_remote_state" "common" {
   backend = "gcs"
 
   config = {
     bucket = "aztec-terraform"
-    prefix = "network/common"
+    prefix = "network/common/gcp"
   }
 }
 
@@ -19,13 +28,13 @@ data "terraform_remote_state" "ip" {
 
   config = {
     bucket = "aztec-terraform"
-    prefix = "network/${var.network_name}/ip/bootnode"
+    prefix = "network/${var.network_name}/bootnode/ip/gcp"
   }
 }
 
 locals {
-  ssh_user              = data.terraform_remote_state.common.outputs.ssh_user
-  public_key            = data.terraform_remote_state.common.outputs.public_key
+  ssh_user              = data.terraform_remote_state.ssh.outputs.ssh_user
+  public_key            = data.terraform_remote_state.ssh.outputs.public_key
   service_account_email = data.terraform_remote_state.common.outputs.service_account_email
 }
 

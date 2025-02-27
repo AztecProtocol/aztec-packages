@@ -9,15 +9,10 @@ provider "google" {
 }
 
 
-module "ssh" {
-  source      = "../../modules/ssh/gcp"
-  ssh_user    = var.ssh_user
-  secret_name = var.ssh_secret_name
-}
-
 module "iam" {
   source     = "../../modules/iam/gcp"
   account_id = var.sa_account_id
+  project_id = var.project_id
 }
 
 module "firewall" {

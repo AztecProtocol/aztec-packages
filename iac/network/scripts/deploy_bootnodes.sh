@@ -3,12 +3,15 @@
 NETWORK_NAME=${1:-}
 GCP_REGIONS=${2:-}
 GCP_MACHINE_TYPE=${3:-}
+# AWS_REGIONS=${4:-}
+# AWS_MACHINE_TYPE=${5:-}
 STATIC_S3_BUCKET=${4:-}
 L1_CHAIN_ID=${5:-}
 PROJECT_ID=${6:-}
 
 echo "NETWORK_NAME: $NETWORK_NAME"
 echo "GCP_REGIONS: $GCP_REGIONS"
+echo "AWS_REGIONS: $AWS_REGIONS"
 
 if [[ -z "$NETWORK_NAME" ]]; then
     echo "NETWORK_NAME is required"
@@ -25,11 +28,22 @@ if [[ -z "$PROJECT_ID" ]]; then
     exit 1
 fi
 
+# First we create an SSH key and store to a GCP secret
+cd ./ssh
 
-# Here we ensure the common stuff is created. This is common across all networks an includes
-# 1. SSH key
-# 2. Service account
-# 3. Firewall rules
+echo "Creating SSH Key at $PWD"
+
+terraform init -backend-config="prefix=network/ssh"
+
+terraform apply -var "ssh_user=aztec" \
+  -var "ssh_secret_name=ssh-key-nodes" \
+  -var "project_id=$PROJECT_ID"
+
+cd ..
+
+# Here we ensure the common GCP stuff is created. This is common across all networks and includes
+# 1. Service account
+# 2. Firewall rules
 
 P2P_UDP_PORT=40400
 P2P_TCP_PORT=40400
@@ -38,24 +52,36 @@ P2P_TCP_PORTS="[\"$P2P_TCP_PORT\"]"
 
 cd ./common/gcp
 
-terraform init -backend-config="prefix=network/common"
 
-terraform apply -var "ssh_user=aztec" \
-  -var "ssh_secret_name=ssh-key-nodes" \
+echo "Creating gcp common at $PWD"
+
+terraform init -backend-config="prefix=network/common/gcp"
+
+terraform apply \
   -var "sa_account_id=service-acc-nodes" \
   -var "p2p_tcp_ports=$P2P_TCP_PORTS" \
   -var "p2p_udp_ports=$P2P_UDP_PORTS" \
+  -var "project_id=$PROJECT_ID"
 
-echo $PWD
-cd ../../ip/gcp
+# cd ../aws
 
-echo $PWD
+# echo "Creating aws common at $PWD"
 
-ls -l
+# terraform init -backend-config="prefix=network/common/aws"
 
-terraform init -backend-config="prefix=network/$NETWORK_NAME/ip/bootnode"
+# terraform apply \
+#   -var "sa_account_id=service-acc-nodes" \
+#   -var "p2p_tcp_ports=$P2P_TCP_PORTS" \
+#   -var "p2p_udp_ports=$P2P_UDP_PORTS" \
+#   -var "regions=$AWS_REGIONS" --destroy
 
-terraform apply -var="regions=$GCP_REGIONS" -var="name=$NETWORK_NAME-bootnodes"
+cd ../../bootnode/ip/gcp
+
+echo "Creating IPs at $PWD"
+
+terraform init -backend-config="prefix=network/$NETWORK_NAME/bootnode/ip/gcp"
+
+terraform apply -var="regions=$GCP_REGIONS" -var="name=$NETWORK_NAME-bootnodes" -var "project_id=$PROJECT_ID"
 
 # Output is in the form:
   # + ip_addresses = {
@@ -64,9 +90,20 @@ terraform apply -var="regions=$GCP_REGIONS" -var="name=$NETWORK_NAME-bootnodes"
   #     + australia-southeast1 = (known after apply)
   #   }
 
-OUTPUT=$(terraform output -json ip_addresses)
+GCP_IP_OUTPUT=$(terraform output -json ip_addresses)
 
-cd ../../
+# cd ../aws
+
+# echo "Creating IPs at $PWD"
+
+# terraform init -backend-config="prefix=network/$NETWORK_NAME/bootnode/ip/aws"
+
+# terraform apply -var="regions=$AWS_REGIONS" -var="name=$NETWORK_NAME-bootnodes"
+
+# AWS_IP_OUTPUT=$(terraform output -json ip_addresses)
+
+
+cd ../../..
 
 echo "We are here $PWD"
 
@@ -110,7 +147,7 @@ while read -r REGION IP; do
     GCP_REGIONS_ARRAY+=("$REGION")
     ENR_ARRAY+=("$ENR");
 
-done < <(echo "$OUTPUT" | jq -r 'to_entries | .[] | "\(.key) \(.value)"')
+done < <(echo "$GCP_IP_OUTPUT" | jq -r 'to_entries | .[] | "\(.key) \(.value)"')
 
 BOOTNODE_START_SCRIPT="$PWD/scripts/bootnode_startup.sh"
 
@@ -132,7 +169,9 @@ aws s3 cp ./enrs.json $STATIC_S3_BUCKET/$NETWORK_NAME/bootnodes.json
 
 rm ./enrs.json
 
-terraform init -backend-config="prefix=network/$NETWORK_NAME/vm/bootnode"
+echo "Creating VMs at $PWD"
+
+terraform init -backend-config="prefix=network/$NETWORK_NAME/bootnode/vm/gcp"
 
 terraform apply \
   -var="regions=$GCP_REGIONS_JSON" \
