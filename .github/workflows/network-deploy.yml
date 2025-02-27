@@ -84,11 +84,6 @@ on:
         required: false
         type: string
         default: "false"
-      ref:
-        description: The branch name to deploy from
-        required: false
-        type: string
-        default: "master"
       sepolia_deployment:
         description: "Whether to deploy on Sepolia network (default: false)"
         required: false
@@ -123,7 +118,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ github.ref }}
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
