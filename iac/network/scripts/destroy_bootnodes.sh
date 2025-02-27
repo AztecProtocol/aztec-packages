@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 # This script should be run from the root of iac/network. It will destroy all VMs for the provided network
 # Only the VMs are destroyed. No other infrastructure is modified
 

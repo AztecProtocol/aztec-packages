@@ -33,12 +33,10 @@ cd $ROOT
 
 SSH_KEY_FILE=$ROOT/key.pem
 
-# Read the SSH private key from Google Cloud Secret Manager into a variable
 gcloud secrets versions access latest --secret=$SECRET_ID --project=$PROJECT_ID > $SSH_KEY_FILE
 
 chmod 600 $ROOT/key.pem
 
-# Check if the secret was retrieved successfully
 if [ $? -ne 0 ]; then
   echo "Failed to retrieve the SSH key"
   exit 1

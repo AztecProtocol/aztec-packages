@@ -1,4 +1,5 @@
 # Security Groups mapped to each VPC dynamically
+# We need a security group per VPC and a set of rules per group
 resource "aws_security_group" "firewall_rules" {
   for_each    = var.vpc_ids # Map of region => VPC ID
   vpc_id      = each.value  # Assign to the correct VPC

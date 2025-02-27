@@ -1,3 +1,5 @@
+# Just need a global set of firewall rules
+
 resource "google_compute_firewall" "inbound_ssh_rule" {
   name        = "inbound-ssh-rule"
   network     = "default"

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 # This script should be run from the root of iac/network. It will walk through the process of deploying a set of bootnodes. To do this, it will
 # 1. Create an SSH key and store i a GCP secret
 # 2. Create a service account in GCP and appropriate firewall rules for running bootnodes
