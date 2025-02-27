@@ -4,9 +4,7 @@ import { assertLength } from '@aztec/foundation/serialize';
 import type { MerkleTree } from '@aztec/foundation/trees';
 import { VerificationKeyAsFields, VerificationKeyData } from '@aztec/stdlib/vks';
 
-import { vkTree } from '../vk_tree.js';
-
-export * from '../artifacts/vks.js';
+import { vkTree } from '../../vk_tree.js';
 
 export function getVKTree(): MerkleTree {
   return vkTree;

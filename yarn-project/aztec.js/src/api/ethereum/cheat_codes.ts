@@ -1,33 +1,27 @@
+import type { ViemPublicClient } from '@aztec/ethereum';
 import { EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
-import {
-  type GetContractReturnType,
-  type Hex,
-  type PublicClient,
-  type WalletClient,
-  createWalletClient,
-  getContract,
-  http,
-  keccak256,
-  publicActions,
-} from 'viem';
+import { type GetContractReturnType, type Hex, createPublicClient, fallback, getContract, http, keccak256 } from 'viem';
 import { foundry } from 'viem/chains';
 
 export { EthCheatCodes };
 
 /** Cheat codes for the L1 rollup contract. */
 export class RollupCheatCodes {
-  private client: WalletClient & PublicClient;
-  private rollup: GetContractReturnType<typeof RollupAbi, WalletClient>;
+  private client: ViemPublicClient;
+  private rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>;
 
   private logger = createLogger('aztecjs:cheat_codes');
 
   constructor(private ethCheatCodes: EthCheatCodes, addresses: Pick<L1ContractAddresses, 'rollupAddress'>) {
-    this.client = createWalletClient({ chain: foundry, transport: http(ethCheatCodes.rpcUrl) }).extend(publicActions);
+    this.client = createPublicClient({
+      chain: foundry,
+      transport: fallback(ethCheatCodes.rpcUrls.map(url => http(url))),
+    });
     this.rollup = getContract({
       abi: RollupAbi,
       address: addresses.rollupAddress.toString(),
@@ -149,7 +143,7 @@ export class RollupCheatCodes {
    * @param action - The action to execute
    */
   public async asOwner(
-    action: (owner: Hex, rollup: GetContractReturnType<typeof RollupAbi, WalletClient>) => Promise<void>,
+    action: (owner: Hex, rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>) => Promise<void>,
   ) {
     const owner = await this.rollup.read.owner();
     await this.ethCheatCodes.startImpersonating(owner);

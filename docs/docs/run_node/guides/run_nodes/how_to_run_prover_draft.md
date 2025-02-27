@@ -67,7 +67,7 @@ To run a prover agent, either run `aztec start --prover`, or add the `--prover` 
 
 The Aztec client is configured via environment variables, the following ones being relevant for the prover node:
 
-- **ETHEREUM_HOST**: URL to an Ethereum node.
+- **ETHEREUM_HOSTS**: List of URLs of Ethereum nodes (comma separated).
 - **L1_CHAIN_ID**: Chain ID for the L1 Ethereum chain.
 - **DATA_DIRECTORY**: Local folder where archive and world state data is stored.
 - **AZTEC_PORT**: Port where the JSON-RPC APIs will be served.
@@ -93,4 +93,3 @@ Both the prover node and agent also rely on the following:
 - **LOG_LEVEL**: One of `debug`, `verbose`, `info`, `warn`, or `error`.
 - **LOG_JSON**: Set to `true` to output logs in JSON format (unreleased).
 - **OTEL_EXPORTER_OTLP_METRICS_ENDPOINT**: Optional URL for pushing telemetry data to a remote OpenTelemetry data collector.
-

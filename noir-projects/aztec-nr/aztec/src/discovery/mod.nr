@@ -19,7 +19,7 @@ pub global MAX_NOTE_PACKED_LEN: u32 = PRIVATE_LOG_SIZE_IN_FIELDS - NOTE_PRIVATE_
 pub struct NoteHashAndNullifier {
     /// The result of NoteHash::compute_note_hash
     pub note_hash: Field,
-    /// The result of NullifiableNote::compute_nullifier_without_context
+    /// The result of NoteHash::compute_nullifier_unconstrained (since all of note discovery is unconstrained)
     pub inner_nullifier: Field,
 }
 
@@ -39,7 +39,12 @@ pub struct NoteHashAndNullifier {
 ///         let note = MyNoteType::unpack(aztec::utils::array::subarray(packed_note.storage(), 0));
 ///
 ///         let note_hash = note.compute_note_hash(storage_slot);
-///         let inner_nullifier = note.compute_nullifier_without_context(storage_slot, contract_address, nonce);
+///         let note_hash_for_nullify = aztec::note::utils::compute_note_hash_for_nullify(
+///             RetrievedNote{ note, contract_address, metadata: SettledNoteMetadata::new(nonce).into() },
+///             storage_slot
+///         );
+///
+///         let inner_nullifier = note.compute_nullifier_unconstrained(note_hash_for_nullify);
 ///
 ///         Option::some(
 ///             aztec::discovery::NoteHashAndNullifier {

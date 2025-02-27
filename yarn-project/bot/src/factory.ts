@@ -185,7 +185,7 @@ export class BotFactory {
     if (privateBalance < MIN_BALANCE) {
       this.log.info(`Minting private tokens for ${sender.toString()}`);
 
-      const from = sender; // we are setting from to sender here because of TODO(#9887)
+      const from = sender; // we are setting from to sender here because we need a sender to calculate the tag
       calls.push(
         isStandardToken
           ? await token.methods.mint_to_private(from, sender, MINT_BALANCE).request()
@@ -209,8 +209,8 @@ export class BotFactory {
   }
 
   private async bridgeL1FeeJuice(recipient: AztecAddress, amount: bigint) {
-    const l1RpcUrl = this.config.l1RpcUrl;
-    if (!l1RpcUrl) {
+    const l1RpcUrls = this.config.l1RpcUrls;
+    if (!l1RpcUrls?.length) {
       throw new Error('L1 Rpc url is required to bridge the fee juice to fund the deployment of the account.');
     }
     const mnemonicOrPrivateKey = this.config.l1PrivateKey || this.config.l1Mnemonic;
@@ -221,8 +221,8 @@ export class BotFactory {
     }
 
     const { l1ChainId } = await this.pxe.getNodeInfo();
-    const chain = createEthereumChain(l1RpcUrl, l1ChainId);
-    const { publicClient, walletClient } = createL1Clients(chain.rpcUrl, mnemonicOrPrivateKey, chain.chainInfo);
+    const chain = createEthereumChain(l1RpcUrls, l1ChainId);
+    const { publicClient, walletClient } = createL1Clients(chain.rpcUrls, mnemonicOrPrivateKey, chain.chainInfo);
 
     const portal = await L1FeeJuicePortalManager.new(this.pxe, publicClient, walletClient, this.log);
     const claim = await portal.bridgeTokensPublic(recipient, amount, true /* mint */);

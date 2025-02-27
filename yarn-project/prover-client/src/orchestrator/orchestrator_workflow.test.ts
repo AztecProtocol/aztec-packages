@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
-import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
+import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
 import {
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,

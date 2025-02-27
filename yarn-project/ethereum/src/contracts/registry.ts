@@ -12,7 +12,7 @@ import {
 } from 'viem';
 
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
-import type { L1Clients } from '../types.js';
+import type { L1Clients, ViemPublicClient } from '../types.js';
 import { GovernanceContract } from './governance.js';
 import { RollupContract } from './rollup.js';
 
@@ -31,9 +31,9 @@ export class RegistryContract {
   /**
    * Returns the address of the rollup for a given version.
    * @param version - The version of the rollup. 'canonical' can be used to get the canonical address (i.e. the latest version).
-   * @returns The address of the rollup. If the rollup is not set for this version, returns undefined.
+   * @returns The address of the rollup. If the rollup is not set for this version, throws an error.
    */
-  public async getRollupAddress(version: number | bigint | 'canonical'): Promise<EthAddress | undefined> {
+  public async getRollupAddress(version: number | bigint | 'canonical'): Promise<EthAddress> {
     if (version === 'canonical') {
       return this.getCanonicalAddress();
     }
@@ -44,24 +44,30 @@ export class RegistryContract {
 
     const snapshot = await this.registry.read.getSnapshot([version]);
     const address = EthAddress.fromString(snapshot.rollup);
-    return address.equals(EthAddress.ZERO) ? undefined : address;
+    if (address.equals(EthAddress.ZERO)) {
+      throw new Error('Rollup address is undefined');
+    }
+    return address;
   }
 
   /**
    * Returns the canonical address of the rollup.
-   * @returns The canonical address of the rollup. If the rollup is not set, returns undefined.
+   * @returns The canonical address of the rollup. If the rollup is not set, throws an error.
    */
-  public async getCanonicalAddress(): Promise<EthAddress | undefined> {
+  public async getCanonicalAddress(): Promise<EthAddress> {
     const snapshot = await this.registry.read.getCurrentSnapshot();
     const address = EthAddress.fromString(snapshot.rollup);
-    return address.equals(EthAddress.ZERO) ? undefined : address;
+    if (address.equals(EthAddress.ZERO)) {
+      throw new Error('Rollup address is undefined');
+    }
+    return address;
   }
 
   public async getGovernanceAddresses(): Promise<
     Pick<L1ContractAddresses, 'governanceProposerAddress' | 'governanceAddress'>
   > {
     const governanceAddress = await this.registry.read.getGovernance();
-    const governance = new GovernanceContract(this.client, governanceAddress);
+    const governance = new GovernanceContract(governanceAddress, this.client, undefined);
     const governanceProposer = await governance.getProposer();
     return {
       governanceAddress: governance.address,
@@ -70,7 +76,7 @@ export class RegistryContract {
   }
 
   public static async collectAddresses(
-    client: L1Clients['publicClient'],
+    client: ViemPublicClient,
     registryAddress: Hex | EthAddress,
     rollupVersion: number | bigint | 'canonical',
   ): Promise<L1ContractAddresses> {

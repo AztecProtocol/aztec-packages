@@ -59,7 +59,8 @@ aztec:
   extraAccounts: 10
 
   botKeyIndexStart: 3000
-  l1Salt: "" # leave empty for random salt
+  l1Salt: "42" # leave empty for random salt
+  testAccounts: true
 
 bootNode:
   peerIdPrivateKey: ""
@@ -241,7 +242,7 @@ ethereum:
   maxTxInputSizeBytes: "1310720"
   args: ""
   execution:
-    externalHost: ""
+    externalHosts: ""
     service:
       port: 8545
       targetPort: 8545
