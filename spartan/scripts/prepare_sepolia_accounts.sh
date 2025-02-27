@@ -1,4 +1,7 @@
 #!/bin/bash
+
+set -euo pipefail
+
 source $(git rev-parse --show-toplevel)/ci3/source
 
 values_file=$1
@@ -19,7 +22,9 @@ fi
 
 # Install cast if needed
 if ! command -v cast &>/dev/null; then
+  echo "Installing cast..."
   curl -L https://foundry.paradigm.xyz | bash
+  echo "Adding cast to path..."
   $HOME/.foundry/bin/foundryup && export PATH="$PATH:$HOME/.foundry/bin" || $XDG_CONFIG_HOME/.foundry/bin/foundryup && export PATH="$PATH:$XDG_CONFIG_HOME/.foundry/bin"
 fi
 
