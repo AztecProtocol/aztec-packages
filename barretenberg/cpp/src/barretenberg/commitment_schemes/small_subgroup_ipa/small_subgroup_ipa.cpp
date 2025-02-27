@@ -20,17 +20,26 @@ namespace bb {
 
 // Default constructor to initialize all common members.
 template <typename Flavor>
-SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(std::shared_ptr<typename Flavor::Transcript>& transcript)
+SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(const std::shared_ptr<typename Flavor::Transcript>& transcript,
+                                                       std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key)
     : interpolation_domain{}
-    , concatenated_polynomial(Polynomial<FF>(SUBGROUP_SIZE + 2))
-    , concatenated_lagrange_form(Polynomial<FF>(SUBGROUP_SIZE))
+    , concatenated_polynomial(MASKED_CONCATENATED_WITNESS_LENGTH)
+    , concatenated_lagrange_form(SUBGROUP_SIZE)
     , challenge_polynomial(SUBGROUP_SIZE)
     , challenge_polynomial_lagrange(SUBGROUP_SIZE)
-    , big_sum_polynomial_unmasked(SUBGROUP_SIZE)
-    , big_sum_polynomial(SUBGROUP_SIZE + 3) // + 3 to account for masking
-    , batched_polynomial(BATCHED_POLYNOMIAL_LENGTH)
-    , batched_quotient(QUOTIENT_LENGTH)
-    , transcript(transcript){};
+    , grand_sum_polynomial_unmasked(SUBGROUP_SIZE)
+    , grand_sum_polynomial(MASKED_GRAND_SUM_LENGTH)
+    , grand_sum_identity_polynomial(GRAND_SUM_IDENTITY_LENGTH)
+    , grand_sum_identity_quotient(QUOTIENT_LENGTH)
+    , transcript(transcript)
+    , commitment_key(commitment_key)
+{
+    // Reallocate the commitment key if necessary. This is an edge case with SmallSubgroupIPA since it has
+    // polynomials that may exceed the circuit size.
+    if (commitment_key->dyadic_size < MASKED_GRAND_SUM_LENGTH) {
+        this->commitment_key = std::make_shared<typename Flavor::CommitmentKey>(MASKED_GRAND_SUM_LENGTH);
+    }
+};
 
 /**
  * @brief Construct SmallSubgroupIPAProver from a ZKSumcheckData object and a sumcheck evaluation challenge.
@@ -43,13 +52,14 @@ template <typename Flavor>
 SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(ZKSumcheckData<Flavor>& zk_sumcheck_data,
                                                        const std::vector<FF>& multivariate_challenge,
                                                        const FF claimed_inner_product,
-                                                       std::shared_ptr<typename Flavor::Transcript>& transcript)
-    : SmallSubgroupIPAProver(transcript)
+                                                       const std::shared_ptr<typename Flavor::Transcript>& transcript,
+                                                       std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key)
+    : SmallSubgroupIPAProver(transcript, commitment_key)
 {
     this->claimed_inner_product = claimed_inner_product;
-    interpolation_domain = std::move(zk_sumcheck_data.interpolation_domain);
-    concatenated_polynomial = std::move(zk_sumcheck_data.libra_concatenated_monomial_form);
-    concatenated_lagrange_form = std::move(zk_sumcheck_data.libra_concatenated_lagrange_form);
+    interpolation_domain = zk_sumcheck_data.interpolation_domain;
+    concatenated_polynomial = zk_sumcheck_data.libra_concatenated_monomial_form;
+    concatenated_lagrange_form = zk_sumcheck_data.libra_concatenated_lagrange_form;
 
     label_prefix = "Libra:";
     // Extract the evaluation domain computed by ZKSumcheckData
@@ -76,17 +86,18 @@ SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(TranslationData<typename 
                                                        const FF evaluation_challenge_x,
                                                        const FF batching_challenge_v,
                                                        const FF claimed_inner_product,
-                                                       std::shared_ptr<typename Flavor::Transcript>& transcript)
-    : SmallSubgroupIPAProver(transcript)
+                                                       const std::shared_ptr<typename Flavor::Transcript>& transcript,
+                                                       std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key)
+    : SmallSubgroupIPAProver(transcript, commitment_key)
 
 {
     // TranslationData is Grumpkin-specific
     if constexpr (IsAnyOf<Flavor, ECCVMFlavor, GrumpkinSettings>) {
         this->claimed_inner_product = claimed_inner_product;
         label_prefix = "Translation:";
-        interpolation_domain = std::move(translation_data.interpolation_domain);
-        concatenated_polynomial = std::move(translation_data.concatenated_masking_term);
-        concatenated_lagrange_form = std::move(translation_data.concatenated_masking_term_lagrange);
+        interpolation_domain = translation_data.interpolation_domain;
+        concatenated_polynomial = translation_data.masked_concatenated_polynomial;
+        concatenated_lagrange_form = translation_data.concatenated_polynomial_lagrange;
 
         // Construct the challenge polynomial in Lagrange basis, compute its monomial coefficients
         compute_eccvm_challenge_polynomial(evaluation_challenge_x, batching_challenge_v);
@@ -96,57 +107,53 @@ SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(TranslationData<typename 
 /**
  * @brief Compute the derived witnesses \f$ A \f$ and \f$ Q \f$ and commit to them.
  * @details
- * 1. Define a polynomial \( A(X) \), called the **big sum polynomial**, which is analogous to the big product
- * polynomial used to prove claims about \f$ \prod_{h\in H} f(h) \cdot g(h) \f$. It is uniquely defined by the
- * following:
- *    - \( A(1) = 0 \),
- *    - \( A(g^i) = A(g^{i-1}) + F(g^{i-1}) G(g^{i-1}) \) for \( i = 1, \ldots, |H|-1 \).
- * 2. Mask \( A(X) \) by adding \( Z_H(X) R(X) \), where \( R(X) \) is a random polynomial of degree 3.
- * 3. Commit to \( A(X) \) and send the commitment to the verifier.
+ * 1. Define **grand sum polynomial** \f$ A(X) \f$ by \f$ A_i = \sum_{j=0}^i F_i \cdot G_i \f$, where the coefficients
+ * are computed in the Lagrange basis over \f$ H \f$. Note that it is analogous to the grand product polynomial used
+ * to prove claims about \f$ \prod_{h\in H} F(h) \cdot G(h) \f$.
+ * \f$ A \f$ is uniquely defined by the following properties:
+ *    - \f$ A(1) = 0 \f$,
+ *    - \f$ A(g^i) = A(g^{i-1}) + F(g^{i-1}) G(g^{i-1}) \f$ for \f$ i = 1, \ldots, |H|-1 \f$.
+ * 2. Mask \f$ A(X) \f$ by adding \f$ Z_H(X) R(X) \f$, where \f$ R(X) \f$ is a random polynomial of degree 3.
+ * 3. Commit to \f$ A(X) + Z_H(X) \cdot R(X) \f$ and send the commitment to the verifier.
  *
- * ### Key Identity
- * \( A(X) \) is honestly constructed, i.e.
+ * ### Grand Sum Identity
+ *
+ * \f$ A(X) \f$ is honestly constructed, i.e.
  *    - \f$ A_0 = 0\f$,
  *    - \f$ A_{i} = A_{i-1} + F_{i-1} * G_{i-1}\f$ (Lagrange coefficients over \f$ H \f$) for \f$ i = 1,\ldots, |H|\f$
  *    - \f$ A_{|H|} \f$ is equal to the claimed inner product \f$s\f$.
  * if and only if the following identity holds:
- * \f[ L_1(X) A(X) + (X - g^{-1}) (A(g \cdot X) - A(X) -
- * F(X) G(X)) + L_{|H|}(X) (A(X) - s) = Z_H(X) Q(X), \f] where \( Q(X) \) is the quotient of the left-hand side by \(
- * Z_H(X) \). The second summand is the translation of the second condition using the fact that the coefficients of \f$
- * A(gX) \f$ are given by a cyclic shift of the coefficients of \f$ A(X) \f$.
+ * \f{align}{ L_1(X) A(X) + (X - g^{-1}) (A(g \cdot X) - A(X) -
+ * F(X) G(X)) + L_{|H|}(X) (A(X) - s) = Z_H(X) Q(X), \f} where \f$ Q(X) \f$ is the quotient of the left-hand side
+ * by \f$ Z_H(X) \f$. The second summand is the translation of the second condition using the fact that the coefficients
+ * of \f$ A(gX) \f$ are given by a cyclic shift of the coefficients of \f$ A(X) \f$.
  *
- * The methods of this class allow the prover to compute \( A(X) \) and \( Q(X) \).
+ * The methods of this class allow the prover to compute \f$ A(X) \f$ and \f$ Q(X) \f$.
  *
  * After receiving a random evaluation challenge \f$ r \f$, the prover will send \f$ G(r), A(g\cdot r), A(r), Q(r) \f$
  * to the verifier. In the ZKSumcheckData case, \f$ r \f$ is the Gemini evaluation challenge, and this further part is
  * taken care of by Shplemini. In the TranslationData case, \f$ r \f$ is an evaluation challenge that will be sampled in
  * the translation evaluations sub-protocol of ECCVM.
  */
-template <typename Flavor>
-void SmallSubgroupIPAProver<Flavor>::prove(std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key)
+template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::prove()
 {
-    // Reallocate the commitment key if necessary. This is an edge case with SmallSubgroupIPA since it has
-    // polynomials that may exceed the circuit size.
-    if (commitment_key->dyadic_size < SUBGROUP_SIZE + 3) {
-        commitment_key = std::make_shared<typename Flavor::CommitmentKey>(SUBGROUP_SIZE + 3);
-    }
 
-    // Construct unmasked big sum polynomial in Lagrange basis, compute its monomial coefficients and mask it
-    compute_big_sum_polynomial();
+    // Construct unmasked grand sum polynomial in Lagrange basis, compute its monomial coefficients and mask it
+    compute_grand_sum_polynomial();
 
     // Send masked commitment [A + Z_H * R] to the verifier, where R is of degree 2
-    transcript->template send_to_verifier(label_prefix + "big_sum_commitment",
-                                          commitment_key->commit(big_sum_polynomial));
+    transcript->template send_to_verifier(label_prefix + "grand_sum_commitment",
+                                          commitment_key->commit(grand_sum_polynomial));
 
     // Compute C(X)
-    compute_batched_polynomial();
+    compute_grand_sum_identity_polynomial();
 
     // Compute Q(X)
-    compute_batched_quotient();
+    compute_grand_sum_identity_quotient();
 
     // Send commitment [Q] to the verifier
     transcript->template send_to_verifier(label_prefix + "quotient_commitment",
-                                          commitment_key->commit(batched_quotient));
+                                          commitment_key->commit(grand_sum_identity_quotient));
 }
 
 /**
@@ -154,7 +161,7 @@ void SmallSubgroupIPAProver<Flavor>::prove(std::shared_ptr<typename Flavor::Comm
  *
  * This method generates a polynomial in both Lagrange basis and monomial basis from Sumcheck's
  * multivariate_challenge vector. The result is stored in `challenge_polynomial_lagrange` and
- * `challenge_polynomial`. The former is re-used in the computation of the big sum polynomial A(X)
+ * `challenge_polynomial`. The former is re-used in the computation of the grand sum polynomial A(X)
  *
  * ### Lagrange Basis
  * The Lagrange basis polynomial is constructed as follows:
@@ -163,8 +170,8 @@ void SmallSubgroupIPAProver<Flavor>::prove(std::shared_ptr<typename Flavor::Comm
  *   recursively as powers of the corresponding multivariate challenge.
  * - Store these coefficients in `coeffs_lagrange_basis`.
  * More explicitly,
- * \f$ F = (1 , 1 , u_0, \ldots, u_0^{LIBRA_UNIVARIATES_LENGTH-1}, \ldots, 1, u_{D-1}, \ldots,
- * u_{D-1}^{LIBRA_UNIVARIATES_LENGTH-1} ) \f$ in the Lagrange basis over \f$ H \f$.
+ * \f$ F = (1 , 1 , u_0, \ldots, u_0^{\text{LIBRA_UNIVARIATES_LENGTH}-1}, \ldots, 1, u_{D-1}, \ldots,
+ * u_{D-1}^{\text{LIBRA_UNIVARIATES_LENGTH}-1} ) \f$ in the Lagrange basis over \f$ H \f$.
  *
  * ### Monomial Basis
  * If the curve is not `BN254`, the monomial polynomial is constructed directly using un-optimized Lagrange
@@ -182,21 +189,15 @@ void SmallSubgroupIPAProver<Flavor>::compute_challenge_polynomial(const std::vec
     challenge_polynomial_lagrange = Polynomial<FF>(coeffs_lagrange_basis);
 
     // Compute monomial coefficients
-    if constexpr (!std::is_same_v<Curve, curve::BN254>) {
-        challenge_polynomial = Polynomial<FF>(interpolation_domain, coeffs_lagrange_basis, SUBGROUP_SIZE);
-    } else {
-        std::vector<FF> challenge_polynomial_ifft(SUBGROUP_SIZE);
-        polynomial_arithmetic::ifft(
-            coeffs_lagrange_basis.data(), challenge_polynomial_ifft.data(), bn_evaluation_domain);
-        challenge_polynomial = Polynomial<FF>(challenge_polynomial_ifft);
-    }
+    challenge_polynomial =
+        compute_monomial_coefficients(coeffs_lagrange_basis, interpolation_domain, bn_evaluation_domain);
 }
 /**
  * @brief Compute a (public) challenge polynomial from the evaluation and batching challenges.
  * @details While proving the batched evaluation of the masking term used to blind the ECCVM Transcript wires, the
  * prover needs to compute the polynomial whose coefficients in the Lagrange basis over the small subgroup are given
- * by \f$ (1, x , \ldots, x^{MASKING_OFFSET - 1}, v, x \cdot v, \ldots, x^{MASKING_OFFSET - 1}\cdot
- * v^{NUM_TRANSLATION_EVALUATIONS - 1}, 0, \ldots, 0) \f$.
+ * by \f$ (1, x , \ldots, x^{\text{MASKING_OFFSET} - 1}, v, x \cdot v, \ldots, x^{\text{MASKING_OFFSET} - 1}\cdot
+ * v^{\text{NUM_TRANSLATION_EVALUATIONS} - 1}, 0, \ldots, 0) \f$.
  * @param evaluation_challenge_x
  * @param batching_challenge_v
  */
@@ -214,48 +215,48 @@ void SmallSubgroupIPAProver<Flavor>::compute_eccvm_challenge_polynomial(const FF
     challenge_polynomial = Polynomial<FF>(interpolation_domain, coeffs_lagrange_basis, SUBGROUP_SIZE);
 }
 /**
- * @brief Computes the big sum polynomial A(X)
+ * @brief Computes the grand sum polynomial \f$ A(X) \f$.
  *
  * #### Lagrange Basis
- * - First, we recursively compute the coefficients of the unmasked big sum polynomial, i.e. we set the first
+ * - First, we recursively compute the coefficients of the unmasked grand sum polynomial, i.e. we set the first
  * coefficient to `0`.
  * - For each i, the coefficient is updated as:
- *   \f$ \texttt{big_sum_lagrange_coeffs} (g^{i}) =
- *        \texttt{big_sum_lagrange_coeffs} (g^{i-1}) +
+ *   \f$ \texttt{grand_sum_lagrange_coeffs} (g^{i}) =
+ *        \texttt{grand_sum_lagrange_coeffs} (g^{i-1}) +
  *        \texttt{challenge_polynomial_lagrange[prev_idx]} (g^{i-1}) \cdot
- *        \texttt{libra_concatenated_lagrange_form[prev_idx]} (g^{i-1}) \f$
+ *        \texttt{concatenated_lagrange_form[prev_idx]} (g^{i-1}) \f$
  * #### Masking Term
- * - A random polynomial of degree 2 is generated and added to the Big Sum Polynomial.
+ * - A random polynomial of degree 2 is generated and added to the Grand Sum Polynomial.
  * - The masking term is applied as \f$ Z_H(X) \cdot \texttt{masking_term} \f$, where \f$ Z_H(X) \f$ is the
  * vanishing polynomial.
  *
  */
-template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::compute_big_sum_polynomial()
+template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::compute_grand_sum_polynomial()
 {
-    big_sum_lagrange_coeffs[0] = 0;
+    grand_sum_lagrange_coeffs[0] = 0;
 
-    // Compute the big sum coefficients recursively
+    // Compute the grand sum coefficients recursively
     for (size_t idx = 1; idx < SUBGROUP_SIZE; idx++) {
         size_t prev_idx = idx - 1;
-        big_sum_lagrange_coeffs[idx] = big_sum_lagrange_coeffs[prev_idx] + challenge_polynomial_lagrange.at(prev_idx) *
-                                                                               concatenated_lagrange_form.at(prev_idx);
+        grand_sum_lagrange_coeffs[idx] =
+            grand_sum_lagrange_coeffs[prev_idx] +
+            challenge_polynomial_lagrange.at(prev_idx) * concatenated_lagrange_form.at(prev_idx);
     };
 
     //  Get the coefficients in the monomial basis
-    if constexpr (!std::is_same_v<Curve, curve::BN254>) {
-        big_sum_polynomial_unmasked = Polynomial<FF>(interpolation_domain, big_sum_lagrange_coeffs, SUBGROUP_SIZE);
-    } else {
-        std::vector<FF> big_sum_ifft(SUBGROUP_SIZE);
-        polynomial_arithmetic::ifft(big_sum_lagrange_coeffs.data(), big_sum_ifft.data(), bn_evaluation_domain);
-        big_sum_polynomial_unmasked = Polynomial<FF>(big_sum_ifft);
-    }
-    //  Generate random masking_term of degree 2, add Z_H(X) * masking_term
-    bb::Univariate<FF, 3> masking_term = bb::Univariate<FF, 3>::get_random();
-    big_sum_polynomial += big_sum_polynomial_unmasked;
+    grand_sum_polynomial_unmasked =
+        compute_monomial_coefficients(grand_sum_lagrange_coeffs, interpolation_domain, bn_evaluation_domain);
 
-    for (size_t idx = 0; idx < masking_term.size(); idx++) {
-        big_sum_polynomial.at(idx) -= masking_term.value_at(idx);
-        big_sum_polynomial.at(idx + SUBGROUP_SIZE) += masking_term.value_at(idx);
+    //  Generate random masking_term of degree 2
+    auto masking_term = bb::Univariate<FF, GRAND_SUM_MASKING_TERM_LENGTH>::get_random();
+
+    grand_sum_polynomial += grand_sum_polynomial_unmasked;
+    // Since Z_H(X) = X^|H| - 1, its product with the masking term R(X) is given by X^{H}*R(X) - R(X). Therefore
+    // to mask A, we subtract the coefficients of R from the first GRAND_SUM_MASKING_TERM_LENGTH coefficients
+    // of A and by set the coefficients A_{i+SUBGROUP_SIZE} to be equal to R_i
+    for (size_t idx = 0; idx < GRAND_SUM_MASKING_TERM_LENGTH; idx++) {
+        grand_sum_polynomial.at(idx) -= masking_term.value_at(idx);
+        grand_sum_polynomial.at(idx + SUBGROUP_SIZE) += masking_term.value_at(idx);
     }
 };
 
@@ -264,50 +265,52 @@ template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::compute_big_sum_
  * \f$ is the fixed generator of \f$ H \f$.
  *
  */
-template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::compute_batched_polynomial()
+template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::compute_grand_sum_identity_polynomial()
 {
-    // Compute shifted big sum polynomial A(gX)
-    Polynomial<FF> shifted_big_sum(SUBGROUP_SIZE + 3);
+    // Compute shifted grand sum polynomial A(gX)
+    Polynomial<FF> shifted_grand_sum(MASKED_GRAND_SUM_LENGTH);
 
-    for (size_t idx = 0; idx < SUBGROUP_SIZE + 3; idx++) {
-        shifted_big_sum.at(idx) = big_sum_polynomial.at(idx) * interpolation_domain[idx % SUBGROUP_SIZE];
+    for (size_t idx = 0; idx < MASKED_GRAND_SUM_LENGTH; idx++) {
+        shifted_grand_sum.at(idx) = grand_sum_polynomial.at(idx) * interpolation_domain[idx % SUBGROUP_SIZE];
     }
 
     const auto& [lagrange_first, lagrange_last] =
-        compute_lagrange_polynomials(interpolation_domain, bn_evaluation_domain);
+        compute_lagrange_first_and_last(interpolation_domain, bn_evaluation_domain);
 
-    // Compute -F(X)*G(X), the negated product of challenge_polynomial and libra_concatenated_monomial_form
-    for (size_t i = 0; i < concatenated_polynomial.size(); ++i) {
-        for (size_t j = 0; j < challenge_polynomial.size(); ++j) {
-            batched_polynomial.at(i + j) -= concatenated_polynomial.at(i) * challenge_polynomial.at(j);
+    // Compute -F(X)*G(X), the negated product of challenge_polynomial and concatenated_polynomial
+    for (size_t i = 0; i < MASKED_CONCATENATED_WITNESS_LENGTH; ++i) {
+        for (size_t j = 0; j < SUBGROUP_SIZE; ++j) {
+            grand_sum_identity_polynomial.at(i + j) -= concatenated_polynomial.at(i) * challenge_polynomial.at(j);
         }
     }
 
     // Compute - F(X) * G(X) + A(gX) - A(X)
-    for (size_t idx = 0; idx < shifted_big_sum.size(); idx++) {
-        batched_polynomial.at(idx) += shifted_big_sum.at(idx) - big_sum_polynomial.at(idx);
+    for (size_t idx = 0; idx < MASKED_GRAND_SUM_LENGTH; idx++) {
+        grand_sum_identity_polynomial.at(idx) += shifted_grand_sum.at(idx) - grand_sum_polynomial.at(idx);
     }
 
     // Mutiply - F(X) * G(X) + A(gX) - A(X) by X-g:
     // 1. Multiply by X
-    for (size_t idx = batched_polynomial.size() - 1; idx > 0; idx--) {
-        batched_polynomial.at(idx) = batched_polynomial.at(idx - 1);
+    for (size_t idx = GRAND_SUM_IDENTITY_LENGTH - 1; idx > 0; idx--) {
+        grand_sum_identity_polynomial.at(idx) = grand_sum_identity_polynomial.at(idx - 1);
     }
-    batched_polynomial.at(0) = FF(0);
+    grand_sum_identity_polynomial.at(0) = FF(0);
     // 2. Subtract  1/g(A(gX) - A(X) - F(X) * G(X))
-    for (size_t idx = 0; idx < batched_polynomial.size() - 1; idx++) {
-        batched_polynomial.at(idx) -= batched_polynomial.at(idx + 1) * interpolation_domain[SUBGROUP_SIZE - 1];
+    for (size_t idx = 0; idx < GRAND_SUM_IDENTITY_LENGTH - 1; idx++) {
+        grand_sum_identity_polynomial.at(idx) -=
+            grand_sum_identity_polynomial.at(idx + 1) * interpolation_domain[SUBGROUP_SIZE - 1];
     }
 
     // Add (L_1 + L_{|H|}) * A(X) to the result
-    for (size_t i = 0; i < big_sum_polynomial.size(); ++i) {
+    for (size_t i = 0; i < MASKED_GRAND_SUM_LENGTH; ++i) {
         for (size_t j = 0; j < SUBGROUP_SIZE; ++j) {
-            batched_polynomial.at(i + j) += big_sum_polynomial.at(i) * (lagrange_first.at(j) + lagrange_last.at(j));
+            grand_sum_identity_polynomial.at(i + j) +=
+                grand_sum_polynomial.at(i) * (lagrange_first.at(j) + lagrange_last.at(j));
         }
     }
     // Subtract L_{|H|} * s
     for (size_t idx = 0; idx < SUBGROUP_SIZE; idx++) {
-        batched_polynomial.at(idx) -= lagrange_last.at(idx) * claimed_inner_product;
+        grand_sum_identity_polynomial.at(idx) -= lagrange_last.at(idx) * claimed_inner_product;
     }
 }
 /**
@@ -319,8 +322,8 @@ template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::compute_batched_
  */
 template <typename Flavor>
 std::array<Polynomial<typename Flavor::Curve::ScalarField>, 2> SmallSubgroupIPAProver<
-    Flavor>::compute_lagrange_polynomials(const std::array<FF, SUBGROUP_SIZE>& interpolation_domain,
-                                          const EvaluationDomain<FF>& bn_evaluation_domain)
+    Flavor>::compute_lagrange_first_and_last(const std::array<FF, SUBGROUP_SIZE>& interpolation_domain,
+                                             const EvaluationDomain<FF>& bn_evaluation_domain)
 {
     // Compute the monomial coefficients of L_1
     std::array<FF, SUBGROUP_SIZE> lagrange_coeffs;
@@ -329,39 +332,28 @@ std::array<Polynomial<typename Flavor::Curve::ScalarField>, 2> SmallSubgroupIPAP
         lagrange_coeffs[idx] = FF(0);
     }
 
-    Polynomial<FF> lagrange_first_monomial(SUBGROUP_SIZE);
-    if constexpr (!std::is_same_v<Curve, curve::BN254>) {
-        lagrange_first_monomial = Polynomial<FF>(interpolation_domain, lagrange_coeffs, SUBGROUP_SIZE);
-    } else {
-        std::vector<FF> lagrange_first_ifft(SUBGROUP_SIZE);
-        polynomial_arithmetic::ifft(lagrange_coeffs.data(), lagrange_first_ifft.data(), bn_evaluation_domain);
-        lagrange_first_monomial = Polynomial<FF>(lagrange_first_ifft);
-    }
+    Polynomial<FF> lagrange_first_monomial =
+        compute_monomial_coefficients(lagrange_coeffs, interpolation_domain, bn_evaluation_domain);
 
     // Compute the monomial coefficients of L_{|H|}, the last Lagrange polynomial
     lagrange_coeffs[0] = FF(0);
     lagrange_coeffs[SUBGROUP_SIZE - 1] = FF(1);
 
-    Polynomial<FF> lagrange_last_monomial;
-    if constexpr (!std::is_same_v<Curve, curve::BN254>) {
-        lagrange_last_monomial = Polynomial<FF>(interpolation_domain, lagrange_coeffs, SUBGROUP_SIZE);
-    } else {
-        std::vector<FF> lagrange_last_ifft(SUBGROUP_SIZE);
-        polynomial_arithmetic::ifft(lagrange_coeffs.data(), lagrange_last_ifft.data(), bn_evaluation_domain);
-        lagrange_last_monomial = Polynomial<FF>(lagrange_last_ifft);
-    }
+    Polynomial<FF> lagrange_last_monomial =
+        compute_monomial_coefficients(lagrange_coeffs, interpolation_domain, bn_evaluation_domain);
 
     return { lagrange_first_monomial, lagrange_last_monomial };
 }
 
-/** @brief Efficiently compute the quotient of batched_polynomial by Z_H = X ^ { | H | } - 1
+/** @brief Efficiently compute the quotient of the grand sum identity polynomial \f$ C \f$ by  \f$ Z_H = X ^ { | H | } -
+ * 1\f$.
  */
-template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::compute_batched_quotient()
+template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::compute_grand_sum_identity_quotient()
 {
 
-    auto remainder = batched_polynomial;
-    for (size_t idx = BATCHED_POLYNOMIAL_LENGTH - 1; idx >= SUBGROUP_SIZE; idx--) {
-        batched_quotient.at(idx - SUBGROUP_SIZE) = remainder.at(idx);
+    auto remainder = grand_sum_identity_polynomial;
+    for (size_t idx = GRAND_SUM_IDENTITY_LENGTH - 1; idx >= SUBGROUP_SIZE; idx--) {
+        grand_sum_identity_quotient.at(idx - SUBGROUP_SIZE) = remainder.at(idx);
         remainder.at(idx - SUBGROUP_SIZE) += remainder.at(idx);
     }
 }
@@ -396,7 +388,7 @@ typename Flavor::Curve::ScalarField SmallSubgroupIPAProver<Flavor>::compute_clai
 
 /**
  * @brief For test purposes: compute the batched evaluation of the last MASKING_OFFSET rows of the ECCVM transcript
- * polynomials Op, Px, Py, z1, z2.
+ * polynomials `Op`, `Px`, `Py`, `z1`, `z2`.
  *
  * @param translation_data Contains concatenated ECCVM Transcript polynomials.
  * @param evaluation_challenge_x We evaluate the transcript polynomials at x as univariates.
@@ -417,12 +409,35 @@ typename Flavor::Curve::ScalarField SmallSubgroupIPAProver<Flavor>::compute_clai
 
         for (size_t idx = 0; idx < SUBGROUP_SIZE; idx++) {
             claimed_inner_product +=
-                translation_data.concatenated_masking_term_lagrange.at(idx) * challenge_polynomial_lagrange.at(idx);
+                translation_data.concatenated_polynomial_lagrange.at(idx) * challenge_polynomial_lagrange.at(idx);
         }
     }
     return claimed_inner_product;
 }
 
+/**
+ * @brief Given a vector of coefficients of a polynomial in the Lagrange basis over \f$ H \f$, compute its coefficients
+ * in the monomial basis. We use IFFT over BN254 ScalarField and a generic method compute_efficient_interpolation, which
+ * has quadratic complexity and has to be used with caution.
+ *
+ */
+template <typename Flavor>
+Polynomial<typename Flavor::Curve::ScalarField> SmallSubgroupIPAProver<Flavor>::compute_monomial_coefficients(
+    std::span<FF> lagrange_coeffs,
+    const std::array<FF, SUBGROUP_SIZE>& interpolation_domain,
+    const EvaluationDomain<FF>& bn_evaluation_domain)
+{
+    using FF = typename Flavor::Curve::ScalarField;
+    if constexpr (!std::is_same_v<typename Flavor::Curve, curve::BN254>) {
+        return Polynomial<FF>(interpolation_domain, lagrange_coeffs, SUBGROUP_SIZE);
+    } else {
+        std::vector<FF> lagrange_last_ifft(SUBGROUP_SIZE);
+        polynomial_arithmetic::ifft<FF>(lagrange_coeffs.data(), lagrange_last_ifft.data(), bn_evaluation_domain);
+        return Polynomial<FF>(lagrange_last_ifft);
+    }
+}
+
+// Instantiate with ZK Flavors
 template class SmallSubgroupIPAProver<ECCVMFlavor>;
 template class SmallSubgroupIPAProver<TranslatorFlavor>;
 template class SmallSubgroupIPAProver<MegaZKFlavor>;

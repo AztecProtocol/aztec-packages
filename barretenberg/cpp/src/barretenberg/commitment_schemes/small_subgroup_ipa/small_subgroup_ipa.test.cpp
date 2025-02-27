@@ -72,9 +72,9 @@ TYPED_TEST(SmallSubgroupIPATest, ProverComputationsCorrectness)
         zk_sumcheck_data, multivariate_challenge, this->log_circuit_size);
 
     SmallSubgroupIPA small_subgroup_ipa_prover =
-        SmallSubgroupIPA(zk_sumcheck_data, multivariate_challenge, claimed_inner_product, prover_transcript);
+        SmallSubgroupIPA(zk_sumcheck_data, multivariate_challenge, claimed_inner_product, prover_transcript, ck);
 
-    small_subgroup_ipa_prover.prove(ck);
+    small_subgroup_ipa_prover.prove();
 
     const Polynomial batched_polynomial = small_subgroup_ipa_prover.get_batched_polynomial();
     const Polynomial libra_concatenated_polynomial = small_subgroup_ipa_prover.get_witness_polynomials()[0];
@@ -195,9 +195,9 @@ TYPED_TEST(SmallSubgroupIPATest, LibraEvaluationsConsistency)
         Prover::compute_claimed_inner_product(zk_sumcheck_data, multivariate_challenge, this->log_circuit_size);
 
     Prover small_subgroup_ipa_prover =
-        Prover(zk_sumcheck_data, multivariate_challenge, claimed_inner_product, prover_transcript);
+        Prover(zk_sumcheck_data, multivariate_challenge, claimed_inner_product, prover_transcript, ck);
 
-    small_subgroup_ipa_prover.prove(ck);
+    small_subgroup_ipa_prover.prove();
 
     const std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations =
         this->evaluate_small_ipa_witnesses(small_subgroup_ipa_prover.get_witness_polynomials());
@@ -233,9 +233,9 @@ TYPED_TEST(SmallSubgroupIPATest, LibraEvaluationsConsistencyFailure)
         Prover::compute_claimed_inner_product(zk_sumcheck_data, multivariate_challenge, this->log_circuit_size);
 
     Prover small_subgroup_ipa_prover =
-        Prover(zk_sumcheck_data, multivariate_challenge, claimed_inner_product, prover_transcript);
+        Prover(zk_sumcheck_data, multivariate_challenge, claimed_inner_product, prover_transcript, ck);
 
-    small_subgroup_ipa_prover.prove(ck);
+    small_subgroup_ipa_prover.prove();
 
     std::array<Polynomial<FF>, NUM_SMALL_IPA_EVALUATIONS> witness_polynomials =
         small_subgroup_ipa_prover.get_witness_polynomials();
@@ -292,9 +292,13 @@ TYPED_TEST(SmallSubgroupIPATest, TranslationMaskingTermConsistency)
         const FF claimed_inner_product = Prover::compute_claimed_translation_inner_product(
             translation_data, evaluation_challenge_x, batching_challenge_v);
 
-        Prover small_subgroup_ipa_prover(
-            translation_data, evaluation_challenge_x, batching_challenge_v, claimed_inner_product, prover_transcript);
-        small_subgroup_ipa_prover.prove(ck);
+        Prover small_subgroup_ipa_prover(translation_data,
+                                         evaluation_challenge_x,
+                                         batching_challenge_v,
+                                         claimed_inner_product,
+                                         prover_transcript,
+                                         ck);
+        small_subgroup_ipa_prover.prove();
 
         const std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations =
             this->evaluate_small_ipa_witnesses(small_subgroup_ipa_prover.get_witness_polynomials());
@@ -346,9 +350,13 @@ TYPED_TEST(SmallSubgroupIPATest, TranslationMaskingTermConsistencyFailure)
 
         const FF claimed_inner_product = FF::random_element();
 
-        Prover small_subgroup_ipa_prover(
-            translation_data, evaluation_challenge_x, batching_challenge_v, claimed_inner_product, prover_transcript);
-        small_subgroup_ipa_prover.prove(ck);
+        Prover small_subgroup_ipa_prover(translation_data,
+                                         evaluation_challenge_x,
+                                         batching_challenge_v,
+                                         claimed_inner_product,
+                                         prover_transcript,
+                                         ck);
+        small_subgroup_ipa_prover.prove();
 
         const std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations =
             this->evaluate_small_ipa_witnesses(small_subgroup_ipa_prover.get_witness_polynomials());
