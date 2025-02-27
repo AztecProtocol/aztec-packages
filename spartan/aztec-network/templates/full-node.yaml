@@ -1,72 +1,46 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: {{ include "aztec-network.fullname" . }}-validator
+  name: {{ include "aztec-network.fullname" . }}-full-node
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
-  serviceName: {{ include "aztec-network.fullname" . }}-validator
-  replicas: {{ .Values.validator.replicas }}
-  podManagementPolicy: Parallel
+  serviceName: {{ include "aztec-network.fullname" . }}-full-node
+  replicas: {{ .Values.fullNode.replicas }}
   selector:
     matchLabels:
       {{- include "aztec-network.selectorLabels" . | nindent 6 }}
-      app: validator
+      app: full-node
   {{- if not .Values.storage.localSsd }}
   volumeClaimTemplates:
     - metadata:
-        name: validator-data
+        name: full-node-data
       spec:
         accessModes: [ "ReadWriteOnce" ]
         resources:
           requests:
-            storage: {{ .Values.validator.storageSize }}
+            storage: {{ .Values.fullNode.storageSize }}
   {{- end }}
   template:
     metadata:
       labels:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
-        app: validator
+        app: full-node
     spec:
       {{- if .Values.network.gke }}
       nodeSelector:
         local-ssd: "{{ .Values.storage.localSsd }}"
         node-type: network
       {{- end }}
-
-      {{- if .Values.network.public }}
-      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
-      hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
+      {{- if .Values.network.public }}
+      hostNetwork: true
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       {{- include "aztec-network.publicAntiAffinity" . | nindent 6 }}
       {{- end }}
       initContainers:
         {{- include "aztec-network.p2pSetupContainer" . | nindent 8 }}
         {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
-
-        # Get the private key from the mnemonic - based on the pod replica index
-        - name: get-private-key
-          image: {{ .Values.images.foundry.image }}
-          imagePullPolicy: {{ .Values.images.foundry.pullPolicy }}
-          command:
-            - "/bin/sh"
-            - "-c"
-            - |
-              source /scripts/get-private-key.sh
-          volumeMounts:
-            - name: scripts
-              mountPath: /scripts
-            - name: config
-              mountPath: /shared/config
-          env:
-            - name: KEY_INDEX_START
-              value: {{ .Values.aztec.validatorKeyIndexStart | quote }}
-            - name: MNEMONIC
-              value: {{ .Values.aztec.l1DeploymentMnemonic }}
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
 
 
         - name: wait-for-services
@@ -97,8 +71,7 @@ spec:
             - name: config
               mountPath: /shared/config
 
-
-        - name: configure-validator-env
+        - name: configure-full-node-env
           {{- include "aztec-network.image" . | nindent 10 }}
           command:
             - "/bin/bash"
@@ -117,49 +90,60 @@ spec:
               mountPath: /scripts
             - name: config
               mountPath: /shared/config
-          env:
-            - name: P2P_ENABLED
-              value: "{{ .Values.validator.p2p.enabled }}"
-      containers:
-        - name: validator
+        - name: wait-for-ethereum
           {{- include "aztec-network.image" . | nindent 10 }}
           command:
-            - "/bin/bash"
-            - "-c"
+            - /bin/bash
+            - -c
             - |
-              sleep 10 && \
+              source /shared/config/service-addresses
+              cat /shared/config/service-addresses
+              {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
+          volumeMounts:
+            - name: config
+              mountPath: /shared/config
+      containers:
+        - name: full-node
+          {{- include "aztec-network.image" . | nindent 10 }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              sleep 30 && \
               source /shared/contracts/contracts.env && \
               source /shared/p2p/p2p-addresses && \
               source /shared/config/service-addresses && \
-              source /shared/config/keys.env && \
               env && \
-              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer
+              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --pxe
           startupProbe:
             httpGet:
               path: /status
-              port: {{ .Values.validator.service.nodePort }}
-            failureThreshold: {{ .Values.validator.startupProbe.failureThreshold }}
-            periodSeconds: {{ .Values.validator.startupProbe.periodSeconds }}
+              port: {{ .Values.fullNode.service.nodePort }}
+            periodSeconds: {{ .Values.fullNode.startupProbe.periodSeconds }}
+            failureThreshold: {{ .Values.fullNode.startupProbe.failureThreshold }}
           livenessProbe:
-            exec:
-              command:
-                - /bin/sh
-                - -c
-                - curl -fSs http://127.0.0.1:{{ .Values.validator.service.nodePort }}/status
+            httpGet:
+              path: /status
+              port: {{ .Values.fullNode.service.nodePort }}
             initialDelaySeconds: 30
             periodSeconds: 5
             timeoutSeconds: 30
             failureThreshold: 3
           volumeMounts:
-            - name: contracts-env
-              mountPath: /shared/contracts
             - name: p2p-addresses
               mountPath: /shared/p2p
             - name: config
               mountPath: /shared/config
-            - name: validator-data
-              mountPath: {{ .Values.validator.dataDir }}
+            - name: full-node-data
+              mountPath: {{ .Values.fullNode.dataDir }}
+            - name: contracts-env
+              mountPath: /shared/contracts/contracts.env
+              subPath: contracts.env
           env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
             - name: K8S_POD_UID
               valueFrom:
                 fieldRef:
@@ -169,43 +153,35 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: OTEL_SERVICE_NAME
-              value: validator
-            - name: POD_IP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.podIP
+              value: full-node
             - name: K8S_NAMESPACE_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
             - name: NODE_OPTIONS
-              value: "--max-old-space-size={{ .Values.validator.maxOldSpaceSize}}"
+              value: "--max-old-space-size={{ .Values.fullNode.maxOldSpaceSize}}"
             - name: AZTEC_PORT
-              value: "{{ .Values.validator.service.nodePort }}"
+              value: "{{ .Values.fullNode.service.nodePort }}"
             - name: LOG_LEVEL
-              value: "{{ .Values.validator.logLevel }}"
+              value: "{{ .Values.fullNode.logLevel }}"
             - name: LOG_JSON
               value: "1"
             - name: P2P_ENABLED
-              value: "{{ .Values.validator.p2p.enabled }}"
+              value: "{{ .Values.fullNode.p2p.enabled }}"
             - name: P2P_GOSSIPSUB_FLOOD_PUBLISH
-              value: "{{ .Values.validator.p2p.floodPublish }}"
+              value: "{{ .Values.fullNode.p2p.floodPublish }}"
+            - name: COINBASE
+              value: "{{ .Values.fullNode.coinbaseAddress }}"
             - name: VALIDATOR_DISABLED
-              value: "{{ .Values.validator.validator.disabled }}"
-            - name: VALIDATOR_REEXECUTE
-              value: "{{ .Values.validator.validator.reexecute }}"
-            - name: SEQ_MAX_SECONDS_BETWEEN_BLOCKS
-              value: "{{ .Values.validator.sequencer.maxSecondsBetweenBlocks }}"
-            - name: SEQ_MIN_TX_PER_BLOCK
-              value: "{{ .Values.validator.sequencer.minTxsPerBlock }}"
-            - name: SEQ_MAX_TX_PER_BLOCK
-              value: "{{ .Values.validator.sequencer.maxTxsPerBlock }}"
-            - name: SEQ_ENFORCE_TIME_TABLE
-              value: "{{ .Values.validator.sequencer.enforceTimeTable }}"
+              value: "true"
             - name: L1_CHAIN_ID
               value: "{{ .Values.ethereum.chainId }}"
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
+            - name: PROVER_REAL_PROOFS
+              value: "{{ .Values.aztec.realProofs }}"
+            - name: PXE_PROVER_ENABLED
+              value: "{{ .Values.aztec.realProofs }}"
             - name: ETHEREUM_SLOT_DURATION
               value: "{{ .Values.ethereum.blockTime }}"
             - name: AZTEC_SLOT_DURATION
@@ -214,24 +190,18 @@ spec:
               value: "{{ .Values.aztec.epochDuration }}"
             - name: AZTEC_PROOF_SUBMISSION_WINDOW
               value: "{{ .Values.aztec.proofSubmissionWindow }}"
-            - name: VALIDATOR_ATTESTATIONS_POLLING_INTERVAL_MS
-              value: {{ .Values.validator.attestationPollingInterval | quote }}
             - name: ARCHIVER_POLLING_INTERVAL_MS
-              value: {{ .Values.validator.archiverPollingInterval | quote }}
+              value: {{ .Values.fullNode.archiverPollingInterval | quote }}
             - name: ARCHIVER_VIEM_POLLING_INTERVAL_MS
-              value: {{ .Values.validator.viemPollingInterval | quote }}
+              value: {{ .Values.fullNode.archiverViemPollingInterval | quote }}
             - name: L1_READER_VIEM_POLLING_INTERVAL_MS
-              value: {{ .Values.validator.viemPollingInterval | quote }}
+              value: {{ .Values.fullNode.archiverViemPollingInterval | quote }}
             - name: SEQ_VIEM_POLLING_INTERVAL_MS
-              value: {{ .Values.validator.viemPollingInterval | quote }}
-            - name: L1_FIXED_PRIORITY_FEE_PER_GAS
-              value: {{ .Values.validator.l1FixedPriorityFeePerGas | quote }}
-            - name: L1_GAS_LIMIT_BUFFER_PERCENTAGE
-              value: {{ .Values.validator.l1GasLimitBufferPercentage | quote }}
-            - name: L1_GAS_PRICE_MAX
-              value: {{ .Values.validator.l1GasPriceMax | quote }}
+              value: {{ .Values.fullNode.viemPollingInterval | quote }}
+            - name: PEER_ID_PRIVATE_KEY
+              value: "{{ .Values.fullNode.peerIdPrivateKey }}"
             - name: DATA_DIRECTORY
-              value: "{{ .Values.validator.dataDir }}"
+              value: "{{ .Values.fullNode.dataDir }}"
             - name: DATA_STORE_MAP_SIZE_KB
               value: "{{ .Values.storage.dataStoreMapSize }}"
             - name: WS_DB_MAP_SIZE_KB
@@ -240,79 +210,100 @@ spec:
               value: "{{ .Values.telemetry.useGcloudLogging }}"
             - name: OTEL_EXCLUDE_METRICS
               value: "{{ .Values.telemetry.excludeMetrics }}"
-            - name: TEST_ACCOUNTS
-              value: "{{ .Values.aztec.testAccounts }}"
             {{- if .Values.blobSink.enabled }}
             - name: BLOB_SINK_URL
               value: {{ include "aztec-network.blobSinkUrl" . }}
             {{- end }}
           ports:
-            - containerPort: {{ .Values.validator.service.nodePort }}
-            - containerPort: {{ .Values.validator.service.p2pTcpPort }}
-            - containerPort: {{ .Values.validator.service.p2pUdpPort }}
+            - containerPort: {{ .Values.fullNode.service.nodePort }}
+            - containerPort: {{ .Values.fullNode.service.p2pTcpPort }}
+            - containerPort: {{ .Values.fullNode.service.p2pUdpPort }}
               protocol: UDP
           resources:
-            {{- toYaml .Values.validator.resources | nindent 12 }}
+            {{- toYaml .Values.fullNode.resources | nindent 12 }}
       volumes:
-        - name: scripts
-          configMap:
-            name: {{ include "aztec-network.fullname" . }}-scripts
-        - name: contracts-env
-          emptyDir: {}
         - name: p2p-addresses
-          emptyDir: {}
-        - name: pxe-url
           emptyDir: {}
         - name: config
           emptyDir: {}
       {{- if .Values.storage.localSsd }}
-        - name: validator-data
+        - name: full-node-data
           emptyDir: {}
       {{ else }}
-        - name: validator-data
+        - name: full-node-data
           persistentVolumeClaim:
-            claimName: validator-data
+            claimName: full-node-data
       {{- end }}
+        - name: scripts
+          configMap:
+            name: {{ include "aztec-network.fullname" . }}-scripts
+        - name: scripts-output
+          emptyDir: {}
+        - name: contracts-env
+          emptyDir: {}
+        - name: pxe-url
+          emptyDir: {}
 ---
-# If this is not a public network, create a headless service for StatefulSet DNS entries
-{{ if not .Values.network.public }}
+# Headless service for StatefulSet DNS entries
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "aztec-network.fullname" . }}-validator
+  name: {{ include "aztec-network.fullname" . }}-full-node
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
-    app: validator
+    app: full-node
 spec:
+  # If this is a public network, we want to expose the fulls node as a LoadBalancer
+  {{- if .Values.network.public }}
+  type: LoadBalancer
+  {{- if hasKey .Values.fullNode "fixedExternalIP" }}
+  loadBalancerIP: {{ .Values.fullNode.fixedExternalIP }}
+  {{- end}}
+  {{- else }}
+  type: ClusterIP
   clusterIP: None
+  {{- end }}
   selector:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
-    app: validator
+    app: full-node
   ports:
-    - port: {{ .Values.validator.service.p2pTcpPort }}
-      name: p2p-tcp
-      protocol: TCP
-    - port: {{ .Values.validator.service.p2pUdpPort }}
+    # External load balancers cannot handle mixed TCP/UDP ports, so we only expose the node port
+    {{- if not .Values.network.public }}
+    - port: {{ .Values.fullNode.service.p2pTcpPort }}
+      name: p2p-tpc
+    - port: {{ .Values.fullNode.service.p2pUdpPort }}
       name: p2p-udp
       protocol: UDP
-    - port: {{ .Values.validator.service.nodePort }}
+    {{- end }}
+    - port: {{ .Values.fullNode.service.nodePort }}
       name: node
-      protocol: TCP
 ---
-# If we want to send traffic to any validator, then we need a LoadBalancer service on top of a headless service
-apiVersion: v1
-kind: Service
+{{- if hasKey .Values.fullNode "fixedExternalIP" }}
+apiVersion: networking.gke.io/v1beta2
+kind: ManagedCertificate
 metadata:
-  name: {{ include "aztec-network.fullname" . }}-validator-lb
-  labels:
-    {{- include "aztec-network.labels" . | nindent 4 }}
-    app: validator
+  name: {{ include "aztec-network.fullname" . }}-full-node-cert
 spec:
-  selector:
-    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
-    app: validator
-  ports:
-    - port: {{ .Values.validator.service.nodePort }}
-      name: node
-      protocol: TCP
-{{ end }}
+  domains:
+  - aztecprotocol.com
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-full-node-ingress
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    networking.gke.io/managed-certificates: {{ include "aztec-network.fullname" . }}-full-node-cert
+spec:
+  rules:
+  - host: aztecprotocol.com
+    http:
+      paths:
+      - path: /*
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: {{ include "aztec-network.fullname" . }}-full-node
+            port:
+              number: {{ .Values.fullNode.service.nodePort }}
+{{- end }}
