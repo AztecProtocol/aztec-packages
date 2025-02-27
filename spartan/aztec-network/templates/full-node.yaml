@@ -60,7 +60,6 @@ spec:
               cat /shared/config/service-addresses
               {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
 
-
               if [ "{{ .Values.validator.dynamicBootNode }}" = "true" ]; then
                 echo "{{ include "aztec-network.pxeUrl" . }}" > /shared/pxe/pxe_url
               else

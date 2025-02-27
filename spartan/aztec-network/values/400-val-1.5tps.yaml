@@ -1,4 +1,4 @@
-## 512 validators - large transactions (192kb) - 1.5 tps
+## 192 validators - 218 full nodes - large transactions (192kb) - 1.5 tps
 network:
   public: false
 
@@ -17,7 +17,7 @@ images:
 
 validator:
   storageSize: "100Gi"
-  replicas: 400
+  replicas: 256
   resources:
     requests:
       memory: "5Gi"
@@ -33,8 +33,16 @@ validator:
 bootNode:
   peerIdPrivateKey: 080212200ba8451c6d62b03c4441f0a466c0bce7a3a595f2cf50a055ded3305c77aa3af0
   storageSize: "100Gi"
-  validator:
-    disabled: true
+  resources:
+    requests:
+      memory: "5Gi"
+      cpu: "1.5"
+      ephemeral-storage: "100Gi"
+  maxOldSpaceSize: "4608"
+
+fullNode:
+  storageSize: "100Gi"
+  replicas: 144
   resources:
     requests:
       memory: "5Gi"

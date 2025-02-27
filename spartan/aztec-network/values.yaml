@@ -144,6 +144,42 @@ fullNode:
   storageSize: "1Gi"
   dataDir: "/data"
 
+fullNode:
+  peerIdPrivateKey: ""
+  externalHost: ""
+  replicas: 1
+  service:
+    p2pTcpPort: 40400
+    p2pUdpPort: 40400
+    nodePort: 8080
+  logLevel: "debug; info: aztec:simulator, json-rpc"
+  p2p:
+    enabled: "true"
+    floodPublish: true
+  resources:
+    requests:
+      memory: "5Gi"
+  maxOldSpaceSize: "4608"
+  deployContracts: true # Set to false to use manual contract addresses
+  startupProbe:
+    periodSeconds: 10
+    # Only if we fail for 20 minutes straight do we call it botched
+    # This gives enough time to sync
+    failureThreshold: 120
+  contracts:
+    rollupAddress: ""
+    registryAddress: ""
+    inboxAddress: ""
+    outboxAddress: ""
+    feeJuiceAddress: ""
+    feeJuicePortalAddress: ""
+  archiverPollingInterval: 1000
+  archiverViemPollingInterval: 1000
+  viemPollingInterval: 1000
+  stakingAssetAddress: ""
+  storageSize: "1Gi"
+  dataDir: "/data"
+
 validator:
   # If true, the validator will use its peers to serve as the boot node.
   # This cannot be used when the network first starts up.
