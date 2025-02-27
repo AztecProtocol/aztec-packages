@@ -60,20 +60,10 @@ export interface PublicSideEffectTraceInterface {
     contractAddress: AztecAddress,
     exists: boolean,
     instance?: SerializableContractInstance,
-    nullifierMembershipHint?: AvmNullifierReadTreeHint,
     updateMembershipHint?: AvmPublicDataReadTreeHint,
     updatePreimage?: Fr[],
   ): void;
-  traceGetBytecode(
-    contractAddress: AztecAddress,
-    exists: boolean,
-    bytecode?: Buffer,
-    contractInstance?: SerializableContractInstance,
-    contractClass?: ContractClassIdPreimage,
-    nullifierMembershipHint?: AvmNullifierReadTreeHint,
-    updateMembershipHint?: AvmPublicDataReadTreeHint,
-    updatePreimage?: Fr[],
-  ): void;
+  traceGetContractClass(contractClassId: Fr, exists: boolean, contractClass?: ContractClassWithCommitment): void;
   traceEnqueuedCall(
     /** The call request from private that enqueued this call. */
     publicCallRequest: PublicCallRequest,

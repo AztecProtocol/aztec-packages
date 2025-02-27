@@ -10,7 +10,7 @@ import type { AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint1 } from '../avm_memory_types.js';
 import { initContext, initPersistableStateManager } from '../fixtures/index.js';
 import type { AvmPersistableStateManager } from '../journal/journal.js';
-import { mockGetContractInstance, mockNullifierExists } from '../test_utils.js';
+import { mockGetContractInstance, mockGetNullifierIndex } from '../test_utils.js';
 import { ContractInstanceMember, GetContractInstance } from './contract.js';
 
 describe('Contract opcodes', () => {
@@ -67,7 +67,7 @@ describe('Contract opcodes', () => {
       it(`Should read '${ContractInstanceMember[memberEnum]}' correctly`, async () => {
         const value = valueGetter();
         mockGetContractInstance(worldStateDB, contractInstance.withAddress(address));
-        mockNullifierExists(worldStateDB, address.toField());
+        mockGetNullifierIndex(worldStateDB, address.toField());
 
         context.machineState.memory.set(0, new Field(address.toField()));
         await new GetContractInstance(
