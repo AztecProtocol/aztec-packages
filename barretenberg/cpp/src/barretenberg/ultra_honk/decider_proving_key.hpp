@@ -76,11 +76,11 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
             }
         }
 
-        info("Finalized circuit size: ",
-             circuit.num_gates,
-             ". Log dyadic circuit size: ",
-             numeric::get_msb(dyadic_circuit_size),
-             ".");
+        vinfo("Finalized circuit size: ",
+              circuit.num_gates,
+              ". Log dyadic circuit size: ",
+              numeric::get_msb(dyadic_circuit_size),
+              ".");
         circuit.blocks.compute_offsets(is_structured); // compute offset of each block within the trace
 
         // Find index of last non-trivial wire value in the trace
