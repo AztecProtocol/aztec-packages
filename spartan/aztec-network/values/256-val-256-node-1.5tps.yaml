@@ -19,7 +19,6 @@ validator:
     requests:
       memory: "5Gi"
       cpu: "1.5"
-      ephemeral-storage: "100Gi"
   maxOldSpaceSize: "4608"
   validator:
     disabled: false
@@ -34,7 +33,6 @@ bootNode:
     requests:
       memory: "5Gi"
       cpu: "1.5"
-      ephemeral-storage: "100Gi"
   maxOldSpaceSize: "4608"
 
 fullNode:
@@ -44,7 +42,6 @@ fullNode:
     requests:
       memory: "5Gi"
       cpu: "1.5"
-      ephemeral-storage: "100Gi"
   maxOldSpaceSize: "4608"
 
 proverAgent:
@@ -60,7 +57,6 @@ proverBroker:
     requests:
       memory: "5Gi"
       cpu: "1.5"
-      ephemeral-storage: "100Gi"
   maxOldSpaceSize: "4608"
 
 proverNode:
@@ -68,7 +64,6 @@ proverNode:
     requests:
       memory: "8Gi"
       cpu: "1.5"
-      ephemeral-storage: "100Gi"
   maxOldSpaceSize: "4608"
 
 bot:
