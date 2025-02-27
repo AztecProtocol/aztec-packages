@@ -17,7 +17,7 @@ images:
 
 validator:
   storageSize: "300Gi"
-  replicas: 512
+  replicas: 400
   resources:
     requests:
       memory: "5Gi"
@@ -27,7 +27,7 @@ validator:
   validator:
     disabled: false
   sequencer:
-    maxTxsPerBlock: 40
+    maxTxsPerBlock: 60
     enforceTimeTable: true
 
 bootNode:
@@ -67,7 +67,7 @@ proverNode:
   maxOldSpaceSize: "4608"
 
 bot:
-  replicas: 10
+  replicas: 15
   followChain: "NONE"
   enabled: true
   txIntervalSeconds: 1
