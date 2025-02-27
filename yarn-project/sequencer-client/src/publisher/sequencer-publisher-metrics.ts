@@ -1,6 +1,8 @@
+import { createLogger } from '@aztec/aztec.js';
 import type { L1PublishBlockStats, L1PublishStats } from '@aztec/stdlib/stats';
 import {
   Attributes,
+  type Gauge,
   type Histogram,
   Metrics,
   type TelemetryClient,
@@ -28,7 +30,13 @@ export class SequencerPublisherMetrics {
   private readonly blobTxSuccessCounter: UpDownCounter;
   private readonly blobTxFailureCounter: UpDownCounter;
 
-  constructor(client: TelemetryClient, name = 'SequencerPublisher') {
+  private senderBalance: Gauge;
+
+  constructor(
+    client: TelemetryClient,
+    name = 'SequencerPublisher',
+    private logger = createLogger('sequencer:publisher:metrics'),
+  ) {
     const meter = client.getMeter(name);
 
     this.gasPrice = meter.createHistogram(Metrics.L1_PUBLISHER_GAS_PRICE, {
@@ -96,6 +104,12 @@ export class SequencerPublisherMetrics {
     this.blobTxFailureCounter = meter.createUpDownCounter(Metrics.L1_PUBLISHER_BLOB_TX_FAILURE, {
       description: 'Number of failed L1 transactions with blobs',
     });
+
+    this.senderBalance = meter.createGauge(Metrics.L1_PUBLISHER_BALANCE, {
+      unit: 'gwei',
+      description: 'The balance of the sender address',
+      valueType: ValueType.INT,
+    });
   }
 
   recordFailedTx(txType: L1TxType) {
@@ -120,6 +134,21 @@ export class SequencerPublisherMetrics {
       }
 
       this.blobTxSuccessCounter.add(1);
+    }
+  }
+
+  recordSenderBalance(wei: bigint, senderAddress: string) {
+    const gwei = wei / 1_000_000_000n;
+    if (gwei <= BigInt(Number.MAX_SAFE_INTEGER)) {
+      this.senderBalance.record(Number(gwei), {
+        [Attributes.SENDER_ADDRESS]: senderAddress,
+      });
+    } else {
+      this.logger.verbose('Balance of sender in gwei is too high to safely publish as metric', {
+        maxSafeInteger: Number.MAX_SAFE_INTEGER,
+        balanceInGwei: gwei,
+        senderAddress,
+      });
     }
   }
 

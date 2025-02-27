@@ -1,6 +1,8 @@
+import { createLogger } from '@aztec/foundation/log';
 import type { L1PublishProofStats, L1PublishStats } from '@aztec/stdlib/stats';
 import {
   Attributes,
+  type Gauge,
   type Histogram,
   Metrics,
   type TelemetryClient,
@@ -25,7 +27,13 @@ export class ProverNodeMetrics {
   txBlobDataGasUsed: Histogram;
   txBlobDataGasCost: Histogram;
 
-  constructor(public readonly client: TelemetryClient, name = 'ProverNode') {
+  private senderBalance: Gauge;
+
+  constructor(
+    public readonly client: TelemetryClient,
+    name = 'ProverNode',
+    private logger = createLogger('prover-node:publisher:metrics'),
+  ) {
     const meter = client.getMeter(name);
     this.proverEpochExecutionDuration = meter.createHistogram(Metrics.PROVER_NODE_EXECUTION_DURATION, {
       description: 'Duration of execution of an epoch by the prover',
@@ -91,6 +99,12 @@ export class ProverNodeMetrics {
       unit: 'gwei',
       valueType: ValueType.INT,
     });
+
+    this.senderBalance = meter.createGauge(Metrics.L1_PUBLISHER_BALANCE, {
+      unit: 'gwei',
+      description: 'The balance of the sender address',
+      valueType: ValueType.INT,
+    });
   }
 
   recordFailedTx() {
@@ -109,6 +123,21 @@ export class ProverNodeMetrics {
     this.provingJobDuration.record(Math.ceil(totalTimeMs));
     this.provingJobBlocks.record(Math.floor(numBlocks));
     this.provingJobTransactions.record(Math.floor(numTxs));
+  }
+
+  public recordSenderBalance(wei: bigint, senderAddress: string) {
+    const gwei = wei / 1_000_000_000n;
+    if (gwei <= BigInt(Number.MAX_SAFE_INTEGER)) {
+      this.senderBalance.record(Number(gwei), {
+        [Attributes.SENDER_ADDRESS]: senderAddress,
+      });
+    } else {
+      this.logger.verbose('Balance of sender in gwei is too high to safely publish as metric', {
+        maxSafeInteger: Number.MAX_SAFE_INTEGER,
+        balanceInGwei: gwei,
+        senderAddress,
+      });
+    }
   }
 
   private recordTx(durationMs: number, stats: L1PublishStats) {
