@@ -1,4 +1,4 @@
-import { type AvmContext } from '../avm_context.js';
+import type { AvmContext } from '../avm_context.js';
 import { Field, Uint1, type Uint8, Uint32 } from '../avm_memory_types.js';
 import { InvalidToRadixInputsError } from '../errors.js';
 import { initContext } from '../fixtures/index.js';

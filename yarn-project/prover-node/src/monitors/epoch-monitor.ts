@@ -1,6 +1,7 @@
-import { type L1RollupConstants, type L2BlockSource, getEpochAtSlot } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
+import type { L2BlockSource } from '@aztec/stdlib/block';
+import { type L1RollupConstants, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import {
   type TelemetryClient,
   type Traceable,

@@ -2,7 +2,7 @@ use crate::context::PrivateContext;
 use crate::note::{
     constants::{GET_NOTE_ORACLE_RETURN_LENGTH, VIEW_NOTE_ORACLE_RETURN_LENGTH},
     note_getter_options::{NoteGetterOptions, NoteStatus, PropertySelector, Select, Sort, SortOrder},
-    note_interface::{NoteInterface, NullifiableNote},
+    note_interface::{NoteHash, NoteType},
     note_viewer_options::NoteViewerOptions,
     retrieved_note::RetrievedNote,
     utils::compute_note_hash_for_read_request,
@@ -76,17 +76,17 @@ pub fn get_note<Note, let N: u32>(
     storage_slot: Field,
 ) -> (RetrievedNote<Note>, Field)
 where
-    Note: NoteInterface + NullifiableNote + Packable<N>,
+    Note: NoteType + NoteHash + Packable<N>,
 {
     // Safety: Constraining that we got a valid note from the oracle is fairly straightforward: all we need to do
     // is check that the metadata is correct, and that the note exists.
     let retrieved_note = unsafe { get_note_internal::<Note, N>(storage_slot) };
 
-    // For non-transient notes, the contract address is implicitly checked since the hash returned from
-    // `compute_note_hash_for_read_request(...)` is siloed and kernels verify the siloing during note
-    // read request validation. For transient notes, however, we return an "unsiloed" hash, so we need to check
-    // that the contract address returned from the oracle matches. Since branching in circuits is expensive, we
-    // perform this check on all the note types.
+    // For settled notes, the contract address is implicitly checked since the hash returned from
+    // `compute_note_hash_for_read_request` is siloed and kernels verify the siloing during note read request
+    // validation. Pending notes however are read with the unsiloed note hash, so we need to check that the contract
+    // address returned from the oracle matches. Since branching in circuits is expensive, we perform this check on all
+    // note types.
     assert(
         retrieved_note.contract_address.eq(context.this_address()),
         "Note contract address mismatch.",
@@ -105,7 +105,7 @@ pub fn get_notes<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
     options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>,
     ) -> (BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>)
 where
-    Note: NoteInterface + NullifiableNote + Eq + Packable<N>,
+    Note: NoteType + NoteHash + Eq + Packable<N>,
 {
     // Safety: The notes are constrained below.
     let opt_notes = unsafe { get_notes_internal(storage_slot, options) };
@@ -130,7 +130,7 @@ fn constrain_get_notes_internal<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS
     options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>,
     ) -> (BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>)
 where
-    Note: NoteInterface + NullifiableNote + Eq + Packable<N>,
+    Note: NoteType + NoteHash + Eq + Packable<N>,
 {
     // The filter is applied first to avoid pushing note read requests for notes we're not interested in. Note that
     // while the filter function can technically mutate the notes (as opposed to simply removing some), the private
@@ -154,9 +154,11 @@ where
         if i < notes.len() {
             let retrieved_note = notes.get_unchecked(i);
 
-            // TODO: For non-transient notes, the contract address appears to be implicitly checked since we return
-            // a siloed note hash from the `compute_note_hash_for_read_request(...)` function. Investigate whether this
-            // check is needed for transient notes and if not, remove it.
+            // For settled notes, the contract address is implicitly checked since the hash returned from
+            // `compute_note_hash_for_read_request` is siloed and kernels verify the siloing during note read request
+            // validation. Pending notes however are read with the unsiloed note hash, so we need to check that the
+            // contract address returned from the oracle matches. Since branching in circuits is expensive, we perform
+            // this check on all note types.
             assert(
                 retrieved_note.contract_address.eq(context.this_address()),
                 "Note contract address mismatch.",
@@ -181,7 +183,7 @@ where
 
 unconstrained fn get_note_internal<Note, let N: u32>(storage_slot: Field) -> RetrievedNote<Note>
 where
-    Note: NoteInterface + Packable<N>,
+    Note: NoteType + Packable<N>,
 {
     let placeholder_note = [Option::none()];
     let placeholder_fields = [0; GET_NOTE_ORACLE_RETURN_LENGTH];
@@ -213,7 +215,7 @@ unconstrained fn get_notes_internal<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_
     options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>,
 ) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]
 where
-    Note: NoteInterface + Packable<N>,
+    Note: NoteType + Packable<N>,
 {
     // This function simply performs some transformations from NoteGetterOptions into the types required by the oracle.
     let (num_selects, select_by_indexes, select_by_offsets, select_by_lengths, select_values, select_comparators, sort_by_indexes, sort_by_offsets, sort_by_lengths, sort_order) =
@@ -250,7 +252,7 @@ pub unconstrained fn view_notes<Note, let N: u32>(
     options: NoteViewerOptions<Note, N>,
 ) -> BoundedVec<Note, MAX_NOTES_PER_PAGE>
 where
-    Note: NoteInterface + Packable<N>,
+    Note: NoteType + Packable<N>,
 {
     let (num_selects, select_by_indexes, select_by_offsets, select_by_lengths, select_values, select_comparators, sort_by_indexes, sort_by_offsets, sort_by_lengths, sort_order) =
         flatten_options(options.selects, options.sorts);

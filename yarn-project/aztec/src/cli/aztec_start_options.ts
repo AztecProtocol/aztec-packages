@@ -11,7 +11,6 @@ import {
   omitConfigMappings,
 } from '@aztec/foundation/config';
 import { bootnodeConfigMappings, p2pConfigMappings } from '@aztec/p2p/config';
-import { proofVerifierConfigMappings } from '@aztec/proof-verifier/config';
 import {
   type ProverAgentConfig,
   type ProverBrokerConfig,
@@ -54,7 +53,7 @@ export const getOptions = (namespace: string, configMappings: Record<string, Con
 };
 
 // These are options used by multiple modules so should be inputted once
-export const universalOptions = ['l1RpcUrl', 'l1ChainId', 'l1Contracts', 'p2pEnabled', 'dataDirectory'];
+export const universalOptions = ['l1RpcUrls', 'l1ChainId', 'l1Contracts', 'p2pEnabled', 'dataDirectory'];
 
 // Define categories and options
 export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
@@ -95,10 +94,11 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
   ],
   ETHEREUM: [
     {
-      flag: '--l1-rpc-url <value>',
-      description: 'URL of the Ethereum RPC node that services will connect to',
-      defaultValue: 'http://localhost:8545',
-      envVar: 'ETHEREUM_HOST',
+      flag: '--l1-rpc-urls <value>',
+      description: 'List of URLs of the Ethereum RPC nodes that services will connect to (comma separated)',
+      defaultValue: ['http://localhost:8545'],
+      envVar: 'ETHEREUM_HOSTS',
+      parseVal: (val: string) => val.split(',').map(url => url.trim()),
     },
     {
       flag: '--l1-chain-id <value>',
@@ -329,15 +329,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: undefined,
     },
     ...getOptions('bot', botConfigMappings),
-  ],
-  'PROOF VERIFIER': [
-    {
-      flag: '--proof-verifier',
-      description: 'Starts Aztec Proof Verifier with options',
-      defaultValue: undefined,
-      envVar: undefined,
-    },
-    ...getOptions('proofVerifier', proofVerifierConfigMappings),
   ],
   TXE: [
     {

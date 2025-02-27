@@ -12,12 +12,13 @@ export class EthCheatCodesWithState extends EthCheatCodes {
    * @param fileName - The file name to dump state into
    */
   public async dumpChainState(fileName: string): Promise<void> {
-    const res = await this.rpcCall('hardhat_dumpState', []);
-    if (res.error) {
-      throw new Error(`Error dumping state: ${res.error.message}`);
+    let res: any;
+    try {
+      res = await this.rpcCall('hardhat_dumpState', []);
+    } catch (e) {
+      throw new Error(`Error dumping state: ${e}`);
     }
-    const jsonContent = JSON.stringify(res.result);
-    fs.writeFileSync(`${fileName}.json`, jsonContent, 'utf8');
+    fs.writeFileSync(`${fileName}.json`, res, 'utf8');
     this.logger.verbose(`Dumped state to ${fileName}`);
   }
 
@@ -27,9 +28,10 @@ export class EthCheatCodesWithState extends EthCheatCodes {
    */
   public async loadChainState(fileName: string): Promise<void> {
     const data = JSON.parse(fs.readFileSync(`${fileName}.json`, 'utf8'));
-    const res = await this.rpcCall('hardhat_loadState', [data]);
-    if (res.error) {
-      throw new Error(`Error loading state: ${res.error.message}`);
+    try {
+      await this.rpcCall('hardhat_loadState', [data]);
+    } catch (e) {
+      throw new Error(`Error loading state: ${e}`);
     }
     this.logger.verbose(`Loaded state from ${fileName}`);
   }

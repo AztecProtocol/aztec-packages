@@ -1,9 +1,9 @@
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import type { ContractInstanceWithAddress } from '@aztec/circuits.js/contract';
-import { makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
 import { MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import { makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
 
 import { AvmSimulationTester } from '../fixtures/avm_simulation_tester.js';
 

@@ -1,17 +1,17 @@
-import { ProvingError } from '@aztec/circuit-types';
-import {
-  type ProvingJob,
-  type ProvingJobConsumer,
-  type ProvingJobId,
-  type ProvingJobInputs,
-  type ProvingJobResultsMap,
-  ProvingRequestType,
-  type ServerCircuitProver,
-} from '@aztec/circuit-types/interfaces/server';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { truncate } from '@aztec/foundation/string';
 import { Timer } from '@aztec/foundation/timer';
+import { ProvingError } from '@aztec/stdlib/errors';
+import type {
+  ProvingJob,
+  ProvingJobConsumer,
+  ProvingJobId,
+  ProvingJobInputs,
+  ProvingJobResultsMap,
+  ServerCircuitProver,
+} from '@aztec/stdlib/interfaces/server';
+import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import {
   type TelemetryClient,
   type Traceable,
@@ -20,7 +20,7 @@ import {
   trackSpan,
 } from '@aztec/telemetry-client';
 
-import { type ProofStore } from './proof_store/index.js';
+import type { ProofStore } from './proof_store/index.js';
 import { ProvingAgentInstrumentation } from './proving_agent_instrumentation.js';
 import { ProvingJobController, ProvingJobControllerStatus } from './proving_job_controller.js';
 

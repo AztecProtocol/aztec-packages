@@ -1,11 +1,11 @@
-import { L2BlockStream, type L2BlockStreamEvent, type L2BlockStreamEventHandler } from '@aztec/circuit-types';
-import { type AztecNode } from '@aztec/circuit-types/interfaces/client';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { type L2TipsStore } from '@aztec/kv-store/stores';
+import type { L2TipsStore } from '@aztec/kv-store/stores';
+import { L2BlockStream, type L2BlockStreamEvent, type L2BlockStreamEventHandler } from '@aztec/stdlib/block';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
-import { type PXEConfig } from '../config/index.js';
-import { type PxeDatabase } from '../database/index.js';
+import type { PXEConfig } from '../config/index.js';
+import type { PxeDatabase } from '../database/index.js';
 
 /**
  * The Synchronizer class manages the synchronization with the aztec node, allowing PXE to retrieve the
@@ -16,6 +16,7 @@ import { type PxeDatabase } from '../database/index.js';
 export class Synchronizer implements L2BlockStreamEventHandler {
   private initialSyncBlockNumber = INITIAL_L2_BLOCK_NUM - 1;
   private log: Logger;
+  private isSyncing: Promise<void> | undefined;
   protected readonly blockStream: L2BlockStream;
 
   constructor(
@@ -62,7 +63,12 @@ export class Synchronizer implements L2BlockStreamEventHandler {
         // block number in which each index is used it's all we can do.
         await this.db.resetNoteSyncData();
         // Update the header to the last block.
-        await this.db.setHeader(await this.node.getBlockHeader(event.blockNumber));
+        const newHeader = await this.node.getBlockHeader(event.blockNumber);
+        if (!newHeader) {
+          this.log.error(`Block header not found for block number ${event.blockNumber} during chain prune`);
+        } else {
+          await this.db.setHeader(newHeader);
+        }
         break;
       }
     }
@@ -73,6 +79,23 @@ export class Synchronizer implements L2BlockStreamEventHandler {
    * recent data (e.g. notes), and handling any reorgs that might have occurred.
    */
   public async sync() {
+    if (this.isSyncing !== undefined) {
+      this.log.debug(`Waiting for the ongoing sync to finish`);
+      await this.isSyncing;
+      return;
+    }
+
+    this.log.debug(`Syncing PXE with the node`);
+    const isSyncing = this.doSync();
+    this.isSyncing = isSyncing;
+    try {
+      await isSyncing;
+    } finally {
+      this.isSyncing = undefined;
+    }
+  }
+
+  private async doSync() {
     let currentHeader;
 
     try {
@@ -82,7 +105,7 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     }
     if (!currentHeader) {
       // REFACTOR: We should know the header of the genesis block without having to request it from the node.
-      await this.db.setHeader(await this.node.getBlockHeader(0));
+      await this.db.setHeader((await this.node.getBlockHeader(0))!);
     }
     await this.blockStream.sync();
   }

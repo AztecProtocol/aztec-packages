@@ -33,8 +33,7 @@
     { "path": "constants/tsconfig.json" },
     { "path": "pxe/tsconfig.json" },
     { "path": "aztec/tsconfig.json" },
-    { "path": "circuits.js/tsconfig.json" },
-    { "path": "circuit-types/tsconfig.json" },
+    { "path": "stdlib/tsconfig.json" },
     { "path": "end-to-end/tsconfig.json" },
     { "path": "foundation/tsconfig.json" },
     { "path": "key-store/tsconfig.json" },
@@ -55,8 +54,7 @@
     { "path": "scripts/tsconfig.json" },
     { "path": "entrypoints/tsconfig.json" },
     { "path": "cli/tsconfig.json" },
-    { "path": "cli-wallet/tsconfig.json" },
-    { "path": "proof-verifier/tsconfig.json" }
+    { "path": "cli-wallet/tsconfig.json" }
   ],
   "files": ["./@types/jest/index.d.ts"],
   "exclude": ["node_modules", "**/node_modules", "**/.*/"]

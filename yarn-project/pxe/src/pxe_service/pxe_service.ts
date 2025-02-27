@@ -1,16 +1,59 @@
+import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
+import { Fr, type Point } from '@aztec/foundation/fields';
+import { type Logger, createLogger } from '@aztec/foundation/log';
+import { Timer } from '@aztec/foundation/timer';
+import type { SiblingPath } from '@aztec/foundation/trees';
+import type { KeyStore } from '@aztec/key-store';
+import type { L2TipsStore } from '@aztec/kv-store/stores';
 import {
-  EventMetadata,
-  type FunctionCall,
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  type InBlock,
-  L1EventPayload,
-  type L2Block,
-  type LogFilter,
-  type NotesFilter,
+  ProtocolContractAddress,
+  type ProtocolContractsProvider,
+  protocolContractNames,
+} from '@aztec/protocol-contracts';
+import { type AcirSimulator, type SimulationProvider, readCurrentClassId } from '@aztec/simulator/client';
+import {
+  type AbiDecoded,
+  type ContractArtifact,
+  EventSelector,
+  FunctionCall,
+  FunctionSelector,
+  FunctionType,
+  decodeFunctionSignature,
+  encodeArguments,
+} from '@aztec/stdlib/abi';
+import type { AuthWitness } from '@aztec/stdlib/auth-witness';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { InBlock, L2Block } from '@aztec/stdlib/block';
+import type {
+  CompleteAddress,
+  ContractClassWithId,
+  ContractInstanceWithAddress,
+  NodeInfo,
+  PartialAddress,
+} from '@aztec/stdlib/contract';
+import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/stdlib/contract';
+import { SimulationError } from '@aztec/stdlib/errors';
+import { EventMetadata, L1EventPayload } from '@aztec/stdlib/event';
+import type { GasFees } from '@aztec/stdlib/gas';
+import { siloNullifier } from '@aztec/stdlib/hash';
+import type {
+  AztecNode,
+  EventMetadataDefinition,
+  GetContractClassLogsResponse,
+  GetPublicLogsResponse,
+  PXE,
+  PXEInfo,
+  PrivateKernelProver,
+} from '@aztec/stdlib/interfaces/client';
+import { type PrivateKernelSimulateOutput, PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
+import { computeAddressSecret } from '@aztec/stdlib/keys';
+import type { LogFilter } from '@aztec/stdlib/logs';
+import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
+import { type NotesFilter, UniqueNote } from '@aztec/stdlib/note';
+import {
+  PrivateExecutionResult,
   PrivateSimulationResult,
   type PublicSimulationOutput,
-  SimulationError,
   type Tx,
   type TxEffect,
   type TxExecutionRequest,
@@ -18,58 +61,14 @@ import {
   TxProvingResult,
   type TxReceipt,
   TxSimulationResult,
-  UniqueNote,
-  getNonNullifiedL1ToL2MessageWitness,
-} from '@aztec/circuit-types';
-import { type AuthWitness } from '@aztec/circuit-types/auth-witness';
-import {
-  type AztecNode,
-  type EventMetadataDefinition,
-  type PXE,
-  type PXEInfo,
-  type PrivateExecutionResult,
-  type PrivateKernelProver,
-  type PrivateKernelSimulateOutput,
-} from '@aztec/circuit-types/interfaces/client';
-import {
-  type AbiDecoded,
-  type ContractArtifact,
-  EventSelector,
-  FunctionSelector,
-  FunctionType,
-  decodeFunctionSignature,
-  encodeArguments,
-} from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
-import type {
-  CompleteAddress,
-  ContractClassWithId,
-  ContractInstanceWithAddress,
-  NodeInfo,
-  PartialAddress,
-} from '@aztec/circuits.js/contract';
-import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/circuits.js/contract';
-import type { GasFees } from '@aztec/circuits.js/gas';
-import { siloNullifier } from '@aztec/circuits.js/hash';
-import { PrivateKernelTailCircuitPublicInputs } from '@aztec/circuits.js/kernel';
-import { computeAddressSecret } from '@aztec/circuits.js/keys';
-import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import { Fr, type Point } from '@aztec/foundation/fields';
-import { type Logger, createLogger } from '@aztec/foundation/log';
-import { Timer } from '@aztec/foundation/timer';
-import { type SiblingPath } from '@aztec/foundation/trees';
-import { type KeyStore } from '@aztec/key-store';
-import { type L2TipsStore } from '@aztec/kv-store/stores';
-import { ProtocolContractAddress, protocolContractNames } from '@aztec/protocol-contracts';
-import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
-import { type AcirSimulator, type SimulationProvider, readCurrentClassId } from '@aztec/simulator/client';
+} from '@aztec/stdlib/tx';
 
 import { inspect } from 'util';
 
-import { type PXEServiceConfig } from '../config/index.js';
+import type { PXEServiceConfig } from '../config/index.js';
 import { getPackageInfo } from '../config/package_info.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { type PxeDatabase } from '../database/index.js';
+import type { PxeDatabase } from '../database/index.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver, type ProvingConfig } from '../kernel_prover/kernel_prover.js';
 import { getAcirSimulator } from '../simulator/index.js';
@@ -94,6 +93,7 @@ export class PXEService implements PXE {
     tipsStore: L2TipsStore,
     private proofCreator: PrivateKernelProver,
     private simulationProvider: SimulationProvider,
+    private protocolContractsProvider: ProtocolContractsProvider,
     config: PXEServiceConfig,
     loggerOrSuffix?: string | Logger,
   ) {
@@ -613,7 +613,8 @@ export class PXEService implements PXE {
   async #registerProtocolContracts() {
     const registered: Record<string, string> = {};
     for (const name of protocolContractNames) {
-      const { address, contractClass, instance, artifact } = await getCanonicalProtocolContract(name);
+      const { address, contractClass, instance, artifact } =
+        await this.protocolContractsProvider.getProtocolContractArtifact(name);
       await this.db.addContractArtifact(contractClass.id, artifact);
       await this.db.addContractInstance(instance);
       registered[name] = address.toString();

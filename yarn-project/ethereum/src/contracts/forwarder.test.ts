@@ -5,15 +5,8 @@ import { GovernanceProposerAbi } from '@aztec/l1-artifacts/GovernanceProposerAbi
 import { TestERC20Abi } from '@aztec/l1-artifacts/TestERC20Abi';
 import { TestERC20Bytecode } from '@aztec/l1-artifacts/TestERC20Bytecode';
 
-import { type Anvil } from '@viem/anvil';
-import {
-  type Chain,
-  type GetContractReturnType,
-  type HttpTransport,
-  type PublicClient,
-  encodeFunctionData,
-  getContract,
-} from 'viem';
+import type { Anvil } from '@viem/anvil';
+import { type GetContractReturnType, encodeFunctionData, getContract } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
@@ -21,7 +14,7 @@ import { DefaultL1ContractsConfig } from '../config.js';
 import { createL1Clients, deployL1Contract, deployL1Contracts } from '../deploy_l1_contracts.js';
 import { L1TxUtils } from '../l1_tx_utils.js';
 import { startAnvil } from '../test/start_anvil.js';
-import { type L1Clients } from '../types.js';
+import type { ViemPublicClient, ViemWalletClient } from '../types.js';
 import { FormattedViemError } from '../utils.js';
 import { ForwarderContract } from './forwarder.js';
 
@@ -34,13 +27,13 @@ describe('Forwarder', () => {
   let vkTreeRoot: Fr;
   let protocolContractTreeRoot: Fr;
   let l2FeeJuiceAddress: Fr;
-  let walletClient: L1Clients['walletClient'];
-  let publicClient: L1Clients['publicClient'];
+  let walletClient: ViemWalletClient;
+  let publicClient: ViemPublicClient;
   let forwarder: ForwarderContract;
   let l1TxUtils: L1TxUtils;
   let govProposerAddress: EthAddress;
   let tokenAddress: EthAddress;
-  let tokenContract: GetContractReturnType<typeof TestERC20Abi, PublicClient<HttpTransport, Chain>>;
+  let tokenContract: GetContractReturnType<typeof TestERC20Abi, ViemPublicClient>;
   beforeAll(async () => {
     logger = createLogger('ethereum:test:forwarder');
     // this is the 6th address that gets funded by the junk mnemonic
@@ -52,9 +45,9 @@ describe('Forwarder', () => {
 
     ({ anvil, rpcUrl } = await startAnvil());
 
-    ({ walletClient, publicClient } = createL1Clients(rpcUrl, privateKey));
+    ({ walletClient, publicClient } = createL1Clients([rpcUrl], privateKey));
 
-    const deployed = await deployL1Contracts(rpcUrl, privateKey, foundry, logger, {
+    const deployed = await deployL1Contracts([rpcUrl], privateKey, foundry, logger, {
       ...DefaultL1ContractsConfig,
       salt: undefined,
       vkTreeRoot,

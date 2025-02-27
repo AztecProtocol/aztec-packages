@@ -1,10 +1,6 @@
-import { type ContractArtifact } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
-import {
-  type ContractClassIdPreimage,
-  type ContractClassWithId,
-  type ContractInstanceWithAddress,
-} from '@aztec/circuits.js/contract';
+import type { ContractArtifact } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractClassIdPreimage, ContractClassWithId, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 import { ProtocolContractAddress } from './protocol_contract_data.js';
 
@@ -23,3 +19,5 @@ export interface ProtocolContract {
 export function isProtocolContract(address: AztecAddress) {
   return Object.values(ProtocolContractAddress).some(a => a.equals(address));
 }
+
+export { type ProtocolContractsProvider } from './provider/protocol_contracts_provider.js';

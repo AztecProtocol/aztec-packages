@@ -32,21 +32,20 @@ Unlike public state variables, which can be arbitrary types, private state varia
 
 Notes are the fundamental elements in the private world.
 
-A note should implement the following traits:
+A note has to implement the following traits:
 
-#include_code note_interface /noir-projects/aztec-nr/aztec/src/note/note_interface.nr rust
-
-#include_code serialize /noir-projects/noir-protocol-circuits/crates/types/src/traits.nr rust
-
-#include_code deserialize /noir-projects/noir-protocol-circuits/crates/types/src/traits.nr rust
+#include_code note_interfaces /noir-projects/aztec-nr/aztec/src/note/note_interface.nr rust
 
 The interplay between a private state variable and its notes can be confusing. Here's a summary to aid intuition:
 
-A private state variable (of type `PrivateMutable`, `PrivateImmutable` or `PrivateSet`) may be declared in storage.
+A private state variable (of type `PrivateMutable`, `PrivateImmutable` or `PrivateSet`) may be declared in storage and the purpose of private state variables is to manage notes (inserting their note hashes into the note hash tree, obtaining the notes, grouping the notes together using the storage slot etc.).
 
-Every note contains a header, which contains the contract address and storage slot of the state variable to which it is associated. A note is associated with a private state variable if the storage slot of the private state variable matches the storage slot contained in the note's header. The header provides information that helps the user interpret the note's data.
-
-Management of the header is abstracted-away from developers who use the `PrivateImmutable`, `PrivateMutable` and `PrivateSet` types.
+:::info
+Note that storage slots in private state are not real.
+They do not point to a specific leaf in a merkle tree (as is the case in public).
+Instead, in the case of notes they can be understood only as a tag that is used to associate notes with a private state variable.
+The state variable storage slot can commonly represent an owner, as is the case when using the `at(...)` function of a `Map<>` with an `AztecAddress` as the key.
+:::
 
 A private state variable points to one or many notes (depending on the type). The note(s) are all valid private state if the note(s) haven't yet been nullified.
 

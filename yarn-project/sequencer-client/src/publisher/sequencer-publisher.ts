@@ -1,15 +1,7 @@
+import type { L2Block } from '@aztec/aztec.js';
 import { Blob } from '@aztec/blob-lib';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
-import {
-  ConsensusPayload,
-  type L2Block,
-  SignatureDomainSeparator,
-  type TxHash,
-  getHashedSignaturePayload,
-} from '@aztec/circuit-types';
-import type { L1PublishBlockStats } from '@aztec/circuit-types/stats';
-import { type BlockHeader } from '@aztec/circuits.js/tx';
-import { type EpochCache } from '@aztec/epoch-cache';
+import type { EpochCache } from '@aztec/epoch-cache';
 import {
   FormattedViemError,
   type ForwarderContract,
@@ -25,19 +17,22 @@ import {
   type TransactionStats,
   formatViemError,
 } from '@aztec/ethereum';
-import { type L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { toHex } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Signature } from '@aztec/foundation/eth-signature';
+import type { Signature } from '@aztec/foundation/eth-signature';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ForwarderAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { ConsensusPayload, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/stdlib/p2p';
+import type { L1PublishBlockStats } from '@aztec/stdlib/stats';
+import { type BlockHeader, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
 import { type TransactionReceipt, encodeFunctionData } from 'viem';
 
-import { type PublisherConfig, type TxSenderConfig } from './config.js';
+import type { PublisherConfig, TxSenderConfig } from './config.js';
 import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
 
 /** Arguments to the process method of the rollup contract */

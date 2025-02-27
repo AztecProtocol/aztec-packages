@@ -24,7 +24,6 @@ telemetry:
   enabled: false
   otelCollectorEndpoint:
   useGcloudLogging: true
-  useGcloudMetrics: false
   excludeMetrics: "system"
 
 images:
@@ -60,7 +59,8 @@ aztec:
   extraAccounts: 10
 
   botKeyIndexStart: 3000
-  l1Salt: "" # leave empty for random salt
+  l1Salt: "42" # leave empty for random salt
+  testAccounts: true
 
 bootNode:
   peerIdPrivateKey: ""
@@ -242,7 +242,7 @@ ethereum:
   maxTxInputSizeBytes: "1310720"
   args: ""
   execution:
-    externalHost: ""
+    externalHosts: ""
     service:
       port: 8545
       targetPort: 8545
@@ -261,8 +261,6 @@ ethereum:
       targetPort: 5052
     resources:
       requests:
-        memory: "4Gi"
-      limits:
         memory: "4Gi"
     storageSize: "80Gi"
   validator:

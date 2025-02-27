@@ -1,9 +1,9 @@
 import { type Bufferable, type FromBuffer, serializeToBuffer } from '@aztec/foundation/serialize';
 import { SiblingPath } from '@aztec/foundation/trees';
-import { type Hasher } from '@aztec/foundation/trees';
+import type { Hasher } from '@aztec/foundation/trees';
 
 import { HasherWithStats } from './hasher_with_stats.js';
-import { type MerkleTree } from './interfaces/merkle_tree.js';
+import type { MerkleTree } from './interfaces/merkle_tree.js';
 
 const indexToKeyHash = (name: string, level: number, index: bigint) => `${name}:${level}:${index}`;
 
