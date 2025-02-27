@@ -18,10 +18,7 @@ struct ScalarMulIntermediateState {
     /* current bit of the scalar */
     bool bit;
 
-    bool operator==(const ScalarMulIntermediateState& other) const
-    {
-        return res == other.res && temp == other.temp && bit == other.bit;
-    }
+    bool operator==(const ScalarMulIntermediateState& other) const = default;
 };
 
 struct ScalarMulEvent {
@@ -29,6 +26,8 @@ struct ScalarMulEvent {
     FF scalar;
     std::vector<ScalarMulIntermediateState> intermediate_states;
     AffinePoint result;
+
+    bool operator==(const ScalarMulEvent& other) const = default;
 };
 
 } // namespace bb::avm2::simulation

@@ -1,15 +1,14 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include <iostream>
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
-#include "barretenberg/vm2/debugger.hpp"
 #include "barretenberg/vm2/generated/flavor_settings.hpp"
 #include "barretenberg/vm2/generated/relations/ecc.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_scalar_mul.hpp"
 #include "barretenberg/vm2/simulation/ecc.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
+#include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/ecc_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
@@ -43,11 +42,7 @@ AffinePoint q(q_x, q_y);
 
 TEST(EccAddConstrainingTest, EccEmptyRow)
 {
-    auto trace = TestTraceContainer::from_rows({
-        { .precomputed_clk = 1 },
-    });
-
-    check_relation<ecc>(trace);
+    check_relation<ecc>(testing::empty_trace());
 }
 
 TEST(EccAddConstrainingTest, EccAdd)
@@ -478,11 +473,7 @@ TEST(EccAddConstrainingTest, EccNegativeBadDouble)
 
 TEST(ScalarMulConstrainingTest, ScalarMulEmptyRow)
 {
-    auto trace = TestTraceContainer::from_rows({
-        { .precomputed_clk = 1 },
-    });
-
-    check_relation<scalar_mul>(trace);
+    check_relation<scalar_mul>(testing::empty_trace());
 }
 
 TEST(ScalarMulConstrainingTest, MulByOne)
@@ -614,8 +605,8 @@ TEST(ScalarMulConstrainingTest, NegativeDisableSel)
     builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
     // Disable the selector in one of the rows between start and end
     trace.set(Column::scalar_mul_sel, 5, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace),
-                              "Relation scalar_mul, subrelation .* failed at row .*");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace, scalar_mul::SR_SELECTOR_CONSISTENCY),
+                              "SELECTOR_CONSISTENCY");
 }
 
 TEST(ScalarMulConstrainingTest, NegativeEnableStartFirstRow)
@@ -635,7 +626,7 @@ TEST(ScalarMulConstrainingTest, NegativeEnableStartFirstRow)
     builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
     // Enable the start in the first row
     trace.set(Column::scalar_mul_start, 0, 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace), "Relation scalar_mul, subrelation .* failed at row 0");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace, scalar_mul::SR_SELECTOR_ON_START), "SELECTOR_ON_START");
 }
 
 TEST(ScalarMulConstrainingTest, NegativeMutateScalarOnEnd)
@@ -655,11 +646,11 @@ TEST(ScalarMulConstrainingTest, NegativeMutateScalarOnEnd)
     builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
     // Mutate the scalar on the end row
     trace.set(Column::scalar_mul_scalar, 254, 27);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace),
-                              "Relation scalar_mul, subrelation .* failed at row .*");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace, scalar_mul::SR_INPUT_CONSISTENCY_SCALAR),
+                              "INPUT_CONSISTENCY_SCALAR");
 }
 
-TEST(ScalarMulConstrainingTest, NegativeMutatePointOnEnd)
+TEST(ScalarMulConstrainingTest, NegativeMutatePointXOnEnd)
 {
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
@@ -676,10 +667,53 @@ TEST(ScalarMulConstrainingTest, NegativeMutatePointOnEnd)
     builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
     // Mutate the point on the end row
     trace.set(Column::scalar_mul_point_x, 254, q.x);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace, scalar_mul::SR_INPUT_CONSISTENCY_X),
+                              "INPUT_CONSISTENCY_X");
+}
+
+TEST(ScalarMulConstrainingTest, NegativeMutatePointYOnEnd)
+{
+    NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
+    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
+
+    FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
+    ecc_simulator.scalar_mul(p, scalar);
+
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+    });
+
+    tracegen::EccTraceBuilder builder;
+    builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
+    // Mutate the point on the end row
     trace.set(Column::scalar_mul_point_y, 254, q.y);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace),
-                              "Relation scalar_mul, subrelation .* failed at row .*");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace, scalar_mul::SR_INPUT_CONSISTENCY_Y),
+                              "INPUT_CONSISTENCY_Y");
+}
+
+TEST(ScalarMulConstrainingTest, NegativeMutatePointInfOnEnd)
+{
+    NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
+    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
+
+    FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
+    ecc_simulator.scalar_mul(p, scalar);
+
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+    });
+
+    tracegen::EccTraceBuilder builder;
+    builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
+    // Mutate the point on the end row
+    trace.set(Column::scalar_mul_point_inf, 254, 1);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace, scalar_mul::SR_INPUT_CONSISTENCY_INF),
+                              "INPUT_CONSISTENCY_INF");
 }
 
 } // namespace

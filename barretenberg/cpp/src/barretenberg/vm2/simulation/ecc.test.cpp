@@ -7,6 +7,7 @@
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 
+using ::testing::AllOf;
 using ::testing::ElementsAre;
 using ::testing::ElementsAreArray;
 using ::testing::Field;
@@ -82,13 +83,7 @@ TEST(AvmSimulationEccTest, ScalarMul)
     }
 
     auto events = scalar_mul_event_emitter.dump_events();
-    EXPECT_THAT(
-        events,
-        AllOf(ElementsAre(AllOf(Field(&ScalarMulEvent::point, p),
-                                Field(&ScalarMulEvent::scalar, scalar),
-                                Field(&ScalarMulEvent::result, result),
-                                Field(&ScalarMulEvent::intermediate_states, ElementsAreArray(intermediate_states)))),
-              SizeIs(1)));
+    EXPECT_THAT(events, AllOf(ElementsAre(ScalarMulEvent{ p, scalar, intermediate_states, result }), SizeIs(1)));
 }
 
 } // namespace

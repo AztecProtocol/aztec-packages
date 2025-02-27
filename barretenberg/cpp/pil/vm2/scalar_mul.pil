@@ -66,8 +66,10 @@ namespace scalar_mul;
     sel' * (start' - LATCH_CONDITION) = 0;
 
     // Selector must be 1 in a start row
+    #[SELECTOR_ON_START]
     start * (1 - sel) = 0;
     // Next selector must be current selector unless LATCH_CONDITION
+    #[SELECTOR_CONSISTENCY]
     (sel' - sel) * (1 - LATCH_CONDITION) = 0;
     // Selector must be 1 in an end row
     end * (1 - sel) = 0;
@@ -82,10 +84,13 @@ namespace scalar_mul;
 
 
     // Input consistency
-
+    #[INPUT_CONSISTENCY_X]
     not_end * (point_x - point_x') = 0;
+    #[INPUT_CONSISTENCY_Y]
     not_end * (point_y - point_y') = 0;
+    #[INPUT_CONSISTENCY_INF]
     not_end * (point_inf - point_inf') = 0;
+    #[INPUT_CONSISTENCY_SCALAR]
     not_end * (scalar - scalar') = 0;
 
 
@@ -124,7 +129,6 @@ namespace scalar_mul;
 
 
     // if end, temp = point. Else, temp is unconstrained
-    // Should I merge these into 1 expression?
     end * (temp_x - point_x) = 0;
     end * (temp_y - point_y) = 0;
     end * (temp_inf - point_inf) = 0;
