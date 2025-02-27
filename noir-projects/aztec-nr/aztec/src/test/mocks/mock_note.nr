@@ -86,8 +86,8 @@ impl MockNoteBuilder {
         RetrievedNote {
             note: MockNote { value: self.value },
             contract_address: self.contract_address.unwrap_or(AztecAddress::zero()),
-            // This is invalid note metadata, which would result in the kernel failing to prove note existence. Because
-            // our tests don't interact with the kernel this is not a problem.
+            // If the option is `None` for self.note_metadata, we fill it with invalid note metadata, which would result in the kernel
+            // failing to prove note existence. Because our tests don't interact with the kernel this is not a problem.
             metadata: self.note_metadata.unwrap_or(std::mem::zeroed()),
         }
     }

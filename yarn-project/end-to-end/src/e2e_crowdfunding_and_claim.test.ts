@@ -285,8 +285,13 @@ describe('e2e_crowdfunding_and_claim', () => {
 
     // 2) Create a note
     let note: any;
+    const arbitraryStorageSlot = 69;
     {
-      const receipt = await testContract.methods.call_create_note(5n, owner, owner, 69).send().wait({ debug: true });
+      const [arbitraryValue, sender] = [5n, owner];
+      const receipt = await testContract.methods
+        .call_create_note(arbitraryValue, owner, sender, arbitraryStorageSlot)
+        .send()
+        .wait({ debug: true });
       await testContract.methods.sync_notes().simulate();
       const notes = await wallets[0].getNotes({ txHash: receipt.txHash });
       expect(notes.length).toEqual(1);
@@ -294,7 +299,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     }
 
     // 3) Test the note was included
-    await testContract.methods.test_note_inclusion(owner, 69).send().wait();
+    await testContract.methods.test_note_inclusion(owner, arbitraryStorageSlot).send().wait();
 
     // 4) Finally, check that the claim process fails
     await expect(

@@ -3,11 +3,19 @@ use crate::{
     test::helpers::test_environment::TestEnvironment,
 };
 
+global STORAGE_SLOT: Field = 420;
+global VALUE: Field = 69;
+global WRITTEN_TO_STORAGE_AT: u32 = 2;
+global STORAGE_UNSET_VALUE: Field = 0;
+
 unconstrained fn setup() -> &mut TestEnvironment {
     let mut env = TestEnvironment::new();
     let context = &mut env.public();
 
-    context.storage_write(15, 69);
+    // We sanity check that we are building block 2, and thus block 2 is this storage write will occur.
+    assert_eq(env.pending_block_number(), 2);
+
+    context.storage_write(STORAGE_SLOT, VALUE);
 
     env.advance_block_by(1);
 
@@ -19,11 +27,14 @@ unconstrained fn setup() -> &mut TestEnvironment {
 unconstrained fn public_storage_read() {
     let env = setup();
 
-    let context = &mut env.private();
+    let context = &mut env.private_at(WRITTEN_TO_STORAGE_AT);
 
     assert_eq(
-        context.historical_header.public_storage_historical_read(15, get_contract_address()),
-        69,
+        context.historical_header.public_storage_historical_read(
+            STORAGE_SLOT,
+            get_contract_address(),
+        ),
+        VALUE,
     );
 }
 
@@ -32,10 +43,13 @@ unconstrained fn public_storage_read() {
 unconstrained fn public_storage_read_empty() {
     let env = setup();
 
-    let context = &mut env.private_at(1);
+    let context = &mut env.private_at(WRITTEN_TO_STORAGE_AT - 1);
 
     assert_eq(
-        context.historical_header.public_storage_historical_read(15, get_contract_address()),
-        0,
+        context.historical_header.public_storage_historical_read(
+            STORAGE_SLOT,
+            get_contract_address(),
+        ),
+        STORAGE_UNSET_VALUE,
     );
 }

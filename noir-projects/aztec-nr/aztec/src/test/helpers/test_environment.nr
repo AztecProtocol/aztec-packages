@@ -14,6 +14,11 @@ use crate::oracle::{
 use protocol_types::constants::PUBLIC_DISPATCH_SELECTOR;
 use protocol_types::traits::Packable;
 
+// This is the first nullifier emitted from the TXe. It is an arbitrary number assigned in the TXe that is
+// larger than the first prefilled subtree of the nullifier tree. We use know FIRST_NULLIFIER_EMITTED_IN_TXE exists
+// because the TXe creates deterministic first nullifiers if no side-effects are emitted.
+pub global FIRST_NULLIFIER_EMITTED_IN_TXE: Field = 6969 + 1;
+
 pub struct TestEnvironment {}
 
 impl TestEnvironment {

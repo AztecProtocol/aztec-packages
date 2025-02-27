@@ -88,6 +88,13 @@ pub contract DocsExample {
         }
     }
 
+    // DO NOT uncomment this and add an initializer in this contract. We specifically need this contract to not have an initializer
+    // because of tests in 'yarn-project/end-to-end/src/e2e_deploy_contract/deploy_method.test.ts'
+    // #[initializer]
+    // #[private]
+    // // We can name our initializer anything we want as long as it's marked as aztec(initializer)
+    // fn initialize() {}
+
     // docs:start:initialize_public_immutable
     #[public]
     fn initialize_public_immutable(points: u8) {

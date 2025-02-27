@@ -45,7 +45,7 @@ Retrieve the note from the user's PXE.
 
 #include_code get_note_from_pxe noir-projects/noir-contracts/contracts/test_contract/src/main.nr rust
 
-In this example, the user's notes are stored in a storage_slot that is specified. We look for notes located in this storage_slot and return the ones matched by the getter options.
+In this example, we fetch notes located in the storage slot that we pass in from the function parameters. The notes also must match the criteria specified by the getter options that we declare and are able to customize.
 
 ## Prove that a note was included in a specified block
 

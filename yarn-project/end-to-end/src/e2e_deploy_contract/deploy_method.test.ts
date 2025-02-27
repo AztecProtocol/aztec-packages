@@ -109,10 +109,11 @@ describe('e2e_deploy_contract deploy method', () => {
   it('publicly deploys a contract with no constructor', async () => {
     logger.debug(`Deploying contract with no constructor`);
     const contract = await DocsExampleContract.deploy(wallet).send().deployed();
+    const arbitraryValue = 42;
     logger.debug(`Call a public function to check that it was publicly deployed`);
-    const receipt = await contract.methods.emit_public(42).send().wait();
+    const receipt = await contract.methods.emit_public(arbitraryValue).send().wait();
     const logs = await pxe.getPublicLogs({ txHash: receipt.txHash });
-    expect(logs.logs[0].log.log[0]).toEqual(new Fr(42));
+    expect(logs.logs[0].log.log[0]).toEqual(new Fr(arbitraryValue));
   });
 
   it('refuses to deploy a contract with no constructor and no public deployment', async () => {
