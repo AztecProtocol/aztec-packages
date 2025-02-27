@@ -6,6 +6,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { WorkerClientManager, testChainConfig } from './worker_client_manager.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import getPort from 'get-port';
 
 const logger = createLogger('testbench-ports');
 const NUMBER_OF_ITERATIONS = 5;
@@ -63,7 +64,7 @@ describe('Port Change', () => {
         logger.info(`Iteration ${i + 1} done, changing port for client ${clientIndex}`);
 
         // change port for the client
-        await workerClientManager.changePort(clientIndex, workerClientManager.getNewPort());
+        await workerClientManager.changePort(clientIndex, await getPort());
 
         // wait a bit longer for all peers to be ready
         await sleep(config.default.peerCheckIntervalMS * 2);

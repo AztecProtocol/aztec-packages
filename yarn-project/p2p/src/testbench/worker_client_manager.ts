@@ -236,15 +236,6 @@ class WorkerClientManager {
     }
   }
 
-  public getNewPort(): number {
-    while (true) {
-      const port = Math.floor(Math.random() * 65535);
-      if (!this.ports.includes(port)) {
-        return port;
-      }
-    }
-  }
-
   /**
    * Terminate a single process with timeout and force kill if needed
    */
