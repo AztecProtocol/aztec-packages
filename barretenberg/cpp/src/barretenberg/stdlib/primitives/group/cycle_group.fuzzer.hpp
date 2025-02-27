@@ -160,7 +160,7 @@ template <typename Builder> class CycleGroupBase {
 
         // Instruction arguments
         ArgumentContents arguments;
-        
+
         // Sample a uint256_t value from log distribution
         // That is we first sample the bit count in [0..255]
         // And then shrink the random [0..2^255] value
@@ -249,7 +249,8 @@ template <typename Builder> class CycleGroupBase {
                     instr.arguments.batchMulArgs.inputs[i] = static_cast<uint8_t>(rng.next() & 0xff);
                 }
                 for (size_t i = 0; i < mult_size; i++) {
-                    instr.arguments.batchMulArgs.scalars[i] = ScalarField(Instruction::fast_log_distributed_uint256(rng));
+                    instr.arguments.batchMulArgs.scalars[i] =
+                        ScalarField(Instruction::fast_log_distributed_uint256(rng));
                 }
                 instr.arguments.batchMulArgs.output_index = static_cast<uint8_t>(rng.next() & 0xff);
                 return instr;
@@ -376,7 +377,7 @@ template <typename Builder> class CycleGroupBase {
                     e.scalar = e.scalar.to_montgomery_form();
                 }
                 e.value = GroupElement::one() * e.scalar;
-            }            
+            }
             // Return value
             return e;
         }
@@ -402,18 +403,18 @@ template <typename Builder> class CycleGroupBase {
                                          havoc_config.VAL_MUT_MONTGOMERY_PROBABILITY;
             uint256_t value_data;
             // Conversion at the start
-#define MONT_CONVERSION_SCALAR                                                                                                \
+#define MONT_CONVERSION_SCALAR                                                                                         \
     if (convert_to_montgomery) {                                                                                       \
-        value_data = uint256_t(e.to_montgomery_form());                                                         \
+        value_data = uint256_t(e.to_montgomery_form());                                                                \
     } else {                                                                                                           \
-        value_data = uint256_t(e);                                                                              \
+        value_data = uint256_t(e);                                                                                     \
     }
             // Inverse conversion at the end
-#define INV_MONT_CONVERSION_SCALAR                                                                                         \
+#define INV_MONT_CONVERSION_SCALAR                                                                                     \
     if (convert_to_montgomery) {                                                                                       \
-        e = ScalarField(value_data).from_montgomery_form();                                                     \
+        e = ScalarField(value_data).from_montgomery_form();                                                            \
     } else {                                                                                                           \
-        e = ScalarField(value_data);                                                                            \
+        e = ScalarField(value_data);                                                                                   \
     }
 
             // Pick the last value from the mutation distrivution vector
@@ -528,7 +529,8 @@ template <typename Builder> class CycleGroupBase {
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.mulArgs.in);
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.mulArgs.out);
                 if (rng.next() & 1) {
-                    instruction.arguments.mulArgs.scalar = mutateScalarElement(instruction.arguments.mulArgs.scalar, rng, havoc_config);
+                    instruction.arguments.mulArgs.scalar =
+                        mutateScalarElement(instruction.arguments.mulArgs.scalar, rng, havoc_config);
                 }
                 break;
             case OPCODE::ADD:
@@ -564,7 +566,8 @@ template <typename Builder> class CycleGroupBase {
                     for (size_t i = 0; i < mut_count; i++) {
                         size_t ind =
                             rng.next() % static_cast<size_t>(instruction.arguments.batchMulArgs.add_elements_count);
-                        instruction.arguments.batchMulArgs.scalars[ind] = mutateScalarElement(instruction.arguments.batchMulArgs.scalars[ind], rng, havoc_config);
+                        instruction.arguments.batchMulArgs.scalars[ind] =
+                            mutateScalarElement(instruction.arguments.batchMulArgs.scalars[ind], rng, havoc_config);
                     }
                 }
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.batchMulArgs.output_index);
@@ -832,13 +835,13 @@ template <typename Builder> class CycleGroupBase {
                 circuit_should_fail = circuit_should_fail | can_fail;
                 return ExecutionHandler(base_scalar_res, base_res, other.cg().unconditional_add(this->cg()));
             case 2:
-                if(!(this->cycle_group.is_constant() && other.cycle_group.is_constant())){
+                if (!(this->cycle_group.is_constant() && other.cycle_group.is_constant())) {
                     circuit_should_fail = circuit_should_fail | can_fail;
                     return ExecutionHandler(
                         base_scalar_res, base_res, this->cg().checked_unconditional_add(other.cg()));
                 }
             case 3:
-                if(!(this->cycle_group.is_constant() && other.cycle_group.is_constant())){
+                if (!(this->cycle_group.is_constant() && other.cycle_group.is_constant())) {
                     circuit_should_fail = circuit_should_fail | can_fail;
                     return ExecutionHandler(
                         base_scalar_res, base_res, other.cg().checked_unconditional_add(this->cg()));
@@ -905,7 +908,7 @@ template <typename Builder> class CycleGroupBase {
                 circuit_should_fail = circuit_should_fail | can_fail;
                 return ExecutionHandler(base_scalar_res, base_res, this->cg().unconditional_subtract(other.cg()));
             case 1:
-                if(!(this->cycle_group.is_constant() && other.cycle_group.is_constant())){
+                if (!(this->cycle_group.is_constant() && other.cycle_group.is_constant())) {
                     circuit_should_fail = circuit_should_fail | can_fail;
                     return ExecutionHandler(
                         base_scalar_res, base_res, this->cg().checked_unconditional_subtract(other.cg()));
