@@ -252,6 +252,7 @@ int main(int argc, char* argv[])
                                          "Construct a circuit from the given bytecode (in particular, expand black box "
                                          "functions) and return the gate count information.");
 
+    add_scheme_option(gates);
     add_verbose_flag(gates);
     add_bytecode_path_option(gates);
     add_include_gates_per_opcode_flag(gates);

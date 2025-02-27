@@ -33,7 +33,7 @@ class TranslatorVerifier {
     void put_translation_data_in_relation_parameters(const uint256_t& evaluation_input_x,
                                                      const BF& batching_challenge_v,
                                                      const uint256_t& accumulated_result);
-    bool verify_proof(const HonkProof& proof);
+    bool verify_proof(const HonkProof& proof, const uint256_t& evaluation_input_x, const BF& batching_challenge_v);
     bool verify_translation(const TranslationEvaluations& translation_evaluations);
 };
 } // namespace bb
