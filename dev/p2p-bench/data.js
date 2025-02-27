@@ -1,82 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740686567082,
+  "lastUpdate": 1740686735305,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "P2P Testbench": [
-      {
-        "commit": {
-          "author": {
-            "email": "47148561+Maddiaa0@users.noreply.github.com",
-            "name": "Maddiaa",
-            "username": "Maddiaa0"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8f121f8355e84a31ca08a56a829f8c545f058ff7",
-          "message": "chore(p2p): run testbench with 200kb transactions (#12218)\n\n## Overview\n\nBumps transactions size use random ClientIVC proofs in testbench \n\n```\nconst CLIENT_IVC_PROOF_LENGTH = 172052;\nconst CLIENT_IVC_VK_LENGTH = 2730;\n```",
-          "timestamp": "2025-02-24T15:19:11Z",
-          "tree_id": "8de9e7028424ad42c564f1feb594d50c62bc4fa6",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8f121f8355e84a31ca08a56a829f8c545f058ff7"
-        },
-        "date": 1740412099044,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "degree-1-strict - numberReceived",
-            "value": 2,
-            "unit": "ms"
-          },
-          {
-            "name": "degree-1-strict - minDelay",
-            "value": 521,
-            "unit": "ms"
-          },
-          {
-            "name": "degree-1-strict - maxDelay",
-            "value": 1921,
-            "unit": "ms"
-          },
-          {
-            "name": "degree-1-strict - averageDelay",
-            "value": 1221,
-            "unit": "ms"
-          },
-          {
-            "name": "degree-1-strict - medianDelay",
-            "value": 1921,
-            "unit": "ms"
-          },
-          {
-            "name": "normal-degree-50-nodes - numberReceived",
-            "value": 31,
-            "unit": "ms"
-          },
-          {
-            "name": "normal-degree-50-nodes - minDelay",
-            "value": 139,
-            "unit": "ms"
-          },
-          {
-            "name": "normal-degree-50-nodes - maxDelay",
-            "value": 7239,
-            "unit": "ms"
-          },
-          {
-            "name": "normal-degree-50-nodes - averageDelay",
-            "value": 4566.1,
-            "unit": "ms"
-          },
-          {
-            "name": "normal-degree-50-nodes - medianDelay",
-            "value": 5440,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -4524,6 +4450,80 @@ window.BENCHMARK_DATA = {
           {
             "name": "normal-degree-50-nodes - medianDelay",
             "value": 1987,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "68168980+just-mitch@users.noreply.github.com",
+            "name": "just-mitch",
+            "username": "just-mitch"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b1dc585d59066b3ee80ac67611f8aef9cc7034f4",
+          "message": "fix: just give the thing a different namespace (#12353)",
+          "timestamp": "2025-02-27T14:17:46-05:00",
+          "tree_id": "dc294f90a1d1c818851578f681581b941443681a",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b1dc585d59066b3ee80ac67611f8aef9cc7034f4"
+        },
+        "date": 1740686733686,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "degree-1-strict - numberReceived",
+            "value": 3,
+            "unit": "ms"
+          },
+          {
+            "name": "degree-1-strict - minDelay",
+            "value": 229,
+            "unit": "ms"
+          },
+          {
+            "name": "degree-1-strict - maxDelay",
+            "value": 472,
+            "unit": "ms"
+          },
+          {
+            "name": "degree-1-strict - averageDelay",
+            "value": 353,
+            "unit": "ms"
+          },
+          {
+            "name": "degree-1-strict - medianDelay",
+            "value": 358,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - numberReceived",
+            "value": 47,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - minDelay",
+            "value": 223,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - maxDelay",
+            "value": 7079,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - averageDelay",
+            "value": 2677.11,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - medianDelay",
+            "value": 2626,
             "unit": "ms"
           }
         ]
