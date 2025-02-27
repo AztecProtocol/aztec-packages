@@ -5,6 +5,8 @@ use crate::{
 
 use dep::protocol_types::block_header::BlockHeader;
 
+mod test;
+
 trait ProveNoteValidity {
     fn prove_note_validity<Note>(
         header: BlockHeader,
