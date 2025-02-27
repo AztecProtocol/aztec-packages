@@ -82,19 +82,18 @@ pub unconstrained fn find_index_hint<T, let N: u32, Env>(
 }
 
 // Helper function to find the index of the last element in an array that satisfies a given predicate, counting
-// from the end of the array.  If the element is not found, the function returns 0 as the index, since that
-// will be checked last.
+// from the end of the array.  If the element is not found, the function returns N as the index.
 // Useful for finding trailing zeroes in arrays which may have valid empty values.
 // e.g. removing trailing 0s from [1, 0, 2, 0, 0, 0] -> [1, 0, 2]
 pub unconstrained fn find_index_hint_from_end<T, let N: u32, Env>(
     array: [T; N],
     find: fn[Env](T) -> bool,
 ) -> u32 {
-    let mut index = 0;
+    let mut index = N;
     for i in 0..N {
         let j = N - i - 1;
-        // We check `index == 0` to ensure that we only update the index if we haven't found a match yet.
-        if (index == 0) & find(array[j]) {
+        // We check `index == N` to ensure that we only update the index if we haven't found a match yet.
+        if (index == N) & find(array[j]) {
             index = j;
         }
     }
@@ -129,7 +128,7 @@ where
 {
     // Safety: this value is constrained in the below loop.
     let index = unsafe { find_index_hint_from_end(array, |elem: T| !is_empty(elem)) };
-    let length = if index == 0 { 0 } else { index + 1 };
+    let length = if index == N { 0 } else { index + 1 };
     // Check the elt just before length is non-zero:
     if length != 0 {
         assert(!is_empty(array[length - 1]), "invalid array");

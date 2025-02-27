@@ -224,7 +224,7 @@ pub contract ContractClassRegisterer {
             array_concat(log, [0; CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS - N]);
         // Safety: The below length is constrained in the base rollup.
         let index = unsafe { find_index_hint_from_end(log_to_emit, |elem| !is_empty(elem)) };
-        let length = if index == 0 { 0 } else { index + 1 };
+        let length = if index == N { 0 } else { index + 1 };
         // TODO: We will eventually remove this hash.
         let log_hash = poseidon2_hash_subarray_variable(log_to_emit, length);
         // Safety: the below only exists to broadcast the raw log, so we can provide it to the base rollup later to be constrained.
