@@ -54,6 +54,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
     using Shplemini = ShpleminiVerifier_<Curve>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
+    using InterleavedBatch = ClaimBatcher::InterleavedBatch;
 
     batching_challenge_v = transcript->template get_challenge<BF>("Translation:batching_challenge");
 
@@ -119,7 +120,9 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
     ClaimBatcher claim_batcher{
         .unshifted = ClaimBatch{ commitments.get_unshifted_without_concatenated(),
                                  sumcheck_output.claimed_evaluations.get_unshifted_without_concatenated() },
-        .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
+        .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() },
+        .interleaved = InterleavedBatch{ .commitments = commitments.get_groups_to_be_concatenated(),
+                                         .evaluations = sumcheck_output.claimed_evaluations.get_concatenated() }
     };
     const BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(circuit_size,
@@ -133,9 +136,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
                                                libra_commitments,
                                                sumcheck_output.claimed_libra_evaluation,
                                                {},
-                                               {},
-                                               commitments.get_groups_to_be_concatenated(),
-                                               sumcheck_output.claimed_evaluations.get_concatenated());
+                                               {});
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     auto verified = key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);

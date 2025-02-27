@@ -115,7 +115,7 @@ template <typename Curve> class GeminiProver_ {
      * could be made more efficient by e.g. reusing already initialized polynomials, possibly at the expense of clarity.
      */
     class PolynomialBatcher {
-
+      public:
         size_t full_batched_size = 0; // size of the full batched polynomial (generally the circuit size)
         bool batched_unshifted_initialized = false;
 
@@ -125,14 +125,17 @@ template <typename Curve> class GeminiProver_ {
         RefVector<Polynomial> unshifted;            // set of unshifted polynomials
         RefVector<Polynomial> to_be_shifted_by_one; // set of polynomials to be left shifted by 1
         RefVector<Polynomial> to_be_shifted_by_k;   // set of polynomials to be right shifted by k
+        RefVector<Polynomial> interleaved_polynomials;
+        std::vector<RefVector<Polynomial>> groups_to_be_interleaved;
 
         size_t k_shift_magnitude = 0; // magnitude of right-shift-by-k (assumed even)
 
         Polynomial batched_unshifted;            // linear combination of unshifted polynomials
         Polynomial batched_to_be_shifted_by_one; // linear combination of to-be-shifted polynomials
         Polynomial batched_to_be_shifted_by_k;   // linear combination of to-be-shifted-by-k polynomials
+        Polynomial batched_interleaved;
+        std::vector<Polynomial> batched_group;
 
-      public:
         PolynomialBatcher(const size_t full_batched_size)
             : full_batched_size(full_batched_size)
             , batched_unshifted(full_batched_size)
@@ -142,6 +145,7 @@ template <typename Curve> class GeminiProver_ {
         bool has_unshifted() const { return unshifted.size() > 0; }
         bool has_to_be_shifted_by_one() const { return to_be_shifted_by_one.size() > 0; }
         bool has_to_be_shifted_by_k() const { return to_be_shifted_by_k.size() > 0; }
+        bool has_interleaved() const { return interleaved_polynomials.size() > 0; } // throw if one is provided one not
 
         // Set references to the polynomials to be batched
         void set_unshifted(RefVector<Polynomial> polynomials) { unshifted = polynomials; }
@@ -158,6 +162,12 @@ template <typename Curve> class GeminiProver_ {
         {
             has_random_polynomial = true;
             random_polynomial = random;
+        }
+
+        void set_interleaved(RefVector<Polynomial> interleaved, std::vector<RefVector<Polynomial>> groups)
+        {
+            interleaved_polynomials = interleaved;
+            groups_to_be_interleaved = groups;
         }
 
         /**
@@ -204,6 +214,21 @@ template <typename Curve> class GeminiProver_ {
                 full_batched += batched_to_be_shifted_by_k.right_shifted(k_shift_magnitude); // A₀ += X^k * H
             }
 
+            if (has_interleaved()) {
+                batched_interleaved = Polynomial(full_batched_size, full_batched_size, 0);
+                for (size_t i = 0; i < groups_to_be_interleaved[0].size(); ++i) {
+                    batched_group.push_back(Polynomial(full_batched_size));
+                }
+                for (size_t i = 0; i < groups_to_be_interleaved.size(); ++i) {
+                    batched_interleaved.add_scaled(interleaved_polynomials[i], running_scalar);
+                    for (size_t j = 0; j < groups_to_be_interleaved[0].size(); ++j) {
+                        batched_group[j].add_scaled(groups_to_be_interleaved[i][j], running_scalar);
+                    }
+                    running_scalar *= challenge;
+                }
+                full_batched += batched_interleaved;
+            }
+
             return full_batched;
         }
 
@@ -244,6 +269,23 @@ template <typename Curve> class GeminiProver_ {
 
             return { A_0_pos, A_0_neg };
         };
+
+        std::pair<Polynomial, Polynomial> compute_partially_evaluated_interleaved_polynomial(const Fr& r_challenge)
+        {
+            Polynomial P_pos(batched_group[0]);
+            Polynomial P_neg(batched_group[0]);
+
+            Fr current_r_shift_pos = r_challenge;
+            Fr current_r_shift_neg = -r_challenge;
+            for (size_t i = 1; i < batched_group.size(); i++) {
+                P_pos.add_scaled(batched_group[i], current_r_shift_pos);
+                P_neg.add_scaled(batched_group[i], current_r_shift_neg);
+                current_r_shift_pos *= r_challenge;
+                current_r_shift_neg *= -r_challenge;
+            }
+
+            return { P_pos, P_neg };
+        }
     };
 
     static std::vector<Polynomial> compute_fold_polynomials(const size_t log_n,
@@ -260,10 +302,7 @@ template <typename Curve> class GeminiProver_ {
                                                                   Polynomial&& A_0_pos,
                                                                   Polynomial&& A_0_neg,
                                                                   std::vector<Polynomial>&& fold_polynomials,
-                                                                  const Fr& r_challenge,
-                                                                  Polynomial&& P_pos,
-                                                                  Polynomial&& P_neg,
-                                                                  size_t group_size);
+                                                                  const Fr& r_challenge);
 
     template <typename Transcript>
     static std::vector<Claim> prove(const Fr circuit_size,
@@ -271,8 +310,6 @@ template <typename Curve> class GeminiProver_ {
                                     std::span<Fr> multilinear_challenge,
                                     const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
                                     const std::shared_ptr<Transcript>& transcript,
-                                    RefSpan<Polynomial> concatenated_polynomials = {},
-                                    const std::vector<RefVector<Polynomial>>& groups_to_be_concatenated = {},
                                     bool has_zk = false);
 
 }; // namespace bb
@@ -296,19 +333,16 @@ template <typename Curve> class GeminiVerifier_ {
      * @return Fold polynomial opening claims: (r, A₀(r), C₀₊), (-r, A₀(-r), C₀₋), and
      * (Cⱼ, Aⱼ(-r^{2ʲ}), -r^{2}), j = [1, ..., m-1]
      */
-    static std::vector<OpeningClaim<Curve>> reduce_verification(
-        std::span<Fr> multilinear_challenge,
-        ClaimBatcher& claim_batcher,
-        auto& transcript,
-        const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
-        RefSpan<Fr> concatenated_evaluations = {})
+    static std::vector<OpeningClaim<Curve>> reduce_verification(std::span<Fr> multilinear_challenge,
+                                                                ClaimBatcher& claim_batcher,
+                                                                auto& transcript)
 
     {
         const size_t num_variables = multilinear_challenge.size();
 
         // const size_t N = 1 << num_variables;
-        const bool has_concatenations = !concatenation_group_commitments.empty();
-        ASSERT(concatenated_evaluations.size() == concatenation_group_commitments.size());
+        const bool has_concatenations = claim_batcher.interleaved ? true : false;
+        // ASSERT(concatenated_evaluations.size() == concatenation_group_commitments.size());
 
         Fr rho = transcript->template get_challenge<Fr>("rho");
 
@@ -344,9 +378,7 @@ template <typename Curve> class GeminiVerifier_ {
         Fr p_0_pos = Fr(0);
         if (has_concatenations) {
             p_0_pos = transcript->template receive_from_prover<Fr>("Gemini:P_0_pos");
-            info("P_0_pos received? ", p_0_pos);
             p_0_neg = transcript->template receive_from_prover<Fr>("Gemini:P_0_neg");
-            info("P_0_neg received? ", p_0_neg);
             evaluations[0] += p_0_neg;
         }
 
@@ -368,7 +400,7 @@ template <typename Curve> class GeminiVerifier_ {
         GroupElement C_P_pos = GroupElement::zero();
         GroupElement C_P_neg = GroupElement::zero();
         if (has_concatenations) {
-            size_t concatenation_group_size = concatenation_group_commitments[0].size();
+            size_t concatenation_group_size = claim_batcher.get_interleaved_size();
             // The "real" size of polynomials in concatenation groups (i.e. the number of non-zero values)
             // const size_t mini_circuit_size = N / concatenation_group_size;
             Fr current_r_shift_pos = Fr(1);
@@ -378,17 +410,25 @@ template <typename Curve> class GeminiVerifier_ {
             std::vector<Fr> r_shifts_pos;
             std::vector<Fr> r_shifts_neg;
             for (size_t i = 0; i < concatenation_group_size; ++i) {
+
                 r_shifts_pos.emplace_back(current_r_shift_pos);
                 r_shifts_neg.emplace_back(current_r_shift_neg);
                 current_r_shift_pos *= r;
                 current_r_shift_neg *= (-r);
             }
+            for (size_t i = 0; i < r_shifts_neg.size(); ++i) {
+                info("r_shifts_pos[", i, "] = ", r_shifts_pos[i]);
+                info(r_shifts_neg[i]);
+            }
             size_t j = 0;
-            for (auto& concatenation_group_commitment : concatenation_group_commitments) {
+            info(batching_scalar);
+            auto concatenated_evaluations = claim_batcher.get_interleaved().evaluations;
+            for (auto& concatenation_group_commitment : claim_batcher.get_interleaved().commitments) {
                 // Compute the contribution from each group j of commitments Gⱼ = {C₀, C₁, C₂, C₃, ...}
                 // where s = mini_circuit_size as
                 // C₀_r_pos += ∑ᵢ ρᵏ⁺ᵐ⁺ʲ⋅ rⁱˢ ⋅ Cᵢ
-                // C₀_r_neg += ∑ᵢ ρᵏ⁺ᵐ⁺ʲ⋅ (-r)ⁱˢ ⋅ Cᵢ
+                // C₀_r_neg += ∑ᵢ ρᵏ⁺ᵐ⁺ʲ⋅ (-r)ⁱˢ ⋅ C
+                // ᵢ
                 for (size_t i = 0; i < concatenation_group_size; ++i) {
                     C_P_pos += concatenation_group_commitment[i] * batching_scalar * r_shifts_pos[i];
                     C_P_neg += concatenation_group_commitment[i] * batching_scalar * r_shifts_neg[i];
@@ -402,10 +442,12 @@ template <typename Curve> class GeminiVerifier_ {
         }
 
         // Compute evaluation A₀(r)
-        auto full_a_0_pos = compute_gemini_batched_univariate_evaluation(
+        Fr full_a_0_pos = compute_gemini_batched_univariate_evaluation(
             num_variables, batched_evaluation, multilinear_challenge, r_squares, evaluations);
         std::vector<OpeningClaim<Curve>> fold_polynomial_opening_claims;
         fold_polynomial_opening_claims.reserve(num_variables + 1);
+        info("full_a_0_pos: ", full_a_0_pos);
+        info("a_0_pos: ", full_a_0_pos - p_0_pos);
 
         // ( [A₀₊], r, A₀(r) )
         fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { r, full_a_0_pos - p_0_pos }, C0_r_pos });
@@ -417,7 +459,7 @@ template <typename Curve> class GeminiVerifier_ {
                 OpeningClaim<Curve>{ { -r_squares[l + 1], evaluations[l + 1] }, commitments[l] });
         }
         if (has_concatenations) {
-            size_t concatenation_group_size = concatenation_group_commitments[0].size();
+            size_t concatenation_group_size = claim_batcher.get_interleaved_size();
             Fr r_pow = r.pow(concatenation_group_size);
             fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { r_pow, p_0_pos }, C_P_pos });
             fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { r_pow, p_0_neg }, C_P_neg });

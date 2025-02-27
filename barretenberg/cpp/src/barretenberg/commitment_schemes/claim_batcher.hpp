@@ -27,13 +27,24 @@ template <typename Curve> struct ClaimBatcher_ {
         Fr scalar = 0;
     };
 
+    struct InterleavedBatch {
+        std::vector<RefVector<Commitment>> commitments;
+        RefVector<Fr> evaluations;
+        std::vector<Fr> scalars_pos;
+        std::vector<Fr> scalars_neg;
+        Fr common_factor;
+    };
+
     std::optional<Batch> unshifted;          // commitments and evaluations of unshifted polynomials
     std::optional<Batch> shifted;            // commitments of to-be-shifted-by-1 polys, evals of their shifts
     std::optional<Batch> right_shifted_by_k; // commitments of to-be-right-shifted-by-k polys, evals of their shifts
+    std::optional<InterleavedBatch> interleaved;
 
     Batch get_unshifted() { return (unshifted) ? *unshifted : Batch{}; }
     Batch get_shifted() { return (shifted) ? *shifted : Batch{}; }
     Batch get_right_shifted_by_k() { return (right_shifted_by_k) ? *right_shifted_by_k : Batch{}; }
+    InterleavedBatch get_interleaved() { return (interleaved) ? *interleaved : InterleavedBatch{}; }
+    size_t get_interleaved_size() { return (interleaved) ? interleaved->commitments[0].size() : 0; }
 
     size_t k_shift_magnitude = 0; // magnitude of right-shift-by-k (assumed even)
 
@@ -67,7 +78,8 @@ template <typename Curve> struct ClaimBatcher_ {
     void compute_scalars_for_each_batch(const Fr& inverse_vanishing_eval_pos,
                                         const Fr& inverse_vanishing_eval_neg,
                                         const Fr& nu_challenge,
-                                        const Fr& r_challenge)
+                                        const Fr& r_challenge,
+                                        const Fr& last_vanishing_eval = Fr(0))
     {
         if (unshifted) {
             // (1/(z−r) + ν/(z+r))
@@ -83,8 +95,24 @@ template <typename Curve> struct ClaimBatcher_ {
             right_shifted_by_k->scalar = r_challenge.pow(k_shift_magnitude) *
                                          (inverse_vanishing_eval_pos + nu_challenge * inverse_vanishing_eval_neg);
         }
-    }
 
+        if (interleaved) {
+            Fr r_shift_pos = Fr(1);
+            Fr r_shift_neg = Fr(1);
+            interleaved->common_factor = last_vanishing_eval;
+            for (size_t i = 0; i < get_interleaved_size(); i++) {
+                interleaved->scalars_pos.push_back(r_shift_pos);
+                interleaved->scalars_neg.push_back(r_shift_neg);
+                r_shift_pos *= r_challenge;
+                r_shift_neg *= (-r_challenge);
+            }
+            info("in claim batcher");
+            for (size_t i = 0; i < interleaved->scalars_neg.size(); ++i) {
+                info("scalars_pos[", i, "] = ", interleaved->scalars_pos[i]);
+                info(interleaved->scalars_neg[i]);
+            }
+        }
+    }
     /**
      * @brief Append the commitments and scalars from each batch of claims to the Shplemini batch mul input vectors;
      * update the batched evaluation and the running batching challenge (power of rho) in place.
@@ -92,14 +120,16 @@ template <typename Curve> struct ClaimBatcher_ {
      * @param commitments commitment inputs to the single Shplemini batch mul
      * @param scalars scalar inputs to the single Shplemini batch mul
      * @param batched_evaluation running batched evaluation of the committed multilinear polynomials
-     * @param rho multivariate batching challenge \rho
+     * @param rho multivariate batching challenge \rhosh
      * @param rho_power current power of \rho used in the batching scalar
      */
     void update_batch_mul_inputs_and_batched_evaluation(std::vector<Commitment>& commitments,
                                                         std::vector<Fr>& scalars,
                                                         Fr& batched_evaluation,
                                                         const Fr& rho,
-                                                        Fr& rho_power)
+                                                        Fr& rho_power,
+                                                        [[maybe_unused]] Fr shplonk_batching_pos = { 0 },
+                                                        [[maybe_unused]] Fr shplonk_batching_neg = { 0 })
     {
         // Append the commitments/scalars from a given batch to the corresponding containers; update the batched
         // evaluation and the running batching challenge in place
@@ -111,6 +141,7 @@ template <typename Curve> struct ClaimBatcher_ {
                 rho_power *= rho;
             }
         };
+        info("rho_power: ", rho_power);
 
         // Incorporate the claim data from each batch of claims that is present
         if (unshifted) {
@@ -121,6 +152,21 @@ template <typename Curve> struct ClaimBatcher_ {
         }
         if (right_shifted_by_k) {
             aggregate_claim_data_and_update_batched_evaluation(*right_shifted_by_k, rho_power);
+        }
+        if (interleaved) {
+            size_t group_idx = 0;
+            info(rho_power);
+            for (auto group : interleaved->commitments) {
+                for (size_t i = 0; i < get_interleaved_size(); i++) {
+                    commitments.emplace_back(std::move(group[i]));
+                    scalars.emplace_back(-rho_power * interleaved->common_factor *
+                                         (shplonk_batching_pos * interleaved->scalars_pos[i] +
+                                          shplonk_batching_neg * interleaved->scalars_neg[i]));
+                }
+                batched_evaluation += interleaved->evaluations[group_idx] * rho_power;
+                rho_power *= rho;
+                group_idx++;
+            }
         }
     }
 };
