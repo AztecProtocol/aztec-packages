@@ -92,7 +92,7 @@ int main(int argc, char* argv[])
         std::filesystem::path base = home != nullptr ? std::filesystem::path(home) : "./";
         return base / ".bb-crs";
     }();
-
+    flags.include_gates_per_opcode = false;
     const auto add_output_path_option = [&](CLI::App* subcommand, auto& _output_path) {
         return subcommand->add_option("--output_path, -o",
                                       _output_path,
@@ -215,6 +215,12 @@ int main(int argc, char* argv[])
         return subcommand->add_flag("--debug_logging, -d", flags.debug, "Output debug logs to stderr.");
     };
 
+    const auto add_include_gates_per_opcode_flag = [&](CLI::App* subcommand) {
+        return subcommand->add_flag("--include_gates_per_opcode",
+                                    flags.include_gates_per_opcode,
+                                    "Include gates_per_opcode in the output of the gates command.");
+    };
+
     /***************************************************************************************************************
      * Top-level flags
      ***************************************************************************************************************/
@@ -248,6 +254,7 @@ int main(int argc, char* argv[])
 
     add_verbose_flag(gates);
     add_bytecode_path_option(gates);
+    add_include_gates_per_opcode_flag(gates);
 
     /***************************************************************************************************************
      * Subcommand: prove
@@ -687,7 +694,7 @@ int main(int argc, char* argv[])
         }
         // ULTRA PLONK
         else if (OLD_API_gates->parsed()) {
-            gate_count<UltraCircuitBuilder>(bytecode_path, flags.recursive, flags.honk_recursion);
+            gate_count<UltraCircuitBuilder>(bytecode_path, flags.recursive, flags.honk_recursion, true);
         } else if (OLD_API_prove->parsed()) {
             prove_ultra_plonk(bytecode_path, witness_path, plonk_prove_output_path, flags.recursive);
         } else if (OLD_API_prove_output_all->parsed()) {
@@ -739,7 +746,7 @@ int main(int argc, char* argv[])
         else if (OLD_API_gates_for_ivc->parsed()) {
             gate_count_for_ivc(bytecode_path);
         } else if (OLD_API_gates_mega_honk->parsed()) {
-            gate_count<MegaCircuitBuilder>(bytecode_path, flags.recursive, flags.honk_recursion);
+            gate_count<MegaCircuitBuilder>(bytecode_path, flags.recursive, flags.honk_recursion, true);
         } else if (OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file->parsed()) {
             write_arbitrary_valid_client_ivc_proof_and_vk_to_file(arbitrary_valid_proof_path);
             return 0;

@@ -15,7 +15,10 @@ namespace bb {
  * @param bytecode_path Path to the file containing the serialized circuit
  */
 template <typename Builder = UltraCircuitBuilder>
-void gate_count(const std::string& bytecode_path, bool recursive, uint32_t honk_recursion)
+void gate_count(const std::string& bytecode_path,
+                bool recursive,
+                uint32_t honk_recursion,
+                bool include_gates_per_opcode)
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1180): Try to only do this when necessary.
     init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
@@ -44,13 +47,13 @@ void gate_count(const std::string& bytecode_path, bool recursive, uint32_t honk_
             }
         }
 
-        auto result_string = format("{\n        \"acir_opcodes\": ",
-                                    program.constraints.num_acir_opcodes,
-                                    ",\n        \"circuit_size\": ",
-                                    circuit_size,
-                                    ",\n        \"gates_per_opcode\": [",
-                                    gates_per_opcode_str,
-                                    "]\n  }");
+        auto result_string = format(
+            "{\n        \"acir_opcodes\": ",
+            program.constraints.num_acir_opcodes,
+            ",\n        \"circuit_size\": ",
+            circuit_size,
+            (include_gates_per_opcode ? format(",\n        \"gates_per_opcode\": [", gates_per_opcode_str, "]") : ""),
+            "\n  }");
 
         // Attach a comma if there are more circuit reports to generate
         if (i != (constraint_systems.size() - 1)) {
