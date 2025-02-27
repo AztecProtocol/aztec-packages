@@ -28,25 +28,48 @@ impl TestEnvironment {
         get_block_number()
     }
 
-    // Returns the block number of the last committed block - this is the block number that gets used in production
-    // to execute the private part of transactions when your PXE managed to successfully sync to the tip of the chain.
+    /// This does what the above does but should be considered deprecated as the naming is subpar.
+    pub unconstrained fn block_number(self: Self) -> u32 {
+        self.pending_block_number()
+    }
+
+    /// Returns the block number of the last committed block - this is the block number that gets used in production
+    /// to execute the private part of transactions when your PXE managed to successfully sync to the tip of the chain.
     pub unconstrained fn committed_block_number(self: Self) -> u32 {
         self.pending_block_number() - 1
     }
 
+    /// With TXe tests, every test is run in a mock "contract". This facilitates the ability to write to and read from storage,
+    /// emit and retrieve nullifiers (because they are hashed with a contract address), and formulate notes in a canonical way.
+    /// The contract_address also represents the "msg_sender" when we call a contract with a private or public context; and when
+    /// we call top-level unconstrained functions, we must set this contract address to the contract being called.
+    /// The contract address can be manipulated to do the above at any particular address, and not simply the one provided at
+    /// the instantiation of the test.
+    /// Returns the currently set contract address.
     pub unconstrained fn contract_address(_self: Self) -> AztecAddress {
         get_contract_address()
     }
 
+    /// Modifies the currently set contract address. As per above, it sets the "msg_sender" address on our subsequent calls.
+    /// This is useful when we have multiple "accounts" that need to interact with an arbitrary contract. This also allows
+    /// us to change the "contract" we emit side effects from, and is required when we want to run a top-level unconstrained function on another contract.
     pub unconstrained fn impersonate(_self: Self, address: AztecAddress) {
         cheatcodes::set_contract_address(address)
     }
 
+    /// Advances the internal TXe state to specified block number.
+    /// Note that this block number describes the block being built. i.e. If you advance the block to 5 from 1,
+    /// the pending block number will be 5, and your last committed block number will be 4.
     pub unconstrained fn advance_block_to(&mut self, block_number: u32) {
-        let difference = block_number - get_block_number();
+        let pending_block_number = self.pending_block_number();
+        assert(pending_block_number <= block_number, "Cannot advance block to a previous block.");
+
+        let difference = block_number - pending_block_number;
         self.advance_block_by(difference);
     }
 
+    /// Advances the internal TXe state by the amount of blocks specified. The TXe produces a valid block for every
+    /// block advanced, and we are able to fetch historical data from warped over blocks.
     pub unconstrained fn advance_block_by(_self: &mut Self, blocks: u32) {
         cheatcodes::advance_blocks_by(blocks);
     }
