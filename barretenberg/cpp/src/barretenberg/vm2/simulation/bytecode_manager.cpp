@@ -41,7 +41,7 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
         .siloed_address = siloed_address,
         .contract_instance = instance,
         .contract_class = klass, // WARNING: this class has the whole bytecode.
-        .nullifier_root = merkle_db.get_tree_roots().nullifierTree,
+        .nullifier_root = merkle_db.get_tree_roots().nullifierTree.root,
     });
 
     return bytecode_id;

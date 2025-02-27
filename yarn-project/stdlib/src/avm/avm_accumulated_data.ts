@@ -8,14 +8,18 @@ import {
 import { makeTuple } from '@aztec/foundation/array';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, FieldReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, FieldReader, type Tuple, assertLength, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { inspect } from 'util';
+import { z } from 'zod';
 
 import { PublicLog } from '../logs/public_log.js';
 import { ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import { PublicDataWrite } from './public_data_write.js';
+
+// Needed by Zod schemas.
+export { EthAddress } from '@aztec/foundation/eth-address';
 
 export class AvmAccumulatedData {
   constructor(
@@ -40,6 +44,27 @@ export class AvmAccumulatedData {
      */
     public publicDataWrites: Tuple<PublicDataWrite, typeof MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
   ) {}
+
+  static get schema() {
+    return z
+      .object({
+        noteHashes: Fr.schema.array().max(MAX_NOTE_HASHES_PER_TX),
+        nullifiers: Fr.schema.array().max(MAX_NULLIFIERS_PER_TX),
+        l2ToL1Msgs: ScopedL2ToL1Message.schema.array().max(MAX_L2_TO_L1_MSGS_PER_TX),
+        publicLogs: PublicLog.schema.array().max(MAX_PUBLIC_LOGS_PER_TX),
+        publicDataWrites: PublicDataWrite.schema.array().max(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX),
+      })
+      .transform(
+        ({ noteHashes, nullifiers, l2ToL1Msgs, publicLogs, publicDataWrites }) =>
+          new AvmAccumulatedData(
+            assertLength(noteHashes, MAX_NOTE_HASHES_PER_TX),
+            assertLength(nullifiers, MAX_NULLIFIERS_PER_TX),
+            assertLength(l2ToL1Msgs, MAX_L2_TO_L1_MSGS_PER_TX),
+            assertLength(publicLogs, MAX_PUBLIC_LOGS_PER_TX),
+            assertLength(publicDataWrites, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX),
+          ),
+      );
+  }
 
   getSize() {
     return (

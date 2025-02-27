@@ -167,16 +167,16 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
 
   private mergeHints(forkedTrace: this) {
     this.uniqueClassIds.acceptAndMerge(forkedTrace.uniqueClassIds);
-    this.avmCircuitHints.enqueuedCalls.items.push(...forkedTrace.avmCircuitHints.enqueuedCalls.items);
-    this.avmCircuitHints.contractInstances.items.push(...forkedTrace.avmCircuitHints.contractInstances.items);
-    this.avmCircuitHints.contractClasses.items.push(...forkedTrace.avmCircuitHints.contractClasses.items);
-    this.avmCircuitHints.publicDataReads.items.push(...forkedTrace.avmCircuitHints.publicDataReads.items);
-    this.avmCircuitHints.publicDataWrites.items.push(...forkedTrace.avmCircuitHints.publicDataWrites.items);
-    this.avmCircuitHints.nullifierReads.items.push(...forkedTrace.avmCircuitHints.nullifierReads.items);
-    this.avmCircuitHints.nullifierWrites.items.push(...forkedTrace.avmCircuitHints.nullifierWrites.items);
-    this.avmCircuitHints.noteHashReads.items.push(...forkedTrace.avmCircuitHints.noteHashReads.items);
-    this.avmCircuitHints.noteHashWrites.items.push(...forkedTrace.avmCircuitHints.noteHashWrites.items);
-    this.avmCircuitHints.l1ToL2MessageReads.items.push(...forkedTrace.avmCircuitHints.l1ToL2MessageReads.items);
+    this.avmCircuitHints.enqueuedCalls.push(...forkedTrace.avmCircuitHints.enqueuedCalls);
+    this.avmCircuitHints.contractInstances.push(...forkedTrace.avmCircuitHints.contractInstances);
+    this.avmCircuitHints.contractClasses.push(...forkedTrace.avmCircuitHints.contractClasses);
+    this.avmCircuitHints.publicDataReads.push(...forkedTrace.avmCircuitHints.publicDataReads);
+    this.avmCircuitHints.publicDataWrites.push(...forkedTrace.avmCircuitHints.publicDataWrites);
+    this.avmCircuitHints.nullifierReads.push(...forkedTrace.avmCircuitHints.nullifierReads);
+    this.avmCircuitHints.nullifierWrites.push(...forkedTrace.avmCircuitHints.nullifierWrites);
+    this.avmCircuitHints.noteHashReads.push(...forkedTrace.avmCircuitHints.noteHashReads);
+    this.avmCircuitHints.noteHashWrites.push(...forkedTrace.avmCircuitHints.noteHashWrites);
+    this.avmCircuitHints.l1ToL2MessageReads.push(...forkedTrace.avmCircuitHints.l1ToL2MessageReads);
   }
 
   public getCounter() {
@@ -199,7 +199,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     leafIndex: Fr = Fr.zero(),
     path: Fr[] = emptyPublicDataPath(),
   ) {
-    this.avmCircuitHints.publicDataReads.items.push(new AvmPublicDataReadTreeHint(leafPreimage, leafIndex, path));
+    this.avmCircuitHints.publicDataReads.push(new AvmPublicDataReadTreeHint(leafPreimage, leafIndex, path));
     this.log.trace(
       `Tracing storage read (address=${contractAddress}, slot=${slot}): value=${value} (counter=${this.sideEffectCounter})`,
     );
@@ -246,7 +246,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
 
     // New hinting
     const readHint = new AvmPublicDataReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath);
-    this.avmCircuitHints.publicDataWrites.items.push(
+    this.avmCircuitHints.publicDataWrites.push(
       new AvmPublicDataWriteTreeHint(readHint, newLeafPreimage, insertionPath),
     );
 
@@ -265,7 +265,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     path: Fr[] = emptyNoteHashPath(),
   ) {
     // New Hinting
-    this.avmCircuitHints.noteHashReads.items.push(new AvmAppendTreeHint(leafIndex, noteHash, path));
+    this.avmCircuitHints.noteHashReads.push(new AvmAppendTreeHint(leafIndex, noteHash, path));
     // NOTE: counter does not increment for note hash checks (because it doesn't rely on pending note hashes)
     this.log.trace(`Tracing note hash check (counter=${this.sideEffectCounter})`);
   }
@@ -276,7 +276,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     }
 
     this.noteHashes.push(new NoteHash(noteHash, this.sideEffectCounter));
-    this.avmCircuitHints.noteHashWrites.items.push(new AvmAppendTreeHint(leafIndex, noteHash, path));
+    this.avmCircuitHints.noteHashWrites.push(new AvmAppendTreeHint(leafIndex, noteHash, path));
     this.log.trace(`Tracing new note hash (counter=${this.sideEffectCounter})`);
     this.incrementSideEffectCounter();
   }
@@ -288,9 +288,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     lowLeafIndex: Fr = Fr.zero(),
     lowLeafPath: Fr[] = emptyNullifierPath(),
   ) {
-    this.avmCircuitHints.nullifierReads.items.push(
-      new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath),
-    );
+    this.avmCircuitHints.nullifierReads.push(new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath));
     this.log.trace(`Tracing nullifier check (counter=${this.sideEffectCounter})`);
     this.incrementSideEffectCounter();
   }
@@ -309,7 +307,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     this.nullifiers.push(new Nullifier(siloedNullifier, this.sideEffectCounter, /*noteHash=*/ Fr.ZERO));
 
     const lowLeafReadHint = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath);
-    this.avmCircuitHints.nullifierWrites.items.push(new AvmNullifierWriteTreeHint(lowLeafReadHint, insertionPath));
+    this.avmCircuitHints.nullifierWrites.push(new AvmNullifierWriteTreeHint(lowLeafReadHint, insertionPath));
     this.log.trace(`Tracing new nullifier (counter=${this.sideEffectCounter})`);
     this.incrementSideEffectCounter();
   }
@@ -322,7 +320,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     _exists: boolean,
     path: Fr[] = emptyL1ToL2MessagePath(),
   ) {
-    this.avmCircuitHints.l1ToL2MessageReads.items.push(new AvmAppendTreeHint(msgLeafIndex, msgHash, path));
+    this.avmCircuitHints.l1ToL2MessageReads.push(new AvmAppendTreeHint(msgLeafIndex, msgHash, path));
     this.log.trace(`Tracing l1 to l2 message check (counter=${this.sideEffectCounter})`);
   }
 
@@ -360,7 +358,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     updateMembershipHint: AvmPublicDataReadTreeHint = AvmPublicDataReadTreeHint.empty(),
     updatePreimage: Fr[] = [],
   ) {
-    this.avmCircuitHints.contractInstances.items.push(
+    this.avmCircuitHints.contractInstances.push(
       new AvmContractInstanceHint(
         contractAddress,
         exists,
@@ -380,7 +378,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
 
   public traceGetContractClass(contractClassId: Fr, exists: boolean, contractClass?: ContractClassWithCommitment) {
     if (!exists) {
-      this.avmCircuitHints.contractClasses.items.push(
+      this.avmCircuitHints.contractClasses.push(
         new AvmContractClassHint(contractClassId, exists, Fr.zero(), Fr.zero(), Fr.zero(), Buffer.alloc(0)),
       );
     } else if (!this.uniqueClassIds.has(contractClassId.toString())) {
@@ -393,7 +391,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
       }
 
       this.uniqueClassIds.add(contractClassId.toString());
-      this.avmCircuitHints.contractClasses.items.push(
+      this.avmCircuitHints.contractClasses.push(
         new AvmContractClassHint(
           contractClassId,
           exists,
@@ -422,7 +420,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
   ) {
     // TODO(4805): check if some threshold is reached for max enqueued or nested calls (to unique contracts?)
     this.enqueuedCalls.push(publicCallRequest);
-    this.avmCircuitHints.enqueuedCalls.items.push(new AvmEnqueuedCallHint(publicCallRequest.contractAddress, calldata));
+    this.avmCircuitHints.enqueuedCalls.push(new AvmEnqueuedCallHint(publicCallRequest.contractAddress, calldata));
   }
 
   public getSideEffects(): SideEffects {

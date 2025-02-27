@@ -556,7 +556,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
           duration: provingResult.durationMs,
           proofSize: avmProof.binaryProof.buffer.length,
           eventName: 'circuit-proving',
-          inputSize: input.toBuffer().length,
+          inputSize: input.serializeWithMessagePack().length,
           circuitSize: verificationKey.circuitSize, // FIX: wrong in VK
           numPublicInputs: verificationKey.numPublicInputs, // FIX: wrong in VK
         } satisfies CircuitProvingStats,
