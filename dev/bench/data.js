@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740685621513,
+  "lastUpdate": 1740686563132,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "sirasistant@gmail.com",
-            "name": "Álvaro Rodríguez",
-            "username": "sirasistant"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ec7d34987bca0c42c5e0ba5cced2f29d42cc65db",
-          "message": "chore!: Remove msm opcode (#12192)\n\nThe MSM opcode is now transpiled to a procedure that implements it via\necadd. We can safely remove it now.",
-          "timestamp": "2025-02-24T15:04:12+01:00",
-          "tree_id": "8b62fd6280f24370f78325850652091d5f84751b",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ec7d34987bca0c42c5e0ba5cced2f29d42cc65db"
-        },
-        "date": 1740407856241,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18435.85760200017,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16323.372298999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18743.88933099999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16384.951856 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3978.705810000065,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3119.5890900000004 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55025.413647999994,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55025408000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10711.259893,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10711265000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1812277723,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1812277723 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 132411961,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 132411961 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 218172628,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 218172628 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2281.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c98276379ad51267d446ef549bde34cfc032f648",
+          "message": "chore(avm): disconnect VM1 (#12346)\n\n![unnamed-1.png](https://graphite-user-uploaded-assets-prod.s3.amazonaws.com/mO08Q17TCoHzVKYudUJh/bb553009-1c23-4bc3-a5de-bcf2b886652a.png)\n\nWe are currently working on VM2 and having to maintain backwards compatibility with VM1 has reached a tipping point. This PR disconnects VM1 from the native BB binary and makes it always report success.\n\nAs a result\n* `bb-prover` tests don't mean a thing (except the v2 one)\n* the proving part of e2e_full_proving becomes meaningless\n* **We will not be proving in any dev/testnet until we connect vm2!**\n* This doesn't change recursive verification in the base rollup because we were already not doing that (too expensive until Goblinized).\n\nHowever, this should let us move faster and we should be able to connect vm2 \"soon\".\n\nHaving VM1 connected is currently blocking work on changing the hinting schema etc.",
+          "timestamp": "2025-02-27T19:15:24Z",
+          "tree_id": "1040fcd862e2de16a93c3cc699f07728342d13a4",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c98276379ad51267d446ef549bde34cfc032f648"
+        },
+        "date": 1740686555112,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18349.109392000173,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16237.156244999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18796.796684000128,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16479.866185000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3993.165429000328,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3176.4081870000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55149.917870000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55149920000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11816.434522,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11816437000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1884382079,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1884382079 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 212636124,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 212636124 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
