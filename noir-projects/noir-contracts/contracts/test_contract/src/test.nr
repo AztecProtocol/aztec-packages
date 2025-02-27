@@ -180,3 +180,12 @@ unconstrained fn proving_contract_non_initialization_fails() {
 
     context.historical_header.prove_contract_non_initialization(contract_address);
 }
+
+#[test]
+unconstrained fn private_call_new_flow() {
+    let (env, contract_address, owner) = setup();
+
+    env.call_private_void_new_flow(Test::at(contract_address).call_create_note(2, owner, owner, 2));
+    env.call_private_void_new_flow(Test::at(contract_address).call_create_note(3, owner, owner, 3));
+    env.call_private_void_new_flow(Test::at(contract_address).call_create_note(4, owner, owner, 4));
+}

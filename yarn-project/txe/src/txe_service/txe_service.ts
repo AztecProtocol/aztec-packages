@@ -416,6 +416,23 @@ export class TXEService {
     return toForeignCallResult([toArray([result.endSideEffectCounter, result.returnsHash])]);
   }
 
+  async privateCallNewFlow(
+    targetContractAddress: ForeignCallSingle,
+    functionSelector: ForeignCallSingle,
+    argsHash: ForeignCallSingle,
+    sideEffectCounter: ForeignCallSingle,
+    isStaticCall: ForeignCallSingle,
+  ) {
+    const result = await (this.typedOracle as TXE).privateCallNewFlow(
+      addressFromSingle(targetContractAddress),
+      FunctionSelector.fromField(fromSingle(functionSelector)),
+      fromSingle(argsHash),
+      fromSingle(sideEffectCounter).toNumber(),
+      fromSingle(isStaticCall).toBool(),
+    );
+    return toForeignCallResult([toArray([result.endSideEffectCounter, result.returnsHash])]);
+  }
+
   async getNullifierMembershipWitness(blockNumber: ForeignCallSingle, nullifier: ForeignCallSingle) {
     const parsedBlockNumber = fromSingle(blockNumber).toNumber();
     const witness = await this.typedOracle.getNullifierMembershipWitness(parsedBlockNumber, fromSingle(nullifier));

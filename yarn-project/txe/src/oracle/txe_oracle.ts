@@ -1,8 +1,14 @@
 import { Body, L2Block, Note } from '@aztec/aztec.js';
 import {
+  DEFAULT_GAS_LIMIT,
   type L1_TO_L2_MSG_TREE_HEIGHT,
+  MAX_CONTRACT_CLASS_LOGS_PER_TX,
+  MAX_ENQUEUED_CALLS_PER_TX,
+  MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
+  MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
+  MAX_PRIVATE_LOGS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -13,7 +19,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { Aes128, Schnorr, poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { type Logger, applyStringFormatting } from '@aztec/foundation/log';
-import { Timer } from '@aztec/foundation/timer';
+import { TestDateProvider, Timer } from '@aztec/foundation/timer';
 import { KeyStore } from '@aztec/key-store';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { ProtocolContract } from '@aztec/protocol-contracts';
@@ -45,6 +51,7 @@ import { createTxForPublicCalls } from '@aztec/simulator/public/fixtures';
 import {
   ExecutionError,
   PublicContractsDB,
+  PublicProcessor,
   type PublicTxResult,
   PublicTxSimulator,
   createSimulationError,
@@ -62,7 +69,7 @@ import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstance, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
-import { Gas, GasFees } from '@aztec/stdlib/gas';
+import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import {
   computeNoteHashNonce,
   computePublicDataTreeLeafSlot,
@@ -74,13 +81,23 @@ import type { MerkleTreeReadOperations, MerkleTreeWriteOperations } from '@aztec
 import { type KeyValidationRequest, PrivateContextInputs, PublicCallRequest } from '@aztec/stdlib/kernel';
 import { deriveKeys } from '@aztec/stdlib/keys';
 import {
-  ContractClassLog,
-  IndexedTaggingSecret,
-  LogWithTxData,
-  type PrivateLog,
-  type PublicLog,
-} from '@aztec/stdlib/logs';
+  type KeyValidationRequest,
+  PartialPrivateTailPublicInputsForPublic,
+  PartialPrivateTailPublicInputsForRollup,
+  PrivateContextInputs,
+  PrivateKernelTailCircuitPublicInputs,
+  PrivateToPublicAccumulatedData,
+  PrivateToRollupAccumulatedData,
+  PublicCallRequest,
+  RollupValidationRequests,
+  ScopedLogHash,
+  isEmptyArray,
+} from '@aztec/stdlib/kernel';
+import { deriveKeys } from '@aztec/stdlib/keys';
+import { ContractClassLog, IndexedTaggingSecret, LogWithTxData, PrivateLog, type PublicLog } from '@aztec/stdlib/logs';
+import { ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
+import { ClientIvcProof } from '@aztec/stdlib/proofs';
 import type { CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
 import {
   makeAppendOnlyTreeSnapshot,
@@ -101,10 +118,14 @@ import {
   BlockHeader,
   CallContext,
   GlobalVariables,
-  PublicCallRequestWithCalldata,
+  PublicExecutionRequest,
+  Tx,
+  TxConstantData,
+  TxContext,
   TxEffect,
   TxHash,
 } from '@aztec/stdlib/tx';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 import { ForkCheckpoint, NativeWorldStateService } from '@aztec/world-state/native';
 
 import { TXENode } from '../node/txe_node.js';
@@ -122,6 +143,8 @@ export class TXE implements TypedOracle {
   private nestedCallReturndata: Fr[] = [];
   private nestedCallSuccess: boolean = false;
 
+  private callingWithNewFlow: boolean = false;
+
   private pxeOracleInterface: PXEOracleInterface;
 
   private publicDataWrites: PublicDataWrite[] = [];
@@ -129,6 +152,12 @@ export class TXE implements TypedOracle {
   private siloedNullifiersFromPublic: Fr[] = [];
   private privateLogs: PrivateLog[] = [];
   private publicLogs: PublicLog[] = [];
+
+  private enqueuedPublicCalls: {
+    args: Fr[];
+    callContext: CallContext;
+    isTeardown: boolean;
+  }[] = [];
 
   private committedBlocks = new Set<number>();
 
@@ -800,6 +829,7 @@ export class TXE implements TypedOracle {
     this.publicLogs = [];
     this.uniqueNoteHashesFromPublic = [];
     this.siloedNullifiersFromPublic = [];
+    this.enqueuedPublicCalls = [];
     this.noteCache = new ExecutionNoteCache(this.getTxRequestHash());
   }
 
@@ -990,6 +1020,548 @@ export class TXE implements TypedOracle {
     return Promise.resolve(result);
   }
 
+  async privateCallNewFlow(
+    targetContractAddress: AztecAddress = AztecAddress.zero(),
+    functionSelector: FunctionSelector = FunctionSelector.empty(),
+    argsHash: Fr = Fr.zero(),
+    sideEffectCounter: number = 0,
+    isStaticCall: boolean = false,
+  ) {
+    this.logger.verbose(
+      `Executing external function ${await this.getDebugFunctionName(
+        targetContractAddress,
+        functionSelector,
+      )}@${targetContractAddress} isStaticCall=${isStaticCall}`,
+    );
+
+    // Store and modify env
+    const currentContractAddress = this.contractAddress;
+    const currentMessageSender = this.msgSender;
+    const currentFunctionSelector = FunctionSelector.fromField(this.functionSelector.toField());
+    this.setMsgSender(this.contractAddress);
+    this.setContractAddress(targetContractAddress);
+    this.setFunctionSelector(functionSelector);
+    this.callingWithNewFlow = true;
+
+    const artifact = await this.contractDataProvider.getFunctionArtifact(targetContractAddress, functionSelector);
+
+    const acir = artifact.bytecode;
+    const initialWitness = await this.getInitialWitness(artifact, argsHash, sideEffectCounter, isStaticCall);
+    const acvmCallback = new Oracle(this);
+    const timer = new Timer();
+    const acirExecutionResult = await this.simulationProvider
+      .executeUserCircuit(acir, initialWitness, acvmCallback)
+      .catch((err: Error) => {
+        err.message = resolveAssertionMessageFromError(err, artifact);
+
+        const execError = new ExecutionError(
+          err.message,
+          {
+            contractAddress: targetContractAddress,
+            functionSelector,
+          },
+          extractCallStack(err, artifact.debug),
+          { cause: err },
+        );
+        this.logger.debug(`Error executing private function ${targetContractAddress}:${functionSelector}`);
+        throw createSimulationError(execError);
+      });
+    const duration = timer.ms();
+    const publicInputs = extractPrivateCircuitPublicInputs(artifact, acirExecutionResult.partialWitness);
+
+    const initialWitnessSize = witnessMapToFields(initialWitness).length * Fr.SIZE_IN_BYTES;
+    this.logger.debug(`Ran external function ${targetContractAddress.toString()}:${functionSelector}`, {
+      circuitName: 'app-circuit',
+      duration,
+      eventName: 'circuit-witness-generation',
+      inputSize: initialWitnessSize,
+      outputSize: publicInputs.toBuffer().length,
+      appCircuitName: 'noname',
+    } satisfies CircuitWitnessGenerationStats);
+
+    await this.addPrivateLogs(
+      targetContractAddress,
+      publicInputs.privateLogs.filter(privateLog => !privateLog.isEmpty()).map(privateLog => privateLog.log),
+    );
+
+    this.setContractAddress(currentContractAddress);
+    this.setMsgSender(currentMessageSender);
+    this.setFunctionSelector(currentFunctionSelector);
+
+    const gasLimits = new Gas(DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_TX_PUBLIC_PORTION);
+
+    const gasSettings = new GasSettings(gasLimits, Gas.empty(), GasFees.empty(), GasFees.empty());
+    const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);
+    const constantData = new TxConstantData(BlockHeader.empty(), txContext, Fr.zero(), Fr.zero());
+
+    if (isEmptyArray(publicInputs.nullifiers)) {
+      publicInputs.nullifiers[0].value = this.getTxRequestHash();
+    }
+
+    const nonceGenerator = publicInputs.nullifiers[0].value;
+
+    let i = 0;
+    const accumulatedDataForPublic = new PrivateToPublicAccumulatedData(
+      padArrayEnd(
+        await Promise.all(
+          publicInputs.noteHashes.map(async nh =>
+            computeUniqueNoteHash(
+              await computeNoteHashNonce(nonceGenerator, i++),
+              await siloNoteHash(publicInputs.callContext.contractAddress, nh.value),
+            ),
+          ),
+        ),
+        Fr.ZERO,
+        MAX_NOTE_HASHES_PER_TX,
+      ),
+      padArrayEnd(
+        publicInputs.nullifiers.map(n => n.value),
+        Fr.ZERO,
+        MAX_NULLIFIERS_PER_TX,
+      ),
+      padArrayEnd(
+        publicInputs.l2ToL1Msgs.map(msg => msg.scope(this.contractAddress)),
+        ScopedL2ToL1Message.empty(),
+        MAX_L2_TO_L1_MSGS_PER_TX,
+      ),
+      padArrayEnd(
+        publicInputs.privateLogs.map(data => data.log),
+        PrivateLog.empty(),
+        MAX_PRIVATE_LOGS_PER_TX,
+      ),
+      padArrayEnd(
+        publicInputs.contractClassLogsHashes.map(hash => hash.scope(this.contractAddress)),
+        ScopedLogHash.empty(),
+        MAX_CONTRACT_CLASS_LOGS_PER_TX,
+      ),
+      padArrayEnd(
+        publicInputs.publicCallRequests.map(request => request.inner),
+        PublicCallRequest.empty(),
+        MAX_ENQUEUED_CALLS_PER_TX,
+      ),
+    );
+
+    const accumulatedDataForRollup = new PrivateToRollupAccumulatedData(
+      padArrayEnd(
+        publicInputs.noteHashes.map(nh => nh.value),
+        Fr.ZERO,
+        MAX_NOTE_HASHES_PER_TX,
+      ),
+      padArrayEnd(
+        publicInputs.nullifiers.map(n => n.value),
+        Fr.ZERO,
+        MAX_NULLIFIERS_PER_TX,
+      ),
+      padArrayEnd(
+        publicInputs.l2ToL1Msgs.map(msg => msg.scope(this.contractAddress)),
+        ScopedL2ToL1Message.empty(),
+        MAX_L2_TO_L1_MSGS_PER_TX,
+      ),
+      padArrayEnd(
+        publicInputs.privateLogs.map(data => data.log),
+        PrivateLog.empty(),
+        MAX_PRIVATE_LOGS_PER_TX,
+      ),
+      padArrayEnd(
+        publicInputs.contractClassLogsHashes.map(hash => hash.scope(this.contractAddress)),
+        ScopedLogHash.empty(),
+        MAX_CONTRACT_CLASS_LOGS_PER_TX,
+      ),
+    );
+
+    const hasPublicCalls = this.enqueuedPublicCalls.length > 0;
+
+    const publicExecutionRequests = this.enqueuedPublicCalls
+      .filter(publicCall => !publicCall.isTeardown)
+      .map(publicCall => new PublicExecutionRequest(publicCall.callContext, publicCall.args));
+
+    const publicCallRequests = await Promise.all(
+      publicExecutionRequests.map(executionRequest => executionRequest.toCallRequest()),
+    );
+
+    const publicTeardownExecutionRequest = this.enqueuedPublicCalls
+      .filter(call => call.isTeardown)
+      .map(call => new PublicExecutionRequest(call.callContext, call.args))[0];
+    const publicTeardownCallRequest = await publicTeardownExecutionRequest?.toCallRequest();
+
+    // Should these be reversed ? @dbanks
+    for (let i = 0; i < publicCallRequests.length; i++) {
+      accumulatedDataForPublic.publicCallRequests[i] = publicCallRequests[i];
+    }
+
+    const inputsForPublic = new PartialPrivateTailPublicInputsForPublic(
+      // nonrevertible
+      PrivateToPublicAccumulatedData.empty(),
+      // revertible
+      accumulatedDataForPublic,
+      publicTeardownCallRequest ?? PublicCallRequest.empty(),
+    );
+
+    const inputsForRollup = new PartialPrivateTailPublicInputsForRollup(accumulatedDataForRollup);
+
+    const txData = new PrivateKernelTailCircuitPublicInputs(
+      constantData,
+      RollupValidationRequests.empty(),
+      /*gasUsed=*/ new Gas(10, 10),
+      /*feePayer=*/ AztecAddress.zero(),
+      hasPublicCalls ? inputsForPublic : undefined,
+      !hasPublicCalls ? inputsForRollup : undefined,
+    );
+
+    const globals = makeGlobalVariables();
+    globals.blockNumber = new Fr(this.blockNumber);
+    globals.gasFees = GasFees.empty();
+
+    const treesDB = new TXEPublicTreesDB(this.baseFork, this);
+    const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(this));
+
+    const simulator = new PublicTxSimulator(treesDB, contractsDB, globals, /*doMerkleOperations=*/ true);
+    const processor = new PublicProcessor(
+      globals,
+      treesDB,
+      contractsDB,
+      simulator,
+      new TestDateProvider(),
+      getTelemetryClient(),
+    );
+
+    const tx = new Tx(
+      txData,
+      ClientIvcProof.empty(),
+      [],
+      publicExecutionRequests,
+      publicTeardownExecutionRequest ? publicTeardownExecutionRequest : PublicExecutionRequest.empty(),
+    );
+
+    const results = await processor.process([tx]);
+    const processedTxs = results[0];
+    const failedTxs = results[1];
+
+    if (failedTxs.length !== 0) {
+      throw new Error('TX has failed');
+    }
+
+    this.addPublicLogs(
+      processedTxs[0]?.avmProvingRequest?.inputs.publicInputs.accumulatedData.publicLogs.filter(
+        log => !log.contractAddress.equals(AztecAddress.ZERO),
+      ) ?? [],
+    );
+
+    const txEffect = processedTxs[0].txEffect;
+
+    const body = new Body([txEffect]);
+
+    const l1ToL2Messages = Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0).map(Fr.zero);
+    await this.baseFork.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
+
+    const stateReference = await this.baseFork.getStateReference();
+    const archiveInfo = await this.baseFork.getTreeInfo(MerkleTreeId.ARCHIVE);
+
+    const header = new BlockHeader(
+      new AppendOnlyTreeSnapshot(new Fr(archiveInfo.root), Number(archiveInfo.size)),
+      makeContentCommitment(),
+      stateReference,
+      globals,
+      Fr.ZERO,
+      Fr.ZERO,
+    );
+
+    header.globalVariables.blockNumber = new Fr(this.blockNumber);
+
+    const l2Block = new L2Block(makeAppendOnlyTreeSnapshot(this.blockNumber + 1), header, body);
+
+    await this.baseFork.updateArchive(header);
+
+    await this.nativeWorldStateService.handleL2BlockAndMessages(l2Block, l1ToL2Messages);
+
+    await this.syncDataProvider.setHeader(header);
+
+    this.publicDataWrites = [];
+    this.privateLogs = [];
+    this.publicLogs = [];
+    this.uniqueNoteHashesFromPublic = [];
+    this.siloedNullifiersFromPublic = [];
+    this.enqueuedPublicCalls = [];
+    this.noteCache = new ExecutionNoteCache(this.getTxRequestHash());
+
+    this.callingWithNewFlow = false;
+
+    this.setBlockNumber(this.blockNumber + 1);
+
+    return { endSideEffectCounter: publicInputs.endSideEffectCounter, returnsHash: publicInputs.returnsHash };
+  }
+
+  async privateCallNewFlow(
+    targetContractAddress: AztecAddress = AztecAddress.zero(),
+    functionSelector: FunctionSelector = FunctionSelector.empty(),
+    argsHash: Fr = Fr.zero(),
+    sideEffectCounter: number = 0,
+    isStaticCall: boolean = false,
+  ) {
+    this.logger.verbose(
+      `Executing external function ${await this.getDebugFunctionName(
+        targetContractAddress,
+        functionSelector,
+      )}@${targetContractAddress} isStaticCall=${isStaticCall}`,
+    );
+
+    // Store and modify env
+    const currentContractAddress = this.contractAddress;
+    const currentMessageSender = this.msgSender;
+    const currentFunctionSelector = FunctionSelector.fromField(this.functionSelector.toField());
+    this.setMsgSender(this.contractAddress);
+    this.setContractAddress(targetContractAddress);
+    this.setFunctionSelector(functionSelector);
+    this.callingWithNewFlow = true;
+
+    const artifact = await this.contractDataProvider.getFunctionArtifact(targetContractAddress, functionSelector);
+
+    const acir = artifact.bytecode;
+    const initialWitness = await this.getInitialWitness(artifact, argsHash, sideEffectCounter, isStaticCall);
+    const acvmCallback = new Oracle(this);
+    const timer = new Timer();
+    const acirExecutionResult = await this.simulationProvider
+      .executeUserCircuit(acir, initialWitness, acvmCallback)
+      .catch((err: Error) => {
+        err.message = resolveAssertionMessageFromError(err, artifact);
+
+        const execError = new ExecutionError(
+          err.message,
+          {
+            contractAddress: targetContractAddress,
+            functionSelector,
+          },
+          extractCallStack(err, artifact.debug),
+          { cause: err },
+        );
+        this.logger.debug(`Error executing private function ${targetContractAddress}:${functionSelector}`);
+        throw createSimulationError(execError);
+      });
+    const duration = timer.ms();
+    const publicInputs = extractPrivateCircuitPublicInputs(artifact, acirExecutionResult.partialWitness);
+
+    const initialWitnessSize = witnessMapToFields(initialWitness).length * Fr.SIZE_IN_BYTES;
+    this.logger.debug(`Ran external function ${targetContractAddress.toString()}:${functionSelector}`, {
+      circuitName: 'app-circuit',
+      duration,
+      eventName: 'circuit-witness-generation',
+      inputSize: initialWitnessSize,
+      outputSize: publicInputs.toBuffer().length,
+      appCircuitName: 'noname',
+    } satisfies CircuitWitnessGenerationStats);
+
+    await this.addPrivateLogs(
+      targetContractAddress,
+      publicInputs.privateLogs.filter(privateLog => !privateLog.isEmpty()).map(privateLog => privateLog.log),
+    );
+
+    this.setContractAddress(currentContractAddress);
+    this.setMsgSender(currentMessageSender);
+    this.setFunctionSelector(currentFunctionSelector);
+
+    const gasLimits = new Gas(DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_TX_PUBLIC_PORTION);
+
+    const gasSettings = new GasSettings(gasLimits, Gas.empty(), GasFees.empty(), GasFees.empty());
+    const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);
+    const constantData = new TxConstantData(BlockHeader.empty(), txContext, Fr.zero(), Fr.zero());
+
+    if (isEmptyArray(publicInputs.nullifiers)) {
+      publicInputs.nullifiers[0].value = this.getTxRequestHash();
+    }
+
+    const nonceGenerator = publicInputs.nullifiers[0].value;
+
+    let i = 0;
+    const accumulatedDataForPublic = new PrivateToPublicAccumulatedData(
+      padArrayEnd(
+        await Promise.all(
+          publicInputs.noteHashes.map(async nh =>
+            computeUniqueNoteHash(
+              await computeNoteHashNonce(nonceGenerator, i++),
+              await siloNoteHash(publicInputs.callContext.contractAddress, nh.value),
+            ),
+          ),
+        ),
+        Fr.ZERO,
+        MAX_NOTE_HASHES_PER_TX,
+      ),
+      padArrayEnd(
+        publicInputs.nullifiers.map(n => n.value),
+        Fr.ZERO,
+        MAX_NULLIFIERS_PER_TX,
+      ),
+      padArrayEnd(
+        publicInputs.l2ToL1Msgs.map(msg => msg.scope(this.contractAddress)),
+        ScopedL2ToL1Message.empty(),
+        MAX_L2_TO_L1_MSGS_PER_TX,
+      ),
+      padArrayEnd(
+        publicInputs.privateLogs.map(data => data.log),
+        PrivateLog.empty(),
+        MAX_PRIVATE_LOGS_PER_TX,
+      ),
+      padArrayEnd(
+        publicInputs.contractClassLogsHashes.map(hash => hash.scope(this.contractAddress)),
+        ScopedLogHash.empty(),
+        MAX_CONTRACT_CLASS_LOGS_PER_TX,
+      ),
+      padArrayEnd(
+        publicInputs.publicCallRequests.map(request => request.inner),
+        PublicCallRequest.empty(),
+        MAX_ENQUEUED_CALLS_PER_TX,
+      ),
+    );
+
+    const accumulatedDataForRollup = new PrivateToRollupAccumulatedData(
+      padArrayEnd(
+        publicInputs.noteHashes.map(nh => nh.value),
+        Fr.ZERO,
+        MAX_NOTE_HASHES_PER_TX,
+      ),
+      padArrayEnd(
+        publicInputs.nullifiers.map(n => n.value),
+        Fr.ZERO,
+        MAX_NULLIFIERS_PER_TX,
+      ),
+      padArrayEnd(
+        publicInputs.l2ToL1Msgs.map(msg => msg.scope(this.contractAddress)),
+        ScopedL2ToL1Message.empty(),
+        MAX_L2_TO_L1_MSGS_PER_TX,
+      ),
+      padArrayEnd(
+        publicInputs.privateLogs.map(data => data.log),
+        PrivateLog.empty(),
+        MAX_PRIVATE_LOGS_PER_TX,
+      ),
+      padArrayEnd(
+        publicInputs.contractClassLogsHashes.map(hash => hash.scope(this.contractAddress)),
+        ScopedLogHash.empty(),
+        MAX_CONTRACT_CLASS_LOGS_PER_TX,
+      ),
+    );
+
+    const hasPublicCalls = this.enqueuedPublicCalls.length > 0;
+
+    const publicExecutionRequests = this.enqueuedPublicCalls
+      .filter(publicCall => !publicCall.isTeardown)
+      .map(publicCall => new PublicExecutionRequest(publicCall.callContext, publicCall.args));
+
+    const publicCallRequests = await Promise.all(
+      publicExecutionRequests.map(executionRequest => executionRequest.toCallRequest()),
+    );
+
+    const publicTeardownExecutionRequest = this.enqueuedPublicCalls
+      .filter(call => call.isTeardown)
+      .map(call => new PublicExecutionRequest(call.callContext, call.args))[0];
+    const publicTeardownCallRequest = await publicTeardownExecutionRequest?.toCallRequest();
+
+    // Should these be reversed ? @dbanks
+    for (let i = 0; i < publicCallRequests.length; i++) {
+      accumulatedDataForPublic.publicCallRequests[i] = publicCallRequests[i];
+    }
+
+    const inputsForPublic = new PartialPrivateTailPublicInputsForPublic(
+      // nonrevertible
+      PrivateToPublicAccumulatedData.empty(),
+      // revertible
+      accumulatedDataForPublic,
+      publicTeardownCallRequest ?? PublicCallRequest.empty(),
+    );
+
+    const inputsForRollup = new PartialPrivateTailPublicInputsForRollup(accumulatedDataForRollup);
+
+    const txData = new PrivateKernelTailCircuitPublicInputs(
+      constantData,
+      RollupValidationRequests.empty(),
+      /*gasUsed=*/ new Gas(10, 10),
+      /*feePayer=*/ AztecAddress.zero(),
+      hasPublicCalls ? inputsForPublic : undefined,
+      !hasPublicCalls ? inputsForRollup : undefined,
+    );
+
+    const globals = makeGlobalVariables();
+    globals.blockNumber = new Fr(this.blockNumber);
+    globals.gasFees = GasFees.empty();
+
+    const treesDB = new TXEPublicTreesDB(this.baseFork, this);
+    const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(this));
+
+    const simulator = new PublicTxSimulator(treesDB, contractsDB, globals, /*doMerkleOperations=*/ true);
+    const processor = new PublicProcessor(
+      globals,
+      treesDB,
+      contractsDB,
+      simulator,
+      new TestDateProvider(),
+      getTelemetryClient(),
+    );
+
+    const tx = new Tx(
+      txData,
+      ClientIvcProof.empty(),
+      [],
+      publicExecutionRequests,
+      publicTeardownExecutionRequest ? publicTeardownExecutionRequest : PublicExecutionRequest.empty(),
+    );
+
+    const results = await processor.process([tx]);
+    const processedTxs = results[0];
+    const failedTxs = results[1];
+
+    if (failedTxs.length !== 0) {
+      throw new Error('TX has failed');
+    }
+
+    this.addPublicLogs(
+      processedTxs[0]?.avmProvingRequest?.inputs.publicInputs.accumulatedData.publicLogs.filter(
+        log => !log.contractAddress.equals(AztecAddress.ZERO),
+      ) ?? [],
+    );
+
+    const txEffect = processedTxs[0].txEffect;
+
+    const body = new Body([txEffect]);
+
+    const l1ToL2Messages = Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0).map(Fr.zero);
+    await this.baseFork.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
+
+    const stateReference = await this.baseFork.getStateReference();
+    const archiveInfo = await this.baseFork.getTreeInfo(MerkleTreeId.ARCHIVE);
+
+    const header = new BlockHeader(
+      new AppendOnlyTreeSnapshot(new Fr(archiveInfo.root), Number(archiveInfo.size)),
+      makeContentCommitment(),
+      stateReference,
+      globals,
+      Fr.ZERO,
+      Fr.ZERO,
+    );
+
+    header.globalVariables.blockNumber = new Fr(this.blockNumber);
+
+    const l2Block = new L2Block(makeAppendOnlyTreeSnapshot(this.blockNumber + 1), header, body);
+
+    await this.baseFork.updateArchive(header);
+
+    await this.nativeWorldStateService.handleL2BlockAndMessages(l2Block, l1ToL2Messages);
+
+    await this.syncDataProvider.setHeader(header);
+
+    this.publicDataWrites = [];
+    this.privateLogs = [];
+    this.publicLogs = [];
+    this.uniqueNoteHashesFromPublic = [];
+    this.siloedNullifiersFromPublic = [];
+    this.enqueuedPublicCalls = [];
+    this.noteCache = new ExecutionNoteCache(this.getTxRequestHash());
+
+    this.callingWithNewFlow = false;
+
+    this.setBlockNumber(this.blockNumber + 1);
+
+    return { endSideEffectCounter: publicInputs.endSideEffectCounter, returnsHash: publicInputs.returnsHash };
+  }
+
   async notifyEnqueuedPublicFunctionCall(
     targetContractAddress: AztecAddress,
     calldataHash: Fr,
@@ -1018,25 +1590,40 @@ export class TXE implements TypedOracle {
       isTeardown,
     );
 
-    // Poor man's revert handling
-    if (!executionResult.revertCode.isOK()) {
-      if (executionResult.revertReason && executionResult.revertReason instanceof SimulationError) {
-        await enrichPublicSimulationError(executionResult.revertReason, this.contractDataProvider, this.logger);
-        throw new Error(executionResult.revertReason.message);
-      } else {
-        throw new Error(`Enqueued public function call reverted: ${executionResult.revertReason}`);
+    const args = [this.functionSelector.toField(), ...this.executionCache.getPreimage(argsHash)];
+    const newArgsHash = await this.executionCache.store(args);
+
+    if (this.callingWithNewFlow === true) {
+      this.enqueuedPublicCalls.push({
+        args,
+        callContext,
+        isTeardown,
+      });
+    } else {
+      const executionResult = await this.executePublicFunction(args, callContext, isTeardown);
+
+      // Poor man's revert handling
+      if (!executionResult.revertCode.isOK()) {
+        if (executionResult.revertReason && executionResult.revertReason instanceof SimulationError) {
+          await enrichPublicSimulationError(executionResult.revertReason, this.contractDataProvider, this.logger);
+          throw new Error(executionResult.revertReason.message);
+        } else {
+          throw new Error(`Enqueued public function call reverted: ${executionResult.revertReason}`);
+        }
       }
+
+      // Apply side effects
+      const sideEffects = executionResult.avmProvingRequest.inputs.publicInputs.accumulatedData;
+
+      const { usedTxRequestHashForNonces } = this.noteCache.finish();
+      const firstNullifier = usedTxRequestHashForNonces
+        ? this.getTxRequestHash()
+        : this.noteCache.getAllNullifiers()[0];
+      const nullifiers = sideEffects.nullifiers.filter(s => !s.isEmpty()).filter(s => !s.equals(firstNullifier));
+
+      // For some reason we cannot move this up to 'executePublicFunction'. It gives us an error of trying to modify the same nullifier twice.
+      this.addSiloedNullifiersFromPublic(nullifiers);
     }
-
-    // Apply side effects
-    const sideEffects = executionResult.avmProvingRequest.inputs.publicInputs.accumulatedData;
-
-    const { usedTxRequestHashForNonces } = this.noteCache.finish();
-    const firstNullifier = usedTxRequestHashForNonces ? this.getTxRequestHash() : this.noteCache.getAllNullifiers()[0];
-    const nullifiers = sideEffects.nullifiers.filter(s => !s.isEmpty()).filter(s => !s.equals(firstNullifier));
-
-    // For some reason we cannot move this up to 'executePublicFunction'. It gives us an error of trying to modify the same nullifier twice.
-    this.addSiloedNullifiersFromPublic(nullifiers);
 
     this.setContractAddress(currentContractAddress);
     this.setMsgSender(currentMessageSender);

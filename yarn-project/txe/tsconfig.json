@@ -37,6 +37,9 @@
       "path": "../stdlib"
     },
     {
+      "path": "../telemetry-client"
+    },
+    {
       "path": "../world-state"
     }
   ],
