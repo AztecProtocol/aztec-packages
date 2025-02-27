@@ -75,9 +75,15 @@ IMAGE=aztec
 TAG=latest
 LOG_LEVEL=verbose
 
+cat <<EOF > /home/$SSH_USER/tag.sh
+#!/bin/bash
+export TAG=$TAG
+EOF
+chmox +x /home/$SSH_USER/tag.sh
+
 cat << 'EOF' > /home/$SSH_USER/start.sh
 #!/bin/bash
-printenv
+source ./tag.sh
 echo "Starting bootnode container..."
 JSON=$(curl -s http://static.aztec.network/$NETWORK_NAME/bootnodes.json)
 export BOOTSTRAP_NODES=$(echo "$JSON" | jq -r '.bootnodes | join(",")')

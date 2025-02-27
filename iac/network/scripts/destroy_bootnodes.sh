@@ -17,9 +17,9 @@ fi
 P2P_PORT=40400
 L1_CHAIN_ID=1
 
-cd ./ip/gcp
+cd ./bootnode/ip/gcp
 
-terraform init -backend-config="prefix=network/$NETWORK_NAME/ip/bootnode"
+terraform init -backend-config="prefix=network/$NETWORK_NAME/bootnode/ip/gcp"
 
 OUTPUT=$(terraform output -json ip_addresses)
 
@@ -42,13 +42,13 @@ PRIVATE_KEYS_TF_ARG=$GCP_REGIONS_TF_ARG
 
 echo "GCP_REGIONS: $GCP_REGIONS_TF_ARG"
 
-cd ../../
+cd ../../..
 
 BOOTNODE_START_SCRIPT="$PWD/scripts/bootnode_startup.sh"
 
 cd ./bootnode/vm/gcp
 
-terraform init -backend-config="prefix=network/$NETWORK_NAME/vm/bootnode"
+terraform init -backend-config="prefix=network/$NETWORK_NAME/bootnode/vm/gcp"
 
 terraform apply \
   -var="regions=$GCP_REGIONS_TF_ARG" \
