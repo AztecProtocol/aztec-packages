@@ -1,4 +1,4 @@
-import { type LogFn } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
 import { createBootnodeENR } from '@aztec/p2p/enr';
 
 export async function generateEncodedBootnodeENR(
