@@ -42,7 +42,12 @@ void fix_byte_array(packed_byte_array_pt& input)
 }
 
 /**
- all these tests check graph description for sha256 circuits. All circuits have to consist of 1 connected component
+ * @brief Test for SHA256 circuit graph analysis
+ *
+ * These tests verify that SHA256 circuits have the expected graph structure:
+ * - Each circuit should consist of exactly 1 connected component
+ * - Each variable should appear in multiple gates after witness fixing
+ * The test mirrors the test in stdlib.
  */
 
 TEST(boomerang_stdlib_sha256, test_graph_for_sha256_55_bytes)
@@ -70,6 +75,19 @@ TEST(boomerang_stdlib_sha256, test_graph_for_sha256_55_bytes)
     }
 }
 
+/**
+ * @brief Test SHA256 circuit graph analysis with NIST test vector 5
+ *
+ * This test verifies the graph structure of a SHA256 circuit when processing
+ * a large input of 1000 repeated 'A' characters (NIST test vector 5).
+ *
+ * The test checks that:
+ * - The circuit consists of exactly 1 connected component
+ * - No variables appear in only one gate after witness fixing
+ *
+ * This is marked as a HEAVY_TEST due to the large input size requiring
+ * significant computation.
+ */
 HEAVY_TEST(boomerang_stdlib_sha256, test_graph_for_sha256_NIST_vector_five)
 {
     auto builder = Builder();
@@ -100,6 +118,16 @@ HEAVY_TEST(boomerang_stdlib_sha256, test_graph_for_sha256_NIST_vector_five)
     EXPECT_EQ(connected_components.size(), 1);
 }
 
+/**
+ * @brief Test SHA256 circuit graph analysis with NIST test vector 1
+ *
+ * This test verifies the graph structure of a SHA256 circuit when processing
+ * the input string "abc" (NIST test vector 1).
+ *
+ * The test checks that:
+ * - The circuit consists of exactly 1 connected component
+ * - No variables appear in only one gate after witness fixing
+ */
 TEST(boomerang_stdlib_sha256, test_graph_for_sha256_NIST_vector_one)
 {
     auto builder = Builder();
@@ -114,6 +142,12 @@ TEST(boomerang_stdlib_sha256, test_graph_for_sha256_NIST_vector_one)
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
+/**
+ * @brief Test SHA256 circuit graph analysis with NIST test vector 2
+ *
+ * This test verifies the graph structure of a SHA256 circuit when processing
+ * the input string "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq" (NIST test vector 2).
+ */
 TEST(boomerang_stdlib_sha256, test_graph_for_sha256_NIST_vector_two)
 {
     auto builder = Builder();
@@ -128,6 +162,12 @@ TEST(boomerang_stdlib_sha256, test_graph_for_sha256_NIST_vector_two)
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
+/**
+ * @brief Test SHA256 circuit graph analysis with NIST test vector 3
+ *
+ * This test verifies the graph structure of a SHA256 circuit when processing
+ * the input byte 0xbd
+ */
 TEST(boomerang_stdlib_sha256, test_graph_for_sha256_NIST_vector_three)
 {
     auto builder = Builder();
@@ -144,6 +184,12 @@ TEST(boomerang_stdlib_sha256, test_graph_for_sha256_NIST_vector_three)
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
+/**
+ * @brief Test SHA256 circuit graph analysis with NIST test vector 4
+ *
+ * This test verifies the graph structure of a SHA256 circuit when processing
+ * 4 bytes "c98c8e55" (NIST test vector 4).
+ */
 TEST(boomerang_stdlib_sha256, test_graph_for_sha256_NIST_vector_four)
 {
     auto builder = Builder();

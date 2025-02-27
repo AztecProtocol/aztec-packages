@@ -17,9 +17,11 @@ using rom_table_ct = stdlib::rom_table<Builder>;
 using ram_table_ct = stdlib::ram_table<Builder>;
 
 /**
- * @brief this test checks graph description for ROM table operations
- * The result is one connected component from reading random values at sequential indices,
- * with no variables in one gate due to connections through table accesses
+ * @brief Test graph description for ROM table operations
+ *
+ * @details This test verifies that:
+ * - Reading random values at sequential indices creates one connected component
+ * - No variables are in one gate due to connections through table accesses
  */
 TEST(boomerang_rom_ram_table, graph_description_rom_table)
 {
@@ -57,9 +59,11 @@ TEST(boomerang_rom_ram_table, graph_description_rom_table)
 }
 
 /**
- * @brief this test checks graph description for RAM table read operations
- * The result is one connected component from reading random values at sequential indices,
- * with no variables in one gate due to connections through table reads
+ * @brief Test graph description for RAM table read operations
+ *
+ * @details This test verifies that:
+ * - Reading random values at sequential indices creates one connected component
+ * - No variables are in one gate due to connections through table reads
  */
 TEST(boomerang_rom_ram_table, graph_description_ram_table_read)
 {
@@ -97,13 +101,17 @@ TEST(boomerang_rom_ram_table, graph_description_ram_table_read)
 }
 
 /**
- * @brief this test checks graph description for RAM table write and read operations
- * The result is one connected component from alternating write and read operations,
- * with non-sequential access patterns and no variables in one gate.
- * @details Test includes:
- *          - Initial zero initialization
- *          - Multiple update-read cycles
- *          - Non-sequential read access pattern
+ * @brief Test graph description for RAM table write and read operations
+ *
+ * @details This test verifies that:
+ * - Alternating write and read operations create one connected component
+ * - Non-sequential access patterns work correctly
+ * - No variables are in one gate
+ *
+ * The test includes:
+ * - Initial zero initialization
+ * - Multiple update-read cycles
+ * - Non-sequential read access pattern
  */
 TEST(boomerang_rom_ram_table, graph_description_ram_table_write)
 {

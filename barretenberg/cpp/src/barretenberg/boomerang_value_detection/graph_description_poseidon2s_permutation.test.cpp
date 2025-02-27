@@ -29,11 +29,17 @@ using fr_ct = typename _curve::ScalarField;
 using witness_ct = typename _curve::witness_ct;
 
 /**
- static analyzer usually prints input and output variables as variables in one gate. In these tests output variables
- are not dangerous we can filter them by checking that difference beetween their witness indexes and witness index
- of result <= 3
+ * @brief Check if a variable index is present in the input vector
+ *
+ * Static analyzer usually prints input and output variables as variables in one gate. In these tests output variables
+ * are not dangerous. We can filter them by checking that difference between their witness indexes and witness index
+ * of result <= 3
+ *
+ * @param input_vector Vector of field elements to check against
+ * @param real_var_index Variable index to find
+ * @return true if the variable index is found in the input vector
+ * @return false if the variable index is not found
  */
-
 bool check_in_input_vector(const std::vector<field_t>& input_vector, const uint32_t& real_var_index)
 {
     for (const auto& elem : input_vector) {
@@ -45,8 +51,11 @@ bool check_in_input_vector(const std::vector<field_t>& input_vector, const uint3
 }
 
 /**
- * @brief this test checks graph description for poseidon2 hash with random inputs
- * The result is one connected component, and all output variables must be in one gate
+ * @brief Test graph description for poseidon2 hash with random inputs
+ *
+ * The result should be one connected component, and only output variables must be in one gate
+ *
+ * @param num_inputs Number of random inputs to generate
  */
 void test_poseidon2s_circuit(size_t num_inputs = 5)
 {
@@ -75,8 +84,11 @@ void test_poseidon2s_circuit(size_t num_inputs = 5)
 }
 
 /**
- * @brief this test checks graph description for poseidon2 hash with byte array input
- * The result is one connected component, and all output variables must be in one gate
+ * @brief Test graph description for poseidon2 hash with byte array input
+ *
+ * The result should be one connected component, and only output variables must be in one gate
+ *
+ * @param num_inputs Number of random bytes to generate
  */
 void test_poseidon2s_hash_byte_array(size_t num_inputs = 5)
 {
@@ -103,9 +115,12 @@ void test_poseidon2s_hash_byte_array(size_t num_inputs = 5)
 }
 
 /**
- * @brief this test checks graph description for repeated poseidon2 hash operations
- * The result is one connected component with repeated hashing of pairs,
- * all output variables from each hash operation must be in one gate
+ * @brief Test graph description for repeated poseidon2 hash operations
+ *
+ * The result should be one connected component with repeated hashing of pairs,
+ * only output variables from each hash operation must be in one gate
+ *
+ * @param num_inputs Number of hash iterations to perform
  */
 void test_poseidon2s_hash_repeated_pairs(size_t num_inputs = 5)
 {
@@ -137,8 +152,9 @@ void test_poseidon2s_hash_repeated_pairs(size_t num_inputs = 5)
 }
 
 /**
- * @brief this test checks graph description for a single poseidon2 permutation
- * The result is one connected component with no variables in one gate,
+ * @brief Test graph description for a single poseidon2 permutation
+ *
+ * The result should be one connected component with no variables in one gate,
  * as permutation connects all variables through its internal structure
  */
 TEST(boomerang_poseidon2s, test_graph_for_poseidon2s_one_permutation)
@@ -165,8 +181,9 @@ TEST(boomerang_poseidon2s, test_graph_for_poseidon2s_one_permutation)
 }
 
 /**
- * @brief this test checks graph description for two separate poseidon2 permutations
- * The result is two connected components (one for each permutation) with no variables in one gate,
+ * @brief Test graph description for two separate poseidon2 permutations
+ *
+ * The result should be two connected components (one for each permutation) with no variables in one gate,
  * verifying that different input sets create separate components
  */
 TEST(boomerang_poseidon2s, test_graph_for_poseidon2s_two_permutations)
@@ -199,6 +216,9 @@ TEST(boomerang_poseidon2s, test_graph_for_poseidon2s_two_permutations)
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
+/**
+ * @brief Test graph for poseidon2s with varying input sizes
+ */
 TEST(boomerang_poseidon2s, test_graph_for_poseidon2s)
 {
     for (size_t num_inputs = 6; num_inputs < 100; num_inputs++) {
@@ -206,11 +226,17 @@ TEST(boomerang_poseidon2s, test_graph_for_poseidon2s)
     }
 }
 
+/**
+ * @brief Test graph for poseidon2s with default input size
+ */
 TEST(boomerang_poseidon2s, test_graph_for_poseidon2s_for_one_input_size)
 {
     test_poseidon2s_circuit();
 }
 
+/**
+ * @brief Test graph for poseidon2s hash with byte arrays of varying sizes
+ */
 TEST(boomerang_poseidon2s, test_graph_for_poseidon2s_hash_byte_array)
 {
     for (size_t num_inputs = 6; num_inputs < 100; num_inputs++) {
@@ -218,6 +244,9 @@ TEST(boomerang_poseidon2s, test_graph_for_poseidon2s_hash_byte_array)
     }
 }
 
+/**
+ * @brief Test graph for poseidon2s with repeated hash operations
+ */
 TEST(boomerang_poseidon2s, test_graph_for_poseidon2s_hash_repeated_pairs)
 {
     test_poseidon2s_hash_repeated_pairs();
