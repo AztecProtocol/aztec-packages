@@ -81,7 +81,7 @@ else
 fi
 
 # At last, generate the flamegraph
-$PROFILER gates --artifact-path "$FUNCTION_ARTIFACT" --backend-path "$BACKEND_PATH" --backend-gates-command "gates_for_ivc" --output "$OUTPUT_DIR"
+$PROFILER gates --artifact-path "$FUNCTION_ARTIFACT" --backend-path "$BACKEND_PATH" --backend-gates-command "gates" --output "$OUTPUT_DIR" --scheme client_ivc
 
 # save as $ARTIFACT_NAME-${FUNCTION}-flamegraph.svg
 OUTPUT_FILE="${OUTPUT_DIR}/$(basename ${ARTIFACT_PATH%%.json})-${FUNCTION}-flamegraph.svg"
