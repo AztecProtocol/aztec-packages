@@ -2,7 +2,6 @@ import { Fr } from '@aztec/foundation/fields';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { FunctionCall } from '@aztec/stdlib/abi';
 import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import type { L2AmountClaim } from '../api/ethereum/portal_manager.js';
 import { getFeeJuice } from '../contract/protocol_contracts.js';
