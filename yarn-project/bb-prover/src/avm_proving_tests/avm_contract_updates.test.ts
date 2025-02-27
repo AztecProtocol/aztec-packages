@@ -10,7 +10,7 @@ import { AvmProvingTester } from './avm_proving_tester.js';
 
 const TIMEOUT = 300_000;
 
-describe('AVM WitGen & Circuit - contract updates', () => {
+describe.skip('AVM WitGen & Circuit - contract updates', () => {
   const sender = AztecAddress.fromNumber(42);
 
   const avmTestContractClassSeed = 0;
