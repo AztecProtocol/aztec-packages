@@ -118,7 +118,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
         with:
-          ref: ${{ github.ref }}
+          ref: ${{ inputs.ref || github.ref }}
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
