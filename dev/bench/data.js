@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740653828819,
+  "lastUpdate": 1740655556650,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "nicolas.venturo@gmail.com",
-            "name": "Nicolás Venturo",
-            "username": "nventuro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "436def34af89eeb0529d113f3c080b7dc0c2064a",
-          "message": "feat!: remove addNote, compute_note_hash_... (#12171)\n\nThis removes the `addNote` function from PXE (`addNullifiedNote` had\nbeen removed in #11822). With this change, PXE no longer needs to\nunderstand how to compute note hashes and perform nonce discovery, which\nmeans we can also get rid of all of that code, _plus_ we can delete the\nmandatory `compute_note_hash_and_optionally_a_nullifier` contract\nfunction, _plus_ all of the auxiliary code used to call those.\n\nInstead, contracts that wish to deliver notes to their recipients via\noffchain mechanisms (i.e. not the protocol logs) must create custom\nunconstrained functions that know how to construct said notes and add\nthem to PXE. For cases such as `TransparentNote`, where all of the note\ncontents are public already, this is quite simple:\n`aztec::discovery::process_private_log` can be leveraged to a great\ndegree by mimicking the log encoding aztec-nr uses - see the\nTokenBlacklist and Test contracts for examples of this. More fine\ngrained control could be achieved by calling\n`aztec::discovery::attempt_note_nonce_discovery` and then the\n`deliver_note` oracle (which is essentially what `process_private_log`\ndoes, sans the decoding).\n\nThe removal of `compute_note_hash_and_optionally_a_nullifier` freed us\nfrom some legacy burdens in having to produce the 4 field array, dealing\nwith optional nullifier computation, etc., which in turn allowed for the\ncontract library method `_compute_note_hash_and_optionally_a_nullifier`\nto be streamlined and converted into the new\n`compute_note_hash_and_nullifier`, which matches\n`aztec::discovery::ComputeNoteHashAndNullifier` and hence results in\nmuch easier use of the discovery functions.\n\nTagging @critesjosh since `addNote` was quite a basic and old primitive.\n\nCloses #11638.",
-          "timestamp": "2025-02-21T15:07:20Z",
-          "tree_id": "f20621b67efceeebfd123d26b933305b44aa3fca",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/436def34af89eeb0529d113f3c080b7dc0c2064a"
-        },
-        "date": 1740152176187,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18455.252729999986,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16179.917882999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18995.27534999993,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16493.72379 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3987.060364000172,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3163.2282189999996 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55050.451955,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55050452000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10795.075085,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10795081000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1844748146,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1844748146 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 134129480,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 134129480 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3544,6 +3478,78 @@ window.BENCHMARK_DATA = {
             "value": 213160237,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 213160237 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2281.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5764343+charlielye@users.noreply.github.com",
+            "name": "Charlie Lye",
+            "username": "charlielye"
+          },
+          "committer": {
+            "email": "5764343+charlielye@users.noreply.github.com",
+            "name": "Charlie Lye",
+            "username": "charlielye"
+          },
+          "distinct": true,
+          "id": "fd5623ff6400e72f1c1d44a79e74b32cb75d3ced",
+          "message": "skip test-local as currently straight broken",
+          "timestamp": "2025-02-27T11:06:46Z",
+          "tree_id": "88c71c510d2c35ebb71fa90009c46f7de29d6633",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/fd5623ff6400e72f1c1d44a79e74b32cb75d3ced"
+        },
+        "date": 1740655548700,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 17866.746497999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15770.071739 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18498.92563600008,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16011.8173 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3937.0831370000587,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3097.0220990000003 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54746.462700000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54746465000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11366.09799,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11366105000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1892177735,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1892177735 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 214794050,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 214794050 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
