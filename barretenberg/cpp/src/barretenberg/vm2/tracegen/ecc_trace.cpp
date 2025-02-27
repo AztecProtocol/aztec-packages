@@ -10,9 +10,15 @@ namespace bb::avm2::tracegen {
 
 namespace {
 
-FF compute_lambda(bool double_predicate, bool add_predicate, const AffinePoint& p, const AffinePoint& q)
+FF compute_lambda(bool double_predicate,
+                  bool add_predicate,
+                  bool result_is_infinity,
+                  const AffinePointStandard& p,
+                  const AffinePointStandard& q)
 {
-    if (double_predicate) {
+    // When doubling infinity lambda must be zero
+    // If not, we'd be inverting zero here
+    if (!result_is_infinity && double_predicate) {
         return (p.x * p.x * 3) / (p.y * 2);
     }
     if (add_predicate) {
@@ -30,11 +36,13 @@ void EccTraceBuilder::process_add(const simulation::EventEmitterInterface<simula
 
     uint32_t row = 0;
     for (const auto& event : events) {
-        bool p_is_inf = event.p.is_point_at_infinity();
-        bool q_is_inf = event.q.is_point_at_infinity();
+        // The bytecode expects the standard form where infinity is 0,0,1
+        AffinePointStandard p = point_to_standard_form(event.p);
+        AffinePointStandard q = point_to_standard_form(event.q);
+        AffinePointStandard result = point_to_standard_form(event.result);
 
-        bool x_match = event.p.x == event.q.x;
-        bool y_match = event.p.y == event.q.y;
+        bool x_match = p.x == q.x;
+        bool y_match = p.y == q.y;
 
         bool double_predicate = (x_match && y_match);
         bool add_predicate = (!x_match && !y_match);
@@ -43,38 +51,38 @@ void EccTraceBuilder::process_add(const simulation::EventEmitterInterface<simula
         // The result is also the infinity point if
         // (1) we hit the infinity predicate and neither p nor q are the infinity point
         // (2) or both p and q are the infinity point
-        bool result_is_infinity = infinity_predicate && (!p_is_inf && !q_is_inf);
-        result_is_infinity = result_is_infinity || (p_is_inf && q_is_inf);
+        bool result_is_infinity = infinity_predicate && (!p.is_infinity && !q.is_infinity);
+        result_is_infinity = result_is_infinity || (p.is_infinity && q.is_infinity);
 
-        assert(result_is_infinity == event.result.is_point_at_infinity() && "Inconsistent infinity result assumption");
+        assert(result_is_infinity == result.is_infinity && "Inconsistent infinity result assumption");
 
-        FF lambda = compute_lambda(double_predicate, add_predicate, event.p, event.q);
+        FF lambda = compute_lambda(double_predicate, add_predicate, result_is_infinity, p, q);
 
         trace.set(row,
                   { {
                       { C::ecc_sel, 1 },
                       // Point P
-                      { C::ecc_p_x, event.p.x },
-                      { C::ecc_p_y, event.p.y },
-                      { C::ecc_p_is_inf, p_is_inf },
+                      { C::ecc_p_x, p.x },
+                      { C::ecc_p_y, p.y },
+                      { C::ecc_p_is_inf, p.is_infinity },
                       // Point Q
-                      { C::ecc_q_x, event.q.x },
-                      { C::ecc_q_y, event.q.y },
-                      { C::ecc_q_is_inf, q_is_inf },
+                      { C::ecc_q_x, q.x },
+                      { C::ecc_q_y, q.y },
+                      { C::ecc_q_is_inf, q.is_infinity },
                       // Resulting point
-                      { C::ecc_r_x, event.result.x },
-                      { C::ecc_r_y, event.result.y },
-                      { C::ecc_r_is_inf, event.result.is_point_at_infinity() },
+                      { C::ecc_r_x, result.x },
+                      { C::ecc_r_y, result.y },
+                      { C::ecc_r_is_inf, result.is_infinity },
 
                       // Check coordinates to detect edge cases (double, add and infinity)
                       { C::ecc_x_match, x_match },
-                      { C::ecc_inv_x_diff, x_match ? FF::zero() : (event.q.x - event.p.x).invert() },
+                      { C::ecc_inv_x_diff, x_match ? FF::zero() : (q.x - p.x).invert() },
                       { C::ecc_y_match, y_match },
-                      { C::ecc_inv_y_diff, y_match ? FF::zero() : (event.q.y - event.p.y).invert() },
+                      { C::ecc_inv_y_diff, y_match ? FF::zero() : (q.y - p.y).invert() },
 
                       // Witness for doubling operation
                       { C::ecc_double_op, double_predicate },
-                      { C::ecc_inv_2_p_y, double_predicate ? (event.p.y * 2).invert() : FF::zero() },
+                      { C::ecc_inv_2_p_y, !result_is_infinity && double_predicate ? (p.y * 2).invert() : FF::zero() },
 
                       // Witness for add operation
                       { C::ecc_add_op, add_predicate },
