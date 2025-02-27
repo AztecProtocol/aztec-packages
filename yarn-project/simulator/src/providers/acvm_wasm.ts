@@ -9,7 +9,7 @@ import initAbi from '@noir-lang/noirc_abi';
 import { type ACIRCallback, type ACIRExecutionResult, acvm } from '../acvm/acvm.js';
 import type { ACVMWitness } from '../acvm/acvm_types.js';
 import { type SimulationProvider, parseErrorPayload } from '../common/simulation_provider.js';
-import { CircuitRecorder } from './circuits_recording.js';
+import { CircuitRecorder } from './circuit_recorder.js';
 
 export class WASMSimulator implements SimulationProvider {
   constructor(protected log = createLogger('wasm-simulator')) {}
