@@ -72,6 +72,7 @@
     "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
+    "@aztec/p2p": "workspace:^",
     "@aztec/stdlib": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "@iarna/toml": "^2.2.5",

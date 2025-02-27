@@ -235,14 +235,12 @@ export class AlwaysFalseCircuitVerifier implements ClientProtocolCircuitVerifier
 export function createBootstrapNodeConfig(privateKey: string, port: number, chainConfig: ChainConfig): BootnodeConfig {
   return {
     l1ChainId: chainConfig.l1ChainId,
-    version: chainConfig.version,
-    l1Contracts: chainConfig.l1Contracts,
     udpListenAddress: `0.0.0.0:${port}`,
     udpAnnounceAddress: `127.0.0.1:${port}`,
     peerIdPrivateKey: privateKey,
-    maxPeerCount: 100,
     dataDirectory: undefined,
     dataStoreMapSizeKB: 0,
+    bootstrapNodes: [],
   };
 }
 
