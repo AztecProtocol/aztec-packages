@@ -73,7 +73,6 @@ spec:
             - |
               source /shared/config/service-addresses
               cat /shared/config/service-addresses
-              {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
 
               if [ "${PROVER_BROKER_ENABLED}" == "false" ]; then
                 until curl -s -X POST ${PROVER_BROKER_HOST}/status; do
@@ -84,6 +83,15 @@ spec:
               else
                 echo "Using built-in job broker"
               fi
+
+              # If we already have a registry address, and the bootstrap nodes are set, then we don't need to wait for the services
+              if [ -n "{{ .Values.aztec.contracts.registryAddress }}" ] && [ -n "{{ .Values.aztec.bootstrapENRs }}" ]; then
+                echo "Registry address and bootstrap nodes already set, skipping wait for services"
+                exit 0
+              fi
+
+              {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
+
 
               until curl --head --silent $BOOT_NODE_HOST/status; do
                 echo "Waiting for boot node..."
@@ -116,6 +124,10 @@ spec:
           env:
             - name: P2P_ENABLED
               value: "{{ .Values.proverNode.p2p.enabled }}"
+            - name: BOOTSTRAP_NODES
+              value: "{{ .Values.aztec.bootstrapENRs }}"
+            - name: REGISTRY_CONTRACT_ADDRESS
+              value: "{{ .Values.aztec.contracts.registryAddress }}"
 
       containers:
         - name: prover-node
