@@ -27,10 +27,9 @@ export async function executeUnconstrainedFunction(
     selector: functionSelector,
   });
 
-  const acir = artifact.bytecode;
   const initialWitness = toACVMWitness(0, args);
   const acirExecutionResult = await simulatorProvider
-    .executeUserCircuit(acir, initialWitness, new Oracle(oracle))
+    .executeUserCircuit(initialWitness, artifact, new Oracle(oracle))
     .catch((err: Error) => {
       err.message = resolveAssertionMessageFromError(err, artifact);
       throw new ExecutionError(

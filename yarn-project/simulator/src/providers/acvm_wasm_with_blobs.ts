@@ -1,4 +1,5 @@
 import { foreignCallHandler } from '@aztec/noir-protocol-circuits-types/server';
+import type { FunctionArtifact } from '@aztec/stdlib/abi';
 import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
 
 import { type ExecutionError, executeCircuit } from '@noir-lang/acvm_js';
@@ -32,7 +33,7 @@ export class WASMSimulatorWithBlobs implements SimulationProvider {
 
       return _witnessMap;
     } catch (err) {
-      // Typescript types catched errors as unknown or any, so we need to narrow its type to check if it has raw assertion payload.
+      // Typescript types caught errors as unknown or any, so we need to narrow its type to check if it has raw assertion payload.
       if (typeof err === 'object' && err !== null && 'rawAssertionPayload' in err) {
         throw parseErrorPayload(compiledCircuit.abi, err as ExecutionError);
       }
@@ -41,8 +42,8 @@ export class WASMSimulatorWithBlobs implements SimulationProvider {
   }
 
   executeUserCircuit(
-    _acir: Buffer,
-    _initialWitness: ACVMWitness,
+    _input: ACVMWitness,
+    _artifact: FunctionArtifact,
     _callback: ACIRCallback,
   ): Promise<ACIRExecutionResult> {
     throw new Error('Not implemented');
