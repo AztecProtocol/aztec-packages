@@ -9,7 +9,7 @@ import initAbi from '@noir-lang/noirc_abi';
 import { type ACIRCallback, type ACIRExecutionResult, acvm } from '../acvm/acvm.js';
 import type { ACVMWitness } from '../acvm/acvm_types.js';
 import { type SimulationProvider, parseErrorPayload } from '../common/simulation_provider.js';
-import { setupRecordingIfEnabledAndGetWrappedCallback } from './circuits_recording.js';
+import { CircuitRecorder } from './circuits_recording.js';
 
 export class WASMSimulator implements SimulationProvider {
   constructor(protected log = createLogger('wasm-simulator')) {}
@@ -63,7 +63,14 @@ export class WASMSimulator implements SimulationProvider {
     callback: ACIRCallback,
   ): Promise<ACIRExecutionResult> {
     await this.init();
-    const wrappedCallback = await setupRecordingIfEnabledAndGetWrappedCallback(input, callback, artifact);
-    return acvm(artifact.bytecode, input, wrappedCallback);
+    if (!process.env.CIRCUIT_RECORD_DIR) {
+      return acvm(artifact.bytecode, input, callback);
+    }
+
+    const recorder = await CircuitRecorder.start(input, callback, artifact, process.env.CIRCUIT_RECORD_DIR);
+    const result = await acvm(artifact.bytecode, input, recorder.getCallback());
+    await recorder.finish();
+
+    return result;
   }
 }
