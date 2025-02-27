@@ -19,7 +19,9 @@ import { SingleKeyBaseAccountContract } from './account_contract.js';
  * @returns The contract artifact for the single key account contract
  */
 export async function getSingleKeyAccountContractArtifact() {
-  const { default: schnorrAccountContractJson } = await import('../../artifacts/SchnorrAccount.json');
+  const { default: schnorrAccountContractJson } = await import('../../artifacts/SchnorrAccount.json', {
+    assert: { type: 'json' },
+  });
   return loadContractArtifact(schnorrAccountContractJson);
 }
 
