@@ -205,15 +205,15 @@ export class RollupContract {
     args: readonly [
       bigint,
       bigint,
-      readonly [
-        `0x${string}`,
-        `0x${string}`,
-        `0x${string}`,
-        `0x${string}`,
-        `0x${string}`,
-        `0x${string}`,
-        `0x${string}`,
-      ],
+      {
+        previousArchive: `0x${string}`;
+        endArchive: `0x${string}`;
+        previousBlockHash: `0x${string}`;
+        endBlockHash: `0x${string}`;
+        endTimestamp: bigint;
+        outHash: `0x${string}`;
+        proverId: `0x${string}`;
+      },
       readonly `0x${string}`[],
       `0x${string}`,
       `0x${string}`,

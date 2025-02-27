@@ -19,10 +19,20 @@ import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
+struct PublicInputArgs {
+  bytes32 previousArchive;
+  bytes32 endArchive;
+  bytes32 previousBlockHash; // @todo #8829 Not needed as public input, unconstrained on L1
+  bytes32 endBlockHash; // @todo #8829 Not needed as public input, unconstrained on L1
+  Timestamp endTimestamp;
+  bytes32 outHash;
+  address proverId;
+}
+
 struct SubmitEpochRootProofArgs {
   uint256 start; // inclusive
   uint256 end; // inclusive
-  bytes32[7] args; // @todo These are obhorrent and so easy to mess up with wrong padding.
+  PublicInputArgs args;
   bytes32[] fees;
   bytes blobPublicInputs;
   bytes aggregationObject;
@@ -111,7 +121,7 @@ interface IRollupCore {
   event L2BlockProposed(
     uint256 indexed blockNumber, bytes32 indexed archive, bytes32[] versionedBlobHashes
   );
-  event L2ProofVerified(uint256 indexed blockNumber, bytes32 indexed proverId);
+  event L2ProofVerified(uint256 indexed blockNumber, address indexed proverId);
   event PrunedPending(uint256 provenBlockNumber, uint256 pendingBlockNumber);
 
   function claimSequencerRewards(address _recipient) external returns (uint256);
@@ -163,7 +173,7 @@ interface IRollup is IRollupCore {
   function getEpochProofPublicInputs(
     uint256 _start,
     uint256 _end,
-    bytes32[7] calldata _args,
+    PublicInputArgs calldata _args,
     bytes32[] calldata _fees,
     bytes calldata _blobPublicInputs,
     bytes calldata _aggregationObject

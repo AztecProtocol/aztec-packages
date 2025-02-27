@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
+import {SubmitEpochRootProofArgs, PublicInputArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {StakingLib} from "./../staking/StakingLib.sol";
 import {ValidatorSelectionLib} from "./../ValidatorSelectionLib/ValidatorSelectionLib.sol";
 import {BlobLib} from "./BlobLib.sol";
@@ -38,7 +38,7 @@ library ExtRollupLib {
   function getEpochProofPublicInputs(
     uint256 _start,
     uint256 _end,
-    bytes32[7] calldata _args,
+    PublicInputArgs calldata _args,
     bytes32[] calldata _fees,
     bytes calldata _blobPublicInputs,
     bytes calldata _aggregationObject
