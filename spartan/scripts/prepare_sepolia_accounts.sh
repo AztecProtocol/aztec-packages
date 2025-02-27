@@ -22,9 +22,7 @@ fi
 
 # Install cast if needed
 if ! command -v cast &>/dev/null; then
-  echo "Installing cast..."
   curl -L https://foundry.paradigm.xyz | bash
-  echo "Adding cast to path..."
   $HOME/.foundry/bin/foundryup && export PATH="$PATH:$HOME/.foundry/bin" || $XDG_CONFIG_HOME/.foundry/bin/foundryup && export PATH="$PATH:$XDG_CONFIG_HOME/.foundry/bin"
 fi
 
@@ -43,7 +41,7 @@ ADDRESSES=$(jq -r '.accounts[].address' output.json)
 wei_amount=$(cast to-wei "$eth_amount" ether)
 
 # Get current gas price and add 25% buffer
-gas_price=$(cast gas-price --rpc-urls "$ETHEREUM_HOSTS")
+gas_price=$(cast gas-price --rpc-url "$ETHEREUM_HOST")
 gas_price=$((gas_price * 125 / 100)) # Add 25% to gas price
 
 # Build 'calls' string in the format:
@@ -65,7 +63,7 @@ tx_hash=$(cast send "$multicall_address" \
   "$calls" \
   --value "$total_value" \
   --private-key "$FUNDING_PRIVATE_KEY" \
-  --rpc-urls "$ETHEREUM_HOSTS" \
+  --rpc-url "$ETHEREUM_HOST" \
   --json --gas-price "$gas_price")
 
 echo >&2 "Sent ${wei_amount} wei to ${num_accounts} addresses in tx $tx_hash"
