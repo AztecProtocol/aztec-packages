@@ -171,7 +171,10 @@ jobs:
           export FUNDING_PRIVATE_KEY=${{ secrets.SEPOLIA_FUNDING_PRIVATE_KEY }}
           export ETHEREUM_HOST="https://json-rpc.${{ secrets.GCP_SEPOLIA_URL }}?key=${{ secrets.GCP_SEPOLIA_API_KEY }}"
           echo "Preparing sepolia accounts..."
-          mnemonic=$($REPO/spartan/scripts/prepare_sepolia_accounts.sh ${{ env.VALUES_FILE }} 5)
+          MNEMONIC_FILE=$(mktemp)
+          $REPO/spartan/scripts/prepare_sepolia_accounts.sh ${{ env.VALUES_FILE }} 5 "$MNEMONIC_FILE"
+          mnemonic=$(cat "$MNEMONIC_FILE")
+          rm "$MNEMONIC_FILE"
           echo "::add-mask::$mnemonic"
           echo "mnemonic=$mnemonic" >> "$GITHUB_OUTPUT"
 
