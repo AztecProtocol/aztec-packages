@@ -234,7 +234,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
                 note_type_id: Field,
                 contract_address: aztec::protocol_types::address::AztecAddress,
                 nonce: Field,
-            ) -> pub Option<aztec::discovery::NoteHashAndNullifier> {
+            ) -> Option<aztec::discovery::NoteHashAndNullifier> {
                 $if_note_type_id_match_statements
                 else {
                     Option::none()
