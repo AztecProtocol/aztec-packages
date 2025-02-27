@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740655556650,
+  "lastUpdate": 1740660727250,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "49558828+AztecBot@users.noreply.github.com",
-            "name": "Aztec Bot",
-            "username": "AztecBot"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ed9a416c1d4dfb8a3a327baebdf61d5f54881355",
-          "message": "feat: Sync from noir (#12176)\n\nAutomated pull of development from the\n[noir](https://github.com/noir-lang/noir) programming language, a\ndependency of Aztec.\nBEGIN_COMMIT_OVERRIDE\nfeat: Sync from aztec-packages\n(https://github.com/noir-lang/noir/pull/7474)\nfix: don't panic when shifting too much\n(https://github.com/noir-lang/noir/pull/7429)\nchore: bump external pinned commits\n(https://github.com/noir-lang/noir/pull/7472)\nchore: remove `disable_macros` compile option\n(https://github.com/noir-lang/noir/pull/7468)\nchore(ci): add workflow to automate bumping aztec-packages commit\n(https://github.com/noir-lang/noir/pull/7465)\nchore: Release Noir(1.0.0-beta.3)\n(https://github.com/noir-lang/noir/pull/7346)\nchore(ci): Missing dash in profiler command argument\n(https://github.com/noir-lang/noir/pull/7467)\nfeat(experimental): show macro errors where they happen\n(https://github.com/noir-lang/noir/pull/7333)\nfeat: optimize FieldElement::num_bits\n(https://github.com/noir-lang/noir/pull/7147)\nchore(profiler): Docs on profiler command and more complete error\nreporting (https://github.com/noir-lang/noir/pull/7436)\nfeat(ci): Release noir-inspector in binaries\n(https://github.com/noir-lang/noir/pull/7464)\nchore(docs): Noir Profiler external documentation\n(https://github.com/noir-lang/noir/pull/7457)\nfeat(ci): Publish binaries for noir-profiler\n(https://github.com/noir-lang/noir/pull/7443)\nchore: Copy #7387 docs into v1.0.0-beta.2 versioned_docs\n(https://github.com/noir-lang/noir/pull/7458)\nfix: prevent incorrect ACIRgen caused by noop truncations\n(https://github.com/noir-lang/noir/pull/7456)\nfeat: add native `u128` type\n(https://github.com/noir-lang/noir/pull/7301)\nchore: standardize that doc comments on top of statements and expression\nare allowed but warn (https://github.com/noir-lang/noir/pull/7450)\nfix: don't let nargo fmt produce multiple trailing newlines\n(https://github.com/noir-lang/noir/pull/7444)\nEND_COMMIT_OVERRIDE\n\n---------\n\nCo-authored-by: Tom French <tom@tomfren.ch>",
-          "timestamp": "2025-02-21T15:22:23Z",
-          "tree_id": "461a0f7b5b34857e6943d9779e1d8e374e4a7ea8",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ed9a416c1d4dfb8a3a327baebdf61d5f54881355"
-        },
-        "date": 1740153013716,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18407.163237000077,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16180.288506 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18789.364944999987,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16380.477103000001 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3964.2892910001137,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3153.411128 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55048.208085,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55048208000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9626.254036,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9626255000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1837039363,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1837039363 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 129431981,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 129431981 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3550,6 +3484,78 @@ window.BENCHMARK_DATA = {
             "value": 214794050,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 214794050 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2281.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "gregojquiros@gmail.com",
+            "name": "Gregorio Juliana",
+            "username": "Thunkar"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e632bd7e58e31b19d5f85cb461d5b7ca80ece697",
+          "message": "feat: expose bb_wasm_path in foundation and bb-prover (#12330)\n\nAllows alternative `.wasms` file to be loaded into `bb.js` from both\n`foundation` (and thus, `aztec.js`) and `bb-prover`.\n\nThis is useful in itself, but the aim of this PR is solving\nhttps://github.com/AztecProtocol/aztec-packages/issues/11963 by allowing\nbypassing the lazy loading of bb wasms (disguised as js files)\n\nThis PR also prepares boxes and playground for strict size limits by\nensuring no artifacts are included in main bundles.",
+          "timestamp": "2025-02-27T13:18:24+01:00",
+          "tree_id": "ac256f9679b19ed42fdbd61fe6f13a6f9fbcf961",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e632bd7e58e31b19d5f85cb461d5b7ca80ece697"
+        },
+        "date": 1740660719907,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18293.629009999902,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15995.684612 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18681.593179999938,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16476.041547 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3942.440311000155,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3161.642472 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55190.936725,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55190939000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10067.836023,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10067838000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1897233898,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1897233898 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 212535250,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 212535250 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
