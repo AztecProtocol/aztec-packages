@@ -8,12 +8,8 @@ import { makeTuple } from '@aztec/foundation/array';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import {
-  ProtocolCircuitVkIndexes,
-  ServerCircuitVks,
-  getVKSiblingPath,
-  getVKTreeRoot,
-} from '@aztec/noir-protocol-circuits-types/vks';
+import { ProtocolCircuitVkIndexes, ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
+import { getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { BaseParityInputs, ParityPublicInputs, RootParityInput, RootParityInputs } from '@aztec/stdlib/parity';
 import { makeRecursiveProof } from '@aztec/stdlib/proofs';
 import { VerificationKeyAsFields } from '@aztec/stdlib/vks';

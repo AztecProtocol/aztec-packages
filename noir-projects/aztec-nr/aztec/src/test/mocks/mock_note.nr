@@ -1,11 +1,6 @@
 use crate::{
     context::PrivateContext,
-    note::{
-        note_interface::{NoteHash, NoteType},
-        note_metadata::SettledNoteMetadata,
-        retrieved_note::RetrievedNote,
-        utils::compute_note_hash_for_nullify,
-    },
+    note::{note_interface::{NoteHash, NoteType}, retrieved_note::RetrievedNote},
 };
 
 use dep::protocol_types::{
@@ -47,20 +42,9 @@ impl NoteHash for MockNote {
         )
     }
 
-    unconstrained fn compute_nullifier_without_context(
-        self,
-        storage_slot: Field,
-        contract_address: AztecAddress,
-        note_nonce: Field,
-    ) -> Field {
-        let retrieved_note = RetrievedNote {
-            note: self,
-            contract_address,
-            metadata: SettledNoteMetadata::new(note_nonce).into(),
-        };
+    unconstrained fn compute_nullifier_unconstrained(self, note_hash_for_nullify: Field) -> Field {
         // We don't use any kind of secret here since this is only a mock note and having it here would make tests
         // more cumbersome
-        let note_hash_for_nullify = compute_note_hash_for_nullify(retrieved_note, storage_slot);
         poseidon2_hash_with_separator(
             [note_hash_for_nullify],
             GENERATOR_INDEX__NOTE_NULLIFIER as Field,
