@@ -3,23 +3,13 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
 import { RollupAbi, RollupStorage, SlasherAbi } from '@aztec/l1-artifacts';
 
-import {
-  type Account,
-  type Chain,
-  type GetContractReturnType,
-  type Hex,
-  type HttpTransport,
-  type PublicClient,
-  createPublicClient,
-  getAddress,
-  getContract,
-  http,
-} from 'viem';
+import { type Account, type GetContractReturnType, type Hex, getAddress, getContract } from 'viem';
 
-import { createEthereumChain } from '../chain.js';
-import { type DeployL1Contracts } from '../deploy_l1_contracts.js';
-import { type L1ContractAddresses } from '../l1_contract_addresses.js';
-import { type L1ReaderConfig } from '../l1_reader.js';
+import { getPublicClient } from '../client.js';
+import type { DeployL1ContractsReturnType } from '../deploy_l1_contracts.js';
+import type { L1ContractAddresses } from '../l1_contract_addresses.js';
+import type { L1ReaderConfig } from '../l1_reader.js';
+import type { ViemPublicClient } from '../types.js';
 import { formatViemError } from '../utils.js';
 import { SlashingProposerContract } from './slashing_proposer.js';
 
@@ -32,10 +22,11 @@ export type L1RollupContractAddresses = Pick<
   | 'feeJuiceAddress'
   | 'stakingAssetAddress'
   | 'rewardDistributorAddress'
+  | 'slashFactoryAddress'
 >;
 
 export class RollupContract {
-  private readonly rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
+  private readonly rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>;
 
   static get checkBlobStorageSlot(): bigint {
     const asString = RollupStorage.find(storage => storage.label === 'checkBlob')?.slot;
@@ -45,7 +36,7 @@ export class RollupContract {
     return BigInt(asString);
   }
 
-  static getFromL1ContractsValues(deployL1ContractsValues: DeployL1Contracts) {
+  static getFromL1ContractsValues(deployL1ContractsValues: DeployL1ContractsReturnType) {
     const {
       publicClient,
       l1ContractAddresses: { rollupAddress },
@@ -54,15 +45,15 @@ export class RollupContract {
   }
 
   static getFromConfig(config: L1ReaderConfig) {
-    const client = createPublicClient({
-      transport: http(config.l1RpcUrl),
-      chain: createEthereumChain(config.l1RpcUrl, config.l1ChainId).chainInfo,
-    });
+    const client = getPublicClient(config);
     const address = config.l1Contracts.rollupAddress.toString();
     return new RollupContract(client, address);
   }
 
-  constructor(public readonly client: PublicClient<HttpTransport, Chain>, address: Hex) {
+  constructor(public readonly client: ViemPublicClient, address: Hex | EthAddress) {
+    if (address instanceof EthAddress) {
+      address = address.toString();
+    }
     this.rollup = getContract({ address, abi: RollupAbi, client });
   }
 
@@ -186,11 +177,11 @@ export class RollupContract {
       stakingAssetAddress,
     ] = (
       await Promise.all([
-        this.rollup.read.INBOX(),
-        this.rollup.read.OUTBOX(),
-        this.rollup.read.FEE_JUICE_PORTAL(),
-        this.rollup.read.REWARD_DISTRIBUTOR(),
-        this.rollup.read.ASSET(),
+        this.rollup.read.getInbox(),
+        this.rollup.read.getOutbox(),
+        this.rollup.read.getFeeAssetPortal(),
+        this.rollup.read.getRewardDistributor(),
+        this.rollup.read.getFeeAsset(),
         this.rollup.read.getStakingAsset(),
       ] as const)
     ).map(EthAddress.fromString);

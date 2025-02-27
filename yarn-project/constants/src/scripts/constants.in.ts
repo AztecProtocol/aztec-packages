@@ -6,6 +6,8 @@ const NOIR_CONSTANTS_FILE = '../../../../noir-projects/noir-protocol-circuits/cr
 const TS_CONSTANTS_FILE = '../constants.gen.ts';
 const CPP_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/src/barretenberg/vm/aztec_constants.hpp';
 const PIL_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/pil/avm/constants_gen.pil';
+// Temp while vm2 is WIP
+const PIL_VM2_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/pil/vm2/constants_gen.pil';
 const SOLIDITY_CONSTANTS_FILE = '../../../../l1-contracts/src/core/libraries/ConstantsGen.sol';
 
 // Whitelist of constants that will be copied to aztec_constants.hpp.
@@ -154,6 +156,18 @@ const PIL_CONSTANTS = [
   'MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS',
 ];
 
+const PIL_GENERATORS: string[] = [
+  'PARTIAL_ADDRESS',
+  'CONTRACT_ADDRESS_V1',
+  'CONTRACT_LEAF',
+  'PUBLIC_KEYS_HASH',
+  'NOTE_HASH_NONCE',
+  'UNIQUE_NOTE_HASH',
+  'SILOED_NOTE_HASH',
+  'OUTER_NULLIFIER',
+  'PUBLIC_LEAF_INDEX',
+];
+
 /**
  * Parsed content.
  */
@@ -215,13 +229,22 @@ function processConstantsCpp(
  * @param constants - An object containing key-value pairs representing constants.
  * @returns A string containing code that exports the constants as cpp constants.
  */
-function processConstantsPil(constants: { [key: string]: string }): string {
+function processConstantsPil(
+  constants: { [key: string]: string },
+  generatorIndices: { [key: string]: number },
+): string {
   const code: string[] = [];
   Object.entries(constants).forEach(([key, value]) => {
     if (PIL_CONSTANTS.includes(key)) {
       code.push(`    pol ${key} = ${value};`);
     }
   });
+  Object.entries(generatorIndices).forEach(([key, value]) => {
+    if (PIL_GENERATORS.includes(key)) {
+      code.push(`    pol GENERATOR_INDEX__${key} = ${value};`);
+    }
+  });
+
   return code.join('\n');
 }
 /**
@@ -279,7 +302,7 @@ function generateTypescriptConstants({ constants, generatorIndexEnum }: ParsedCo
  * Generate the constants file in C++.
  */
 function generateCppConstants({ constants, generatorIndexEnum }: ParsedContent, targetPath: string) {
-  const resultCpp: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js
+  const resultCpp: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
 #pragma once
 
 ${processConstantsCpp(constants, generatorIndexEnum)}
@@ -291,10 +314,10 @@ ${processConstantsCpp(constants, generatorIndexEnum)}
 /**
  * Generate the constants file in PIL.
  */
-function generatePilConstants({ constants }: ParsedContent, targetPath: string) {
-  const resultPil: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js
-namespace constants(256);
-${processConstantsPil(constants)}
+function generatePilConstants({ constants, generatorIndexEnum }: ParsedContent, targetPath: string) {
+  const resultPil: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
+namespace constants;
+${processConstantsPil(constants, generatorIndexEnum)}
 \n`;
 
   fs.writeFileSync(targetPath, resultPil);
@@ -304,7 +327,7 @@ ${processConstantsPil(constants)}
  * Generate the constants file in Solidity.
  */
 function generateSolidityConstants({ constants }: ParsedContent, targetPath: string) {
-  const resultSolidity: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js
+  const resultSolidity: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.27;
@@ -461,9 +484,13 @@ function main(): void {
   const cppTargetPath = join(__dirname, CPP_AZTEC_CONSTANTS_FILE);
   generateCppConstants(parsedContent, cppTargetPath);
 
-  // PIL
+  // PIL - VM1
   const pilTargetPath = join(__dirname, PIL_AZTEC_CONSTANTS_FILE);
   generatePilConstants(parsedContent, pilTargetPath);
+
+  // PIL - VM2
+  const pilVm2TargetPath = join(__dirname, PIL_VM2_AZTEC_CONSTANTS_FILE);
+  generatePilConstants(parsedContent, pilVm2TargetPath);
 
   // Solidity
   const solidityTargetPath = join(__dirname, SOLIDITY_CONSTANTS_FILE);

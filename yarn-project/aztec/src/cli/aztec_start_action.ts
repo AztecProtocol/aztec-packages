@@ -1,13 +1,13 @@
-import { getVersioningMiddleware } from '@aztec/circuit-types';
-import { type ChainConfig } from '@aztec/circuit-types/config';
-import { AztecNodeApiSchema, PXESchema } from '@aztec/circuit-types/interfaces/client';
 import {
   type NamespacedApiHandlers,
   createNamespacedSafeJsonRpcServer,
   startHttpRpcServer,
 } from '@aztec/foundation/json-rpc/server';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
+import type { ChainConfig } from '@aztec/stdlib/config';
+import { AztecNodeApiSchema, PXESchema } from '@aztec/stdlib/interfaces/client';
+import { getVersioningMiddleware } from '@aztec/stdlib/versioning';
 import { getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
 
 import { readFileSync } from 'fs';
@@ -36,7 +36,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
     const { node, pxe, stop } = await createSandbox(
       {
         l1Mnemonic: options.l1Mnemonic,
-        l1RpcUrl: options.l1RpcUrl,
+        l1RpcUrls: options.l1RpcUrls,
         l1Salt: nodeOptions.deployAztecContractsSalt,
         noPXE: sandboxOptions.noPXE,
         testAccounts: sandboxOptions.testAccounts,
@@ -56,9 +56,6 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
     if (options.node) {
       const { startNode } = await import('./cmds/start_node.js');
       ({ config } = await startNode(options, signalHandlers, services, userLog));
-    } else if (options.proofVerifier) {
-      const { startProofVerifier } = await import('./cmds/start_proof_verifier.js');
-      await startProofVerifier(options, signalHandlers, userLog);
     } else if (options.bot) {
       const { startBot } = await import('./cmds/start_bot.js');
       await startBot(options, signalHandlers, services, userLog);

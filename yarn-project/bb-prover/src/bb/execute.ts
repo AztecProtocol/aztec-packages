@@ -1,13 +1,13 @@
-import { type AvmCircuitInputs, serializeWithMessagePack } from '@aztec/circuits.js/avm';
 import { sha256 } from '@aztec/foundation/crypto';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import { type AvmCircuitInputs, serializeWithMessagePack } from '@aztec/stdlib/avm';
 
 import * as proc from 'child_process';
 import { promises as fs } from 'fs';
 import { basename, dirname, join } from 'path';
 
-import { type UltraHonkFlavor } from '../honk.js';
+import type { UltraHonkFlavor } from '../honk.js';
 import { CLIENT_IVC_PROOF_FILE_NAME, CLIENT_IVC_VK_FILE_NAME } from '../prover/client_ivc_proof_utils.js';
 
 export const VK_FILENAME = 'vk';
@@ -779,8 +779,8 @@ export async function computeGateCountForCircuit(
 
     const result = await executeBB(
       pathToBB,
-      flavor === 'mega_honk' ? `gates_for_ivc` : `gates`,
-      ['-b', bytecodePath, '-v'],
+      'gates',
+      ['--scheme', flavor === 'mega_honk' ? 'client_ivc' : 'ultra_honk', '-b', bytecodePath, '-v'],
       logHandler,
     );
     const duration = timer.ms();

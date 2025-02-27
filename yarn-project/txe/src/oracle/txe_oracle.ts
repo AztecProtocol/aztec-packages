@@ -1,58 +1,4 @@
-import {
-  AuthWitness,
-  Body,
-  L2Block,
-  MerkleTreeId,
-  Note,
-  type NoteStatus,
-  PublicDataWitness,
-  PublicExecutionRequest,
-  SimulationError,
-  TxEffect,
-  TxHash,
-  type UnencryptedL2Log,
-} from '@aztec/circuit-types';
-import {
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
-  NullifierMembershipWitness,
-} from '@aztec/circuit-types/interfaces/server';
-import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
-import {
-  type ContractArtifact,
-  type FunctionAbi,
-  FunctionSelector,
-  type NoteSelector,
-  countArgumentsSize,
-} from '@aztec/circuits.js/abi';
-import { PublicDataWrite } from '@aztec/circuits.js/avm';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { type ContractInstance, type ContractInstanceWithAddress } from '@aztec/circuits.js/contract';
-import { Gas, GasFees } from '@aztec/circuits.js/gas';
-import {
-  computeNoteHashNonce,
-  computePublicDataTreeLeafSlot,
-  computeUniqueNoteHash,
-  siloNoteHash,
-  siloNullifier,
-} from '@aztec/circuits.js/hash';
-import { type KeyValidationRequest, PrivateContextInputs } from '@aztec/circuits.js/kernel';
-import { computeTaggingSecretPoint, deriveKeys } from '@aztec/circuits.js/keys';
-import { LogWithTxData } from '@aztec/circuits.js/logs';
-import { IndexedTaggingSecret, type PrivateLog, type PublicLog } from '@aztec/circuits.js/logs';
-import {
-  makeAppendOnlyTreeSnapshot,
-  makeContentCommitment,
-  makeGlobalVariables,
-  makeHeader,
-} from '@aztec/circuits.js/testing';
-import {
-  AppendOnlyTreeSnapshot,
-  type NullifierLeafPreimage,
-  PublicDataTreeLeaf,
-  type PublicDataTreeLeafPreimage,
-} from '@aztec/circuits.js/trees';
-import { BlockHeader, CallContext, GlobalVariables } from '@aztec/circuits.js/tx';
+import { Body, L2Block, Note } from '@aztec/aztec.js';
 import {
   type L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_NOTE_HASHES_PER_TX,
@@ -69,7 +15,7 @@ import { Schnorr, poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type LogFn, type Logger, applyStringFormatting, createDebugOnlyLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { type KeyStore } from '@aztec/key-store';
+import type { KeyStore } from '@aztec/key-store';
 import { ContractDataOracle, SimulatorOracle, enrichPublicSimulationError } from '@aztec/pxe';
 import {
   ExecutionNoteCache,
@@ -94,10 +40,53 @@ import {
   createSimulationError,
   resolveAssertionMessageFromError,
 } from '@aztec/simulator/server';
+import {
+  type ContractArtifact,
+  type FunctionAbi,
+  FunctionSelector,
+  type NoteSelector,
+  countArgumentsSize,
+} from '@aztec/stdlib/abi';
+import { AuthWitness } from '@aztec/stdlib/auth-witness';
+import { PublicDataWrite } from '@aztec/stdlib/avm';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractInstance, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import { SimulationError } from '@aztec/stdlib/errors';
+import { Gas, GasFees } from '@aztec/stdlib/gas';
+import {
+  computeNoteHashNonce,
+  computePublicDataTreeLeafSlot,
+  computeUniqueNoteHash,
+  siloNoteHash,
+  siloNullifier,
+} from '@aztec/stdlib/hash';
+import type { MerkleTreeReadOperations, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { type KeyValidationRequest, PrivateContextInputs } from '@aztec/stdlib/kernel';
+import { computeTaggingSecretPoint, deriveKeys } from '@aztec/stdlib/keys';
+import { LogWithTxData, UnencryptedL2Log } from '@aztec/stdlib/logs';
+import { IndexedTaggingSecret, type PrivateLog, type PublicLog } from '@aztec/stdlib/logs';
+import type { NoteStatus } from '@aztec/stdlib/note';
+import type { CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
+import {
+  makeAppendOnlyTreeSnapshot,
+  makeContentCommitment,
+  makeGlobalVariables,
+  makeHeader,
+} from '@aztec/stdlib/testing';
+import {
+  AppendOnlyTreeSnapshot,
+  MerkleTreeId,
+  type NullifierLeafPreimage,
+  NullifierMembershipWitness,
+  PublicDataTreeLeaf,
+  type PublicDataTreeLeafPreimage,
+  PublicDataWitness,
+} from '@aztec/stdlib/trees';
+import { BlockHeader, CallContext, GlobalVariables, PublicExecutionRequest, TxEffect, TxHash } from '@aztec/stdlib/tx';
 import { ForkCheckpoint, type NativeWorldStateService } from '@aztec/world-state/native';
 
 import { TXENode } from '../node/txe_node.js';
-import { type TXEDatabase } from '../util/txe_database.js';
+import type { TXEDatabase } from '../util/txe_database.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
 import { TXEWorldStateDB } from '../util/txe_world_state_db.js';
 

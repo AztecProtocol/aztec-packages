@@ -66,8 +66,6 @@
   "dependencies": {
     "@aztec/blob-lib": "workspace:^",
     "@aztec/blob-sink": "workspace:^",
-    "@aztec/circuit-types": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
@@ -76,6 +74,7 @@
     "@aztec/noir-contracts.js": "workspace:^",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "debug": "^4.3.4",
     "lodash.groupby": "^4.6.0",

@@ -8,10 +8,10 @@ import {
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
 } from '@aztec/aztec.js';
-import { type AppSubscriptionContract } from '@aztec/noir-contracts.js/AppSubscription';
-import { type CounterContract } from '@aztec/noir-contracts.js/Counter';
-import { type FPCContract } from '@aztec/noir-contracts.js/FPC';
-import { type TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
+import type { AppSubscriptionContract } from '@aztec/noir-contracts.js/AppSubscription';
+import type { CounterContract } from '@aztec/noir-contracts.js/Counter';
+import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
+import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 
 import { expectMapping, expectMappingDelta } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
@@ -115,7 +115,7 @@ describe('e2e_fees dapp_subscription', () => {
     await expectBananasPrivateDelta(-t.SUBSCRIPTION_AMOUNT - transactionFee!, t.SUBSCRIPTION_AMOUNT, 0n);
     await expectBananasPublicDelta(0n, 0n, transactionFee!);
 
-    // REFUND_AMOUNT is a transparent note note
+    // REFUND_AMOUNT is a transparent note
   });
 
   it('should allow Alice to subscribe by paying with bananas in public', async () => {
@@ -172,8 +172,7 @@ describe('e2e_fees dapp_subscription', () => {
   it('should reject after the sub runs out', async () => {
     // Subscribe again. This will overwrite the previous subscription.
     await subscribe(new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet), 0);
-    // TODO(#6651): Change back to /(context.block_number()) as u64 < expiry_block_number as u64/ when fixed
-    await expect(dappIncrement()).rejects.toThrow(/Note encrypted logs hash mismatch/);
+    await expect(dappIncrement()).rejects.toThrow(/Block number mismatch/i);
   });
 
   it('should reject after the txs run out', async () => {

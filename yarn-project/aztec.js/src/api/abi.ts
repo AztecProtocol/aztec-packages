@@ -6,5 +6,5 @@ export {
   loadContractArtifact,
   contractArtifactToBuffer,
   contractArtifactFromBuffer,
-} from '@aztec/circuits.js/abi';
-export { type NoirCompiledContract } from '@aztec/circuits.js/noir';
+} from '@aztec/stdlib/abi';
+export { type NoirCompiledContract } from '@aztec/stdlib/noir';

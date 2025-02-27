@@ -1,6 +1,6 @@
-import { type TxExecutionPhase } from '@aztec/circuit-types';
-import { type Gas } from '@aztec/circuits.js/gas';
-import { type ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
+import type { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
+import type { Gas } from '@aztec/stdlib/gas';
+import type { TxExecutionPhase } from '@aztec/stdlib/tx';
 import {
   Attributes,
   type Gauge,

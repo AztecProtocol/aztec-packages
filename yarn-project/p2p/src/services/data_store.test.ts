@@ -1,6 +1,6 @@
 import { randomBytes } from '@aztec/foundation/crypto';
 import { all } from '@aztec/foundation/iterable';
-import { type AztecAsyncKVStore } from '@aztec/kv-store';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
 import {

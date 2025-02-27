@@ -1,29 +1,4 @@
 import { Blob, type SpongeBlob } from '@aztec/blob-lib';
-import { Body, MerkleTreeId, type ProcessedTx, TxEffect, getTreeHeight } from '@aztec/circuit-types';
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
-import { PublicDataHint } from '@aztec/circuits.js/avm';
-import type { ParityPublicInputs } from '@aztec/circuits.js/parity';
-import {
-  type BaseOrMergeRollupPublicInputs,
-  type BlockRootOrBlockMergePublicInputs,
-  ConstantRollupData,
-  PrivateBaseRollupHints,
-  PrivateBaseStateDiffHints,
-  PublicBaseRollupHints,
-} from '@aztec/circuits.js/rollup';
-import {
-  AppendOnlyTreeSnapshot,
-  NullifierLeafPreimage,
-  PublicDataTreeLeaf,
-  PublicDataTreeLeafPreimage,
-} from '@aztec/circuits.js/trees';
-import {
-  BlockHeader,
-  ContentCommitment,
-  type GlobalVariables,
-  PartialStateReference,
-  StateReference,
-} from '@aztec/circuits.js/tx';
 import {
   ARCHIVE_HEIGHT,
   MAX_NOTE_HASHES_PER_TX,
@@ -40,14 +15,43 @@ import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { type Logger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { type Tuple, assertLength, serializeToBuffer, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { MembershipWitness, MerkleTreeCalculator, computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
+import { PublicDataHint } from '@aztec/stdlib/avm';
+import { Body } from '@aztec/stdlib/block';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import type { ParityPublicInputs } from '@aztec/stdlib/parity';
+import {
+  type BaseOrMergeRollupPublicInputs,
+  type BlockRootOrBlockMergePublicInputs,
+  ConstantRollupData,
+  PrivateBaseRollupHints,
+  PrivateBaseStateDiffHints,
+  PublicBaseRollupHints,
+} from '@aztec/stdlib/rollup';
+import {
+  AppendOnlyTreeSnapshot,
+  MerkleTreeId,
+  NullifierLeafPreimage,
+  PublicDataTreeLeaf,
+  PublicDataTreeLeafPreimage,
+  getTreeHeight,
+} from '@aztec/stdlib/trees';
+import {
+  BlockHeader,
+  ContentCommitment,
+  type GlobalVariables,
+  PartialStateReference,
+  type ProcessedTx,
+  StateReference,
+  TxEffect,
+} from '@aztec/stdlib/tx';
 import { Attributes, type Span, runInSpan } from '@aztec/telemetry-client';
-import { type MerkleTreeReadOperations } from '@aztec/world-state';
+import type { MerkleTreeReadOperations } from '@aztec/world-state';
 
 import { inspect } from 'util';
 

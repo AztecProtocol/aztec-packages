@@ -1,27 +1,32 @@
 use dep::aztec::{
-    macros::notes::note,
-    note::utils::compute_note_hash_for_nullify,
-    prelude::{NullifiableNote, PrivateContext, RetrievedNote},
+    macros::notes::custom_note,
+    prelude::{NoteHash, PrivateContext},
     protocol_types::{
-        address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        hash::poseidon2_hash_with_separator, traits::Packable,
+        constants::{GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER},
+        hash::poseidon2_hash_with_separator,
+        traits::Packable,
+        utils::arrays::array_concat,
     },
 };
-
 use dep::std::mem::zeroed;
 
 // Transparent note represents a note that is created in the clear (public execution), but can only be spent by those
 // that know the preimage of the "secret_hash" (the secret). This is typically used when shielding a token balance.
 // Owner of the tokens provides a "secret_hash" as an argument to the public "shield" function and then the tokens
 // can be redeemed in private by presenting the preimage of the "secret_hash" (the secret).
-#[note]
+#[custom_note]
 #[derive(Eq)]
 pub struct TransparentNote {
-    amount: Field,
+    amount: u128,
     secret_hash: Field,
 }
 
-impl NullifiableNote for TransparentNote {
+impl NoteHash for TransparentNote {
+    fn compute_note_hash(self, storage_slot: Field) -> Field {
+        let inputs = array_concat(self.pack(), [storage_slot]);
+        poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__NOTE_HASH)
+    }
+
     // Computing a nullifier in a transparent note is not guarded by making secret a part of the nullifier preimage (as
     // is common in other cases) and instead is guarded by the functionality of "redeem_shield" function. There we do
     // the following:
@@ -41,16 +46,7 @@ impl NullifiableNote for TransparentNote {
         )
     }
 
-    unconstrained fn compute_nullifier_without_context(
-        self,
-        storage_slot: Field,
-        contract_address: AztecAddress,
-        note_nonce: Field,
-    ) -> Field {
-        // We set the note_hash_counter to 0 as the note is assumed to be committed (and hence not transient).
-        let retrieved_note =
-            RetrievedNote { note: self, contract_address, nonce: note_nonce, note_hash_counter: 0 };
-        let note_hash_for_nullify = compute_note_hash_for_nullify(retrieved_note, storage_slot);
+    unconstrained fn compute_nullifier_unconstrained(self, note_hash_for_nullify: Field) -> Field {
         // compute_nullifier ignores context so we can reuse it here
         self.compute_nullifier(zeroed(), note_hash_for_nullify)
     }
@@ -58,7 +54,7 @@ impl NullifiableNote for TransparentNote {
 
 impl TransparentNote {
     // CONSTRUCTORS
-    pub fn new(amount: Field, secret_hash: Field) -> Self {
+    pub fn new(amount: u128, secret_hash: Field) -> Self {
         TransparentNote { amount, secret_hash }
     }
 }

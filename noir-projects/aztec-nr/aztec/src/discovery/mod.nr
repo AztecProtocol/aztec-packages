@@ -17,9 +17,9 @@ global NOTE_PRIVATE_LOG_RESERVED_FIELDS: u32 = 2;
 pub global MAX_NOTE_PACKED_LEN: u32 = PRIVATE_LOG_SIZE_IN_FIELDS - NOTE_PRIVATE_LOG_RESERVED_FIELDS;
 
 pub struct NoteHashAndNullifier {
-    /// The result of NoteInterface::compute_note_hash
+    /// The result of NoteHash::compute_note_hash
     pub note_hash: Field,
-    /// The result of NullifiableNote::compute_nullifier_without_context
+    /// The result of NoteHash::compute_nullifier_unconstrained (since all of note discovery is unconstrained)
     pub inner_nullifier: Field,
 }
 
@@ -33,20 +33,25 @@ pub struct NoteHashAndNullifier {
 ///
 /// ```
 /// |packed_note_content, contract_address, nonce, storage_slot, note_type_id| {
-///     if note_type_id == MyNoteType::get_note_type_id() {
+///     if note_type_id == MyNoteType::get_id() {
 ///         assert(packed_note_content.len() == MY_NOTE_TYPE_SERIALIZATION_LENGTH);
 ///
 ///         let note = MyNoteType::unpack(aztec::utils::array::subarray(packed_note.storage(), 0));
 ///
 ///         let note_hash = note.compute_note_hash(storage_slot);
-///         let inner_nullifier = note.compute_nullifier_without_context(storage_slot, contract_address, nonce);
+///         let note_hash_for_nullify = aztec::note::utils::compute_note_hash_for_nullify(
+///             RetrievedNote{ note, contract_address, metadata: SettledNoteMetadata::new(nonce).into() },
+///             storage_slot
+///         );
+///
+///         let inner_nullifier = note.compute_nullifier_unconstrained(note_hash_for_nullify);
 ///
 ///         Option::some(
 ///             aztec::discovery::NoteHashAndNullifier {
 ///                 note_hash, inner_nullifier
 ///             }
 ///         )
-///     } else if note_type_id == MyOtherNoteType::get_note_type_id() {
+///     } else if note_type_id == MyOtherNoteType::get_id() {
 ///           ... // Similar to above but calling MyOtherNoteType::unpack_content
 ///     } else {
 ///         Option::none() // Unknown note type ID

@@ -1,8 +1,7 @@
 import { Blob } from '@aztec/blob-lib';
 import { HttpBlobSinkClient } from '@aztec/blob-sink/client';
 import { inboundTransform } from '@aztec/blob-sink/encoding';
-import { L2Block } from '@aztec/circuit-types';
-import { type EpochCache } from '@aztec/epoch-cache';
+import type { EpochCache } from '@aztec/epoch-cache';
 import {
   type ForwarderContract,
   type GasPrice,
@@ -14,17 +13,18 @@ import {
   defaultL1TxUtilsConfig,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
-import { type L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
 import { EmpireBaseAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { L2Block } from '@aztec/stdlib/block';
 
 import express, { json } from 'express';
-import { type Server } from 'http';
+import type { Server } from 'http';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { type GetTransactionReceiptReturnType, type TransactionReceipt, encodeFunctionData } from 'viem';
 
-import { type PublisherConfig, type TxSenderConfig } from './config.js';
+import type { PublisherConfig, TxSenderConfig } from './config.js';
 import { SequencerPublisher, VoteType } from './sequencer-publisher.js';
 
 const mockRollupAddress = EthAddress.random().toString();
@@ -82,7 +82,7 @@ describe('SequencerPublisher', () => {
     l1TxUtils.getBlockNumber.mockResolvedValue(1n);
     const config = {
       blobSinkUrl: BLOB_SINK_URL,
-      l1RpcUrl: `http://127.0.0.1:8545`,
+      l1RpcUrls: [`http://127.0.0.1:8545`],
       l1ChainId: 1,
       publisherPrivateKey: `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`,
       l1Contracts: {

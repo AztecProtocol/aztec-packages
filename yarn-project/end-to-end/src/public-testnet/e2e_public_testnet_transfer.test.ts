@@ -1,5 +1,5 @@
 import { type InitialAccountData, deployFundedSchnorrAccounts } from '@aztec/accounts/testing';
-import { type Logger, type PXE } from '@aztec/aztec.js';
+import type { Logger, PXE } from '@aztec/aztec.js';
 import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 
 import { foundry, sepolia } from 'viem/chains';
@@ -8,7 +8,7 @@ import { setup } from '../fixtures/utils.js';
 
 // process.env.SEQ_PUBLISHER_PRIVATE_KEY = '<PRIVATE_KEY_WITH_SEPOLIA_ETH>';
 // process.env.PROVER_PUBLISHER_PRIVATE_KEY = '<PRIVATE_KEY_WITH_SEPOLIA_ETH>';
-// process.env.ETHEREUM_HOST= 'https://sepolia.infura.io/v3/<API_KEY>';
+// process.env.ETHEREUM_HOSTS= 'https://sepolia.infura.io/v3/<API_KEY>';
 // process.env.L1_CHAIN_ID = '11155111';
 
 describe(`deploys and transfers a private only token`, () => {

@@ -1,21 +1,3 @@
-import { MerkleTreeId } from '@aztec/circuit-types';
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
-import { FunctionSelector } from '@aztec/circuits.js/abi';
-import { PublicDataWrite } from '@aztec/circuits.js/avm';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { SerializableContractInstance } from '@aztec/circuits.js/contract';
-import { GasFees } from '@aztec/circuits.js/gas';
-import {
-  computeNoteHashNonce,
-  computePublicDataTreeLeafSlot,
-  computeUniqueNoteHash,
-  computeVarArgsHash,
-  siloNoteHash,
-  siloNullifier,
-} from '@aztec/circuits.js/hash';
-import { PublicKeys } from '@aztec/circuits.js/keys';
-import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
-import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
 import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
 import {
   Grumpkin,
@@ -27,7 +9,24 @@ import {
   sha256,
 } from '@aztec/foundation/crypto';
 import { Fq, Fr, Point } from '@aztec/foundation/fields';
-import { type Fieldable } from '@aztec/foundation/serialize';
+import type { Fieldable } from '@aztec/foundation/serialize';
+import { FunctionSelector } from '@aztec/stdlib/abi';
+import { PublicDataWrite } from '@aztec/stdlib/avm';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { SerializableContractInstance } from '@aztec/stdlib/contract';
+import { GasFees } from '@aztec/stdlib/gas';
+import {
+  computeNoteHashNonce,
+  computePublicDataTreeLeafSlot,
+  computeUniqueNoteHash,
+  computeVarArgsHash,
+  siloNoteHash,
+  siloNullifier,
+} from '@aztec/stdlib/hash';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { PublicKeys } from '@aztec/stdlib/keys';
+import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
+import { MerkleTreeId, NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import { randomInt } from 'crypto';
@@ -35,9 +34,9 @@ import { mock } from 'jest-mock-extended';
 
 import { WorldStateDB } from '../public/public_db_sources.js';
 import { SideEffectTrace } from '../public/side_effect_trace.js';
-import { type PublicSideEffectTraceInterface } from '../public/side_effect_trace_interface.js';
-import { type AvmContext } from './avm_context.js';
-import { type AvmExecutionEnvironment } from './avm_execution_environment.js';
+import type { PublicSideEffectTraceInterface } from '../public/side_effect_trace_interface.js';
+import type { AvmContext } from './avm_context.js';
+import type { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { type MemoryValue, TypeTag, type Uint8, type Uint64 } from './avm_memory_types.js';
 import { AvmSimulator } from './avm_simulator.js';
 import { isAvmBytecode, markBytecodeAsAvm } from './bytecode_utils.js';
@@ -56,7 +55,7 @@ import {
   resolveAvmTestContractAssertionMessage,
 } from './fixtures/index.js';
 import { SimpleContractDataSource } from './fixtures/simple_contract_data_source.js';
-import { type AvmPersistableStateManager } from './journal/journal.js';
+import type { AvmPersistableStateManager } from './journal/journal.js';
 import {
   Add,
   CalldataCopy,
@@ -367,10 +366,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const calldata: Fr[] = [
         // First U128
         new Fr(1),
-        new Fr(2),
         // Second U128
-        new Fr(3),
-        new Fr(4),
+        new Fr(2),
       ];
       const context = initContext({ env: initExecutionEnvironment({ calldata }) });
 
@@ -378,7 +375,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
       expect(results.reverted).toBe(false);
-      expect(results.output).toEqual([new Fr(4), new Fr(6)]);
+      expect(results.output).toEqual([new Fr(3)]);
     });
 
     it('Expect failure on U128::add() overflow', async () => {
@@ -389,16 +386,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       expect(
         resolveAvmTestContractAssertionMessage('u128_addition_overflow', results.revertReason!, results.output),
       ).toMatch('attempt to add with overflow');
-    });
-
-    it('Expect failure on U128::from_integer() overflow', async () => {
-      const bytecode = getAvmTestContractBytecode('u128_from_integer_overflow');
-      const results = await new AvmSimulator(initContext()).executeBytecode(bytecode);
-      expect(results.reverted).toBe(true);
-      expect(results.revertReason).toBeDefined();
-      expect(
-        resolveAvmTestContractAssertionMessage('u128_from_integer_overflow', results.revertReason!, results.output),
-      ).toMatch('call to assert_max_bit_size');
     });
   });
 
