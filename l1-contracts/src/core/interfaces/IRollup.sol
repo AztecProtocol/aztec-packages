@@ -127,7 +127,6 @@ interface IRollupCore {
   function propose(
     ProposeArgs calldata _args,
     Signature[] memory _signatures,
-    bytes calldata _body,
     bytes calldata _blobInput
   ) external;
 

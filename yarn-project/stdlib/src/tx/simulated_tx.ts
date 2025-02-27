@@ -10,7 +10,6 @@ import {
   PrivateKernelProverProfileResultSchema,
 } from '../kernel/private_kernel_prover_profile_result.js';
 import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
-import { ContractClassTxL2Logs } from '../logs/tx_l2_logs.js';
 import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
 import {
   PrivateCallExecutionResult,
@@ -33,7 +32,7 @@ export class PrivateSimulationResult {
   }
 
   toSimulatedTx(): Tx {
-    const contractClassLogs = new ContractClassTxL2Logs([collectSortedContractClassLogs(this.privateExecutionResult)]);
+    const contractClassLogs = collectSortedContractClassLogs(this.privateExecutionResult);
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(this.privateExecutionResult);
     const teardownPublicFunction = collectPublicTeardownFunctionCall(this.privateExecutionResult);
 
@@ -123,7 +122,7 @@ export class TxProvingResult {
   ) {}
 
   toTx(): Tx {
-    const contractClassLogs = new ContractClassTxL2Logs([collectSortedContractClassLogs(this.privateExecutionResult)]);
+    const contractClassLogs = collectSortedContractClassLogs(this.privateExecutionResult);
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(this.privateExecutionResult);
     const teardownPublicFunction = collectPublicTeardownFunctionCall(this.privateExecutionResult);
 
