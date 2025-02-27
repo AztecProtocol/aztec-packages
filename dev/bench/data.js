@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740676486420,
+  "lastUpdate": 1740676967635,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "critesjosh@gmail.com",
-            "name": "josh crites",
-            "username": "critesjosh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "17719739ab9a62c6371cf8e1cd59dd2f2d571387",
-          "message": "fix: Fix broken error message link (#12187)\n\n- fixes a broken error message link\n- removes some redundant files from the docs\n- moves `mod test;` out of the code block reference for the counter\ncontract tutorial",
-          "timestamp": "2025-02-22T00:55:53Z",
-          "tree_id": "356f682699d42de124525a287c326f3e2f4a19e0",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/17719739ab9a62c6371cf8e1cd59dd2f2d571387"
-        },
-        "date": 1740187341110,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18100.50350300003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16072.843147 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18812.31977699986,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16512.734104 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3949.7023240001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3120.2308179999995 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54857.74075800001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54857740000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11594.481318000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11594482000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1845208593,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1845208593 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 140050899,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 140050899 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3586,6 +3514,78 @@ window.BENCHMARK_DATA = {
             "value": 212989622,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 212989622 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2281.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5764343+charlielye@users.noreply.github.com",
+            "name": "Charlie Lye",
+            "username": "charlielye"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1a62148a0195a29ab4917aa57a295af3f9c323fe",
+          "message": "fix: yoinked from 02-19-kind_upgrade_test (#12331)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\nline.\n\n---------\n\nCo-authored-by: Mitch <mitchell@aztecprotocol.com>",
+          "timestamp": "2025-02-27T16:48:09Z",
+          "tree_id": "931ec3982c7920210df3e6d5232851687f00ea79",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1a62148a0195a29ab4917aa57a295af3f9c323fe"
+        },
+        "date": 1740676960234,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18369.290391999813,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16105.906621000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18805.469405000167,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16230.685159 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3959.882074999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3165.6275080000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54992.765916,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54992766000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9495.19599,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9495201000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1905883630,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1905883630 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 213635600,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 213635600 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
