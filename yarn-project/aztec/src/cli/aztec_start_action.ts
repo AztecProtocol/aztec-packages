@@ -56,9 +56,6 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
     if (options.node) {
       const { startNode } = await import('./cmds/start_node.js');
       ({ config } = await startNode(options, signalHandlers, services, userLog));
-    } else if (options.proofVerifier) {
-      const { startProofVerifier } = await import('./cmds/start_proof_verifier.js');
-      await startProofVerifier(options, signalHandlers, userLog);
     } else if (options.bot) {
       const { startBot } = await import('./cmds/start_bot.js');
       await startBot(options, signalHandlers, services, userLog);

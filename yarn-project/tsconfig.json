@@ -54,8 +54,7 @@
     { "path": "scripts/tsconfig.json" },
     { "path": "entrypoints/tsconfig.json" },
     { "path": "cli/tsconfig.json" },
-    { "path": "cli-wallet/tsconfig.json" },
-    { "path": "proof-verifier/tsconfig.json" }
+    { "path": "cli-wallet/tsconfig.json" }
   ],
   "files": ["./@types/jest/index.d.ts"],
   "exclude": ["node_modules", "**/node_modules", "**/.*/"]
