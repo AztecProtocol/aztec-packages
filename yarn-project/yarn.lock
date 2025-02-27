@@ -626,6 +626,7 @@ __metadata:
     lodash.chunk: "npm:^4.2.0"
     lodash.compact: "npm:^3.0.1"
     lodash.every: "npm:^4.6.0"
+    lodash.omit: "npm:^4.5.0"
     memdown: "npm:^6.1.1"
     process: "npm:^0.11.10"
     stream-browserify: "npm:^3.0.0"

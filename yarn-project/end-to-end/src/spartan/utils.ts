@@ -28,6 +28,10 @@ const ethereumHostsSchema = z.string().refine(
 );
 
 const k8sLocalConfigSchema = z.object({
+  ETHEREUM_SLOT_DURATION: z.coerce.number().min(1, 'ETHEREUM_SLOT_DURATION env variable must be set'),
+  AZTEC_SLOT_DURATION: z.coerce.number().min(1, 'AZTEC_SLOT_DURATION env variable must be set'),
+  AZTEC_EPOCH_DURATION: z.coerce.number().min(1, 'AZTEC_EPOCH_DURATION env variable must be set'),
+  AZTEC_PROOF_SUBMISSION_WINDOW: z.coerce.number().min(1, 'AZTEC_PROOF_SUBMISSION_WINDOW env variable must be set'),
   INSTANCE_NAME: z.string().min(1, 'INSTANCE_NAME env variable must be set'),
   NAMESPACE: z.string().min(1, 'NAMESPACE env variable must be set'),
   HOST_NODE_PORT: z.coerce.number().min(1, 'HOST_NODE_PORT env variable must be set'),
@@ -530,4 +534,27 @@ export async function updateSequencersConfig(env: EnvConfig, config: Partial<Seq
   } else {
     await updateSequencerConfig(env.NODE_URL, config);
   }
+}
+
+/**
+ * Rolls the Aztec pods in the given namespace.
+ * @param namespace - The namespace to roll the Aztec pods in.
+ * @dev - IMPORTANT: This function DOES NOT delete the underlying PVCs.
+ *        This means that the pods will be restarted with the same persistent storage.
+ *        This is useful for testing, but you should be aware of the implications.
+ */
+export async function rollAztecPods(namespace: string) {
+  await deleteResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=boot-node' });
+  await deleteResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=prover-node' });
+  await deleteResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=prover-broker' });
+  await deleteResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=prover-agent' });
+  await deleteResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=validator' });
+  await deleteResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=pxe' });
+  await sleep(10 * 1000);
+  await waitForResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=boot-node' });
+  await waitForResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=prover-node' });
+  await waitForResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=prover-broker' });
+  await waitForResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=prover-agent' });
+  await waitForResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=validator' });
+  await waitForResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=pxe' });
 }

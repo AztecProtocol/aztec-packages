@@ -264,7 +264,14 @@ export async function createAztecNode(
   deps: { telemetry?: TelemetryClient; blobSinkClient?: BlobSinkClientInterface } = {},
   options: { prefilledPublicData?: PublicDataTreeLeaf[] } = {},
 ) {
-  const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
+  // TODO(#12272): will clean this up. This is criminal.
+  const { l1Contracts, ...rest } = getConfigEnvVars();
+  const aztecNodeConfig: AztecNodeConfig = {
+    ...rest,
+    ...config,
+    l1Contracts: { ...l1Contracts, ...config.l1Contracts },
+  };
+  logger.info('createAztecNode', aztecNodeConfig);
   const node = await AztecNodeService.createAndSync(aztecNodeConfig, deps, options);
   return node;
 }
