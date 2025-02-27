@@ -1,11 +1,12 @@
 import { Fr } from '@aztec/foundation/fields';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice/lazy';
 import type { FunctionCall } from '@aztec/stdlib/abi';
 import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import type { L2AmountClaim } from '../api/ethereum/portal_manager.js';
+import { getFeeJuice } from '../contract/protocol_contracts.js';
+import type { Wallet } from '../wallet/index.js';
 import { FeeJuicePaymentMethod } from './fee_juice_payment_method.js';
 
 /**
@@ -13,10 +14,10 @@ import { FeeJuicePaymentMethod } from './fee_juice_payment_method.js';
  */
 export class FeeJuicePaymentMethodWithClaim extends FeeJuicePaymentMethod {
   constructor(
-    sender: AztecAddress,
+    private senderWallet: Wallet,
     private claim: Pick<L2AmountClaim, 'claimAmount' | 'claimSecret' | 'messageLeafIndex'>,
   ) {
-    super(sender);
+    super(senderWallet.getAddress());
   }
 
   /**
@@ -24,7 +25,7 @@ export class FeeJuicePaymentMethodWithClaim extends FeeJuicePaymentMethod {
    * @returns A function call
    */
   override async getFunctionCalls(): Promise<FunctionCall[]> {
-    const canonicalFeeJuice = await getCanonicalFeeJuice();
+    const canonicalFeeJuice = await getFeeJuice(this.senderWallet);
     const selector = await FunctionSelector.fromNameAndParameters(
       canonicalFeeJuice.artifact.functions.find(f => f.name === 'claim')!,
     );
@@ -36,7 +37,7 @@ export class FeeJuicePaymentMethodWithClaim extends FeeJuicePaymentMethod {
         selector,
         isStatic: false,
         args: [
-          this.sender.toField(),
+          this.senderWallet.getAddress().toField(),
           new Fr(this.claim.claimAmount),
           this.claim.claimSecret,
           new Fr(this.claim.messageLeafIndex),
