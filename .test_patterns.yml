@@ -101,6 +101,10 @@ tests:
     owners:
       - "UKUMA5J7K" # charlie
 
+  - regex: "simple e2e_fees/private_payments"
+    owners:
+      - "U02G4KAD57Y" # phil
+
   # Summary of all failing tests
   #  FAIL  ./e2e_cheat_codes.test.ts
   #   ● e2e_cheat_codes › L1 cheatcodes › setNextBlockTimestamp
@@ -157,7 +161,12 @@ tests:
       - "U03E5SYLY3Z" # lasse
 
   # kind tests
-  - regex: "spartan/bootstrap.sh"
+  - regex: "spartan/bootstrap.sh test-kind"
+    owners:
+      - "UKUMA5J7K" # charlie
+      - "U04BM8H25NJ" # adam
+  - regex: "spartan/bootstrap.sh test-local"
+    skip: true
     owners:
       - "UKUMA5J7K" # charlie
       - "U04BM8H25NJ" # adam
