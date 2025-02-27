@@ -4,7 +4,7 @@ import { toBigIntBE, toBufferBE, toHex } from '@aztec/foundation/bigint-buffer';
 import { sha256, sha256Trunc } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { FieldsOf } from '@aztec/foundation/types';
 
 import { type Blob, VERSIONED_HASH_VERSION_KZG } from './blob.js';
 

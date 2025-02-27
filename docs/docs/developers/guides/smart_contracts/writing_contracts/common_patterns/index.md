@@ -146,6 +146,8 @@ PS: when calling from private to public, `msg_sender` is the contract address wh
 
 In the [Prevent the same user flow from happening twice using nullifier](#prevent-the-same-user-flow-from-happening-twice-using-nullifiers), we recommended using nullifiers. But what you put in the nullifier is also as important.
 
-E.g. for a voting contract, if your nullifier simply emits just the `user_address`, then privacy can easily be leaked as nullifiers are deterministic (have no randomness), especially if there are few users of the contract. So you need some kind of randomness. You can add the user's secret key into the nullifier to add randomness. We call this "nullifier secrets" as explained [here](../../../../../aztec/concepts/accounts/keys.md#nullifier-keys). E.g.:
+E.g. for a voting contract, if your nullifier simply emits just the `user_address`, then privacy can easily be leaked via a preimage attack as nullifiers are deterministic (have no randomness), especially if there are few users of the contract. So you need some kind of randomness. You can add the user's secret key into the nullifier to add randomness. We call this "nullifier secrets" as explained [here](../../../../../aztec/concepts/accounts/keys.md#nullifier-keys).
 
-#include_code nullifier /noir-projects/aztec-nr/value-note/src/value_note.nr rust
+Here is an example from the voting contract:
+
+#include_code cast_vote /noir-projects/noir-contracts/contracts/easy_private_voting_contract/src/main.nr rust

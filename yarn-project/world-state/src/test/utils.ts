@@ -1,6 +1,3 @@
-import { L2Block } from '@aztec/circuit-types';
-import { type MerkleTreeReadOperations, type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
-import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/circuits.js/trees';
 import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
@@ -9,8 +6,11 @@ import {
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
+import { L2Block } from '@aztec/stdlib/block';
+import type { MerkleTreeReadOperations, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
 
-import { type NativeWorldStateService } from '../native/native_world_state.js';
+import type { NativeWorldStateService } from '../native/native_world_state.js';
 
 export async function mockBlock(blockNum: number, size: number, fork: MerkleTreeWriteOperations) {
   const l2Block = await L2Block.random(blockNum, size);

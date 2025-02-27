@@ -1,16 +1,16 @@
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
 import { Fr } from '@aztec/foundation/fields';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 
 import { mock } from 'jest-mock-extended';
 
-import { type WorldStateDB } from '../../public/public_db_sources.js';
-import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
-import { type AvmContext } from '../avm_context.js';
+import type { WorldStateDB } from '../../public/public_db_sources.js';
+import type { PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
+import type { AvmContext } from '../avm_context.js';
 import { Field, Uint8, Uint32 } from '../avm_memory_types.js';
 import { InstructionExecutionError, StaticCallAlterationError } from '../errors.js';
 import { initContext, initExecutionEnvironment, initPersistableStateManager } from '../fixtures/index.js';
-import { type AvmPersistableStateManager } from '../journal/journal.js';
+import type { AvmPersistableStateManager } from '../journal/journal.js';
 import { mockL1ToL2MessageExists, mockNoteHashCount, mockNoteHashExists, mockNullifierExists } from '../test_utils.js';
 import {
   EmitNoteHash,

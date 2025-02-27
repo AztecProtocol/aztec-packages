@@ -1,6 +1,6 @@
 import { retrieveL2ProofsFromRollup } from '@aztec/archiver/data-retrieval';
 import { BBCircuitVerifier } from '@aztec/bb-prover';
-import { createEthereumChain } from '@aztec/ethereum';
+import { type ViemPublicClient, createEthereumChain } from '@aztec/ethereum';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import {
@@ -14,9 +14,9 @@ import {
   trackSpan,
 } from '@aztec/telemetry-client';
 
-import { type PublicClient, createPublicClient, http } from 'viem';
+import { createPublicClient, fallback, http } from 'viem';
 
-import { type ProofVerifierConfig } from './config.js';
+import type { ProofVerifierConfig } from './config.js';
 
 const EXPECTED_PROOF_SIZE = 13988;
 
@@ -30,7 +30,7 @@ export class ProofVerifier implements Traceable {
 
   constructor(
     private config: ProofVerifierConfig,
-    private client: PublicClient,
+    private client: ViemPublicClient,
     private verifier: BBCircuitVerifier,
     telemetryClient: TelemetryClient,
     private logger: Logger,
@@ -48,8 +48,8 @@ export class ProofVerifier implements Traceable {
     const logger = createLogger('proof-verifier:block-verifier-bot');
     const verifier = await BBCircuitVerifier.new(config, logger);
     const client = createPublicClient({
-      chain: createEthereumChain(config.l1Url, config.l1ChainId).chainInfo,
-      transport: http(config.l1Url),
+      chain: createEthereumChain(config.l1Urls, config.l1ChainId).chainInfo,
+      transport: fallback(config.l1Urls.map(url => http(url))),
       pollingInterval: config.viemPollingIntervalMS,
     });
 

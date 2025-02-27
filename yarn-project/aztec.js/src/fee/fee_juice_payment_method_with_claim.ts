@@ -1,11 +1,11 @@
-import { type FunctionCall } from '@aztec/circuit-types';
-import { FunctionSelector, FunctionType, U128 } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
+import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice/lazy';
+import type { FunctionCall } from '@aztec/stdlib/abi';
+import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { type L2AmountClaim } from '../api/ethereum/portal_manager.js';
+import type { L2AmountClaim } from '../api/ethereum/portal_manager.js';
 import { FeeJuicePaymentMethod } from './fee_juice_payment_method.js';
 
 /**
@@ -37,7 +37,7 @@ export class FeeJuicePaymentMethodWithClaim extends FeeJuicePaymentMethod {
         isStatic: false,
         args: [
           this.sender.toField(),
-          ...new U128(this.claim.claimAmount).toFields(),
+          new Fr(this.claim.claimAmount),
           this.claim.claimSecret,
           new Fr(this.claim.messageLeafIndex),
         ],

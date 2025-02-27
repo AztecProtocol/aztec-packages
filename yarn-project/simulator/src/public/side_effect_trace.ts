@@ -1,34 +1,4 @@
 import {
-  AvmAccumulatedData,
-  AvmAppendTreeHint,
-  AvmCircuitPublicInputs,
-  AvmContractBytecodeHints,
-  AvmContractInstanceHint,
-  AvmEnqueuedCallHint,
-  AvmExecutionHints,
-  AvmNullifierReadTreeHint,
-  AvmNullifierWriteTreeHint,
-  AvmPublicDataReadTreeHint,
-  AvmPublicDataWriteTreeHint,
-  PublicDataUpdateRequest,
-  PublicDataWrite,
-} from '@aztec/circuits.js/avm';
-import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { type ContractClassIdPreimage, SerializableContractInstance } from '@aztec/circuits.js/contract';
-import type { Gas, GasSettings } from '@aztec/circuits.js/gas';
-import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import {
-  NoteHash,
-  Nullifier,
-  PrivateToAvmAccumulatedData,
-  PrivateToAvmAccumulatedDataArrayLengths,
-  PublicCallRequest,
-} from '@aztec/circuits.js/kernel';
-import { PublicLog } from '@aztec/circuits.js/logs';
-import { L2ToL1Message, ScopedL2ToL1Message } from '@aztec/circuits.js/messaging';
-import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
-import type { GlobalVariables, TreeSnapshots } from '@aztec/circuits.js/tx';
-import {
   L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_ENQUEUED_CALLS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
@@ -49,11 +19,41 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
+import {
+  AvmAccumulatedData,
+  AvmAppendTreeHint,
+  AvmCircuitPublicInputs,
+  AvmContractBytecodeHints,
+  AvmContractInstanceHint,
+  AvmEnqueuedCallHint,
+  AvmExecutionHints,
+  AvmNullifierReadTreeHint,
+  AvmNullifierWriteTreeHint,
+  AvmPublicDataReadTreeHint,
+  AvmPublicDataWriteTreeHint,
+  PublicDataUpdateRequest,
+  PublicDataWrite,
+} from '@aztec/stdlib/avm';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type ContractClassIdPreimage, SerializableContractInstance } from '@aztec/stdlib/contract';
+import type { Gas, GasSettings } from '@aztec/stdlib/gas';
+import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
+import {
+  NoteHash,
+  Nullifier,
+  PrivateToAvmAccumulatedData,
+  PrivateToAvmAccumulatedDataArrayLengths,
+  PublicCallRequest,
+} from '@aztec/stdlib/kernel';
+import { PublicLog } from '@aztec/stdlib/logs';
+import { L2ToL1Message, ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
+import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
+import type { GlobalVariables, TreeSnapshots } from '@aztec/stdlib/tx';
 
 import { strict as assert } from 'assert';
 
 import { SideEffectLimitReachedError } from './side_effect_errors.js';
-import { type PublicSideEffectTraceInterface } from './side_effect_trace_interface.js';
+import type { PublicSideEffectTraceInterface } from './side_effect_trace_interface.js';
 import { UniqueClassIds } from './unique_class_ids.js';
 
 const emptyPublicDataPath = () => new Array(PUBLIC_DATA_TREE_HEIGHT).fill(Fr.zero());

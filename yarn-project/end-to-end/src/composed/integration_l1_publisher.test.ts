@@ -1,13 +1,7 @@
-import { type ArchiveSource } from '@aztec/archiver';
+import type { ArchiveSource } from '@aztec/archiver';
 import { getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, Fr, GlobalVariables, type L2Block, createLogger } from '@aztec/aztec.js';
 import { Blob, BlockBlobPublicInputs } from '@aztec/blob-lib';
-// eslint-disable-next-line no-restricted-imports
-import { type L2Tips, type ProcessedTx } from '@aztec/circuit-types';
-import { makeBloatedProcessedTx } from '@aztec/circuit-types/testing';
-import { GasFees, GasSettings } from '@aztec/circuits.js/gas';
-import { fr } from '@aztec/circuits.js/testing';
-import { type BlockHeader } from '@aztec/circuits.js/tx';
 import { GENESIS_ARCHIVE_ROOT, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
@@ -15,6 +9,8 @@ import {
   type L1ContractAddresses,
   RollupContract,
   SlashingProposerContract,
+  type ViemPublicClient,
+  type ViemWalletClient,
   createEthereumChain,
   createL1Clients,
 } from '@aztec/ethereum';
@@ -28,10 +24,14 @@ import { TestDateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { ForwarderAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { LightweightBlockBuilder } from '@aztec/prover-client/block-builder';
 import { SequencerPublisher } from '@aztec/sequencer-client';
+import type { L2Tips } from '@aztec/stdlib/block';
+import { GasFees, GasSettings } from '@aztec/stdlib/gas';
+import { fr, makeBloatedProcessedTx } from '@aztec/stdlib/testing';
+import type { BlockHeader, ProcessedTx } from '@aztec/stdlib/tx';
 import {
   type MerkleTreeAdminDatabase,
   NativeWorldStateService,
@@ -43,13 +43,8 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { writeFile } from 'fs/promises';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import {
-  type Account,
   type Address,
-  type Chain,
   type GetContractReturnType,
-  type HttpTransport,
-  type PublicClient,
-  type WalletClient,
   encodeFunctionData,
   getAbiItem,
   getAddress,
@@ -68,7 +63,7 @@ const deployerPK = '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092
 const logger = createLogger('integration_l1_publisher');
 
 const config = getConfigEnvVars();
-config.l1RpcUrl = config.l1RpcUrl || 'http://127.0.0.1:8545';
+config.l1RpcUrls = config.l1RpcUrls || ['http://127.0.0.1:8545'];
 
 const numberOfConsecutiveBlocks = 2;
 
@@ -78,16 +73,16 @@ const BLOB_SINK_URL = `http://localhost:${BLOB_SINK_PORT}`;
 jest.setTimeout(1000000);
 
 describe('L1Publisher integration', () => {
-  let publicClient: PublicClient<HttpTransport, Chain>;
-  let walletClient: WalletClient<HttpTransport, Chain, Account>;
+  let publicClient: ViemPublicClient;
+  let walletClient: ViemWalletClient;
   let l1ContractAddresses: L1ContractAddresses;
   let deployerAccount: PrivateKeyAccount;
 
   let rollupAddress: Address;
   let outboxAddress: Address;
 
-  let rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
-  let outbox: GetContractReturnType<typeof OutboxAbi, PublicClient<HttpTransport, Chain>>;
+  let rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>;
+  let outbox: GetContractReturnType<typeof OutboxAbi, ViemPublicClient>;
 
   let publisher: SequencerPublisher;
 
@@ -101,7 +96,7 @@ describe('L1Publisher integration', () => {
   let blockSource: MockProxy<ArchiveSource>;
   let blocks: L2Block[] = [];
 
-  const chainId = createEthereumChain(config.l1RpcUrl, config.l1ChainId).chainInfo.id;
+  const chainId = createEthereumChain(config.l1RpcUrls, config.l1ChainId).chainInfo.id;
 
   let coinbase: EthAddress;
   let feeRecipient: AztecAddress;
@@ -111,7 +106,7 @@ describe('L1Publisher integration', () => {
 
   // To update the test data, run "export AZTEC_GENERATE_TEST_DATA=1" in shell and run the tests again
   // If you have issues with RPC_URL, it is likely that you need to set the RPC_URL in the shell as well
-  // If running ANVIL locally, you can use ETHEREUM_HOST="http://0.0.0.0:8545"
+  // If running ANVIL locally, you can use ETHEREUM_HOSTS="http://0.0.0.0:8545"
   const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
 
   const progressTimeBySlot = async (slotsToJump = 1n) => {
@@ -126,13 +121,13 @@ describe('L1Publisher integration', () => {
   beforeEach(async () => {
     deployerAccount = privateKeyToAccount(deployerPK);
     ({ l1ContractAddresses, publicClient, walletClient } = await setupL1Contracts(
-      config.l1RpcUrl,
+      config.l1RpcUrls,
       deployerAccount,
       logger,
-      { assumeProvenThrough: undefined },
+      {},
     ));
 
-    ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrl);
+    ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls);
 
     rollupAddress = getAddress(l1ContractAddresses.rollupAddress.toString());
     outboxAddress = getAddress(l1ContractAddresses.outboxAddress.toString());
@@ -179,7 +174,7 @@ describe('L1Publisher integration', () => {
     await worldStateSynchronizer.start();
 
     const { walletClient: sequencerWalletClient, publicClient: sequencerPublicClient } = createL1Clients(
-      config.l1RpcUrl,
+      config.l1RpcUrls,
       sequencerPK,
       foundry,
     );
@@ -204,7 +199,7 @@ describe('L1Publisher integration', () => {
     });
     publisher = new SequencerPublisher(
       {
-        l1RpcUrl: config.l1RpcUrl,
+        l1RpcUrls: config.l1RpcUrls,
         requiredConfirmations: 1,
         l1Contracts: l1ContractAddresses,
         publisherPrivateKey: sequencerPK,

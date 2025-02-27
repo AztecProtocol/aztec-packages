@@ -1,32 +1,4 @@
-import {
-  BlockAttestation,
-  BlockProposal,
-  Body,
-  ConsensusPayload,
-  type L1ToL2MessageSource,
-  L2Block,
-  type L2BlockSource,
-  type Tx,
-  TxHash,
-  makeProcessedTxFromPrivateOnlyTx,
-} from '@aztec/circuit-types';
-import {
-  type BlockBuilder,
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
-  WorldStateRunningState,
-  type WorldStateSyncStatus,
-  type WorldStateSynchronizer,
-  type WorldStateSynchronizerStatus,
-} from '@aztec/circuit-types/interfaces/server';
-import { mockTxForRollup } from '@aztec/circuit-types/testing';
-import { PublicDataWrite } from '@aztec/circuits.js/avm';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import type { ContractDataSource } from '@aztec/circuits.js/contract';
-import { Gas, GasFees } from '@aztec/circuits.js/gas';
-import { makeAppendOnlyTreeSnapshot } from '@aztec/circuits.js/testing';
-import { type MerkleTreeId } from '@aztec/circuits.js/trees';
-import { BlockHeader, GlobalVariables } from '@aztec/circuits.js/tx';
+import { Body, L2Block } from '@aztec/aztec.js';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -38,16 +10,36 @@ import { toArray } from '@aztec/foundation/iterable';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { TestDateProvider, type Timer } from '@aztec/foundation/timer';
 import { type P2P, P2PClientState } from '@aztec/p2p';
-import { type BlockBuilderFactory } from '@aztec/prover-client/block-builder';
-import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator/server';
-import { type ValidatorClient } from '@aztec/validator-client';
+import type { BlockBuilderFactory } from '@aztec/prover-client/block-builder';
+import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
+import { PublicDataWrite } from '@aztec/stdlib/avm';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2BlockSource } from '@aztec/stdlib/block';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { Gas, GasFees } from '@aztec/stdlib/gas';
+import {
+  type BlockBuilder,
+  type MerkleTreeReadOperations,
+  type MerkleTreeWriteOperations,
+  WorldStateRunningState,
+  type WorldStateSyncStatus,
+  type WorldStateSynchronizer,
+  type WorldStateSynchronizerStatus,
+} from '@aztec/stdlib/interfaces/server';
+import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { BlockAttestation, BlockProposal, ConsensusPayload } from '@aztec/stdlib/p2p';
+import { makeAppendOnlyTreeSnapshot, mockTxForRollup } from '@aztec/stdlib/testing';
+import type { MerkleTreeId } from '@aztec/stdlib/trees';
+import { type Tx, TxHash, makeProcessedTxFromPrivateOnlyTx } from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables } from '@aztec/stdlib/tx';
+import type { ValidatorClient } from '@aztec/validator-client';
 
 import { expect } from '@jest/globals';
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 
-import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
-import { type SequencerPublisher } from '../publisher/sequencer-publisher.js';
-import { type SlasherClient } from '../slasher/index.js';
+import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
+import type { SequencerPublisher } from '../publisher/sequencer-publisher.js';
+import type { SlasherClient } from '../slasher/index.js';
 import { Sequencer } from './sequencer.js';
 import { SequencerState } from './utils.js';
 

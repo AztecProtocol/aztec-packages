@@ -1,4 +1,4 @@
-import { type Timer } from '@aztec/foundation/timer';
+import type { Timer } from '@aztec/foundation/timer';
 import { type Histogram, Metrics, type TelemetryClient, ValueType } from '@aztec/telemetry-client';
 
 export class ProvingAgentInstrumentation {

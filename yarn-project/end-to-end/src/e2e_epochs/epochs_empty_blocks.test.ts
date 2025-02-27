@@ -5,7 +5,7 @@ import { RollupContract } from '@aztec/ethereum/contracts';
 
 import { jest } from '@jest/globals';
 
-import { type EndToEndContext } from '../fixtures/utils.js';
+import type { EndToEndContext } from '../fixtures/utils.js';
 import {
   EPOCH_DURATION_IN_L2_SLOTS,
   EpochsTestContext,

@@ -27,9 +27,11 @@ struct AvmFullRow {
 
 } // namespace bb::{{snakeCase name}}
 
+{{!-- VM1 needs this --}}
+{{#if (ne name "Avm2")}}
 namespace bb {
 
-// Expose this in the bb namespace. For compatibility with the old witgen.
 using {{snakeCase name}}::AvmFullRow;
 
 } // namespace bb
+{{/if}}

@@ -5,7 +5,7 @@ import { createLogger } from '@aztec/foundation/log';
 
 import { expect, jest } from '@jest/globals';
 
-import { type AlertConfig } from '../quality_of_service/alert_checker.js';
+import type { AlertConfig } from '../quality_of_service/alert_checker.js';
 import {
   applyBootNodeFailure,
   applyNetworkShaping,
@@ -83,7 +83,7 @@ describe('a test that passively observes the network in the presence of network 
     });
 
     const client = await createCompatibleClient(PXE_URL, debugLogger);
-    const ethCheatCodes = new EthCheatCodesWithState(ETHEREUM_HOST);
+    const ethCheatCodes = new EthCheatCodesWithState([ETHEREUM_HOST]);
     const rollupCheatCodes = new RollupCheatCodes(
       ethCheatCodes,
       await client.getNodeInfo().then(n => n.l1ContractAddresses),
