@@ -20,9 +20,7 @@ import { SchnorrBaseAccountContract } from './account_contract.js';
  * @returns The contract artifact for the schnorr account contract
  */
 export async function getSchnorrAccountContractArtifact() {
-  const { default: schnorrAccountContractJson } = await import('../../artifacts/SchnorrAccount.json', {
-    assert: { type: 'json' },
-  });
+  const { default: schnorrAccountContractJson } = await import('../../artifacts/SchnorrAccount.json');
   return loadContractArtifact(schnorrAccountContractJson);
 }
 

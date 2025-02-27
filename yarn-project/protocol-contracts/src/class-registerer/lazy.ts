@@ -12,9 +12,7 @@ let protocolContractArtifact: ContractArtifact;
 
 export async function getContractClassRegistererArtifact(): Promise<ContractArtifact> {
   if (!protocolContractArtifact) {
-    const { default: contractClassRegistererJson } = await import('../../artifacts/ContractClassRegisterer.json', {
-      assert: { type: 'json' },
-    });
+    const { default: contractClassRegistererJson } = await import('../../artifacts/ContractClassRegisterer.json');
     protocolContractArtifact = loadContractArtifact(contractClassRegistererJson);
   }
   return protocolContractArtifact;

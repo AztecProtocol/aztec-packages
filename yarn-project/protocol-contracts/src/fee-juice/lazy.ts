@@ -8,7 +8,7 @@ let protocolContractArtifact: ContractArtifact;
 
 export async function getFeeJuiceArtifact(): Promise<ContractArtifact> {
   if (!protocolContractArtifact) {
-    const { default: feeJuiceJson } = await import('../../artifacts/FeeJuice.json', { assert: { type: 'json' } });
+    const { default: feeJuiceJson } = await import('../../artifacts/FeeJuice.json');
     protocolContractArtifact = loadContractArtifact(feeJuiceJson);
   }
   return protocolContractArtifact;
