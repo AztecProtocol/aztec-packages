@@ -18,7 +18,7 @@ pub(crate) unconstrained fn create_note() -> (&mut TestEnvironment, RetrievedNot
     let context = &mut env.private();
 
     // We sanity check that we are building block 2, thus block 2 is where the note will be added.
-    assert_eq(env.pending_block_number(), 2);
+    assert_eq(env.pending_block_number(), NOTE_CREATED_AT);
 
     let contract_address = get_contract_address();
 
