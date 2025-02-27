@@ -42,13 +42,13 @@ export class BootstrapNode implements P2PBootstrapApi {
     const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey);
     this.peerId = peerId;
 
-    const enr = await createBootnodeENR(peerIdPrivateKey, udpAnnounceAddress, config.l1ChainId);
+    const ourEnr = await createBootnodeENR(peerIdPrivateKey, udpAnnounceAddress, config.l1ChainId);
 
     this.logger.debug(`Starting bootstrap node ${peerId} listening on ${listenAddrUdp.toString()}`);
 
     const metricsRegistry = new OtelMetricsAdapter(this.telemetry);
     this.node = Discv5.create({
-      enr,
+      enr: ourEnr,
       peerId,
       bindAddrs: { ip4: listenAddrUdp },
       config: {
@@ -71,7 +71,7 @@ export class BootstrapNode implements P2PBootstrapApi {
       await this.node.start();
       this.logger.info('Bootstrap node started', {
         peerId,
-        enr: enr.encodeTxt(),
+        enr: ourEnr.encodeTxt(),
         addr: listenAddrUdp.toString(),
       });
     } catch (e) {
@@ -80,10 +80,12 @@ export class BootstrapNode implements P2PBootstrapApi {
 
     // Add bootnode ENRs if provided, making sure we filter our own
     if (config.bootstrapNodes?.length) {
-      this.logger.info(`Adding bootstrap nodes ENRs: ${config.bootstrapNodes.join(', ')}`);
-      const decoded = config.bootstrapNodes.map(enr => ENR.decodeTxt(enr));
+      const otherBootnodeENRs = config.bootstrapNodes
+        .map(x => ENR.decodeTxt(x))
+        .filter(b => b.nodeId !== ourEnr.nodeId);
+      this.logger.info(`Adding bootstrap nodes ENRs: ${otherBootnodeENRs.map(x => x.encodeTxt()).join(', ')}`);
       try {
-        decoded.forEach(enr => {
+        otherBootnodeENRs.forEach(enr => {
           this.node.addEnr(enr);
         });
       } catch (e) {

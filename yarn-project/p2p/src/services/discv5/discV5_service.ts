@@ -37,6 +37,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
 
   public readonly bootstrapNodes: string[] = [];
   private bootstrapNodePeerIds: PeerId[] = [];
+  private bootstrapNodeEnrs: ENR[] = [];
 
   private startTime = 0;
 
@@ -49,6 +50,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     super();
     const { tcpAnnounceAddress, udpAnnounceAddress, udpListenAddress, bootstrapNodes } = config;
     this.bootstrapNodes = bootstrapNodes ?? [];
+    this.bootstrapNodeEnrs = this.bootstrapNodes.map(x => ENR.decodeTxt(x));
     // create ENR from PeerId
     this.enr = SignableENR.createFromPeerId(peerId);
     // Add aztec identification to ENR
@@ -121,10 +123,9 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     // Add bootnode ENR if provided
     if (this.bootstrapNodes?.length) {
       // Do this conversion once since it involves an async function call
-      const bootstrapNodesEnrs = this.bootstrapNodes.map(enr => ENR.decodeTxt(enr));
-      this.bootstrapNodePeerIds = await Promise.all(bootstrapNodesEnrs.map(enr => enr.peerId()));
+      this.bootstrapNodePeerIds = await Promise.all(this.bootstrapNodeEnrs.map(enr => enr.peerId()));
       this.logger.info(`Adding ${this.bootstrapNodes} bootstrap nodes ENRs: ${this.bootstrapNodes.join(', ')}`);
-      for (const enr of bootstrapNodesEnrs) {
+      for (const enr of this.bootstrapNodeEnrs) {
         try {
           if (this.config.bootstrapNodeEnrVersionCheck) {
             const value = enr.kvs.get(AZTEC_ENR_KEY);
@@ -196,11 +197,25 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     this.onDiscovered(enr);
   }
 
+  private isOurBootnode(enr: ENR) {
+    return this.bootstrapNodeEnrs.some(x => x.nodeId === enr.nodeId);
+  }
+
   private onDiscovered(enr: ENR) {
-    const asString = enr.encodeTxt();
-    if (this.bootstrapNodes.includes(asString)) {
-      // Ignore if we 'discovered' one of our bootnodes
-      return;
+    // Find out if this is one of our bootnodes
+    if (this.isOurBootnode(enr)) {
+      // it is, what we do here depends
+      if (!this.config.bootstrapNodesAsFullPeers) {
+        // we don't consider bootnodes as full peers, don't perform any checks and don't emit anything
+        return;
+      }
+      if (!this.config.bootstrapNodeEnrVersionCheck) {
+        // we do consider bootnodes to be full peers and we have been told to NOT version check them, so emit
+        this.logger.trace(`Skipping version check for bootnode ${enr.nodeId}`);
+        this.emit(PeerEvent.DISCOVERED, enr);
+        return;
+      }
+      // here, we do consider bootnodes as full peers and we must version check so we continue to regular validation
     }
     if (this.validateEnr(enr)) {
       this.emit(PeerEvent.DISCOVERED, enr);
@@ -208,15 +223,6 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   }
 
   private validateEnr(enr: ENR): boolean {
-    // Check if the peer is actually a bootnode and we have disabled the version check
-    if (
-      !this.config.bootstrapNodeEnrVersionCheck &&
-      this.bootstrapNodes.some(enrTxt => ENR.decodeTxt(enrTxt).nodeId === enr.nodeId)
-    ) {
-      this.logger.trace(`Skipping version check for bootnode ${enr.nodeId}`);
-      return true;
-    }
-
     // Check the peer is an aztec peer
     const value = enr.kvs.get(AZTEC_ENR_KEY);
     if (!value) {

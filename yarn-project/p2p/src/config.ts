@@ -78,6 +78,9 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   /** Whether to execute the version check in the bootstrap node ENR. */
   bootstrapNodeEnrVersionCheck: boolean;
 
+  /** Whether to consider any configured bootnodes as full peers, e.g. for transaction gossiping */
+  bootstrapNodesAsFullPeers: boolean;
+
   /**
    * Protocol identifier for transaction gossiping.
    */
@@ -228,6 +231,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'Whether to check the version of the bootstrap node ENR.',
     ...booleanConfigHelper(),
   },
+  bootstrapNodesAsFullPeers: {
+    env: 'P2P_BOOTSTRAP_NODES_AS_FULL_PEERS',
+    description: 'Whether to consider our configured bootnodes as full peers',
+    ...booleanConfigHelper(false),
+  },
   transactionProtocol: {
     env: 'P2P_TX_PROTOCOL',
     description: 'Protocol identifier for transaction gossiping.',
@@ -335,7 +343,6 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   },
   ...p2pReqRespConfigMappings,
   ...chainConfigMappings,
-  ...dataConfigMappings,
 };
 
 /**
