@@ -4,13 +4,8 @@ export interface TelemetryClientConfig {
   metricsCollectorUrl?: URL;
   tracesCollectorUrl?: URL;
   logsCollectorUrl?: URL;
-  serviceName: string;
-  networkName: string;
   otelCollectIntervalMs: number;
   otelExportTimeoutMs: number;
-  k8sPodUid?: string;
-  k8sPodName?: string;
-  k8sNamespaceName?: string;
   otelExcludeMetrics?: string[];
 }
 
@@ -29,16 +24,6 @@ export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientCo
     env: 'OTEL_EXPORTER_OTLP_LOGS_ENDPOINT',
     description: 'The URL of the telemetry collector for logs',
     parseEnv: (val: string) => val && new URL(val),
-  },
-  serviceName: {
-    env: 'OTEL_SERVICE_NAME',
-    description: 'The name of the service (attached as metadata to collected metrics)',
-    defaultValue: 'aztec',
-  },
-  networkName: {
-    env: 'NETWORK_NAME',
-    description: 'The network ID of the telemetry service',
-    defaultValue: 'local',
   },
   otelCollectIntervalMs: {
     env: 'OTEL_COLLECT_INTERVAL_MS',
@@ -63,18 +48,6 @@ export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientCo
             .filter(s => s.length > 0)
         : [],
     defaultValue: [],
-  },
-  k8sPodUid: {
-    env: 'K8S_POD_UID',
-    description: 'The UID of the Kubernetes pod (injected automatically by k8s)',
-  },
-  k8sPodName: {
-    env: 'K8S_POD_NAME',
-    description: 'The name of the Kubernetes pod (injected automatically by k8s)',
-  },
-  k8sNamespaceName: {
-    env: 'K8S_NAMESPACE_NAME',
-    description: 'The name of the Kubernetes namespace (injected automatically by k8s)',
   },
 };
 

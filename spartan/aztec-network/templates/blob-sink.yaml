@@ -71,8 +71,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: OTEL_SERVICE_NAME
-              value: blob-sink
             - name: K8S_NAMESPACE_NAME
               valueFrom:
                 fieldRef:

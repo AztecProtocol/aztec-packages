@@ -7,11 +7,9 @@ import {
   serviceInstanceIdDetectorSync,
 } from '@opentelemetry/resources';
 
-import { aztecDetector } from './aztec_resource_detector.js';
-
 export function getOtelResource(): IResource {
   const resource = detectResourcesSync({
-    detectors: [osDetectorSync, envDetectorSync, processDetectorSync, serviceInstanceIdDetectorSync, aztecDetector],
+    detectors: [osDetectorSync, envDetectorSync, processDetectorSync, serviceInstanceIdDetectorSync],
   });
 
   return resource;
