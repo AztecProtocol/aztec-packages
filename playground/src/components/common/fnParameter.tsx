@@ -4,20 +4,18 @@ import {
   isAddressStruct,
 } from "@aztec/stdlib/abi";
 import {
-  Autocomplete,
-  CircularProgress,
-  IconButton,
-  TextField,
-  capitalize,
-  css,
-} from "@mui/material";
-import {
   formatFrAsString,
   parseAliasedBuffersAsString,
 } from "../../utils/conversion";
 import { useContext, useState } from "react";
 import EditIcon from "@mui/icons-material/Edit";
 import { AztecContext } from "../../aztecEnv";
+import TextField from "@mui/material/TextField";
+import { css } from "@mui/styled-engine";
+import Autocomplete from "@mui/material/Autocomplete";
+import CircularProgress from "@mui/material/CircularProgress";
+import { capitalize } from "@mui/material/utils";
+import IconButton from "@mui/material/IconButton";
 
 const container = css({
   display: "flex",
@@ -120,7 +118,7 @@ export function FunctionParameter({
           variant="outlined"
           disabled={
             ["array", "struct", "tuple"].includes(parameter.type.kind) &&
-            !(isAddressStruct(parameter.type))
+            !isAddressStruct(parameter.type)
           }
           key={parameter.name}
           type="text"

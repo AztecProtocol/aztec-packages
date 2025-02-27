@@ -138,7 +138,7 @@ export class AztecEnv {
   static async initNetworkStore() {
     if (!AztecEnv.isNetworkStoreInitialized) {
       AztecEnv.isNetworkStoreInitialized = true;
-      const networkStore = await createStore(`network`, {
+      const networkStore = await createStore("network_data", {
         dataDirectory: "network",
         dataStoreMapSizeKB: 1e6,
       });

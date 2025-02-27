@@ -1,15 +1,12 @@
 import { css, Global } from "@emotion/react";
 import { AztecContext } from "../../aztecEnv";
-import { useContext, useState } from "react";
-import {
-  CircularProgress,
-  CssBaseline,
-  Fab,
-  styled,
-  SwipeableDrawer,
-  Typography,
-} from "@mui/material";
+import { useContext } from "react";
+import CssBaseline from "@mui/material/CssBaseline";
+import Fab from "@mui/material/Fab";
+import SwipeableDrawer from "@mui/material/SwipeableDrawer";
+import Typography from "@mui/material/Typography";
 import ArticleIcon from "@mui/icons-material/Article";
+import { styled } from "@mui/material/styles";
 
 const Root = styled("div")(({ theme }) => ({
   height: "100%",

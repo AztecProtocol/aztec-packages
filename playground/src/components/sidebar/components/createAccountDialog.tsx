@@ -2,13 +2,11 @@ import DialogTitle from "@mui/material/DialogTitle";
 import Dialog from "@mui/material/Dialog";
 import { AccountWalletWithSecretKey, Fr } from "@aztec/aztec.js";
 import { getSchnorrAccount } from "@aztec/accounts/schnorr/lazy";
-import {
-  Button,
-  CircularProgress,
-  TextField,
-  Typography,
-  css,
-} from "@mui/material";
+import Button from "@mui/material/Button";
+import TextField from "@mui/material/TextField";
+import CircularProgress from "@mui/material/CircularProgress";
+import Typography from "@mui/material/Typography";
+import { css } from "@mui/styled-engine";
 import { useContext, useState } from "react";
 import { deriveSigningKey } from "@aztec/stdlib/keys";
 import { AztecContext } from "../../../aztecEnv";

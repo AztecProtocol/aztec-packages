@@ -1,20 +1,13 @@
 import DialogTitle from "@mui/material/DialogTitle";
 import Dialog from "@mui/material/Dialog";
-import {
-  type AbiType,
-  AuthWitness,
-  AztecAddress,
-  Contract,
-} from "@aztec/aztec.js";
-import {
-  Button,
-  CircularProgress,
-  FormControl,
-  FormGroup,
-  TextField,
-  Typography,
-  css,
-} from "@mui/material";
+import { type AbiType, AuthWitness, AztecAddress } from "@aztec/aztec.js";
+import Button from "@mui/material/Button";
+import CircularProgress from "@mui/material/CircularProgress";
+import FormControl from "@mui/material/FormControl";
+import FormGroup from "@mui/material/FormGroup";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
+import { css } from "@mui/styled-engine";
 import { useContext, useState } from "react";
 import { AztecContext } from "../../../aztecEnv";
 import { FunctionParameter } from "../../common/fnParameter";

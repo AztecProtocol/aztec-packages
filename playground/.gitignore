@@ -27,3 +27,4 @@ dist-ssr
 !.yarn/releases
 vite.config.ts.*
 *.module.css.d.ts
+bundlemeta.json

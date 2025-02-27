@@ -3,7 +3,7 @@ import "@fontsource/roboto/400.css";
 import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
 
-import { css } from "@emotion/react";
+import { css } from "@mui/styled-engine";
 
 import { type ThemeOptions, createTheme } from "@mui/material/styles";
 

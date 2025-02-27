@@ -3,10 +3,10 @@ import { ContractComponent } from "../contract/contract";
 import { SidebarComponent } from "../sidebar/sidebar";
 import { useEffect, useState } from "react";
 import { AztecContext, AztecEnv } from "../../aztecEnv";
-import NoSleep from "nosleep.js";
 import { LogPanel } from "../logPanel/logPanel";
 import logoURL from "../../assets/Aztec_logo.png";
-import { CircularProgress, Drawer, LinearProgress } from "@mui/material";
+import Drawer from "@mui/material/Drawer";
+import LinearProgress from "@mui/material/LinearProgress";
 
 const layout = css({
   display: "flex",
