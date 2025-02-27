@@ -24,9 +24,9 @@ Familiar terms from Ethereum mainnet as referred to on the Aztec network:
 | fee per gas | fee-juice per mana | cost per unit of effort |
 | fee (wei)   | fee-juice          | amount to be paid |
 
-The fee juice units also share the units of wei, but via a multiplier of: fee-juice price per wei
+An oracle informs the price of fee-juice per wei, which can be used to calculate a transaction's fee-juice in the units of wei.
 
-Also Aztec implements mechanisms from EIP-1559 including: congestion multipliers, and the ability to specify base and priority mana.
+Also Aztec borrows ideas from EIP-1559 including: congestion multipliers, and the ability to specify base and priority fee per mana.
 
 
 ### Aztec-specific fields
@@ -60,9 +60,9 @@ These are:
 A fee payer will have bridged fee-juice from L1. On Aztec this fee asset is non-transferrable, and only deducted by the protocol to pay for fees.
 
 The calculated fee-juice of a transaction is deducted from the fee payer (nominated account or fee-paying contract), these are pooled together each transaction, block, and epoch.
-Once the epoch is proven, the total fee-juice (minus any burnt congestion amount), is distributed to those that contributed to the epoch (proposers, prover and sequencer).
+Once the epoch is proven, the total fee-juice (minus any burnt congestion amount), is distributed to those that contributed to the epoch.
 
-The fees section of the protocol specification explains the details of this distribution.
+The fees section of the protocol specification explains this distribution of fee-juice between proposers and provers.
 
 ## Next steps
 
