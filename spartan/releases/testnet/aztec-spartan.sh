@@ -137,90 +137,95 @@ get_public_ip() {
 }
 
 get_node_info() {
-  echo -e "${BLUE}Fetching node info...${NC}"
-  CMD="get-node-info --node-url ${BOOTNODE_URL} --json"
-  # TODO: use the correct (corresponding) image
-  # Can't do it today because `release/unhinged-unicorn` doesn't support --json flag
-  NODE_INFO=$(curl -X POST -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","method":"node_getNodeInfo","params":[],"id":1}' -s ${BOOTNODE_URL})
+    echo -e "${BLUE}Fetching node info...${NC}"
+    CMD="get-node-info --node-url ${BOOTNODE_URL} --json"
+    # TODO: use the correct (corresponding) image
+    # Can't do it today because `release/unhinged-unicorn` doesn't support --json flag
+    NODE_INFO=$(curl -X POST -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","method":"node_getNodeInfo","params":[],"id":1}' -s ${BOOTNODE_URL})
 
-  # Extract the relevant fields
-  result=$(echo $NODE_INFO | jq -r '.result')
-  L1_CHAIN_ID=$(echo $result | jq -r '.l1ChainId')
-  BOOTSTRAP_NODES=$(echo $result | jq -r '.enr')
-  REGISTRY_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.registryAddress')
-  GOVERNANCE_PROPOSER_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.governanceProposerAddress')
-  FEE_JUICE_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.feeJuiceAddress')
-  ROLLUP_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.rollupAddress')
-  REWARD_DISTRIBUTOR_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.rewardDistributorAddress')
-  GOVERNANCE_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.governanceAddress')
-  COIN_ISSUER_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.coinIssuerAddress')
-  FEE_JUICE_PORTAL_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.feeJuicePortalAddress')
-  INBOX_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.inboxAddress')
-  OUTBOX_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.outboxAddress')
+    # Extract the relevant fields
+    result=$(echo $NODE_INFO | jq -r '.result')
+    L1_CHAIN_ID=$(echo $result | jq -r '.l1ChainId')
+    BOOTSTRAP_NODES=$(echo $result | jq -r '.enr')
+    REGISTRY_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.registryAddress')
+    GOVERNANCE_PROPOSER_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.governanceProposerAddress')
+    FEE_JUICE_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.feeJuiceAddress')
+    ROLLUP_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.rollupAddress')
+    REWARD_DISTRIBUTOR_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.rewardDistributorAddress')
+    GOVERNANCE_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.governanceAddress')
+    COIN_ISSUER_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.coinIssuerAddress')
+    FEE_JUICE_PORTAL_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.feeJuicePortalAddress')
+    INBOX_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.inboxAddress')
+    OUTBOX_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.outboxAddress')
+    STAKING_ASSET_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.stakingContractAddress')
+    SLASH_FACTORY_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.slashingContractAddress')
 
-  echo -e "${GREEN}Node info fetched successfully${NC}"
-  return 0
+
+
+    echo -e "${GREEN}Node info fetched successfully${NC}"
+    return 0
 }
 
 # Configure environment
 configure_environment() {
-  local args=("$@")
-  parse_args "${args[@]}"
+    local args=("$@")
+    parse_args "${args[@]}"
 
-  echo -e "${BLUE}Configuring environment...${NC}"
-  if [ -n "$NETWORK" ]; then
-    NETWORK="$NETWORK"
-  else
-    read -p "Network [unhinged-unicorn]: " NETWORK
-    NETWORK=${NETWORK:-unhinged-unicorn}
-  fi
+    echo -e "${BLUE}Configuring environment...${NC}"
+    if [ -n "$NETWORK" ]; then
+        NETWORK="$NETWORK"
+    else
+        read -p "Network [mitch]: " NETWORK
+        NETWORK=${NETWORK:-mitch}
+    fi
 
-  # if the network is `unhinged-unicorn`
-  if [ "$NETWORK" = "unhinged-unicorn" ]; then
-    BOOTNODE_URL="${BOOTNODE_URL:-http://34.169.19.201:8080}"
-    ETHEREUM_HOSTS="${ETHEREUM_HOSTS:-http://34.82.214.254:8545}"
-    IMAGE="${IMAGE:-aztecprotocol/aztec:unhinged-unicorn}"
-  else
-    # unknown network
-    echo -e "${RED}Unknown network: $NETWORK${NC}"
-  fi
+    # if the network is `unhinged-unicorn`
+    if [ "$NETWORK" = "mitch" ]; then
+        BOOTNODE_URL="${BOOTNODE_URL:-http://34.145.47.90:8080}"
+        ETHEREUM_HOST="${ETHEREUM_HOST:-http://34.169.138.115:8545}"
+        L1_CONSENSUS_HOST_URL="${L1_CONSENSUS_HOST_URL:-35.227.182.215:5052}"
+        IMAGE="${IMAGE:-aztecprotocol/aztec:430adc4a99ff8f1cbe8cf0865ab65164260bc0ab}"
+    else
+        # unknown network
+        echo -e "${RED}Unknown network: $NETWORK${NC}"
+    fi
 
-  # Check that bootnode, ethereum host, and image are set
-  if [ -z "$BOOTNODE_URL" ] || [ -z "$ETHEREUM_HOSTS" ] || [ -z "$IMAGE" ]; then
-    echo -e "${RED}Bootnode, Ethereum host, and image are required${NC}"
-    exit 1
-  fi
+    # Check that bootnode, ethereum host, and image are set
+    if [ -z "$BOOTNODE_URL" ] || [ -z "$ETHEREUM_HOST" ] || [ -z "$IMAGE" ] || [ -z "$L1_CONSENSUS_HOST_URL"]; then
+        echo -e "${RED}Bootnode, Ethereum host, and image are required${NC}"
+        exit 1
+    fi
 
-  # get the node info
-  get_node_info
+    # get the node info
+    get_node_info
 
-  if [ -n "$CLI_P2P_PORT" ]; then
-    P2P_PORT="$CLI_P2P_PORT"
-  else
-    read -p "P2P Port [$DEFAULT_P2P_PORT]: " P2P_PORT
-    P2P_PORT=${P2P_PORT:-$DEFAULT_P2P_PORT}
-  fi
 
-  if [ -n "$CLI_PORT" ]; then
-    PORT="$CLI_PORT"
-  else
-    read -p "Node Port [$DEFAULT_PORT]: " PORT
-    PORT=${PORT:-$DEFAULT_PORT}
-  fi
+    if [ -n "$CLI_P2P_PORT" ]; then
+        P2P_PORT="$CLI_P2P_PORT"
+    else
+        read -p "P2P Port [$DEFAULT_P2P_PORT]: " P2P_PORT
+        P2P_PORT=${P2P_PORT:-$DEFAULT_P2P_PORT}
+    fi
 
-  if [ -n "$CLI_KEY" ]; then
-    KEY="$CLI_KEY"
-  else
-    while true; do
-      read -p "Validator Private Key: " KEY
-      if [ -z "$KEY" ]; then
-        echo -e "${RED}Error: Validator Private Key is required${NC}"
-      else
-        break
-      fi
-    done
-  fi
+    if [ -n "$CLI_PORT" ]; then
+        PORT="$CLI_PORT"
+    else
+        read -p "Node Port [$DEFAULT_PORT]: " PORT
+        PORT=${PORT:-$DEFAULT_PORT}
+    fi
 
+    if [ -n "$CLI_KEY" ]; then
+        KEY="$CLI_KEY"
+    else
+        while true; do
+            read -p "Validator Private Key: " KEY
+            if [ -z "$KEY" ]; then
+                echo -e "${RED}Error: Validator Private Key is required${NC}"
+            else
+                break
+            fi
+        done
+    fi
   if [ -n "$CLI_COINBASE" ]; then
     COINBASE="$CLI_COINBASE"
   else
@@ -293,6 +298,7 @@ AZTEC_EPOCH_DURATION=32
 AZTEC_PROOF_SUBMISSION_WINDOW=64
 BOOTSTRAP_NODES=${BOOTSTRAP_NODES}
 REGISTRY_CONTRACT_ADDRESS=${REGISTRY_CONTRACT_ADDRESS}
+STAKING_ASSET_CONTRACT_ADDRESS=${}
 GOVERNANCE_PROPOSER_CONTRACT_ADDRESS=${GOVERNANCE_PROPOSER_CONTRACT_ADDRESS}
 FEE_JUICE_CONTRACT_ADDRESS=${FEE_JUICE_CONTRACT_ADDRESS}
 ROLLUP_CONTRACT_ADDRESS=${ROLLUP_CONTRACT_ADDRESS}

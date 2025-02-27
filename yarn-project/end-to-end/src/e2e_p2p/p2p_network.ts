@@ -333,7 +333,6 @@ export class P2PNetworkTest {
       {
         gasLimitBufferPercentage: 20,
         maxGwei: 500n,
-        minGwei: 1n,
         maxAttempts: 3,
         checkIntervalMs: 100,
         stallTimeMs: 1000,

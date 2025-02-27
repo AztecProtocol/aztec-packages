@@ -31,7 +31,7 @@ describe('In-Memory Slasher Client', () => {
 
     const l1Config = getL1ContractsConfigEnvVars();
 
-    // Need some configuration here. Can be a basic bitch config really.
+    // Need some configuration here. Can be a basic config really.
     config = {
       ...l1Config,
       blockCheckIntervalMS: 100,

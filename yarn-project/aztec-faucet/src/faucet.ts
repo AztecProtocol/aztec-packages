@@ -139,7 +139,7 @@ export class Faucet {
 
     const now = this.timeFn();
     const last = addressHistory.get(asset);
-    if (typeof last === 'number' && last + this.config.interval > now) {
+    if (typeof last === 'number' && last + this.config.faucetInterval > now) {
       throw new ThrottleError(address.toString(), asset);
     }
   }
