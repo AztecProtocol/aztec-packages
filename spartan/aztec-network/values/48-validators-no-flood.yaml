@@ -12,8 +12,6 @@ validator:
 bootNode:
   p2p:
     floodPublish: false
-  validator:
-    disabled: true
 
 proverNode:
   p2p:

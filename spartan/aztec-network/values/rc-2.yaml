@@ -40,8 +40,6 @@ validator:
     disabled: false
 
 bootNode:
-  validator:
-    disabled: true
   storageSize: "100Gi"
 
 proverAgent:

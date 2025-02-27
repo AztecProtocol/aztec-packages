@@ -32,8 +32,6 @@ validator:
 
 bootNode:
   seqPublisherPrivateKey:
-  validator:
-    disabled: true
 
 proverNode:
   proverPublisherPrivateKey:
