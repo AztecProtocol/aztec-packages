@@ -128,7 +128,8 @@ where
     T: Empty + Eq,
 {
     // Safety: this value is constrained in the below loop.
-    let length = unsafe { find_index_hint_from_end(array, |elem: T| !is_empty(elem)) } + 1;
+    let index = unsafe { find_index_hint_from_end(array, |elem: T| !is_empty(elem)) };
+    let length = if index == 0 { 0 } else { index + 1 };
     // Check the elt just before length is non-zero:
     if length != 0 {
         assert(!is_empty(array[length - 1]), "invalid array");

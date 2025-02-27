@@ -144,7 +144,7 @@ export async function makeProcessedTxFromTxWithPublicCalls(
 
   const contractClassLogs = [
     ...(await tx.getSplitContractClassLogs(false, true)),
-    ...(revertCode.isOK() ? await tx.getSplitContractClassLogs(false, true) : []),
+    ...(revertCode.isOK() ? await tx.getSplitContractClassLogs(true, true) : []),
   ].filter(l => !l.isEmpty());
 
   const txEffect = new TxEffect(
