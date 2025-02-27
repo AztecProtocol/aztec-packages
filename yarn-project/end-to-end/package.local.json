@@ -1,15 +1,5 @@
 {
   "scripts": {
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests src/fixtures"
-  },
-  "jest": {
-    "reporters": [
-      [
-        "summary",
-        {
-          "summaryThreshold": 0
-        }
-      ]
-    ]
   }
 }

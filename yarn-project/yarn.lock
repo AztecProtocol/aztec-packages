@@ -404,6 +404,7 @@ __metadata:
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.0.4"
+    viem: "npm:2.22.8"
     zod: "npm:^3.23.8"
   languageName: unknown
   linkType: soft
@@ -694,6 +695,7 @@ __metadata:
     dotenv: "npm:^16.0.3"
     get-port: "npm:^7.1.0"
     jest: "npm:^29.5.0"
+    lodash.omit: "npm:^4.5.0"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.0.4"

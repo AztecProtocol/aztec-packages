@@ -41,6 +41,12 @@ __metadata:
   languageName: node
   linkType: soft
 
+"@aztec/protocol-contracts@link:../yarn-project/protocol-contracts::locator=playground%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/protocol-contracts@link:../yarn-project/protocol-contracts::locator=playground%40workspace%3A."
+  languageName: node
+  linkType: soft
+
 "@aztec/pxe@link:../yarn-project/pxe::locator=playground%40workspace%3A.":
   version: 0.0.0-use.local
   resolution: "@aztec/pxe@link:../yarn-project/pxe::locator=playground%40workspace%3A."
@@ -3750,6 +3756,7 @@ __metadata:
     "@aztec/foundation": "link:../yarn-project/foundation"
     "@aztec/key-store": "link:../yarn-project/key-store"
     "@aztec/kv-store": "link:../yarn-project/kv-store"
+    "@aztec/protocol-contracts": "link:../yarn-project/protocol-contracts"
     "@aztec/pxe": "link:../yarn-project/pxe"
     "@aztec/simulator": "link:../yarn-project/simulator"
     "@aztec/stdlib": "link:../yarn-project/stdlib"

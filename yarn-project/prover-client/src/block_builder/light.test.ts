@@ -18,13 +18,8 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type Tuple, assertLength } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
-import {
-  ProtocolCircuitVks,
-  TubeVk,
-  getVKIndex,
-  getVKSiblingPath,
-  getVKTreeRoot,
-} from '@aztec/noir-protocol-circuits-types/vks';
+import { ProtocolCircuitVks, TubeVk } from '@aztec/noir-protocol-circuits-types/server/vks';
+import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { PublicDataWrite } from '@aztec/stdlib/avm';

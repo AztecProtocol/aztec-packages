@@ -17,7 +17,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { type LogFn, createLogger } from '@aztec/foundation/log';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -31,7 +31,7 @@ import {
 } from '@aztec/telemetry-client';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
-import { type HDAccount, type PrivateKeyAccount, createPublicClient, http as httpViemTransport } from 'viem';
+import { type HDAccount, type PrivateKeyAccount, createPublicClient, fallback, http as httpViemTransport } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
@@ -53,14 +53,15 @@ export async function deployContractsToL1(
   contractDeployLogger = logger,
   opts: { assumeProvenThroughBlockNumber?: number; salt?: number; genesisArchiveRoot?: Fr; genesisBlockHash?: Fr } = {},
 ) {
-  const chain = aztecNodeConfig.l1RpcUrl
-    ? createEthereumChain(aztecNodeConfig.l1RpcUrl, aztecNodeConfig.l1ChainId)
-    : { chainInfo: localAnvil };
+  const chain =
+    aztecNodeConfig.l1RpcUrls.length > 0
+      ? createEthereumChain(aztecNodeConfig.l1RpcUrls, aztecNodeConfig.l1ChainId)
+      : { chainInfo: localAnvil };
 
   await waitForPublicClient(aztecNodeConfig);
 
   const l1Contracts = await deployL1Contracts(
-    aztecNodeConfig.l1RpcUrl,
+    aztecNodeConfig.l1RpcUrls,
     hdAccount,
     chain.chainInfo,
     contractDeployLogger,
@@ -157,6 +158,14 @@ export type SandboxConfig = AztecNodeConfig & {
  * @param config - Optional Sandbox settings.
  */
 export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog: LogFn) {
+  // sandbox is meant for test envs. We should only need one l1RpcUrl
+  const l1RpcUrl = config.l1RpcUrls?.[0];
+  if (!l1RpcUrl) {
+    throw new Error('An L1 RPC URL is required');
+  }
+  if ((config.l1RpcUrls?.length || 0) > 1) {
+    logger.warn(`Multiple L1 RPC URLs provided. Sandbox will only use the first one: ${l1RpcUrl}`);
+  }
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
   const hdAccount = mnemonicToAccount(config.l1Mnemonic || DefaultMnemonic);
   if (!aztecNodeConfig.publisherPrivateKey || aztecNodeConfig.publisherPrivateKey === NULL_KEY) {
@@ -196,20 +205,17 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
       salt: config.l1Salt ? parseInt(config.l1Salt) : undefined,
     });
 
-    const chain = aztecNodeConfig.l1RpcUrl
-      ? createEthereumChain(aztecNodeConfig.l1RpcUrl, aztecNodeConfig.l1ChainId)
-      : { chainInfo: localAnvil };
+    const chain =
+      aztecNodeConfig.l1RpcUrls.length > 0
+        ? createEthereumChain([l1RpcUrl], aztecNodeConfig.l1ChainId)
+        : { chainInfo: localAnvil };
 
     const publicClient = createPublicClient({
       chain: chain.chainInfo,
-      transport: httpViemTransport(aztecNodeConfig.l1RpcUrl),
+      transport: fallback([httpViemTransport(l1RpcUrl)]) as any,
     });
 
-    watcher = new AnvilTestWatcher(
-      new EthCheatCodes(aztecNodeConfig.l1RpcUrl),
-      l1ContractAddresses.rollupAddress,
-      publicClient,
-    );
+    watcher = new AnvilTestWatcher(new EthCheatCodes([l1RpcUrl]), l1ContractAddresses.rollupAddress, publicClient);
     watcher.setIsSandbox(true);
     await watcher.start();
   }
