@@ -14,8 +14,6 @@ set -e
 
 # Usage: ./scripts/deploy_bootnodes.sh <network-name> "region1,region2" "t2d-standard-2" "s3://static.aztec.network" <L1-chain-id> <gcp-project-id>
 
-# This is currently all done in GCP, some terraform exists to allow deploying to AWS but this is not yet used
-
 NETWORK_NAME=${1:-}
 GCP_REGIONS=${2:-}
 GCP_MACHINE_TYPE=${3:-}

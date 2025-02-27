@@ -1,5 +1,5 @@
-import { type ChainConfig, emptyChainConfig } from '@aztec/circuit-types/config';
 import type { LogFn } from '@aztec/foundation/log';
+import { type ChainConfig, emptyChainConfig } from '@aztec/stdlib/config';
 
 import { ENR, SignableENR } from '@chainsafe/enr';
 import { multiaddr } from '@multiformats/multiaddr';
