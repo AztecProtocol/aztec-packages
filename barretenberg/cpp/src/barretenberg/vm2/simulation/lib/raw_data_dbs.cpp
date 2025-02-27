@@ -55,8 +55,8 @@ ContractClass HintedRawContractDB::get_contract_class(const ContractClassId& cla
 }
 
 // Hinted MerkleDB starts.
-HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints)
-    : tree_roots(hints.initialTreeRoots)
+HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints&, const TreeSnapshots& tree_roots)
+    : tree_roots(tree_roots)
 {}
 
 } // namespace bb::avm2::simulation

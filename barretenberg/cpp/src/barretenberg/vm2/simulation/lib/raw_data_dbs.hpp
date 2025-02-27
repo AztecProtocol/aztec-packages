@@ -25,12 +25,12 @@ class HintedRawContractDB final : public ContractDBInterface {
 // This class interacts with the external world, without emiting any simulation events.
 class HintedRawMerkleDB final : public MerkleDBInterface {
   public:
-    HintedRawMerkleDB(const ExecutionHints& hints);
+    HintedRawMerkleDB(const ExecutionHints& hints, const TreeSnapshots& tree_roots);
 
-    const TreeRoots& get_tree_roots() const override { return tree_roots; }
+    const TreeSnapshots& get_tree_roots() const override { return tree_roots; }
 
   private:
-    TreeRoots tree_roots;
+    TreeSnapshots tree_roots;
 };
 
 } // namespace bb::avm2::simulation

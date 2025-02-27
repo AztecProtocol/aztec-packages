@@ -17,7 +17,7 @@ class MerkleDBInterface {
   public:
     virtual ~MerkleDBInterface() = default;
 
-    virtual const TreeRoots& get_tree_roots() const = 0;
+    virtual const TreeSnapshots& get_tree_roots() const = 0;
 };
 
 } // namespace bb::avm2::simulation

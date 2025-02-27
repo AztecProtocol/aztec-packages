@@ -3,6 +3,7 @@ import { WorldStateDB } from '@aztec/simulator/server';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { makeAvmCircuitInputs } from '@aztec/stdlib/testing';
 import { VerificationKeyData } from '@aztec/stdlib/vks';
 import { NativeWorldStateService } from '@aztec/world-state';
 
@@ -97,7 +98,6 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     expect(simRes.revertCode.isOK()).toBe(expectRevert ? false : true);
 
     const avmCircuitInputs = simRes.avmProvingRequest.inputs;
-    console.log(avmCircuitInputs.avmHints.contractClasses.toFriendlyJSON());
     const provingRes = await this.prove(avmCircuitInputs);
     expect(provingRes.status).toEqual(BB_RESULT.SUCCESS);
 
@@ -136,18 +136,15 @@ export class AvmProvingTesterV2 extends PublicTxSimulationTester {
   }
 
   async verifyV2(proofRes: BBSuccess): Promise<BBResult> {
-    // Then we verify.
-    // Placeholder for now.
-    const publicInputs = {
-      dummy: [] as any[],
-    };
+    // TODO: Placeholder for now. They get ignored in C++.
+    const inputs = await makeAvmCircuitInputs();
 
     const rawVkPath = path.join(proofRes.vkPath!, 'vk');
     return await verifyAvmProofV2(
       BB_PATH,
       this.bbWorkingDirectory,
       proofRes.proofPath!,
-      publicInputs,
+      inputs.publicInputs,
       rawVkPath,
       this.logger,
     );

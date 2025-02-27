@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/simulation/address_derivation.hpp"
 #include "barretenberg/vm2/simulation/class_id_derivation.hpp"
 #include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
@@ -41,7 +42,7 @@ class MerkleDB final : public MerkleDBInterface {
         : raw_merkle_db(raw_merkle_db)
     {}
 
-    const TreeRoots& get_tree_roots() const override;
+    const TreeSnapshots& get_tree_roots() const override;
 
   private:
     MerkleDBInterface& raw_merkle_db;
