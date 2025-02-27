@@ -8,7 +8,7 @@ use dep::aztec::macros::aztec;
 // and private.
 #[aztec]
 pub contract NFT {
-    use crate::types::nft_note::NFTNote;
+    use crate::types::nft_note::{NFTNote, PartialNFTNote};
     use dep::authwit::auth::{
         assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
         compute_authwit_nullifier,
@@ -21,12 +21,11 @@ pub contract NFT {
             storage::storage,
         },
         note::constants::MAX_NOTES_PER_PAGE,
-        oracle::random::random,
         prelude::{
             AztecAddress, Map, NoteGetterOptions, NoteViewerOptions, PrivateContext, PrivateSet,
             PublicContext, PublicImmutable, PublicMutable,
         },
-        protocol_types::{point::Point, traits::Serialize},
+        protocol_types::traits::Serialize,
         utils::comparison::Comparator,
     };
     use dep::compressed_string::FieldCompressedString;
@@ -170,21 +169,19 @@ pub contract NFT {
         let nft = NFT::at(context.this_address());
 
         // We prepare the private balance increase.
-        let hiding_point_slot = _prepare_private_balance_increase(to, &mut context, storage);
+        let partial_note = _prepare_private_balance_increase(to, &mut context, storage);
 
         // At last we finalize the transfer. Usage of the `unsafe` method here is safe because we set the `from`
         // function argument to a message sender, guaranteeing that he can transfer only his own NFTs.
-        nft._finalize_transfer_to_private_unsafe(from, token_id, hiding_point_slot).enqueue(
-            &mut context,
-        );
+        nft._finalize_transfer_to_private_unsafe(from, token_id, partial_note).enqueue(&mut context);
     }
     // docs:end:transfer_to_private
 
     /// Prepares an increase of private balance of `to` (partial note). The increase needs to be finalized by calling
-    /// `finalize_transfer_to_private. Returns a hiding point slot.
+    /// `finalize_transfer_to_private` with the returned partial note.
     // docs:start:prepare_private_balance_increase
     #[private]
-    fn prepare_private_balance_increase(to: AztecAddress) -> Field {
+    fn prepare_private_balance_increase(to: AztecAddress) -> PartialNFTNote {
         _prepare_private_balance_increase(to, &mut context, storage)
     }
 
@@ -198,75 +195,41 @@ pub contract NFT {
         to: AztecAddress,
         context: &mut PrivateContext,
         storage: Storage<&mut PrivateContext>,
-    ) -> Field {
-        let to_note_slot = storage.private_nfts.at(to).storage_slot;
+    ) -> PartialNFTNote {
+        // We create a partial note with unpopulated/zero token id for 'to'
+        let partial_note = NFTNote::partial(
+            to,
+            storage.private_nfts.at(to).storage_slot,
+            context,
+            to,
+            context.msg_sender(),
+        );
 
-        // We create a setup payload with unpopulated/zero token id for 'to'
-        // TODO(#7775): Manually fetching the randomness here is not great. If we decide to include randomness in all
-        // notes we could just inject it in macros.
+        NFT::at(context.this_address())._store_nft_set_partial_note(partial_note).enqueue(context);
 
-        // Safety: We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing,
-        // so a malicious sender could use non-random values to make the note less private. But they already know
-        // the full note pre-image anyway, and so the recipient already trusts them to not disclose this
-        // information. We can therefore assume that the sender will cooperate in the random value generation.
-        let note_randomness = unsafe { random() };
-        let note_setup_payload = NFTNote::setup_payload().new(to, note_randomness, to_note_slot);
-
-        let setup_log = note_setup_payload.encrypt_log(context, to, context.msg_sender());
-
-        // Using the x-coordinate as a hiding point slot is safe against someone else interfering with it because
-        // we have a guarantee that the public functions of the transaction are executed right after the private ones
-        // and for this reason the protocol guarantees that nobody can front-run us in consuming the hiding point.
-        // This guarantee would break if `finalize_transfer_to_private` was not called in the same transaction. This
-        // however is not the flow we are currently concerned with. To support the multi-transaction flow we could
-        // introduce a `from` function argument, hash the x-coordinate with it and then repeat the hashing in
-        // `finalize_transfer_to_private`.
-        //
-        // We can also be sure that the `hiding_point_slot` will not overwrite any other value in the storage because
-        // in our state variables we derive slots using a different hash function from multi scalar multiplication
-        // (MSM).
-        let hiding_point_slot = note_setup_payload.hiding_point.x;
-
-        // We don't need to perform a check that the value overwritten by `_store_point_in_transient_storage_unsafe`
-        // is zero because the slot is the x-coordinate of the hiding point and hence we could only overwrite
-        // the value in the slot with the same value. This makes usage of the `unsafe` method safe.
-        NFT::at(context.this_address())
-            ._store_payload_in_transient_storage_unsafe(
-                hiding_point_slot,
-                note_setup_payload.hiding_point,
-                setup_log,
-            )
-            .enqueue(context);
-
-        hiding_point_slot
+        partial_note
     }
     // docs:end:prepare_private_balance_increase
 
-    // TODO(#9375): Having to define the note log length here is very unfortunate as it's basically impossible for
-    // users to derive manually. This will however go away once we have a real transient storage since we will not need
-    // the public call and instead we would do something like `context.transient_storage_write(slot, payload)` and that
-    // will allow us to use generics and hence user will not need to define it explicitly. We cannot use generics here
-    // as it is an entrypoint function.
     // docs:start:store_payload_in_transient_storage_unsafe
     #[public]
     #[internal]
-    fn _store_payload_in_transient_storage_unsafe(
-        slot: Field,
-        point: Point,
-        setup_log: [Field; 9],
-    ) {
-        context.storage_write(slot, point);
-        context.storage_write(slot + aztec::protocol_types::point::POINT_LENGTH as Field, setup_log);
+    fn _store_nft_set_partial_note(partial_note: PartialNFTNote) {
+        // We store the partial note in a slot equal to its commitment. This is safe because the commitment is computed
+        // using a generator different from the one used to compute storage slots, so there can be no collisions.
+        // We could consider storing all pending partial notes in e.g. some array, but ultimately this is pointless: all
+        // we need to verify is that the note is valid.
+        context.storage_write(partial_note.commitment(), true);
     }
     // docs:end:store_payload_in_transient_storage_unsafe
     /// Finalizes a transfer of NFT with `token_id` from public balance of `from` to a private balance of `to`.
     /// The transfer must be prepared by calling `prepare_private_balance_increase` first and the resulting
-    /// `hiding_point_slot` must be passed as an argument to this function.
+    /// `partial_note` must be passed as an argument to this function.
     // docs:start:finalize_transfer_to_private
     #[public]
-    fn finalize_transfer_to_private(token_id: Field, hiding_point_slot: Field) {
+    fn finalize_transfer_to_private(token_id: Field, partial_note: PartialNFTNote) {
         let from = context.msg_sender();
-        _finalize_transfer_to_private(from, token_id, hiding_point_slot, &mut context, storage);
+        _finalize_transfer_to_private(from, token_id, partial_note, &mut context, storage);
     }
     // docs:end:finalize_transfer_to_private
 
@@ -276,9 +239,9 @@ pub contract NFT {
     fn _finalize_transfer_to_private_unsafe(
         from: AztecAddress,
         token_id: Field,
-        hiding_point_slot: Field,
+        partial_note: PartialNFTNote,
     ) {
-        _finalize_transfer_to_private(from, token_id, hiding_point_slot, &mut context, storage);
+        _finalize_transfer_to_private(from, token_id, partial_note, &mut context, storage);
     }
     // docs:end:finalize_transfer_to_private_unsafe
 
@@ -286,7 +249,7 @@ pub contract NFT {
     fn _finalize_transfer_to_private(
         from: AztecAddress,
         token_id: Field,
-        hiding_point_slot: Field,
+        partial_note: PartialNFTNote,
         context: &mut PublicContext,
         storage: Storage<&mut PublicContext>,
     ) {
@@ -296,12 +259,12 @@ pub contract NFT {
         // Set the public NFT owner to zero
         public_owners_storage.write(AztecAddress::zero());
 
-        // Finalize the partial note with the `token_id`
-        let finalization_payload =
-            NFTNote::finalization_payload().new(context, hiding_point_slot, token_id);
-
-        // At last we emit the note hash and the final log
-        finalization_payload.emit();
+        // We verify that the partial note we're completing is valid (i.e. it uses the correct state variable's storage
+        // slot, and it is internally consistent). We *could* clear the storage since each partial note should only be
+        // used once, but since the AVM offers no gas refunds for doing so this would just make the transaction be more
+        // expensive.
+        assert(context.storage_read(partial_note.commitment()), "Invalid partial note");
+        partial_note.complete(token_id, context);
     }
 
     /**
