@@ -1,4 +1,4 @@
-import { css } from "@emotion/react";
+import { css } from "@mui/styled-engine";
 import { useDropzone } from "react-dropzone";
 import "./dropzone.css";
 import { useContext, useEffect, useState } from "react";
@@ -8,22 +8,22 @@ import {
   type ContractArtifact,
   type ContractInstanceWithAddress,
   loadContractArtifact,
+  getContractClassFromArtifact,
 } from "@aztec/aztec.js";
 import { AztecContext } from "../../aztecEnv";
-import {
-  Button,
-  Card,
-  CardActions,
-  CardContent,
-  Checkbox,
-  CircularProgress,
-  FormControlLabel,
-  FormGroup,
-  IconButton,
-  Input,
-  InputAdornment,
-  Typography,
-} from "@mui/material";
+import Button from "@mui/material/Button";
+import Card from "@mui/material/Card";
+import CardActions from "@mui/material/CardActions";
+import CardContent from "@mui/material/CardContent";
+import Checkbox from "@mui/material/Checkbox";
+import CircularProgress from "@mui/material/CircularProgress";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import FormGroup from "@mui/material/FormGroup";
+import IconButton from "@mui/material/IconButton";
+import Input from "@mui/material/Input";
+import InputAdornment from "@mui/material/InputAdornment";
+import Typography from "@mui/material/Typography";
+
 import FindInPageIcon from "@mui/icons-material/FindInPage";
 import {
   convertFromUTF8BufferAsString,
@@ -38,6 +38,7 @@ import VpnKeyIcon from "@mui/icons-material/VpnKey";
 import SendIcon from "@mui/icons-material/Send";
 import PsychologyIcon from "@mui/icons-material/Psychology";
 import { CreateAuthwitDialog } from "./components/createAuthwitDialog";
+import { parse } from "buffer-json";
 
 const container = css({
   display: "flex",
@@ -122,10 +123,7 @@ const loadingArtifactContainer = css({
   gap: "2rem",
 });
 
-const FORBIDDEN_FUNCTIONS = [
-  "process_log",
-  "sync_notes",
-];
+const FORBIDDEN_FUNCTIONS = ["process_log", "sync_notes"];
 
 export function ContractComponent() {
   const [contractArtifact, setContractArtifact] =
@@ -173,8 +171,12 @@ export function ContractComponent() {
         `artifacts:${currentContractAddress}`
       );
       const contractArtifact = loadContractArtifact(
-        JSON.parse(convertFromUTF8BufferAsString(artifactAsString))
+        parse(convertFromUTF8BufferAsString(artifactAsString))
       );
+      const contractClass = await getContractClassFromArtifact(
+        contractArtifact
+      );
+      console.log(contractClass);
       const contract = await Contract.at(
         currentContractAddress,
         contractArtifact,

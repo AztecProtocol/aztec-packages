@@ -1,4 +1,4 @@
-import { css } from "@emotion/react";
+import { css } from "@mui/styled-engine";
 import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import FormControl from "@mui/material/FormControl";
@@ -17,7 +17,9 @@ import { useContext, useEffect, useState } from "react";
 import { CreateAccountDialog } from "./components/createAccountDialog";
 import { getSchnorrAccount } from "@aztec/accounts/schnorr/lazy";
 import AddIcon from "@mui/icons-material/Add";
-import { Button, Divider, Typography } from "@mui/material";
+import Button from "@mui/material/Button";
+import Divider from "@mui/material/Divider";
+import Typography from "@mui/material/Typography";
 import {
   formatFrAsString,
   parseAliasedBuffersAsString,
@@ -391,7 +393,7 @@ export function SidebarComponent() {
       <div css={{ flex: "1 0 auto", margin: "auto" }} />
       <Typography variant="overline">Transactions</Typography>
       <Divider />
-      <TxsPanel />
+      <TxsPanel css={{ marginBottom: 60 }} />
       <CreateAccountDialog
         open={openCreateAccountDialog}
         onClose={handleAccountCreation}

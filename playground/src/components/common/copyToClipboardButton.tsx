@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { IconButton, Snackbar } from "@mui/material";
+import IconButton from "@mui/material/IconButton";
+import Snackbar from "@mui/material/Snackbar";
 import ContentPasteIcon from "@mui/icons-material/ContentPaste";
 
 export function CopyToClipboardButton({

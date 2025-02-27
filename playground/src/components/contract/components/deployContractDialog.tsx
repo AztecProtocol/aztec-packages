@@ -5,18 +5,16 @@ import {
   type ContractInstanceWithAddress,
   PublicKeys,
 } from "@aztec/aztec.js";
-import {
-  Button,
-  CircularProgress,
-  FormControl,
-  FormGroup,
-  InputLabel,
-  MenuItem,
-  Select,
-  TextField,
-  Typography,
-  css,
-} from "@mui/material";
+import Button from "@mui/material/Button";
+import CircularProgress from "@mui/material/CircularProgress";
+import FormControl from "@mui/material/FormControl";
+import FormGroup from "@mui/material/FormGroup";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
+import InputLabel from "@mui/material/InputLabel";
+import Select from "@mui/material/Select";
+import MenuItem from "@mui/material/MenuItem";
+import { css } from "@mui/styled-engine";
 import { useContext, useEffect, useState } from "react";
 import {
   type ContractArtifact,

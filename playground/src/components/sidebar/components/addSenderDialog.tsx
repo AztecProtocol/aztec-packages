@@ -1,6 +1,8 @@
 import DialogTitle from "@mui/material/DialogTitle";
 import Dialog from "@mui/material/Dialog";
-import { Button, TextField, css } from "@mui/material";
+import Button from "@mui/material/Button";
+import TextField from "@mui/material/TextField";
+import { css } from "@mui/styled-engine";
 import { useState } from "react";
 import { AztecAddress } from "@aztec/aztec.js";
 

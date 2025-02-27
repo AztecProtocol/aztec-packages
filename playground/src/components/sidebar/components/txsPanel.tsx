@@ -1,7 +1,7 @@
-import { css } from "@emotion/react";
+import { css, type SerializedStyles } from "@mui/styled-engine";
 import { useContext, useEffect, useState } from "react";
 import { AztecContext } from "../../../aztecEnv";
-import { Typography } from "@mui/material";
+import Typography from "@mui/material/Typography";
 import {
   convertFromUTF8BufferAsString,
   formatFrAsString,
@@ -27,7 +27,7 @@ const txData = css({
   margin: "0.5rem",
 });
 
-export function TxsPanel() {
+export function TxsPanel({ ...props }) {
   const [transactions, setTransactions] = useState([]);
 
   const { currentTx, currentContractAddress, walletDB } =
@@ -72,7 +72,7 @@ export function TxsPanel() {
   }, [currentContractAddress, currentTx]);
 
   return (
-    <div css={txPanel}>
+    <div css={txPanel} {...props}>
       {transactions.map((tx) => (
         <div css={txData} key={tx.txHash ?? ""}>
           <div css={{ display: "flex" }}>

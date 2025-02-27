@@ -12,6 +12,7 @@ import {
   type AztecAsyncKVStore,
   type AztecAsyncMultiMap,
 } from "@aztec/kv-store";
+import { stringify } from "buffer-json";
 
 export const Aliases = [
   "accounts",
@@ -177,12 +178,12 @@ export class WalletDB {
       );
       await this.#aliases.set(
         `artifacts:${alias}`,
-        Buffer.from(JSON.stringify(artifact))
+        Buffer.from(stringify(artifact))
       );
     }
     await this.#aliases.set(
       `artifacts:${address.toString()}`,
-      Buffer.from(JSON.stringify(artifact))
+      Buffer.from(stringify(artifact))
     );
     log(
       `Contract stored in database with alias${

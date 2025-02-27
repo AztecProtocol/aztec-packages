@@ -164,6 +164,7 @@ function build {
     l1-contracts
     yarn-project
     boxes
+    playground
     docs
     release-image
     aztec-up
@@ -235,6 +236,7 @@ function release {
     l1-contracts
     yarn-project
     boxes
+    playground
     aztec-up
     docs
     release-image
