@@ -112,23 +112,27 @@ case "$cmd" in
     $cmd
     ;;
   "test-kind-smoke")
-    NAMESPACE=smoke FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false ./scripts/test_kind.sh src/spartan/smoke.test.ts ci-smoke.yaml
+    NAMESPACE=smoke FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+      ./scripts/test_kind.sh src/spartan/smoke.test.ts ci-smoke.yaml smoke
     ;;
   "test-kind-4epochs")
     # TODO(#12163) reenable bot once not conflicting with transfer
     export OVERRIDES="bot.enabled=false"
-    NAMESPACE=4epochs FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false ./scripts/test_kind.sh src/spartan/4epochs.test.ts ci.yaml
+    NAMESPACE=4epochs FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+      ./scripts/test_kind.sh src/spartan/4epochs.test.ts ci.yaml 4epochs
     ;;
   "test-kind-transfer")
     # TODO(#12163) reenable bot once not conflicting with transfer
     export OVERRIDES="bot.enabled=false"
-    NAMESPACE=transfer FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false ./scripts/test_kind.sh src/spartan/transfer.test.ts ci.yaml
+    NAMESPACE=transfer FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+      ./scripts/test_kind.sh src/spartan/transfer.test.ts ci.yaml transfer
     ;;
   "test-kind-transfer-blob-with-sink")
     # TODO(#12163) reenable bot once not conflicting with transfer
     export OVERRIDES="blobSink.enabled=true,bot.enabled=false"
-    # export OVERRIDES="blobSink.enabled=true"
-    ./bootstrap.sh test-kind-transfer
+    export OVERRIDES="bot.enabled=false"
+    NAMESPACE=transfer FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+      ./scripts/test_kind.sh src/spartan/transfer.test.ts ci.yaml transfer-blob-with-sink
     ;;
   "test-kind-upgrade-rollup-version")
     export OVERRIDES="bot.enabled=false"
