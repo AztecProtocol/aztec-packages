@@ -679,8 +679,8 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     if (outcome.allPassed) {
       return true;
     }
-
-    let { name, severity } = outcome.failure;
+    const { name } = outcome.failure;
+    let { severity } = outcome.failure;
 
     // Double spend validator has a special case handler
     if (name === 'doubleSpendValidator') {
