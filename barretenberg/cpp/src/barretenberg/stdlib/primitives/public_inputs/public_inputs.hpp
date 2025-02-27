@@ -76,7 +76,7 @@ template <typename ComponentType>
 concept HasSetAndReconstruct =
     requires(ComponentType component, std::vector<stdlib::field_t<MegaCircuitBuilder>> public_inputs) {
         {
-            public_inputs::set_public(component)
+            component.set_public()
         } -> std::same_as<void>;
         {
             public_inputs::reconstruct(public_inputs)
@@ -92,7 +92,8 @@ class PublicInputComponent {
     using Fr = stdlib::field_t<MegaCircuitBuilder>;
     PublicInputComponent() = default;
 
-    void set(const ComponentType& component) { public_inputs::set_public(component); }
+    void set(const ComponentType& component) { component.set_public(); }
+    // void set(const ComponentType& component) { public_inputs::set_public(component); }
 
     ComponentType reconstruct(const std::vector<field_t<MegaCircuitBuilder>>& public_inputs) const
     {
