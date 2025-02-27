@@ -1,9 +1,8 @@
 use crate::{
     context::PrivateContext,
     note::{
-        note_interface::{NoteInterface, NullifiableNote},
-        retrieved_note::RetrievedNote,
-        utils::compute_siloed_nullifier,
+        note_interface::NoteHash, retrieved_note::RetrievedNote,
+        utils::compute_siloed_note_nullifier,
     },
     oracle::get_nullifier_membership_witness::get_low_nullifier_membership_witness,
 };
@@ -63,7 +62,7 @@ trait ProveNoteNotNullified {
         context: &mut PrivateContext,
     )
     where
-        Note: NoteInterface + NullifiableNote;
+        Note: NoteHash;
 }
 
 impl ProveNoteNotNullified for BlockHeader {
@@ -75,9 +74,9 @@ impl ProveNoteNotNullified for BlockHeader {
         context: &mut PrivateContext,
     )
     where
-        Note: NoteInterface + NullifiableNote,
+        Note: NoteHash,
     {
-        let nullifier = compute_siloed_nullifier(retrieved_note, storage_slot, context);
+        let nullifier = compute_siloed_note_nullifier(retrieved_note, storage_slot, context);
 
         self.prove_nullifier_non_inclusion(nullifier);
     }

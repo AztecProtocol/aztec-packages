@@ -9,9 +9,8 @@ import {
   isAztecAddressStruct,
   isEthAddressStruct,
   isFunctionSelectorStruct,
-  isU128Struct,
   isWrappedFieldStruct,
-} from '@aztec/circuits.js/abi';
+} from '@aztec/stdlib/abi';
 
 /**
  * Returns the corresponding typescript type for a given Noir type.
@@ -39,9 +38,6 @@ function abiTypeToTypescript(type: ABIParameter['type']): string {
       }
       if (isFunctionSelectorStruct(type)) {
         return 'FunctionSelectorLike';
-      }
-      if (isU128Struct(type)) {
-        return 'U128Like';
       }
       if (isWrappedFieldStruct(type)) {
         return 'WrappedFieldLike';

@@ -1,5 +1,5 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
-import { type ACVMConfig, type BBConfig } from '@aztec/bb-prover/config';
+import type { ACVMConfig, BBConfig } from '@aztec/bb-prover/config';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,

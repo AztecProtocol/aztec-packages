@@ -13,9 +13,6 @@
       "path": "../aztec.js"
     },
     {
-      "path": "../circuit-types"
-    },
-    {
       "path": "../constants"
     },
     {
@@ -25,13 +22,13 @@
       "path": "../l1-artifacts"
     },
     {
+      "path": "../stdlib"
+    },
+    {
       "path": "../world-state"
     },
     {
       "path": "../accounts"
-    },
-    {
-      "path": "../circuits.js"
     },
     {
       "path": "../ethereum"

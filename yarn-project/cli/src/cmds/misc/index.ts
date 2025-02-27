@@ -1,6 +1,6 @@
-import { type LogFn } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
 
-import { type Command } from 'commander';
+import type { Command } from 'commander';
 
 import { prettyPrintJSON } from '../../utils/commands.js';
 

@@ -1,5 +1,5 @@
-import { HashedValues } from '@aztec/circuit-types';
-import { Fr } from '@aztec/circuits.js';
+import { Fr } from '@aztec/foundation/fields';
+import { HashedValues } from '@aztec/stdlib/tx';
 
 /**
  * A cache for hashed values (arguments, returns) during transaction execution.

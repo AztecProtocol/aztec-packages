@@ -59,6 +59,7 @@
         "CMAKE_EXE_LINKER_FLAGS": "-fuse-ld=/opt/osxcross/bin/arm64-apple-darwin23-ld"
       },
       "environment": {
+        "CXXFLAGS": "-Wno-deprecated-declarations",
         "OSXCROSS_HOST": "arm64-apple-darwin23",
         "OSXCROSS_TARGET_DIR": "/opt/osxcross",
         "OSXCROSS_TARGET": "darwin23",
@@ -74,6 +75,7 @@
         "CMAKE_EXE_LINKER_FLAGS": "-fuse-ld=/opt/osxcross/bin/x86_64-apple-darwin23-ld"
       },
       "environment": {
+        "CXXFLAGS": "-Wno-deprecated-declarations",
         "OSXCROSS_HOST": "x86_64-apple-darwin23"
       }
     },

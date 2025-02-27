@@ -1,9 +1,12 @@
-import { type AuthWitness, type TxHash } from '@aztec/circuit-types';
-import { type AztecAddress, Fr, GasSettings } from '@aztec/circuits.js';
-import { type LogFn } from '@aztec/foundation/log';
-import { type AztecAsyncKVStore, type AztecAsyncMap } from '@aztec/kv-store';
+import { Fr } from '@aztec/foundation/fields';
+import type { LogFn } from '@aztec/foundation/log';
+import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
+import type { AuthWitness } from '@aztec/stdlib/auth-witness';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { GasSettings } from '@aztec/stdlib/gas';
+import type { TxHash } from '@aztec/stdlib/tx';
 
-import { type AccountType } from '../utils/accounts.js';
+import type { AccountType } from '../utils/accounts.js';
 import { extractECDSAPublicKeyFromBase64String } from '../utils/ecdsa.js';
 
 export const Aliases = ['accounts', 'contracts', 'artifacts', 'secrets', 'transactions', 'authwits'] as const;
@@ -53,7 +56,7 @@ export class WalletDB {
 
   async popBridgedFeeJuice(recipient: AztecAddress, log: LogFn) {
     let stackPointer = (await this.#bridgedFeeJuice.getAsync(`${recipient.toString()}:stackPointer`))?.readInt8() || 0;
-    const result = this.#bridgedFeeJuice.getAsync(`${recipient.toString()}:${stackPointer}`);
+    const result = await this.#bridgedFeeJuice.getAsync(`${recipient.toString()}:${stackPointer}`);
     if (!result) {
       throw new Error(
         `No stored fee juice available for recipient ${recipient.toString()}. Please provide claim amount and secret. Stack pointer ${stackPointer}`,

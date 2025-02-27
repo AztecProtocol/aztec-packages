@@ -5,7 +5,7 @@
 
 #include <cstdint>
 
-#include "barretenberg/bb/file_io.hpp"
+#include "barretenberg/api/file_io.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 

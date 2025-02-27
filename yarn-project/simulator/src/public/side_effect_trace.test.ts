@@ -1,25 +1,4 @@
 import {
-  AztecAddress,
-  type ContractClassIdPreimage,
-  EthAddress,
-  L2ToL1Message,
-  NoteHash,
-  Nullifier,
-  PublicDataUpdateRequest,
-  PublicLog,
-  SerializableContractInstance,
-  Vector,
-} from '@aztec/circuits.js';
-import {
-  AvmAppendTreeHint,
-  AvmNullifierReadTreeHint,
-  AvmNullifierWriteTreeHint,
-  AvmPublicDataReadTreeHint,
-  AvmPublicDataWriteTreeHint,
-} from '@aztec/circuits.js/avm';
-import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
-import {
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
@@ -30,7 +9,24 @@ import {
   PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import {
+  AvmAppendTreeHint,
+  AvmNullifierReadTreeHint,
+  AvmNullifierWriteTreeHint,
+  AvmPublicDataReadTreeHint,
+  AvmPublicDataWriteTreeHint,
+  PublicDataUpdateRequest,
+} from '@aztec/stdlib/avm';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type ContractClassIdPreimage, SerializableContractInstance } from '@aztec/stdlib/contract';
+import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
+import { NoteHash, Nullifier } from '@aztec/stdlib/kernel';
+import { PublicLog } from '@aztec/stdlib/logs';
+import { L2ToL1Message } from '@aztec/stdlib/messaging';
+import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
+import { Vector } from '@aztec/stdlib/types';
 
 import { randomInt } from 'crypto';
 

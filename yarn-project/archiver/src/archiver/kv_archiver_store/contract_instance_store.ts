@@ -1,12 +1,12 @@
+import type { Fr } from '@aztec/foundation/fields';
+import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
-  type AztecAddress,
   type ContractInstanceUpdateWithAddress,
   type ContractInstanceWithAddress,
-  type Fr,
   SerializableContractInstance,
   SerializableContractInstanceUpdate,
-} from '@aztec/circuits.js';
-import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
+} from '@aztec/stdlib/contract';
 
 type ContractInstanceUpdateKey = [string, number] | [string, number, number];
 

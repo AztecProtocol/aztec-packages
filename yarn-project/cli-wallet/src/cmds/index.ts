@@ -1,10 +1,8 @@
 import { getIdentities } from '@aztec/accounts/utils';
 import { createCompatibleClient } from '@aztec/aztec.js/rpc';
 import { TxHash } from '@aztec/aztec.js/tx_hash';
-import { createAztecNodeClient } from '@aztec/circuit-types/interfaces/client';
-import { GasFees } from '@aztec/circuits.js';
 import {
-  ETHEREUM_HOST,
+  ETHEREUM_HOSTS,
   PRIVATE_KEY,
   addOptions,
   createSecretKeyOption,
@@ -15,12 +13,14 @@ import {
   parsePublicKey,
   pxeOption,
 } from '@aztec/cli/utils';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
+import { GasFees } from '@aztec/stdlib/gas';
+import { createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
 
 import { type Command, Option } from 'commander';
 import inquirer from 'inquirer';
 
-import { type WalletDB } from '../storage/wallet_db.js';
+import type { WalletDB } from '../storage/wallet_db.js';
 import { type AccountType, addScopeToWallet, createOrRetrieveAccount, getWalletWithScopes } from '../utils/accounts.js';
 import { FeeOpts } from '../utils/options/fees.js';
 import {
@@ -42,7 +42,7 @@ import {
   parseGasFees,
   parsePaymentMethod,
 } from '../utils/options/index.js';
-import { type PXEWrapper } from '../utils/pxe_wrapper.js';
+import type { PXEWrapper } from '../utils/pxe_wrapper.js';
 
 export function injectCommands(
   program: Command,
@@ -337,10 +337,11 @@ export function injectCommands(
     .argument('<recipient>', 'Aztec address of the recipient.', address =>
       aliasedAddressParser('accounts', address, db),
     )
-    .requiredOption(
-      '--l1-rpc-url <string>',
-      'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
-      ETHEREUM_HOST,
+    .requiredOption<string[]>(
+      '--l1-rpc-urls <string>',
+      'List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated)',
+      (arg: string) => arg.split(','),
+      [ETHEREUM_HOSTS],
     )
     .option(
       '-m, --mnemonic <string>',
@@ -362,14 +363,14 @@ export function injectCommands(
     )
     .action(async (amount, recipient, options) => {
       const { bridgeL1FeeJuice } = await import('./bridge_fee_juice.js');
-      const { rpcUrl, l1RpcUrl, l1ChainId, l1PrivateKey, mnemonic, mint, json, wait, interval: intervalS } = options;
+      const { rpcUrl, l1ChainId, l1RpcUrls, l1PrivateKey, mnemonic, mint, json, wait, interval: intervalS } = options;
       const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
 
       const [secret, messageLeafIndex] = await bridgeL1FeeJuice(
         amount,
         recipient,
         client,
-        l1RpcUrl,
+        l1RpcUrls,
         l1ChainId,
         l1PrivateKey,
         mnemonic,
@@ -383,63 +384,6 @@ export function injectCommands(
       if (db) {
         await db.pushBridgedFeeJuice(recipient, secret, amount, messageLeafIndex, log);
       }
-    });
-
-  program
-    .command('add-note')
-    .description('Adds a note to the database in the PXE.')
-    .argument('[name]', 'The Note name')
-    .argument(
-      '[storageFieldName]',
-      'The name of the variable in the storage field that contains the note. WARNING: Maps are not supported',
-    )
-    .requiredOption('-a, --address <string>', 'The Aztec address of the note owner.', address =>
-      aliasedAddressParser('accounts', address, db),
-    )
-    .addOption(createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)))
-    .requiredOption('-t, --transaction-hash <string>', 'The hash of the tx containing the note.', txHash =>
-      aliasedTxHashParser(txHash, db),
-    )
-    .addOption(createContractAddressOption(db))
-    .addOption(createArtifactOption(db))
-    .addOption(
-      new Option('-b, --body [noteFields...]', 'The members of a Note')
-        .argParser((arg, prev: string[]) => {
-          const next = db?.tryRetrieveAlias(arg) || arg;
-          prev.push(next);
-          return prev;
-        })
-        .default([]),
-    )
-    .addOption(pxeOption)
-    .action(async (noteName, storageFieldName, _options, command) => {
-      const { addNote } = await import('./add_note.js');
-      const options = command.optsWithGlobals();
-      const {
-        contractArtifact: artifactPathPromise,
-        contractAddress,
-        address,
-        secretKey,
-        rpcUrl,
-        body,
-        transactionHash,
-      } = options;
-      const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
-      const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
-      const account = await createOrRetrieveAccount(client, address, db, undefined, secretKey);
-      const wallet = await getWalletWithScopes(account, db);
-
-      await addNote(
-        wallet,
-        address,
-        contractAddress,
-        noteName,
-        storageFieldName,
-        artifactPath,
-        transactionHash,
-        body,
-        log,
-      );
     });
 
   program

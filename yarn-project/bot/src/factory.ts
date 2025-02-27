@@ -2,21 +2,24 @@ import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { getDeployedTestAccountsWallets, getInitialTestAccounts } from '@aztec/accounts/testing';
 import {
   type AccountWallet,
+  AztecAddress,
+  type AztecNode,
   BatchCall,
   type DeployMethod,
   type DeployOptions,
   FeeJuicePaymentMethodWithClaim,
   L1FeeJuicePortalManager,
+  type PXE,
   createLogger,
   createPXEClient,
   retryUntil,
 } from '@aztec/aztec.js';
-import { type FunctionCall } from '@aztec/circuit-types';
-import { type AztecNode, type PXE } from '@aztec/circuit-types/interfaces/client';
-import { type AztecAddress, Fr, deriveSigningKey } from '@aztec/circuits.js';
 import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
+import { Fr } from '@aztec/foundation/fields';
 import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import type { FunctionCall } from '@aztec/stdlib/abi';
+import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { makeTracedFetch } from '@aztec/telemetry-client';
 
 import { type BotConfig, SupportedTokenContracts, getVersions } from './config.js';
@@ -182,7 +185,7 @@ export class BotFactory {
     if (privateBalance < MIN_BALANCE) {
       this.log.info(`Minting private tokens for ${sender.toString()}`);
 
-      const from = sender; // we are setting from to sender here because of TODO(#9887)
+      const from = sender; // we are setting from to sender here because we need a sender to calculate the tag
       calls.push(
         isStandardToken
           ? await token.methods.mint_to_private(from, sender, MINT_BALANCE).request()
@@ -206,11 +209,11 @@ export class BotFactory {
   }
 
   private async bridgeL1FeeJuice(recipient: AztecAddress, amount: bigint) {
-    const l1RpcUrl = this.config.l1RpcUrl;
-    if (!l1RpcUrl) {
+    const l1RpcUrls = this.config.l1RpcUrls;
+    if (!l1RpcUrls?.length) {
       throw new Error('L1 Rpc url is required to bridge the fee juice to fund the deployment of the account.');
     }
-    const mnemonicOrPrivateKey = this.config.l1Mnemonic || this.config.l1PrivateKey;
+    const mnemonicOrPrivateKey = this.config.l1PrivateKey || this.config.l1Mnemonic;
     if (!mnemonicOrPrivateKey) {
       throw new Error(
         'Either a mnemonic or private key of an L1 account is required to bridge the fee juice to fund the deployment of the account.',
@@ -218,8 +221,8 @@ export class BotFactory {
     }
 
     const { l1ChainId } = await this.pxe.getNodeInfo();
-    const chain = createEthereumChain(l1RpcUrl, l1ChainId);
-    const { publicClient, walletClient } = createL1Clients(chain.rpcUrl, mnemonicOrPrivateKey, chain.chainInfo);
+    const chain = createEthereumChain(l1RpcUrls, l1ChainId);
+    const { publicClient, walletClient } = createL1Clients(chain.rpcUrls, mnemonicOrPrivateKey, chain.chainInfo);
 
     const portal = await L1FeeJuicePortalManager.new(this.pxe, publicClient, walletClient, this.log);
     const claim = await portal.bridgeTokensPublic(recipient, amount, true /* mint */);

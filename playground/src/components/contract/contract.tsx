@@ -124,7 +124,6 @@ const loadingArtifactContainer = css({
 
 const FORBIDDEN_FUNCTIONS = [
   "process_log",
-  "compute_note_hash_and_optionally_a_nullifier",
   "sync_notes",
 ];
 

@@ -1,15 +1,15 @@
 import { createColors, isColorSupported } from 'colorette';
 import isNode from 'detect-node';
 import { pino, symbols } from 'pino';
-import { type Writable } from 'stream';
+import type { Writable } from 'stream';
 import { inspect } from 'util';
 
 import { compactArray } from '../collection/array.js';
 import { type EnvVar, parseBooleanEnv } from '../config/index.js';
 import { GoogleCloudLoggerConfig } from './gcloud-logger-config.js';
 import { getLogLevelFromFilters, parseEnv } from './log-filters.js';
-import { type LogLevel } from './log-levels.js';
-import { type LogData, type LogFn } from './log_fn.js';
+import type { LogLevel } from './log-levels.js';
+import type { LogData, LogFn } from './log_fn.js';
 
 export function createLogger(module: string): Logger {
   module = logNameHandlers.reduce((moduleName, handler) => handler(moduleName), module.replace(/^aztec:/, ''));
@@ -72,6 +72,15 @@ export function removeLogNameHandler(handler: LogNameHandler) {
   if (index !== -1) {
     logNameHandlers.splice(index, 1);
   }
+}
+
+/** Creates all loggers within the given callback with the suffix appended to the module name. */
+export async function withLogNameSuffix<T>(suffix: string, callback: () => Promise<T>): Promise<T> {
+  const logNameHandler = (module: string) => `${module}:${suffix}`;
+  addLogNameHandler(logNameHandler);
+  const result = await callback();
+  removeLogNameHandler(logNameHandler);
+  return result;
 }
 
 // Patch isLevelEnabled missing from pino/browser.

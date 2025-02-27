@@ -1,8 +1,8 @@
-import { type InBlock, type L2Block } from '@aztec/circuit-types';
-import { type Fr } from '@aztec/circuits.js';
 import { MAX_NULLIFIERS_PER_TX } from '@aztec/constants';
+import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
+import type { InBlock, L2Block } from '@aztec/stdlib/block';
 
 export class NullifierStore {
   #nullifiersToBlockNumber: AztecAsyncMap<string, number>;

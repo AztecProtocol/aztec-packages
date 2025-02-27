@@ -15,7 +15,7 @@ class Sha256TraceBuilder final {
     void process(const simulation::EventEmitterInterface<simulation::Sha256CompressionEvent>::Container& events);
 
   private:
-    uint32_t row = 0;
+    uint32_t row = 1; // Start from 1 to avoid the precomputed row.
     TraceContainer& trace;
 
     void into_limbs_with_witness(const uint64_t, const uint8_t b, Column c_lhs, Column c_rhs);

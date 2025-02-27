@@ -40,7 +40,7 @@ async function main() {
   program = injectPXECommands(program, userLog, debugLogger);
   program = injectMiscCommands(program, userLog);
   program = injectDevnetCommands(program, userLog, debugLogger);
-  program = await injectWalletCommands(program, userLog, debugLogger);
+  program = injectWalletCommands(program, userLog, debugLogger);
 
   await program.parseAsync(process.argv);
 }
