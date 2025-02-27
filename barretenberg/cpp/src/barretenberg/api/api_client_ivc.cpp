@@ -8,6 +8,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "libdeflate.h"
+#include <stdexcept>
 
 namespace bb {
 
@@ -212,6 +213,13 @@ void ClientIVCAPI::prove(const Flags& flags,
     auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>(ivc->goblin.get_eccvm_proving_key());
     auto translator_vk = std::make_shared<TranslatorFlavor::VerificationKey>(ivc->goblin.get_translator_proving_key());
     write_file(output_dir / "vk", to_buffer(ClientIVC::VerificationKey{ ivc->honk_vk, eccvm_vk, translator_vk }));
+
+    // We verify this proof. Another bb call to verify has the overhead of loading the SRS,
+    // and it is mysterious if this transaction fails later in the lifecycle.
+    // The files are still written in case they are needed to investigate this failure.
+    if (!ivc->verify(proof)) {
+        throw std::runtime_error("Failed to verify the private (ClientIVC) transaction proof!");
+    }
 }
 
 bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
