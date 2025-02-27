@@ -745,7 +745,7 @@ int main(int argc, char* argv[])
         }
         // CLIENT IVC EXTRA COMMAND
         else if (OLD_API_gates_for_ivc->parsed()) {
-            gate_count_for_ivc(bytecode_path);
+            gate_count_for_ivc(bytecode_path, true);
         } else if (OLD_API_gates_mega_honk->parsed()) {
             gate_count<MegaCircuitBuilder>(bytecode_path, flags.recursive, flags.honk_recursion, true);
         } else if (OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file->parsed()) {
