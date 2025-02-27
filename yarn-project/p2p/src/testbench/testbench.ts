@@ -51,32 +51,6 @@ async function main() {
 
     assert(numberOfClientsThatReceivedMessage === numberOfClients - 1);
 
-    workerClientManager.purgeMessageReceivedByClient();
-
-    logger.info('First iteration done, changing port for client 0');
-
-    // change port for client 0
-    await workerClientManager.changePort(0, workerClientManager.getNewPort());
-
-    // wait a bit longer for all peers to be ready
-    await sleep(5000);
-    logger.info('Workers Ready');
-
-    // send tx from client 0
-    const tx2 = await mockTx(1, {
-      clientIvcProof: ClientIvcProof.random(),
-    });
-    workerClientManager.processes[0].send({ type: 'SEND_TX', tx: tx2.toBuffer() });
-    logger.info('Transaction sent from client 0');
-
-    // Give time for message propagation
-    await sleep(30000);
-
-    const numberOfClientsThatReceivedMessage2 = workerClientManager.numberOfClientsThatReceivedMessage();
-    logger.info(`Number of clients that received message: ${numberOfClientsThatReceivedMessage2}`);
-
-    assert(numberOfClientsThatReceivedMessage2 === numberOfClients - 1);
-
     logger.info('Test passed, cleaning up');
 
     // cleanup

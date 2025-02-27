@@ -101,11 +101,6 @@ function processLogFile(logFilePath: string, outputJsonPath?: string) {
       t0 = parseSentMessage(line)!;
     }
 
-    // Don't parse any more logs after the first iteration
-    if (line.includes('First iteration done')) {
-      break;
-    }
-
     if (!messageSent) {
       continue;
     }
