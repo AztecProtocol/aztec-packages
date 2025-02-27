@@ -399,4 +399,3 @@ pub contract NFT {
     }
     // docs:end:get_private_nfts
 }
-

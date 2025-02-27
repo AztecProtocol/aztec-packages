@@ -1,11 +1,11 @@
-import { type AztecAddress } from '@aztec/circuits.js';
-import { type Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { type AvmExecutionEnvironment } from './avm_execution_environment.js';
+import type { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { type Gas, gasToGasLeft } from './avm_gas.js';
 import { AvmMachineState } from './avm_machine_state.js';
 import type { AvmSimulator } from './avm_simulator.js';
-import { type AvmPersistableStateManager } from './journal/journal.js';
+import type { AvmPersistableStateManager } from './journal/journal.js';
 
 /**
  * An execution context includes the information necessary to initiate AVM
@@ -43,18 +43,18 @@ export class AvmContext {
    * @param callType - Type of call (CALL or STATICCALL)
    * @returns new AvmContext instance
    */
-  public createNestedContractCallContext(
+  public async createNestedContractCallContext(
     address: AztecAddress,
     calldata: Fr[],
     allocatedGas: Gas,
     callType: 'CALL' | 'STATICCALL',
-  ): AvmContext {
+  ): Promise<AvmContext> {
     const deriveFn =
       callType === 'CALL'
         ? this.environment.deriveEnvironmentForNestedCall
         : this.environment.deriveEnvironmentForNestedStaticCall;
     const newExecutionEnvironment = deriveFn.call(this.environment, address, calldata);
-    const forkedWorldState = this.persistableState.fork();
+    const forkedWorldState = await this.persistableState.fork();
     const machineState = AvmMachineState.fromState(gasToGasLeft(allocatedGas));
     return new AvmContext(forkedWorldState, newExecutionEnvironment, machineState);
   }

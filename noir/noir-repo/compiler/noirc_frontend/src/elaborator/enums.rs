@@ -1,23 +1,26 @@
+use std::collections::BTreeMap;
+
 use fxhash::FxHashMap as HashMap;
 use iter_extended::{try_vecmap, vecmap};
-use noirc_errors::{Location, Span};
+use noirc_errors::Location;
 
 use crate::{
     ast::{
-        EnumVariant, Expression, ExpressionKind, FunctionKind, Literal, NoirEnumeration,
-        StatementKind, UnresolvedType, Visibility,
+        ConstructorExpression, EnumVariant, Expression, ExpressionKind, FunctionKind, Ident,
+        Literal, NoirEnumeration, StatementKind, UnresolvedType, Visibility,
     },
     elaborator::path_resolution::PathResolutionItem,
     hir::{comptime::Value, resolution::errors::ResolverError, type_check::TypeCheckError},
     hir_def::{
         expr::{
             Case, Constructor, HirBlockExpression, HirEnumConstructorExpression, HirExpression,
-            HirIdent, HirMatch, SignedField,
+            HirIdent, HirMatch,
         },
         function::{FuncMeta, FunctionBody, HirFunction, Parameters},
         stmt::{HirLetStatement, HirPattern, HirStatement},
     },
     node_interner::{DefinitionId, DefinitionKind, ExprId, FunctionModifiers, GlobalValue, TypeId},
+    signed_field::SignedField,
     token::Attributes,
     DataType, Kind, Shared, Type,
 };
@@ -75,13 +78,13 @@ impl Elaborator<'_> {
         self_type: &Type,
     ) {
         let name = &variant.name;
-        let location = Location::new(variant.name.span(), self.file);
+        let location = variant.name.location();
 
         let global_id = self.interner.push_empty_global(
             name.clone(),
             type_id.local_module_id(),
             type_id.krate(),
-            self.file,
+            name.location().file,
             Vec::new(),
             false,
             false,
@@ -127,7 +130,7 @@ impl Elaborator<'_> {
     ) {
         let name_string = variant.name.to_string();
         let datatype_ref = datatype.borrow();
-        let location = Location::new(variant.name.span(), self.file);
+        let location = variant.name.location();
 
         let id = self.interner.push_empty_fn();
 
@@ -176,7 +179,7 @@ impl Elaborator<'_> {
             function_body: FunctionBody::Resolved,
             source_crate: self.crate_id,
             source_module: type_id.local_module_id(),
-            source_file: self.file,
+            source_file: variant.name.location().file,
             self_type: None,
         };
 
@@ -219,7 +222,7 @@ impl Elaborator<'_> {
             HirPattern::Identifier(ident) => {
                 let id = self.interner.push_expr(HirExpression::Ident(ident.clone(), None));
                 self.interner.push_expr_type(id, typ.clone());
-                self.interner.push_expr_location(id, location.span, location.file);
+                self.interner.push_expr_location(id, location);
                 id
             }
             _ => unreachable!(),
@@ -235,7 +238,7 @@ impl Elaborator<'_> {
         let enum_generics = self_type.borrow().generic_types();
         let typ = Type::DataType(self_type.clone(), enum_generics);
         self.interner.push_expr_type(body, typ);
-        self.interner.push_expr_location(body, location.span, location.file);
+        self.interner.push_expr_location(body, location);
         body
     }
 
@@ -270,17 +273,18 @@ impl Elaborator<'_> {
 
         let rows = vecmap(rules, |(pattern, branch)| {
             self.push_scope();
-            let pattern = self.expression_to_pattern(pattern, &expected_pattern_type);
+            let pattern =
+                self.expression_to_pattern(pattern, &expected_pattern_type, &mut Vec::new());
             let columns = vec![Column::new(variable_to_match, pattern)];
 
             let guard = None;
-            let body_span = branch.type_span();
+            let body_location = branch.type_location();
             let (body, body_type) = self.elaborate_expression(branch);
 
             self.unify(&body_type, &result_type, || TypeCheckError::TypeMismatch {
                 expected_typ: result_type.to_string(),
                 expr_typ: body_type.to_string(),
-                expr_span: body_span,
+                expr_location: body_location,
             });
 
             self.pop_scope();
@@ -290,21 +294,33 @@ impl Elaborator<'_> {
     }
 
     /// Convert an expression into a Pattern, defining any variables within.
-    fn expression_to_pattern(&mut self, expression: Expression, expected_type: &Type) -> Pattern {
-        let expr_span = expression.type_span();
+    fn expression_to_pattern(
+        &mut self,
+        expression: Expression,
+        expected_type: &Type,
+        variables_defined: &mut Vec<Ident>,
+    ) -> Pattern {
+        let expr_location = expression.type_location();
         let unify_with_expected_type = |this: &mut Self, actual| {
             this.unify(actual, expected_type, || TypeCheckError::TypeMismatch {
                 expected_typ: expected_type.to_string(),
                 expr_typ: actual.to_string(),
-                expr_span,
+                expr_location,
             });
         };
 
+        // We want the actual expression's location here, not the innermost one from `type_location()`
+        let syntax_error = |this: &mut Self| {
+            let errors = ResolverError::InvalidSyntaxInPattern { location: expression.location };
+            this.push_err(errors);
+            Pattern::Error
+        };
+
         match expression.kind {
-            ExpressionKind::Literal(Literal::Integer(value, negative)) => {
+            ExpressionKind::Literal(Literal::Integer(value)) => {
                 let actual = self.interner.next_type_variable_with_kind(Kind::IntegerOrField);
                 unify_with_expected_type(self, &actual);
-                Pattern::Int(SignedField::new(value, negative))
+                Pattern::Int(value)
             }
             ExpressionKind::Literal(Literal::Bool(value)) => {
                 unify_with_expected_type(self, &Type::Bool);
@@ -319,7 +335,7 @@ impl Elaborator<'_> {
                 //   when there is a matching enum variant with name `Foo::a` which can
                 //   be imported. The user likely intended to reference the enum variant.
                 let path_len = path.segments.len();
-                let location = Location::new(path.span(), self.file);
+                let location = path.location;
                 let last_ident = path.last_ident();
 
                 match self.resolve_path_or_error(path) {
@@ -327,30 +343,47 @@ impl Elaborator<'_> {
                         resolution,
                         Vec::new(),
                         expected_type,
-                        location.span,
+                        location,
+                        variables_defined,
                     ),
                     Err(_) if path_len == 1 => {
                         // Define the variable
                         let kind = DefinitionKind::Local(None);
-                        // TODO: `allow_shadowing` is false while I'm too lazy to add a check that we
-                        // don't define the same name multiple times in one pattern.
-                        let id = self.add_variable_decl(last_ident, false, false, true, kind).id;
+
+                        if let Some(existing) =
+                            variables_defined.iter().find(|elem| *elem == &last_ident)
+                        {
+                            // Allow redefinition of `_` only, to ignore variables
+                            if last_ident.0.contents != "_" {
+                                let error = ResolverError::VariableAlreadyDefinedInPattern {
+                                    existing: existing.clone(),
+                                    new_location: last_ident.location(),
+                                };
+                                self.push_err(error);
+                            }
+                        } else {
+                            variables_defined.push(last_ident.clone());
+                        }
+
+                        let id = self.add_variable_decl(last_ident, false, true, true, kind).id;
                         self.interner.push_definition_type(id, expected_type.clone());
                         Pattern::Binding(id)
                     }
                     Err(error) => {
                         self.push_err(error);
-                        // Default to defining a variable of the same name although this could
-                        // cause further match warnings/errors (e.g. redundant cases).
-                        let id = self.fresh_match_variable(expected_type.clone(), location);
-                        Pattern::Binding(id)
+                        Pattern::Error
                     }
                 }
             }
-            ExpressionKind::Call(call) => {
-                self.expression_to_constructor(*call.func, call.arguments, expected_type)
+            ExpressionKind::Call(call) => self.expression_to_constructor(
+                *call.func,
+                call.arguments,
+                expected_type,
+                variables_defined,
+            ),
+            ExpressionKind::Constructor(constructor) => {
+                self.constructor_to_pattern(*constructor, variables_defined)
             }
-            ExpressionKind::Constructor(_) => todo!("handle constructors"),
             ExpressionKind::Tuple(fields) => {
                 let field_types = vecmap(0..fields.len(), |_| self.interner.next_type_variable());
                 let actual = Type::Tuple(field_types.clone());
@@ -358,23 +391,25 @@ impl Elaborator<'_> {
 
                 let fields = vecmap(fields.into_iter().enumerate(), |(i, field)| {
                     let expected = field_types.get(i).unwrap_or(&Type::Error);
-                    self.expression_to_pattern(field, expected)
+                    self.expression_to_pattern(field, expected, variables_defined)
                 });
 
                 Pattern::Constructor(Constructor::Tuple(field_types.clone()), fields)
             }
 
-            ExpressionKind::Parenthesized(expr) => self.expression_to_pattern(*expr, expected_type),
+            ExpressionKind::Parenthesized(expr) => {
+                self.expression_to_pattern(*expr, expected_type, variables_defined)
+            }
             ExpressionKind::Interned(id) => {
                 let kind = self.interner.get_expression_kind(id);
-                let expr = Expression::new(kind.clone(), expression.span);
-                self.expression_to_pattern(expr, expected_type)
+                let expr = Expression::new(kind.clone(), expression.location);
+                self.expression_to_pattern(expr, expected_type, variables_defined)
             }
             ExpressionKind::InternedStatement(id) => {
                 if let StatementKind::Expression(expr) = self.interner.get_statement_kind(id) {
-                    self.expression_to_pattern(expr.clone(), expected_type)
+                    self.expression_to_pattern(expr.clone(), expected_type, variables_defined)
                 } else {
-                    panic!("Invalid expr kind {expression}")
+                    syntax_error(self)
                 }
             }
 
@@ -393,14 +428,59 @@ impl Elaborator<'_> {
             | ExpressionKind::Quote(_)
             | ExpressionKind::Unquote(_)
             | ExpressionKind::Comptime(_, _)
-            | ExpressionKind::Unsafe(_, _)
+            | ExpressionKind::Unsafe(_)
             | ExpressionKind::AsTraitPath(_)
             | ExpressionKind::TypePath(_)
             | ExpressionKind::Resolved(_)
-            | ExpressionKind::Error => {
-                panic!("Invalid expr kind {expression}")
-            }
+            | ExpressionKind::Error => syntax_error(self),
         }
+    }
+
+    fn constructor_to_pattern(
+        &mut self,
+        constructor: ConstructorExpression,
+        variables_defined: &mut Vec<Ident>,
+    ) -> Pattern {
+        let location = constructor.typ.location;
+        let typ = self.resolve_type(constructor.typ);
+
+        let Some((struct_name, mut expected_field_types)) =
+            self.struct_name_and_field_types(&typ, location)
+        else {
+            return Pattern::Error;
+        };
+
+        let mut fields = BTreeMap::default();
+        for (field_name, field) in constructor.fields {
+            let Some(field_index) =
+                expected_field_types.iter().position(|(name, _)| *name == field_name.0.contents)
+            else {
+                let error = if fields.contains_key(&field_name.0.contents) {
+                    ResolverError::DuplicateField { field: field_name }
+                } else {
+                    let struct_definition = struct_name.clone();
+                    ResolverError::NoSuchField { field: field_name, struct_definition }
+                };
+                self.push_err(error);
+                continue;
+            };
+
+            let (field_name, expected_field_type) = expected_field_types.swap_remove(field_index);
+            let pattern =
+                self.expression_to_pattern(field, &expected_field_type, variables_defined);
+            fields.insert(field_name, pattern);
+        }
+
+        if !expected_field_types.is_empty() {
+            let struct_definition = struct_name;
+            let missing_fields = vecmap(expected_field_types, |(name, _)| name);
+            let error =
+                ResolverError::MissingFields { location, missing_fields, struct_definition };
+            self.push_err(error);
+        }
+
+        let args = vecmap(fields, |(_name, field)| field);
+        Pattern::Constructor(Constructor::Variant(typ, 0), args)
     }
 
     fn expression_to_constructor(
@@ -408,16 +488,20 @@ impl Elaborator<'_> {
         name: Expression,
         args: Vec<Expression>,
         expected_type: &Type,
+        variables_defined: &mut Vec<Ident>,
     ) -> Pattern {
         match name.kind {
             ExpressionKind::Variable(path) => {
-                let span = path.span();
-                let location = Location::new(span, self.file);
+                let location = path.location;
 
                 match self.resolve_path_or_error(path) {
-                    Ok(resolution) => {
-                        self.path_resolution_to_constructor(resolution, args, expected_type, span)
-                    }
+                    Ok(resolution) => self.path_resolution_to_constructor(
+                        resolution,
+                        args,
+                        expected_type,
+                        location,
+                        variables_defined,
+                    ),
                     Err(error) => {
                         self.push_err(error);
                         let id = self.fresh_match_variable(expected_type.clone(), location);
@@ -426,16 +510,21 @@ impl Elaborator<'_> {
                 }
             }
             ExpressionKind::Parenthesized(expr) => {
-                self.expression_to_constructor(*expr, args, expected_type)
+                self.expression_to_constructor(*expr, args, expected_type, variables_defined)
             }
             ExpressionKind::Interned(id) => {
                 let kind = self.interner.get_expression_kind(id);
-                let expr = Expression::new(kind.clone(), name.span);
-                self.expression_to_constructor(expr, args, expected_type)
+                let expr = Expression::new(kind.clone(), name.location);
+                self.expression_to_constructor(expr, args, expected_type, variables_defined)
             }
             ExpressionKind::InternedStatement(id) => {
                 if let StatementKind::Expression(expr) = self.interner.get_statement_kind(id) {
-                    self.expression_to_constructor(expr.clone(), args, expected_type)
+                    self.expression_to_constructor(
+                        expr.clone(),
+                        args,
+                        expected_type,
+                        variables_defined,
+                    )
                 } else {
                     panic!("Invalid expr kind {name}")
                 }
@@ -449,7 +538,8 @@ impl Elaborator<'_> {
         name: PathResolutionItem,
         args: Vec<Expression>,
         expected_type: &Type,
-        span: Span,
+        location: Location,
+        variables_defined: &mut Vec<Ident>,
     ) -> Pattern {
         let (actual_type, expected_arg_types, variant_index) = match name {
             PathResolutionItem::Global(id) => {
@@ -497,7 +587,7 @@ impl Elaborator<'_> {
         self.unify(&actual_type, expected_type, || TypeCheckError::TypeMismatch {
             expected_typ: expected_type.to_string(),
             expr_typ: actual_type.to_string(),
-            expr_span: span,
+            expr_location: location,
         });
 
         if args.len() != expected_arg_types.len() {
@@ -506,10 +596,26 @@ impl Elaborator<'_> {
 
         let args = args.into_iter().zip(expected_arg_types);
         let args = vecmap(args, |(arg, expected_arg_type)| {
-            self.expression_to_pattern(arg, &expected_arg_type)
+            self.expression_to_pattern(arg, &expected_arg_type, variables_defined)
         });
         let constructor = Constructor::Variant(actual_type, variant_index);
         Pattern::Constructor(constructor, args)
+    }
+
+    fn struct_name_and_field_types(
+        &mut self,
+        typ: &Type,
+        location: Location,
+    ) -> Option<(Ident, Vec<(String, Type)>)> {
+        if let Type::DataType(typ, generics) = typ.follow_bindings_shallow().as_ref() {
+            if let Some(fields) = typ.borrow().get_fields(generics) {
+                return Some((typ.borrow().name.clone(), fields));
+            }
+        }
+
+        let error = ResolverError::NonStructUsedInConstructor { typ: typ.to_string(), location };
+        self.push_err(error);
+        None
     }
 
     /// Compiles the rows of a match expression, outputting a decision tree for the match.
@@ -532,7 +638,7 @@ impl Elaborator<'_> {
         self.push_tests_against_bare_variables(&mut rows);
 
         // If the first row is a match-all we match it and the remaining rows are ignored.
-        if rows.first().map_or(false, |row| row.columns.is_empty()) {
+        if rows.first().is_some_and(|row| row.columns.is_empty()) {
             let row = rows.remove(0);
 
             return Ok(match row.guard {
@@ -663,6 +769,7 @@ impl Elaborator<'_> {
                 let (key, cons) = match col.pattern {
                     Pattern::Int(val) => ((val, val), Constructor::Int(val)),
                     Pattern::Range(start, stop) => ((start, stop), Constructor::Range(start, stop)),
+                    Pattern::Error => continue,
                     pattern => {
                         eprintln!("Unexpected pattern for integer type: {pattern:?}");
                         continue;
@@ -721,6 +828,7 @@ impl Elaborator<'_> {
     ///
     /// Types with infinite constructors (e.g. int and string) are handled
     /// separately; they don't need most of this work anyway.
+    #[allow(clippy::type_complexity)]
     fn compile_constructor_cases(
         &mut self,
         rows: Vec<Row>,
@@ -845,7 +953,7 @@ impl Elaborator<'_> {
         let rhs = HirExpression::Ident(HirIdent::non_trait_method(rhs, location), None);
         let rhs = self.interner.push_expr(rhs);
         self.interner.push_expr_type(rhs, rhs_type);
-        self.interner.push_expr_location(rhs, location.span, location.file);
+        self.interner.push_expr_location(rhs, location);
 
         let let_ = HirStatement::Let(HirLetStatement {
             pattern: HirPattern::Identifier(variable),
@@ -860,13 +968,13 @@ impl Elaborator<'_> {
         let let_ = self.interner.push_stmt(let_);
         let body = self.interner.push_stmt(HirStatement::Expression(body));
 
-        self.interner.push_stmt_location(let_, location.span, location.file);
-        self.interner.push_stmt_location(body, location.span, location.file);
+        self.interner.push_stmt_location(let_, location);
+        self.interner.push_stmt_location(body, location);
 
         let block = HirExpression::Block(HirBlockExpression { statements: vec![let_, body] });
         let block = self.interner.push_expr(block);
         self.interner.push_expr_type(block, body_type);
-        self.interner.push_expr_location(block, location.span, location.file);
+        self.interner.push_expr_location(block, location);
         block
     }
 }
@@ -890,6 +998,11 @@ enum Pattern {
     /// 1 <= n < 20.
     #[allow(unused)]
     Range(SignedField, SignedField),
+
+    /// An error occurred while translating this pattern. This Pattern kind always translates
+    /// to a Fail branch in the decision tree, although the compiler is expected to halt
+    /// with errors before execution.
+    Error,
 }
 
 #[derive(Clone)]

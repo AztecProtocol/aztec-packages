@@ -13,6 +13,7 @@ trap "rm -rf $outdir" EXIT
 
 flags="-c $CRS_PATH ${VERBOSE:+-v} -o $outdir"
 
-$BIN write_arbitrary_valid_proof_and_vk_to_file --scheme client_ivc $flags
+# TODO(https://github.com/AztecProtocol/barretenberg/issues/1252): deprecate in favor of normal proving flow
+$BIN OLD_API write_arbitrary_valid_client_ivc_proof_and_vk_to_file $flags
 $BIN prove_tube $flags
 $BIN verify_tube $flags

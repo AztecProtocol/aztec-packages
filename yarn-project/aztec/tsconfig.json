@@ -34,12 +34,6 @@
       "path": "../builder"
     },
     {
-      "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
-    },
-    {
       "path": "../cli"
     },
     {
@@ -88,13 +82,13 @@
       "path": "../pxe"
     },
     {
+      "path": "../stdlib"
+    },
+    {
       "path": "../telemetry-client"
     },
     {
       "path": "../txe"
-    },
-    {
-      "path": "../types"
     },
     {
       "path": "../world-state"

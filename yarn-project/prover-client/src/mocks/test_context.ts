@@ -1,15 +1,9 @@
-import { type BBProverConfig } from '@aztec/bb-prover';
-import { type L2Block, type ProcessedTx, type Tx } from '@aztec/circuit-types';
-import { type ServerCircuitProver } from '@aztec/circuit-types/interfaces/server';
-import { makeBloatedProcessedTx } from '@aztec/circuit-types/testing';
-import { type BlockHeader, type GlobalVariables, PublicDataWrite, TreeSnapshots } from '@aztec/circuits.js';
-import { type AppendOnlyTreeSnapshot, PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import type { BBProverConfig } from '@aztec/bb-prover';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
-import { type Logger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import {
@@ -19,7 +13,14 @@ import {
   SimpleContractDataSource,
   WorldStateDB,
 } from '@aztec/simulator/server';
-import { type MerkleTreeAdminDatabase } from '@aztec/world-state';
+import { PublicDataWrite } from '@aztec/stdlib/avm';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2Block } from '@aztec/stdlib/block';
+import type { ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
+import { makeBloatedProcessedTx } from '@aztec/stdlib/testing';
+import { type AppendOnlyTreeSnapshot, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
+import { type BlockHeader, type GlobalVariables, type ProcessedTx, TreeSnapshots, type Tx } from '@aztec/stdlib/tx';
+import type { MerkleTreeAdminDatabase } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import { promises as fs } from 'fs';
@@ -157,7 +158,11 @@ export class TestContext {
     await this.brokerProverFacade.stop();
     await this.broker.stop();
     for (const dir of this.directoriesToCleanup.filter(x => x !== '')) {
-      await fs.rm(dir, { recursive: true, force: true });
+      try {
+        await fs.rm(dir, { recursive: true, force: true, maxRetries: 3 });
+      } catch (err) {
+        this.logger.warn(`Failed to delete tmp directory $dir}: ${err}`);
+      }
     }
   }
 

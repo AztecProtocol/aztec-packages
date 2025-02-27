@@ -1,7 +1,7 @@
 import { type LogFn } from '@aztec/foundation/log';
 import { printENR } from '@aztec/p2p/enr';
 
-import { type Command } from 'commander';
+import type { Command } from 'commander';
 
 import { l1ChainIdOption, prettyPrintJSON } from '../../utils/commands.js';
 

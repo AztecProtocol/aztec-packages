@@ -1,5 +1,4 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
-import { L2Block } from '@aztec/circuit-types';
 import {
   type L1ContractAddresses,
   type L1ContractsConfig,
@@ -9,8 +8,9 @@ import {
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
-import { type AztecAsyncKVStore } from '@aztec/kv-store';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openStoreAt, openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { L2Block } from '@aztec/stdlib/block';
 
 import { expect } from '@jest/globals';
 import { rm } from 'fs/promises';
@@ -39,7 +39,7 @@ describe('In-Memory Slasher Client', () => {
       l1Contracts: {
         slashFactoryAddress: EthAddress.ZERO,
       } as unknown as L1ContractAddresses,
-      l1RpcUrl: 'http://127.0.0.1:8545',
+      l1RpcUrls: ['http://127.0.0.1:8545'],
       l1ChainId: 1,
       viemPollingIntervalMS: 1000,
     };
@@ -62,7 +62,7 @@ describe('In-Memory Slasher Client', () => {
       await client.stop();
     }
 
-    await rm(tmpDir, { recursive: true, force: true });
+    await rm(tmpDir, { recursive: true, force: true, maxRetries: 3 });
   });
 
   it('can start & stop', async () => {

@@ -51,9 +51,9 @@ pub contract AMM {
 
     /// Amount of liquidity which gets locked when liquidity is provided for the first time. Its purpose is to prevent
     /// the pool from ever emptying which could lead to undefined behavior.
-    global MINIMUM_LIQUIDITY: U128 = U128::from_integer(1000);
+    global MINIMUM_LIQUIDITY: u128 = 1000;
     /// We set it to 99 times the minimum liquidity. That way the first LP gets 99% of the value of their deposit.
-    global INITIAL_LIQUIDITY: U128 = U128::from_integer(99000);
+    global INITIAL_LIQUIDITY: u128 = 99000;
 
     // TODO(#9480): Either deploy the liquidity contract in the constructor or verify it that it corresponds to what
     // this contract expects (i.e. that the AMM has permission to mint and burn).
@@ -72,10 +72,10 @@ pub contract AMM {
     /// The identity of the liquidity provider is not revealed, but the action and amounts are.
     #[private]
     fn add_liquidity(
-        amount0_max: U128,
-        amount1_max: U128,
-        amount0_min: U128,
-        amount1_min: U128,
+        amount0_max: u128,
+        amount1_max: u128,
+        amount0_min: u128,
+        amount1_min: u128,
         nonce: Field,
     ) {
         assert(
@@ -86,10 +86,7 @@ pub contract AMM {
             (amount1_min < amount1_max) | (amount1_min == amount1_max),
             "INCORRECT_TOKEN1_LIMITS",
         );
-        assert(
-            (U128::zero() < amount0_max) & (U128::zero() < amount1_max),
-            "INSUFFICIENT_INPUT_AMOUNTS",
-        );
+        assert((0 as u128 < amount0_max) & (0 as u128 < amount1_max), "INSUFFICIENT_INPUT_AMOUNTS");
 
         let config = storage.config.read();
 
@@ -145,10 +142,10 @@ pub contract AMM {
         refund_token0_hiding_point_slot: Field,
         refund_token1_hiding_point_slot: Field,
         liquidity_hiding_point_slot: Field,
-        amount0_max: U128,
-        amount1_max: U128,
-        amount0_min: U128,
-        amount1_min: U128,
+        amount0_max: u128,
+        amount1_max: u128,
+        amount0_min: u128,
+        amount1_min: u128,
     ) {
         let token0 = Token::at(config.token0);
         let token1 = Token::at(config.token1);
@@ -182,12 +179,12 @@ pub contract AMM {
 
         // We can simply skip the refund if the amount to return is 0 in order to save gas: the partial note will
         // simply stay in public storage and not be completed, but this is not an issue.
-        if (refund_amount_token0 > U128::zero()) {
+        if (refund_amount_token0 > 0 as u128) {
             token0
                 .finalize_transfer_to_private(refund_amount_token0, refund_token0_hiding_point_slot)
                 .call(&mut context);
         }
-        if (refund_amount_token1 > U128::zero()) {
+        if (refund_amount_token1 > 0 as u128) {
             token1
                 .finalize_transfer_to_private(refund_amount_token1, refund_token1_hiding_point_slot)
                 .call(&mut context);
@@ -196,7 +193,7 @@ pub contract AMM {
         // With the deposit amounts known, we can compute the number of liquidity tokens to mint and finalize the
         // depositor's partial note.
         let total_supply = liquidity_token.total_supply().view(&mut context);
-        let liquidity_amount = if total_supply != U128::zero() {
+        let liquidity_amount = if total_supply != 0 as u128 {
             // The liquidity token supply increases by the same ratio as the balances. In case one of the token balances
             // increased with a ratio different from the other one, we simply take the smallest value.
             std::cmp::min(
@@ -219,7 +216,7 @@ pub contract AMM {
             INITIAL_LIQUIDITY
         };
 
-        assert(liquidity_amount > U128::zero(), "INSUFFICIENT_LIQUIDITY_MINTED");
+        assert(liquidity_amount > 0 as u128, "INSUFFICIENT_LIQUIDITY_MINTED");
         liquidity_token
             .finalize_mint_to_private(liquidity_amount, liquidity_hiding_point_slot)
             .call(&mut context);
@@ -232,7 +229,7 @@ pub contract AMM {
     ///
     /// The identity of the liquidity provider is not revealed, but the action and amounts are.
     #[private]
-    fn remove_liquidity(liquidity: U128, amount0_min: U128, amount1_min: U128, nonce: Field) {
+    fn remove_liquidity(liquidity: u128, amount0_min: u128, amount1_min: u128, nonce: Field) {
         let config = storage.config.read();
 
         let liquidity_token = Token::at(config.liquidity_token);
@@ -275,11 +272,11 @@ pub contract AMM {
     #[internal]
     fn _remove_liquidity(
         config: Config, // We could read this in public, but it's cheaper to receive from private
-        liquidity: U128,
+        liquidity: u128,
         token0_hiding_point_slot: Field,
         token1_hiding_point_slot: Field,
-        amount0_min: U128,
-        amount1_min: U128,
+        amount0_min: u128,
+        amount1_min: u128,
     ) {
         let token0 = Token::at(config.token0);
         let token1 = Token::at(config.token1);
@@ -313,8 +310,8 @@ pub contract AMM {
     fn swap_exact_tokens_for_tokens(
         token_in: AztecAddress,
         token_out: AztecAddress,
-        amount_in: U128,
-        amount_out_min: U128,
+        amount_in: u128,
+        amount_out_min: u128,
         nonce: Field,
     ) {
         let config = storage.config.read();
@@ -351,8 +348,8 @@ pub contract AMM {
     fn _swap_exact_tokens_for_tokens(
         token_in: AztecAddress,
         token_out: AztecAddress,
-        amount_in: U128,
-        amount_out_min: U128,
+        amount_in: u128,
+        amount_out_min: u128,
         token_out_hiding_point_slot: Field,
     ) {
         // In order to compute the amount to swap we need the live token balances. Note that at this state the token in
@@ -383,8 +380,8 @@ pub contract AMM {
     fn swap_tokens_for_exact_tokens(
         token_in: AztecAddress,
         token_out: AztecAddress,
-        amount_out: U128,
-        amount_in_max: U128,
+        amount_out: u128,
+        amount_in_max: u128,
         nonce: Field,
     ) {
         let config = storage.config.read();
@@ -429,8 +426,8 @@ pub contract AMM {
     fn _swap_tokens_for_exact_tokens(
         token_in: AztecAddress,
         token_out: AztecAddress,
-        amount_in_max: U128,
-        amount_out: U128,
+        amount_in_max: u128,
+        amount_out: u128,
         change_token_in_hiding_point_slot: Field,
         token_out_hiding_point_slot: Field,
     ) {
@@ -449,7 +446,7 @@ pub contract AMM {
         assert(amount_in <= amount_in_max, "INSUFFICIENT_OUTPUT_AMOUNT");
 
         let change = amount_in_max - amount_in;
-        if (change > U128::zero()) {
+        if (change > 0 as u128) {
             Token::at(token_in)
                 .finalize_transfer_to_private(change, change_token_in_hiding_point_slot)
                 .call(&mut context);
@@ -463,19 +460,19 @@ pub contract AMM {
     }
 
     unconstrained fn get_amount_out_for_exact_in(
-        balance_in: U128,
-        balance_out: U128,
-        amount_in: U128,
-    ) -> U128 {
+        balance_in: u128,
+        balance_out: u128,
+        amount_in: u128,
+    ) -> u128 {
         // Ideally we'd call the token contract in order to read the current balance, but we can't due to #7524.
         get_amount_out(amount_in, balance_in, balance_out)
     }
 
     unconstrained fn get_amount_in_for_exact_out(
-        balance_in: U128,
-        balance_out: U128,
-        amount_out: U128,
-    ) -> U128 {
+        balance_in: u128,
+        balance_out: u128,
+        amount_out: u128,
+    ) -> u128 {
         // Ideally we'd call the token contract in order to read the current balance, but we can't due to #7524.
         get_amount_in(amount_out, balance_in, balance_out)
     }

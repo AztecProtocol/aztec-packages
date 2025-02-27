@@ -1,4 +1,3 @@
-import { type ChainConfig, chainConfigMappings } from '@aztec/circuit-types/config';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
@@ -8,6 +7,7 @@ import {
   pickConfigMappings,
 } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
+import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
 
 import { type P2PReqRespConfig, p2pReqRespConfigMappings } from './services/reqresp/config.js';
 
@@ -29,11 +29,6 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
    * The number of blocks to fetch in a single batch.
    */
   blockRequestBatchSize: number;
-
-  /**
-   * DEBUG: Disable message validation - for testing purposes only
-   */
-  debugDisableMessageValidation: boolean;
 
   /**
    * DEBUG: Disable colocation penalty - for testing purposes only
@@ -183,11 +178,6 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_BLOCK_CHECK_INTERVAL_MS',
     description: 'The frequency in which to check for new L2 blocks.',
     ...numberConfigHelper(100),
-  },
-  debugDisableMessageValidation: {
-    env: 'DEBUG_P2P_DISABLE_MESSAGE_VALIDATION',
-    description: 'DEBUG: Disable message validation - NEVER set to true in production',
-    ...booleanConfigHelper(false),
   },
   debugDisableColocationPenalty: {
     env: 'DEBUG_P2P_DISABLE_COLOCATION_PENALTY',

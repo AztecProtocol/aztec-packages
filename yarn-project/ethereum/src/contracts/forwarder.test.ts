@@ -1,4 +1,3 @@
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -6,15 +5,8 @@ import { GovernanceProposerAbi } from '@aztec/l1-artifacts/GovernanceProposerAbi
 import { TestERC20Abi } from '@aztec/l1-artifacts/TestERC20Abi';
 import { TestERC20Bytecode } from '@aztec/l1-artifacts/TestERC20Bytecode';
 
-import { type Anvil } from '@viem/anvil';
-import {
-  type Chain,
-  type GetContractReturnType,
-  type HttpTransport,
-  type PublicClient,
-  encodeFunctionData,
-  getContract,
-} from 'viem';
+import type { Anvil } from '@viem/anvil';
+import { type GetContractReturnType, encodeFunctionData, getContract } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
@@ -22,7 +14,7 @@ import { DefaultL1ContractsConfig } from '../config.js';
 import { createL1Clients, deployL1Contract, deployL1Contracts } from '../deploy_l1_contracts.js';
 import { L1TxUtils } from '../l1_tx_utils.js';
 import { startAnvil } from '../test/start_anvil.js';
-import { type L1Clients } from '../types.js';
+import type { ViemPublicClient, ViemWalletClient } from '../types.js';
 import { FormattedViemError } from '../utils.js';
 import { ForwarderContract } from './forwarder.js';
 
@@ -34,27 +26,28 @@ describe('Forwarder', () => {
 
   let vkTreeRoot: Fr;
   let protocolContractTreeRoot: Fr;
-  let l2FeeJuiceAddress: AztecAddress;
-  let walletClient: L1Clients['walletClient'];
-  let publicClient: L1Clients['publicClient'];
+  let l2FeeJuiceAddress: Fr;
+  let walletClient: ViemWalletClient;
+  let publicClient: ViemPublicClient;
   let forwarder: ForwarderContract;
   let l1TxUtils: L1TxUtils;
   let govProposerAddress: EthAddress;
   let tokenAddress: EthAddress;
-  let tokenContract: GetContractReturnType<typeof TestERC20Abi, PublicClient<HttpTransport, Chain>>;
+  let tokenContract: GetContractReturnType<typeof TestERC20Abi, ViemPublicClient>;
   beforeAll(async () => {
     logger = createLogger('ethereum:test:forwarder');
     // this is the 6th address that gets funded by the junk mnemonic
     privateKey = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
     vkTreeRoot = Fr.random();
     protocolContractTreeRoot = Fr.random();
-    l2FeeJuiceAddress = await AztecAddress.random();
+    // Valid AztecAddress represented by its xCoord as a Fr
+    l2FeeJuiceAddress = Fr.fromHexString('0x302dbc2f9b50a73283d5fb2f35bc01eae8935615817a0b4219a057b2ba8a5a3f');
 
     ({ anvil, rpcUrl } = await startAnvil());
 
-    ({ walletClient, publicClient } = createL1Clients(rpcUrl, privateKey));
+    ({ walletClient, publicClient } = createL1Clients([rpcUrl], privateKey));
 
-    const deployed = await deployL1Contracts(rpcUrl, privateKey, foundry, logger, {
+    const deployed = await deployL1Contracts([rpcUrl], privateKey, foundry, logger, {
       ...DefaultL1ContractsConfig,
       salt: undefined,
       vkTreeRoot,

@@ -13,12 +13,6 @@
       "path": "../builder"
     },
     {
-      "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
-    },
-    {
       "path": "../constants"
     },
     {
@@ -43,7 +37,7 @@
       "path": "../simulator"
     },
     {
-      "path": "../types"
+      "path": "../stdlib"
     },
     {
       "path": "../noir-contracts.js"

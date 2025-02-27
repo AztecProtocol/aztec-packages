@@ -1,15 +1,15 @@
-import { type NoirCompiledCircuit } from '@aztec/circuits.js/noir';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
 
-import { type WitnessMap } from '@noir-lang/types';
+import type { WitnessMap } from '@noir-lang/types';
 import * as proc from 'child_process';
 import { promises as fs } from 'fs';
 
-import { type ACIRCallback, type ACIRExecutionResult } from '../acvm/acvm.js';
-import { type ACVMWitness } from '../acvm/acvm_types.js';
-import { type SimulationProvider } from '../common/simulation_provider.js';
+import type { ACIRCallback, ACIRExecutionResult } from '../acvm/acvm.js';
+import type { ACVMWitness } from '../acvm/acvm_types.js';
+import type { SimulationProvider } from '../common/simulation_provider.js';
 
 const logger = createLogger('simulator:acvm-native');
 
@@ -158,7 +158,7 @@ export class NativeACVMSimulator implements SimulationProvider {
       return result.witness;
     };
 
-    return await runInDirectory(this.workingDirectory, operation, false);
+    return await runInDirectory(this.workingDirectory, operation, false, logger);
   }
 
   executeUserCircuit(

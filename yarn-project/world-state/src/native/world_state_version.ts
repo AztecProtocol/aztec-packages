@@ -1,4 +1,4 @@
-import { EthAddress } from '@aztec/circuits.js';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 
 import { readFile, writeFile } from 'fs/promises';

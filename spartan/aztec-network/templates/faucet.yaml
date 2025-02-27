@@ -1,4 +1,4 @@
-{{- if and (not .Values.ethereum.execution.externalHost) .Values.pxe.enabled }}
+{{- if and (not .Values.ethereum.execution.externalHosts) .Values.pxe.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -90,8 +90,6 @@ spec:
               value: faucet
             - name: USE_GCLOUD_LOGGING
               value: "{{ .Values.telemetry.useGcloudLogging }}"
-            - name: USE_GCLOUD_METRICS
-              value: "{{ .Values.telemetry.useGcloudMetrics }}"
             - name: OTEL_EXCLUDE_METRICS
               value: "{{ .Values.telemetry.excludeMetrics }}"
           ports:

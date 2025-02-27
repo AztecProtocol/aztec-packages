@@ -1,5 +1,5 @@
 #include "barretenberg/vm/avm/trace/execution.hpp"
-#include "barretenberg/bb/log.hpp"
+#include "barretenberg/api/log.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/thread.hpp"
@@ -1116,13 +1116,6 @@ AvmError Execution::execute_enqueued_call(TxExecutionPhase& phase,
                                             std::get<uint16_t>(inst.operands.at(5)),
                                             std::get<uint16_t>(inst.operands.at(6)),
                                             std::get<uint16_t>(inst.operands.at(7)));
-            break;
-        case OpCode::MSM:
-            error = trace_builder.op_variable_msm(std::get<uint8_t>(inst.operands.at(0)),
-                                                  std::get<uint16_t>(inst.operands.at(1)),
-                                                  std::get<uint16_t>(inst.operands.at(2)),
-                                                  std::get<uint16_t>(inst.operands.at(3)),
-                                                  std::get<uint16_t>(inst.operands.at(4)));
             break;
 
             // Conversions

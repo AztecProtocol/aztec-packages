@@ -13,12 +13,6 @@
       "path": "../aztec.js"
     },
     {
-      "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
-    },
-    {
       "path": "../constants"
     },
     {
@@ -40,7 +34,7 @@
       "path": "../simulator"
     },
     {
-      "path": "../types"
+      "path": "../stdlib"
     },
     {
       "path": "../world-state"

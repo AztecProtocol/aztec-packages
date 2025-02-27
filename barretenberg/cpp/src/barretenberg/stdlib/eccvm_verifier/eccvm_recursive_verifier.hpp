@@ -28,5 +28,13 @@ template <typename Flavor> class ECCVMRecursiveVerifier_ {
     Builder* builder;
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Transcript> ipa_transcript;
+
+    // Translation evaluation and batching challenges. They are propagated to the TranslatorVerifier
+    FF evaluation_challenge_x;
+    FF batching_challenge_v;
+
+    std::vector<Commitment> translation_commitments;
+
+    OpeningClaim<Curve> compute_translation_opening_claim(const std::vector<Commitment>& translation_commitments);
 };
 } // namespace bb

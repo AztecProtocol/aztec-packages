@@ -1,4 +1,4 @@
-// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js
+// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.27;
@@ -16,6 +16,7 @@ library Constants {
   uint256 internal constant MAX_FIELD_VALUE =
     21888242871839275222246405745257275088548364400416034343698204186575808495616;
   uint256 internal constant ARGS_LENGTH = 16;
+  uint256 internal constant MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS = 16000;
   uint256 internal constant MAX_NOTE_HASHES_PER_CALL = 16;
   uint256 internal constant MAX_NULLIFIERS_PER_CALL = 16;
   uint256 internal constant MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL = 5;
@@ -312,7 +313,5 @@ library Constants {
   uint256 internal constant DEFAULT_UPDATE_DELAY = 3600;
   uint256 internal constant MINIMUM_UPDATE_DELAY = 25;
   uint256 internal constant UPDATES_VALUE_SIZE = 1;
-  uint256 internal constant UPDATES_SCHEDULED_VALUE_CHANGE_LEN = 3;
-  uint256 internal constant SCHEDULED_DELAY_CHANGE_PCKD_LEN = 1;
-  uint256 internal constant UPDATES_SHARED_MUTABLE_VALUES_LEN = 4;
+  uint256 internal constant UPDATES_SHARED_MUTABLE_VALUES_LEN = 3;
 }

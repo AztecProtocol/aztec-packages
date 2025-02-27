@@ -1,6 +1,6 @@
+mod test;
 // docs:start:setup
 use dep::aztec::macros::aztec;
-mod test;
 
 #[aztec]
 pub contract Counter {
@@ -143,9 +143,11 @@ pub contract Counter {
     unconstrained fn inclusion_proofs() {
         let initial_value = 5;
         let (env, contract_address, owner) = test::setup(initial_value);
-        env.advance_block_by(1);
-
         env.impersonate(contract_address);
+
+        env.advance_block_by(1);
+        sync_notes();
+
         let counter_slot = Counter::storage_layout().counters.slot;
         let owner_storage_slot = derive_storage_slot_in_map(counter_slot, owner);
 
@@ -173,6 +175,7 @@ pub contract Counter {
 
         destroy_note(&mut env.private(), old_retrieved_note, owner_storage_slot);
         env.advance_block_by(1);
+        sync_notes();
 
         env.private().get_block_header().prove_note_is_nullified(
             old_retrieved_note,
@@ -207,6 +210,7 @@ pub contract Counter {
 
         // Checking that the note was discovered from private logs
         env.advance_block_by(1);
+        sync_notes();
         env.impersonate(contract_address);
         let counter_slot = Counter::storage_layout().counters.slot;
         let owner_storage_slot = derive_storage_slot_in_map(counter_slot, owner);
@@ -229,6 +233,7 @@ pub contract Counter {
 
         // Checking that the note was discovered from private logs
         env.advance_block_by(1);
+        sync_notes();
         let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
             view_notes(owner_storage_slot, options);
         assert(get_counter(owner) == 7);
@@ -244,6 +249,7 @@ pub contract Counter {
 
         // Checking that the note was discovered from private logs
         env.advance_block_by(1);
+        sync_notes();
         let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
             view_notes(owner_storage_slot, options);
         assert(notes.len() == 4);
@@ -258,6 +264,7 @@ pub contract Counter {
 
         // Checking that the note was discovered from private logs
         env.advance_block_by(1);
+        sync_notes();
         let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
             view_notes(owner_storage_slot, options);
         assert(get_counter(owner) == 6);

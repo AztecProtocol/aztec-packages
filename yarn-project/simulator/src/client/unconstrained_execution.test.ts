@@ -1,15 +1,17 @@
-import { type FunctionCall, Note } from '@aztec/circuit-types';
-import { type AztecNode } from '@aztec/circuit-types/interfaces/client';
-import { BlockHeader, CompleteAddress, type ContractInstance } from '@aztec/circuits.js';
-import { FunctionSelector, FunctionType, encodeArguments } from '@aztec/circuits.js/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
+import { FunctionCall, FunctionSelector, FunctionType, encodeArguments } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { CompleteAddress, type ContractInstance } from '@aztec/stdlib/contract';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import type { TxScopedL2Log } from '@aztec/stdlib/logs';
+import { Note } from '@aztec/stdlib/note';
+import { BlockHeader } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
 
 import { WASMSimulator } from '../providers/acvm_wasm.js';
-import { type DBOracle } from './db_oracle.js';
+import type { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
 
 describe('Unconstrained Execution test suite', () => {
@@ -79,6 +81,9 @@ describe('Unconstrained Execution test suite', () => {
           index: BigInt(index),
         })),
       );
+
+      oracle.syncTaggedLogs.mockImplementation((_, __, ___) => Promise.resolve(new Map<string, TxScopedL2Log[]>()));
+      oracle.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
       const execRequest: FunctionCall = {
         name: artifact.name,

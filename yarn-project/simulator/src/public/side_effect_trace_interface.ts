@@ -1,13 +1,10 @@
-import {
-  type ContractClassIdPreimage,
-  type PublicCallRequest,
-  type PublicLog,
-  type SerializableContractInstance,
-} from '@aztec/circuits.js';
-import { type AvmNullifierReadTreeHint, type AvmPublicDataReadTreeHint } from '@aztec/circuits.js/avm';
-import { type NullifierLeafPreimage, type PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { type Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
+import type { AvmNullifierReadTreeHint, AvmPublicDataReadTreeHint } from '@aztec/stdlib/avm';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractClassIdPreimage, SerializableContractInstance } from '@aztec/stdlib/contract';
+import type { PublicCallRequest } from '@aztec/stdlib/kernel';
+import type { PublicLog } from '@aztec/stdlib/logs';
+import type { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 
 export interface PublicSideEffectTraceInterface {
   fork(): PublicSideEffectTraceInterface;

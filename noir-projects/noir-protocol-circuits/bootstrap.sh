@@ -90,23 +90,19 @@ function compile {
 
   if echo "$name" | grep -qE "${ivc_regex}"; then
     local proto="client_ivc"
-    local write_vk_cmd="write_vk_for_ivc"
-    local vk_as_fields_cmd="vk_as_fields_mega_honk"
+    local write_vk_cmd="write_vk --scheme client_ivc"
   elif echo "$name" | grep -qE "${rollup_honk_regex}"; then
     local proto="ultra_rollup_honk"
-    # -h 2 injects a fake ipa claim
-    local write_vk_cmd="write_vk_ultra_rollup_honk -h 2"
-    local vk_as_fields_cmd="vk_as_fields_ultra_rollup_honk"
+    # --honk_recursion 2 injects a fake ipa claim
+    local write_vk_cmd="write_vk --scheme ultra_honk --ipa_accumulation --honk_recursion 2"
   elif echo "$name" | grep -qE "${keccak_honk_regex}"; then
     local proto="ultra_keccak_honk"
     # the root rollup does not need to inject a fake ipa claim
     # and does not need to inject a default agg obj, so no -h flag
-    local write_vk_cmd="write_vk_ultra_keccak_honk"
-    local vk_as_fields_cmd="vk_as_fields_ultra_keccak_honk"
+    local write_vk_cmd="write_vk --scheme ultra_honk --oracle_hash keccak"
   else
     local proto="ultra_honk"
-    local write_vk_cmd="write_vk_ultra_honk -h 1"
-    local vk_as_fields_cmd="vk_as_fields_ultra_honk"
+    local write_vk_cmd="write_vk --scheme ultra_honk --init_kzg_accumulator --honk_recursion 1"
   fi
 
   # No vks needed for simulated circuits.
@@ -120,19 +116,21 @@ function compile {
     local key_path="$key_dir/$name.vk.data.json"
     echo_stderr "Generating vk for function: $name..."
     SECONDS=0
-    local vk_cmd="jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB $write_vk_cmd -b - -o - --recursive | xxd -p -c 0"
+    outdir=$(mktemp -d)
+    trap "rm -rf $outdir" EXIT
+    local vk_cmd="jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB $write_vk_cmd -b - -o $outdir --output_format bytes_and_fields"
     echo_stderr $vk_cmd
-    vk=$(dump_fail "$vk_cmd")
-    local vkf_cmd="echo '$vk' | xxd -r -p | $BB $vk_as_fields_cmd -k - -o -"
+    dump_fail "$vk_cmd"
+    vk_bytes=$(cat $outdir/vk | xxd -p -c 0)
+    vk_fields=$(cat $outdir/vk_fields.json)
     # echo_stderr $vkf_cmd
-    vk_fields=$(dump_fail "$vkf_cmd")
-    jq -n --arg vk "$vk" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
+    jq -n --arg vk "$vk_bytes" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
     echo_stderr "Key output at: $key_path (${SECONDS}s)"
     if echo "$name" | grep -qE "${verifier_generate_regex}"; then
       local verifier_path="$key_dir/${name}_verifier.sol"
       SECONDS=0
       # Generate solidity verifier for this contract.
-      echo "$vk" | xxd -r -p | $BB contract_ultra_honk -k - -o $verifier_path
+      echo "$vk_bytes" | xxd -r -p | $BB write_contract --scheme ultra_honk -k - -o $verifier_path
       echo_stderr "VK output at: $verifier_path (${SECONDS}s)"
       # Include the verifier path if we create it.
       cache_upload vk-$hash.tar.gz $key_path $verifier_path &> /dev/null

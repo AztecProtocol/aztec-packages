@@ -9,12 +9,14 @@ import {
   type UniqueNote,
   deriveKeys,
 } from '@aztec/aztec.js';
-import { GasSettings, TxContext, computePartialAddress } from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
 import { CrowdfundingContract } from '@aztec/noir-contracts.js/Crowdfunding';
 import { InclusionProofsContract } from '@aztec/noir-contracts.js/InclusionProofs';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { computePartialAddress } from '@aztec/stdlib/contract';
+import { GasSettings } from '@aztec/stdlib/gas';
+import { TxContext } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 
@@ -135,10 +137,11 @@ describe('e2e_crowdfunding_and_claim', () => {
       },
       // eslint-disable-next-line camelcase
       contract_address: uniqueNote.contractAddress,
-      // eslint-disable-next-line camelcase
-      nonce: uniqueNote.nonce,
-      // eslint-disable-next-line camelcase
-      note_hash_counter: 0, // set as 0 as note is not transient
+      metadata: {
+        stage: 3, // aztec::note::note_metadata::NoteStage::SETTLED
+        // eslint-disable-next-line camelcase
+        maybe_nonce: uniqueNote.nonce,
+      },
     };
   };
 

@@ -1,8 +1,11 @@
-import { Note, TxHash } from '@aztec/circuit-types';
-import { AztecAddress, Fr, Point, type PublicKey } from '@aztec/circuits.js';
-import { NoteSelector } from '@aztec/circuits.js/abi';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { NoteSelector } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { PublicKey } from '@aztec/stdlib/keys';
+import { Note } from '@aztec/stdlib/note';
+import { TxHash } from '@aztec/stdlib/tx';
 
 /**
  * A note with contextual data which was decrypted as outgoing.

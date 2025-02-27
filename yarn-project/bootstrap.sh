@@ -48,22 +48,19 @@ function compile_all {
   # hack, after running prettier foundation may fail to resolve hash.js dependency.
   # it is only currently foundation, presumably because hash.js looks like a js file.
   rm -rf foundation/node_modules
-  compile_project ::: constants foundation circuits.js types builder ethereum l1-artifacts
+  compile_project ::: constants foundation stdlib builder ethereum l1-artifacts
 
   # Call all projects that have a generation stage.
   parallel --joblog joblog.txt --line-buffered --tag 'cd {} && yarn generate' ::: \
     accounts \
-    circuit-types \
-    circuits.js \
+    stdlib \
     ivc-integration \
-    kv-store \
     l1-artifacts \
     native \
     noir-contracts.js \
     noir-protocol-circuits-types \
     protocol-contracts \
-    pxe \
-    types
+    pxe
   cat joblog.txt
 
   get_projects | compile_project
@@ -71,10 +68,7 @@ function compile_all {
   cmds=(format)
   if [ "${TYPECHECK:-0}" -eq 1 ] || [ "${CI:-0}" -eq 1 ]; then
     # Fully type check and lint.
-    cmds+=(
-      'yarn tsc -b --emitDeclarationOnly'
-      lint
-    )
+    cmds+=('yarn tsc -b --emitDeclarationOnly && lint')
   else
     # We just need the type declarations required for downstream consumers.
     cmds+=('cd aztec.js && yarn tsc -b --emitDeclarationOnly')

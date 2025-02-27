@@ -1,13 +1,13 @@
-import { L2Block, type L2BlockStream } from '@aztec/circuit-types';
-import { type AztecNode } from '@aztec/circuit-types/interfaces/client';
 import { timesParallel } from '@aztec/foundation/collection';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { L2TipsStore } from '@aztec/kv-store/stores';
+import { L2Block, type L2BlockStream } from '@aztec/stdlib/block';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type PxeDatabase } from '../database/index.js';
+import type { PxeDatabase } from '../database/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
 import { Synchronizer } from './synchronizer.js';
 
@@ -26,7 +26,7 @@ describe('Synchronizer', () => {
   };
 
   beforeEach(async () => {
-    const store = openTmpStore();
+    const store = await openTmpStore('test');
     blockStream = mock<L2BlockStream>();
     aztecNode = mock<AztecNode>();
     database = await KVPxeDatabase.create(store);

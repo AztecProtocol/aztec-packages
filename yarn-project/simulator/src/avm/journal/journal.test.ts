@@ -1,12 +1,13 @@
-import { AztecAddress, SerializableContractInstance, computePublicBytecodeCommitment } from '@aztec/circuits.js';
-import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
-import { makeContractClassPublic } from '@aztec/circuits.js/testing';
 import { Fr } from '@aztec/foundation/fields';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { SerializableContractInstance, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
+import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
+import { makeContractClassPublic } from '@aztec/stdlib/testing';
 
 import { mock } from 'jest-mock-extended';
 
-import { type WorldStateDB } from '../../public/public_db_sources.js';
-import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
+import type { WorldStateDB } from '../../public/public_db_sources.js';
+import type { PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
 import { initPersistableStateManager } from '../fixtures/index.js';
 import {
   mockGetBytecode,
@@ -18,7 +19,7 @@ import {
   mockNullifierExists,
   mockStorageRead,
 } from '../test_utils.js';
-import { type AvmPersistableStateManager } from './journal.js';
+import type { AvmPersistableStateManager } from './journal.js';
 
 describe('journal', () => {
   let address: AztecAddress;
@@ -182,7 +183,7 @@ describe('journal', () => {
         expectedContractClassPreimage,
       );
     });
-    it('Can get undefined contract instance', async () => {
+    it('Can get undefined bytecode', async () => {
       await persistableState.getBytecode(address);
       expect(trace.traceGetBytecode).toHaveBeenCalledTimes(1);
       expect(trace.traceGetBytecode).toHaveBeenCalledWith(address, /*exists=*/ false);
