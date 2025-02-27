@@ -8,7 +8,7 @@ let protocolContractArtifact: ContractArtifact;
 
 export async function getRouterArtifact(): Promise<ContractArtifact> {
   if (!protocolContractArtifact) {
-    const { default: routerJson } = await import('../../artifacts/Router.json');
+    const { default: routerJson } = await import('../../artifacts/Router.json', { assert: { type: 'json' } });
     protocolContractArtifact = loadContractArtifact(routerJson);
   }
   return protocolContractArtifact;
