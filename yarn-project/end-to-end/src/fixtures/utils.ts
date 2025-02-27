@@ -74,18 +74,7 @@ import getPort from 'get-port';
 import { tmpdir } from 'os';
 import * as path from 'path';
 import { inspect } from 'util';
-import {
-  type Account,
-  type Chain,
-  type HDAccount,
-  type Hex,
-  type PrivateKeyAccount,
-  createPublicClient,
-  createWalletClient,
-  fallback,
-  getContract,
-  http,
-} from 'viem';
+import { type Chain, type HDAccount, type Hex, type PrivateKeyAccount, getContract } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
@@ -209,7 +198,7 @@ export async function setupPXEService(
  * @returns Private eXecution Environment (PXE) client, viem wallets, contract addresses etc.
  */
 async function setupWithRemoteEnvironment(
-  account: Account,
+  account: HDAccount | PrivateKeyAccount,
   config: AztecNodeConfig,
   logger: Logger,
   numberOfAccounts: number,
@@ -225,15 +214,8 @@ async function setupWithRemoteEnvironment(
   logger.verbose(`Retrieving contract addresses from ${PXE_URL}`);
   const l1Contracts = (await pxeClient.getNodeInfo()).l1ContractAddresses;
 
-  const walletClient = createWalletClient({
-    account,
-    chain: foundry,
-    transport: fallback(config.l1RpcUrls.map(url => http(url))),
-  });
-  const publicClient = createPublicClient({
-    chain: foundry,
-    transport: fallback(config.l1RpcUrls.map(url => http(url))),
-  });
+  const { walletClient, publicClient } = createL1Clients(config.l1RpcUrls, account, foundry);
+
   const deployL1ContractsValues: DeployL1ContractsReturnType = {
     l1ContractAddresses: l1Contracts,
     walletClient,
@@ -597,21 +579,21 @@ export async function setup(
 
   return {
     aztecNode,
+    blobSink,
+    cheatCodes,
+    config,
+    dateProvider,
+    deployL1ContractsValues,
+    initialFundedAccounts,
+    logger,
     proverNode,
     pxe,
-    deployL1ContractsValues,
-    config,
-    initialFundedAccounts,
+    sequencer,
+    teardown,
+    telemetryClient: telemetry,
     wallet: wallets[0],
     wallets,
-    logger,
-    cheatCodes,
-    sequencer,
     watcher,
-    dateProvider,
-    blobSink,
-    telemetryClient: telemetry,
-    teardown,
   };
 }
 

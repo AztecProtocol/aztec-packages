@@ -95,7 +95,7 @@ function flake {
   read -r -d '' data <<EOF
   {
     "channel": "#aztec3-ci",
-    "text": "${slack_uids% }: Test flaked \`$test_cmd\` http://ci.aztec-labs.com/$log_key"
+    "text": "${slack_uids% }: Test flaked on \`$REF_NAME\`: \`$test_cmd\` http://ci.aztec-labs.com/$log_key"
   }
 EOF
   curl -X POST https://slack.com/api/chat.postMessage \
