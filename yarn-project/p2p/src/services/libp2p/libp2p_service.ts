@@ -684,7 +684,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
 
     // Double spend validator has a special case handler
     if (name === 'doubleSpendValidator') {
-      severity = await this.handleDoubleSpendFailure(tx, blockNumber, peerId);
+      severity = await this.handleDoubleSpendFailure(tx, blockNumber);
     }
 
     this.peerManager.penalizePeer(peerId, severity);
@@ -774,7 +774,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
    * @param peerId - The peer ID of the peer that sent the tx.
    * @returns Severity
    */
-  private async handleDoubleSpendFailure(tx: Tx, blockNumber: number, peerId: PeerId): Promise<PeerErrorSeverity> {
+  private async handleDoubleSpendFailure(tx: Tx, blockNumber: number): Promise<PeerErrorSeverity> {
     if (blockNumber <= this.config.doubleSpendSeverePeerPenaltyWindow) {
       return PeerErrorSeverity.HighToleranceError;
     }
