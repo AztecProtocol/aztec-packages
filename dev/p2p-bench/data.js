@@ -1,103 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740684115538,
+  "lastUpdate": 1740685624907,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "P2P Testbench": [
-      {
-        "commit": {
-          "author": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "committer": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "id": "d742834bb55548a1bc94a773b1eb40e8c9b397ae",
-          "message": "feat(p2p): gossipsub scoring adjustments + testbench in ci",
-          "timestamp": "2025-02-23T02:27:21Z",
-          "url": "https://github.com/AztecProtocol/aztec-packages/pull/12075/commits/d742834bb55548a1bc94a773b1eb40e8c9b397ae"
-        },
-        "date": 1740393350532,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "degree-1-strict - numberReceived",
-            "value": 4,
-            "unit": "ma"
-          },
-          {
-            "name": "degree-1-strict - minDelay",
-            "value": 48,
-            "unit": "ma"
-          },
-          {
-            "name": "degree-1-strict - maxDelay",
-            "value": 2474,
-            "unit": "ma"
-          },
-          {
-            "name": "degree-1-strict - averageDelay",
-            "value": 991.75,
-            "unit": "ma"
-          },
-          {
-            "name": "degree-1-strict - medianDelay",
-            "value": 1074,
-            "unit": "ma"
-          },
-          {
-            "name": "normal-degree-100-nodes - numberReceived",
-            "value": 16,
-            "unit": "ma"
-          },
-          {
-            "name": "normal-degree-100-nodes - minDelay",
-            "value": 61,
-            "unit": "ma"
-          },
-          {
-            "name": "normal-degree-100-nodes - maxDelay",
-            "value": 3997,
-            "unit": "ma"
-          },
-          {
-            "name": "normal-degree-100-nodes - averageDelay",
-            "value": 410,
-            "unit": "ma"
-          },
-          {
-            "name": "normal-degree-100-nodes - medianDelay",
-            "value": 120,
-            "unit": "ma"
-          },
-          {
-            "name": "normal-degree-50-nodes - numberReceived",
-            "value": 27,
-            "unit": "ma"
-          },
-          {
-            "name": "normal-degree-50-nodes - minDelay",
-            "value": 51,
-            "unit": "ma"
-          },
-          {
-            "name": "normal-degree-50-nodes - maxDelay",
-            "value": 7336,
-            "unit": "ma"
-          },
-          {
-            "name": "normal-degree-50-nodes - averageDelay",
-            "value": 4271.78,
-            "unit": "ma"
-          },
-          {
-            "name": "normal-degree-50-nodes - medianDelay",
-            "value": 4733,
-            "unit": "ma"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -4520,6 +4425,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "normal-degree-50-nodes - medianDelay",
             "value": 955,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "75146596+Sarkoxed@users.noreply.github.com",
+            "name": "Sarkoxed",
+            "username": "Sarkoxed"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "061189d9e11d021f75a4df3ab6df2aea2ffe6981",
+          "message": "feat: Cycle Group Fuzzer (#12154)\n\nThis pr introduces a fuzzer for `stdlib::primitives::cycle_group`",
+          "timestamp": "2025-02-27T22:05:02+03:00",
+          "tree_id": "26d992d96f800b37be499a6b39d8f6b6a9604e4b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/061189d9e11d021f75a4df3ab6df2aea2ffe6981"
+        },
+        "date": 1740685623613,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "degree-1-strict - numberReceived",
+            "value": 4,
+            "unit": "ms"
+          },
+          {
+            "name": "degree-1-strict - minDelay",
+            "value": 112,
+            "unit": "ms"
+          },
+          {
+            "name": "degree-1-strict - maxDelay",
+            "value": 1457,
+            "unit": "ms"
+          },
+          {
+            "name": "degree-1-strict - averageDelay",
+            "value": 721.25,
+            "unit": "ms"
+          },
+          {
+            "name": "degree-1-strict - medianDelay",
+            "value": 722,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-100-nodes - numberReceived",
+            "value": 12,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-100-nodes - minDelay",
+            "value": 246,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-100-nodes - maxDelay",
+            "value": 540,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-100-nodes - averageDelay",
+            "value": 341.08,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-100-nodes - medianDelay",
+            "value": 371,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - numberReceived",
+            "value": 49,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - minDelay",
+            "value": 235,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - maxDelay",
+            "value": 6973,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - averageDelay",
+            "value": 1889.63,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - medianDelay",
+            "value": 1121,
             "unit": "ms"
           }
         ]
