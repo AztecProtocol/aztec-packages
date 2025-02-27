@@ -208,8 +208,13 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                 },
                 [&]() {
                     EccTraceBuilder ecc_builder;
-                    AVM_TRACK_TIME("tracegen/ecc_add", ecc_builder.process(events.ecc_add, trace));
+                    AVM_TRACK_TIME("tracegen/ecc_add", ecc_builder.process_add(events.ecc_add, trace));
                     clear_events(events.ecc_add);
+                },
+                [&]() {
+                    EccTraceBuilder ecc_builder;
+                    AVM_TRACK_TIME("tracegen/scalar_mul", ecc_builder.process_scalar_mul(events.scalar_mul, trace));
+                    clear_events(events.scalar_mul);
                 },
                 [&]() {
                     Poseidon2TraceBuilder poseidon2_builder;
@@ -259,7 +264,11 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             std::make_unique<
                 LookupIntoDynamicTableSequential<lookup_class_id_derivation_class_id_poseidon2_0_settings>>(),
             std::make_unique<
-                LookupIntoDynamicTableSequential<lookup_class_id_derivation_class_id_poseidon2_1_settings>>());
+                LookupIntoDynamicTableSequential<lookup_class_id_derivation_class_id_poseidon2_1_settings>>(),
+            // Scalar mul
+            std::make_unique<LookupIntoDynamicTableGeneric<lookup_scalar_mul_double_settings>>(),
+            std::make_unique<LookupIntoDynamicTableGeneric<lookup_scalar_mul_add_settings>>());
+
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));
     }
