@@ -48,7 +48,7 @@ function check_toolchains {
     exit 1
   fi
   # Check rust version.
-  local rust_version="1.85.0"
+  local rust_version=$(yq '.toolchain.channel' ./noir/noir-repo/rust-toolchain.toml)
   if ! rustup show | grep $rust_version > /dev/null; then
     encourage_dev_container
     echo "Rust version $rust_version not installed."
