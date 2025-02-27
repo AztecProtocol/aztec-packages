@@ -14,13 +14,11 @@ set -e
 
 # Usage: ./scripts/deploy_bootnodes.sh <network-name> "region1,region2" "t2d-standard-2" "s3://static.aztec.network" <L1-chain-id> <gcp-project-id>
 
-# This is currently all done in GCP, some code exists to allow deploying to AWS but this is not yet used
+# This is currently all done in GCP, some terraform exists to allow deploying to AWS but this is not yet used
 
 NETWORK_NAME=${1:-}
 GCP_REGIONS=${2:-}
 GCP_MACHINE_TYPE=${3:-}
-# AWS_REGIONS=${4:-}
-# AWS_MACHINE_TYPE=${5:-}
 STATIC_S3_BUCKET=${4:-}
 L1_CHAIN_ID=${5:-}
 PROJECT_ID=${6:-}
@@ -33,7 +31,6 @@ P2P_TCP_PORTS="[\"$P2P_TCP_PORT\"]"
 
 echo "NETWORK_NAME: $NETWORK_NAME"
 echo "GCP_REGIONS: $GCP_REGIONS"
-#echo "AWS_REGIONS: $AWS_REGIONS"
 
 if [[ -z "$NETWORK_NAME" ]]; then
     echo "NETWORK_NAME is required"
@@ -80,18 +77,6 @@ terraform apply \
   -var "p2p_udp_ports=$P2P_UDP_PORTS" \
   -var "project_id=$PROJECT_ID"
 
-# cd ../aws
-
-# echo "Creating aws common at $PWD"
-
-# terraform init -backend-config="prefix=network/common/aws"
-
-# terraform apply \
-#   -var "sa_account_id=service-acc-nodes" \
-#   -var "p2p_tcp_ports=$P2P_TCP_PORTS" \
-#   -var "p2p_udp_ports=$P2P_UDP_PORTS" \
-#   -var "regions=$AWS_REGIONS" --destroy
-
 # Create the static IPs for the bootnodes
 
 cd $ROOT/bootnode/ip/gcp
@@ -110,16 +95,6 @@ terraform apply -var="regions=$JSON_ARRAY" -var="name=$NETWORK_NAME-bootnodes" -
   #   }
 
 GCP_IP_OUTPUT=$(terraform output -json ip_addresses)
-
-# cd ../aws
-
-# echo "Creating IPs at $PWD"
-
-# terraform init -backend-config="prefix=network/$NETWORK_NAME/bootnode/ip/aws"
-
-# terraform apply -var="regions=$AWS_REGIONS" -var="name=$NETWORK_NAME-bootnodes"
-
-# AWS_IP_OUTPUT=$(terraform output -json ip_addresses)
 
 
 cd $ROOT
