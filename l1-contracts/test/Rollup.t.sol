@@ -20,7 +20,8 @@ import {
   SubmitEpochRootProofArgs,
   EthValue,
   FeeAssetValue,
-  FeeAssetPerEthE9
+  FeeAssetPerEthE9,
+  PublicInputArgs
 } from "@aztec/core/interfaces/IRollup.sol";
 import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
@@ -581,15 +582,15 @@ contract RollupTest is RollupBase {
 
     BlockLog memory blockLog = rollup.getBlock(0);
 
-    bytes32[7] memory args = [
-      blockLog.archive,
-      data.archive,
-      blockLog.blockHash,
-      data.blockHash,
-      bytes32(0),
-      bytes32(0),
-      bytes32(0)
-    ];
+    PublicInputArgs memory args = PublicInputArgs({
+      previousArchive: blockLog.archive,
+      endArchive: data.archive,
+      previousBlockHash: blockLog.blockHash,
+      endBlockHash: data.blockHash,
+      endTimestamp: Timestamp.wrap(0),
+      outHash: bytes32(0),
+      proverId: address(0)
+    });
 
     bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
 
@@ -919,15 +920,15 @@ contract RollupTest is RollupBase {
     address _coinbase,
     uint256 _fee
   ) internal {
-    bytes32[7] memory args = [
-      _prevArchive,
-      _archive,
-      _prevBlockHash,
-      _blockHash,
-      bytes32(0), // WHAT ?
-      bytes32(0), // WHAT ?
-      bytes32(uint256(uint160(bytes20(_prover)))) // Need the address to be left padded within the bytes32
-    ];
+    PublicInputArgs memory args = PublicInputArgs({
+      previousArchive: _prevArchive,
+      endArchive: _archive,
+      previousBlockHash: _prevBlockHash,
+      endBlockHash: _blockHash,
+      endTimestamp: Timestamp.wrap(0),
+      outHash: bytes32(0),
+      proverId: _prover
+    });
 
     bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
     fees[0] = bytes32(uint256(uint160(bytes20(_coinbase)))); // Need the address to be left padded within the bytes32

@@ -1,6 +1,6 @@
 import { Blob, BlobDeserializationError } from '@aztec/blob-lib';
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
-import type { ViemPublicClient } from '@aztec/ethereum';
+import type { EpochProofPublicInputArgs, ViemPublicClient } from '@aztec/ethereum';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
@@ -406,7 +406,7 @@ export async function getProofFromSubmitProofTx(
       {
         start: bigint;
         end: bigint;
-        args: readonly [Hex, Hex, Hex, Hex, Hex, Hex, Hex];
+        args: EpochProofPublicInputArgs;
         fees: readonly Hex[];
         aggregationObject: Hex;
         proof: Hex;
@@ -414,8 +414,8 @@ export async function getProofFromSubmitProofTx(
     ];
 
     aggregationObject = Buffer.from(hexToBytes(decodedArgs.aggregationObject));
-    proverId = Fr.fromHexString(decodedArgs.args[6]);
-    archiveRoot = Fr.fromHexString(decodedArgs.args[1]);
+    proverId = Fr.fromHexString(decodedArgs.args.proverId);
+    archiveRoot = Fr.fromHexString(decodedArgs.args.endArchive);
     proof = Proof.fromBuffer(Buffer.from(hexToBytes(decodedArgs.proof)));
   } else {
     throw new Error(`Unexpected proof method called ${functionName}`);
