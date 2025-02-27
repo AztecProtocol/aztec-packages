@@ -108,12 +108,6 @@ template <typename Builder> class CycleGroupBase {
             Element(ScalarField s = ScalarField::one(), GroupElement g = GroupElement::one())
                 : scalar(s)
                 , value(g){};
-            // Element(GroupElement& el)
-            //{
-            //     this->value = std::move(el);
-            //     // this->scalar = this->value / GroupElement::one()
-            //     this->scalar = 0;
-            // }
             ScalarField scalar;
             GroupElement value;
         };
@@ -166,8 +160,12 @@ template <typename Builder> class CycleGroupBase {
 
         // Instruction arguments
         ArgumentContents arguments;
-
-        template <typename T> static inline uint256_t fast_uint256_log(T& rng)
+        
+        // Sample a uint256_t value from log distribution
+        // That is we first sample the bit count in [0..255]
+        // And then shrink the random [0..2^255] value
+        // This helps to get smaller values more frequently
+        template <typename T> static inline uint256_t fast_log_distributed_uint256(T& rng)
         {
             uint256_t temp;
             // Generate a random mask_size-bit value
@@ -202,7 +200,7 @@ template <typename Builder> class CycleGroupBase {
             case OPCODE::CONSTANT:
             case OPCODE::WITNESS:
             case OPCODE::CONSTANT_WITNESS: {
-                auto scalar = ScalarField(static_cast<uint64_t>(Instruction::fast_uint256_log(rng)));
+                auto scalar = ScalarField(static_cast<uint64_t>(Instruction::fast_log_distributed_uint256(rng)));
                 auto el = GroupElement::one() * scalar;
                 return { .id = instruction_opcode, .arguments.element = Element(scalar, el) };
             }
@@ -237,7 +235,7 @@ template <typename Builder> class CycleGroupBase {
                 in = static_cast<uint8_t>(rng.next() & 0xff);
                 out = static_cast<uint8_t>(rng.next() & 0xff);
                 return { .id = instruction_opcode,
-                         .arguments.mulArgs.scalar = ScalarField(Instruction::fast_uint256_log(rng)),
+                         .arguments.mulArgs.scalar = ScalarField(Instruction::fast_log_distributed_uint256(rng)),
                          .arguments.mulArgs.in = in,
                          .arguments.mulArgs.out = out };
             case OPCODE::RANDOMSEED:
@@ -251,7 +249,7 @@ template <typename Builder> class CycleGroupBase {
                     instr.arguments.batchMulArgs.inputs[i] = static_cast<uint8_t>(rng.next() & 0xff);
                 }
                 for (size_t i = 0; i < mult_size; i++) {
-                    instr.arguments.batchMulArgs.scalars[i] = ScalarField(Instruction::fast_uint256_log(rng));
+                    instr.arguments.batchMulArgs.scalars[i] = ScalarField(Instruction::fast_log_distributed_uint256(rng));
                 }
                 instr.arguments.batchMulArgs.output_index = static_cast<uint8_t>(rng.next() & 0xff);
                 return instr;
@@ -378,17 +376,114 @@ template <typename Builder> class CycleGroupBase {
                     e.scalar = e.scalar.to_montgomery_form();
                 }
                 e.value = GroupElement::one() * e.scalar;
-            } else {
-                // Modify the projective coordinates
-                uint256_t temp;
-                uint16_t* p = (uint16_t*)&temp;
-                for (size_t i = 0; i < 16; i++) {
-                    *(p + i) = static_cast<uint16_t>(rng.next() & 0xffff);
+            }            
+            // Return value
+            return e;
+        }
+        /**
+         * @brief Mutate the value of a scalar element
+         *
+         * @tparam T PRNG class
+         * @param e Initial scalar value
+         * @param rng PRNG
+         * @param havoc_config Mutation configuration
+         * @return Mutated element
+         */
+        template <typename T>
+        inline static ScalarField mutateScalarElement(ScalarField e, T& rng, HavocSettings& havoc_config)
+            requires SimpleRng<T>
+        {
+            // With a certain probability, we apply changes to the Montgomery form, rather than the plain form. This
+            // has merit, since the computation is performed in montgomery form and comparisons are often performed
+            // in it, too.
+            // Libfuzzer comparison tracing logic can then be enabled in Montgomery form
+            bool convert_to_montgomery = (rng.next() % (havoc_config.VAL_MUT_MONTGOMERY_PROBABILITY +
+                                                        havoc_config.VAL_MUT_NON_MONTGOMERY_PROBABILITY)) <
+                                         havoc_config.VAL_MUT_MONTGOMERY_PROBABILITY;
+            uint256_t value_data;
+            // Conversion at the start
+#define MONT_CONVERSION_SCALAR                                                                                                \
+    if (convert_to_montgomery) {                                                                                       \
+        value_data = uint256_t(e.to_montgomery_form());                                                         \
+    } else {                                                                                                           \
+        value_data = uint256_t(e);                                                                              \
+    }
+            // Inverse conversion at the end
+#define INV_MONT_CONVERSION_SCALAR                                                                                         \
+    if (convert_to_montgomery) {                                                                                       \
+        e = ScalarField(value_data).from_montgomery_form();                                                     \
+    } else {                                                                                                           \
+        e = ScalarField(value_data);                                                                            \
+    }
+
+            // Pick the last value from the mutation distrivution vector
+            const size_t mutation_type_count = havoc_config.value_mutation_distribution.size();
+            // Choose mutation
+            const size_t choice = rng.next() % havoc_config.value_mutation_distribution[mutation_type_count - 1];
+            if (choice < havoc_config.value_mutation_distribution[0]) {
+                // Delegate mutation to libfuzzer (bit/byte mutations, autodictionary, etc)
+                MONT_CONVERSION_SCALAR
+                LLVMFuzzerMutate((uint8_t*)&value_data, sizeof(uint256_t), sizeof(uint256_t));
+                INV_MONT_CONVERSION_SCALAR
+            } else if (choice < havoc_config.value_mutation_distribution[1]) {
+                // Small addition/subtraction
+                if (convert_to_montgomery) {
+                    e = e.to_montgomery_form();
                 }
-                BaseField scale(temp);
-                e.value = GroupElement(e.value.x * scale.sqr(), e.value.y * scale.sqr() * scale, e.value.z * scale);
+                auto extra = ScalarField(rng.next() & 0xff);
+
+                // With 50% probability we add/sub a small value
+                if (rng.next() & 1) {
+                    auto switch_sign = static_cast<bool>(rng.next() & 1);
+                    if (!switch_sign) {
+                        e += extra;
+                    } else {
+                        e -= extra;
+                    }
+                } else {
+                    // otherwise we multiply by a small value
+                    e *= extra;
+                }
+                if (convert_to_montgomery) {
+                    e = e.from_montgomery_form();
+                }
+            } else if (choice < havoc_config.value_mutation_distribution[2]) {
+                if (convert_to_montgomery) {
+                    e = e.to_montgomery_form();
+                }
+                // Substitute scalar element with a special value
+                // I think that zeros from mutateGroupElement are enough zeros produced
+                switch (rng.next() % 7) {
+                case 0:
+                    e = ScalarField::one();
+                    break;
+                case 1:
+                    e = -ScalarField::one();
+                    break;
+                case 2:
+                    e = ScalarField::one().sqrt().second;
+                    break;
+                case 3:
+                    e = ScalarField::one().sqrt().second.invert();
+                    break;
+                case 4:
+                    e = ScalarField::get_root_of_unity(13);
+                    break;
+                case 5:
+                    e = ScalarField(2);
+                    break;
+                case 6:
+                    e = ScalarField((ScalarField::modulus - 1) / 2);
+                    break;
+                default:
+                    abort();
+                    break;
+                }
+                if (convert_to_montgomery) {
+                    e = e.to_montgomery_form();
+                }
             }
-            // Return instruction
+            // Return value
             return e;
         }
         /**
@@ -433,7 +528,7 @@ template <typename Builder> class CycleGroupBase {
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.mulArgs.in);
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.mulArgs.out);
                 if (rng.next() & 1) {
-                    instruction.arguments.mulArgs.scalar = ScalarField(Instruction::fast_uint256_log(rng));
+                    instruction.arguments.mulArgs.scalar = mutateScalarElement(instruction.arguments.mulArgs.scalar, rng, havoc_config);
                 }
                 break;
             case OPCODE::ADD:
@@ -469,8 +564,7 @@ template <typename Builder> class CycleGroupBase {
                     for (size_t i = 0; i < mut_count; i++) {
                         size_t ind =
                             rng.next() % static_cast<size_t>(instruction.arguments.batchMulArgs.add_elements_count);
-                        instruction.arguments.batchMulArgs.scalars[ind] =
-                            ScalarField(Instruction::fast_uint256_log(rng));
+                        instruction.arguments.batchMulArgs.scalars[ind] = mutateScalarElement(instruction.arguments.batchMulArgs.scalars[ind], rng, havoc_config);
                     }
                 }
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.batchMulArgs.output_index);
@@ -513,7 +607,6 @@ template <typename Builder> class CycleGroupBase {
     class InstructionWeights {
       public:
         static constexpr size_t SET = 0;
-        static constexpr size_t SET_INF = 0;
         static constexpr size_t RANDOMSEED = 0;
 
         static constexpr size_t CONSTANT = 1;
@@ -527,6 +620,7 @@ template <typename Builder> class CycleGroupBase {
 
         static constexpr size_t MUL = 2;
         static constexpr size_t ASSERT_EQUAL = 2;
+        static constexpr size_t SET_INF = 2;
 
         static constexpr size_t BATCH_MUL = 4;
         static constexpr size_t _LIMIT = 64;
@@ -725,7 +819,7 @@ template <typename Builder> class CycleGroupBase {
             std::cout << "Edge case? " << can_fail << std::endl;
 #endif
 
-            uint8_t add_option = VarianceRNG.next() % 3;
+            uint8_t add_option = VarianceRNG.next() % 5;
 #ifdef SHOW_INFORMATION
             std::cout << " using " << size_t(add_option) << " add path" << std::endl;
 #endif
@@ -736,8 +830,20 @@ template <typename Builder> class CycleGroupBase {
                 return ExecutionHandler(base_scalar_res, base_res, this->cg().unconditional_add(other.cg()));
             case 1:
                 circuit_should_fail = circuit_should_fail | can_fail;
-                return ExecutionHandler(base_scalar_res, base_res, this->cg().checked_unconditional_add(other.cg()));
+                return ExecutionHandler(base_scalar_res, base_res, other.cg().unconditional_add(this->cg()));
             case 2:
+                if(!(this->cycle_group.is_constant() && other.cycle_group.is_constant())){
+                    circuit_should_fail = circuit_should_fail | can_fail;
+                    return ExecutionHandler(
+                        base_scalar_res, base_res, this->cg().checked_unconditional_add(other.cg()));
+                }
+            case 3:
+                if(!(this->cycle_group.is_constant() && other.cycle_group.is_constant())){
+                    circuit_should_fail = circuit_should_fail | can_fail;
+                    return ExecutionHandler(
+                        base_scalar_res, base_res, other.cg().checked_unconditional_add(this->cg()));
+                }
+            case 4:
                 return ExecutionHandler(base_scalar_res, base_res, this->cg() + other.cg());
             }
             return {};
@@ -799,9 +905,11 @@ template <typename Builder> class CycleGroupBase {
                 circuit_should_fail = circuit_should_fail | can_fail;
                 return ExecutionHandler(base_scalar_res, base_res, this->cg().unconditional_subtract(other.cg()));
             case 1:
-                circuit_should_fail = circuit_should_fail | can_fail;
-                return ExecutionHandler(
-                    base_scalar_res, base_res, this->cg().checked_unconditional_subtract(other.cg()));
+                if(!(this->cycle_group.is_constant() && other.cycle_group.is_constant())){
+                    circuit_should_fail = circuit_should_fail | can_fail;
+                    return ExecutionHandler(
+                        base_scalar_res, base_res, this->cg().checked_unconditional_subtract(other.cg()));
+                }
             case 2:
                 return ExecutionHandler(base_scalar_res, base_res, this->cg() - other.cg());
             }
@@ -1438,7 +1546,6 @@ extern "C" int LLVMFuzzerInitialize(int* argc, char*** argv)
                                            .VAL_MUT_NON_MONTGOMERY_PROBABILITY = 50,   // Fully checked
                                            .VAL_MUT_SMALL_ADDITION_PROBABILITY = 110,  // Fully checked
                                            .VAL_MUT_SPECIAL_VALUE_PROBABILITY = 130,   // Fully checked
-                                           .VAL_MUT_PROJECTIVE_COORDS_PROBABILITY = 20,
                                            .structural_mutation_distribution = {},
                                            .value_mutation_distribution = {} };
     /**
@@ -1530,8 +1637,6 @@ extern "C" int LLVMFuzzerInitialize(int* argc, char*** argv)
     temp += fuzzer_havoc_settings.VAL_MUT_SMALL_ADDITION_PROBABILITY;
     value_mutation_distribution.push_back(temp);
     temp += fuzzer_havoc_settings.VAL_MUT_SPECIAL_VALUE_PROBABILITY;
-    value_mutation_distribution.push_back(temp);
-    temp += fuzzer_havoc_settings.VAL_MUT_PROJECTIVE_COORDS_PROBABILITY;
     value_mutation_distribution.push_back(temp);
 
     fuzzer_havoc_settings.value_mutation_distribution = value_mutation_distribution;
