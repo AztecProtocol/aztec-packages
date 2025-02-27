@@ -24,7 +24,7 @@ set -x
 # Main positional parameter
 test=$1
 values_file="${2:-default.yaml}"
-helm_instance="${3:-spartan}"
+helm_instance="${3:-$(basename $test | tr '.' '-')}"
 
 # Default values for environment variables
 namespace="${NAMESPACE:-test-kind}"
