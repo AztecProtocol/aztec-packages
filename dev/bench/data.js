@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740652933181,
+  "lastUpdate": 1740653828819,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mike@aztecprotocol.com",
-            "name": "Michael Connor",
-            "username": "iAmMichaelConnor"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0e26c3fffc671a854a59efeec1237d8057292573",
-          "message": "chore: address extra decryption oracle pr comments (#12065)\n\nAES decryption oracle returns a BoundedVec instead of pkcs#7 padded_plaintext",
-          "timestamp": "2025-02-21T14:28:16Z",
-          "tree_id": "06bb99fd9fb64d730bc7e03c41d44ddb7b9a7385",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0e26c3fffc671a854a59efeec1237d8057292573"
-        },
-        "date": 1740149641123,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18255.25892199994,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16068.111152 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18838.98814700001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16327.962819 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3990.4092330000367,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3193.7612750000003 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55218.725875,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55218726000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10927.798916999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10927802000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1846984573,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1846984573 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 132579143,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 132579143 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3538,6 +3472,78 @@ window.BENCHMARK_DATA = {
             "value": 215281950,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 215281950 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2281.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sirasistant@gmail.com",
+            "name": "Álvaro Rodríguez",
+            "username": "sirasistant"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "350e31cd53414f36066f5beb59cb25468f558d33",
+          "message": "feat(avm): Scalar mul (#12255)\n\nImplement scalar mul gadget\n\n---------\n\nCo-authored-by: fcarreiro <facundo@aztecprotocol.com>",
+          "timestamp": "2025-02-27T11:14:13+01:00",
+          "tree_id": "8729721583669c556d45dc55511dac650db91e85",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/350e31cd53414f36066f5beb59cb25468f558d33"
+        },
+        "date": 1740653820925,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18301.66582999982,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16279.794327000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18784.85827500026,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16465.014841000004 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4048.8585950001834,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3227.9421199999997 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55294.992741,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55294993000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10851.714457,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10851715000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1885870961,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1885870961 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 213160237,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 213160237 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
