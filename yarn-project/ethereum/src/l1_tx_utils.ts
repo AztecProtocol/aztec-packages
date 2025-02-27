@@ -227,6 +227,12 @@ export class L1TxUtils {
     return this.walletClient.account.address;
   }
 
+  public getSenderBalance(): Promise<bigint> {
+    return this.publicClient.getBalance({
+      address: this.getSenderAddress(),
+    });
+  }
+
   public getBlock() {
     return this.publicClient.getBlock();
   }
