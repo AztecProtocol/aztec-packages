@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740612130214,
+  "lastUpdate": 1740615649793,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "P2P Testbench": [
@@ -2789,6 +2789,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "normal-degree-50-nodes - medianDelay",
             "value": 925,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5764343+charlielye@users.noreply.github.com",
+            "name": "Charlie Lye",
+            "username": "charlielye"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f9f598d0692dd22471b563dbc95d0a1f2c3eb8af",
+          "message": "chore: flakes. for lasse. (#12316)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\nline.",
+          "timestamp": "2025-02-26T23:54:46Z",
+          "tree_id": "38ad3c2ed1c6a3503196916cf9b3270c94a5a88e",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f9f598d0692dd22471b563dbc95d0a1f2c3eb8af"
+        },
+        "date": 1740615648968,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "degree-1-strict - numberReceived",
+            "value": 3,
+            "unit": "ms"
+          },
+          {
+            "name": "degree-1-strict - minDelay",
+            "value": 445,
+            "unit": "ms"
+          },
+          {
+            "name": "degree-1-strict - maxDelay",
+            "value": 1064,
+            "unit": "ms"
+          },
+          {
+            "name": "degree-1-strict - averageDelay",
+            "value": 687,
+            "unit": "ms"
+          },
+          {
+            "name": "degree-1-strict - medianDelay",
+            "value": 552,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-100-nodes - numberReceived",
+            "value": 6,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-100-nodes - minDelay",
+            "value": 259,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-100-nodes - maxDelay",
+            "value": 1381,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-100-nodes - averageDelay",
+            "value": 528.5,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-100-nodes - medianDelay",
+            "value": 303,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - numberReceived",
+            "value": 49,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - minDelay",
+            "value": 246,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - maxDelay",
+            "value": 7051,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - averageDelay",
+            "value": 1950.73,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - medianDelay",
+            "value": 1094,
             "unit": "ms"
           }
         ]
