@@ -73,7 +73,7 @@ fi
 
 # Create a start script to be run by systemd
 CONTAINER_NAME="aztec-bootnode"
-REPO=philwindle
+REPO=aztecprotocol
 IMAGE=aztec
 LOG_LEVEL=verbose
 

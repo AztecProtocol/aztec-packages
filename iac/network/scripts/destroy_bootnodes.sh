@@ -21,6 +21,7 @@ fi
 # Not used, but valid numbers are required
 P2P_PORT=40400
 L1_CHAIN_ID=1
+TAG=latest
 
 ROOT=$PWD
 
@@ -66,4 +67,5 @@ terraform apply \
   -var="project_id=$PROJECT_ID" \
   -var="p2p_udp_port=$P2P_PORT" \
   -var="l1_chain_id=$L1_CHAIN_ID" \
+  -var="image_tag=$TAG" \
   --destroy
