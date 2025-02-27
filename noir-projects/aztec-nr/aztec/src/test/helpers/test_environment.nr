@@ -16,7 +16,9 @@ use protocol_types::traits::Packable;
 
 // This is the first nullifier emitted from the TXe. It is an arbitrary number assigned in the TXe that is
 // larger than the first prefilled subtree of the nullifier tree. We know FIRST_NULLIFIER_EMITTED_IN_TXE exists
-// because the TXe creates deterministic first nullifiers if no side-effects are emitted.
+// because the TXe creates a deterministic first nullifier for each block if no side-effects are emitted in said block.
+// The TXe automatically builds an empty block upon initialization and therefore we know this nullifier is inserted.
+// TODO(#12226): REMOVE THIS
 pub global FIRST_NULLIFIER_EMITTED_IN_TXE: Field = 6969 + 1;
 
 pub struct TestEnvironment {}

@@ -3,6 +3,9 @@ use dep::protocol_types::{
     hash::compute_siloed_nullifier,
 };
 
+// This is tested in `noir-projects/noir-contracts/test_contract/src/test.nr because we cannot define a contract
+// from within aztec.nr (due to the contract macro).
+
 pub trait ProveContractDeployment {
     fn prove_contract_deployment(header: BlockHeader, contract_address: AztecAddress);
 }
