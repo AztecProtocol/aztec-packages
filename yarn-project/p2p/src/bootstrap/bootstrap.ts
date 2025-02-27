@@ -9,8 +9,8 @@ import type { PeerId } from '@libp2p/interface';
 import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
 
 import type { BootnodeConfig } from '../config.js';
-import { createBootnodeENR } from '../enr/generate-enr.js';
-import { convertToMultiaddr, createLibP2PPeerIdFromPrivateKey, getPeerIdPrivateKey } from '../util.js';
+import { createBootnodeENRandPeerId } from '../enr/generate-enr.js';
+import { convertToMultiaddr, getPeerIdPrivateKey } from '../util.js';
 
 /**
  * Encapsulates a 'Bootstrap' node, used for the purpose of assisting new joiners in acquiring peers.
@@ -39,10 +39,13 @@ export class BootstrapNode implements P2PBootstrapApi {
     }
 
     const peerIdPrivateKey = await getPeerIdPrivateKey(config, this.store);
-    const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey);
-    this.peerId = peerId;
 
-    const ourEnr = await createBootnodeENR(peerIdPrivateKey, udpAnnounceAddress, config.l1ChainId);
+    const { enr: ourEnr, peerId } = await createBootnodeENRandPeerId(
+      peerIdPrivateKey,
+      udpAnnounceAddress,
+      config.l1ChainId,
+    );
+    this.peerId = peerId;
 
     this.logger.debug(`Starting bootstrap node ${peerId} listening on ${listenAddrUdp.toString()}`);
 
