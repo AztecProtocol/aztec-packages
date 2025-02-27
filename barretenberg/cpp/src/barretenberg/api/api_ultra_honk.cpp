@@ -152,19 +152,22 @@ bool UltraHonkAPI::verify(const Flags& flags,
                           const std::filesystem::path& vk_path)
 {
     const bool ipa_accumulation = flags.ipa_accumulation;
+    bool verified = false;
     if (ipa_accumulation) {
-        return _verify<UltraRollupFlavor>(ipa_accumulation, proof_path, vk_path);
+        verified = _verify<UltraRollupFlavor>(ipa_accumulation, proof_path, vk_path);
     }
     if (flags.zk) {
-        return _verify<UltraKeccakZKFlavor>(ipa_accumulation, proof_path, vk_path);
+        verified = _verify<UltraKeccakZKFlavor>(ipa_accumulation, proof_path, vk_path);
     }
     if (flags.oracle_hash_type == "poseidon2") {
-        return _verify<UltraFlavor>(ipa_accumulation, proof_path, vk_path);
+        verified = _verify<UltraFlavor>(ipa_accumulation, proof_path, vk_path);
     }
     if (flags.oracle_hash_type == "keccak") {
-        return _verify<UltraKeccakFlavor>(ipa_accumulation, proof_path, vk_path);
+        verified = _verify<UltraKeccakFlavor>(ipa_accumulation, proof_path, vk_path);
     }
-    return false;
+
+    verified ? info("Proof verified successfully") : info("Proof verification failed");
+    return verified;
 }
 
 bool UltraHonkAPI::prove_and_verify([[maybe_unused]] const Flags& flags,
@@ -202,9 +205,9 @@ void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,
     gate_count(bytecode_path, flags.recursive, flags.honk_recursion);
 }
 
-void UltraHonkAPI::write_contract(const Flags& flags,
-                                  const std::filesystem::path& output_path,
-                                  const std::filesystem::path& vk_path)
+void UltraHonkAPI::write_solidity_verifier(const Flags& flags,
+                                           const std::filesystem::path& output_path,
+                                           const std::filesystem::path& vk_path)
 {
     using VK = UltraKeccakFlavor::VerificationKey;
     auto vk = std::make_shared<VK>(from_buffer<VK>(read_file(vk_path)));
