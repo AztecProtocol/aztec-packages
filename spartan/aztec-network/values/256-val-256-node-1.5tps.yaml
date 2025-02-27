@@ -51,7 +51,7 @@ fullNode:
   maxOldSpaceSize: "4608"
 
 proverAgent:
-  replicas: 8
+  replicas: 12
   resources:
     requests:
       memory: "5Gi"
