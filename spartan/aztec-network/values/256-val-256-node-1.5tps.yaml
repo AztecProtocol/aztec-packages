@@ -70,7 +70,7 @@ proverNode:
   resources:
     requests:
       memory: "8Gi"
-      cpu: "2"
+      cpu: "1.5"
       ephemeral-storage: "100Gi"
   maxOldSpaceSize: "4608"
 
