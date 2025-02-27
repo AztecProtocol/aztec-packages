@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740662771574,
+  "lastUpdate": 1740665213403,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "saleel@aztecprotocol.com",
-            "name": "saleel",
-            "username": "saleel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d0013f2c68228faeac35cb5968f71dabc3d936dc",
-          "message": "docs: update bb commands and fix links in readme (#12178)\n\n- Update new API names\n- Fix links to Noir docs",
-          "timestamp": "2025-02-21T12:22:04-05:00",
-          "tree_id": "73ee854e04beaf7479356d5f19e059db02bed769",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d0013f2c68228faeac35cb5968f71dabc3d936dc"
-        },
-        "date": 1740159403506,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18082.453192,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15929.382677 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18593.101707000074,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16167.689634999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3916.2995990000127,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3057.081881 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55015.49477,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55015493000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11350.669404,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11350681000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1828504828,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1828504828 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 133847420,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 133847420 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3568,6 +3502,78 @@ window.BENCHMARK_DATA = {
             "value": 220355679,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 220355679 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2281.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mvezenov@gmail.com",
+            "name": "Maxim Vezenov",
+            "username": "vezenovm"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ed3249904bf113ff2818499eff15069a5192c455",
+          "message": "fix(aztec-nr): Use mutable ref when mutating variable in closure (#12311)\n\nPost https://github.com/noir-lang/noir/pull/7488 aztec-nr is going to\nfail to compile as we now explicitly error when attempting to use a\ncapture mutably (lambda captures are meant to be entirely immutable).\nThe current code only worked because it was done at comptime.",
+          "timestamp": "2025-02-27T13:29:23Z",
+          "tree_id": "66e68fc5570f89932425f42620c86cc7b3b815ac",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ed3249904bf113ff2818499eff15069a5192c455"
+        },
+        "date": 1740665206187,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18330.625191999843,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16158.300750000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18840.65656300004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16430.807674 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3994.051480000053,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3193.1216780000004 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55007.640242999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55007640000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9571.853281000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9571861000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1902591005,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1902591005 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 215236958,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 215236958 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
