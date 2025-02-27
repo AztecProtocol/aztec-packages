@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740685624907,
+  "lastUpdate": 1740686567082,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "P2P Testbench": [
-      {
-        "commit": {
-          "author": {
-            "email": "sirasistant@gmail.com",
-            "name": "Álvaro Rodríguez",
-            "username": "sirasistant"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ec7d34987bca0c42c5e0ba5cced2f29d42cc65db",
-          "message": "chore!: Remove msm opcode (#12192)\n\nThe MSM opcode is now transpiled to a procedure that implements it via\necadd. We can safely remove it now.",
-          "timestamp": "2025-02-24T15:04:12+01:00",
-          "tree_id": "8b62fd6280f24370f78325850652091d5f84751b",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ec7d34987bca0c42c5e0ba5cced2f29d42cc65db"
-        },
-        "date": 1740407866202,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "degree-1-strict - numberReceived",
-            "value": 4,
-            "unit": "ms"
-          },
-          {
-            "name": "degree-1-strict - minDelay",
-            "value": 50,
-            "unit": "ms"
-          },
-          {
-            "name": "degree-1-strict - maxDelay",
-            "value": 1776,
-            "unit": "ms"
-          },
-          {
-            "name": "degree-1-strict - averageDelay",
-            "value": 820.25,
-            "unit": "ms"
-          },
-          {
-            "name": "degree-1-strict - medianDelay",
-            "value": 1077,
-            "unit": "ms"
-          },
-          {
-            "name": "normal-degree-100-nodes - numberReceived",
-            "value": 13,
-            "unit": "ms"
-          },
-          {
-            "name": "normal-degree-100-nodes - minDelay",
-            "value": 60,
-            "unit": "ms"
-          },
-          {
-            "name": "normal-degree-100-nodes - maxDelay",
-            "value": 4703,
-            "unit": "ms"
-          },
-          {
-            "name": "normal-degree-100-nodes - averageDelay",
-            "value": 427.69,
-            "unit": "ms"
-          },
-          {
-            "name": "normal-degree-100-nodes - medianDelay",
-            "value": 67,
-            "unit": "ms"
-          },
-          {
-            "name": "normal-degree-50-nodes - numberReceived",
-            "value": 34,
-            "unit": "ms"
-          },
-          {
-            "name": "normal-degree-50-nodes - minDelay",
-            "value": 50,
-            "unit": "ms"
-          },
-          {
-            "name": "normal-degree-50-nodes - maxDelay",
-            "value": 7203,
-            "unit": "ms"
-          },
-          {
-            "name": "normal-degree-50-nodes - averageDelay",
-            "value": 2592.24,
-            "unit": "ms"
-          },
-          {
-            "name": "normal-degree-50-nodes - medianDelay",
-            "value": 1390,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -4524,6 +4425,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "normal-degree-50-nodes - medianDelay",
             "value": 1121,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c98276379ad51267d446ef549bde34cfc032f648",
+          "message": "chore(avm): disconnect VM1 (#12346)\n\n![unnamed-1.png](https://graphite-user-uploaded-assets-prod.s3.amazonaws.com/mO08Q17TCoHzVKYudUJh/bb553009-1c23-4bc3-a5de-bcf2b886652a.png)\n\nWe are currently working on VM2 and having to maintain backwards compatibility with VM1 has reached a tipping point. This PR disconnects VM1 from the native BB binary and makes it always report success.\n\nAs a result\n* `bb-prover` tests don't mean a thing (except the v2 one)\n* the proving part of e2e_full_proving becomes meaningless\n* **We will not be proving in any dev/testnet until we connect vm2!**\n* This doesn't change recursive verification in the base rollup because we were already not doing that (too expensive until Goblinized).\n\nHowever, this should let us move faster and we should be able to connect vm2 \"soon\".\n\nHaving VM1 connected is currently blocking work on changing the hinting schema etc.",
+          "timestamp": "2025-02-27T19:15:24Z",
+          "tree_id": "1040fcd862e2de16a93c3cc699f07728342d13a4",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c98276379ad51267d446ef549bde34cfc032f648"
+        },
+        "date": 1740686565961,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "degree-1-strict - numberReceived",
+            "value": 4,
+            "unit": "ms"
+          },
+          {
+            "name": "degree-1-strict - minDelay",
+            "value": 145,
+            "unit": "ms"
+          },
+          {
+            "name": "degree-1-strict - maxDelay",
+            "value": 894,
+            "unit": "ms"
+          },
+          {
+            "name": "degree-1-strict - averageDelay",
+            "value": 380.5,
+            "unit": "ms"
+          },
+          {
+            "name": "degree-1-strict - medianDelay",
+            "value": 297,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-100-nodes - numberReceived",
+            "value": 10,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-100-nodes - minDelay",
+            "value": 217,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-100-nodes - maxDelay",
+            "value": 648,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-100-nodes - averageDelay",
+            "value": 367.5,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-100-nodes - medianDelay",
+            "value": 402,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - numberReceived",
+            "value": 47,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - minDelay",
+            "value": 265,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - maxDelay",
+            "value": 5626,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - averageDelay",
+            "value": 2275.43,
+            "unit": "ms"
+          },
+          {
+            "name": "normal-degree-50-nodes - medianDelay",
+            "value": 1987,
             "unit": "ms"
           }
         ]
