@@ -20,6 +20,12 @@ async function main() {
   });
 
   logger.info(`TXE listening on port ${port}`);
+
+  // Handle SIGTERM signal to exit with code 0
+  process.on('SIGTERM', () => {
+    logger.info('Received SIGTERM signal, shutting down gracefully');
+    process.exit(0);
+  });
 }
 
 main().catch(err => {
