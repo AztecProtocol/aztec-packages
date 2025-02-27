@@ -11,19 +11,6 @@ import type { ACIRCallback } from '../acvm/acvm.js';
 import type { ACVMWitness } from '../acvm/acvm_types.js';
 import { Oracle } from '../acvm/oracle/oracle.js';
 
-interface CircuitRecording {
-  contractName: string;
-  functionName: string;
-  bytecodeHash: string;
-  timestamp: number;
-  inputs: Record<string, unknown>;
-  oracleCalls: {
-    name: string;
-    inputs: unknown[];
-    outputs: unknown;
-  }[];
-}
-
 export class CircuitRecorder {
   private readonly logger = createLogger('simulator:acvm:recording');
   private isFirstCall = true;
@@ -36,28 +23,37 @@ export class CircuitRecorder {
     artifact: FunctionArtifactWithContractName,
     recordDir: string,
   ): Promise<CircuitRecorder> {
-    await fs.mkdir(recordDir, { recursive: true });
-
-    const date = new Date();
-    const formattedDate = date.toISOString().split('T')[0];
-    const formattedTime = date.toTimeString().split(' ')[0].replace(/:/g, '-');
-    const filename = `${formattedDate}_${formattedTime}_${artifact.contractName}_${artifact.name}.json`;
-    const filePath = path.join(recordDir, filename);
-
-    const recorder = new CircuitRecorder(callback, filePath);
-
-    const bytecodeHash = createHash('md5').update(artifact.bytecode).digest('hex');
-    const recording: CircuitRecording = {
+    const recording = {
       contractName: artifact.contractName,
       functionName: artifact.name,
-      bytecodeHash,
-      timestamp: date.getTime(),
+      bytecodeMd5Hash: createHash('md5').update(artifact.bytecode).digest('hex'),
+      timestamp: Date.now(),
       inputs: Object.fromEntries(input),
-      oracleCalls: [],
     };
 
-    await fs.writeFile(recorder.filePath, JSON.stringify(recording, null, 2).slice(0, -2) + ',\n  "oracleCalls": [\n');
-    return recorder;
+    const recordingStringWithoutClosingBracket = JSON.stringify(recording, null, 2).slice(0, -2);
+
+    await fs.mkdir(recordDir, { recursive: true });
+
+    let counter = 0;
+    let filePath: string;
+    while (true) {
+      try {
+        filePath = getFilePath(artifact, recordDir, counter);
+        await fs.writeFile(filePath, recordingStringWithoutClosingBracket + ',\n  "oracleCalls": [\n', {
+          flag: 'wx', // wx flag fails if file exists
+        });
+        break;
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code === 'EEXIST') {
+          counter++;
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    return new CircuitRecorder(callback, filePath!);
   }
 
   getCallback(): ACIRCallback {
@@ -108,4 +104,11 @@ export class CircuitRecorder {
       this.logger.error('Failed to finalize recording file', { error: err });
     }
   }
+}
+
+function getFilePath(artifact: FunctionArtifactWithContractName, recordDir: string, counter: number): string {
+  const date = new Date();
+  const formattedDate = date.toISOString().split('T')[0];
+  const filename = `${artifact.contractName}_${artifact.name}_${formattedDate}_${counter}.json`;
+  return path.join(recordDir, filename);
 }
