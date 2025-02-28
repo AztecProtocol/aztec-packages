@@ -1,20 +1,16 @@
 import { type ContractArtifact, FunctionSelector } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import {
   type ContractClassPublic,
   type ContractDataSource,
   type ContractInstanceWithAddress,
   type PublicFunction,
-  computeInitializationHash,
   computePublicBytecodeCommitment,
 } from '@aztec/circuits.js/contract';
-import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
-import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { type Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 
-import { PUBLIC_DISPATCH_FN_NAME, getContractFunctionArtifact } from './index.js';
+import { PUBLIC_DISPATCH_FN_NAME } from './index.js';
 
 /**
  * This class is used during public/avm testing to function as a database of
@@ -39,64 +35,26 @@ export class SimpleContractDataSource implements ContractDataSource {
    * Derive the contract class and instance with some seed.
    * Add both to the contract data source along with the contract artifact.
    */
-  async registerAndDeployContract(
-    constructorArgs: any[],
-    deployer: AztecAddress,
+  async addNewContract(
     contractArtifact: ContractArtifact,
-    seed = 0,
-    originalContractClassId?: Fr, // if previously upgraded
-  ): Promise<ContractInstanceWithAddress> {
-    const bytecode = getContractFunctionArtifact(PUBLIC_DISPATCH_FN_NAME, contractArtifact)!.bytecode;
-    const contractClass = await makeContractClassPublic(
-      seed,
-      /*publicDispatchFunction=*/ { bytecode, selector: new FunctionSelector(PUBLIC_DISPATCH_SELECTOR) },
-    );
-
-    const constructorAbi = getContractFunctionArtifact('constructor', contractArtifact);
-    const initializationHash = await computeInitializationHash(constructorAbi, constructorArgs);
-    this.logger.trace(`Initialization hash for contract class ${contractClass.id}: ${initializationHash.toString()}`);
-    const contractInstance =
-      originalContractClassId === undefined
-        ? await makeContractInstanceFromClassId(contractClass.id, seed, {
-            deployer,
-            initializationHash,
-          })
-        : await makeContractInstanceFromClassId(originalContractClassId, seed, {
-            deployer,
-            initializationHash,
-            currentClassId: contractClass.id,
-          });
-
+    contractClass: ContractClassPublic,
+    contractInstance: ContractInstanceWithAddress,
+  ) {
     this.addContractArtifact(contractClass.id, contractArtifact);
     await this.addContractClass(contractClass);
     await this.addContractInstance(contractInstance);
-    return contractInstance;
-  }
-
-  async registerFeeJuiceContract(): Promise<ContractInstanceWithAddress> {
-    const feeJuice = await getCanonicalFeeJuice();
-    const feeJuiceContractClassPublic = {
-      ...feeJuice.contractClass,
-      privateFunctions: [],
-      unconstrainedFunctions: [],
-    };
-
-    this.addContractArtifact(feeJuiceContractClassPublic.id, feeJuice.artifact);
-    await this.addContractClass(feeJuiceContractClassPublic);
-    await this.addContractInstance(feeJuice.instance);
-    return feeJuice.instance;
-  }
-
-  getFirstContractInstance(): ContractInstanceWithAddress {
-    return this.contractInstances.values().next().value;
   }
 
   addContractArtifact(classId: Fr, artifact: ContractArtifact): void {
     this.contractArtifacts.set(classId.toString(), artifact);
   }
 
+  getContractArtifactByClassId(classId: Fr): ContractArtifact | undefined {
+    return this.contractArtifacts.get(classId.toString());
+  }
+
   /////////////////////////////////////////////////////////////
-  // ContractDataSource function impelementations
+  // ContractDataSource function implementations
   getPublicFunction(_address: AztecAddress, _selector: FunctionSelector): Promise<PublicFunction> {
     throw new Error('Method not implemented.');
   }

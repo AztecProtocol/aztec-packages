@@ -10,7 +10,9 @@ import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 import { NativeWorldStateService } from '@aztec/world-state';
 
+import { createContractClassAndInstance } from '../../avm/fixtures/index.js';
 import { PublicTxSimulationTester, SimpleContractDataSource } from '../../server.js';
+import { addNewContractClassToTx, addNewContractInstanceToTx } from '../fixtures/utils.js';
 import { WorldStateDB } from '../public_db_sources.js';
 import { PublicProcessor } from '../public_processor.js';
 import { PublicTxSimulator } from '../public_tx_simulator.js';
@@ -23,6 +25,7 @@ describe('Public Processor app tests: TokenContract', () => {
   const sender = AztecAddress.fromNumber(111);
 
   let token: ContractInstanceWithAddress;
+  let worldStateDB: WorldStateDB;
   let tester: PublicTxSimulationTester;
   let processor: PublicProcessor;
 
@@ -33,7 +36,7 @@ describe('Public Processor app tests: TokenContract', () => {
 
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-    const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
+    worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
     const simulator = new PublicTxSimulator(merkleTrees, worldStateDB, globals, /*doMerkleOperations=*/ true);
 
     processor = new PublicProcessor(
@@ -118,7 +121,12 @@ describe('Public Processor app tests: TokenContract', () => {
     const mintAmount = 1_000_000n;
     const constructorArgs = [admin, /*name=*/ 'Token', /*symbol=*/ 'TOK', /*decimals=*/ new Fr(18)];
 
-    token = await tester.registerAndDeployContract(constructorArgs, /*deployer=*/ admin, TokenContractArtifact);
+    const { contractClass, contractInstance } = await createContractClassAndInstance(
+      constructorArgs,
+      admin,
+      TokenContractArtifact,
+    );
+    const token = contractInstance;
 
     // another token instance, same contract class
     const otherAdmin = AztecAddress.fromNumber(43);
@@ -137,9 +145,16 @@ describe('Public Processor app tests: TokenContract', () => {
           address: token.address,
           fnName: 'constructor',
           args: constructorArgs,
+          contractArtifact: TokenContractArtifact,
         },
       ],
     );
+    addNewContractClassToTx(passingConstructorTx, contractClass);
+    await addNewContractInstanceToTx(passingConstructorTx, contractInstance);
+
+    // NOTE: we need to include the contract artifact for each enqueued call, otherwise the tester
+    // will not know how to construct the TX since we are intentionally not adding the contract to
+    // the contract data source.
 
     // Second transaction - deploys second token but fails during transfer
     const receiver = AztecAddress.fromNumber(222);
@@ -153,15 +168,19 @@ describe('Public Processor app tests: TokenContract', () => {
           address: anotherToken.address,
           fnName: 'constructor',
           args: constructorArgs,
+          contractArtifact: TokenContractArtifact,
         },
         // The next enqueued call will fail because sender has no tokens to transfer
         {
           address: anotherToken.address,
           fnName: 'transfer_in_public',
           args: [/*from=*/ sender, /*to=*/ receiver, transferAmount, nonce],
+          contractArtifact: TokenContractArtifact,
         },
       ],
     );
+    addNewContractClassToTx(failingConstructorTx, contractClass, /*skipNullifierInsertion=*/ true);
+    await addNewContractInstanceToTx(failingConstructorTx, contractInstance, /*skipNullifierInsertion=*/ true);
 
     // Third transaction - verifies first token is still accessible by minting
     const mintTx = await tester.createTx(
@@ -172,11 +191,13 @@ describe('Public Processor app tests: TokenContract', () => {
           address: token.address,
           fnName: 'mint_to_public',
           args: [/*to=*/ sender, mintAmount],
+          contractArtifact: TokenContractArtifact,
         },
       ],
     );
 
     const results = await processor.process([passingConstructorTx, failingConstructorTx, mintTx]);
+    //const results = await processor.process([passingConstructorTx]);
     const processedTxs = results[0];
     const failedTxs = results[1];
     expect(processedTxs.length).toBe(3);

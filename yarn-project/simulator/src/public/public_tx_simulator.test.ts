@@ -166,7 +166,7 @@ describe('public_tx_simulator', () => {
       publicContractClass.privateFunctionsRoot,
       ...bufferAsFields(
         publicContractClass.packedBytecode,
-        Math.ceil(publicContractClass.packedBytecode.length / 32) + 1,
+        Math.ceil(publicContractClass.packedBytecode.length / 31) + 1,
       ),
     ];
     const contractClassLogBuffer = Buffer.concat([

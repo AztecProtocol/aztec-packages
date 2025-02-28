@@ -257,7 +257,7 @@ export class PublicProcessor implements Traceable {
             await checkpoint.revert();
             continue;
           } else {
-            this.log.trace(`Tx ${(await tx.getTxHash()).toString()} is valid post processing.`);
+            this.log.trace(`Tx ${txHash.toString()} is valid post processing.`);
           }
         }
 
@@ -282,7 +282,7 @@ export class PublicProcessor implements Traceable {
           break;
         }
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-        this.log.warn(`Failed to process tx ${tx.getTxHash()}: ${errorMessage} ${err?.stack}`);
+        this.log.warn(`Failed to process tx ${txHash.toString()}: ${errorMessage} ${err?.stack}`);
 
         failed.push({ tx, error: err instanceof Error ? err : new Error(errorMessage) });
         returns.push(new NestedProcessReturnValues([]));
@@ -296,7 +296,7 @@ export class PublicProcessor implements Traceable {
     const rate = duration > 0 ? totalPublicGas.l2Gas / duration : 0;
     this.metrics.recordAllTxs(totalPublicGas, rate);
 
-    this.log.info(`Processed ${result.length} successful txs and ${failed.length} txs in ${duration}s`, {
+    this.log.info(`Processed ${result.length} successful txs and ${failed.length} failed txs in ${duration}s`, {
       duration,
       rate,
       totalPublicGas,

@@ -97,6 +97,7 @@ export class PublicTxSimulator {
     await this.worldStateDB.addNewContracts(tx);
 
     const nonRevertStart = process.hrtime.bigint();
+    // TODO: this shouldn't kill the TX if it fails i think
     await this.insertNonRevertiblesFromPrivate(context);
     const nonRevertEnd = process.hrtime.bigint();
     this.metrics.recordPrivateEffectsInsertion(Number(nonRevertEnd - nonRevertStart) / 1_000, 'non-revertible');
@@ -128,9 +129,7 @@ export class PublicTxSimulator {
     const avmProvingRequest = await context.generateProvingRequest(endStateReference);
 
     const revertCode = context.getFinalRevertCode();
-    this.log.error(`Did Public TX simulator revert? code: ${revertCode.toString()}`);
     if (!revertCode.isOK()) {
-      this.log.error(`Public TX simulator reverted with code ${revertCode.toString()}`);
       // TODO(#6464): Should we allow emitting contracts in the private setup phase?
       // if so, this is removing contracts deployed in private setup
       // You can't submit contracts in public, so this is only relevant for private-created side effects
