@@ -30,7 +30,7 @@ namespace="${3:-$(basename $test | tr '.' '-')}"
 helm_instance=${HELM_INSTANCE:-$namespace}
 chaos_values="${CHAOS_VALUES:-}"
 fresh_install="${FRESH_INSTALL:-false}"
-aztec_docker_tag=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}
+aztec_docker_tag=${AZTEC_DOCKER_TAG:-"$(git rev-parse HEAD)-amd64"}
 cleanup_cluster=${CLEANUP_CLUSTER:-false}
 install_metrics=${INSTALL_METRICS:-true}
 # NOTE: slated for removal along with e2e image!

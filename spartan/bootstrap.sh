@@ -131,6 +131,12 @@ case "$cmd" in
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
       ./scripts/test_kind.sh src/spartan/upgrade_rollup_version.test.ts ci.yaml upgrade-rollup-version${NAME_POSTFIX:-}
     ;;
+  "test-kind-reorg")
+    NAMESPACE=reorg FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false ./scripts/test_kind.sh src/spartan/reorg.test.ts ci.yaml
+    ;;
+  "test-proving")
+    NAMESPACE=proving FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false ./scripts/test_kind.sh src/spartan/proving.test.ts 1-validator-with-proving.yaml
+    ;;
   "test-local")
     # Isolate network stack in docker.
     docker_isolate ../scripts/run_native_testnet.sh -i -val 3
