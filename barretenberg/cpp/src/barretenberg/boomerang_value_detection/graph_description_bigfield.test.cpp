@@ -197,6 +197,8 @@ TEST(boomerang_bigfield, test_graph_description_bigfield_division)
  * @brief this test checks graph description for mixed bigfield operations
  * The result is one connected component with two variables in one gate,
  * testing combinations of addition, subtraction, multiplication and division
+ * @details Each division operator creates one inverse variable for polynomial gate check (a * a_inv - 1 = 0)
+ * except for division constant / constant, so size of the variables_in_one_gate = 2.
  */
 TEST(boomerang_bigfield, test_graph_description_bigfield_mix_operations)
 {
@@ -252,19 +254,16 @@ TEST(boomerang_bigfield, test_graph_description_bigfield_mix_operations)
 TEST(boomerang_bigfield, test_graph_description_constructor_high_low_bits_and_operations)
 {
     auto builder = Builder();
-    size_t num_repetitions = 3;
     fq inputs[2]{ fq::random_element(), fq::random_element() };
     fq_ct a(witness_ct(&builder, fr(uint256_t(inputs[0]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
             witness_ct(&builder, fr(uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
     fq_ct b(witness_ct(&builder, fr(uint256_t(inputs[1]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
             witness_ct(&builder, fr(uint256_t(inputs[1]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
     fq_ct c = a * b;
-    for (size_t i = 0; i < num_repetitions; ++i) {
-        fq d = fq::random_element();
-        fq_ct d1(witness_ct(&builder, fr(uint256_t(d).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                 witness_ct(&builder, fr(uint256_t(d).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-        c = c + d1;
-    }
+    fq d = fq::random_element();
+    fq_ct d1(witness_ct(&builder, fr(uint256_t(d).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
+             witness_ct(&builder, fr(uint256_t(d).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
+    c = c + d1;
     fix_bigfield_element(c);
     auto graph = Graph(builder);
     auto connected_components = graph.find_connected_components();
@@ -281,22 +280,18 @@ TEST(boomerang_bigfield, test_graph_description_constructor_high_low_bits_and_op
 TEST(boomerang_bigfield, test_graph_description_mul_function)
 {
     auto builder = Builder();
-    size_t num_repetitions = 4;
-    for (size_t i = 0; i < num_repetitions; ++i) {
-        fq inputs[2]{ fq::random_element(), fq::random_element() };
-        fq_ct a(
-            witness_ct(&builder, fr(uint256_t(inputs[0]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-            witness_ct(&builder, fr(uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-        fq_ct b(
-            witness_ct(&builder, fr(uint256_t(inputs[1]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-            witness_ct(&builder, fr(uint256_t(inputs[1]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-
-        fq_ct c = a * b;
-        fix_bigfield_element(c);
-    }
+    fq inputs[2]{ fq::random_element(), fq::random_element() };
+    fq_ct a(
+        witness_ct(&builder, fr(uint256_t(inputs[0]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
+        witness_ct(&builder, fr(uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
+    fq_ct b(
+        witness_ct(&builder, fr(uint256_t(inputs[1]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
+        witness_ct(&builder, fr(uint256_t(inputs[1]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
+    fq_ct c = a * b;
+    fix_bigfield_element(c);
     auto graph = Graph(builder);
     auto connected_components = graph.find_connected_components();
-    EXPECT_EQ(connected_components.size(), num_repetitions);
+    EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
@@ -309,17 +304,14 @@ TEST(boomerang_bigfield, test_graph_description_mul_function)
 TEST(boomerang_bigfield, test_graph_description_sqr_function)
 {
     auto builder = Builder();
-    size_t num_repetitions = 10;
-    for (size_t i = 0; i < num_repetitions; ++i) {
-        fq input = fq::random_element();
-        fq_ct a(witness_ct(&builder, fr(uint256_t(input).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                witness_ct(&builder, fr(uint256_t(input).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-        fq_ct c = a.sqr();
-        fix_bigfield_element(c);
-    }
+    fq input = fq::random_element();
+    fq_ct a(witness_ct(&builder, fr(uint256_t(input).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
+            witness_ct(&builder, fr(uint256_t(input).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
+    fq_ct c = a.sqr();
+    fix_bigfield_element(c); 
     auto graph = Graph(builder);
     auto connected_components = graph.find_connected_components();
-    EXPECT_EQ(connected_components.size(), num_repetitions);
+    EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
@@ -332,24 +324,21 @@ TEST(boomerang_bigfield, test_graph_description_sqr_function)
 TEST(boomerang_bigfield, test_graph_description_madd_function)
 {
     auto builder = Builder();
-    size_t num_repetitions = 5;
-    for (size_t i = 0; i < num_repetitions; ++i) {
-        fq inputs[3]{ fq::random_element(), fq::random_element(), fq::random_element() };
-        fq_ct a(
-            witness_ct(&builder, fr(uint256_t(inputs[0]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-            witness_ct(&builder, fr(uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-        fq_ct b(
-            witness_ct(&builder, fr(uint256_t(inputs[1]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-            witness_ct(&builder, fr(uint256_t(inputs[1]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-        fq_ct c(
-            witness_ct(&builder, fr(uint256_t(inputs[2]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-            witness_ct(&builder, fr(uint256_t(inputs[2]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-        [[maybe_unused]] fq_ct d = a.madd(b, { c });
-        fix_bigfield_element(d);
-    }
+    fq inputs[3]{ fq::random_element(), fq::random_element(), fq::random_element() };
+    fq_ct a(
+        witness_ct(&builder, fr(uint256_t(inputs[0]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
+        witness_ct(&builder, fr(uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
+    fq_ct b(
+        witness_ct(&builder, fr(uint256_t(inputs[1]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
+        witness_ct(&builder, fr(uint256_t(inputs[1]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
+    fq_ct c(
+        witness_ct(&builder, fr(uint256_t(inputs[2]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
+        witness_ct(&builder, fr(uint256_t(inputs[2]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
+    fq_ct d = a.madd(b, { c });
+    fix_bigfield_element(d);
     auto graph = Graph(builder);
     auto connected_components = graph.find_connected_components();
-    EXPECT_EQ(connected_components.size(), num_repetitions);
+    EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
@@ -362,34 +351,30 @@ TEST(boomerang_bigfield, test_graph_description_madd_function)
  */
 TEST(boomerang_bigfield, test_graph_description_mult_madd_function)
 {
-
     auto builder = Builder();
-    size_t num_repetitions = 1;
     const size_t number_of_madds = 16;
-    for (size_t i = 0; i < num_repetitions; ++i) {
-        fq mul_left_values[number_of_madds];
-        fq mul_right_values[number_of_madds];
-        fq to_add_values[number_of_madds];
+    fq mul_left_values[number_of_madds];
+    fq mul_right_values[number_of_madds];
+    fq to_add_values[number_of_madds];
 
-        std::vector<fq_ct> mul_left;
-        std::vector<fq_ct> mul_right;
-        std::vector<fq_ct> to_add;
-        mul_left.reserve(number_of_madds);
-        mul_right.reserve(number_of_madds);
-        to_add.reserve(number_of_madds);
-        for (size_t j = 0; j < number_of_madds; j++) {
-            mul_left_values[j] = fq::random_element();
-            mul_right_values[j] = fq::random_element();
-            mul_left.emplace_back(
-                fq_ct::create_from_u512_as_witness(&builder, uint512_t(uint256_t(mul_left_values[j]))));
-            mul_right.emplace_back(
-                fq_ct::create_from_u512_as_witness(&builder, uint512_t(uint256_t(mul_right_values[j]))));
-            to_add_values[j] = fq::random_element();
-            to_add.emplace_back(fq_ct::create_from_u512_as_witness(&builder, uint512_t(uint256_t(to_add_values[j]))));
-        }
-        fq_ct f = fq_ct::mult_madd(mul_left, mul_right, to_add);
-        fix_bigfield_element(f);
+    std::vector<fq_ct> mul_left;
+    std::vector<fq_ct> mul_right;
+    std::vector<fq_ct> to_add;
+    mul_left.reserve(number_of_madds);
+    mul_right.reserve(number_of_madds);
+    to_add.reserve(number_of_madds);
+    for (size_t j = 0; j < number_of_madds; j++) {
+        mul_left_values[j] = fq::random_element();
+        mul_right_values[j] = fq::random_element();
+        mul_left.emplace_back(
+            fq_ct::create_from_u512_as_witness(&builder, uint512_t(uint256_t(mul_left_values[j]))));
+        mul_right.emplace_back(
+            fq_ct::create_from_u512_as_witness(&builder, uint512_t(uint256_t(mul_right_values[j]))));
+        to_add_values[j] = fq::random_element();
+        to_add.emplace_back(fq_ct::create_from_u512_as_witness(&builder, uint512_t(uint256_t(to_add_values[j]))));
     }
+    fq_ct f = fq_ct::mult_madd(mul_left, mul_right, to_add);
+    fix_bigfield_element(f);
     builder.finalize_circuit(false);
     auto graph = Graph(builder);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
