@@ -156,22 +156,19 @@ bool UltraHonkAPI::verify(const Flags& flags,
                           const std::filesystem::path& vk_path)
 {
     const bool ipa_accumulation = flags.ipa_accumulation;
-    bool verified = false;
     if (ipa_accumulation) {
-        verified = _verify<UltraRollupFlavor>(ipa_accumulation, proof_path, vk_path);
+        return _verify<UltraRollupFlavor>(ipa_accumulation, proof_path, vk_path);
     }
     if (flags.zk) {
-        verified = _verify<UltraKeccakZKFlavor>(ipa_accumulation, proof_path, vk_path);
+        return _verify<UltraKeccakZKFlavor>(ipa_accumulation, proof_path, vk_path);
     }
     if (flags.oracle_hash_type == "poseidon2") {
-        verified = _verify<UltraFlavor>(ipa_accumulation, proof_path, vk_path);
+        return _verify<UltraFlavor>(ipa_accumulation, proof_path, vk_path);
     }
     if (flags.oracle_hash_type == "keccak") {
-        verified = _verify<UltraKeccakFlavor>(ipa_accumulation, proof_path, vk_path);
+        return _verify<UltraKeccakFlavor>(ipa_accumulation, proof_path, vk_path);
     }
-
-    verified ? info("Proof verified successfully") : info("Proof verification failed");
-    return verified;
+    return false;
 }
 
 bool UltraHonkAPI::prove_and_verify([[maybe_unused]] const Flags& flags,
