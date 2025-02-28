@@ -143,10 +143,11 @@ export class NativeACVMSimulator implements SimulationProvider {
     artifact: NoirCompiledCircuitWithName,
     callback: ForeignCallHandler | undefined,
   ): Promise<ACVMWitness> {
-    if (callback) {
-      throw new Error('Native ACVM simulator does not support foreign calls');
-    }
     // Execute the circuit on those initial witness values
+
+    if (callback) {
+      logger.warn('Native ACVM simulator does not support foreign calls. Ignoring callback.');
+    }
 
     const operation = async (directory: string) => {
       // Decode the bytecode from base64 since the acvm does not know about base64 encoding
