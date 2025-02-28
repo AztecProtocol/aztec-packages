@@ -20,7 +20,8 @@ import {
   SubmitEpochRootProofArgs,
   EthValue,
   FeeAssetValue,
-  FeeAssetPerEthE9
+  FeeAssetPerEthE9,
+  PublicInputArgs
 } from "@aztec/core/interfaces/IRollup.sol";
 import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
@@ -107,8 +108,8 @@ contract RollupTest is RollupBase {
         )
       )
     );
-    inbox = Inbox(address(rollup.INBOX()));
-    outbox = Outbox(address(rollup.OUTBOX()));
+    inbox = Inbox(address(rollup.getInbox()));
+    outbox = Outbox(address(rollup.getOutbox()));
 
     registry.upgrade(address(rollup));
 
@@ -222,7 +223,7 @@ contract RollupTest is RollupBase {
       txHashes: new bytes32[](0)
     });
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobHash.selector, blobHashes[0]));
-    rollup.propose(args, signatures, data.body, data.blobInputs);
+    rollup.propose(args, signatures, data.blobInputs);
   }
 
   function testInvalidBlobProof() public setUpFor("mixed_block_1") {
@@ -250,7 +251,7 @@ contract RollupTest is RollupBase {
       txHashes: new bytes32[](0)
     });
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobProof.selector, blobHashes[0]));
-    rollup.propose(args, signatures, data.body, blobInput);
+    rollup.propose(args, signatures, blobInput);
   }
 
   function testRevertPrune() public setUpFor("mixed_block_1") {
@@ -316,7 +317,7 @@ contract RollupTest is RollupBase {
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
-    rollup.propose(args, signatures, data.body, data.blobInputs);
+    rollup.propose(args, signatures, data.blobInputs);
   }
 
   function testNonZeroL2Fee() public setUpFor("mixed_block_1") {
@@ -335,7 +336,8 @@ contract RollupTest is RollupBase {
 
     skipBlobCheck(address(rollup));
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NonZeroL2Fee.selector));
+    // When not canonical, we expect the fee to be 0
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidManaBaseFee.selector, 0, 1));
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: data.archive,
@@ -343,7 +345,7 @@ contract RollupTest is RollupBase {
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
-    rollup.propose(args, signatures, data.body, data.blobInputs);
+    rollup.propose(args, signatures, data.blobInputs);
   }
 
   function testProvingFeeUpdates() public setUpFor("mixed_block_1") {
@@ -418,7 +420,7 @@ contract RollupTest is RollupBase {
         oracleInput: OracleInput(0),
         txHashes: new bytes32[](0)
       });
-      rollup.propose(args, signatures, data.body, data.blobInputs);
+      rollup.propose(args, signatures, data.blobInputs);
       assertEq(
         testERC20.balanceOf(data.decodedHeader.globalVariables.coinbase),
         0,
@@ -580,15 +582,15 @@ contract RollupTest is RollupBase {
 
     BlockLog memory blockLog = rollup.getBlock(0);
 
-    bytes32[7] memory args = [
-      blockLog.archive,
-      data.archive,
-      blockLog.blockHash,
-      data.blockHash,
-      bytes32(0),
-      bytes32(0),
-      bytes32(0)
-    ];
+    PublicInputArgs memory args = PublicInputArgs({
+      previousArchive: blockLog.archive,
+      endArchive: data.archive,
+      previousBlockHash: blockLog.blockHash,
+      endBlockHash: data.blockHash,
+      endTimestamp: Timestamp.wrap(0),
+      outHash: bytes32(0),
+      proverId: address(0)
+    });
 
     bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
 
@@ -694,7 +696,6 @@ contract RollupTest is RollupBase {
     DecoderBase.Data memory data = load("empty_block_1").block;
     bytes memory header = data.header;
     bytes32 archive = data.archive;
-    bytes memory body = data.body;
     bytes32[] memory txHashes = new bytes32[](0);
 
     assembly {
@@ -710,14 +711,13 @@ contract RollupTest is RollupBase {
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
-    rollup.propose(args, signatures, body, data.blobInputs);
+    rollup.propose(args, signatures, data.blobInputs);
   }
 
   function testRevertInvalidChainId() public setUpFor("empty_block_1") {
     DecoderBase.Data memory data = load("empty_block_1").block;
     bytes memory header = data.header;
     bytes32 archive = data.archive;
-    bytes memory body = data.body;
     bytes32[] memory txHashes = new bytes32[](0);
 
     assembly {
@@ -732,14 +732,13 @@ contract RollupTest is RollupBase {
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
-    rollup.propose(args, signatures, body, data.blobInputs);
+    rollup.propose(args, signatures, data.blobInputs);
   }
 
   function testRevertInvalidVersion() public setUpFor("empty_block_1") {
     DecoderBase.Data memory data = load("empty_block_1").block;
     bytes memory header = data.header;
     bytes32 archive = data.archive;
-    bytes memory body = data.body;
     bytes32[] memory txHashes = new bytes32[](0);
 
     assembly {
@@ -754,14 +753,13 @@ contract RollupTest is RollupBase {
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
-    rollup.propose(args, signatures, body, data.blobInputs);
+    rollup.propose(args, signatures, data.blobInputs);
   }
 
   function testRevertInvalidTimestamp() public setUpFor("empty_block_1") {
     DecoderBase.Data memory data = load("empty_block_1").block;
     bytes memory header = data.header;
     bytes32 archive = data.archive;
-    bytes memory body = data.body;
     bytes32[] memory txHashes = new bytes32[](0);
 
     uint256 realTs = data.decodedHeader.globalVariables.timestamp;
@@ -781,7 +779,7 @@ contract RollupTest is RollupBase {
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
-    rollup.propose(args, signatures, body, new bytes(144));
+    rollup.propose(args, signatures, new bytes(144));
   }
 
   function testSubmitProofNonExistantBlock() public setUpFor("empty_block_1") {
@@ -922,15 +920,15 @@ contract RollupTest is RollupBase {
     address _coinbase,
     uint256 _fee
   ) internal {
-    bytes32[7] memory args = [
-      _prevArchive,
-      _archive,
-      _prevBlockHash,
-      _blockHash,
-      bytes32(0), // WHAT ?
-      bytes32(0), // WHAT ?
-      bytes32(uint256(uint160(bytes20(_prover)))) // Need the address to be left padded within the bytes32
-    ];
+    PublicInputArgs memory args = PublicInputArgs({
+      previousArchive: _prevArchive,
+      endArchive: _archive,
+      previousBlockHash: _prevBlockHash,
+      endBlockHash: _blockHash,
+      endTimestamp: Timestamp.wrap(0),
+      outHash: bytes32(0),
+      proverId: _prover
+    });
 
     bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
     fees[0] = bytes32(uint256(uint160(bytes20(_coinbase)))); // Need the address to be left padded within the bytes32

@@ -38,7 +38,7 @@ const waitOpts: WaitOpts = {
 
 export async function bootstrapNetwork(
   pxeUrl: string,
-  l1Url: string,
+  l1Urls: string[],
   l1ChainId: string,
   l1PrivateKey: `0x${string}` | undefined,
   l1Mnemonic: string,
@@ -52,13 +52,13 @@ export async function bootstrapNetwork(
   const [wallet] = await getDeployedTestAccountsWallets(pxe);
 
   const l1Clients = createL1Clients(
-    l1Url,
+    l1Urls,
     l1PrivateKey
       ? privateKeyToAccount(l1PrivateKey)
       : // We need to use a different account that the main "deployer" account because the "deployer" account creates transactions that send blobs.
         // Note that this account needs to be funded on L1 !
         mnemonicToAccount(l1Mnemonic, { addressIndex }),
-    createEthereumChain(l1Url, +l1ChainId).chainInfo,
+    createEthereumChain(l1Urls, +l1ChainId).chainInfo,
   );
 
   const { erc20Address, portalAddress } = await deployERC20(l1Clients);

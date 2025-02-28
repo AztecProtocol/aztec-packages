@@ -8,6 +8,44 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [aztec-nr] `TestEnvironment::block_number()` refactored
+
+The `block_number` function from `TestEnvironment` has been expanded upon with two extra functions, the first being `pending_block_number`, and the second being `committed_block_number`. `pending_block_number` now returns what `block_number` does. In other words, it returns the block number of the block we are currently building. `committed_block_number` returns the block number of the last committed block, i.e. the block number that gets used to execute the private part of transactions when your PXE is successfully synced to the tip of the chain.
+
+```diff
++    `TestEnvironment::pending_block_number()`
++    `TestEnvironment::committed_block_number()`
+```
+
+### [aztec-nr] `compute_nullifier_without_context` renamed
+
+The `compute_nullifier_without_context` function from `NoteHash` (ex `NoteInterface`) is now called `compute_nullifier_unconstrained`, and instead of taking storage slot, contract address and nonce it takes a note hash for nullification (same as `compute_note_hash`). This makes writing this
+function simpler:
+
+```diff
+-    unconstrained fn compute_nullifier_without_context(self, storage_slot: Field, contract_address: AztecAddress, nonce: Field) -> Field {
+-       let note_hash_for_nullify = ...;
++    unconstrained fn compute_nullifier_unconstrained(self, note_hash_for_nullify: Field) -> Field {
+        ...
+    }
+```
+
+### `U128` type replaced with native `u128`
+
+The `U128` type has been replaced with the native `u128` type. This means that you can no longer use the `U128` type in your code. Instead, you should use the `u128` type.
+Doing the changes is as straightforward as:
+
+```diff
+    #[public]
+    #[view]
+-    fn balance_of_public(owner: AztecAddress) -> U128 {
++    fn balance_of_public(owner: AztecAddress) -> u128 {
+        storage.public_balances.at(owner).read()
+    }
+```
+
+`UintNote` has also been updated to use the native `u128` type.
+
 ### [aztec-nr] Removed `compute_note_hash_and_optionally_a_nullifer`
 
 This function is no longer mandatory for contracts, and the `#[aztec]` macro no longer injects it.
@@ -63,7 +101,7 @@ await contract.methods
     txHash.hash,
     toBoundedVec(txEffects!.data.noteHashes, MAX_NOTE_HASHES_PER_TX),
     txEffects!.data.nullifiers[0],
-    wallet.getAddress(),
+    wallet.getAddress()
   )
   .simulate();
 ```

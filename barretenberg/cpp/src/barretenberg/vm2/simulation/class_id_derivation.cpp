@@ -15,7 +15,7 @@ void ClassIdDerivation::assert_derivation(const ContractClassId& class_id, const
                                             klass.artifact_hash,
                                             klass.private_function_root,
                                             klass.public_bytecode_commitment });
-    if (computed_class_id != class_id) // workaround for unused variable compilation error
+    (void)computed_class_id; // Silence unused variable warning when assert is stripped out
     assert(computed_class_id == class_id);
     events.emit({ .class_id = class_id, .klass = klass });
 }

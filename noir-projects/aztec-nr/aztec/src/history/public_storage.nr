@@ -6,6 +6,8 @@ use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 
 use crate::oracle::get_public_data_witness::get_public_data_witness;
 
+mod test;
+
 trait PublicStorageHistoricalRead {
     fn public_storage_historical_read(
         header: BlockHeader,

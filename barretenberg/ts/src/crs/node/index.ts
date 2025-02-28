@@ -4,16 +4,22 @@ import { stat } from 'fs/promises';
 import createDebug from 'debug';
 import { homedir } from 'os';
 
-const debug = createDebug('bb.js:crs');
-
 /**
  * Generic CRS finder utility class.
  */
 export class Crs {
-  constructor(public readonly numPoints: number, public readonly path: string) {}
+  constructor(
+    public readonly numPoints: number,
+    public readonly path: string,
+    private readonly logger: (msg: string) => void = createDebug('bb.js:crs'),
+  ) {}
 
-  static async new(numPoints: number, crsPath = homedir() + '/.bb-crs') {
-    const crs = new Crs(numPoints, crsPath);
+  static async new(
+    numPoints: number,
+    crsPath = homedir() + '/.bb-crs',
+    logger: (msg: string) => void = createDebug('bb.js:crs'),
+  ) {
+    const crs = new Crs(numPoints, crsPath, logger);
     await crs.init();
     return crs;
   }
@@ -29,11 +35,11 @@ export class Crs {
       .catch(() => 0);
 
     if (g1FileSize >= this.numPoints * 64 && g1FileSize % 64 == 0 && g2FileSize == 128) {
-      debug(`using cached crs of size: ${g1FileSize / 64}`);
+      this.logger(`Using cached CRS of size ${g1FileSize / 64}`);
       return;
     }
 
-    debug(`downloading crs of size: ${this.numPoints}`);
+    this.logger(`Downloading CRS of size ${this.numPoints} into ${this.path}`);
     const crs = new NetCrs(this.numPoints);
     await crs.init();
     writeFileSync(this.path + '/bn254_g1.dat', crs.getG1Data());
@@ -68,10 +74,18 @@ export class Crs {
  * Generic Grumpkin CRS finder utility class.
  */
 export class GrumpkinCrs {
-  constructor(public readonly numPoints: number, public readonly path: string) {}
+  constructor(
+    public readonly numPoints: number,
+    public readonly path: string,
+    private readonly logger: (msg: string) => void = createDebug('bb.js:crs'),
+  ) {}
 
-  static async new(numPoints: number, crsPath = homedir() + '/.bb-crs') {
-    const crs = new GrumpkinCrs(numPoints, crsPath);
+  static async new(
+    numPoints: number,
+    crsPath = homedir() + '/.bb-crs',
+    logger: (msg: string) => void = createDebug('bb.js:crs'),
+  ) {
+    const crs = new GrumpkinCrs(numPoints, crsPath, logger);
     await crs.init();
     return crs;
   }
@@ -84,11 +98,11 @@ export class GrumpkinCrs {
       .catch(() => 0);
 
     if (g1FileSize >= this.numPoints * 64 && g1FileSize % 64 == 0) {
-      debug(`using cached crs of size: ${g1FileSize / 64}`);
+      this.logger(`Using cached Grumpkin CRS of size ${g1FileSize / 64}`);
       return;
     }
 
-    debug(`downloading crs of size: ${this.numPoints}`);
+    this.logger(`Downloading Grumpkin CRS of size ${this.numPoints} into ${this.path}`);
     const crs = new NetGrumpkinCrs(this.numPoints);
     await crs.init();
     writeFileSync(this.path + '/grumpkin_g1.dat', crs.getG1Data());

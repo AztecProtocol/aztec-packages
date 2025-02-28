@@ -8,6 +8,6 @@ pub struct Config {
     pub target_address: AztecAddress,
     pub subscription_token_address: AztecAddress,
     pub subscription_recipient_address: AztecAddress,
-    pub subscription_price: U128,
+    pub subscription_price: u128,
     pub fee_juice_limit_per_tx: Field,
 }

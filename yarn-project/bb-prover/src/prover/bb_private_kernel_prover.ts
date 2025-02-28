@@ -15,7 +15,6 @@ import {
   updateResetCircuitSampleInputs,
 } from '@aztec/noir-protocol-circuits-types/client';
 import type { ArtifactProvider, ClientProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
-import { ClientCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
 import type { SimulationProvider } from '@aztec/simulator/client';
 import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 import type {
@@ -216,7 +215,7 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
       outputSize: output.toBuffer().length,
     } satisfies CircuitWitnessGenerationStats);
 
-    const verificationKey = ClientCircuitVks[circuitType].keyAsFields;
+    const verificationKey = (await this.artifactProvider.getCircuitVkByName(circuitType)).keyAsFields;
     const bytecode = Buffer.from(compiledCircuit.bytecode, 'base64');
 
     const kernelOutput: PrivateKernelSimulateOutput<O> = {
@@ -228,12 +227,12 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
     return kernelOutput;
   }
 
-  public makeEmptyKernelSimulateOutput<
+  public async makeEmptyKernelSimulateOutput<
     PublicInputsType extends PrivateKernelTailCircuitPublicInputs | PrivateKernelCircuitPublicInputs,
   >(publicInputs: PublicInputsType, circuitType: ClientProtocolArtifact) {
     const kernelProofOutput: PrivateKernelSimulateOutput<PublicInputsType> = {
       publicInputs,
-      verificationKey: ClientCircuitVks[circuitType].keyAsFields,
+      verificationKey: (await this.artifactProvider.getCircuitVkByName(circuitType)).keyAsFields,
       outputWitness: new Map(),
       bytecode: Buffer.from([]),
     };
