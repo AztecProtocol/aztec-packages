@@ -1,6 +1,5 @@
 import { PublicTxSimulationTester, type TestEnqueuedCall } from '@aztec/simulator/public/fixtures';
-import { WorldStateDB } from '@aztec/simulator/server';
-import { SimpleContractDataSource } from '@aztec/simulator/server';
+import { SimpleContractDataSource, WorldStateDB } from '@aztec/simulator/server';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
