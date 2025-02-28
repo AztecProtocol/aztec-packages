@@ -139,7 +139,6 @@ export const setupL1Contracts = async (
  * @param opts - Partial configuration for the PXE service.
  * @param logger - The logger to be used.
  * @param useLogSuffix - Whether to add a randomly generated suffix to the PXE debug logs.
- * @param proofCreator - An optional proof creator to use
  * @returns Private eXecution Environment (PXE), logger and teardown function.
  */
 export async function setupPXEService(
@@ -147,7 +146,6 @@ export async function setupPXEService(
   opts: Partial<PXEServiceConfig> = {},
   logger = getLogger(),
   useLogSuffix = false,
-  proofCreator?: BBNativePrivateKernelProver,
 ): Promise<{
   /**
    * The PXE instance.
@@ -177,7 +175,6 @@ export async function setupPXEService(
     simulationProviderWithRecorder,
     pxeServiceConfig,
     useLogSuffix,
-    proofCreator,
   );
 
   const teardown = async () => {

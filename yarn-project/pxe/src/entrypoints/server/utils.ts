@@ -5,7 +5,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { type SimulationProvider, WASMSimulator } from '@aztec/simulator/client';
-import type { AztecNode, PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import type { PXEServiceConfig } from '../../config/index.js';
 import { PXEService } from '../../pxe_service/pxe_service.js';
@@ -16,18 +16,16 @@ import { PXE_DATA_SCHEMA_VERSION } from '../../storage/index.js';
  *
  * @param aztecNode - The AztecNode instance to be used by the server.
  * @param config - The PXE Service Config to use
- * @param useLogSuffix - (Optional) Log suffix for PXE's logger.
- * @param proofCreator - An optional proof creator to use in place of any other configuration
+ * @param useLogSuffix - Whether to add a randomly generated suffix to the PXE debug logs.
  * @returns A Promise that resolves to the started PXEService instance.
  */
 export function createPXEService(
   aztecNode: AztecNode,
   config: PXEServiceConfig,
   useLogSuffix: string | boolean | undefined = undefined,
-  proofCreator?: PrivateKernelProver,
 ) {
   const simulationProvider = new WASMSimulator();
-  return createPXEServiceWithSimulationProvider(aztecNode, simulationProvider, config, useLogSuffix, proofCreator);
+  return createPXEServiceWithSimulationProvider(aztecNode, simulationProvider, config, useLogSuffix);
 }
 
 /**
@@ -36,8 +34,7 @@ export function createPXEService(
  * @param aztecNode - The AztecNode instance to be used by the server.
  * @param simulationProvider - The SimulationProvider to use
  * @param config - The PXE Service Config to use
- * @param options - (Optional) Optional information for creating an PXEService.
- * @param proofCreator - An optional proof creator to use in place of any other configuration
+ * @param useLogSuffix - Whether to add a randomly generated suffix to the PXE debug logs.
  * @returns A Promise that resolves to the started PXEService instance.
  */
 export async function createPXEServiceWithSimulationProvider(
@@ -45,7 +42,6 @@ export async function createPXEServiceWithSimulationProvider(
   simulationProvider: SimulationProvider,
   config: PXEServiceConfig,
   useLogSuffix: string | boolean | undefined = undefined,
-  proofCreator?: PrivateKernelProver,
 ) {
   const logSuffix =
     typeof useLogSuffix === 'boolean' ? (useLogSuffix ? randomBytes(3).toString('hex') : undefined) : useLogSuffix;
@@ -63,7 +59,7 @@ export async function createPXEServiceWithSimulationProvider(
     createLogger('pxe:data:lmdb'),
   );
 
-  const prover = proofCreator ?? (await createProver(config, simulationProvider, logSuffix));
+  const prover = await createProver(config, simulationProvider, logSuffix);
   const protocolContractsProvider = new BundledProtocolContractsProvider();
   const pxe = await PXEService.create(
     aztecNode,
