@@ -65,7 +65,7 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 2,
+        "w": 4,
         "x": 0,
         "y": 1
       },
@@ -133,8 +133,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 2,
-        "x": 2,
+        "w": 4,
+        "x": 4,
         "y": 1
       },
       "id": 101,
@@ -169,89 +169,6 @@
         }
       ],
       "title": "Total Validators",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "default": true,
-        "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "decimals": 0,
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "blue",
-                "value": null
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 4,
-        "y": 1
-      },
-      "id": 103,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "percentChangeColorMode": "standard",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showPercentChange": false,
-        "textMode": "auto",
-        "wideLayout": true
-      },
-      "pluginVersion": "11.2.1",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "exemplar": false,
-          "expr": "avg by (aztec_status) (label_replace(aztec_archiver_block_height{service_instance_id=~\"$service_instance\"}, \"aztec_status\", \"pending\", \"aztec_status\", \"^$\"))",
-          "instant": true,
-          "legendFormat": "__auto",
-          "range": false,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
-          },
-          "editorMode": "code",
-          "exemplar": false,
-          "expr": "avg by (aztec_status) (label_replace(aztec_archiver_l1_block_height{service_instance_id=~\"$service_instance\"}, \"aztec_status\", \"l1\", \"aztec_status\", \"^$\"))",
-          "hide": false,
-          "instant": true,
-          "legendFormat": "__auto",
-          "range": false,
-          "refId": "B"
-        }
-      ],
-      "title": "Current Block Heights",
       "type": "stat"
     },
     {
@@ -323,7 +240,7 @@
         ]
       },
       "gridPos": {
-        "h": 12,
+        "h": 19,
         "w": 7,
         "x": 8,
         "y": 1
@@ -435,7 +352,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 12,
+        "h": 19,
         "w": 9,
         "x": 15,
         "y": 1
@@ -472,6 +389,102 @@
       ],
       "title": "L1 sender balance",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "default": true,
+        "type": "prometheus",
+        "uid": "spartan-metrics-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 5
+      },
+      "id": 509,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.2.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "avg by (aztec_status) (label_replace(aztec_archiver_block_height{service_instance_id=~\"$service_instance\"}, \"aztec_status\", \"pending\", \"aztec_status\", \"^$\"))",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "spartan-metrics-prometheus"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "avg by (aztec_status) (label_replace(aztec_archiver_l1_block_height{service_instance_id=~\"$service_instance\"}, \"aztec_status\", \"l1\", \"aztec_status\", \"^$\"))",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "spartan-metrics-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "avg(aztec_archiver_block_height{service_instance_id=~\"$service_instance\", aztec_status=\"\"}) - avg(aztec_archiver_block_height{service_instance_id=~\"$service_instance\", aztec_status=\"proven\"})",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Pending chain depth",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "title": "Current Block Heights",
+      "type": "stat"
     },
     {
       "datasource": {
@@ -536,7 +549,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 5
+        "y": 12
       },
       "id": 105,
       "interval": "30s",
@@ -580,7 +593,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 13
+        "y": 20
       },
       "id": 200,
       "panels": [],
@@ -612,7 +625,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 14
+        "y": 21
       },
       "id": 201,
       "options": {
@@ -729,7 +742,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 14
+        "y": 21
       },
       "id": 202,
       "options": {
@@ -845,7 +858,7 @@
         "h": 9,
         "w": 8,
         "x": 0,
-        "y": 22
+        "y": 29
       },
       "id": 204,
       "options": {
@@ -942,7 +955,7 @@
         "h": 9,
         "w": 8,
         "x": 8,
-        "y": 22
+        "y": 29
       },
       "id": 206,
       "options": {
@@ -1040,7 +1053,7 @@
         "h": 9,
         "w": 8,
         "x": 16,
-        "y": 22
+        "y": 29
       },
       "id": 205,
       "options": {
@@ -1083,7 +1096,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 31
+        "y": 38
       },
       "id": 300,
       "panels": [],
@@ -1139,8 +1152,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               }
             ]
           },
@@ -1152,7 +1164,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 32
+        "y": 39
       },
       "id": 303,
       "interval": "1m",
@@ -1248,8 +1260,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               }
             ]
           }
@@ -1260,7 +1271,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 32
+        "y": 39
       },
       "id": 304,
       "options": {
@@ -1301,7 +1312,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 40
+        "y": 47
       },
       "id": 400,
       "panels": [],
@@ -1385,7 +1396,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 41
+        "y": 48
       },
       "id": 401,
       "options": {
@@ -1507,7 +1518,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 41
+        "y": 48
       },
       "id": 402,
       "options": {
@@ -1648,7 +1659,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 41
+        "y": 48
       },
       "id": 403,
       "options": {
@@ -1743,7 +1754,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 49
+        "y": 56
       },
       "id": 404,
       "interval": "1m",
@@ -1852,7 +1863,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 49
+        "y": 56
       },
       "id": 405,
       "options": {
@@ -1947,7 +1958,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 49
+        "y": 56
       },
       "id": 406,
       "interval": "5m",
@@ -2055,7 +2066,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 57
+        "y": 64
       },
       "id": 505,
       "interval": "5m",
@@ -2166,7 +2177,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 57
+        "y": 64
       },
       "id": 506,
       "interval": "5m",
@@ -2207,7 +2218,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 65
+        "y": 72
       },
       "id": 500,
       "panels": [],
@@ -2275,7 +2286,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 66
+        "y": 73
       },
       "id": 501,
       "options": {
@@ -2370,7 +2381,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 66
+        "y": 73
       },
       "id": 502,
       "options": {
@@ -2465,7 +2476,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 74
+        "y": 81
       },
       "id": 503,
       "options": {
@@ -2559,7 +2570,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 74
+        "y": 81
       },
       "id": 504,
       "options": {
@@ -2682,6 +2693,6 @@
   "timezone": "",
   "title": "Validator node overview",
   "uid": "aztec-validators",
-  "version": 4,
+  "version": 5,
   "weekStart": ""
 }
