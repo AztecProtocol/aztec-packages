@@ -88,16 +88,10 @@ export class PublicTxSimulator {
     );
 
     // add new contracts to the contracts db so that their functions may be found and called
-    // TODO(#4073): This is catching only private deployments, when we add public ones, we'll
-    // have to capture contracts emitted in that phase as well.
-    // TODO(@spalladino): Should we allow emitting contracts in the fee preparation phase?
     // TODO(#6464): Should we allow emitting contracts in the private setup phase?
-    // if so, this should only add contracts that were deployed during private app logic.
-    // FIXME: we shouldn't need to directly modify worldStateDb here!
     await this.worldStateDB.addNewContracts(tx);
 
     const nonRevertStart = process.hrtime.bigint();
-    // TODO: this shouldn't kill the TX if it fails i think
     await this.insertNonRevertiblesFromPrivate(context);
     const nonRevertEnd = process.hrtime.bigint();
     this.metrics.recordPrivateEffectsInsertion(Number(nonRevertEnd - nonRevertStart) / 1_000, 'non-revertible');
@@ -108,6 +102,7 @@ export class PublicTxSimulator {
     }
 
     const revertStart = process.hrtime.bigint();
+    // FIXME(#12375): TX shouldn't die if revertible insertions fail. Should just revert to snapshot.
     await this.insertRevertiblesFromPrivate(context);
     const revertEnd = process.hrtime.bigint();
     this.metrics.recordPrivateEffectsInsertion(Number(revertEnd - revertStart) / 1_000, 'revertible');
@@ -132,10 +127,8 @@ export class PublicTxSimulator {
     if (!revertCode.isOK()) {
       // TODO(#6464): Should we allow emitting contracts in the private setup phase?
       // if so, this is removing contracts deployed in private setup
-      // You can't submit contracts in public, so this is only relevant for private-created side effects
-      // FIXME: we shouldn't need to directly modify worldStateDb here!
+      // NOTE: You can't submit contracts in public, so this is only relevant for private-created side effects
       await this.worldStateDB.removeNewContracts(tx, true);
-      // FIXME(dbanks12): should not be changing immutable tx
       tx.filterRevertedLogs(tx.data.forPublic!.nonRevertibleAccumulatedData);
     } else {
       // Transaction succeeded, commit its caches to block-level caches
@@ -316,7 +309,7 @@ export class PublicTxSimulator {
 
   /**
    * Simulate an enqueued public call, without modifying the context (PublicTxContext).
-   * Resulting modifcations to the context can be applied by the caller.
+   * Resulting modifications to the context can be applied by the caller.
    *
    * This function can be mocked for testing to skip actual AVM simulation
    * while still simulating phases and generating a proving request.
@@ -415,6 +408,7 @@ export class PublicTxSimulator {
       await stateManager.writeSiloedNullifiersFromPrivate(context.revertibleAccumulatedDataFromPrivate.nullifiers);
     } catch (e) {
       if (e instanceof NullifierCollisionError) {
+        // FIXME(#12375): simulator should be able to recover from this and just revert to snapshot.
         throw new NullifierCollisionError(
           `Nullifier collision encountered when inserting revertible nullifiers from private. Details:\n${e.message}\n.Stack:${e.stack}`,
         );

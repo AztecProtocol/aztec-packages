@@ -179,6 +179,9 @@ describe('Public Processor app tests: TokenContract', () => {
         },
       ],
     );
+    // FIXME(#12375): should be able to include the nullifier insertions, but at the moment
+    // tx simulator cannot recover from errors during revertible private insertions.
+    // Once fixed, this skipNullifierInsertion flag can be removed.
     addNewContractClassToTx(failingConstructorTx, contractClass, /*skipNullifierInsertion=*/ true);
     await addNewContractInstanceToTx(failingConstructorTx, contractInstance, /*skipNullifierInsertion=*/ true);
 

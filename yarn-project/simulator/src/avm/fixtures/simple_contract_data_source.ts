@@ -49,10 +49,6 @@ export class SimpleContractDataSource implements ContractDataSource {
     this.contractArtifacts.set(classId.toString(), artifact);
   }
 
-  getContractArtifactByClassId(classId: Fr): ContractArtifact | undefined {
-    return this.contractArtifacts.get(classId.toString());
-  }
-
   /////////////////////////////////////////////////////////////
   // ContractDataSource function implementations
   getPublicFunction(_address: AztecAddress, _selector: FunctionSelector): Promise<PublicFunction> {

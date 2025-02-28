@@ -7,13 +7,10 @@ import { BufferReader, FieldReader, type Tuple, serializeToBuffer } from '@aztec
 import { inspect } from 'util';
 import { z } from 'zod';
 
-const PRIVATE_LOG_SIZE_IN_FIELDS_PLUS_ONE = PRIVATE_LOG_SIZE_IN_FIELDS + 1;
 export class PrivateLog {
   static SIZE_IN_BYTES = Fr.SIZE_IN_BYTES * PRIVATE_LOG_SIZE_IN_FIELDS;
 
-  constructor(
-    public fields: Tuple<Fr, typeof PRIVATE_LOG_SIZE_IN_FIELDS> | Tuple<Fr, typeof PRIVATE_LOG_SIZE_IN_FIELDS_PLUS_ONE>,
-  ) {}
+  constructor(public fields: Tuple<Fr, typeof PRIVATE_LOG_SIZE_IN_FIELDS>) {}
 
   toFields(): Fr[] {
     return this.fields;

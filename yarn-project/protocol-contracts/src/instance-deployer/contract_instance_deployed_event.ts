@@ -2,11 +2,8 @@ import { AztecAddress } from '@aztec/circuits.js/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/circuits.js/contract';
 import { PublicKeys } from '@aztec/circuits.js/keys';
 import type { PrivateLog } from '@aztec/circuits.js/logs';
-import { PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
-
-import { strict as assert } from 'assert';
 
 import { DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_TAG } from '../protocol_contract_data.js';
 
@@ -27,12 +24,6 @@ export class ContractInstanceDeployedEvent {
   }
 
   static fromLog(log: PrivateLog) {
-    assert(
-      log.fields.length === PRIVATE_LOG_SIZE_IN_FIELDS + 1,
-      `Logs for contract instance deployed event must have length PRIVATE_LOG_SIZE_IN_FIELDS + 1 (${
-        PRIVATE_LOG_SIZE_IN_FIELDS + 1
-      }), but got ${log.fields.length}`,
-    );
     const bufferWithoutTag = log.toBuffer().subarray(32);
     const reader = new BufferReader(bufferWithoutTag);
     const address = reader.readObject(AztecAddress);
