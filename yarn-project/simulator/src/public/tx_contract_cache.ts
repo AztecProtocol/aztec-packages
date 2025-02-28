@@ -1,6 +1,6 @@
-import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import type { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/circuits.js/contract';
 import type { Fr } from '@aztec/foundation/fields';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 /**
  * A cache for contract classes and instances for a single transaction.
