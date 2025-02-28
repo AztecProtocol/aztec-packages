@@ -25,7 +25,7 @@ P2P_PORT=40400
 L1_CHAIN_ID=1
 TAG=latest
 
-ROOT=$PWD
+ROOT=$(git rev-parse --show-toplevel)/iac/network
 
 cd $ROOT/bootnode/ip/gcp
 

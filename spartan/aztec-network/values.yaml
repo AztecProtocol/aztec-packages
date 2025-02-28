@@ -16,7 +16,7 @@ network:
   gke: false
 
   # If true then configured bootnodes are considered non-gossiping peers
-  usingGossipBootnodes: true
+  p2pBootstrapNodesAsFullPeers: true
 
 storage:
   localSsd: false

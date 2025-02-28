@@ -14,7 +14,7 @@ SECRET_ID=${3:-}
 TAG=${4:-}
 USER=${5:-"aztec"}
 
-ROOT=$PWD
+ROOT=$(git rev-parse --show-toplevel)/iac/network
 
 cd $ROOT/bootnode/ip/gcp
 

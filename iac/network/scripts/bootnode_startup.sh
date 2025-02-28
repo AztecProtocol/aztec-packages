@@ -19,12 +19,36 @@ TAG="${TAG}"
 echo "Updating system packages..."
 sudo apt update -y && sudo apt upgrade -y
 
+# Ensure we have jq and tee
+sudo apt install -y jq coreutils
+
 # Install Docker
 echo "Installing Docker..."
 sudo apt install -y docker.io
 sudo systemctl start docker
 sudo systemctl enable docker
 sudo usermod -aG docker $SSH_USER
+
+
+# Configure docker log rotation
+DOCKER_CONFIG="/etc/docker/daemon.json"
+
+LOG_CONFIG='{
+  "log-driver": "local",
+  "log-opts": {
+    "max-size": "50m",
+    "max-file": "10"
+  }
+}'
+
+# If it exists, update, otherwise create new
+if [ -f "$DOCKER_CONFIG" ]; then
+  jq '."log-driver" = "local" | ."log-opts" += {"max-size": "10m", "max-file": "5"}' "$DOCKER_CONFIG" > /tmp/daemon.json && sudo mv /tmp/daemon.json "$DOCKER_CONFIG"
+else
+    echo "$LOG_CONFIG" | sudo tee "$DOCKER_CONFIG" > /dev/null
+fi
+
+# Restart docker for changes to take effect
 sudo systemctl restart docker
 
 # Ensure Docker starts on reboot
