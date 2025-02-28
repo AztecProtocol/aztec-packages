@@ -35,6 +35,8 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
     using bool_ct = stdlib::bool_t<Builder>;
     using biggroup_tag = goblin_element; // Facilitates a constexpr check IsBigGroup
 
+    static constexpr size_t PUBLIC_INPUTS_SIZE = 8;
+
     goblin_element() = default;
     goblin_element(const typename NativeGroup::affine_element& input)
         : x(input.x)
@@ -296,7 +298,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
     }
 
     // WORKTODO: comment about how this is funky bc we want consistency with biggroup/bigfield
-    void set_public() const
+    uint32_t set_public() const
     {
         using BigFq = stdlib::bigfield<Builder, bb::fq::Params>;
         const auto to_bigfield_witness_indices = [](const Fr& lo, const Fr& hi) {
@@ -313,12 +315,15 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
         auto y_idxs = to_bigfield_witness_indices(y.limbs[0], y.limbs[1]);
 
         Builder* context = get_context();
+        const uint32_t start_idx = static_cast<uint32_t>(context->public_inputs.size());
         for (const uint32_t& idx : x_idxs) {
             context->set_public_input(idx);
         }
         for (const uint32_t& idx : y_idxs) {
             context->set_public_input(idx);
         }
+
+        return start_idx;
     }
 
     static goblin_element reconstruct_from_public(const std::span<const Fr>& limbs)

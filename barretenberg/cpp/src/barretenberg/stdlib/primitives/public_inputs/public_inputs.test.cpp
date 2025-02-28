@@ -29,16 +29,24 @@ TEST(PublicInputsTest, GoblinBigGroup)
     using G1 = Curve::Element;
     using Fr = Curve::ScalarField;
     using AffineElementNative = Curve::GroupNative::affine_element;
+    using FrNative = Curve::ScalarFieldNative;
     using PublicPoint = stdlib::PublicInputComponent<G1>;
 
     Builder builder;
+
+    // Add some arbitrary public inputs
+    builder.add_public_variable(FrNative::random_element());
+    builder.add_public_variable(FrNative::random_element());
 
     // Construct a random stdlib point (e.g. representing a commitment received in the recursive verifier)
     G1 point = G1::from_witness(&builder, AffineElementNative::random_element());
 
     // Construct a public object from the point
     PublicPoint public_point;
-    public_point.set(point);
+    public_point.set(point); // Set the witness indices of the point to public
+
+    // Add some more arbitrary public inputs
+    builder.add_public_variable(FrNative::random_element());
 
     // Construct the public inputs as stdlib field elements (e.g. as a recursive verifier would do upon receiving them)
     std::vector<Fr> public_inputs;
@@ -47,8 +55,11 @@ TEST(PublicInputsTest, GoblinBigGroup)
         public_inputs.push_back(limb);
     }
 
+    // Construct a public point object from the public component key
+    PublicPoint public_point_2(public_point.get_key());
+
     // Reconstruct the stdlib point from the limbs contained in public input
-    G1 reconstructed_point = public_point.reconstruct(public_inputs);
+    G1 reconstructed_point = public_point_2.reconstruct(public_inputs);
 
     EXPECT_EQ(point.get_value(), reconstructed_point.get_value());
 }
