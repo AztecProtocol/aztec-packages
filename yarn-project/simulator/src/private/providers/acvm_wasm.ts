@@ -24,14 +24,14 @@ export class WASMSimulator implements SimulationProvider {
 
   async executeProtocolCircuit(
     input: ACVMWitness,
-    compiledCircuit: NoirCompiledCircuitWithName,
+    artifact: NoirCompiledCircuitWithName,
     callback: ForeignCallHandler,
   ): Promise<ACVMWitness> {
-    this.log.debug('init', { hash: compiledCircuit.hash });
+    this.log.debug('init', { hash: artifact.hash });
     await this.init();
 
     // Decode the bytecode from base64 since the acvm does not know about base64 encoding
-    const decodedBytecode = Buffer.from(compiledCircuit.bytecode, 'base64');
+    const decodedBytecode = Buffer.from(artifact.bytecode, 'base64');
     //
     // Execute the circuit
     try {
@@ -40,21 +40,21 @@ export class WASMSimulator implements SimulationProvider {
         input,
         callback, // handle calls to debug_log
       );
-      this.log.debug('execution successful', { hash: compiledCircuit.hash });
+      this.log.debug('execution successful', { hash: artifact.hash });
       return result;
     } catch (err) {
       // Typescript types caught errors as unknown or any, so we need to narrow its type to check if it has raw
       // assertion payload.
       if (typeof err === 'object' && err !== null && 'rawAssertionPayload' in err) {
-        const parsed = enrichNoirError(compiledCircuit, err as ExecutionError);
+        const parsed = enrichNoirError(artifact.abi, err as ExecutionError);
         this.log.debug('execution failed', {
-          hash: compiledCircuit.hash,
+          hash: artifact.hash,
           error: parsed,
           message: parsed.message,
         });
         throw parsed;
       }
-      this.log.debug('execution failed', { hash: compiledCircuit.hash, error: err });
+      this.log.debug('execution failed', { hash: artifact.hash, error: err });
       throw new Error(`Circuit execution failed: ${err}`);
     }
   }

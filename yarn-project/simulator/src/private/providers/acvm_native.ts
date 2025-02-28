@@ -140,7 +140,7 @@ export class NativeACVMSimulator implements SimulationProvider {
 
   async executeProtocolCircuit(
     input: ACVMWitness,
-    compiledCircuit: NoirCompiledCircuitWithName,
+    artifact: NoirCompiledCircuitWithName,
     callback: ForeignCallHandler | undefined,
   ): Promise<ACVMWitness> {
     if (callback) {
@@ -150,7 +150,7 @@ export class NativeACVMSimulator implements SimulationProvider {
 
     const operation = async (directory: string) => {
       // Decode the bytecode from base64 since the acvm does not know about base64 encoding
-      const decodedBytecode = Buffer.from(compiledCircuit.bytecode, 'base64');
+      const decodedBytecode = Buffer.from(artifact.bytecode, 'base64');
       // Execute the circuit
       const result = await executeNativeCircuit(
         input,

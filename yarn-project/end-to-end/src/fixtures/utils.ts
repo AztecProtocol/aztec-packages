@@ -56,7 +56,7 @@ import { type PXEService, type PXEServiceConfig, createPXEService, getPXEService
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import { WASMSimulator } from '@aztec/simulator/client';
-import { SimulationProviderRecorderWrapper } from '@aztec/simulator/recorder';
+import { SimulationProviderRecorderWrapper } from '@aztec/simulator/testing';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import { Gas } from '@aztec/stdlib/gas';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';

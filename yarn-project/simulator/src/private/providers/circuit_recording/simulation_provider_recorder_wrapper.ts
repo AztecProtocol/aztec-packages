@@ -17,32 +17,37 @@ export class SimulationProviderRecorderWrapper implements SimulationProvider {
 
   async executeProtocolCircuit(
     input: ACVMWitness,
-    compiledCircuit: NoirCompiledCircuitWithName,
+    artifact: NoirCompiledCircuitWithName,
     callback: ForeignCallHandler | undefined,
   ): Promise<ACVMWitness> {
     const recordingEnabled = process.env.CIRCUIT_RECORD_DIR !== undefined;
     let circuitRecorder: CircuitRecorder | undefined;
-    let wrappedCallback = callback;
-
-    if (recordingEnabled && callback) {
+    let wrappedCallback: ForeignCallHandler | undefined = undefined;
+    if (recordingEnabled) {
       // Recording is enabled so we start a new circuit recorder
       circuitRecorder = await CircuitRecorder.start(
         process.env.CIRCUIT_RECORD_DIR!,
         input,
-        Buffer.from(compiledCircuit.bytecode, 'base64'),
-        compiledCircuit.name,
+        Buffer.from(artifact.bytecode, 'base64'),
+        artifact.name,
         'main',
       );
-      // We wrap the callback in a circuit recorder callback wrapper
-      wrappedCallback = circuitRecorder.wrapProtocolCircuitCallback(callback);
+      if (callback !== undefined) {
+        // Callback was provided so we wrap it in a circuit recorder callback wrapper
+        wrappedCallback = circuitRecorder.wrapProtocolCircuitCallback(callback);
+      }
     }
 
     try {
-      const result = await this.simulator.executeProtocolCircuit(input, compiledCircuit, wrappedCallback);
+      const result = await this.simulator.executeProtocolCircuit(
+        input,
+        artifact,
+        wrappedCallback ? wrappedCallback : callback,
+      );
 
-      if (recordingEnabled && circuitRecorder) {
+      if (recordingEnabled) {
         // Recording is enabled and witness generation is complete so we finish the circuit recorder
-        await circuitRecorder.finish();
+        await circuitRecorder!.finish();
       }
 
       return result;
