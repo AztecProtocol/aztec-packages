@@ -6,7 +6,7 @@ namespace bb::avm2 {
 
 template <typename AffinePoint> class StandardAffinePoint {
   public:
-    using CoordinateField = AffinePoint::Fq;
+    using BaseField = AffinePoint::Fq;
     using ScalarField = AffinePoint::Fr;
 
     constexpr StandardAffinePoint() noexcept
@@ -17,7 +17,7 @@ template <typename AffinePoint> class StandardAffinePoint {
         : point(val)
     {}
 
-    constexpr StandardAffinePoint(CoordinateField x, CoordinateField y, bool is_infinity) noexcept
+    constexpr StandardAffinePoint(BaseField x, BaseField y, bool is_infinity) noexcept
     {
         if (is_infinity) {
             point = AffinePoint::infinity();
@@ -44,15 +44,9 @@ template <typename AffinePoint> class StandardAffinePoint {
 
     [[nodiscard]] constexpr bool on_curve() const noexcept { return point.on_curve(); }
 
-    constexpr CoordinateField x() const noexcept
-    {
-        return point.is_point_at_infinity() ? CoordinateField::zero() : point.x;
-    }
+    constexpr BaseField x() const noexcept { return point.is_point_at_infinity() ? BaseField::zero() : point.x; }
 
-    constexpr CoordinateField y() const noexcept
-    {
-        return point.is_point_at_infinity() ? CoordinateField::zero() : point.y;
-    }
+    constexpr BaseField y() const noexcept { return point.is_point_at_infinity() ? BaseField::zero() : point.y; }
 
     static StandardAffinePoint infinity() { return StandardAffinePoint(AffinePoint::infinity()); }
 
