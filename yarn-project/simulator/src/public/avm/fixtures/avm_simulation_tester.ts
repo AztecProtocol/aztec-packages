@@ -6,7 +6,6 @@ import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server'
 import { GlobalVariables } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
 
-import { WorldStateDB } from '../../public_db_sources.js';
 import { SideEffectTrace } from '../../../public/side_effect_trace.js';
 import type { AvmContractCallResult } from '../../avm/avm_contract_call_result.js';
 import {
@@ -17,6 +16,7 @@ import {
   resolveContractAssertionMessage,
 } from '../../avm/fixtures/index.js';
 import { AvmPersistableStateManager } from '../../avm/journal/journal.js';
+import { WorldStateDB } from '../../public_db_sources.js';
 import { AvmSimulator } from '../avm_simulator.js';
 import { BaseAvmSimulationTester } from './base_avm_simulation_tester.js';
 import { SimpleContractDataSource } from './simple_contract_data_source.js';

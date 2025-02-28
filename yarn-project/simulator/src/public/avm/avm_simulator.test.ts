@@ -32,9 +32,9 @@ import { NativeWorldStateService } from '@aztec/world-state';
 import { randomInt } from 'crypto';
 import { mock } from 'jest-mock-extended';
 
-import { WorldStateDB } from '../public_db_sources.js';
 import { SideEffectTrace } from '../../public/side_effect_trace.js';
 import type { PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
+import { WorldStateDB } from '../public_db_sources.js';
 import type { AvmContext } from './avm_context.js';
 import type { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { type MemoryValue, TypeTag, type Uint8, type Uint64 } from './avm_memory_types.js';
