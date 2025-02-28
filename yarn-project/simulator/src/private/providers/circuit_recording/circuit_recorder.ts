@@ -20,7 +20,7 @@ import { Oracle } from '../../acvm/oracle/oracle.js';
  * Example recording file:
  * ```json
  * {
- *   "contractName": "AMM",
+ *   "circuitName": "AMM",
  *   "functionName": "add_liquidity",
  *   "bytecodeMd5Hash": "b46c640ed38f20eac5f61a5e41d8dd1e",
  *   "timestamp": 1740691464360,
@@ -60,7 +60,7 @@ export class CircuitRecorder {
    * @param input - Circuit input witness
    * @param circuitBytecode - Compiled circuit bytecode
    * @param circuitName - Name of the circuit
-   * @param circuitFunctionName - Name of the circuit function (defaults to 'main'). This is meaningful only for
+   * @param functionName - Name of the circuit function (defaults to 'main'). This is meaningful only for
    * contracts as protocol circuits artifacts always contain a single entrypoint function called 'main'.
    * @returns A new CircuitRecorder instance
    */
@@ -69,11 +69,11 @@ export class CircuitRecorder {
     input: ACVMWitness,
     circuitBytecode: Buffer,
     circuitName: string,
-    circuitFunctionName: string = 'main',
+    functionName: string = 'main',
   ): Promise<CircuitRecorder> {
     const recording = {
-      contractName: circuitName,
-      functionName: circuitFunctionName,
+      circuitName: circuitName,
+      functionName: functionName,
       bytecodeMd5Hash: createHash('md5').update(circuitBytecode).digest('hex'),
       timestamp: Date.now(),
       inputs: Object.fromEntries(input),
@@ -87,7 +87,7 @@ export class CircuitRecorder {
     let filePath: string;
     while (true) {
       try {
-        filePath = getFilePath(recordDir, circuitName, circuitFunctionName, counter);
+        filePath = getFilePath(recordDir, circuitName, functionName, counter);
         await fs.writeFile(filePath, recordingStringWithoutClosingBracket + ',\n  "oracleCalls": [\n', {
           flag: 'wx', // wx flag fails if file exists
         });
@@ -187,14 +187,14 @@ export class CircuitRecorder {
  * `circuit_name_circuit_function_name_YYYY-MM-DD_N.json` where N is a counter to ensure unique filenames.
  * @param recordDir - Base directory for recordings
  * @param circuitName - Name of the circuit
- * @param circuitFunctionName - Name of the circuit function
+ * @param functionName - Name of the circuit function
  * @param counter - Counter to ensure unique filenames. This is expected to be incremented in a loop until there is no
  * existing file with the same name.
  * @returns A file path for the recording.
  */
-function getFilePath(recordDir: string, circuitName: string, circuitFunctionName: string, counter: number): string {
+function getFilePath(recordDir: string, circuitName: string, functionName: string, counter: number): string {
   const date = new Date();
   const formattedDate = date.toISOString().split('T')[0];
-  const filename = `${circuitName}_${circuitFunctionName}_${formattedDate}_${counter}.json`;
+  const filename = `${circuitName}_${functionName}_${formattedDate}_${counter}.json`;
   return path.join(recordDir, filename);
 }
