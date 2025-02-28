@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740770682928,
+  "lastUpdate": 1740771899970,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "santiago@aztecprotocol.com",
-            "name": "Santiago Palladino",
-            "username": "spalladino"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9139ffb905d2ac9740121b6ef249607ca3302e1d",
-          "message": "fix: Node getBlockHeader returns undefined for non-existent blocks (#12242)\n\nAztec node's `getBlockHeader` returned the initial genesis header when\nqueried for a non-existing block.",
-          "timestamp": "2025-02-25T09:10:26-03:00",
-          "tree_id": "386f4e50b530145dcdc966122850987cd68fa786",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/9139ffb905d2ac9740121b6ef249607ca3302e1d"
-        },
-        "date": 1740487183559,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18227.17163399989,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16144.696984 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18741.780255000092,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16320.769129999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3941.120327999897,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3188.058156 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54876.14524699999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54876145000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10307.052516000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10307055000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1832997861,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1832997861 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 134469195,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 134469195 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 218546338,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 218546338 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0a03c7a09ae13dacb10411693f656bbeeb3477db",
+          "message": "chore: always verify clientivc (#12310)\n\nThis prevents confusion around why the rollup would fail to verify an\nIVC proof. The cost is around 100ms and worth it at least until things\nare very stable, as this sanity checks issues with our proving.",
+          "timestamp": "2025-02-28T18:58:42Z",
+          "tree_id": "834568445cd5a5a4d0c96ed3a8f0d7b67c02e909",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0a03c7a09ae13dacb10411693f656bbeeb3477db"
+        },
+        "date": 1740771892366,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18237.985586999912,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16154.040843 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18802.66592399994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16543.972029 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3959.0097529999184,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3137.748681 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55288.970914,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55288971000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11136.93087,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11136933000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1908414237,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1908414237 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 224385843,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 224385843 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
