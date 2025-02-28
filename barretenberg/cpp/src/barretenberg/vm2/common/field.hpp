@@ -9,6 +9,6 @@ namespace bb::avm2 {
 
 using FF = AvmFlavorSettings::FF;
 using Fq = AvmFlavorSettings::G1::coordinate_field;
-// TODO(Alvaro): I think we need grumpkin in the flavor settings
-using EmbeddedCurvePoint = StandardAffinePoint<grumpkin::g1::affine_element>;
+using EmbeddedCurvePoint = StandardAffinePoint<AvmFlavorSettings::EmbeddedCurve::AffineElement>;
+
 } // namespace bb::avm2
