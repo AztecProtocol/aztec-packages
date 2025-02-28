@@ -34,6 +34,7 @@ void write(const ProverOutput& prover_output,
                 write_bytes_to_stdout(buf);
             } else {
                 write_file(output_dir / "proof", buf);
+                info("Proof saved to ", output_dir / "proof");
             }
             break;
         }
@@ -43,6 +44,7 @@ void write(const ProverOutput& prover_output,
                 write_bytes_to_stdout(buf);
             } else {
                 write_file(output_dir / "vk", buf);
+                info("VK saved to ", output_dir / "vk");
             }
             break;
         }
@@ -57,6 +59,7 @@ void write(const ProverOutput& prover_output,
                 std::cout << proof_json;
             } else {
                 write_file(output_dir / "proof_fields.json", { proof_json.begin(), proof_json.end() });
+                info("Proof fields saved to ", output_dir / "proof_fields.json");
             }
             break;
         }
@@ -66,6 +69,7 @@ void write(const ProverOutput& prover_output,
                 std::cout << vk_json;
             } else {
                 write_file(output_dir / "vk_fields.json", { vk_json.begin(), vk_json.end() });
+                info("VK fields saved to ", output_dir / "vk_fields.json");
             }
             break;
         }
