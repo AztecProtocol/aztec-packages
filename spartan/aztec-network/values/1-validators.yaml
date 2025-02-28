@@ -8,10 +8,6 @@ validator:
   validator:
     disabled: false
 
-bootNode:
-  validator:
-    disabled: true
-
 ethereum:
   execution:
     resources:

@@ -15,6 +15,9 @@ network:
   # This is only applicable to GKE deployments
   gke: false
 
+  # If true then configured bootnodes are considered non-gossiping peers
+  p2pBootstrapNodesAsFullPeers: true
+
 storage:
   localSsd: false
   dataStoreMapSize: "134217728" # 128 GB
@@ -72,12 +75,42 @@ bootNode:
     p2pUdpPort: 40400
     nodePort: 8080
   logLevel: "debug; info: aztec:simulator, json-rpc"
-  coinbaseAddress: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-  sequencer:
-    maxSecondsBetweenBlocks: 0
-    minTxsPerBlock: 0
-  validator:
-    disabled: true
+  p2p:
+    enabled: "true"
+    floodPublish: true
+  resources:
+    requests:
+      memory: "5Gi"
+  maxOldSpaceSize: "4608"
+  deployContracts: true # Set to false to use manual contract addresses
+  startupProbe:
+    periodSeconds: 10
+    # Only if we fail for 20 minutes straight do we call it botched
+    # This gives enough time to sync
+    failureThreshold: 120
+  contracts:
+    rollupAddress: ""
+    registryAddress: ""
+    inboxAddress: ""
+    outboxAddress: ""
+    feeJuiceAddress: ""
+    feeJuicePortalAddress: ""
+  archiverPollingInterval: 1000
+  archiverViemPollingInterval: 1000
+  viemPollingInterval: 1000
+  stakingAssetAddress: ""
+  storageSize: "1Gi"
+  dataDir: "/data"
+
+fullNode:
+  peerIdPrivateKey: ""
+  externalHost: ""
+  replicas: 1
+  service:
+    p2pTcpPort: 40400
+    p2pUdpPort: 40400
+    nodePort: 8080
+  logLevel: "debug; info: aztec:simulator, json-rpc"
   p2p:
     enabled: "true"
     floodPublish: true

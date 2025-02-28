@@ -154,8 +154,31 @@ export class RollupCheatCodes {
   /** Directly calls the L1 gas fee oracle. */
   public async updateL1GasFeeOracle() {
     await this.asOwner(async (account, rollup) => {
-      await rollup.write.updateL1GasFeeOracle({ account, chain: this.client.chain });
+      const hash = await rollup.write.updateL1GasFeeOracle({ account, chain: this.client.chain });
+      await this.client.waitForTransactionReceipt({ hash });
       this.logger.warn(`Updated L1 gas fee oracle`);
+    });
+  }
+
+  /**
+   * Bumps proving cost per mana.
+   * @param bumper - Callback to calculate the new proving cost per mana based on current value.
+   */
+  public async bumpProvingCostPerMana(bumper: (before: bigint) => bigint) {
+    const currentCost = await this.rollup.read.getProvingCostPerManaInEth();
+    const newCost = bumper(currentCost);
+    await this.setProvingCostPerMana(newCost);
+  }
+
+  /**
+   * Directly updates proving cost per mana.
+   * @param ethValue - The new proving cost per mana in ETH
+   */
+  public async setProvingCostPerMana(ethValue: bigint) {
+    await this.asOwner(async (account, rollup) => {
+      const hash = await rollup.write.setProvingCostPerMana([ethValue], { account, chain: this.client.chain });
+      await this.client.waitForTransactionReceipt({ hash });
+      this.logger.warn(`Updated proving cost per mana to ${ethValue}`);
     });
   }
 }
