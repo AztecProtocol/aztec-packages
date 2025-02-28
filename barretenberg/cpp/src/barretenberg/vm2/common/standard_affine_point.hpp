@@ -4,11 +4,10 @@
 
 namespace bb::avm2 {
 
-template <typename Group> class StandardAffinePoint {
+template <typename AffinePoint> class StandardAffinePoint {
   public:
-    using AffinePoint = Group::affine_element;
-    using CoordinateField = Group::Fq;
-    using ScalarField = Group::Fr;
+    using CoordinateField = AffinePoint::Fq;
+    using ScalarField = AffinePoint::Fr;
 
     constexpr StandardAffinePoint() noexcept
         : point(AffinePoint())
