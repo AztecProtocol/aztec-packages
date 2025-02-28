@@ -9,6 +9,9 @@
 #   AZTEC_DOCKER_TAG (default: current git commit)
 #   INSTALL_TIMEOUT (default: 30m)
 #   OVERRIDES (default: "", no overrides)
+#
+# Note on OVERRIDES:
+# You can use like OVERRIDES="replicas=3,resources.limits.cpu=1"
 
 source $(git rev-parse --show-toplevel)/ci3/source
 
@@ -18,6 +21,7 @@ set -x
 namespace="$1"
 values_file="${2:-default.yaml}"
 sepolia_deployment="${3:-false}"
+helm_instance="${4:-spartan}"
 
 # Default values for environment variables
 chaos_values="${CHAOS_VALUES:-}"
@@ -90,9 +94,9 @@ fi
 
 # Install the Helm chart
 echo "Cleaning up any existing Helm releases..."
-helm uninstall spartan -n "$namespace" 2>/dev/null || true
-kubectl delete clusterrole spartan-aztec-network-node 2>/dev/null || true
-kubectl delete clusterrolebinding spartan-aztec-network-node 2>/dev/null || true
+helm uninstall "$helm_instance" -n "$namespace" 2>/dev/null || true
+kubectl delete clusterrole "$helm_instance"-aztec-network-node 2>/dev/null || true
+kubectl delete clusterrolebinding "$helm_instance"-aztec-network-node 2>/dev/null || true
 
 helm_set_args=(
   --set images.aztec.image="aztecprotocol/aztec:$aztec_docker_tag"
@@ -118,7 +122,7 @@ if [ "$sepolia_deployment" = "true" ]; then
   set -x
 fi
 
-helm upgrade --install spartan ../aztec-network \
+helm upgrade --install "$helm_instance" ../aztec-network \
   --namespace "$namespace" \
   --create-namespace \
   "${helm_set_args[@]}" \

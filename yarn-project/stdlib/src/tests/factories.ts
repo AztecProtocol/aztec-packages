@@ -4,6 +4,7 @@ import {
   AVM_PROOF_LENGTH_IN_FIELDS,
   AZTEC_MAX_EPOCH_DURATION,
   BLOBS_PER_BLOCK,
+  CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS,
   FIELDS_PER_BLOB,
   FIXED_DA_GAS,
   FIXED_L2_GAS,
@@ -109,6 +110,7 @@ import { PrivateLogData } from '../kernel/private_log_data.js';
 import { PrivateToRollupKernelCircuitPublicInputs } from '../kernel/private_to_rollup_kernel_circuit_public_inputs.js';
 import { CountedPublicCallRequest, PublicCallRequest } from '../kernel/public_call_request.js';
 import { PublicKeys, computeAddress } from '../keys/index.js';
+import { ContractClassLog } from '../logs/contract_class_log.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { PublicLog } from '../logs/public_log.js';
 import { L2ToL1Message, ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
@@ -168,7 +170,7 @@ import { mockTx } from './mocks.js';
  * @returns A side effect object.
  */
 function makeLogHash(seed: number) {
-  return new LogHash(fr(seed), seed + 1, fr(seed + 2));
+  return new LogHash(fr(seed), seed + 1, seed + 2);
 }
 
 function makeScopedLogHash(seed: number) {
@@ -181,6 +183,14 @@ function makeNoteHash(seed: number) {
 
 function makeNullifier(seed: number) {
   return new Nullifier(fr(seed), seed + 1, fr(seed + 2));
+}
+
+function makeContractClassLog(seed: number) {
+  // The '* 1' removes the 'Type instantiation is excessively deep and possibly infinite. ts(2589)' err
+  return new ContractClassLog(
+    makeAztecAddress(seed),
+    makeTuple(CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS * 1, fr, seed + 1),
+  );
 }
 
 function makePrivateLog(seed: number) {
@@ -314,7 +324,6 @@ export function makePrivateToRollupAccumulatedData(seed = 1, full = false): Priv
     tupleGenerator(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x600, ScopedL2ToL1Message.empty),
     tupleGenerator(MAX_PRIVATE_LOGS_PER_TX, makePrivateLog, seed + 0x700, PrivateLog.empty),
     tupleGenerator(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeScopedLogHash, seed + 0xa00, ScopedLogHash.empty), // contract class logs
-    fr(seed + 0xe00), // contract_class_log_preimages_length
   );
 }
 
@@ -1060,6 +1069,8 @@ function makePrivateBaseRollupHints(seed = 1) {
 
   const archiveRootMembershipWitness = makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x9000);
 
+  const contractClassLogsPreimages = makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeContractClassLog, seed + 0x800);
+
   const constants = makeConstantRollupData(0x100);
 
   const feePayerFeeJuiceBalanceReadHint = PublicDataHint.empty();
@@ -1068,9 +1079,10 @@ function makePrivateBaseRollupHints(seed = 1) {
     start,
     startSpongeBlob,
     stateDiffHints,
-    archiveRootMembershipWitness,
-    constants,
     feePayerFeeJuiceBalanceReadHint,
+    archiveRootMembershipWitness,
+    contractClassLogsPreimages,
+    constants,
   });
 }
 
@@ -1079,11 +1091,14 @@ function makePublicBaseRollupHints(seed = 1) {
 
   const archiveRootMembershipWitness = makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x9000);
 
+  const contractClassLogsPreimages = makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeContractClassLog, seed + 0x800);
+
   const constants = makeConstantRollupData(0x100);
 
   return PublicBaseRollupHints.from({
     startSpongeBlob,
     archiveRootMembershipWitness,
+    contractClassLogsPreimages,
     constants,
   });
 }

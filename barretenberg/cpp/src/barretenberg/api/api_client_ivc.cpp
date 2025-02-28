@@ -256,7 +256,7 @@ bool ClientIVCAPI::prove_and_verify(const Flags& flags,
 void ClientIVCAPI::gates([[maybe_unused]] const Flags& flags,
                          [[maybe_unused]] const std::filesystem::path& bytecode_path)
 {
-    throw_or_abort("API function gates not implemented");
+    gate_count_for_ivc(bytecode_path);
 }
 
 void ClientIVCAPI::write_contract([[maybe_unused]] const Flags& flags,

@@ -76,7 +76,6 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /shared/config
-      {{- if .Values.bootNode.deployContracts }}
         - name: deploy-l1-contracts
           {{- include "aztec-network.image" . | nindent 10 }}
           command:
@@ -99,6 +98,10 @@ spec:
             - name: scripts
               mountPath: /scripts
           env:
+            - name: TEST_ACCOUNTS
+              value: "{{ .Values.aztec.testAccounts }}"
+            - name: REGISTRY_CONTRACT_ADDRESS
+              value: "{{ .Values.bootNode.contracts.registryAddress }}"
             - name: TELEMETRY
               value: "{{ .Values.telemetry.enabled }}"
             - name: INIT_VALIDATORS
@@ -133,7 +136,6 @@ spec:
                   fieldPath: metadata.namespace
             - name: USE_GCLOUD_LOGGING
               value: "{{ .Values.telemetry.useGcloudLogging }}"
-      {{- end }}
       containers:
         - name: boot-node
           {{- include "aztec-network.image" . | nindent 10 }}
@@ -168,14 +170,8 @@ spec:
               mountPath: /shared/config
             - name: boot-node-data
               mountPath: {{ .Values.bootNode.dataDir }}
-            {{- if .Values.bootNode.deployContracts }}
             - name: scripts-output
               mountPath: /shared/contracts
-            {{- else }}
-            - name: contracts-env
-              mountPath: /shared/contracts/contracts.env
-              subPath: contracts.env
-            {{- end }}
           env:
             - name: POD_IP
               valueFrom:
@@ -210,15 +206,9 @@ spec:
             - name: COINBASE
               value: "{{ .Values.bootNode.coinbaseAddress }}"
             - name: VALIDATOR_DISABLED
-              value: "{{ .Values.bootNode.validator.disabled }}"
+              value: "true"
             - name: L1_CHAIN_ID
               value: "{{ .Values.ethereum.chainId }}"
-            - name: SEQ_MAX_SECONDS_BETWEEN_BLOCKS
-              value: "{{ .Values.bootNode.sequencer.maxSecondsBetweenBlocks }}"
-            - name: SEQ_MIN_TX_PER_BLOCK
-              value: "{{ .Values.bootNode.sequencer.minTxsPerBlock }}"
-            - name: VALIDATOR_PRIVATE_KEY
-              value: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
             - name: PROVER_REAL_PROOFS
@@ -253,6 +243,8 @@ spec:
               value: "{{ .Values.telemetry.useGcloudLogging }}"
             - name: OTEL_EXCLUDE_METRICS
               value: "{{ .Values.telemetry.excludeMetrics }}"
+            - name: TEST_ACCOUNTS
+              value: "{{ .Values.aztec.testAccounts }}"
             {{- if .Values.blobSink.enabled }}
             - name: BLOB_SINK_URL
               value: {{ include "aztec-network.blobSinkUrl" . }}
@@ -277,35 +269,11 @@ spec:
           persistentVolumeClaim:
             claimName: boot-node-data
       {{- end }}
-      {{- if .Values.bootNode.deployContracts }}
         - name: scripts
           configMap:
             name: {{ include "aztec-network.fullname" . }}-scripts
         - name: scripts-output
           emptyDir: {}
-      {{- else }}
-        - name: contracts-env
-          configMap:
-            name: {{ include "aztec-network.fullname" . }}-contracts-env
-      {{- end }}
-{{- if not .Values.bootNode.deployContracts }}
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: {{ include "aztec-network.fullname" . }}-contracts-env
-  labels:
-    {{- include "aztec-network.labels" . | nindent 4 }}
-data:
-  contracts.env: |
-    export ROLLUP_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.rollupAddress }}
-    export REGISTRY_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.registryAddress }}
-    export INBOX_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.inboxAddress }}
-    export OUTBOX_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.outboxAddress }}
-    export FEE_JUICE_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.feeJuiceAddress }}
-    export STAKING_ASSET_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.stakingAssetAddress }}
-    export FEE_JUICE_PORTAL_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.feeJuicePortalAddress }}
-{{- end }}
 ---
 # Headless service for StatefulSet DNS entries
 apiVersion: v1

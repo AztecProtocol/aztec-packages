@@ -47,6 +47,11 @@ function generateCircuitArtifactImportFunction() {
       return [artifactName, simulatedArtifactName];
     })
     .map(artifactName => {
+      // Cannot assert this import as it's incompatible with browsers
+      // https://caniuse.com/mdn-javascript_statements_import_import_assertions_type_json
+      // Use the new "with" syntax once supported by firefox
+      // https://caniuse.com/mdn-javascript_statements_import_import_attributes_type_json
+      // In the meantime, this lazy import is INCOMPATIBLE WITH NODEJS
       return `case '${artifactName}': {
         const { default: compiledCircuit } = await import(\"../artifacts/${artifactName}.json\");
         return compiledCircuit as NoirCompiledCircuit;
@@ -69,6 +74,11 @@ function generateCircuitArtifactImportFunction() {
 
 function generateVkImportFunction() {
   const cases = Object.values(ClientCircuitArtifactNames).map(artifactName => {
+    // Cannot assert this import as it's incompatible with browsers
+    // https://caniuse.com/mdn-javascript_statements_import_import_assertions_type_json
+    // Use the new "with" syntax once supported by firefox
+    // https://caniuse.com/mdn-javascript_statements_import_import_attributes_type_json
+    // In the meantime, this lazy import is INCOMPATIBLE WITH NODEJS
     return `case '${artifactName}': {
         const { default: keyData } = await import(\"../artifacts/keys/${artifactName}.vk.data.json\");
         return keyJsonToVKData(keyData);

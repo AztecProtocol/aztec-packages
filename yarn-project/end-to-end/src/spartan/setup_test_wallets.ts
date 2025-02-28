@@ -80,10 +80,11 @@ export async function deployTestWalletWithTokens(
 
   const wallets = await Promise.all(
     fundedAccounts.map(async (a, i) => {
-      const paymentMethod = new FeeJuicePaymentMethodWithClaim(a.getAddress(), claims[i]);
+      const wallet = await a.getWallet();
+      const paymentMethod = new FeeJuicePaymentMethodWithClaim(wallet, claims[i]);
       await a.deploy({ fee: { paymentMethod } }).wait();
       logger.info(`Account deployed at ${a.getAddress()}`);
-      return a.getWallet();
+      return wallet;
     }),
   );
 

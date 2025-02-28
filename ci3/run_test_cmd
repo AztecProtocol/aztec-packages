@@ -34,7 +34,7 @@ Command: $cmd
 Commit: https://github.com/AztecProtocol/aztec-packages/commit/$COMMIT_HASH
 Env: REF_NAME=$REF_NAME CURRENT_VERSION=$CURRENT_VERSION CI_FULL=$CI_FULL
 Date: $(date)
-Sys: ARCH=$(arch) CPUS=$(nproc) HOSTNAME=$(hostname)
+Sys: ARCH=$(arch) CPUS=$(nproc) MEM=$(free -h | awk '/^Mem:/{print $2}') HOSTNAME=$(hostname)
 
 EOF
 # Remove the tmp fail on exit.
@@ -95,7 +95,7 @@ function flake {
   read -r -d '' data <<EOF
   {
     "channel": "#aztec3-ci",
-    "text": "${slack_uids% }: Test flaked \`$test_cmd\` http://ci.aztec-labs.com/$log_key"
+    "text": "${slack_uids% }: Test flaked on *$REF_NAME*: \`$test_cmd\` http://ci.aztec-labs.com/$log_key"
   }
 EOF
   curl -X POST https://slack.com/api/chat.postMessage \
