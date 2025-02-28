@@ -94,6 +94,11 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     const origOnEstablished = this.discv5.onEstablished.bind(this.discv5);
     this.discv5.onEstablished = (...args: unknown[]) => {
       const enr = args[1] as ENR;
+      // A special case is for bootnodes. If this is a bootnode and we have been told to skip version checks
+      // then proceed straight to handling the event
+      if (!this.config.bootstrapNodeEnrVersionCheck && this.isOurBootnode(enr)) {
+        return origOnEstablished(...args);
+      }
       if (this.validateEnr(enr)) {
         return origOnEstablished(...args);
       }
