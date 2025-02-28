@@ -317,8 +317,14 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // Compute the Shplonk batching power for the interleaved claims. This is \nu^{n+1} where n is the
         // log_circuit_size as the interleaved claims are sent after the rest of Gemini fold claims
-        Fr shplonk_batching_pos = shplonk_batching_challenge.pow(log_circuit_size + 1);
-        Fr shplonk_batching_neg = shplonk_batching_pos * shplonk_batching_challenge;
+        Fr shplonk_batching_pos = Fr{ 0 };
+        Fr shplonk_batching_neg = Fr{ 0 };
+        if (claim_batcher.interleaved) {
+            shplonk_batching_pos = shplonk_batching_challenge.pow(log_circuit_size + 1);
+            shplonk_batching_neg = shplonk_batching_pos * shplonk_batching_challenge;
+            constant_term_accumulator += p_pos * interleaving_vanishing_eval * shplonk_batching_pos +
+                                         p_neg * interleaving_vanishing_eval * shplonk_batching_neg;
+        }
         claim_batcher.update_batch_mul_inputs_and_batched_evaluation(commitments,
                                                                      scalars,
                                                                      batched_evaluation,
@@ -337,9 +343,6 @@ template <typename Curve> class ShpleminiVerifier_ {
                                                  commitments,
                                                  scalars,
                                                  constant_term_accumulator);
-
-        constant_term_accumulator += p_pos * interleaving_vanishing_eval * shplonk_batching_pos +
-                                     p_neg * interleaving_vanishing_eval * shplonk_batching_neg;
 
         gemini_evaluations[0] += p_neg;
         // - Compute A₀(r)
