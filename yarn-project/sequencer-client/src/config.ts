@@ -65,7 +65,7 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   },
   coinbase: {
     env: 'COINBASE',
-    parseEnv: (val: string) => EthAddress.fromString(val),
+    parseEnv: (val: string) => (val ? EthAddress.fromString(val) : undefined),
     description: 'Recipient of block reward.',
   },
   feeRecipient: {

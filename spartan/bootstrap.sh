@@ -60,7 +60,6 @@ function test_cmds {
   if [ "$CI_FULL" -eq 1 ]; then
     echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-transfer"
     echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-4epochs"
-    echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-transfer-blob-with-sink"
     echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-upgrade-rollup-version"
   fi
 }
@@ -112,27 +111,25 @@ case "$cmd" in
     $cmd
     ;;
   "test-kind-smoke")
-    NAMESPACE=smoke FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false ./scripts/test_kind.sh src/spartan/smoke.test.ts ci-smoke.yaml
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+      ./scripts/test_kind.sh src/spartan/smoke.test.ts ci-smoke.yaml smoke${NAME_POSTFIX:-}
     ;;
   "test-kind-4epochs")
     # TODO(#12163) reenable bot once not conflicting with transfer
-    export OVERRIDES="bot.enabled=false"
-    NAMESPACE=4epochs FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false ./scripts/test_kind.sh src/spartan/4epochs.test.ts ci.yaml
+    OVERRIDES="bot.enabled=false" \
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+      ./scripts/test_kind.sh src/spartan/4epochs.test.ts ci.yaml four-epochs${NAME_POSTFIX:-}
     ;;
   "test-kind-transfer")
     # TODO(#12163) reenable bot once not conflicting with transfer
-    export OVERRIDES="bot.enabled=false"
-    NAMESPACE=transfer FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false ./scripts/test_kind.sh src/spartan/transfer.test.ts ci.yaml
-    ;;
-  "test-kind-transfer-blob-with-sink")
-    # TODO(#12163) reenable bot once not conflicting with transfer
-    export OVERRIDES="blobSink.enabled=true,bot.enabled=false"
-    # export OVERRIDES="blobSink.enabled=true"
-    ./bootstrap.sh test-kind-transfer
+    OVERRIDES="blobSink.enabled=true,bot.enabled=false" \
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+      ./scripts/test_kind.sh src/spartan/transfer.test.ts ci.yaml transfer${NAME_POSTFIX:-}
     ;;
   "test-kind-upgrade-rollup-version")
-    export OVERRIDES="bot.enabled=false"
-    NAMESPACE=upgrade-rollup-version FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false ./scripts/test_kind.sh src/spartan/upgrade_rollup_version.test.ts ci.yaml
+    OVERRIDES="bot.enabled=false" \
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+      ./scripts/test_kind.sh src/spartan/upgrade_rollup_version.test.ts ci.yaml upgrade-rollup-version${NAME_POSTFIX:-}
     ;;
   "test-local")
     # Isolate network stack in docker.

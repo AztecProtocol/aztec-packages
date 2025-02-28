@@ -3,9 +3,8 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    "./common": "./dest/common.js",
     "./server": "./dest/server.js",
-    "./client": "./dest/client/index.js",
+    "./client": "./dest/client.js",
     "./public/fixtures": "./dest/public/fixtures/index.js"
   },
   "typedocOptions": {
