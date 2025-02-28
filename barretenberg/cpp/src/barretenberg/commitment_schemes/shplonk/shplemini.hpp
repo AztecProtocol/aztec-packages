@@ -197,7 +197,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         const std::vector<Fr>& multivariate_challenge,
         const Commitment& g1_identity,
         const std::shared_ptr<Transcript>& transcript,
-        const RepeatedCommitmentsData& repeated_commitments = {},
+        [[maybe_unused]] const RepeatedCommitmentsData& repeated_commitments = {},
         const bool has_zk = false,
         bool* consistency_checked = nullptr, // TODO(https://github.com/AztecProtocol/barretenberg/issues/1191).
                                              // Shplemini Refactoring: Remove bool pointer
@@ -309,17 +309,6 @@ template <typename Curve> class ShpleminiVerifier_ {
         // Place the commitments to prover polynomials in the commitments vector. Compute the evaluation of the
         // batched multilinear polynomial. Populate the vector of scalars for the final batch mul
 
-        // Place the commitments to Gemini fold polynomials Aᵢ in the vector of commitments, compute the contributions
-        // from Aᵢ(−r²ⁱ) for i=1, … , n−1 to the constant term accumulator, add corresponding scalars for the batch mul
-        batch_gemini_claims_received_from_prover(log_circuit_size,
-                                                 fold_commitments,
-                                                 gemini_evaluations,
-                                                 inverse_vanishing_evals,
-                                                 shplonk_batching_challenge,
-                                                 commitments,
-                                                 scalars,
-                                                 constant_term_accumulator);
-
         Fr gemini_batching_challenge_power = Fr(1);
         if (has_zk) {
             // ρ⁰ is used to batch the hiding polynomial which has already been added to the commitments vector
@@ -337,6 +326,17 @@ template <typename Curve> class ShpleminiVerifier_ {
                                                                      gemini_batching_challenge_power,
                                                                      shplonk_batching_pos,
                                                                      shplonk_batching_neg);
+
+        // Place the commitments to Gemini fold polynomials Aᵢ in the vector of commitments, compute the contributions
+        // from Aᵢ(−r²ⁱ) for i=1, … , n−1 to the constant term accumulator, add corresponding scalars for the batch mul
+        batch_gemini_claims_received_from_prover(log_circuit_size,
+                                                 fold_commitments,
+                                                 gemini_evaluations,
+                                                 inverse_vanishing_evals,
+                                                 shplonk_batching_challenge,
+                                                 commitments,
+                                                 scalars,
+                                                 constant_term_accumulator);
 
         constant_term_accumulator += p_pos * interleaving_vanishing_eval * shplonk_batching_pos +
                                      p_neg * interleaving_vanishing_eval * shplonk_batching_neg;
