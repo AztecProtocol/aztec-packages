@@ -18,11 +18,11 @@ import { type SimulationProvider, parseErrorPayload } from './simulation_provide
 export class WASMSimulatorWithBlobs implements SimulationProvider {
   async executeProtocolCircuit(
     input: WitnessMap,
-    compiledCircuit: NoirCompiledCircuitWithName,
+    artifact: NoirCompiledCircuitWithName,
     callback: ForeignCallHandler,
   ): Promise<WitnessMap> {
     // Decode the bytecode from base64 since the acvm does not know about base64 encoding
-    const decodedBytecode = Buffer.from(compiledCircuit.bytecode, 'base64');
+    const decodedBytecode = Buffer.from(artifact.bytecode, 'base64');
     //
     // Execute the circuit
     try {
@@ -37,7 +37,7 @@ export class WASMSimulatorWithBlobs implements SimulationProvider {
       // Typescript types caught errors as unknown or any, so we need to narrow its type to check if it has raw
       // assertion payload.
       if (typeof err === 'object' && err !== null && 'rawAssertionPayload' in err) {
-        throw parseErrorPayload(compiledCircuit.abi, err as ExecutionError);
+        throw parseErrorPayload(artifact.abi, err as ExecutionError);
       }
       throw new Error(`Circuit execution failed: ${err}`);
     }
