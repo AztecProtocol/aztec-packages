@@ -18,7 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 7,
+  "id": 11,
   "links": [],
   "panels": [
     {
@@ -33,6 +33,77 @@
       "panels": [],
       "title": "Overview",
       "type": "row"
+    },
+    {
+      "datasource": {
+        "default": true,
+        "type": "prometheus",
+        "uid": "spartan-metrics-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 2,
+        "x": 0,
+        "y": 1
+      },
+      "id": 26,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^service_version$/",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.2.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "spartan-metrics-prometheus"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "target_info{k8s_namespace_name=\"$namespace\"}",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Aztec version",
+      "type": "stat"
     },
     {
       "datasource": {
@@ -65,8 +136,8 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 24,
-        "x": 0,
+        "w": 22,
+        "x": 2,
         "y": 1
       },
       "id": 20,
@@ -346,8 +417,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -363,7 +433,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 17
+            "y": 25
           },
           "id": 8,
           "options": {
@@ -448,8 +518,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -465,7 +534,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 17
+            "y": 25
           },
           "id": 9,
           "options": {
@@ -550,8 +619,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -563,7 +631,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 25
+            "y": 33
           },
           "id": 21,
           "options": {
@@ -639,8 +707,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -655,7 +722,7 @@
             "h": 8,
             "w": 4,
             "x": 0,
-            "y": 38
+            "y": 46
           },
           "id": 5,
           "options": {
@@ -713,8 +780,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               }
@@ -725,7 +791,7 @@
             "h": 8,
             "w": 4,
             "x": 4,
-            "y": 38
+            "y": 46
           },
           "id": 6,
           "options": {
@@ -784,8 +850,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "yellow",
-                    "value": null
+                    "color": "yellow"
                   }
                 ]
               }
@@ -796,7 +861,7 @@
             "h": 8,
             "w": 4,
             "x": 8,
-            "y": 38
+            "y": 46
           },
           "id": 7,
           "options": {
@@ -868,7 +933,7 @@
             "h": 8,
             "w": 4,
             "x": 12,
-            "y": 38
+            "y": 46
           },
           "id": 4,
           "options": {
@@ -980,8 +1045,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -993,7 +1057,7 @@
             "h": 8,
             "w": 14,
             "x": 0,
-            "y": 39
+            "y": 47
           },
           "id": 19,
           "options": {
@@ -1054,7 +1118,7 @@
             "h": 16,
             "w": 10,
             "x": 14,
-            "y": 39
+            "y": 47
           },
           "id": 16,
           "options": {
@@ -1155,8 +1219,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -1168,7 +1231,7 @@
             "h": 8,
             "w": 14,
             "x": 0,
-            "y": 47
+            "y": 55
           },
           "id": 18,
           "options": {
@@ -1269,8 +1332,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1285,7 +1347,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 20
+            "y": 28
           },
           "id": 1,
           "options": {
@@ -1370,8 +1432,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -1383,7 +1444,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 20
+            "y": 28
           },
           "id": 11,
           "options": {
@@ -1469,8 +1530,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1486,7 +1546,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 28
+            "y": 36
           },
           "id": 24,
           "interval": "1m",
@@ -1538,8 +1598,8 @@
       {
         "current": {
           "selected": false,
-          "text": "smoke",
-          "value": "smoke"
+          "text": "master-rc-1",
+          "value": "master-rc-1"
         },
         "datasource": {
           "type": "prometheus",
@@ -1574,6 +1634,6 @@
   "timezone": "browser",
   "title": "Network overview",
   "uid": "aztec-network",
-  "version": 14,
+  "version": 3,
   "weekStart": ""
 }

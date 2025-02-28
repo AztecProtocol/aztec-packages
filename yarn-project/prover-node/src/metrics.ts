@@ -42,8 +42,8 @@ export class ProverNodeMetrics {
     });
     this.provingJobDuration = meter.createHistogram(Metrics.PROVER_NODE_JOB_DURATION, {
       description: 'Duration of proving job',
-      unit: 'ms',
-      valueType: ValueType.INT,
+      unit: 's',
+      valueType: ValueType.DOUBLE,
     });
     this.provingJobBlocks = meter.createHistogram(Metrics.PROVER_NODE_JOB_BLOCKS, {
       description: 'Number of blocks in a proven epoch',
@@ -120,7 +120,7 @@ export class ProverNodeMetrics {
 
   public recordProvingJob(executionTimeMs: number, totalTimeMs: number, numBlocks: number, numTxs: number) {
     this.proverEpochExecutionDuration.record(Math.ceil(executionTimeMs));
-    this.provingJobDuration.record(Math.ceil(totalTimeMs));
+    this.provingJobDuration.record(totalTimeMs / 1000);
     this.provingJobBlocks.record(Math.floor(numBlocks));
     this.provingJobTransactions.record(Math.floor(numTxs));
   }
