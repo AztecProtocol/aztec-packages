@@ -46,7 +46,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
 
       return { result: 'valid' };
     } finally {
-      await this.contractDataSource.removeNewContracts(tx);
+      this.contractDataSource.clearContractsForTx();
     }
   }
 
