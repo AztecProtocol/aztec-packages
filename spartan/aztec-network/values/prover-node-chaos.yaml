@@ -7,10 +7,6 @@ validator:
   validator:
     disabled: false
 
-bootNode:
-  validator:
-    disabled: true
-
 telemetry:
   enabled: true
 

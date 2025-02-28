@@ -178,7 +178,7 @@ describe('End-to-end tests for devnet', () => {
     const txReceipt = await l2Account
       .deploy({
         fee: {
-          paymentMethod: new FeeJuicePaymentMethodWithClaim(l2Account.getAddress(), {
+          paymentMethod: new FeeJuicePaymentMethodWithClaim(await l2Account.getWallet(), {
             claimAmount: Fr.fromHexString(claimAmount).toBigInt(),
             claimSecret: Fr.fromHexString(claimSecret.value),
             messageLeafIndex: BigInt(messageLeafIndex),

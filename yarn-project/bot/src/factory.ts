@@ -96,7 +96,8 @@ export class BotFactory {
 
       const claim = await this.bridgeL1FeeJuice(address, 10n ** 22n);
 
-      const paymentMethod = new FeeJuicePaymentMethodWithClaim(address, claim);
+      const wallet = await account.getWallet();
+      const paymentMethod = new FeeJuicePaymentMethodWithClaim(wallet, claim);
       const sentTx = account.deploy({ fee: { paymentMethod } });
       const txHash = await sentTx.getTxHash();
       this.log.info(`Sent tx with hash ${txHash.toString()}`);
@@ -104,7 +105,7 @@ export class BotFactory {
       this.log.verbose('Waiting for account deployment to settle');
       await sentTx.wait({ timeout: this.config.txMinedWaitSeconds });
       this.log.info(`Account deployed at ${address}`);
-      return account.getWallet();
+      return wallet;
     }
   }
 
@@ -185,7 +186,7 @@ export class BotFactory {
     if (privateBalance < MIN_BALANCE) {
       this.log.info(`Minting private tokens for ${sender.toString()}`);
 
-      const from = sender; // we are setting from to sender here because of TODO(#9887)
+      const from = sender; // we are setting from to sender here because we need a sender to calculate the tag
       calls.push(
         isStandardToken
           ? await token.methods.mint_to_private(from, sender, MINT_BALANCE).request()

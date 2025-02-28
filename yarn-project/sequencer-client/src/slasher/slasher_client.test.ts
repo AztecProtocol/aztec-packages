@@ -88,6 +88,8 @@ describe('In-Memory Slasher Client', () => {
 
   describe('Chain prunes', () => {
     it('moves the tips on a chain reorg', async () => {
+      const timeToReact = 1000;
+
       blockSource.setProvenBlockNumber(0);
       await client.start();
 
@@ -102,7 +104,7 @@ describe('In-Memory Slasher Client', () => {
       blockSource.removeBlocks(10);
 
       // give the client a chance to react to the reorg
-      await sleep(100);
+      await sleep(timeToReact);
 
       await expect(client.getL2Tips()).resolves.toEqual({
         latest: { number: 90, hash: expect.any(String) },
@@ -113,7 +115,7 @@ describe('In-Memory Slasher Client', () => {
       blockSource.addBlocks([await L2Block.random(91), await L2Block.random(92)]);
 
       // give the client a chance to react to the new blocks
-      await sleep(100);
+      await sleep(timeToReact);
 
       await expect(client.getL2Tips()).resolves.toEqual({
         latest: { number: 92, hash: expect.any(String) },

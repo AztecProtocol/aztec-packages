@@ -6,10 +6,6 @@ validator:
   validator:
     disabled: false
 
-bootNode:
-  validator:
-    disabled: true
-
 bot:
   followChain: "PENDING"
   enabled: true
