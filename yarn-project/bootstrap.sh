@@ -108,7 +108,7 @@ function test_cmds {
   # Enable real proofs in prover-client integration tests only on CI full
   for test in prover-client/src/test/*.test.ts; do
     if [ "$CI_FULL" -eq 1 ]; then
-      echo "$hash ISOLATE=1 LOG_LEVEL=verbose CPUS=4 MEM=96g yarn-project/scripts/run_test.sh $test"
+      echo "$hash ISOLATE=1 LOG_LEVEL=verbose CPUS=16 MEM=96g yarn-project/scripts/run_test.sh $test"
     else
       echo "$hash FAKE_PROOFS=1 yarn-project/scripts/run_test.sh $test"
     fi
