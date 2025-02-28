@@ -128,6 +128,9 @@ tests:
   - regex: "sequencer-client/src/slasher/slasher_client.test.ts"
     owners:
       - "U03E5SYLY3Z" # lasse
+  - regex: "prover-client/src/test/bb_prover_full_rollup.test.ts"
+    owners:
+      - "U04TPBU26E8" # palla
 
   # kind tests
   - regex: "spartan/bootstrap.sh test-kind"
