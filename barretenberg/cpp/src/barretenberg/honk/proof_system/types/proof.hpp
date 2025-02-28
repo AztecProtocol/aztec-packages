@@ -6,7 +6,7 @@
 namespace bb {
 
 // Where the public inputs start within a proof (after circuit_size, num_pub_inputs, pub_input_offset)
-static constexpr size_t HONK_PROOF_PUBLIC_INPUT_OFFSET = 3;
+static constexpr size_t HONK_PROOF_PUBLIC_INPUT_OFFSET = 0;
 
 // Where the number of public inputs is specified in a proof
 static constexpr size_t PUBLIC_INPUTS_SIZE_INDEX = 1;
