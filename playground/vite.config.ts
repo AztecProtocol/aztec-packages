@@ -67,7 +67,6 @@ export default defineConfig(({ mode }) => {
     define: {
       "process.env": JSON.stringify({
         LOG_LEVEL: env.LOG_LEVEL,
-        AZTEC_NODE_URL: env.AZTEC_NODE_URL,
         // The path to a custom WASM file for bb.js.
         // Only the single-threaded file name is needed, the multithreaded file name will be inferred
         // by adding the -threads suffix: e.g: /assets/barretenberg.wasm.gz -> /assets/barretenberg-threads.wasm.gz

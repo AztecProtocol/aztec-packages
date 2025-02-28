@@ -25,16 +25,19 @@ function test {
 }
 
 function test_cmds {
-  return
+  for browser in chromium webkit firefox; do
+    echo "$hash playground/scripts/run_test.sh $browser"
+  done
 }
 
 function release {
-  echo_header "playground release"
-  local branch=$(dist_tag)
-  if [ $branch = latest ]; then
-    branch=master
+  echo_header "docs release"
+  if [ ${DRY_RUN:-0} = 1 ]; then
+    echo "Dry run, doing docs preview:"
+    yarn netlify deploy --site aztec-playground
+  else
+    yarn netlify deploy --site aztec-playground --prod
   fi
-  return
 }
 
 case "$cmd" in
