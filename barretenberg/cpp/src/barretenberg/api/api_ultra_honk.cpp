@@ -110,7 +110,11 @@ bool _verify(const bool honk_recursion_2, const std::filesystem::path& proof_pat
         verified = verifier.verify_proof(proof);
     }
 
-    verified ? info("Proof verified successfully") : info("Proof verification failed");
+    if (verified) {
+        info("Proof verified successfully");
+    } else {
+        info("Proof verification failed");
+    }
 
     return verified;
 }
