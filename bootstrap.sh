@@ -47,14 +47,19 @@ function check_toolchains {
     echo "Installation: sudo apt install clang-16"
     exit 1
   fi
-  # Check rust version.
+  # Check rustup installed.
   local rust_version=$(yq '.toolchain.channel' ./noir/noir-repo/rust-toolchain.toml)
-  if ! rustup show | grep $rust_version > /dev/null; then
+  if ! command -v rustup > /dev/null; then
     encourage_dev_container
-    echo "Rust version $rust_version not installed."
+    echo "Rustup not installed."
     echo "Installation:"
     echo "  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain $rust_version"
     exit 1
+  fi
+  if ! rustup show | grep $rust_version > /dev/null; then
+    # Cargo will download necessary version of rust at runtime but warn to alert that an update to the build-image
+    # is desirable.
+    echo -e "${bold}${yellow}WARN: Rust ${rust_version} is not installed. Performance will be degraded.${reset}"
   fi
   # Check wasi-sdk version.
   if ! cat /opt/wasi-sdk/VERSION 2> /dev/null | grep 22.0 > /dev/null; then
