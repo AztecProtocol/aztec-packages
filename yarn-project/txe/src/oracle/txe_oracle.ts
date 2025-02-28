@@ -31,10 +31,10 @@ import {
   toACVMWitness,
   witnessMapToFields,
 } from '@aztec/simulator/client';
+import { type HashedValuesCache } from '@aztec/simulator/client';
 import { createTxForPublicCalls } from '@aztec/simulator/public/fixtures';
 import {
   ExecutionError,
-  type HashedValuesCache,
   type PublicTxResult,
   PublicTxSimulator,
   createSimulationError,
