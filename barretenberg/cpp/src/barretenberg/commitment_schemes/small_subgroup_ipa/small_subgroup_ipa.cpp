@@ -36,10 +36,9 @@ SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(const std::shared_ptr<typ
     // Reallocate the commitment key if necessary. This is an edge case with SmallSubgroupIPA since it has
     // polynomials that may exceed the circuit size.
     if (commitment_key->dyadic_size < MASKED_GRAND_SUM_LENGTH) {
-        this->commitment_key = std::make_shared<typename Flavor::CommitmentKey>(MASKED_GRAND_SUM_LENGTH);
-    } else {
-        this->commitment_key = commitment_key;
-    }
+        commitment_key = std::make_shared<typename Flavor::CommitmentKey>(MASKED_GRAND_SUM_LENGTH);
+    };
+    this->commitment_key = commitment_key;
 };
 
 /**
