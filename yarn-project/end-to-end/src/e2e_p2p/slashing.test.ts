@@ -26,8 +26,8 @@ describe('e2e_p2p_slashing', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
 
-  const slashingQuorum = 2;
-  const slashingRoundSize = 6;
+  const slashingQuorum = 6;
+  const slashingRoundSize = 10;
 
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
@@ -177,7 +177,6 @@ describe('e2e_p2p_slashing', () => {
 
       // Create a deep clone of slasher.slashEvents to prevent race conditions
       // The validator client can remove elements from the original array
-      // We need to manually handle bigints since JSON.stringify/parse doesn't support them
       slashEvents = slasher.slashEvents.map((event: any) => ({
         epoch: event.epoch,
         amount: event.amount,
