@@ -21,6 +21,7 @@ pub mod read_request;
 pub mod log;
 pub mod private_log;
 pub mod public_log;
+pub mod contract_class_log;
 pub mod log_hash;
 pub mod note_hash;
 pub mod nullifier;

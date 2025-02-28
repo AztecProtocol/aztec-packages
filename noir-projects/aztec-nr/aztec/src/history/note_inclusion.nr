@@ -9,6 +9,8 @@ use crate::{
     oracle::get_membership_witness::get_note_hash_membership_witness,
 };
 
+mod test;
+
 trait ProveNoteInclusion {
     fn prove_note_inclusion<Note>(
         header: BlockHeader,

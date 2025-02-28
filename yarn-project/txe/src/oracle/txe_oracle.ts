@@ -19,6 +19,7 @@ import type { KeyStore } from '@aztec/key-store';
 import { ContractDataOracle, SimulatorOracle, enrichPublicSimulationError } from '@aztec/pxe';
 import {
   ExecutionNoteCache,
+  type HashedValuesCache,
   type MessageLoadOracleInputs,
   type NoteData,
   Oracle,
@@ -34,7 +35,6 @@ import {
 import { createTxForPublicCalls } from '@aztec/simulator/public/fixtures';
 import {
   ExecutionError,
-  type HashedValuesCache,
   type PublicTxResult,
   PublicTxSimulator,
   createSimulationError,
@@ -63,7 +63,7 @@ import {
 import type { MerkleTreeReadOperations, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { type KeyValidationRequest, PrivateContextInputs } from '@aztec/stdlib/kernel';
 import { computeTaggingSecretPoint, deriveKeys } from '@aztec/stdlib/keys';
-import { LogWithTxData, UnencryptedL2Log } from '@aztec/stdlib/logs';
+import { ContractClassLog, LogWithTxData } from '@aztec/stdlib/logs';
 import { IndexedTaggingSecret, type PrivateLog, type PublicLog } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import type { CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
@@ -760,7 +760,7 @@ export class TXE implements TypedOracle {
     return new Fr(this.blockNumber + 6969);
   }
 
-  emitContractClassLog(_log: UnencryptedL2Log, _counter: number): Fr {
+  emitContractClassLog(_log: ContractClassLog, _counter: number): Fr {
     throw new Error('Method not implemented.');
   }
 

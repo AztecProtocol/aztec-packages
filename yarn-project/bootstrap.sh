@@ -105,12 +105,23 @@ function test_cmds {
     echo "$hash ISOLATE=1 yarn-project/scripts/run_test.sh $test"
   done
 
+  # Enable real proofs in prover-client integration tests only on CI full
+  for test in prover-client/src/test/*.test.ts; do
+    if [ "$CI_FULL" -eq 1 ]; then
+      echo "$hash ISOLATE=1 CPUS=4 MEM=96g yarn-project/scripts/run_test.sh $test"
+    else
+      echo "$hash FAKE_PROOFS=1 yarn-project/scripts/run_test.sh $test"
+    fi
+  done
+
   # Exclusions:
   # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.
   # kv-store: Uses mocha so will need different treatment.
   # noir-bb-bench: A slow pain. Figure out later.
+  # prover-client/src/test: Enable real proofs only on CI full.
   # prover-node|p2p|ethereum|aztec: Isolated using docker above.
   for test in !(end-to-end|kv-store|prover-node|p2p|ethereum|aztec|noir-bb-bench)/src/**/*.test.ts; do
+    [[ "$test" == prover-client/src/test/* ]] && continue
     echo $hash yarn-project/scripts/run_test.sh $test
   done
 

@@ -63,6 +63,204 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     });
 
   program
+    .command('deploy-new-rollup')
+    .description('Deploys a new rollup contract and a payload to upgrade the registry with it.')
+    .requiredOption('-r, --registry-address <string>', 'The address of the registry contract', parseEthereumAddress)
+    .addOption(l1RpcUrlsOption)
+    .option('-pk, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
+    .option('--validators <string>', 'Comma separated list of validators')
+    .option(
+      '-m, --mnemonic <string>',
+      'The mnemonic to use in deployment',
+      'test test test test test test test test test test test junk',
+    )
+    .option('-i, --mnemonic-index <number>', 'The index of the mnemonic to use in deployment', arg => parseInt(arg), 0)
+    .addOption(l1ChainIdOption)
+    .option('--salt <number>', 'The optional salt to use in deployment', arg => parseInt(arg))
+    .option('--json', 'Output the contract addresses in JSON format')
+    .option('--test-accounts', 'Populate genesis state with initial fee juice for test accounts')
+    .action(async options => {
+      const { deployNewRollup } = await import('./deploy_new_rollup.js');
+
+      const initialValidators =
+        options.validators?.split(',').map((validator: string) => EthAddress.fromString(validator)) || [];
+      await deployNewRollup(
+        options.registryAddress,
+        options.l1RpcUrls,
+        options.l1ChainId,
+        options.privateKey,
+        options.mnemonic,
+        options.mnemonicIndex,
+        options.salt,
+        options.testAccounts,
+        options.json,
+        initialValidators,
+        log,
+        debugLogger,
+      );
+    });
+
+  program
+    .command('deposit-governance-tokens')
+    .description('Deposits governance tokens to the governance contract.')
+    .requiredOption('-r, --registry-address <string>', 'The address of the registry contract', parseEthereumAddress)
+    .requiredOption('--recipient <string>', 'The recipient of the tokens', parseEthereumAddress)
+    .requiredOption('-a, --amount <string>', 'The amount of tokens to deposit', parseBigint)
+    .option('--mint', 'Mint the tokens on L1', false)
+    .addOption(l1RpcUrlsOption)
+    .addOption(l1ChainIdOption)
+    .option('-p, --private-key <string>', 'The private key to use to deposit', PRIVATE_KEY)
+    .option(
+      '-m, --mnemonic <string>',
+      'The mnemonic to use to deposit',
+      'test test test test test test test test test test test junk',
+    )
+    .option('-i, --mnemonic-index <number>', 'The index of the mnemonic to use to deposit', arg => parseInt(arg), 0)
+    .action(async options => {
+      const { depositGovernanceTokens } = await import('./governance_utils.js');
+      await depositGovernanceTokens({
+        registryAddress: options.registryAddress.toString(),
+        recipient: options.recipient.toString(),
+        amount: options.amount,
+        mint: options.mint,
+        rpcUrls: options.l1RpcUrls,
+        chainId: options.l1ChainId,
+        privateKey: options.privateKey,
+        mnemonic: options.mnemonic,
+        mnemonicIndex: options.mnemonicIndex,
+        debugLogger,
+      });
+    });
+
+  program
+    .command('propose-with-lock')
+    .description('Makes a proposal to governance with a lock')
+    .requiredOption('-r, --registry-address <string>', 'The address of the registry contract', parseEthereumAddress)
+    .requiredOption('-p, --payload-address <string>', 'The address of the payload contract', parseEthereumAddress)
+    .addOption(l1RpcUrlsOption)
+    .addOption(l1ChainIdOption)
+    .option('-pk, --private-key <string>', 'The private key to use to propose', PRIVATE_KEY)
+    .option(
+      '-m, --mnemonic <string>',
+      'The mnemonic to use to propose',
+      'test test test test test test test test test test test junk',
+    )
+    .option('-i, --mnemonic-index <number>', 'The index of the mnemonic to use to propose', arg => parseInt(arg), 0)
+    .option('--json', 'Output the proposal ID in JSON format')
+    .action(async options => {
+      const { proposeWithLock } = await import('./governance_utils.js');
+      await proposeWithLock({
+        payloadAddress: options.payloadAddress.toString(),
+        registryAddress: options.registryAddress.toString(),
+        rpcUrls: options.l1RpcUrls,
+        chainId: options.l1ChainId,
+        privateKey: options.privateKey,
+        mnemonic: options.mnemonic,
+        mnemonicIndex: options.mnemonicIndex,
+        debugLogger: debugLogger,
+        json: options.json,
+        log,
+      });
+    });
+
+  program
+    .command('vote-on-governance-proposal')
+    .description('Votes on a governance proposal.')
+    .requiredOption('-p, --proposal-id <string>', 'The ID of the proposal', parseBigint)
+    .option('-a, --vote-amount <string>', 'The amount of tokens to vote', parseBigint)
+    .requiredOption(
+      '--in-favor <boolean>',
+      'Whether to vote in favor of the proposal. Use "yea" for true, any other value for false.',
+      arg => arg === 'yea' || arg === 'true' || arg === '1' || arg === 'yes',
+    )
+    .requiredOption('--wait <boolean>', 'Whether to wait until the proposal is active', arg => arg === 'true')
+    .requiredOption('-r, --registry-address <string>', 'The address of the registry contract', parseEthereumAddress)
+    .addOption(l1RpcUrlsOption)
+    .addOption(l1ChainIdOption)
+    .option('-pk, --private-key <string>', 'The private key to use to vote', PRIVATE_KEY)
+    .option(
+      '-m, --mnemonic <string>',
+      'The mnemonic to use to vote',
+      'test test test test test test test test test test test junk',
+    )
+    .option('-i, --mnemonic-index <number>', 'The index of the mnemonic to use to vote', arg => parseInt(arg), 0)
+    .action(async options => {
+      const { voteOnGovernanceProposal } = await import('./governance_utils.js');
+      await voteOnGovernanceProposal({
+        proposalId: options.proposalId,
+        voteAmount: options.voteAmount,
+        inFavor: options.inFavor,
+        waitTilActive: options.wait,
+        registryAddress: options.registryAddress.toString(),
+        rpcUrls: options.l1RpcUrls,
+        chainId: options.l1ChainId,
+        privateKey: options.privateKey,
+        mnemonic: options.mnemonic,
+        mnemonicIndex: options.mnemonicIndex,
+        debugLogger,
+      });
+    });
+
+  program
+    .command('execute-governance-proposal')
+    .description('Executes a governance proposal.')
+    .requiredOption('-p, --proposal-id <string>', 'The ID of the proposal', parseBigint)
+    .requiredOption('-r, --registry-address <string>', 'The address of the registry contract', parseEthereumAddress)
+    .requiredOption('--wait <boolean>', 'Whether to wait until the proposal is executable', arg => arg === 'true')
+    .addOption(l1RpcUrlsOption)
+    .addOption(l1ChainIdOption)
+    .option('-pk, --private-key <string>', 'The private key to use to vote', PRIVATE_KEY)
+    .option(
+      '-m, --mnemonic <string>',
+      'The mnemonic to use to vote',
+      'test test test test test test test test test test test junk',
+    )
+    .option('-i, --mnemonic-index <number>', 'The index of the mnemonic to use to vote', arg => parseInt(arg), 0)
+    .action(async options => {
+      const { executeGovernanceProposal } = await import('./governance_utils.js');
+      await executeGovernanceProposal({
+        proposalId: options.proposalId,
+        registryAddress: options.registryAddress.toString(),
+        waitTilExecutable: options.wait,
+        rpcUrls: options.l1RpcUrls,
+        chainId: options.l1ChainId,
+        privateKey: options.privateKey,
+        mnemonic: options.mnemonic,
+        mnemonicIndex: options.mnemonicIndex,
+        debugLogger,
+      });
+    });
+
+  program
+    .command('get-l1-addresses')
+    .description('Gets the addresses of the L1 contracts.')
+    .requiredOption('-r, --registry-address <string>', 'The address of the registry contract', parseEthereumAddress)
+    .addOption(l1RpcUrlsOption)
+    .requiredOption('-v, --rollup-version <number>', 'The version of the rollup', arg => {
+      if (arg === 'canonical' || arg === 'latest' || arg === '') {
+        return 'canonical';
+      }
+      const version = parseInt(arg);
+      if (isNaN(version)) {
+        throw new Error('Invalid rollup version');
+      }
+      return version;
+    })
+    .addOption(l1ChainIdOption)
+    .option('--json', 'Output the addresses in JSON format')
+    .action(async options => {
+      const { getL1Addresses } = await import('./get_l1_addresses.js');
+      await getL1Addresses(
+        options.registryAddress,
+        options.rollupVersion,
+        options.l1RpcUrls,
+        options.l1ChainId,
+        options.json,
+        log,
+      );
+    });
+
+  program
     .command('generate-l1-account')
     .description('Generates a new private key for an account on L1.')
     .option('--json', 'Output the private key in JSON format')

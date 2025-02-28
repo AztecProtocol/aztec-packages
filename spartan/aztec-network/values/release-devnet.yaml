@@ -7,8 +7,6 @@ validator:
     disabled: false
 
 bootNode:
-  validator:
-    disabled: true
   resources:
     requests:
       memory: "5Gi"

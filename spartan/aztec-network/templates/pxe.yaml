@@ -117,6 +117,8 @@ spec:
               value: "{{ .Values.telemetry.excludeMetrics }}"
             - name: L1_CHAIN_ID
               value: "{{ .Values.ethereum.chainId }}"
+            - name: TEST_ACCOUNTS
+              value: "{{ .Values.aztec.testAccounts }}"
           ports:
             - name: http
               containerPort: {{ .Values.pxe.service.nodePort }}
