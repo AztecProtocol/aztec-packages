@@ -107,11 +107,8 @@ class TranslatorProvingKey {
 
     void compute_extra_range_constraint_numerator();
 
-    void compute_concatenated_polynomials();
-
     void compute_translator_range_constraint_ordered_polynomials();
 
     void compute_interleaved_polynomials();
-    static void interleave(const RefVector<Polynomial>&, Polynomial&);
 };
 } // namespace bb

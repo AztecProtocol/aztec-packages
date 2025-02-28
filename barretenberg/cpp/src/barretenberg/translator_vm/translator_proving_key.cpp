@@ -47,22 +47,6 @@ void TranslatorProvingKey::compute_interleaved_polynomials()
 }
 
 /**
- * @brief Construct a polynomial from a group of polynomial by interleaving their elements.
- */
-void TranslatorProvingKey::interleave(const RefVector<Polynomial>& group, Polynomial& result)
-{
-
-    const size_t num_polys_in_group = group.size();
-    // Ensure the result polynomial fits all the elements from the polynomials in the group
-    ASSERT(group[0].size() * num_polys_in_group <= result.size());
-    for (size_t j = group[0].start_index(); j < group[0].size(); j++) {
-        for (size_t k = 0; k < num_polys_in_group; k++) {
-            result.at(j * num_polys_in_group + k) = group[k][j];
-        }
-    }
-}
-
-/**
  * @brief Compute denominator polynomials for Translator's range constraint permutation
  *
  * @details  We need to prove that all the range constraint wires indeed have values within the given range (unless
