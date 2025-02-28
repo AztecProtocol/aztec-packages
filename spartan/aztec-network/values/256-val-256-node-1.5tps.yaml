@@ -1,9 +1,6 @@
-## 192 validators - large transactions (192kb) - 1 tps
+## 192 validators - 218 full nodes - large transactions (192kb) - 1.5 tps
 network:
   public: false
-
-storage:
-  localSsd: true
 
 aztec:
   realProofs: false
@@ -16,18 +13,17 @@ images:
     pullPolicy: Always
 
 validator:
-  storageSize: "300Gi"
+  storageSize: "100Gi"
   replicas: 192
   resources:
     requests:
       memory: "5Gi"
       cpu: "1.5"
-      ephemeral-storage: "275Gi"
   maxOldSpaceSize: "4608"
   validator:
     disabled: false
   sequencer:
-    maxTxsPerBlock: 40
+    maxTxsPerBlock: 60
     enforceTimeTable: true
 
 bootNode:
@@ -37,11 +33,19 @@ bootNode:
     requests:
       memory: "5Gi"
       cpu: "1.5"
-      ephemeral-storage: "275Gi"
+  maxOldSpaceSize: "4608"
+
+fullNode:
+  storageSize: "100Gi"
+  replicas: 208
+  resources:
+    requests:
+      memory: "5Gi"
+      cpu: "1.5"
   maxOldSpaceSize: "4608"
 
 proverAgent:
-  replicas: 8
+  replicas: 12
   resources:
     requests:
       memory: "5Gi"
@@ -53,7 +57,6 @@ proverBroker:
     requests:
       memory: "5Gi"
       cpu: "1.5"
-      ephemeral-storage: "275Gi"
   maxOldSpaceSize: "4608"
 
 proverNode:
@@ -61,11 +64,10 @@ proverNode:
     requests:
       memory: "5Gi"
       cpu: "1.5"
-      ephemeral-storage: "275Gi"
   maxOldSpaceSize: "4608"
 
 bot:
-  replicas: 10
+  replicas: 15
   followChain: "NONE"
   enabled: true
   txIntervalSeconds: 1
