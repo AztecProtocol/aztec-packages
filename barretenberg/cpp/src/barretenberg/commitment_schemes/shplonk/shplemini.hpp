@@ -309,8 +309,8 @@ template <typename Curve> class ShpleminiVerifier_ {
         // Place the commitments to prover polynomials in the commitments vector. Compute the evaluation of the
         // batched multilinear polynomial. Populate the vector of scalars for the final batch mul
 
-        // Place the commitments to Gemini fold polynomials Aᵢ to the vector of commitments, compute the contributions
-        // from Aᵢ(−r²ⁱ) for i=1, … , n−1 to the constant term accumulator, add corresponding scalars
+        // Place the commitments to Gemini fold polynomials Aᵢ in the vector of commitments, compute the contributions
+        // from Aᵢ(−r²ⁱ) for i=1, … , n−1 to the constant term accumulator, add corresponding scalars for the batch mul
         batch_gemini_claims_received_from_prover(log_circuit_size,
                                                  fold_commitments,
                                                  gemini_evaluations,
@@ -472,21 +472,21 @@ template <typename Curve> class ShpleminiVerifier_ {
     }
 
     /**
-     * @brief Combines scalars of repeating commitments to reduce the number of scalar multiplications performed by
-     * the verifier.
+     * @brief Combines scalars of repeating commitments to reduce the number of scalar multiplications performed by the
+     * verifier.
      *
-     * @details The Shplemini verifier gets the access to multiple groups of commitments, some of which are
-     * duplicated because they correspond to polynomials whose shifts also evaluated or used in concatenation groups
-     * in Translator. This method combines the scalars associated with these repeating commitments, reducing the
-     * total number of scalar multiplications required during the verification.
+     * @details The Shplemini verifier gets the access to multiple groups of commitments, some of which are duplicated
+     * because they correspond to polynomials whose shifts also evaluated or used in concatenation groups in
+     * Translator. This method combines the scalars associated with these repeating commitments, reducing the total
+     * number of scalar multiplications required during the verification.
      *
      * More specifically, the Shplemini verifier receives two or three groups of commitments: get_unshifted() and
      * get_to_be_shifted() in the case of Ultra, Mega, and ECCVM Flavors; and get_unshifted_without_concatenated(),
-     * get_to_be_shifted(), and get_groups_to_be_concatenated() in the case of the TranslatorFlavor. The commitments
-     * are then placed in this specific order in a BatchOpeningClaim object containing a vector of commitments and a
-     * vector of scalars. The ranges with repeated commitments belong to the Flavors. This method iterates over
-     * these ranges and sums the scalar multipliers corresponding to the same group element. After combining the
-     * scalars, we erase corresponding entries in both vectors.
+     * get_to_be_shifted(), and get_groups_to_be_concatenated() in the case of the TranslatorFlavor. The commitments are
+     * then placed in this specific order in a BatchOpeningClaim object containing a vector of commitments and a vector
+     * of scalars. The ranges with repeated commitments belong to the Flavors. This method iterates over these ranges
+     * and sums the scalar multipliers corresponding to the same group element. After combining the scalars, we erase
+     * corresponding entries in both vectors.
      *
      */
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1151) Avoid erasing vector elements.
@@ -495,9 +495,9 @@ template <typename Curve> class ShpleminiVerifier_ {
                                             const RepeatedCommitmentsData& repeated_commitments,
                                             bool has_zk)
     {
-        // We started populating commitments and scalars by adding Shplonk:Q commitmment and the corresponding
-        // scalar factor 1. In the case of ZK, we also added Gemini:masking_poly_comm before populating the vector
-        // with commitments to prover polynomials
+        // We started populating commitments and scalars by adding Shplonk:Q commitmment and the corresponding scalar
+        // factor 1. In the case of ZK, we also added Gemini:masking_poly_comm before populating the vector with
+        // commitments to prover polynomials
         const size_t offset = has_zk ? 2 : 1;
 
         // Extract the indices from the container, which is normally created in a given Flavor
@@ -598,8 +598,8 @@ template <typename Curve> class ShpleminiVerifier_ {
         denominators[2] = denominators[0];
         denominators[3] = denominators[0];
 
-        // compute the scalars to be multiplied against the commitments [libra_concatenated], [big_sum], [big_sum],
-        // and [libra_quotient]
+        // compute the scalars to be multiplied against the commitments [libra_concatenated], [big_sum], [big_sum], and
+        // [libra_quotient]
         for (size_t idx = 0; idx < NUM_LIBRA_EVALUATIONS; idx++) {
             Fr scaling_factor = denominators[idx] * shplonk_challenge_power;
             batching_scalars[idx] = -scaling_factor;
@@ -616,10 +616,10 @@ template <typename Curve> class ShpleminiVerifier_ {
     /**
      * @brief Adds the Sumcheck data into the  Shplemini BatchOpeningClaim.
      *
-     * @details This method computes denominators for the evaluations of Sumcheck Round Unviariates, combines them
-     * with powers of the Shplonk batching challenge (\f$\nu\f$), and appends the resulting batched scalar factors
-     * to \p scalars. It also updates \p commitments with Sumcheck's round commitments. The \p
-     * constant_term_accumulator is incremented by each round's constant term contribution.
+     * @details This method computes denominators for the evaluations of Sumcheck Round Unviariates, combines them with
+     * powers of the Shplonk batching challenge (\f$\nu\f$), and appends the resulting batched scalar factors to
+     * \p scalars. It also updates \p commitments with Sumcheck's round commitments. The \p constant_term_accumulator is
+     * incremented by each round's constant term contribution.
      *
      * Specifically, for round \f$i\f$ (with Sumcheck challenge \f$u_i\f$), we define:
      * \f[
@@ -674,8 +674,8 @@ template <typename Curve> class ShpleminiVerifier_ {
             shplonk_challenge_power *= shplonk_batching_challenge;
         }
 
-        // Denominators for the opening claims at 0 and 1. Need to be computed only once as opposed to the claims at
-        // the sumcheck round challenges.
+        // Denominators for the opening claims at 0 and 1. Need to be computed only once as opposed to the claims at the
+        // sumcheck round challenges.
         std::array<Fr, 2> const_denominators;
 
         const_denominators[0] = Fr(1) / (shplonk_evaluation_challenge);
@@ -697,8 +697,8 @@ template <typename Curve> class ShpleminiVerifier_ {
             }
         }
 
-        // Each commitment to a sumcheck round univariate [S_i] is multiplied by the sum of three scalars
-        // corresponding to the evaluations at 0, 1, and the round challenge u_i
+        // Each commitment to a sumcheck round univariate [S_i] is multiplied by the sum of three scalars corresponding
+        // to the evaluations at 0, 1, and the round challenge u_i
         size_t round_idx = 0;
         for (const auto& [eval_array, denominator] : zip_view(sumcheck_round_evaluations, denominators)) {
             // Initialize batched_scalar corresponding to 3 evaluations claims

@@ -221,6 +221,7 @@ template <typename Curve> class GeminiProver_ {
                 full_batched += batched_to_be_shifted_by_k.right_shifted(k_shift_magnitude); // A₀ += X^k * H
             }
 
+            // compute the linear combination of the interleaved polynomials and groups
             if (has_interleaved()) {
                 batched_interleaved = Polynomial(full_batched_size);
                 for (size_t i = 0; i < groups_to_be_interleaved[0].size(); ++i) {
@@ -277,8 +278,14 @@ template <typename Curve> class GeminiProver_ {
             return { A_0_pos, A_0_neg };
         };
         /**
-         * @brief
+         * @brief Compute the partially evaluated interleaved polynomials P₊(X, r) and P₋(X, -r)
          *
+         * @details If the interleaved polynomials are set A₀(r) = A₀₊(r) + P₊(r^s) and A₀(-r) = A₀₋(-r) + P₋(r^s)
+         * where s is the size of the interleaved group assumed even.
+         * This function computes P₊(X) = ∑ r^i Pᵢ(X) and P₋(X) = ∑ (-r)^i Pᵢ(X) where Pᵢ(X) is the i-th polynomial in
+         * the batched group.
+         * @param r_challenge partial evaluation challenge
+         * @return std::pair<Polynomial, Polynomial> {P₊, P₋}
          */
 
         std::pair<Polynomial, Polynomial> compute_partially_evaluated_interleaved_polynomial(const Fr& r_challenge)
