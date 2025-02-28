@@ -20,7 +20,7 @@ export class L2TipsStore implements L2BlockStreamEventHandler, L2BlockStreamLoca
     this.l2BlockHashesStore = store.openMap([namespace, 'l2_block_hashes'].join('_'));
   }
 
-  public getL2BlockHash(number: number): Promise<string | undefined> {
+  getL2BlockHash(number: number): Promise<string | undefined> {
     return this.l2BlockHashesStore.getAsync(number);
   }
 
@@ -41,6 +41,7 @@ export class L2TipsStore implements L2BlockStreamEventHandler, L2BlockStreamLoca
     if (!blockHash) {
       throw new Error(`Block hash not found for block number ${blockNumber}`);
     }
+
     return { number: blockNumber, hash: blockHash };
   }
 

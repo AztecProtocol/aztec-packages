@@ -52,6 +52,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getBlocksForEpoch: z.function().args(schemas.BigInt).returns(z.array(L2Block.schema)),
   isEpochComplete: z.function().args(schemas.BigInt).returns(z.boolean()),
   getL2Tips: z.function().args().returns(L2TipsSchema),
+  getL2BlockHash: z.function().args(schemas.Integer).returns(z.string().optional()),
   getPrivateLogs: z.function().args(z.number(), z.number()).returns(z.array(PrivateLog.schema)),
   getLogsByTags: z
     .function()

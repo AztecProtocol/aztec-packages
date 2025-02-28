@@ -846,10 +846,27 @@ export class Archiver implements ArchiveSource, Traceable {
     const provenBlockHeaderHash = await provenBlockHeader?.hash();
     const finalizedBlockHeaderHash = await provenBlockHeader?.hash();
     return {
-      latest: { number: latestBlockNumber, hash: latestBlockHeaderHash?.toString() } as L2BlockId,
-      proven: { number: provenBlockNumber, hash: provenBlockHeaderHash?.toString() } as L2BlockId,
-      finalized: { number: provenBlockNumber, hash: finalizedBlockHeaderHash?.toString() } as L2BlockId,
+      latest: {
+        number: latestBlockNumber,
+        hash: latestBlockHeaderHash?.toString(),
+      } as L2BlockId,
+      proven: {
+        number: provenBlockNumber,
+        hash: provenBlockHeaderHash?.toString(),
+      } as L2BlockId,
+      finalized: {
+        number: provenBlockNumber,
+        hash: finalizedBlockHeaderHash?.toString(),
+      } as L2BlockId,
     };
+  }
+
+  async getL2BlockHash(blockNumber: number): Promise<string | undefined> {
+    const block = await this.getBlock(blockNumber);
+    if (!block) {
+      return undefined;
+    }
+    return block.hash().toString();
   }
 }
 
