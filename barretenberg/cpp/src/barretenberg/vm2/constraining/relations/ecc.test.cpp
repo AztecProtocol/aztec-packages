@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/flavor_settings.hpp"
 #include "barretenberg/vm2/generated/relations/ecc.hpp"
@@ -11,7 +12,6 @@
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/ecc_trace.hpp"
-#include "barretenberg/vm2/tracegen/lib/ecc.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
@@ -30,20 +30,16 @@ using simulation::NoopEventEmitter;
 using simulation::ScalarMulEvent;
 using lookup_scalar_mul_double_relation = bb::avm2::lookup_scalar_mul_double_relation<FF>;
 using lookup_scalar_mul_add_relation = bb::avm2::lookup_scalar_mul_add_relation<FF>;
-using tracegen::AffinePointStandard;
 using tracegen::LookupIntoDynamicTableGeneric;
-using tracegen::point_to_standard_form;
 
 // Known good points for P and Q
 FF p_x("0x04c95d1b26d63d46918a156cae92db1bcbc4072a27ec81dc82ea959abdbcf16a");
 FF p_y("0x035b6dd9e63c1370462c74775765d07fc21fd1093cc988149d3aa763bb3dbb60");
-AffinePoint p_native = AffinePoint(p_x, p_y);
-AffinePointStandard p = { p_x, p_y, false };
+EmbeddedCurvePoint p(p_x, p_y, false);
 
 FF q_x("0x009242167ec31949c00cbe441cd36757607406e87844fa2c8c4364a4403e66d7");
 FF q_y("0x0fe3016d64cfa8045609f375284b6b739b5fa282e4cbb75cc7f1687ecc7420e3");
-AffinePoint q_native = AffinePoint(q_x, q_y);
-AffinePointStandard q = { q_x, q_y, false };
+EmbeddedCurvePoint q(q_x, q_y, false);
 
 TEST(EccAddConstrainingTest, EccEmptyRow)
 {
@@ -55,32 +51,32 @@ TEST(EccAddConstrainingTest, EccAdd)
     // R = P + Q;
     FF r_x("0x2b01df0ef6d941a826bea23bece8243cbcdc159d5e97fbaa2171f028e05ba9b6");
     FF r_y("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
-    AffinePointStandard r = point_to_standard_form(AffinePoint(r_x, r_y));
+    EmbeddedCurvePoint r(r_x, r_y, false);
 
     auto trace = TestTraceContainer::from_rows({ {
         .ecc_add_op = 1,
         .ecc_double_op = 0,
 
         .ecc_inv_2_p_y = FF::zero(),
-        .ecc_inv_x_diff = (q.x - p.x).invert(),
-        .ecc_inv_y_diff = (q.y - p.y).invert(),
+        .ecc_inv_x_diff = (q.x() - p.x()).invert(),
+        .ecc_inv_y_diff = (q.y() - p.y()).invert(),
 
-        .ecc_lambda = (q.y - p.y) / (q.x - p.x),
+        .ecc_lambda = (q.y() - p.y()) / (q.x() - p.x()),
 
         // Point P
-        .ecc_p_is_inf = static_cast<int>(p.is_infinity),
-        .ecc_p_x = p.x,
-        .ecc_p_y = p.y,
+        .ecc_p_is_inf = static_cast<int>(p.is_infinity()),
+        .ecc_p_x = p.x(),
+        .ecc_p_y = p.y(),
 
         // Point Q
-        .ecc_q_is_inf = static_cast<int>(q.is_infinity),
-        .ecc_q_x = q.x,
-        .ecc_q_y = q.y,
+        .ecc_q_is_inf = static_cast<int>(q.is_infinity()),
+        .ecc_q_x = q.x(),
+        .ecc_q_y = q.y(),
 
         // Resulting Point
-        .ecc_r_is_inf = static_cast<int>(r.is_infinity),
-        .ecc_r_x = r.x,
-        .ecc_r_y = r.y,
+        .ecc_r_is_inf = static_cast<int>(r.is_infinity()),
+        .ecc_r_x = r.x(),
+        .ecc_r_y = r.y(),
 
         .ecc_result_infinity = 0,
 
@@ -98,32 +94,32 @@ TEST(EccAddConstrainingTest, EccDouble)
     // R = P + P;
     FF r_x("0x088b996194bb5e6e8e5e49733bb671c3e660cf77254f743f366cc8e33534ee3b");
     FF r_y("0x2807ffa01c0f522d0be1e1acfb6914ac8eabf1acf420c0629d37beee992e9a0e");
-    AffinePointStandard r = { r_x, r_y, false };
+    EmbeddedCurvePoint r(r_x, r_y, false);
 
     auto trace = TestTraceContainer::from_rows({ {
         .ecc_add_op = 0,
         .ecc_double_op = 1,
 
-        .ecc_inv_2_p_y = (p.y * 2).invert(),
+        .ecc_inv_2_p_y = (p.y() * 2).invert(),
         .ecc_inv_x_diff = FF::zero(),
         .ecc_inv_y_diff = FF::zero(),
 
-        .ecc_lambda = (p.x * p.x * 3) / (p.y * 2),
+        .ecc_lambda = (p.x() * p.x() * 3) / (p.y() * 2),
 
         // Point P
-        .ecc_p_is_inf = static_cast<int>(p.is_infinity),
-        .ecc_p_x = p.x,
-        .ecc_p_y = p.y,
+        .ecc_p_is_inf = static_cast<int>(p.is_infinity()),
+        .ecc_p_x = p.x(),
+        .ecc_p_y = p.y(),
 
         // Point Q set to point p since this is doubling
-        .ecc_q_is_inf = static_cast<int>(p.is_infinity),
-        .ecc_q_x = p.x,
-        .ecc_q_y = p.y,
+        .ecc_q_is_inf = static_cast<int>(p.is_infinity()),
+        .ecc_q_x = p.x(),
+        .ecc_q_y = p.y(),
 
         // Resulting Point
-        .ecc_r_is_inf = static_cast<int>(r.is_infinity),
-        .ecc_r_x = r.x,
-        .ecc_r_y = r.y,
+        .ecc_r_is_inf = static_cast<int>(r.is_infinity()),
+        .ecc_r_x = r.x(),
+        .ecc_r_y = r.y(),
 
         .ecc_result_infinity = 0,
 
@@ -139,8 +135,8 @@ TEST(EccAddConstrainingTest, EccDouble)
 TEST(EccAddConstrainingTest, EccAddResultingInInfinity)
 {
     // R = P + (-P) = O; , where O is the point at infinity
-    AffinePointStandard q = { p.x, -p.y, false };
-    AffinePointStandard r = { 0, 0, true };
+    EmbeddedCurvePoint q(p.x(), -p.y(), false);
+    EmbeddedCurvePoint r(0, 0, true);
 
     auto trace = TestTraceContainer::from_rows({ {
         .ecc_add_op = 0,
@@ -148,24 +144,24 @@ TEST(EccAddConstrainingTest, EccAddResultingInInfinity)
 
         .ecc_inv_2_p_y = FF::zero(),
         .ecc_inv_x_diff = FF::zero(),
-        .ecc_inv_y_diff = (q.y - p.y).invert(),
+        .ecc_inv_y_diff = (q.y() - p.y()).invert(),
 
         .ecc_lambda = 0,
 
         // Point P
-        .ecc_p_is_inf = static_cast<int>(p.is_infinity),
-        .ecc_p_x = p.x,
-        .ecc_p_y = p.y,
+        .ecc_p_is_inf = static_cast<int>(p.is_infinity()),
+        .ecc_p_x = p.x(),
+        .ecc_p_y = p.y(),
 
         // Point Q
-        .ecc_q_is_inf = static_cast<int>(q.is_infinity),
-        .ecc_q_x = q.x,
-        .ecc_q_y = q.y,
+        .ecc_q_is_inf = static_cast<int>(q.is_infinity()),
+        .ecc_q_x = q.x(),
+        .ecc_q_y = q.y(),
 
         // Resulting Point
-        .ecc_r_is_inf = static_cast<int>(r.is_infinity),
-        .ecc_r_x = r.x,
-        .ecc_r_y = r.y,
+        .ecc_r_is_inf = static_cast<int>(r.is_infinity()),
+        .ecc_r_x = r.x(),
+        .ecc_r_y = r.y(),
 
         .ecc_result_infinity = 1,
 
@@ -179,36 +175,36 @@ TEST(EccAddConstrainingTest, EccAddResultingInInfinity)
 
 TEST(EccAddConstrainingTest, EccAddingToInfinity)
 {
-    AffinePointStandard p = { 0, 0, true };
+    EmbeddedCurvePoint p(0, 0, true);
 
     // R = O + Q = Q; , where O is the point at infinity
 
-    AffinePointStandard r = { q.x, q.y, false };
+    EmbeddedCurvePoint r(q.x(), q.y(), false);
 
     auto trace = TestTraceContainer::from_rows({ {
         .ecc_add_op = 1,
         .ecc_double_op = 0,
 
         .ecc_inv_2_p_y = FF::zero(),
-        .ecc_inv_x_diff = (q.x - p.x).invert(),
-        .ecc_inv_y_diff = (q.y - p.y).invert(),
+        .ecc_inv_x_diff = (q.x() - p.x()).invert(),
+        .ecc_inv_y_diff = (q.y() - p.y()).invert(),
 
-        .ecc_lambda = (q.y - p.y) / (q.x - p.x),
+        .ecc_lambda = (q.y() - p.y()) / (q.x() - p.x()),
 
         // Point P
-        .ecc_p_is_inf = static_cast<int>(p.is_infinity),
-        .ecc_p_x = p.x,
-        .ecc_p_y = p.y,
+        .ecc_p_is_inf = static_cast<int>(p.is_infinity()),
+        .ecc_p_x = p.x(),
+        .ecc_p_y = p.y(),
 
         // Point Q
-        .ecc_q_is_inf = static_cast<int>(q.is_infinity),
-        .ecc_q_x = q.x,
-        .ecc_q_y = q.y,
+        .ecc_q_is_inf = static_cast<int>(q.is_infinity()),
+        .ecc_q_x = q.x(),
+        .ecc_q_y = q.y(),
 
         // Resulting Point
-        .ecc_r_is_inf = static_cast<int>(r.is_infinity),
-        .ecc_r_x = r.x,
-        .ecc_r_y = r.y,
+        .ecc_r_is_inf = static_cast<int>(r.is_infinity()),
+        .ecc_r_x = r.x(),
+        .ecc_r_y = r.y(),
 
         .ecc_result_infinity = 0,
 
@@ -222,35 +218,35 @@ TEST(EccAddConstrainingTest, EccAddingToInfinity)
 
 TEST(EccAddConstrainingTest, EccAddingInfinity)
 {
-    AffinePointStandard q = { 0, 0, true };
+    EmbeddedCurvePoint q(0, 0, true);
 
     // R = P + O = P; , where O is the point at infinity
-    AffinePointStandard r = { p.x, p.y, false };
+    EmbeddedCurvePoint r(p.x(), p.y(), false);
 
     auto trace = TestTraceContainer::from_rows({ {
         .ecc_add_op = 1,
         .ecc_double_op = 0,
 
-        .ecc_inv_2_p_y = (p.y * 2).invert(),
-        .ecc_inv_x_diff = (q.x - p.x).invert(),
-        .ecc_inv_y_diff = (q.y - p.y).invert(),
+        .ecc_inv_2_p_y = (p.y() * 2).invert(),
+        .ecc_inv_x_diff = (q.x() - p.x()).invert(),
+        .ecc_inv_y_diff = (q.y() - p.y()).invert(),
 
-        .ecc_lambda = (q.y - p.y) / (q.x - p.x),
+        .ecc_lambda = (q.y() - p.y()) / (q.x() - p.x()),
 
         // Point P
-        .ecc_p_is_inf = static_cast<int>(p.is_infinity),
-        .ecc_p_x = p.x,
-        .ecc_p_y = p.y,
+        .ecc_p_is_inf = static_cast<int>(p.is_infinity()),
+        .ecc_p_x = p.x(),
+        .ecc_p_y = p.y(),
 
         // Point Q
-        .ecc_q_is_inf = static_cast<int>(q.is_infinity),
-        .ecc_q_x = q.x,
-        .ecc_q_y = q.y,
+        .ecc_q_is_inf = static_cast<int>(q.is_infinity()),
+        .ecc_q_x = q.x(),
+        .ecc_q_y = q.y(),
 
         // Resulting Point
-        .ecc_r_is_inf = static_cast<int>(r.is_infinity),
-        .ecc_r_x = r.x,
-        .ecc_r_y = r.y,
+        .ecc_r_is_inf = static_cast<int>(r.is_infinity()),
+        .ecc_r_x = r.x(),
+        .ecc_r_y = r.y(),
 
         .ecc_result_infinity = 0,
 
@@ -265,10 +261,10 @@ TEST(EccAddConstrainingTest, EccAddingInfinity)
 
 TEST(EccAddConstrainingTest, EccDoublingInf)
 {
-    AffinePointStandard p = { 0, 0, true };
+    EmbeddedCurvePoint p(0, 0, true);
 
     // r = O + O = O; , where O is the point at infinity
-    AffinePointStandard r = { 0, 0, true };
+    EmbeddedCurvePoint r(0, 0, true);
 
     auto trace = TestTraceContainer::from_rows({ {
         .ecc_add_op = 0,
@@ -281,19 +277,19 @@ TEST(EccAddConstrainingTest, EccDoublingInf)
         .ecc_lambda = FF::zero(),
 
         // Point P
-        .ecc_p_is_inf = static_cast<int>(p.is_infinity),
-        .ecc_p_x = p.x,
-        .ecc_p_y = p.y,
+        .ecc_p_is_inf = static_cast<int>(p.is_infinity()),
+        .ecc_p_x = p.x(),
+        .ecc_p_y = p.y(),
 
         // Point Q
-        .ecc_q_is_inf = static_cast<int>(p.is_infinity),
-        .ecc_q_x = p.x,
-        .ecc_q_y = p.y,
+        .ecc_q_is_inf = static_cast<int>(p.is_infinity()),
+        .ecc_q_x = p.x(),
+        .ecc_q_y = p.y(),
 
         // Resulting Point
-        .ecc_r_is_inf = static_cast<int>(r.is_infinity),
-        .ecc_r_x = r.x,
-        .ecc_r_y = r.y,
+        .ecc_r_is_inf = static_cast<int>(r.is_infinity()),
+        .ecc_r_x = r.x(),
+        .ecc_r_y = r.y(),
 
         .ecc_result_infinity = 1,
 
@@ -308,35 +304,33 @@ TEST(EccAddConstrainingTest, EccDoublingInf)
 
 TEST(EccAddConstrainingTest, EccTwoOps)
 {
-
-    AffinePoint r1_native = p_native + q_native;
-    AffinePointStandard r1 = point_to_standard_form(r1_native);
-    AffinePointStandard r2 = point_to_standard_form(r1_native + r1_native);
+    EmbeddedCurvePoint r1 = p + q;
+    EmbeddedCurvePoint r2 = r1 + r1;
 
     auto trace = TestTraceContainer::from_rows({ {
                                                      .ecc_add_op = 1,
                                                      .ecc_double_op = 0,
 
                                                      .ecc_inv_2_p_y = FF::zero(),
-                                                     .ecc_inv_x_diff = (q.x - p.x).invert(),
-                                                     .ecc_inv_y_diff = (q.y - p.y).invert(),
+                                                     .ecc_inv_x_diff = (q.x() - p.x()).invert(),
+                                                     .ecc_inv_y_diff = (q.y() - p.y()).invert(),
 
-                                                     .ecc_lambda = (q.y - p.y) / (q.x - p.x),
+                                                     .ecc_lambda = (q.y() - p.y()) / (q.x() - p.x()),
 
                                                      // Point P
-                                                     .ecc_p_is_inf = static_cast<int>(p.is_infinity),
-                                                     .ecc_p_x = p.x,
-                                                     .ecc_p_y = p.y,
+                                                     .ecc_p_is_inf = static_cast<int>(p.is_infinity()),
+                                                     .ecc_p_x = p.x(),
+                                                     .ecc_p_y = p.y(),
 
                                                      // Point Q
-                                                     .ecc_q_is_inf = static_cast<int>(q.is_infinity),
-                                                     .ecc_q_x = q.x,
-                                                     .ecc_q_y = q.y,
+                                                     .ecc_q_is_inf = static_cast<int>(q.is_infinity()),
+                                                     .ecc_q_x = q.x(),
+                                                     .ecc_q_y = q.y(),
 
                                                      // Resulting Point
-                                                     .ecc_r_is_inf = static_cast<int>(r1.is_infinity),
-                                                     .ecc_r_x = r1.x,
-                                                     .ecc_r_y = r1.y,
+                                                     .ecc_r_is_inf = static_cast<int>(r1.is_infinity()),
+                                                     .ecc_r_x = r1.x(),
+                                                     .ecc_r_y = r1.y(),
 
                                                      .ecc_result_infinity = 0,
 
@@ -349,26 +343,26 @@ TEST(EccAddConstrainingTest, EccTwoOps)
                                                      .ecc_add_op = 0,
                                                      .ecc_double_op = 1,
 
-                                                     .ecc_inv_2_p_y = (r1.y * 2).invert(),
+                                                     .ecc_inv_2_p_y = (r1.y() * 2).invert(),
                                                      .ecc_inv_x_diff = FF::zero(),
                                                      .ecc_inv_y_diff = FF::zero(),
 
-                                                     .ecc_lambda = (r1.x * r1.x * 3) / (r1.y * 2),
+                                                     .ecc_lambda = (r1.x() * r1.x() * 3) / (r1.y() * 2),
 
                                                      // Point P
-                                                     .ecc_p_is_inf = static_cast<int>(r1.is_infinity),
-                                                     .ecc_p_x = r1.x,
-                                                     .ecc_p_y = r1.y,
+                                                     .ecc_p_is_inf = static_cast<int>(r1.is_infinity()),
+                                                     .ecc_p_x = r1.x(),
+                                                     .ecc_p_y = r1.y(),
 
                                                      // Point Q set to point p since this is doubling
-                                                     .ecc_q_is_inf = static_cast<int>(r1.is_infinity),
-                                                     .ecc_q_x = r1.x,
-                                                     .ecc_q_y = r1.y,
+                                                     .ecc_q_is_inf = static_cast<int>(r1.is_infinity()),
+                                                     .ecc_q_x = r1.x(),
+                                                     .ecc_q_y = r1.y(),
 
                                                      // Resulting Point
-                                                     .ecc_r_is_inf = static_cast<int>(r2.is_infinity),
-                                                     .ecc_r_x = r2.x,
-                                                     .ecc_r_y = r2.y,
+                                                     .ecc_r_is_inf = static_cast<int>(r2.is_infinity()),
+                                                     .ecc_r_x = r2.x(),
+                                                     .ecc_r_y = r2.y(),
 
                                                      .ecc_result_infinity = 0,
 
@@ -387,32 +381,32 @@ TEST(EccAddConstrainingTest, EccNegativeBadAdd)
 
     FF r_x("0x20f096ae3de9aea007e0b94a0274b2443d6682d1901f6909f284ec967bc169be");
     FF r_y("0x27948713833bb314e828f2b6f45f408da6564a3ac03b9e430a9c6634bb849ef2");
-    AffinePointStandard r = { r_x, r_y, false };
+    EmbeddedCurvePoint r(r_x, r_y, false);
 
     auto trace = TestTraceContainer::from_rows({ {
         .ecc_add_op = 1,
         .ecc_double_op = 0,
 
         .ecc_inv_2_p_y = FF::zero(),
-        .ecc_inv_x_diff = (q.x - p.x).invert(),
-        .ecc_inv_y_diff = (q.y - p.y).invert(),
+        .ecc_inv_x_diff = (q.x() - p.x()).invert(),
+        .ecc_inv_y_diff = (q.y() - p.y()).invert(),
 
-        .ecc_lambda = (q.y - p.y) / (q.x - p.x),
+        .ecc_lambda = (q.y() - p.y()) / (q.x() - p.x()),
 
         // Point P
-        .ecc_p_is_inf = static_cast<int>(p.is_infinity),
-        .ecc_p_x = p.x,
-        .ecc_p_y = p.y,
+        .ecc_p_is_inf = static_cast<int>(p.is_infinity()),
+        .ecc_p_x = p.x(),
+        .ecc_p_y = p.y(),
 
         // Point Q
-        .ecc_q_is_inf = static_cast<int>(q.is_infinity),
-        .ecc_q_x = q.x,
-        .ecc_q_y = q.y,
+        .ecc_q_is_inf = static_cast<int>(q.is_infinity()),
+        .ecc_q_x = q.x(),
+        .ecc_q_y = q.y(),
 
         // Resulting Point
-        .ecc_r_is_inf = static_cast<int>(r.is_infinity),
-        .ecc_r_x = r.x,
-        .ecc_r_y = r.y,
+        .ecc_r_is_inf = static_cast<int>(r.is_infinity()),
+        .ecc_r_x = r.x(),
+        .ecc_r_y = r.y(),
 
         .ecc_result_infinity = 0,
 
@@ -431,32 +425,32 @@ TEST(EccAddConstrainingTest, EccNegativeBadDouble)
 
     FF r_x("0x2b01df0ef6d941a826bea23bece8243cbcdc159d5e97fbaa2171f028e05ba9b6");
     FF r_y("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
-    AffinePointStandard r = { r_x, r_y, false };
+    EmbeddedCurvePoint r(r_x, r_y, false);
 
     auto trace = TestTraceContainer::from_rows({ {
         .ecc_add_op = 0,
         .ecc_double_op = 1,
 
-        .ecc_inv_2_p_y = (p.y * 2).invert(),
+        .ecc_inv_2_p_y = (p.y() * 2).invert(),
         .ecc_inv_x_diff = FF::zero(),
         .ecc_inv_y_diff = FF::zero(),
 
-        .ecc_lambda = (p.x * p.x * 3) / (p.y * 2),
+        .ecc_lambda = (p.x() * p.x() * 3) / (p.y() * 2),
 
         // Point P
-        .ecc_p_is_inf = static_cast<int>(p.is_infinity),
-        .ecc_p_x = p.x,
-        .ecc_p_y = p.y,
+        .ecc_p_is_inf = static_cast<int>(p.is_infinity()),
+        .ecc_p_x = p.x(),
+        .ecc_p_y = p.y(),
 
         // Point Q set to point p since this is doubling
-        .ecc_q_is_inf = static_cast<int>(p.is_infinity),
-        .ecc_q_x = p.x,
-        .ecc_q_y = p.y,
+        .ecc_q_is_inf = static_cast<int>(p.is_infinity()),
+        .ecc_q_x = p.x(),
+        .ecc_q_y = p.y(),
 
         // Resulting Point
-        .ecc_r_is_inf = static_cast<int>(r.is_infinity),
-        .ecc_r_x = r.x,
-        .ecc_r_y = r.y,
+        .ecc_r_is_inf = static_cast<int>(r.is_infinity()),
+        .ecc_r_x = r.x(),
+        .ecc_r_y = r.y(),
 
         .ecc_result_infinity = 0,
 
@@ -481,7 +475,7 @@ TEST(ScalarMulConstrainingTest, MulByOne)
     EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
 
     FF scalar = FF(1);
-    ecc_simulator.scalar_mul(p_native, scalar);
+    ecc_simulator.scalar_mul(p, scalar);
 
     TestTraceContainer trace = TestTraceContainer::from_rows({
         { .precomputed_first_row = 1 },
@@ -500,7 +494,7 @@ TEST(ScalarMulConstrainingTest, BasicMul)
     EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
 
     FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
-    ecc_simulator.scalar_mul(p_native, scalar);
+    ecc_simulator.scalar_mul(p, scalar);
 
     TestTraceContainer trace = TestTraceContainer::from_rows({
         { .precomputed_first_row = 1 },
@@ -518,8 +512,8 @@ TEST(ScalarMulConstrainingTest, MultipleInvocations)
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
     EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
 
-    ecc_simulator.scalar_mul(p_native, FF("0x2b01df0ef6d941a826bea23bece8243cbcdc159d5e97fbaa2171f028e05ba9b6"));
-    ecc_simulator.scalar_mul(q_native, FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09"));
+    ecc_simulator.scalar_mul(p, FF("0x2b01df0ef6d941a826bea23bece8243cbcdc159d5e97fbaa2171f028e05ba9b6"));
+    ecc_simulator.scalar_mul(q, FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09"));
 
     TestTraceContainer trace = TestTraceContainer::from_rows({
         { .precomputed_first_row = 1 },
@@ -538,7 +532,7 @@ TEST(ScalarMulConstrainingTest, MulAddInteractions)
     EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
 
     FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
-    ecc_simulator.scalar_mul(p_native, scalar);
+    ecc_simulator.scalar_mul(p, scalar);
 
     TestTraceContainer trace = TestTraceContainer::from_rows({
         { .precomputed_first_row = 1 },
@@ -563,8 +557,8 @@ TEST(ScalarMulConstrainingTest, MulAddInteractionsInfinity)
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
     EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
 
-    AffinePoint result = ecc_simulator.scalar_mul(AffinePoint::infinity(), FF(10));
-    ASSERT(result.is_point_at_infinity());
+    EmbeddedCurvePoint result = ecc_simulator.scalar_mul(EmbeddedCurvePoint::infinity(), FF(10));
+    ASSERT(result.is_infinity());
 
     TestTraceContainer trace = TestTraceContainer::from_rows({
         { .precomputed_first_row = 1 },
@@ -590,7 +584,7 @@ TEST(ScalarMulConstrainingTest, NegativeMulAddInteractions)
     EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
 
     FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
-    ecc_simulator.scalar_mul(p_native, scalar);
+    ecc_simulator.scalar_mul(p, scalar);
 
     TestTraceContainer trace = TestTraceContainer::from_rows({
         { .precomputed_first_row = 1 },
@@ -619,7 +613,7 @@ TEST(ScalarMulConstrainingTest, NegativeDisableSel)
     EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
 
     FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
-    ecc_simulator.scalar_mul(p_native, scalar);
+    ecc_simulator.scalar_mul(p, scalar);
 
     TestTraceContainer trace = TestTraceContainer::from_rows({
         { .precomputed_first_row = 1 },
@@ -640,7 +634,7 @@ TEST(ScalarMulConstrainingTest, NegativeEnableStartFirstRow)
     EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
 
     FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
-    ecc_simulator.scalar_mul(p_native, scalar);
+    ecc_simulator.scalar_mul(p, scalar);
 
     TestTraceContainer trace = TestTraceContainer::from_rows({
         { .precomputed_first_row = 1 },
@@ -660,7 +654,7 @@ TEST(ScalarMulConstrainingTest, NegativeMutateScalarOnEnd)
     EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
 
     FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
-    ecc_simulator.scalar_mul(p_native, scalar);
+    ecc_simulator.scalar_mul(p, scalar);
 
     TestTraceContainer trace = TestTraceContainer::from_rows({
         { .precomputed_first_row = 1 },
@@ -681,7 +675,7 @@ TEST(ScalarMulConstrainingTest, NegativeMutatePointXOnEnd)
     EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
 
     FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
-    ecc_simulator.scalar_mul(p_native, scalar);
+    ecc_simulator.scalar_mul(p, scalar);
 
     TestTraceContainer trace = TestTraceContainer::from_rows({
         { .precomputed_first_row = 1 },
@@ -690,7 +684,7 @@ TEST(ScalarMulConstrainingTest, NegativeMutatePointXOnEnd)
     tracegen::EccTraceBuilder builder;
     builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
     // Mutate the point on the end row
-    trace.set(Column::scalar_mul_point_x, 254, q.x);
+    trace.set(Column::scalar_mul_point_x, 254, q.x());
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace, scalar_mul::SR_INPUT_CONSISTENCY_X),
                               "INPUT_CONSISTENCY_X");
@@ -703,7 +697,7 @@ TEST(ScalarMulConstrainingTest, NegativeMutatePointYOnEnd)
     EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
 
     FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
-    ecc_simulator.scalar_mul(p_native, scalar);
+    ecc_simulator.scalar_mul(p, scalar);
 
     TestTraceContainer trace = TestTraceContainer::from_rows({
         { .precomputed_first_row = 1 },
@@ -712,7 +706,7 @@ TEST(ScalarMulConstrainingTest, NegativeMutatePointYOnEnd)
     tracegen::EccTraceBuilder builder;
     builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
     // Mutate the point on the end row
-    trace.set(Column::scalar_mul_point_y, 254, q.y);
+    trace.set(Column::scalar_mul_point_y, 254, q.y());
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace, scalar_mul::SR_INPUT_CONSISTENCY_Y),
                               "INPUT_CONSISTENCY_Y");
@@ -725,7 +719,7 @@ TEST(ScalarMulConstrainingTest, NegativeMutatePointInfOnEnd)
     EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
 
     FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
-    ecc_simulator.scalar_mul(p_native, scalar);
+    ecc_simulator.scalar_mul(p, scalar);
 
     TestTraceContainer trace = TestTraceContainer::from_rows({
         { .precomputed_first_row = 1 },

@@ -1,9 +1,9 @@
 #include "barretenberg/vm2/tracegen/ecc_trace.hpp"
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/tracegen/lib/ecc.hpp"
 #include <cassert>
 
 namespace bb::avm2::tracegen {
@@ -13,16 +13,16 @@ namespace {
 FF compute_lambda(bool double_predicate,
                   bool add_predicate,
                   bool result_is_infinity,
-                  const AffinePointStandard& p,
-                  const AffinePointStandard& q)
+                  const EmbeddedCurvePoint& p,
+                  const EmbeddedCurvePoint& q)
 {
     // When doubling infinity lambda must be zero
     // If not, we'd be inverting zero here
     if (!result_is_infinity && double_predicate) {
-        return (p.x * p.x * 3) / (p.y * 2);
+        return (p.x() * p.x() * 3) / (p.y() * 2);
     }
     if (add_predicate) {
-        return (q.y - p.y) / (q.x - p.x);
+        return (q.y() - p.y()) / (q.x() - p.x());
     }
     return 0;
 }
@@ -36,13 +36,12 @@ void EccTraceBuilder::process_add(const simulation::EventEmitterInterface<simula
 
     uint32_t row = 0;
     for (const auto& event : events) {
-        // The bytecode expects the standard form where infinity is 0,0,1
-        AffinePointStandard p = point_to_standard_form(event.p);
-        AffinePointStandard q = point_to_standard_form(event.q);
-        AffinePointStandard result = point_to_standard_form(event.result);
+        EmbeddedCurvePoint p = event.p;
+        EmbeddedCurvePoint q = event.q;
+        EmbeddedCurvePoint result = event.result;
 
-        bool x_match = p.x == q.x;
-        bool y_match = p.y == q.y;
+        bool x_match = p.x() == q.x();
+        bool y_match = p.y() == q.y();
 
         bool double_predicate = (x_match && y_match);
         bool add_predicate = (!x_match && !y_match);
@@ -51,10 +50,10 @@ void EccTraceBuilder::process_add(const simulation::EventEmitterInterface<simula
         // The result is also the infinity point if
         // (1) we hit the infinity predicate and neither p nor q are the infinity point
         // (2) or both p and q are the infinity point
-        bool result_is_infinity = infinity_predicate && (!p.is_infinity && !q.is_infinity);
-        result_is_infinity = result_is_infinity || (p.is_infinity && q.is_infinity);
+        bool result_is_infinity = infinity_predicate && (!p.is_infinity() && !q.is_infinity());
+        result_is_infinity = result_is_infinity || (p.is_infinity() && q.is_infinity());
 
-        assert(result_is_infinity == result.is_infinity && "Inconsistent infinity result assumption");
+        assert(result_is_infinity == result.is_infinity() && "Inconsistent infinity result assumption");
 
         FF lambda = compute_lambda(double_predicate, add_predicate, result_is_infinity, p, q);
 
@@ -62,27 +61,27 @@ void EccTraceBuilder::process_add(const simulation::EventEmitterInterface<simula
                   { {
                       { C::ecc_sel, 1 },
                       // Point P
-                      { C::ecc_p_x, p.x },
-                      { C::ecc_p_y, p.y },
-                      { C::ecc_p_is_inf, p.is_infinity },
+                      { C::ecc_p_x, p.x() },
+                      { C::ecc_p_y, p.y() },
+                      { C::ecc_p_is_inf, p.is_infinity() },
                       // Point Q
-                      { C::ecc_q_x, q.x },
-                      { C::ecc_q_y, q.y },
-                      { C::ecc_q_is_inf, q.is_infinity },
+                      { C::ecc_q_x, q.x() },
+                      { C::ecc_q_y, q.y() },
+                      { C::ecc_q_is_inf, q.is_infinity() },
                       // Resulting point
-                      { C::ecc_r_x, result.x },
-                      { C::ecc_r_y, result.y },
-                      { C::ecc_r_is_inf, result.is_infinity },
+                      { C::ecc_r_x, result.x() },
+                      { C::ecc_r_y, result.y() },
+                      { C::ecc_r_is_inf, result.is_infinity() },
 
                       // Check coordinates to detect edge cases (double, add and infinity)
                       { C::ecc_x_match, x_match },
-                      { C::ecc_inv_x_diff, x_match ? FF::zero() : (q.x - p.x).invert() },
+                      { C::ecc_inv_x_diff, x_match ? FF::zero() : (q.x() - p.x()).invert() },
                       { C::ecc_y_match, y_match },
-                      { C::ecc_inv_y_diff, y_match ? FF::zero() : (q.y - p.y).invert() },
+                      { C::ecc_inv_y_diff, y_match ? FF::zero() : (q.y() - p.y()).invert() },
 
                       // Witness for doubling operation
                       { C::ecc_double_op, double_predicate },
-                      { C::ecc_inv_2_p_y, !result_is_infinity && double_predicate ? (p.y * 2).invert() : FF::zero() },
+                      { C::ecc_inv_2_p_y, !result_is_infinity && double_predicate ? (p.y() * 2).invert() : FF::zero() },
 
                       // Witness for add operation
                       { C::ecc_add_op, add_predicate },
@@ -105,7 +104,7 @@ void EccTraceBuilder::process_scalar_mul(
     uint32_t row = 1; // We start from row 1 because this trace contains shifted columns.
     for (const auto& event : events) {
         size_t num_intermediate_states = event.intermediate_states.size();
-        AffinePointStandard point = point_to_standard_form(event.point);
+        EmbeddedCurvePoint point = event.point;
 
         for (size_t i = 0; i < num_intermediate_states; ++i) {
             // This trace uses reverse aggregation, so we need to process the bits in reverse
@@ -120,28 +119,28 @@ void EccTraceBuilder::process_scalar_mul(
             if (is_start) {
                 assert(state.res == event.result);
             }
-            AffinePointStandard res = point_to_standard_form(state.res);
+            EmbeddedCurvePoint res = state.res;
 
-            AffinePointStandard temp = point_to_standard_form(state.temp);
+            EmbeddedCurvePoint temp = state.temp;
             bool bit = state.bit;
 
             trace.set(row,
                       { { { C::scalar_mul_sel, 1 },
                           { C::scalar_mul_scalar, event.scalar },
-                          { C::scalar_mul_point_x, point.x },
-                          { C::scalar_mul_point_y, point.y },
-                          { C::scalar_mul_point_inf, point.is_infinity },
-                          { C::scalar_mul_res_x, res.x },
-                          { C::scalar_mul_res_y, res.y },
-                          { C::scalar_mul_res_inf, res.is_infinity },
+                          { C::scalar_mul_point_x, point.x() },
+                          { C::scalar_mul_point_y, point.y() },
+                          { C::scalar_mul_point_inf, point.is_infinity() },
+                          { C::scalar_mul_res_x, res.x() },
+                          { C::scalar_mul_res_y, res.y() },
+                          { C::scalar_mul_res_inf, res.is_infinity() },
                           { C::scalar_mul_start, is_start },
                           { C::scalar_mul_end, is_end },
                           { C::scalar_mul_not_end, !is_end },
                           { C::scalar_mul_bit, bit },
                           { C::scalar_mul_bit_idx, intermediate_state_idx },
-                          { C::scalar_mul_temp_x, temp.x },
-                          { C::scalar_mul_temp_y, temp.y },
-                          { C::scalar_mul_temp_inf, temp.is_infinity },
+                          { C::scalar_mul_temp_x, temp.x() },
+                          { C::scalar_mul_temp_y, temp.y() },
+                          { C::scalar_mul_temp_inf, temp.is_infinity() },
                           {
                               C::scalar_mul_should_add,
                               (!is_end) && bit,
