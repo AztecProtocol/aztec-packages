@@ -1,44 +1,39 @@
 import {
-  type ContractClass2BlockL2Logs,
-  ExtendedPublicLog,
-  ExtendedUnencryptedL2Log,
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  type InBlock,
-  type InboxLeaf,
-  type L2Block,
-  L2BlockHash,
-  type LogFilter,
-  LogId,
-  type TxEffect,
-  type TxHash,
-  TxReceipt,
-  TxScopedL2Log,
-  wrapInBlock,
-} from '@aztec/circuit-types';
-import {
-  type BlockHeader,
-  type ContractClassPublic,
-  type ContractClassPublicWithBlockNumber,
-  type ContractInstanceUpdateWithAddress,
-  type ContractInstanceWithAddress,
-  type ExecutablePrivateFunctionWithMembershipProof,
-  Fr,
   INITIAL_L2_BLOCK_NUM,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
+} from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
+import { createLogger } from '@aztec/foundation/log';
+import { FunctionSelector } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type InBlock, type L2Block, L2BlockHash, wrapInBlock } from '@aztec/stdlib/block';
+import type {
+  ContractClassPublic,
+  ContractClassPublicWithBlockNumber,
+  ContractInstanceUpdateWithAddress,
+  ContractInstanceWithAddress,
+  ExecutablePrivateFunctionWithMembershipProof,
+  UnconstrainedFunctionWithMembershipProof,
+} from '@aztec/stdlib/contract';
+import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
+import {
+  ContractClassLog,
+  ExtendedContractClassLog,
+  ExtendedPublicLog,
+  type LogFilter,
+  LogId,
   type PrivateLog,
   type PublicLog,
-  type UnconstrainedFunctionWithMembershipProof,
-} from '@aztec/circuits.js';
-import { FunctionSelector } from '@aztec/foundation/abi';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { createLogger } from '@aztec/foundation/log';
+  TxScopedL2Log,
+} from '@aztec/stdlib/logs';
+import type { InboxLeaf } from '@aztec/stdlib/messaging';
+import { type BlockHeader, TxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 
-import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
-import { type DataRetrieval } from '../structs/data_retrieval.js';
-import { type L1Published } from '../structs/published.js';
+import type { ArchiverDataStore, ArchiverL1SynchPoint } from '../archiver_store.js';
+import type { DataRetrieval } from '../structs/data_retrieval.js';
+import type { L1Published } from '../structs/published.js';
 import { L1ToL2MessageStore } from './l1_to_l2_message_store.js';
 
 type StoredContractInstanceUpdate = ContractInstanceUpdateWithAddress & { blockNumber: number; logIndex: number };
@@ -65,7 +60,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   private publicLogsPerBlock: Map<number, PublicLog[]> = new Map();
 
-  private contractClassLogsPerBlock: Map<number, ContractClass2BlockL2Logs> = new Map();
+  private contractClassLogsPerBlock: Map<number, ContractClassLog[]> = new Map();
 
   private blockScopedNullifiers: Map<string, { blockNumber: number; blockHash: string; index: bigint }> = new Map();
 
@@ -355,7 +350,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       this.#storeTaggedLogsFromPublic(block);
       this.privateLogsPerBlock.set(block.number, block.body.txEffects.map(txEffect => txEffect.privateLogs).flat());
       this.publicLogsPerBlock.set(block.number, block.body.txEffects.map(txEffect => txEffect.publicLogs).flat());
-      this.contractClassLogsPerBlock.set(block.number, block.body.contractClassLogs);
+      this.contractClassLogsPerBlock.set(
+        block.number,
+        block.body.txEffects.map(txEffect => txEffect.contractClassLogs).flat(),
+      );
     });
     return Promise.resolve(true);
   }
@@ -703,34 +701,36 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
     const contractAddress = filter.contractAddress;
 
-    const logs: ExtendedUnencryptedL2Log[] = [];
+    const logs: ExtendedContractClassLog[] = [];
 
     for (; fromBlock < toBlock; fromBlock++) {
       const block = this.l2Blocks[fromBlock - INITIAL_L2_BLOCK_NUM];
       const blockLogs = this.contractClassLogsPerBlock.get(fromBlock);
 
       if (blockLogs) {
-        for (; txIndexInBlock < blockLogs.txLogs.length; txIndexInBlock++) {
-          const txLogs = blockLogs.txLogs[txIndexInBlock].unrollLogs();
-          for (; logIndexInTx < txLogs.length; logIndexInTx++) {
-            const log = txLogs[logIndexInTx];
-            if (
-              (!txHash || block.data.body.txEffects[txIndexInBlock].txHash.equals(txHash)) &&
-              (!contractAddress || log.contractAddress.equals(contractAddress))
-            ) {
-              logs.push(new ExtendedUnencryptedL2Log(new LogId(block.data.number, txIndexInBlock, logIndexInTx), log));
-              if (logs.length === this.maxLogs) {
-                return Promise.resolve({
-                  logs,
-                  maxLogsHit: true,
-                });
-              }
+        for (let logIndex = 0; logIndex < blockLogs.length; logIndex++) {
+          const log = blockLogs[logIndex];
+          const thisTxEffect = block.data.body.txEffects.filter(effect => effect.contractClassLogs.includes(log))[0];
+          const thisTxIndexInBlock = block.data.body.txEffects.indexOf(thisTxEffect);
+          const thisLogIndexInTx = thisTxEffect.contractClassLogs.indexOf(log);
+          if (
+            (!txHash || thisTxEffect.txHash.equals(txHash)) &&
+            (!contractAddress || log.contractAddress.equals(contractAddress)) &&
+            thisTxIndexInBlock >= txIndexInBlock &&
+            thisLogIndexInTx >= logIndexInTx
+          ) {
+            logs.push(
+              new ExtendedContractClassLog(new LogId(block.data.number, thisTxIndexInBlock, thisLogIndexInTx), log),
+            );
+            if (logs.length === this.maxLogs) {
+              return Promise.resolve({
+                logs,
+                maxLogsHit: true,
+              });
             }
           }
-          logIndexInTx = 0;
         }
       }
-      txIndexInBlock = 0;
     }
 
     return Promise.resolve({

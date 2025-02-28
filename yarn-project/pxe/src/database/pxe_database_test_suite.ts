@@ -1,23 +1,20 @@
-import { NoteStatus, type NotesFilter, randomTxHash } from '@aztec/circuit-types';
-import {
-  AztecAddress,
-  CompleteAddress,
-  INITIAL_L2_BLOCK_NUM,
-  PublicKeys,
-  SerializableContractInstance,
-} from '@aztec/circuits.js';
-import { makeHeader } from '@aztec/circuits.js/testing';
-import { FunctionType } from '@aztec/foundation/abi';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { BenchmarkingContractArtifact } from '@aztec/noir-contracts.js/Benchmarking';
 import { TestContractArtifact } from '@aztec/noir-contracts.js/Test';
+import { FunctionType } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { CompleteAddress, SerializableContractInstance } from '@aztec/stdlib/contract';
+import { PublicKeys } from '@aztec/stdlib/keys';
+import { NoteStatus, type NotesFilter } from '@aztec/stdlib/note';
+import { makeHeader, randomTxHash } from '@aztec/stdlib/testing';
 
 import times from 'lodash.times';
 
 import { NoteDao } from './note_dao.js';
-import { type PxeDatabase } from './pxe_database.js';
+import type { PxeDatabase } from './pxe_database.js';
 
 /**
  * A common test suite for a PXE database.

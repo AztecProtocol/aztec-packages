@@ -37,6 +37,7 @@ function build_and_preview {
 # If we're an AMD64 CI run and have a PR, do a preview release.
 function release_preview {
   if [ -z "${NETLIFY_SITE_ID:-}" ] || [ -z "${NETLIFY_AUTH_TOKEN:-}" ]; then
+    echo "No netlify credentials available, skipping release preview."
     return
   fi
 
@@ -86,7 +87,7 @@ case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  ""|"full")
+  ""|"full"|"fast")
     build_and_preview
     ;;
   "hash")

@@ -1,6 +1,6 @@
 import { Encoder } from 'msgpackr';
 
-import { type AztecAsyncSingleton } from '../interfaces/singleton.js';
+import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
 import { type AztecLMDBStoreV2, execInReadTx, execInWriteTx } from './store.js';
 import { serializeKey } from './utils.js';
 

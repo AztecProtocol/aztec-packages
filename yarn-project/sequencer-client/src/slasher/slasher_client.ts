@@ -1,3 +1,14 @@
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import {
+  type L1ContractsConfig,
+  type L1ReaderConfig,
+  type ViemPublicClient,
+  createEthereumChain,
+} from '@aztec/ethereum';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
+import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@aztec/kv-store';
+import { SlashFactoryAbi } from '@aztec/l1-artifacts';
 import {
   type L2Block,
   type L2BlockId,
@@ -5,25 +16,10 @@ import {
   L2BlockStream,
   type L2BlockStreamEvent,
   type L2Tips,
-} from '@aztec/circuit-types';
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
-import { type L1ContractsConfig, type L1ReaderConfig, createEthereumChain } from '@aztec/ethereum';
-import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
-import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@aztec/kv-store';
-import { SlashFactoryAbi } from '@aztec/l1-artifacts';
+} from '@aztec/stdlib/block';
 import { type TelemetryClient, WithTracer, getTelemetryClient } from '@aztec/telemetry-client';
 
-import {
-  type Chain,
-  type GetContractReturnType,
-  type HttpTransport,
-  type PublicClient,
-  createPublicClient,
-  getAddress,
-  getContract,
-  http,
-} from 'viem';
+import { type GetContractReturnType, createPublicClient, fallback, getAddress, getContract, http } from 'viem';
 
 /**
  * Enum defining the possible states of the Slasher client.
@@ -100,8 +96,7 @@ export class SlasherClient extends WithTracer {
 
   private slashEvents: SlashEvent[] = [];
 
-  protected slashFactoryContract?: GetContractReturnType<typeof SlashFactoryAbi, PublicClient<HttpTransport, Chain>> =
-    undefined;
+  protected slashFactoryContract?: GetContractReturnType<typeof SlashFactoryAbi, ViemPublicClient> = undefined;
 
   // The amount to slash for a prune.
   // Note that we set it to 0, such that no actual slashing will happen, but the event will be fired,
@@ -127,10 +122,10 @@ export class SlasherClient extends WithTracer {
     this.synchedProvenBlockNumber = store.openSingleton('slasher_last_proven_l2_block');
 
     if (config.l1Contracts.slashFactoryAddress && config.l1Contracts.slashFactoryAddress !== EthAddress.ZERO) {
-      const chain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
+      const chain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
       const publicClient = createPublicClient({
         chain: chain.chainInfo,
-        transport: http(chain.rpcUrl),
+        transport: fallback(chain.rpcUrls.map(url => http(url))),
         pollingInterval: config.viemPollingIntervalMS,
       });
 

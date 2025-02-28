@@ -1,22 +1,23 @@
-import { type Capsule, type FunctionCall, type TxExecutionRequest } from '@aztec/circuit-types';
+import type { Fr } from '@aztec/foundation/fields';
+import { type ContractArtifact, type FunctionArtifact, type FunctionCall, getInitializer } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
-  AztecAddress,
   type ContractInstanceWithAddress,
-  type PublicKeys,
   computePartialAddress,
   getContractClassFromArtifact,
   getContractInstanceFromDeployParams,
-} from '@aztec/circuits.js';
-import { type ContractArtifact, type FunctionArtifact, getInitializer } from '@aztec/foundation/abi';
-import { type Fr } from '@aztec/foundation/fields';
+} from '@aztec/stdlib/contract';
+import type { GasSettings } from '@aztec/stdlib/gas';
+import type { PublicKeys } from '@aztec/stdlib/keys';
+import type { Capsule, TxExecutionRequest } from '@aztec/stdlib/tx';
 
-import { type Wallet } from '../account/index.js';
+import type { Wallet } from '../account/index.js';
 import { deployInstance } from '../deployment/deploy_instance.js';
 import { registerContractClass } from '../deployment/register_class.js';
-import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
+import type { ExecutionRequestInit } from '../entrypoint/entrypoint.js';
 import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';
-import { type Contract } from './contract.js';
-import { type ContractBase } from './contract_base.js';
+import type { Contract } from './contract.js';
+import type { ContractBase } from './contract_base.js';
 import { ContractFunctionInteraction } from './contract_function_interaction.js';
 import { DeployProvenTx } from './deploy_proven_tx.js';
 import { DeploySentTx } from './deploy_sent_tx.js';
@@ -252,7 +253,9 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * Estimates gas cost for this deployment operation.
    * @param options - Options.
    */
-  public override estimateGas(options?: Omit<DeployOptions, 'estimateGas' | 'skipPublicSimulation'>) {
+  public override estimateGas(
+    options?: Omit<DeployOptions, 'estimateGas' | 'skipPublicSimulation'>,
+  ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
     return super.estimateGas(options);
   }
 

@@ -90,7 +90,7 @@ To generate the environment, the simulator gets the blockheader from the [PXE da
 
 Once the execution environment is created, `execute_unconstrained_function` is invoked:
 
-#include_code execute_unconstrained_function yarn-project/simulator/src/client/unconstrained_execution.ts typescript
+#include_code execute_unconstrained_function yarn-project/simulator/src/private/unconstrained_execution.ts typescript
 
 This:
 
@@ -178,30 +178,23 @@ This macro inserts a check at the beginning of the function to ensure that the c
 assert(context.msg_sender() == context.this_address(), "Function can only be called internally");
 ```
 
-## Custom notes #[note]
+## Implementing notes
 
-The `#[note]` attribute is used to define custom note types in Aztec contracts. Learn more about notes [here](../../concepts/storage/index.md).
+The `#[note]` attribute is used to define notes in Aztec contracts. Learn more about notes [here](../../concepts/storage/index.md).
 
 When a struct is annotated with `#[note]`, the Aztec macro applies a series of transformations and generates implementations to turn it into a note that can be used in contracts to store private data.
 
-1. **NoteInterface Implementation**: The macro automatically implements most methods of the `NoteInterface` trait for the annotated struct. This includes:
+1. **Note Interface Implementation**: The macro automatically implements the `NoteType`, `NoteHash` and `Packable<N>` traits for the annotated struct. This includes the following methods:
 
-   - `pack_content` and `unpack_content`
-   - `get_header` and `set_header`
-   - `get_note_type_id`
-   - `compute_note_hiding_point`
-   - `to_be_bytes`
-   - A `properties` method in the note's implementation
+   - `get_id`
+   - `compute_note_hash`
+   - `compute_nullifier`
+   - `pack`
+   - `unpack`
 
-2. **Automatic Header Field**: If the struct doesn't already have a `header` field of type `NoteHeader`, one is automatically created
+2. **Property Metadata**: A separate struct is generated to describe the note's fields, which is used for efficient retrieval of note data
 
-3. **Note Type ID Generation**: A unique `note_type_id` is automatically computed for the note type using a Keccak hash of the struct name
-
-4. **Serialization and Deserialization**: Methods for converting the note to and from a series of `Field` elements are generated, assuming each field can be converted to/from a `Field`
-
-5. **Property Metadata**: A separate struct is generated to describe the note's fields, which is used for efficient retrieval of note data
-
-6. **Export Information**: The note type and its ID are automatically exported
+3. **Export Information**: The note type and its ID are automatically exported
 
 ### Before expansion
 
@@ -218,67 +211,61 @@ struct CustomNote {
 ### After expansion
 
 ```rust
-impl CustomNote {
-    fn pack_content(self: CustomNote) -> [Field; PACKED_NOTE_CONTENT_LEN] {
-        [self.data, self.owner.to_field()]
-    }
-
-    fn unpack_content(packed_content: [Field; PACKED_NOTE_CONTENT_LEN]) -> Self {
-        CustomNote {
-            data: packed_content[0] as Field,
-            owner: Address::from_field(packed_content[1]),
-            header: NoteHeader::empty()
-        }
-    }
-
-    fn get_note_type_id() -> Field {
+impl NoteType for CustomNote {
+    fn get_id() -> Field {
         // Assigned by macros by incrementing a counter
         2
     }
+}
 
-    fn get_header(note: CustomNote) -> aztec::note::note_header::NoteHeader {
-        note.header
+impl NoteHash for CustomNote {
+    fn compute_note_hash(self, storage_slot: Field) -> Field {
+        let inputs = array_concat(self.pack(), [storage_slot]);
+        poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__NOTE_HASH)
     }
 
-    fn set_header(self: &mut CustomNote, header: aztec::note::note_header::NoteHeader) {
-        self.header = header;
-    }
-
-    fn compute_note_hiding_point(self: CustomNote) -> Point {
-        aztec::hash::pedersen_commitment(
-            self.serialize_content(),
-            aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_HIDING_POINT
+    fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
+        let owner_npk_m_hash = get_public_keys(self.owner).npk_m.hash();
+        let secret = context.request_nsk_app(owner_npk_m_hash);
+        poseidon2_hash_with_separator(
+            [
+            note_hash_for_nullify,
+            secret
+        ],
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field
         )
     }
 
-      fn to_be_bytes(self, storage_slot: Field) -> [u8; 128] {
-            assert(128 == 2 * 32 + 64, "Note byte length must be equal to (serialized_length * 32) + 64 bytes");
-            let serialized_note = self.serialize_content();
+    unconstrained fn compute_nullifier_unconstrained(self, storage_slot: Field, contract_address: AztecAddress, note_nonce: Field) -> Field {
+        // We set the note_hash_counter to 0 as the note is not transient and the concept of transient note does
+        // not make sense in an unconstrained context.
+        let retrieved_note = RetrievedNote { note: self, contract_address, nonce: note_nonce, note_hash_counter: 0 };
+        let note_hash_for_nullify = compute_note_hash_for_nullify(retrieved_note, storage_slot);
+        let owner_npk_m_hash = get_public_keys(self.owner).npk_m.hash();
+        let secret = get_nsk_app(owner_npk_m_hash);
+        poseidon2_hash_with_separator(
+            [
+            note_hash_for_nullify,
+            secret
+        ],
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field
+        )
+    }
+}
 
-            let mut buffer: [u8; 128] = [0; 128];
+impl CustomNote {
+    pub fn new(x: [u8; 32], y: [u8; 32], owner: AztecAddress) -> Self {
+        CustomNote { x, y, owner }
+    }
+}
 
-            let storage_slot_bytes = storage_slot.to_be_bytes(32);
-            let note_type_id_bytes = CustomNote::get_note_type_id().to_be_bytes(32);
+impl Packable<2> for CustomNote {
+    fn pack(self) -> [Field; 2] {
+        [self.data, self.owner.to_field()]
+    }
 
-            for i in 0..32 {
-                buffer[i] = storage_slot_bytes[i];
-                buffer[32 + i] = note_type_id_bytes[i];
-            }
-
-            for i in 0..serialized_note.len() {
-                let bytes = serialized_note[i].to_be_bytes(32);
-                for j in 0..32 {
-                    buffer[64 + i * 32 + j] = bytes[j];
-                }
-            }
-            buffer
-        }
-
-    pub fn properties() -> CustomNoteProperties {
-        CustomNoteProperties {
-            data: aztec::note::note_getter_options::PropertySelector { index: 0, offset: 0, length: 32 },
-            owner: aztec::note::note_getter_options::PropertySelector { index: 1, offset: 0, length: 32 }
-        }
+    fn unpack(packed_content: [Field; 2]) -> CustomNote {
+        CustomNote { data: packed_content[0], owner: AztecAddress { inner: packed_content[1] } }
     }
 }
 

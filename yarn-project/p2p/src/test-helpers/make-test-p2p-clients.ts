@@ -1,15 +1,16 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
-import { P2PClientType, type WorldStateSynchronizer } from '@aztec/circuit-types';
-import { type EpochCache } from '@aztec/epoch-cache';
+import type { EpochCache } from '@aztec/epoch-cache';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { type DataStoreConfig } from '@aztec/kv-store/config';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import { P2PClientType } from '@aztec/stdlib/p2p';
 
 import { createP2PClient } from '../client/index.js';
-import { type P2PClient } from '../client/p2p_client.js';
-import { type P2PConfig } from '../config.js';
-import { type AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
-import { type TxPool } from '../mem_pools/tx_pool/index.js';
+import type { P2PClient } from '../client/p2p_client.js';
+import type { P2PConfig } from '../config.js';
+import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
+import type { TxPool } from '../mem_pools/tx_pool/index.js';
 import { generatePeerIdPrivateKeys } from '../test-helpers/generate-peer-id-private-keys.js';
 import { getPorts } from './get-ports.js';
 import { makeEnrs } from './make-enrs.js';

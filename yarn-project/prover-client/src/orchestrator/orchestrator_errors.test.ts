@@ -1,9 +1,9 @@
-import { Fr } from '@aztec/circuits.js';
 import { timesParallel } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 
 import { TestContext } from '../mocks/test_context.js';
-import { type ProvingOrchestrator } from './orchestrator.js';
+import type { ProvingOrchestrator } from './orchestrator.js';
 
 const logger = createLogger('prover-client:test:orchestrator-errors');
 

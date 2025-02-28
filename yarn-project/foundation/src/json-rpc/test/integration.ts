@@ -1,6 +1,6 @@
 import type http from 'http';
 
-import { type ApiSchemaFor } from '../../schemas/api.js';
+import type { ApiSchemaFor } from '../../schemas/api.js';
 import { makeFetch } from '../client/fetch.js';
 import { type SafeJsonRpcClientOptions, createSafeJsonRpcClient } from '../client/safe_json_rpc_client.js';
 import {

@@ -340,14 +340,19 @@ impl DataFlowGraph {
                     }
                 }
                 let mut instructions = instructions.unwrap_or(vec![instruction]);
-                assert!(!instructions.is_empty(), "`SimplifyResult::SimplifiedToInstructionMultiple` must not return empty vector");
+                assert!(
+                    !instructions.is_empty(),
+                    "`SimplifyResult::SimplifiedToInstructionMultiple` must not return empty vector"
+                );
 
                 if instructions.len() > 1 {
                     // There's currently no way to pass results from one instruction in `instructions` on to the next.
                     // We then restrict this to only support multiple instructions if they're all `Instruction::Constrain`
                     // as this instruction type does not have any results.
                     assert!(
-                        instructions.iter().all(|instruction| matches!(instruction, Instruction::Constrain(..))),
+                        instructions
+                            .iter()
+                            .all(|instruction| matches!(instruction, Instruction::Constrain(..))),
                         "`SimplifyResult::SimplifiedToInstructionMultiple` only supports `Constrain` instructions"
                     );
                 }
@@ -658,7 +663,11 @@ impl DataFlowGraph {
     pub(crate) fn is_safe_index(&self, index: ValueId, array: ValueId) -> bool {
         #[allow(clippy::match_like_matches_macro)]
         match (self.type_of_value(array), self.get_numeric_constant(index)) {
-            (Type::Array(_, len), Some(index)) if index.to_u128() < (len as u128) => true,
+            (Type::Array(elements, len), Some(index))
+                if index.to_u128() < (len as u128 * elements.len() as u128) =>
+            {
+                true
+            }
             _ => false,
         }
     }
@@ -880,7 +889,7 @@ impl<'dfg> InsertInstructionResult<'dfg> {
     }
 }
 
-impl<'dfg> std::ops::Index<usize> for InsertInstructionResult<'dfg> {
+impl std::ops::Index<usize> for InsertInstructionResult<'_> {
     type Output = ValueId;
 
     fn index(&self, index: usize) -> &Self::Output {

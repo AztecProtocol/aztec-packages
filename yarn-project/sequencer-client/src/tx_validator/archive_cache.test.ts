@@ -1,5 +1,6 @@
-import { MerkleTreeId, type MerkleTreeReadOperations } from '@aztec/circuit-types';
-import { Fr } from '@aztec/circuits.js';
+import { Fr } from '@aztec/foundation/fields';
+import type { MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 

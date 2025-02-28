@@ -531,6 +531,20 @@
     "isAsync": false
   },
   {
+    "functionName": "acir_gates_client_ivc",
+    "inArgs": [
+      {
+        "name": "acir_stack",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "totals",
+        "type": "uint8_t **"
+      }
+    ],
+    "isAsync": false
+  },
+  {
     "functionName": "acir_new_acir_composer",
     "inArgs": [
       {

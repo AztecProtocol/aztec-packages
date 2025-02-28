@@ -1,9 +1,8 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
-import { P2PApiSchema, ProverNodeApiSchema, type ProvingJobBroker, createAztecNodeClient } from '@aztec/circuit-types';
 import { NULL_KEY } from '@aztec/ethereum';
-import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
+import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
-import { type LogFn } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
 import { ProvingJobConsumerSchema, createProvingJobBrokerClient } from '@aztec/prover-client/broker';
 import {
   type ProverNodeConfig,
@@ -11,13 +10,15 @@ import {
   getProverNodeConfigFromEnv,
   proverNodeConfigMappings,
 } from '@aztec/prover-node';
+import { createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
+import { P2PApiSchema, ProverNodeApiSchema, type ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
 import { initTelemetryClient, makeTracedFetch, telemetryClientConfigMappings } from '@aztec/telemetry-client';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { mnemonicToAccount } from 'viem/accounts';
 
+import { getL1Config } from '../get_l1_config.js';
 import { extractRelevantOptions } from '../util.js';
-import { validateL1Config } from '../validation.js';
 import { getVersions } from '../versioning.js';
 import { startProverBroker } from './start_prover_broker.js';
 
@@ -26,13 +27,13 @@ export async function startProverNode(
   signalHandlers: (() => Promise<void>)[],
   services: NamespacedApiHandlers,
   userLog: LogFn,
-) {
+): Promise<{ config: ProverNodeConfig }> {
   if (options.node || options.sequencer || options.pxe || options.p2pBootstrap || options.txe) {
     userLog(`Starting a prover-node with --node, --sequencer, --pxe, --p2p-bootstrap, or --txe is not supported.`);
     process.exit(1);
   }
 
-  const proverConfig = {
+  let proverConfig = {
     ...getProverNodeConfigFromEnv(), // get default config from env
     ...extractRelevantOptions<ProverNodeConfig>(options, proverNodeConfigMappings, 'proverNode'), // override with command line options
   };
@@ -65,7 +66,16 @@ export async function startProverNode(
 
   // If we create an archiver here, validate the L1 config
   if (options.archiver) {
-    await validateL1Config(proverConfig);
+    if (!proverConfig.l1Contracts.registryAddress || proverConfig.l1Contracts.registryAddress.isZero()) {
+      throw new Error('L1 registry address is required to start a Prover Node with --archiver option');
+    }
+    const { addresses, config } = await getL1Config(
+      proverConfig.l1Contracts.registryAddress,
+      proverConfig.l1RpcUrls,
+      proverConfig.l1ChainId,
+    );
+    proverConfig.l1Contracts = addresses;
+    proverConfig = { ...proverConfig, ...config };
   }
 
   const telemetry = initTelemetryClient(extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'));

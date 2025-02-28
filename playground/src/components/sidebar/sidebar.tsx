@@ -5,11 +5,17 @@ import FormControl from "@mui/material/FormControl";
 import Select, { type SelectChangeEvent } from "@mui/material/Select";
 import { AztecEnv, AztecContext, WebLogger } from "../../aztecEnv";
 import { createStore } from "@aztec/kv-store/indexeddb";
-import { AccountWalletWithSecretKey, Fr, AztecAddress } from "@aztec/aztec.js";
+import {
+  AccountWalletWithSecretKey,
+  Fr,
+  AztecAddress,
+  AccountManager,
+} from "@aztec/aztec.js";
+import { getInitialTestAccounts } from "@aztec/accounts/testing/lazy";
 import { NetworkDB, WalletDB } from "../../utils/storage";
 import { useContext, useEffect, useState } from "react";
 import { CreateAccountDialog } from "./components/createAccountDialog";
-import { getSchnorrAccount } from "@aztec/accounts/schnorr";
+import { getSchnorrAccount } from "@aztec/accounts/schnorr/lazy";
 import AddIcon from "@mui/icons-material/Add";
 import { Button, Divider, Typography } from "@mui/material";
 import {
@@ -19,7 +25,7 @@ import {
 import ContactsIcon from "@mui/icons-material/Contacts";
 import { CopyToClipboardButton } from "../common/copyToClipboardButton";
 import { AddSendersDialog } from "./components/addSenderDialog";
-import { deriveSigningKey } from "@aztec/circuits.js/keys";
+import { deriveSigningKey } from "@aztec/stdlib/keys";
 import { TxsPanel } from "./components/txsPanel";
 import { AddNetworksDialog } from "./components/addNetworkDialog";
 
@@ -87,6 +93,37 @@ export function SidebarComponent() {
   const getAccountsAndSenders = async () => {
     const aliasedBuffers = await walletDB.listAliases("accounts");
     const aliasedAccounts = parseAliasedBuffersAsString(aliasedBuffers);
+    const testAccountData = await getInitialTestAccounts();
+    let i = 0;
+    for (const accountData of testAccountData) {
+      const account: AccountManager = await getSchnorrAccount(
+        pxe,
+        accountData.secret,
+        accountData.signingKey,
+        accountData.salt
+      );
+      if (
+        !aliasedAccounts.find(({ value }) =>
+          account.getAddress().equals(AztecAddress.fromString(value))
+        )
+      ) {
+        await account.register();
+        const instance = account.getInstance();
+        const wallet = await account.getWallet();
+        const alias = `test${i}`;
+        await walletDB.storeAccount(instance.address, {
+          type: "schnorr",
+          secretKey: wallet.getSecretKey(),
+          alias,
+          salt: account.getInstance().salt,
+        });
+        aliasedAccounts.push({
+          key: `accounts:${alias}`,
+          value: instance.address.toString(),
+        });
+      }
+      i++;
+    }
     const pxeAccounts = await pxe.getRegisteredAccounts();
     const ourAccounts = [];
     const senders = [];

@@ -241,10 +241,14 @@ ClientIVC::MergeProof create_dummy_merge_proof()
     using FF = ClientIVC::FF;
 
     std::vector<FF> proof;
+    proof.reserve(MERGE_PROOF_SIZE);
 
     FF mock_val(5);
     auto mock_commitment = curve::BN254::AffineElement::one();
     std::vector<FF> mock_commitment_frs = field_conversion::convert_to_bn254_frs(mock_commitment);
+
+    // Populate mock subtable size
+    proof.emplace_back(mock_val);
 
     // There are 12 entities in the merge protocol (4 columns x 3 components; aggregate transcript, previous aggregate
     // transcript, current transcript contribution)
@@ -264,6 +268,8 @@ ClientIVC::MergeProof create_dummy_merge_proof()
     for (const FF& val : mock_commitment_frs) {
         proof.emplace_back(val);
     }
+
+    ASSERT(proof.size() == MERGE_PROOF_SIZE);
 
     return proof;
 }
