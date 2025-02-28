@@ -4,7 +4,6 @@
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/utils/mock_witness_generator.hpp"
-#include "barretenberg/commitment_schemes/utils/test_utils.hpp"
 
 namespace bb {
 using Curve = curve::BN254;

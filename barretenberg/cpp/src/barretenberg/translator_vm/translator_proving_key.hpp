@@ -25,7 +25,7 @@ class TranslatorProvingKey {
 
     TranslatorProvingKey(size_t mini_circuit_dyadic_size)
         : mini_circuit_dyadic_size(mini_circuit_dyadic_size)
-        , dyadic_circuit_size(mini_circuit_dyadic_size * Flavor::CONCATENATION_GROUP_SIZE)
+        , dyadic_circuit_size(mini_circuit_dyadic_size * Flavor::INTERLEAVING_GROUP_SIZE)
         , proving_key(std::make_shared<ProvingKey>(dyadic_circuit_size))
 
     {
@@ -89,7 +89,7 @@ class TranslatorProvingKey {
 
         // The actual circuit size is several times bigger than the trace in the circuit, because we use concatenation
         // to bring the degree of relations down, while extending the length.
-        dyadic_circuit_size = mini_circuit_dyadic_size * Flavor::CONCATENATION_GROUP_SIZE;
+        dyadic_circuit_size = mini_circuit_dyadic_size * Flavor::INTERLEAVING_GROUP_SIZE;
     }
 
     inline void compute_mini_circuit_dyadic_size(const Circuit& circuit)

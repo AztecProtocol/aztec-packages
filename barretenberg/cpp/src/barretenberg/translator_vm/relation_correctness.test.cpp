@@ -24,7 +24,7 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     auto& engine = numeric::get_debug_randomness();
     const size_t mini_circuit_size = 2048;
-    auto full_circuit_size = mini_circuit_size * Flavor::CONCATENATION_GROUP_SIZE;
+    auto full_circuit_size = mini_circuit_size * Flavor::INTERLEAVING_GROUP_SIZE;
 
     // We only need gamma, because permutationr elation only uses gamma
     FF gamma = FF::random_element();
@@ -78,7 +78,7 @@ TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     auto& engine = numeric::get_debug_randomness();
     const size_t mini_circuit_size = 2048;
-    const auto circuit_size = Flavor::CONCATENATION_GROUP_SIZE * mini_circuit_size;
+    const auto circuit_size = Flavor::INTERLEAVING_GROUP_SIZE * mini_circuit_size;
     const auto sort_step = Flavor::SORT_STEP;
     const auto max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
 

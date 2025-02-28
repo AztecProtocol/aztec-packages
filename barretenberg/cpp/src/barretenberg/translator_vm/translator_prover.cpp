@@ -151,7 +151,7 @@ void TranslatorProver::execute_pcs_rounds()
                                                key->proving_key->commitment_key);
 
     PolynomialBatcher polynomial_batcher(key->proving_key->circuit_size);
-    polynomial_batcher.set_unshifted(key->proving_key->polynomials.get_unshifted_without_concatenated());
+    polynomial_batcher.set_unshifted(key->proving_key->polynomials.get_unshifted_without_interleaved());
     polynomial_batcher.set_to_be_shifted_by_one(key->proving_key->polynomials.get_to_be_shifted());
     polynomial_batcher.set_interleaved(key->proving_key->polynomials.get_interleaved(),
                                        key->proving_key->polynomials.get_groups_to_be_interleaved());

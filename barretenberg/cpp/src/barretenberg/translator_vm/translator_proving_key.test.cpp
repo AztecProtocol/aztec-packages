@@ -43,7 +43,7 @@ TEST_F(TranslatorProvingKeyTests, InterleaveBasic)
 TEST_F(TranslatorProvingKeyTests, InterleaveFull)
 {
     const size_t mini_circuit_size = 2048;
-    auto full_circuit_size = mini_circuit_size * TranslatorFlavor::CONCATENATION_GROUP_SIZE;
+    auto full_circuit_size = mini_circuit_size * TranslatorFlavor::INTERLEAVING_GROUP_SIZE;
 
     // We only need gamma, because permutationr elation only uses gamma
     FF gamma = FF::random_element();
