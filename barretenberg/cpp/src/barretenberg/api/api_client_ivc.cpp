@@ -8,6 +8,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "libdeflate.h"
+#include <stdexcept>
 
 namespace bb {
 
@@ -212,6 +213,13 @@ void ClientIVCAPI::prove(const Flags& flags,
     auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>(ivc->goblin.get_eccvm_proving_key());
     auto translator_vk = std::make_shared<TranslatorFlavor::VerificationKey>(ivc->goblin.get_translator_proving_key());
     write_file(output_dir / "vk", to_buffer(ClientIVC::VerificationKey{ ivc->honk_vk, eccvm_vk, translator_vk }));
+
+    // We verify this proof. Another bb call to verify has the overhead of loading the SRS,
+    // and it is mysterious if this transaction fails later in the lifecycle.
+    // The files are still written in case they are needed to investigate this failure.
+    if (!ivc->verify(proof)) {
+        throw std::runtime_error("Failed to verify the private (ClientIVC) transaction proof!");
+    }
 }
 
 bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
@@ -256,7 +264,7 @@ bool ClientIVCAPI::prove_and_verify(const Flags& flags,
 void ClientIVCAPI::gates([[maybe_unused]] const Flags& flags,
                          [[maybe_unused]] const std::filesystem::path& bytecode_path)
 {
-    gate_count_for_ivc(bytecode_path);
+    gate_count_for_ivc(bytecode_path, flags.include_gates_per_opcode);
 }
 
 void ClientIVCAPI::write_solidity_verifier([[maybe_unused]] const Flags& flags,
@@ -281,7 +289,7 @@ bool ClientIVCAPI::check([[maybe_unused]] const Flags& flags,
     return false;
 }
 
-void gate_count_for_ivc(const std::string& bytecode_path)
+void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per_opcode)
 {
     // All circuit reports will be built into the string below
     std::string functions_string = "{\"functions\": [\n  ";
@@ -300,7 +308,7 @@ void gate_count_for_ivc(const std::string& bytecode_path)
         acir_format::ProgramMetadata metadata{ .ivc = ivc_constraints.empty() ? nullptr
                                                                               : create_mock_ivc_from_constraints(
                                                                                     ivc_constraints, trace_settings),
-                                               .collect_gates_per_opcode = true };
+                                               .collect_gates_per_opcode = include_gates_per_opcode };
 
         auto builder = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
         builder.finalize_circuit(/*ensure_nonzero=*/true);
@@ -319,13 +327,13 @@ void gate_count_for_ivc(const std::string& bytecode_path)
             }
         }
 
-        auto result_string = format("{\n        \"acir_opcodes\": ",
-                                    program.constraints.num_acir_opcodes,
-                                    ",\n        \"circuit_size\": ",
-                                    circuit_size,
-                                    ",\n        \"gates_per_opcode\": [",
-                                    gates_per_opcode_str,
-                                    "]\n  }");
+        auto result_string = format(
+            "{\n        \"acir_opcodes\": ",
+            program.constraints.num_acir_opcodes,
+            ",\n        \"circuit_size\": ",
+            circuit_size,
+            (include_gates_per_opcode ? format(",\n        \"gates_per_opcode\": [", gates_per_opcode_str, "]") : ""),
+            "\n  }");
 
         // Attach a comma if there are more circuit reports to generate
         if (i != (constraint_systems.size() - 1)) {

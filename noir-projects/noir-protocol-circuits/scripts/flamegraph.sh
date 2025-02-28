@@ -159,7 +159,7 @@ for CIRCUIT_NAME in "${CIRCUIT_NAMES[@]}"; do
 
         # Generate the flamegraph.
         if [ "$IS_MEGA_HONK_CIRCUIT" = "true" ]; then
-            $PROFILER gates --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb" --output "$DEST" --output-filename "$CIRCUIT_NAME" --backend-gates-command "gates" --scheme client_ivc -- -h 0
+            $PROFILER gates --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb" --output "$DEST" --output-filename "$CIRCUIT_NAME" --backend-gates-command "gates" --scheme client_ivc --include_gates_per_opcode
         elif [ "$IS_ROLLUP_HONK_CIRCUIT" = "true" ]; then
             $PROFILER gates --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb" --output "$DEST" --output-filename "$CIRCUIT_NAME" -- --honk_recursion 2
         else
