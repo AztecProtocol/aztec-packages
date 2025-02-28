@@ -1,12 +1,13 @@
 use crate::{
     context::PrivateContext,
     note::{
-        note_interface::NoteInterface, retrieved_note::RetrievedNote,
+        note_interface::{NoteHash, NoteType},
+        note_metadata::{NoteMetadata, SettledNoteMetadata},
+        retrieved_note::RetrievedNote,
         utils::compute_note_hash_for_nullify,
     },
 };
 
-use crate::note::note_interface::NullifiableNote;
 use dep::protocol_types::{
     address::AztecAddress,
     constants::{GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER},
@@ -20,7 +21,19 @@ pub(crate) struct MockNote {
     pub(crate) value: Field,
 }
 
-impl NullifiableNote for MockNote {
+impl NoteType for MockNote {
+    fn get_id() -> Field {
+        // randomly chosen note type id --> has to fit within 7 bits
+        76
+    }
+}
+
+impl NoteHash for MockNote {
+    fn compute_note_hash(self: Self, storage_slot: Field) -> Field {
+        let input = array_concat(self.pack(), [storage_slot]);
+        poseidon2_hash_with_separator(input, GENERATOR_INDEX__NOTE_HASH)
+    }
+
     fn compute_nullifier(
         _self: Self,
         _context: &mut PrivateContext,
@@ -34,18 +47,9 @@ impl NullifiableNote for MockNote {
         )
     }
 
-    unconstrained fn compute_nullifier_without_context(
-        self,
-        storage_slot: Field,
-        contract_address: AztecAddress,
-        note_nonce: Field,
-    ) -> Field {
-        // We set the note_hash_counter to 0 as the note is assumed to be committed (and hence not transient).
-        let retrieved_note =
-            RetrievedNote { note: self, contract_address, nonce: note_nonce, note_hash_counter: 0 };
+    unconstrained fn compute_nullifier_unconstrained(self, note_hash_for_nullify: Field) -> Field {
         // We don't use any kind of secret here since this is only a mock note and having it here would make tests
         // more cumbersome
-        let note_hash_for_nullify = compute_note_hash_for_nullify(retrieved_note, storage_slot);
         poseidon2_hash_with_separator(
             [note_hash_for_nullify],
             GENERATOR_INDEX__NOTE_NULLIFIER as Field,
@@ -53,33 +57,24 @@ impl NullifiableNote for MockNote {
     }
 }
 
-impl NoteInterface for MockNote {
-    fn get_note_type_id() -> Field {
-        // randomly chosen note type id --> has to fit within 7 bits
-        76
-    }
-
-    fn compute_note_hash(self: Self, storage_slot: Field) -> Field {
-        // We use Poseidon2 instead of multi-scalar multiplication (MSM) here since this is not a partial note
-        // and therefore does not require MSM's additive homomorphism property. Additionally, Poseidon2 uses fewer
-        // constraints.
-        let input = array_concat(self.pack(), [storage_slot]);
-        poseidon2_hash_with_separator(input, GENERATOR_INDEX__NOTE_HASH)
-    }
-}
-
 pub(crate) struct MockNoteBuilder {
     value: Field,
     contract_address: Option<AztecAddress>,
+    note_metadata: Option<NoteMetadata>,
 }
 
 impl MockNoteBuilder {
     pub(crate) fn new(value: Field) -> Self {
-        MockNoteBuilder { value, contract_address: Option::none() }
+        MockNoteBuilder { value, contract_address: Option::none(), note_metadata: Option::none() }
     }
 
     pub(crate) fn contract_address(&mut self, contract_address: AztecAddress) -> &mut Self {
         self.contract_address = Option::some(contract_address);
+        self
+    }
+
+    pub(crate) fn note_metadata(&mut self, note_metadata: NoteMetadata) -> &mut Self {
+        self.note_metadata = Option::some(note_metadata);
         self
     }
 
@@ -91,8 +86,9 @@ impl MockNoteBuilder {
         RetrievedNote {
             note: MockNote { value: self.value },
             contract_address: self.contract_address.unwrap_or(AztecAddress::zero()),
-            nonce: 0,
-            note_hash_counter: 0,
+            // If the option is `None` for self.note_metadata, we fill it with invalid note metadata, which would result in the kernel
+            // failing to prove note existence. Because our tests don't interact with the kernel this is not a problem.
+            metadata: self.note_metadata.unwrap_or(std::mem::zeroed()),
         }
     }
 }

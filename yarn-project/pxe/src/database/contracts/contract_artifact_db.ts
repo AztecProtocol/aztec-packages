@@ -1,5 +1,5 @@
-import { type ContractArtifact } from '@aztec/circuits.js/abi';
-import { type Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
+import type { ContractArtifact } from '@aztec/stdlib/abi';
 
 /**
  * PXE database for managing contract artifacts.

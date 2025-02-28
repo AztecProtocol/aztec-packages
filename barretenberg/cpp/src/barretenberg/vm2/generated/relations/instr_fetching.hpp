@@ -27,7 +27,7 @@ template <typename FF_> class instr_fetchingImpl {
                            [[maybe_unused]] const FF& scaling_factor)
     {
         const auto instr_fetching_SEL_OP_DC_18 =
-            new_term.instr_fetching_sel_op_dc_1 + new_term.instr_fetching_sel_op_dc_6;
+            new_term.instr_fetching_sel_op_dc_2 + new_term.instr_fetching_sel_op_dc_6;
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -49,7 +49,7 @@ template <typename FF_> class instr_fetchingImpl {
             auto tmp = (new_term.instr_fetching_op1 -
                         (new_term.instr_fetching_sel_op_dc_0 *
                              (new_term.instr_fetching_bd3 * FF(256) + new_term.instr_fetching_bd4 * FF(1)) +
-                         new_term.instr_fetching_sel_op_dc_1 *
+                         new_term.instr_fetching_sel_op_dc_2 *
                              (new_term.instr_fetching_bd2 * FF(256) + new_term.instr_fetching_bd3 * FF(1)) +
                          new_term.instr_fetching_sel_op_dc_6 * new_term.instr_fetching_bd2 * FF(1) +
                          new_term.instr_fetching_sel_op_dc_15 *
@@ -63,7 +63,7 @@ template <typename FF_> class instr_fetchingImpl {
             auto tmp = (new_term.instr_fetching_op2 -
                         (new_term.instr_fetching_sel_op_dc_0 *
                              (new_term.instr_fetching_bd5 * FF(256) + new_term.instr_fetching_bd6 * FF(1)) +
-                         new_term.instr_fetching_sel_op_dc_2 *
+                         new_term.instr_fetching_sel_op_dc_3 *
                              (new_term.instr_fetching_bd4 * FF(256) + new_term.instr_fetching_bd5 * FF(1)) +
                          new_term.instr_fetching_sel_op_dc_6 * new_term.instr_fetching_bd3 * FF(1) +
                          new_term.instr_fetching_sel_op_dc_8 * new_term.instr_fetching_bd4 * FF(1) +
@@ -78,7 +78,7 @@ template <typename FF_> class instr_fetchingImpl {
             auto tmp = (new_term.instr_fetching_op3 -
                         (new_term.instr_fetching_sel_op_dc_0 *
                              (new_term.instr_fetching_bd7 * FF(256) + new_term.instr_fetching_bd8 * FF(1)) +
-                         new_term.instr_fetching_sel_op_dc_3 *
+                         new_term.instr_fetching_sel_op_dc_4 *
                              (new_term.instr_fetching_bd6 * FF(256) + new_term.instr_fetching_bd7 * FF(1)) +
                          new_term.instr_fetching_sel_op_dc_9 *
                              (new_term.instr_fetching_bd5 * FF(uint256_t{ 0UL, 0UL, 0UL, 72057594037927936UL }) +
@@ -148,7 +148,7 @@ template <typename FF_> class instr_fetchingImpl {
             auto tmp = (new_term.instr_fetching_op4 -
                         (new_term.instr_fetching_sel_op_dc_0 *
                              (new_term.instr_fetching_bd9 * FF(256) + new_term.instr_fetching_bd10 * FF(1)) +
-                         new_term.instr_fetching_sel_op_dc_4 *
+                         new_term.instr_fetching_sel_op_dc_5 *
                              (new_term.instr_fetching_bd8 * FF(256) + new_term.instr_fetching_bd9 * FF(1)) +
                          new_term.instr_fetching_sel_op_dc_7 * new_term.instr_fetching_bd8 * FF(1)));
             tmp *= scaling_factor;
@@ -165,7 +165,7 @@ template <typename FF_> class instr_fetchingImpl {
         {
             using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
             auto tmp = (new_term.instr_fetching_op6 -
-                        new_term.instr_fetching_sel_op_dc_5 *
+                        new_term.instr_fetching_sel_op_dc_1 *
                             (new_term.instr_fetching_bd13 * FF(256) + new_term.instr_fetching_bd14 * FF(1)));
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
@@ -173,7 +173,7 @@ template <typename FF_> class instr_fetchingImpl {
         {
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
             auto tmp = (new_term.instr_fetching_op7 -
-                        new_term.instr_fetching_sel_op_dc_5 *
+                        new_term.instr_fetching_sel_op_dc_1 *
                             (new_term.instr_fetching_bd15 * FF(256) + new_term.instr_fetching_bd16 * FF(1)));
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);

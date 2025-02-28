@@ -1,7 +1,3 @@
-import { loadContractArtifact } from '@aztec/circuits.js/abi';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { getContractInstanceFromDeployParams } from '@aztec/circuits.js/contract';
-import { type NoirCompiledContract } from '@aztec/circuits.js/noir';
 import {
   CANONICAL_AUTH_REGISTRY_ADDRESS,
   DEPLOYER_CONTRACT_ADDRESS,
@@ -18,6 +14,10 @@ import {
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createConsoleLogger } from '@aztec/foundation/log';
+import { loadContractArtifact } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
+import { type NoirCompiledContract } from '@aztec/stdlib/noir';
 
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -46,7 +46,7 @@ async function clearDestDir() {
   try {
     await fs.access(destArtifactsDir);
     // If the directory exists, remove it recursively.
-    await fs.rm(destArtifactsDir, { recursive: true, force: true });
+    await fs.rm(destArtifactsDir, { recursive: true, force: true, maxRetries: 3 });
   } catch (err: any) {
     if (err.code === 'ENOENT') {
       // If the directory does not exist, do nothing.
@@ -81,7 +81,7 @@ async function computeRoot(names: string[], leaves: Fr[]) {
 
 async function generateDeclarationFile(destName: string) {
   const content = `
-    import { type NoirCompiledContract } from '@aztec/circuits.js/noir';
+    import type { NoirCompiledContract } from '@aztec/stdlib/noir';
     const circuit: NoirCompiledContract;
     export = circuit;
   `;
@@ -131,10 +131,20 @@ async function generateRoot(names: string[], leaves: Fr[]) {
 }
 
 async function generateLogTags() {
+  // See silo_contract_class_log for all registerer tags
   return `
-  export const REGISTERER_CONTRACT_CLASS_REGISTERED_TAG = new Fr(${REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE}n);
-  export const REGISTERER_PRIVATE_FUNCTION_BROADCASTED_TAG = new Fr(${REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE}n);
-  export const REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_TAG = new Fr(${REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE}n);
+  export const REGISTERER_CONTRACT_CLASS_REGISTERED_TAG = Fr.fromHexString('${await poseidon2Hash([
+    REGISTERER_CONTRACT_ADDRESS,
+    REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
+  ])}');
+  export const REGISTERER_PRIVATE_FUNCTION_BROADCASTED_TAG = Fr.fromHexString('${await poseidon2Hash([
+    REGISTERER_CONTRACT_ADDRESS,
+    REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE,
+  ])}');
+  export const REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_TAG = Fr.fromHexString('${await poseidon2Hash([
+    REGISTERER_CONTRACT_ADDRESS,
+    REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE,
+  ])}');
   export const DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_TAG = Fr.fromHexString('${await poseidon2Hash([
     DEPLOYER_CONTRACT_ADDRESS,
     DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
@@ -147,7 +157,7 @@ async function generateOutputFile(names: string[], leaves: Fr[]) {
   const content = `
     // GENERATED FILE - DO NOT EDIT. RUN \`yarn generate\` or \`yarn generate:data\`
     import { Fr } from '@aztec/foundation/fields';
-    import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+    import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
     ${generateNames(names)}
 

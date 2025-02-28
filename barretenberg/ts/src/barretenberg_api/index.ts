@@ -32,8 +32,6 @@ function parseBigEndianU32Array(buffer: Uint8Array, hasSizePrefix = false): numb
 
   return out;
 }
-import createDebug from 'debug';
-const log = createDebug('index-ts');
 
 export class BarretenbergApi {
   constructor(protected wasm: BarretenbergWasmWorker | BarretenbergWasmMain) {}

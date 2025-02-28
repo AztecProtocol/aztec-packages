@@ -12,7 +12,7 @@ import {
   retryUntil,
 } from '@aztec/aztec.js';
 import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
-import { type Logger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 export interface TestWallets {
@@ -80,10 +80,11 @@ export async function deployTestWalletWithTokens(
 
   const wallets = await Promise.all(
     fundedAccounts.map(async (a, i) => {
-      const paymentMethod = new FeeJuicePaymentMethodWithClaim(a.getAddress(), claims[i]);
+      const wallet = await a.getWallet();
+      const paymentMethod = new FeeJuicePaymentMethodWithClaim(wallet, claims[i]);
       await a.deploy({ fee: { paymentMethod } }).wait();
       logger.info(`Account deployed at ${a.getAddress()}`);
-      return a.getWallet();
+      return wallet;
     }),
   );
 
@@ -103,8 +104,8 @@ async function bridgeL1FeeJuice(
   log: Logger,
 ) {
   const { l1ChainId } = await pxe.getNodeInfo();
-  const chain = createEthereumChain(l1RpcUrl, l1ChainId);
-  const { publicClient, walletClient } = createL1Clients(chain.rpcUrl, mnemonicOrPrivateKey, chain.chainInfo);
+  const chain = createEthereumChain([l1RpcUrl], l1ChainId);
+  const { publicClient, walletClient } = createL1Clients(chain.rpcUrls, mnemonicOrPrivateKey, chain.chainInfo);
 
   const portal = await L1FeeJuicePortalManager.new(pxe, publicClient, walletClient, log);
   const claim = await portal.bridgeTokensPublic(recipient, amount, true /* mint */);

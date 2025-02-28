@@ -7,6 +7,11 @@ cd $root
 jobs=$(get_num_cpus_max ${1:-})
 parallel_args="-j$jobs --memsuspend ${MEMSUSPEND:-64G} --line-buffer --joblog joblog.txt"
 
+# If not in CI, fail fast.
+if [ "$CI" -eq 0 ]; then
+  parallel_args+=" --halt now,fail=1"
+fi
+
 echo "Starting test run with max $jobs jobs..."
 
 # If we're in a terminal default to a progress bar, and use cache_log to save output to redis.
@@ -22,9 +27,7 @@ if [ -t 1 ]; then
   fi
   set -e
 else
-  # TODO reinstate denoise once it can print out a log link early.
-  # denoise "parallel $parallel_args 'run_test_cmd {}'"
-  parallel $parallel_args 'run_test_cmd {}'
+  denoise "parallel $parallel_args 'run_test_cmd {}'"
 fi
 
 slow_jobs=$(cat joblog.txt | \

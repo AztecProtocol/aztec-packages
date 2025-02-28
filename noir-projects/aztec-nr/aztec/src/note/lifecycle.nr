@@ -1,9 +1,9 @@
 use crate::context::PrivateContext;
 use crate::note::{
     note_emission::NoteEmission,
-    note_interface::{NoteInterface, NullifiableNote},
+    note_interface::{NoteHash, NoteType},
     retrieved_note::RetrievedNote,
-    utils::{compute_note_hash_for_nullify_internal, compute_note_hash_for_read_request},
+    utils::{compute_note_hash_for_nullify_from_read_request, compute_note_hash_for_read_request},
 };
 use crate::oracle::notes::notify_created_note;
 use protocol_types::traits::Packable;
@@ -14,7 +14,7 @@ pub fn create_note<Note, let N: u32>(
     note: Note,
 ) -> NoteEmission<Note>
 where
-    Note: NoteInterface + NullifiableNote + Packable<N>,
+    Note: NoteType + NoteHash + Packable<N>,
 {
     let note_hash_counter = context.side_effect_counter;
 
@@ -23,7 +23,7 @@ where
     let packed_note = Note::pack(note);
     notify_created_note(
         storage_slot,
-        Note::get_note_type_id(),
+        Note::get_id(),
         packed_note,
         note_hash,
         note_hash_counter,
@@ -41,7 +41,7 @@ pub fn destroy_note<Note>(
     storage_slot: Field,
 )
 where
-    Note: NoteInterface + NullifiableNote,
+    Note: NoteHash,
 {
     let note_hash_for_read_request =
         compute_note_hash_for_read_request(retrieved_note, storage_slot);
@@ -55,14 +55,13 @@ pub fn destroy_note_unsafe<Note>(
     note_hash_for_read_request: Field,
 )
 where
-    Note: NoteInterface + NullifiableNote,
+    Note: NoteHash,
 {
     let note_hash_for_nullify =
-        compute_note_hash_for_nullify_internal(retrieved_note, note_hash_for_read_request);
+        compute_note_hash_for_nullify_from_read_request(retrieved_note, note_hash_for_read_request);
     let nullifier = retrieved_note.note.compute_nullifier(context, note_hash_for_nullify);
 
-    let note_hash_counter = retrieved_note.note_hash_counter;
-    let notification_note_hash = if (note_hash_counter == 0) {
+    let note_hash = if retrieved_note.metadata.is_settled() {
         // Counter is zero, so we're nullifying a settled note and we don't populate the note_hash with real value.
         0
     } else {
@@ -74,5 +73,5 @@ where
         note_hash_for_nullify
     };
 
-    context.push_nullifier_for_note_hash(nullifier, notification_note_hash)
+    context.push_nullifier_for_note_hash(nullifier, note_hash)
 }

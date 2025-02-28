@@ -1,37 +1,4 @@
 import {
-  type FunctionCall,
-  type InBlock,
-  L1NotePayload,
-  type L2Block,
-  MerkleTreeId,
-  Note,
-  type NoteStatus,
-  type PublicDataWitness,
-  TxHash,
-  type TxScopedL2Log,
-  getNonNullifiedL1ToL2MessageWitness,
-} from '@aztec/circuit-types';
-import {
-  type AztecNode,
-  type L2BlockNumber,
-  type NullifierMembershipWitness,
-} from '@aztec/circuit-types/interfaces/client';
-import {
-  type FunctionArtifact,
-  FunctionSelector,
-  FunctionType,
-  NoteSelector,
-  encodeArguments,
-  getFunctionArtifact,
-} from '@aztec/circuits.js/abi';
-import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import type { CompleteAddress, ContractInstance } from '@aztec/circuits.js/contract';
-import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
-import type { KeyValidationRequest } from '@aztec/circuits.js/kernel';
-import { computeAddressSecret, computeTaggingSecretPoint } from '@aztec/circuits.js/keys';
-import { IndexedTaggingSecret, LogWithTxData, PrivateLog, PublicLog } from '@aztec/circuits.js/logs';
-import type { BlockHeader } from '@aztec/circuits.js/tx';
-import {
   type L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_NOTE_HASHES_PER_TX,
   PRIVATE_LOG_SIZE_IN_FIELDS,
@@ -42,16 +9,41 @@ import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
-import { type KeyStore } from '@aztec/key-store';
+import type { KeyStore } from '@aztec/key-store';
+import type { AcirSimulator, DBOracle, SimulationProvider } from '@aztec/simulator/client';
+import { MessageLoadOracleInputs } from '@aztec/simulator/client';
 import {
-  type AcirSimulator,
-  type DBOracle,
-  MessageLoadOracleInputs,
-  type SimulationProvider,
-} from '@aztec/simulator/client';
+  type FunctionArtifact,
+  FunctionCall,
+  FunctionSelector,
+  FunctionType,
+  NoteSelector,
+  encodeArguments,
+  getFunctionArtifact,
+} from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { InBlock, L2Block, L2BlockNumber } from '@aztec/stdlib/block';
+import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
+import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
+import { computeAddressSecret, computeTaggingSecretPoint } from '@aztec/stdlib/keys';
+import {
+  IndexedTaggingSecret,
+  L1NotePayload,
+  LogWithTxData,
+  PrivateLog,
+  PublicLog,
+  TxScopedL2Log,
+} from '@aztec/stdlib/logs';
+import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
+import { Note, type NoteStatus } from '@aztec/stdlib/note';
+import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
+import type { BlockHeader } from '@aztec/stdlib/tx';
+import { TxHash } from '@aztec/stdlib/tx';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { type PxeDatabase } from '../database/index.js';
+import type { PxeDatabase } from '../database/index.js';
 import { NoteDao } from '../database/note_dao.js';
 import { getOrderedNoteItems } from '../note_decryption_utils/add_public_values_to_payload.js';
 import { getAcirSimulator } from '../simulator/index.js';

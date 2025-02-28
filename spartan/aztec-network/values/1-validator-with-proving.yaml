@@ -37,10 +37,6 @@ validator:
   validator:
     disabled: false
 
-bootNode:
-  validator:
-    disabled: true
-
 proverAgent:
   replicas: 6
   bb:

@@ -20,8 +20,8 @@ env:
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
   GIT_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
-  EXTERNAL_ETHEREUM_HOST: "https://json-rpc.${{ secrets.SEPOLIA_EXTERNAL_HOST }}?key=${{ secrets.SEPOLIA_API_KEY }}"
-  EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.SEPOLIA_EXTERNAL_HOST }}"
+  EXTERNAL_ETHEREUM_HOSTS: "https://json-rpc.${{ secrets.GCP_SEPOLIA_URL }}?key=${{ secrets.GCP_SEPOLIA_API_KEY }}"
+  EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.GCP_SEPOLIA_URL }}"
   GCP_API_KEY_HEADER: "X-goog-api-key"
 jobs:
   setup:

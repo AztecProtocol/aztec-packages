@@ -206,9 +206,6 @@ std::ostream& operator<<(std::ostream& os, const WireOpCode& op)
     case WireOpCode::ECADD:
         os << "ECADD";
         break;
-    case WireOpCode::MSM:
-        os << "MSM";
-        break;
     case WireOpCode::TORADIXBE:
         os << "TORADIXBE";
         break;

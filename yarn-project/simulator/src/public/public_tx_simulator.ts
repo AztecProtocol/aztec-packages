@@ -1,32 +1,31 @@
-import {
-  type GasUsed,
-  NestedProcessReturnValues,
-  type PublicExecutionRequest,
-  type SimulationError,
-  type Tx,
-  TxExecutionPhase,
-} from '@aztec/circuit-types';
-import { type AvmProvingRequest, type MerkleTreeReadOperations } from '@aztec/circuit-types/interfaces/server';
-import { type AvmSimulationStats } from '@aztec/circuit-types/stats';
-import type { RevertCode } from '@aztec/circuits.js/avm';
-import type { Gas } from '@aztec/circuits.js/gas';
-import type { PublicCallRequest } from '@aztec/circuits.js/kernel';
-import { type GlobalVariables } from '@aztec/circuits.js/tx';
 import type { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
+import type { AvmProvingRequest, RevertCode } from '@aztec/stdlib/avm';
+import type { SimulationError } from '@aztec/stdlib/errors';
+import type { Gas, GasUsed } from '@aztec/stdlib/gas';
+import type { MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
+import type { PublicCallRequest } from '@aztec/stdlib/kernel';
+import type { AvmSimulationStats } from '@aztec/stdlib/stats';
+import {
+  type GlobalVariables,
+  NestedProcessReturnValues,
+  PublicExecutionRequest,
+  Tx,
+  TxExecutionPhase,
+} from '@aztec/stdlib/tx';
 import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { strict as assert } from 'assert';
 
-import { type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
-import { type AvmPersistableStateManager, AvmSimulator } from '../avm/index.js';
-import { NullifierCollisionError } from '../avm/journal/nullifiers.js';
 import { getPublicFunctionDebugName } from '../common/debug_fn_name.js';
+import type { AvmFinalizedCallResult } from './avm/avm_contract_call_result.js';
+import { type AvmPersistableStateManager, AvmSimulator } from './avm/index.js';
+import { NullifierCollisionError } from './avm/journal/nullifiers.js';
 import { ExecutorMetrics } from './executor_metrics.js';
-import { type WorldStateDB } from './public_db_sources.js';
+import type { WorldStateDB } from './public_db_sources.js';
 import { PublicTxContext } from './public_tx_context.js';
 
 export type ProcessedPhase = {
@@ -134,7 +133,7 @@ export class PublicTxSimulator {
       // FIXME: we shouldn't need to directly modify worldStateDb here!
       await this.worldStateDB.removeNewContracts(tx, true);
       // FIXME(dbanks12): should not be changing immutable tx
-      tx.filterRevertedLogs(tx.data.forPublic!.nonRevertibleAccumulatedData);
+      await tx.filterRevertedLogs();
     }
 
     const endTime = process.hrtime.bigint();

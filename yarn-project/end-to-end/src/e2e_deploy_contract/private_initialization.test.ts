@@ -1,7 +1,7 @@
 import { BatchCall, Fr, type Logger, type Wallet } from '@aztec/aztec.js';
-import { siloNullifier } from '@aztec/circuits.js/hash';
 import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
+import { siloNullifier } from '@aztec/stdlib/hash';
 
 import { DeployTest, type StatefulContractCtorArgs } from './deploy_test.js';
 

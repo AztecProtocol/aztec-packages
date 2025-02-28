@@ -11,11 +11,11 @@ import {
   AztecAddress,
   AccountManager,
 } from "@aztec/aztec.js";
-import { getInitialTestAccounts } from "@aztec/accounts/testing";
+import { getInitialTestAccounts } from "@aztec/accounts/testing/lazy";
 import { NetworkDB, WalletDB } from "../../utils/storage";
 import { useContext, useEffect, useState } from "react";
 import { CreateAccountDialog } from "./components/createAccountDialog";
-import { getSchnorrAccount } from "@aztec/accounts/schnorr";
+import { getSchnorrAccount } from "@aztec/accounts/schnorr/lazy";
 import AddIcon from "@mui/icons-material/Add";
 import { Button, Divider, Typography } from "@mui/material";
 import {
@@ -25,7 +25,7 @@ import {
 import ContactsIcon from "@mui/icons-material/Contacts";
 import { CopyToClipboardButton } from "../common/copyToClipboardButton";
 import { AddSendersDialog } from "./components/addSenderDialog";
-import { deriveSigningKey } from "@aztec/circuits.js/keys";
+import { deriveSigningKey } from "@aztec/stdlib/keys";
 import { TxsPanel } from "./components/txsPanel";
 import { AddNetworksDialog } from "./components/addNetworkDialog";
 
