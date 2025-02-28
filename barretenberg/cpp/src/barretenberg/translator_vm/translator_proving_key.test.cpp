@@ -67,13 +67,13 @@ TEST_F(TranslatorProvingKeyTests, InterleaveFull)
         }
     };
 
-    for (const auto& group : prover_polynomials.get_groups_to_be_concatenated()) {
+    for (const auto& group : prover_polynomials.get_groups_to_be_interleaved()) {
         for (auto& poly : group) {
             fill_polynomial_with_random_14_bit_values(poly);
         }
     }
 
-    key.compute_concatenated_polynomials_by_interleaving();
+    key.compute_interleaved_polynomials();
     // Compute ordered range constraint polynomials that go in the denominator of the grand product polynomial
     key.compute_translator_range_constraint_ordered_polynomials();
 

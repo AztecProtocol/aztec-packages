@@ -92,12 +92,12 @@ class TranslatorFlavor {
     // Number of elements in WireToBeShiftedWithoutConcatenated
     static constexpr size_t NUM_WIRES_TO_BE_SHIFTED_WITHOUT_CONCATENATED = 16;
     // The index of the first unshifted witness that is going to be shifted when AllEntities are partitioned into
-    // get_unshifted_without_concatenated(), get_to_be_shifted(), and get_groups_to_be_concatenated()
+    // get_unshifted_without_interleaved(), get_to_be_shifted(), and get_groups_to_be_interleaved()
     static constexpr size_t TO_BE_SHIFTED_WITNESSES_START = NUM_PRECOMPUTED_ENTITIES + NUM_WIRES_NON_SHIFTED;
     // The index of the shift of the first to be shifted witness
     static constexpr size_t SHIFTED_WITNESSES_START = NUM_SHIFTED_WITNESSES + TO_BE_SHIFTED_WITNESSES_START;
     // The index of the first unshifted witness that is contained in the groups to be concatenated, when AllEntities are
-    // partitioned into get_unshifted_without_concatenated(), get_to_be_shifted(), and get_groups_to_be_concatenated()
+    // partitioned into get_unshifted_without_interleaved(), get_to_be_shifted(), and get_groups_to_be_interleaved()
     static constexpr size_t TO_BE_CONCATENATED_START =
         NUM_PRECOMPUTED_ENTITIES + NUM_WIRES_NON_SHIFTED + NUM_WIRES_TO_BE_SHIFTED_WITHOUT_CONCATENATED;
     // The index of the first concatenation groups element inside AllEntities
@@ -154,7 +154,7 @@ class TranslatorFlavor {
                               lagrange_second_to_last_in_minicircuit); // column 6
     };
 
-    template <typename DataType> class ConcatenatedRangeConstraints {
+    template <typename DataType> class InterleavedRangeConstraints {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
                               concatenated_range_constraints_0, // column 0
@@ -278,13 +278,13 @@ class TranslatorFlavor {
                             public WireToBeShiftedEntities<DataType>,
                             public OrderedRangeConstraints<DataType>,
                             public DerivedWitnessEntities<DataType>,
-                            public ConcatenatedRangeConstraints<DataType> {
+                            public InterleavedRangeConstraints<DataType> {
       public:
         DEFINE_COMPOUND_GET_ALL(WireNonshiftedEntities<DataType>,
                                 WireToBeShiftedEntities<DataType>,
                                 OrderedRangeConstraints<DataType>,
                                 DerivedWitnessEntities<DataType>,
-                                ConcatenatedRangeConstraints<DataType>)
+                                InterleavedRangeConstraints<DataType>)
 
         // Used when populating wire polynomials directly from circuit data
         auto get_wires()
@@ -301,9 +301,9 @@ class TranslatorFlavor {
                                OrderedRangeConstraints<DataType>::get_all());
         };
 
-        // everything but ConcatenatedRangeConstraints (used for Shplemini input since concatenated handled separately)
+        // everything but InterleavedRangeConstraints (used for Shplemini input since concatenated handled separately)
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/810)
-        auto get_unshifted_without_concatenated()
+        auto get_unshifted_without_interleaved()
         {
             return concatenate(WireNonshiftedEntities<DataType>::get_all(),
                                WireToBeShiftedEntities<DataType>::get_all(),
@@ -317,7 +317,7 @@ class TranslatorFlavor {
                                WireToBeShiftedEntities<DataType>::get_all(),
                                OrderedRangeConstraints<DataType>::get_all(),
                                DerivedWitnessEntities<DataType>::get_all(),
-                               ConcatenatedRangeConstraints<DataType>::get_all());
+                               InterleavedRangeConstraints<DataType>::get_all());
         }
         auto get_to_be_shifted()
         {
@@ -331,14 +331,14 @@ class TranslatorFlavor {
          *
          * @return auto
          */
-        auto get_concatenated() { return ConcatenatedRangeConstraints<DataType>::get_all(); }
+        auto get_interleaved() { return InterleavedRangeConstraints<DataType>::get_all(); }
 
         /**
          * @brief Get the entities concatenated for the permutation relation
          *
          * @return std::vector<auto>
          */
-        std::vector<RefVector<DataType>> get_groups_to_be_concatenated()
+        std::vector<RefVector<DataType>> get_groups_to_be_interleaved()
         {
             return {
                 {
@@ -533,14 +533,14 @@ class TranslatorFlavor {
          * @brief Get entities concatenated for the permutation relation
          *
          */
-        std::vector<RefVector<DataType>> get_groups_to_be_concatenated()
+        std::vector<RefVector<DataType>> get_groups_to_be_interleaved()
         {
-            return WitnessEntities<DataType>::get_groups_to_be_concatenated();
+            return WitnessEntities<DataType>::get_groups_to_be_interleaved();
         }
         /**
          * @brief Getter for entities constructed by concatenation
          */
-        auto get_concatenated() { return ConcatenatedRangeConstraints<DataType>::get_all(); };
+        auto get_interleaved() { return InterleavedRangeConstraints<DataType>::get_all(); };
         /**
          * @brief Get the polynomials from the grand product denominator
          *
@@ -561,7 +561,7 @@ class TranslatorFlavor {
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_unshifted());
         }
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/810)
-        auto get_unshifted_without_concatenated()
+        auto get_unshifted_without_interleaved()
         {
             return concatenate(PrecomputedEntities<DataType>::get_all(),
                                WitnessEntities<DataType>::get_unshifted_without_concatenated());
@@ -614,7 +614,7 @@ class TranslatorFlavor {
                                                        1 };
             }
 
-            for (auto& concatenated : get_concatenated()) {
+            for (auto& concatenated : get_interleaved()) {
                 concatenated = Polynomial{ /*size*/ circuit_size, circuit_size };
             }
             z_perm = Polynomial{ /*size*/ circuit_size - 1,

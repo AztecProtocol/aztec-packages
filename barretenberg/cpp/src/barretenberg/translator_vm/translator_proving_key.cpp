@@ -17,13 +17,55 @@ namespace bb {
  * @tparam Flavor
  * @param proving_key Can be a proving_key or an AllEntities object
  */
-void TranslatorProvingKey::compute_concatenated_polynomials()
+// void TranslatorProvingKey::compute_concatenated_polynomials()
+// {
+//     // Concatenation groups are vectors of polynomials that are concatenated together
+//     auto concatenation_groups = proving_key->polynomials.get_groups_to_be_interleaved();
+
+//     // Resulting concatenated polynomials
+//     auto targets = proving_key->polynomials.get_interleaved();
+
+//     // Targets have to be full-sized proving_key->polynomials. We can compute the mini circuit size from them by
+//     // dividing by concatenation index
+//     const size_t MINI_CIRCUIT_SIZE = targets[0].size() / Flavor::CONCATENATION_GROUP_SIZE;
+//     ASSERT(MINI_CIRCUIT_SIZE * Flavor::CONCATENATION_GROUP_SIZE == targets[0].size());
+//     // A function that produces 1 concatenated polynomial
+
+//     // Translator uses concatenated polynomials in the permutation argument. These polynomials contain the same
+//     // coefficients as other shorter polynomials, but we don't have to commit to them due to reusing commitments of
+//     // shorter polynomials and updating our PCS to open using them. But the prover still needs the concatenated
+//     // proving_key->polynomials. This function constructs a chunk of the polynomial.
+//     auto ordering_function = [&](size_t index) {
+//         // Get the index of the concatenated polynomial
+//         size_t i = index / concatenation_groups[0].size();
+//         // Get the index of the original polynomial
+//         size_t j = index % concatenation_groups[0].size();
+//         auto& group = concatenation_groups[i];
+//         auto& current_target = targets[i];
+
+//         // Copy into appropriate position in the concatenated polynomial
+//         // We offset by start_index() as the first 0 is not physically represented for shiftable values
+//         for (size_t k = current_target.start_index(); k < MINI_CIRCUIT_SIZE; k++) {
+//             current_target.at(j * MINI_CIRCUIT_SIZE + k) = group[j][k];
+//         }
+//     };
+//     parallel_for(concatenation_groups.size() * concatenation_groups[0].size(), ordering_function);
+// }
+
+/**
+ * @brief Sequential method for computing the concatenated polynomials by interleaving.
+ *
+ * @note This is not currently used in the implementation.
+ */
+void TranslatorProvingKey::compute_interleaved_polynomials()
 {
     // Concatenation groups are vectors of polynomials that are concatenated together
-    auto concatenation_groups = proving_key->polynomials.get_groups_to_be_concatenated();
+    auto concatenation_groups = proving_key->polynomials.get_groups_to_be_interleaved();
+
+    size_t num_polys_in_group = concatenation_groups[0].size();
 
     // Resulting concatenated polynomials
-    auto targets = proving_key->polynomials.get_concatenated();
+    auto targets = proving_key->polynomials.get_interleaved();
 
     // Targets have to be full-sized proving_key->polynomials. We can compute the mini circuit size from them by
     // dividing by concatenation index
@@ -45,25 +87,11 @@ void TranslatorProvingKey::compute_concatenated_polynomials()
 
         // Copy into appropriate position in the concatenated polynomial
         // We offset by start_index() as the first 0 is not physically represented for shiftable values
-        for (size_t k = current_target.start_index(); k < MINI_CIRCUIT_SIZE; k++) {
-            current_target.at(j * MINI_CIRCUIT_SIZE + k) = group[j][k];
+        for (size_t k = group[j].start_index(); k < group[j].size(); k++) {
+            current_target.at(k * num_polys_in_group + j) = group[j][k];
         }
     };
     parallel_for(concatenation_groups.size() * concatenation_groups[0].size(), ordering_function);
-}
-
-/**
- * @brief Sequential method for computing the concatenated polynomials by interleaving.
- *
- * @note This is not currently used in the implementation.
- */
-void TranslatorProvingKey::compute_concatenated_polynomials_by_interleaving()
-{
-    auto groups = proving_key->polynomials.get_groups_to_be_concatenated();
-    auto concatenated_polynomials = proving_key->polynomials.get_concatenated();
-    for (auto [concatenated, group] : zip_view(concatenated_polynomials, groups)) {
-        interleave(group, concatenated);
-    }
 }
 
 /**
@@ -137,7 +165,7 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
     std::vector<size_t> extra_denominator_uint(full_circuit_size);
 
     // Get information which polynomials need to be concatenated
-    auto concatenation_groups = proving_key->polynomials.get_groups_to_be_concatenated();
+    auto concatenation_groups = proving_key->polynomials.get_groups_to_be_interleaved();
 
     // A function that transfers elements from each of the polynomials in the chosen concatenation group in the uint
     // ordered polynomials

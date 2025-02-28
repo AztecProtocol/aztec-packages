@@ -76,7 +76,7 @@ class TranslatorProvingKey {
         // We construct concatenated versions of range constraint polynomials, where several polynomials are
         // concatenated
         // into one. These polynomials are not commited to.
-        compute_concatenated_polynomials_by_interleaving();
+        compute_interleaved_polynomials();
 
         // We also contruct ordered polynomials, which have the same values as concatenated ones + enough values to
         // bridge
@@ -111,7 +111,7 @@ class TranslatorProvingKey {
 
     void compute_translator_range_constraint_ordered_polynomials();
 
-    void compute_concatenated_polynomials_by_interleaving();
+    void compute_interleaved_polynomials();
     static void interleave(const RefVector<Polynomial>&, Polynomial&);
 };
 } // namespace bb
