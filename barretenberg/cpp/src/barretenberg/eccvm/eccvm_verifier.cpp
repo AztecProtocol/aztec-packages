@@ -137,7 +137,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
  * @return OpeningClaim<typename ECCVMFlavor::Curve>
  */
 std::array<OpeningClaim<typename ECCVMFlavor::Curve>, NUM_SMALL_IPA_EVALUATIONS + 1> ECCVMVerifier::
-    reduce_verify_translation_evaluations(
+    compute_translation_opening_claims(
         const std::array<Commitment, NUM_TRANSLATION_EVALUATIONS>& translation_commitments)
 {
     using SmallIPAVerifier = SmallSubgroupIPAVerifier<typename ECCVMFlavor::Curve>;
@@ -151,7 +151,7 @@ std::array<OpeningClaim<typename ECCVMFlavor::Curve>, NUM_SMALL_IPA_EVALUATIONS 
 
     // Construct arrays of commitments and evaluations to be batched, the evaluations being received from the prover
     for (auto [eval, label] : zip_view(translation_evaluations.get_all(), translation_evaluations.labels)) {
-        *eval = transcript->template receive_from_prover<FF>(label);
+        eval = transcript->template receive_from_prover<FF>(label);
     }
     // Get the batching challenge for commitments and evaluations
     batching_challenge_v = transcript->template get_challenge<FF>("Translation:batching_challenge_v");
@@ -179,11 +179,11 @@ std::array<OpeningClaim<typename ECCVMFlavor::Curve>, NUM_SMALL_IPA_EVALUATIONS 
     }
     // Compute the batched commitment and batched evaluation for the univariate opening claim
     Commitment batched_commitment = translation_commitments[0];
-    FF batched_translation_evaluation = *translation_evaluations.get_all()[0];
+    FF batched_translation_evaluation = translation_evaluations.get_all()[0];
     FF batching_scalar = batching_challenge_v;
     for (size_t idx = 1; idx < NUM_TRANSLATION_EVALUATIONS; ++idx) {
         batched_commitment = batched_commitment + translation_commitments[idx] * batching_scalar;
-        const FF current_eval = *translation_evaluations.get_all()[idx];
+        const FF current_eval = translation_evaluations.get_all()[idx];
         batched_translation_evaluation += current_eval * batching_scalar;
         batching_scalar *= batching_challenge_v;
     }

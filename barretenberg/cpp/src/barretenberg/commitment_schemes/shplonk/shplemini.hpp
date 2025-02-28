@@ -90,8 +90,8 @@ template <typename Curve> class ShpleminiProver_ {
             "Libra:concatenation_eval", "Libra:shifted_grand_sum_eval", "Libra:grand_sum_eval", "Libra:quotient_eval"
         };
         const std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points = {
-            const std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points = {
-                gemini_r, gemini_r * subgroup_generator, gemini_r, gemini_r };
+            gemini_r, gemini_r * subgroup_generator, gemini_r, gemini_r
+        };
         for (size_t idx = 0; idx < 4; idx++) {
             new_claim.polynomial = std::move(libra_polynomials[idx]);
             new_claim.opening_pair.challenge = evaluation_points[idx];

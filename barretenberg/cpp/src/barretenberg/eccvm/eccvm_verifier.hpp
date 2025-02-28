@@ -37,7 +37,7 @@ class ECCVMVerifier {
     std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> labels;
 
     std::array<OpeningClaim<typename ECCVMFlavor::Curve>, NUM_SMALL_IPA_EVALUATIONS + 1>
-    reduce_verify_translation_evaluations(
+    compute_translation_opening_claims(
         const std::array<Commitment, NUM_TRANSLATION_EVALUATIONS>& translation_commitments);
 
     std::shared_ptr<VerificationKey> key;

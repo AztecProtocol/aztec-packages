@@ -405,7 +405,7 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
     }
     static std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points(const FF& small_ipa_evaluation_challenge)
     {
-        return compute_evaluation_points(small_ipa_evaluation_challenge, Curve::subgroup_generator);
+        return compute_evaluation_points<FF>(small_ipa_evaluation_challenge, Curve::subgroup_generator);
     }
     static std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> evaluation_labels()
     {
@@ -482,5 +482,15 @@ std::vector<typename Curve::ScalarField> compute_eccvm_challenge_coeffs(
     }
 
     return coeffs_lagrange_basis;
+}
+
+template <typename FF>
+std::array<FF, NUM_SMALL_IPA_EVALUATIONS> compute_evaluation_points(const FF& small_ipa_evaluation_challenge,
+                                                                    const FF& subgroup_generator)
+{
+    return { small_ipa_evaluation_challenge,
+             small_ipa_evaluation_challenge * subgroup_generator,
+             small_ipa_evaluation_challenge,
+             small_ipa_evaluation_challenge };
 }
 } // namespace bb
