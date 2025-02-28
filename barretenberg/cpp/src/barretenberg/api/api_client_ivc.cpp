@@ -256,7 +256,7 @@ bool ClientIVCAPI::prove_and_verify(const Flags& flags,
 void ClientIVCAPI::gates([[maybe_unused]] const Flags& flags,
                          [[maybe_unused]] const std::filesystem::path& bytecode_path)
 {
-    gate_count_for_ivc(bytecode_path);
+    gate_count_for_ivc(bytecode_path, flags.include_gates_per_opcode);
 }
 
 void ClientIVCAPI::write_solidity_verifier([[maybe_unused]] const Flags& flags,
@@ -281,7 +281,7 @@ bool ClientIVCAPI::check([[maybe_unused]] const Flags& flags,
     return false;
 }
 
-void gate_count_for_ivc(const std::string& bytecode_path)
+void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per_opcode)
 {
     // All circuit reports will be built into the string below
     std::string functions_string = "{\"functions\": [\n  ";
@@ -300,7 +300,7 @@ void gate_count_for_ivc(const std::string& bytecode_path)
         acir_format::ProgramMetadata metadata{ .ivc = ivc_constraints.empty() ? nullptr
                                                                               : create_mock_ivc_from_constraints(
                                                                                     ivc_constraints, trace_settings),
-                                               .collect_gates_per_opcode = true };
+                                               .collect_gates_per_opcode = include_gates_per_opcode };
 
         auto builder = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
         builder.finalize_circuit(/*ensure_nonzero=*/true);
@@ -319,13 +319,13 @@ void gate_count_for_ivc(const std::string& bytecode_path)
             }
         }
 
-        auto result_string = format("{\n        \"acir_opcodes\": ",
-                                    program.constraints.num_acir_opcodes,
-                                    ",\n        \"circuit_size\": ",
-                                    circuit_size,
-                                    ",\n        \"gates_per_opcode\": [",
-                                    gates_per_opcode_str,
-                                    "]\n  }");
+        auto result_string = format(
+            "{\n        \"acir_opcodes\": ",
+            program.constraints.num_acir_opcodes,
+            ",\n        \"circuit_size\": ",
+            circuit_size,
+            (include_gates_per_opcode ? format(",\n        \"gates_per_opcode\": [", gates_per_opcode_str, "]") : ""),
+            "\n  }");
 
         // Attach a comma if there are more circuit reports to generate
         if (i != (constraint_systems.size() - 1)) {
