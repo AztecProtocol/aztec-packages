@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740776677527,
+  "lastUpdate": 1740779441632,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "santiago@aztecprotocol.com",
-            "name": "Santiago Palladino",
-            "username": "spalladino"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "83214fcb0bacb0c596b17c321ea99a280ad2147a",
-          "message": "fix: Enforce no import side effects (#12268)\n\nSince we enabled `verbatimModuleSyntax` in yarn project, all imports of\nthe like `import { type Foo } from './foo.js'` now cause `foo.js` to be\nactually imported in runtime. To prevent this, the `type` modifier needs\nto be moved out of the braces. This is what this eslint rule does.\n\nSee [this\npost](https://typescript-eslint.io/blog/consistent-type-imports-and-exports-why-and-how/#verbatim-module-syntax)\nfor more info.",
-          "timestamp": "2025-02-26T01:06:57Z",
-          "tree_id": "5f14cd84c456dfa7ab82b431eecca9e83333a1bc",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/83214fcb0bacb0c596b17c321ea99a280ad2147a"
-        },
-        "date": 1740533916668,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18406.723074999943,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16312.480667999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18745.517887000005,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16242.10115 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4007.2359159998996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3197.482536 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54821.97465,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54821973000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9750.016864000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9750021000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1829858510,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1829858510 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 127134591,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 127134591 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 220415682,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 220415682 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9d2e96b123116e2474f3aa08eaf4630b2dfae5ad",
+          "message": "fix: Wait for L1 to L2 msg sync before claiming (#12386)\n\nIn order to claim an L1 to L2 msg on L2, we need to wait 2 L2 blocks to\nbe mined _after the archiver has synced the msg_. We were waiting 2 L2\nblocks since the message was sent L1, so if this happened right before\nthe end of an L2 slot, the archiver would not get to sync it in time, so\nwaiting for 2 blocks meant we only waited for **one** block after it got\nsynced.\n\nThis adds a wait for the msg to be synced in the node before waiting for\nthe two L2 blocks. The code that waited for the L2 blocks was repeated\nin three different places, and I didnt attempt to refactor it here, so\nthe fix is also repeated three times.\n\nFixes #12366",
+          "timestamp": "2025-02-28T18:18:43-03:00",
+          "tree_id": "c422b07af5b756304cd709d0407533ae7201ef17",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/9d2e96b123116e2474f3aa08eaf4630b2dfae5ad"
+        },
+        "date": 1740779433646,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18142.659761999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15988.668214000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18657.13638400007,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16368.149578999997 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3842.780656000059,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3101.3220859999997 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55205.423163,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55205423000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11324.551264,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11324555000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1903064907,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1903064907 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 224998209,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 224998209 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
