@@ -112,7 +112,6 @@ export class PrivateCircuitPublicInputs {
     public privateLogs: Tuple<PrivateLogData, typeof MAX_PRIVATE_LOGS_PER_CALL>,
     /**
      * Hash of the contract class logs emitted in this function call.
-     * Note: Truncated to 31 bytes to fit in Fr.
      */
     public contractClassLogsHashes: Tuple<LogHash, typeof MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
     /**

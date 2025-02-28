@@ -61,6 +61,7 @@ function test_cmds {
     echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-transfer"
     echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-4epochs"
     echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-transfer-blob-with-sink"
+    echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-upgrade-rollup-version"
   fi
 }
 
@@ -111,23 +112,31 @@ case "$cmd" in
     $cmd
     ;;
   "test-kind-smoke")
-    NAMESPACE=smoke FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false ./scripts/test_kind.sh src/spartan/smoke.test.ts ci-smoke.yaml
+    NAMESPACE=smoke FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+      ./scripts/test_kind.sh src/spartan/smoke.test.ts ci-smoke.yaml smoke
     ;;
   "test-kind-4epochs")
     # TODO(#12163) reenable bot once not conflicting with transfer
     export OVERRIDES="bot.enabled=false"
-    NAMESPACE=4epochs FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false ./scripts/test_kind.sh src/spartan/4epochs.test.ts ci.yaml
+    NAMESPACE=4epochs FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+      ./scripts/test_kind.sh src/spartan/4epochs.test.ts ci.yaml four-epochs
     ;;
   "test-kind-transfer")
     # TODO(#12163) reenable bot once not conflicting with transfer
     export OVERRIDES="bot.enabled=false"
-    NAMESPACE=transfer FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false ./scripts/test_kind.sh src/spartan/transfer.test.ts ci.yaml
+    NAMESPACE=transfer FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+      ./scripts/test_kind.sh src/spartan/transfer.test.ts ci.yaml transfer
     ;;
   "test-kind-transfer-blob-with-sink")
     # TODO(#12163) reenable bot once not conflicting with transfer
     export OVERRIDES="blobSink.enabled=true,bot.enabled=false"
-    # export OVERRIDES="blobSink.enabled=true"
-    ./bootstrap.sh test-kind-transfer
+    NAMESPACE=transfer-blob-with-sink FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+      ./scripts/test_kind.sh src/spartan/transfer.test.ts ci.yaml transfer-blob-with-sink
+    ;;
+  "test-kind-upgrade-rollup-version")
+    export OVERRIDES="bot.enabled=false"
+    NAMESPACE=upgrade-rollup-version FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+      ./scripts/test_kind.sh src/spartan/upgrade_rollup_version.test.ts ci.yaml upgrade-rollup-version
     ;;
   "test-local")
     # Isolate network stack in docker.
