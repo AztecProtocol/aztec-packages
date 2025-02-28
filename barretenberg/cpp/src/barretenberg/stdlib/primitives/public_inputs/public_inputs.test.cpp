@@ -56,7 +56,7 @@ TEST(PublicInputsTest, GoblinBigGroup)
     }
 
     // Construct a public point object from the public component key
-    PublicPoint public_point_2(public_point.get_key());
+    PublicPoint public_point_2(public_point.key());
 
     // Reconstruct the stdlib point from the limbs contained in public input
     G1 reconstructed_point = public_point_2.reconstruct(public_inputs);
@@ -102,7 +102,7 @@ TEST(PublicInputsTest, CircuitInteraction)
         for (const auto& idx : builder.public_inputs) {
             public_inputs.push_back(builder.get_variable(idx));
         }
-        public_point_key = public_point.get_key();
+        public_point_key = public_point.key();
     }
 
     // The second circuit reconstructs the public point from the public inputs and the public component key

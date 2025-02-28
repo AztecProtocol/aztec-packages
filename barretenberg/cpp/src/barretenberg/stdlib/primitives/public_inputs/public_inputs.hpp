@@ -34,19 +34,32 @@ class PublicInputComponent {
     using Fr = stdlib::field_t<MegaCircuitBuilder>;
 
     PublicInputComponent() = default;
-    PublicInputComponent(const Key& key_in)
-        : key(key_in)
+    PublicInputComponent(const Key& key)
+        : key_(key)
     {}
 
-    const Key& get_key() const { return key; }
+    const Key& key() const { return key_; }
 
     void set(const ComponentType& component)
     {
-        key.start_idx = component.set_public();
-        key.size = ComponentType::PUBLIC_INPUTS_SIZE;
+        key_.start_idx = component.set_public();
+        key_.size = ComponentType::PUBLIC_INPUTS_SIZE;
     }
 
     ComponentType reconstruct(const std::vector<Fr>& public_inputs) const
+    {
+        // Ensure that the key has been set
+        if (key_.empty()) {
+            info("WARNING: Trying to construct a PublicInputComponent from an invalid key!");
+            ASSERT(false);
+        }
+        // Extract from the public inputs the limbs needed reconstruct the component
+        std::span<const Fr> limbs{ public_inputs.data() + key_.start_idx, key_.size };
+        return ComponentType::reconstruct_from_public(limbs);
+    }
+
+    // WORKTODO: this might be simpler if the above version is not needed.
+    static ComponentType reconstruct(const std::vector<Fr>& public_inputs, const Key& key)
     {
         // Ensure that the key has been set
         if (key.empty()) {
@@ -59,7 +72,7 @@ class PublicInputComponent {
     }
 
   private:
-    Key key;
+    Key key_;
 };
 
 } // namespace bb::stdlib
