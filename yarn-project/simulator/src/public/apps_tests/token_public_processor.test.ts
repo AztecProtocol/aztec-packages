@@ -1,17 +1,17 @@
-import { RevertCode } from '@aztec/circuits.js/avm';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import type { ContractInstanceWithAddress } from '@aztec/circuits.js/contract';
-import { GasFees } from '@aztec/circuits.js/gas';
-import { GlobalVariables } from '@aztec/circuits.js/tx';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+import { RevertCode } from '@aztec/stdlib/avm';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import { GasFees } from '@aztec/stdlib/gas';
+import { GlobalVariables } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 import { NativeWorldStateService } from '@aztec/world-state';
 
-import { createContractClassAndInstance } from '../../avm/fixtures/index.js';
 import { PublicTxSimulationTester, SimpleContractDataSource } from '../../server.js';
+import { createContractClassAndInstance } from '../avm/fixtures/index.js';
 import { addNewContractClassToTx, addNewContractInstanceToTx } from '../fixtures/utils.js';
 import { WorldStateDB } from '../public_db_sources.js';
 import { PublicProcessor } from '../public_processor.js';
@@ -149,7 +149,7 @@ describe('Public Processor app tests: TokenContract', () => {
         },
       ],
     );
-    addNewContractClassToTx(passingConstructorTx, contractClass);
+    await addNewContractClassToTx(passingConstructorTx, contractClass);
     await addNewContractInstanceToTx(passingConstructorTx, contractInstance);
 
     // NOTE: we need to include the contract artifact for each enqueued call, otherwise the tester
@@ -182,7 +182,7 @@ describe('Public Processor app tests: TokenContract', () => {
     // FIXME(#12375): should be able to include the nullifier insertions, but at the moment
     // tx simulator cannot recover from errors during revertible private insertions.
     // Once fixed, this skipNullifierInsertion flag can be removed.
-    addNewContractClassToTx(failingConstructorTx, contractClass, /*skipNullifierInsertion=*/ true);
+    await addNewContractClassToTx(failingConstructorTx, contractClass, /*skipNullifierInsertion=*/ true);
     await addNewContractInstanceToTx(failingConstructorTx, contractInstance, /*skipNullifierInsertion=*/ true);
 
     // Third transaction - verifies first token is still accessible by minting

@@ -1,23 +1,3 @@
-import { Note, PublicExecutionRequest } from '@aztec/circuit-types';
-import {
-  NoteAndSlot,
-  PrivateCallExecutionResult,
-  PrivateExecutionResult,
-  type PrivateKernelProver,
-} from '@aztec/circuit-types/interfaces/client';
-import { FunctionSelector, NoteSelector } from '@aztec/circuits.js/abi';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import {
-  NoteHash,
-  PrivateCircuitPublicInputs,
-  PrivateKernelCircuitPublicInputs,
-  PrivateKernelTailCircuitPublicInputs,
-  ScopedNoteHash,
-} from '@aztec/circuits.js/kernel';
-import { PublicKeys } from '@aztec/circuits.js/keys';
-import { makeTxRequest } from '@aztec/circuits.js/testing';
-import type { TxRequest } from '@aztec/circuits.js/tx';
-import { VerificationKey, VerificationKeyAsFields } from '@aztec/circuits.js/vks';
 import {
   CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   MAX_NOTE_HASHES_PER_CALL,
@@ -27,11 +7,32 @@ import {
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { MembershipWitness } from '@aztec/foundation/trees';
+import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
+import {
+  NoteHash,
+  PrivateCircuitPublicInputs,
+  PrivateKernelCircuitPublicInputs,
+  PrivateKernelTailCircuitPublicInputs,
+  ScopedNoteHash,
+} from '@aztec/stdlib/kernel';
+import { PublicKeys } from '@aztec/stdlib/keys';
+import { Note } from '@aztec/stdlib/note';
+import { makeTxRequest } from '@aztec/stdlib/testing';
+import {
+  NoteAndSlot,
+  PrivateCallExecutionResult,
+  PrivateExecutionResult,
+  PublicExecutionRequest,
+  type TxRequest,
+} from '@aztec/stdlib/tx';
+import { VerificationKey, VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
 import { mock } from 'jest-mock-extended';
 
 import { KernelProver } from './kernel_prover.js';
-import { type ProvingDataOracle } from './proving_data_oracle.js';
+import type { ProvingDataOracle } from './proving_data_oracle.js';
 
 describe('Kernel Prover', () => {
   let txRequest: TxRequest;

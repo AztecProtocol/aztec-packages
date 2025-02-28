@@ -1,31 +1,30 @@
-import { type PublicExecutionRequest, Tx, UnencryptedFunctionL2Logs, UnencryptedL2Log } from '@aztec/circuit-types';
-import { bufferAsFields } from '@aztec/circuits.js/abi';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import type { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/circuits.js/contract';
-import { Gas, GasFees, GasSettings } from '@aztec/circuits.js/gas';
-import { siloNullifier } from '@aztec/circuits.js/hash';
+import {
+  CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS,
+  DEFAULT_GAS_LIMIT,
+  DEPLOYER_CONTRACT_ADDRESS,
+  MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
+  PRIVATE_LOG_SIZE_IN_FIELDS,
+  REGISTERER_CONTRACT_ADDRESS,
+  REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
+} from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
+import { assertLength } from '@aztec/foundation/serialize';
+import { DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_TAG } from '@aztec/protocol-contracts';
+import { bufferAsFields } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
+import { siloNullifier } from '@aztec/stdlib/hash';
 import {
   PartialPrivateTailPublicInputsForPublic,
   PrivateKernelTailCircuitPublicInputs,
   RollupValidationRequests,
   ScopedLogHash,
   countAccumulatedItems,
-} from '@aztec/circuits.js/kernel';
-import { PrivateLog } from '@aztec/circuits.js/logs';
-import { BlockHeader, TxConstantData, TxContext } from '@aztec/circuits.js/tx';
-import {
-  DEFAULT_GAS_LIMIT,
-  DEPLOYER_CONTRACT_ADDRESS,
-  MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
-  PRIVATE_LOG_SIZE_IN_FIELDS,
-  REGISTERER_CONTRACT_ADDRESS,
-} from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
-import { assertLength } from '@aztec/foundation/serialize';
-import {
-  DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_TAG,
-  REGISTERER_CONTRACT_CLASS_REGISTERED_TAG,
-} from '@aztec/protocol-contracts';
+} from '@aztec/stdlib/kernel';
+import { ContractClassLog, PrivateLog } from '@aztec/stdlib/logs';
+import { type PublicExecutionRequest, Tx } from '@aztec/stdlib/tx';
+import { BlockHeader, TxConstantData, TxContext } from '@aztec/stdlib/tx';
 
 import { strict as assert } from 'assert';
 
@@ -91,27 +90,29 @@ export async function createTxForPublicCalls(
   return tx;
 }
 
-export function addNewContractClassToTx(tx: Tx, contractClass: ContractClassPublic, skipNullifierInsertion = false) {
+export async function addNewContractClassToTx(
+  tx: Tx,
+  contractClass: ContractClassPublic,
+  skipNullifierInsertion = false,
+) {
   const contractClassLogFields = [
-    REGISTERER_CONTRACT_CLASS_REGISTERED_TAG,
+    new Fr(REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE),
     contractClass.id,
     new Fr(contractClass.version),
     new Fr(contractClass.artifactHash),
     new Fr(contractClass.privateFunctionsRoot),
     ...bufferAsFields(contractClass.packedBytecode, Math.ceil(contractClass.packedBytecode.length / 31) + 1),
   ];
-  const contractClassLogBuffer = Buffer.concat([
-    ...contractClassLogFields.map(f => f.toBuffer()),
-    contractClass.packedBytecode,
-    Buffer.alloc(32 - (contractClass.packedBytecode.length % 32)),
-  ]);
-  const contractClassLog = new UnencryptedFunctionL2Logs([
-    new UnencryptedL2Log(AztecAddress.fromNumber(REGISTERER_CONTRACT_ADDRESS), contractClassLogBuffer),
+  const contractClassLog = ContractClassLog.fromFields([
+    new Fr(REGISTERER_CONTRACT_ADDRESS),
+    ...contractClassLogFields.concat(
+      new Array(CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS - contractClassLogFields.length).fill(Fr.ZERO),
+    ),
   ]);
   const contractClassLogHash = ScopedLogHash.fromFields([
-    Fr.fromBuffer(contractClassLog.logs[0].hash()),
+    await contractClassLog.hash(),
     new Fr(7),
-    new Fr(contractClassLog.getKernelLength()),
+    new Fr(contractClassLog.getEmittedLength()),
     new Fr(REGISTERER_CONTRACT_ADDRESS),
   ]);
 
@@ -123,7 +124,7 @@ export function addNewContractClassToTx(tx: Tx, contractClass: ContractClassPubl
   const nextLogIndex = countAccumulatedItems(tx.data.forPublic!.revertibleAccumulatedData.contractClassLogsHashes);
   tx.data.forPublic!.revertibleAccumulatedData.contractClassLogsHashes[nextLogIndex] = contractClassLogHash;
 
-  tx.contractClassLogs.addFunctionLogs([contractClassLog]);
+  tx.contractClassLogs.push(contractClassLog);
 }
 
 export async function addNewContractInstanceToTx(

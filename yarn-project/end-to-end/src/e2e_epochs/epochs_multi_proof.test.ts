@@ -1,12 +1,12 @@
 import { type Logger, retryUntil, sleep } from '@aztec/aztec.js';
-// eslint-disable-next-line no-restricted-imports
-import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/circuit-types';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { EthAddress } from '@aztec/foundation/eth-address';
+// eslint-disable-next-line no-restricted-imports
+import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
 
-import { type EndToEndContext } from '../fixtures/utils.js';
+import type { EndToEndContext } from '../fixtures/utils.js';
 import { EPOCH_DURATION_IN_L2_SLOTS, EpochsTestContext, L1_BLOCK_TIME_IN_S } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 10);

@@ -1,31 +1,4 @@
 import {
-  type PublicExecutionRequest,
-  type SimulationError,
-  type Tx,
-  TxExecutionPhase,
-  type TxHash,
-} from '@aztec/circuit-types';
-import {
-  type AvmProvingRequest,
-  type MerkleTreeReadOperations,
-  ProvingRequestType,
-} from '@aztec/circuit-types/interfaces/server';
-import { PublicDataWrite, RevertCode } from '@aztec/circuits.js/avm';
-import { AvmCircuitInputs, type AvmCircuitPublicInputs } from '@aztec/circuits.js/avm';
-import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { computeTransactionFee } from '@aztec/circuits.js/fees';
-import { Gas, GasSettings } from '@aztec/circuits.js/gas';
-import {
-  PrivateToAvmAccumulatedData,
-  PrivateToAvmAccumulatedDataArrayLengths,
-  type PrivateToPublicAccumulatedData,
-  PublicCallRequest,
-  countAccumulatedItems,
-  mergeAccumulatedData,
-} from '@aztec/circuits.js/kernel';
-import { MerkleTreeId } from '@aztec/circuits.js/trees';
-import { type GlobalVariables, type StateReference, TreeSnapshots } from '@aztec/circuits.js/tx';
-import {
   MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
@@ -37,12 +10,43 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
+import {
+  AvmCircuitInputs,
+  type AvmCircuitPublicInputs,
+  type AvmProvingRequest,
+  PublicDataWrite,
+  RevertCode,
+} from '@aztec/stdlib/avm';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { SimulationError } from '@aztec/stdlib/errors';
+import { computeTransactionFee } from '@aztec/stdlib/fees';
+import { Gas, GasSettings } from '@aztec/stdlib/gas';
+import type { MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
+import {
+  PrivateToAvmAccumulatedData,
+  PrivateToAvmAccumulatedDataArrayLengths,
+  type PrivateToPublicAccumulatedData,
+  PublicCallRequest,
+  countAccumulatedItems,
+  mergeAccumulatedData,
+} from '@aztec/stdlib/kernel';
+import { ProvingRequestType } from '@aztec/stdlib/proofs';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
+import {
+  type GlobalVariables,
+  type PublicExecutionRequest,
+  type StateReference,
+  TreeSnapshots,
+  type Tx,
+  TxExecutionPhase,
+  type TxHash,
+} from '@aztec/stdlib/tx';
 
 import { strict as assert } from 'assert';
 import { inspect } from 'util';
 
-import { AvmPersistableStateManager } from '../avm/index.js';
-import { type WorldStateDB } from './public_db_sources.js';
+import { AvmPersistableStateManager } from './avm/index.js';
+import type { WorldStateDB } from './public_db_sources.js';
 import { SideEffectArrayLengths, SideEffectTrace } from './side_effect_trace.js';
 import { getCallRequestsByPhase, getExecutionRequestsByPhase } from './utils.js';
 

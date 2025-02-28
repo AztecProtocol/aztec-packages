@@ -3,9 +3,8 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    "./common": "./dest/common.js",
     "./server": "./dest/server.js",
-    "./client": "./dest/client/index.js",
+    "./client": "./dest/client.js",
     "./public/fixtures": "./dest/public/fixtures/index.js"
   },
   "typedocOptions": {
@@ -60,12 +59,11 @@
     ]
   },
   "dependencies": {
-    "@aztec/circuit-types": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "@noir-lang/acvm_js": "portal:../../noir/packages/acvm_js",

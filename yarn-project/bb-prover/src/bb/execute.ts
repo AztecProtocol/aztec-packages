@@ -1,13 +1,13 @@
-import { type AvmCircuitInputs, serializeWithMessagePack } from '@aztec/circuits.js/avm';
 import { sha256 } from '@aztec/foundation/crypto';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import { type AvmCircuitInputs, serializeWithMessagePack } from '@aztec/stdlib/avm';
 
 import * as proc from 'child_process';
 import { promises as fs } from 'fs';
 import { basename, dirname, join } from 'path';
 
-import { type UltraHonkFlavor } from '../honk.js';
+import type { UltraHonkFlavor } from '../honk.js';
 import { CLIENT_IVC_PROOF_FILE_NAME, CLIENT_IVC_VK_FILE_NAME } from '../prover/client_ivc_proof_utils.js';
 
 export const VK_FILENAME = 'vk';
@@ -435,7 +435,7 @@ export async function generateAvmProofV2(
 export async function generateAvmProof(
   pathToBB: string,
   workingDirectory: string,
-  input: AvmCircuitInputs,
+  _input: AvmCircuitInputs,
   logger: Logger,
   checkCircuitOnly: boolean = false,
 ): Promise<BBFailure | BBSuccess> {
@@ -467,15 +467,16 @@ export async function generateAvmProof(
   try {
     // Write the inputs to the working directory.
 
-    await fs.writeFile(publicInputsPath, input.publicInputs.toBuffer());
-    if (!(await filePresent(publicInputsPath))) {
-      return { status: BB_RESULT.FAILURE, reason: `Could not write publicInputs at ${publicInputsPath}` };
-    }
+    // WARNING: Not writing the inputs since VM1 is disabled!
+    // await fs.writeFile(publicInputsPath, input.publicInputs.toBuffer());
+    // if (!(await filePresent(publicInputsPath))) {
+    //   return { status: BB_RESULT.FAILURE, reason: `Could not write publicInputs at ${publicInputsPath}` };
+    // }
 
-    await fs.writeFile(avmHintsPath, input.avmHints.toBuffer());
-    if (!(await filePresent(avmHintsPath))) {
-      return { status: BB_RESULT.FAILURE, reason: `Could not write avmHints at ${avmHintsPath}` };
-    }
+    // await fs.writeFile(avmHintsPath, input.avmHints.toBuffer());
+    // if (!(await filePresent(avmHintsPath))) {
+    //   return { status: BB_RESULT.FAILURE, reason: `Could not write avmHints at ${avmHintsPath}` };
+    // }
 
     const args = ['--avm-public-inputs', publicInputsPath, '--avm-hints', avmHintsPath, '-o', outputPath];
     const loggingArg =
@@ -779,8 +780,8 @@ export async function computeGateCountForCircuit(
 
     const result = await executeBB(
       pathToBB,
-      flavor === 'mega_honk' ? `gates_for_ivc` : `gates`,
-      ['-b', bytecodePath, '-v'],
+      'gates',
+      ['--scheme', flavor === 'mega_honk' ? 'client_ivc' : 'ultra_honk', '-b', bytecodePath, '-v'],
       logHandler,
     );
     const duration = timer.ms();

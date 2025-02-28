@@ -105,9 +105,9 @@ spec:
             - "-c"
             - |
               source /shared/config/service-addresses && \
-              cp /scripts/configure-validator-env.sh /tmp/configure-validator-env.sh && \
-              chmod +x /tmp/configure-validator-env.sh && \
-              /tmp/configure-validator-env.sh "$(cat /shared/pxe/pxe_url)"
+              cp /scripts/configure-full-node-env.sh /tmp/configure-full-node-env.sh && \
+              chmod +x /tmp/configure-full-node-env.sh && \
+              /tmp/configure-full-node-env.sh "$(cat /shared/pxe/pxe_url)"
           volumeMounts:
             - name: contracts-env
               mountPath: /shared/contracts
@@ -117,6 +117,9 @@ spec:
               mountPath: /scripts
             - name: config
               mountPath: /shared/config
+          env:
+            - name: P2P_ENABLED
+              value: "{{ .Values.validator.p2p.enabled }}"
       containers:
         - name: validator
           {{- include "aztec-network.image" . | nindent 10 }}
@@ -235,10 +238,12 @@ spec:
               value: "{{ .Values.storage.worldStateMapSize }}"
             - name: USE_GCLOUD_LOGGING
               value: "{{ .Values.telemetry.useGcloudLogging }}"
-            - name: USE_GCLOUD_METRICS
-              value: "{{ .Values.telemetry.useGcloudMetrics }}"
             - name: OTEL_EXCLUDE_METRICS
               value: "{{ .Values.telemetry.excludeMetrics }}"
+            - name: TEST_ACCOUNTS
+              value: "{{ .Values.aztec.testAccounts }}"
+            - name: P2P_BOOTSTRAP_NODES_AS_FULL_PEERS
+              value: "{{ .Values.network.p2pBootstrapNodesAsFullPeers }}"
             {{- if .Values.blobSink.enabled }}
             - name: BLOB_SINK_URL
               value: {{ include "aztec-network.blobSinkUrl" . }}
@@ -292,6 +297,23 @@ spec:
     - port: {{ .Values.validator.service.p2pUdpPort }}
       name: p2p-udp
       protocol: UDP
+    - port: {{ .Values.validator.service.nodePort }}
+      name: node
+      protocol: TCP
+---
+# If we want to send traffic to any validator, then we need a LoadBalancer service on top of a headless service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-validator-lb
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+    app: validator
+spec:
+  selector:
+    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
+    app: validator
+  ports:
     - port: {{ .Values.validator.service.nodePort }}
       name: node
       protocol: TCP

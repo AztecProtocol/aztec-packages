@@ -1,7 +1,7 @@
 import { createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 
-import { type Libp2p, type PeerId, type Stream } from '@libp2p/interface';
+import type { Libp2p, PeerId, Stream } from '@libp2p/interface';
 
 const MAX_SAMPLE_ATTEMPTS = 4;
 

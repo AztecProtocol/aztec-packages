@@ -1,20 +1,20 @@
-import { type PeerErrorSeverity } from '@aztec/circuit-types';
-import { type PeerInfo } from '@aztec/circuit-types/interfaces/server';
 import { createLogger } from '@aztec/foundation/log';
+import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
+import type { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
-import { type ENR } from '@chainsafe/enr';
-import { type Connection, type PeerId } from '@libp2p/interface';
-import { type Multiaddr } from '@multiformats/multiaddr';
+import type { ENR } from '@chainsafe/enr';
+import type { Connection, PeerId } from '@libp2p/interface';
+import type { Multiaddr } from '@multiformats/multiaddr';
 import { inspect } from 'util';
 
-import { type P2PConfig } from '../../config.js';
-import { type PubSubLibp2p } from '../../util.js';
+import type { P2PConfig } from '../../config.js';
+import { PeerEvent } from '../../types/index.js';
+import type { PubSubLibp2p } from '../../util.js';
 import { ReqRespSubProtocol } from '../reqresp/interface.js';
 import { GoodByeReason, prettyGoodbyeReason } from '../reqresp/protocols/goodbye.js';
-import { type ReqResp } from '../reqresp/reqresp.js';
-import { type PeerDiscoveryService } from '../service.js';
-import { PeerEvent } from '../types.js';
+import type { ReqResp } from '../reqresp/reqresp.js';
+import type { PeerDiscoveryService } from '../service.js';
 import { PeerManagerMetrics } from './metrics.js';
 import { PeerScoreState, type PeerScoring } from './peer_scoring.js';
 
@@ -190,8 +190,7 @@ export class PeerManager {
   private discover() {
     const connections = this.libP2PNode.getConnections();
 
-    const uniqueConnections = this.pruneDuplicatePeers(connections);
-    const healthyConnections = this.pruneUnhealthyPeers(uniqueConnections);
+    const healthyConnections = this.prioritizePeers(this.pruneUnhealthyPeers(this.pruneDuplicatePeers(connections)));
 
     // Calculate how many connections we're looking to make
     const peersToConnect = this.config.maxPeerCount - healthyConnections.length;
@@ -259,7 +258,7 @@ export class PeerManager {
           void this.goodbyeAndDisconnectPeer(peer.remotePeer, GoodByeReason.BANNED);
           break;
         case PeerScoreState.Disconnect:
-          void this.goodbyeAndDisconnectPeer(peer.remotePeer, GoodByeReason.DISCONNECTED);
+          void this.goodbyeAndDisconnectPeer(peer.remotePeer, GoodByeReason.LOW_SCORE);
           break;
         case PeerScoreState.Healthy:
           connectedHealthyPeers.push(peer);
@@ -267,6 +266,31 @@ export class PeerManager {
     }
 
     return connectedHealthyPeers;
+  }
+
+  /**
+   * If the max peer count is reached, the lowest scoring peers will be pruned to satisfy the max peer count.
+   *
+   * @param connections - The list of connections to prune low scoring peers above the max peer count from.
+   * @returns The pruned list of connections.
+   */
+  private prioritizePeers(connections: Connection[]): Connection[] {
+    if (connections.length > this.config.maxPeerCount) {
+      // Sort the peer scores from lowest to highest
+      const prioritizedConnections = connections.sort((connectionA, connectionB) => {
+        const connectionScoreA = this.peerScoring.getScore(connectionA.remotePeer.toString());
+        const connectionScoreB = this.peerScoring.getScore(connectionB.remotePeer.toString());
+        return connectionScoreB - connectionScoreA;
+      });
+
+      // Disconnect from the lowest scoring connections.
+      for (const conn of prioritizedConnections.slice(this.config.maxPeerCount)) {
+        void this.goodbyeAndDisconnectPeer(conn.remotePeer, GoodByeReason.MAX_PEERS);
+      }
+      return prioritizedConnections.slice(0, this.config.maxPeerCount);
+    } else {
+      return connections;
+    }
   }
 
   /**

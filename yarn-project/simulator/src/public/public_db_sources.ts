@@ -1,29 +1,29 @@
-import { type Tx } from '@aztec/circuit-types';
-import { ContractClassTxL2Logs } from '@aztec/circuit-types';
-import {
-  type MerkleTreeCheckpointOperations,
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
-} from '@aztec/circuit-types/interfaces/server';
-import { type PublicDBAccessStats } from '@aztec/circuit-types/stats';
-import type { FunctionSelector } from '@aztec/circuits.js/abi';
-import { PublicDataWrite } from '@aztec/circuits.js/avm';
-import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import {
-  type ContractClassPublic,
-  type ContractDataSource,
-  type ContractInstanceWithAddress,
-  computePublicBytecodeCommitment,
-} from '@aztec/circuits.js/contract';
-import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { MerkleTreeId, type PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
 import { ContractInstanceDeployedEvent } from '@aztec/protocol-contracts/instance-deployer';
+import type { FunctionSelector } from '@aztec/stdlib/abi';
+import { PublicDataWrite } from '@aztec/stdlib/avm';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import {
+  type ContractClassPublic,
+  type ContractDataSource,
+  type ContractInstanceWithAddress,
+  computePublicBytecodeCommitment,
+} from '@aztec/stdlib/contract';
+import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
+import type {
+  MerkleTreeCheckpointOperations,
+  MerkleTreeReadOperations,
+  MerkleTreeWriteOperations,
+} from '@aztec/stdlib/interfaces/server';
+import type { ContractClassLog } from '@aztec/stdlib/logs';
+import type { PublicDBAccessStats } from '@aztec/stdlib/stats';
+import { MerkleTreeId, type PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
+import type { Tx } from '@aztec/stdlib/tx';
 
-import { type PublicContractsDB, type PublicStateDB } from './db_interfaces.js';
+import type { PublicContractsDB, PublicStateDB } from '../common/db_interfaces.js';
 import { TxContractCache } from './tx_contract_cache.js';
 
 /**
@@ -60,28 +60,31 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
    * @param tx - The transaction to add contract classes from.
    */
   private async addContractClasses(tx: Tx) {
+    // Extract contract class and instance data from logs and add to cache for this block
+
     // Extract contract class from logs
-    const nonRevertibleContractClassLogs = tx.contractClassLogs
-      .filterScoped(
-        tx.data.forPublic!.nonRevertibleAccumulatedData.contractClassLogsHashes,
-        ContractClassTxL2Logs.empty(),
-      )
-      .unrollLogs();
-    const revertibleContractClassLogs = tx.contractClassLogs
-      .filterScoped(tx.data.forPublic!.revertibleAccumulatedData.contractClassLogsHashes, ContractClassTxL2Logs.empty())
-      .unrollLogs();
-
-    const nonRevertibleContractClassEvents = nonRevertibleContractClassLogs
-      .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log.data))
-      .map(log => ContractClassRegisteredEvent.fromLog(log.data));
-
-    const revertibleContractClassEvents = revertibleContractClassLogs
-      .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log.data))
-      .map(log => ContractClassRegisteredEvent.fromLog(log.data));
+    const siloedNonRevertibleContractClassLogs = tx.data.forPublic
+      ? await tx.filterContractClassLogs(
+          tx.data.forPublic!.nonRevertibleAccumulatedData.contractClassLogsHashes,
+          /*siloed=*/ true,
+        )
+      : await tx.filterContractClassLogs(tx.data.forRollup!.end.contractClassLogsHashes, /*siloed=*/ true);
+    const siloedRevertibleContractClassLogs = tx.data.forPublic
+      ? await tx.filterContractClassLogs(
+          tx.data.forPublic!.revertibleAccumulatedData.contractClassLogsHashes,
+          /*siloed=*/ true,
+        )
+      : [];
+    const nonRevertibleContractClassEvents = siloedNonRevertibleContractClassLogs
+      .filter((log: ContractClassLog) => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log))
+      .map((log: ContractClassLog) => ContractClassRegisteredEvent.fromLog(log));
+    const revertibleContractClassEvents = siloedRevertibleContractClassLogs
+      .filter((log: ContractClassLog) => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log))
+      .map((log: ContractClassLog) => ContractClassRegisteredEvent.fromLog(log));
 
     // Cache contract classes
     await Promise.all(
-      nonRevertibleContractClassEvents.map(async event => {
+      nonRevertibleContractClassEvents.map(async (event: ContractClassRegisteredEvent) => {
         this.log.debug(`Adding class ${event.contractClassId.toString()} to contract 's non-revertible tx cache`);
         const contractClass = await event.toContractClassPublic();
 
@@ -90,7 +93,7 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
     );
 
     await Promise.all(
-      revertibleContractClassEvents.map(async event => {
+      revertibleContractClassEvents.map(async (event: ContractClassRegisteredEvent) => {
         this.log.debug(`Adding class ${event.contractClassId.toString()} to contract's revertible tx cache`);
         const contractClass = await event.toContractClassPublic();
 
@@ -105,12 +108,12 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
    */
   private addContractInstances(tx: Tx) {
     // Extract contract instance from logs
-    const nonRevertibleContractInstanceLogs = tx.data.forPublic!.nonRevertibleAccumulatedData.privateLogs.filter(
-      l => !l.isEmpty(),
-    );
-    const revertibleContractInstanceLogs = tx.data.forPublic!.revertibleAccumulatedData.privateLogs.filter(
-      l => !l.isEmpty(),
-    );
+    const nonRevertibleContractInstanceLogs = tx.data.forPublic
+      ? tx.data.forPublic!.nonRevertibleAccumulatedData.privateLogs.filter(l => !l.isEmpty())
+      : tx.data.forRollup!.end.privateLogs.filter(l => !l.isEmpty());
+    const revertibleContractInstanceLogs = tx.data.forPublic
+      ? tx.data.forPublic!.revertibleAccumulatedData.privateLogs.filter(l => !l.isEmpty())
+      : [];
 
     const nonRevertibleContractInstanceEvents = nonRevertibleContractInstanceLogs
       .filter(log => ContractInstanceDeployedEvent.isContractInstanceDeployedEvent(log))

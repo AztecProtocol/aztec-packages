@@ -53,11 +53,13 @@ Deployments are initiated from CI by manually running the (_name pending_) workf
 After public testnet deployment, perform these sanity checks (these items can also be script automated):
 
 1. Monitor for crashes and network-level health:
+
    - Review the testnet dashboard at `https://grafana.aztec.network/` to confirm node uptime and block production
    - Verify overall TPS performance
    - Create Github issues for new crash scenarios
 
 2. Spot check pod logs for component health:
+
    - Tx gossiping (Bot: `Generated IVC proof`)
    - Peer discovery (Validator (failure case): `Failed FINDNODE request`)
    - Block proposal (Validator: `Can propose block`)
@@ -72,7 +74,7 @@ After public testnet deployment, perform these sanity checks (these items can al
 After a successful sanity check, share the following network connection information in the `#team-alpha` slack channel:
 
 1. AZTEC_IMAGE (`aztecprotocol/aztec:latest`)
-2. ETHEREUM_HOST (Kubernetes: `kubectl get services -n <namespace> | (head -1; grep ethereum)`)
+2. ETHEREUM_HOSTS (Kubernetes: `kubectl get services -n <namespace> | (head -1; grep ethereum)`)
    - ethereum-lb: `<EXTERNAL-IP>:8545`
 3. BOOT_NODE_URL (Kubernetes: `kubectl get services -n <namespace> | (head -3; grep boot)`)
    - boot-node-lb-tcp: `<EXTERNAL-IP>:40400`
@@ -88,16 +90,16 @@ The following items are a shortlist of support items that may be required either
 
 ### Issue Resolution Matrix
 
-| Event | Action | Criticality | Owner(s) |
-|-------|---------|------------|-----------|
-| Build failure | Rerun CI or revert problematic changes | Blocker |  |
-| Deployment issues | Reference deployment `README` or escalate to Delta Team | Blocker | Delta Team |
-| Network instability* | Create detailed issue report for Alpha team | Blocker | Alpha Team |
-| Challenge completion errors | Document issue and assess challenge viability | Major | Product Team |
-| Minor operational issues | Create tracking issue | Minor | Delta Team |
-| Hotfix deployment | Update public testnet and verify fix | Major | Delta Team |
+| Event                       | Action                                                  | Criticality | Owner(s)     |
+| --------------------------- | ------------------------------------------------------- | ----------- | ------------ |
+| Build failure               | Rerun CI or revert problematic changes                  | Blocker     |              |
+| Deployment issues           | Reference deployment `README` or escalate to Delta Team | Blocker     | Delta Team   |
+| Network instability\*       | Create detailed issue report for Alpha team             | Blocker     | Alpha Team   |
+| Challenge completion errors | Document issue and assess challenge viability           | Major       | Product Team |
+| Minor operational issues    | Create tracking issue                                   | Minor       | Delta Team   |
+| Hotfix deployment           | Update public testnet and verify fix                    | Major       | Delta Team   |
 
-_*Defining Network Instability:_
+_\*Defining Network Instability:_
 
 A public testnet is considered unstable if experiencing any of the following:
 
@@ -111,9 +113,9 @@ A public testnet is considered unstable if experiencing any of the following:
 
 ### Release Support Matrix
 
-| Event | Action | Criticality | Owner(s) |
-|-------|---------|------------|-----------|
-| Challenge completion issues | Provide guidance or create issue | Minor | DevRel Team |
-| Node stability issues | Collect logs and create issue | Major | Delta Team |
-| Network-wide problems | Escalate to Delta team | Critical | Alpha/Delta Teams |
-| Bridge/Contract issues | Investigate and escalate if needed | Critical | Alpha Team |
+| Event                       | Action                             | Criticality | Owner(s)          |
+| --------------------------- | ---------------------------------- | ----------- | ----------------- |
+| Challenge completion issues | Provide guidance or create issue   | Minor       | DevRel Team       |
+| Node stability issues       | Collect logs and create issue      | Major       | Delta Team        |
+| Network-wide problems       | Escalate to Delta team             | Critical    | Alpha/Delta Teams |
+| Bridge/Contract issues      | Investigate and escalate if needed | Critical    | Alpha Team        |
