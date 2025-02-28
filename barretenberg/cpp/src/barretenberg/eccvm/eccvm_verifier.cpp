@@ -66,7 +66,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
 
     auto sumcheck_output = sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
-    libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
+    libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
     // If Sumcheck did not verify, return false
@@ -107,7 +107,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
                                 commitments.transcript_z2 };
 
     std::array<OpeningClaim, NUM_SMALL_IPA_EVALUATIONS + 1> translation_opening_claims =
-        reduce_verify_translation_evaluations(translation_commitments);
+        compute_translation_opening_claims(translation_commitments);
 
     std::array<OpeningClaim, NUM_SMALL_IPA_EVALUATIONS + 2> opening_claims = {
         multivariate_to_univariate_opening_claim

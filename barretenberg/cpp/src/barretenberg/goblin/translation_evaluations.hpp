@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
@@ -14,7 +15,7 @@ template <typename BF, typename FF = void> struct TranslationEvaluations_ {
     BF op, Px, Py, z1, z2;
     static size_t size() { return field_conversion::calc_num_bn254_frs<BF>() * NUM_TRANSLATION_EVALUATIONS; }
 
-    std::array<BF*, NUM_TRANSLATION_EVALUATIONS> get_all() { return { &op, &Px, &Py, &z1, &z2 }; }
+    RefArray<BF, NUM_TRANSLATION_EVALUATIONS> get_all() { return { op, Px, Py, z1, z2 }; }
 
     std::array<std::string, NUM_TRANSLATION_EVALUATIONS> labels = {
         "Translation:op", "Translation:Px", "Translation:Py", "Translation:z1", "Translation:z2"

@@ -16,10 +16,6 @@ pub struct PrivateToRollupAccumulatedData {
 
     pub private_logs: [PrivateLog; MAX_PRIVATE_LOGS_PER_TX],
     pub contract_class_logs_hashes: [ScopedLogHash; MAX_CONTRACT_CLASS_LOGS_PER_TX],
-
-    // Here so that the gas cost of this request can be measured by circuits, without actually needing to feed in the
-    // variable-length data.
-    pub contract_class_log_preimages_length: Field,
 }
 
 impl Empty for PrivateToRollupAccumulatedData {
@@ -30,7 +26,6 @@ impl Empty for PrivateToRollupAccumulatedData {
             l2_to_l1_msgs: [ScopedL2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_TX],
             private_logs: [PrivateLog::empty(); MAX_PRIVATE_LOGS_PER_TX],
             contract_class_logs_hashes: [ScopedLogHash::empty(); MAX_CONTRACT_CLASS_LOGS_PER_TX],
-            contract_class_log_preimages_length: 0,
         }
     }
 }
@@ -51,7 +46,6 @@ impl Serialize<PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH> for PrivateToRollupAcc
         for i in 0..self.contract_class_logs_hashes.len() {
             fields.extend_from_array(self.contract_class_logs_hashes[i].serialize());
         }
-        fields.push(self.contract_class_log_preimages_length);
 
         assert_eq(fields.len(), PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH);
 
@@ -80,7 +74,6 @@ impl Deserialize<PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH> for PrivateToRollupA
                 ScopedLogHash::deserialize,
                 [ScopedLogHash::empty(); MAX_CONTRACT_CLASS_LOGS_PER_TX],
             ),
-            contract_class_log_preimages_length: reader.read(),
         };
         reader.finish();
         item
@@ -94,10 +87,6 @@ impl Eq for PrivateToRollupAccumulatedData {
             & (self.l2_to_l1_msgs == other.l2_to_l1_msgs)
             & (self.private_logs == other.private_logs)
             & (self.contract_class_logs_hashes == other.contract_class_logs_hashes)
-            & (
-                self.contract_class_log_preimages_length
-                    == other.contract_class_log_preimages_length
-            )
     }
 }
 

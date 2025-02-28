@@ -141,6 +141,8 @@ void ECCVMProver::execute_pcs_rounds()
                                                sumcheck_output.claimed_libra_evaluation,
                                                transcript,
                                                key->commitment_key);
+    small_subgroup_ipa_prover.prove();
+
     // Execute the Shplemini (Gemini + Shplonk) protocol to produce a univariate opening claim for the multilinear
     // evaluations produced by Sumcheck
     PolynomialBatcher polynomial_batcher(key->circuit_size);
@@ -224,7 +226,7 @@ std::array<ProverOpeningClaim<typename ECCVMFlavor::Curve>, NUM_SMALL_IPA_EVALUA
     // Evaluate the transcript polynomials as univariates and add their evaluations at x to the transcript
     for (auto [eval, poly, label] :
          zip_view(translation_evaluations.get_all(), translation_polynomials, translation_evaluations.labels)) {
-        *eval = poly.evaluate(evaluation_challenge_x);
+        eval = poly.evaluate(evaluation_challenge_x);
         transcript->template send_to_verifier(label, *eval);
     }
 

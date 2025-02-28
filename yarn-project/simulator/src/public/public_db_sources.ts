@@ -1,28 +1,28 @@
-import { ContractClassTxL2Logs, MerkleTreeId, type Tx } from '@aztec/circuit-types';
-import {
-  type MerkleTreeCheckpointOperations,
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
-} from '@aztec/circuit-types/interfaces/server';
-import { type PublicDBAccessStats } from '@aztec/circuit-types/stats';
-import type { FunctionSelector } from '@aztec/circuits.js/abi';
-import { PublicDataWrite } from '@aztec/circuits.js/avm';
-import type { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import {
-  type ContractClassPublic,
-  type ContractDataSource,
-  type ContractInstanceWithAddress,
-  computePublicBytecodeCommitment,
-} from '@aztec/circuits.js/contract';
-import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { type PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
 import { ContractInstanceDeployedEvent } from '@aztec/protocol-contracts/instance-deployer';
+import type { FunctionSelector } from '@aztec/stdlib/abi';
+import { PublicDataWrite } from '@aztec/stdlib/avm';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import {
+  type ContractClassPublic,
+  type ContractDataSource,
+  type ContractInstanceWithAddress,
+  computePublicBytecodeCommitment,
+} from '@aztec/stdlib/contract';
+import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
+import type {
+  MerkleTreeCheckpointOperations,
+  MerkleTreeReadOperations,
+  MerkleTreeWriteOperations,
+} from '@aztec/stdlib/interfaces/server';
+import type { PublicDBAccessStats } from '@aztec/stdlib/stats';
+import { MerkleTreeId, type PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
+import type { Tx } from '@aztec/stdlib/tx';
 
-import { type PublicContractsDB, type PublicStateDB } from './db_interfaces.js';
+import type { PublicContractsDB, PublicStateDB } from '../common/db_interfaces.js';
 
 /**
  * Implements the PublicContractsDB using a ContractDataSource.
@@ -42,10 +42,10 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
    */
   public async addNewContracts(tx: Tx): Promise<void> {
     // Extract contract class and instance data from logs and add to cache for this block
-    const logs = tx.contractClassLogs.unrollLogs();
-    const contractClassRegisteredEvents = logs
-      .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log.data))
-      .map(log => ContractClassRegisteredEvent.fromLog(log.data));
+    const siloedLogs = await tx.filterContractClassLogs(tx.data.getNonEmptyContractClassLogsHashes(), true);
+    const contractClassRegisteredEvents = siloedLogs
+      .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log))
+      .map(log => ContractClassRegisteredEvent.fromLog(log));
     await Promise.all(
       contractClassRegisteredEvents.map(async event => {
         this.log.debug(`Adding class ${event.contractClassId.toString()} to public execution contract cache`);
@@ -71,22 +71,15 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
    * @param tx - The tx's contracts to be removed
    * @param onlyRevertible - Whether to only remove contracts added from revertible contract class logs
    */
-  public removeNewContracts(tx: Tx, onlyRevertible: boolean = false): Promise<void> {
+  public async removeNewContracts(tx: Tx, onlyRevertible: boolean = false): Promise<void> {
     // TODO(@spalladino): Can this inadvertently delete a valid contract added by another tx?
     // Let's say we have two txs adding the same contract on the same block. If the 2nd one reverts,
     // wouldn't that accidentally remove the contract added on the first one?
-    const contractClassLogs = onlyRevertible
-      ? tx.contractClassLogs
-          .filterScoped(
-            tx.data.forPublic!.revertibleAccumulatedData.contractClassLogsHashes,
-            ContractClassTxL2Logs.empty(),
-          )
-          .unrollLogs()
-      : tx.contractClassLogs.unrollLogs();
+    const contractClassLogs = onlyRevertible ? await tx.getSplitContractClassLogs(true, true) : tx.contractClassLogs;
     contractClassLogs
-      .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log.data))
+      .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log))
       .forEach(log => {
-        const event = ContractClassRegisteredEvent.fromLog(log.data);
+        const event = ContractClassRegisteredEvent.fromLog(log);
         this.classCache.delete(event.contractClassId.toString());
       });
 

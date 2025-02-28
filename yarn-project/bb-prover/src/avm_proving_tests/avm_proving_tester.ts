@@ -1,16 +1,15 @@
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
-import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { VerificationKeyData } from '@aztec/circuits.js/vks';
 import { PublicTxSimulationTester, type TestEnqueuedCall } from '@aztec/simulator/public/fixtures';
-import { WorldStateDB } from '@aztec/simulator/server';
+import { SimpleContractDataSource, WorldStateDB } from '@aztec/simulator/server';
+import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { VerificationKeyData } from '@aztec/stdlib/vks';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'path';
 
-import { SimpleContractDataSource } from '../../../simulator/src/avm/fixtures/simple_contract_data_source.js';
 import {
   type BBResult,
   type BBSuccess,

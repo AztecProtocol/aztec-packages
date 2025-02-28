@@ -25,6 +25,8 @@ class ECCVMVerifier {
         : ECCVMVerifier(std::make_shared<ECCVMFlavor::VerificationKey>(proving_key)){};
 
     bool verify_proof(const ECCVMProof& proof);
+    OpeningClaim<typename ECCVMFlavor::Curve> compute_translation_opening_claim(
+        const std::array<Commitment, NUM_TRANSLATION_EVALUATIONS>& translation_commitments);
 
     std::array<Commitment, NUM_TRANSLATION_EVALUATIONS> translation_commitments;
     TranslationEvaluations translation_evaluations;

@@ -1,37 +1,35 @@
-import {
-  type L1ToL2MessageSource,
-  type L2Block,
-  type L2BlockId,
-  type L2BlockSource,
-  type L2BlockStream,
-  type L2BlockStreamEvent,
-  type L2BlockStreamEventHandler,
-  type L2BlockStreamLocalDataProvider,
-  type L2Tips,
-  MerkleTreeId,
-} from '@aztec/circuit-types';
-import {
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
-  WorldStateRunningState,
-  type WorldStateSyncStatus,
-  type WorldStateSynchronizer,
-  type WorldStateSynchronizerStatus,
-} from '@aztec/circuit-types/interfaces/server';
-import { type L2BlockHandledStats } from '@aztec/circuit-types/stats';
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/constants';
-import { type Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { elapsed } from '@aztec/foundation/timer';
 import { MerkleTreeCalculator } from '@aztec/foundation/trees';
 import { SHA256Trunc } from '@aztec/merkle-tree';
+import type {
+  L2Block,
+  L2BlockId,
+  L2BlockSource,
+  L2BlockStream,
+  L2BlockStreamEvent,
+  L2BlockStreamEventHandler,
+  L2BlockStreamLocalDataProvider,
+  L2Tips,
+} from '@aztec/stdlib/block';
+import {
+  WorldStateRunningState,
+  type WorldStateSyncStatus,
+  type WorldStateSynchronizer,
+  type WorldStateSynchronizerStatus,
+} from '@aztec/stdlib/interfaces/server';
+import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import type { L2BlockHandledStats } from '@aztec/stdlib/stats';
+import { MerkleTreeId, type MerkleTreeReadOperations, type MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import { TraceableL2BlockStream, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
-import { type WorldStateStatusFull } from '../native/message.js';
-import { type MerkleTreeAdminDatabase } from '../world-state-db/merkle_tree_db.js';
-import { type WorldStateConfig } from './config.js';
+import type { WorldStateStatusFull } from '../native/message.js';
+import type { MerkleTreeAdminDatabase } from '../world-state-db/merkle_tree_db.js';
+import type { WorldStateConfig } from './config.js';
 
 /**
  * Synchronizes the world state with the L2 blocks from a L2BlockSource via a block stream.
@@ -235,6 +233,8 @@ export class ServerWorldStateSynchronizer
    * @returns Whether the block handled was produced by this same node.
    */
   private async handleL2Blocks(l2Blocks: L2Block[]) {
+    this.log.trace(`Handling L2 blocks ${l2Blocks[0].number} to ${l2Blocks.at(-1)!.number}`);
+
     const messagePromises = l2Blocks.map(block => this.l2BlockSource.getL1ToL2Messages(BigInt(block.number)));
     const l1ToL2Messages: Fr[][] = await Promise.all(messagePromises);
     let updateStatus: WorldStateStatusFull | undefined = undefined;
@@ -271,6 +271,11 @@ export class ServerWorldStateSynchronizer
     await this.verifyMessagesHashToInHash(l1ToL2Messages, l2Block.header.contentCommitment.inHash);
 
     // If the above check succeeds, we can proceed to handle the block.
+    this.log.trace(`Pushing L2 block ${l2Block.number} to merkle tree db `, {
+      blockNumber: l2Block.number,
+      blockHash: await l2Block.hash().then(h => h.toString()),
+      l1ToL2Messages: l1ToL2Messages.map(msg => msg.toString()),
+    });
     const result = await this.merkleTreeDb.handleL2BlockAndMessages(l2Block, l1ToL2Messages);
 
     if (this.currentState === WorldStateRunningState.SYNCHING && l2Block.number >= this.latestBlockNumberAtStart) {

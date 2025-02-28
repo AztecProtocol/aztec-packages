@@ -1,4 +1,4 @@
-import { type LogFn } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
 
 import { getExampleContractNames } from '../../utils/aztec.js';
 

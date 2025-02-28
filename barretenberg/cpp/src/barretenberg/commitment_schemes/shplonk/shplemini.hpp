@@ -87,11 +87,11 @@ template <typename Curve> class ShpleminiProver_ {
         static constexpr FF subgroup_generator = Curve::subgroup_generator;
 
         std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> libra_eval_labels = {
-            "Libra:concatenation_eval", "Libra:shifted_big_sum_eval", "Libra:big_sum_eval", "Libra:quotient_eval"
+            "Libra:concatenation_eval", "Libra:shifted_grand_sum_eval", "Libra:grand_sum_eval", "Libra:quotient_eval"
         };
         const std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points = {
-            gemini_r, gemini_r * subgroup_generator, gemini_r, gemini_r
-        };
+            const std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points = {
+                gemini_r, gemini_r * subgroup_generator, gemini_r, gemini_r };
         for (size_t idx = 0; idx < 4; idx++) {
             new_claim.polynomial = std::move(libra_polynomials[idx]);
             new_claim.opening_pair.challenge = evaluation_points[idx];
@@ -254,8 +254,8 @@ template <typename Curve> class ShpleminiVerifier_ {
         std::array<Fr, NUM_SMALL_IPA_EVALUATIONS> libra_evaluations;
         if (has_zk) {
             libra_evaluations[0] = transcript->template receive_from_prover<Fr>("Libra:concatenation_eval");
-            libra_evaluations[1] = transcript->template receive_from_prover<Fr>("Libra:shifted_big_sum_eval");
-            libra_evaluations[2] = transcript->template receive_from_prover<Fr>("Libra:big_sum_eval");
+            libra_evaluations[1] = transcript->template receive_from_prover<Fr>("Libra:shifted_grand_sum_eval");
+            libra_evaluations[2] = transcript->template receive_from_prover<Fr>("Libra:grand_sum_eval");
             libra_evaluations[3] = transcript->template receive_from_prover<Fr>("Libra:quotient_eval");
         }
 
@@ -373,7 +373,7 @@ template <typename Curve> class ShpleminiVerifier_ {
                         shplonk_batching_challenge,
                         shplonk_evaluation_challenge);
 
-            *consistency_checked = SmallSubgroupIPAVerifier<Curve>::check_evaluations_consistency(
+            *consistency_checked = SmallSubgroupIPAVerifier<Curve>::check_libra_evaluations_consistency(
                 libra_evaluations, gemini_evaluation_challenge, multivariate_challenge, libra_univariate_evaluation);
         }
 

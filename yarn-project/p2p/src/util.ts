@@ -1,15 +1,15 @@
-import { type AztecAsyncKVStore } from '@aztec/kv-store';
-import { type DataStoreConfig } from '@aztec/kv-store/config';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
 
 import type { GossipSub } from '@chainsafe/libp2p-gossipsub';
 import { generateKeyPair, marshalPrivateKey, unmarshalPrivateKey } from '@libp2p/crypto/keys';
-import { type PeerId, type PrivateKey } from '@libp2p/interface';
-import { type ConnectionManager } from '@libp2p/interface-internal';
+import type { PeerId, PrivateKey } from '@libp2p/interface';
+import type { ConnectionManager } from '@libp2p/interface-internal';
 import { createFromPrivKey } from '@libp2p/peer-id-factory';
 import { resolve } from 'dns/promises';
 import type { Libp2p } from 'libp2p';
 
-import { type P2PConfig } from './config.js';
+import type { P2PConfig } from './config.js';
 
 export interface PubSubLibp2p extends Libp2p {
   services: {

@@ -90,7 +90,6 @@ enum class WireOpCode {
     SHA256COMPRESSION,
     KECCAKF1600,
     ECADD,
-    MSM,
     // Conversions
     TORADIXBE,
 

@@ -1,11 +1,7 @@
-import {
-  type AuthWitness,
-  type Capsule,
-  type FunctionCall,
-  type HashedValues,
-  type TxExecutionRequest,
-} from '@aztec/circuit-types';
-import { type Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
+import type { FunctionCall } from '@aztec/stdlib/abi';
+import type { AuthWitness } from '@aztec/stdlib/auth-witness';
+import type { Capsule, HashedValues, TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import { EntrypointPayload, type FeeOptions, computeCombinedPayloadHash } from './payload.js';
 

@@ -1,6 +1,6 @@
 import { type AccountWalletWithSecretKey, type AztecAddress, Contract, type ProfileResult } from '@aztec/aztec.js';
 import { prepTx } from '@aztec/cli/utils';
-import { type LogFn } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
 
 import { format } from 'util';
 

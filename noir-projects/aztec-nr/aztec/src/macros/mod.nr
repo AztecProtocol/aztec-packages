@@ -147,13 +147,25 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
 
             let get_note_type_id = get_trait_impl_method(
                 typ,
-                quote { crate::note::note_interface::NoteInterface },
-                quote { get_note_type_id },
+                quote { crate::note::note_interface::NoteType },
+                quote { get_id },
             );
             let unpack = get_trait_impl_method(
                 typ,
                 quote { crate::protocol_types::traits::Packable<_> },
                 quote { unpack },
+            );
+
+            let compute_note_hash = get_trait_impl_method(
+                typ,
+                quote { crate::note::note_interface::NoteHash },
+                quote { compute_note_hash },
+            );
+
+            let compute_nullifier_unconstrained = get_trait_impl_method(
+                typ,
+                quote { crate::note::note_interface::NoteHash },
+                quote { compute_nullifier_unconstrained },
             );
 
             let if_or_else_if = if i == 0 {
@@ -177,8 +189,21 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
 
                         let note = $unpack(aztec::utils::array::subarray(packed_note.storage(), 0));
 
-                        let note_hash = note.compute_note_hash(storage_slot);
-                        let inner_nullifier = note.compute_nullifier_without_context(storage_slot, contract_address, nonce);
+                        let note_hash = $compute_note_hash(note, storage_slot);
+    
+                        // The note discovery process finds settled notes, that is, notes that were created in prior
+                        // transactions and are therefore already part of the note hash tree. We therefore compute the
+                        // nullification note hash by treating the note as a settled note with the provided nonce.
+                        let note_hash_for_nullify = aztec::note::utils::compute_note_hash_for_nullify(
+                            aztec::note::retrieved_note::RetrievedNote{ 
+                                note, 
+                                contract_address, 
+                                metadata: aztec::note::note_metadata::SettledNoteMetadata::new(nonce).into() 
+                            }, 
+                            storage_slot,
+                        );
+
+                        let inner_nullifier = $compute_nullifier_unconstrained(note, note_hash_for_nullify);
 
                         Option::some(
                             aztec::discovery::NoteHashAndNullifier {

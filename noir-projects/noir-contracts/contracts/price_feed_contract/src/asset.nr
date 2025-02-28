@@ -3,5 +3,5 @@ use std::meta::derive;
 
 #[derive(Deserialize, Packable, Serialize)]
 pub struct Asset {
-    price: U128,
+    price: u128,
 }

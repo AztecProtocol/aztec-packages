@@ -45,7 +45,7 @@ class ECCVMProver {
 
     ECCVMProof export_proof();
     ECCVMProof construct_proof();
-    std::array<OpeningClaim, NUM_SMALL_IPA_EVALUATIONS + 1> reduce_translation_evaluations();
+    std::array<OpeningClaim, NUM_SMALL_IPA_EVALUATIONS + 1> compute_translation_opening_claims();
 
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Transcript> ipa_transcript;
