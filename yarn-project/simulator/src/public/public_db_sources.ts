@@ -23,7 +23,7 @@ import type { PublicDBAccessStats } from '@aztec/stdlib/stats';
 import { MerkleTreeId, type PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import type { Tx } from '@aztec/stdlib/tx';
 
-import type { PublicContractsDB, PublicStateDB } from './db_interfaces.js';
+import type { PublicContractsDB, PublicStateDB } from '../common/db_interfaces.js';
 
 /**
  * Implements the PublicContractsDB using a ContractDataSource.

@@ -30,9 +30,9 @@ import { NativeWorldStateService } from '@aztec/world-state';
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
-import { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
-import type { AvmPersistableStateManager } from '../avm/journal/journal.js';
-import type { InstructionSet } from '../avm/serialization/bytecode_serialization.js';
+import { AvmFinalizedCallResult } from './avm/avm_contract_call_result.js';
+import type { AvmPersistableStateManager } from './avm/journal/journal.js';
+import type { InstructionSet } from './avm/serialization/bytecode_serialization.js';
 import { WorldStateDB } from './public_db_sources.js';
 import { type PublicTxResult, PublicTxSimulator } from './public_tx_simulator.js';
 
