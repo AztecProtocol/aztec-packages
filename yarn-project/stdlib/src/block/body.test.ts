@@ -12,8 +12,7 @@ describe('Body', () => {
   it('converts to and from fields', async () => {
     const body = await Body.random();
     const fields = body.toBlobFields();
-    // TODO(#8954): When logs are refactored into fields, we won't need to inject them here
-    expect(Body.fromBlobFields(fields, body.contractClassLogs)).toEqual(body);
+    expect(Body.fromBlobFields(fields)).toEqual(body);
   });
 
   it('converts empty to and from fields', () => {
