@@ -353,9 +353,13 @@ export class SequencerPublisher {
       return { payload: this.governancePayload, base: this.govProposerContract };
     } else if (voteType === VoteType.SLASHING) {
       if (!this.getSlashPayload) {
+        // temp
+        this.log.warn('No slash payload getter registered, skipping slash vote');
         return undefined;
       }
       const slashPayload = await this.getSlashPayload(slotNumber);
+      // temp
+      this.log.info(`Got slash payload for slot ${slotNumber}: ${slashPayload}`);
       if (!slashPayload) {
         return undefined;
       }
@@ -372,11 +376,14 @@ export class SequencerPublisher {
    * @returns True if the vote was successfully enqueued, false otherwise.
    */
   public async enqueueCastVote(slotNumber: bigint, timestamp: bigint, voteType: VoteType): Promise<boolean> {
+    this.log.info(`Enqueuing cast vote for slot ${slotNumber} ${voteType}`);
     const voteConfig = await this.getVoteConfig(slotNumber, voteType);
     if (!voteConfig) {
       return false;
     }
     const { payload, base } = voteConfig;
+    // temp
+    this.log.info(`Enqueuing cast vote for slot ${slotNumber} ${voteType} ${payload}`);
     return this.enqueueCastVoteHelper(slotNumber, timestamp, voteType, payload, base);
   }
 

@@ -14,10 +14,12 @@ import type { AztecAsyncKVStore } from '../interfaces/store.js';
 export class L2TipsStore implements L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider {
   private readonly l2TipsStore: AztecAsyncMap<L2BlockTag, number>;
   private readonly l2BlockHashesStore: AztecAsyncMap<number, string>;
+  private readonly l2BlockSlotNumbersStore: AztecAsyncMap<number, number>;
 
   constructor(store: AztecAsyncKVStore, namespace: string) {
     this.l2TipsStore = store.openMap([namespace, 'l2_tips'].join('_'));
     this.l2BlockHashesStore = store.openMap([namespace, 'l2_block_hashes'].join('_'));
+    this.l2BlockSlotNumbersStore = store.openMap([namespace, 'l2_block_slot_numbers'].join('_'));
   }
 
   public getL2BlockHash(number: number): Promise<string | undefined> {
@@ -41,7 +43,13 @@ export class L2TipsStore implements L2BlockStreamEventHandler, L2BlockStreamLoca
     if (!blockHash) {
       throw new Error(`Block hash not found for block number ${blockNumber}`);
     }
-    return { number: blockNumber, hash: blockHash };
+
+    // TODO: make this optional????
+    const slotNumber = await this.l2BlockSlotNumbersStore.getAsync(blockNumber);
+    if (slotNumber === undefined) {
+      throw new Error(`Slot number not found for block number ${blockNumber}`);
+    }
+    return { number: blockNumber, hash: blockHash, slotNumber };
   }
 
   public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {

@@ -1,5 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { sleep } from '@aztec/aztec.js';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { RollupAbi, SlashFactoryAbi, SlasherAbi, SlashingProposerAbi } from '@aztec/l1-artifacts';
 
 import { jest } from '@jest/globals';
@@ -11,7 +12,6 @@ import { getAddress, getContract, parseEventLogs } from 'viem';
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
-import { createPXEServiceAndSubmitTransactions } from './shared.js';
 
 jest.setTimeout(1000000);
 
@@ -27,7 +27,7 @@ describe('e2e_p2p_slashing', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
 
-  const slashingQuorum = 6;
+  const slashingQuorum = 2;
   const slashingRoundSize = 10;
 
   beforeEach(async () => {
@@ -38,6 +38,8 @@ describe('e2e_p2p_slashing', () => {
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
         aztecEpochDuration: 1,
+        ethereumSlotDuration: 4,
+        aztecSlotDuration: 12,
         aztecProofSubmissionWindow: 1,
         slashingQuorum,
         slashingRoundSize,
@@ -82,6 +84,7 @@ describe('e2e_p2p_slashing', () => {
       client: t.ctx.deployL1ContractsValues.publicClient,
     });
 
+    t.logger.info(`SLASHING FACTORY: ${t.ctx.deployL1ContractsValues.l1ContractAddresses.slashFactoryAddress}`);
     const slashFactory = getContract({
       address: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.slashFactoryAddress!.toString()),
       abi: SlashFactoryAbi,
@@ -95,6 +98,11 @@ describe('e2e_p2p_slashing', () => {
       const instanceAddress = t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString();
       const info = await slashingProposer.read.rounds([instanceAddress, roundNumber]);
       const leaderVotes = await slashingProposer.read.yeaCount([instanceAddress, roundNumber, info[1]]);
+      t.logger.info(`SLASHING INFO: rollup instanceAddress: ${instanceAddress}`);
+      t.logger.info(`SLASHING INFO: info: lastVote: `);
+      t.logger.info(
+        `SLASHING INFO: bn: ${bn}, slotNumber: ${slotNumber}, roundNumber: ${roundNumber}, info: ${info}, leaderVotes: ${leaderVotes}`,
+      );
       return { bn, slotNumber, roundNumber, info, leaderVotes };
     };
 
@@ -117,6 +125,7 @@ describe('e2e_p2p_slashing', () => {
     // should be set so that the only way for rollups to be built
     // is if the txs are successfully gossiped around the nodes.
     t.logger.info('Creating nodes');
+    t.logger.info(`SLASHING FACTORY IN AZTEC NODE CONFIG: ${t.ctx.aztecNodeConfig.l1Contracts.slashFactoryAddress}`);
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
       t.ctx.dateProvider,
@@ -144,6 +153,7 @@ describe('e2e_p2p_slashing', () => {
     await sleep(4000);
 
     let sInfo = await slashingInfo();
+    t.logger.info(`\n\n\n\n\n\n\n\nSlashing info: ${jsonStringify(sInfo)}`);
 
     const votesNeeded = await slashingProposer.read.N();
 
@@ -160,6 +170,8 @@ describe('e2e_p2p_slashing', () => {
     }
     const sequencer = (seqClient as any).sequencer;
     const slasher = (sequencer as any).slasherClient;
+    // TODO: type
+    let slashEvents: any[] = [];
 
     t.logger.info(`Producing blocks until we hit a pruning event`);
 
@@ -174,14 +186,23 @@ describe('e2e_p2p_slashing', () => {
         await sleep(1000);
       }
 
-      if (slasher.slashEvents.length > 0) {
+      // Create a deep clone of slasher.slashEvents to prevent race conditions
+      // The validator client can remove elements from the original array
+      // We need to manually handle bigints since JSON.stringify/parse doesn't support them
+      slashEvents = slasher.slashEvents.map((event: any) => ({
+        epoch: event.epoch,
+        amount: event.amount,
+        lifetime: event.lifetime,
+      }));
+      t.logger.info(`Slash events: ${slashEvents.length}`);
+      if (slashEvents.length > 0) {
         t.logger.info(`We have a slash event ${i}`);
         break;
       }
     }
 
-    expect(slasher.slashEvents.length).toBeGreaterThan(0);
-
+    expect(slashEvents.length).toBeGreaterThan(0);
+    t.logger.info(`Slashing event\n\n\n\n\n\n ${jsonStringify({ events: slashEvents })}`);
     // We should push us to land exactly at the next round
     await jumpToNextRound();
 
@@ -195,7 +216,11 @@ describe('e2e_p2p_slashing', () => {
       while (slotNumber === (await rollup.read.getCurrentSlot())) {
         await sleep(1000);
       }
+
+      // Give time to react to the reorg
+      await sleep(5000);
       sInfo = await slashingInfo();
+      t.logger.info(`Slashing info: ${jsonStringify(sInfo)}`);
       t.logger.info(`We have ${sInfo.leaderVotes} votes in round ${sInfo.roundNumber} on ${sInfo.info[1]}`);
       if (sInfo.leaderVotes > votesNeeded) {
         t.logger.info(`We have sufficient votes`);
@@ -204,8 +229,8 @@ describe('e2e_p2p_slashing', () => {
     }
 
     t.logger.info('Deploy the actual payload for slashing!');
-    t.logger.info('\n\n\n\n\n\n\nSlashing event\n\n\n\n\n\n', { events: slasher.shashEvents });
-    const slashEvent = slasher.slashEvents[0];
+    t.logger.info(`Slashing event\n\n\n\n\n\n ${jsonStringify({ events: slashEvents })}`);
+    const slashEvent = slashEvents[0];
     await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({
       hash: await slashFactory.write.createSlashPayload([slashEvent.epoch, slashEvent.amount], {
         account: t.ctx.deployL1ContractsValues.walletClient.account,

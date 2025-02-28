@@ -23,6 +23,7 @@ import {
   getPublisherConfigMappings,
   getTxSenderConfigMappings,
 } from './publisher/config.js';
+import type { SlasherConfig } from './slasher/slasher_client.js';
 
 export * from './publisher/config.js';
 export type { SequencerConfig };
@@ -34,6 +35,7 @@ export type SequencerClientConfig = PublisherConfig &
   TxSenderConfig &
   SequencerConfig &
   L1ReaderConfig &
+  SlasherConfig &
   ChainConfig &
   Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration' | 'aztecEpochDuration'>;
 

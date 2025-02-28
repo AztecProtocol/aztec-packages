@@ -209,9 +209,9 @@ describe('ServerWorldStateSynchronizer', () => {
 });
 
 class TestWorldStateSynchronizer extends ServerWorldStateSynchronizer {
-  public latest = { number: 0, hash: '' };
-  public finalized = { number: 0, hash: '' };
-  public proven = { number: 0, hash: '' };
+  public latest = { number: 0, hash: '', slotNumber: 0 };
+  public finalized = { number: 0, hash: '', slotNumber: 0 };
+  public proven = { number: 0, hash: '', slotNumber: 0 };
 
   constructor(
     merkleTrees: MerkleTreeAdminDatabase,

@@ -306,10 +306,14 @@ class MockArchiver implements ArchiverApi {
   }
   getL2Tips(): Promise<L2Tips> {
     return Promise.resolve({
-      latest: { number: 1, hash: `0x01` },
-      proven: { number: 1, hash: `0x01` },
-      finalized: { number: 1, hash: `0x01` },
+      latest: { number: 1, hash: `0x01`, slotNumber: 1 },
+      proven: { number: 1, hash: `0x01`, slotNumber: 1 },
+      finalized: { number: 1, hash: `0x01`, slotNumber: 1 },
     });
+  }
+  getL2BlockHash(blockNumber: number): Promise<string | undefined> {
+    expect(blockNumber).toEqual(1);
+    return Promise.resolve(`0x01`);
   }
   findNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]): Promise<(InBlock<bigint> | undefined)[]> {
     expect(blockNumber).toEqual(1);

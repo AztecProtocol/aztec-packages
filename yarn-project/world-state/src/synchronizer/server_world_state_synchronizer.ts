@@ -195,13 +195,24 @@ export class ServerWorldStateSynchronizer
   /** Returns the latest L2 block number for each tip of the chain (latest, proven, finalized). */
   public async getL2Tips(): Promise<L2Tips> {
     const status = await this.merkleTreeDb.getStatusSummary();
-    const unfinalisedBlockHash = await this.getL2BlockHash(Number(status.unfinalisedBlockNumber));
-    const latestBlockId: L2BlockId = { number: Number(status.unfinalisedBlockNumber), hash: unfinalisedBlockHash! };
 
+    const unfinalisedBlockHash = await this.getL2BlockHash(Number(status.unfinalisedBlockNumber));
+
+    // TODO: anything with this caching
+    const blockHeader = await this.l2BlockSource.getBlockHeader(Number(status.unfinalisedBlockNumber));
+    const slotNumber = blockHeader?.globalVariables.slotNumber.toNumber();
+
+    const latestBlockId: L2BlockId = {
+      number: Number(status.unfinalisedBlockNumber),
+      hash: unfinalisedBlockHash!,
+      slotNumber: slotNumber!,
+    };
+
+    // TODO: why is the hash nothing here - my slot numbers here are for sure wrong
     return {
       latest: latestBlockId,
-      finalized: { number: Number(status.finalisedBlockNumber), hash: '' },
-      proven: { number: Number(status.finalisedBlockNumber), hash: '' }, // TODO(palla/reorg): Using finalised as proven for now
+      finalized: { number: Number(status.finalisedBlockNumber), hash: '', slotNumber: slotNumber! },
+      proven: { number: Number(status.finalisedBlockNumber), hash: '', slotNumber: slotNumber! }, // TODO(palla/reorg): Using finalised as proven for now
     };
   }
 

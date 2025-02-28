@@ -52,9 +52,9 @@ describe('L2BlockStream', () => {
     latest = latest_;
 
     blockSource.getL2Tips.mockResolvedValue({
-      latest: { number: latest, hash: latest.toString() },
-      proven: { number: proven, hash: proven.toString() },
-      finalized: { number: finalized, hash: finalized.toString() },
+      latest: { number: latest, hash: latest.toString(), slotNumber: latest },
+      proven: { number: proven, hash: proven.toString(), slotNumber: proven },
+      finalized: { number: finalized, hash: finalized.toString(), slotNumber: finalized },
     });
   };
 
@@ -142,9 +142,9 @@ class TestL2BlockStreamEventHandler implements L2BlockStreamEventHandler {
 class TestL2BlockStreamLocalDataProvider implements L2BlockStreamLocalDataProvider {
   public readonly blockHashes: Record<number, string> = {};
 
-  public latest = { number: 0, hash: '' };
-  public proven = { number: 0, hash: '' };
-  public finalized = { number: 0, hash: '' };
+  public latest = { number: 0, hash: '', slotNumber: 0 };
+  public proven = { number: 0, hash: '', slotNumber: 0 };
+  public finalized = { number: 0, hash: '', slotNumber: 0 };
 
   public getL2BlockHash(number: number): Promise<string | undefined> {
     return Promise.resolve(

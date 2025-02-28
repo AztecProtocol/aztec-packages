@@ -164,10 +164,26 @@ export class MockL2BlockSource implements L2BlockSource {
     const finalizedBlock = this.l2Blocks[finalized - 1];
 
     return {
-      latest: { number: latest, hash: (await latestBlock?.hash())?.toString() },
-      proven: { number: proven, hash: (await provenBlock?.hash())?.toString() },
-      finalized: { number: finalized, hash: (await finalizedBlock?.hash())?.toString() },
+      latest: {
+        number: latest,
+        hash: (await latestBlock?.hash())?.toString(),
+        slotNumber: latestBlock?.header.globalVariables.slotNumber.toNumber(),
+      },
+      proven: {
+        number: proven,
+        hash: (await provenBlock?.hash())?.toString(),
+        slotNumber: provenBlock?.header.globalVariables.slotNumber.toNumber(),
+      },
+      finalized: {
+        number: finalized,
+        hash: (await finalizedBlock?.hash())?.toString(),
+        slotNumber: finalizedBlock?.header.globalVariables.slotNumber.toNumber(),
+      },
     };
+  }
+
+  async getL2BlockHash(blockNumber: number): Promise<string | undefined> {
+    return (await this.l2Blocks[blockNumber - 1]?.hash())?.toString();
   }
 
   getL2EpochNumber(): Promise<bigint> {

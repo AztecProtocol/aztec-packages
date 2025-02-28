@@ -51,10 +51,16 @@ export class L2BlockStream {
       this.log.trace(`Running L2 block stream`, {
         sourceLatest: sourceTips.latest.number,
         localLatest: localTips.latest.number,
+        sourceLatestSlot: sourceTips.latest.slotNumber,
+        localLatestSlot: localTips.latest.slotNumber,
         sourceFinalized: sourceTips.finalized.number,
         localFinalized: localTips.finalized.number,
+        sourceFinalizedSlot: sourceTips.finalized.slotNumber,
+        localFinalizedSlot: localTips.finalized.slotNumber,
         sourceProven: sourceTips.proven.number,
         localProven: localTips.proven.number,
+        sourceProvenSlot: sourceTips.proven.slotNumber,
+        localProvenSlot: localTips.proven.slotNumber,
         sourceLatestHash: sourceTips.latest.hash,
         localLatestHash: localTips.latest.hash,
         sourceProvenHash: sourceTips.proven.hash,
@@ -70,7 +76,11 @@ export class L2BlockStream {
       }
       if (latestBlockNumber < localTips.latest.number) {
         this.log.verbose(`Reorg detected. Pruning blocks from ${latestBlockNumber + 1} to ${localTips.latest.number}.`);
-        await this.emitEvent({ type: 'chain-pruned', blockNumber: latestBlockNumber });
+        await this.emitEvent({
+          type: 'chain-pruned',
+          blockNumber: latestBlockNumber,
+          slotNumber: localTips.latest.slotNumber!,
+        });
       }
 
       // If we are just starting, use the starting block number from the options.
@@ -166,6 +176,7 @@ export type L2BlockStreamEvent =
       type: 'chain-pruned';
       /** Last correct block number (new tip of the unproven chain). */
       blockNumber: number;
+      slotNumber: number;
     }
   | {
       type: 'chain-proven';

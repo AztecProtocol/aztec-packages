@@ -1,4 +1,3 @@
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import {
   type L1ContractsConfig,
   type L1ReaderConfig,
@@ -6,17 +5,10 @@ import {
   createEthereumChain,
 } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
-import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@aztec/kv-store';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts';
-import {
-  type L2Block,
-  type L2BlockId,
-  type L2BlockSource,
-  L2BlockStream,
-  type L2BlockStreamEvent,
-  type L2Tips,
-} from '@aztec/stdlib/block';
+import { type L2BlockId, type L2BlockSource, L2BlockStream, type L2BlockStreamEvent } from '@aztec/stdlib/block';
 import { type TelemetryClient, WithTracer, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type GetContractReturnType, createPublicClient, fallback, getAddress, getContract, http } from 'viem';
@@ -26,7 +18,6 @@ import { type GetContractReturnType, createPublicClient, fallback, getAddress, g
  */
 export enum SlasherClientState {
   IDLE,
-  SYNCHING,
   RUNNING,
   STOPPED,
 }
@@ -82,16 +73,6 @@ type SlashEvent = {
  *    slashing only the first, because the "lifetime" of the second would have passed after that vote
  */
 export class SlasherClient extends WithTracer {
-  private currentState = SlasherClientState.IDLE;
-  private syncPromise = Promise.resolve();
-  private syncResolve?: () => void = undefined;
-  private latestBlockNumberAtStart = -1;
-  private provenBlockNumberAtStart = -1;
-
-  private synchedBlockHashes: AztecAsyncMap<number, string>;
-  private synchedLatestBlockNumber: AztecAsyncSingleton<number>;
-  private synchedProvenBlockNumber: AztecAsyncSingleton<number>;
-
   private blockStream;
 
   private slashEvents: SlashEvent[] = [];
@@ -105,21 +86,22 @@ export class SlasherClient extends WithTracer {
 
   constructor(
     private config: SlasherConfig & L1ContractsConfig & L1ReaderConfig,
-    private store: AztecAsyncKVStore,
     private l2BlockSource: L2BlockSource,
     telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('slasher'),
   ) {
     super(telemetry, 'slasher');
 
-    this.blockStream = new L2BlockStream(l2BlockSource, this, this, createLogger('slasher:block_stream'), {
-      batchSize: config.blockRequestBatchSize,
-      pollIntervalMS: config.blockCheckIntervalMS,
-    });
-
-    this.synchedBlockHashes = store.openMap('slasher_block_hashes');
-    this.synchedLatestBlockNumber = store.openSingleton('slasher_last_l2_block');
-    this.synchedProvenBlockNumber = store.openSingleton('slasher_last_proven_l2_block');
+    this.blockStream = new L2BlockStream(
+      this.l2BlockSource,
+      this.l2BlockSource,
+      this,
+      createLogger('slasher:block_stream'),
+      {
+        batchSize: config.blockRequestBatchSize,
+        pollIntervalMS: config.blockCheckIntervalMS,
+      },
+    );
 
     if (config.l1Contracts.slashFactoryAddress && config.l1Contracts.slashFactoryAddress !== EthAddress.ZERO) {
       const chain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
@@ -141,30 +123,49 @@ export class SlasherClient extends WithTracer {
     this.log.info(`Slasher client initialized`);
   }
 
+  public start() {
+    this.log.info('Starting Slasher client...');
+    this.blockStream.start();
+  }
+
   // This is where we should put a bunch of the improvements mentioned earlier.
   public async getSlashPayload(slotNumber: bigint): Promise<EthAddress | undefined> {
     if (!this.slashFactoryContract) {
+      // temp
+      this.log.warn('No slash factory contract found, skipping slash payload retrieval');
       return undefined;
     }
 
     // As long as the slot is greater than the lifetime, we want to keep deleting the first element
     // since it will not make sense to include anymore.
     while (this.slashEvents.length > 0 && this.slashEvents[0].lifetime < slotNumber) {
+      this.log.info(`SLASH EVENTS LIFETIME: ${this.slashEvents[0].lifetime} < ${slotNumber}`);
+      this.log.info(`REMOVING SLASH EVENT ${this.slashEvents[0].epoch} ${this.slashEvents[0].amount}`);
       this.slashEvents.shift();
     }
 
     if (this.slashEvents.length == 0) {
+      // temp
+      this.log.warn('No slash events found, skipping slash payload retrieval');
       return undefined;
     }
 
     const slashEvent = this.slashEvents[0];
+    this.log.info(`Getting slash payload for event ${slashEvent.epoch} ${slashEvent.amount}`);
 
+    // The address of the proposal that does this exact thing will be found in this setting
+    this.log.info(`SLASH FACTORY CONTRACT: ${this.slashFactoryContract}`);
     const [payloadAddress, isDeployed] = await this.slashFactoryContract.read.getAddressAndIsDeployed([
       slashEvent.epoch,
       slashEvent.amount,
     ]);
+    // temp
+    this.log.info(`Got slash payload for event ${slashEvent.epoch} ${slashEvent.amount}: ${payloadAddress}`);
 
     if (!isDeployed) {
+      //tmp
+      this.log.info(`Voting on not yet deployed payload: ${payloadAddress}`);
+
       // The proposal cannot be executed until it is deployed
       this.log.verbose(`Voting on not yet deployed payload: ${payloadAddress}`);
     }
@@ -172,97 +173,17 @@ export class SlasherClient extends WithTracer {
     return EthAddress.fromString(payloadAddress);
   }
 
-  public getL2BlockHash(number: number): Promise<string | undefined> {
-    return this.synchedBlockHashes.getAsync(number);
-  }
-
-  public async getL2Tips(): Promise<L2Tips> {
-    const latestBlockNumber = await this.getSyncedLatestBlockNum();
-    let latestBlockHash: string | undefined;
-    const provenBlockNumber = await this.getSyncedProvenBlockNum();
-    let provenBlockHash: string | undefined;
-
-    if (latestBlockNumber > 0) {
-      latestBlockHash = await this.synchedBlockHashes.getAsync(latestBlockNumber);
-      if (typeof latestBlockHash === 'undefined') {
-        this.log.warn(`Block hash for latest block ${latestBlockNumber} not found`);
-        throw new Error();
-      }
-    }
-
-    if (provenBlockNumber > 0) {
-      provenBlockHash = await this.synchedBlockHashes.getAsync(provenBlockNumber);
-      if (typeof provenBlockHash === 'undefined') {
-        this.log.warn(`Block hash for proven block ${provenBlockNumber} not found`);
-        throw new Error();
-      }
-    }
-
-    return Promise.resolve({
-      latest: { hash: latestBlockHash!, number: latestBlockNumber },
-      proven: { hash: provenBlockHash!, number: provenBlockNumber },
-      finalized: { hash: provenBlockHash!, number: provenBlockNumber },
-    });
-  }
-
-  public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
+  public handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
     this.log.debug(`Handling block stream event ${event.type}`);
     switch (event.type) {
-      case 'blocks-added':
-        await this.handleLatestL2Blocks(event.blocks);
-        break;
-      case 'chain-finalized':
-        // TODO (alexg): I think we can prune the block hashes map here
-        break;
-      case 'chain-proven': {
-        const from = (await this.getSyncedProvenBlockNum()) + 1;
-        const limit = event.blockNumber - from + 1;
-        await this.handleProvenL2Blocks(await this.l2BlockSource.getBlocks(from, limit));
-        break;
-      }
       case 'chain-pruned':
-        await this.handlePruneL2Blocks(event.blockNumber);
+        this.handlePruneL2Blocks(BigInt(event.slotNumber));
         break;
       default: {
-        const _: never = event;
         break;
       }
     }
-  }
-
-  public async start() {
-    if (this.currentState === SlasherClientState.STOPPED) {
-      throw new Error('Slasher already stopped');
-    }
-    if (this.currentState !== SlasherClientState.IDLE) {
-      return this.syncPromise;
-    }
-
-    // get the current latest block numbers
-    this.latestBlockNumberAtStart = await this.l2BlockSource.getBlockNumber();
-    this.provenBlockNumberAtStart = await this.l2BlockSource.getProvenBlockNumber();
-
-    const syncedLatestBlock = (await this.getSyncedLatestBlockNum()) + 1;
-    const syncedProvenBlock = (await this.getSyncedProvenBlockNum()) + 1;
-
-    // if there are blocks to be retrieved, go to a synching state
-    if (syncedLatestBlock <= this.latestBlockNumberAtStart || syncedProvenBlock <= this.provenBlockNumberAtStart) {
-      this.setCurrentState(SlasherClientState.SYNCHING);
-      this.syncPromise = new Promise(resolve => {
-        this.syncResolve = resolve;
-      });
-      this.log.verbose(`Starting sync from ${syncedLatestBlock} (last proven ${syncedProvenBlock})`);
-    } else {
-      // if no blocks to be retrieved, go straight to running
-      this.setCurrentState(SlasherClientState.RUNNING);
-      this.syncPromise = Promise.resolve();
-      this.log.verbose(`Block ${syncedLatestBlock} (proven ${syncedProvenBlock}) already beyond current block`);
-    }
-
-    this.blockStream.start();
-    this.log.verbose(`Started block downloader from block ${syncedLatestBlock}`);
-
-    return this.syncPromise;
+    return Promise.resolve();
   }
 
   /**
@@ -273,100 +194,20 @@ export class SlasherClient extends WithTracer {
     this.log.debug('Stopping Slasher client...');
     await this.blockStream.stop();
     this.log.debug('Stopped block downloader');
-    await this.store.close();
-    this.log.debug('Stopped slasher store');
-    this.setCurrentState(SlasherClientState.STOPPED);
     this.log.info('Slasher client stopped.');
   }
 
-  /**
-   * Public function to check if the slasher client is fully synced and ready to receive txs.
-   * @returns True if the slasher client is ready to receive txs.
-   */
-  public isReady() {
-    return this.currentState === SlasherClientState.RUNNING;
-  }
-
-  /**
-   * Public function to check the latest block number that the slasher client is synced to.
-   * @returns Block number of latest L2 Block we've synced with.
-   */
-  public async getSyncedLatestBlockNum(): Promise<number> {
-    return (await this.synchedLatestBlockNumber.getAsync()) ?? INITIAL_L2_BLOCK_NUM - 1;
-  }
-
-  /**
-   * Public function to check the latest proven block number that the slasher client is synced to.
-   * @returns Block number of latest proven L2 Block we've synced with.
-   */
-  public async getSyncedProvenBlockNum(): Promise<number> {
-    return (await this.synchedProvenBlockNumber.getAsync()) ?? INITIAL_L2_BLOCK_NUM - 1;
-  }
-
-  /**
-   * Method to check the status of the slasher client.
-   * @returns Information about slasher client status: state & syncedToBlockNum.
-   */
-  public async getStatus(): Promise<SlasherSyncState> {
-    const blockNumber = await this.getSyncedLatestBlockNum();
-    const blockHash =
-      blockNumber == 0
-        ? ''
-        : await this.l2BlockSource
-            .getBlockHeader(blockNumber)
-            .then(header => header?.hash())
-            .then(hash => hash?.toString());
-    return Promise.resolve({
-      state: this.currentState,
-      syncedToL2Block: { number: blockNumber, hash: blockHash },
-    } as SlasherSyncState);
-  }
-
-  /**
-   * Handles new blocks
-   * @param blocks - A list of blocks that the slasher client needs to store block hashes for
-   * @returns Empty promise.
-   */
-  private async handleLatestL2Blocks(blocks: L2Block[]): Promise<void> {
-    if (!blocks.length) {
-      return;
-    }
-
-    await this.store.transactionAsync(async () => {
-      for (const block of blocks) {
-        await this.synchedBlockHashes.set(block.number, (await block.hash()).toString());
-      }
-
-      const lastBlockNum = blocks[blocks.length - 1].number;
-      await this.synchedLatestBlockNumber.set(lastBlockNum);
-    });
-
-    await this.startServiceIfSynched();
-  }
-
-  /**
-   * Handles new proven blocks by updating the proven block number
-   * @param blocks - A list of proven L2 blocks.
-   * @returns Empty promise.
-   */
-  private async handleProvenL2Blocks(blocks: L2Block[]): Promise<void> {
-    if (!blocks.length) {
-      return Promise.resolve();
-    }
-    const lastBlockNum = blocks[blocks.length - 1].number;
-    await this.synchedProvenBlockNumber.set(lastBlockNum);
-    this.log.debug(`Synched to proven block ${lastBlockNum}`);
-
-    await this.startServiceIfSynched();
-  }
-
-  private async handlePruneL2Blocks(latestBlock: number): Promise<void> {
-    const blockHeader = await this.l2BlockSource.getBlockHeader(latestBlock);
-    const slotNumber = blockHeader ? blockHeader.globalVariables.slotNumber.toBigInt() : BigInt(0);
+  private handlePruneL2Blocks(slotNumber: bigint): void {
+    // Get the slot number from another source - i think this block is being pruned so its always incorrect
+    // todo: should not be zero
     const epochNumber = slotNumber / BigInt(this.config.aztecEpochDuration);
     this.log.info(`Detected chain prune. Punishing the validators at epoch ${epochNumber}`);
 
     // Set the lifetime such that we have a full round that we could vote throughout.
+    this.log.info(`SLASHING ROUND SIZE: ${this.config.slashingRoundSize}`);
+    this.log.info(`SLOT NUMBER: ${slotNumber}`);
+    this.log.info(`EPOCH NUMBER: ${epochNumber}`);
+
     const slotsIntoRound = slotNumber % BigInt(this.config.slashingRoundSize);
     const toNext = slotsIntoRound == 0n ? 0n : BigInt(this.config.slashingRoundSize) - slotsIntoRound;
 
@@ -377,34 +218,7 @@ export class SlasherClient extends WithTracer {
       amount: this.slashingAmount,
       lifetime,
     });
-
-    await this.synchedLatestBlockNumber.set(latestBlock);
-  }
-
-  private async startServiceIfSynched() {
-    const [latestBlock, provenBlock] = await Promise.all([
-      this.getSyncedLatestBlockNum(),
-      this.getSyncedProvenBlockNum(),
-    ]);
-    if (
-      this.currentState === SlasherClientState.SYNCHING &&
-      latestBlock >= this.latestBlockNumberAtStart &&
-      provenBlock >= this.provenBlockNumberAtStart
-    ) {
-      this.log.debug(`Synched to blocks at start`);
-      this.setCurrentState(SlasherClientState.RUNNING);
-      if (this.syncResolve !== undefined) {
-        this.syncResolve();
-      }
-    }
-  }
-
-  /**
-   * Method to set the value of the current state.
-   * @param newState - New state value.
-   */
-  private setCurrentState(newState: SlasherClientState) {
-    this.currentState = newState;
-    this.log.debug(`Moved to state ${SlasherClientState[this.currentState]}`);
+    // temp
+    this.log.info(`Slashing event added: ${jsonStringify(this.slashEvents[this.slashEvents.length - 1])}`);
   }
 }

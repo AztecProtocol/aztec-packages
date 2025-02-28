@@ -110,6 +110,13 @@ export interface L2BlockSource {
   getL2Tips(): Promise<L2Tips>;
 
   /**
+   * Returns the hash of an L2 block.
+   * @param number - The block number to return the hash for.
+   * @returns The hash of the requested L2 block.
+   */
+  getL2BlockHash(number: number): Promise<string | undefined>;
+
+  /**
    * Returns the rollup constants for the current chain.
    */
   getL1Constants(): Promise<L1RollupConstants>;
@@ -134,10 +141,12 @@ const L2BlockIdSchema = z.union([
   z.object({
     number: z.literal(0),
     hash: z.undefined(),
+    slotNumber: z.undefined(),
   }),
   z.object({
     number: z.number(),
     hash: z.string(),
+    slotNumber: z.number(),
   }),
 ]);
 

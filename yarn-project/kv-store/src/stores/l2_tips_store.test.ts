@@ -43,7 +43,7 @@ describe('L2TipsStore', () => {
 
     await tipsStore.handleBlockStreamEvent({ type: 'chain-finalized', blockNumber: 5 });
     await tipsStore.handleBlockStreamEvent({ type: 'chain-proven', blockNumber: 8 });
-    await tipsStore.handleBlockStreamEvent({ type: 'chain-pruned', blockNumber: 10 });
+    await tipsStore.handleBlockStreamEvent({ type: 'chain-pruned', blockNumber: 10, slotNumber: 10 });
 
     const tips = await tipsStore.getL2Tips();
     expect(tips).to.deep.equal(makeTips(10, 8, 5));
