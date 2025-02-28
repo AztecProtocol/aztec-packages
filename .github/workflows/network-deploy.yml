@@ -172,7 +172,7 @@ jobs:
           export ETHEREUM_HOST="https://json-rpc.${{ secrets.GCP_SEPOLIA_URL }}?key=${{ secrets.GCP_SEPOLIA_API_KEY }}"
           echo "Preparing sepolia accounts..."
           MNEMONIC_FILE=$(mktemp)
-          $REPO/spartan/scripts/prepare_sepolia_accounts.sh ${{ env.VALUES_FILE }} 5 "$MNEMONIC_FILE"
+          $REPO/spartan/scripts/prepare_sepolia_accounts.sh ${{ env.VALUES_FILE }} 30 "$MNEMONIC_FILE"
           mnemonic=$(cat "$MNEMONIC_FILE")
           rm "$MNEMONIC_FILE"
           echo "::add-mask::$mnemonic"
