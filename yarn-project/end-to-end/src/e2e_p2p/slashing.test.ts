@@ -11,7 +11,6 @@ import { getAddress, getContract, parseEventLogs } from 'viem';
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
-import { createPXEServiceAndSubmitTransactions } from './shared.js';
 
 jest.setTimeout(1000000);
 
@@ -27,8 +26,8 @@ describe('e2e_p2p_slashing', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
 
-  const slashingQuorum = 6;
-  const slashingRoundSize = 10;
+  const slashingQuorum = 2;
+  const slashingRoundSize = 6;
 
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
@@ -38,6 +37,8 @@ describe('e2e_p2p_slashing', () => {
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
         aztecEpochDuration: 1,
+        ethereumSlotDuration: 4,
+        aztecSlotDuration: 12,
         aztecProofSubmissionWindow: 1,
         slashingQuorum,
         slashingRoundSize,
@@ -160,13 +161,13 @@ describe('e2e_p2p_slashing', () => {
     }
     const sequencer = (seqClient as any).sequencer;
     const slasher = (sequencer as any).slasherClient;
+    let slashEvents: any[] = [];
 
     t.logger.info(`Producing blocks until we hit a pruning event`);
 
     // Run for up to the slashing round size, or as long as needed to get a slash event
     // Variable because sometimes hit race-condition issues with attestations.
     for (let i = 0; i < slashingRoundSize; i++) {
-      t.logger.info('Submitting transactions');
       const bn = await nodes[0].getBlockNumber();
 
       t.logger.info(`Waiting for block number to change`);
@@ -174,14 +175,22 @@ describe('e2e_p2p_slashing', () => {
         await sleep(1000);
       }
 
-      if (slasher.slashEvents.length > 0) {
+      // Create a deep clone of slasher.slashEvents to prevent race conditions
+      // The validator client can remove elements from the original array
+      // We need to manually handle bigints since JSON.stringify/parse doesn't support them
+      slashEvents = slasher.slashEvents.map((event: any) => ({
+        epoch: event.epoch,
+        amount: event.amount,
+        lifetime: event.lifetime,
+      }));
+      t.logger.info(`Slash events: ${slashEvents.length}`);
+      if (slashEvents.length > 0) {
         t.logger.info(`We have a slash event ${i}`);
         break;
       }
     }
 
-    expect(slasher.slashEvents.length).toBeGreaterThan(0);
-
+    expect(slashEvents.length).toBeGreaterThan(0);
     // We should push us to land exactly at the next round
     await jumpToNextRound();
 
@@ -189,12 +198,12 @@ describe('e2e_p2p_slashing', () => {
     // Stop early if we have enough votes.
     t.logger.info(`Waiting for votes to be cast`);
     for (let i = 0; i < slashingRoundSize; i++) {
-      t.logger.info('Waiting for slot number to change and votes to be cast');
-      const slotNumber = await rollup.read.getCurrentSlot();
       t.logger.info(`Waiting for block number to change`);
+      const slotNumber = await rollup.read.getCurrentSlot();
       while (slotNumber === (await rollup.read.getCurrentSlot())) {
         await sleep(1000);
       }
+
       sInfo = await slashingInfo();
       t.logger.info(`We have ${sInfo.leaderVotes} votes in round ${sInfo.roundNumber} on ${sInfo.info[1]}`);
       if (sInfo.leaderVotes > votesNeeded) {
@@ -204,8 +213,7 @@ describe('e2e_p2p_slashing', () => {
     }
 
     t.logger.info('Deploy the actual payload for slashing!');
-    t.logger.info('\n\n\n\n\n\n\nSlashing event\n\n\n\n\n\n', { events: slasher.shashEvents });
-    const slashEvent = slasher.slashEvents[0];
+    const slashEvent = slashEvents[0];
     await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({
       hash: await slashFactory.write.createSlashPayload([slashEvent.epoch, slashEvent.amount], {
         account: t.ctx.deployL1ContractsValues.walletClient.account,

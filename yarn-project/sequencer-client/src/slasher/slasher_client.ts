@@ -6,7 +6,6 @@ import {
   createEthereumChain,
 } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts';
 import { type L2BlockId, type L2BlockSource, L2BlockStream, type L2BlockStreamEvent } from '@aztec/stdlib/block';
@@ -133,41 +132,28 @@ export class SlasherClient extends WithTracer {
   // This is where we should put a bunch of the improvements mentioned earlier.
   public async getSlashPayload(slotNumber: bigint): Promise<EthAddress | undefined> {
     if (!this.slashFactoryContract) {
-      // temp
-      this.log.warn('No slash factory contract found, skipping slash payload retrieval');
       return undefined;
     }
 
     // As long as the slot is greater than the lifetime, we want to keep deleting the first element
     // since it will not make sense to include anymore.
     while (this.slashEvents.length > 0 && this.slashEvents[0].lifetime < slotNumber) {
-      this.log.info(`SLASH EVENTS LIFETIME: ${this.slashEvents[0].lifetime} < ${slotNumber}`);
-      this.log.info(`REMOVING SLASH EVENT ${this.slashEvents[0].epoch} ${this.slashEvents[0].amount}`);
       this.slashEvents.shift();
     }
 
     if (this.slashEvents.length == 0) {
-      // temp
-      this.log.warn('No slash events found, skipping slash payload retrieval');
       return undefined;
     }
 
     const slashEvent = this.slashEvents[0];
-    this.log.info(`Getting slash payload for event ${slashEvent.epoch} ${slashEvent.amount}`);
 
     // The address of the proposal that does this exact thing will be found in this setting
-    this.log.info(`SLASH FACTORY CONTRACT: ${this.slashFactoryContract}`);
     const [payloadAddress, isDeployed] = await this.slashFactoryContract.read.getAddressAndIsDeployed([
       slashEvent.epoch,
       slashEvent.amount,
     ]);
-    // temp
-    this.log.info(`Got slash payload for event ${slashEvent.epoch} ${slashEvent.amount}: ${payloadAddress}`);
 
     if (!isDeployed) {
-      //tmp
-      this.log.info(`Voting on not yet deployed payload: ${payloadAddress}`);
-
       // The proposal cannot be executed until it is deployed
       this.log.verbose(`Voting on not yet deployed payload: ${payloadAddress}`);
     }
@@ -201,15 +187,10 @@ export class SlasherClient extends WithTracer {
 
   private handlePruneL2Blocks(): void {
     // Get the slot number from another source - i think this block is being pruned so its always incorrect
-    // todo: should not be zero
     const { epoch, slot } = this.epochCache.getEpochAndSlotNow();
     this.log.info(`Detected chain prune. Punishing the validators at epoch ${epoch}`);
 
     // Set the lifetime such that we have a full round that we could vote throughout.
-    this.log.info(`SLASHING ROUND SIZE: ${this.config.slashingRoundSize}`);
-    this.log.info(`SLOT NUMBER: ${slot}`);
-    this.log.info(`EPOCH NUMBER: ${epoch}`);
-
     const slotsIntoRound = slot % BigInt(this.config.slashingRoundSize);
     const toNext = slotsIntoRound == 0n ? 0n : BigInt(this.config.slashingRoundSize) - slotsIntoRound;
 
@@ -220,7 +201,5 @@ export class SlasherClient extends WithTracer {
       amount: this.slashingAmount,
       lifetime,
     });
-    // temp
-    this.log.info(`Slashing event added: ${jsonStringify(this.slashEvents[this.slashEvents.length - 1])}`);
   }
 }
