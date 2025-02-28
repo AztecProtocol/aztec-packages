@@ -52,8 +52,6 @@ generate_concatenation_inputs(const std::vector<typename Curve::ScalarField>& u_
             }
             concatenation_group.emplace_back(chunk_polynomial);
         }
-        //
-        // FOR
         // Store chunks
         concatenation_groups.emplace_back(concatenation_group);
         // Store concatenated polynomial

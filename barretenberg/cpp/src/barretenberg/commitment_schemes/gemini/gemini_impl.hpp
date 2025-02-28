@@ -68,31 +68,8 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     const Fr rho = transcript->template get_challenge<Fr>("rho");
 
     Fr running_scalar = has_zk ? rho : 1; // ρ⁰ is used to batch the hiding polynomial
-    info("running_scalar: ", running_scalar);
+
     Polynomial A_0 = polynomial_batcher.compute_batched(rho, running_scalar);
-
-    // size_t num_groups = groups_to_be_concatenated.size();
-    // size_t num_chunks_per_group = groups_to_be_concatenated.empty() ? 0 : groups_to_be_concatenated[0].size();
-
-    // // If needed, allocate space for the groups to be concatenated and for the concatenated polynomials
-    // Polynomial batched_concatenated;
-    // std::vector<Polynomial> batched_group;
-    // if (has_concatenations) {
-    //     batched_concatenated = Polynomial(n);
-    //     for (size_t i = 0; i < num_chunks_per_group; ++i) {
-    //         batched_group.push_back(Polynomial(n));
-    //     }
-
-    //     for (size_t i = 0; i < num_groups; ++i) {
-    //         batched_concatenated.add_scaled(concatenated_polynomials[i], running_scalar);
-    //         for (size_t j = 0; j < num_chunks_per_group; ++j) {
-    //             batched_group[j].add_scaled(groups_to_be_concatenated[i][j], running_scalar);
-    //         }
-    //         running_scalar *= rho;
-    //     }
-    //     // If proving for translator, add contribution of the batched concatenation polynomials
-    //     A_0 += batched_concatenated;
-    // }
 
     // Construct the d-1 Gemini foldings of A₀(X)
     std::vector<Polynomial> fold_polynomials = compute_fold_polynomials(log_n, multilinear_challenge, A_0);
@@ -118,8 +95,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     }
 
     // Compute polynomials A₀₊(X) = F(X) + G(X)/r and A₀₋(X) = F(X) - G(X)/r
-    // auto [A_0_pos, A_0_neg] =
-    //     compute_partially_evaluated_batch_polynomials(log_n, polynomial_batcher, r_challenge, batched_group);
+
     auto [A_0_pos, A_0_neg] = polynomial_batcher.compute_partially_evaluated_batch_polynomials(r_challenge);
 
     // Construct claims for the d + 1 univariate evaluations A₀₊(r), A₀₋(-r), and Foldₗ(−r^{2ˡ}), l = 1, ..., d-1
@@ -136,7 +112,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     }
     if (polynomial_batcher.has_interleaved()) {
         auto [P_pos, P_neg] = polynomial_batcher.compute_partially_evaluated_interleaved_polynomial(r_challenge);
-        Fr r_pow = r_challenge.pow(polynomial_batcher.batched_group.size());
+        Fr r_pow = r_challenge.pow(polynomial_batcher.get_group_size());
 
         Fr P_pos_eval = P_pos.evaluate(r_pow);
         Fr P_neg_eval = P_neg.evaluate(r_pow);
@@ -144,9 +120,6 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
         transcript->send_to_verifier("Gemini:P_pos", P_pos_eval);
         claims.emplace_back(Claim{ std::move(P_neg), { r_pow, P_neg_eval } });
         transcript->send_to_verifier("Gemini:P_neg", P_neg_eval);
-        info(P_pos_eval);
-        info(P_neg_eval);
-        info("yo");
     }
 
     return claims;
@@ -218,59 +191,6 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
 };
 
 /**
- * @brief Computes partially evaluated batched polynomials A₀₊(X) = F(X) + G(X)/r and A₀₋(X) = F(X) - G(X)/r
- *
- * @param batched_F F(X) = ∑ⱼ ρʲfⱼ(X)
- * @param batched_G G(X) = ∑ⱼ ρᵏ⁺ʲ gⱼ(X)
- * @param r_challenge
- * @param batched_groups_to_be_concatenated
- * @return {A₀₊(X), A₀₋(X)}
- */
-// template <typename Curve>
-// std::pair<typename GeminiProver_<Curve>::Polynomial, typename GeminiProver_<Curve>::Polynomial>
-// GeminiProver_<Curve>::
-//     compute_partially_evaluated_batch_polynomials(const size_t log_n,
-//                                                   PolynomialBatcher& polynomial_batcher,
-//                                                   const Fr& r_challenge,
-//                                                   const std::vector<Polynomial>& batched_groups_to_be_concatenated)
-// {
-//     auto [A_0_pos, A_0_neg] = polynomial_batcher.compute_partially_evaluated_batch_polynomials(r_challenge);
-
-//     // Reconstruct the batched concatenated polynomial from the batched groups, partially evaluated at r and -r and
-//     add
-//     // the result to A₀₊(X) and  A₀₋(X). Explanation (for simplification assume a single concatenated polynomial):
-//     // Let P be the concatenated polynomial formed from group G = {p₀, p₁, p₂, p₃} then
-//     // P(x) = p₀(x)+ xˢ p₁(x) + x²ˢ p₂(x) + x³ˢp₃(x) where s is the mini_circuit_size i.e. the number of non-zero
-//     values
-//     // in the polynomials part of G. Then P_r(x) = p₀(x) + rˢ p₁(x) + r²ˢ p₂(x) + r³ˢp₃(x) is the
-//     // partial evaluation of P(x) at a value r. We follow this technique rather than simply adding the contribution
-//     of P
-//     // to A₀₊(X) an  A₀₋(X) because, on the verifier side, when constructing the commitments [A₀₊] an  [A₀₋], this
-//     // enables us to reconstruct [P_r] from [p₀], [p₁], [p₂], [p₃], hence removing the need for the prover to commit
-//     to
-//     // P
-//     if (!batched_groups_to_be_concatenated.empty()) {
-//         // The "real" size of polynomials in concatenation groups (i.e. the number of non-zero values)
-//         const size_t mini_circuit_size = (1 << log_n) / batched_groups_to_be_concatenated.size();
-//         Fr current_r_shift_pos = Fr(1);
-//         Fr current_r_shift_neg = Fr(1);
-
-//         const Fr r_pow_minicircuit = r_challenge.pow(mini_circuit_size);
-//         const Fr r_neg_pow_minicircuit = (-r_challenge).pow(mini_circuit_size);
-//         for (size_t i = 0; i < batched_groups_to_be_concatenated.size(); i++) {
-//             // Reconstruct the batched concationation polynomial partially evaluated at r and -r from the polynomials
-//             // in the batched concatenation group.
-//             A_0_pos.add_scaled(batched_groups_to_be_concatenated[i], current_r_shift_pos);
-//             A_0_neg.add_scaled(batched_groups_to_be_concatenated[i], current_r_shift_neg);
-//             current_r_shift_pos *= r_pow_minicircuit;
-//             current_r_shift_neg *= r_neg_pow_minicircuit;
-//         }
-//     }
-
-//     return { A_0_pos, A_0_neg };
-// };
-
-/**
 
  *
  * @param mle_opening_point u = (u₀,...,uₘ₋₁) is the MLE opening point
@@ -304,7 +224,6 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::construc
     // Compute evaluation of partially evaluated batch polynomial (positive) A₀₊(r)
     Fr a_0_pos = A_0_pos.evaluate(r_challenge);
     claims.emplace_back(Claim{ A_0_pos, { r_challenge, a_0_pos } });
-    info("prover a_0_pos: ", a_0_pos);
     // Compute evaluation of partially evaluated batch polynomial (negative) A₀₋(-r)
     Fr a_0_neg = A_0_neg.evaluate(-r_challenge);
     claims.emplace_back(Claim{ A_0_neg, { -r_challenge, a_0_neg } });

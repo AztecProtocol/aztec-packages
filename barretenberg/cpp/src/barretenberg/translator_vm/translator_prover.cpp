@@ -163,9 +163,7 @@ void TranslatorProver::execute_pcs_rounds()
                                        sumcheck_output.challenge,
                                        key->proving_key->commitment_key,
                                        transcript,
-                                       small_subgroup_ipa_prover.get_witness_polynomials(),
-                                       {},
-                                       {});
+                                       small_subgroup_ipa_prover.get_witness_polynomials());
 
     PCS::compute_opening_proof(key->proving_key->commitment_key, prover_opening_claim, transcript);
 }

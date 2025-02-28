@@ -28,7 +28,7 @@ template <typename Curve> struct ClaimBatcher_ {
     };
 
     struct InterleavedBatch {
-        std::vector<RefVector<Commitment>> commitments;
+        std::vector<RefVector<Commitment>> commitments_groups;
         RefVector<Fr> evaluations;
         std::vector<Fr> scalars_pos;
         std::vector<Fr> scalars_neg;
@@ -44,7 +44,7 @@ template <typename Curve> struct ClaimBatcher_ {
     Batch get_shifted() { return (shifted) ? *shifted : Batch{}; }
     Batch get_right_shifted_by_k() { return (right_shifted_by_k) ? *right_shifted_by_k : Batch{}; }
     InterleavedBatch get_interleaved() { return (interleaved) ? *interleaved : InterleavedBatch{}; }
-    size_t get_interleaved_size() { return (interleaved) ? interleaved->commitments[0].size() : 0; }
+    size_t get_groups_to_be_interleaved_size() { return (interleaved) ? interleaved->commitments_groups[0].size() : 0; }
 
     size_t k_shift_magnitude = 0; // magnitude of right-shift-by-k (assumed even)
 
@@ -79,7 +79,7 @@ template <typename Curve> struct ClaimBatcher_ {
                                         const Fr& inverse_vanishing_eval_neg,
                                         const Fr& nu_challenge,
                                         const Fr& r_challenge,
-                                        const Fr& last_vanishing_eval = Fr(0))
+                                        const Fr& interleaving_vanishing_eval = Fr(0))
     {
         if (unshifted) {
             // (1/(z−r) + ν/(z+r))
@@ -99,17 +99,12 @@ template <typename Curve> struct ClaimBatcher_ {
         if (interleaved) {
             Fr r_shift_pos = Fr(1);
             Fr r_shift_neg = Fr(1);
-            interleaved->common_factor = last_vanishing_eval;
-            for (size_t i = 0; i < get_interleaved_size(); i++) {
+            interleaved->common_factor = interleaving_vanishing_eval;
+            for (size_t i = 0; i < get_groups_to_be_interleaved_size(); i++) {
                 interleaved->scalars_pos.push_back(r_shift_pos);
                 interleaved->scalars_neg.push_back(r_shift_neg);
                 r_shift_pos *= r_challenge;
                 r_shift_neg *= (-r_challenge);
-            }
-            info("in claim batcher");
-            for (size_t i = 0; i < interleaved->scalars_neg.size(); ++i) {
-                info("scalars_pos[", i, "] = ", interleaved->scalars_pos[i]);
-                info(interleaved->scalars_neg[i]);
             }
         }
     }
@@ -128,8 +123,8 @@ template <typename Curve> struct ClaimBatcher_ {
                                                         Fr& batched_evaluation,
                                                         const Fr& rho,
                                                         Fr& rho_power,
-                                                        [[maybe_unused]] Fr shplonk_batching_pos = { 0 },
-                                                        [[maybe_unused]] Fr shplonk_batching_neg = { 0 })
+                                                        Fr shplonk_batching_pos = { 0 },
+                                                        Fr shplonk_batching_neg = { 0 })
     {
         // Append the commitments/scalars from a given batch to the corresponding containers; update the batched
         // evaluation and the running batching challenge in place
@@ -141,7 +136,6 @@ template <typename Curve> struct ClaimBatcher_ {
                 rho_power *= rho;
             }
         };
-        info("rho_power: ", rho_power);
 
         // Incorporate the claim data from each batch of claims that is present
         if (unshifted) {
@@ -155,9 +149,8 @@ template <typename Curve> struct ClaimBatcher_ {
         }
         if (interleaved) {
             size_t group_idx = 0;
-            info(rho_power);
-            for (auto group : interleaved->commitments) {
-                for (size_t i = 0; i < get_interleaved_size(); i++) {
+            for (auto group : interleaved->commitments_groups) {
+                for (size_t i = 0; i < get_groups_to_be_interleaved_size(); i++) {
                     commitments.emplace_back(std::move(group[i]));
                     scalars.emplace_back(-rho_power * interleaved->common_factor *
                                          (shplonk_batching_pos * interleaved->scalars_pos[i] +

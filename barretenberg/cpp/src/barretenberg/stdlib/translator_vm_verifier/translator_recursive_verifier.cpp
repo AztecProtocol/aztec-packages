@@ -128,7 +128,7 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
         .unshifted = ClaimBatch{ commitments.get_unshifted_without_concatenated(),
                                  sumcheck_output.claimed_evaluations.get_unshifted_without_concatenated() },
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() },
-        .interleaved = InterleavedBatch{ .commitments = commitments.get_groups_to_be_concatenated(),
+        .interleaved = InterleavedBatch{ .commitments_groups = commitments.get_groups_to_be_concatenated(),
                                          .evaluations = sumcheck_output.claimed_evaluations.get_concatenated() }
     };
     const BatchOpeningClaim<Curve> opening_claim =
@@ -141,9 +141,7 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
                                                Flavor::HasZK,
                                                &consistency_checked,
                                                libra_commitments,
-                                               sumcheck_output.claimed_libra_evaluation,
-                                               {},
-                                               {});
+                                               sumcheck_output.claimed_libra_evaluation);
 
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 

@@ -127,20 +127,13 @@ template <typename Curve> struct MockClaimGenerator {
                                                             RefVector(to_be_right_shifted_by_k.evals) },
                           .k_shift_magnitude = k_magnitude };
         if (num_interleaved > 0) {
-            auto [res_concatenation_groups,
-                  res_concatenated_polynomials,
-                  res_c_evaluations,
-                  res_concatenation_groups_commitments] =
+            std::tie(concatenation_groups, concatenated_polynomials, c_evaluations, concatenation_groups_commitments) =
                 generate_concatenation_inputs<Curve>(mle_opening_point, num_interleaved, num_to_be_interleaved, ck);
-            concatenation_groups = res_concatenation_groups;
-            concatenated_polynomials = res_concatenated_polynomials;
-            c_evaluations = res_c_evaluations;
-            concatenation_groups_commitments = res_concatenation_groups_commitments;
             polynomial_batcher.set_interleaved(RefVector(concatenated_polynomials),
                                                to_vector_of_ref_vectors(concatenation_groups));
 
             claim_batcher.interleaved =
-                InterleavedBatch{ .commitments = to_vector_of_ref_vectors(concatenation_groups_commitments),
+                InterleavedBatch{ .commitments_groups = to_vector_of_ref_vectors(concatenation_groups_commitments),
                                   .evaluations = RefVector(c_evaluations) };
         }
     }
