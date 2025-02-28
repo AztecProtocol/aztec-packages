@@ -29,7 +29,7 @@ void gate_count(const std::string& bytecode_path,
 
     const acir_format::ProgramMetadata metadata{ .recursive = recursive,
                                                  .honk_recursion = honk_recursion,
-                                                 .collect_gates_per_opcode = true };
+                                                 .collect_gates_per_opcode = include_gates_per_opcode };
     size_t i = 0;
     for (const auto& constraint_system : constraint_systems) {
         acir_format::AcirProgram program{ constraint_system };

@@ -300,7 +300,7 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
         acir_format::ProgramMetadata metadata{ .ivc = ivc_constraints.empty() ? nullptr
                                                                               : create_mock_ivc_from_constraints(
                                                                                     ivc_constraints, trace_settings),
-                                               .collect_gates_per_opcode = true };
+                                               .collect_gates_per_opcode = include_gates_per_opcode };
 
         auto builder = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
         builder.finalize_circuit(/*ensure_nonzero=*/true);
