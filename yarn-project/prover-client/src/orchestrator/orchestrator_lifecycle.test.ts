@@ -1,8 +1,8 @@
-import { type ServerCircuitProver } from '@aztec/circuit-types';
-import { NUM_BASE_PARITY_PER_ROOT_PARITY } from '@aztec/circuits.js';
+import { NUM_BASE_PARITY_PER_ROOT_PARITY } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
+import type { ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
 
 import { jest } from '@jest/globals';
 

@@ -235,4 +235,3 @@ fn serialization_of_empty_avm_circuit_public_inputs() {
     let deserialized = AvmCircuitPublicInputs::deserialize(serialized);
     assert(item.eq(deserialized));
 }
-

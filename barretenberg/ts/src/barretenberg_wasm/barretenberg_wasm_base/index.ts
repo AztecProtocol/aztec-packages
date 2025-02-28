@@ -1,8 +1,6 @@
 import createDebug from 'debug';
 import { randomBytes } from '../../random/index.js';
 
-const debug = createDebug('bb.js:bb_wasm_base');
-
 /**
  * Base implementation of BarretenbergWasm.
  * Contains code that is common to the "main thread" implementation and the "child thread" implementation.
@@ -11,7 +9,7 @@ export class BarretenbergWasmBase {
   protected memStore: { [key: string]: Uint8Array } = {};
   protected memory!: WebAssembly.Memory;
   protected instance!: WebAssembly.Instance;
-  protected logger: (msg: string) => void = debug;
+  protected logger: (msg: string) => void = createDebug('bb.js:bb_wasm_base');
 
   protected getImportObj(memory: WebAssembly.Memory) {
     /* eslint-disable camelcase */

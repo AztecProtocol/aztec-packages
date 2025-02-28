@@ -1,15 +1,15 @@
 import { L1FeeJuicePortalManager, type PXE } from '@aztec/aztec.js';
 import { prettyPrintJSON } from '@aztec/cli/utils';
 import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 export async function bridgeL1FeeJuice(
   amount: bigint,
   recipient: AztecAddress,
   pxe: PXE,
-  l1RpcUrl: string,
+  l1RpcUrls: string[],
   chainId: number,
   privateKey: string | undefined,
   mnemonic: string,
@@ -21,8 +21,8 @@ export async function bridgeL1FeeJuice(
   debugLogger: Logger,
 ) {
   // Prepare L1 client
-  const chain = createEthereumChain(l1RpcUrl, chainId);
-  const { publicClient, walletClient } = createL1Clients(chain.rpcUrl, privateKey ?? mnemonic, chain.chainInfo);
+  const chain = createEthereumChain(l1RpcUrls, chainId);
+  const { publicClient, walletClient } = createL1Clients(chain.rpcUrls, privateKey ?? mnemonic, chain.chainInfo);
 
   const {
     protocolContractAddresses: { feeJuice: feeJuiceAddress },

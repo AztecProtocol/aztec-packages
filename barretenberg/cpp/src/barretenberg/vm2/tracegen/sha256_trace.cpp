@@ -260,10 +260,6 @@ void Sha256TraceBuilder::process(
 {
     using C = Column;
 
-    // Before processing the events, the sha256 needs to have a latch placed at the zeroth row
-    trace.set(C::sha256_latch, row, 1);
-    row++;
-
     for (const auto& event : events) {
         std::array<uint32_t, 16> prev_w_helpers = event.input;
         std::array<uint32_t, 8> round_state = event.state;
@@ -299,6 +295,8 @@ void Sha256TraceBuilder::process(
                       } });
 
             // Computing W
+            // TODO: we currently perform the w computation even for the input round
+            // This might not be what we want to do when we end up solving the xors (since it will involve lookups)
             uint32_t round_w = compute_w_with_witness(prev_w_helpers);
             // W is set based on if we are still using the input values
             if (is_an_input_round) {

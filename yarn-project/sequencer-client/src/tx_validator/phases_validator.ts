@@ -1,14 +1,14 @@
+import { createLogger } from '@aztec/foundation/log';
+import { ContractsDataSourcePublicDB, getExecutionRequestsByPhase } from '@aztec/simulator/server';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
+import type { AllowedElement } from '@aztec/stdlib/interfaces/server';
 import {
-  type AllowedElement,
   type PublicExecutionRequest,
   Tx,
   TxExecutionPhase,
   type TxValidationResult,
   type TxValidator,
-} from '@aztec/circuit-types';
-import { type ContractDataSource } from '@aztec/circuits.js';
-import { createLogger } from '@aztec/foundation/log';
-import { ContractsDataSourcePublicDB, getExecutionRequestsByPhase } from '@aztec/simulator/server';
+} from '@aztec/stdlib/tx';
 
 export class PhasesTxValidator implements TxValidator<Tx> {
   #log = createLogger('sequencer:tx_validator:tx_phases');

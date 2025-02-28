@@ -2,8 +2,7 @@ import {
   type ABIParameter,
   type AbiType,
   isAddressStruct,
-  isU128Struct,
-} from "@aztec/foundation/abi";
+} from "@aztec/stdlib/abi";
 import {
   Autocomplete,
   CircularProgress,
@@ -48,10 +47,6 @@ export function FunctionParameter({
         break;
       }
       case "struct": {
-        if (isU128Struct(type)) {
-          onParameterChange(BigInt(value));
-          break;
-        }
         // Otherwise fall through
       }
       default: {
@@ -125,7 +120,7 @@ export function FunctionParameter({
           variant="outlined"
           disabled={
             ["array", "struct", "tuple"].includes(parameter.type.kind) &&
-            !(isAddressStruct(parameter.type) || isU128Struct(parameter.type))
+            !(isAddressStruct(parameter.type))
           }
           key={parameter.name}
           type="text"

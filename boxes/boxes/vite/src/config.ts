@@ -1,5 +1,10 @@
-import { getDeployedTestAccountsWallets } from "@aztec/accounts/testing";
-import { createAztecNodeClient, createLogger } from "@aztec/aztec.js";
+import { getInitialTestAccounts } from "@aztec/accounts/testing/lazy";
+import { getSchnorrAccount } from "@aztec/accounts/schnorr/lazy";
+import {
+  AccountWalletWithSecretKey,
+  createAztecNodeClient,
+  createLogger,
+} from "@aztec/aztec.js";
 import { BBWASMLazyPrivateKernelProver } from "@aztec/bb-prover/wasm/lazy";
 import { KeyStore } from "@aztec/key-store";
 import { createStore } from "@aztec/kv-store/indexeddb";
@@ -8,10 +13,11 @@ import { PXEServiceConfig, getPXEServiceConfig } from "@aztec/pxe/config";
 import { KVPxeDatabase } from "@aztec/pxe/database";
 import { PXEService } from "@aztec/pxe/service";
 import { WASMSimulator } from "@aztec/simulator/client";
-import { BoxReactContractArtifact } from "../artifacts/BoxReact";
+import { LazyProtocolContractsProvider } from "@aztec/protocol-contracts/providers/lazy";
 
 export class PrivateEnv {
-  pxe;
+  pxe: PXEService;
+  wallet: AccountWalletWithSecretKey;
 
   constructor() {}
 
@@ -43,6 +49,8 @@ export class PrivateEnv {
     const db = await KVPxeDatabase.create(store);
     const tips = new L2TipsStore(store, "pxe");
 
+    const protocolContractsProvider = new LazyProtocolContractsProvider();
+
     this.pxe = new PXEService(
       keyStore,
       aztecNode,
@@ -50,29 +58,24 @@ export class PrivateEnv {
       tips,
       proofCreator,
       simulationProvider,
+      protocolContractsProvider,
       config,
     );
     await this.pxe.init();
+    const [accountData] = await getInitialTestAccounts();
+    const account = await getSchnorrAccount(
+      this.pxe,
+      accountData.secret,
+      accountData.signingKey,
+      accountData.salt,
+    );
+    await account.register();
+    this.wallet = await account.getWallet();
   }
 
   async getWallet() {
-    const wallet = (await getDeployedTestAccountsWallets(this.pxe))[0];
-    if (!wallet) {
-      console.error(
-        "Wallet not found. Please connect the app to a testing environment with deployed and funded test accounts.",
-      );
-    }
-    return wallet;
+    return this.wallet;
   }
 }
 
 export const deployerEnv = new PrivateEnv();
-
-const IGNORE_FUNCTIONS = [
-  "constructor",
-  "compute_note_hash_and_optionally_a_nullifier",
-  "sync_notes",
-];
-export const filteredInterface = BoxReactContractArtifact.functions.filter(
-  (f) => !IGNORE_FUNCTIONS.includes(f.name),
-);

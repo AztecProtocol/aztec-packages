@@ -13,10 +13,7 @@
       "path": "../blob-lib"
     },
     {
-      "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
+      "path": "../constants"
     },
     {
       "path": "../foundation"
@@ -34,10 +31,16 @@
       "path": "../simulator"
     },
     {
+      "path": "../stdlib"
+    },
+    {
       "path": "../telemetry-client"
     },
     {
       "path": "../world-state"
+    },
+    {
+      "path": "../noir-contracts.js"
     }
   ],
   "include": ["src", "../bb-prover/src/test/test_circuit_prover.ts"]

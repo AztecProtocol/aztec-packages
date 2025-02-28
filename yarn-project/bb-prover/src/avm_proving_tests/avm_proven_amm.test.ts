@@ -1,7 +1,8 @@
-import { AztecAddress, type ContractInstanceWithAddress } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { AMMContractArtifact } from '@aztec/noir-contracts.js/AMM';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 import { jest } from '@jest/globals';
 
@@ -72,6 +73,7 @@ describe('AVM Witgen & Circuit apps tests: AMM', () => {
       constructorArgs,
       /*deployer=*/ admin,
       TokenContractArtifact,
+      /*skipNullifierInsertion=*/ false,
       seed,
     );
 
@@ -93,7 +95,13 @@ describe('AVM Witgen & Circuit apps tests: AMM', () => {
 
   const deployAMM = async (seed = 0) => {
     const constructorArgs = [token0, token1, liquidityToken];
-    const amm = await tester.registerAndDeployContract(constructorArgs, /*deployer=*/ admin, AMMContractArtifact, seed);
+    const amm = await tester.registerAndDeployContract(
+      constructorArgs,
+      /*deployer=*/ admin,
+      AMMContractArtifact,
+      /*skipNullifierInsertion=*/ false,
+      seed,
+    );
 
     await tester.simProveVerify(
       /*sender=*/ admin,

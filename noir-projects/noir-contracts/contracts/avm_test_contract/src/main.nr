@@ -135,7 +135,7 @@ pub contract AvmTest {
     }
 
     #[public]
-    fn add_u128(a: U128, b: U128) -> U128 {
+    fn add_u128(a: u128, b: u128) -> u128 {
         a + b
     }
 
@@ -163,15 +163,22 @@ pub contract AvmTest {
     }
 
     #[public]
-    fn variable_base_msm() -> Point {
+    fn variable_base_msm(
+        scalar_lo: Field,
+        scalar_hi: Field,
+        scalar2_lo: Field,
+        scalar2_hi: Field,
+    ) -> Point {
         let g = Point {
             x: 1,
             y: 17631683881184975370165255887551781615748388533673675138860,
             is_infinite: false,
         };
-        let scalar = Scalar { lo: 3, hi: 0 };
-        let scalar2 = Scalar { lo: 20, hi: 0 };
-        let triple_g = multi_scalar_mul([g, g], [scalar, scalar2]);
+
+        let triple_g = multi_scalar_mul(
+            [g, g],
+            [Scalar { lo: scalar_lo, hi: scalar_hi }, Scalar { lo: scalar2_lo, hi: scalar2_hi }],
+        );
         triple_g
     }
 
@@ -186,16 +193,10 @@ pub contract AvmTest {
      ************************************************************************/
 
     #[public]
-    fn u128_addition_overflow() -> U128 {
-        let max_u128: U128 = U128::from_hex("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
-        let one: U128 = U128::from_integer(1);
+    fn u128_addition_overflow() -> u128 {
+        let max_u128: u128 = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
+        let one: u128 = 1;
         max_u128 + one
-    }
-
-    #[public]
-    fn u128_from_integer_overflow() -> U128 {
-        let should_overflow: Field = 2.pow_32(128); // U128::max() + 1;
-        U128::from_integer(should_overflow)
     }
 
     #[public]
@@ -398,12 +399,6 @@ pub contract AvmTest {
     #[public]
     fn get_da_gas_left() -> Field {
         context.da_gas_left()
-    }
-
-    #[public]
-    fn assert_timestamp(expected_timestamp: u64) {
-        let timestamp = context.timestamp();
-        assert(timestamp == expected_timestamp, "timestamp does not match");
     }
 
     #[public]

@@ -1,9 +1,11 @@
-import { type AztecNodeService } from '@aztec/aztec-node';
+import type { AztecNodeService } from '@aztec/aztec-node';
 import { sleep } from '@aztec/aztec.js';
 import { RollupAbi, SlashFactoryAbi, SlasherAbi, SlashingProposerAbi } from '@aztec/l1-artifacts';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { getAddress, getContract, parseEventLogs } from 'viem';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
@@ -17,7 +19,7 @@ jest.setTimeout(1000000);
 const NUM_NODES = 4;
 const BOOT_NODE_UDP_PORT = 40600;
 
-const DATA_DIR = './data/slashing';
+const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'slashing-'));
 
 // This test is showcasing that slashing can happen, abusing that our nodes are honest but stupid
 // making them slash themselves.
@@ -36,11 +38,10 @@ describe('e2e_p2p_slashing', () => {
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
         aztecEpochDuration: 1,
-        aztecProofSubmissionWindow: 2,
+        aztecProofSubmissionWindow: 1,
         slashingQuorum,
         slashingRoundSize,
       },
-      assumeProvenThrough: 2,
     });
 
     await t.setupAccount();
@@ -53,7 +54,7 @@ describe('e2e_p2p_slashing', () => {
     await t.stopNodes(nodes);
     await t.teardown();
     for (let i = 0; i < NUM_NODES; i++) {
-      fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true });
+      fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }
   });
 
@@ -82,7 +83,7 @@ describe('e2e_p2p_slashing', () => {
     });
 
     const slashFactory = getContract({
-      address: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.slashFactoryAddress.toString()),
+      address: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.slashFactoryAddress!.toString()),
       abi: SlashFactoryAbi,
       client: t.ctx.deployL1ContractsValues.publicClient,
     });

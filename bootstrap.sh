@@ -52,7 +52,7 @@ function check_toolchains {
     encourage_dev_container
     echo "Rust version 1.75 not installed."
     echo "Installation:"
-    echo "  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.75.0"
+    echo "  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.85.0"
     exit 1
   fi
   # Check wasi-sdk version.
@@ -100,7 +100,7 @@ function install_hooks {
   echo "(cd barretenberg/cpp && ./format.sh staged)" >$hooks_dir/pre-commit
   echo "./yarn-project/precommit.sh" >>$hooks_dir/pre-commit
   echo "./noir-projects/precommit.sh" >>$hooks_dir/pre-commit
-  echo "./yarn-project/circuits.js/precommit.sh" >>$hooks_dir/pre-commit
+  echo "./yarn-project/constants/precommit.sh" >>$hooks_dir/pre-commit
   chmod +x $hooks_dir/pre-commit
 }
 
@@ -142,8 +142,8 @@ function test {
   echo "Gathering tests to run..."
   local num_cpus=$(get_num_cpus)
   tests=$(test_cmds $@)
-  echo "Gathered $(echo "$tests" | wc -l) tests."
-  echo "$tests" | parallelise $((num_cpus / 2))
+  echo "Gathered $(echo -n "$tests" | wc -l) tests."
+  echo -n "$tests" | parallelise $((num_cpus / 2))
 }
 
 function build {
@@ -151,6 +151,9 @@ function build {
   denoise "git submodule update --init --recursive"
 
   check_toolchains
+
+  # Ensure we have yarn set up.
+  corepack enable
 
   projects=(
     noir
@@ -176,8 +179,9 @@ function bench {
   if [ "$CI_FULL" -eq 0 ] || [ $(arch) == arm64 ]; then
     return
   fi
-  denoise "barretenberg/cpp/bootstrap.sh bench"
+  denoise "barretenberg/bootstrap.sh bench"
   denoise "yarn-project/end-to-end/bootstrap.sh bench"
+  denoise "yarn-project/p2p/bootstrap.sh bench"
 }
 
 function release_github {
@@ -299,6 +303,7 @@ case "$cmd" in
     echo "Toolchains look good! 🎉"
   ;;
   ""|"fast"|"full")
+    install_hooks
     build $cmd
   ;;
   "ci")

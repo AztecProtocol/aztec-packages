@@ -1,4 +1,3 @@
-import { MerkleTreeId } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   GeneratorIndex,
@@ -8,15 +7,16 @@ import {
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
-  type PublicDataTreeLeaf,
-} from '@aztec/circuits.js';
+} from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { NativeWorldState as BaseNativeWorldState, MsgpackChannel } from '@aztec/native';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
+import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 
 import assert from 'assert';
 import { cpus } from 'os';
 
-import { type WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
+import type { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import {
   WorldStateMessageType,
   type WorldStateRequest,

@@ -1,9 +1,9 @@
-use noirc_errors::Spanned;
+use noirc_errors::Located;
 
 use crate::{
     ast::Ident,
     hir::{
-        comptime::InterpreterError,
+        comptime::{ComptimeError, InterpreterError},
         def_collector::{
             dc_crate::CompilationError,
             errors::{DefCollectorErrorKind, DuplicateType},
@@ -36,7 +36,7 @@ fn comptime_code_rejects_dynamic_variable() {
     let errors = get_program_errors(src);
 
     assert_eq!(errors.len(), 1);
-    match &errors[0].0 {
+    match &errors[0] {
         CompilationError::InterpreterError(InterpreterError::NonComptimeVarReferenced {
             name,
             ..
@@ -53,7 +53,7 @@ fn comptime_type_in_runtime_code() {
     let errors = get_program_errors(source);
     assert_eq!(errors.len(), 1);
     assert!(matches!(
-        errors[0].0,
+        errors[0],
         CompilationError::ResolverError(ResolverError::ComptimeTypeInRuntimeCode { .. })
     ));
 }
@@ -75,10 +75,7 @@ fn macro_result_type_mismatch() {
 
     let errors = get_program_errors(src);
     assert_eq!(errors.len(), 1);
-    assert!(matches!(
-        errors[0].0,
-        CompilationError::TypeError(TypeCheckError::TypeMismatch { .. })
-    ));
+    assert!(matches!(errors[0], CompilationError::TypeError(TypeCheckError::TypeMismatch { .. })));
 }
 
 #[test]
@@ -150,14 +147,21 @@ fn errors_if_macros_inject_functions_with_name_collisions() {
     }
     "#;
 
-    let errors = get_program_errors(src);
+    let mut errors = get_program_errors(src);
     assert_eq!(errors.len(), 1);
+
+    let CompilationError::ComptimeError(ComptimeError::ErrorRunningAttribute { error, .. }) =
+        errors.remove(0)
+    else {
+        panic!("Expected a ComptimeError, got {:?}", errors[0]);
+    };
+
     assert!(matches!(
-        &errors[0].0,
+        *error,
         CompilationError::DefinitionError(
             DefCollectorErrorKind::Duplicate {
                 typ: DuplicateType::Function,
-                first_def: Ident(Spanned { contents, .. }),
+                first_def: Ident(Located { contents, .. }),
                 ..
             },
         ) if contents == "foo"
@@ -207,8 +211,8 @@ fn does_not_fail_to_parse_macro_on_parser_warning() {
     let errors = get_program_errors(src);
     assert_eq!(errors.len(), 1);
 
-    let CompilationError::ParseError(parser_error) = &errors[0].0 else {
-        panic!("Expected a ParseError, got {:?}", errors[0].0);
+    let CompilationError::ParseError(parser_error) = &errors[0] else {
+        panic!("Expected a ParseError, got {:?}", errors[0]);
     };
 
     assert!(matches!(parser_error.reason(), Some(ParserErrorReason::MissingSafetyComment)));

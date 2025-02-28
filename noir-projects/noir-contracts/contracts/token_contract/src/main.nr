@@ -30,9 +30,7 @@ pub contract Token {
             storage::storage,
         },
         oracle::random::random,
-        prelude::{
-            AztecAddress, FunctionSelector, Map, PublicContext, PublicImmutable, PublicMutable,
-        },
+        prelude::{AztecAddress, Map, PublicContext, PublicImmutable, PublicMutable},
         protocol_types::{point::Point, traits::Serialize},
     };
 
@@ -63,7 +61,7 @@ pub contract Token {
     struct Transfer {
         from: AztecAddress,
         to: AztecAddress,
-        amount: U128,
+        amount: u128,
     }
 
     // docs:start:storage_struct
@@ -78,8 +76,8 @@ pub contract Token {
         // docs:start:storage_balances
         balances: Map<AztecAddress, BalanceSet<Context>, Context>,
         // docs:end:storage_balances
-        total_supply: PublicMutable<U128, Context>,
-        public_balances: Map<AztecAddress, PublicMutable<U128, Context>, Context>,
+        total_supply: PublicMutable<u128, Context>,
+        public_balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
         symbol: PublicImmutable<FieldCompressedString, Context>,
         name: PublicImmutable<FieldCompressedString, Context>,
         // docs:start:storage_decimals
@@ -168,7 +166,7 @@ pub contract Token {
     // docs:start:total_supply
     #[public]
     #[view]
-    fn total_supply() -> U128 {
+    fn total_supply() -> u128 {
         storage.total_supply.read()
     }
     // docs:end:total_supply
@@ -176,7 +174,7 @@ pub contract Token {
     // docs:start:balance_of_public
     #[public]
     #[view]
-    fn balance_of_public(owner: AztecAddress) -> U128 {
+    fn balance_of_public(owner: AztecAddress) -> u128 {
         storage.public_balances.at(owner).read()
     }
     // docs:end:balance_of_public
@@ -195,7 +193,7 @@ pub contract Token {
 
     // docs:start:mint_to_public
     #[public]
-    fn mint_to_public(to: AztecAddress, amount: U128) {
+    fn mint_to_public(to: AztecAddress, amount: u128) {
         // docs:start:read_minter
         assert(storage.minters.at(context.msg_sender()).read(), "caller is not minter");
         // docs:end:read_minter
@@ -208,7 +206,7 @@ pub contract Token {
 
     // docs:start:transfer_in_public
     #[public]
-    fn transfer_in_public(from: AztecAddress, to: AztecAddress, amount: U128, nonce: Field) {
+    fn transfer_in_public(from: AztecAddress, to: AztecAddress, amount: u128, nonce: Field) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit_public(&mut context, from);
         } else {
@@ -223,7 +221,7 @@ pub contract Token {
 
     // docs:start:burn_public
     #[public]
-    fn burn_public(from: AztecAddress, amount: U128, nonce: Field) {
+    fn burn_public(from: AztecAddress, amount: u128, nonce: Field) {
         // docs:start:assert_current_call_valid_authwit_public
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit_public(&mut context, from);
@@ -240,7 +238,7 @@ pub contract Token {
 
     // docs:start:transfer_to_public
     #[private]
-    fn transfer_to_public(from: AztecAddress, to: AztecAddress, amount: U128, nonce: Field) {
+    fn transfer_to_public(from: AztecAddress, to: AztecAddress, amount: u128, nonce: Field) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
@@ -258,7 +256,7 @@ pub contract Token {
 
     // docs:start:transfer
     #[private]
-    fn transfer(to: AztecAddress, amount: U128) {
+    fn transfer(to: AztecAddress, amount: u128) {
         let from = context.msg_sender();
 
         // We reduce `from`'s balance by amount by recursively removing notes over potentially multiple calls. This
@@ -301,15 +299,15 @@ pub contract Token {
         context: &mut PrivateContext,
         storage: Storage<&mut PrivateContext>,
         account: AztecAddress,
-        amount: U128,
+        amount: u128,
         max_notes: u32,
-    ) -> U128 {
+    ) -> u128 {
         let subtracted = storage.balances.at(account).try_sub(amount, max_notes);
         // Failing to subtract any amount means that the owner was unable to produce more notes that could be nullified.
         // We could in some cases fail early inside try_sub if we detected that fewer notes than the maximum were
         // returned and we were still unable to reach the target amount, but that'd make the code more complicated, and
         // optimizing for the failure scenario is not as important.
-        assert(subtracted > U128::zero(), "Balance too low");
+        assert(subtracted > 0 as u128, "Balance too low");
         if subtracted >= amount {
             // We have achieved our goal of nullifying notes that add up to more than amount, so we return the change
             subtracted - amount
@@ -328,14 +326,14 @@ pub contract Token {
     fn compute_recurse_subtract_balance_call(
         context: PrivateContext,
         account: AztecAddress,
-        remaining: U128,
-    ) -> PrivateCallInterface<25, U128> {
+        remaining: u128,
+    ) -> PrivateCallInterface<25, u128> {
         Token::at(context.this_address())._recurse_subtract_balance(account, remaining)
     }
 
     #[internal]
     #[private]
-    fn _recurse_subtract_balance(account: AztecAddress, amount: U128) -> U128 {
+    fn _recurse_subtract_balance(account: AztecAddress, amount: u128) -> u128 {
         subtract_balance(
             &mut context,
             storage,
@@ -360,7 +358,7 @@ pub contract Token {
 
     // docs:start:transfer_in_private
     #[private]
-    fn transfer_in_private(from: AztecAddress, to: AztecAddress, amount: U128, nonce: Field) {
+    fn transfer_in_private(from: AztecAddress, to: AztecAddress, amount: u128, nonce: Field) {
         // docs:start:assert_current_call_valid_authwit
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
@@ -384,7 +382,7 @@ pub contract Token {
 
     // docs:start:burn_private
     #[private]
-    fn burn_private(from: AztecAddress, amount: U128, nonce: Field) {
+    fn burn_private(from: AztecAddress, amount: u128, nonce: Field) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
@@ -402,7 +400,7 @@ pub contract Token {
     // docs:start:transfer_to_private
     // Transfers token `amount` from public balance of message sender to a private balance of `to`.
     #[private]
-    fn transfer_to_private(to: AztecAddress, amount: U128) {
+    fn transfer_to_private(to: AztecAddress, amount: u128) {
         // `from` is the owner of the public balance from which we'll subtract the `amount`.
         let from = context.msg_sender();
         let token = Token::at(context.this_address());
@@ -424,8 +422,7 @@ pub contract Token {
     /// Returns a hiding point slot.
     #[private]
     fn prepare_private_balance_increase(to: AztecAddress, from: AztecAddress) -> Field {
-        // TODO(#9887): ideally we'd not have `from` here, but we do need a `from` address to produce a tagging secret
-        // with `to`.
+        // ideally we'd not have `from` here, but we do need a `from` address to produce a tagging secret with `to`.
         _prepare_private_balance_increase(from, to, &mut context, storage)
     }
     // docs:end:prepare_private_balance_increase
@@ -437,7 +434,7 @@ pub contract Token {
     /// function.
     #[contract_library_method]
     fn _prepare_private_balance_increase(
-        from: AztecAddress, // sender of the tag: TODO(#9887): this is not great?
+        from: AztecAddress, // sender of the tag
         to: AztecAddress,
         context: &mut PrivateContext,
         storage: Storage<&mut PrivateContext>,
@@ -490,7 +487,7 @@ pub contract Token {
     /// The transfer must be prepared by calling `prepare_private_balance_increase` first and the resulting
     /// `hiding_point_slot` must be passed as an argument to this function.
     #[public]
-    fn finalize_transfer_to_private(amount: U128, hiding_point_slot: Field) {
+    fn finalize_transfer_to_private(amount: u128, hiding_point_slot: Field) {
         let from = context.msg_sender();
         _finalize_transfer_to_private(from, amount, hiding_point_slot, &mut context, storage);
     }
@@ -504,7 +501,7 @@ pub contract Token {
     #[internal]
     fn _finalize_transfer_to_private_unsafe(
         from: AztecAddress,
-        amount: U128,
+        amount: u128,
         hiding_point_slot: Field,
     ) {
         _finalize_transfer_to_private(from, amount, hiding_point_slot, &mut context, storage);
@@ -514,7 +511,7 @@ pub contract Token {
     #[contract_library_method]
     fn _finalize_transfer_to_private(
         from: AztecAddress,
-        amount: U128,
+        amount: u128,
         hiding_point_slot: Field,
         context: &mut PublicContext,
         storage: Storage<&mut PublicContext>,
@@ -536,9 +533,9 @@ pub contract Token {
     /// in the enqueued call).
     #[private]
     fn mint_to_private(
-        from: AztecAddress, // sender of the tag: TODO(#9887): this is not great?
+        from: AztecAddress, // sender of the tag
         to: AztecAddress,
-        amount: U128,
+        amount: u128,
     ) {
         let token = Token::at(context.this_address());
 
@@ -563,7 +560,7 @@ pub contract Token {
     /// and `finalize_transfer_to_private`. It is however used very commonly so it makes sense to optimize it
     /// (e.g. used during token bridging, in AMM liquidity token etc.).
     #[public]
-    fn finalize_mint_to_private(amount: U128, hiding_point_slot: Field) {
+    fn finalize_mint_to_private(amount: u128, hiding_point_slot: Field) {
         assert(storage.minters.at(context.msg_sender()).read(), "caller is not minter");
 
         _finalize_mint_to_private(amount, hiding_point_slot, &mut context, storage);
@@ -575,7 +572,7 @@ pub contract Token {
     #[internal]
     fn _finalize_mint_to_private_unsafe(
         from: AztecAddress,
-        amount: U128,
+        amount: u128,
         hiding_point_slot: Field,
     ) {
         // We check the minter permissions as it was not done in `mint_to_private` function.
@@ -586,7 +583,7 @@ pub contract Token {
 
     #[contract_library_method]
     fn _finalize_mint_to_private(
-        amount: U128,
+        amount: u128,
         hiding_point_slot: Field,
         context: &mut PublicContext,
         storage: Storage<&mut PublicContext>,
@@ -625,7 +622,7 @@ pub contract Token {
     /// function.
     #[public]
     #[internal]
-    fn _increase_public_balance(to: AztecAddress, amount: U128) {
+    fn _increase_public_balance(to: AztecAddress, amount: u128) {
         _increase_public_balance_inner(to, amount, storage);
     }
     // docs:end:increase_public_balance
@@ -633,7 +630,7 @@ pub contract Token {
     #[contract_library_method]
     fn _increase_public_balance_inner(
         to: AztecAddress,
-        amount: U128,
+        amount: u128,
         storage: Storage<&mut PublicContext>,
     ) {
         let new_balance = storage.public_balances.at(to).read().add(amount);
@@ -643,7 +640,7 @@ pub contract Token {
     // docs:start:reduce_total_supply
     #[public]
     #[internal]
-    fn _reduce_total_supply(amount: U128) {
+    fn _reduce_total_supply(amount: u128) {
         // Only to be called from burn.
         let new_supply = storage.total_supply.read().sub(amount);
         storage.total_supply.write(new_supply);
@@ -652,7 +649,7 @@ pub contract Token {
 
     /// Unconstrained ///
     // docs:start:balance_of_private
-    pub(crate) unconstrained fn balance_of_private(owner: AztecAddress) -> pub U128 {
+    pub(crate) unconstrained fn balance_of_private(owner: AztecAddress) -> pub u128 {
         storage.balances.at(owner).balance_of()
     }
     // docs:end:balance_of_private

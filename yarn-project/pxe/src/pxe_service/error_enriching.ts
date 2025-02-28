@@ -1,12 +1,12 @@
-import { type SimulationError, isNoirCallStackUnresolved } from '@aztec/circuit-types';
-import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/circuits.js/constants';
-import { FunctionSelector } from '@aztec/foundation/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
-import { type Logger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { resolveAssertionMessageFromRevertData, resolveOpcodeLocations } from '@aztec/simulator/client';
+import { FunctionSelector } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type SimulationError, isNoirCallStackUnresolved } from '@aztec/stdlib/errors';
 
-import { type ContractDataOracle, type PxeDatabase } from '../index.js';
+import type { ContractDataOracle, PxeDatabase } from '../index.js';
 
 /**
  * Adds contract and function names to a simulation error, if they

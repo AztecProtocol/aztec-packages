@@ -31,7 +31,7 @@ pub contract Crowdfunding {
     #[event]
     struct WithdrawalProcessed {
         who: AztecAddress,
-        amount: U128,
+        amount: u128,
     }
 
     // docs:start:storage
@@ -59,7 +59,7 @@ pub contract Crowdfunding {
 
     // docs:start:donate
     #[private]
-    fn donate(amount: U128) {
+    fn donate(amount: u128) {
         let config = storage.config.read();
 
         // 1) Check that the deadline has not passed --> we do that via the router contract to conceal which contract
@@ -78,9 +78,9 @@ pub contract Crowdfunding {
 
         // 3) Create a value note for the donor so that he can later on claim a rewards token in the Claim
         // contract by proving that the hash of this note exists in the note hash tree.
-        let mut note = UintNote::new(amount, donor);
+        let note = UintNote::new(amount, donor);
 
-        storage.donation_receipts.insert(&mut note).emit(encode_and_encrypt_note(
+        storage.donation_receipts.insert(note).emit(encode_and_encrypt_note(
             &mut context,
             donor,
             donor,
@@ -91,7 +91,7 @@ pub contract Crowdfunding {
     // docs:start:operator-withdrawals
     // Withdraws balance to the operator. Requires that msg_sender() is the operator.
     #[private]
-    fn withdraw(amount: U128) {
+    fn withdraw(amount: u128) {
         let config = storage.config.read();
         let operator_address = config.operator;
 
@@ -109,7 +109,7 @@ pub contract Crowdfunding {
 
     #[public]
     #[internal]
-    fn _publish_donation_receipts(amount: U128, to: AztecAddress) {
+    fn _publish_donation_receipts(amount: u128, to: AztecAddress) {
         WithdrawalProcessed { amount, who: to }.emit(encode_event(&mut context));
     }
 }

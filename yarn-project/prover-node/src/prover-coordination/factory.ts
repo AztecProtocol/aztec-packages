@@ -1,21 +1,18 @@
-import { type ArchiveSource, type Archiver } from '@aztec/archiver';
+import type { ArchiveSource, Archiver } from '@aztec/archiver';
 import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
-import {
-  P2PClientType,
-  type ProverCoordination,
-  type WorldStateSynchronizer,
-  createAztecNodeClient,
-  getComponentsVersionsFromConfig,
-} from '@aztec/circuit-types';
-import { type EpochCache } from '@aztec/epoch-cache';
+import type { EpochCache } from '@aztec/epoch-cache';
 import { createLogger } from '@aztec/foundation/log';
-import { type DataStoreConfig } from '@aztec/kv-store/config';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { createP2PClient } from '@aztec/p2p';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
+import type { ProverCoordination, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import { P2PClientType } from '@aztec/stdlib/p2p';
+import { getComponentsVersionsFromConfig } from '@aztec/stdlib/versioning';
 import { type TelemetryClient, makeTracedFetch } from '@aztec/telemetry-client';
 
-import { type ProverNodeConfig } from '../config.js';
+import type { ProverNodeConfig } from '../config.js';
 
 // We return a reference to the P2P client so that the prover node can stop the service when it shuts down.
 type ProverCoordinationDeps = {

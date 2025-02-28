@@ -24,7 +24,7 @@ import {
   encodeArguments,
   getDefaultInitializer,
   getInitializer,
-} from "@aztec/foundation/abi";
+} from "@aztec/stdlib/abi";
 import { AztecContext } from "../../../aztecEnv";
 import { parseAliasedBuffersAsString } from "../../../utils/conversion";
 import { FunctionParameter } from "../../common/fnParameter";

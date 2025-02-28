@@ -1,38 +1,38 @@
 import {
-  Note,
-  NoteAndSlot,
-  PrivateCallExecutionResult,
-  PrivateExecutionResult,
-  type PrivateKernelProver,
-  PublicExecutionRequest,
-} from '@aztec/circuit-types';
-import {
   CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  FunctionSelector,
   MAX_NOTE_HASHES_PER_CALL,
   MAX_NOTE_HASHES_PER_TX,
-  MembershipWitness,
+  VK_TREE_HEIGHT,
+} from '@aztec/constants';
+import { makeTuple } from '@aztec/foundation/array';
+import { Fr } from '@aztec/foundation/fields';
+import { MembershipWitness } from '@aztec/foundation/trees';
+import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
+import {
   NoteHash,
   PrivateCircuitPublicInputs,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelTailCircuitPublicInputs,
-  PublicKeys,
   ScopedNoteHash,
+} from '@aztec/stdlib/kernel';
+import { PublicKeys } from '@aztec/stdlib/keys';
+import { Note } from '@aztec/stdlib/note';
+import { makeTxRequest } from '@aztec/stdlib/testing';
+import {
+  NoteAndSlot,
+  PrivateCallExecutionResult,
+  PrivateExecutionResult,
+  PublicExecutionRequest,
   type TxRequest,
-  VK_TREE_HEIGHT,
-  VerificationKey,
-  VerificationKeyAsFields,
-} from '@aztec/circuits.js';
-import { makeTxRequest } from '@aztec/circuits.js/testing';
-import { NoteSelector } from '@aztec/foundation/abi';
-import { makeTuple } from '@aztec/foundation/array';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
+} from '@aztec/stdlib/tx';
+import { VerificationKey, VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
 import { mock } from 'jest-mock-extended';
 
 import { KernelProver } from './kernel_prover.js';
-import { type ProvingDataOracle } from './proving_data_oracle.js';
+import type { ProvingDataOracle } from './proving_data_oracle.js';
 
 describe('Kernel Prover', () => {
   let txRequest: TxRequest;

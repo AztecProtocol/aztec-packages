@@ -8,25 +8,37 @@ namespace bb::avm2::simulation {
 
 using poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 
-FF compute_public_bytecode_commitment(std::span<const uint8_t> bytecode)
+std::vector<FF> encode_bytecode(std::span<const uint8_t> bytecode)
 {
-    auto encode_bytecode = [](std::span<const uint8_t> contract_bytes) -> std::vector<FF> {
-        // To make from_buffer<uint256_t> work properly, we need to make sure the contract is a multiple of 31 bytes
-        // Otherwise we will end up over-reading the buffer
-        size_t padded_size = 31 * ((contract_bytes.size() + 30) / 31);
-        // We dont want to mutate the original contract bytes, since we will (probably) need them later in the trace
-        // unpadded
-        std::vector<uint8_t> contract_bytes_padded(contract_bytes.begin(), contract_bytes.end());
-        contract_bytes_padded.resize(padded_size, 0);
-        std::vector<FF> contract_bytecode_fields;
-        for (size_t i = 0; i < contract_bytes_padded.size(); i += 31) {
-            uint256_t u256_elem = from_buffer<uint256_t>(contract_bytes_padded, i);
-            // Drop the last byte
-            contract_bytecode_fields.emplace_back(u256_elem >> 8);
+    size_t bytecode_len = bytecode.size();
+
+    auto bytecode_field_at = [&](size_t i) -> FF {
+        // We need to read uint256_ts because reading FFs messes up the order of the bytes.
+        uint256_t as_int = 0;
+        if (bytecode_len - i >= 32) {
+            as_int = from_buffer<uint256_t>(bytecode, i);
+        } else {
+            std::vector<uint8_t> tail(bytecode.begin() + static_cast<ssize_t>(i), bytecode.end());
+            tail.resize(32, 0);
+            as_int = from_buffer<uint256_t>(tail, 0);
         }
-        return contract_bytecode_fields;
+        return as_int >> 8;
     };
 
+    std::vector<FF> contract_bytecode_fields;
+    auto number_of_fields = (bytecode_len + 30) / 31;
+    contract_bytecode_fields.reserve(number_of_fields);
+
+    for (uint32_t i = 0; i < bytecode_len; i += 31) {
+        FF bytecode_field = bytecode_field_at(i);
+        contract_bytecode_fields.push_back(bytecode_field);
+    }
+
+    return contract_bytecode_fields;
+}
+
+FF compute_public_bytecode_commitment(std::span<const uint8_t> bytecode)
+{
     FF bytecode_length_in_bytes = FF(static_cast<uint64_t>(bytecode.size()));
     std::vector<FF> contract_bytecode_fields = encode_bytecode(bytecode);
     FF running_hash = bytecode_length_in_bytes;

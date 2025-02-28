@@ -5,7 +5,13 @@
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/flavor_settings.hpp"
 #include "barretenberg/vm2/generated/relations/ecc.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_scalar_mul.hpp"
+#include "barretenberg/vm2/simulation/ecc.hpp"
+#include "barretenberg/vm2/simulation/events/ecc_events.hpp"
+#include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
+#include "barretenberg/vm2/tracegen/ecc_trace.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 namespace bb::avm2::constraining {
@@ -15,6 +21,15 @@ using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using ecc = bb::avm2::ecc<FF>;
+using scalar_mul = bb::avm2::scalar_mul<FF>;
+using EccSimulator = simulation::Ecc;
+using simulation::EccAddEvent;
+using simulation::EventEmitter;
+using simulation::NoopEventEmitter;
+using simulation::ScalarMulEvent;
+using lookup_scalar_mul_double_relation = bb::avm2::lookup_scalar_mul_double_relation<FF>;
+using lookup_scalar_mul_add_relation = bb::avm2::lookup_scalar_mul_add_relation<FF>;
+using tracegen::LookupIntoDynamicTableGeneric;
 
 // Known good points for P and Q
 FF p_x("0x04c95d1b26d63d46918a156cae92db1bcbc4072a27ec81dc82ea959abdbcf16a");
@@ -27,11 +42,7 @@ AffinePoint q(q_x, q_y);
 
 TEST(EccAddConstrainingTest, EccEmptyRow)
 {
-    auto trace = TestTraceContainer::from_rows({
-        { .precomputed_clk = 1 },
-    });
-
-    check_relation<ecc>(trace);
+    check_relation<ecc>(testing::empty_trace());
 }
 
 TEST(EccAddConstrainingTest, EccAdd)
@@ -458,6 +469,251 @@ TEST(EccAddConstrainingTest, EccNegativeBadDouble)
     } });
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<ecc>(trace, ecc::SR_OUTPUT_X_COORD), "OUTPUT_X_COORD");
+}
+
+TEST(ScalarMulConstrainingTest, ScalarMulEmptyRow)
+{
+    check_relation<scalar_mul>(testing::empty_trace());
+}
+
+TEST(ScalarMulConstrainingTest, MulByOne)
+{
+    NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
+    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
+
+    FF scalar = FF(1);
+    ecc_simulator.scalar_mul(p, scalar);
+
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+    });
+
+    tracegen::EccTraceBuilder builder;
+    builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
+    EXPECT_EQ(trace.get_num_rows(), /*start_row=*/1 + 254);
+    check_relation<scalar_mul>(trace);
+}
+
+TEST(ScalarMulConstrainingTest, BasicMul)
+{
+    NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
+    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
+
+    FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
+    ecc_simulator.scalar_mul(p, scalar);
+
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+    });
+
+    tracegen::EccTraceBuilder builder;
+    builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
+    EXPECT_EQ(trace.get_num_rows(), /*start_row=*/1 + 254);
+    check_relation<scalar_mul>(trace);
+}
+
+TEST(ScalarMulConstrainingTest, MultipleInvocations)
+{
+    NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
+    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
+
+    ecc_simulator.scalar_mul(p, FF("0x2b01df0ef6d941a826bea23bece8243cbcdc159d5e97fbaa2171f028e05ba9b6"));
+    ecc_simulator.scalar_mul(q, FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09"));
+
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+    });
+
+    tracegen::EccTraceBuilder builder;
+    builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
+    EXPECT_EQ(trace.get_num_rows(), /*start_row=*/1 + (254) * 2);
+    check_relation<scalar_mul>(trace);
+}
+
+TEST(ScalarMulConstrainingTest, MulAddInteractions)
+{
+    EventEmitter<EccAddEvent> ecc_add_event_emitter;
+    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
+
+    FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
+    ecc_simulator.scalar_mul(p, scalar);
+
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+    });
+
+    tracegen::EccTraceBuilder builder;
+    builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
+    builder.process_add(ecc_add_event_emitter.dump_events(), trace);
+
+    LookupIntoDynamicTableGeneric<lookup_scalar_mul_double_relation::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_scalar_mul_add_relation::Settings>().process(trace);
+
+    check_relation<scalar_mul>(trace);
+    check_relation<ecc>(trace);
+    check_interaction<lookup_scalar_mul_double_relation>(trace);
+    check_interaction<lookup_scalar_mul_add_relation>(trace);
+}
+
+TEST(ScalarMulConstrainingTest, NegativeMulAddInteractions)
+{
+    NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
+    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
+
+    FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
+    ecc_simulator.scalar_mul(p, scalar);
+
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+    });
+
+    tracegen::EccTraceBuilder builder;
+    builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
+
+    EXPECT_THROW_WITH_MESSAGE(
+        LookupIntoDynamicTableGeneric<lookup_scalar_mul_double_relation::Settings>().process(trace),
+        "Failed.*SCALAR_MUL_DOUBLE. Could not find tuple in destination.");
+    EXPECT_THROW_WITH_MESSAGE(LookupIntoDynamicTableGeneric<lookup_scalar_mul_add_relation::Settings>().process(trace),
+                              "Failed.*SCALAR_MUL_ADD. Could not find tuple in destination.");
+
+    check_relation<scalar_mul>(trace);
+    EXPECT_THROW_WITH_MESSAGE(check_interaction<lookup_scalar_mul_double_relation>(trace),
+                              "Relation.*SCALAR_MUL_DOUBLE.* ACCUMULATION.* is non-zero");
+    EXPECT_THROW_WITH_MESSAGE(check_interaction<lookup_scalar_mul_add_relation>(trace),
+                              "Relation.*SCALAR_MUL_ADD.* ACCUMULATION.* is non-zero");
+}
+
+TEST(ScalarMulConstrainingTest, NegativeDisableSel)
+{
+    NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
+    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
+
+    FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
+    ecc_simulator.scalar_mul(p, scalar);
+
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+    });
+
+    tracegen::EccTraceBuilder builder;
+    builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
+    // Disable the selector in one of the rows between start and end
+    trace.set(Column::scalar_mul_sel, 5, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace, scalar_mul::SR_SELECTOR_CONSISTENCY),
+                              "SELECTOR_CONSISTENCY");
+}
+
+TEST(ScalarMulConstrainingTest, NegativeEnableStartFirstRow)
+{
+    NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
+    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
+
+    FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
+    ecc_simulator.scalar_mul(p, scalar);
+
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+    });
+
+    tracegen::EccTraceBuilder builder;
+    builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
+    // Enable the start in the first row
+    trace.set(Column::scalar_mul_start, 0, 1);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace, scalar_mul::SR_SELECTOR_ON_START), "SELECTOR_ON_START");
+}
+
+TEST(ScalarMulConstrainingTest, NegativeMutateScalarOnEnd)
+{
+    NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
+    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
+
+    FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
+    ecc_simulator.scalar_mul(p, scalar);
+
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+    });
+
+    tracegen::EccTraceBuilder builder;
+    builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
+    // Mutate the scalar on the end row
+    trace.set(Column::scalar_mul_scalar, 254, 27);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace, scalar_mul::SR_INPUT_CONSISTENCY_SCALAR),
+                              "INPUT_CONSISTENCY_SCALAR");
+}
+
+TEST(ScalarMulConstrainingTest, NegativeMutatePointXOnEnd)
+{
+    NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
+    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
+
+    FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
+    ecc_simulator.scalar_mul(p, scalar);
+
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+    });
+
+    tracegen::EccTraceBuilder builder;
+    builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
+    // Mutate the point on the end row
+    trace.set(Column::scalar_mul_point_x, 254, q.x);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace, scalar_mul::SR_INPUT_CONSISTENCY_X),
+                              "INPUT_CONSISTENCY_X");
+}
+
+TEST(ScalarMulConstrainingTest, NegativeMutatePointYOnEnd)
+{
+    NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
+    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
+
+    FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
+    ecc_simulator.scalar_mul(p, scalar);
+
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+    });
+
+    tracegen::EccTraceBuilder builder;
+    builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
+    // Mutate the point on the end row
+    trace.set(Column::scalar_mul_point_y, 254, q.y);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace, scalar_mul::SR_INPUT_CONSISTENCY_Y),
+                              "INPUT_CONSISTENCY_Y");
+}
+
+TEST(ScalarMulConstrainingTest, NegativeMutatePointInfOnEnd)
+{
+    NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
+    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
+
+    FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
+    ecc_simulator.scalar_mul(p, scalar);
+
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+    });
+
+    tracegen::EccTraceBuilder builder;
+    builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
+    // Mutate the point on the end row
+    trace.set(Column::scalar_mul_point_inf, 254, 1);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace, scalar_mul::SR_INPUT_CONSISTENCY_INF),
+                              "INPUT_CONSISTENCY_INF");
 }
 
 } // namespace

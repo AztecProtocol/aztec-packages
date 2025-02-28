@@ -391,6 +391,12 @@ export class AztecClientBackend {
     return this.api.acirProveAndVerifyAztecClient(this.acirMsgpack, witnessMsgpack);
   }
 
+  async gates(): Promise<number[]> {
+    // call function on API
+    await this.instantiate();
+    return this.api.acirGatesAztecClient(this.acirMsgpack);
+  }
+
   async destroy(): Promise<void> {
     if (!this.api) {
       return;
