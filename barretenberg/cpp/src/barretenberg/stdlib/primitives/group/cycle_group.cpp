@@ -16,6 +16,7 @@ cycle_group<Builder>::cycle_group(Builder* _context)
     , y(0)
     , _is_infinity(true)
     , _is_constant(true)
+    , _is_standart(true)
     , context(_context)
 {}
 
@@ -27,11 +28,12 @@ cycle_group<Builder>::cycle_group(Builder* _context)
  * @param is_infinity
  */
 template <typename Builder>
-cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity)
+cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity, bool is_standart)
     : x(_x.normalize())
     , y(_y.normalize())
     , _is_infinity(is_infinity)
     , _is_constant(_x.is_constant() && _y.is_constant() && is_infinity.is_constant())
+    , _is_standart(is_standart)
 {
     if (_x.get_context() != nullptr) {
         context = _x.get_context();
@@ -61,11 +63,12 @@ cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity)
  * @param is_infinity
  */
 template <typename Builder>
-cycle_group<Builder>::cycle_group(const FF& _x, const FF& _y, bool is_infinity)
+cycle_group<Builder>::cycle_group(const FF& _x, const FF& _y, bool is_infinity, bool is_standart)
     : x(_x)
     , y(_y)
     , _is_infinity(is_infinity)
     , _is_constant(true)
+    , _is_standart(is_standart)
     , context(nullptr)
 {
     ASSERT(get_value().on_curve());
@@ -87,6 +90,7 @@ cycle_group<Builder>::cycle_group(const AffineElement& _in)
     , y(_in.is_point_at_infinity() ? 0 : _in.y)
     , _is_infinity(_in.is_point_at_infinity())
     , _is_constant(true)
+    , _is_standart(true)
     , context(nullptr)
 {}
 
@@ -120,10 +124,20 @@ template <typename Builder>
 cycle_group<Builder> cycle_group<Builder>::from_witness(Builder* _context, const AffineElement& _in)
 {
     cycle_group result(_context);
-    result.x = field_t(witness_t(_context, _in.x));
-    result.y = field_t(witness_t(_context, _in.y));
+
+    // Point at infinity's coordinates break our arithmetic
+    // Since we are not using these coordinates anyway
+    // We can set them both to be zero
+    if (_in.is_point_at_infinity()) {
+        result.x = field_t(witness_t(_context, FF::zero()));
+        result.y = field_t(witness_t(_context, FF::zero()));
+    } else {
+        result.x = field_t(witness_t(_context, _in.x));
+        result.y = field_t(witness_t(_context, _in.y));
+    }
     result._is_infinity = bool_t(witness_t(_context, _in.is_point_at_infinity()));
     result._is_constant = false;
+    result._is_standart = true;
     result.validate_is_on_curve();
     return result;
 }
@@ -144,13 +158,24 @@ template <typename Builder>
 cycle_group<Builder> cycle_group<Builder>::from_constant_witness(Builder* _context, const AffineElement& _in)
 {
     cycle_group result(_context);
-    result.x = field_t(witness_t(_context, _in.x));
-    result.y = field_t(witness_t(_context, _in.y));
-    result.x.assert_equal(_in.x);
-    result.y.assert_equal(_in.y);
+
+    // Point at infinity's coordinates break our arithmetic
+    // Since we are not using these coordinates anyway
+    // We can set them both to be zero
+    if (_in.is_point_at_infinity()) {
+        result.x = field_t(witness_t(_context, FF::zero()));
+        result.y = field_t(witness_t(_context, FF::zero()));
+    } else {
+        result.x = field_t(witness_t(_context, _in.x));
+        result.y = field_t(witness_t(_context, _in.y));
+    }
+    result.x.assert_equal(result.x.get_value());
+    result.y.assert_equal(result.y.get_value());
+
     // point at infinity is circuit constant
     result._is_infinity = _in.is_point_at_infinity();
     result._is_constant = false;
+    result._is_standart = true;
     return result;
 }
 
@@ -194,9 +219,12 @@ template <typename Builder> void cycle_group<Builder>::validate_is_on_curve() co
  */
 template <typename Builder> cycle_group<Builder> cycle_group<Builder>::get_standard_form() const
 {
-    return cycle_group(field_t::conditional_assign(_is_infinity, 0, x),
-                       field_t::conditional_assign(_is_infinity, 0, y),
-                       is_point_at_infinity());
+    if (this->_is_standart) {
+        return *this;
+    }
+    cycle_group<Builder> result = *this;
+    result.set_point_at_infinity(result.is_point_at_infinity());
+    return result;
 }
 /**
  * @brief Evaluates a doubling. Does not use Ultra double gate
@@ -230,6 +258,12 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
     // ensure we use a value of y that is not zero. (only happens if point at infinity)
     // this costs 0 gates if `is_infinity` is a circuit constant
     auto modified_y = field_t::conditional_assign(is_point_at_infinity(), 1, y).normalize();
+
+    // This case breaks the following `create_ecc_dbl_gate`
+    // Since we allow witness coordinates and constant `is_infinity`
+    if (this->is_point_at_infinity().is_constant() && this->is_point_at_infinity().get_value()) {
+        modified_y = field_t::from_witness_index(context, context->put_constant_variable(1));
+    }
 
     cycle_group result;
     if (hint.has_value()) {
@@ -468,7 +502,11 @@ cycle_group<Builder> cycle_group<Builder>::checked_unconditional_add(const cycle
                                                                      const std::optional<AffineElement> hint) const
 {
     field_t x_delta = x - other.x;
-    x_delta.assert_is_not_zero("cycle_group::checked_unconditional_add, x-coordinate collision");
+    if (x_delta.is_constant()) {
+        ASSERT(x_delta.get_value() != 0);
+    } else {
+        x_delta.assert_is_not_zero("cycle_group::checked_unconditional_add, x-coordinate collision");
+    }
     return unconditional_add(other, hint);
 }
 
@@ -490,7 +528,11 @@ cycle_group<Builder> cycle_group<Builder>::checked_unconditional_subtract(const 
                                                                           const std::optional<AffineElement> hint) const
 {
     field_t x_delta = x - other.x;
-    x_delta.assert_is_not_zero("cycle_group::checked_unconditional_subtract, x-coordinate collision");
+    if (x_delta.is_constant()) {
+        ASSERT(x_delta.get_value() != 0);
+    } else {
+        x_delta.assert_is_not_zero("cycle_group::checked_unconditional_subtract, x-coordinate collision");
+    }
     return unconditional_subtract(other, hint);
 }
 
@@ -557,6 +599,10 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
     bool_t result_is_infinity = infinity_predicate && (!lhs_infinity && !rhs_infinity);
     result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
     result.set_point_at_infinity(result_is_infinity);
+
+    ASSERT(result.x.is_constant() == result.y.is_constant());
+    result._is_constant = result.x.is_constant();
+
     return result;
 }
 
@@ -613,6 +659,9 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     bool_t result_is_infinity = infinity_predicate && (!lhs_infinity && !rhs_infinity);
     result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
     result.set_point_at_infinity(result_is_infinity);
+
+    ASSERT(result.x.is_constant() == result.y.is_constant());
+    result._is_constant = result.x.is_constant();
 
     return result;
 }

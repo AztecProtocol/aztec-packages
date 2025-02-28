@@ -6,6 +6,7 @@
 #pragma clang diagnostic push
 // TODO(luke/kesha): Add a comment explaining why we need this ignore and what the solution is.
 // TODO(alex): resolve this todo in current pr
+// TODO
 #pragma clang diagnostic ignored "-Wc99-designator"
 
 #define HAVOC_TESTING
@@ -782,9 +783,8 @@ template <typename Builder> class CycleGroupBase {
             ScalarField base_scalar_res = this->base_scalar + other.base_scalar;
             GroupElement base_res = this->base + other.base;
 
-            bool can_fail = false;
             if (other.cg().get_value() == this->cg().get_value()) {
-                uint8_t dbl_path = VarianceRNG.next() % 3;
+                uint8_t dbl_path = VarianceRNG.next() % 4;
 #ifdef SHOW_INFORMATION
                 std::cout << " using " << size_t(dbl_path) << " dbl path" << std::endl;
 #endif
@@ -794,11 +794,12 @@ template <typename Builder> class CycleGroupBase {
                 case 1:
                     return ExecutionHandler(base_scalar_res, base_res, other.cg().dbl());
                 case 2:
-                    can_fail = true;
-                    break;
+                    return ExecutionHandler(base_scalar_res, base_res, this->cg() + other.cg());
+                case 3:
+                    return ExecutionHandler(base_scalar_res, base_res, other.cg() + this->cg());
                 }
             } else if (other.cg().get_value() == -this->cg().get_value()) {
-                uint8_t inf_path = VarianceRNG.next() % 3;
+                uint8_t inf_path = VarianceRNG.next() % 4;
                 cycle_group_t res;
 #ifdef SHOW_INFORMATION
                 std::cout << " using " << size_t(inf_path) << " inf path" << std::endl;
@@ -813,41 +814,30 @@ template <typename Builder> class CycleGroupBase {
                     res.set_point_at_infinity(this->construct_predicate(this->cycle_group.get_context(), true));
                     return ExecutionHandler(base_scalar_res, base_res, res);
                 case 2:
-                    can_fail = true;
-                    break;
+                    return ExecutionHandler(base_scalar_res, base_res, this->cg() + other.cg());
+                case 3:
+                    return ExecutionHandler(base_scalar_res, base_res, other.cg() + this->cg());
                 }
             }
 
-#ifdef SHOW_INFORMATION
-            std::cout << "Edge case? " << can_fail << std::endl;
-#endif
-
-            uint8_t add_option = VarianceRNG.next() % 5;
+            uint8_t add_option = VarianceRNG.next() % 6;
 #ifdef SHOW_INFORMATION
             std::cout << " using " << size_t(add_option) << " add path" << std::endl;
 #endif
 
             switch (add_option) {
             case 0:
-                circuit_should_fail = circuit_should_fail | can_fail;
                 return ExecutionHandler(base_scalar_res, base_res, this->cg().unconditional_add(other.cg()));
             case 1:
-                circuit_should_fail = circuit_should_fail | can_fail;
                 return ExecutionHandler(base_scalar_res, base_res, other.cg().unconditional_add(this->cg()));
             case 2:
-                if (!(this->cycle_group.is_constant() && other.cycle_group.is_constant())) {
-                    circuit_should_fail = circuit_should_fail | can_fail;
-                    return ExecutionHandler(
-                        base_scalar_res, base_res, this->cg().checked_unconditional_add(other.cg()));
-                }
+                return ExecutionHandler(base_scalar_res, base_res, this->cg().checked_unconditional_add(other.cg()));
             case 3:
-                if (!(this->cycle_group.is_constant() && other.cycle_group.is_constant())) {
-                    circuit_should_fail = circuit_should_fail | can_fail;
-                    return ExecutionHandler(
-                        base_scalar_res, base_res, other.cg().checked_unconditional_add(this->cg()));
-                }
+                return ExecutionHandler(base_scalar_res, base_res, other.cg().checked_unconditional_add(this->cg()));
             case 4:
                 return ExecutionHandler(base_scalar_res, base_res, this->cg() + other.cg());
+            case 5:
+                return ExecutionHandler(base_scalar_res, base_res, other.cg() + this->cg());
             }
             return {};
         }
@@ -857,7 +847,6 @@ template <typename Builder> class CycleGroupBase {
             ScalarField base_scalar_res = this->base_scalar - other.base_scalar;
             GroupElement base_res = this->base - other.base;
 
-            bool can_fail = false;
             if (other.cg().get_value() == -this->cg().get_value()) {
                 uint8_t dbl_path = VarianceRNG.next() % 3;
 #ifdef SHOW_INFORMATION
@@ -870,8 +859,7 @@ template <typename Builder> class CycleGroupBase {
                 case 1:
                     return ExecutionHandler(base_scalar_res, base_res, other.cg().dbl());
                 case 2:
-                    can_fail = true;
-                    break;
+                    return ExecutionHandler(base_scalar_res, base_res, this->cg() - other.cg());
                 }
             } else if (other.cg().get_value() == this->cg().get_value()) {
                 uint8_t inf_path = VarianceRNG.next() % 3;
@@ -890,13 +878,9 @@ template <typename Builder> class CycleGroupBase {
                     res.set_point_at_infinity(this->construct_predicate(this->cycle_group.get_context(), true));
                     return ExecutionHandler(base_scalar_res, base_res, res);
                 case 2:
-                    can_fail = true;
-                    break;
+                    return ExecutionHandler(base_scalar_res, base_res, this->cg() - other.cg());
                 }
             }
-#ifdef SHOW_INFORMATION
-            std::cout << "Edge case? " << can_fail << std::endl;
-#endif
 
             uint8_t add_option = VarianceRNG.next() % 3;
 #ifdef SHOW_INFORMATION
@@ -905,14 +889,10 @@ template <typename Builder> class CycleGroupBase {
 
             switch (add_option) {
             case 0:
-                circuit_should_fail = circuit_should_fail | can_fail;
                 return ExecutionHandler(base_scalar_res, base_res, this->cg().unconditional_subtract(other.cg()));
             case 1:
-                if (!(this->cycle_group.is_constant() && other.cycle_group.is_constant())) {
-                    circuit_should_fail = circuit_should_fail | can_fail;
-                    return ExecutionHandler(
-                        base_scalar_res, base_res, this->cg().checked_unconditional_subtract(other.cg()));
-                }
+                return ExecutionHandler(
+                    base_scalar_res, base_res, this->cg().checked_unconditional_subtract(other.cg()));
             case 2:
                 return ExecutionHandler(base_scalar_res, base_res, this->cg() - other.cg());
             }

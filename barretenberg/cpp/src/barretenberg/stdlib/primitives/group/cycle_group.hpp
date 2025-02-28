@@ -196,8 +196,8 @@ template <typename Builder> class cycle_group {
 
   public:
     cycle_group(Builder* _context = nullptr);
-    cycle_group(field_t _x, field_t _y, bool_t _is_infinity);
-    cycle_group(const FF& _x, const FF& _y, bool _is_infinity);
+    cycle_group(field_t _x, field_t _y, bool_t _is_infinity, bool is_standart = false);
+    cycle_group(const FF& _x, const FF& _y, bool _is_infinity, bool is_standart = false);
     cycle_group(const AffineElement& _in);
     static cycle_group one(Builder* _context);
     static cycle_group from_witness(Builder* _context, const AffineElement& _in);
@@ -207,7 +207,21 @@ template <typename Builder> class cycle_group {
     AffineElement get_value() const;
     [[nodiscard]] bool is_constant() const { return _is_constant; }
     bool_t is_point_at_infinity() const { return _is_infinity; }
-    void set_point_at_infinity(const bool_t& is_infinity) { _is_infinity = is_infinity; }
+    void set_point_at_infinity(const bool_t& is_infinity)
+    {
+        // I am not sure that it handles all the cases
+        // when we can bump into non standard case
+        if (is_infinity.is_constant() && is_infinity.get_value()) {
+            this->x = 0;
+            this->y = 0;
+            this->_is_constant = true;
+        } else {
+            this->x = field_t::conditional_assign(is_infinity, 0, this->x);
+            this->y = field_t::conditional_assign(is_infinity, 0, this->y);
+        }
+        _is_infinity = is_infinity;
+        this->_is_standart = true;
+    }
     cycle_group get_standard_form() const;
     void validate_is_on_curve() const;
     cycle_group dbl(const std::optional<AffineElement> hint = std::nullopt) const
@@ -280,6 +294,10 @@ template <typename Builder> class cycle_group {
   private:
     bool_t _is_infinity;
     bool _is_constant;
+    // Most of the time it is true, so we won't need to do extra conditional_assign
+    // during `get_standart_form` call
+    // However sometimes it won't be the case, so we can handle these cases using this flag
+    bool _is_standart;
     Builder* context;
 
     static batch_mul_internal_output _variable_base_batch_mul_internal(std::span<cycle_scalar> scalars,
