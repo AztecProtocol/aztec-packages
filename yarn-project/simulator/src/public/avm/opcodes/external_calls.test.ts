@@ -4,7 +4,7 @@ import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec
 
 import { mock } from 'jest-mock-extended';
 
-import type { WorldStateDB } from '../../../public/public_db_sources.js';
+import type { WorldStateDB } from '../../public_db_sources.js';
 import type { PublicSideEffectTraceInterface } from '../../../public/side_effect_trace_interface.js';
 import type { AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint1, Uint32 } from '../avm_memory_types.js';

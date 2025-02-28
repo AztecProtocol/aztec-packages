@@ -6,7 +6,7 @@ import type { GlobalVariables } from '@aztec/stdlib/tx';
 
 import { strict as assert } from 'assert';
 
-import { SideEffectLimitReachedError } from '../../public/side_effect_errors.js';
+import { SideEffectLimitReachedError } from '../side_effect_errors.js';
 import { AvmContext } from './avm_context.js';
 import { AvmContractCallResult } from './avm_contract_call_result.js';
 import { AvmExecutionEnvironment } from './avm_execution_environment.js';

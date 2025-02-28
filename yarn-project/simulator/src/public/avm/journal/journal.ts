@@ -32,7 +32,7 @@ import cloneDeep from 'lodash.clonedeep';
 
 import { getPublicFunctionDebugName } from '../../../common/debug_fn_name.js';
 import type { WorldStateDB } from '../../../public/public_db_sources.js';
-import type { PublicSideEffectTraceInterface } from '../../../public/side_effect_trace_interface.js';
+import type { PublicSideEffectTraceInterface } from '../../side_effect_trace_interface.js';
 import type { AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { NullifierCollisionError, NullifierManager } from './nullifiers.js';
 import { PublicStorage } from './public_storage.js';
