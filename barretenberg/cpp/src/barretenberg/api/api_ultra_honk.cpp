@@ -110,6 +110,12 @@ bool _verify(const bool honk_recursion_2, const std::filesystem::path& proof_pat
         verified = verifier.verify_proof(proof);
     }
 
+    if (verified) {
+        info("Proof verified successfully");
+    } else {
+        info("Proof verification failed");
+    }
+
     return verified;
 }
 
@@ -212,6 +218,7 @@ void UltraHonkAPI::write_contract(const Flags& flags,
         std::cout << contract;
     } else {
         write_file(output_path, { contract.begin(), contract.end() });
+        info("Solidity verifier saved to ", output_path);
     }
 }
 
