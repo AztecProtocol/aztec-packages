@@ -1,8 +1,13 @@
-use crate::history::nullifier_non_inclusion::{ProveNoteNotNullified, ProveNullifierNonInclusion};
-use crate::oracle::random::random;
-
-use crate::history::test;
-use crate::test::helpers::test_environment::FIRST_NULLIFIER_EMITTED_IN_TXE;
+use crate::history::{
+    nullifier_non_inclusion::{ProveNoteNotNullified, ProveNullifierNonInclusion},
+    test,
+};
+use crate::oracle::{notes::notify_created_nullifier, random::random};
+use crate::test::helpers::test_environment::TestEnvironment;
+use dep::protocol_types::{
+    constants::GENERATOR_INDEX__OUTER_NULLIFIER, hash::poseidon2_hash_with_separator,
+    traits::ToField,
+};
 
 // In these tests, we create a note in one block and nullify it in the next.
 
@@ -36,20 +41,34 @@ unconstrained fn note_not_nullified_fails() {
 // In this test, we prove the absence of an arbitrary nullifier in state.
 #[test]
 unconstrained fn nullifier_non_inclusion() {
-    let (env) = test::create_note_and_nullify_it();
+    let mut env = TestEnvironment::new();
 
     let context = &mut env.private();
 
     context.historical_header.prove_nullifier_non_inclusion(random());
 }
 
-// In this test, we fail to prove the absence of an existing nullifier in state. We use know FIRST_NULLIFIER_EMITTED_IN_TXE exists
-// because the TXe creates deterministic first nullifiers if no side-effects are emitted.
+// In this test, we create a nullifier and fail to prove its absence in state (we are checking the
+// siloed version of it because that is what is actually pushed to state).
 #[test(should_fail_with = "Proving nullifier non-inclusion failed")]
 unconstrained fn nullifier_non_inclusion_fails() {
-    let (env) = test::create_note_and_nullify_it();
+    let mut env = TestEnvironment::new();
 
-    let context = &mut env.private();
+    let unsiloed_nullifier = 42069;
 
-    context.historical_header.prove_nullifier_non_inclusion(FIRST_NULLIFIER_EMITTED_IN_TXE);
+    // We need to create the siloed nullifier so we can check for its inclusion in state.
+    let siloed_nullifier = poseidon2_hash_with_separator(
+        [env.contract_address().to_field(), unsiloed_nullifier],
+        GENERATOR_INDEX__OUTER_NULLIFIER,
+    );
+
+    notify_created_nullifier(unsiloed_nullifier);
+
+    let nullifier_created_at = env.pending_block_number();
+
+    env.advance_block_by(1);
+
+    let context = &mut env.private_at(nullifier_created_at);
+
+    context.historical_header.prove_nullifier_non_inclusion(siloed_nullifier);
 }
