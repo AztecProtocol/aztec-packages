@@ -236,10 +236,10 @@ function release {
 
   projects=(
     barretenberg/cpp
-    barretenberg/ts
+    # barretenberg/ts
     noir
     l1-contracts
-    yarn-project
+    # yarn-project
     boxes
     aztec-up
     docs
