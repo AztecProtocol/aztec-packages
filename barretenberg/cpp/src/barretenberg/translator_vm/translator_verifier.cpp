@@ -117,11 +117,11 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
     // Execute Shplemini
     bool consistency_checked = false;
     ClaimBatcher claim_batcher{
-        .unshifted = ClaimBatch{ commitments.get_unshifted_without_concatenated(),
-                                 sumcheck_output.claimed_evaluations.get_unshifted_without_concatenated() },
+        .unshifted = ClaimBatch{ commitments.get_unshifted_without_interleaved(),
+                                 sumcheck_output.claimed_evaluations.get_unshifted_without_interleaved() },
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() },
-        .interleaved = InterleavedBatch{ .commitments_groups = commitments.get_groups_to_be_concatenated(),
-                                         .evaluations = sumcheck_output.claimed_evaluations.get_concatenated() }
+        .interleaved = InterleavedBatch{ .commitments_groups = commitments.get_groups_to_be_interleaved(),
+                                         .evaluations = sumcheck_output.claimed_evaluations.get_interleaved() }
     };
     const BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(circuit_size,

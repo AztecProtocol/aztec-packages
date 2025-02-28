@@ -24,7 +24,7 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     auto& engine = numeric::get_debug_randomness();
     const size_t mini_circuit_size = 2048;
-    auto full_circuit_size = mini_circuit_size * Flavor::CONCATENATION_GROUP_SIZE;
+    const size_t full_circuit_size = mini_circuit_size * Flavor::INTERLEAVING_GROUP_SIZE;
 
     // We only need gamma, because permutationr elation only uses gamma
     FF gamma = FF::random_element();
@@ -48,13 +48,13 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
         }
     };
 
-    for (const auto& group : prover_polynomials.get_groups_to_be_concatenated()) {
+    for (const auto& group : prover_polynomials.get_groups_to_be_interleaved()) {
         for (auto& poly : group) {
             fill_polynomial_with_random_14_bit_values(poly);
         }
     }
     // Compute concatenated polynomials (4 polynomials produced from other constraint polynomials by concatenation)
-    key.compute_concatenated_polynomials();
+    key.compute_interleaved_polynomials();
 
     // Compute ordered range constraint polynomials that go in the denominator of the grand product polynomial
     key.compute_translator_range_constraint_ordered_polynomials();
@@ -78,7 +78,7 @@ TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     auto& engine = numeric::get_debug_randomness();
     const size_t mini_circuit_size = 2048;
-    const auto circuit_size = Flavor::CONCATENATION_GROUP_SIZE * mini_circuit_size;
+    const size_t circuit_size = Flavor::INTERLEAVING_GROUP_SIZE * mini_circuit_size;
     const auto sort_step = Flavor::SORT_STEP;
     const auto max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
 

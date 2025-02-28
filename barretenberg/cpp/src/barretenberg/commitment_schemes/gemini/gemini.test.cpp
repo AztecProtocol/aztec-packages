@@ -2,7 +2,6 @@
 #include "gemini_impl.hpp"
 
 #include "../commitment_key.test.hpp"
-#include "barretenberg/commitment_schemes/utils/test_utils.hpp"
 
 using namespace bb;
 
@@ -106,8 +105,6 @@ TYPED_TEST(GeminiTest, DoubleWithShift)
 TYPED_TEST(GeminiTest, DoubleWithShiftAndConcatenation)
 {
     auto u = this->random_evaluation_point(this->log_n);
-
-    generate_concatenation_inputs<TypeParam>(u, /*num_concatenated=*/3, /*concatenation_index=*/2, this->ck);
 
     MockClaimGenerator mock_claims(this->n,
                                    /*num_polynomials*/ 2,
