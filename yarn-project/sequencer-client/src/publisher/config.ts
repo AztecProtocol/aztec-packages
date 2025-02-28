@@ -19,11 +19,6 @@ export type TxSenderConfig = L1ReaderConfig & {
   publisherPrivateKey: `0x${string}`;
 
   /**
-   * The number of confirmations required.
-   */
-  requiredConfirmations: number;
-
-  /**
    * The address of the custom forwarder contract.
    */
   customForwarderContractAddress: EthAddress;
@@ -55,12 +50,6 @@ export const getTxSenderConfigMappings: (
     description: 'The private key to be used by the publisher.',
     parseEnv: (val: string) => (val ? `0x${val.replace('0x', '')}` : NULL_KEY),
     defaultValue: NULL_KEY,
-  },
-  requiredConfirmations: {
-    env: `${scope}_REQUIRED_CONFIRMATIONS`,
-    parseEnv: (val: string) => +val,
-    defaultValue: 1,
-    description: 'The number of confirmations required.',
   },
 });
 

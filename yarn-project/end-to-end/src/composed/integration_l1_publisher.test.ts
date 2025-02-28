@@ -200,7 +200,6 @@ describe('L1Publisher integration', () => {
     publisher = new SequencerPublisher(
       {
         l1RpcUrls: config.l1RpcUrls,
-        requiredConfirmations: 1,
         l1Contracts: l1ContractAddresses,
         publisherPrivateKey: sequencerPK,
         l1PublishRetryIntervalMS: 100,
