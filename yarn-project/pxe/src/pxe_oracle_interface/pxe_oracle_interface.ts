@@ -12,6 +12,7 @@ import {
 } from '@aztec/simulator/client';
 import {
   type FunctionArtifact,
+  type FunctionArtifactWithContractName,
   FunctionCall,
   FunctionSelector,
   FunctionType,
@@ -100,7 +101,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     }));
   }
 
-  async getFunctionArtifact(contractAddress: AztecAddress, selector: FunctionSelector): Promise<FunctionArtifact> {
+  async getFunctionArtifact(contractAddress: AztecAddress, selector: FunctionSelector): Promise<FunctionArtifactWithContractName> {
     const artifact = await this.contractDataProvider.getFunctionArtifact(contractAddress, selector);
     const debug = await this.contractDataProvider.getFunctionDebugMetadata(contractAddress, selector);
     return {
@@ -112,7 +113,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   async getFunctionArtifactByName(
     contractAddress: AztecAddress,
     functionName: string,
-  ): Promise<FunctionArtifact | undefined> {
+  ): Promise<FunctionArtifactWithContractName | undefined> {
     const instance = await this.contractDataProvider.getContractInstance(contractAddress);
     const artifact = await this.contractDataProvider.getContractArtifact(instance.currentContractClassId);
     return artifact && getFunctionArtifact(artifact, functionName);

@@ -12,9 +12,7 @@ import { PXEService } from '../../pxe_service/pxe_service.js';
 import { PXE_DATA_SCHEMA_VERSION } from '../../storage/index.js';
 
 /**
- * Create and start an PXEService instance with the given AztecNode.
- * If no keyStore or database is provided, it will use KeyStore and MemoryDB as default values.
- * Returns a Promise that resolves to the started PXEService instance.
+ * Create and start an PXEService instance with the given AztecNode and config.
  *
  * @param aztecNode - The AztecNode instance to be used by the server.
  * @param config - The PXE Service Config to use
@@ -24,6 +22,27 @@ import { PXE_DATA_SCHEMA_VERSION } from '../../storage/index.js';
  */
 export async function createPXEService(
   aztecNode: AztecNode,
+  config: PXEServiceConfig,
+  useLogSuffix: string | boolean | undefined = undefined,
+  proofCreator?: PrivateKernelProver,
+) {
+  const simulationProvider = new WASMSimulator();
+  return createPXEServiceWithSimulationProvider(aztecNode, simulationProvider, config, useLogSuffix, proofCreator);
+}
+
+/**
+ * Create and start an PXEService instance with the given AztecNode, SimulationProvider and config.
+ *
+ * @param aztecNode - The AztecNode instance to be used by the server.
+ * @param simulationProvider - The SimulationProvider to use
+ * @param config - The PXE Service Config to use
+ * @param options - (Optional) Optional information for creating an PXEService.
+ * @param proofCreator - An optional proof creator to use in place of any other configuration
+ * @returns A Promise that resolves to the started PXEService instance.
+ */
+export async function createPXEServiceWithSimulationProvider(
+  aztecNode: AztecNode,
+  simulationProvider: SimulationProvider,
   config: PXEServiceConfig,
   useLogSuffix: string | boolean | undefined = undefined,
   proofCreator?: PrivateKernelProver,
@@ -44,7 +63,6 @@ export async function createPXEService(
     createLogger('pxe:data:lmdb'),
   );
 
-  const simulationProvider = new WASMSimulator();
   const prover = proofCreator ?? (await createProver(config, simulationProvider, logSuffix));
   const protocolContractsProvider = new BundledProtocolContractsProvider();
   const pxe = await PXEService.create(

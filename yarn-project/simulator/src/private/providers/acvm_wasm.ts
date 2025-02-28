@@ -22,25 +22,29 @@ export class WASMSimulator implements SimulationProvider {
     }
   }
 
-  async executeProtocolCircuit(input: WitnessMap, compiledCircuit: NoirCompiledCircuit): Promise<WitnessMap> {
+  async executeProtocolCircuit(
+    input: ACVMWitness,
+    compiledCircuit: NoirCompiledCircuitWithName,
+    callback: ForeignCallHandler,
+  ): Promise<ACVMWitness> {
     this.log.debug('init', { hash: compiledCircuit.hash });
     await this.init();
-    // Execute the circuit on those initial witness values
-    //
+
     // Decode the bytecode from base64 since the acvm does not know about base64 encoding
     const decodedBytecode = Buffer.from(compiledCircuit.bytecode, 'base64');
     //
     // Execute the circuit
     try {
-      const _witnessMap = await executeCircuit(
+      const result = await executeCircuit(
         decodedBytecode,
         input,
-        foreignCallHandler, // handle calls to debug_log
+        callback, // handle calls to debug_log
       );
       this.log.debug('execution successful', { hash: compiledCircuit.hash });
-      return _witnessMap;
+      return result;
     } catch (err) {
-      // Typescript types catched errors as unknown or any, so we need to narrow its type to check if it has raw assertion payload.
+      // Typescript types caught errors as unknown or any, so we need to narrow its type to check if it has raw
+      // assertion payload.
       if (typeof err === 'object' && err !== null && 'rawAssertionPayload' in err) {
         const parsed = enrichNoirError(compiledCircuit, err as ExecutionError);
         this.log.debug('execution failed', {
@@ -55,8 +59,12 @@ export class WASMSimulator implements SimulationProvider {
     }
   }
 
-  async executeUserCircuit(acir: Buffer, initialWitness: ACVMWitness, callback: ACIRCallback) {
+  async executeUserCircuit(
+    input: ACVMWitness,
+    artifact: FunctionArtifactWithContractName,
+    callback: ACIRCallback,
+  ): Promise<ACIRExecutionResult> {
     await this.init();
-    return acvm(acir, initialWitness, callback);
+    return acvm(artifact.bytecode, input, callback);
   }
 }

@@ -11,7 +11,6 @@ import { sleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import {
   type ServerProtocolArtifact,
-  SimulatedServerCircuitArtifacts,
   convertBaseParityInputsToWitnessMap,
   convertBaseParityOutputsFromWitnessMap,
   convertBlockMergeRollupInputsToWitnessMap,
@@ -32,6 +31,8 @@ import {
   convertSimulatedPublicBaseRollupOutputsFromWitnessMap,
   convertSimulatedSingleTxBlockRootRollupInputsToWitnessMap,
   convertSimulatedSingleTxBlockRootRollupOutputsFromWitnessMap,
+  foreignCallHandler,
+  getSimulatedServerCircuitArtifact,
 } from '@aztec/noir-protocol-circuits-types/server';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
 import type { WitnessMap } from '@aztec/noir-types';
@@ -350,12 +351,13 @@ export class TestCircuitProver implements ServerCircuitProver {
     let simulationProvider = this.simulationProvider ?? this.wasmSimulator;
     if (['BlockRootRollupArtifact', 'SingleTxBlockRootRollupArtifact'].includes(artifactName)) {
       // TODO(#10323): temporarily force block root to use wasm while we simulate
-      // the blob operations with an oracle. Appears to be no way to provide nativeACVM with a foreign call hander.
+      // the blob operations with an oracle. Appears to be no way to provide nativeACVM with a foreign call handler.
       simulationProvider = this.wasmSimulator;
     }
     const witness = await simulationProvider.executeProtocolCircuit(
       witnessMap,
-      SimulatedServerCircuitArtifacts[artifactName],
+      getSimulatedServerCircuitArtifact(artifactName),
+      foreignCallHandler,
     );
 
     const result = convertOutput(witness);
