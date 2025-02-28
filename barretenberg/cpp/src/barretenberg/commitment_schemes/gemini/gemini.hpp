@@ -122,18 +122,20 @@ template <typename Curve> class GeminiProver_ {
         Polynomial random_polynomial; // random polynomial used for ZK
         bool has_random_polynomial = false;
 
-        RefVector<Polynomial> unshifted;            // set of unshifted polynomials
-        RefVector<Polynomial> to_be_shifted_by_one; // set of polynomials to be left shifted by 1
-        RefVector<Polynomial> to_be_shifted_by_k;   // set of polynomials to be right shifted by k
-        RefVector<Polynomial> interleaved_polynomials;
-        std::vector<RefVector<Polynomial>> groups_to_be_interleaved;
+        RefVector<Polynomial> unshifted;                             // set of unshifted polynomials
+        RefVector<Polynomial> to_be_shifted_by_one;                  // set of polynomials to be left shifted by 1
+        RefVector<Polynomial> to_be_shifted_by_k;                    // set of polynomials to be right shifted by k
+        RefVector<Polynomial> interleaved;                           // the interleaved polynomials used in Translator
+        std::vector<RefVector<Polynomial>> groups_to_be_interleaved; // groups of polynomials to be interleaved
 
         size_t k_shift_magnitude = 0; // magnitude of right-shift-by-k (assumed even)
 
         Polynomial batched_unshifted;            // linear combination of unshifted polynomials
         Polynomial batched_to_be_shifted_by_one; // linear combination of to-be-shifted polynomials
         Polynomial batched_to_be_shifted_by_k;   // linear combination of to-be-shifted-by-k polynomials
-        Polynomial batched_interleaved;
+        Polynomial batched_interleaved;          // linear combination of interleaved polynomials
+        // linear combination of the groups to be interleaved where polynomial i in the batched group is obtained by
+        // linearly combining the i-th polynomial in each group
         std::vector<Polynomial> batched_group;
 
       public:
@@ -146,7 +148,7 @@ template <typename Curve> class GeminiProver_ {
         bool has_unshifted() const { return unshifted.size() > 0; }
         bool has_to_be_shifted_by_one() const { return to_be_shifted_by_one.size() > 0; }
         bool has_to_be_shifted_by_k() const { return to_be_shifted_by_k.size() > 0; }
-        bool has_interleaved() const { return interleaved_polynomials.size() > 0; }
+        bool has_interleaved() const { return interleaved.size() > 0; }
 
         // Set references to the polynomials to be batched
         void set_unshifted(RefVector<Polynomial> polynomials) { unshifted = polynomials; }
@@ -165,9 +167,13 @@ template <typename Curve> class GeminiProver_ {
             random_polynomial = random;
         }
 
-        void set_interleaved(RefVector<Polynomial> interleaved, std::vector<RefVector<Polynomial>> groups)
+        void set_interleaved(RefVector<Polynomial> results, std::vector<RefVector<Polynomial>> groups)
         {
-            interleaved_polynomials = interleaved;
+            // Ensure the Gemini subprotocol for interleaved polynomials operates correctly
+            if (groups[0].size() % 2 != 0) {
+                throw_or_abort("Group size must be even ");
+            }
+            interleaved = results;
             groups_to_be_interleaved = groups;
         }
 
@@ -221,7 +227,7 @@ template <typename Curve> class GeminiProver_ {
                     batched_group.push_back(Polynomial(full_batched_size));
                 }
                 for (size_t i = 0; i < groups_to_be_interleaved.size(); ++i) {
-                    batched_interleaved.add_scaled(interleaved_polynomials[i], running_scalar);
+                    batched_interleaved.add_scaled(interleaved[i], running_scalar);
                     for (size_t j = 0; j < groups_to_be_interleaved[0].size(); ++j) {
                         batched_group[j].add_scaled(groups_to_be_interleaved[i][j], running_scalar);
                     }
@@ -270,6 +276,10 @@ template <typename Curve> class GeminiProver_ {
 
             return { A_0_pos, A_0_neg };
         };
+        /**
+         * @brief
+         *
+         */
 
         std::pair<Polynomial, Polynomial> compute_partially_evaluated_interleaved_polynomial(const Fr& r_challenge)
         {
@@ -374,13 +384,6 @@ template <typename Curve> class GeminiVerifier_ {
 
         // Get evaluations a_i, i = 0,...,m-1 from transcript
         std::vector<Fr> evaluations = get_gemini_evaluations(transcript);
-        Fr p_0_neg = Fr(0);
-        Fr p_0_pos = Fr(0);
-        if (has_interleaved) {
-            p_0_pos = transcript->template receive_from_prover<Fr>("Gemini:P_0_pos");
-            p_0_neg = transcript->template receive_from_prover<Fr>("Gemini:P_0_neg");
-            evaluations[0] += p_0_neg; // A₀(-r) = A₀₋(-r) + P(r^{group_size})
-        }
 
         // C₀_r_pos = ∑ⱼ ρʲ⋅[fⱼ] + r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ], the commitment to A₀₊
         // C₀_r_neg = ∑ⱼ ρʲ⋅[fⱼ] - r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ], the commitment to  A₀₋
@@ -394,14 +397,12 @@ template <typename Curve> class GeminiVerifier_ {
             C0_r_neg -= batched_commitment_to_be_shifted;
         }
 
-        // If verifying the opening for the translator VM, we reconstruct the commitment of the batched concatenated
-        // polynomials, partially evaluated in r and -r, using the commitments in the concatenation groups and add their
-        // contribution as well to to C₀_r_pos and C₀_r_neg
+        // If verifying the opening for the translator VM, we reconstruct the commitment of the batched interleaved
+        // polynomials, "partially evaluated" in r and -r, using the commitments in the interleaved groups
         GroupElement C_P_pos = GroupElement::zero();
         GroupElement C_P_neg = GroupElement::zero();
         if (has_interleaved) {
             size_t interleaved_group_size = claim_batcher.get_groups_to_be_interleaved_size();
-            // The "real" size of polynomials in concatenation groups (i.e. the number of non-zero values)
             Fr current_r_shift_pos = Fr(1);
             Fr current_r_shift_neg = Fr(1);
             std::vector<Fr> r_shifts_pos;
@@ -415,7 +416,8 @@ template <typename Curve> class GeminiVerifier_ {
 
             for (auto [group_commitments, interleaved_evaluation] : zip_view(
                      claim_batcher.get_interleaved().commitments_groups, claim_batcher.get_interleaved().evaluations)) {
-                // Compute the contribution from each group j of commitments Gⱼ = {C₀, C₁, C₂, C₃, ...}
+                // Compute the contribution from each group j of commitments Gⱼ = {C₀, C₁, C₂, C₃, ..., Cₛ₋₁} where s is
+                // assumed even
                 // C_P_pos += ∑ᵢ ρᵏ⁺ᵐ⁺ʲ⋅ rⁱ ⋅ Cᵢ
                 // C_P_neg += ∑ᵢ ρᵏ⁺ᵐ⁺ʲ⋅ (-r)ⁱ ⋅ Cᵢ
                 for (size_t i = 0; i < interleaved_group_size; ++i) {
@@ -425,20 +427,27 @@ template <typename Curve> class GeminiVerifier_ {
                 batched_evaluation += interleaved_evaluation * batching_scalar;
                 batching_scalar *= rho;
             }
-
-            // Add the contributions from concatenation groups to get the final [A₀₊] and  [A₀₋]
         }
 
-        // Compute evaluation A₀(r) = A₀₊(r) + P₊(r^{group_size})
+        Fr p_neg = Fr(0);
+        Fr p_pos = Fr(0);
+        if (has_interleaved) {
+            p_pos = transcript->template receive_from_prover<Fr>("Gemini:P_0_pos");
+            p_neg = transcript->template receive_from_prover<Fr>("Gemini:P_0_neg");
+            // Complete the evaluation of A₀(-r) = A₀₋(-r) + P((-r)^s)
+            evaluations[0] += p_neg;
+        }
+
+        // Compute the full of evaluation A₀(r) = A₀₊(r) + P₊(r^s)
         Fr full_a_0_pos = compute_gemini_batched_univariate_evaluation(
             num_variables, batched_evaluation, multilinear_challenge, r_squares, evaluations);
         std::vector<OpeningClaim<Curve>> fold_polynomial_opening_claims;
         fold_polynomial_opening_claims.reserve(num_variables + 1);
 
         // ( [A₀₊], r, A₀₊(r) )
-        fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { r, full_a_0_pos - p_0_pos }, C0_r_pos });
+        fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { r, full_a_0_pos - p_pos }, C0_r_pos });
         // ( [A₀₋], -r, A₀(-r) )
-        fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { -r, evaluations[0] - p_0_neg }, C0_r_neg });
+        fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { -r, evaluations[0] - p_neg }, C0_r_neg });
         for (size_t l = 0; l < num_variables - 1; ++l) {
             // ([A₀₋], −r^{2ˡ}, Aₗ(−r^{2ˡ}) )
             fold_polynomial_opening_claims.emplace_back(
@@ -447,8 +456,8 @@ template <typename Curve> class GeminiVerifier_ {
         if (has_interleaved) {
             size_t interleaved_group_size = claim_batcher.get_groups_to_be_interleaved_size();
             Fr r_pow = r.pow(interleaved_group_size);
-            fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { r_pow, p_0_pos }, C_P_pos });
-            fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { r_pow, p_0_neg }, C_P_neg });
+            fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { r_pow, p_pos }, C_P_pos });
+            fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { r_pow, p_neg }, C_P_neg });
         }
 
         return fold_polynomial_opening_claims;
@@ -480,14 +489,12 @@ template <typename Curve> class GeminiVerifier_ {
     /**
      * @brief Compute the expected evaluation of the univariate commitment to the batched polynomial.
      *
-     * Compute the evaluation \f$ A_0(r) = \sum \rho^i \cdot f_i + \frac{1}{r} \cdot \sum \rho^{i+k} g_i \f$, where \f$
-     * k \f$ is the number of "unshifted" commitments.
+     * Compute the evaluation \f$ A_0(r) = \sum \rho^i \cdot f_i + \frac{1}{r} \cdot \sum \rho^{i+k} g_i \f$, where
+     * \f$ k \f$ is the number of "unshifted" commitments.
      *
-     * @details Initialize \f$ A_{d}(r) \f$ with the batched evaluation \f$ \sum \rho^i f_i(\vec{u}) + \sum \rho^{i+k}
-     * g_i(\vec{u}) \f$. The folding property ensures that
-     * \f{align}{
-     * A_\ell\left(r^{2^\ell}\right) = (1 - u_{\ell-1}) \cdot \frac{A_{\ell-1}\left(r^{2^{\ell-1}}\right) +
-     * A_{\ell-1}\left(-r^{2^{\ell-1}}\right)}{2}
+     * @details Initialize \f$ A_{d}(r) \f$ with the batched evaluation \f$ \sum \rho^i f_i(\vec{u}) + \sum
+     * \rho^{i+k} g_i(\vec{u}) \f$. The folding property ensures that \f{align}{ A_\ell\left(r^{2^\ell}\right) = (1
+     * - u_{\ell-1}) \cdot \frac{A_{\ell-1}\left(r^{2^{\ell-1}}\right) + A_{\ell-1}\left(-r^{2^{\ell-1}}\right)}{2}
      * + u_{\ell-1} \cdot \frac{A_{\ell-1}\left(r^{2^{\ell-1}}\right) -
      * A_{\ell-1}\left(-r^{2^{\ell-1}}\right)}{2r^{2^{\ell-1}}}
      * \f}

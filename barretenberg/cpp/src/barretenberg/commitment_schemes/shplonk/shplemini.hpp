@@ -237,11 +237,13 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // - Get evaluations (A₀(−r), A₁(−r²), ... , Aₙ₋₁(−r²⁽ⁿ⁻¹⁾))
         std::vector<Fr> gemini_evaluations = GeminiVerifier::get_gemini_evaluations(transcript);
-        Fr p_0_pos = Fr(0);
-        Fr p_0_neg = Fr(0);
+
+        // Get evaluations of partially evaluated batched interleaved polynomials P₊(rˢ) and P₋((-r)ˢ)
+        Fr p_pos = Fr(0);
+        Fr p_neg = Fr(0);
         if (claim_batcher.interleaved) {
-            p_0_pos = transcript->template receive_from_prover<Fr>("Gemini:P_pos");
-            p_0_neg = transcript->template receive_from_prover<Fr>("Gemini:P_neg");
+            p_pos = transcript->template receive_from_prover<Fr>("Gemini:P_pos");
+            p_neg = transcript->template receive_from_prover<Fr>("Gemini:P_neg");
         }
 
         // - Compute vector (r, r², ... , r²⁽ⁿ⁻¹⁾), where n = log_circuit_size
@@ -285,6 +287,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         // These represent the denominators of the summand terms in Shplonk partially evaluated polynomial Q_z
         std::vector<Fr> inverse_vanishing_evals = ShplonkVerifier::compute_inverted_gemini_denominators(
             log_circuit_size + 1, shplonk_evaluation_challenge, gemini_eval_challenge_powers);
+        // Compute the Shplonk denominator for the interleaved opening claims 1/(z − r^s) where s is the group size
         const Fr interleaving_vanishing_eval =
             (shplonk_evaluation_challenge -
              gemini_evaluation_challenge.pow(claim_batcher.get_groups_to_be_interleaved_size()))
@@ -306,8 +309,8 @@ template <typename Curve> class ShpleminiVerifier_ {
         // Place the commitments to prover polynomials in the commitments vector. Compute the evaluation of the
         // batched multilinear polynomial. Populate the vector of scalars for the final batch mul
 
-        // Place the commitments to Gemini Aᵢ to the vector of commitments, compute the contributions from
-        // Aᵢ(−r²ⁱ) for i=1, … , n−1 to the constant term accumulator, add corresponding scalars
+        // Place the commitments to Gemini fold polynomials Aᵢ to the vector of commitments, compute the contributions
+        // from Aᵢ(−r²ⁱ) for i=1, … , n−1 to the constant term accumulator, add corresponding scalars
         batch_gemini_claims_received_from_prover(log_circuit_size,
                                                  fold_commitments,
                                                  gemini_evaluations,
@@ -323,6 +326,8 @@ template <typename Curve> class ShpleminiVerifier_ {
             gemini_batching_challenge_power *= gemini_batching_challenge;
         }
 
+        // Compute the Shplonk batching power for the interleaved claims. This is \nu^{n+1} where n is the
+        // log_circuit_size as the interleaved claims are sent after the rest of Gemini fold claims
         Fr shplonk_batching_pos = shplonk_batching_challenge.pow(log_circuit_size + 1);
         Fr shplonk_batching_neg = shplonk_batching_pos * shplonk_batching_challenge;
         claim_batcher.update_batch_mul_inputs_and_batched_evaluation(commitments,
@@ -332,11 +337,11 @@ template <typename Curve> class ShpleminiVerifier_ {
                                                                      gemini_batching_challenge_power,
                                                                      shplonk_batching_pos,
                                                                      shplonk_batching_neg);
-        constant_term_accumulator += p_0_pos * interleaving_vanishing_eval * shplonk_batching_pos +
-                                     p_0_neg * interleaving_vanishing_eval * shplonk_batching_neg;
 
-        gemini_evaluations[0] += p_0_neg;
-        // Add contributions from A₀(r) and A₀(-r) to constant_term_accumulator:
+        constant_term_accumulator += p_pos * interleaving_vanishing_eval * shplonk_batching_pos +
+                                     p_neg * interleaving_vanishing_eval * shplonk_batching_neg;
+
+        gemini_evaluations[0] += p_neg;
         // - Compute A₀(r)
         const Fr full_a_0_pos =
             GeminiVerifier_<Curve>::compute_gemini_batched_univariate_evaluation(log_circuit_size,
@@ -344,8 +349,9 @@ template <typename Curve> class ShpleminiVerifier_ {
                                                                                  multivariate_challenge,
                                                                                  gemini_eval_challenge_powers,
                                                                                  gemini_evaluations);
-        Fr a_0_pos = full_a_0_pos - p_0_pos;
-        gemini_evaluations[0] -= p_0_neg;
+        Fr a_0_pos = full_a_0_pos - p_pos;
+        gemini_evaluations[0] -= p_neg;
+        // Add contributions from A₀(r) and A₀(-r) to constant_term_accumulator:
         // - Add A₀(r)/(z−r) to the constant term accumulator
         constant_term_accumulator += a_0_pos * inverse_vanishing_evals[0];
         // Add A₀(−r)/(z+r) to the constant term accumulator
