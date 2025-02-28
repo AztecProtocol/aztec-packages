@@ -37,7 +37,14 @@ DOCKER_CONFIG="/etc/docker/daemon.json"
 if [ -f "$DOCKER_CONFIG" ]; then
   jq '."log-driver" = "json-file" | ."log-opts" += {"max-size": "10m", "max-file": "5"}' "$DOCKER_CONFIG" > /tmp/daemon.json && sudo mv /tmp/daemon.json "$DOCKER_CONFIG"
 else
-    echo "$LOG_CONFIG" | sudo tee "$DOCKER_CONFIG" > /dev/null
+  LOG_CONFIG='{
+    "log-driver": "json-file",
+    "log-opts": {
+      "max-size": "10m",
+      "max-file": "5"
+    }
+  }'
+  echo "$LOG_CONFIG" | sudo tee "$DOCKER_CONFIG" > /dev/null
 fi
 
 # Restart docker for changes to take effect
