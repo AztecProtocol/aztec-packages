@@ -19,6 +19,7 @@ import type { KeyStore } from '@aztec/key-store';
 import { ContractDataOracle, SimulatorOracle, enrichPublicSimulationError } from '@aztec/pxe';
 import {
   ExecutionNoteCache,
+  type HashedValuesCache,
   type MessageLoadOracleInputs,
   type NoteData,
   Oracle,
@@ -31,7 +32,6 @@ import {
   toACVMWitness,
   witnessMapToFields,
 } from '@aztec/simulator/client';
-import { type HashedValuesCache } from '@aztec/simulator/client';
 import { createTxForPublicCalls } from '@aztec/simulator/public/fixtures';
 import {
   ExecutionError,
