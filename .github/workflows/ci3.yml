@@ -41,7 +41,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
+          # The commit to checkout. We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Fail If Draft
@@ -120,22 +120,22 @@ jobs:
           alert-comment-cc-users: "@philwindle @spalladino"
           max-items-in-chart: 50
 
-      - name: Store p2p benchmark result
-        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
-        continue-on-error: true
-        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
-        with:
-          name: "P2P Testbench"
-          tool: "customSmallerIsBetter"
-          benchmark-data-dir-path: "dev/p2p-bench"
-          output-file-path: ./bench-out/p2p-bench.json
-          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          auto-push: true
-          alert-threshold: "105%"
-          comment-on-alert: true
-          fail-on-alert: false
-          alert-comment-cc-users: "@Maddiaa0"
-          max-items-in-chart: 50
+      # - name: Store p2p benchmark result
+      #   if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
+      #   continue-on-error: true
+      #   uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+      #   with:
+      #     name: "P2P Testbench"
+      #     tool: "customSmallerIsBetter"
+      #     benchmark-data-dir-path: "dev/p2p-bench"
+      #     output-file-path: ./bench-out/p2p-bench.json
+      #     github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+      #     auto-push: true
+      #     alert-threshold: "105%"
+      #     comment-on-alert: true
+      #     fail-on-alert: false
+      #     alert-comment-cc-users: "@Maddiaa0"
+      #     max-items-in-chart: 50
 
   ci-grind:
     runs-on: ubuntu-latest

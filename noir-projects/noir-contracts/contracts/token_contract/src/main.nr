@@ -422,8 +422,7 @@ pub contract Token {
     /// Returns a hiding point slot.
     #[private]
     fn prepare_private_balance_increase(to: AztecAddress, from: AztecAddress) -> Field {
-        // TODO(#9887): ideally we'd not have `from` here, but we do need a `from` address to produce a tagging secret
-        // with `to`.
+        // ideally we'd not have `from` here, but we do need a `from` address to produce a tagging secret with `to`.
         _prepare_private_balance_increase(from, to, &mut context, storage)
     }
     // docs:end:prepare_private_balance_increase
@@ -435,7 +434,7 @@ pub contract Token {
     /// function.
     #[contract_library_method]
     fn _prepare_private_balance_increase(
-        from: AztecAddress, // sender of the tag: TODO(#9887): this is not great?
+        from: AztecAddress, // sender of the tag
         to: AztecAddress,
         context: &mut PrivateContext,
         storage: Storage<&mut PrivateContext>,
@@ -534,7 +533,7 @@ pub contract Token {
     /// in the enqueued call).
     #[private]
     fn mint_to_private(
-        from: AztecAddress, // sender of the tag: TODO(#9887): this is not great?
+        from: AztecAddress, // sender of the tag
         to: AztecAddress,
         amount: u128,
     ) {

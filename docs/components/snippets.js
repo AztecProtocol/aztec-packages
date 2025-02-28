@@ -1,5 +1,13 @@
 import React from "react";
 
+export const Why_Fees = () => (
+  <p>
+    Fees are an integral part of any protocol's design. Proper fee pricing
+    contributes to the longevity and security of a network, and the fee payment
+    mechanisms available inform the types of applications that can be built.
+  </p>
+);
+
 export const CLI_Fees = () => (
   <p>
     The CLI tool <code>aztec-wallet</code> takes the fee payment method via the

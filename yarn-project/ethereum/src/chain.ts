@@ -19,9 +19,9 @@ export interface EthereumChain {
 }
 
 /**
- * Helper function to create an instance of Aztec Chain from an rpc url and api key.
- * @param rpcUrls - List of RPC URLs of the chain or chain identifiers (e.g. 'testnet')
- * @param _chainId - An optional chain identifier (e.g. 'testnet')
+ * Helper function to create an instance of Aztec Chain from an rpc url and chain id.
+ * @param rpcUrls - The rpc url of the chain or a chain identifier (e.g. 'http://localhost:8545')
+ * @param chainId - The chain id of the chain or a chain identifier (e.g. 1337)
  */
 export function createEthereumChain(rpcUrls: string[], _chainId: number | string): EthereumChain {
   let chainId: number;

@@ -435,7 +435,7 @@ export async function generateAvmProofV2(
 export async function generateAvmProof(
   pathToBB: string,
   workingDirectory: string,
-  input: AvmCircuitInputs,
+  _input: AvmCircuitInputs,
   logger: Logger,
   checkCircuitOnly: boolean = false,
 ): Promise<BBFailure | BBSuccess> {
@@ -467,15 +467,16 @@ export async function generateAvmProof(
   try {
     // Write the inputs to the working directory.
 
-    await fs.writeFile(publicInputsPath, input.publicInputs.toBuffer());
-    if (!(await filePresent(publicInputsPath))) {
-      return { status: BB_RESULT.FAILURE, reason: `Could not write publicInputs at ${publicInputsPath}` };
-    }
+    // WARNING: Not writing the inputs since VM1 is disabled!
+    // await fs.writeFile(publicInputsPath, input.publicInputs.toBuffer());
+    // if (!(await filePresent(publicInputsPath))) {
+    //   return { status: BB_RESULT.FAILURE, reason: `Could not write publicInputs at ${publicInputsPath}` };
+    // }
 
-    await fs.writeFile(avmHintsPath, input.avmHints.toBuffer());
-    if (!(await filePresent(avmHintsPath))) {
-      return { status: BB_RESULT.FAILURE, reason: `Could not write avmHints at ${avmHintsPath}` };
-    }
+    // await fs.writeFile(avmHintsPath, input.avmHints.toBuffer());
+    // if (!(await filePresent(avmHintsPath))) {
+    //   return { status: BB_RESULT.FAILURE, reason: `Could not write avmHints at ${avmHintsPath}` };
+    // }
 
     const args = ['--avm-public-inputs', publicInputsPath, '--avm-hints', avmHintsPath, '-o', outputPath];
     const loggingArg =
@@ -779,8 +780,8 @@ export async function computeGateCountForCircuit(
 
     const result = await executeBB(
       pathToBB,
-      flavor === 'mega_honk' ? `gates_for_ivc` : `gates`,
-      ['-b', bytecodePath, '-v'],
+      'gates',
+      ['--scheme', flavor === 'mega_honk' ? 'client_ivc' : 'ultra_honk', '-b', bytecodePath, '-v'],
       logHandler,
     );
     const duration = timer.ms();

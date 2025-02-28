@@ -67,9 +67,6 @@
       "path": "../p2p-bootstrap"
     },
     {
-      "path": "../proof-verifier"
-    },
-    {
       "path": "../protocol-contracts"
     },
     {
