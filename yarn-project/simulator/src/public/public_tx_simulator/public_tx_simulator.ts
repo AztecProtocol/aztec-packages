@@ -20,12 +20,12 @@ import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trac
 
 import { strict as assert } from 'assert';
 
-import { getPublicFunctionDebugName } from '../common/debug_fn_name.js';
-import type { AvmFinalizedCallResult } from './avm/avm_contract_call_result.js';
-import { type AvmPersistableStateManager, AvmSimulator } from './avm/index.js';
-import { NullifierCollisionError } from './avm/journal/nullifiers.js';
-import { ExecutorMetrics } from './executor_metrics.js';
-import type { WorldStateDB } from './public_db_sources.js';
+import { getPublicFunctionDebugName } from '../../common/debug_fn_name.js';
+import type { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
+import { type AvmPersistableStateManager, AvmSimulator } from '../avm/index.js';
+import { NullifierCollisionError } from '../avm/journal/nullifiers.js';
+import { ExecutorMetrics } from '../executor_metrics.js';
+import type { WorldStateDB } from '../public_db_sources.js';
 import { PublicTxContext } from './public_tx_context.js';
 
 export type ProcessedPhase = {

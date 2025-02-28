@@ -2,12 +2,11 @@ import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { type ContractArtifact, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import {
-  type ContractClassPublic,
-  type ContractDataSource,
-  type ContractInstanceWithAddress,
-  type PublicFunction,
-  computePublicBytecodeCommitment,
+import type {
+  ContractClassPublic,
+  ContractDataSource,
+  ContractInstanceWithAddress,
+  PublicFunction,
 } from '@aztec/stdlib/contract';
 
 import { PUBLIC_DISPATCH_FN_NAME } from './index.js';
@@ -63,9 +62,8 @@ export class SimpleContractDataSource implements ContractDataSource {
     return Promise.resolve(this.contractClasses.get(id.toString()));
   }
 
-  async getBytecodeCommitment(id: Fr): Promise<Fr | undefined> {
-    const contractClass = await this.getContractClass(id);
-    return Promise.resolve(computePublicBytecodeCommitment(contractClass!.packedBytecode));
+  getBytecodeCommitment(_id: Fr): Promise<Fr | undefined> {
+    return Promise.resolve(undefined);
   }
 
   getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {

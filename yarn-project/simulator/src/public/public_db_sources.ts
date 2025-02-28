@@ -189,11 +189,9 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
     // Try and retrieve from cache
     const key = contractClassId.toString();
     const result = this.bytecodeCommitmentCache.get(key);
-
     if (result !== undefined) {
       return result;
     }
-
     // Now try from the store
     const fromStore = await this.dataSource.getBytecodeCommitment(contractClassId);
     if (fromStore !== undefined) {
@@ -201,11 +199,12 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
       return fromStore;
     }
 
-    // Not in either the store or the caches, build it here and cache
+    // Not in either the store or the cache, build it here and cache
     const contractClass = await this.getContractClass(contractClassId);
     if (contractClass === undefined) {
       return undefined;
     }
+
     const value = await computePublicBytecodeCommitment(contractClass.packedBytecode);
     this.bytecodeCommitmentCache.set(key, value);
     return value;

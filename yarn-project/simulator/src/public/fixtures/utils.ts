@@ -17,6 +17,7 @@ import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import {
   PartialPrivateTailPublicInputsForPublic,
+  PartialPrivateTailPublicInputsForRollup,
   PrivateKernelTailCircuitPublicInputs,
   RollupValidationRequests,
   ScopedLogHash,
@@ -90,6 +91,28 @@ export async function createTxForPublicCalls(
   return tx;
 }
 
+export function createTxForPrivateOnly(feePayer = AztecAddress.zero(), gasUsedByPrivate: Gas = new Gas(10, 10)): Tx {
+  // use max limits
+  const gasLimits = new Gas(DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_TX_PUBLIC_PORTION);
+
+  const forRollup = PartialPrivateTailPublicInputsForRollup.empty();
+
+  const maxFeesPerGas = feePayer.isZero() ? GasFees.empty() : new GasFees(10, 10);
+  const gasSettings = new GasSettings(gasLimits, Gas.empty(), maxFeesPerGas, GasFees.empty());
+  const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);
+  const constantData = new TxConstantData(BlockHeader.empty(), txContext, Fr.zero(), Fr.zero());
+
+  const txData = new PrivateKernelTailCircuitPublicInputs(
+    constantData,
+    RollupValidationRequests.empty(),
+    /*gasUsed=*/ gasUsedByPrivate,
+    feePayer,
+    /*forPublic=*/ undefined,
+    forRollup,
+  );
+  return Tx.newWithTxData(txData);
+}
+
 export async function addNewContractClassToTx(
   tx: Tx,
   contractClass: ContractClassPublic,
@@ -116,13 +139,14 @@ export async function addNewContractClassToTx(
     new Fr(REGISTERER_CONTRACT_ADDRESS),
   ]);
 
+  const accumulatedData = tx.data.forPublic ? tx.data.forPublic!.revertibleAccumulatedData : tx.data.forRollup!.end;
   if (!skipNullifierInsertion) {
-    const nextNullifierIndex = countAccumulatedItems(tx.data.forPublic!.revertibleAccumulatedData.nullifiers);
-    tx.data.forPublic!.revertibleAccumulatedData.nullifiers[nextNullifierIndex] = contractClass.id;
+    const nextNullifierIndex = countAccumulatedItems(accumulatedData.nullifiers);
+    accumulatedData.nullifiers[nextNullifierIndex] = contractClass.id;
   }
 
-  const nextLogIndex = countAccumulatedItems(tx.data.forPublic!.revertibleAccumulatedData.contractClassLogsHashes);
-  tx.data.forPublic!.revertibleAccumulatedData.contractClassLogsHashes[nextLogIndex] = contractClassLogHash;
+  const nextLogIndex = countAccumulatedItems(accumulatedData.contractClassLogsHashes);
+  accumulatedData.contractClassLogsHashes[nextLogIndex] = contractClassLogHash;
 
   tx.contractClassLogs.push(contractClassLog);
 }
@@ -164,11 +188,12 @@ export async function addNewContractInstanceToTx(
     contractInstance.address.toField(),
   );
 
+  const accumulatedData = tx.data.forPublic ? tx.data.forPublic!.revertibleAccumulatedData : tx.data.forRollup!.end;
   if (!skipNullifierInsertion) {
-    const nextNullifierIndex = countAccumulatedItems(tx.data.forPublic!.revertibleAccumulatedData.nullifiers);
-    tx.data.forPublic!.revertibleAccumulatedData.nullifiers[nextNullifierIndex] = contractAddressNullifier;
+    const nextNullifierIndex = countAccumulatedItems(accumulatedData.nullifiers);
+    accumulatedData.nullifiers[nextNullifierIndex] = contractAddressNullifier;
   }
 
-  const nextLogIndex = countAccumulatedItems(tx.data.forPublic!.revertibleAccumulatedData.privateLogs);
-  tx.data.forPublic!.revertibleAccumulatedData.privateLogs[nextLogIndex] = contractInstanceLog;
+  const nextLogIndex = countAccumulatedItems(accumulatedData.privateLogs);
+  accumulatedData.privateLogs[nextLogIndex] = contractInstanceLog;
 }

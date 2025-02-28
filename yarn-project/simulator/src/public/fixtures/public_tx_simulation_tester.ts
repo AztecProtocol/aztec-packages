@@ -12,7 +12,7 @@ import { BaseAvmSimulationTester } from '../avm/fixtures/base_avm_simulation_tes
 import { getContractFunctionArtifact, getFunctionSelector } from '../avm/fixtures/index.js';
 import { SimpleContractDataSource } from '../avm/fixtures/simple_contract_data_source.js';
 import { WorldStateDB } from '../public_db_sources.js';
-import { type PublicTxResult, PublicTxSimulator } from '../public_tx_simulator.js';
+import { type PublicTxResult, PublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
 import { createTxForPublicCalls } from './index.js';
 
 const TIMESTAMP = new Fr(99833);

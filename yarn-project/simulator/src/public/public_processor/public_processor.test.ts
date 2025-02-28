@@ -15,9 +15,9 @@ import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import type { WorldStateDB } from './public_db_sources.js';
+import { WorldStateDB } from '../public_db_sources.js';
+import type { PublicTxResult, PublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
 import { PublicProcessor } from './public_processor.js';
-import type { PublicTxResult, PublicTxSimulator } from './public_tx_simulator.js';
 
 describe('public_processor', () => {
   let db: MockProxy<MerkleTreeWriteOperations>;
