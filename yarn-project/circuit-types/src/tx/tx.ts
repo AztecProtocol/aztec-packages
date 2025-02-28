@@ -329,3 +329,23 @@ type HasHash = { /** The tx hash */ hash: TxHash };
 function hasHash(tx: Tx | HasHash): tx is HasHash {
   return (tx as HasHash).hash !== undefined;
 }
+
+export class TxRes {
+    constructor(
+      public readonly txs: Tx[] = [],
+    ) { }
+
+    public static fromBuffer(buffer: Uint8Array | BufferReader) : TxRes {
+      const reader = BufferReader.asReader(buffer);
+      const txs: Tx[] = [];
+      while (!reader.isEmpty()) {
+        txs.push(reader.readObject(Tx));
+      }
+
+      return new TxRes(txs);
+    }
+
+    public static toBuffer(txRes: TxRes) {
+      return Buffer.concat(txRes.txs.map(tx => tx.toBuffer()));
+    }
+}

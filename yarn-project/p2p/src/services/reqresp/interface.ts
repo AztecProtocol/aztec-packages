@@ -1,4 +1,4 @@
-import { L2Block, Tx, TxHash } from '@aztec/circuit-types';
+import { L2Block, Tx, TxHash, TxReq, TxRes } from '@aztec/circuit-types';
 import { Fr } from '@aztec/foundation/fields';
 
 import { type PeerId } from '@libp2p/interface';
@@ -170,8 +170,8 @@ export const subProtocolMap: SubProtocolMap = {
     response: RequestableBuffer,
   },
   [ReqRespSubProtocol.TX]: {
-    request: TxHash,
-    response: Tx,
+    request: TxReq,
+    response: TxRes,
   },
   [ReqRespSubProtocol.GOODBYE]: {
     request: RequestableBuffer,

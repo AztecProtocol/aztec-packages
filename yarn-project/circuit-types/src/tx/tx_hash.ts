@@ -64,3 +64,27 @@ export class TxHash {
     return Fr.SIZE_IN_BYTES;
   }
 }
+
+export class TxReq {
+  constructor(
+    public readonly txHashes: TxHash[] = [],
+  ) { }
+
+  public toBuffer() {
+    return Buffer.concat(this.txHashes.map(txHash => txHash.toBuffer()));
+  }
+
+  public static fromBuffer(buffer: Uint8Array | BufferReader): TxReq {
+    try {
+      const reader = BufferReader.asReader(buffer);
+      const txHashes: TxHash[] = [];
+      while (!reader.isEmpty()) {
+        txHashes.push(reader.readObject(TxHash));
+      }
+
+      return new TxReq(txHashes);
+    } catch {
+      throw new Error("Error in TxReq.fromBuffer");
+    }
+  }
+}

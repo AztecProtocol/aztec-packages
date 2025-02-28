@@ -1,4 +1,5 @@
 import {
+  TxReq,
   type BlockAttestation,
   type BlockProposal,
   type L2Block,
@@ -402,8 +403,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @returns A promise that resolves to an array of transactions or undefined.
    */
   public async requestTxs(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
-    const res = await this.p2pService.sendBatchRequest(ReqRespSubProtocol.TX, txHashes);
-    return Promise.resolve(res ?? []);
+    const res = await this.p2pService.sendRequest(ReqRespSubProtocol.TX, new TxReq(txHashes));
+    return Promise.resolve(res?.txs ?? []);
   }
 
   /**
@@ -416,23 +417,33 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @returns A promise that resolves to a transaction or undefined.
    */
   public async requestTxByHash(txHash: TxHash): Promise<Tx | undefined> {
-    const tx = await this.p2pService.sendRequest(ReqRespSubProtocol.TX, txHash);
+    const txRes = await this.p2pService.sendRequest(ReqRespSubProtocol.TX, new TxReq([txHash]));
 
-    if (tx) {
+    if (txRes) {
       this.log.debug(`Received tx ${txHash.toString()} from peer`);
-      await this.txPool.addTxs([tx]);
+      await this.txPool.addTxs(txRes.txs);
     } else {
       this.log.debug(`Failed to receive tx ${txHash.toString()} from peer`);
     }
 
-    return tx;
+    return txRes?.txs[0];
   }
+
+
 
   /**
    * Uses the batched Request Response protocol to request a set of transactions from the network.
    */
   public async requestTxsByHash(txHashes: TxHash[]): Promise<Tx[]> {
-    const txs = (await this.p2pService.sendBatchRequest(ReqRespSubProtocol.TX, txHashes)) ?? [];
+    function splitArrayIntoChunks<T>(array: T[], chunkSize: number): T[][] {
+      const chunks: T[][] = [];
+      for (let i = 0; i < array.length; i += chunkSize) {
+        chunks.push(array.slice(i, i + chunkSize));
+      }
+      return chunks;
+    }
+
+    const txs = (await this.p2pService.sendBatchRequest(ReqRespSubProtocol.TX, splitArrayIntoChunks(txHashes, 10).map(chunk => new TxReq(chunk))))?.flatMap(s => s?.txs, []) ?? [];
     await this.txPool.addTxs(txs);
     const txHashesStr = txHashes.map(tx => tx.toString()).join(', ');
     this.log.debug(`Received batched txs ${txHashesStr} (${txs.length} / ${txHashes.length}}) from peers`);
