@@ -74,8 +74,6 @@ library ProposeLib {
   function propose(
     ProposeArgs calldata _args,
     Signature[] memory _signatures,
-    // TODO(#9101): Extract blobs from beacon chain => remove below body input
-    bytes calldata,
     bytes calldata _blobInput,
     bool _checkBlob
   ) internal {

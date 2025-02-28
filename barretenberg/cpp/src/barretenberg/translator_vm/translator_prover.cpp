@@ -35,7 +35,6 @@ void TranslatorProver::execute_preamble_round()
            uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_2[1]) * SHIFTx2 +
            uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_3[1]) * SHIFTx3);
     transcript->send_to_verifier("circuit_size", circuit_size);
-    transcript->send_to_verifier("evaluation_input_x", key->evaluation_input_x);
     transcript->send_to_verifier("accumulated_result", accumulated_result);
 }
 
@@ -150,6 +149,7 @@ void TranslatorProver::execute_pcs_rounds()
                                                sumcheck_output.claimed_libra_evaluation,
                                                transcript,
                                                key->proving_key->commitment_key);
+    small_subgroup_ipa_prover.prove();
 
     PolynomialBatcher polynomial_batcher(key->proving_key->circuit_size);
     polynomial_batcher.set_unshifted(key->proving_key->polynomials.get_unshifted_without_concatenated());

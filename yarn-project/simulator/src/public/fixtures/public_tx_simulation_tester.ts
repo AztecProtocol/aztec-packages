@@ -9,9 +9,9 @@ import { PublicExecutionRequest, type Tx } from '@aztec/stdlib/tx';
 import { CallContext, GlobalVariables } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
 
-import { BaseAvmSimulationTester } from '../../avm/fixtures/base_avm_simulation_tester.js';
-import { getContractFunctionArtifact, getFunctionSelector } from '../../avm/fixtures/index.js';
-import { SimpleContractDataSource } from '../../avm/fixtures/simple_contract_data_source.js';
+import { BaseAvmSimulationTester } from '../avm/fixtures/base_avm_simulation_tester.js';
+import { getContractFunctionArtifact, getFunctionSelector } from '../avm/fixtures/index.js';
+import { SimpleContractDataSource } from '../avm/fixtures/simple_contract_data_source.js';
 import { WorldStateDB } from '../public_db_sources.js';
 import { type PublicTxResult, PublicTxSimulator } from '../public_tx_simulator.js';
 import { createTxForPublicCalls } from './index.js';
