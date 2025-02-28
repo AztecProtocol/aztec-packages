@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740767306082,
+  "lastUpdate": 1740769633017,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47148561+Maddiaa0@users.noreply.github.com",
-            "name": "Maddiaa",
-            "username": "Maddiaa0"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b2b5589cacc926fcb7a6a5ec1dbc5fdf023b65cc",
-          "message": "chore(p2p): remove debug disable message validators  (#12237)",
-          "timestamp": "2025-02-25T10:52:20Z",
-          "tree_id": "a05b0337153e74e34666a9600b5824be62ae3489",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b2b5589cacc926fcb7a6a5ec1dbc5fdf023b65cc"
-        },
-        "date": 1740482483726,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18244.805316999875,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16154.350743000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18755.36757200007,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16342.291262 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3983.2226109997464,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3258.984435 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55100.247589,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55100249000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10526.288085999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10526291000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1830173203,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1830173203 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 125791435,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 125791435 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 213097719,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 213097719 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "saleel@aztecprotocol.com",
+            "name": "saleel",
+            "username": "saleel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d583b09373c21ca34dac96e0f4bb102c48f3f1e1",
+          "message": "feat: add include_gates_per_opcode flag for gates command (#12328)\n\n`gates_per_opcode` in JSON output of `bb gates` command is not useful\napart from the usage in flamegraph.\nThis PR moves it under a flag - cleaner output for external users.\n\n\nTodo: [Noir\ndocs](https://github.com/noir-lang/noir/blob/master/docs/docs/tooling/profiler.md#generate-a-backend-gates-flamegraph)\nneeds to be updated once bb is released",
+          "timestamp": "2025-02-28T18:30:10Z",
+          "tree_id": "9fd9c87560aacdb452f9924dc53b3dbe3484eea2",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d583b09373c21ca34dac96e0f4bb102c48f3f1e1"
+        },
+        "date": 1740769624719,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18353.995720000057,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16119.411632999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18670.340733999867,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16533.251466 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3914.379697999948,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3109.0360809999997 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55233.23407900001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55233235000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9953.331647,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9953337000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1887623533,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1887623533 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 212338548,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 212338548 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
