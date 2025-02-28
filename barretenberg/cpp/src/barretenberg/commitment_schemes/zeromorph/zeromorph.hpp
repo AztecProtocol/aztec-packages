@@ -634,17 +634,17 @@ template <typename Curve> class ZeroMorphVerifier_ {
         // If applicable, add contribution from concatenated polynomial commitments
         // Note: this is an implementation detail related to Translator and is not part of the standard protocol.
         if (!concatenation_groups_commitments.empty()) {
-            size_t INTERLEAVING_GROUP_SIZE = concatenation_groups_commitments[0].size();
-            size_t MINICIRCUIT_N = N / INTERLEAVING_GROUP_SIZE;
+            size_t CONCATENATION_GROUP_SIZE = concatenation_groups_commitments[0].size();
+            size_t MINICIRCUIT_N = N / CONCATENATION_GROUP_SIZE;
             std::vector<FF> x_shifts;
             auto current_x_shift = x_challenge;
             auto x_to_minicircuit_n = x_challenge.pow(MINICIRCUIT_N);
-            for (size_t i = 0; i < INTERLEAVING_GROUP_SIZE; ++i) {
+            for (size_t i = 0; i < CONCATENATION_GROUP_SIZE; ++i) {
                 x_shifts.emplace_back(current_x_shift);
                 current_x_shift *= x_to_minicircuit_n;
             }
             for (auto& concatenation_group_commitment : concatenation_groups_commitments) {
-                for (size_t i = 0; i < INTERLEAVING_GROUP_SIZE; ++i) {
+                for (size_t i = 0; i < CONCATENATION_GROUP_SIZE; ++i) {
                     scalars.emplace_back(rho_pow * x_shifts[i]);
                     commitments.emplace_back(concatenation_group_commitment[i]);
                 }
