@@ -175,7 +175,7 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
         };
 
         auto [blocks_256, verification_key_256] = get_blocks(256);
-        auto [blocks_512, verification_key_512] = get_blocks(512);
+        auto [blocks_512, verification_key_512] = get_blocks(1024);
 
         compare_ultra_blocks_and_verification_keys<OuterFlavor>({ blocks_256, blocks_512 },
                                                                 { verification_key_256, verification_key_512 });
