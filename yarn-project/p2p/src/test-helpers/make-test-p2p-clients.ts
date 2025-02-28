@@ -66,6 +66,7 @@ export async function makeTestP2PClient(
     bootstrapNodes: peers,
     peerCheckIntervalMS: 1000,
     maxPeerCount: 10,
+    bootstrapNodesAsFullPeers: true,
     ...p2pConfigOverrides,
   } as P2PConfig & DataStoreConfig;
 
