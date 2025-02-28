@@ -25,6 +25,16 @@ export type L1RollupContractAddresses = Pick<
   | 'slashFactoryAddress'
 >;
 
+export type EpochProofPublicInputArgs = {
+  previousArchive: `0x${string}`;
+  endArchive: `0x${string}`;
+  previousBlockHash: `0x${string}`;
+  endBlockHash: `0x${string}`;
+  endTimestamp: bigint;
+  outHash: `0x${string}`;
+  proverId: `0x${string}`;
+};
+
 export class RollupContract {
   private readonly rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>;
 
@@ -202,22 +212,7 @@ export class RollupContract {
   }
 
   getEpochProofPublicInputs(
-    args: readonly [
-      bigint,
-      bigint,
-      readonly [
-        `0x${string}`,
-        `0x${string}`,
-        `0x${string}`,
-        `0x${string}`,
-        `0x${string}`,
-        `0x${string}`,
-        `0x${string}`,
-      ],
-      readonly `0x${string}`[],
-      `0x${string}`,
-      `0x${string}`,
-    ],
+    args: readonly [bigint, bigint, EpochProofPublicInputArgs, readonly `0x${string}`[], `0x${string}`, `0x${string}`],
   ) {
     return this.rollup.read.getEpochProofPublicInputs(args);
   }

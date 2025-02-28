@@ -1,6 +1,7 @@
-mod contract_inclusion;
-mod note_inclusion;
-mod note_validity;
-mod nullifier_inclusion;
-mod nullifier_non_inclusion;
-mod public_storage;
+pub mod contract_inclusion;
+pub mod note_inclusion;
+pub mod note_validity;
+pub mod nullifier_inclusion;
+pub mod nullifier_non_inclusion;
+pub mod public_storage;
+mod test;

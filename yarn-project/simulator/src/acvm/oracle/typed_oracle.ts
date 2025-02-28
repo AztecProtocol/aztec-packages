@@ -4,7 +4,7 @@ import type { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import { type IndexedTaggingSecret, type LogWithTxData, UnencryptedL2Log } from '@aztec/stdlib/logs';
+import type { ContractClassLog, IndexedTaggingSecret, LogWithTxData } from '@aztec/stdlib/logs';
 import type { Note, NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';
@@ -166,8 +166,8 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('storageWrite'));
   }
 
-  emitContractClassLog(_log: UnencryptedL2Log, _counter: number): Fr {
-    throw new OracleMethodNotAvailableError('emitContractClassUnencryptedLog');
+  emitContractClassLog(_log: ContractClassLog, _counter: number): void {
+    throw new OracleMethodNotAvailableError('emitContractClassLog');
   }
 
   callPrivateFunction(

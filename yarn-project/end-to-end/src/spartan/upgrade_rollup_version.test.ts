@@ -85,8 +85,6 @@ describe('spartan_upgrade_rollup_version', () => {
         ETHEREUM_HOSTS,
         config.L1_ACCOUNT_MNEMONIC,
         chain.chainInfo,
-        // TODO(#12301): magic number
-        2000,
       );
       debugLogger.info(`l1WalletClient: ${l1WalletClient.account.address}`);
       const initialTestAccounts = await getInitialTestAccounts();

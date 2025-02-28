@@ -3,7 +3,10 @@ use dep::protocol_types::{
     hash::compute_siloed_nullifier,
 };
 
-trait ProveContractDeployment {
+// This is tested in `noir-projects/noir-contracts/test_contract/src/test.nr because we cannot define a contract
+// from within aztec.nr (due to the contract macro).
+
+pub trait ProveContractDeployment {
     fn prove_contract_deployment(header: BlockHeader, contract_address: AztecAddress);
 }
 
@@ -17,7 +20,7 @@ impl ProveContractDeployment for BlockHeader {
     }
 }
 
-trait ProveContractNonDeployment {
+pub trait ProveContractNonDeployment {
     fn prove_contract_non_deployment(header: BlockHeader, contract_address: AztecAddress);
 }
 
@@ -33,7 +36,7 @@ impl ProveContractNonDeployment for BlockHeader {
     }
 }
 
-trait ProveContractInitialization {
+pub trait ProveContractInitialization {
     fn prove_contract_initialization(header: BlockHeader, contract_address: AztecAddress);
 }
 
@@ -46,7 +49,7 @@ impl ProveContractInitialization for BlockHeader {
     }
 }
 
-trait ProveContractNonInitialization {
+pub trait ProveContractNonInitialization {
     fn prove_contract_non_initialization(header: BlockHeader, contract_address: AztecAddress);
 }
 
