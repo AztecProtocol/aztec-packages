@@ -22,6 +22,10 @@ out_dir="${2:-.}"
 
 function extract_tar {
   if [[ "$tar_file" == *.zst ]]; then
+    # TODO: Hack until rebuild images.
+    if ! command -v zstd &>/dev/null; then
+      sudo apt update && sudo apt install zstd -y
+    fi
     tar --use-compress-program="zstd -d" -x -C "$out_dir" &>/dev/null
   else
     tar -xzf - -C "$out_dir" &>/dev/null
