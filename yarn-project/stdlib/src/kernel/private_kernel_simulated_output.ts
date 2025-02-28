@@ -10,22 +10,28 @@ import type { PrivateKernelTailCircuitPublicInputs } from './private_kernel_tail
  * Represents the output of the proof creation process for init and inner private kernel circuit.
  * Contains the public inputs required for the init and inner private kernel circuit and the generated proof.
  */
-export type PrivateKernelSimulateOutput<
+export interface PrivateKernelSimulateOutput<
   PublicInputsType extends PrivateKernelCircuitPublicInputs | PrivateKernelTailCircuitPublicInputs,
-> = {
+> {
   /** The public inputs required for the proof generation process. */
   publicInputs: PublicInputsType;
-
-  clientIvcProof?: ClientIvcProof;
-
-  verificationKey: VerificationKeyAsFields;
-
   outputWitness: WitnessMap;
-
+  verificationKey: VerificationKeyAsFields;
   bytecode: Buffer;
+}
 
+/** Represents the output of proven PrivateKernelSimulateOutput.*/
+export interface PrivateKernelProofOutput<
+  PublicInputsType extends PrivateKernelCircuitPublicInputs | PrivateKernelTailCircuitPublicInputs,
+> {
+  /** The public inputs used by the proof generation process. */
+  publicInputs: PublicInputsType;
+  /** The private IVC proof optimized for user devices. It will be consumed by an Aztec prover,
+   * which recursively verifies it through the "tube" circuit.*/
+  clientIvcProof: ClientIvcProof;
+  verificationKey: VerificationKeyAsFields;
   profileResult?: PrivateKernelProverProfileResult;
-};
+}
 
 /**
  * Represents the output of the circuit simulation process for init and inner private kernel circuit.

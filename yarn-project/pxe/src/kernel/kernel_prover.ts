@@ -41,7 +41,7 @@ import { type WitnessMap } from '@noir-lang/types';
 import { strict as assert } from 'assert';
 
 import { PrivateKernelResetPrivateInputsBuilder } from './hints/build_private_kernel_reset_private_inputs.js';
-import { type ProvingDataOracle } from './proving_data_oracle.js';
+import { type ProvingDataOracle } from './kernel_proving_data_oracle.js';
 
 // TODO(#10592): Temporary workaround to check that the private logs are correctly split into non-revertible set and revertible set.
 // This should be done in TailToPublicOutputValidator in private kernel tail.
@@ -108,6 +108,10 @@ export class KernelProver {
     private proofCreator: PrivateKernelProver,
     private fakeProofs = false,
   ) {}
+
+  /**
+   *
+   */
 
   /**
    * Generate a proof for a given transaction request and execution result.

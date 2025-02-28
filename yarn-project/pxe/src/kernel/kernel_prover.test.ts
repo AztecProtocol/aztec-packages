@@ -32,7 +32,7 @@ import { VerificationKey, VerificationKeyAsFields } from '@aztec/stdlib/vks';
 import { mock } from 'jest-mock-extended';
 
 import { KernelProver } from './kernel_prover.js';
-import { type ProvingDataOracle } from './proving_data_oracle.js';
+import { type ProvingDataOracle } from './kernel_proving_data_oracle.js';
 
 describe('Kernel Prover', () => {
   let txRequest: TxRequest;

@@ -3,11 +3,8 @@ import { randomBytes, randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-
-
 import { z } from 'zod';
 
-<<<<<<< Updated upstream:yarn-project/stdlib/src/tx/private_execution_result.ts
 import { NoteSelector } from '../abi/note_selector.js';
 import { PrivateCircuitPublicInputs } from '../kernel/private_circuit_public_inputs.js';
 import type { IsEmpty } from '../kernel/utils/interfaces.js';
@@ -16,13 +13,7 @@ import { UnencryptedFunctionL2Logs } from '../logs/function_l2_logs.js';
 import { UnencryptedL2Log } from '../logs/unencrypted_l2_log.js';
 import { Note } from '../note/note.js';
 import { type ZodFor, mapSchema, schemas } from '../schemas/index.js';
-=======
-
-
-import { Note, UnencryptedFunctionL2Logs, UnencryptedL2Log } from './logs/index.js';
->>>>>>> Stashed changes:yarn-project/circuit-types/src/private_execution_result.ts
 import { PublicExecutionRequest } from './public_execution_request.js';
-
 
 /**
  * The contents of a new note.
