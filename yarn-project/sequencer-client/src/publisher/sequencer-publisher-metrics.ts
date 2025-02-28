@@ -106,9 +106,9 @@ export class SequencerPublisherMetrics {
     });
 
     this.senderBalance = meter.createGauge(Metrics.L1_PUBLISHER_BALANCE, {
-      unit: 'gwei',
+      unit: 'eth',
       description: 'The balance of the sender address',
-      valueType: ValueType.INT,
+      valueType: ValueType.DOUBLE,
     });
   }
 
@@ -138,18 +138,10 @@ export class SequencerPublisherMetrics {
   }
 
   recordSenderBalance(wei: bigint, senderAddress: string) {
-    const gwei = wei / 1_000_000_000n;
-    if (gwei <= BigInt(Number.MAX_SAFE_INTEGER)) {
-      this.senderBalance.record(Number(gwei), {
-        [Attributes.SENDER_ADDRESS]: senderAddress,
-      });
-    } else {
-      this.logger.verbose('Balance of sender in gwei is too high to safely publish as metric', {
-        maxSafeInteger: Number.MAX_SAFE_INTEGER,
-        balanceInGwei: gwei,
-        senderAddress,
-      });
-    }
+    const eth = parseFloat(formatEther(wei, 'wei'));
+    this.senderBalance.record(eth, {
+      [Attributes.SENDER_ADDRESS]: senderAddress,
+    });
   }
 
   private recordTx(txType: L1TxType, durationMs: number, stats: L1PublishStats) {
