@@ -22,16 +22,15 @@ concept HasSetAndReconstruct =
 template <typename ComponentType>
     requires HasSetAndReconstruct<ComponentType>
 class PublicInputComponent {
+  public:
     // The data needed to reconstruct the component from its limbs stored in the public inputs
     struct Key {
         uint32_t start_idx = 0; // start index within public inputs array
         uint32_t size = 0;      // length of sub-array within public inputs array
-        bool exists = false;    // WORKTODO: maybe just use condition on idx? like == uint32_t(-1)?
+        bool empty() const { return size == 0; }
     };
 
-    Key key;
-
-  public:
+    // WORKTODO: maybe template this class on Builder?
     using Fr = stdlib::field_t<MegaCircuitBuilder>;
 
     PublicInputComponent() = default;
@@ -45,20 +44,22 @@ class PublicInputComponent {
     {
         key.start_idx = component.set_public();
         key.size = ComponentType::PUBLIC_INPUTS_SIZE;
-        key.exists = true;
     }
 
     ComponentType reconstruct(const std::vector<Fr>& public_inputs) const
     {
         // Ensure that the key has been set
-        if (!key.exists) {
-            info("WARNING: Trying to construct a PublicInputComponent from a key that has not been set!");
+        if (key.empty()) {
+            info("WARNING: Trying to construct a PublicInputComponent from an invalid key!");
             ASSERT(false);
         }
         // Extract from the public inputs the limbs needed reconstruct the component
         std::span<const Fr> limbs{ public_inputs.data() + key.start_idx, key.size };
         return ComponentType::reconstruct_from_public(limbs);
     }
+
+  private:
+    Key key;
 };
 
 } // namespace bb::stdlib

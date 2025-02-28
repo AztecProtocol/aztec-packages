@@ -63,3 +63,66 @@ TEST(PublicInputsTest, GoblinBigGroup)
 
     EXPECT_EQ(point.get_value(), reconstructed_point.get_value());
 }
+
+TEST(PublicInputsTest, CircuitInteraction)
+{
+    using Builder = MegaCircuitBuilder;
+    using Curve = stdlib::bn254<Builder>;
+    using G1 = Curve::Element;
+    using Fr = Curve::ScalarField;
+    using AffineElementNative = Curve::GroupNative::affine_element;
+    using FrNative = Curve::ScalarFieldNative;
+    using PublicPoint = stdlib::PublicInputComponent<G1>;
+
+    AffineElementNative point_value = AffineElementNative::random_element();
+
+    // The data needed by the second circuit to reconstruct the public point
+    std::vector<FrNative> public_inputs;
+    PublicPoint::Key public_point_key;
+
+    // The first circuit propagates a point via its public inputs
+    {
+        Builder builder;
+
+        // Add some arbitrary public inputs for good measure
+        builder.add_public_variable(FrNative::random_element());
+        builder.add_public_variable(FrNative::random_element());
+
+        // Construct a stdlib point (e.g. representing a commitment received in the recursive verifier)
+        G1 point = G1::from_witness(&builder, point_value);
+
+        // Construct a public object from the point
+        PublicPoint public_point;
+        public_point.set(point); // Set the witness indices of the point to public
+
+        // Add some more arbitrary public inputs
+        builder.add_public_variable(FrNative::random_element());
+
+        // Store the public inputs from the builder and the key for reconstructing the public point
+        for (const auto& idx : builder.public_inputs) {
+            public_inputs.push_back(builder.get_variable(idx));
+        }
+        public_point_key = public_point.get_key();
+    }
+
+    // The second circuit reconstructs the public point from the public inputs and the public component key
+    {
+        Builder builder;
+
+        // Construct the stdlib public inputs (e.g. as a recursive verifier would do upon receiving them)
+        std::vector<Fr> stdlib_public_inputs;
+        stdlib_public_inputs.reserve(public_inputs.size());
+        for (const auto& val : public_inputs) {
+            stdlib_public_inputs.push_back(Fr::from_witness(&builder, val));
+        }
+
+        // Construct a public point object from the public component key
+        PublicPoint public_point(public_point_key);
+
+        // Reconstruct the stdlib point from the limbs contained in public input
+        G1 reconstructed_point = public_point.reconstruct(stdlib_public_inputs);
+
+        // Ensure the reconstructed point matches the original point
+        EXPECT_EQ(point_value, reconstructed_point.get_value());
+    }
+}
