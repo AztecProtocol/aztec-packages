@@ -105,9 +105,9 @@ spec:
             - "-c"
             - |
               source /shared/config/service-addresses && \
-              cp /scripts/configure-validator-env.sh /tmp/configure-validator-env.sh && \
-              chmod +x /tmp/configure-validator-env.sh && \
-              /tmp/configure-validator-env.sh "$(cat /shared/pxe/pxe_url)"
+              cp /scripts/configure-full-node-env.sh /tmp/configure-full-node-env.sh && \
+              chmod +x /tmp/configure-full-node-env.sh && \
+              /tmp/configure-full-node-env.sh "$(cat /shared/pxe/pxe_url)"
           volumeMounts:
             - name: contracts-env
               mountPath: /shared/contracts

@@ -24,11 +24,11 @@ set -x
 # Main positional parameter
 test=$1
 values_file="${2:-default.yaml}"
-mnemonic_file="${3:-$(mktemp)}"
-helm_instance="${4:-spartan}"
+namespace="${3:-$(basename $test | tr '.' '-')}"
+mnemonic_file="${4:-$(mktemp)}"
 
 # Default values for environment variables
-namespace="${NAMESPACE:-test-kind}"
+helm_instance=${HELM_INSTANCE:-$namespace}
 chaos_values="${CHAOS_VALUES:-}"
 fresh_install="${FRESH_INSTALL:-false}"
 aztec_docker_tag=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}

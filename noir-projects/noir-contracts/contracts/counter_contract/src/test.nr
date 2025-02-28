@@ -9,6 +9,7 @@ pub unconstrained fn setup(
     let owner = env.create_account(1);
     let sender = env.create_account(2);
     env.impersonate(owner);
+
     // Deploy contract and initialize
     let initializer = Counter::interface().initialize(initial_value as u64, owner);
     let counter_contract = env.deploy_self("Counter").with_private_initializer(initializer);
