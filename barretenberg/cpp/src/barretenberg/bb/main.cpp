@@ -111,7 +111,7 @@ int main(int argc, char* argv[])
     const auto add_honk_recursion_option = [&](CLI::App* subcommand) {
         return subcommand->add_option("--honk_recursion",
                                       flags.honk_recursion,
-                                      "Do some things relating to recursive verification, possibly IPA...");
+                                      "Recursive verification flag: 1 = UltraHonk, 2 = UltraRollupHonk");
     };
 
     const auto add_scheme_option = [&](CLI::App* subcommand) {
@@ -249,6 +249,7 @@ int main(int argc, char* argv[])
     add_scheme_option(gates);
     add_verbose_flag(gates);
     add_bytecode_path_option(gates);
+    add_honk_recursion_option(gates);
 
     /***************************************************************************************************************
      * Subcommand: prove
