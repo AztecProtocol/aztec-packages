@@ -30,7 +30,6 @@ import {
   waitForPXE,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
-import type { BBNativePrivateKernelProver } from '@aztec/bb-prover';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
 import { FEE_JUICE_INITIAL_MINT, GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH } from '@aztec/constants';
@@ -144,7 +143,6 @@ export const setupL1Contracts = async (
  * @param opts - Partial configuration for the PXE service.
  * @param logger - The logger to be used.
  * @param useLogSuffix - Whether to add a randomly generated suffix to the PXE debug logs.
- * @param proofCreator - An optional proof creator to use
  * @returns Private eXecution Environment (PXE), logger and teardown function.
  */
 export async function setupPXEService(
@@ -152,7 +150,6 @@ export async function setupPXEService(
   opts: Partial<PXEServiceConfig> = {},
   logger = getLogger(),
   useLogSuffix = false,
-  proofCreator?: BBNativePrivateKernelProver,
 ): Promise<{
   /**
    * The PXE instance.
@@ -182,7 +179,6 @@ export async function setupPXEService(
     simulationProviderWithRecorder,
     pxeServiceConfig,
     useLogSuffix,
-    proofCreator,
   );
 
   const teardown = async () => {
