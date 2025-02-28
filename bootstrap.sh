@@ -236,10 +236,10 @@ function release {
 
   projects=(
     barretenberg/cpp
-    # barretenberg/ts
+    barretenberg/ts
     noir
     l1-contracts
-    # yarn-project
+    yarn-project
     boxes
     aztec-up
     docs
@@ -273,8 +273,8 @@ function release_commit {
     noir
     l1-contracts
     yarn-project
-    # Should publish at least one of our boxes to it's own repo.
-    #boxes
+    boxes
+    aztec-up
     docs
     release-image
   )
