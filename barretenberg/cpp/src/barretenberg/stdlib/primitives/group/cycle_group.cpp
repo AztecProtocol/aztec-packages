@@ -16,7 +16,7 @@ cycle_group<Builder>::cycle_group(Builder* _context)
     , y(0)
     , _is_infinity(true)
     , _is_constant(true)
-    , _is_standart(true)
+    , _is_standard(true)
     , context(_context)
 {}
 
@@ -28,12 +28,12 @@ cycle_group<Builder>::cycle_group(Builder* _context)
  * @param is_infinity
  */
 template <typename Builder>
-cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity, bool is_standart)
+cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity, bool is_standard)
     : x(_x.normalize())
     , y(_y.normalize())
     , _is_infinity(is_infinity)
     , _is_constant(_x.is_constant() && _y.is_constant() && is_infinity.is_constant())
-    , _is_standart(is_standart)
+    , _is_standard(is_standard)
 {
     if (_x.get_context() != nullptr) {
         context = _x.get_context();
@@ -63,12 +63,12 @@ cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity, bo
  * @param is_infinity
  */
 template <typename Builder>
-cycle_group<Builder>::cycle_group(const FF& _x, const FF& _y, bool is_infinity, bool is_standart)
+cycle_group<Builder>::cycle_group(const FF& _x, const FF& _y, bool is_infinity, bool is_standard)
     : x(_x)
     , y(_y)
     , _is_infinity(is_infinity)
     , _is_constant(true)
-    , _is_standart(is_standart)
+    , _is_standard(is_standard)
     , context(nullptr)
 {
     ASSERT(get_value().on_curve());
@@ -90,7 +90,7 @@ cycle_group<Builder>::cycle_group(const AffineElement& _in)
     , y(_in.is_point_at_infinity() ? 0 : _in.y)
     , _is_infinity(_in.is_point_at_infinity())
     , _is_constant(true)
-    , _is_standart(true)
+    , _is_standard(true)
     , context(nullptr)
 {}
 
@@ -137,7 +137,7 @@ cycle_group<Builder> cycle_group<Builder>::from_witness(Builder* _context, const
     }
     result._is_infinity = bool_t(witness_t(_context, _in.is_point_at_infinity()));
     result._is_constant = false;
-    result._is_standart = true;
+    result._is_standard = true;
     result.validate_is_on_curve();
     return result;
 }
@@ -175,7 +175,7 @@ cycle_group<Builder> cycle_group<Builder>::from_constant_witness(Builder* _conte
     // point at infinity is circuit constant
     result._is_infinity = _in.is_point_at_infinity();
     result._is_constant = false;
-    result._is_standart = true;
+    result._is_standard = true;
     return result;
 }
 
@@ -219,7 +219,7 @@ template <typename Builder> void cycle_group<Builder>::validate_is_on_curve() co
  */
 template <typename Builder> cycle_group<Builder> cycle_group<Builder>::get_standard_form() const
 {
-    if (this->_is_standart) {
+    if (this->_is_standard) {
         return *this;
     }
     cycle_group<Builder> result = *this;

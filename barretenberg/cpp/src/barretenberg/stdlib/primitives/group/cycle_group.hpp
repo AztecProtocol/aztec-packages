@@ -196,8 +196,8 @@ template <typename Builder> class cycle_group {
 
   public:
     cycle_group(Builder* _context = nullptr);
-    cycle_group(field_t _x, field_t _y, bool_t _is_infinity, bool is_standart = false);
-    cycle_group(const FF& _x, const FF& _y, bool _is_infinity, bool is_standart = false);
+    cycle_group(field_t _x, field_t _y, bool_t _is_infinity, bool is_standard = false);
+    cycle_group(const FF& _x, const FF& _y, bool _is_infinity, bool is_standard = false);
     cycle_group(const AffineElement& _in);
     static cycle_group one(Builder* _context);
     static cycle_group from_witness(Builder* _context, const AffineElement& _in);
@@ -220,7 +220,7 @@ template <typename Builder> class cycle_group {
             this->y = field_t::conditional_assign(is_infinity, 0, this->y);
         }
         _is_infinity = is_infinity;
-        this->_is_standart = true;
+        this->_is_standard = true;
     }
     cycle_group get_standard_form() const;
     void validate_is_on_curve() const;
@@ -295,9 +295,9 @@ template <typename Builder> class cycle_group {
     bool_t _is_infinity;
     bool _is_constant;
     // Most of the time it is true, so we won't need to do extra conditional_assign
-    // during `get_standart_form` call
+    // during `get_standard_form` call
     // However sometimes it won't be the case, so we can handle these cases using this flag
-    bool _is_standart;
+    bool _is_standard;
     Builder* context;
 
     static batch_mul_internal_output _variable_base_batch_mul_internal(std::span<cycle_scalar> scalars,
