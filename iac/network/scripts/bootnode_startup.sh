@@ -33,17 +33,9 @@ sudo usermod -aG docker $SSH_USER
 # Configure docker log rotation
 DOCKER_CONFIG="/etc/docker/daemon.json"
 
-LOG_CONFIG='{
-  "log-driver": "local",
-  "log-opts": {
-    "max-size": "50m",
-    "max-file": "10"
-  }
-}'
-
 # If it exists, update, otherwise create new
 if [ -f "$DOCKER_CONFIG" ]; then
-  jq '."log-driver" = "local" | ."log-opts" += {"max-size": "10m", "max-file": "5"}' "$DOCKER_CONFIG" > /tmp/daemon.json && sudo mv /tmp/daemon.json "$DOCKER_CONFIG"
+  jq '."log-driver" = "json-file" | ."log-opts" += {"max-size": "10m", "max-file": "5"}' "$DOCKER_CONFIG" > /tmp/daemon.json && sudo mv /tmp/daemon.json "$DOCKER_CONFIG"
 else
     echo "$LOG_CONFIG" | sudo tee "$DOCKER_CONFIG" > /dev/null
 fi
@@ -114,6 +106,7 @@ echo "Starting bootnode container..."
 JSON=$(curl -s http://static.aztec.network/$NETWORK_NAME/bootnodes.json)
 export BOOTSTRAP_NODES=$(echo "$JSON" | jq -r '.bootnodes | join(",")')
 echo "Bootnode enrs: $BOOTSTRAP_NODES"
+docker system prune -f
 docker pull $REPO/$IMAGE:$TAG
 docker run \
  --restart=always \
