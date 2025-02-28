@@ -319,21 +319,21 @@ int main(int argc, char* argv[])
     add_recursive_flag(verify);
 
     /***************************************************************************************************************
-     * Subcommand: write_contract
+     * Subcommand: write_solidity_verifier
      ***************************************************************************************************************/
-    CLI::App* write_contract =
-        app.add_subcommand("write_contract",
-                           "Write a smart contract suitable for verifying proofs of circuit "
+    CLI::App* write_solidity_verifier =
+        app.add_subcommand("write_solidity_verifier",
+                           "Write a Solidity smart contract suitable for verifying proofs of circuit "
                            "satisfiability for the circuit with verification key at vk_path. Not all "
                            "hash types are implemented due to efficiency concerns.");
 
-    add_scheme_option(write_contract);
-    add_vk_path_option(write_contract);
-    add_output_path_option(write_contract, output_path);
+    add_scheme_option(write_solidity_verifier);
+    add_vk_path_option(write_solidity_verifier);
+    add_output_path_option(write_solidity_verifier, output_path);
 
-    add_verbose_flag(write_contract);
-    add_zk_option(write_contract);
-    add_crs_path_option(write_contract);
+    add_verbose_flag(write_solidity_verifier);
+    add_zk_option(write_solidity_verifier);
+    add_crs_path_option(write_solidity_verifier);
 
     /***************************************************************************************************************
      * Subcommand: OLD_API
@@ -669,8 +669,8 @@ int main(int argc, char* argv[])
         if (verify->parsed()) {
             return api.verify(flags, proof_path, vk_path) ? 0 : 1;
         }
-        if (write_contract->parsed()) {
-            api.write_contract(flags, output_path, vk_path);
+        if (write_solidity_verifier->parsed()) {
+            api.write_solidity_verifier(flags, output_path, vk_path);
             return 0;
         }
         auto subcommands = app.get_subcommands();

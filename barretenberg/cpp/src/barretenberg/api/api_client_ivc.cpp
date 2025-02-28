@@ -259,9 +259,9 @@ void ClientIVCAPI::gates([[maybe_unused]] const Flags& flags,
     gate_count_for_ivc(bytecode_path);
 }
 
-void ClientIVCAPI::write_contract([[maybe_unused]] const Flags& flags,
-                                  [[maybe_unused]] const std::filesystem::path& output_path,
-                                  [[maybe_unused]] const std::filesystem::path& vk_path)
+void ClientIVCAPI::write_solidity_verifier([[maybe_unused]] const Flags& flags,
+                                           [[maybe_unused]] const std::filesystem::path& output_path,
+                                           [[maybe_unused]] const std::filesystem::path& vk_path)
 {
     throw_or_abort("API function contract not implemented");
 }
