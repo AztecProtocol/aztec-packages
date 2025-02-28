@@ -109,9 +109,12 @@ int main(int argc, char* argv[])
     };
 
     const auto add_honk_recursion_option = [&](CLI::App* subcommand) {
-        return subcommand->add_option("--honk_recursion",
-                                      flags.honk_recursion,
-                                      "Do some things relating to recursive verification, possibly IPA...");
+        return subcommand->add_option(
+            "--honk_recursion",
+            flags.honk_recursion,
+            "Instruct the prover that this circuit will be recursively verified with "
+            "UltraHonk (1) or with UltraRollupHonk (2). Ensures a pairing point accumulator "
+            "(and additionally an IPA claim when UltraRollupHonk) is added to the public inputs of the proof.");
     };
 
     const auto add_scheme_option = [&](CLI::App* subcommand) {
@@ -255,6 +258,7 @@ int main(int argc, char* argv[])
     add_scheme_option(gates);
     add_verbose_flag(gates);
     add_bytecode_path_option(gates);
+    add_honk_recursion_option(gates);
     add_include_gates_per_opcode_flag(gates);
 
     /***************************************************************************************************************
