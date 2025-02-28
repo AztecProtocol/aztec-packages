@@ -27,10 +27,10 @@ import {
   type TxContext,
 } from '@aztec/stdlib/tx';
 
-import type { HashedValuesCache } from '../common/hashed_values_cache.js';
 import { type NoteData, toACVMWitness } from './acvm/index.js';
 import type { DBOracle } from './db_oracle.js';
 import type { ExecutionNoteCache } from './execution_note_cache.js';
+import type { HashedValuesCache } from './hashed_values_cache.js';
 import { pickNotes } from './pick_notes.js';
 import { executePrivateFunction, verifyCurrentClassId } from './private_execution.js';
 import type { SimulationProvider } from './providers/simulation_provider.js';

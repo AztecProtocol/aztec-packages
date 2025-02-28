@@ -3,8 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    "./common": "./dest/common/index.js",
-    "./public": "./dest/server.js",
+    "./server": "./dest/server.js",
     "./client": "./dest/client.js",
     "./public/fixtures": "./dest/public/fixtures/index.js"
   },

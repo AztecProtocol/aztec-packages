@@ -10,12 +10,8 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import type { KeyStore } from '@aztec/key-store';
-import {
-  type AcirSimulator,
-  type DBOracle,
-  MessageLoadOracleInputs,
-  type SimulationProvider,
-} from '@aztec/simulator/client';
+import { type AcirSimulator, type DBOracle, type SimulationProvider } from '@aztec/simulator/client';
+import { MessageLoadOracleInputs } from '@aztec/simulator/client';
 import {
   type FunctionArtifact,
   FunctionCall,

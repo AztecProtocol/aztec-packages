@@ -7,10 +7,10 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { CallContext, PrivateExecutionResult, TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import { createSimulationError } from '../common/errors.js';
-import { HashedValuesCache } from '../common/hashed_values_cache.js';
 import { ClientExecutionContext } from './client_execution_context.js';
 import type { DBOracle } from './db_oracle.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
+import { HashedValuesCache } from './hashed_values_cache.js';
 import { executePrivateFunction, verifyCurrentClassId } from './private_execution.js';
 import type { SimulationProvider } from './providers/simulation_provider.js';
 import { executeUnconstrainedFunction } from './unconstrained_execution.js';
