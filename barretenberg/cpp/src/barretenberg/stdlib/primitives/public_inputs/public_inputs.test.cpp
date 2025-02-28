@@ -42,7 +42,6 @@ TEST(PublicInputsTest, GoblinBigGroup)
 
     // Construct the public inputs as stdlib field elements (e.g. as a recursive verifier would do upon receiving them)
     std::vector<Fr> public_inputs;
-    public_inputs.reserve(stdlib::public_inputs::NUM_FR_LIMBS_PER_POINT_BN254);
     for (const auto& idx : builder.public_inputs) {
         Fr limb = Fr::from_witness_index(&builder, idx);
         public_inputs.push_back(limb);

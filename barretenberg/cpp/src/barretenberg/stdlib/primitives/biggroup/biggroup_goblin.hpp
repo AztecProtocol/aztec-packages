@@ -321,6 +321,26 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
         }
     }
 
+    static goblin_element reconstruct_from_public(const std::span<const Fr>& limbs)
+    {
+        const size_t FRS_PER_FQ = 4; // 4 instead of 2 since we assume biggroup format in pub inputs
+        std::span<const Fr, FRS_PER_FQ> x_limbs{ limbs.data(), FRS_PER_FQ };
+        std::span<const Fr, FRS_PER_FQ> y_limbs{ limbs.data() + FRS_PER_FQ, FRS_PER_FQ };
+
+        auto reconstruct_fq_from_fr_limbs = [](const std::span<const Fr, FRS_PER_FQ>& limbs) {
+            for (size_t i = 0; i < FRS_PER_FQ; ++i) {
+                // WORKTODO: do we need to range constrain here?
+                limbs[i].create_range_constraint(Fq::NUM_LIMB_BITS, "l" + std::to_string(i));
+            }
+            return Fq::construct_from_limbs(limbs[0], limbs[1], limbs[2], limbs[3], /*can_overflow=*/false);
+        };
+
+        const Fq x = reconstruct_fq_from_fr_limbs(x_limbs);
+        const Fq y = reconstruct_fq_from_fr_limbs(y_limbs);
+
+        return { x, y };
+    }
+
     Fq x;
     Fq y;
 
