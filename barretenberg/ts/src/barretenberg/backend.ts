@@ -386,7 +386,7 @@ export class AztecClientBackend {
     await this.instantiate();
     const proofAndVk = await this.api.acirProveAztecClient(this.acirMsgpack, witnessMsgpack);
     const [proof, vk] = proofAndVk;
-    if (await this.api.acirVerifyAztecClient(proof, vk)) {
+    if (!await this.verify(proof, vk)) {
       throw new AztecClientBackendError("Failed to verify the private (ClientIVC) transaction proof!");
     }
     return proofAndVk;
