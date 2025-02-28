@@ -24,7 +24,7 @@ const nodePolyfillsFix = (options?: PolyfillOptions | undefined): Plugin => {
 
 // https://vite.dev/config/
 export default defineConfig({
-  logLevel: "error",
+  //logLevel: "error",
   server: {
     // Headers needed for bb WASM to work in multithreaded mode
     headers: {

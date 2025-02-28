@@ -6,7 +6,10 @@ export async function fetchCode(multithreaded: boolean, wasmPath?: string) {
   let url: string;
   if (wasmPath) {
     const suffix = multithreaded ? '-threads' : '';
-    url = `${wasmPath}/barretenberg${suffix}.wasm.gz`;
+    const filePath = wasmPath.split('/').slice(0, -1).join('/');
+    const fileNameWithExtensions = wasmPath.split('/').pop();
+    const [fileName, ...extensions] = fileNameWithExtensions!.split('.');
+    url = `${filePath}/${fileName}${suffix}.${extensions.join('.')}`;
   } else {
     url = multithreaded
       ? (await import(/* webpackIgnore: true */ './barretenberg-threads.js')).default

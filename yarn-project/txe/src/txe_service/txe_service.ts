@@ -4,7 +4,7 @@ import type { Logger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { protocolContractNames } from '@aztec/protocol-contracts';
-import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
+import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { enrichPublicSimulationError } from '@aztec/pxe';
 import type { TypedOracle } from '@aztec/simulator/client';
 import { HashedValuesCache } from '@aztec/simulator/server';
@@ -46,8 +46,9 @@ export class TXEService {
     const keyStore = new KeyStore(store);
     const txeDatabase = new TXEDatabase(store);
     // Register protocol contracts.
+    const provider = new BundledProtocolContractsProvider();
     for (const name of protocolContractNames) {
-      const { contractClass, instance, artifact } = await getCanonicalProtocolContract(name);
+      const { contractClass, instance, artifact } = await provider.getProtocolContractArtifact(name);
       await txeDatabase.addContractArtifact(contractClass.id, artifact);
       await txeDatabase.addContractInstance(instance);
     }

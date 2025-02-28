@@ -31,13 +31,15 @@ class lookup_poseidon2_hash_poseidon2_perm_settings {
     static constexpr Column DST_SELECTOR = Column::poseidon2_perm_sel;
     static constexpr Column COUNTS = Column::lookup_poseidon2_hash_poseidon2_perm_counts;
     static constexpr Column INVERSES = Column::lookup_poseidon2_hash_poseidon2_perm_inv;
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        Column::poseidon2_hash_a_0, Column::poseidon2_hash_a_1, Column::poseidon2_hash_a_2, Column::poseidon2_hash_a_3,
-        Column::poseidon2_hash_b_0, Column::poseidon2_hash_b_1, Column::poseidon2_hash_b_2, Column::poseidon2_hash_b_3
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::poseidon2_hash_a_0, ColumnAndShifts::poseidon2_hash_a_1, ColumnAndShifts::poseidon2_hash_a_2,
+        ColumnAndShifts::poseidon2_hash_a_3, ColumnAndShifts::poseidon2_hash_b_0, ColumnAndShifts::poseidon2_hash_b_1,
+        ColumnAndShifts::poseidon2_hash_b_2, ColumnAndShifts::poseidon2_hash_b_3
     };
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        Column::poseidon2_perm_a_0, Column::poseidon2_perm_a_1, Column::poseidon2_perm_a_2, Column::poseidon2_perm_a_3,
-        Column::poseidon2_perm_b_0, Column::poseidon2_perm_b_1, Column::poseidon2_perm_b_2, Column::poseidon2_perm_b_3
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::poseidon2_perm_a_0, ColumnAndShifts::poseidon2_perm_a_1, ColumnAndShifts::poseidon2_perm_a_2,
+        ColumnAndShifts::poseidon2_perm_a_3, ColumnAndShifts::poseidon2_perm_b_0, ColumnAndShifts::poseidon2_perm_b_1,
+        ColumnAndShifts::poseidon2_perm_b_2, ColumnAndShifts::poseidon2_perm_b_3
     };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)

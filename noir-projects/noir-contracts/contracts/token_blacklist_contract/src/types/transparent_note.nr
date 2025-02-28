@@ -1,9 +1,7 @@
 use dep::aztec::{
     macros::notes::custom_note,
-    note::{note_metadata::SettledNoteMetadata, utils::compute_note_hash_for_nullify},
-    prelude::{NoteHash, PrivateContext, RetrievedNote},
+    prelude::{NoteHash, PrivateContext},
     protocol_types::{
-        address::AztecAddress,
         constants::{GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER},
         hash::poseidon2_hash_with_separator,
         traits::Packable,
@@ -19,7 +17,7 @@ use dep::std::mem::zeroed;
 #[custom_note]
 #[derive(Eq)]
 pub struct TransparentNote {
-    amount: Field,
+    amount: u128,
     secret_hash: Field,
 }
 
@@ -48,18 +46,7 @@ impl NoteHash for TransparentNote {
         )
     }
 
-    unconstrained fn compute_nullifier_without_context(
-        self,
-        storage_slot: Field,
-        contract_address: AztecAddress,
-        note_nonce: Field,
-    ) -> Field {
-        let retrieved_note = RetrievedNote {
-            note: self,
-            contract_address,
-            metadata: SettledNoteMetadata::new(note_nonce).into(),
-        };
-        let note_hash_for_nullify = compute_note_hash_for_nullify(retrieved_note, storage_slot);
+    unconstrained fn compute_nullifier_unconstrained(self, note_hash_for_nullify: Field) -> Field {
         // compute_nullifier ignores context so we can reuse it here
         self.compute_nullifier(zeroed(), note_hash_for_nullify)
     }
@@ -67,7 +54,7 @@ impl NoteHash for TransparentNote {
 
 impl TransparentNote {
     // CONSTRUCTORS
-    pub fn new(amount: Field, secret_hash: Field) -> Self {
+    pub fn new(amount: u128, secret_hash: Field) -> Self {
         TransparentNote { amount, secret_hash }
     }
 }

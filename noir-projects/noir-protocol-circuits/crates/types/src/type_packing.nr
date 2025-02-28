@@ -1,4 +1,4 @@
-use crate::traits::{Packable, ToField};
+use crate::traits::Packable;
 
 global BOOL_PACKED_LEN: u32 = 1;
 global U8_PACKED_LEN: u32 = 1;
@@ -62,13 +62,13 @@ impl Packable<U64_PACKED_LEN> for u64 {
     }
 }
 
-impl Packable<U128_PACKED_LEN> for U128 {
+impl Packable<U128_PACKED_LEN> for u128 {
     fn pack(self) -> [Field; U128_PACKED_LEN] {
-        [self.to_field()]
+        [self as Field]
     }
 
     fn unpack(fields: [Field; U128_PACKED_LEN]) -> Self {
-        U128::from_integer(fields[0])
+        fields[0] as u128
     }
 }
 

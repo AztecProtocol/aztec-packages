@@ -68,7 +68,7 @@ contract FeeJuicePortal is IFeeJuicePortal {
     // Preamble
     address rollup = canonicalRollup();
     uint256 version = REGISTRY.getVersionFor(rollup);
-    IInbox inbox = IRollup(rollup).INBOX();
+    IInbox inbox = IRollup(rollup).getInbox();
     DataStructures.L2Actor memory actor = DataStructures.L2Actor(L2_TOKEN_ADDRESS, version);
 
     // Hash the message content to be reconstructed in the receiving contract

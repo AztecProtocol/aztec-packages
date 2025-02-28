@@ -4,7 +4,7 @@ import { createLogger } from '@aztec/foundation/log';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import type { KeyStore } from '@aztec/key-store';
-import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vks';
+import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';

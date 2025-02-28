@@ -88,6 +88,13 @@ pub contract DocsExample {
         }
     }
 
+    // DO NOT uncomment this and add an initializer in this contract. We specifically need this contract to not have an initializer
+    // because of tests in 'yarn-project/end-to-end/src/e2e_deploy_contract/deploy_method.test.ts'
+    // #[initializer]
+    // #[private]
+    // // We can name our initializer anything we want as long as it's marked as aztec(initializer)
+    // fn initialize() {}
+
     // docs:start:initialize_public_immutable
     #[public]
     fn initialize_public_immutable(points: u8) {
@@ -243,15 +250,26 @@ pub contract DocsExample {
         );
     }
 
+    #[public]
+    fn emit_public(value: Field) {
+        // docs:start:emit_public
+        context.emit_public_log(/*message=*/ value);
+        context.emit_public_log(/*message=*/ [10, 20, 30]);
+        context.emit_public_log(/*message=*/ "Hello, world!");
+        // docs:end:emit_public
+    }
+
     #[private]
     #[view]
     fn verify_private_authwit(inner_hash: Field) -> Field {
         1
     }
+
     #[public]
     fn spend_public_authwit(inner_hash: Field) -> Field {
         1
     }
+
     #[public]
     #[internal]
     fn update_leader(account: AztecAddress, points: u8) {

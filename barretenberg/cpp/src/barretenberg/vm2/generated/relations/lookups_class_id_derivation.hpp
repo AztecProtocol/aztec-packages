@@ -31,16 +31,18 @@ class lookup_class_id_derivation_class_id_poseidon2_0_settings {
     static constexpr Column DST_SELECTOR = Column::poseidon2_hash_start;
     static constexpr Column COUNTS = Column::lookup_class_id_derivation_class_id_poseidon2_0_counts;
     static constexpr Column INVERSES = Column::lookup_class_id_derivation_class_id_poseidon2_0_inv;
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        Column::class_id_derivation_temp_constant_for_lookup,
-        Column::class_id_derivation_artifact_hash,
-        Column::class_id_derivation_private_function_root,
-        Column::class_id_derivation_class_id
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::class_id_derivation_temp_constant_for_lookup,
+        ColumnAndShifts::class_id_derivation_artifact_hash,
+        ColumnAndShifts::class_id_derivation_private_function_root,
+        ColumnAndShifts::class_id_derivation_class_id
     };
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::poseidon2_hash_input_0,
-                                                                           Column::poseidon2_hash_input_1,
-                                                                           Column::poseidon2_hash_input_2,
-                                                                           Column::poseidon2_hash_output };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::poseidon2_hash_input_0,
+        ColumnAndShifts::poseidon2_hash_input_1,
+        ColumnAndShifts::poseidon2_hash_input_2,
+        ColumnAndShifts::poseidon2_hash_output
+    };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
@@ -129,16 +131,18 @@ class lookup_class_id_derivation_class_id_poseidon2_1_settings {
     static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
     static constexpr Column COUNTS = Column::lookup_class_id_derivation_class_id_poseidon2_1_counts;
     static constexpr Column INVERSES = Column::lookup_class_id_derivation_class_id_poseidon2_1_inv;
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        Column::class_id_derivation_public_bytecode_commitment,
-        Column::precomputed_zero,
-        Column::precomputed_zero,
-        Column::class_id_derivation_class_id
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::class_id_derivation_public_bytecode_commitment,
+        ColumnAndShifts::precomputed_zero,
+        ColumnAndShifts::precomputed_zero,
+        ColumnAndShifts::class_id_derivation_class_id
     };
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::poseidon2_hash_input_0,
-                                                                           Column::poseidon2_hash_input_1,
-                                                                           Column::poseidon2_hash_input_2,
-                                                                           Column::poseidon2_hash_output };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::poseidon2_hash_input_0,
+        ColumnAndShifts::poseidon2_hash_input_1,
+        ColumnAndShifts::poseidon2_hash_input_2,
+        ColumnAndShifts::poseidon2_hash_output
+    };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {

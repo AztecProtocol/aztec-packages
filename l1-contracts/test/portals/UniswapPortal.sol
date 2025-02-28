@@ -106,7 +106,7 @@ contract UniswapPortal {
 
     // Consume the message from the outbox
     {
-      IOutbox outbox = IRollup(registry.getRollup()).OUTBOX();
+      IOutbox outbox = IRollup(registry.getRollup()).getOutbox();
 
       outbox.consume(
         DataStructures.L2ToL1Msg({
@@ -211,7 +211,7 @@ contract UniswapPortal {
 
     // Consume the message from the outbox
     {
-      IOutbox outbox = IRollup(registry.getRollup()).OUTBOX();
+      IOutbox outbox = IRollup(registry.getRollup()).getOutbox();
 
       outbox.consume(
         DataStructures.L2ToL1Msg({

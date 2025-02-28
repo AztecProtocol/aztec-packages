@@ -15,7 +15,7 @@ export interface AccountContract {
   /**
    * Returns the artifact of this account contract.
    */
-  getContractArtifact(): ContractArtifact;
+  getContractArtifact(): Promise<ContractArtifact>;
 
   /**
    * Returns the deployment arguments for this instance, or undefined if this contract does not require deployment.
@@ -46,7 +46,8 @@ export interface AccountContract {
 export async function getAccountContractAddress(accountContract: AccountContract, secret: Fr, salt: Fr) {
   const { publicKeys } = await deriveKeys(secret);
   const constructorArgs = await accountContract.getDeploymentArgs();
-  const instance = await getContractInstanceFromDeployParams(accountContract.getContractArtifact(), {
+  const artifact = await accountContract.getContractArtifact();
+  const instance = await getContractInstanceFromDeployParams(artifact, {
     constructorArgs,
     salt,
     publicKeys,

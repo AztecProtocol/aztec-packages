@@ -1,6 +1,9 @@
 #include "barretenberg/vm2/testing/fixtures.hpp"
+#include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 #include <vector>
+
+using bb::avm2::tracegen::TestTraceContainer;
 
 namespace bb::avm2::testing {
 
@@ -23,4 +26,10 @@ std::vector<uint8_t> random_bytes(size_t n)
     }
     return bytes;
 }
+
+TestTraceContainer empty_trace()
+{
+    return TestTraceContainer::from_rows({ { .precomputed_first_row = 1 }, { .precomputed_clk = 1 } });
+}
+
 } // namespace bb::avm2::testing

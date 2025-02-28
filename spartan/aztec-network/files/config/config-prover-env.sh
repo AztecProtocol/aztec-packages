@@ -7,7 +7,11 @@ output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js get-no
 
 echo "$output"
 
-boot_node_enr=$(echo "$output" | grep -oP 'Node ENR: \Kenr:[a-zA-Z0-9\-\_\.]+')
+boot_node_enr=""
+if [ "$P2P_ENABLED" = "true" ]; then
+  # Only look for boot node ENR if P2P is enabled
+  boot_node_enr=$(echo "$output" | grep -oP 'Node ENR: \Kenr:[a-zA-Z0-9\-\_\.]+')
+fi
 rollup_address=$(echo "$output" | grep -oP 'Rollup Address: \K0x[a-fA-F0-9]{40}')
 registry_address=$(echo "$output" | grep -oP 'Registry Address: \K0x[a-fA-F0-9]{40}')
 inbox_address=$(echo "$output" | grep -oP 'L1 -> L2 Inbox Address: \K0x[a-fA-F0-9]{40}')
@@ -19,7 +23,6 @@ coin_issuer_address=$(echo "$output" | grep -oP 'CoinIssuer Address: \K0x[a-fA-F
 reward_distributor_address=$(echo "$output" | grep -oP 'RewardDistributor Address: \K0x[a-fA-F0-9]{40}')
 governance_proposer_address=$(echo "$output" | grep -oP 'GovernanceProposer Address: \K0x[a-fA-F0-9]{40}')
 governance_address=$(echo "$output" | grep -oP 'Governance Address: \K0x[a-fA-F0-9]{40}')
-slash_factory_address=$(echo "$output" | grep -oP 'SlashFactory Address: \K0x[a-fA-F0-9]{40}')
 
 # Write the addresses to a file in the shared volume
 cat <<EOF >/shared/contracts/contracts.env
@@ -35,7 +38,6 @@ export COIN_ISSUER_CONTRACT_ADDRESS=$coin_issuer_address
 export REWARD_DISTRIBUTOR_CONTRACT_ADDRESS=$reward_distributor_address
 export GOVERNANCE_PROPOSER_CONTRACT_ADDRESS=$governance_proposer_address
 export GOVERNANCE_CONTRACT_ADDRESS=$governance_address
-export SLASH_FACTORY_CONTRACT_ADDRESS=$slash_factory_address
 EOF
 
 cat /shared/contracts/contracts.env

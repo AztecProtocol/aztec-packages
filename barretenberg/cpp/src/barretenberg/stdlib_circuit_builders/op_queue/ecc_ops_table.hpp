@@ -2,9 +2,24 @@
 
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/eccvm/eccvm_builder_types.hpp"
-#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 #include <deque>
 namespace bb {
+
+enum EccOpCode { NULL_OP, ADD_ACCUM, MUL_ACCUM, EQUALITY };
+
+struct UltraOp {
+    using Fr = curve::BN254::ScalarField;
+    EccOpCode op_code = NULL_OP;
+    Fr op;
+    Fr x_lo;
+    Fr x_hi;
+    Fr y_lo;
+    Fr y_hi;
+    Fr z_1;
+    Fr z_2;
+    bool return_is_infinity;
+};
 
 /**
  * @brief A table of ECC operations
@@ -29,13 +44,19 @@ template <typename OpFormat> class EccOpsTable {
         return total;
     }
 
+    size_t num_subtables() const { return table.size(); }
+
     auto& get() const { return table; }
 
     void push(const OpFormat& op) { table.front().push_back(op); }
 
     void create_new_subtable(size_t size_hint = 0)
     {
-        std::vector<OpFormat> new_subtable;
+        // If there is a single subtable and it is empty, dont create a new one
+        if (table.size() == 1 && table.front().empty()) {
+            return;
+        }
+        Subtable new_subtable;
         new_subtable.reserve(size_hint);
         table.insert(table.begin(), std::move(new_subtable));
     }
@@ -53,9 +74,22 @@ template <typename OpFormat> class EccOpsTable {
         }
         return table.front().front(); // should never reach here
     }
+
+    // highly inefficient copy-based reconstruction of the table for use in ECCVM/Translator
+    std::vector<OpFormat> get_reconstructed() const
+    {
+        std::vector<OpFormat> reconstructed_table;
+        reconstructed_table.reserve(size());
+        for (const auto& subtable : table) {
+            for (const auto& op : subtable) {
+                reconstructed_table.push_back(op);
+            }
+        }
+        return reconstructed_table;
+    }
 };
 
-using RawEccOpsTable = EccOpsTable<eccvm::VMOperation<curve::BN254::Group>>;
+using EccvmOpsTable = EccOpsTable<eccvm::VMOperation<curve::BN254::Group>>;
 
 /**
  * @brief Stores a table of elliptic curve operations represented in the Ultra format
@@ -71,40 +105,90 @@ using RawEccOpsTable = EccOpsTable<eccvm::VMOperation<curve::BN254::Group>>;
  * polynomials in the proving system.
  */
 class UltraEccOpsTable {
+  public:
+    static constexpr size_t TABLE_WIDTH = 4;     // dictated by the number of wires in the Ultra arithmetization
+    static constexpr size_t NUM_ROWS_PER_OP = 2; // A single ECC op is split across two width-4 rows
+
+  private:
     using Curve = curve::BN254;
     using Fr = Curve::ScalarField;
     using UltraOpsTable = EccOpsTable<UltraOp>;
+    using TableView = std::array<std::span<Fr>, TABLE_WIDTH>;
+    using ColumnPolynomials = std::array<Polynomial<Fr>, TABLE_WIDTH>;
 
     UltraOpsTable table;
-    static constexpr size_t TABLE_WIDTH = 4;
 
   public:
     size_t size() const { return table.size(); }
+    size_t ultra_table_size() const { return table.size() * NUM_ROWS_PER_OP; }
+    size_t current_ultra_subtable_size() const { return table.get()[0].size() * NUM_ROWS_PER_OP; }
+    size_t previous_ultra_table_size() const { return (ultra_table_size() - current_ultra_subtable_size()); }
     void create_new_subtable(size_t size_hint = 0) { table.create_new_subtable(size_hint); }
     void push(const UltraOp& op) { table.push(op); }
 
+    // Construct the columns of the full ultra ecc ops table
+    ColumnPolynomials construct_table_columns() const
+    {
+        const size_t poly_size = ultra_table_size();
+        const size_t subtable_start_idx = 0; // include all subtables
+        const size_t subtable_end_idx = table.num_subtables();
+
+        return construct_column_polynomials_from_subtables(poly_size, subtable_start_idx, subtable_end_idx);
+    }
+
+    // Construct the columns of the previous full ultra ecc ops table
+    ColumnPolynomials construct_previous_table_columns() const
+    {
+        const size_t poly_size = previous_ultra_table_size();
+        const size_t subtable_start_idx = 1; // exclude the 0th subtable
+        const size_t subtable_end_idx = table.num_subtables();
+
+        return construct_column_polynomials_from_subtables(poly_size, subtable_start_idx, subtable_end_idx);
+    }
+
+    // Construct the columns of the current ultra ecc ops subtable
+    ColumnPolynomials construct_current_ultra_ops_subtable_columns() const
+    {
+        const size_t poly_size = current_ultra_subtable_size();
+        const size_t subtable_start_idx = 0;
+        const size_t subtable_end_idx = 1; // include only the 0th subtable
+
+        return construct_column_polynomials_from_subtables(poly_size, subtable_start_idx, subtable_end_idx);
+    }
+
+  private:
     /**
-     * @brief Populate the provided array of columns with the width-4 representation of the table data
-     * @todo multithreaded this functionality
+     * @brief Construct polynomials corresponding to the columns of the reconstructed ultra ops table for the given
+     * range of subtables
+     * TODO(https://github.com/AztecProtocol/barretenberg/issues/1267): multithread this functionality
      * @param target_columns
      */
-    void populate_column_data(std::array<std::span<Fr>, TABLE_WIDTH>& target_columns)
+    ColumnPolynomials construct_column_polynomials_from_subtables(const size_t poly_size,
+                                                                  const size_t subtable_start_idx,
+                                                                  const size_t subtable_end_idx) const
     {
+        ColumnPolynomials column_polynomials;
+        for (auto& poly : column_polynomials) {
+            poly = Polynomial<Fr>(poly_size);
+        }
+
         size_t i = 0;
-        for (const auto& subtable : table.get()) {
+        for (size_t subtable_idx = subtable_start_idx; subtable_idx < subtable_end_idx; ++subtable_idx) {
+            const auto& subtable = table.get()[subtable_idx];
             for (const auto& op : subtable) {
-                target_columns[0][i] = op.op;
-                target_columns[1][i] = op.x_lo;
-                target_columns[2][i] = op.x_hi;
-                target_columns[3][i] = op.y_lo;
+                column_polynomials[0].at(i) = op.op;
+                column_polynomials[1].at(i) = op.x_lo;
+                column_polynomials[2].at(i) = op.x_hi;
+                column_polynomials[3].at(i) = op.y_lo;
                 i++;
-                target_columns[0][i] = 0; // only the first 'op' field is utilized
-                target_columns[1][i] = op.y_hi;
-                target_columns[2][i] = op.z_1;
-                target_columns[3][i] = op.z_2;
+                column_polynomials[0].at(i) = 0; // only the first 'op' field is utilized
+                column_polynomials[1].at(i) = op.y_hi;
+                column_polynomials[2].at(i) = op.z_1;
+                column_polynomials[3].at(i) = op.z_2;
                 i++;
             }
         }
+        return column_polynomials;
     }
 };
 

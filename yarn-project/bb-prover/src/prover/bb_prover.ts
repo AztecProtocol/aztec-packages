@@ -37,7 +37,7 @@ import {
   convertSingleTxBlockRootRollupInputsToWitnessMap,
   convertSingleTxBlockRootRollupOutputsFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types/server';
-import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
+import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
 import { NativeACVMSimulator } from '@aztec/simulator/server';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import { ProvingError } from '@aztec/stdlib/errors';

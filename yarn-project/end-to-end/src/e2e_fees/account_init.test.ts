@@ -99,7 +99,7 @@ describe('e2e_fees account_init', () => {
 
     it('pays natively in the Fee Juice by bridging funds themselves', async () => {
       const claim = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(FEE_FUNDING_FOR_TESTER_ACCOUNT, bobsAddress);
-      const paymentMethod = new FeeJuicePaymentMethodWithClaim(bobsAddress, claim);
+      const paymentMethod = new FeeJuicePaymentMethodWithClaim(bobsWallet, claim);
       const tx = await bobsAccountManager.deploy({ fee: { paymentMethod } }).wait();
       expect(tx.transactionFee!).toBeGreaterThan(0n);
       await expect(t.getGasBalanceFn(bobsAddress)).resolves.toEqual([

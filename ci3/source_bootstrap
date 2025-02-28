@@ -23,11 +23,10 @@ function check_release {
   fi
 }
 
-# Filters any test cmd that matches any pattern in the repos root .test_skip_patterns file.
-# We filter comment lines and blank lines from the pattern file.
+# Filters any test cmd that marked to skip in the .test_patterns.yml file.
 # Then filter through cache to remove previously successfully run tests.
 function filter_test_cmds {
-  grep -Ev -f <(grep -Ev -e '^\s*$' -e '^\s*#' $root/.test_skip_patterns) | filter_cached_test_cmd
+  grep -Ev -f <(yq e '.tests[] | select(.skip == true) | .regex' $root/.test_patterns.yml) | filter_cached_test_cmd
 }
 
 case "${1:-}" in

@@ -75,7 +75,7 @@ class GoblinProver {
       // commitments (https://github.com/AztecProtocol/barretenberg/issues/871) which would otherwise appear in the
       // first round of the merge protocol. To be removed once the issue has been resolved.
         commitment_key = bn254_commitment_key ? bn254_commitment_key : nullptr;
-        GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue, commitment_key);
+        GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
     }
     /**
      * @brief Construct a MegaHonk proof and a merge proof for the present circuit.
@@ -296,7 +296,8 @@ class GoblinVerifier {
 
         TranslatorVerifier translator_verifier(translator_verification_key, eccvm_verifier.transcript);
 
-        bool accumulator_construction_verified = translator_verifier.verify_proof(proof.translator_proof);
+        bool accumulator_construction_verified = translator_verifier.verify_proof(
+            proof.translator_proof, eccvm_verifier.evaluation_challenge_x, eccvm_verifier.batching_challenge_v);
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/799): Ensure translation_evaluations are passed
         // correctly
         bool translation_verified = translator_verifier.verify_translation(proof.translation_evaluations);

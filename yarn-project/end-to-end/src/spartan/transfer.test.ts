@@ -36,7 +36,7 @@ describe('token transfer test', () => {
         containerPort: config.CONTAINER_ETHEREUM_PORT,
         hostPort: config.HOST_ETHEREUM_PORT,
       });
-      const ETHEREUM_HOST = `http://127.0.0.1:${config.HOST_ETHEREUM_PORT}`;
+      const ETHEREUM_HOSTS = `http://127.0.0.1:${config.HOST_ETHEREUM_PORT}`;
 
       await startPortForward({
         resource: `svc/${config.INSTANCE_NAME}-aztec-network-validator`,
@@ -51,7 +51,7 @@ describe('token transfer test', () => {
       testWallets = await deployTestWalletWithTokens(
         PXE_URL,
         NODE_URL,
-        ETHEREUM_HOST,
+        ETHEREUM_HOSTS,
         L1_ACCOUNT_MNEMONIC,
         MINT_AMOUNT,
         logger,

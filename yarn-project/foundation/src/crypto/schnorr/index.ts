@@ -17,7 +17,7 @@ export class Schnorr {
    * @returns A grumpkin public key.
    */
   public async computePublicKey(privateKey: GrumpkinScalar): Promise<Point> {
-    const api = await BarretenbergSync.initSingleton();
+    const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
     const [result] = api.getWasm().callWasmExport('schnorr_compute_public_key', [privateKey.toBuffer()], [64]);
     return Point.fromBuffer(Buffer.from(result));
   }
@@ -29,7 +29,7 @@ export class Schnorr {
    * @returns A Schnorr signature of the form (s, e).
    */
   public async constructSignature(msg: Uint8Array, privateKey: GrumpkinScalar) {
-    const api = await BarretenbergSync.initSingleton();
+    const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
     const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
     const [s, e] = api
       .getWasm()
@@ -45,7 +45,7 @@ export class Schnorr {
    * @returns True or false.
    */
   public async verifySignature(msg: Uint8Array, pubKey: Point, sig: SchnorrSignature) {
-    const api = await BarretenbergSync.initSingleton();
+    const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
     const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
     const [result] = api
       .getWasm()

@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { LogWithTxData, UnencryptedL2Log } from '@aztec/stdlib/logs';
+import { ContractClassLog, LogWithTxData } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import type { ACVMField } from '../acvm_types.js';
@@ -281,12 +281,11 @@ export class Oracle {
     return newValues.map(toACVMField);
   }
 
-  emitContractClassLog([contractAddress]: ACVMField[], message: ACVMField[], [counter]: ACVMField[]): ACVMField {
-    const logPayload = Buffer.concat(message.map(fromACVMField).map(f => f.toBuffer()));
-    const log = new UnencryptedL2Log(AztecAddress.fromString(contractAddress), logPayload);
+  emitContractClassLog([contractAddress]: ACVMField[], message: ACVMField[], [counter]: ACVMField[]): void {
+    const logPayload = message.map(fromACVMField);
+    const log = new ContractClassLog(new AztecAddress(fromACVMField(contractAddress)), logPayload);
 
-    const logHash = this.typedOracle.emitContractClassLog(log, +counter);
-    return toACVMField(logHash);
+    this.typedOracle.emitContractClassLog(log, +counter);
   }
 
   debugLog(message: ACVMField[], _ignoredFieldsSize: ACVMField[], fields: ACVMField[]): void {

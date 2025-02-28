@@ -1,6 +1,7 @@
 #include "api_ultra_honk.hpp"
 
 #include "barretenberg/api/acir_format_getters.hpp"
+#include "barretenberg/api/gate_count.hpp"
 #include "barretenberg/api/get_bn254_crs.hpp"
 #include "barretenberg/api/init_srs.hpp"
 #include "barretenberg/api/write_prover_output.hpp"
@@ -196,7 +197,7 @@ void UltraHonkAPI::write_vk(const Flags& flags,
 void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,
                          [[maybe_unused]] const std::filesystem::path& bytecode_path)
 {
-    throw_or_abort("API function not implemented");
+    gate_count(bytecode_path, flags.recursive, flags.honk_recursion);
 }
 
 void UltraHonkAPI::write_contract(const Flags& flags,

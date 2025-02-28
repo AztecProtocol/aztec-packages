@@ -12,7 +12,7 @@ use crate::{
 
 use super::Parser;
 
-impl<'a> Parser<'a> {
+impl Parser<'_> {
     pub(crate) fn parse_statement_or_error(&mut self) -> Statement {
         if let Some((statement, (_token, _span))) = self.parse_statement() {
             statement
@@ -105,7 +105,7 @@ impl<'a> Parser<'a> {
         if let Some(token) = self.eat_kind(TokenKind::InternedStatement) {
             match token.into_token() {
                 Token::InternedStatement(statement) => {
-                    return Some(StatementKind::Interned(statement))
+                    return Some(StatementKind::Interned(statement));
                 }
                 _ => unreachable!(),
             }
@@ -295,8 +295,6 @@ impl<'a> Parser<'a> {
             return None;
         }
 
-        self.push_error(ParserErrorReason::ExperimentalFeature("loops"), start_location);
-
         let block_start_location = self.current_token_location;
         let block = if let Some(block) = self.parse_block() {
             Expression {
@@ -320,8 +318,6 @@ impl<'a> Parser<'a> {
         if !self.eat_keyword(Keyword::While) {
             return None;
         }
-
-        self.push_error(ParserErrorReason::ExperimentalFeature("while loops"), start_location);
 
         let condition = self.parse_expression_except_constructor_or_error();
 

@@ -39,10 +39,8 @@ const l1ContractsConfig = getL1ContractsConfigEnvVars();
 export const WAIT_FOR_TX_TIMEOUT = l1ContractsConfig.aztecSlotDuration * 3;
 
 export const SHORTENED_BLOCK_TIME_CONFIG = {
-  aztecEpochDuration: 4,
   aztecSlotDuration: 12,
   ethereumSlotDuration: 4,
-  aztecProofSubmissionWindow: 4 * 2 - 1, // epoch_duration * 2 - 1
 };
 
 export class P2PNetworkTest {
@@ -242,7 +240,7 @@ export class P2PNetworkTest {
 
         const slotsInEpoch = await rollup.read.getEpochDuration();
         const timestamp = await rollup.read.getTimestampForSlot([slotsInEpoch]);
-        const cheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrl);
+        const cheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls);
         try {
           await cheatCodes.warp(Number(timestamp));
         } catch (err) {

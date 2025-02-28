@@ -16,6 +16,7 @@ import type { PxeDatabase } from '../database/index.js';
 export class Synchronizer implements L2BlockStreamEventHandler {
   private initialSyncBlockNumber = INITIAL_L2_BLOCK_NUM - 1;
   private log: Logger;
+  private isSyncing: Promise<void> | undefined;
   protected readonly blockStream: L2BlockStream;
 
   constructor(
@@ -78,6 +79,23 @@ export class Synchronizer implements L2BlockStreamEventHandler {
    * recent data (e.g. notes), and handling any reorgs that might have occurred.
    */
   public async sync() {
+    if (this.isSyncing !== undefined) {
+      this.log.debug(`Waiting for the ongoing sync to finish`);
+      await this.isSyncing;
+      return;
+    }
+
+    this.log.debug(`Syncing PXE with the node`);
+    const isSyncing = this.doSync();
+    this.isSyncing = isSyncing;
+    try {
+      await isSyncing;
+    } finally {
+      this.isSyncing = undefined;
+    }
+  }
+
+  private async doSync() {
     let currentHeader;
 
     try {

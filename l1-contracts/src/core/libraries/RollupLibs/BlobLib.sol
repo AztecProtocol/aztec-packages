@@ -8,6 +8,8 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Vm} from "forge-std/Vm.sol";
 
 library BlobLib {
+  address public constant VM_ADDRESS = address(uint160(uint256(keccak256("hevm cheat code"))));
+
   /**
    * @notice  Get the blob base fee
    *
@@ -16,9 +18,9 @@ library BlobLib {
    *
    * @return uint256 - The blob base fee
    */
-  function getBlobBaseFee(address _vmAddress) internal view returns (uint256) {
-    if (_vmAddress.code.length > 0) {
-      return Vm(_vmAddress).getBlobBaseFee();
+  function getBlobBaseFee() internal view returns (uint256) {
+    if (VM_ADDRESS.code.length > 0) {
+      return Vm(VM_ADDRESS).getBlobBaseFee();
     }
     return block.blobbasefee;
   }

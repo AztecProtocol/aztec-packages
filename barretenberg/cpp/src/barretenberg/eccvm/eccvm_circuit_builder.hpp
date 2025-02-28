@@ -113,10 +113,10 @@ class ECCVMCircuitBuilder {
         std::vector<std::pair<size_t, size_t>> msm_mul_index;
         std::vector<size_t> msm_sizes;
 
-        const auto& raw_ops = op_queue->get_raw_ops();
+        const auto& eccvm_ops = op_queue->get_eccvm_ops();
         size_t op_idx = 0;
         // populate opqueue and mul indices
-        for (const auto& op : raw_ops) {
+        for (const auto& op : eccvm_ops) {
             if (op.mul) {
                 if ((op.z1 != 0 || op.z2 != 0) && !op.base_point.is_point_at_infinity()) {
                     msm_opqueue_index.push_back(op_idx);
@@ -131,7 +131,7 @@ class ECCVMCircuitBuilder {
             op_idx++;
         }
         // if last op is a mul we have not correctly computed the total number of msms
-        if (raw_ops.back().mul && active_mul_count > 0) {
+        if (eccvm_ops.back().mul && active_mul_count > 0) {
             msm_sizes.push_back(active_mul_count);
             msm_count++;
         }
@@ -143,7 +143,7 @@ class ECCVMCircuitBuilder {
 
         parallel_for_range(msm_opqueue_index.size(), [&](size_t start, size_t end) {
             for (size_t i = start; i < end; i++) {
-                const auto& op = raw_ops[msm_opqueue_index[i]];
+                const auto& op = eccvm_ops[msm_opqueue_index[i]];
                 auto [msm_index, mul_index] = msm_mul_index[i];
                 if (op.z1 != 0 && !op.base_point.is_point_at_infinity()) {
                     ASSERT(result.size() > msm_index);

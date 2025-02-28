@@ -36,14 +36,15 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
             }
         };
 
-        let mut parameter_index = 0;
+        let parameter_index = &mut 0;
         let reads = parameters.map(|param: (Quoted, Type)| {
-            let param_name = f"arg{parameter_index}".quoted_contents();
+            let parameter_index_value = *parameter_index;
+            let param_name = f"arg{parameter_index_value}".quoted_contents();
             let param_type = param.1;
             let read = quote {
                 let $param_name: $param_type = reader.read_struct(dep::aztec::protocol_types::traits::Deserialize::deserialize);
             };
-            parameter_index += 1;
+            *parameter_index += 1;
             quote { $read }
         });
         let read = reads.join(quote { });

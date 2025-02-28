@@ -17,8 +17,8 @@ import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { mnemonicToAccount } from 'viem/accounts';
 
+import { getL1Config } from '../get_l1_config.js';
 import { extractRelevantOptions } from '../util.js';
-import { validateL1Config } from '../validation.js';
 import { getVersions } from '../versioning.js';
 import { startProverBroker } from './start_prover_broker.js';
 
@@ -33,7 +33,7 @@ export async function startProverNode(
     process.exit(1);
   }
 
-  const proverConfig = {
+  let proverConfig = {
     ...getProverNodeConfigFromEnv(), // get default config from env
     ...extractRelevantOptions<ProverNodeConfig>(options, proverNodeConfigMappings, 'proverNode'), // override with command line options
   };
@@ -66,7 +66,16 @@ export async function startProverNode(
 
   // If we create an archiver here, validate the L1 config
   if (options.archiver) {
-    await validateL1Config(proverConfig);
+    if (!proverConfig.l1Contracts.registryAddress || proverConfig.l1Contracts.registryAddress.isZero()) {
+      throw new Error('L1 registry address is required to start a Prover Node with --archiver option');
+    }
+    const { addresses, config } = await getL1Config(
+      proverConfig.l1Contracts.registryAddress,
+      proverConfig.l1RpcUrls,
+      proverConfig.l1ChainId,
+    );
+    proverConfig.l1Contracts = addresses;
+    proverConfig = { ...proverConfig, ...config };
   }
 
   const telemetry = initTelemetryClient(extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'));

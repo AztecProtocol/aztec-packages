@@ -23,18 +23,18 @@ impl<Note, Context> BalanceSet<Note, Context> {
 }
 
 impl<Note> BalanceSet<Note, UnconstrainedContext> {
-    pub unconstrained fn balance_of<let N: u32>(self: Self) -> U128
+    pub unconstrained fn balance_of<let N: u32>(self: Self) -> u128
     where
         Note: NoteType + NoteHash + OwnedNote + Packable<N>,
     {
         self.balance_of_with_offset(0)
     }
 
-    pub unconstrained fn balance_of_with_offset<let N: u32>(self: Self, offset: u32) -> U128
+    pub unconstrained fn balance_of_with_offset<let N: u32>(self: Self, offset: u32) -> u128
     where
         Note: NoteType + NoteHash + OwnedNote + Packable<N>,
     {
-        let mut balance = U128::from_integer(0);
+        let mut balance = 0 as u128;
         // docs:start:view_notes
         let mut options = NoteViewerOptions::new();
         let notes = self.set.view_notes(options.set_offset(offset));
@@ -53,11 +53,11 @@ impl<Note> BalanceSet<Note, UnconstrainedContext> {
 }
 
 impl<Note> BalanceSet<Note, &mut PrivateContext> {
-    pub fn add<let N: u32>(self: Self, owner: AztecAddress, addend: U128) -> OuterNoteEmission<Note>
+    pub fn add<let N: u32>(self: Self, owner: AztecAddress, addend: u128) -> OuterNoteEmission<Note>
     where
         Note: NoteType + NoteHash + OwnedNote + Eq + Packable<N>,
     {
-        if addend == U128::from_integer(0) {
+        if addend == 0 as u128 {
             OuterNoteEmission::new(Option::none())
         } else {
             let mut addend_note = Note::new(addend, owner);
@@ -68,7 +68,7 @@ impl<Note> BalanceSet<Note, &mut PrivateContext> {
         }
     }
 
-    pub fn sub<let N: u32>(self: Self, owner: AztecAddress, amount: U128) -> OuterNoteEmission<Note>
+    pub fn sub<let N: u32>(self: Self, owner: AztecAddress, amount: u128) -> OuterNoteEmission<Note>
     where
         Note: NoteType + NoteHash + OwnedNote + Eq + Packable<N>,
     {
@@ -89,7 +89,7 @@ impl<Note> BalanceSet<Note, &mut PrivateContext> {
     // The `max_notes` parameter is used to fine-tune the number of constraints created by this function. The gate count
     // scales relatively linearly with `max_notes`, but a lower `max_notes` parameter increases the likelihood of
     // `try_sub` subtracting an amount smaller than `target_amount`.
-    pub fn try_sub<let N: u32>(self: Self, target_amount: U128, max_notes: u32) -> U128
+    pub fn try_sub<let N: u32>(self: Self, target_amount: u128, max_notes: u32) -> u128
     where
         Note: NoteType + NoteHash + OwnedNote + Eq + Packable<N>,
     {
@@ -102,7 +102,7 @@ impl<Note> BalanceSet<Note, &mut PrivateContext> {
             .set_limit(max_notes);
         let notes = self.set.pop_notes(options);
 
-        let mut subtracted = U128::from_integer(0);
+        let mut subtracted = 0 as u128;
         for i in 0..options.limit {
             if i < notes.len() {
                 let note = notes.get_unchecked(i);
@@ -121,13 +121,13 @@ impl<Note> BalanceSet<Note, &mut PrivateContext> {
 // Note that proper usage of this preprocessor requires for notes to be sorted in descending order.
 pub fn preprocess_notes_min_sum<Note>(
     notes: [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
-    min_sum: U128,
+    min_sum: u128,
 ) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]
 where
     Note: NoteType + NoteHash + OwnedNote,
 {
     let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
-    let mut sum = U128::from_integer(0);
+    let mut sum = 0 as u128;
     for i in 0..notes.len() {
         // Because we process notes in retrieved order, notes need to be sorted in descending amount order for this
         // filter to be useful. Consider a 'min_sum' of 4, and a set of notes with amounts [3, 2, 1, 1, 1, 1, 1]. If

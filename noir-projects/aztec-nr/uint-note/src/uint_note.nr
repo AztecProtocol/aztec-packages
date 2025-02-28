@@ -10,14 +10,14 @@ use dep::aztec::{
 #[derive(Eq, Serialize)]
 pub struct UintNote {
     // The amount of tokens in the note
-    value: U128,
+    value: u128,
     owner: AztecAddress,
     // Randomness of the note to protect against note hash preimage attacks
     randomness: Field,
 }
 // docs:end:UintNote
 impl UintNote {
-    pub fn new(value: U128, owner: AztecAddress) -> Self {
+    pub fn new(value: u128, owner: AztecAddress) -> Self {
         // Safety: We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing,
         // so a malicious sender could use non-random values to make the note less private. But they already know
         // the full note pre-image anyway, and so the recipient already trusts them to not disclose this
@@ -26,7 +26,7 @@ impl UintNote {
         Self { value, owner, randomness }
     }
 
-    pub fn get_value(self) -> U128 {
+    pub fn get_value(self) -> u128 {
         self.value
     }
 }

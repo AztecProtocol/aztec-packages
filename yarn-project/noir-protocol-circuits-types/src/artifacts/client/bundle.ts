@@ -1,4 +1,5 @@
 import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
+import type { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import PrivateKernelInitJson from '../../../artifacts/private_kernel_init.json' assert { type: 'json' };
 import PrivateKernelInitSimulatedJson from '../../../artifacts/private_kernel_init_simulated.json' assert { type: 'json' };
@@ -10,6 +11,7 @@ import PrivateKernelTailToPublicJson from '../../../artifacts/private_kernel_tai
 import PrivateKernelTailToPublicSimulatedJson from '../../../artifacts/private_kernel_tail_to_public_simulated.json' assert { type: 'json' };
 import { PrivateKernelResetArtifacts, PrivateKernelResetSimulatedArtifacts } from '../../private_kernel_reset_data.js';
 import type { ArtifactProvider, ClientProtocolArtifact } from '../types.js';
+import { ClientCircuitVks } from '../vks/client.js';
 
 export const ClientCircuitArtifacts: Record<ClientProtocolArtifact, NoirCompiledCircuit> = {
   PrivateKernelInitArtifact: PrivateKernelInitJson as NoirCompiledCircuit,
@@ -34,5 +36,9 @@ export class BundleArtifactProvider implements ArtifactProvider {
 
   getSimulatedClientCircuitArtifactByName(artifact: ClientProtocolArtifact): Promise<NoirCompiledCircuit> {
     return Promise.resolve(SimulatedClientCircuitArtifacts[artifact]);
+  }
+
+  getCircuitVkByName(artifact: ClientProtocolArtifact): Promise<VerificationKeyData> {
+    return Promise.resolve(ClientCircuitVks[artifact]);
   }
 }

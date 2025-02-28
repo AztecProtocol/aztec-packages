@@ -39,14 +39,9 @@ comptime fn get_trait_impl_method(
 /// Given the following setup:
 /// ```
 /// struct UintNote {
-///     value: U128,
+///     value: u128,
 ///     owner: AztecAddress,
 ///     randomness: Field,
-/// }
-///
-/// struct U128 {
-///     lo: Field,
-///     hi: Field,
 /// }
 ///
 /// struct AztecAddress {
@@ -57,18 +52,15 @@ comptime fn get_trait_impl_method(
 /// If `UintNote` is the input type, the function will generate the following deserialization code:
 /// ```
 /// UintNote {
-///     value: U128 {
-///         lo: fields[0],     // First field becomes low part of U128
-///         hi: fields[1],     // Second field becomes high part of U128
-///     },
+///     value: fields[0] as u128,
 ///     owner: AztecAddress {
-///         inner: fields[2],  // Third field becomes inner address
+///         inner: fields[1],
 ///     },
-///     randomness: fields[3], // Fourth field as randomness
+///     randomness: fields[2],
 /// }
 /// ```
 /// # Nested Struct Example with Unpacking
-/// - given the same setup as above and given that U128, AztecAddress and Field implement the `Packable` trait
+/// - given the same setup as above and given that u128, AztecAddress and Field implement the `Packable` trait
 ///   the result we get is:
 /// ```
 /// UintNote {
@@ -140,7 +132,7 @@ pub comptime fn generate_deserialize_from_fields(
             // We increment the consumed counter by the number of fields consumed in the recursion
             consumed_counter += num_consumed_in_recursion;
             // We add the deserialized field to the list of deserialized fields.
-            // E.g. `value: U128 { lo: fields[0], hi: fields[1] }`
+            // E.g. `value: u128 { lo: fields[0], hi: fields[1] }`
             deserialized_fields_list =
                 deserialized_fields_list.push_back(quote { $field_name: $deserialized_field });
         }
@@ -244,33 +236,33 @@ pub comptime fn generate_deserialize_from_fields(
 /// ## Struct
 /// Given the following struct:
 /// ```rust
-/// struct U128 {
-///     lo: Field,
-///     hi: Field,
+/// struct MockStruct {
+///     a: Field,
+///     b: Field,
 /// }
 /// ```
 ///
 /// Serializing the struct:
 /// ```rust
-/// generate_serialize_to_fields(quote { my_u128 }, U128, &[], false)
+/// generate_serialize_to_fields(quote { my_mock_struct }, MockStruct, &[], false)
 /// // Returns:
-/// // ([`my_u128.lo`, `my_u128.hi`], [])
+/// // ([`my_mock_struct.a`, `my_mock_struct.b`], [])
 /// ```
 ///
 /// ## Nested Struct
 /// For a more complex struct:
 /// ```rust
-/// struct UintNote {
-///     value: U128,
-///     randomness: Field,
+/// struct NestedStruct {
+///     m1: MockStruct,
+///     m2: MockStruct,
 /// }
 /// ```
 ///
 /// Serialization output:
 /// ```rust
-/// generate_serialize_to_fields(quote { self }, UintNote, &[\], false)
+/// generate_serialize_to_fields(quote { self }, NestedStruct, &[], false)
 /// // Returns:
-/// // ([`self.value.lo`, `self.value.hi`, `self.randomness`], [])
+/// // ([`self.m1.a`, `self.m1.b`, `self.m2.a`, `self.m2.b`], [])
 /// ```
 ///
 /// ## Array
@@ -291,12 +283,12 @@ pub comptime fn generate_deserialize_from_fields(
 /// ```
 ///
 /// ## Nested Struct with Omitted Field and packing enabled
-/// - U128 has a `Packable` implementation hence it will be packed.
+/// - u128 has a `Packable` implementation hence it will be packed.
 ///
 /// For a more complex struct:
 /// ```rust
 /// struct MyStruct {
-///     value: U128,
+///     value: u128,
 ///     value2: Field,
 /// }
 /// ```
@@ -540,12 +532,6 @@ pub struct Fancier {
     d: str<16>,
 }
 
-#[derive(Eq, Packable)]
-pub struct ContainsU128 {
-    a: U128,
-    b: Field,
-}
-
 fn main() {
     assert(false);
 }
@@ -587,14 +573,4 @@ fn fancier_test() {
     );
     let deserialized = Fancier::deserialize(serialized);
     assert(deserialized == fancier);
-}
-
-#[test]
-fn contains_u128_test() {
-    let contains_u128 = ContainsU128 { a: U128::from_integer(5), b: 3 };
-    let packed = contains_u128.pack();
-    assert_eq(packed, [5, 3], "Packed does not match the expected");
-
-    let unpacked = ContainsU128::unpack(packed);
-    assert_eq(unpacked, contains_u128, "Unpacked does not match the original");
 }

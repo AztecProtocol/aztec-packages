@@ -34,6 +34,9 @@ spec:
       {{- if .Values.network.public }}
       serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- else }}
+      dnsPolicy: ClusterFirst
       {{- end }}
       volumes:
         - name: config
@@ -161,6 +164,8 @@ spec:
               value: "{{ .Values.telemetry.excludeMetrics }}"
             - name: L1_CHAIN_ID
               value: "{{ .Values.ethereum.chainId }}"
+            - name: TEST_ACCOUNTS
+              value: "{{ .Values.aztec.testAccounts }}"
           ports:
             - name: http
               containerPort: {{ .Values.bot.service.nodePort }}

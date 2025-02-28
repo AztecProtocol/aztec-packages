@@ -3,12 +3,10 @@ telemetry:
 
 validator:
   replicas: 1
+  sequencer:
+    minTxsPerBlock: 0
   validator:
     disabled: false
-
-bootNode:
-  validator:
-    disabled: true
 
 ethereum:
   execution:

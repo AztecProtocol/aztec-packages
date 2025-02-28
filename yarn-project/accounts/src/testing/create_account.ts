@@ -2,8 +2,7 @@ import { type AccountManager, FeeJuicePaymentMethod, type PXE, type WaitOpts } f
 import { Fr } from '@aztec/foundation/fields';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 
-import { getSchnorrAccountContractAddress } from '../schnorr/account_contract.js';
-import { getSchnorrAccount } from '../schnorr/index.js';
+import { getSchnorrAccount, getSchnorrAccountContractAddress } from '../schnorr/index.js';
 import type { InitialAccountData } from './configuration.js';
 
 /**

@@ -19,3 +19,5 @@ export interface ProtocolContract {
 export function isProtocolContract(address: AztecAddress) {
   return Object.values(ProtocolContractAddress).some(a => a.equals(address));
 }
+
+export { type ProtocolContractsProvider } from './provider/protocol_contracts_provider.js';

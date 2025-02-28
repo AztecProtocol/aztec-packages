@@ -607,8 +607,6 @@ export class ReqResp {
       const handler = this.subProtocolHandlers[protocol];
       const transform = this.snappyTransform;
 
-      this.logger.info(`Stream handler for ${protocol}`);
-
       await pipe(
         stream,
         async function* (source: any) {

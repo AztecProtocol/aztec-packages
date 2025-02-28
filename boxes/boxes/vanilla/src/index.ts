@@ -1,6 +1,6 @@
 import { Fr, Wallet, createPXEClient } from '@aztec/aztec.js';
 
-import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
+import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing/lazy';
 import { VanillaContract } from '../artifacts/Vanilla';
 
 const pxe = createPXEClient(process.env.PXE_URL || 'http://localhost:8080');

@@ -31,9 +31,11 @@ class lookup_bitwise_integral_tag_length_settings {
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_integral_tag;
     static constexpr Column COUNTS = Column::lookup_bitwise_integral_tag_length_counts;
     static constexpr Column INVERSES = Column::lookup_bitwise_integral_tag_length_inv;
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::bitwise_tag, Column::bitwise_ctr };
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::precomputed_clk,
-                                                                           Column::precomputed_integral_tag_length };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::bitwise_tag,
+                                                                                    ColumnAndShifts::bitwise_ctr };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_integral_tag_length
+    };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
@@ -117,13 +119,16 @@ class lookup_bitwise_byte_operations_settings {
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_bitwise;
     static constexpr Column COUNTS = Column::lookup_bitwise_byte_operations_counts;
     static constexpr Column INVERSES = Column::lookup_bitwise_byte_operations_inv;
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        Column::bitwise_op_id, Column::bitwise_ia_byte, Column::bitwise_ib_byte, Column::bitwise_ic_byte
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::bitwise_op_id,
+                                                                                    ColumnAndShifts::bitwise_ia_byte,
+                                                                                    ColumnAndShifts::bitwise_ib_byte,
+                                                                                    ColumnAndShifts::bitwise_ic_byte };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::precomputed_bitwise_op_id,
+        ColumnAndShifts::precomputed_bitwise_input_a,
+        ColumnAndShifts::precomputed_bitwise_input_b,
+        ColumnAndShifts::precomputed_bitwise_output
     };
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::precomputed_bitwise_op_id,
-                                                                           Column::precomputed_bitwise_input_a,
-                                                                           Column::precomputed_bitwise_input_b,
-                                                                           Column::precomputed_bitwise_output };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {

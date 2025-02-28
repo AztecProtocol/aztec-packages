@@ -28,7 +28,7 @@ TEST(EccTraceGenTest, TraceGenerationAdd)
     FF r_x("0x2b01df0ef6d941a826bea23bece8243cbcdc159d5e97fbaa2171f028e05ba9b6");
     FF r_y("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
     AffinePoint r(r_x, r_y);
-    builder.process({ { .p = p, .q = q, .result = r } }, trace);
+    builder.process_add({ { .p = p, .q = q, .result = r } }, trace);
 
     EXPECT_THAT(trace.as_rows(),
                 ElementsAre(
@@ -66,7 +66,7 @@ TEST(EccTraceGenTest, TraceGenerationDouble)
     FF r_x("0x2b01df0ef6d941a826bea23bece8243cbcdc159d5e97fbaa2171f028e05ba9b6");
     FF r_y("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
     AffinePoint r(r_x, r_y);
-    builder.process({ { .p = p, .q = q, .result = r } }, trace);
+    builder.process_add({ { .p = p, .q = q, .result = r } }, trace);
 
     EXPECT_THAT(trace.as_rows(),
                 ElementsAre(
@@ -103,7 +103,7 @@ TEST(EccTraceGenTest, TraceGenerationInf)
 
     AffinePoint q(p.x, -p.y);
     AffinePoint r = p + q;
-    builder.process({ { .p = p, .q = q, .result = r } }, trace);
+    builder.process_add({ { .p = p, .q = q, .result = r } }, trace);
 
     EXPECT_THAT(trace.as_rows(),
                 ElementsAre(

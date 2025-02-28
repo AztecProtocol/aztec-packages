@@ -31,8 +31,10 @@ class lookup_bc_decomposition_bytes_are_bytes_settings {
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_8;
     static constexpr Column COUNTS = Column::lookup_bc_decomposition_bytes_are_bytes_counts;
     static constexpr Column INVERSES = Column::lookup_bc_decomposition_bytes_are_bytes_inv;
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::bc_decomposition_bytes };
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::precomputed_clk };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::bc_decomposition_bytes
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
@@ -114,8 +116,10 @@ class lookup_bc_decomposition_abs_diff_is_u16_settings {
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
     static constexpr Column COUNTS = Column::lookup_bc_decomposition_abs_diff_is_u16_counts;
     static constexpr Column INVERSES = Column::lookup_bc_decomposition_abs_diff_is_u16_inv;
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::bc_decomposition_abs_diff };
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::precomputed_clk };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::bc_decomposition_abs_diff
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
@@ -197,11 +201,12 @@ class lookup_bc_decomposition_bytes_to_read_as_unary_settings {
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_unary;
     static constexpr Column COUNTS = Column::lookup_bc_decomposition_bytes_to_read_as_unary_counts;
     static constexpr Column INVERSES = Column::lookup_bc_decomposition_bytes_to_read_as_unary_inv;
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        Column::bc_decomposition_bytes_to_read, Column::bc_decomposition_bytes_to_read_unary
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::bc_decomposition_bytes_to_read, ColumnAndShifts::bc_decomposition_bytes_to_read_unary
     };
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::precomputed_clk,
-                                                                           Column::precomputed_as_unary };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_as_unary
+    };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {

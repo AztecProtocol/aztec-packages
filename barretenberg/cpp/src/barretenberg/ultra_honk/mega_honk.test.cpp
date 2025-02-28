@@ -90,6 +90,30 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
 TYPED_TEST_SUITE(MegaHonkTests, FlavorTypes);
 
 /**
+ * @brief Check that size of a merge proof matches the corresponding constant
+ * @details This is useful for ensuring correct construction of mock merge proofs
+ *
+ */
+TYPED_TEST(MegaHonkTests, MergeProofSizeCheck)
+{
+    using Flavor = TypeParam;
+    using MergeProver = MergeProver_<Flavor>;
+
+    // Constuct an op queue and populate it with some arbitrary ops
+    auto op_queue = std::make_shared<bb::ECCOpQueue>();
+    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
+
+    auto builder = typename Flavor::CircuitBuilder{ op_queue };
+    GoblinMockCircuits::construct_simple_circuit(builder);
+
+    // Construct a merge proof and ensure its size matches expectation; if not, the constant may need to be updated
+    MergeProver merge_prover{ op_queue };
+    auto merge_proof = merge_prover.construct_proof();
+
+    EXPECT_EQ(merge_proof.size(), MERGE_PROOF_SIZE);
+}
+
+/**
  * @brief Test proof construction/verification for a circuit with ECC op gates, public inputs, and basic arithmetic
  * gates
  *
@@ -308,17 +332,6 @@ TYPED_TEST(MegaHonkTests, MultipleCircuitsHonkAndMerge)
         // Construct and verify Goblin ECC op queue Merge proof
         auto merge_verified = this->construct_and_verify_merge_proof(op_queue);
         EXPECT_TRUE(merge_verified);
-    }
-
-    // Compute the commitments to the aggregate op queue directly and check that they match those that were computed
-    // iteratively during transcript aggregation by the provers and stored in the op queue.
-    size_t aggregate_op_queue_size = op_queue->get_current_size();
-    auto ultra_ops = op_queue->get_aggregate_transcript();
-    auto commitment_key = std::make_shared<typename Flavor::CommitmentKey>(aggregate_op_queue_size);
-    size_t idx = 0;
-    for (const auto& result : op_queue->get_ultra_ops_commitments()) {
-        auto expected = commitment_key->commit({ /* start index */ 0, ultra_ops[idx++] });
-        EXPECT_EQ(result, expected);
     }
 }
 

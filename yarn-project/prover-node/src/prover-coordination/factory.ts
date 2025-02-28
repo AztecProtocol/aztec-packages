@@ -3,7 +3,7 @@ import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { createLogger } from '@aztec/foundation/log';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { createP2PClient } from '@aztec/p2p';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { createAztecNodeClient } from '@aztec/stdlib/interfaces/client';

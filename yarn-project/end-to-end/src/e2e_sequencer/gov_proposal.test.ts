@@ -1,6 +1,6 @@
 import type { AztecNode, CheatCodes, Logger, PXE, Wallet } from '@aztec/aztec.js';
 import {
-  type DeployL1Contracts,
+  type DeployL1ContractsReturnType,
   GovernanceProposerContract,
   RollupContract,
   deployL1Contract,
@@ -22,7 +22,7 @@ describe('e2e_gov_proposal', () => {
   let wallet: Wallet;
   let pxe: PXE;
   let aztecNode: AztecNode;
-  let deployL1ContractsValues: DeployL1Contracts;
+  let deployL1ContractsValues: DeployL1ContractsReturnType;
   let aztecSlotDuration: number;
   let cheatCodes: CheatCodes;
   beforeEach(async () => {

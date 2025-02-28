@@ -2,6 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
@@ -15,11 +16,23 @@ import {
 } from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 import {ProposeArgs} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
+import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+
+struct PublicInputArgs {
+  bytes32 previousArchive;
+  bytes32 endArchive;
+  bytes32 previousBlockHash; // @todo #8829 Not needed as public input, unconstrained on L1
+  bytes32 endBlockHash; // @todo #8829 Not needed as public input, unconstrained on L1
+  Timestamp endTimestamp;
+  bytes32 outHash;
+  address proverId;
+}
 
 struct SubmitEpochRootProofArgs {
   uint256 start; // inclusive
   uint256 end; // inclusive
-  bytes32[7] args; // @todo These are obhorrent and so easy to mess up with wrong padding.
+  PublicInputArgs args;
   bytes32[] fees;
   bytes blobPublicInputs;
   bytes aggregationObject;
@@ -55,22 +68,35 @@ struct EpochRewards {
   mapping(uint256 length => SubEpochRewards) subEpoch;
 }
 
+// @todo Ideally we should pull these from the code for immutable values
+// to save gas. Consider using constants or more fancy deployments.
+struct RollupConfig {
+  uint256 proofSubmissionWindow;
+  IERC20 feeAsset;
+  IFeeJuicePortal feeAssetPortal;
+  IRewardDistributor rewardDistributor;
+  bytes32 vkTreeRoot;
+  bytes32 protocolContractTreeRoot;
+  IVerifier epochProofVerifier;
+  IInbox inbox;
+  IOutbox outbox;
+  uint256 version;
+}
+
 // The below blobPublicInputsHashes are filled when proposing a block, then used to verify an epoch proof.
 // TODO(#8955): When implementing batched kzg proofs, store one instance per epoch rather than block
 struct RollupStore {
   ChainTips tips; // put first such that the struct slot structure is easy to follow for cheatcodes
   mapping(uint256 blockNumber => BlockLog log) blocks;
   mapping(uint256 blockNumber => bytes32) blobPublicInputsHashes;
-  bytes32 vkTreeRoot;
-  bytes32 protocolContractTreeRoot;
   L1GasOracleValues l1GasOracleValues;
-  IVerifier epochProofVerifier;
+  EthValue provingCostPerMana;
   mapping(address => uint256) sequencerRewards;
   mapping(Epoch => EpochRewards) epochRewards;
   // @todo Below can be optimised with a bitmap as we can benefit from provers likely proving for epochs close
   // to one another.
   mapping(address prover => mapping(Epoch epoch => bool claimed)) proverClaimed;
-  EthValue provingCostPerMana;
+  RollupConfig config;
 }
 
 struct CheatDepositArgs {
@@ -95,7 +121,7 @@ interface IRollupCore {
   event L2BlockProposed(
     uint256 indexed blockNumber, bytes32 indexed archive, bytes32[] versionedBlobHashes
   );
-  event L2ProofVerified(uint256 indexed blockNumber, bytes32 indexed proverId);
+  event L2ProofVerified(uint256 indexed blockNumber, address indexed proverId);
   event PrunedPending(uint256 provenBlockNumber, uint256 pendingBlockNumber);
 
   function claimSequencerRewards(address _recipient) external returns (uint256);
@@ -111,17 +137,10 @@ interface IRollupCore {
   function propose(
     ProposeArgs calldata _args,
     Signature[] memory _signatures,
-    bytes calldata _body,
     bytes calldata _blobInput
   ) external;
 
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external;
-
-  // solhint-disable-next-line func-name-mixedcase
-  function INBOX() external view returns (IInbox);
-
-  // solhint-disable-next-line func-name-mixedcase
-  function OUTBOX() external view returns (IOutbox);
 
   // solhint-disable-next-line func-name-mixedcase
   function L1_BLOCK_AT_GENESIS() external view returns (uint256);
@@ -153,7 +172,7 @@ interface IRollup is IRollupCore {
   function getEpochProofPublicInputs(
     uint256 _start,
     uint256 _end,
-    bytes32[7] calldata _args,
+    PublicInputArgs calldata _args,
     bytes32[] calldata _fees,
     bytes calldata _blobPublicInputs,
     bytes calldata _aggregationObject
@@ -200,4 +219,13 @@ interface IRollup is IRollupCore {
   function getProvingCostPerManaInEth() external view returns (EthValue);
 
   function getProvingCostPerManaInFeeAsset() external view returns (FeeAssetValue);
+
+  function getFeeAsset() external view returns (IERC20);
+  function getFeeAssetPortal() external view returns (IFeeJuicePortal);
+  function getRewardDistributor() external view returns (IRewardDistributor);
+  function getCuauhxicalli() external view returns (address);
+
+  function getInbox() external view returns (IInbox);
+  function getOutbox() external view returns (IOutbox);
+  function getVersion() external view returns (uint256);
 }

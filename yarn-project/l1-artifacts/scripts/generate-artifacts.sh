@@ -27,6 +27,7 @@ contracts=(
   "GovernanceProposer"
   "Governance"
   "NewGovernanceProposerPayload"
+  "RegisterNewRollupVersionPayload"
   "ValidatorSelectionLib"
   "ExtRollupLib"
   "SlashingProposer"
@@ -35,7 +36,6 @@ contracts=(
   "SlashFactory"
   "Forwarder"
   "HonkVerifier"
-  "StakingLib"
 )
 
 # Combine error ABIs once, removing duplicates by {type, name}.

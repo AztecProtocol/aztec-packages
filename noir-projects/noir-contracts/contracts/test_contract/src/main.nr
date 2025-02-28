@@ -33,8 +33,13 @@ pub contract Test {
     use dep::aztec::{
         deploy::deploy_contract as aztec_deploy_contract,
         discovery::private_logs::do_process_log,
-        hash::{ArgsHasher, pedersen_hash},
-        macros::{events::event, functions::{internal, private, public}, storage::storage},
+        hash::{ArgsHasher, compute_secret_hash, pedersen_hash},
+        history::note_inclusion::ProveNoteInclusion,
+        macros::{
+            events::event,
+            functions::{initializer, internal, noinitcheck, private, public},
+            storage::storage,
+        },
         note::{
             lifecycle::{create_note, destroy_note_unsafe},
             note_getter::{get_notes, view_notes},
@@ -88,6 +93,11 @@ pub contract Test {
         another_example_struct: PrivateImmutable<ExampleStruct, Context>,
     }
 
+    #[initializer]
+    #[private]
+    // We can name our initializer anything we want as long as it's marked as aztec(initializer)
+    fn initialize() {}
+
     #[private]
     fn get_ovsk_app(ovpk_m_hash: Field) -> Field {
         context.request_ovsk_app(ovpk_m_hash)
@@ -119,6 +129,7 @@ pub contract Test {
     #[internal]
     fn dummy_public_call() {}
 
+    // docs:start:create_note
     #[private]
     fn call_create_note(
         value: Field,
@@ -138,6 +149,7 @@ pub contract Test {
             sender,
         ));
     }
+    // docs:end:create_note
 
     #[private]
     fn call_get_notes(storage_slot: Field, active_or_nullified: bool) -> Field {
@@ -151,8 +163,10 @@ pub contract Test {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
+        // docs:start:get_note_from_pxe
         let (retrieved_notes, _): (BoundedVec<RetrievedNote<ValueNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
             get_notes(&mut context, storage_slot, options);
+        // docs:end:get_note_from_pxe
 
         retrieved_notes.get(0).note.value
     }
@@ -224,7 +238,22 @@ pub contract Test {
         let retrieved_note = retrieved_notes.get(0);
         let note_hash = note_hashes.get(0);
 
+        // docs:start:nullify_note
         destroy_note_unsafe(&mut context, retrieved_note, note_hash);
+        // docs:end:nullify_note
+    }
+
+    #[private]
+    fn test_note_inclusion(owner: AztecAddress, storage_slot: Field) {
+        let mut options = NoteGetterOptions::new();
+        options = options.set_limit(1);
+
+        let (retrieved_notes, _): (BoundedVec<RetrievedNote<ValueNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
+            get_notes(&mut context, storage_slot, options);
+
+        let header = context.get_block_header();
+
+        header.prove_note_inclusion(retrieved_notes.get(0), storage_slot);
     }
 
     #[private]
@@ -302,6 +331,7 @@ pub contract Test {
 
     // Forcefully emits a nullifier (for testing purposes)
     #[private]
+    #[noinitcheck]
     fn emit_nullifier(nullifier: Field) {
         context.push_nullifier(nullifier);
     }
@@ -377,7 +407,7 @@ pub contract Test {
     #[public]
     fn consume_mint_to_public_message(
         to: AztecAddress,
-        amount: U128,
+        amount: u128,
         secret: Field,
         message_leaf_index: Field,
         portal_address: EthAddress,
@@ -389,7 +419,7 @@ pub contract Test {
 
     #[private]
     fn consume_mint_to_private_message(
-        amount: U128,
+        amount: u128,
         secret_for_L1_to_L2_message_consumption: Field,
         portal_address: EthAddress,
         message_leaf_index: Field,

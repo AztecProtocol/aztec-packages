@@ -159,7 +159,7 @@ export class FeesTest {
         this.pxe = pxe;
         this.aztecNode = aztecNode;
         this.gasSettings = GasSettings.default({ maxFeesPerGas: (await this.aztecNode.getCurrentBaseFees()).mul(2) });
-        this.cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrl, pxe);
+        this.cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, pxe);
         this.wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
         this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
         [this.aliceWallet, this.bobWallet] = this.wallets.slice(0, 2);
@@ -176,7 +176,7 @@ export class FeesTest {
         }
         this.coinbase = EthAddress.random();
 
-        const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrl, MNEMONIC);
+        const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrls, MNEMONIC);
         this.feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
           aztecNode: aztecNode,
           pxeService: pxe,
@@ -208,7 +208,7 @@ export class FeesTest {
 
         this.getGasBalanceFn = getBalancesFn('⛽', this.feeJuiceContract.methods.balance_of_public, this.logger);
 
-        const { publicClient, walletClient } = createL1Clients(context.aztecNodeConfig.l1RpcUrl, MNEMONIC);
+        const { publicClient, walletClient } = createL1Clients(context.aztecNodeConfig.l1RpcUrls, MNEMONIC);
         this.feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
           aztecNode: context.aztecNode,
           pxeService: context.pxe,
@@ -273,7 +273,7 @@ export class FeesTest {
         );
 
         this.getCoinbaseBalance = async () => {
-          const { walletClient } = createL1Clients(context.aztecNodeConfig.l1RpcUrl, MNEMONIC);
+          const { walletClient } = createL1Clients(context.aztecNodeConfig.l1RpcUrls, MNEMONIC);
           const gasL1 = getContract({
             address: data.l1FeeJuiceAddress.toString(),
             abi: TestERC20Abi,
@@ -283,7 +283,7 @@ export class FeesTest {
         };
 
         this.getCoinbaseSequencerRewards = async () => {
-          const { walletClient } = createL1Clients(context.aztecNodeConfig.l1RpcUrl, MNEMONIC);
+          const { walletClient } = createL1Clients(context.aztecNodeConfig.l1RpcUrls, MNEMONIC);
           const rollup = getContract({
             address: data.rollupAddress.toString(),
             abi: RollupAbi,
@@ -294,7 +294,7 @@ export class FeesTest {
         };
 
         this.getProverFee = async (blockNumber: number) => {
-          const { walletClient } = createL1Clients(context.aztecNodeConfig.l1RpcUrl, MNEMONIC);
+          const { walletClient } = createL1Clients(context.aztecNodeConfig.l1RpcUrls, MNEMONIC);
           const rollup = getContract({
             address: data.rollupAddress.toString(),
             abi: RollupAbi,

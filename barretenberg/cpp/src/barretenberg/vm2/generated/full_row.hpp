@@ -25,10 +25,3 @@ template <typename FF_> struct AvmFullRow {
 };
 
 } // namespace bb::avm2
-
-namespace bb {
-
-// Expose this in the bb namespace. For compatibility with the old witgen.
-using avm2::AvmFullRow;
-
-} // namespace bb

@@ -124,8 +124,8 @@ contract ValidatorSelectionTest is DecoderBase {
     testERC20.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
     rollup.cheat__InitialiseValidatorSet(initialValidators);
 
-    inbox = Inbox(address(rollup.INBOX()));
-    outbox = Outbox(address(rollup.OUTBOX()));
+    inbox = Inbox(address(rollup.getInbox()));
+    outbox = Outbox(address(rollup.getOutbox()));
 
     merkleTestUtil = new MerkleTestUtil();
 
@@ -315,14 +315,14 @@ contract ValidatorSelectionTest is DecoderBase {
 
       emit log("Time to propose");
       vm.prank(ree.proposer);
-      rollup.propose(args, signatures, full.block.body, full.block.blobInputs);
+      rollup.propose(args, signatures, full.block.blobInputs);
 
       if (ree.shouldRevert) {
         return;
       }
     } else {
       Signature[] memory signatures = new Signature[](0);
-      rollup.propose(args, signatures, full.block.body, full.block.blobInputs);
+      rollup.propose(args, signatures, full.block.blobInputs);
     }
 
     assertEq(_expectRevert, ree.shouldRevert, "Does not match revert expectation");

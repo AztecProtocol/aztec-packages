@@ -24,13 +24,13 @@ pub contract Spam {
     #[storage]
     struct Storage<Context> {
         balances: Map<AztecAddress, BalanceSet<TokenNote, Context>, Context>,
-        public_balances: Map<Field, PublicMutable<U128, Context>, Context>,
+        public_balances: Map<Field, PublicMutable<u128, Context>, Context>,
     }
 
     #[private]
     fn spam(nullifier_seed: Field, nullifier_count: u32, call_public: bool) {
         let caller = context.msg_sender();
-        let amount = U128::from_integer(1);
+        let amount = 1 as u128;
 
         for _ in 0..MAX_NOTE_HASHES_PER_CALL {
             storage.balances.at(caller).add(caller, amount).emit(
@@ -63,7 +63,7 @@ pub contract Spam {
     #[public]
     #[internal]
     fn public_spam(start: u32, end: u32) {
-        let one = U128::from_integer(1);
+        let one = 1 as u128;
         for i in start..end {
             let prev = storage.public_balances.at(i as Field).read();
             storage.public_balances.at(i as Field).write(prev + one);

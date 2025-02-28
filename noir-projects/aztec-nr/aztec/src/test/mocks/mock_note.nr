@@ -2,7 +2,7 @@ use crate::{
     context::PrivateContext,
     note::{
         note_interface::{NoteHash, NoteType},
-        note_metadata::SettledNoteMetadata,
+        note_metadata::{NoteMetadata, SettledNoteMetadata},
         retrieved_note::RetrievedNote,
         utils::compute_note_hash_for_nullify,
     },
@@ -47,20 +47,9 @@ impl NoteHash for MockNote {
         )
     }
 
-    unconstrained fn compute_nullifier_without_context(
-        self,
-        storage_slot: Field,
-        contract_address: AztecAddress,
-        note_nonce: Field,
-    ) -> Field {
-        let retrieved_note = RetrievedNote {
-            note: self,
-            contract_address,
-            metadata: SettledNoteMetadata::new(note_nonce).into(),
-        };
+    unconstrained fn compute_nullifier_unconstrained(self, note_hash_for_nullify: Field) -> Field {
         // We don't use any kind of secret here since this is only a mock note and having it here would make tests
         // more cumbersome
-        let note_hash_for_nullify = compute_note_hash_for_nullify(retrieved_note, storage_slot);
         poseidon2_hash_with_separator(
             [note_hash_for_nullify],
             GENERATOR_INDEX__NOTE_NULLIFIER as Field,
@@ -71,15 +60,21 @@ impl NoteHash for MockNote {
 pub(crate) struct MockNoteBuilder {
     value: Field,
     contract_address: Option<AztecAddress>,
+    note_metadata: Option<NoteMetadata>,
 }
 
 impl MockNoteBuilder {
     pub(crate) fn new(value: Field) -> Self {
-        MockNoteBuilder { value, contract_address: Option::none() }
+        MockNoteBuilder { value, contract_address: Option::none(), note_metadata: Option::none() }
     }
 
     pub(crate) fn contract_address(&mut self, contract_address: AztecAddress) -> &mut Self {
         self.contract_address = Option::some(contract_address);
+        self
+    }
+
+    pub(crate) fn note_metadata(&mut self, note_metadata: NoteMetadata) -> &mut Self {
+        self.note_metadata = Option::some(note_metadata);
         self
     }
 
@@ -91,9 +86,9 @@ impl MockNoteBuilder {
         RetrievedNote {
             note: MockNote { value: self.value },
             contract_address: self.contract_address.unwrap_or(AztecAddress::zero()),
-            // This is invalid note metadata, which would result in the kernel failing to prove note existence. Because
-            // our tests don't interact with the kernel this is not a problem.
-            metadata: std::mem::zeroed(),
+            // If the option is `None` for self.note_metadata, we fill it with invalid note metadata, which would result in the kernel
+            // failing to prove note existence. Because our tests don't interact with the kernel this is not a problem.
+            metadata: self.note_metadata.unwrap_or(std::mem::zeroed()),
         }
     }
 }

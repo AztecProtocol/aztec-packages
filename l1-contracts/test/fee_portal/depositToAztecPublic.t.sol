@@ -110,7 +110,7 @@ contract DepositToAztecPublic is Test {
     token.mint(address(this), amount);
     token.approve(address(feeJuicePortal), amount);
 
-    Inbox inbox = Inbox(address(Rollup(address(registry.getRollup())).INBOX()));
+    Inbox inbox = Inbox(address(Rollup(address(registry.getRollup())).getInbox()));
     assertEq(inbox.totalMessagesInserted(), 0);
 
     vm.expectEmit(true, true, true, true, address(inbox));

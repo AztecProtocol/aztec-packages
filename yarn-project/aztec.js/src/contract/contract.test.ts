@@ -41,7 +41,6 @@ describe('Contract Class', () => {
     coinIssuerAddress: EthAddress.random(),
     rewardDistributorAddress: EthAddress.random(),
     governanceProposerAddress: EthAddress.random(),
-    slashFactoryAddress: EthAddress.random(),
   };
 
   const defaultArtifact: ContractArtifact = {

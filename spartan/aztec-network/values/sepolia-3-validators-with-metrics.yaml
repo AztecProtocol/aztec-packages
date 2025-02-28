@@ -3,6 +3,9 @@ telemetry:
 
 aztec:
   realProofs: false
+  validatorKeyIndexStart: 0
+  proverKeyIndexStart: 3
+  botKeyIndexStart: 4
 
 network:
   setupL2Contracts: false
@@ -10,11 +13,9 @@ network:
 
 ethereum:
   l1DeploymentMnemonic:
-  proverKeyIndexStart: 0
-  validatorKeyIndexStart: 1
   chainId: "11155111"
   execution:
-    externalHost:
+    externalHosts:
   beacon:
     externalHost:
     apiKey:
@@ -27,10 +28,6 @@ validator:
   replicas: 3
   validator:
     disabled: false
-
-bootNode:
-  validator:
-    disabled: true
 
 bot:
   txIntervalSeconds: 20

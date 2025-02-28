@@ -105,7 +105,7 @@ describe('Public TX simulator apps tests: TokenContract', () => {
       ],
     );
     expect(balResult.revertCode.isOK()).toBe(true);
-    expectAppCall0Output(balResult, [new Fr(expectedBalance), Fr.zero()]);
+    expectAppCall0Output(balResult, [new Fr(expectedBalance)]);
   };
 });
 

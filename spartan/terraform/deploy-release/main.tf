@@ -38,6 +38,14 @@ data "terraform_remote_state" "metrics" {
   }
 }
 
+resource "google_compute_address" "bootnode_ip" {
+  for_each     = var.EXPOSE_HTTPS_BOOTNODE == true ? toset(["${var.RELEASE_NAME}-bootnode-ip"]) : toset([])
+  provider     = google
+  name         = each.key
+  address_type = "EXTERNAL"
+  region       = var.BOOTNODE_IP_REGION
+}
+
 # Aztec Helm release for gke-cluster
 resource "helm_release" "aztec-gke-cluster" {
   provider         = helm.gke-cluster
@@ -73,10 +81,10 @@ resource "helm_release" "aztec-gke-cluster" {
   }
 
   dynamic "set" {
-    for_each = var.EXTERNAL_ETHEREUM_HOST != "" ? toset(["iterate"]) : toset([])
+    for_each = var.EXTERNAL_ETHEREUM_HOSTS != "" ? toset(["iterate"]) : toset([])
     content {
-      name  = "ethereum.execution.externalHost"
-      value = var.EXTERNAL_ETHEREUM_HOST
+      name  = "ethereum.execution.externalHosts"
+      value = var.EXTERNAL_ETHEREUM_HOSTS
     }
   }
 
@@ -101,6 +109,14 @@ resource "helm_release" "aztec-gke-cluster" {
     content {
       name  = "ethereum.beacon.apiKeyHeader"
       value = var.EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER
+    }
+  }
+
+  dynamic "set" {
+    for_each = var.EXPOSE_HTTPS_BOOTNODE == true ? toset(["iterate"]) : toset([])
+    content {
+      name  = "bootNode.fixedExternalIP"
+      value = google_compute_address.bootnode_ip["${var.RELEASE_NAME}-bootnode-ip"].address
     }
   }
 

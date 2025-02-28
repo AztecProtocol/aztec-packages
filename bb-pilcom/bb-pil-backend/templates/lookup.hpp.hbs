@@ -32,14 +32,14 @@ class {{lookup_name}}_settings {
     static constexpr Column DST_SELECTOR = Column::{{rhs_selector}};
     static constexpr Column COUNTS = Column::{{counts_col}};
     static constexpr Column INVERSES = Column::{{inverses_col}};
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         {{#each lhs_cols as |col|}}
-        Column::{{col}}{{#unless @last}},{{/unless}}
+        ColumnAndShifts::{{col}}{{#unless @last}},{{/unless}}
         {{/each}}
     };
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         {{#each rhs_cols as |col|}}
-        Column::{{col}}{{#unless @last}},{{/unless}}
+        ColumnAndShifts::{{col}}{{#unless @last}},{{/unless}}
         {{/each}}
     };
 

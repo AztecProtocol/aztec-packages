@@ -33,7 +33,7 @@ import {
   convertSimulatedSingleTxBlockRootRollupInputsToWitnessMap,
   convertSimulatedSingleTxBlockRootRollupOutputsFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types/server';
-import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
+import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
 import { type SimulationProvider, WASMSimulatorWithBlobs, emitCircuitSimulationStats } from '@aztec/simulator/server';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import {

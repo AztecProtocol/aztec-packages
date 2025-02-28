@@ -10,9 +10,9 @@ export interface BlobSinkConfig {
   blobSinkUrl?: string;
 
   /**
-   * The URL of the L1 RPC Execution client
+   * List of URLs for L1 RPC Execution clients
    */
-  l1RpcUrl?: string;
+  l1RpcUrls?: string[];
 
   /**
    * The URL of the L1 consensus client
@@ -35,9 +35,10 @@ export const blobSinkConfigMapping: ConfigMappingsType<BlobSinkConfig> = {
     env: 'BLOB_SINK_URL',
     description: 'The URL of the blob sink',
   },
-  l1RpcUrl: {
-    env: 'ETHEREUM_HOST',
-    description: 'The URL of the L1 RPC Execution client',
+  l1RpcUrls: {
+    env: 'ETHEREUM_HOSTS',
+    description: 'List of URLs for L1 RPC Execution clients',
+    parseEnv: (val: string) => val.split(',').map(url => url.trim()),
   },
   l1ConsensusHostUrl: {
     env: 'L1_CONSENSUS_HOST_URL',

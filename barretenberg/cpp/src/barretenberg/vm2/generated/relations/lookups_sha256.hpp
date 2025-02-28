@@ -31,10 +31,11 @@ class lookup_sha256_round_constant_settings {
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_sha256_compression;
     static constexpr Column COUNTS = Column::lookup_sha256_round_constant_counts;
     static constexpr Column INVERSES = Column::lookup_sha256_round_constant_inv;
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::sha256_round_count,
-                                                                           Column::sha256_round_constant };
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        Column::precomputed_clk, Column::precomputed_sha256_compression_round_constant
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::sha256_round_count, ColumnAndShifts::sha256_round_constant
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_sha256_compression_round_constant
     };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)

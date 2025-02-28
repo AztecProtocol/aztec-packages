@@ -184,7 +184,7 @@ export function parsePaymentMethod(
           }
           log(`Using Fee Juice for fee payments with claim for ${claimAmount} tokens`);
           const { FeeJuicePaymentMethodWithClaim } = await import('@aztec/aztec.js/fee');
-          return new FeeJuicePaymentMethodWithClaim(sender.getAddress(), {
+          return new FeeJuicePaymentMethodWithClaim(sender, {
             claimAmount: (typeof claimAmount === 'string'
               ? Fr.fromHexString(claimAmount)
               : new Fr(claimAmount)

@@ -1,6 +1,11 @@
 use crate::Test;
 use crate::test_note::TestNote;
+use dep::aztec::{prelude::AztecAddress, test::helpers::test_environment::TestEnvironment};
 use address_note::address_note::AddressNote;
+use aztec::history::contract_inclusion::{
+    ProveContractDeployment, ProveContractInitialization, ProveContractNonDeployment,
+    ProveContractNonInitialization,
+};
 use aztec::note::note_interface::NoteType;
 use value_note::value_note::ValueNote;
 
@@ -76,4 +81,102 @@ fn get_shared_mutable_num_slots() -> Field {
     let with_hash_additional_slots = 1;
 
     value_change_and_delay_change_packed_len + with_hash_additional_slots
+}
+
+global CONTRACT_DEPLOYED_AT: u32 = 3;
+
+// In env.deploy_self("Test").with_private_initializer(initializer); it first deploys the contract, then advances a block, then calls the initializer.
+global CONTRACT_INITIALIZED_AT: u32 = CONTRACT_DEPLOYED_AT + 1;
+
+pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddress) {
+    // Setup env, generate keys
+    let mut env = TestEnvironment::new();
+    let owner = env.create_account(1);
+    env.impersonate(owner);
+
+    // TODO(#12276): This is here because we are testing historical proofs, and we cannot get a valid block_header at 1 due to a bug in world state.
+    env.advance_block_by(1);
+
+    // We sanity check that we are building block 3, thus block 3 is where the contract will be deployed.
+    assert_eq(env.pending_block_number(), CONTRACT_DEPLOYED_AT);
+
+    // Deploy contract and initialize
+    let initializer = Test::interface().initialize();
+    let test_contract = env.deploy_self("Test").with_private_initializer(initializer);
+    let contract_address = test_contract.to_address();
+
+    env.advance_block_by(1);
+
+    (&mut env, contract_address, owner)
+}
+
+// These tests need to be here instead of a saner place like aztec-nr/aztec/src/history/contract_inclusion/test.nr
+// because we are unable to define nor deploy a contract from that location and currently do not have plans to change that.
+
+// In these tests we deploy a contract and can prove whether it has been deployed / initialized at specific blocks.
+#[test]
+unconstrained fn contract_historical_proofs_happy_path() {
+    let (env, contract_address) = setup();
+
+    let context_at_block_before_deployment = env.private_at(CONTRACT_DEPLOYED_AT - 1);
+    let context_at_block_of_deployment = env.private_at(CONTRACT_DEPLOYED_AT);
+
+    let context_at_block_before_initialization = env.private_at(CONTRACT_INITIALIZED_AT - 1);
+    let context_at_block_of_initialization = env.private_at(CONTRACT_INITIALIZED_AT);
+
+    // We prove that the contract had not been deployed nor initialized at the block before deployment
+    context_at_block_before_deployment.historical_header.prove_contract_non_deployment(
+        contract_address,
+    );
+    context_at_block_before_initialization.historical_header.prove_contract_non_initialization(
+        contract_address,
+    );
+
+    // And we prove that the contract has been been deployed and initialized at the block after deployment
+    context_at_block_of_deployment.historical_header.prove_contract_deployment(contract_address);
+    context_at_block_of_initialization.historical_header.prove_contract_initialization(
+        contract_address,
+    );
+}
+
+// In this test, we fail to prove contract deployment at the block before it was deployed. This checks for inclusion
+// of the deployment nullifier in state.
+#[test(should_fail_with = "Nullifier membership witness not found at block 2.")]
+unconstrained fn proving_contract_deployment_fails() {
+    let (env, contract_address) = setup();
+
+    let context = env.private_at(CONTRACT_DEPLOYED_AT - 1);
+
+    context.historical_header.prove_contract_deployment(contract_address);
+}
+
+// In this test, we fail to prove contract initialization at the block before it was deployed. This checks for inclusion
+// of the initialization nullifier in state.
+#[test(should_fail_with = "Nullifier membership witness not found at block 3.")]
+unconstrained fn proving_contract_initialization_fails() {
+    let (env, contract_address) = setup();
+
+    let context = env.private_at(CONTRACT_INITIALIZED_AT - 1);
+
+    context.historical_header.prove_contract_initialization(contract_address);
+}
+
+// In this test, we fail to prove contract non-deployment at the block of its deployment.
+#[test(should_fail_with = "Proving nullifier non-inclusion failed")]
+unconstrained fn proving_contract_non_deployment_fails() {
+    let (env, contract_address) = setup();
+
+    let context = env.private_at(CONTRACT_DEPLOYED_AT);
+
+    context.historical_header.prove_contract_non_deployment(contract_address);
+}
+
+// In this test, we fail to prove contract non-initialization at the block of its deployment.
+#[test(should_fail_with = "Proving nullifier non-inclusion failed")]
+unconstrained fn proving_contract_non_initialization_fails() {
+    let (env, contract_address) = setup();
+
+    let context = env.private_at(CONTRACT_INITIALIZED_AT);
+
+    context.historical_header.prove_contract_non_initialization(contract_address);
 }

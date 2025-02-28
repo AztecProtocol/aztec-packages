@@ -137,6 +137,15 @@ class IvcRecursionConstraintTest : public ::testing::Test {
 };
 
 /**
+ * @brief Check that the size of a mock merge proof matches expectation
+ */
+TEST_F(IvcRecursionConstraintTest, MockMergeProofSize)
+{
+    ClientIVC::MergeProof merge_proof = create_dummy_merge_proof();
+    EXPECT_EQ(merge_proof.size(), MERGE_PROOF_SIZE);
+}
+
+/**
  * @brief Test IVC accumulation of a one app and one kernel; The kernel includes a recursive oink verification for the
  * app, specified via an ACIR RecursionConstraint.
  */
