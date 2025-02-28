@@ -1363,6 +1363,7 @@ __metadata:
     "@aztec/pxe": "workspace:^"
     "@aztec/simulator": "workspace:^"
     "@aztec/stdlib": "workspace:^"
+    "@aztec/telemetry-client": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"

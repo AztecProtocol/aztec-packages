@@ -83,7 +83,8 @@ import {
   PublicDataWitness,
 } from '@aztec/stdlib/trees';
 import { BlockHeader, CallContext, GlobalVariables, PublicExecutionRequest, TxEffect, TxHash } from '@aztec/stdlib/tx';
-import { ForkCheckpoint, type NativeWorldStateService } from '@aztec/world-state/native';
+import { getTelemetryClient } from '@aztec/telemetry-client';
+import { ForkCheckpoint, NativeWorldStateService } from '@aztec/world-state/native';
 
 import { TXENode } from '../node/txe_node.js';
 import type { TXEDatabase } from '../util/txe_database.js';
