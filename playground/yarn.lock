@@ -5,63 +5,109 @@ __metadata:
   version: 8
   cacheKey: 10c0
 
-"@aztec/accounts@link:../yarn-project/accounts::locator=playground%40workspace%3A.":
+"@aztec/accounts@link:../yarn-project/accounts::locator=%40aztec%2Fplayground%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/accounts@link:../yarn-project/accounts::locator=playground%40workspace%3A."
+  resolution: "@aztec/accounts@link:../yarn-project/accounts::locator=%40aztec%2Fplayground%40workspace%3A."
   languageName: node
   linkType: soft
 
-"@aztec/aztec.js@link:../yarn-project/aztec.js::locator=playground%40workspace%3A.":
+"@aztec/aztec.js@link:../yarn-project/aztec.js::locator=%40aztec%2Fplayground%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/aztec.js@link:../yarn-project/aztec.js::locator=playground%40workspace%3A."
+  resolution: "@aztec/aztec.js@link:../yarn-project/aztec.js::locator=%40aztec%2Fplayground%40workspace%3A."
   languageName: node
   linkType: soft
 
-"@aztec/bb-prover@link:../yarn-project/bb-prover::locator=playground%40workspace%3A.":
+"@aztec/bb-prover@link:../yarn-project/bb-prover::locator=%40aztec%2Fplayground%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/bb-prover@link:../yarn-project/bb-prover::locator=playground%40workspace%3A."
+  resolution: "@aztec/bb-prover@link:../yarn-project/bb-prover::locator=%40aztec%2Fplayground%40workspace%3A."
   languageName: node
   linkType: soft
 
-"@aztec/foundation@link:../yarn-project/foundation::locator=playground%40workspace%3A.":
+"@aztec/foundation@link:../yarn-project/foundation::locator=%40aztec%2Fplayground%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/foundation@link:../yarn-project/foundation::locator=playground%40workspace%3A."
+  resolution: "@aztec/foundation@link:../yarn-project/foundation::locator=%40aztec%2Fplayground%40workspace%3A."
   languageName: node
   linkType: soft
 
-"@aztec/key-store@link:../yarn-project/key-store::locator=playground%40workspace%3A.":
+"@aztec/key-store@link:../yarn-project/key-store::locator=%40aztec%2Fplayground%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/key-store@link:../yarn-project/key-store::locator=playground%40workspace%3A."
+  resolution: "@aztec/key-store@link:../yarn-project/key-store::locator=%40aztec%2Fplayground%40workspace%3A."
   languageName: node
   linkType: soft
 
-"@aztec/kv-store@link:../yarn-project/kv-store::locator=playground%40workspace%3A.":
+"@aztec/kv-store@link:../yarn-project/kv-store::locator=%40aztec%2Fplayground%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/kv-store@link:../yarn-project/kv-store::locator=playground%40workspace%3A."
+  resolution: "@aztec/kv-store@link:../yarn-project/kv-store::locator=%40aztec%2Fplayground%40workspace%3A."
   languageName: node
   linkType: soft
 
-"@aztec/protocol-contracts@link:../yarn-project/protocol-contracts::locator=playground%40workspace%3A.":
+"@aztec/playground@workspace:.":
   version: 0.0.0-use.local
-  resolution: "@aztec/protocol-contracts@link:../yarn-project/protocol-contracts::locator=playground%40workspace%3A."
+  resolution: "@aztec/playground@workspace:."
+  dependencies:
+    "@aztec/accounts": "link:../yarn-project/accounts"
+    "@aztec/aztec.js": "link:../yarn-project/aztec.js"
+    "@aztec/bb-prover": "link:../yarn-project/bb-prover"
+    "@aztec/foundation": "link:../yarn-project/foundation"
+    "@aztec/key-store": "link:../yarn-project/key-store"
+    "@aztec/kv-store": "link:../yarn-project/kv-store"
+    "@aztec/protocol-contracts": "link:../yarn-project/protocol-contracts"
+    "@aztec/pxe": "link:../yarn-project/pxe"
+    "@aztec/simulator": "link:../yarn-project/simulator"
+    "@aztec/stdlib": "link:../yarn-project/stdlib"
+    "@emotion/react": "npm:^11.14.0"
+    "@emotion/styled": "npm:^11.14.0"
+    "@eslint/js": "npm:^9.18.0"
+    "@fontsource/roboto": "npm:^5.1.1"
+    "@mui/icons-material": "npm:^6.3.1"
+    "@mui/material": "npm:^6.3.1"
+    "@mui/styles": "npm:^6.3.1"
+    "@playwright/test": "npm:1.49.0"
+    "@types/buffer-json": "npm:^2"
+    "@types/node": "npm:^22.10.5"
+    "@types/react": "npm:^19.0.6"
+    "@types/react-dom": "npm:^19.0.3"
+    "@vitejs/plugin-react-swc": "npm:^3.7.2"
+    buffer-json: "npm:^2.0.0"
+    eslint: "npm:^9.13.0"
+    eslint-plugin-react-hooks: "npm:^5.1.0"
+    eslint-plugin-react-refresh: "npm:^0.4.18"
+    globals: "npm:^15.14.0"
+    nosleep.js: "npm:^0.12.0"
+    prettier: "npm:^2.8.8"
+    react: "npm:^18.3.1"
+    react-dom: "npm:^18.3.1"
+    react-dropzone: "npm:^14.3.5"
+    typescript: "npm:~5.7.3"
+    typescript-eslint: "npm:^8.11.0"
+    vite: "npm:^6.0.11"
+    vite-plugin-bundlesize: "npm:^0.1.0"
+    vite-plugin-node-polyfills: "npm:^0.23.0"
+    vite-plugin-static-copy: "npm:^2.2.0"
+  languageName: unknown
+  linkType: soft
+
+"@aztec/protocol-contracts@link:../yarn-project/protocol-contracts::locator=%40aztec%2Fplayground%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/protocol-contracts@link:../yarn-project/protocol-contracts::locator=%40aztec%2Fplayground%40workspace%3A."
   languageName: node
   linkType: soft
 
-"@aztec/pxe@link:../yarn-project/pxe::locator=playground%40workspace%3A.":
+"@aztec/pxe@link:../yarn-project/pxe::locator=%40aztec%2Fplayground%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/pxe@link:../yarn-project/pxe::locator=playground%40workspace%3A."
+  resolution: "@aztec/pxe@link:../yarn-project/pxe::locator=%40aztec%2Fplayground%40workspace%3A."
   languageName: node
   linkType: soft
 
-"@aztec/simulator@link:../yarn-project/simulator::locator=playground%40workspace%3A.":
+"@aztec/simulator@link:../yarn-project/simulator::locator=%40aztec%2Fplayground%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/simulator@link:../yarn-project/simulator::locator=playground%40workspace%3A."
+  resolution: "@aztec/simulator@link:../yarn-project/simulator::locator=%40aztec%2Fplayground%40workspace%3A."
   languageName: node
   linkType: soft
 
-"@aztec/stdlib@link:../yarn-project/stdlib::locator=playground%40workspace%3A.":
+"@aztec/stdlib@link:../yarn-project/stdlib::locator=%40aztec%2Fplayground%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/stdlib@link:../yarn-project/stdlib::locator=playground%40workspace%3A."
+  resolution: "@aztec/stdlib@link:../yarn-project/stdlib::locator=%40aztec%2Fplayground%40workspace%3A."
   languageName: node
   linkType: soft
 
@@ -3866,51 +3912,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"playground@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "playground@workspace:."
-  dependencies:
-    "@aztec/accounts": "link:../yarn-project/accounts"
-    "@aztec/aztec.js": "link:../yarn-project/aztec.js"
-    "@aztec/bb-prover": "link:../yarn-project/bb-prover"
-    "@aztec/foundation": "link:../yarn-project/foundation"
-    "@aztec/key-store": "link:../yarn-project/key-store"
-    "@aztec/kv-store": "link:../yarn-project/kv-store"
-    "@aztec/protocol-contracts": "link:../yarn-project/protocol-contracts"
-    "@aztec/pxe": "link:../yarn-project/pxe"
-    "@aztec/simulator": "link:../yarn-project/simulator"
-    "@aztec/stdlib": "link:../yarn-project/stdlib"
-    "@emotion/react": "npm:^11.14.0"
-    "@emotion/styled": "npm:^11.14.0"
-    "@eslint/js": "npm:^9.18.0"
-    "@fontsource/roboto": "npm:^5.1.1"
-    "@mui/icons-material": "npm:^6.3.1"
-    "@mui/material": "npm:^6.3.1"
-    "@mui/styles": "npm:^6.3.1"
-    "@playwright/test": "npm:1.49.0"
-    "@types/buffer-json": "npm:^2"
-    "@types/node": "npm:^22.10.5"
-    "@types/react": "npm:^19.0.6"
-    "@types/react-dom": "npm:^19.0.3"
-    "@vitejs/plugin-react-swc": "npm:^3.7.2"
-    buffer-json: "npm:^2.0.0"
-    eslint: "npm:^9.13.0"
-    eslint-plugin-react-hooks: "npm:^5.1.0"
-    eslint-plugin-react-refresh: "npm:^0.4.18"
-    globals: "npm:^15.14.0"
-    nosleep.js: "npm:^0.12.0"
-    react: "npm:^18.3.1"
-    react-dom: "npm:^18.3.1"
-    react-dropzone: "npm:^14.3.5"
-    typescript: "npm:~5.7.3"
-    typescript-eslint: "npm:^8.11.0"
-    vite: "npm:^6.0.11"
-    vite-plugin-bundlesize: "npm:^0.1.0"
-    vite-plugin-node-polyfills: "npm:^0.23.0"
-    vite-plugin-static-copy: "npm:^2.2.0"
-  languageName: unknown
-  linkType: soft
-
 "playwright-core@npm:1.49.0":
   version: 1.49.0
   resolution: "playwright-core@npm:1.49.0"
@@ -3957,6 +3958,15 @@ __metadata:
   version: 1.2.1
   resolution: "prelude-ls@npm:1.2.1"
   checksum: 10c0/b00d617431e7886c520a6f498a2e14c75ec58f6d93ba48c3b639cf241b54232d90daa05d83a9e9b9fef6baa63cb7e1e4602c2372fea5bc169668401eb127d0cd
+  languageName: node
+  linkType: hard
+
+"prettier@npm:^2.8.8":
+  version: 2.8.8
+  resolution: "prettier@npm:2.8.8"
+  bin:
+    prettier: bin-prettier.js
+  checksum: 10c0/463ea8f9a0946cd5b828d8cf27bd8b567345cf02f56562d5ecde198b91f47a76b7ac9eae0facd247ace70e927143af6135e8cf411986b8cb8478784a4d6d724a
   languageName: node
   linkType: hard
 

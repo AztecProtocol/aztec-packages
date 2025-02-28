@@ -1,6 +1,6 @@
-import { test, expect } from "@playwright/test";
+import { test } from '@playwright/test';
 
-test("test", async ({ page }) => {
+test('test', async ({ page }) => {
   test.slow();
-  await page.goto("/");
+  await page.goto('/');
 });
