@@ -53,9 +53,16 @@ import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
-import { type PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+import {
+  type PXEService,
+  type PXEServiceConfig,
+  createPXEServiceWithSimulationProvider,
+  getPXEServiceConfig,
+} from '@aztec/pxe';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
+import { WASMSimulator } from '@aztec/simulator/client';
+import { SimulationProviderRecorderWrapper } from '@aztec/simulator/server';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import { Gas } from '@aztec/stdlib/gas';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
@@ -135,11 +142,10 @@ export const setupL1Contracts = async (
  * Sets up Private eXecution Environment (PXE).
  * @param aztecNode - An instance of Aztec Node.
  * @param opts - Partial configuration for the PXE service.
- * @param firstPrivKey - The private key of the first account to be created.
  * @param logger - The logger to be used.
  * @param useLogSuffix - Whether to add a randomly generated suffix to the PXE debug logs.
  * @param proofCreator - An optional proof creator to use
- * @returns Private eXecution Environment (PXE), accounts, wallets and logger.
+ * @returns Private eXecution Environment (PXE), logger and teardown function.
  */
 export async function setupPXEService(
   aztecNode: AztecNode,
@@ -169,7 +175,15 @@ export async function setupPXEService(
     pxeServiceConfig.dataDirectory = path.join(tmpdir(), randomBytes(8).toString('hex'));
   }
 
-  const pxe = await createPXEService(aztecNode, pxeServiceConfig, useLogSuffix, proofCreator);
+  const simulationProvider = new WASMSimulator();
+  const simulationProviderWithRecorder = new SimulationProviderRecorderWrapper(simulationProvider);
+  const pxe = await createPXEServiceWithSimulationProvider(
+    aztecNode,
+    simulationProviderWithRecorder,
+    pxeServiceConfig,
+    useLogSuffix,
+    proofCreator,
+  );
 
   const teardown = async () => {
     if (!configuredDataDirectory) {

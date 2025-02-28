@@ -14,9 +14,7 @@ import { KVPxeDatabase } from '../database/kv_pxe_database.js';
 import { PXEService } from '../pxe_service/pxe_service.js';
 
 /**
- * Create and start an PXEService instance with the given AztecNode.
- * If no keyStore or database is provided, it will use KeyStore and MemoryDB as default values.
- * Returns a Promise that resolves to the started PXEService instance.
+ * Create and start an PXEService instance with the given AztecNode and config.
  *
  * @param aztecNode - The AztecNode instance to be used by the server.
  * @param config - The PXE Service Config to use
@@ -26,6 +24,27 @@ import { PXEService } from '../pxe_service/pxe_service.js';
  */
 export async function createPXEService(
   aztecNode: AztecNode,
+  config: PXEServiceConfig,
+  useLogSuffix: string | boolean | undefined = undefined,
+  proofCreator?: PrivateKernelProver,
+) {
+  const simulationProvider = new WASMSimulator();
+  return createPXEServiceWithSimulationProvider(aztecNode, simulationProvider, config, useLogSuffix, proofCreator);
+}
+
+/**
+ * Create and start an PXEService instance with the given AztecNode, SimulationProvider and config.
+ *
+ * @param aztecNode - The AztecNode instance to be used by the server.
+ * @param simulationProvider - The SimulationProvider to use
+ * @param config - The PXE Service Config to use
+ * @param options - (Optional) Optional information for creating an PXEService.
+ * @param proofCreator - An optional proof creator to use in place of any other configuration
+ * @returns A Promise that resolves to the started PXEService instance.
+ */
+export async function createPXEServiceWithSimulationProvider(
+  aztecNode: AztecNode,
+  simulationProvider: SimulationProvider,
   config: PXEServiceConfig,
   useLogSuffix: string | boolean | undefined = undefined,
   proofCreator?: PrivateKernelProver,
@@ -47,7 +66,6 @@ export async function createPXEService(
 
   const db = await KVPxeDatabase.create(store);
   const tips = new L2TipsStore(store, 'pxe');
-  const simulationProvider = new WASMSimulator();
   const prover = proofCreator ?? (await createProver(config, simulationProvider, logSuffix));
   const protocolContractsProvider = new BundledProtocolContractsProvider();
   const pxe = new PXEService(

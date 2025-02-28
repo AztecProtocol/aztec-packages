@@ -1,7 +1,7 @@
-import { foreignCallHandler } from '@aztec/noir-protocol-circuits-types/server';
-import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
+import type { FunctionArtifactWithContractName } from '@aztec/stdlib/abi';
+import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
 
-import { type ExecutionError, executeCircuit } from '@noir-lang/acvm_js';
+import { type ExecutionError, type ForeignCallHandler, executeCircuit } from '@noir-lang/acvm_js';
 import type { WitnessMap } from '@noir-lang/types';
 
 import type { ACIRCallback, ACIRExecutionResult } from '../acvm/acvm.js';
@@ -16,9 +16,11 @@ import { type SimulationProvider, parseErrorPayload } from './simulation_provide
  * It is only used in the context of server-side code executing simulated protocol circuits.
  */
 export class WASMSimulatorWithBlobs implements SimulationProvider {
-  async executeProtocolCircuit(input: WitnessMap, compiledCircuit: NoirCompiledCircuit): Promise<WitnessMap> {
-    // Execute the circuit on those initial witness values
-    //
+  async executeProtocolCircuit(
+    input: WitnessMap,
+    compiledCircuit: NoirCompiledCircuitWithName,
+    callback: ForeignCallHandler,
+  ): Promise<WitnessMap> {
     // Decode the bytecode from base64 since the acvm does not know about base64 encoding
     const decodedBytecode = Buffer.from(compiledCircuit.bytecode, 'base64');
     //
@@ -27,12 +29,13 @@ export class WASMSimulatorWithBlobs implements SimulationProvider {
       const _witnessMap = await executeCircuit(
         decodedBytecode,
         input,
-        foreignCallHandler, // handle calls to debug_log and evaluate_blobs mock
+        callback, // handle calls to debug_log and evaluate_blobs mock
       );
 
       return _witnessMap;
     } catch (err) {
-      // Typescript types catched errors as unknown or any, so we need to narrow its type to check if it has raw assertion payload.
+      // Typescript types caught errors as unknown or any, so we need to narrow its type to check if it has raw
+      // assertion payload.
       if (typeof err === 'object' && err !== null && 'rawAssertionPayload' in err) {
         throw parseErrorPayload(compiledCircuit.abi, err as ExecutionError);
       }
@@ -41,8 +44,8 @@ export class WASMSimulatorWithBlobs implements SimulationProvider {
   }
 
   executeUserCircuit(
-    _acir: Buffer,
-    _initialWitness: ACVMWitness,
+    _input: ACVMWitness,
+    _artifact: FunctionArtifactWithContractName,
     _callback: ACIRCallback,
   ): Promise<ACIRExecutionResult> {
     throw new Error('Not implemented');
