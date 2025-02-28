@@ -496,12 +496,14 @@ template <typename Curve> class GeminiVerifier_ {
     /**
      * @brief Compute the expected evaluation of the univariate commitment to the batched polynomial.
      *
-     * Compute the evaluation \f$ A_0(r) = \sum \rho^i \cdot f_i + \frac{1}{r} \cdot \sum \rho^{i+k} g_i \f$, where
-     * \f$ k \f$ is the number of "unshifted" commitments.
+     * Compute the evaluation \f$ A_0(r) = \sum \rho^i \cdot f_i + \frac{1}{r} \cdot \sum \rho^{i+k} g_i \f$, where \f$
+     * k \f$ is the number of "unshifted" commitments.
      *
-     * @details Initialize \f$ A_{d}(r) \f$ with the batched evaluation \f$ \sum \rho^i f_i(\vec{u}) + \sum
-     * \rho^{i+k} g_i(\vec{u}) \f$. The folding property ensures that \f{align}{ A_\ell\left(r^{2^\ell}\right) = (1
-     * - u_{\ell-1}) \cdot \frac{A_{\ell-1}\left(r^{2^{\ell-1}}\right) + A_{\ell-1}\left(-r^{2^{\ell-1}}\right)}{2}
+     * @details Initialize \f$ A_{d}(r) \f$ with the batched evaluation \f$ \sum \rho^i f_i(\vec{u}) + \sum \rho^{i+k}
+     * g_i(\vec{u}) \f$. The folding property ensures that
+     * \f{align}{
+     * A_\ell\left(r^{2^\ell}\right) = (1 - u_{\ell-1}) \cdot \frac{A_{\ell-1}\left(r^{2^{\ell-1}}\right) +
+     * A_{\ell-1}\left(-r^{2^{\ell-1}}\right)}{2}
      * + u_{\ell-1} \cdot \frac{A_{\ell-1}\left(r^{2^{\ell-1}}\right) -
      * A_{\ell-1}\left(-r^{2^{\ell-1}}\right)}{2r^{2^{\ell-1}}}
      * \f}
