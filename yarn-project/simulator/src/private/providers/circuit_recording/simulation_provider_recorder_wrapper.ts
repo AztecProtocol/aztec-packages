@@ -5,7 +5,7 @@ import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
 
 import type { ACIRCallback, ACIRExecutionResult } from '../../acvm/acvm.js';
 import type { ACVMWitness } from '../../acvm/acvm_types.js';
-import type { SimulationProvider } from '../../common/simulation_provider.js';
+import type { SimulationProvider } from '../simulation_provider.js';
 import { CircuitRecorder } from './circuit_recorder.js';
 
 /**

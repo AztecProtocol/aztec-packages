@@ -22,7 +22,7 @@ import { PXEService } from '../pxe_service/pxe_service.js';
  * @param proofCreator - An optional proof creator to use in place of any other configuration
  * @returns A Promise that resolves to the started PXEService instance.
  */
-export async function createPXEService(
+export function createPXEService(
   aztecNode: AztecNode,
   config: PXEServiceConfig,
   useLogSuffix: string | boolean | undefined = undefined,
