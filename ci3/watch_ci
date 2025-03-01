@@ -1,0 +1,79 @@
+#!/bin/bash
+source $(git rev-parse --show-toplevel)/ci3/source
+source $ci3/source_redis
+
+function refresh {
+  height=$(tput lines)
+  width=$(tput cols)
+  result="$(redis-cli --raw ZREVRANGE ci-run 0 $((height - 1)))"
+  # Jump to top left.
+  echo -e -n "\e[0;0H"
+  echo -e "$result" | awk -v w="$width" '
+  {
+    out = ""; vis = 0; i = 1; line = $0;
+    while (i <= length(line) && vis < w) {
+      if (substr(line, i, 1) == "\033") {
+        # ANSI escape sequence: assume it ends with "m"
+        j = i;
+        while(j <= length(line) && substr(line, j, 1) != "m") { j++ }
+        if (j <= length(line)) {
+          out = out substr(line, i, j - i + 1);
+          i = j + 1;
+          continue;
+        }
+      }
+      out = out substr(line, i, 1);
+      i++;
+      vis++;
+    }
+    print out "\033[0m"
+  }'
+  # Clear remainder.
+  echo -e -n "\e[J"
+}
+
+function refresh_loop {
+  while true; do
+    refresh
+    sleep 5
+  done
+}
+
+function cleanup {
+  tput rmcup
+  kill $bg_pid 2>/dev/null
+  exit
+}
+
+tput smcup
+trap cleanup EXIT
+
+refresh_loop &
+bg_pid=$!
+
+function sigwinch_handler {
+  sleep 0.25
+  refresh
+}
+
+trap sigwinch_handler SIGWINCH
+
+# while true; do
+#   wait || true
+# done
+
+while true; do
+    read -rsn1 key  # Read one character silently
+    # Check for escape sequence start
+    if [[ "$key" == $'\e' ]]; then
+        read -rsn2 key2  # Read next two characters
+        case "$key$key2" in
+            "[A") echo "Arrow Up" ;;
+            "[B") echo "Arrow Down" ;;
+            "[5~") echo "Page Up" ;;
+            "[6~") echo "Page Down" ;;
+        esac
+    elif [[ "$key" == "q" ]]; then
+        break
+    fi
+done

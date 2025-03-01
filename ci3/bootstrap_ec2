@@ -73,6 +73,8 @@ trap on_exit EXIT
 # Interactive if stdin is connected to terminal.
 [ -t 0 ] && docker_args+=" -i"
 
+ci_log_id=$(log_ci_run)
+
 # If stdout is connected to a terminal, drop into a shell on failure.
 # Otherwise ensure all logs go to redis cache.
 if [ -t 1 ]; then
@@ -85,7 +87,7 @@ if [ -t 1 ]; then
   fi
 else
   # LOG_ID can optionally be set externally to be e.g. the GA run id.
-  cmd="ci3/aws_handle_evict '$cmd' 2>&1 | ci3/add_timestamps | ci3/cache_log 'CI run' ${LOG_ID:-}"
+  cmd="ci3/aws_handle_evict '$cmd' 2>&1 | ci3/add_timestamps | ci3/cache_log 'CI run' $ci_log_id"
 fi
 
 container_script=$(cat <<EOF
