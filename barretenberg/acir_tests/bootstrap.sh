@@ -28,7 +28,7 @@ function build {
     rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member,regression_7323}
 
     # COMPILE=2 only compiles the test.
-    denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/*"
+    denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./scripts/run_test.sh \$(basename {})' ::: ./acir_tests/*"
 
     echo "Regenerating verify_honk_proof and verify_rollup_honk_proof recursive inputs."
     local bb=$(realpath ../cpp/build/bin/bb)
@@ -71,8 +71,8 @@ function test_cmds_internal {
   local honk_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
     grep -vE 'single_verify_proof|double_verify_proof|double_verify_nested_proof|verify_rollup_honk_proof|fold')
 
-  local run_test=$(realpath --relative-to=$root ./run_test.sh)
-  local run_test_browser=$(realpath --relative-to=$root ./run_test_browser.sh)
+  local run_test=$(realpath --relative-to=$root ./scripts/run_test.sh)
+  local run_test_browser=$(realpath --relative-to=$root ./scripts/run_test_browser.sh)
   local bbjs_bin="../ts/dest/node/main.js"
 
   # barretenberg-acir-tests-sol:
