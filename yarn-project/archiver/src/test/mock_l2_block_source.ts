@@ -1,14 +1,22 @@
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
-import { L2Block, L2BlockHash, type L2BlockSource, type L2Tips } from '@aztec/stdlib/block';
+import {
+  L2Block,
+  L2BlockHash,
+  type L2BlockSourceEventEmitter,
+  L2BlockSourceEvents,
+  type L2Tips,
+} from '@aztec/stdlib/block';
 import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 import { type BlockHeader, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
+
+import { EventEmitter } from 'events';
 
 /**
  * A mocked implementation of L2BlockSource to be used in tests.
  */
-export class MockL2BlockSource implements L2BlockSource {
+export class MockL2BlockSource extends EventEmitter implements L2BlockSourceEventEmitter {
   protected l2Blocks: L2Block[] = [];
 
   private provenEpochNumber: number = 0;
@@ -29,15 +37,29 @@ export class MockL2BlockSource implements L2BlockSource {
   public addBlocks(blocks: L2Block[]) {
     this.l2Blocks.push(...blocks);
     this.log.verbose(`Added ${blocks.length} blocks to the mock L2 block source`);
+
+    this.emit(L2BlockSourceEvents.BlocksAdded, blocks);
   }
 
   public removeBlocks(numBlocks: number) {
     this.l2Blocks = this.l2Blocks.slice(0, -numBlocks);
-    this.log.verbose(`Removed ${numBlocks} blocks from the mock L2 block source`);
+
+    this.emit(L2BlockSourceEvents.ChainPruned, {
+      blockNumber: this.l2Blocks.length,
+    });
+    this.log.verbose(
+      `Removed ${numBlocks} blocks from the mock L2 block source, ${this.l2Blocks.length} blocks remaining, ChainPrune emitted`,
+    );
   }
 
   public setProvenBlockNumber(provenBlockNumber: number) {
+    const previousProvenBlockNumber = this.provenBlockNumber;
     this.provenBlockNumber = provenBlockNumber;
+
+    this.emit(L2BlockSourceEvents.ChainProven, {
+      previousProvenBlockNumber,
+      provenBlockNumber,
+    });
   }
 
   public setProvenEpochNumber(provenEpochNumber: number) {
