@@ -66,10 +66,6 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
             // take current proof and put them into the struct
             size_t num_frs_read = 0;
             auto& proof_data = this->proof_data;
-            this->circuit_size = Base::template deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
-
-            this->public_input_size = Base::template deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
-            this->pub_inputs_offset = Base::template deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
             for (size_t i = 0; i < this->public_input_size; ++i) {
                 this->public_inputs.push_back(Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read));
             }
@@ -125,9 +121,6 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
             auto& proof_data = this->proof_data;
             size_t old_proof_length = proof_data.size();
             proof_data.clear(); // clear proof_data so the rest of the function can replace it
-            Base::template serialize_to_buffer(this->circuit_size, proof_data);
-            Base::template serialize_to_buffer(this->public_input_size, proof_data);
-            Base::template serialize_to_buffer(this->pub_inputs_offset, proof_data);
             for (size_t i = 0; i < this->public_input_size; ++i) {
                 Base::template serialize_to_buffer(this->public_inputs[i], proof_data);
             }

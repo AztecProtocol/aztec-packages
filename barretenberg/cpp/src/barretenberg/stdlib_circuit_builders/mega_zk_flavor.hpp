@@ -125,9 +125,6 @@ class MegaZKFlavor : public bb::MegaFlavor {
         {
             size_t old_proof_length = proof_data.size();
             proof_data.clear();
-            serialize_to_buffer(this->circuit_size, proof_data);
-            serialize_to_buffer(this->public_input_size, proof_data);
-            serialize_to_buffer(this->pub_inputs_offset, proof_data);
             for (size_t i = 0; i < public_input_size; ++i) {
                 serialize_to_buffer(this->public_inputs[i], proof_data);
             }
