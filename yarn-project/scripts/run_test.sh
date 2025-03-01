@@ -24,6 +24,7 @@ if [ "${ISOLATE:-0}" -eq 1 ]; then
     -e FORCE_COLOR=true \
     -e FAKE_PROOFS \
     -e NODE_OPTIONS="--no-warnings --experimental-vm-modules --loader @swc-node/register" \
+    -e LOG_LEVEL \
     aztecprotocol/build:3.0 \
       node ../node_modules/.bin/jest --forceExit --runInBand $test
 else
