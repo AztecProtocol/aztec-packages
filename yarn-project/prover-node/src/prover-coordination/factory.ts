@@ -6,6 +6,7 @@ import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { createP2PClient } from '@aztec/p2p';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import type { L2BlockSourceEventEmitter } from '@aztec/stdlib/block';
 import { createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
 import type { ProverCoordination, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { P2PClientType } from '@aztec/stdlib/p2p';
@@ -51,7 +52,7 @@ export async function createProverCoordination(
     const p2pClient = await createP2PClient(
       P2PClientType.Prover,
       config,
-      deps.archiver,
+      deps.archiver as L2BlockSourceEventEmitter,
       proofVerifier,
       deps.worldStateSynchronizer,
       deps.epochCache,

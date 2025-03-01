@@ -155,11 +155,24 @@ export const L2TipsSchema = z.object({
 }) satisfies z.ZodType<L2Tips>;
 
 export enum L2BlockSourceEvents {
-  L2PruneDetected = 'l2PruneDetected',
+  BlocksAdded = 'blocks-added',
+  ChainProven = 'chain-proven',
+  ChainPruned = 'chain-pruned',
 }
 
-export type L2BlockSourceEvent = {
-  type: 'l2PruneDetected';
+export type L2BlockSourceEvent =
+  | L2BlockSourceChainPrunedEvent
+  | L2BlockSourceBlocksAddedEvent
+  | L2BlockSourceChainProvenEvent;
+
+export type L2BlockSourceBlocksAddedEvent = {
+  blocks: L2Block[];
+};
+export type L2BlockSourceChainProvenEvent = {
+  previousProvenBlockNumber: bigint;
+  provenBlockNumber: bigint;
+};
+export type L2BlockSourceChainPrunedEvent = {
   blockNumber: bigint;
   slotNumber: bigint;
   epochNumber: bigint;
