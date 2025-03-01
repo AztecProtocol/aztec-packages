@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740795584959,
+  "lastUpdate": 1740825940922,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "alexghr@users.noreply.github.com",
-            "name": "Alex Gherghisan",
-            "username": "alexghr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f887efc9c47a643e6eba4aaabafdeef46c77ff4a",
-          "message": "fix: prometheus scrapes itself in the cluster (#12277)",
-          "timestamp": "2025-02-26T09:29:17Z",
-          "tree_id": "074d8fd895c0e70cbc13d3444349b8d9d40735ae",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f887efc9c47a643e6eba4aaabafdeef46c77ff4a"
-        },
-        "date": 1740563532851,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18580.484788000147,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16456.434877 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18812.58359000003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16570.961467 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3987.7334349996545,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3142.2164980000002 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54997.383904,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54997371000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10217.298942,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10217307000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1821695315,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1821695315 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 136152104,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 136152104 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 212011729,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 212011729 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "966982264a0da23546fb7695079e74b1234da790",
+          "message": "chore: Add logging to isolated prover client tests and bump CPUs (#12387)\n\nTest was taking 900+ seconds with 4 CPUs, 600 with 8 CPUs (and 200s with\nunbounded CPUs on mainframe). Bumping CPUs from 4 to 16 (as the e2e\nprover full test uses) should keep this under control.\n\nAlso rollbacks increased timeout for e2e prover full.",
+          "timestamp": "2025-03-01T18:12:18+08:00",
+          "tree_id": "75e5d32052f2af655c224f057e08ad8e5fe2a621",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/966982264a0da23546fb7695079e74b1234da790"
+        },
+        "date": 1740825932805,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18294.241950000014,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16158.176792999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18905.296790999957,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16696.302228 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4035.9864619999826,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3180.5967650000002 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55811.363076,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55811363000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9653.699568999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9653702000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1921625742,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1921625742 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 223016353,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 223016353 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
