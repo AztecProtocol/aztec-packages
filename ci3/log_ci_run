@@ -3,27 +3,22 @@ NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 source $ci3/source_refname
 source $ci3/source_redis
 
-tag=${1:-RUNNING}
+status=${1:-RUNNING}
 key=${2:-}
-
-function get_tag {
-  case "$tag" in
-    RUNNING) echo -e "${blue}$tag${reset}" ;;
-    PASSED) echo -e " ${green}$tag${reset}" ;;
-    FAILED) echo -e " ${red}$tag${reset}" ;;
-  esac
-}
 
 if [ -z "$key" ]; then
   key=$(date +%s%3N)
   msg=$(git log -1 --pretty=format:"%s")
-  date_time=$(date +"%m-%d %H:%M:%S")
-  # link="(${link_open}http://ci.aztec-labs.com/$key${link_close}${yellow}$key${reset}${link_open}${link_close})"
-  name="${bold}$REF_NAME${reset}"
-  tag=$(get_tag)
-  author="${purple}$(git log -1 --pretty=format:"%an")${reset}"
-  entry="${link_open}http://ci.aztec-labs.com/$key${link_close}$date_time $tag: $name $author: $msg${link_open}${link_close}"
-  redis_cli ZADD ci-run $key "$entry" &>/dev/null
+  author="$(git log -1 --pretty=format:"%an")"
+  json=$(jq -c -j -n \
+      --argjson timestamp "$key" \
+      --arg status "$status" \
+      --arg msg "$msg" \
+      --arg name "$REF_NAME" \
+      --arg author "$author" \
+      '{timestamp: $timestamp, status: $status, msg: $msg, name: $name, author: $author}')
+  # echo "$json" >&2
+  redis_cli ZADD ci-run $key "$json" &>/dev/null
 
   # To keep only the last 1000 entries (by score).
   redis_cli ZREMRANGEBYRANK ci-run 0 -1001 &>/dev/null
@@ -31,9 +26,16 @@ if [ -z "$key" ]; then
   echo $key
 else
   # Retrieve the current entry.
-  old_entry=$(redis_cli ZRANGEBYSCORE ci-run $key $key)
+  old_json=$(redis_cli ZRANGEBYSCORE ci-run $key $key)
+  # Compute duration.
+  now=$(date +%s%3N)
+  json=$(echo "$old_json" | jq -c -j \
+      --arg status "$status" \
+      --argjson complete "$now" \
+      '. * { status: $status, complete: $complete }')
+  # echo "$json" >&2
   # Remove the old entry.
-  redis_cli ZREM ci-run "$old_entry" &>/dev/null
+  redis_cli ZREM ci-run "$old_json" &>/dev/null
   # Add the updated entry with the same key.
-  redis_cli ZADD ci-run $key "$(echo "$old_entry" | awk -v tag="$(get_tag)" '{$3 = tag; print}')" &>/dev/null
+  redis_cli ZADD ci-run $key "$json" &>/dev/null
 fi

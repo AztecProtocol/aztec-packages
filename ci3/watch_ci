@@ -2,78 +2,110 @@
 source $(git rev-parse --show-toplevel)/ci3/source
 source $ci3/source_redis
 
+# function duration {
+#   awk '{
+#     # Assume field 4 looks like: "\033[33m(1740857485937)\033[0m"
+#     # Known prefix = "\033[33m(" (6 characters) and suffix = ")\033[0m" (5 characters)
+#     if ($3 ~ /RUNNING/) {
+#       ts_field = $4;
+#       ts = substr(ts_field, 7, length(ts_field)-11) + 0;
+#       current_ms = systime() * 1000;
+#       diff_sec = int((current_ms - ts) / 1000);
+#       min = int(diff_sec / 60);
+#       sec = diff_sec % 60;
+#       duration = sprintf("(%dm%ds)", min, sec);
+#       print $0, duration, " ";
+#     } else {
+#       print $0, " "
+#     }
+#   }'
+# }
+
+function get_tag {
+  case "$1" in
+    RUNNING) echo -e "${blue}$1${reset}" ;;
+    PASSED) echo -e " ${green}$1${reset}" ;;
+    FAILED) echo -e " ${red}$1${reset}" ;;
+  esac
+}
+
+function render {
+  while IFS= read -r json_line; do
+    IFS=$'\t' read ts status msg name author complete < <(jq -r '[.timestamp, .status, .msg, .name, .author, .complete] | @tsv' <<< "$json_line")
+    local date_time=$(date -d @${ts:0:10} "+%m-%Y %H:%M:%S")
+    local link="(${link_open}http://ci.aztec-labs.com/$ts${link_close}${yellow}$ts${reset}${link_open}${link_close})"
+    if [ -z "$complete" ]; then
+      local from=$(date +%s%3N)
+    else
+      local from=complete
+    fi
+    local duration=$(( (from - ts) / 1000 ))
+    local duration_str="($((duration / 60))m$((duration % 60))s)"
+    echo -e "$date_time $(get_tag $status) $link: ${bold}$name${reset} ${purple}$author${reset}: $msg ${duration_str:-} \e[K"
+  done
+}
+
+SECONDS=5
+
+function update_status {
+  # Jump to top left and clear.
+  echo -e -n "\e[0;0H\e[K"
+  echo -e "${bold}AZTEC LABS TERMINAL CI SYSTEM: offset: $offset${reset}"
+}
+
 function refresh {
   height=$(tput lines)
   width=$(tput cols)
-  result="$(redis-cli --raw ZREVRANGE ci-run 0 $((height - 1)))"
-  # Jump to top left.
-  echo -e -n "\e[0;0H"
-  echo -e "$result" | awk -v w="$width" '
-  {
-    out = ""; vis = 0; i = 1; line = $0;
-    while (i <= length(line) && vis < w) {
-      if (substr(line, i, 1) == "\033") {
-        # ANSI escape sequence: assume it ends with "m"
-        j = i;
-        while(j <= length(line) && substr(line, j, 1) != "m") { j++ }
-        if (j <= length(line)) {
-          out = out substr(line, i, j - i + 1);
-          i = j + 1;
-          continue;
-        }
-      }
-      out = out substr(line, i, 1);
-      i++;
-      vis++;
-    }
-    print out "\033[0m"
-  }'
+  if [ "$SECONDS" -ge 5 ]; then
+    result="$(redis-cli --raw ZREVRANGE ci-run $offset $((offset + height - 3)))"
+    SECONDS=0
+  fi
+  update_status
+  if [ -z "$result" ]; then
+    echo -n "Nothing to see here..."
+  else
+    echo -e "$result" | render
+  fi
   # Clear remainder.
   echo -e -n "\e[J"
 }
 
-function refresh_loop {
-  while true; do
-    refresh
-    sleep 5
-  done
-}
-
 function cleanup {
   tput rmcup
-  kill $bg_pid 2>/dev/null
+  tput cnorm
+  echo -e '\e[?7h'
   exit
 }
 
 tput smcup
-trap cleanup EXIT
+tput civis
+echo -e '\e[?7l'
+trap cleanup SIGINT EXIT
 
-refresh_loop &
-bg_pid=$!
-
-function sigwinch_handler {
-  sleep 0.25
-  refresh
-}
-
-trap sigwinch_handler SIGWINCH
-
-# while true; do
-#   wait || true
-# done
+offset=0
 
 while true; do
-    read -rsn1 key  # Read one character silently
-    # Check for escape sequence start
+  # Read with a timeout.
+  if read -rsn1 -t 1 key; then
+    # Check for escape sequence start.
     if [[ "$key" == $'\e' ]]; then
-        read -rsn2 key2  # Read next two characters
-        case "$key$key2" in
-            "[A") echo "Arrow Up" ;;
-            "[B") echo "Arrow Down" ;;
-            "[5~") echo "Page Up" ;;
-            "[6~") echo "Page Down" ;;
-        esac
+      read -rsn2 -t 1 key2
+      case "$key2" in
+        "[A")
+          offset=$(( offset + 1 ))
+          SECONDS=5
+          update_status
+          ;;
+        "[B")
+          offset=$(( offset > 0 ? offset - 1 : 0 ))
+          SECONDS=5
+          update_status
+          ;;
+      esac
     elif [[ "$key" == "q" ]]; then
-        break
+      break
     fi
+    continue
+  fi
+  refresh
 done
