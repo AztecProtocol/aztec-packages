@@ -9,4 +9,3 @@ pub mod retrieved_note;
 pub mod utils;
 pub mod note_emission;
 pub mod note_field;
-pub mod note_hash;
