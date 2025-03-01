@@ -99,7 +99,7 @@ function build_packages {
     noir-repo/tooling/noirc_abi_wasm/web
 }
 
-export -f build_native build_packages
+export -f install_deps build_native build_packages
 
 function build {
   echo_header "noir build"
