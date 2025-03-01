@@ -182,7 +182,7 @@ export class AztecNodeService implements AztecNode, Traceable {
       telemetry,
     );
 
-    const slasherClient = createSlasherClient(config, archiver, epochCache, telemetry);
+    const slasherClient = createSlasherClient(config, archiver, telemetry);
 
     // start both and wait for them to sync from the block source
     await Promise.all([p2pClient.start(), worldStateSynchronizer.start(), slasherClient.start()]);

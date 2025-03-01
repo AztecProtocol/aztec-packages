@@ -18,7 +18,15 @@ import {
 } from '@aztec/protocol-contracts/instance-deployer';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { InBlock, L2Block, L2BlockId, L2BlockSource, L2Tips, NullifierWithBlockSource } from '@aztec/stdlib/block';
+import {
+  type InBlock,
+  type L2Block,
+  type L2BlockId,
+  type L2BlockSource,
+  L2BlockSourceEvents,
+  type L2Tips,
+  type NullifierWithBlockSource,
+} from '@aztec/stdlib/block';
 import {
   type ContractClassPublic,
   type ContractDataSource,
@@ -44,6 +52,7 @@ import type { InboxLeaf, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { type BlockHeader, TxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
+import { EventEmitter } from 'events';
 import groupBy from 'lodash.groupby';
 import { type GetContractReturnType, createPublicClient, fallback, getContract, http } from 'viem';
 
@@ -69,7 +78,7 @@ export type ArchiveSource = L2BlockSource &
  * Responsible for handling robust L1 polling so that other components do not need to
  * concern themselves with it.
  */
-export class Archiver implements ArchiveSource, Traceable {
+export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
   /**
    * A promise in which we will be continually fetching new L2 blocks.
    */
@@ -105,6 +114,8 @@ export class Archiver implements ArchiveSource, Traceable {
     private readonly l1constants: L1RollupConstants,
     private readonly log: Logger = createLogger('archiver'),
   ) {
+    super();
+
     this.tracer = instrumentation.tracer;
     this.store = new ArchiverStoreHelper(dataStore);
 
@@ -251,6 +262,7 @@ export class Archiver implements ArchiveSource, Traceable {
      * The second is that in between the various calls to L1, the block number can move meaning some
      * of the following calls will return data for blocks that were not present during earlier calls.
      * To combat this for the time being we simply ensure that all data retrieval methods only retrieve
+     // I need to get the slot number from the block that was just pruned
      * data up to the currentBlockNumber captured at the top of this function. We might want to improve on this
      * in future but for the time being it should give us the guarantees that we need
      */
@@ -299,6 +311,18 @@ export class Archiver implements ArchiveSource, Traceable {
     const canPrune = localPendingBlockNumber > provenBlockNumber && (await this.canPrune(currentL1BlockNumber));
 
     if (canPrune) {
+      const [localPendingSlotNumber, localPendingEpochNumber] = await Promise.all([
+        this.getL2SlotNumber(),
+        this.getL2EpochNumber(),
+      ]);
+      // Emit an event for listening services to react to the chain prune
+      this.emit(L2BlockSourceEvents.L2PruneDetected, {
+        type: L2BlockSourceEvents.L2PruneDetected,
+        blockNumber: localPendingBlockNumber,
+        slotNumber: localPendingSlotNumber,
+        epochNumber: localPendingEpochNumber,
+      });
+
       const blocksToUnwind = localPendingBlockNumber - provenBlockNumber;
       this.log.debug(
         `L2 prune from ${provenBlockNumber + 1n} to ${localPendingBlockNumber} will occur on next block submission.`,
@@ -859,14 +883,6 @@ export class Archiver implements ArchiveSource, Traceable {
         hash: finalizedBlockHeaderHash?.toString(),
       } as L2BlockId,
     };
-  }
-
-  async getL2BlockHash(blockNumber: number): Promise<string | undefined> {
-    const block = await this.getBlock(blockNumber);
-    if (!block) {
-      return undefined;
-    }
-    return block.hash().toString();
   }
 }
 

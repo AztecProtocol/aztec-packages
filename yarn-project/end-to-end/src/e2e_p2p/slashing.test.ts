@@ -177,11 +177,7 @@ describe('e2e_p2p_slashing', () => {
 
       // Create a deep clone of slasher.slashEvents to prevent race conditions
       // The validator client can remove elements from the original array
-      slashEvents = slasher.slashEvents.map((event: any) => ({
-        epoch: event.epoch,
-        amount: event.amount,
-        lifetime: event.lifetime,
-      }));
+      slashEvents = [...slasher.slashEvents];
       t.logger.info(`Slash events: ${slashEvents.length}`);
       if (slashEvents.length > 0) {
         t.logger.info(`We have a slash event ${i}`);

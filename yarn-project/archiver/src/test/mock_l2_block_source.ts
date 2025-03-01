@@ -179,10 +179,6 @@ export class MockL2BlockSource implements L2BlockSource {
     };
   }
 
-  async getL2BlockHash(blockNumber: number): Promise<string | undefined> {
-    return (await this.l2Blocks[blockNumber - 1]?.hash())?.toString();
-  }
-
   getL2EpochNumber(): Promise<bigint> {
     throw new Error('Method not implemented.');
   }

@@ -1,4 +1,3 @@
-import type { EpochCache } from '@aztec/epoch-cache';
 import {
   type L1ContractsConfig,
   type L1ReaderConfig,
@@ -8,7 +7,12 @@ import {
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts';
-import { type L2BlockId, type L2BlockSource, L2BlockStream, type L2BlockStreamEvent } from '@aztec/stdlib/block';
+import {
+  type L2BlockId,
+  type L2BlockSourceEvent,
+  type L2BlockSourceEventEmitter,
+  L2BlockSourceEvents,
+} from '@aztec/stdlib/block';
 import { type TelemetryClient, WithTracer, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type GetContractReturnType, createPublicClient, fallback, getAddress, getContract, http } from 'viem';
@@ -73,8 +77,6 @@ type SlashEvent = {
  *    slashing only the first, because the "lifetime" of the second would have passed after that vote
  */
 export class SlasherClient extends WithTracer {
-  private blockStream;
-
   private slashEvents: SlashEvent[] = [];
 
   protected slashFactoryContract?: GetContractReturnType<typeof SlashFactoryAbi, ViemPublicClient> = undefined;
@@ -86,23 +88,11 @@ export class SlasherClient extends WithTracer {
 
   constructor(
     private config: SlasherConfig & L1ContractsConfig & L1ReaderConfig,
-    private l2BlockSource: L2BlockSource,
-    private epochCache: EpochCache,
+    private l2BlockSource: L2BlockSourceEventEmitter,
     telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('slasher'),
   ) {
     super(telemetry, 'slasher');
-
-    this.blockStream = new L2BlockStream(
-      this.l2BlockSource,
-      this.l2BlockSource,
-      this,
-      createLogger('slasher:block_stream'),
-      {
-        batchSize: config.blockRequestBatchSize,
-        pollIntervalMS: config.blockCheckIntervalMS,
-      },
-    );
 
     if (config.l1Contracts.slashFactoryAddress && config.l1Contracts.slashFactoryAddress !== EthAddress.ZERO) {
       const chain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
@@ -126,7 +116,7 @@ export class SlasherClient extends WithTracer {
 
   public start() {
     this.log.info('Starting Slasher client...');
-    this.blockStream.start();
+    this.l2BlockSource.on(L2BlockSourceEvents.L2PruneDetected, this.handlePruneL2Blocks.bind(this));
   }
 
   // This is where we should put a bunch of the improvements mentioned earlier.
@@ -161,11 +151,11 @@ export class SlasherClient extends WithTracer {
     return EthAddress.fromString(payloadAddress);
   }
 
-  public handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
+  public handleBlockStreamEvent(event: L2BlockSourceEvent): Promise<void> {
     this.log.debug(`Handling block stream event ${event.type}`);
     switch (event.type) {
-      case 'chain-pruned':
-        this.handlePruneL2Blocks();
+      case L2BlockSourceEvents.L2PruneDetected:
+        this.handlePruneL2Blocks(event);
         break;
       default: {
         break;
@@ -178,26 +168,26 @@ export class SlasherClient extends WithTracer {
    * Allows consumers to stop the instance of the slasher client.
    * 'ready' will now return 'false' and the running promise that keeps the client synced is interrupted.
    */
-  public async stop() {
+  public stop() {
     this.log.debug('Stopping Slasher client...');
-    await this.blockStream.stop();
-    this.log.debug('Stopped block downloader');
+    // TODO: abort controller?
+    this.l2BlockSource.removeListener(L2BlockSourceEvents.L2PruneDetected, this.handlePruneL2Blocks.bind(this));
     this.log.info('Slasher client stopped.');
   }
 
-  private handlePruneL2Blocks(): void {
-    // Get the slot number from another source - i think this block is being pruned so its always incorrect
-    const { epoch, slot } = this.epochCache.getEpochAndSlotNow();
-    this.log.info(`Detected chain prune. Punishing the validators at epoch ${epoch}`);
+  // I need to get the slot number from the block that was just pruned
+  private handlePruneL2Blocks(event: L2BlockSourceEvent): void {
+    const { slotNumber, epochNumber } = event;
+    this.log.info(`Detected chain prune. Punishing the validators at epoch ${epochNumber}`);
 
     // Set the lifetime such that we have a full round that we could vote throughout.
-    const slotsIntoRound = slot % BigInt(this.config.slashingRoundSize);
+    const slotsIntoRound = slotNumber % BigInt(this.config.slashingRoundSize);
     const toNext = slotsIntoRound == 0n ? 0n : BigInt(this.config.slashingRoundSize) - slotsIntoRound;
 
-    const lifetime = slot + toNext + BigInt(this.config.slashingRoundSize);
+    const lifetime = slotNumber + toNext + BigInt(this.config.slashingRoundSize);
 
     this.slashEvents.push({
-      epoch,
+      epoch: epochNumber,
       amount: this.slashingAmount,
       lifetime,
     });

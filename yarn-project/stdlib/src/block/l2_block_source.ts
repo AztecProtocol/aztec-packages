@@ -1,5 +1,6 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
 
+import type { EventEmitter } from 'events';
 import { z } from 'zod';
 
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
@@ -110,17 +111,13 @@ export interface L2BlockSource {
   getL2Tips(): Promise<L2Tips>;
 
   /**
-   * Returns the hash of an L2 block.
-   * @param number - The block number to return the hash for.
-   * @returns The hash of the requested L2 block.
-   */
-  getL2BlockHash(number: number): Promise<string | undefined>;
-
-  /**
    * Returns the rollup constants for the current chain.
    */
   getL1Constants(): Promise<L1RollupConstants>;
 }
+
+// todo(md): doc
+export interface L2BlockSourceEventEmitter extends L2BlockSource, EventEmitter {}
 
 /**
  * Identifier for L2 block tags.
@@ -153,3 +150,14 @@ export const L2TipsSchema = z.object({
   proven: L2BlockIdSchema,
   finalized: L2BlockIdSchema,
 }) satisfies z.ZodType<L2Tips>;
+
+export enum L2BlockSourceEvents {
+  L2PruneDetected = 'l2PruneDetected',
+}
+
+export type L2BlockSourceEvent = {
+  type: 'l2PruneDetected';
+  blockNumber: bigint;
+  slotNumber: bigint;
+  epochNumber: bigint;
+};
