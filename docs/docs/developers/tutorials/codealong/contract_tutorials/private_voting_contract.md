@@ -146,7 +146,7 @@ Paste this function in your contract:
 
 Here, we are asserting that the `msg_sender()` is equal to the `admin` stored in public state.
 
-## Compiling and deploying
+## Compiling and codegen
 
 The easiest way to compile the contract is with `aztec-nargo`. Run the following command in the directory with your Nargo.toml file:
 
