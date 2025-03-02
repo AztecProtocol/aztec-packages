@@ -30,7 +30,6 @@
     "@aztec/archiver": "workspace:^",
     "@aztec/aztec": "workspace:^",
     "@aztec/aztec-node": "workspace:^",
-    "@aztec/aztec.js": "workspace:^",
     "@aztec/bb-prover": "workspace:^",
     "@aztec/blob-lib": "workspace:^",
     "@aztec/blob-sink": "workspace:^",
