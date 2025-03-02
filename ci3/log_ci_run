@@ -19,6 +19,7 @@ if [ -z "$key" ]; then
       '{timestamp: $timestamp, status: $status, msg: $msg, name: $name, author: $author}')
   # echo "$json" >&2
   redis_cli ZADD ci-run $key "$json" &>/dev/null
+  redis_cli SETEX hb-$key 60 1 &>/dev/null
 
   # To keep only the last 1000 entries (by score).
   redis_cli ZREMRANGEBYRANK ci-run 0 -1001 &>/dev/null

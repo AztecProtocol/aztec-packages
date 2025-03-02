@@ -23,9 +23,10 @@ source $ci3/source_redis
 
 function get_tag {
   case "$1" in
-    RUNNING) echo -e "${blue}$1${reset}" ;;
-    PASSED) echo -e " ${green}$1${reset}" ;;
-    FAILED) echo -e " ${red}$1${reset}" ;;
+    RUNNING) echo -e " ${blue}$1${reset}" ;;
+    PASSED) echo -e "  ${green}$1${reset}" ;;
+    FAILED) echo -e "  ${red}$1${reset}" ;;
+    INACTIVE) echo -e "${bold}$1${reset}" ;;
   esac
 }
 
@@ -33,15 +34,19 @@ function render {
   while IFS= read -r json_line; do
     IFS=$'\t' read ts status msg name author complete < <(jq -r '[.timestamp, .status, .msg, .name, .author, .complete] | @tsv' <<< "$json_line")
     local date_time=$(date -d @${ts:0:10} "+%m-%Y %H:%M:%S")
-    local link="(${link_open}http://ci.aztec-labs.com/$ts${link_close}${yellow}$ts${reset}${link_open}${link_close})"
+    local link="${link_open}http://ci.aztec-labs.com/$ts${link_close}$ts${link_open}${link_close}"
     if [ -z "$complete" ]; then
       local from=$(date +%s%3N)
     else
       local from=complete
     fi
-    local duration=$(( (from - ts) / 1000 ))
-    local duration_str="($((duration / 60))m$((duration % 60))s)"
-    echo -e "$date_time $(get_tag $status) $link: ${bold}$name${reset} ${purple}$author${reset}: $msg ${duration_str:-} \e[K"
+    if [ "$status" != "INACTIVE" ]; then
+      local duration=$(( (from - ts) / 1000 ))
+      local duration_str="($((duration / 60))m$((duration % 60))s)"
+      echo -e "$date_time $(get_tag $status) (${yellow}$link${reset}): ${bold}$name${reset} ${purple}$author${reset}: $msg ${duration_str} \e[K"
+    else
+      echo -e "$date_time $(get_tag $status) ($link): ${bold}$name${reset} $author: $msg \e[K"
+    fi
   done
 }
 
@@ -57,7 +62,8 @@ function refresh {
   height=$(tput lines)
   width=$(tput cols)
   if [ "$SECONDS" -ge 5 ]; then
-    result="$(redis-cli --raw ZREVRANGE ci-run $offset $((offset + height - 3)))"
+    # result="$(redis-cli --raw ZREVRANGE ci-run $offset $((offset + height - 3)))"
+    result=$(redis_cli --eval $ci3/lua/set-filter.lua ci-run , $offset $((offset + height - 3)))
     SECONDS=0
   fi
   update_status
@@ -73,13 +79,13 @@ function refresh {
 function cleanup {
   tput rmcup
   tput cnorm
-  echo -e '\e[?7h'
+  echo -e -n '\e[?7h'
   exit
 }
 
 tput smcup
 tput civis
-echo -e '\e[?7l'
+echo -e -n '\e[?7l'
 trap cleanup SIGINT EXIT
 
 offset=0
