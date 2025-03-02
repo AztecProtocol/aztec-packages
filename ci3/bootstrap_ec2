@@ -108,7 +108,7 @@ container_script=$(cat <<EOF
   ci_log_id=\$(log_ci_run)
 
   # Heartbeat.
-  while true; do redis_cli SETEX hb-\$ci_log_id 60 1; sleep 30; done &
+  while true; do redis_cli SETEX hb-\$ci_log_id 60 1 &>/dev/null || true; sleep 30; done &
 
   export NPM_TOKEN=${NPM_TOKEN:-}
   if [ -n "${DOCKERHUB_PASSWORD:-}" ]; then
