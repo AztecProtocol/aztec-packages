@@ -39,7 +39,8 @@ SECONDS=5
 function update_status {
   # Jump to top left and clear.
   echo -e -n "\e[0;0H\e[K"
-  echo -e "${bold}AZTEC LABS TERMINAL CI SYSTEM${reset}: (offset: $offset) (filter: $filter_string) (filter_prop: $filter_property)"
+  echo -e "${bold}AZTEC LABS TERMINAL CI SYSTEM${reset}:" \
+    "(offset: $offset) (filter: ${filter_string:-unset}) (filter_prop: ${filter_property:-unset} [status,name,author,msg])"
 }
 
 function refresh {

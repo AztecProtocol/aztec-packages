@@ -1,6 +1,7 @@
 #!/bin/bash
 # Runs the given command.
-# If a redis cache is available, duplicate input into a cache log.
+# If a redis cache is available, redirect input into a cache log.
+# If DUP=1 then we duplicate input also to stdout.
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 source $ci3/source_redis
 
@@ -8,6 +9,7 @@ name=$1
 
 key=${2:-$(uuid)}
 outfile=/tmp/$key
+dup=${DUP:-0}
 trap 'rm -f $outfile' EXIT
 touch $outfile
 
@@ -28,9 +30,19 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   log_str="$name log id: ${yellow}http://ci.aztec-labs.com/$key${reset}"
   echo_stderr -e "$log_str"
   live_publish_log &
-  tee $outfile
+  if [ "$dup" -eq 1 ]; then
+    tee $outfile
+    if [ "$(wc -l $outfile)" -ge 16 ]; then
+      echo_stderr -e "$log_str"
+    fi
+  else
+    cat >$outfile
+  fi
   publish_log
-  echo_stderr -e "$log_str"
-elif [ "${NO_CAT:-0}" != 0 ]; then
-  cat
+else
+  if [ "$dup" -eq 1 ]; then
+    cat
+  else
+    cat >/dev/null
+  fi
 fi
