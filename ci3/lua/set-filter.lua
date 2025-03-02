@@ -24,42 +24,33 @@ local offset = tonumber(ARGV[1])
 local limit = tonumber(ARGV[2])
 local property = ARGV[3]
 local pattern = ARGV[4]
-
 local result = {}
+local skip = 0
 
-if not property or property == "" or not pattern or pattern == "" then
-  local allMembers = redis.call('ZREVRANGE', key, offset, offset + limit)
-  for _, member in ipairs(allMembers) do
-    local ok, parsed = pcall(cjson.decode, member)
-    if ok then
-      table.insert(result, parsed)
+local allMembers = redis.call('ZREVRANGE', key, 0, -1)
+for _, member in ipairs(allMembers) do
+  local ok, parsed = pcall(cjson.decode, member)
+  if ok then
+    if parsed["status"] == "RUNNING" then
+      local ts = parsed["timestamp"]
+      local hb_key = "hb-" .. tostring(ts)
+      if redis.call("EXISTS", hb_key) == 0 then
+        parsed["status"] = "INACTIVE"
+      end
     end
-  end
-else
-  local allMembers = redis.call('ZREVRANGE', key, 0, -1)
-  for _, member in ipairs(allMembers) do
-    local ok, parsed = pcall(cjson.decode, member)
-    if ok and parsed[property] and string.find(parsed[property], pattern) then
-      table.insert(result, parsed)
-      if #result >= limit then break end
+    local include=true
+    if property and pattern and parsed[property] and not string.find(parsed[property], pattern) then
+      include=false
+    end
+    if include then
+      if skip >= offset then
+        table.insert(result, cjson.encode(parsed))
+        if #result >= limit then break end
+      else
+        skip = skip + 1
+      end
     end
   end
 end
 
-for i, member in ipairs(result) do
-  if member["status"] == "RUNNING" then
-    local ts = member["timestamp"]
-    local hb_key = "hb-" .. tostring(ts)
-    if redis.call("EXISTS", hb_key) == 0 then
-      member["status"] = "INACTIVE"
-    end
-  end
-end
-
-local results = {}
-for i, member in ipairs(result) do
-  local json = cjson.encode(member)
-  table.insert(results, json)
-end
-
-return results
+return result

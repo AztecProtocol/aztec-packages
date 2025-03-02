@@ -233,7 +233,7 @@ case "$cmd" in
     VERSION_TAG=$1
     ;;
   "watch")
-    watch_ci
+    watch_ci "$@"
     ;;
   "help"|"")
     print_usage

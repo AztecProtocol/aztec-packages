@@ -2,24 +2,8 @@
 source $(git rev-parse --show-toplevel)/ci3/source
 source $ci3/source_redis
 
-# function duration {
-#   awk '{
-#     # Assume field 4 looks like: "\033[33m(1740857485937)\033[0m"
-#     # Known prefix = "\033[33m(" (6 characters) and suffix = ")\033[0m" (5 characters)
-#     if ($3 ~ /RUNNING/) {
-#       ts_field = $4;
-#       ts = substr(ts_field, 7, length(ts_field)-11) + 0;
-#       current_ms = systime() * 1000;
-#       diff_sec = int((current_ms - ts) / 1000);
-#       min = int(diff_sec / 60);
-#       sec = diff_sec % 60;
-#       duration = sprintf("(%dm%ds)", min, sec);
-#       print $0, duration, " ";
-#     } else {
-#       print $0, " "
-#     }
-#   }'
-# }
+filter_property=${1:-}
+filter_string=${2:-}
 
 function get_tag {
   case "$1" in
@@ -55,7 +39,7 @@ SECONDS=5
 function update_status {
   # Jump to top left and clear.
   echo -e -n "\e[0;0H\e[K"
-  echo -e "${bold}AZTEC LABS TERMINAL CI SYSTEM: offset: $offset${reset}"
+  echo -e "${bold}AZTEC LABS TERMINAL CI SYSTEM${reset}: (offset: $offset) (filter: $filter_string) (filter_prop: $filter_property)"
 }
 
 function refresh {
@@ -63,7 +47,8 @@ function refresh {
   width=$(tput cols)
   if [ "$SECONDS" -ge 5 ]; then
     # result="$(redis-cli --raw ZREVRANGE ci-run $offset $((offset + height - 3)))"
-    result=$(redis_cli --eval $ci3/lua/set-filter.lua ci-run , $offset $((offset + height - 3)))
+    result=$(redis_cli --eval $ci3/lua/set-filter.lua ci-run , \
+      $offset $((offset + height - 3)) $filter_property $filter_string)
     SECONDS=0
   fi
   update_status
@@ -79,38 +64,51 @@ function refresh {
 function cleanup {
   tput rmcup
   tput cnorm
-  echo -e -n '\e[?7h'
+  echo -en '\e[?7h'
+  stty echo
   exit
 }
 
 tput smcup
+# Hide cursor
 tput civis
-echo -e -n '\e[?7l'
+# No wrap
+echo -en '\e[?7l'
+# No echo keypress
+stty -echo
 trap cleanup SIGINT EXIT
 
 offset=0
 
+function offset_up {
+  offset=$(( offset + 1 ))
+  SECONDS=5
+  update_status
+}
+
+function offset_down {
+  offset=$(( offset > 0 ? offset - 1 : 0 ))
+  SECONDS=5
+  update_status
+}
+
+refresh
 while true; do
   # Read with a timeout.
   if read -rsn1 -t 1 key; then
     # Check for escape sequence start.
-    if [[ "$key" == $'\e' ]]; then
-      read -rsn2 -t 1 key2
-      case "$key2" in
-        "[A")
-          offset=$(( offset + 1 ))
-          SECONDS=5
-          update_status
-          ;;
-        "[B")
-          offset=$(( offset > 0 ? offset - 1 : 0 ))
-          SECONDS=5
-          update_status
-          ;;
-      esac
-    elif [[ "$key" == "q" ]]; then
-      break
-    fi
+    case "$key" in
+      $'\e')
+        read -rsn2 -t 1 key2
+        case "$key2" in
+          "[A") offset_up ;;
+          "[B") offset_down ;;
+        esac
+        ;;
+      j) offset_up ;;
+      k) offset_down ;;
+      q) break ;;
+    esac
     continue
   fi
   refresh
