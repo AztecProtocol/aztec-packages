@@ -60,7 +60,6 @@
   },
   "dependencies": {
     "@aztec/accounts": "workspace:^",
-    "@aztec/aztec.js": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/key-store": "workspace:^",
