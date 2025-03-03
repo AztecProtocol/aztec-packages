@@ -1,30 +1,27 @@
 import { Fr } from '@aztec/foundation/fields';
-import { createLogger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
+import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
 import { GlobalVariables } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 import { NativeWorldStateService } from '@aztec/world-state';
 
-import { PublicTxSimulationTester, SimpleContractDataSource } from '../../server.js';
-import { createContractClassAndInstance } from '../avm/fixtures/index.js';
-import { addNewContractClassToTx, addNewContractInstanceToTx } from '../fixtures/utils.js';
-import { WorldStateDB } from '../public_db_sources.js';
+import { PublicTxSimulationTester, SimpleContractDataSource } from '../../../server.js';
+import { createContractClassAndInstance } from '../../avm/fixtures/index.js';
+import { addNewContractClassToTx, addNewContractInstanceToTx, createTxForPrivateOnly } from '../../fixtures/utils.js';
+import { WorldStateDB } from '../../public_db_sources.js';
+import { PublicTxSimulator } from '../../public_tx_simulator/public_tx_simulator.js';
 import { PublicProcessor } from '../public_processor.js';
-import { PublicTxSimulator } from '../public_tx_simulator.js';
 
-describe('Public Processor app tests: TokenContract', () => {
-  const logger = createLogger('public-processor-apps-tests-token');
+describe('Public processor contract registration/deployment tests', () => {
+  //const logger = createLogger('public-processor-apps-tests-deployments');
 
-  const NUM_TRANSFERS = 10;
   const admin = AztecAddress.fromNumber(42);
   const sender = AztecAddress.fromNumber(111);
 
-  let token: ContractInstanceWithAddress;
   let worldStateDB: WorldStateDB;
   let tester: PublicTxSimulationTester;
   let processor: PublicProcessor;
@@ -55,17 +52,65 @@ describe('Public Processor app tests: TokenContract', () => {
     await tester.setFeePayerBalance(sender);
   });
 
-  it('token constructor, mint, many transfers', async () => {
-    const startTime = performance.now();
+  it('can deploy in a private-only tx and call a public function later in the block', async () => {
+    const { contractClass, contractInstance } = await createContractClassAndInstance(
+      /*constructorArgs=*/ [],
+      admin,
+      AvmTestContractArtifact,
+    );
 
+    // First transaction - deploys and initializes first token contract
+    const deployTx = createTxForPrivateOnly(/*feePayer=*/ admin);
+    await addNewContractClassToTx(deployTx, contractClass);
+    await addNewContractInstanceToTx(deployTx, contractInstance);
+
+    // NOTE: we need to include the contract artifact for each enqueued call, otherwise the tester
+    // will not know how to construct the TX since we are intentionally not adding the contract to
+    // the contract data source.
+
+    // Second transaction - makes a simple public call on the deployed contract
+    const simplePublicTx = await tester.createTx(
+      /*sender=*/ admin,
+      /*setupCalls=*/ [],
+      /*appCalls=*/ [
+        {
+          address: contractInstance.address,
+          fnName: 'read_storage_single',
+          args: [],
+          contractArtifact: AvmTestContractArtifact,
+        },
+      ],
+    );
+
+    const results = await processor.process([deployTx, simplePublicTx]);
+    const processedTxs = results[0];
+    const failedTxs = results[1];
+    expect(processedTxs.length).toBe(2);
+    expect(failedTxs.length).toBe(0);
+
+    // First tx should succeed (constructor)
+    expect(processedTxs[0].revertCode).toEqual(RevertCode.OK);
+
+    // Second tx should succeed (public call)
+    expect(processedTxs[1].revertCode).toEqual(RevertCode.OK);
+  });
+
+  it('can deploy a contract and call its public function in same tx', async () => {
     const mintAmount = 1_000_000n;
-    const transferAmount = 10n;
-    const nonce = new Fr(0);
-
     const constructorArgs = [admin, /*name=*/ 'Token', /*symbol=*/ 'TOK', /*decimals=*/ new Fr(18)];
+    const { contractClass, contractInstance } = await createContractClassAndInstance(
+      constructorArgs,
+      admin,
+      TokenContractArtifact,
+    );
+    const token = contractInstance;
 
-    token = await tester.registerAndDeployContract(constructorArgs, /*deployer=*/ admin, TokenContractArtifact);
-    const constructorTx = await tester.createTx(
+    // NOTE: we need to include the contract artifact for each enqueued call, otherwise the tester
+    // will not know how to construct the TX since we are intentionally not adding the contract to
+    // the contract data source.
+
+    // Deploys a contract and calls its public constructor and another public call in same tx
+    const deployAndCallTx = await tester.createTx(
       /*sender=*/ admin,
       /*setupCalls=*/ [],
       /*appCalls=*/ [
@@ -73,51 +118,30 @@ describe('Public Processor app tests: TokenContract', () => {
           address: token.address,
           fnName: 'constructor',
           args: constructorArgs,
+          contractArtifact: TokenContractArtifact,
         },
-      ],
-    );
-
-    const mintTx = await tester.createTx(
-      /*sender=*/ admin,
-      /*setupCalls=*/ [],
-      /*appCalls=*/ [
         {
           address: token.address,
           fnName: 'mint_to_public',
           args: [/*to=*/ sender, mintAmount],
+          contractArtifact: TokenContractArtifact,
         },
       ],
     );
+    await addNewContractClassToTx(deployAndCallTx, contractClass);
+    await addNewContractInstanceToTx(deployAndCallTx, contractInstance);
 
-    const transferTxs = [];
-    for (let i = 0; i < NUM_TRANSFERS; i++) {
-      const receiver = AztecAddress.fromNumber(200 + i); // different receiver each time
-      transferTxs.push(
-        await tester.createTx(
-          /*sender=*/ sender,
-          /*setupCalls=*/ [],
-          /*appCalls=*/ [
-            {
-              address: token.address,
-              fnName: 'transfer_in_public',
-              args: [/*from=*/ sender, /*to=*/ receiver, transferAmount, nonce],
-            },
-          ],
-        ),
-      );
-    }
-
-    const results = await processor.process([constructorTx, mintTx, ...transferTxs]);
+    const results = await processor.process([deployAndCallTx]);
     const processedTxs = results[0];
     const failedTxs = results[1];
-    expect(processedTxs.length).toBe(NUM_TRANSFERS + 2); // constructor, mint, transfers
+    expect(processedTxs.length).toBe(1);
     expect(failedTxs.length).toBe(0);
 
-    const endTime = performance.now();
-    logger.verbose(`TokenContract public processor test took ${endTime - startTime}ms\n`);
+    // First tx should succeed (constructor)
+    expect(processedTxs[0].revertCode).toEqual(RevertCode.OK);
   });
 
-  it('new contract cannot get removed from ContractDataSource by a later failing transaction', async () => {
+  it('new contract cannot get removed from block-level cache by a later failing transaction', async () => {
     const mintAmount = 1_000_000n;
     const constructorArgs = [admin, /*name=*/ 'Token', /*symbol=*/ 'TOK', /*decimals=*/ new Fr(18)];
 
@@ -127,14 +151,6 @@ describe('Public Processor app tests: TokenContract', () => {
       TokenContractArtifact,
     );
     const token = contractInstance;
-
-    // another token instance, same contract class
-    const otherAdmin = AztecAddress.fromNumber(43);
-    const anotherToken = await tester.registerAndDeployContract(
-      constructorArgs,
-      /*deployer=*/ otherAdmin,
-      TokenContractArtifact,
-    );
 
     // First transaction - deploys and initializes first token contract
     const passingConstructorTx = await tester.createTx(
@@ -165,14 +181,14 @@ describe('Public Processor app tests: TokenContract', () => {
       /*setupCalls=*/ [],
       /*appCalls=*/ [
         {
-          address: anotherToken.address,
+          address: token.address,
           fnName: 'constructor',
           args: constructorArgs,
           contractArtifact: TokenContractArtifact,
         },
         // The next enqueued call will fail because sender has no tokens to transfer
         {
-          address: anotherToken.address,
+          address: token.address,
           fnName: 'transfer_in_public',
           args: [/*from=*/ sender, /*to=*/ receiver, transferAmount, nonce],
           contractArtifact: TokenContractArtifact,
@@ -200,7 +216,6 @@ describe('Public Processor app tests: TokenContract', () => {
     );
 
     const results = await processor.process([passingConstructorTx, failingConstructorTx, mintTx]);
-    //const results = await processor.process([passingConstructorTx]);
     const processedTxs = results[0];
     const failedTxs = results[1];
     expect(processedTxs.length).toBe(3);

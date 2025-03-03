@@ -193,17 +193,15 @@ export class AvmPersistableStateManager {
           `Value mismatch when performing public data write (got value: ${value}, value in tree: ${newLeafPreimage.value})`,
         );
       } else {
-        this.log.debug(`insertion witness data length: ${result.insertionWitnessData.length}`);
         // The new leaf preimage should have the new value and slot
         newLeafPreimage.slot = leafSlot;
         newLeafPreimage.value = value;
         // TODO: is this necessary?! Why doesn't sequentialInsert return the newLeafPreimage via
         // result.insertionWitnessData[0].leafPreimage?
 
-        this.log.debug(
-          `newLeafPreimage.slot: ${newLeafPreimage.slot}, newLeafPreimage.value: ${newLeafPreimage.value}`,
+        this.log.trace(
+          `newLeafPreimage.slot: ${newLeafPreimage.slot}, newLeafPreimage.value: ${newLeafPreimage.value}, insertionIndex: ${result.insertionWitnessData[0].index}`,
         );
-        this.log.debug(`insertion index: ${result.insertionWitnessData[0].index}`);
         insertionPath = result.insertionWitnessData[0].siblingPath.toFields();
       }
 

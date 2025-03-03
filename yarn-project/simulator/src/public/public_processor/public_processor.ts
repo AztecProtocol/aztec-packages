@@ -33,9 +33,9 @@ import {
 } from '@aztec/telemetry-client';
 import { ForkCheckpoint } from '@aztec/world-state/native';
 
-import { WorldStateDB } from './public_db_sources.js';
+import { WorldStateDB } from '../public_db_sources.js';
+import { PublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
-import { PublicTxSimulator } from './public_tx_simulator.js';
 
 /**
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
@@ -265,6 +265,10 @@ export class PublicProcessor implements Traceable {
           // If there are no public calls, perform all tree insertions for side effects from private
           // When there are public calls, the PublicTxSimulator & AVM handle tree insertions.
           await this.doTreeInsertionsForPrivateOnlyTx(processedTx);
+          // Add any contracts registered/deployed in this private-only tx to the block-level cache
+          // (add to tx-level cache and then commit to block-level cache)
+          await this.worldStateDB.addNewContracts(tx);
+          this.worldStateDB.commitContractsForTx();
         }
 
         nullifierCache?.addNullifiers(processedTx.txEffect.nullifiers.map(n => n.toBuffer()));
@@ -289,6 +293,8 @@ export class PublicProcessor implements Traceable {
       } finally {
         // Base case is we always commit the checkpoint. Using the ForkCheckpoint means this has no effect if the tx was reverted
         await checkpoint.commit();
+        // The tx-level contracts cache should not live on to the next tx
+        this.worldStateDB.clearContractsForTx();
       }
     }
 
