@@ -220,7 +220,7 @@ async function getBlockFromRollupTx(
     throw new Error(`Unexpected rollup method called ${rollupFunctionName}`);
   }
 
-  const [decodedArgs, , blobInputs] = rollupArgs! as readonly [
+  const [decodedArgs, ,] = rollupArgs! as readonly [
     {
       header: Hex;
       archive: Hex;
