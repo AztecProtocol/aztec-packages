@@ -38,23 +38,8 @@ function on_exit() {
 trap on_exit EXIT
 mkdir -p $tmp_dir
 
-function get_hardware_memory {
-  local os=$(uname -s)
-  local total_mem_gb=64 # Default to 64GB
-
-  if [[ "$os" == "Darwin" ]]; then
-    total_mem_bytes=$(sysctl -n hw.memsize)
-    total_mem_gb=$((total_mem_bytes / 1024 / 1024 / 1024))
-  elif [[ "$os" == "Linux" ]]; then
-    total_mem_gb=$(free -g | awk '/^Mem:/ {print $2}')
-  fi
-
-  echo $(( total_mem_gb < 64 ? total_mem_gb : 64 ))
-}
-
-hardware_memory=$(get_hardware_memory)
 # Set common flags for parallel.
-export PARALLEL_FLAGS="-j${PARALLELISM:-16} --halt now,fail=1 --memsuspend ${MEMSUSPEND:-${hardware_memory}G}"
+export PARALLEL_FLAGS="-j${PARALLELISM:-16} --halt now,fail=1 --memsuspend ${MEMSUSPEND:-64G}"
 
 # This computes a vk and adds it to the input function json if it's private, else returns same input.
 # stdin has the function json.
