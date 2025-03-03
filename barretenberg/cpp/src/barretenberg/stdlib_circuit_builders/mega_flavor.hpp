@@ -755,9 +755,6 @@ class MegaFlavor {
      */
     class Transcript : public NativeTranscript {
       public:
-        uint32_t circuit_size;
-        uint32_t public_input_size;
-        uint32_t pub_inputs_offset;
         std::vector<FF> public_inputs;
         Commitment w_l_comm;
         Commitment w_r_comm;
@@ -811,7 +808,7 @@ class MegaFlavor {
             return verifier_transcript;
         };
 
-        void deserialize_full_transcript()
+        void deserialize_full_transcript(size_t public_input_size)
         {
             // take current proof and put them into the struct
             size_t num_frs_read = 0;
@@ -863,8 +860,8 @@ class MegaFlavor {
         {
             size_t old_proof_length = proof_data.size();
             proof_data.clear();
-            for (size_t i = 0; i < public_input_size; ++i) {
-                serialize_to_buffer(public_inputs[i], proof_data);
+            for (const auto& public_input : public_inputs) {
+                serialize_to_buffer(public_input, proof_data);
             }
             serialize_to_buffer(w_l_comm, proof_data);
             serialize_to_buffer(w_r_comm, proof_data);

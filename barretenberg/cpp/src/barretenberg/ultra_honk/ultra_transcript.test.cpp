@@ -316,7 +316,7 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     EXPECT_TRUE(verifier.verify_proof(proof));
 
     // try deserializing and serializing with no changes and check proof is still valid
-    prover.transcript->deserialize_full_transcript();
+    prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
     prover.transcript->serialize_full_transcript();
     EXPECT_TRUE(verifier.verify_proof(prover.export_proof())); // we have changed nothing so proof is still valid
 
@@ -329,7 +329,7 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     prover.transcript->serialize_full_transcript();
     EXPECT_FALSE(verifier.verify_proof(prover.export_proof())); // the proof is now wrong after serializing it
 
-    prover.transcript->deserialize_full_transcript();
+    prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
     EXPECT_EQ(static_cast<Commitment>(prover.transcript->z_perm_comm), one_group_val * rand_val);
 }
 
