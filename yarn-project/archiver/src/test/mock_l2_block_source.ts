@@ -11,7 +11,6 @@ import { type BlockHeader, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx'
 export class MockL2BlockSource implements L2BlockSource {
   protected l2Blocks: L2Block[] = [];
 
-  private provenEpochNumber: number = 0;
   private provenBlockNumber: number = 0;
 
   private log = createLogger('archiver:mock_l2_block_source');
@@ -36,8 +35,8 @@ export class MockL2BlockSource implements L2BlockSource {
     this.log.verbose(`Removed ${numBlocks} blocks from the mock L2 block source`);
   }
 
-  public setProvenEpochNumber(provenEpochNumber: number) {
-    this.provenEpochNumber = provenEpochNumber;
+  public setProvenBlockNumber(provenBlockNumber: number) {
+    this.provenBlockNumber = provenBlockNumber;
   }
 
   /**
