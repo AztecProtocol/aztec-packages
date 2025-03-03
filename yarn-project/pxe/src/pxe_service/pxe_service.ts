@@ -69,9 +69,9 @@ import type { PXEServiceConfig } from '../config/index.js';
 import { getPackageInfo } from '../config/package_info.js';
 import { ContractDataProvider } from '../contract_data_provider/index.js';
 import type { PxeDatabase } from '../database/index.js';
-import { PXEDataProvider } from '../index.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver, type ProvingConfig } from '../kernel_prover/kernel_prover.js';
+import { PXEDataProvider } from '../pxe_data_provider/index.js';
 import { Synchronizer } from '../synchronizer/index.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
 
